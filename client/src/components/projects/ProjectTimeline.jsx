@@ -1,6 +1,6 @@
 import './Projects.css'
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-
+import Footer from '../navigation/Footer';
 import {
   Grid,
   Header,
@@ -463,222 +463,225 @@ const ProjectTimeline = (props) => {
 
 
     return(
-        <Grid className='component-container' divided='vertically'>
-            <Grid.Row>
-                <Grid.Column width={16}>
-                    <Header className='component-header'>Timeline: <em>{project.title || 'Loading...'}</em></Header>
-                </Grid.Column>
-            </Grid.Row>
-            <Grid.Row>
-                <Grid.Column width={16}>
-                    <Segment.Group>
-                        <Segment>
-                            <Breadcrumb>
-                                <Breadcrumb.Section as={Link} to='/projects'>
-                                    Projects
-                                </Breadcrumb.Section>
-                                <Breadcrumb.Divider icon='right chevron' />
-                                <Breadcrumb.Section as={Link} to={`/projects/${project.projectID}`}>
-                                    {project.title || 'Loading...'}
-                                </Breadcrumb.Section>
-                                <Breadcrumb.Divider icon='right chevron' />
-                                <Breadcrumb.Section active>
-                                    Timeline
-                                </Breadcrumb.Section>
-                            </Breadcrumb>
-                        </Segment>
-                        <Segment>
-                            <Grid>
-                                <Grid.Row>
-                                    {(canViewDetails && showRoadmap) &&
-                                        <Grid.Column>
-                                            <Header as='h2' dividing className='mt-1p'>
-                                                Construction Roadmap
-                                                <Button
-                                                    compact
-                                                    floated='right'
-                                                    onClick={handleChangeRoadmapVis}
+        <div className="h-screen flex flex-col">
+            <Grid className='component-container' divided='vertically'>
+                <Grid.Row>
+                    <Grid.Column width={16}>
+                        <Header className='component-header'>Timeline: <em>{project.title || 'Loading...'}</em></Header>
+                    </Grid.Column>
+                </Grid.Row>
+                <Grid.Row>
+                    <Grid.Column width={16}>
+                        <Segment.Group>
+                            <Segment>
+                                <Breadcrumb>
+                                    <Breadcrumb.Section as={Link} to='/projects'>
+                                        Projects
+                                    </Breadcrumb.Section>
+                                    <Breadcrumb.Divider icon='right chevron' />
+                                    <Breadcrumb.Section as={Link} to={`/projects/${project.projectID}`}>
+                                        {project.title || 'Loading...'}
+                                    </Breadcrumb.Section>
+                                    <Breadcrumb.Divider icon='right chevron' />
+                                    <Breadcrumb.Section active>
+                                        Timeline
+                                    </Breadcrumb.Section>
+                                </Breadcrumb>
+                            </Segment>
+                            <Segment>
+                                <Grid>
+                                    <Grid.Row>
+                                        {(canViewDetails && showRoadmap) &&
+                                            <Grid.Column>
+                                                <Header as='h2' dividing className='mt-1p'>
+                                                    Construction Roadmap
+                                                    <Button
+                                                        compact
+                                                        floated='right'
+                                                        onClick={handleChangeRoadmapVis}
+                                                    >
+                                                        Hide
+                                                    </Button>
+                                                </Header>
+                                                <Segment
+                                                    id='project-roadmap-segment'
+                                                    size='large'
+                                                    raised
+                                                    className='mb-2p'
+                                                    loading={loadingData}
                                                 >
-                                                    Hide
-                                                </Button>
-                                            </Header>
+                                                    <div id='project-roadmap-container'>
+                                                        <div id='project-roadmap-steps'>
+                                                            <div className='flex-col-div' id='project-roadmap-steps-container'>
+                                                                <div className='flex-row-div' id='project-roadmap-steps-header-container'>
+                                                                    <div className='left-flex'>
+                                                                        <Header as='h3'>Steps</Header>
+                                                                    </div>
+                                                                </div>
+                                                                <div className='flex-col-div' id='project-roadmap-steps-list-container'>
+                                                                    {(roadmapRequiresRemix === true) &&
+                                                                        roadmapSteps.filter(item => item.key !== '6').map(renderRoadmapStep)
+                                                                    }
+                                                                    {(roadmapRequiresRemix === false) &&
+                                                                        roadmapSteps.filter(item => item.key !== '5a' && item.key !== '5b' && item.key !== '5c').map(renderRoadmapStep)
+                                                                    }
+                                                                    {(roadmapRequiresRemix === null) &&
+                                                                        roadmapSteps.map(renderRoadmapStep)
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div id='project-roadmap-stepdetail'>
+                                                            <div className='flex-col-div' id='project-roadmap-stepdetail-container'>
+                                                                <div className='flex-row-div' id='project-roadmap-stepdetail-header-container'>
+                                                                    <Header as='h3'>
+                                                                        {openRoadmapStepInfo.key
+                                                                            ? ((openRoadmapStepInfo.name)
+                                                                                ? <span>Step {openRoadmapStepInfo.key}: <em>{openRoadmapStepInfo.name}</em></span>
+                                                                                : <span>Step {openRoadmapStepInfo.key}</span>
+                                                                            )
+                                                                            : <em>Step Detail</em>
+                                                                        }
+                                                                    </Header>
+                                                                </div>
+                                                                <div id='project-roadmap-stepdetail-info-container'>
+                                                                    {openRoadmapStepInfo.key &&
+                                                                        openRoadmapStepInfo.description
+                                                                    }
+                                                                    {openRoadmapStepInfo.hasExtra &&
+                                                                        <a
+                                                                            className='project-roadmap-steps-link'
+                                                                            href={openRoadmapStepInfo.linkHref}
+                                                                            target='_blank'
+                                                                            rel='noopener noreferrer'
+                                                                        >
+                                                                            <Icon name='external' />
+                                                                            {openRoadmapStepInfo.linkTitle}
+                                                                        </a>
+                                                                    }
+                                                                    {(openRoadmapStepInfo.key === '4') &&
+                                                                        <Button.Group widths={2}>
+                                                                            <Button
+                                                                                basic={(roadmapRequiresRemix === null) || (roadmapRequiresRemix === false)}
+                                                                                color='blue'
+                                                                                onClick={() => updateRoadmapRequiresRemix(true)}
+                                                                            >
+                                                                                Yes
+                                                                            </Button>
+                                                                            <Button
+                                                                                basic={(roadmapRequiresRemix === null) || (roadmapRequiresRemix === true)}
+                                                                                color='green'
+                                                                                onClick={() => updateRoadmapRequiresRemix(false)}
+                                                                            >
+                                                                                No
+                                                                            </Button>
+                                                                        </Button.Group>
+                                                                    }
+                                                                    {!openRoadmapStepInfo.key &&
+                                                                        <p className='text-center muted-text mt-4r'><em>Select a step from the list on the left.</em></p>
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </Segment>
+                                            </Grid.Column>
+                                        }
+                                        {(canViewDetails && !showRoadmap) &&
+                                            <Grid.Column>
+                                                <Segment
+                                                    raised
+                                                    clearing
+                                                >
+                                                    <Header as='h2' id='project-roadmap-heading'>Construction Roadmap</Header>
+                                                    <Button
+                                                        floated='right'
+                                                        onClick={handleChangeRoadmapVis}
+                                                    >
+                                                        Show
+                                                    </Button>
+                                                </Segment>
+                                            </Grid.Column>
+                                        }
+                                        {!canViewDetails &&
+                                            <Grid.Column>
+                                                <Header as='h2' dividing>Construction Roadmap</Header>
+                                                <Segment
+                                                    size='large'
+                                                    raised
+                                                    className='mb-2p'
+                                                >
+                                                    <p><em>You don't have permission to view this project's Construction Roadmap yet.</em></p>
+                                                </Segment>
+                                            </Grid.Column>
+                                        }
+                                    </Grid.Row>
+                                    <Grid.Row>
+                                        <Grid.Column>
+                                            <Header as='h2' dividing className='mt-1p'>Timeline</Header>
                                             <Segment
-                                                id='project-roadmap-segment'
+                                                id='project-timeline-segment'
                                                 size='large'
                                                 raised
                                                 className='mb-2p'
                                                 loading={loadingData}
                                             >
-                                                <div id='project-roadmap-container'>
-                                                    <div id='project-roadmap-steps'>
-                                                        <div className='flex-col-div' id='project-roadmap-steps-container'>
-                                                            <div className='flex-row-div' id='project-roadmap-steps-header-container'>
-                                                                <div className='left-flex'>
-                                                                    <Header as='h3'>Steps</Header>
-                                                                </div>
-                                                            </div>
-                                                            <div className='flex-col-div' id='project-roadmap-steps-list-container'>
-                                                                {(roadmapRequiresRemix === true) &&
-                                                                    roadmapSteps.filter(item => item.key !== '6').map(renderRoadmapStep)
-                                                                }
-                                                                {(roadmapRequiresRemix === false) &&
-                                                                    roadmapSteps.filter(item => item.key !== '5a' && item.key !== '5b' && item.key !== '5c').map(renderRoadmapStep)
-                                                                }
-                                                                {(roadmapRequiresRemix === null) &&
-                                                                    roadmapSteps.map(renderRoadmapStep)
-                                                                }
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div id='project-roadmap-stepdetail'>
-                                                        <div className='flex-col-div' id='project-roadmap-stepdetail-container'>
-                                                            <div className='flex-row-div' id='project-roadmap-stepdetail-header-container'>
-                                                                <Header as='h3'>
-                                                                    {openRoadmapStepInfo.key
-                                                                        ? ((openRoadmapStepInfo.name)
-                                                                            ? <span>Step {openRoadmapStepInfo.key}: <em>{openRoadmapStepInfo.name}</em></span>
-                                                                            : <span>Step {openRoadmapStepInfo.key}</span>
-                                                                        )
-                                                                        : <em>Step Detail</em>
-                                                                    }
-                                                                </Header>
-                                                            </div>
-                                                            <div id='project-roadmap-stepdetail-info-container'>
-                                                                {openRoadmapStepInfo.key &&
-                                                                    openRoadmapStepInfo.description
-                                                                }
-                                                                {openRoadmapStepInfo.hasExtra &&
-                                                                    <a
-                                                                        className='project-roadmap-steps-link'
-                                                                        href={openRoadmapStepInfo.linkHref}
-                                                                        target='_blank'
-                                                                        rel='noopener noreferrer'
-                                                                    >
-                                                                        <Icon name='external' />
-                                                                        {openRoadmapStepInfo.linkTitle}
-                                                                    </a>
-                                                                }
-                                                                {(openRoadmapStepInfo.key === '4') &&
-                                                                    <Button.Group widths={2}>
-                                                                        <Button
-                                                                            basic={(roadmapRequiresRemix === null) || (roadmapRequiresRemix === false)}
-                                                                            color='blue'
-                                                                            onClick={() => updateRoadmapRequiresRemix(true)}
-                                                                        >
-                                                                            Yes
-                                                                        </Button>
-                                                                        <Button
-                                                                            basic={(roadmapRequiresRemix === null) || (roadmapRequiresRemix === true)}
-                                                                            color='green'
-                                                                            onClick={() => updateRoadmapRequiresRemix(false)}
-                                                                        >
-                                                                            No
-                                                                        </Button>
-                                                                    </Button.Group>
-                                                                }
-                                                                {!openRoadmapStepInfo.key &&
-                                                                    <p className='text-center muted-text mt-4r'><em>Select a step from the list on the left.</em></p>
-                                                                }
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </Segment>
-                                        </Grid.Column>
-                                    }
-                                    {(canViewDetails && !showRoadmap) &&
-                                        <Grid.Column>
-                                            <Segment
-                                                raised
-                                                clearing
-                                            >
-                                                <Header as='h2' id='project-roadmap-heading'>Construction Roadmap</Header>
-                                                <Button
-                                                    floated='right'
-                                                    onClick={handleChangeRoadmapVis}
-                                                >
-                                                    Show
-                                                </Button>
-                                            </Segment>
-                                        </Grid.Column>
-                                    }
-                                    {!canViewDetails &&
-                                        <Grid.Column>
-                                            <Header as='h2' dividing>Construction Roadmap</Header>
-                                            <Segment
-                                                size='large'
-                                                raised
-                                                className='mb-2p'
-                                            >
-                                                <p><em>You don't have permission to view this project's Construction Roadmap yet.</em></p>
-                                            </Segment>
-                                        </Grid.Column>
-                                    }
-                                </Grid.Row>
-                                <Grid.Row>
-                                    <Grid.Column>
-                                        <Header as='h2' dividing className='mt-1p'>Timeline</Header>
-                                        <Segment
-                                            id='project-timeline-segment'
-                                            size='large'
-                                            raised
-                                            className='mb-2p'
-                                            loading={loadingData}
-                                        >
-                                            <Menu>
-                                                <Menu.Item
-                                                    name='gantt'
+                                                <Menu>
+                                                    <Menu.Item
+                                                        name='gantt'
 
-                                                    content={<p>Gantt View</p>}
-                                                    active={viewMode === 'gantt'}
-                                                    onClick={() => setViewMode('gantt')}
-                                                    color='blue'
-                                                />
-                                                <Menu.Item
-                                                    name='calendar'
-                                                    content={<p>Calendar View</p>}
-                                                    active={viewMode === 'calendar'}
-                                                    onClick={() => setViewMode('calendar')}
-                                                    color='teal'
-                                                />
-                                                {(viewMode === 'gantt') &&
-                                                    <Menu.Menu position='right'>
-                                                        <Dropdown item text='Gantt View Options'
-                                                            value={ganttViewMode}
-                                                            onChange={(_e, { value }) => setGanttViewMode(value)}
-                                                            options={[
-                                                                { key: 'day',   text: 'Day',    value: 'Day' },
-                                                                { key: 'week',  text: 'Week',   value: 'Week' },
-                                                                { key: 'month', text: 'Month',  value: 'Month'}
-                                                            ]}
-                                                            disabled={(Array.isArray(ganttTasks) && ganttTasks.length === 0)}
+                                                        content={<p>Gantt View</p>}
+                                                        active={viewMode === 'gantt'}
+                                                        onClick={() => setViewMode('gantt')}
+                                                        color='blue'
+                                                    />
+                                                    <Menu.Item
+                                                        name='calendar'
+                                                        content={<p>Calendar View</p>}
+                                                        active={viewMode === 'calendar'}
+                                                        onClick={() => setViewMode('calendar')}
+                                                        color='teal'
+                                                    />
+                                                    {(viewMode === 'gantt') &&
+                                                        <Menu.Menu position='right'>
+                                                            <Dropdown item text='Gantt View Options'
+                                                                value={ganttViewMode}
+                                                                onChange={(_e, { value }) => setGanttViewMode(value)}
+                                                                options={[
+                                                                    { key: 'day',   text: 'Day',    value: 'Day' },
+                                                                    { key: 'week',  text: 'Week',   value: 'Week' },
+                                                                    { key: 'month', text: 'Month',  value: 'Month'}
+                                                                ]}
+                                                                disabled={(Array.isArray(ganttTasks) && ganttTasks.length === 0)}
+                                                            />
+                                                        </Menu.Menu>
+                                                    }
+                                                </Menu>
+                                                {(Array.isArray(projTasks) && projTasks.length > 0)
+                                                    ? ((viewMode === 'gantt')
+                                                        ? <GanttView
+                                                            viewMode={ganttViewMode}
+                                                            onTaskClick={handleGanttTaskClick}
+                                                            onDateChange={handleGanttTaskDateChange}
+                                                            ganttTasks={ganttTasks}
                                                         />
-                                                    </Menu.Menu>
+                                                        : ((viewMode === 'calendar') &&
+                                                            <CalendarView calendarEvents={calendarTasks} />
+                                                        )
+                                                    )
+                                                    :(<p className='mt-2p mb-2p text-center muted-text'>No tasks yet.</p>)
                                                 }
-                                            </Menu>
-                                            {(Array.isArray(projTasks) && projTasks.length > 0)
-                                                ? ((viewMode === 'gantt')
-                                                    ? <GanttView
-                                                        viewMode={ganttViewMode}
-                                                        onTaskClick={handleGanttTaskClick}
-                                                        onDateChange={handleGanttTaskDateChange}
-                                                        ganttTasks={ganttTasks}
-                                                      />
-                                                     : ((viewMode === 'calendar') &&
-                                                        <CalendarView calendarEvents={calendarTasks} />
-                                                     )
-                                                )
-                                                :(<p className='mt-2p mb-2p text-center muted-text'>No tasks yet.</p>)
-                                            }
-                                        </Segment>
-                                    </Grid.Column>
-                                </Grid.Row>
-                            </Grid>
-                        </Segment>
-                    </Segment.Group>
-                </Grid.Column>
-            </Grid.Row>
-        </Grid>
+                                            </Segment>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                </Grid>
+                            </Segment>
+                        </Segment.Group>
+                    </Grid.Column>
+                </Grid.Row>
+            </Grid>
+            <div className="flex flex-col justify-end h-full"><Footer /></div>
+        </div>
     );
 
 };

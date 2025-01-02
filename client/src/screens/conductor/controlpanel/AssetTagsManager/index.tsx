@@ -25,6 +25,7 @@ import { truncateString } from "../../../../components/util/HelperFunctions";
 import { useTypedSelector } from "../../../../state/hooks";
 import { isCallChain } from "typescript";
 import { useQueryClient } from "@tanstack/react-query";
+import Footer from "../../../../components/navigation/Footer";
 const ManageFrameworkModal = lazy(
   () =>
     import(
@@ -161,180 +162,185 @@ const AssetTagsManager: React.FC<{}> = ({}) => {
   }
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">
-            Asset Tagging Framework Manager
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment className="flex justify-between align-middle">
-              <div>
-                <Breadcrumb>
-                  <Breadcrumb.Section as={Link} to="/controlpanel">
-                    Control Panel
-                  </Breadcrumb.Section>
-                  <Breadcrumb.Divider icon="right chevron" />
-                  <Breadcrumb.Section active>
-                    Asset Tagging Framework Manager
-                  </Breadcrumb.Section>
-                </Breadcrumb>
-              </div>
-              <div>
-                <Button
-                  color="green"
-                  onClick={() => handleOpenManageFrameworkModal("create")}
-                >
-                  <Icon name="plus" />
-                  New Framework
-                </Button>
-              </div>
-            </Segment>
-            <Segment>
-              <Grid>
-                <Grid.Row>
-                  <Grid.Column width={11}>
-                    <Dropdown
-                      placeholder="Sort by..."
-                      floating
-                      selection
-                      button
-                      options={sortOptions}
-                      onChange={(_e, { value }) => {
-                        setSortChoice(value as string);
-                      }}
-                      value={sortChoice}
-                      disabled={true}
-                    />
-                  </Grid.Column>
-                  <Grid.Column width={5}>
-                    <Input
-                      icon="search"
-                      placeholder="Search by Name"
-                      onChange={(e) => {
-                        setSearchString(e.target.value);
-                        getFrameworksDebounced(e.target.value);
-                      }}
-                      value={searchString}
-                      fluid
-                    />
-                  </Grid.Column>
-                </Grid.Row>
-              </Grid>
-            </Segment>
-            <Segment loading={loading}>
-              <PaginationWithItemsSelect
-                activePage={activePage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                setItemsPerPageFn={setItemsPerPage}
-                setActivePageFn={setActivePage}
-                totalLength={totalItems}
-              />
-            </Segment>
-            <Segment loading={loading}>
-              <Table striped celled selectable>
-                <Table.Header>
-                  <Table.Row>
-                    {TABLE_COLS.map((item) => (
-                      <Table.HeaderCell key={item.key}>
-                        <span>{item.text}</span>
-                      </Table.HeaderCell>
-                    ))}
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {frameworks.length > 0 &&
-                    frameworks.map((f) => {
-                      return (
-                        <Table.Row key={f.uuid} className="word-break-all">
-                          <Table.Cell>
-                            <span>{f.name}</span>
-                            {
-                              f.isCampusDefault && (
-                                <Label color="teal" size="tiny" className="!ml-3" basic>
-                                  Campus Default
-                                </Label>
-                              )
-                            }
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>{truncateString(f.description, 75)}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>{f.enabled ? "Enabled" : "Disabled"}</span>
-                          </Table.Cell>
-                          <Table.Cell textAlign="right">
-                            {!f.isCampusDefault && (
-                              <Button
-                                color="teal"
-                                onClick={() => {
-                                  setDefaultToSet(f.uuid);
-                                  setShowConfirmSetOrgDefault(true);
-                                }}
-                              >
-                                <Icon name="university" />
-                                Set as Campus Default
-                              </Button>
-                            )}
-                            <Button
-                              color="blue"
-                              onClick={() =>
-                                handleOpenManageFrameworkModal("edit", f.uuid)
-                              }
-                            >
-                              <Icon name="edit" />
-                              Edit
-                            </Button>
-                          </Table.Cell>
-                        </Table.Row>
-                      );
-                    })}
-                  {frameworks.length === 0 && (
+    <div className="h-screen flex flex-col">
+      <Grid className="controlpanel-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header" as="h2">
+              Asset Tagging Framework Manager
+            </Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment.Group>
+              <Segment className="flex justify-between align-middle">
+                <div>
+                  <Breadcrumb>
+                    <Breadcrumb.Section as={Link} to="/controlpanel">
+                      Control Panel
+                    </Breadcrumb.Section>
+                    <Breadcrumb.Divider icon="right chevron" />
+                    <Breadcrumb.Section active>
+                      Asset Tagging Framework Manager
+                    </Breadcrumb.Section>
+                  </Breadcrumb>
+                </div>
+                <div>
+                  <Button
+                    color="green"
+                    onClick={() => handleOpenManageFrameworkModal("create")}
+                  >
+                    <Icon name="plus" />
+                    New Framework
+                  </Button>
+                </div>
+              </Segment>
+              <Segment>
+                <Grid>
+                  <Grid.Row>
+                    <Grid.Column width={11}>
+                      <Dropdown
+                        placeholder="Sort by..."
+                        floating
+                        selection
+                        button
+                        options={sortOptions}
+                        onChange={(_e, { value }) => {
+                          setSortChoice(value as string);
+                        }}
+                        value={sortChoice}
+                        disabled={true}
+                      />
+                    </Grid.Column>
+                    <Grid.Column width={5}>
+                      <Input
+                        icon="search"
+                        placeholder="Search by Name"
+                        onChange={(e) => {
+                          setSearchString(e.target.value);
+                          getFrameworksDebounced(e.target.value);
+                        }}
+                        value={searchString}
+                        fluid
+                      />
+                    </Grid.Column>
+                  </Grid.Row>
+                </Grid>
+              </Segment>
+              <Segment loading={loading}>
+                <PaginationWithItemsSelect
+                  activePage={activePage}
+                  totalPages={totalPages}
+                  itemsPerPage={itemsPerPage}
+                  setItemsPerPageFn={setItemsPerPage}
+                  setActivePageFn={setActivePage}
+                  totalLength={totalItems}
+                />
+              </Segment>
+              <Segment loading={loading}>
+                <Table striped celled selectable>
+                  <Table.Header>
                     <Table.Row>
-                      <Table.Cell colSpan={TABLE_COLS.length + 1}>
-                        <p className="text-center">
-                          <em>No results found.</em>
-                        </p>
-                      </Table.Cell>
+                      {TABLE_COLS.map((item) => (
+                        <Table.HeaderCell key={item.key}>
+                          <span>{item.text}</span>
+                        </Table.HeaderCell>
+                      ))}
                     </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
-            </Segment>
-            <Segment loading={loading}>
-              <PaginationWithItemsSelect
-                activePage={activePage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                setItemsPerPageFn={setItemsPerPage}
-                setActivePageFn={setActivePage}
-                totalLength={totalItems}
-              />
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-      <ManageFrameworkModal
-        open={showManageFrameworkModal}
-        mode={manageFrameworkMode}
-        id={manageFrameworkId}
-        onClose={() => handleCloseManageFrameworkModal()}
-      />
-      <ConfirmSetOrgDefault
-        show={showConfirmSetOrgDefault}
-        selectedUUID={defaultToSet}
-        onClose={() => {
-          setShowConfirmSetOrgDefault(false);
-          setDefaultToSet("");
-        }}
-        onConfirm={() => setAsOrgDefault(defaultToSet)}
-      />
-    </Grid>
+                  </Table.Header>
+                  <Table.Body>
+                    {frameworks.length > 0 &&
+                      frameworks.map((f) => {
+                        return (
+                          <Table.Row key={f.uuid} className="word-break-all">
+                            <Table.Cell>
+                              <span>{f.name}</span>
+                              {
+                                f.isCampusDefault && (
+                                  <Label color="teal" size="tiny" className="!ml-3" basic>
+                                    Campus Default
+                                  </Label>
+                                )
+                              }
+                            </Table.Cell>
+                            <Table.Cell>
+                              <span>{truncateString(f.description, 75)}</span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <span>{f.enabled ? "Enabled" : "Disabled"}</span>
+                            </Table.Cell>
+                            <Table.Cell textAlign="right">
+                              {!f.isCampusDefault && (
+                                <Button
+                                  color="teal"
+                                  onClick={() => {
+                                    setDefaultToSet(f.uuid);
+                                    setShowConfirmSetOrgDefault(true);
+                                  }}
+                                >
+                                  <Icon name="university" />
+                                  Set as Campus Default
+                                </Button>
+                              )}
+                              <Button
+                                color="blue"
+                                onClick={() =>
+                                  handleOpenManageFrameworkModal("edit", f.uuid)
+                                }
+                              >
+                                <Icon name="edit" />
+                                Edit
+                              </Button>
+                            </Table.Cell>
+                          </Table.Row>
+                        );
+                      })}
+                    {frameworks.length === 0 && (
+                      <Table.Row>
+                        <Table.Cell colSpan={TABLE_COLS.length + 1}>
+                          <p className="text-center">
+                            <em>No results found.</em>
+                          </p>
+                        </Table.Cell>
+                      </Table.Row>
+                    )}
+                  </Table.Body>
+                </Table>
+              </Segment>
+              <Segment loading={loading}>
+                <PaginationWithItemsSelect
+                  activePage={activePage}
+                  totalPages={totalPages}
+                  itemsPerPage={itemsPerPage}
+                  setItemsPerPageFn={setItemsPerPage}
+                  setActivePageFn={setActivePage}
+                  totalLength={totalItems}
+                />
+              </Segment>
+            </Segment.Group>
+          </Grid.Column>
+        </Grid.Row>
+        <ManageFrameworkModal
+          open={showManageFrameworkModal}
+          mode={manageFrameworkMode}
+          id={manageFrameworkId}
+          onClose={() => handleCloseManageFrameworkModal()}
+        />
+        <ConfirmSetOrgDefault
+          show={showConfirmSetOrgDefault}
+          selectedUUID={defaultToSet}
+          onClose={() => {
+            setShowConfirmSetOrgDefault(false);
+            setDefaultToSet("");
+          }}
+          onConfirm={() => setAsOrgDefault(defaultToSet)}
+        />
+      </Grid>
+      <div className="flex flex-col justify-end h-full">
+        <Footer />
+      </div>
+    </div>
   );
 };
 

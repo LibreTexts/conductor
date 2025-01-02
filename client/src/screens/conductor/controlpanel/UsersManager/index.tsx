@@ -14,7 +14,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTypedSelector } from '../../../../state/hooks.js';
-
+import Footer from '../../../../components/navigation/Footer';
 import { itemsPerPageOptions } from '../../../../components/util/PaginationOptions.js';
 import useGlobalError from '../../../../components/error/ErrorHooks.js';
 import { User } from '../../../../types';
@@ -102,159 +102,164 @@ const UsersManager = () => {
     };
 
     return (
-        <Grid className='controlpanel-container' divided='vertically'>
-            <Grid.Row>
-                <Grid.Column width={16}>
-                    <Header className='component-header'>Users Manager</Header>
-                </Grid.Column>
-            </Grid.Row>
-            <Grid.Row>
-                <Grid.Column width={16}>
-                    <Segment.Group>
-                        <Segment>
-                            <Breadcrumb>
-                                <Breadcrumb.Section as={Link} to='/controlpanel'>
-                                    Control Panel
-                                </Breadcrumb.Section>
-                                <Breadcrumb.Divider icon='right chevron' />
-                                <Breadcrumb.Section active>
-                                    Users Manager
-                                </Breadcrumb.Section>
-                            </Breadcrumb>
-                        </Segment>
-                        <Segment>
-                            <Grid>
-                                <Grid.Row>
-                                    <Grid.Column width={11}>
+        <div className="h-screen flex flex-col">
+            <Grid className='controlpanel-container' divided='vertically'>
+                <Grid.Row>
+                    <Grid.Column width={16}>
+                        <Header className='component-header'>Users Manager</Header>
+                    </Grid.Column>
+                </Grid.Row>
+                <Grid.Row>
+                    <Grid.Column width={16}>
+                        <Segment.Group>
+                            <Segment>
+                                <Breadcrumb>
+                                    <Breadcrumb.Section as={Link} to='/controlpanel'>
+                                        Control Panel
+                                    </Breadcrumb.Section>
+                                    <Breadcrumb.Divider icon='right chevron' />
+                                    <Breadcrumb.Section active>
+                                        Users Manager
+                                    </Breadcrumb.Section>
+                                </Breadcrumb>
+                            </Segment>
+                            <Segment>
+                                <Grid>
+                                    <Grid.Row>
+                                        <Grid.Column width={11}>
+                                            <Dropdown
+                                                placeholder='Sort by...'
+                                                floating
+                                                selection
+                                                button
+                                                options={sortOptions}
+                                                onChange={(_e, { value }) => { setSortChoice(value as string) }}
+                                                value={sortChoice}
+                                            />
+                                        </Grid.Column>
+                                        <Grid.Column width={5}>
+                                            <Input
+                                                icon='search'
+                                                placeholder='Search...'
+                                                onChange={(e) => {
+                                                    setSearchInput(e.target.value);
+                                                    debouncedSearch(e.target.value);
+                                                }}
+                                                value={searchInput}
+                                                fluid
+                                            />
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                </Grid>
+                            </Segment>
+                            <Segment>
+                                <div className='flex-row-div'>
+                                    <div className='left-flex'>
+                                        <span>Displaying </span>
                                         <Dropdown
-                                            placeholder='Sort by...'
-                                            floating
+                                            className='commons-content-pagemenu-dropdown'
                                             selection
-                                            button
-                                            options={sortOptions}
-                                            onChange={(_e, { value }) => { setSortChoice(value as string) }}
-                                            value={sortChoice}
-                                        />
-                                    </Grid.Column>
-                                    <Grid.Column width={5}>
-                                        <Input
-                                            icon='search'
-                                            placeholder='Search...'
-                                            onChange={(e) => {
-                                                setSearchInput(e.target.value);
-                                                debouncedSearch(e.target.value);
+                                            options={itemsPerPageOptions}
+                                            onChange={(_e, { value }) => {
+                                                setItemsPerPage(value as number);
                                             }}
-                                            value={searchInput}
-                                            fluid
+                                            value={itemsPerPage}
                                         />
-                                    </Grid.Column>
-                                </Grid.Row>
-                            </Grid>
-                        </Segment>
-                        <Segment>
-                            <div className='flex-row-div'>
-                                <div className='left-flex'>
-                                    <span>Displaying </span>
-                                    <Dropdown
-                                        className='commons-content-pagemenu-dropdown'
-                                        selection
-                                        options={itemsPerPageOptions}
-                                        onChange={(_e, { value }) => {
-                                            setItemsPerPage(value as number);
-                                        }}
-                                        value={itemsPerPage}
-                                    />
-                                    <span> items per page of <strong>{Number(data?.total_items || 0).toLocaleString()}</strong> results.</span>
+                                        <span> items per page of <strong>{Number(data?.total_items || 0).toLocaleString()}</strong> results.</span>
+                                    </div>
+                                    <div className='right-flex'>
+                                        <ConductorPagination
+                                            activePage={page}
+                                            totalPages={data && data.total_items > 0 ? Math.ceil(data?.total_items / itemsPerPage) : 1}
+                                            onPageChange={(e, { activePage }) => {
+                                                setPage(activePage as number);
+                                            }}
+                                        />
+                                    </div>
                                 </div>
-                                <div className='right-flex'>
-                                    <ConductorPagination
-                                        activePage={page}
-                                        totalPages={data && data.total_items > 0 ? Math.ceil(data?.total_items / itemsPerPage) : 1}
-                                        onPageChange={(e, { activePage }) => {
-                                            setPage(activePage as number);
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </Segment>
-                        <Segment loading={loading}>
-                            <Table striped celled fixed>
-                                <Table.Header>
-                                    <Table.Row>
-                                        <Table.HeaderCell>
-                                            {(sortChoice === 'first')
-                                                ? <span><em>First Name</em></span>
-                                                : <span>First Name</span>
-                                            }
-                                        </Table.HeaderCell>
-                                        <Table.HeaderCell>
-                                            {(sortChoice === 'last')
-                                                ? <span><em>Last Name</em></span>
-                                                : <span>Last Name</span>
-                                            }
-                                        </Table.HeaderCell>
-                                        <Table.HeaderCell>
-                                            {(sortChoice === 'email')
-                                                ? <span><em>Email</em></span>
-                                                : <span>Email</span>
-                                            }
-                                        </Table.HeaderCell>
-                                        <Table.HeaderCell>
-                                            <span>Actions</span>
-                                        </Table.HeaderCell>
-                                    </Table.Row>
-                                </Table.Header>
-                                <Table.Body>
-                                    {(data && data.results.length > 0) &&
-                                        data.results.map((item, index) => {
-                                            return (
-                                                <Table.Row key={index}>
-                                                    <Table.Cell>
-                                                        <p>{item.firstName}</p>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <p>{item.lastName}</p>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <p>{item.email}</p>
-                                                    </Table.Cell>
-                                                    <Table.Cell textAlign='center'>
-                                                        <Button.Group vertical fluid>
-                                                            <Button
-                                                                color='blue'
-                                                                onClick={() => { openManageUserModal(item.uuid, item.firstName, item.lastName) }}
-                                                            >
-                                                                <Icon name='user doctor' />
-                                                                <span>Manage Roles</span>
-                                                            </Button>
-                                                            <Button
-                                                                color='teal'
-                                                                as={Link}
-                                                                to={`/controlpanel/usersmanager/${item.uuid}`}
-                                                            >
-                                                                <Icon name='list ul' />
-                                                                <span>View Projects</span>
-                                                            </Button>
-                                                        </Button.Group>
-                                                    </Table.Cell>
-                                                </Table.Row>
-                                            )
-                                        })
-                                    }
-                                    {(!data || data.results.length === 0) &&
+                            </Segment>
+                            <Segment loading={loading}>
+                                <Table striped celled fixed>
+                                    <Table.Header>
                                         <Table.Row>
-                                            <Table.Cell colSpan={4}>
-                                                <p className='text-center'><em>No results found.</em></p>
-                                            </Table.Cell>
+                                            <Table.HeaderCell>
+                                                {(sortChoice === 'first')
+                                                    ? <span><em>First Name</em></span>
+                                                    : <span>First Name</span>
+                                                }
+                                            </Table.HeaderCell>
+                                            <Table.HeaderCell>
+                                                {(sortChoice === 'last')
+                                                    ? <span><em>Last Name</em></span>
+                                                    : <span>Last Name</span>
+                                                }
+                                            </Table.HeaderCell>
+                                            <Table.HeaderCell>
+                                                {(sortChoice === 'email')
+                                                    ? <span><em>Email</em></span>
+                                                    : <span>Email</span>
+                                                }
+                                            </Table.HeaderCell>
+                                            <Table.HeaderCell>
+                                                <span>Actions</span>
+                                            </Table.HeaderCell>
                                         </Table.Row>
-                                    }
-                                </Table.Body>
-                            </Table>
-                        </Segment>
-                    </Segment.Group>
-                </Grid.Column>
-            </Grid.Row>
-        </Grid>
+                                    </Table.Header>
+                                    <Table.Body>
+                                        {(data && data.results.length > 0) &&
+                                            data.results.map((item, index) => {
+                                                return (
+                                                    <Table.Row key={index}>
+                                                        <Table.Cell>
+                                                            <p>{item.firstName}</p>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <p>{item.lastName}</p>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <p>{item.email}</p>
+                                                        </Table.Cell>
+                                                        <Table.Cell textAlign='center'>
+                                                            <Button.Group vertical fluid>
+                                                                <Button
+                                                                    color='blue'
+                                                                    onClick={() => { openManageUserModal(item.uuid, item.firstName, item.lastName) }}
+                                                                >
+                                                                    <Icon name='user doctor' />
+                                                                    <span>Manage Roles</span>
+                                                                </Button>
+                                                                <Button
+                                                                    color='teal'
+                                                                    as={Link}
+                                                                    to={`/controlpanel/usersmanager/${item.uuid}`}
+                                                                >
+                                                                    <Icon name='list ul' />
+                                                                    <span>View Projects</span>
+                                                                </Button>
+                                                            </Button.Group>
+                                                        </Table.Cell>
+                                                    </Table.Row>
+                                                )
+                                            })
+                                        }
+                                        {(!data || data.results.length === 0) &&
+                                            <Table.Row>
+                                                <Table.Cell colSpan={4}>
+                                                    <p className='text-center'><em>No results found.</em></p>
+                                                </Table.Cell>
+                                            </Table.Row>
+                                        }
+                                    </Table.Body>
+                                </Table>
+                            </Segment>
+                        </Segment.Group>
+                    </Grid.Column>
+                </Grid.Row>
+            </Grid>
+            <div className="flex flex-col justify-end h-full">
+                <Footer />
+            </div>
+        </div>
     )
 
 }

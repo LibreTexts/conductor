@@ -15,6 +15,7 @@ import axios from "axios";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
 import ManageUserModal from "../../../../components/controlpanel/CentralIdentity/ManageUserModal";
+import Footer from "../../../../components/navigation/Footer";
 
 const CentralIdentityOrgs = () => {
   //Global State
@@ -96,87 +97,90 @@ const CentralIdentityOrgs = () => {
   };
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">
-            LibreOne Admin Console: Organizations & Systems
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
-                  LibreOne Admin Consoles
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>
-                  Organizations & Systems
-                </Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            {loading && (
+    <div className="h-screen flex flex-col">
+      <Grid className="controlpanel-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header" as="h2">
+              LibreOne Admin Console: Organizations & Systems
+            </Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment.Group>
               <Segment>
-                <Loader active inline="centered" />
+                <Breadcrumb>
+                  <Breadcrumb.Section as={Link} to="/controlpanel">
+                    Control Panel
+                  </Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
+                    LibreOne Admin Consoles
+                  </Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section active>
+                    Organizations & Systems
+                  </Breadcrumb.Section>
+                </Breadcrumb>
               </Segment>
-            )}
-            {true ? (
-              <Segment>
-              <h2>THIS PAGE COMING SOON</h2>
-              </Segment>
-            ) : (
-              <>
+              {loading && (
                 <Segment>
-                  <PaginationWithItemsSelect
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    itemsPerPage={itemsPerPage}
-                    setItemsPerPageFn={setItemsPerPage}
-                    setActivePageFn={setActivePage}
-                    totalLength={systems.length}
-                  />
+                  <Loader active inline="centered" />
                 </Segment>
+              )}
+              {true ? (
                 <Segment>
-                  {systems.length > 0 && (
-                    <Accordion
-                      panels={systems.map((system, idx) => {
-                        return (
-                          <AccordionPanel
-                            system={system}
-                            idx={idx}
-                            key={system.id}
-                          />
-                        );
-                      })}
-                      exclusive={false}
-                      fluid
+                <h2>THIS PAGE COMING SOON</h2>
+                </Segment>
+              ) : (
+                <>
+                  <Segment>
+                    <PaginationWithItemsSelect
+                      activePage={activePage}
+                      totalPages={totalPages}
+                      itemsPerPage={itemsPerPage}
+                      setItemsPerPageFn={setItemsPerPage}
+                      setActivePageFn={setActivePage}
+                      totalLength={systems.length}
                     />
-                  )}
-                  {systems.length === 0 && <p>No organizations found</p>}
-                </Segment>
-                <Segment>
-                  <PaginationWithItemsSelect
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    itemsPerPage={itemsPerPage}
-                    setItemsPerPageFn={setItemsPerPage}
-                    setActivePageFn={setActivePage}
-                    totalLength={systems.length}
-                  />
-                </Segment>
-              </>
-            )}
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+                  </Segment>
+                  <Segment>
+                    {systems.length > 0 && (
+                      <Accordion
+                        panels={systems.map((system, idx) => {
+                          return (
+                            <AccordionPanel
+                              system={system}
+                              idx={idx}
+                              key={system.id}
+                            />
+                          );
+                        })}
+                        exclusive={false}
+                        fluid
+                      />
+                    )}
+                    {systems.length === 0 && <p>No organizations found</p>}
+                  </Segment>
+                  <Segment>
+                    <PaginationWithItemsSelect
+                      activePage={activePage}
+                      totalPages={totalPages}
+                      itemsPerPage={itemsPerPage}
+                      setItemsPerPageFn={setItemsPerPage}
+                      setActivePageFn={setActivePage}
+                      totalLength={systems.length}
+                    />
+                  </Segment>
+                </>
+              )}
+            </Segment.Group>
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full"><Footer /></div>
+    </div>
   );
 };
 

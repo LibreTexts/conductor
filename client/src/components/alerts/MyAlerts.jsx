@@ -18,7 +18,7 @@ import { useHistory, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
-
+import Footer from '../navigation/Footer';
 import AlertModal from './AlertModal.jsx';
 
 import useGlobalError from '../error/ErrorHooks';
@@ -186,119 +186,122 @@ const MyAlerts = (_props) => {
   };
 
   return (
-    <Grid className='component-container' divided='vertically'>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className='component-header'>My Alerts</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment>
-            <p>Conductor Alerts notify you when new LibreTexts Open Education resources and projects are
-              available that match criteria you've specified. You can add a new Alert
-              anytime by clicking <em>Create Alert</em> below or on a Search results page.
-            </p>
-            <div className='flex-row-div flex-row-verticalcenter'>
-              <div className='left-flex'>
-                <Dropdown
-                  placeholder='Sort by...'
-                  floating
-                  selection
-                  button
-                  options={sortOptions}
-                  onChange={(_e, { value }) => handleFilterSortChange('sort', value)}
-                  value={sortChoice}
-                  style={{
-                    marginTop: '0.25rem !important'
-                  }}
-                  aria-label='Sort Alerts by'
-                />
+    <div className="h-screen flex flex-col">
+      <Grid className='component-container' divided='vertically'>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className='component-header'>My Alerts</Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment>
+              <p>Conductor Alerts notify you when new LibreTexts Open Education resources and projects are
+                available that match criteria you've specified. You can add a new Alert
+                anytime by clicking <em>Create Alert</em> below or on a Search results page.
+              </p>
+              <div className='flex-row-div flex-row-verticalcenter'>
+                <div className='left-flex'>
+                  <Dropdown
+                    placeholder='Sort by...'
+                    floating
+                    selection
+                    button
+                    options={sortOptions}
+                    onChange={(_e, { value }) => handleFilterSortChange('sort', value)}
+                    value={sortChoice}
+                    style={{
+                      marginTop: '0.25rem !important'
+                    }}
+                    aria-label='Sort Alerts by'
+                  />
+                </div>
+                <div className='right-flex'>
+                  <Button color='green' onClick={() => openAlertModal('create')}>
+                    <Icon name='add' />
+                    Create Alert
+                  </Button>
+                </div>
               </div>
-              <div className='right-flex'>
-                <Button color='green' onClick={() => openAlertModal('create')}>
-                  <Icon name='add' />
-                  Create Alert
-                </Button>
-              </div>
-            </div>
-            <Divider />
-            {!loadedData && (
-              <Loader active />
-            )}
-            {(loadedData && alerts.length > 0) && (
-              <List divided verticalAlign='middle' className='mb-2p'>
-                {alerts.map((item, idx) => {
-                  const itemDate = new Date(item.createdAt);
-                  item.createdDate = date.format(itemDate, 'MMMM DDD, YYYY');
-                  return (
-                    <List.Item key={`user-alert-${idx}`}>
-                      <div className='flex-row-div'>
-                        <div className='left-flex'>
-                          <div className='flex-col-div'>
-                            <p className='margin-none'><strong>Query: </strong><em>{item.query}</em></p>
-                            <p className='muted-text'>Created {item.createdDate}</p>
+              <Divider />
+              {!loadedData && (
+                <Loader active />
+              )}
+              {(loadedData && alerts.length > 0) && (
+                <List divided verticalAlign='middle' className='mb-2p'>
+                  {alerts.map((item, idx) => {
+                    const itemDate = new Date(item.createdAt);
+                    item.createdDate = date.format(itemDate, 'MMMM DDD, YYYY');
+                    return (
+                      <List.Item key={`user-alert-${idx}`}>
+                        <div className='flex-row-div'>
+                          <div className='left-flex'>
+                            <div className='flex-col-div'>
+                              <p className='margin-none'><strong>Query: </strong><em>{item.query}</em></p>
+                              <p className='muted-text'>Created {item.createdDate}</p>
+                            </div>
+                          </div>
+                          <div className='right-flex'>
+                            <Popup
+                              content='Delete Alert'
+                              trigger={
+                                <Button
+                                  onClick={() => openDeleteModal(item)}
+                                  icon='trash'
+                                  color='red'
+                                />
+                              }
+                              position='top center'
+                            />
+                            <Popup
+                              content='View Alert Details'
+                              trigger={
+                                <Button
+                                  onClick={() => openAlertModal('view', item)}
+                                  icon='eye'
+                                  color='blue'
+                                />
+                              }
+                              position='top center'
+                            />
                           </div>
                         </div>
-                        <div className='right-flex'>
-                          <Popup
-                            content='Delete Alert'
-                            trigger={
-                              <Button
-                                onClick={() => openDeleteModal(item)}
-                                icon='trash'
-                                color='red'
-                              />
-                            }
-                            position='top center'
-                          />
-                          <Popup
-                            content='View Alert Details'
-                            trigger={
-                              <Button
-                                onClick={() => openAlertModal('view', item)}
-                                icon='eye'
-                                color='blue'
-                              />
-                            }
-                            position='top center'
-                          />
-                        </div>
-                      </div>
-                    </List.Item>
-                  )
-                })}
-              </List>
-            )}
-            {(loadedData && alerts.length === 0) && (
-              <p className='mt-2p mb-2p muted-text text-center'>No alerts yet!</p>
-            )}
-          </Segment>
-          {/* Delete Alert Modal */}
-          <Modal open={showDeleteModal} onClose={() => closeDeleteModal(false)}>
-            <Modal.Header>Delete Alert</Modal.Header>
-            <Modal.Content>
-              <p>Are you sure you want to delete this alert? You will stop receiving notifications for new resources matching its criteria.</p>
-            </Modal.Content>
-            <Modal.Actions>
-              <Button onClick={() => closeDeleteModal(false)}>Cancel</Button>
-              <Button color='red' onClick={deleteAlert} loading={deleteAlertLoading}>
-                <Icon name='trash' />
-                Delete Alert
-              </Button>
-            </Modal.Actions>
+                      </List.Item>
+                    )
+                  })}
+                </List>
+              )}
+              {(loadedData && alerts.length === 0) && (
+                <p className='mt-2p mb-2p muted-text text-center'>No alerts yet!</p>
+              )}
+            </Segment>
+            {/* Delete Alert Modal */}
+            <Modal open={showDeleteModal} onClose={() => closeDeleteModal(false)}>
+              <Modal.Header>Delete Alert</Modal.Header>
+              <Modal.Content>
+                <p>Are you sure you want to delete this alert? You will stop receiving notifications for new resources matching its criteria.</p>
+              </Modal.Content>
+              <Modal.Actions>
+                <Button onClick={() => closeDeleteModal(false)}>Cancel</Button>
+                <Button color='red' onClick={deleteAlert} loading={deleteAlertLoading}>
+                  <Icon name='trash' />
+                  Delete Alert
+                </Button>
+              </Modal.Actions>
 
-          </Modal>
-          {/* Add/View Alert Modal */}
-          <AlertModal
-            open={showAlertModal}
-            onClose={closeAlertModal}
-            mode={alertModalMode}
-            alertData={alertModalData}
-          />
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+            </Modal>
+            {/* Add/View Alert Modal */}
+            <AlertModal
+              open={showAlertModal}
+              onClose={closeAlertModal}
+              mode={alertModalMode}
+              alertData={alertModalData}
+            />
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full"><Footer /></div>
+    </div>
   );
 
 };

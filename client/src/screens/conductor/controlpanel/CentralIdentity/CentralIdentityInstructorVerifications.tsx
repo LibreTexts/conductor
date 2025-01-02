@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import api from "../../../../api";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import { useModals } from "../../../../context/ModalContext";
+import Footer from "../../../../components/navigation/Footer";
 
 const CentralIdentityInstructorVerifications = () => {
   //Global State & Hooks
@@ -72,116 +73,119 @@ const CentralIdentityInstructorVerifications = () => {
   }
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">
-            LibreOne Admin Console: Instructor Verfication Requests
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
-                  LibreOne Admin Consoles
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>
-                  Instructor Verification Requests
-                </Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            {
-              isFetching && <LoadingSpinner />
-            }
-            <Segment>
-              <PaginationWithItemsSelect
-                activePage={page}
-                totalPages={data?.totalCount ? Math.ceil(data?.totalCount / limit) : 1}
-                itemsPerPage={limit}
-                setItemsPerPageFn={setLimit}
-                setActivePageFn={setPage}
-                totalLength={data?.totalCount ?? 0}
-              />
-            </Segment>
-            <Segment>
-              <Table striped celled selectable>
-                <Table.Header>
-                  <Table.Row>
-                    {TABLE_COLS.map((item) => (
-                      <Table.HeaderCell key={item.key}>
-                        <span>{item.text}</span>
-                      </Table.HeaderCell>
-                    ))}
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {data && data.requests.length > 0 &&
-                    data.requests.map((req) => {
-                      return (
-                        <Table.Row key={req.id} className="word-break-all">
-                          <Table.Cell>
-                            <span>{req.user.first_name}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>{req.user.last_name}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>{req.user.email}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>
-                              {formatDate(
-                                parseISO(req.created_at.toString() ?? ""),
-                                "MM/dd/yyyy"
-                              )}
-                            </span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <Button
-                              color="blue"
-                              onClick={() => handleSelectRequest(req)}
-                            >
-                              <Icon name="eye" />
-                              View Request
-                            </Button>
-                          </Table.Cell>
-                        </Table.Row>
-                      );
-                    })}
-                  {data && data.requests.length === 0 && (
+    <div className="h-screen flex flex-col">
+      <Grid className="controlpanel-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header" as="h2">
+              LibreOne Admin Console: Instructor Verfication Requests
+            </Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment.Group>
+              <Segment>
+                <Breadcrumb>
+                  <Breadcrumb.Section as={Link} to="/controlpanel">
+                    Control Panel
+                  </Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
+                    LibreOne Admin Consoles
+                  </Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section active>
+                    Instructor Verification Requests
+                  </Breadcrumb.Section>
+                </Breadcrumb>
+              </Segment>
+              {
+                isFetching && <LoadingSpinner />
+              }
+              <Segment>
+                <PaginationWithItemsSelect
+                  activePage={page}
+                  totalPages={data?.totalCount ? Math.ceil(data?.totalCount / limit) : 1}
+                  itemsPerPage={limit}
+                  setItemsPerPageFn={setLimit}
+                  setActivePageFn={setPage}
+                  totalLength={data?.totalCount ?? 0}
+                />
+              </Segment>
+              <Segment>
+                <Table striped celled selectable>
+                  <Table.Header>
                     <Table.Row>
-                      <Table.Cell colSpan={TABLE_COLS.length + 1}>
-                        <p className="text-center">
-                          <em>No results found.</em>
-                        </p>
-                      </Table.Cell>
+                      {TABLE_COLS.map((item) => (
+                        <Table.HeaderCell key={item.key}>
+                          <span>{item.text}</span>
+                        </Table.HeaderCell>
+                      ))}
                     </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
-            </Segment>
-            <Segment>
-              <PaginationWithItemsSelect
-                activePage={page}
-                totalPages={data?.totalCount ? Math.ceil(data?.totalCount / limit) : 1}
-                itemsPerPage={limit}
-                setItemsPerPageFn={setLimit}
-                setActivePageFn={setPage}
-                totalLength={data?.totalCount ?? 0}
-              />
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+                  </Table.Header>
+                  <Table.Body>
+                    {data && data.requests.length > 0 &&
+                      data.requests.map((req) => {
+                        return (
+                          <Table.Row key={req.id} className="word-break-all">
+                            <Table.Cell>
+                              <span>{req.user.first_name}</span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <span>{req.user.last_name}</span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <span>{req.user.email}</span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <span>
+                                {formatDate(
+                                  parseISO(req.created_at.toString() ?? ""),
+                                  "MM/dd/yyyy"
+                                )}
+                              </span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <Button
+                                color="blue"
+                                onClick={() => handleSelectRequest(req)}
+                              >
+                                <Icon name="eye" />
+                                View Request
+                              </Button>
+                            </Table.Cell>
+                          </Table.Row>
+                        );
+                      })}
+                    {data && data.requests.length === 0 && (
+                      <Table.Row>
+                        <Table.Cell colSpan={TABLE_COLS.length + 1}>
+                          <p className="text-center">
+                            <em>No results found.</em>
+                          </p>
+                        </Table.Cell>
+                      </Table.Row>
+                    )}
+                  </Table.Body>
+                </Table>
+              </Segment>
+              <Segment>
+                <PaginationWithItemsSelect
+                  activePage={page}
+                  totalPages={data?.totalCount ? Math.ceil(data?.totalCount / limit) : 1}
+                  itemsPerPage={limit}
+                  setItemsPerPageFn={setLimit}
+                  setActivePageFn={setPage}
+                  totalLength={data?.totalCount ?? 0}
+                />
+              </Segment>
+            </Segment.Group>
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full"><Footer /></div>
+    </div>
   );
 };
 

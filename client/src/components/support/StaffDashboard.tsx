@@ -3,6 +3,7 @@ import { Button, Dropdown, Icon, Table } from "semantic-ui-react";
 import useGlobalError from "../error/ErrorHooks";
 import { GenericKeyTextValueObj, SupportTicket } from "../../types";
 import axios from "axios";
+import Footer from "../navigation/Footer";
 import { format, parseISO, set } from "date-fns";
 import TicketStatusLabel from "./TicketStatusLabel";
 import { getRequesterText } from "../../utils/kbHelpers";
@@ -244,241 +245,244 @@ const StaffDashboard = () => {
   );
 
   return (
-    <div className="flex flex-col p-8" aria-busy={loading}>
-      <div className="flex flex-row justify-between items-center">
-        <p className="text-4xl font-semibold">Staff Dashboard</p>
-        <div className="flex flex-row">
-          <Button
-            color="blue"
-            size="tiny"
-            basic
-            onClick={() => (window.location.href = "/support/closed")}
-          >
-            <Icon name="check circle outline" />
-            View Closed
-          </Button>
-          {user.isSuperAdmin && (
+    <div>
+      <div className="flex flex-col p-8" aria-busy={loading}>
+        <div className="flex flex-row justify-between items-center">
+          <p className="text-4xl font-semibold">Staff Dashboard</p>
+          <div className="flex flex-row">
             <Button
               color="blue"
               size="tiny"
-              onClick={() => setShowSettingsModal(true)}
               basic
-              className="ml-2"
+              onClick={() => (window.location.href = "/support/closed")}
             >
-              <Icon name="settings" />
-              Support Center Settings
+              <Icon name="check circle outline" />
+              View Closed
             </Button>
-          )}
+            {user.isSuperAdmin && (
+              <Button
+                color="blue"
+                size="tiny"
+                onClick={() => setShowSettingsModal(true)}
+                basic
+                className="ml-2"
+              >
+                <Icon name="settings" />
+                Support Center Settings
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
-      <div className="flex flex-row justify-between w-full mt-6">
-        <DashboardMetric
-          metric={supportMetrics?.totalOpenTickets?.toString() ?? "0"}
-          title="Open/In Progress Tickets"
-        />
-        <DashboardMetric
-          metric={(supportMetrics?.avgDaysToClose?.toString() ?? 0) + " days"}
-          title="Average Time to Resolution"
-        />
-        <DashboardMetric
-          metric={supportMetrics?.lastSevenTicketCount?.toString() ?? "0"}
-          title="New Tickets Past 7 Days"
-        />
-      </div>
-      <div className="mt-12">
-        <p className="text-3xl font-semibold mb-2">Open/In Progress Tickets</p>
-        <PaginationWithItemsSelect
-          activePage={activePage}
-          totalPages={totalPages}
-          itemsPerPage={itemsPerPage}
-          setActivePageFn={setActivePage}
-          setItemsPerPageFn={setItemsPerPage}
-          totalLength={totalItems}
-          sort={true}
-          sortOptions={["opened", "priority", "status", "category"]}
-          activeSort={activeSort}
-          setActiveSortFn={setActiveSort}
-        />
-        <div className="flex flex-row mt-2">
-          <Dropdown
-            text={
-              assigneeFilter
-                ? getAssigneeName(assigneeFilter)
-                : "Filter by Assignee"
-            }
-            icon="users"
-            floating
-            labeled
-            button
-            className="icon"
-            basic
-          >
-            <Dropdown.Menu>
-              {filterOptions.assignee.map((a) => (
-                <Dropdown.Item
-                  key={a.key}
-                  onClick={() => handleFilterChange("assignee", a.value)}
-                >
-                  {a.text}
-                </Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </Dropdown>
-          <Dropdown
-            text={
-              priorityFilter
-                ? capitalizeFirstLetter(priorityFilter)
-                : "Filter by Priority"
-            }
-            icon="exclamation triangle"
-            floating
-            labeled
-            button
-            className="icon !ml-3"
-            basic
-          >
-            <Dropdown.Menu>
-              {filterOptions.priority.map((p) => (
-                <Dropdown.Item
-                  key={p.key}
-                  onClick={() => handleFilterChange("priority", p.value)}
-                >
-                  {p.text}
-                </Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </Dropdown>
-          <Dropdown
-            text={
-              categoryFilter
-                ? capitalizeFirstLetter(categoryFilter)
-                : "Filter by Category"
-            }
-            icon="filter"
-            floating
-            labeled
-            button
-            className="icon !ml-3"
-            basic
-          >
-            <Dropdown.Menu>
-              {filterOptions.category.map((c) => (
-                <Dropdown.Item
-                  key={c.key}
-                  onClick={() => handleFilterChange("category", c.value)}
-                >
-                  {c.text}
-                </Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </Dropdown>
+        <div className="flex flex-row justify-between w-full mt-6">
+          <DashboardMetric
+            metric={supportMetrics?.totalOpenTickets?.toString() ?? "0"}
+            title="Open/In Progress Tickets"
+          />
+          <DashboardMetric
+            metric={(supportMetrics?.avgDaysToClose?.toString() ?? 0) + " days"}
+            title="Average Time to Resolution"
+          />
+          <DashboardMetric
+            metric={supportMetrics?.lastSevenTicketCount?.toString() ?? "0"}
+            title="New Tickets Past 7 Days"
+          />
         </div>
-        <Table celled className="mt-2">
-          <Table.Header>
-            <Table.Row>
-              <Table.HeaderCell>ID</Table.HeaderCell>
-              <Table.HeaderCell>Date Opened</Table.HeaderCell>
-              <Table.HeaderCell>Subject</Table.HeaderCell>
-              <Table.HeaderCell>Category</Table.HeaderCell>
-              <Table.HeaderCell>Requester</Table.HeaderCell>
-              <Table.HeaderCell>Assigned To</Table.HeaderCell>
-              <Table.HeaderCell>Priority</Table.HeaderCell>
-              <Table.HeaderCell>Status</Table.HeaderCell>
-              <Table.HeaderCell>Actions</Table.HeaderCell>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {!isFetching &&
-              openTickets?.map((ticket) => (
-                <Table.Row key={ticket.uuid}>
-                  <Table.Cell>{ticket.uuid.slice(-7)}
-                    <CopyButton val={ticket.uuid}>
-                      {({ copied, copy }) => (
-                        <Icon name="copy"
-                          className="cursor-pointer !ml-1"
-                          onClick={() => {
-                            copy()
-                            addNotification({
-                              message: "Ticket ID copied to clipboard",
-                              type: "success",
-                              duration: 2000,
-                            });
-                          }}
-                          color={copied ? "green" : "blue"}
-                        />
-                      )}
-                    </CopyButton>
-                  </Table.Cell>
-                  <Table.Cell>
-                    {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}
-                  </Table.Cell>
-                  <Table.Cell>{ticket.title}</Table.Cell>
-                  <Table.Cell>
-                    {getPrettySupportTicketCategory(ticket.category)}
-                  </Table.Cell>
-                  <Table.Cell>{getRequesterText(ticket)}</Table.Cell>
-                  <Table.Cell>
-                    {ticket.assignedUsers
-                      ? ticket.assignedUsers.map((u) => u.firstName).join(", ")
-                      : "Unassigned"}
-                  </Table.Cell>
-                  <Table.Cell>
-                    {capitalizeFirstLetter(ticket.priority)}
-                  </Table.Cell>
-                  <Table.Cell>
-                    <TicketStatusLabel status={ticket.status} />
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Button
-                      color="blue"
-                      size="tiny"
-                      to={`/support/ticket/${ticket.uuid}`}
-                      target="_blank"
-                      as={Link}
-                    >
-                      <Icon name="eye" />
-                      View
-                    </Button>
-                    {ticket.status === "open" && (
+        <div className="mt-12">
+          <p className="text-3xl font-semibold mb-2">Open/In Progress Tickets</p>
+          <PaginationWithItemsSelect
+            activePage={activePage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            setActivePageFn={setActivePage}
+            setItemsPerPageFn={setItemsPerPage}
+            totalLength={totalItems}
+            sort={true}
+            sortOptions={["opened", "priority", "status", "category"]}
+            activeSort={activeSort}
+            setActiveSortFn={setActiveSort}
+          />
+          <div className="flex flex-row mt-2">
+            <Dropdown
+              text={
+                assigneeFilter
+                  ? getAssigneeName(assigneeFilter)
+                  : "Filter by Assignee"
+              }
+              icon="users"
+              floating
+              labeled
+              button
+              className="icon"
+              basic
+            >
+              <Dropdown.Menu>
+                {filterOptions.assignee.map((a) => (
+                  <Dropdown.Item
+                    key={a.key}
+                    onClick={() => handleFilterChange("assignee", a.value)}
+                  >
+                    {a.text}
+                  </Dropdown.Item>
+                ))}
+              </Dropdown.Menu>
+            </Dropdown>
+            <Dropdown
+              text={
+                priorityFilter
+                  ? capitalizeFirstLetter(priorityFilter)
+                  : "Filter by Priority"
+              }
+              icon="exclamation triangle"
+              floating
+              labeled
+              button
+              className="icon !ml-3"
+              basic
+            >
+              <Dropdown.Menu>
+                {filterOptions.priority.map((p) => (
+                  <Dropdown.Item
+                    key={p.key}
+                    onClick={() => handleFilterChange("priority", p.value)}
+                  >
+                    {p.text}
+                  </Dropdown.Item>
+                ))}
+              </Dropdown.Menu>
+            </Dropdown>
+            <Dropdown
+              text={
+                categoryFilter
+                  ? capitalizeFirstLetter(categoryFilter)
+                  : "Filter by Category"
+              }
+              icon="filter"
+              floating
+              labeled
+              button
+              className="icon !ml-3"
+              basic
+            >
+              <Dropdown.Menu>
+                {filterOptions.category.map((c) => (
+                  <Dropdown.Item
+                    key={c.key}
+                    onClick={() => handleFilterChange("category", c.value)}
+                  >
+                    {c.text}
+                  </Dropdown.Item>
+                ))}
+              </Dropdown.Menu>
+            </Dropdown>
+          </div>
+          <Table celled className="mt-2">
+            <Table.Header>
+              <Table.Row>
+                <Table.HeaderCell>ID</Table.HeaderCell>
+                <Table.HeaderCell>Date Opened</Table.HeaderCell>
+                <Table.HeaderCell>Subject</Table.HeaderCell>
+                <Table.HeaderCell>Category</Table.HeaderCell>
+                <Table.HeaderCell>Requester</Table.HeaderCell>
+                <Table.HeaderCell>Assigned To</Table.HeaderCell>
+                <Table.HeaderCell>Priority</Table.HeaderCell>
+                <Table.HeaderCell>Status</Table.HeaderCell>
+                <Table.HeaderCell>Actions</Table.HeaderCell>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {!isFetching &&
+                openTickets?.map((ticket) => (
+                  <Table.Row key={ticket.uuid}>
+                    <Table.Cell>{ticket.uuid.slice(-7)}
+                      <CopyButton val={ticket.uuid}>
+                        {({ copied, copy }) => (
+                          <Icon name="copy"
+                            className="cursor-pointer !ml-1"
+                            onClick={() => {
+                              copy()
+                              addNotification({
+                                message: "Ticket ID copied to clipboard",
+                                type: "success",
+                                duration: 2000,
+                              });
+                            }}
+                            color={copied ? "green" : "blue"}
+                          />
+                        )}
+                      </CopyButton>
+                    </Table.Cell>
+                    <Table.Cell>
+                      {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}
+                    </Table.Cell>
+                    <Table.Cell>{ticket.title}</Table.Cell>
+                    <Table.Cell>
+                      {getPrettySupportTicketCategory(ticket.category)}
+                    </Table.Cell>
+                    <Table.Cell>{getRequesterText(ticket)}</Table.Cell>
+                    <Table.Cell>
+                      {ticket.assignedUsers
+                        ? ticket.assignedUsers.map((u) => u.firstName).join(", ")
+                        : "Unassigned"}
+                    </Table.Cell>
+                    <Table.Cell>
+                      {capitalizeFirstLetter(ticket.priority)}
+                    </Table.Cell>
+                    <Table.Cell>
+                      <TicketStatusLabel status={ticket.status} />
+                    </Table.Cell>
+                    <Table.Cell>
                       <Button
-                        color="green"
+                        color="blue"
                         size="tiny"
-                        onClick={() => openAssignModal(ticket.uuid)}
+                        to={`/support/ticket/${ticket.uuid}`}
+                        target="_blank"
+                        as={Link}
                       >
-                        <Icon name="user plus" />
-                        Assign
+                        <Icon name="eye" />
+                        View
                       </Button>
-                    )}
-                  </Table.Cell>
-                </Table.Row>
-              ))}
-            {isFetching && <LoadingSpinner />}
-          </Table.Body>
-        </Table>
-        <PaginationWithItemsSelect
-          activePage={activePage}
-          totalPages={totalPages}
-          itemsPerPage={itemsPerPage}
-          setActivePageFn={setActivePage}
-          setItemsPerPageFn={setItemsPerPage}
-          totalLength={totalItems}
-          sort={true}
-          sortOptions={["opened", "priority", "status", "category"]}
-          activeSort={activeSort}
-          setActiveSortFn={setActiveSort}
+                      {ticket.status === "open" && (
+                        <Button
+                          color="green"
+                          size="tiny"
+                          onClick={() => openAssignModal(ticket.uuid)}
+                        >
+                          <Icon name="user plus" />
+                          Assign
+                        </Button>
+                      )}
+                    </Table.Cell>
+                  </Table.Row>
+                ))}
+              {isFetching && <LoadingSpinner />}
+            </Table.Body>
+          </Table>
+          <PaginationWithItemsSelect
+            activePage={activePage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            setActivePageFn={setActivePage}
+            setItemsPerPageFn={setItemsPerPage}
+            totalLength={totalItems}
+            sort={true}
+            sortOptions={["opened", "priority", "status", "category"]}
+            activeSort={activeSort}
+            setActiveSortFn={setActiveSort}
+          />
+        </div>
+        <SupportCenterSettingsModal
+          open={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
         />
+        {selectedTicketId && (
+          <AssignTicketModal
+            open={showAssignModal}
+            onClose={onCloseAssignModal}
+            ticketId={selectedTicketId}
+          />
+        )}
       </div>
-      <SupportCenterSettingsModal
-        open={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-      />
-      {selectedTicketId && (
-        <AssignTicketModal
-          open={showAssignModal}
-          onClose={onCloseAssignModal}
-          ticketId={selectedTicketId}
-        />
-      )}
+      <div className="flex flex-col justify-end h-full"><Footer /></div>
     </div>
   );
 };

@@ -11,6 +11,7 @@ import { getRequesterText } from "../../../utils/kbHelpers";
 import { SupportTicket } from "../../../types";
 import axios from "axios";
 import useGlobalError from "../../../components/error/ErrorHooks";
+import Footer from "../../../components/navigation/Footer";
 
 const SupportDashboard = () => {
   const { handleGlobalError } = useGlobalError();
@@ -74,93 +75,98 @@ const SupportDashboard = () => {
 
   return (
     <DefaultLayout>
-      <div className="flex flex-col p-8" aria-busy={loading}>
-        <div className="flex flex-row justify-between items-center">
-          <p className="text-4xl font-semibold">Closed Tickets</p>
-        </div>
-        <div className="mt-12">
-          <PaginationWithItemsSelect
-            activePage={activePage}
-            totalPages={totalPages}
-            itemsPerPage={itemsPerPage}
-            setActivePageFn={setActivePage}
-            setItemsPerPageFn={setItemsPerPage}
-            totalLength={totalItems}
-            sort={true}
-            sortOptions={["opened", "closed", "priority"]}
-            activeSort={activeSort}
-            setActiveSortFn={setActiveSort}
-          />
-          <Table celled className="mt-4">
-            <Table.Header>
-              <Table.Row>
-                <Table.HeaderCell>ID</Table.HeaderCell>
-                <Table.HeaderCell>Date Opened</Table.HeaderCell>
-                <Table.HeaderCell>Subject</Table.HeaderCell>
-                <Table.HeaderCell>Requester</Table.HeaderCell>
-                <Table.HeaderCell>Assigned To</Table.HeaderCell>
-                <Table.HeaderCell>Priority</Table.HeaderCell>
-                <Table.HeaderCell>Date Closed</Table.HeaderCell>
-                <Table.HeaderCell>Actions</Table.HeaderCell>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {!loading &&
-                closedTickets?.map((ticket) => (
-                  <Table.Row key={ticket.uuid}>
-                    <Table.Cell>{ticket.uuid.slice(-7)}</Table.Cell>
-                    <Table.Cell>
-                      {format(
-                        parseISO(ticket.timeOpened),
-                        "MM/dd/yyyy hh:mm aa"
-                      )}
-                    </Table.Cell>
-                    <Table.Cell>{ticket.title}</Table.Cell>
-                    <Table.Cell>{getRequesterText(ticket)}</Table.Cell>
-                    <Table.Cell>
-                      {ticket.assignedUsers
-                        ? ticket.assignedUsers
-                            .map((u) => u.firstName)
-                            .join(", ")
-                        : "Unassigned"}
-                    </Table.Cell>
-                    <Table.Cell>
-                      {capitalizeFirstLetter(ticket.priority)}
-                    </Table.Cell>
-                    <Table.Cell>
-                      {ticket.timeClosed &&
-                        format(
-                          parseISO(ticket.timeClosed),
+      <div>
+        <div className="flex flex-col p-8" aria-busy={loading}>
+          <div className="flex flex-row justify-between items-center">
+            <p className="text-4xl font-semibold">Closed Tickets</p>
+          </div>
+          <div className="mt-12">
+            <PaginationWithItemsSelect
+              activePage={activePage}
+              totalPages={totalPages}
+              itemsPerPage={itemsPerPage}
+              setActivePageFn={setActivePage}
+              setItemsPerPageFn={setItemsPerPage}
+              totalLength={totalItems}
+              sort={true}
+              sortOptions={["opened", "closed", "priority"]}
+              activeSort={activeSort}
+              setActiveSortFn={setActiveSort}
+            />
+            <Table celled className="mt-4">
+              <Table.Header>
+                <Table.Row>
+                  <Table.HeaderCell>ID</Table.HeaderCell>
+                  <Table.HeaderCell>Date Opened</Table.HeaderCell>
+                  <Table.HeaderCell>Subject</Table.HeaderCell>
+                  <Table.HeaderCell>Requester</Table.HeaderCell>
+                  <Table.HeaderCell>Assigned To</Table.HeaderCell>
+                  <Table.HeaderCell>Priority</Table.HeaderCell>
+                  <Table.HeaderCell>Date Closed</Table.HeaderCell>
+                  <Table.HeaderCell>Actions</Table.HeaderCell>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {!loading &&
+                  closedTickets?.map((ticket) => (
+                    <Table.Row key={ticket.uuid}>
+                      <Table.Cell>{ticket.uuid.slice(-7)}</Table.Cell>
+                      <Table.Cell>
+                        {format(
+                          parseISO(ticket.timeOpened),
                           "MM/dd/yyyy hh:mm aa"
                         )}
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Button
-                        color="blue"
-                        size="tiny"
-                        onClick={() => openTicket(ticket.uuid)}
-                      >
-                        <Icon name="eye" />
-                        View
-                      </Button>
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-              {loading && <LoadingSpinner />}
-            </Table.Body>
-          </Table>
-          <PaginationWithItemsSelect
-            activePage={activePage}
-            totalPages={totalPages}
-            itemsPerPage={itemsPerPage}
-            setActivePageFn={setActivePage}
-            setItemsPerPageFn={setItemsPerPage}
-            totalLength={totalItems}
-            sort={true}
-            sortOptions={["opened", "closed", "priority"]}
-            activeSort={activeSort}
-            setActiveSortFn={setActiveSort}
-          />
+                      </Table.Cell>
+                      <Table.Cell>{ticket.title}</Table.Cell>
+                      <Table.Cell>{getRequesterText(ticket)}</Table.Cell>
+                      <Table.Cell>
+                        {ticket.assignedUsers
+                          ? ticket.assignedUsers
+                              .map((u) => u.firstName)
+                              .join(", ")
+                          : "Unassigned"}
+                      </Table.Cell>
+                      <Table.Cell>
+                        {capitalizeFirstLetter(ticket.priority)}
+                      </Table.Cell>
+                      <Table.Cell>
+                        {ticket.timeClosed &&
+                          format(
+                            parseISO(ticket.timeClosed),
+                            "MM/dd/yyyy hh:mm aa"
+                          )}
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Button
+                          color="blue"
+                          size="tiny"
+                          onClick={() => openTicket(ticket.uuid)}
+                        >
+                          <Icon name="eye" />
+                          View
+                        </Button>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                {loading && <LoadingSpinner />}
+              </Table.Body>
+            </Table>
+            <PaginationWithItemsSelect
+              activePage={activePage}
+              totalPages={totalPages}
+              itemsPerPage={itemsPerPage}
+              setActivePageFn={setActivePage}
+              setItemsPerPageFn={setItemsPerPage}
+              totalLength={totalItems}
+              sort={true}
+              sortOptions={["opened", "closed", "priority"]}
+              activeSort={activeSort}
+              setActiveSortFn={setActiveSort}
+            />
+          </div>
+        </div>
+        <div className="flex flex-col justify-end h-full">
+          <Footer />
         </div>
       </div>
     </DefaultLayout>

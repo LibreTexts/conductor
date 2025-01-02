@@ -27,7 +27,7 @@ import TextArea from '../TextArea';
 
 import { peerReviewPromptTypes } from '../util/ProjectHelpers';
 import { isEmptyString } from '../util/HelperFunctions.js';
-
+import Footer from '../navigation/Footer';
 import useGlobalError from '../error/ErrorHooks';
 
 const PeerReviewRubricManage = (props) => {
@@ -833,500 +833,503 @@ const PeerReviewRubricManage = (props) => {
     };
 
     return (
-        <Grid className='controlpanel-container' divided='vertically'>
-            <Grid.Row>
-                <Grid.Column width={16}>
-                    <Header className='component-header'>
-                        {manageMode === 'create' ? 'Create' : 'Edit'} Peer Review Rubric
-                    </Header>
-                </Grid.Column>
-            </Grid.Row>
-            <Grid.Row>
-                <Grid.Column width={16}>
-                    <Segment.Group>
-                        <Segment>
-                            <div className='flex-row-div'>
-                                <div className='left-flex'>
-                                    <Breadcrumb>
-                                        <Breadcrumb.Section as={Link} to='/controlpanel'>
-                                            Control Panel
-                                        </Breadcrumb.Section>
-                                        <Breadcrumb.Divider icon='right chevron' />
-                                        <Breadcrumb.Section as={Link} to='/controlpanel/peerreviewrubrics'>
-                                            Peer Review Rubrics
-                                        </Breadcrumb.Section>
-                                        <Breadcrumb.Divider icon='right chevron' />
-                                        <Breadcrumb.Section active>
-                                            {manageMode === 'create' ? 'Create' : 'Edit'} Peer Review Rubric
-                                        </Breadcrumb.Section>
-                                    </Breadcrumb>
-                                </div>
-                                <div className='right-flex'>
-                                    <span className='muted-text'>Last Updated: <em>{lastUpdated}</em></span>
-                                </div>
-                            </div>
-                        </Segment>
-                        <Segment loading={!loadedRubric}>
-                            {showChangesWarning &&
-                                <Message
-                                    warning         
-                                    icon='warning sign'
-                                    content='You have unsaved changes!'
-                                    className='mt-1p mb-2p'
-                                />
-                            }
-                            {showInstructions &&
-                                <>
-                                    <Segment raised color='blue'>
-                                        <div className='ui dividing header'>
-                                            <div className='hideablesection'>
-                                                <h3 className='header'>
-                                                    Editing Instructions
-                                                </h3>
-                                                <div className='button-container'>
-                                                    <Button
-                                                        compact
-                                                        floated='right'
-                                                        onClick={handleChangeInstructionsVis}
-                                                    >
-                                                        Hide
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <p>All Peer Review rubrics include by default:</p>
-                                        <ul>
-                                            <li>A <strong>First Name</strong> field <span className='muted-text'>(collected automatically if logged into Conductor)</span></li>
-                                            <li>A <strong>Last Name</strong> field <span className='muted-text'>(collected automatically if logged into Conductor)</span></li>
-                                            <li>An <strong>Email</strong> field <span className='muted-text'>(collected automatically if logged into Conductor, not visible to others)</span></li>
-                                            <li>A <strong>Reviewer Type</strong> field <span className='muted-text'>(Student or Instructor)</span></li>
-                                            <li>An <strong>Overall Rating</strong> (up to five stars) field</li>
-                                        </ul>
-                                        <p>A Peer Review rubric can consist of an unlimited number of the below blocks:</p>
-                                        <ul>
-                                            <li><strong>Headings</strong> indicate different sections of the rubric</li>
-                                            <li><strong>Text Blocks</strong> allow you to insert rubric instructions or additional information</li>
-                                            <li>
-                                                <span><strong>Prompts</strong> act as questions and inputs in the rubric. There are six different types of prompts:</span>
-                                                <ul>
-                                                    <li><strong>Three Point Likert Scale: </strong> Radio choice between <em>Disagree, Neutral, Agree</em></li>
-                                                    <li><strong>Five Point Likert Scale: </strong> Radio choice between <em>Strongly Disagree, Disagree, Neutral, Agree, Strongly Agree</em></li>
-                                                    <li><strong>Seven Point Likert Scale: </strong> Radio choice between <em>Strongly Disagree, Disagree, Somewhat Disagree, Neutral, Somewhat Agree, Agree, Strongly Agree</em></li>
-                                                    <li><strong>Text:</strong> Free-response textual input <span className='muted-text'>(up to 10,000 characters)</span></li>
-                                                    <li><strong>Dropdown:</strong> Input requiring a selection between custom dropdown options <span className='muted-text'>(up to 10 options)</span></li>
-                                                    <li><strong>Checkbox:</strong> Simple on/off checkbox <span className='muted-text'>(setting 'Required' indicates the box must be checked to submit)</span></li>
-                                                </ul>
-                                            </li>
-                                        </ul>
-                                        <p>Editing a Peer Review rubric <strong>will not</strong> affect previously submitted Peer Reviews: a snapshot of the rubric configuration is taken at the time of submission.</p>
-                                        <p>Peer Reviews in "public" projects can be viewed by the public. <strong>Never use a Peer Review rubric to collect sensitive personal information.</strong></p>
-                                    </Segment>
-                                </>
-                            }
-                            {!showInstructions &&
-                                <Segment color='blue'>
-                                    <div className='hiddensection'>
-                                        <div className='header-container'>
-                                            <Header as='h3'>Editing Instructions</Header>
-                                        </div>
-                                        <div className='button-container'>
-                                            <Button
-                                                floated='right'
-                                                onClick={handleChangeInstructionsVis}
-                                            >
-                                                Show
-                                            </Button>
-                                        </div>
+        <div className="h-screen flex flex-col">
+            <Grid className='controlpanel-container' divided='vertically'>
+                <Grid.Row>
+                    <Grid.Column width={16}>
+                        <Header className='component-header'>
+                            {manageMode === 'create' ? 'Create' : 'Edit'} Peer Review Rubric
+                        </Header>
+                    </Grid.Column>
+                </Grid.Row>
+                <Grid.Row>
+                    <Grid.Column width={16}>
+                        <Segment.Group>
+                            <Segment>
+                                <div className='flex-row-div'>
+                                    <div className='left-flex'>
+                                        <Breadcrumb>
+                                            <Breadcrumb.Section as={Link} to='/controlpanel'>
+                                                Control Panel
+                                            </Breadcrumb.Section>
+                                            <Breadcrumb.Divider icon='right chevron' />
+                                            <Breadcrumb.Section as={Link} to='/controlpanel/peerreviewrubrics'>
+                                                Peer Review Rubrics
+                                            </Breadcrumb.Section>
+                                            <Breadcrumb.Divider icon='right chevron' />
+                                            <Breadcrumb.Section active>
+                                                {manageMode === 'create' ? 'Create' : 'Edit'} Peer Review Rubric
+                                            </Breadcrumb.Section>
+                                        </Breadcrumb>
                                     </div>
-                                </Segment>
-                            }
-                            <Segment className='mt-4p mb-3p'>
-                                <Header as='p' size='medium'>General Rubric Settings</Header>
-                                <Form noValidate>
-                                    <Form.Input
-                                        type='text'
-                                        value={rubricTitle}
-                                        onChange={(_e, { value }) => setRubricTitle(value)}
-                                        error={rubricTitleErr}
-                                        disabled={disableRubricTitle}
-                                        label='Rubric Title'
-                                        placeholder='Enter Rubric Title...'
-                                    />
-                                    <Form.Checkbox
-                                        label='Use as Campus Default Rubric'
-                                        checked={rubricOrgDefault === true}
-                                        onChange={handleSetDefaultRubric}
-                                        disabled={disableRubricOrgDefault}
-                                    />
-                                </Form>
+                                    <div className='right-flex'>
+                                        <span className='muted-text'>Last Updated: <em>{lastUpdated}</em></span>
+                                    </div>
+                                </div>
                             </Segment>
-                            <div className='peerreview-rubricedit-container'>
-                                <Header as='p' size='large'>New Peer Review</Header>
-                                {allElements.map((item) => {
-                                    let itemType = 'Unknown';
-                                    let responseType = 'N/A';
-                                    if (item.uiType === 'heading') {
-                                        itemType = 'Heading';
-                                    } else if (item.uiType === 'textBlock') {
-                                        itemType = 'Text Block';
-                                    } else if (item.uiType === 'prompt') {
-                                        itemType = 'Prompt';
-                                        if (item.promptType === '3-likert') {
-                                            responseType = '3-Point Likert';
-                                        } else if (item.promptType === '5-likert') {
-                                            responseType = '5-Point Likert';
-                                        } else if (item.promptType === '7-likert') {
-                                            responseType = '7-Point Likert';
-                                        } else if (item.promptType === 'text') {
-                                            responseType = 'Text';
-                                        } else if (item.promptType === 'dropdown') {
-                                            responseType = 'Dropdown';
-                                        } else if (item.promptType === 'checkbox') {
-                                            responseType = 'Checkbox';
-                                        }
-                                    }
-                                    return (
-                                        <Segment key={item.order}>
-                                            <Label attached='top left' className='peerreview-rubricedit-label'>
-                                                <Button.Group size='tiny'>
-                                                    <Button
-                                                        icon='arrow up'
-                                                        onClick={() => handleMoveBlock(item, 'up')}
-                                                    />
-                                                    <Button
-                                                        icon='arrow down'
-                                                        onClick={() => handleMoveBlock(item, 'down')}
-                                                    />
-                                                </Button.Group>
-                                                <span className='ml-1r'><strong>#{item.order}:</strong> {itemType}</span>
-                                            </Label>
-                                            <div className='flex-row-div'>
-                                                <div className='left-flex'>
-                                                    {(item.uiType === 'heading') && (
-                                                        <div className='flex-col-div'>
-                                                            <Header size='medium' as='span'>{item.text}</Header>
-                                                        </div>
-                                                    )}
-                                                    {(item.uiType === 'textBlock') && (
-                                                        <div className='flex-col-div'>
-                                                            <p className='prose prose-code:before:hidden prose-code:after:hidden'
-                                                                dangerouslySetInnerHTML={{
-                                                                    __html: DOMPurify.sanitize(marked(item.text))
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    )}
-                                                    {(item.uiType === 'prompt') && (
-                                                        <div className='flex-col-div'>
-                                                            <p><strong>Prompt: </strong> {item.promptText}</p>
-                                                            <p>
-                                                                <strong>Response Type{(item.promptRequired === true) && <span> (required)</span>}: </strong>
-                                                                <em> {responseType}
-                                                                    {item.promptType === 'text' && <span className='muted-text'> (free response, max 10,000 characters)</span>}
-                                                                    {(item.promptType === 'dropdown' && Array.isArray(item.promptOptions)) && (
-                                                                        <span className='muted-text'> ({item.promptOptions?.length} options)</span>
-                                                                    )}
-                                                                </em>
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className='right-flex'>
-                                                    <Button.Group>
+                            <Segment loading={!loadedRubric}>
+                                {showChangesWarning &&
+                                    <Message
+                                        warning         
+                                        icon='warning sign'
+                                        content='You have unsaved changes!'
+                                        className='mt-1p mb-2p'
+                                    />
+                                }
+                                {showInstructions &&
+                                    <>
+                                        <Segment raised color='blue'>
+                                            <div className='ui dividing header'>
+                                                <div className='hideablesection'>
+                                                    <h3 className='header'>
+                                                        Editing Instructions
+                                                    </h3>
+                                                    <div className='button-container'>
                                                         <Button
-                                                            className='peerreview-rubricedit-editblockbtn'
-                                                            color='teal'
-                                                            onClick={() => {
-                                                                if (item.uiType === 'heading') {
-                                                                    openHeadingModal('edit', item.order);
-                                                                } else if (item.uiType === 'textBlock') {
-                                                                    openTextModal('edit', item.order);
-                                                                } else if (item.uiType === 'prompt') {
-                                                                    openPromptModal('edit', item.order);
-                                                                }
-                                                            }}
+                                                            compact
+                                                            floated='right'
+                                                            onClick={handleChangeInstructionsVis}
                                                         >
-                                                            <Icon name='pencil' />
-                                                            Edit {itemType}
+                                                            Hide
                                                         </Button>
-                                                        <Button
-                                                            color='red'
-                                                            onClick={() => openDeleteBlockModal(item, itemType)}
-                                                        >
-                                                            <Icon name='trash' />
-                                                            Delete
-                                                        </Button>
-                                                    </Button.Group>
+                                                    </div>
                                                 </div>
                                             </div>
+                                            <p>All Peer Review rubrics include by default:</p>
+                                            <ul>
+                                                <li>A <strong>First Name</strong> field <span className='muted-text'>(collected automatically if logged into Conductor)</span></li>
+                                                <li>A <strong>Last Name</strong> field <span className='muted-text'>(collected automatically if logged into Conductor)</span></li>
+                                                <li>An <strong>Email</strong> field <span className='muted-text'>(collected automatically if logged into Conductor, not visible to others)</span></li>
+                                                <li>A <strong>Reviewer Type</strong> field <span className='muted-text'>(Student or Instructor)</span></li>
+                                                <li>An <strong>Overall Rating</strong> (up to five stars) field</li>
+                                            </ul>
+                                            <p>A Peer Review rubric can consist of an unlimited number of the below blocks:</p>
+                                            <ul>
+                                                <li><strong>Headings</strong> indicate different sections of the rubric</li>
+                                                <li><strong>Text Blocks</strong> allow you to insert rubric instructions or additional information</li>
+                                                <li>
+                                                    <span><strong>Prompts</strong> act as questions and inputs in the rubric. There are six different types of prompts:</span>
+                                                    <ul>
+                                                        <li><strong>Three Point Likert Scale: </strong> Radio choice between <em>Disagree, Neutral, Agree</em></li>
+                                                        <li><strong>Five Point Likert Scale: </strong> Radio choice between <em>Strongly Disagree, Disagree, Neutral, Agree, Strongly Agree</em></li>
+                                                        <li><strong>Seven Point Likert Scale: </strong> Radio choice between <em>Strongly Disagree, Disagree, Somewhat Disagree, Neutral, Somewhat Agree, Agree, Strongly Agree</em></li>
+                                                        <li><strong>Text:</strong> Free-response textual input <span className='muted-text'>(up to 10,000 characters)</span></li>
+                                                        <li><strong>Dropdown:</strong> Input requiring a selection between custom dropdown options <span className='muted-text'>(up to 10 options)</span></li>
+                                                        <li><strong>Checkbox:</strong> Simple on/off checkbox <span className='muted-text'>(setting 'Required' indicates the box must be checked to submit)</span></li>
+                                                    </ul>
+                                                </li>
+                                            </ul>
+                                            <p>Editing a Peer Review rubric <strong>will not</strong> affect previously submitted Peer Reviews: a snapshot of the rubric configuration is taken at the time of submission.</p>
+                                            <p>Peer Reviews in "public" projects can be viewed by the public. <strong>Never use a Peer Review rubric to collect sensitive personal information.</strong></p>
                                         </Segment>
-                                    )
-                                })}
-                                <div className='peerreview-rubricedit-placeholder'>
-                                    <Button.Group fluid color='blue'>
-                                        <Button onClick={openHeadingModal}>
-                                            <Icon name='heading' />
-                                            Add Heading
-                                        </Button>
-                                        <Button onClick={openTextModal}>
-                                            <Icon name='paragraph' />
-                                            Add Text
-                                        </Button>
-                                        <Button onClick={openPromptModal}>
-                                            <Icon name='question' />
-                                            Add Prompt
-                                        </Button>
-                                    </Button.Group>
+                                    </>
+                                }
+                                {!showInstructions &&
+                                    <Segment color='blue'>
+                                        <div className='hiddensection'>
+                                            <div className='header-container'>
+                                                <Header as='h3'>Editing Instructions</Header>
+                                            </div>
+                                            <div className='button-container'>
+                                                <Button
+                                                    floated='right'
+                                                    onClick={handleChangeInstructionsVis}
+                                                >
+                                                    Show
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </Segment>
+                                }
+                                <Segment className='mt-4p mb-3p'>
+                                    <Header as='p' size='medium'>General Rubric Settings</Header>
+                                    <Form noValidate>
+                                        <Form.Input
+                                            type='text'
+                                            value={rubricTitle}
+                                            onChange={(_e, { value }) => setRubricTitle(value)}
+                                            error={rubricTitleErr}
+                                            disabled={disableRubricTitle}
+                                            label='Rubric Title'
+                                            placeholder='Enter Rubric Title...'
+                                        />
+                                        <Form.Checkbox
+                                            label='Use as Campus Default Rubric'
+                                            checked={rubricOrgDefault === true}
+                                            onChange={handleSetDefaultRubric}
+                                            disabled={disableRubricOrgDefault}
+                                        />
+                                    </Form>
+                                </Segment>
+                                <div className='peerreview-rubricedit-container'>
+                                    <Header as='p' size='large'>New Peer Review</Header>
+                                    {allElements.map((item) => {
+                                        let itemType = 'Unknown';
+                                        let responseType = 'N/A';
+                                        if (item.uiType === 'heading') {
+                                            itemType = 'Heading';
+                                        } else if (item.uiType === 'textBlock') {
+                                            itemType = 'Text Block';
+                                        } else if (item.uiType === 'prompt') {
+                                            itemType = 'Prompt';
+                                            if (item.promptType === '3-likert') {
+                                                responseType = '3-Point Likert';
+                                            } else if (item.promptType === '5-likert') {
+                                                responseType = '5-Point Likert';
+                                            } else if (item.promptType === '7-likert') {
+                                                responseType = '7-Point Likert';
+                                            } else if (item.promptType === 'text') {
+                                                responseType = 'Text';
+                                            } else if (item.promptType === 'dropdown') {
+                                                responseType = 'Dropdown';
+                                            } else if (item.promptType === 'checkbox') {
+                                                responseType = 'Checkbox';
+                                            }
+                                        }
+                                        return (
+                                            <Segment key={item.order}>
+                                                <Label attached='top left' className='peerreview-rubricedit-label'>
+                                                    <Button.Group size='tiny'>
+                                                        <Button
+                                                            icon='arrow up'
+                                                            onClick={() => handleMoveBlock(item, 'up')}
+                                                        />
+                                                        <Button
+                                                            icon='arrow down'
+                                                            onClick={() => handleMoveBlock(item, 'down')}
+                                                        />
+                                                    </Button.Group>
+                                                    <span className='ml-1r'><strong>#{item.order}:</strong> {itemType}</span>
+                                                </Label>
+                                                <div className='flex-row-div'>
+                                                    <div className='left-flex'>
+                                                        {(item.uiType === 'heading') && (
+                                                            <div className='flex-col-div'>
+                                                                <Header size='medium' as='span'>{item.text}</Header>
+                                                            </div>
+                                                        )}
+                                                        {(item.uiType === 'textBlock') && (
+                                                            <div className='flex-col-div'>
+                                                                <p className='prose prose-code:before:hidden prose-code:after:hidden'
+                                                                    dangerouslySetInnerHTML={{
+                                                                        __html: DOMPurify.sanitize(marked(item.text))
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        {(item.uiType === 'prompt') && (
+                                                            <div className='flex-col-div'>
+                                                                <p><strong>Prompt: </strong> {item.promptText}</p>
+                                                                <p>
+                                                                    <strong>Response Type{(item.promptRequired === true) && <span> (required)</span>}: </strong>
+                                                                    <em> {responseType}
+                                                                        {item.promptType === 'text' && <span className='muted-text'> (free response, max 10,000 characters)</span>}
+                                                                        {(item.promptType === 'dropdown' && Array.isArray(item.promptOptions)) && (
+                                                                            <span className='muted-text'> ({item.promptOptions?.length} options)</span>
+                                                                        )}
+                                                                    </em>
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className='right-flex'>
+                                                        <Button.Group>
+                                                            <Button
+                                                                className='peerreview-rubricedit-editblockbtn'
+                                                                color='teal'
+                                                                onClick={() => {
+                                                                    if (item.uiType === 'heading') {
+                                                                        openHeadingModal('edit', item.order);
+                                                                    } else if (item.uiType === 'textBlock') {
+                                                                        openTextModal('edit', item.order);
+                                                                    } else if (item.uiType === 'prompt') {
+                                                                        openPromptModal('edit', item.order);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <Icon name='pencil' />
+                                                                Edit {itemType}
+                                                            </Button>
+                                                            <Button
+                                                                color='red'
+                                                                onClick={() => openDeleteBlockModal(item, itemType)}
+                                                            >
+                                                                <Icon name='trash' />
+                                                                Delete
+                                                            </Button>
+                                                        </Button.Group>
+                                                    </div>
+                                                </div>
+                                            </Segment>
+                                        )
+                                    })}
+                                    <div className='peerreview-rubricedit-placeholder'>
+                                        <Button.Group fluid color='blue'>
+                                            <Button onClick={openHeadingModal}>
+                                                <Icon name='heading' />
+                                                Add Heading
+                                            </Button>
+                                            <Button onClick={openTextModal}>
+                                                <Icon name='paragraph' />
+                                                Add Text
+                                            </Button>
+                                            <Button onClick={openPromptModal}>
+                                                <Icon name='question' />
+                                                Add Prompt
+                                            </Button>
+                                        </Button.Group>
+                                    </div>
                                 </div>
-                            </div>
-                            <Divider className='mt-2p' />
-                            <Button.Group fluid>
+                                <Divider className='mt-2p' />
+                                <Button.Group fluid>
+                                    <Button
+                                        as={Link}
+                                        to='/controlpanel/peerreviewrubrics'
+                                    >
+                                        <Icon name='cancel' />
+                                        Discard Changes
+                                    </Button>
+                                    <Button
+                                        color='green'
+                                        loading={changesSaving}
+                                        onClick={saveRubricChanges}
+                                    >
+                                        <Icon name='save' />
+                                        <span>Save Changes</span>
+                                    </Button>
+                                </Button.Group>
+                            </Segment>
+                        </Segment.Group>
+                        {/* Heading Modal */}
+                        <Modal
+                            open={showHeadingModal}
+                            onClose={closeHeadingModal}
+                        >
+                            <Modal.Header>{(hmMode === 'add') ? 'Add' : 'Edit'} Heading</Modal.Header>
+                            <Modal.Content>
+                                <Input
+                                    type='text'
+                                    value={hmHeading}
+                                    onChange={(_e, { value }) => setHMHeading(value)}
+                                    fluid
+                                    placeholder={`Enter ${hmMode === 'add' && 'new'} heading text...`}
+                                    error={hmError}
+                                />
+                            </Modal.Content>
+                            <Modal.Actions>
                                 <Button
-                                    as={Link}
-                                    to='/controlpanel/peerreviewrubrics'
+                                    onClick={closeHeadingModal}
                                 >
-                                    <Icon name='cancel' />
-                                    Discard Changes
+                                    Cancel
                                 </Button>
                                 <Button
                                     color='green'
-                                    loading={changesSaving}
-                                    onClick={saveRubricChanges}
+                                    loading={hmLoading}
+                                    onClick={handleSaveHeading}
                                 >
-                                    <Icon name='save' />
-                                    <span>Save Changes</span>
+                                    <Icon name={hmMode === 'add' ? 'add' : 'save'} />
+                                    {hmMode === 'add' ? 'Add' : 'Save'} Heading
                                 </Button>
-                            </Button.Group>
-                        </Segment>
-                    </Segment.Group>
-                    {/* Heading Modal */}
-                    <Modal
-                        open={showHeadingModal}
-                        onClose={closeHeadingModal}
-                    >
-                        <Modal.Header>{(hmMode === 'add') ? 'Add' : 'Edit'} Heading</Modal.Header>
-                        <Modal.Content>
-                            <Input
-                                type='text'
-                                value={hmHeading}
-                                onChange={(_e, { value }) => setHMHeading(value)}
-                                fluid
-                                placeholder={`Enter ${hmMode === 'add' && 'new'} heading text...`}
-                                error={hmError}
-                            />
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                onClick={closeHeadingModal}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                color='green'
-                                loading={hmLoading}
-                                onClick={handleSaveHeading}
-                            >
-                                <Icon name={hmMode === 'add' ? 'add' : 'save'} />
-                                {hmMode === 'add' ? 'Add' : 'Save'} Heading
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
-                    {/* Text Modal */}
-                    <Modal
-                        open={showTextModal}
-                        onClose={closeTextModal}
-                    >
-                        <Modal.Header>{(tmMode === 'add') ? 'Add' : 'Edit'} Text Block</Modal.Header>
-                        <Modal.Content>
-                            <TextArea
-                                placeholder={`Enter ${tmMode === 'add' && 'new'} text...`}
-                                textValue={tmText}
-                                onTextChange={(value) => setTMText(value)}
-                                contentType='text block'
-                                error={tmError}
-                            />
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                onClick={closeTextModal}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                color='green'
-                                loading={tmLoading}
-                                onClick={handleSaveTextBlock}
-                            >
-                                <Icon name={tmMode === 'add' ? 'add' : 'save'} />
-                                {(tmMode === 'add') ? 'Add' : 'Save'} Text Block
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
-                    {/* Add Prompt Modal */}
-                    <Modal
-                        open={showPromptModal}
-                        onClose={closePromptModal}
-                    >
-                        <Modal.Header>{(pmMode === 'add') ? 'Add' : 'Edit'} Prompt</Modal.Header>
-                        <Modal.Content>
-                            <Form noValidate>
-                                <Form.Select
-                                    options={peerReviewPromptTypes}
-                                    value={pmType}
-                                    onChange={(_e, { value }) => setPMType(value)}
-                                    placeholder='Prompt Type...'
-                                    label='Prompt Type'
-                                    fluid
-                                    selection
-                                    error={pmTypeError}
+                            </Modal.Actions>
+                        </Modal>
+                        {/* Text Modal */}
+                        <Modal
+                            open={showTextModal}
+                            onClose={closeTextModal}
+                        >
+                            <Modal.Header>{(tmMode === 'add') ? 'Add' : 'Edit'} Text Block</Modal.Header>
+                            <Modal.Content>
+                                <TextArea
+                                    placeholder={`Enter ${tmMode === 'add' && 'new'} text...`}
+                                    textValue={tmText}
+                                    onTextChange={(value) => setTMText(value)}
+                                    contentType='text block'
+                                    error={tmError}
                                 />
-                                {(pmType !== '') && (
-                                    <>
-                                        <Form.Input
-                                            type='text'
-                                            value={pmText}
-                                            onChange={(_e, { value }) => setPMText(value)}
-                                            fluid
-                                            label='Prompt Text'
-                                            placeholder='Enter prompt/instructions/question...'
-                                            error={pmTextError}
-                                        />
-                                        <Form.Group inline>
-                                            <label>Set Required?</label>
-                                            <Form.Radio
-                                                label='Yes'
-                                                checked={pmRequired === true}
-                                                onChange={(_e, _data) => setPMRequired(true)}
+                            </Modal.Content>
+                            <Modal.Actions>
+                                <Button
+                                    onClick={closeTextModal}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    color='green'
+                                    loading={tmLoading}
+                                    onClick={handleSaveTextBlock}
+                                >
+                                    <Icon name={tmMode === 'add' ? 'add' : 'save'} />
+                                    {(tmMode === 'add') ? 'Add' : 'Save'} Text Block
+                                </Button>
+                            </Modal.Actions>
+                        </Modal>
+                        {/* Add Prompt Modal */}
+                        <Modal
+                            open={showPromptModal}
+                            onClose={closePromptModal}
+                        >
+                            <Modal.Header>{(pmMode === 'add') ? 'Add' : 'Edit'} Prompt</Modal.Header>
+                            <Modal.Content>
+                                <Form noValidate>
+                                    <Form.Select
+                                        options={peerReviewPromptTypes}
+                                        value={pmType}
+                                        onChange={(_e, { value }) => setPMType(value)}
+                                        placeholder='Prompt Type...'
+                                        label='Prompt Type'
+                                        fluid
+                                        selection
+                                        error={pmTypeError}
+                                    />
+                                    {(pmType !== '') && (
+                                        <>
+                                            <Form.Input
+                                                type='text'
+                                                value={pmText}
+                                                onChange={(_e, { value }) => setPMText(value)}
+                                                fluid
+                                                label='Prompt Text'
+                                                placeholder='Enter prompt/instructions/question...'
+                                                error={pmTextError}
                                             />
-                                            <Form.Radio
-                                                label='No'
-                                                checked={pmRequired === false}
-                                                onChange={(_e, _data) => setPMRequired(false)}
-                                            />
-                                        </Form.Group>
-                                        {(pmType === 'dropdown') && (
-                                            <>
-                                                <Header size='tiny' as='span'>Dropdown Options <span className='muted-text'>(up to 25)</span></Header>
-                                                <List divided>
-                                                    {pmDropdownOpts.map((item, idx) => {
-                                                        return (
-                                                            <List.Item key={idx}>
-                                                                <div className='flex-row-div'>
-                                                                    <div className='left-flex'>
-                                                                        <span>{item.text}</span>
+                                            <Form.Group inline>
+                                                <label>Set Required?</label>
+                                                <Form.Radio
+                                                    label='Yes'
+                                                    checked={pmRequired === true}
+                                                    onChange={(_e, _data) => setPMRequired(true)}
+                                                />
+                                                <Form.Radio
+                                                    label='No'
+                                                    checked={pmRequired === false}
+                                                    onChange={(_e, _data) => setPMRequired(false)}
+                                                />
+                                            </Form.Group>
+                                            {(pmType === 'dropdown') && (
+                                                <>
+                                                    <Header size='tiny' as='span'>Dropdown Options <span className='muted-text'>(up to 25)</span></Header>
+                                                    <List divided>
+                                                        {pmDropdownOpts.map((item, idx) => {
+                                                            return (
+                                                                <List.Item key={idx}>
+                                                                    <div className='flex-row-div'>
+                                                                        <div className='left-flex'>
+                                                                            <span>{item.text}</span>
+                                                                        </div>
+                                                                        <div className='right-flex'>
+                                                                            <Button.Group>
+                                                                                <Popup
+                                                                                    trigger={(
+                                                                                        <Button
+                                                                                            icon
+                                                                                            onClick={() => handleMoveDropdownPromptOption(idx, 'up')}
+                                                                                        >
+                                                                                            <Icon name='arrow up' />
+                                                                                        </Button>
+                                                                                    )}
+                                                                                    position='top center'
+                                                                                    content='Move Up'
+                                                                                />
+                                                                                <Popup
+                                                                                    trigger={(
+                                                                                        <Button
+                                                                                            icon
+                                                                                            onClick={() => handleMoveDropdownPromptOption(idx, 'down')}
+                                                                                        >
+                                                                                            <Icon name='arrow down' />
+                                                                                        </Button>
+                                                                                    )}
+                                                                                    position='top center'
+                                                                                    content='Move Down'
+                                                                                />
+                                                                                <Popup
+                                                                                    trigger={(
+                                                                                        <Button
+                                                                                            icon
+                                                                                            color='red'
+                                                                                            onClick={() => handleDeleteDropdownPromptOption(idx)}
+                                                                                        >
+                                                                                            <Icon name='trash' />
+                                                                                        </Button>
+                                                                                    )}
+                                                                                    position='top center'
+                                                                                    content='Remove'
+                                                                                />
+                                                                            </Button.Group>
+                                                                        </div>
                                                                     </div>
-                                                                    <div className='right-flex'>
-                                                                        <Button.Group>
-                                                                            <Popup
-                                                                                trigger={(
-                                                                                    <Button
-                                                                                        icon
-                                                                                        onClick={() => handleMoveDropdownPromptOption(idx, 'up')}
-                                                                                    >
-                                                                                        <Icon name='arrow up' />
-                                                                                    </Button>
-                                                                                )}
-                                                                                position='top center'
-                                                                                content='Move Up'
-                                                                            />
-                                                                            <Popup
-                                                                                trigger={(
-                                                                                    <Button
-                                                                                        icon
-                                                                                        onClick={() => handleMoveDropdownPromptOption(idx, 'down')}
-                                                                                    >
-                                                                                        <Icon name='arrow down' />
-                                                                                    </Button>
-                                                                                )}
-                                                                                position='top center'
-                                                                                content='Move Down'
-                                                                            />
-                                                                            <Popup
-                                                                                trigger={(
-                                                                                    <Button
-                                                                                        icon
-                                                                                        color='red'
-                                                                                        onClick={() => handleDeleteDropdownPromptOption(idx)}
-                                                                                    >
-                                                                                        <Icon name='trash' />
-                                                                                    </Button>
-                                                                                )}
-                                                                                position='top center'
-                                                                                content='Remove'
-                                                                            />
-                                                                        </Button.Group>
-                                                                    </div>
-                                                                </div>
+                                                                </List.Item>
+                                                            )
+                                                        })}
+                                                        {(pmDropdownOpts.length < 25) && (
+                                                            <List.Item key='new'>
+                                                                <Input
+                                                                    type='text'
+                                                                    value={pmDropdownNew}
+                                                                    onChange={(_e, { value }) => setPMDropdownNew(value)}
+                                                                    placeholder='Enter option text...'
+                                                                    action={{
+                                                                        color: 'green',
+                                                                        labelPosition: 'right',
+                                                                        icon: 'add',
+                                                                        content: 'Add Option',
+                                                                        onClick: handleAddDropdownPromptOption
+                                                                    }}
+                                                                    fluid
+                                                                    error={pmDropdownError}
+                                                                    className='mt-2p'
+                                                                />
                                                             </List.Item>
-                                                        )
-                                                    })}
-                                                    {(pmDropdownOpts.length < 25) && (
-                                                        <List.Item key='new'>
-                                                            <Input
-                                                                type='text'
-                                                                value={pmDropdownNew}
-                                                                onChange={(_e, { value }) => setPMDropdownNew(value)}
-                                                                placeholder='Enter option text...'
-                                                                action={{
-                                                                    color: 'green',
-                                                                    labelPosition: 'right',
-                                                                    icon: 'add',
-                                                                    content: 'Add Option',
-                                                                    onClick: handleAddDropdownPromptOption
-                                                                }}
-                                                                fluid
-                                                                error={pmDropdownError}
-                                                                className='mt-2p'
-                                                            />
-                                                        </List.Item>
-                                                    )}
-                                                </List>
-                                            </>
-                                        )}
-                                    </>
-                                )}
-                            </Form>
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                onClick={closePromptModal}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                color='green'
-                                loading={pmLoading}
-                                onClick={handleSavePrompt}
-                            >
-                                <Icon name={pmMode === 'add' ? 'add' : 'save'} />
-                                {pmMode === 'add' ? 'Add' : 'Save'} Prompt
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
-                    {/* Delete Block Modal */}
-                    <Modal
-                        open={showDBModal}
-                        onClose={closeDeleteBlockModal}
-                    >
-                        <Modal.Header>Delete Block</Modal.Header>
-                        <Modal.Content>
-                            <p>Are you sure you want to delete this <strong>{dbType}</strong> block?</p>
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button onClick={closeDeleteBlockModal}>Cancel</Button>
-                            <Button
-                                loading={dbLoading}
-                                color='red'
-                                onClick={handleDeleteBlock}
-                            >
-                                <Icon name='trash' />
-                                Delete Block
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
-                </Grid.Column>
-            </Grid.Row>
-        </Grid>
+                                                        )}
+                                                    </List>
+                                                </>
+                                            )}
+                                        </>
+                                    )}
+                                </Form>
+                            </Modal.Content>
+                            <Modal.Actions>
+                                <Button
+                                    onClick={closePromptModal}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    color='green'
+                                    loading={pmLoading}
+                                    onClick={handleSavePrompt}
+                                >
+                                    <Icon name={pmMode === 'add' ? 'add' : 'save'} />
+                                    {pmMode === 'add' ? 'Add' : 'Save'} Prompt
+                                </Button>
+                            </Modal.Actions>
+                        </Modal>
+                        {/* Delete Block Modal */}
+                        <Modal
+                            open={showDBModal}
+                            onClose={closeDeleteBlockModal}
+                        >
+                            <Modal.Header>Delete Block</Modal.Header>
+                            <Modal.Content>
+                                <p>Are you sure you want to delete this <strong>{dbType}</strong> block?</p>
+                            </Modal.Content>
+                            <Modal.Actions>
+                                <Button onClick={closeDeleteBlockModal}>Cancel</Button>
+                                <Button
+                                    loading={dbLoading}
+                                    color='red'
+                                    onClick={handleDeleteBlock}
+                                >
+                                    <Icon name='trash' />
+                                    Delete Block
+                                </Button>
+                            </Modal.Actions>
+                        </Modal>
+                    </Grid.Column>
+                </Grid.Row>
+            </Grid>
+            <div className="flex flex-col justify-end h-full"><Footer /></div>
+        </div>
     )
 
 }

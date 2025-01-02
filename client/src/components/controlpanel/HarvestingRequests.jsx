@@ -22,7 +22,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
-
+import Footer from '../navigation/Footer';
 import DateInput from '../DateInput/index.tsx';
 
 import {
@@ -372,388 +372,393 @@ const HarvestingRequests = (props) => {
     };
 
     return (
-        <Grid className='controlpanel-container' divided='vertically'>
-            <Grid.Row>
-                <Grid.Column width={16}>
-                    <Header className='component-header'>Harvesting Requests</Header>
-                </Grid.Column>
-            </Grid.Row>
-            <Grid.Row>
-                <Grid.Column width={16}>
-                    <Segment.Group>
-                        <Segment>
-                            <Breadcrumb>
-                                <Breadcrumb.Section as={Link} to='/controlpanel'>
-                                    Control Panel
-                                </Breadcrumb.Section>
-                                <Breadcrumb.Divider icon='right chevron' />
-                                <Breadcrumb.Section active>
-                                    Harvesting Requests
-                                </Breadcrumb.Section>
-                            </Breadcrumb>
-                        </Segment>
-                        <Segment>
-                            <div id='adoptionreports-filteroptions'>
-                                <Form className='mt-1p'>
-                                    <Form.Group inline>
-                                        <Form.Field inline>
-                                            <DateInput
-                                                value={fromDate}
-                                                onChange={(value) => setFromDate(value)}
-                                                label='From'
-                                                inlineLabel={true}
-                                            />
-                                        </Form.Field>
-                                        <Form.Field inline>
-                                            <DateInput
-                                                value={toDate}
-                                                onChange={(value) => setToDate(value)}
-                                                label='To'
-                                                inlineLabel={true}
-                                            />
-                                        </Form.Field>
-                                        <Form.Field inline>
-                                            <label>Sort by</label>
-                                            <Dropdown
-                                                placeholder='Sort by...'
-                                                floating
-                                                selection
-                                                button
-                                                options={sortOptions}
-                                                onChange={(e, { value }) => { setSortChoice(value) }}
-                                                value={sortChoice}
-                                            />
-                                        </Form.Field>
+        <div className="h-screen flex flex-col">
+            <Grid className='controlpanel-container' divided='vertically'>
+                <Grid.Row>
+                    <Grid.Column width={16}>
+                        <Header className='component-header'>Harvesting Requests</Header>
+                    </Grid.Column>
+                </Grid.Row>
+                <Grid.Row>
+                    <Grid.Column width={16}>
+                        <Segment.Group>
+                            <Segment>
+                                <Breadcrumb>
+                                    <Breadcrumb.Section as={Link} to='/controlpanel'>
+                                        Control Panel
+                                    </Breadcrumb.Section>
+                                    <Breadcrumb.Divider icon='right chevron' />
+                                    <Breadcrumb.Section active>
+                                        Harvesting Requests
+                                    </Breadcrumb.Section>
+                                </Breadcrumb>
+                            </Segment>
+                            <Segment>
+                                <div id='adoptionreports-filteroptions'>
+                                    <Form className='mt-1p'>
+                                        <Form.Group inline>
+                                            <Form.Field inline>
+                                                <DateInput
+                                                    value={fromDate}
+                                                    onChange={(value) => setFromDate(value)}
+                                                    label='From'
+                                                    inlineLabel={true}
+                                                />
+                                            </Form.Field>
+                                            <Form.Field inline>
+                                                <DateInput
+                                                    value={toDate}
+                                                    onChange={(value) => setToDate(value)}
+                                                    label='To'
+                                                    inlineLabel={true}
+                                                />
+                                            </Form.Field>
+                                            <Form.Field inline>
+                                                <label>Sort by</label>
+                                                <Dropdown
+                                                    placeholder='Sort by...'
+                                                    floating
+                                                    selection
+                                                    button
+                                                    options={sortOptions}
+                                                    onChange={(e, { value }) => { setSortChoice(value) }}
+                                                    value={sortChoice}
+                                                />
+                                            </Form.Field>
 
-                                        <Form.Field>
-                                            <Checkbox
-                                                checked={includeDeclined}
-                                                onChange={() => setIncludeDeclined((prev) => !prev)}
-                                                label='Include Declined'
-                                            />
-                                        </Form.Field>
-                                    </Form.Group>
-                                    </Form>
-                            </div>
-                        </Segment>
-                        <Segment>
-                            <Table striped celled fixed>
-                                <Table.Header>
-                                    <Table.Row>
-                                        <Table.HeaderCell>
-                                            {(sortChoice === 'date')
-                                                ? <span><em>Date</em></span>
-                                                : <span>Date</span>
-                                            }
-                                        </Table.HeaderCell>
-                                        <Table.HeaderCell>
-                                            {(sortChoice === 'reqdate')
-                                                ? <span><em>Requested Harvest Date</em></span>
-                                                : <span>Requested Harvest Date</span>
-                                            }
-                                        </Table.HeaderCell>
-                                        <Table.HeaderCell>
-                                            {(sortChoice === 'resname')
-                                                ? <span><em>Resource Title</em></span>
-                                                : <span>Resource Name</span>
-                                            }
-                                        </Table.HeaderCell>
-                                        <Table.HeaderCell>
-                                            {(sortChoice === 'reslib')
-                                                ? <span><em>Resource Library</em></span>
-                                                : <span>Resource Library</span>
-                                            }
-                                        </Table.HeaderCell>
-                                        <Table.HeaderCell>
-                                            {(sortChoice === 'license')
-                                                ? <span><em>License</em></span>
-                                                : <span>License</span>
-                                            }
-                                        </Table.HeaderCell>
-                                        <Table.HeaderCell>
-                                            {(sortChoice === 'institution')
-                                                ? <span><em>Institution</em></span>
-                                                : <span>Institution</span>
-                                            }
-                                        </Table.HeaderCell>
-                                        <Table.HeaderCell>
-                                            {(sortChoice === 'status')
-                                                ? <span><em>Status</em></span>
-                                                : <span>Status</span>
-                                            }
-                                        </Table.HeaderCell>
-                                        <Table.HeaderCell>
-                                            <span>Name</span>
-                                        </Table.HeaderCell>
-                                    </Table.Row>
-                                </Table.Header>
-                                <Table.Body>
-                                    {(harvestingRequests.length > 0) &&
-                                        sortedRequests.map((item, idx) => {
-                                            return (
-                                                <Table.Row key={idx}>
-                                                    <Table.Cell>
-                                                        <span className='text-link' onClick={() => { openHRVModal(idx) }}>
-                                                            {parseDateAndTime(item.createdAt)}
-                                                        </span>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <span>{parseDate(item.dateIntegrate)}</span>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <span>{item.title}</span>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <Image src={getLibGlyphURL(item.library)} className='library-glyph' />
-                                                        <span>{getLibraryName(item.library)}</span>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <span>{typeof item.license === 'object' ? `${item.license.name} ${item.license.version}` : item.license}</span>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <span>{item.institution}</span>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <span>{capitalizeFirstLetter(item.status)}</span>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <span>{item.name}</span>
-                                                    </Table.Cell>
-                                                </Table.Row>
-                                            )
-                                        })
-                                    }
-                                    {(harvestingRequests.length === 0) &&
-                                        <Table.Row>
-                                            <Table.Cell colSpan='7'>
-                                                <p className='text-center'><em>No results found.</em></p>
-                                            </Table.Cell>
-                                        </Table.Row>
-                                    }
-                                </Table.Body>
-                            </Table>
-                        </Segment>
-                    </Segment.Group>
-                    {/* View Harvesting Request Modal */}
-                    <Modal
-                        onClose={closeHRVModal}
-                        open={showHRVModal}
-                    >
-                        <Modal.Header>View Harvesting Request — <em>{parseDateAndTime(currentRequest.createdAt)}</em>{currentRequest.status ? ` - ${capitalizeFirstLetter(currentRequest.status)}` : ''}</Modal.Header>
-                        <Modal.Content scrolling>
-                            <Grid divided='vertically'>
-                                <Grid.Row columns={3}>
-                                    <Grid.Column>
-                                        <Header sub>Email</Header>
-                                        <p>{currentRequest.email}</p>
-                                    </Grid.Column>
-                                    <Grid.Column>
-                                        <Header sub>Resource Title</Header>
-                                        <p>{currentRequest.title}</p>
-                                    </Grid.Column>
-                                    <Grid.Column>
-                                        <Header sub>Resource Library</Header>
-                                        <Image src={getLibGlyphURL(currentRequest.library)} className='library-glyph' />
-                                        <span>{getLibraryName(currentRequest.library)}</span>
-                                    </Grid.Column>
-                                </Grid.Row>
-                                <Grid.Row columns={2}>
-                                    <Grid.Column>
-                                        <Header sub>Resource License</Header>
-                                        <p>{typeof currentRequest.license === 'object' ? `${currentRequest.license.name} ${currentRequest.license.version}` : currentRequest.license}</p>
-                                    </Grid.Column>
-                                    <Grid.Column>
-                                        <Header sub>Resource URL</Header>
-                                        {!isEmptyString(currentRequest.url)
-                                            ? <a href={normalizeURL(currentRequest.url)} target='_blank' rel='noopener noreferrer'>{currentRequest.url}</a>
-                                            :<p className='muted-text'><em>N/A</em></p>
-                                        }
-                                    </Grid.Column>
-                                </Grid.Row>
-                                <Grid.Row columns={1}>
-                                    <Grid.Column>
-                                        <Grid>
-                                            <Grid.Row columns={2}>
-                                                <Grid.Column>
-                                                    <Header sub>Name</Header>
-                                                    {!isEmptyString(currentRequest.name)
-                                                        ? <p>{currentRequest.name}</p>
-                                                        :<p className='muted-text'><em>N/A</em></p>
-                                                    }
-                                                </Grid.Column>
-                                                <Grid.Column>
-                                                    <Header sub>Institution Name</Header>
-                                                    {!isEmptyString(currentRequest.institution)
-                                                        ? <p>{currentRequest.institution}</p>
-                                                        :<p className='muted-text'><em>N/A</em></p>
-                                                    }
-                                                </Grid.Column>
-                                            </Grid.Row>
-                                            <Grid.Row columns={2}>
-                                                <Grid.Column>
-                                                    <Header sub>Resource Use</Header>
-                                                    {!isEmptyString(getTextUse(currentRequest.resourceUse))
-                                                        ? <p>{getTextUse(currentRequest.resourceUse)}</p>
-                                                        :<p className='muted-text'><em>N/A</em></p>
-                                                    }
-                                                </Grid.Column>
-                                                <Grid.Column>
-                                                    <Header sub>Requested Harvest Date</Header>
-                                                    {(currentRequest.dateIntegrate !== null)
-                                                        ? <p>{parseDate(currentRequest.dateIntegrate)}</p>
-                                                        :<p className='muted-text'><em>N/A</em></p>
-                                                    }
-                                                </Grid.Column>
-                                            </Grid.Row>
-                                        </Grid>
-                                    </Grid.Column>
-                                </Grid.Row>
-                                <Grid.Row columns={1}>
-                                    <Grid.Column>
-                                        <Header sub>Additional Comments</Header>
-                                        {!isEmptyString(currentRequest.comments)
-                                            ? <p>{currentRequest.comments}</p>
-                                            : <p className='muted-text'><em>None</em></p>
-                                        }
-                                    </Grid.Column>
-                                </Grid.Row>
-                            </Grid>
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <div className='flex-row-div'>
-                                {user.isSuperAdmin && 
-                                    <div className='ui left-flex'>
-                                        <Button
-                                            color='red'
-                                            onClick={openDeleteModal}
-                                        >
-                                            <Icon name='trash' />
-                                            Delete
-                                        </Button>
-                                        {currentRequest.status === 'open' && 
-                                            (<Button
-                                                color='orange'
-                                                onClick={openDeclineModal}
-                                            >
-                                                <Icon name='cancel' />
-                                                Decline
-                                            </Button>
-                                        )}
-                                    </div>
-                                }
-                                {currentRequest.status === 'open' &&
-                                    (<div className='ui center-flex'>
-                                        <Button
-                                            color='green'
-                                            onClick={openConvertModal}
-                                        >
-                                            <Icon name='share' />
-                                            Convert to Project
-                                        </Button>
-                                    </div>)
-                                }
-                                <div className='ui right-flex'>
-                                    <Button
-                                        color='blue'
-                                        onClick={closeHRVModal}
-                                    >
-                                        Done
-                                    </Button>
+                                            <Form.Field>
+                                                <Checkbox
+                                                    checked={includeDeclined}
+                                                    onChange={() => setIncludeDeclined((prev) => !prev)}
+                                                    label='Include Declined'
+                                                />
+                                            </Form.Field>
+                                        </Form.Group>
+                                        </Form>
                                 </div>
-                            </div>
-                        </Modal.Actions>
-                    </Modal>
-                    {/* Confirm Deletion Modal */}
-                    <Modal
-                        open={showDelModal}
-                        onClose={closeDeleteModal}
-                    >
-                        <Modal.Header>Confirm Request Deletion</Modal.Header>
-                        <Modal.Content>
-                            <p>Are you sure you want to delete the integration request for <strong>{currentRequest.title}</strong> <span className='muted-text'>(ID: {currentRequest._id})</span>?</p>
-                            <p><strong>This action is irreversible.</strong></p>
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                onClick={closeDeleteModal}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                color='red'
-                                loading={delRequestLoading}
-                                onClick={submitDeleteRequest}
-                            >
-                                <Icon name='trash' />
-                                Delete Request
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
-                    {/* Convert Project Modal */}
-                    <Modal
-                        open={showConvertModal}
-                        onClose={closeConvertModal}
-                    >
-                        <Modal.Header>Convert Request to Project</Modal.Header>
-                        <Modal.Content>
-                            <p>Are you sure you want to convert this request to a new "available" project? The requester will be notified via email.</p>
-                            {(currentRequest.submitter && !isEmptyString(currentRequest.submitter))
-                                && currentRequest.hasOwnProperty('addToProject') && currentRequest.addToProject === true &&
-                                <p><em>The requester is a Conductor user and will be automatically added to the new project.</em></p>
-                            }
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                onClick={closeConvertModal}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                color='green'
-                                loading={convertLoading}
-                                onClick={submitConvertRequest}
-                            >
-                                <Icon name='share' />
-                                Convert to Project
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
-                    {/* Confirm Decline Modal */}
-                    <Modal
-                        open={showDeclineModal}
-                        onClose={closeDeclineModal}
-                    >
-                        <Modal.Header>Confirm Request Decline</Modal.Header>
-                        <Modal.Content>
-                            <p>Are you sure you want to decline this request? The requester will be notified via email with the following reason: </p>
-                            <Form>
-                            <TextArea
-                            value={declineReason}
-                            onChange={(e) => setDeclineReason(e.target.value)}
-                            placeholder="Reason for declining request (limit 300 chars)..."
-                            maxLength="300"
-                            />
-                            </Form>
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                onClick={closeDeclineModal}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                color='orange'
-                                loading={declineRequestLoading}
-                                onClick={submitDeclineRequest}
-                            >
-                                <Icon name='cancel' />
-                                Decline
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
-                </Grid.Column>
-            </Grid.Row>
-        </Grid>
+                            </Segment>
+                            <Segment>
+                                <Table striped celled fixed>
+                                    <Table.Header>
+                                        <Table.Row>
+                                            <Table.HeaderCell>
+                                                {(sortChoice === 'date')
+                                                    ? <span><em>Date</em></span>
+                                                    : <span>Date</span>
+                                                }
+                                            </Table.HeaderCell>
+                                            <Table.HeaderCell>
+                                                {(sortChoice === 'reqdate')
+                                                    ? <span><em>Requested Harvest Date</em></span>
+                                                    : <span>Requested Harvest Date</span>
+                                                }
+                                            </Table.HeaderCell>
+                                            <Table.HeaderCell>
+                                                {(sortChoice === 'resname')
+                                                    ? <span><em>Resource Title</em></span>
+                                                    : <span>Resource Name</span>
+                                                }
+                                            </Table.HeaderCell>
+                                            <Table.HeaderCell>
+                                                {(sortChoice === 'reslib')
+                                                    ? <span><em>Resource Library</em></span>
+                                                    : <span>Resource Library</span>
+                                                }
+                                            </Table.HeaderCell>
+                                            <Table.HeaderCell>
+                                                {(sortChoice === 'license')
+                                                    ? <span><em>License</em></span>
+                                                    : <span>License</span>
+                                                }
+                                            </Table.HeaderCell>
+                                            <Table.HeaderCell>
+                                                {(sortChoice === 'institution')
+                                                    ? <span><em>Institution</em></span>
+                                                    : <span>Institution</span>
+                                                }
+                                            </Table.HeaderCell>
+                                            <Table.HeaderCell>
+                                                {(sortChoice === 'status')
+                                                    ? <span><em>Status</em></span>
+                                                    : <span>Status</span>
+                                                }
+                                            </Table.HeaderCell>
+                                            <Table.HeaderCell>
+                                                <span>Name</span>
+                                            </Table.HeaderCell>
+                                        </Table.Row>
+                                    </Table.Header>
+                                    <Table.Body>
+                                        {(harvestingRequests.length > 0) &&
+                                            sortedRequests.map((item, idx) => {
+                                                return (
+                                                    <Table.Row key={idx}>
+                                                        <Table.Cell>
+                                                            <span className='text-link' onClick={() => { openHRVModal(idx) }}>
+                                                                {parseDateAndTime(item.createdAt)}
+                                                            </span>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <span>{parseDate(item.dateIntegrate)}</span>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <span>{item.title}</span>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <Image src={getLibGlyphURL(item.library)} className='library-glyph' />
+                                                            <span>{getLibraryName(item.library)}</span>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <span>{typeof item.license === 'object' ? `${item.license.name} ${item.license.version}` : item.license}</span>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <span>{item.institution}</span>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <span>{capitalizeFirstLetter(item.status)}</span>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <span>{item.name}</span>
+                                                        </Table.Cell>
+                                                    </Table.Row>
+                                                )
+                                            })
+                                        }
+                                        {(harvestingRequests.length === 0) &&
+                                            <Table.Row>
+                                                <Table.Cell colSpan='7'>
+                                                    <p className='text-center'><em>No results found.</em></p>
+                                                </Table.Cell>
+                                            </Table.Row>
+                                        }
+                                    </Table.Body>
+                                </Table>
+                            </Segment>
+                        </Segment.Group>
+                        {/* View Harvesting Request Modal */}
+                        <Modal
+                            onClose={closeHRVModal}
+                            open={showHRVModal}
+                        >
+                            <Modal.Header>View Harvesting Request — <em>{parseDateAndTime(currentRequest.createdAt)}</em>{currentRequest.status ? ` - ${capitalizeFirstLetter(currentRequest.status)}` : ''}</Modal.Header>
+                            <Modal.Content scrolling>
+                                <Grid divided='vertically'>
+                                    <Grid.Row columns={3}>
+                                        <Grid.Column>
+                                            <Header sub>Email</Header>
+                                            <p>{currentRequest.email}</p>
+                                        </Grid.Column>
+                                        <Grid.Column>
+                                            <Header sub>Resource Title</Header>
+                                            <p>{currentRequest.title}</p>
+                                        </Grid.Column>
+                                        <Grid.Column>
+                                            <Header sub>Resource Library</Header>
+                                            <Image src={getLibGlyphURL(currentRequest.library)} className='library-glyph' />
+                                            <span>{getLibraryName(currentRequest.library)}</span>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                    <Grid.Row columns={2}>
+                                        <Grid.Column>
+                                            <Header sub>Resource License</Header>
+                                            <p>{typeof currentRequest.license === 'object' ? `${currentRequest.license.name} ${currentRequest.license.version}` : currentRequest.license}</p>
+                                        </Grid.Column>
+                                        <Grid.Column>
+                                            <Header sub>Resource URL</Header>
+                                            {!isEmptyString(currentRequest.url)
+                                                ? <a href={normalizeURL(currentRequest.url)} target='_blank' rel='noopener noreferrer'>{currentRequest.url}</a>
+                                                :<p className='muted-text'><em>N/A</em></p>
+                                            }
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column>
+                                            <Grid>
+                                                <Grid.Row columns={2}>
+                                                    <Grid.Column>
+                                                        <Header sub>Name</Header>
+                                                        {!isEmptyString(currentRequest.name)
+                                                            ? <p>{currentRequest.name}</p>
+                                                            :<p className='muted-text'><em>N/A</em></p>
+                                                        }
+                                                    </Grid.Column>
+                                                    <Grid.Column>
+                                                        <Header sub>Institution Name</Header>
+                                                        {!isEmptyString(currentRequest.institution)
+                                                            ? <p>{currentRequest.institution}</p>
+                                                            :<p className='muted-text'><em>N/A</em></p>
+                                                        }
+                                                    </Grid.Column>
+                                                </Grid.Row>
+                                                <Grid.Row columns={2}>
+                                                    <Grid.Column>
+                                                        <Header sub>Resource Use</Header>
+                                                        {!isEmptyString(getTextUse(currentRequest.resourceUse))
+                                                            ? <p>{getTextUse(currentRequest.resourceUse)}</p>
+                                                            :<p className='muted-text'><em>N/A</em></p>
+                                                        }
+                                                    </Grid.Column>
+                                                    <Grid.Column>
+                                                        <Header sub>Requested Harvest Date</Header>
+                                                        {(currentRequest.dateIntegrate !== null)
+                                                            ? <p>{parseDate(currentRequest.dateIntegrate)}</p>
+                                                            :<p className='muted-text'><em>N/A</em></p>
+                                                        }
+                                                    </Grid.Column>
+                                                </Grid.Row>
+                                            </Grid>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column>
+                                            <Header sub>Additional Comments</Header>
+                                            {!isEmptyString(currentRequest.comments)
+                                                ? <p>{currentRequest.comments}</p>
+                                                : <p className='muted-text'><em>None</em></p>
+                                            }
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                </Grid>
+                            </Modal.Content>
+                            <Modal.Actions>
+                                <div className='flex-row-div'>
+                                    {user.isSuperAdmin && 
+                                        <div className='ui left-flex'>
+                                            <Button
+                                                color='red'
+                                                onClick={openDeleteModal}
+                                            >
+                                                <Icon name='trash' />
+                                                Delete
+                                            </Button>
+                                            {currentRequest.status === 'open' && 
+                                                (<Button
+                                                    color='orange'
+                                                    onClick={openDeclineModal}
+                                                >
+                                                    <Icon name='cancel' />
+                                                    Decline
+                                                </Button>
+                                            )}
+                                        </div>
+                                    }
+                                    {currentRequest.status === 'open' &&
+                                        (<div className='ui center-flex'>
+                                            <Button
+                                                color='green'
+                                                onClick={openConvertModal}
+                                            >
+                                                <Icon name='share' />
+                                                Convert to Project
+                                            </Button>
+                                        </div>)
+                                    }
+                                    <div className='ui right-flex'>
+                                        <Button
+                                            color='blue'
+                                            onClick={closeHRVModal}
+                                        >
+                                            Done
+                                        </Button>
+                                    </div>
+                                </div>
+                            </Modal.Actions>
+                        </Modal>
+                        {/* Confirm Deletion Modal */}
+                        <Modal
+                            open={showDelModal}
+                            onClose={closeDeleteModal}
+                        >
+                            <Modal.Header>Confirm Request Deletion</Modal.Header>
+                            <Modal.Content>
+                                <p>Are you sure you want to delete the integration request for <strong>{currentRequest.title}</strong> <span className='muted-text'>(ID: {currentRequest._id})</span>?</p>
+                                <p><strong>This action is irreversible.</strong></p>
+                            </Modal.Content>
+                            <Modal.Actions>
+                                <Button
+                                    onClick={closeDeleteModal}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    color='red'
+                                    loading={delRequestLoading}
+                                    onClick={submitDeleteRequest}
+                                >
+                                    <Icon name='trash' />
+                                    Delete Request
+                                </Button>
+                            </Modal.Actions>
+                        </Modal>
+                        {/* Convert Project Modal */}
+                        <Modal
+                            open={showConvertModal}
+                            onClose={closeConvertModal}
+                        >
+                            <Modal.Header>Convert Request to Project</Modal.Header>
+                            <Modal.Content>
+                                <p>Are you sure you want to convert this request to a new "available" project? The requester will be notified via email.</p>
+                                {(currentRequest.submitter && !isEmptyString(currentRequest.submitter))
+                                    && currentRequest.hasOwnProperty('addToProject') && currentRequest.addToProject === true &&
+                                    <p><em>The requester is a Conductor user and will be automatically added to the new project.</em></p>
+                                }
+                            </Modal.Content>
+                            <Modal.Actions>
+                                <Button
+                                    onClick={closeConvertModal}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    color='green'
+                                    loading={convertLoading}
+                                    onClick={submitConvertRequest}
+                                >
+                                    <Icon name='share' />
+                                    Convert to Project
+                                </Button>
+                            </Modal.Actions>
+                        </Modal>
+                        {/* Confirm Decline Modal */}
+                        <Modal
+                            open={showDeclineModal}
+                            onClose={closeDeclineModal}
+                        >
+                            <Modal.Header>Confirm Request Decline</Modal.Header>
+                            <Modal.Content>
+                                <p>Are you sure you want to decline this request? The requester will be notified via email with the following reason: </p>
+                                <Form>
+                                <TextArea
+                                value={declineReason}
+                                onChange={(e) => setDeclineReason(e.target.value)}
+                                placeholder="Reason for declining request (limit 300 chars)..."
+                                maxLength="300"
+                                />
+                                </Form>
+                            </Modal.Content>
+                            <Modal.Actions>
+                                <Button
+                                    onClick={closeDeclineModal}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    color='orange'
+                                    loading={declineRequestLoading}
+                                    onClick={submitDeclineRequest}
+                                >
+                                    <Icon name='cancel' />
+                                    Decline
+                                </Button>
+                            </Modal.Actions>
+                        </Modal>
+                    </Grid.Column>
+                </Grid.Row>
+            </Grid>
+            <div className="flex flex-col justify-end h-full">
+                <Footer />
+            </div>
+        </div>
     )
 
 }

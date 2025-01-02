@@ -16,6 +16,7 @@ import useGlobalError from "../../../../components/error/ErrorHooks";
 import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
 import useDebounce from "../../../../hooks/useDebounce";
 import api from "../../../../api";
+import Footer from "../../../../components/navigation/Footer";
 const ManagePersonModal = lazy(
   () =>
     import(
@@ -124,166 +125,169 @@ const PeopleManager = () => {
   }
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">
-            People Manager
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <div className="flex flex-row justify-between items-center">
-                <Breadcrumb>
-                  <Breadcrumb.Section as={Link} to="/controlpanel">
-                    Control Panel
-                  </Breadcrumb.Section>
-                  <Breadcrumb.Divider icon="right chevron" />
-                  <Breadcrumb.Section active>People Manager</Breadcrumb.Section>
-                </Breadcrumb>
-                <div>
-                  <Button
-                    color="blue"
-                    onClick={() => setShowBulkAddModal(true)}
-                    size="small"
-                  >
-                    <Icon name="file alternate outline" />
-                    Bulk Add
-                  </Button>
-                  <Button
-                    color="green"
-                    onClick={() => setShowManageModal(true)}
-                    size="small"
-                    className="ml-2"
-                  >
-                    <Icon name="plus" />
-                    Add Person
-                  </Button>
+    <div className="h-screen flex flex-col">
+      <Grid className="controlpanel-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header" as="h2">
+              People Manager
+            </Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment.Group>
+              <Segment>
+                <div className="flex flex-row justify-between items-center">
+                  <Breadcrumb>
+                    <Breadcrumb.Section as={Link} to="/controlpanel">
+                      Control Panel
+                    </Breadcrumb.Section>
+                    <Breadcrumb.Divider icon="right chevron" />
+                    <Breadcrumb.Section active>People Manager</Breadcrumb.Section>
+                  </Breadcrumb>
+                  <div>
+                    <Button
+                      color="blue"
+                      onClick={() => setShowBulkAddModal(true)}
+                      size="small"
+                    >
+                      <Icon name="file alternate outline" />
+                      Bulk Add
+                    </Button>
+                    <Button
+                      color="green"
+                      onClick={() => setShowManageModal(true)}
+                      size="small"
+                      className="ml-2"
+                    >
+                      <Icon name="plus" />
+                      Add Person
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </Segment>
-            <Segment>
-              <Grid>
-                <Grid.Row>
-                  <Grid.Column width={11}>
-                    <Dropdown
-                      placeholder="Sort by..."
-                      floating
-                      selection
-                      button
-                      options={sortOptions}
-                      onChange={(_e, { value }) => {
-                        setSortChoice(value as string);
-                      }}
-                      value={sortChoice}
-                    />
-                  </Grid.Column>
-                  <Grid.Column width={5}>
-                    <Input
-                      icon="search"
-                      placeholder="Search by First, Last, or Email"
-                      onChange={(e) => {
-                        setSearchString(e.target.value);
-                        getPeopleDebounced(e.target.value.trim());
-                      }}
-                      value={searchString}
-                      fluid
-                    />
-                  </Grid.Column>
-                </Grid.Row>
-              </Grid>
-            </Segment>
-            <Segment loading={loading}>
-              <PaginationWithItemsSelect
-                activePage={activePage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                setItemsPerPageFn={setItemsPerPage}
-                setActivePageFn={setActivePage}
-                totalLength={totalItems}
-              />
-            </Segment>
-            <Segment loading={loading}>
-              <Table striped celled selectable>
-                <Table.Header>
-                  <Table.Row>
-                    {TABLE_COLS.map((item) => (
-                      <Table.HeaderCell key={item.key}>
-                        <span>{item.text}</span>
-                      </Table.HeaderCell>
-                    ))}
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {people.length > 0 &&
-                    people.map((p) => {
-                      return (
-                        <Table.Row
-                          key={crypto.randomUUID()}
-                          className="word-break-all"
-                        >
-                          <Table.Cell>
-                            <span>{p.firstName} </span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>{p.lastName}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>{p.email}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>{p.primaryInstitution}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <Button
-                              color="blue"
-                              onClick={() => handleSelectPerson(p._id)}
-                            >
-                              <Icon name="edit outline" />
-                              Edit
-                            </Button>
-                          </Table.Cell>
-                        </Table.Row>
-                      );
-                    })}
-                  {people.length === 0 && (
+              </Segment>
+              <Segment>
+                <Grid>
+                  <Grid.Row>
+                    <Grid.Column width={11}>
+                      <Dropdown
+                        placeholder="Sort by..."
+                        floating
+                        selection
+                        button
+                        options={sortOptions}
+                        onChange={(_e, { value }) => {
+                          setSortChoice(value as string);
+                        }}
+                        value={sortChoice}
+                      />
+                    </Grid.Column>
+                    <Grid.Column width={5}>
+                      <Input
+                        icon="search"
+                        placeholder="Search by First, Last, or Email"
+                        onChange={(e) => {
+                          setSearchString(e.target.value);
+                          getPeopleDebounced(e.target.value.trim());
+                        }}
+                        value={searchString}
+                        fluid
+                      />
+                    </Grid.Column>
+                  </Grid.Row>
+                </Grid>
+              </Segment>
+              <Segment loading={loading}>
+                <PaginationWithItemsSelect
+                  activePage={activePage}
+                  totalPages={totalPages}
+                  itemsPerPage={itemsPerPage}
+                  setItemsPerPageFn={setItemsPerPage}
+                  setActivePageFn={setActivePage}
+                  totalLength={totalItems}
+                />
+              </Segment>
+              <Segment loading={loading}>
+                <Table striped celled selectable>
+                  <Table.Header>
                     <Table.Row>
-                      <Table.Cell colSpan={TABLE_COLS.length + 1}>
-                        <p className="text-center">
-                          <em>No results found.</em>
-                        </p>
-                      </Table.Cell>
+                      {TABLE_COLS.map((item) => (
+                        <Table.HeaderCell key={item.key}>
+                          <span>{item.text}</span>
+                        </Table.HeaderCell>
+                      ))}
                     </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
-            </Segment>
-            <Segment loading={loading}>
-              <PaginationWithItemsSelect
-                activePage={activePage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                setItemsPerPageFn={setItemsPerPage}
-                setActivePageFn={setActivePage}
-                totalLength={totalItems}
-              />
-            </Segment>
-          </Segment.Group>
-          <ManagePersonModal
-            show={showManageModal}
-            onClose={handleCloseManageModal}
-            personID={selectedPersonId}
-          />
-          <BulkAddPeopleModal
-            open={showBulkAddModal}
-            onClose={handleCloseBulkAddModal}
-          />
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+                  </Table.Header>
+                  <Table.Body>
+                    {people.length > 0 &&
+                      people.map((p) => {
+                        return (
+                          <Table.Row
+                            key={crypto.randomUUID()}
+                            className="word-break-all"
+                          >
+                            <Table.Cell>
+                              <span>{p.firstName} </span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <span>{p.lastName}</span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <span>{p.email}</span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <span>{p.primaryInstitution}</span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <Button
+                                color="blue"
+                                onClick={() => handleSelectPerson(p._id)}
+                              >
+                                <Icon name="edit outline" />
+                                Edit
+                              </Button>
+                            </Table.Cell>
+                          </Table.Row>
+                        );
+                      })}
+                    {people.length === 0 && (
+                      <Table.Row>
+                        <Table.Cell colSpan={TABLE_COLS.length + 1}>
+                          <p className="text-center">
+                            <em>No results found.</em>
+                          </p>
+                        </Table.Cell>
+                      </Table.Row>
+                    )}
+                  </Table.Body>
+                </Table>
+              </Segment>
+              <Segment loading={loading}>
+                <PaginationWithItemsSelect
+                  activePage={activePage}
+                  totalPages={totalPages}
+                  itemsPerPage={itemsPerPage}
+                  setItemsPerPageFn={setItemsPerPage}
+                  setActivePageFn={setActivePage}
+                  totalLength={totalItems}
+                />
+              </Segment>
+            </Segment.Group>
+            <ManagePersonModal
+              show={showManageModal}
+              onClose={handleCloseManageModal}
+              personID={selectedPersonId}
+            />
+            <BulkAddPeopleModal
+              open={showBulkAddModal}
+              onClose={handleCloseBulkAddModal}
+            />
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <Footer />
+    </div>
   );
 };
 

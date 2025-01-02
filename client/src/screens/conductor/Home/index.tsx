@@ -18,7 +18,7 @@ import { useLocation } from "react-router-dom";
 import queryString from "query-string";
 import DOMPurify from "dompurify";
 import { Announcement, Project } from "../../../types";
-
+import Footer from "../../../components/navigation/Footer";
 import ProjectCard from "../../../components/projects/ProjectCard";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import { pinProject } from "../../../utils/projectHelpers";
@@ -211,199 +211,203 @@ const Home = () => {
   }
 
   return (
-    <Grid className="component-container" divided="vertically" stackable>
-      <div className="flex flex-col my-4 w-full">
-        <Header className="component-header">Home</Header>
-        <div className="border border-b-gray-300 w-full"></div>
-      </div>
-      {sysAnnouncement && (
-        <div className="flex w-full mb-4">
-          <Message icon info>
-            <Icon name="info circle" />
-            <Message.Content>
-              <Message.Header>{sysAnnouncement.title}</Message.Header>
-              <p>{sysAnnouncement.message}</p>
-            </Message.Content>
-          </Message>
+    <div>
+      <Grid className="component-container" divided="vertically" stackable>
+        <div className="flex flex-col my-4 w-full">
+          <Header className="component-header">Home</Header>
+          <div className="border border-b-gray-300 w-full"></div>
         </div>
-      )}
-      <div className="flex flex-col xl:flex-row w-full">
-        <div className="flex flex-col mb-4 xl:w-1/6 xl:mr-12 xl:mb-0">
-          <UserMenu />
-        </div>
-        <div className="flex flex-col mb-8 xl:w-1/2 xl:mr-12 xl:mb-0">
-          <Button
-            onClick={() => setShowCreateProjectModal(true)}
-            fluid
-            color="green"
-            content="Create Conductor Project"
-            icon="add"
-            labelPosition="left"
-          />
-          <Segment
-            padded={pinnedProjects.length > 0}
-            loading={!loadedAllPinned}
-          >
-            <div
-              className={
-                pinnedProjects.length > 0
-                  ? "dividing-header-custom"
-                  : "header-custom"
-              }
+        {sysAnnouncement && (
+          <div className="flex w-full mb-4">
+            <Message icon info>
+              <Icon name="info circle" />
+              <Message.Content>
+                <Message.Header>{sysAnnouncement.title}</Message.Header>
+                <p>{sysAnnouncement.message}</p>
+              </Message.Content>
+            </Message>
+          </div>
+        )}
+        <div className="flex flex-col xl:flex-row w-full">
+          <div className="flex flex-col mb-4 xl:w-1/6 xl:mr-12 xl:mb-0">
+            <UserMenu />
+          </div>
+          <div className="flex flex-col mb-8 xl:w-1/2 xl:mr-12 xl:mb-0">
+            <Button
+              onClick={() => setShowCreateProjectModal(true)}
+              fluid
+              color="green"
+              content="Create Conductor Project"
+              icon="add"
+              labelPosition="left"
+            />
+            <Segment
+              padded={pinnedProjects.length > 0}
+              loading={!loadedAllPinned}
             >
-              <h3>
-                <Icon name="pin" />
-                Pinned Projects
-              </h3>
-              <div className="right-flex">
-                <Popup
-                  content={<span>Edit Pinned Projects</span>}
-                  trigger={
-                    <Button
-                      color="blue"
-                      onClick={() => setShowPinnedModal(true)}
-                      icon
-                      circular
-                      size="tiny"
-                    >
-                      <Icon name="pencil" />
-                    </Button>
-                  }
-                  position="top center"
-                />
-              </div>
-            </div>
-            {pinnedProjects.length > 0 && (
-              <Segment basic loading={!loadedAllPinned}>
-                <Card.Group itemsPerRow={2}>
-                  {pinnedProjects.map((item) => (
-                    <ProjectCard project={item} key={item.projectID} />
-                  ))}
-                </Card.Group>
-              </Segment>
-            )}
-          </Segment>
-          <Segment padded>
-            <div className="dividing-header-custom">
-              <h3>
-                <Icon name="clock outline" />
-                Recently Edited Projects
-              </h3>
-              <div className="right-flex">
-                <Popup
-                  content={
-                    <span>
-                      To see all of your projects, visit{" "}
-                      <strong>Projects</strong> in the Navbar.
-                    </span>
-                  }
-                  trigger={<Icon name="info circle" />}
-                  position="top center"
-                />
-              </div>
-            </div>
-            <Segment basic loading={!loadedAllRecents}>
-              <Card.Group itemsPerRow={2}>
-                {recentProjects.length > 0 &&
-                  recentProjects.map((item) => (
-                    <ProjectCard
-                      project={item}
-                      key={item.projectID}
-                      showPinButton={true}
-                      onPin={(pid) => handlePinProject(pid)}
-                    />
-                  ))}
-                {recentProjects.length === 0 && (
-                  <p>You don't have any projects right now.</p>
-                )}
-              </Card.Group>
-            </Segment>
-          </Segment>
-        </div>
-        <div className="flex flex-col mb-8 xl:w-1/3 xl:mb-0">
-          <Segment padded>
-            <div className="dividing-header-custom">
-              <h3>Announcements</h3>
-              {(user.isCampusAdmin === true || user.isSuperAdmin === true) && (
+              <div
+                className={
+                  pinnedProjects.length > 0
+                    ? "dividing-header-custom"
+                    : "header-custom"
+                }
+              >
+                <h3>
+                  <Icon name="pin" />
+                  Pinned Projects
+                </h3>
                 <div className="right-flex">
                   <Popup
-                    content="New Announcement"
+                    content={<span>Edit Pinned Projects</span>}
                     trigger={
                       <Button
-                        color="green"
-                        onClick={() => setShowNewAnnounceModal(true)}
+                        color="blue"
+                        onClick={() => setShowPinnedModal(true)}
                         icon
                         circular
+                        size="tiny"
                       >
-                        <Icon name="add" />
+                        <Icon name="pencil" />
                       </Button>
                     }
                     position="top center"
                   />
                 </div>
+              </div>
+              {pinnedProjects.length > 0 && (
+                <Segment basic loading={!loadedAllPinned}>
+                  <Card.Group itemsPerRow={2}>
+                    {pinnedProjects.map((item) => (
+                      <ProjectCard project={item} key={item.projectID} />
+                    ))}
+                  </Card.Group>
+                </Segment>
               )}
-            </div>
-            {showNASuccess && (
-              <Message
-                onDismiss={() => setShowNASuccess(false)}
-                header="Announcement Successfully Posted!"
-                icon="check circle outline"
-                positive
-              />
-            )}
-            <div className="announcements-list">
-              <Loader
-                active={!loadedAllAnnouncements}
-                inline="centered"
-                className="mt-4p"
-              />
-              {announcements.map((item, index) => {
-                return (
-                  <Annnouncement
-                    announcement={item}
-                    index={index}
-                    key={index}
-                    onClick={(idx) => openViewAnnounceModal(idx)}
+            </Segment>
+            <Segment padded>
+              <div className="dividing-header-custom">
+                <h3>
+                  <Icon name="clock outline" />
+                  Recently Edited Projects
+                </h3>
+                <div className="right-flex">
+                  <Popup
+                    content={
+                      <span>
+                        To see all of your projects, visit{" "}
+                        <strong>Projects</strong> in the Navbar.
+                      </span>
+                    }
+                    trigger={<Icon name="info circle" />}
+                    position="top center"
                   />
-                );
-              })}
-              {loadedAllAnnouncements && announcements.length === 0 && (
-                <p className="text-center mt-4p">No recent announcements.</p>
+                </div>
+              </div>
+              <Segment basic loading={!loadedAllRecents}>
+                <Card.Group itemsPerRow={2}>
+                  {recentProjects.length > 0 &&
+                    recentProjects.map((item) => (
+                      <ProjectCard
+                        project={item}
+                        key={item.projectID}
+                        showPinButton={true}
+                        onPin={(pid) => handlePinProject(pid)}
+                      />
+                    ))}
+                  {recentProjects.length === 0 && (
+                    <p>You don't have any projects right now.</p>
+                  )}
+                </Card.Group>
+              </Segment>
+            </Segment>
+          </div>
+          <div className="flex flex-col mb-8 xl:w-1/3 xl:mb-0">
+            <Segment padded>
+              <div className="dividing-header-custom">
+                <h3>Announcements</h3>
+                {(user.isCampusAdmin === true || user.isSuperAdmin === true) && (
+                  <div className="right-flex">
+                    <Popup
+                      content="New Announcement"
+                      trigger={
+                        <Button
+                          color="green"
+                          onClick={() => setShowNewAnnounceModal(true)}
+                          icon
+                          circular
+                        >
+                          <Icon name="add" />
+                        </Button>
+                      }
+                      position="top center"
+                    />
+                  </div>
+                )}
+              </div>
+              {showNASuccess && (
+                <Message
+                  onDismiss={() => setShowNASuccess(false)}
+                  header="Announcement Successfully Posted!"
+                  icon="check circle outline"
+                  positive
+                />
               )}
-            </div>
-          </Segment>
+              <div className="announcements-list">
+                <Loader
+                  active={!loadedAllAnnouncements}
+                  inline="centered"
+                  className="mt-4p"
+                />
+                {announcements.map((item, index) => {
+                  return (
+                    <Annnouncement
+                      announcement={item}
+                      index={index}
+                      key={index}
+                      onClick={(idx) => openViewAnnounceModal(idx)}
+                    />
+                  );
+                })}
+                {loadedAllAnnouncements && announcements.length === 0 && (
+                  <p className="text-center mt-4p">No recent announcements.</p>
+                )}
+              </div>
+            </Segment>
+          </div>
         </div>
-      </div>
-      {/* New Announcement Modal */}
-      <NewAnnouncementModal
-        show={showNewAnnounceModal}
-        onClose={() => setShowNewAnnounceModal(false)}
-        onDataChange={() => getAnnouncements()}
-      />
-      {/* Announcement View Modal */}
-      <ViewAnnouncementModal
-        show={showViewAnnounceModal}
-        announcement={viewAnnounce}
-        onClose={() => closeViewAnnounceModal()}
-      />
-      {/* New Member Modal */}
-      <NewMemberModal
-        show={showNMModal}
-        onClose={() => setShowNMModal(false)}
-      />
-      {/* Edit Pinned Projects Modal */}
-      <PinProjectsModal
-        show={showPinnedModal}
-        pinnedProjects={pinnedProjects}
-        onDataChange={() => getPinnedProjects()}
-        onClose={() => setShowPinnedModal(false)}
-      />
-      {/* Create Project Modal */}
-      <CreateProjectModal
-        show={showCreateProjectModal}
-        onClose={() => setShowCreateProjectModal(false)}
-      />
-    </Grid>
+
+        {/* New Announcement Modal */}
+        <NewAnnouncementModal
+          show={showNewAnnounceModal}
+          onClose={() => setShowNewAnnounceModal(false)}
+          onDataChange={() => getAnnouncements()}
+        />
+        {/* Announcement View Modal */}
+        <ViewAnnouncementModal
+          show={showViewAnnounceModal}
+          announcement={viewAnnounce}
+          onClose={() => closeViewAnnounceModal()}
+        />
+        {/* New Member Modal */}
+        <NewMemberModal
+          show={showNMModal}
+          onClose={() => setShowNMModal(false)}
+        />
+        {/* Edit Pinned Projects Modal */}
+        <PinProjectsModal
+          show={showPinnedModal}
+          pinnedProjects={pinnedProjects}
+          onDataChange={() => getPinnedProjects()}
+          onClose={() => setShowPinnedModal(false)}
+        />
+        {/* Create Project Modal */}
+        <CreateProjectModal
+          show={showCreateProjectModal}
+          onClose={() => setShowCreateProjectModal(false)}
+        />
+      </Grid>
+      <Footer />
+    </div>
   );
 };
 

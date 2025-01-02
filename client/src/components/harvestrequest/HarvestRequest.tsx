@@ -27,6 +27,7 @@ import CtlDateInput from '../ControlledInputs/CtlDateInput.js';
 import api from '../../api.js';
 import { useNotifications } from '../../context/NotificationContext.js';
 import { format } from 'date-fns';
+import Footer from '../navigation/Footer.js';
 const DESCRIP_MAX_CHARS = 500;
 
 const HarvestRequest = () => {
@@ -130,163 +131,79 @@ const HarvestRequest = () => {
     }, [watch("license.name"), licenseOptions]);
 
     return (
-        <Grid centered={true} verticalAlign='middle' className='component-container'>
-            <Grid.Row>
-                <Grid.Column>
-                    <Grid verticalAlign='middle' centered={true}>
-                        <Grid.Row>
-                            <Grid.Column>
-                                <Image
-                                    src="/transparent_logo.png"
-                                    size='medium'
-                                    centered
-                                    className='cursor-pointer'
-                                    onClick={() => {
-                                        window.open('https://libretexts.org', '_blank', 'noopener');
-                                    }}
-                                />
-                                <Header as='h1' textAlign='center'>Request OER Integration</Header>
-                            </Grid.Column>
-                        </Grid.Row>
-                    </Grid>
-                </Grid.Column>
-            </Grid.Row>
-            <Grid.Row>
-                <Grid.Column mobile={16} computer={10}>
-                    <Segment raised className='mb-4r'>
-                        <p className='text-center'>If you want to request an existing openly licensed resource be integrated into a LibreTexts library, please fill out and submit this form. </p>
-                        {user.isAuthenticated &&
-                            <Message icon positive>
-                                <Icon name='user circle' />
-                                <Message.Content>
-                                    <Message.Header>Welcome, {user.firstName}</Message.Header>
-                                    <p>This integration request will be tied to your Conductor account.</p>
-                                </Message.Content>
-                            </Message>
-                        }
-                        {!user.isAuthenticated &&
-                            <Message info>
-                                <p>Are you a Conductor user? <Link to='/login?redirect_uri=%2Fharvestrequest'><strong>Log in</strong></Link> to have this request tied to your account so you can track its status!</p>
-                            </Message>
-                        }
-                        <Form onSubmit={(e) => e.preventDefault()}>
+        <div className="h-screen flex flex-col">
+            <Grid centered={true} verticalAlign='middle' className='component-container'>
+                <Grid.Row>
+                    <Grid.Column>
+                        <Grid verticalAlign='middle' centered={true}>
+                            <Grid.Row>
+                                <Grid.Column>
+                                    <Image
+                                        src="/transparent_logo.png"
+                                        size='medium'
+                                        centered
+                                        className='cursor-pointer'
+                                        onClick={() => {
+                                            window.open('https://libretexts.org', '_blank', 'noopener');
+                                        }}
+                                    />
+                                    <Header as='h1' textAlign='center'>Request OER Integration</Header>
+                                </Grid.Column>
+                            </Grid.Row>
+                        </Grid>
+                    </Grid.Column>
+                </Grid.Row>
+                <Grid.Row>
+                    <Grid.Column mobile={16} computer={10}>
+                        <Segment raised className='mb-4r'>
+                            <p className='text-center'>If you want to request an existing openly licensed resource be integrated into a LibreTexts library, please fill out and submit this form. </p>
+                            {user.isAuthenticated &&
+                                <Message icon positive>
+                                    <Icon name='user circle' />
+                                    <Message.Content>
+                                        <Message.Header>Welcome, {user.firstName}</Message.Header>
+                                        <p>This integration request will be tied to your Conductor account.</p>
+                                    </Message.Content>
+                                </Message>
+                            }
                             {!user.isAuthenticated &&
+                                <Message info>
+                                    <p>Are you a Conductor user? <Link to='/login?redirect_uri=%2Fharvestrequest'><strong>Log in</strong></Link> to have this request tied to your account so you can track its status!</p>
+                                </Message>
+                            }
+                            <Form onSubmit={(e) => e.preventDefault()}>
+                                {!user.isAuthenticated &&
+                                    <CtlTextInput
+                                        name="email"
+                                        label="Email"
+                                        control={control}
+                                        rules={required}
+                                        type='email'
+                                        required
+                                        maxLength={100}
+                                    />
+                                }
                                 <CtlTextInput
-                                    name="email"
-                                    label="Email"
+                                    name="title"
+                                    label="Resource Title"
                                     control={control}
                                     rules={required}
-                                    type='email'
                                     required
                                     maxLength={100}
+                                    placeholder='Title of the resource'
                                 />
-                            }
-                            <CtlTextInput
-                                name="title"
-                                label="Resource Title"
-                                control={control}
-                                rules={required}
-                                required
-                                maxLength={100}
-                                placeholder='Title of the resource'
-                            />
-                            <div className="mt-4">
-                                <label
-                                    className="form-field-label form-required"
-                                    htmlFor="selectLibrary"
-                                >
-                                    Library
-                                </label>
-                                <Controller
-                                    render={({ field }) => (
-                                        <Dropdown
-                                            id="selectLibrary"
-                                            options={libraryOptions}
-                                            {...field}
-                                            onChange={(e, data) => {
-                                                field.onChange(
-                                                    data.value?.toString() ?? ""
-                                                );
-                                            }}
-                                            fluid
-                                            selection
-                                            placeholder="Select libray"
-                                            error={
-                                                formState.errors.library
-                                                    ? true
-                                                    : false
-                                            }
-                                        />
-                                    )}
-                                    name="library"
-                                    control={control}
-                                    rules={required}
-                                />
-                            </div>
-                            <Divider />
-                            <Header as='h3'>Resource Format</Header>
-                            <p>We can integrate OER content from nearly any format, although content in some formats requires more effort to integrate than others. If the requested resource exists online please enter the URL below. If the content format requires submiting a file to us, let us know in the comments and we'll contact you with more details. </p>
-                            <CtlTextInput
-                                name="url"
-                                label="URL"
-                                control={control}
-                                rules={required}
-                                required
-                                maxLength={100}
-                                placeholder='https://example.com'
-                            />
-                            <div className='mt-4'>
-                                <label
-                                    className="form-field-label form-required"
-                                    htmlFor="selectLicenseName"
-                                >
-                                    License Name
-                                </label>
-                                <Controller
-                                    render={({ field }) => (
-                                        <Dropdown
-                                            id="selectLicenseName"
-                                            options={licenseOptions?.map((l) => ({
-                                                key: l.name,
-                                                value: l.name,
-                                                text: l.name,
-                                            }))}
-                                            {...field}
-                                            onChange={(e, data) => {
-                                                field.onChange(data.value?.toString() ?? "");
-                                            }}
-                                            fluid
-                                            selection
-                                            placeholder="Select a license..."
-                                            error={
-                                                formState.errors.license?.name ? true : false
-                                            }
-                                        />
-                                    )}
-                                    name="license.name"
-                                    control={control}
-                                    rules={required}
-                                />
-                            </div>
-                            {selectedLicenseVersions().length > 0 && (
                                 <div className="mt-4">
                                     <label
                                         className="form-field-label form-required"
-                                        htmlFor="selectLicenseVersion"
+                                        htmlFor="selectLibrary"
                                     >
-                                        Version
+                                        Library
                                     </label>
                                     <Controller
                                         render={({ field }) => (
                                             <Dropdown
-                                                id="selectLicenseVersion"
-                                                options={selectedLicenseVersions().map(
-                                                    (v) => ({
-                                                        key: v,
-                                                        value: v,
-                                                        text: v,
-                                                    })
-                                                )}
+                                                id="selectLibrary"
+                                                options={libraryOptions}
                                                 {...field}
                                                 onChange={(e, data) => {
                                                     field.onChange(
@@ -295,146 +212,233 @@ const HarvestRequest = () => {
                                                 }}
                                                 fluid
                                                 selection
-                                                placeholder="Select license version"
+                                                placeholder="Select libray"
                                                 error={
-                                                    formState.errors.license?.version
+                                                    formState.errors.library
                                                         ? true
                                                         : false
                                                 }
-                                                loading={licensesLoading}
                                             />
                                         )}
-                                        name="license.version"
+                                        name="library"
                                         control={control}
                                         rules={required}
                                     />
                                 </div>
-                            )}
-                            {/* <CtlTextInput
-                                name="license.sourceURL"
-                                control={control}
-                                label="File Source URL"
-                                placeholder="https://example.com"
-                                className="mt-4"
-                                required
-                                rules={required}
-                            /> */}
-                            <div className="flex items-start mt-3">
-                                <CtlCheckbox
-                                    name="license.modifiedFromSource"
-                                    control={control}
-                                    label="File modified from source?"
-                                    className="ml-2"
-                                    labelDirection="row-reverse"
-                                />
-                            </div>
-                            <CtlTextArea
-                                name="license.additionalTerms"
-                                control={control}
-                                label="Additional License Terms"
-                                placeholder="Additional terms (if applicable)..."
-                                className="mt-4"
-                                maxLength={DESCRIP_MAX_CHARS}
-                                showRemaining
-                            />
-                            <Divider />
-                            <Header as='h3'>Priority Integration</Header>
-                            <p>We try to prioritize integrating OER texts that people are ready to adopt in their classes. If you would like to use this text in your class you can fill out this section for priority consideration.</p>
-                            {!user.isAuthenticated &&
+                                <Divider />
+                                <Header as='h3'>Resource Format</Header>
+                                <p>We can integrate OER content from nearly any format, although content in some formats requires more effort to integrate than others. If the requested resource exists online please enter the URL below. If the content format requires submiting a file to us, let us know in the comments and we'll contact you with more details. </p>
                                 <CtlTextInput
-                                    name="name"
+                                    name="url"
+                                    label="URL"
                                     control={control}
-                                    label="Your Name"
-                                    placeholder="Name"
+                                    rules={required}
+                                    required
+                                    maxLength={100}
+                                    placeholder='https://example.com'
+                                />
+                                <div className='mt-4'>
+                                    <label
+                                        className="form-field-label form-required"
+                                        htmlFor="selectLicenseName"
+                                    >
+                                        License Name
+                                    </label>
+                                    <Controller
+                                        render={({ field }) => (
+                                            <Dropdown
+                                                id="selectLicenseName"
+                                                options={licenseOptions?.map((l) => ({
+                                                    key: l.name,
+                                                    value: l.name,
+                                                    text: l.name,
+                                                }))}
+                                                {...field}
+                                                onChange={(e, data) => {
+                                                    field.onChange(data.value?.toString() ?? "");
+                                                }}
+                                                fluid
+                                                selection
+                                                placeholder="Select a license..."
+                                                error={
+                                                    formState.errors.license?.name ? true : false
+                                                }
+                                            />
+                                        )}
+                                        name="license.name"
+                                        control={control}
+                                        rules={required}
+                                    />
+                                </div>
+                                {selectedLicenseVersions().length > 0 && (
+                                    <div className="mt-4">
+                                        <label
+                                            className="form-field-label form-required"
+                                            htmlFor="selectLicenseVersion"
+                                        >
+                                            Version
+                                        </label>
+                                        <Controller
+                                            render={({ field }) => (
+                                                <Dropdown
+                                                    id="selectLicenseVersion"
+                                                    options={selectedLicenseVersions().map(
+                                                        (v) => ({
+                                                            key: v,
+                                                            value: v,
+                                                            text: v,
+                                                        })
+                                                    )}
+                                                    {...field}
+                                                    onChange={(e, data) => {
+                                                        field.onChange(
+                                                            data.value?.toString() ?? ""
+                                                        );
+                                                    }}
+                                                    fluid
+                                                    selection
+                                                    placeholder="Select license version"
+                                                    error={
+                                                        formState.errors.license?.version
+                                                            ? true
+                                                            : false
+                                                    }
+                                                    loading={licensesLoading}
+                                                />
+                                            )}
+                                            name="license.version"
+                                            control={control}
+                                            rules={required}
+                                        />
+                                    </div>
+                                )}
+                                {/* <CtlTextInput
+                                    name="license.sourceURL"
+                                    control={control}
+                                    label="File Source URL"
+                                    placeholder="https://example.com"
                                     className="mt-4"
                                     required
                                     rules={required}
-                                />
-                            }
-                            <CtlTextInput
-                                name="institution"
-                                control={control}
-                                label="Your Institution"
-                                placeholder="Institution"
-                                className="mt-4"
-                            />
-                            <div className="mt-4">
-                                <label
-                                    className="form-field-label"
-                                    htmlFor="selectResourceUse"
-                                >
-                                    I would like to use this resource in my class:
-                                </label>
-                                <Controller
-                                    render={({ field }) => (
-                                        <Dropdown
-                                            id="selectResourceUse"
-                                            options={textUseOptions}
-                                            {...field}
-                                            onChange={(e, data) => {
-                                                field.onChange(
-                                                    data.value?.toString() ?? ""
-                                                );
-                                            }}
-                                            fluid
-                                            selection
-                                            placeholder="Select use..."
-                                            error={
-                                                formState.errors.library
-                                                    ? true
-                                                    : false
-                                            }
-                                        />
-                                    )}
-                                    name="resourceUse"
-                                    control={control}
-                                />
-                            </div>
-                            <CtlDateInput
-                                name="dateIntegrate"
-                                control={control}
-                                label="Date integration has to be completed for adoption to be possible:"
-                                className="mt-4"
-                                error={formState.errors.dateIntegrate ? true : false}
-                                value={watch('dateIntegrate')}
-                                onChange={(e) => {
-                                    setValue("dateIntegrate", e.target.value);
-                                }}
-                            />
-                            <p>
-                                *
-                                <em>
-                                    We try to integrate projects by the date they are needed but cannot guarantee this. If you have questions, you can always
-                                    <a href='mailto:info@libretexts.org' target='_blank' rel='noopener noreferrer'> get in touch</a> with the LibreTexts team.
-                                </em>
-                            </p>
-                            <Divider />
-                            {user.isAuthenticated &&
+                                /> */}
                                 <div className="flex items-start mt-3">
                                     <CtlCheckbox
-                                        name="addToProject"
+                                        name="license.modifiedFromSource"
                                         control={control}
-                                        label="Do you want to be added to the project to observe and/or participate in the harvesting efforts?"
-                                        className="ml-2 mt-4"
+                                        label="File modified from source?"
+                                        className="ml-2"
                                         labelDirection="row-reverse"
                                     />
                                 </div>
-                            }
-                            <CtlTextArea
-                                name="comments"
-                                control={control}
-                                label="Comments"
-                                placeholder="Comments or additional information..."
-                                className="mt-4 mb-4"
-                                maxLength={DESCRIP_MAX_CHARS}
-                                showRemaining
-                            />
-                            <Button color='blue' size='large' fluid={true} loading={loadingData} onClick={submitRequest}>Submit Request</Button>
-                        </Form>
-                    </Segment>
-                </Grid.Column>
-            </Grid.Row>
-        </Grid>
+                                <CtlTextArea
+                                    name="license.additionalTerms"
+                                    control={control}
+                                    label="Additional License Terms"
+                                    placeholder="Additional terms (if applicable)..."
+                                    className="mt-4"
+                                    maxLength={DESCRIP_MAX_CHARS}
+                                    showRemaining
+                                />
+                                <Divider />
+                                <Header as='h3'>Priority Integration</Header>
+                                <p>We try to prioritize integrating OER texts that people are ready to adopt in their classes. If you would like to use this text in your class you can fill out this section for priority consideration.</p>
+                                {!user.isAuthenticated &&
+                                    <CtlTextInput
+                                        name="name"
+                                        control={control}
+                                        label="Your Name"
+                                        placeholder="Name"
+                                        className="mt-4"
+                                        required
+                                        rules={required}
+                                    />
+                                }
+                                <CtlTextInput
+                                    name="institution"
+                                    control={control}
+                                    label="Your Institution"
+                                    placeholder="Institution"
+                                    className="mt-4"
+                                />
+                                <div className="mt-4">
+                                    <label
+                                        className="form-field-label"
+                                        htmlFor="selectResourceUse"
+                                    >
+                                        I would like to use this resource in my class:
+                                    </label>
+                                    <Controller
+                                        render={({ field }) => (
+                                            <Dropdown
+                                                id="selectResourceUse"
+                                                options={textUseOptions}
+                                                {...field}
+                                                onChange={(e, data) => {
+                                                    field.onChange(
+                                                        data.value?.toString() ?? ""
+                                                    );
+                                                }}
+                                                fluid
+                                                selection
+                                                placeholder="Select use..."
+                                                error={
+                                                    formState.errors.library
+                                                        ? true
+                                                        : false
+                                                }
+                                            />
+                                        )}
+                                        name="resourceUse"
+                                        control={control}
+                                    />
+                                </div>
+                                <CtlDateInput
+                                    name="dateIntegrate"
+                                    control={control}
+                                    label="Date integration has to be completed for adoption to be possible:"
+                                    className="mt-4"
+                                    error={formState.errors.dateIntegrate ? true : false}
+                                    value={watch('dateIntegrate')}
+                                    onChange={(e) => {
+                                        setValue("dateIntegrate", e.target.value);
+                                    }}
+                                />
+                                <p>
+                                    *
+                                    <em>
+                                        We try to integrate projects by the date they are needed but cannot guarantee this. If you have questions, you can always
+                                        <a href='mailto:info@libretexts.org' target='_blank' rel='noopener noreferrer'> get in touch</a> with the LibreTexts team.
+                                    </em>
+                                </p>
+                                <Divider />
+                                {user.isAuthenticated &&
+                                    <div className="flex items-start mt-3">
+                                        <CtlCheckbox
+                                            name="addToProject"
+                                            control={control}
+                                            label="Do you want to be added to the project to observe and/or participate in the harvesting efforts?"
+                                            className="ml-2 mt-4"
+                                            labelDirection="row-reverse"
+                                        />
+                                    </div>
+                                }
+                                <CtlTextArea
+                                    name="comments"
+                                    control={control}
+                                    label="Comments"
+                                    placeholder="Comments or additional information..."
+                                    className="mt-4 mb-4"
+                                    maxLength={DESCRIP_MAX_CHARS}
+                                    showRemaining
+                                />
+                                <Button color='blue' size='large' fluid={true} loading={loadingData} onClick={submitRequest}>Submit Request</Button>
+                            </Form>
+                        </Segment>
+                    </Grid.Column>
+                </Grid.Row>
+            </Grid>
+            <div className="flex flex-col justify-end h-full"><Footer /></div>
+        </div>
     );
 };
 

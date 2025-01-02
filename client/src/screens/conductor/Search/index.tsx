@@ -1,6 +1,6 @@
 import "./Search.css";
 import "../../../components/projects/Projects.css";
-
+import Footer from "../../../components/navigation/Footer";
 import {
   Grid,
   Header,
@@ -445,770 +445,773 @@ const Search = () => {
   );
 
   return (
-    <Grid className="component-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">Search</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment>
-            {/* <Form>
-              <Form.Group widths="equal">
-                <Form.Select
-                  control={Select}
-                  label="Project Location"
-                  options={projLocationOptions}
-                  placeholder="Project Location..."
-                  value={projLocationFilter}
-                  onChange={(e, { value }) =>
-                    setProjLocationFilter((value as string) ?? "global")
-                  }
-                />
-                <Form.Select
-                  label="Project Status"
-                  options={projStatusOptions}
-                  placeholder="Project Status..."
-                  value={projStatusFilter}
-                  onChange={(e, { value }) =>
-                    setProjStatusFilter((value as string) ?? "any")
-                  }
-                />
-                <Form.Select
-                  label="Project Visibility"
-                  options={projVisibilityOptions}
-                  placeholder="Project Visibility"
-                  value={projVisibilityFilter}
-                  onChange={(e, { value }) =>
-                    setProjVisibilityFilter((value as string) ?? "any")
-                  }
-                />
-              </Form.Group>
-            </Form>
-            <Divider /> */}
-            <div className="flex-row-div">
-              <div className="left-flex">
-                <Label color="blue">
-                  <Icon name="search" />
-                  Query
-                  <Label.Detail>{searchQuery}</Label.Detail>
-                </Label>
-                <Label color="grey">
-                  <Icon name="hashtag" />
-                  Results
-                  <Label.Detail>
-                    {projectsTotal +
-                      booksTotal +
-                      assetsTotal +
-                      homeworkTotal +
-                      usersTotal}
-                  </Label.Detail>
-                </Label>
+    <div>
+      <Grid className="component-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header">Search</Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment>
+              {/* <Form>
+                <Form.Group widths="equal">
+                  <Form.Select
+                    control={Select}
+                    label="Project Location"
+                    options={projLocationOptions}
+                    placeholder="Project Location..."
+                    value={projLocationFilter}
+                    onChange={(e, { value }) =>
+                      setProjLocationFilter((value as string) ?? "global")
+                    }
+                  />
+                  <Form.Select
+                    label="Project Status"
+                    options={projStatusOptions}
+                    placeholder="Project Status..."
+                    value={projStatusFilter}
+                    onChange={(e, { value }) =>
+                      setProjStatusFilter((value as string) ?? "any")
+                    }
+                  />
+                  <Form.Select
+                    label="Project Visibility"
+                    options={projVisibilityOptions}
+                    placeholder="Project Visibility"
+                    value={projVisibilityFilter}
+                    onChange={(e, { value }) =>
+                      setProjVisibilityFilter((value as string) ?? "any")
+                    }
+                  />
+                </Form.Group>
+              </Form>
+              <Divider /> */}
+              <div className="flex-row-div">
+                <div className="left-flex">
+                  <Label color="blue">
+                    <Icon name="search" />
+                    Query
+                    <Label.Detail>{searchQuery}</Label.Detail>
+                  </Label>
+                  <Label color="grey">
+                    <Icon name="hashtag" />
+                    Results
+                    <Label.Detail>
+                      {projectsTotal +
+                        booksTotal +
+                        assetsTotal +
+                        homeworkTotal +
+                        usersTotal}
+                    </Label.Detail>
+                  </Label>
+                </div>
+                <div className="right-flex">
+                  <Button.Group>
+                    <Button
+                      color="blue"
+                      as={Link}
+                      to="/alerts"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Icon name="alarm" />
+                      My Alerts
+                    </Button>
+                    <Button color="green" onClick={openCreateAlertModal}>
+                      <Icon name="add" />
+                      Create Alert
+                    </Button>
+                  </Button.Group>
+                </div>
               </div>
-              <div className="right-flex">
-                <Button.Group>
-                  <Button
-                    color="blue"
-                    as={Link}
-                    to="/alerts"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Icon name="alarm" />
-                    My Alerts
-                  </Button>
-                  <Button color="green" onClick={openCreateAlertModal}>
-                    <Icon name="add" />
-                    Create Alert
-                  </Button>
-                </Button.Group>
-              </div>
-            </div>
-            <Header as="h3" dividing>
-              Projects
-            </Header>
-            {!projectsLoading ? (
-              <Segment basic>
-                <Segment attached="top">
-                  <div className="flex-row-div">
-                    <div className="left-flex">
-                      <span>Displaying </span>
-                      <Dropdown
-                        className="search-itemsperpage-dropdown"
-                        selection
-                        options={catalogItemsPerPageOptions}
-                        onChange={(_e, { value }) => {
-                          const newLimit = (value as number) ?? 12;
-                          setProjectsLimit(newLimit);
-                          handleProjectSearch(
-                            searchQuery,
-                            activeProjectPage,
-                            newLimit
-                          );
-                        }}
-                        value={projectsLimit}
-                        aria-label="Number of results to display per page"
-                      />
-                      <span> items per page.</span>
-                    </div>
-                    <div className="center-flex">
-                      <ConductorPagination
-                        activePage={activeProjectPage}
-                        totalPages={
-                          Math.ceil(projectsTotal / projectsLimit) || 1
-                        }
-                        firstItem={null}
-                        lastItem={null}
-                        onPageChange={(e, data) => {
-                          const newPage =
-                            parseInt(data.activePage?.toString() || "") ?? 1;
-                          setActiveProjectPage(newPage);
-                          handleProjectSearch(searchQuery, newPage);
-                        }}
-                      />
-                    </div>
-                    <div className="right-flex">
-                      <Dropdown
-                        placeholder="Sort by..."
-                        floating
-                        selection
-                        button
-                        options={projSortOptions}
-                        onChange={(_e, { value }) => {
-                          const newSort =
-                            (value as ProjectSearchParams["sort"]) ?? "title";
-                          setProjectsSort(newSort);
-                          handleProjectSearch(
-                            searchQuery,
-                            activeProjectPage,
-                            projectsLimit,
-                            newSort
-                          );
-                        }}
-                        value={projectsSort}
-                        aria-label="Sort Project Results by"
-                      />
-                    </div>
-                  </div>
-                </Segment>
-                <Table celled attached title="Project Search Results">
-                  <Table.Header>
-                    <Table.Row>
-                      <Table.HeaderCell width={6}>
-                        <Header sub>Title</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell width={4}>
-                        <Header sub>Author</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell width={2}>
-                        <Header sub>Progress (C/PR/A11Y)</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell width={2}>
-                        <Header sub>Classification</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell width={2}>
-                        <Header sub>Visibility</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell width={2}>
-                        <Header sub>Lead</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell width={2}>
-                        <Header sub>Last Updated</Header>
-                      </Table.HeaderCell>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {projects.length > 0 &&
-                      projects.map((item, index) => {
-                        let projectLead = "Unknown";
-                        if (item.leads && Array.isArray(item.leads)) {
-                          item.leads.forEach((lead, leadIdx) => {
-                            if (lead.firstName && lead.lastName) {
-                              if (leadIdx > 0)
-                                projectLead += `, ${lead.firstName} ${lead.lastName}`;
-                              else if (leadIdx === 0)
-                                projectLead = `${lead.firstName} ${lead.lastName}`;
-                            }
-                          });
-                        }
-                        if (!item.hasOwnProperty("peerProgress"))
-                          item.peerProgress = 0;
-                        if (!item.hasOwnProperty("a11yProgress"))
-                          item.a11yProgress = 0;
-                        return (
-                          <Table.Row key={index}>
-                            <Table.Cell>
-                              <p>
-                                <strong>
-                                  <Link to={`/projects/${item.projectID}`}>
-                                    {truncateString(item.title, 100)}
-                                  </Link>
-                                </strong>
-                              </p>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <p>{truncateString(item.author, 50)}</p>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <div className="flex-row-div projectportal-progress-row">
-                                <div className="projectportal-progress-col">
-                                  <span>{item.currentProgress}%</span>
-                                </div>
-                                <div className="projectportal-progresssep-col">
-                                  <span className="projectportal-progresssep">
-                                    /
-                                  </span>
-                                </div>
-                                <div className="projectportal-progress-col">
-                                  <span>{item.peerProgress}%</span>
-                                </div>
-                                <div className="projectportal-progresssep-col">
-                                  <span className="projectportal-progresssep">
-                                    /
-                                  </span>
-                                </div>
-                                <div className="projectportal-progress-col">
-                                  <span>{item.a11yProgress}%</span>
-                                </div>
-                              </div>
-                            </Table.Cell>
-                            <Table.Cell>
-                              {item.classification &&
-                              typeof item.classification === "string" ? (
-                                <p>
-                                  {getClassificationText(item.classification)}
-                                </p>
-                              ) : (
-                                <p>
-                                  <em>Unclassified</em>
-                                </p>
-                              )}
-                            </Table.Cell>
-                            <Table.Cell>
-                              {typeof item.visibility === "string" &&
-                              item.visibility ? (
-                                <p>{getVisibilityText(item.visibility)}</p>
-                              ) : (
-                                <p>
-                                  <em>Unknown</em>
-                                </p>
-                              )}
-                            </Table.Cell>
-                            <Table.Cell>
-                              <p>{truncateString(projectLead, 50)}</p>
-                            </Table.Cell>
-                            <Table.Cell>
-                              {item.updatedAt && (
-                                <p>
-                                  {format(parseISO(item.updatedAt), "MM/dd/yy")}{" "}
-                                  at{" "}
-                                  {format(parseISO(item.updatedAt), "h:mm aa")}
-                                </p>
-                              )}
-                            </Table.Cell>
-                          </Table.Row>
-                        );
-                      })}
-                    {projects.length === 0 && (
-                      <Table.Row>
-                        <Table.Cell colSpan={6}>
-                          <p className="text-center">
-                            <em>No results found.</em>
-                          </p>
-                        </Table.Cell>
-                      </Table.Row>
-                    )}
-                  </Table.Body>
-                </Table>
-              </Segment>
-            ) : (
-              <LoadingPlaceholder />
-            )}
-            <Header as="h3" dividing>
-              Books
-            </Header>
-            {!booksLoading ? (
-              <Segment basic>
-                <Segment attached="top">
-                  <div className="flex-row-div">
-                    <div className="left-flex">
-                      <span>Displaying </span>
-                      <Dropdown
-                        className="search-itemsperpage-dropdown"
-                        selection
-                        options={catalogItemsPerPageOptions}
-                        onChange={(_e, { value }) =>
-                          setBooksLimit((value as number) ?? 12)
-                        }
-                        value={booksLimit}
-                        aria-label="Number of results to display per page"
-                      />
-                      <span> items per page. results.</span>
-                    </div>
-                    <div className="center-flex">
-                      <ConductorPagination
-                        activePage={activeBookPage}
-                        totalPages={Math.ceil(booksTotal / booksLimit) || 1}
-                        firstItem={null}
-                        lastItem={null}
-                        onPageChange={(e, data) => {
-                          const newPage =
-                            parseInt(data.activePage?.toString() || "") ?? 1;
-                          setActiveBookPage(newPage);
-                          handleBooksSearch(searchQuery, newPage);
-                        }}
-                      />
-                    </div>
-                    <div className="right-flex">
-                      <Dropdown
-                        placeholder="Sort by..."
-                        floating
-                        selection
-                        button
-                        options={bookSortOptions}
-                        onChange={(_e, { value }) =>
-                          setBooksSort((value as string) ?? "title")
-                        }
-                        value={booksSort}
-                        aria-label="Sort Book Results by"
-                      />
-                    </div>
-                  </div>
-                </Segment>
-                <Table celled attached title="Book Search Results">
-                  <Table.Header>
-                    <Table.Row>
-                      <Table.HeaderCell scope="col">
-                        <Image
-                          centered
-                          src={getLibGlyphURL("")}
-                          className="commons-itemized-glyph"
-                          alt={getLibGlyphAltText("")}
+              <Header as="h3" dividing>
+                Projects
+              </Header>
+              {!projectsLoading ? (
+                <Segment basic>
+                  <Segment attached="top">
+                    <div className="flex-row-div">
+                      <div className="left-flex">
+                        <span>Displaying </span>
+                        <Dropdown
+                          className="search-itemsperpage-dropdown"
+                          selection
+                          options={catalogItemsPerPageOptions}
+                          onChange={(_e, { value }) => {
+                            const newLimit = (value as number) ?? 12;
+                            setProjectsLimit(newLimit);
+                            handleProjectSearch(
+                              searchQuery,
+                              activeProjectPage,
+                              newLimit
+                            );
+                          }}
+                          value={projectsLimit}
+                          aria-label="Number of results to display per page"
                         />
-                      </Table.HeaderCell>
-                      <Table.HeaderCell scope="col">
-                        <Header sub>Title</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell scope="col">
-                        <Header sub>Subject</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell scope="col">
-                        <Header sub>Author</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell scope="col">
-                        <Header sub>Affiliation</Header>
-                      </Table.HeaderCell>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {books.length > 0 &&
-                      books.map((item, index) => {
-                        return (
-                          <Table.Row key={index}>
-                            <Table.Cell>
-                              <Image
-                                centered
-                                src={getLibGlyphURL(item.library)}
-                                className="commons-itemized-glyph"
-                                alt={getLibGlyphAltText(item.library)}
-                              />
-                            </Table.Cell>
-                            <Table.Cell>
-                              <p>
-                                <strong>
-                                  <Link
-                                    to={`/book/${item.bookID}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    {item.title}
-                                  </Link>
-                                </strong>
-                              </p>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <p>{item.subject}</p>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <p>{item.author}</p>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <p>
-                                <em>{item.affiliation}</em>
-                              </p>
-                            </Table.Cell>
-                          </Table.Row>
-                        );
-                      })}
-                    {books.length === 0 && (
+                        <span> items per page.</span>
+                      </div>
+                      <div className="center-flex">
+                        <ConductorPagination
+                          activePage={activeProjectPage}
+                          totalPages={
+                            Math.ceil(projectsTotal / projectsLimit) || 1
+                          }
+                          firstItem={null}
+                          lastItem={null}
+                          onPageChange={(e, data) => {
+                            const newPage =
+                              parseInt(data.activePage?.toString() || "") ?? 1;
+                            setActiveProjectPage(newPage);
+                            handleProjectSearch(searchQuery, newPage);
+                          }}
+                        />
+                      </div>
+                      <div className="right-flex">
+                        <Dropdown
+                          placeholder="Sort by..."
+                          floating
+                          selection
+                          button
+                          options={projSortOptions}
+                          onChange={(_e, { value }) => {
+                            const newSort =
+                              (value as ProjectSearchParams["sort"]) ?? "title";
+                            setProjectsSort(newSort);
+                            handleProjectSearch(
+                              searchQuery,
+                              activeProjectPage,
+                              projectsLimit,
+                              newSort
+                            );
+                          }}
+                          value={projectsSort}
+                          aria-label="Sort Project Results by"
+                        />
+                      </div>
+                    </div>
+                  </Segment>
+                  <Table celled attached title="Project Search Results">
+                    <Table.Header>
                       <Table.Row>
-                        <Table.Cell colSpan={5}>
-                          <p className="text-center">
-                            <em>No results found.</em>
-                          </p>
-                        </Table.Cell>
+                        <Table.HeaderCell width={6}>
+                          <Header sub>Title</Header>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell width={4}>
+                          <Header sub>Author</Header>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell width={2}>
+                          <Header sub>Progress (C/PR/A11Y)</Header>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell width={2}>
+                          <Header sub>Classification</Header>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell width={2}>
+                          <Header sub>Visibility</Header>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell width={2}>
+                          <Header sub>Lead</Header>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell width={2}>
+                          <Header sub>Last Updated</Header>
+                        </Table.HeaderCell>
                       </Table.Row>
-                    )}
-                  </Table.Body>
-                </Table>
-              </Segment>
-            ) : (
-              <LoadingPlaceholder />
-            )}
-            <Header as="h3" dividing>
-              Assets
-            </Header>
-            {!assetsLoading ? (
-              <Segment basic>
-                <Segment attached="top">
-                  <div className="flex-row-div">
-                    <div className="left-flex">
-                      <span>Displaying </span>
-                      <Dropdown
-                        className="search-itemsperpage-dropdown"
-                        selection
-                        options={catalogItemsPerPageOptions}
-                        onChange={(_e, { value }) => {
-                          const newLimit = (value as number) ?? 12;
-                          setAssetsLimit(newLimit);
-                          handleAssetsSearch(
-                            searchQuery,
-                            activeAssetPage,
-                            newLimit
-                          );
-                        }}
-                        value={assetsLimit}
-                        aria-label="Number of results to display per page"
-                      />
-                      <span> items per page.</span>
-                    </div>
-                    <div className="center-flex">
-                      <ConductorPagination
-                        activePage={activeAssetPage}
-                        totalPages={Math.ceil(assetsTotal / assetsLimit) || 1}
-                        firstItem={null}
-                        lastItem={null}
-                        onPageChange={(e, data) => {
-                          const newPage =
-                            parseInt(data.activePage?.toString() || "") ?? 1;
-                          setActiveAssetPage((data.activePage as number) ?? 1);
-                          handleAssetsSearch(searchQuery, newPage);
-                        }}
-                      />
-                    </div>
-                    <div className="right-flex">
-                      {/* <Dropdown
-                              placeholder="Sort by..."
-                              floating
-                              selection
-                              button
-                              options={bookSortOptions}
-                              onChange={(_e, { value }) =>
-                                handleFilterSortChange(
-                                  "bookSort",
-                                  (value as string) ?? "title"
-                                )
+                    </Table.Header>
+                    <Table.Body>
+                      {projects.length > 0 &&
+                        projects.map((item, index) => {
+                          let projectLead = "Unknown";
+                          if (item.leads && Array.isArray(item.leads)) {
+                            item.leads.forEach((lead, leadIdx) => {
+                              if (lead.firstName && lead.lastName) {
+                                if (leadIdx > 0)
+                                  projectLead += `, ${lead.firstName} ${lead.lastName}`;
+                                else if (leadIdx === 0)
+                                  projectLead = `${lead.firstName} ${lead.lastName}`;
                               }
-                              value={bookSort}
-                              aria-label="Sort Book Results by"
-                            /> */}
-                    </div>
-                  </div>
+                            });
+                          }
+                          if (!item.hasOwnProperty("peerProgress"))
+                            item.peerProgress = 0;
+                          if (!item.hasOwnProperty("a11yProgress"))
+                            item.a11yProgress = 0;
+                          return (
+                            <Table.Row key={index}>
+                              <Table.Cell>
+                                <p>
+                                  <strong>
+                                    <Link to={`/projects/${item.projectID}`}>
+                                      {truncateString(item.title, 100)}
+                                    </Link>
+                                  </strong>
+                                </p>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <p>{truncateString(item.author, 50)}</p>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <div className="flex-row-div projectportal-progress-row">
+                                  <div className="projectportal-progress-col">
+                                    <span>{item.currentProgress}%</span>
+                                  </div>
+                                  <div className="projectportal-progresssep-col">
+                                    <span className="projectportal-progresssep">
+                                      /
+                                    </span>
+                                  </div>
+                                  <div className="projectportal-progress-col">
+                                    <span>{item.peerProgress}%</span>
+                                  </div>
+                                  <div className="projectportal-progresssep-col">
+                                    <span className="projectportal-progresssep">
+                                      /
+                                    </span>
+                                  </div>
+                                  <div className="projectportal-progress-col">
+                                    <span>{item.a11yProgress}%</span>
+                                  </div>
+                                </div>
+                              </Table.Cell>
+                              <Table.Cell>
+                                {item.classification &&
+                                typeof item.classification === "string" ? (
+                                  <p>
+                                    {getClassificationText(item.classification)}
+                                  </p>
+                                ) : (
+                                  <p>
+                                    <em>Unclassified</em>
+                                  </p>
+                                )}
+                              </Table.Cell>
+                              <Table.Cell>
+                                {typeof item.visibility === "string" &&
+                                item.visibility ? (
+                                  <p>{getVisibilityText(item.visibility)}</p>
+                                ) : (
+                                  <p>
+                                    <em>Unknown</em>
+                                  </p>
+                                )}
+                              </Table.Cell>
+                              <Table.Cell>
+                                <p>{truncateString(projectLead, 50)}</p>
+                              </Table.Cell>
+                              <Table.Cell>
+                                {item.updatedAt && (
+                                  <p>
+                                    {format(parseISO(item.updatedAt), "MM/dd/yy")}{" "}
+                                    at{" "}
+                                    {format(parseISO(item.updatedAt), "h:mm aa")}
+                                  </p>
+                                )}
+                              </Table.Cell>
+                            </Table.Row>
+                          );
+                        })}
+                      {projects.length === 0 && (
+                        <Table.Row>
+                          <Table.Cell colSpan={6}>
+                            <p className="text-center">
+                              <em>No results found.</em>
+                            </p>
+                          </Table.Cell>
+                        </Table.Row>
+                      )}
+                    </Table.Body>
+                  </Table>
                 </Segment>
-                <Table celled attached title="Asset Search Results">
-                  <Table.Header>
-                    <Table.Row>
-                      <Table.HeaderCell scope="col" width={6}>
-                        <Header sub>Name</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell scope="col">
-                        <Header sub>Author</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell scope="col">
-                        <Header sub>License</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell scope="col">
-                        <Header sub>Size</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell scope="col">
-                        <Header sub>Tags</Header>
-                      </Table.HeaderCell>
-                      {/* <Table.HeaderCell scope="col">
-                              <Header sub>Download</Header>
-                            </Table.HeaderCell> */}
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {assets.length > 0 &&
-                      assets.map((item, index) => {
-                        return (
-                          <Table.Row key={index}>
-                            <Table.Cell>
-                              {item.storageType === "folder" ? (
-                                <Icon name="folder outline" />
-                              ) : (
-                                <FileIcon filename={item.name} />
-                              )}
-                              <a
-                                aria-label={`Download ${item.name}`}
-                                onClick={() => handleDownloadFile(item)}
-                                className="text-link"
-                              >
-                                {item.name}
-                              </a>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <span>{getPrettyAuthorsList(item.primaryAuthor, item.authors)}</span>
-                            </Table.Cell>
-                            <Table.Cell>
-                              {item.license && (
-                                <span>
-                                  {getFilesLicenseText(item.license) ??
-                                    "Unknown"}
-                                </span>
-                              )}
-                            </Table.Cell>
-                            <Table.Cell>
-                              {item.storageType === "file" &&
-                                fileSizePresentable(item.size)}
-                            </Table.Cell>
-                            {/* <Table.Cell>
-                                    {item.createdDate && (
-                                      <span>
-                                        {getPrettyCreatedDate(item.createdDate)}
-                                      </span>
-                                    )}
-                                    {item.uploader && (
-                                      <span>
-                                        by
-                                        {getPrettyUploader(item.uploader)}
-                                      </span>
-                                    )}
-                                  </Table.Cell> */}
-                            <Table.Cell>
-                              <RenderAssetTags file={item} />
-                            </Table.Cell>
-                            {/* <Table.Cell></Table.Cell> */}
-                          </Table.Row>
-                        );
-                      })}
-                    {assets.length === 0 && (
+              ) : (
+                <LoadingPlaceholder />
+              )}
+              <Header as="h3" dividing>
+                Books
+              </Header>
+              {!booksLoading ? (
+                <Segment basic>
+                  <Segment attached="top">
+                    <div className="flex-row-div">
+                      <div className="left-flex">
+                        <span>Displaying </span>
+                        <Dropdown
+                          className="search-itemsperpage-dropdown"
+                          selection
+                          options={catalogItemsPerPageOptions}
+                          onChange={(_e, { value }) =>
+                            setBooksLimit((value as number) ?? 12)
+                          }
+                          value={booksLimit}
+                          aria-label="Number of results to display per page"
+                        />
+                        <span> items per page. results.</span>
+                      </div>
+                      <div className="center-flex">
+                        <ConductorPagination
+                          activePage={activeBookPage}
+                          totalPages={Math.ceil(booksTotal / booksLimit) || 1}
+                          firstItem={null}
+                          lastItem={null}
+                          onPageChange={(e, data) => {
+                            const newPage =
+                              parseInt(data.activePage?.toString() || "") ?? 1;
+                            setActiveBookPage(newPage);
+                            handleBooksSearch(searchQuery, newPage);
+                          }}
+                        />
+                      </div>
+                      <div className="right-flex">
+                        <Dropdown
+                          placeholder="Sort by..."
+                          floating
+                          selection
+                          button
+                          options={bookSortOptions}
+                          onChange={(_e, { value }) =>
+                            setBooksSort((value as string) ?? "title")
+                          }
+                          value={booksSort}
+                          aria-label="Sort Book Results by"
+                        />
+                      </div>
+                    </div>
+                  </Segment>
+                  <Table celled attached title="Book Search Results">
+                    <Table.Header>
                       <Table.Row>
-                        <Table.Cell colSpan={5}>
-                          <p className="text-center">
-                            <em>No results found.</em>
-                          </p>
-                        </Table.Cell>
+                        <Table.HeaderCell scope="col">
+                          <Image
+                            centered
+                            src={getLibGlyphURL("")}
+                            className="commons-itemized-glyph"
+                            alt={getLibGlyphAltText("")}
+                          />
+                        </Table.HeaderCell>
+                        <Table.HeaderCell scope="col">
+                          <Header sub>Title</Header>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell scope="col">
+                          <Header sub>Subject</Header>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell scope="col">
+                          <Header sub>Author</Header>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell scope="col">
+                          <Header sub>Affiliation</Header>
+                        </Table.HeaderCell>
                       </Table.Row>
-                    )}
-                  </Table.Body>
-                </Table>
-              </Segment>
-            ) : (
-              <LoadingPlaceholder />
-            )}
-            <Header as="h3" dividing>
-              Homework &amp; Assessments
-            </Header>
-            {!hwLoading ? (
-              <Segment basic>
-                <Segment attached="top">
-                  <div className="flex-row-div">
-                    <div className="left-flex">
-                      <span>Displaying </span>
-                      <Dropdown
-                        className="search-itemsperpage-dropdown"
-                        selection
-                        options={catalogItemsPerPageOptions}
-                        onChange={(_e, { value }) =>
-                          setHwLimit((value as number) ?? 12)
-                        }
-                        value={hwLimit}
-                        aria-label="Number of results to display per page"
-                      />
-                      <span> items per page.</span>
-                    </div>
-                    <div className="center-flex">
-                      <ConductorPagination
-                        activePage={activeHWPage}
-                        totalPages={Math.ceil(homeworkTotal / hwLimit) || 1}
-                        firstItem={null}
-                        lastItem={null}
-                        onPageChange={(e, data) => {
-                          const newPage =
-                            parseInt(data.activePage?.toString() || "") ?? 1;
-                          setActiveHWPage(newPage);
-                          handleHomeworkSearch(searchQuery, newPage);
-                        }}
-                      />
-                    </div>
-                    <div className="right-flex">
-                      <Dropdown
-                        placeholder="Sort by..."
-                        floating
-                        selection
-                        button
-                        options={hwSortOptions}
-                        onChange={(_e, { value }) =>
-                          setHomeworkSort((value as string) ?? "name")
-                        }
-                        value={homeworkSort}
-                        aria-label="Sort Homework and Assessments Results by"
-                      />
-                    </div>
-                  </div>
-                </Segment>
-                <Table celled attached title="Homework Search Results">
-                  <Table.Header>
-                    <Table.Row>
-                      <Table.HeaderCell width={6} scope="col">
-                        <Header sub>Name</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell width={10} scope="col">
-                        <Header sub>Description</Header>
-                      </Table.HeaderCell>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {homework.length > 0 &&
-                      homework.map((item, index) => {
-                        return (
-                          <Table.Row key={index}>
-                            <Table.Cell>
-                              <p
-                                onClick={() => openHwModal(item)}
-                                className="text-link"
-                                tabIndex={0}
-                              >
-                                <strong>{item.title}</strong>
-                              </p>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <p>{truncateString(item.description, 250)}</p>
-                            </Table.Cell>
-                          </Table.Row>
-                        );
-                      })}
-                    {homework.length === 0 && (
-                      <Table.Row>
-                        <Table.Cell colSpan="2">
-                          <p className="text-center">
-                            <em>No results found.</em>
-                          </p>
-                        </Table.Cell>
-                      </Table.Row>
-                    )}
-                  </Table.Body>
-                </Table>
-              </Segment>
-            ) : (
-              <LoadingPlaceholder />
-            )}
-            <Header as="h3" dividing>
-              Users
-            </Header>
-            {!usersLoading ? (
-              <Segment basic>
-                <Segment attached="top">
-                  <div className="flex-row-div">
-                    <div className="left-flex">
-                      <span>Displaying </span>
-                      <Dropdown
-                        className="search-itemsperpage-dropdown"
-                        selection
-                        options={catalogItemsPerPageOptions}
-                        onChange={(_e, { value }) =>
-                          setUsersLimit((value as number) ?? 12)
-                        }
-                        value={usersLimit}
-                        aria-label="Number of results to display per page"
-                      />
-                      <span> items per page.</span>
-                    </div>
-                    <div className="center-flex">
-                      <ConductorPagination
-                        activePage={activeUserPage}
-                        totalPages={Math.ceil(usersTotal / usersLimit) || 1}
-                        firstItem={null}
-                        lastItem={null}
-                        onPageChange={(e, data) => {
-                          const newPage =
-                            parseInt(data.activePage?.toString() ?? "") ?? 1;
-                          setActiveUserPage(newPage);
-                          handleUserSearch(searchQuery, newPage);
-                        }}
-                      />
-                    </div>
-                    <div className="right-flex">
-                      <Dropdown
-                        placeholder="Sort by..."
-                        floating
-                        selection
-                        button
-                        options={userSortOptions}
-                        onChange={(_e, { value }) =>
-                          setUsersSort((value as string) ?? "first")
-                        }
-                        value={usersSort}
-                        aria-label="Sort User Results by"
-                      />
-                    </div>
-                  </div>
-                </Segment>
-                <Segment basic attached>
-                  {users.length > 0 && (
-                    <List divided relaxed verticalAlign="middle">
-                      {users.map((item, idx) => {
-                        return (
-                          <List.Item key={`user-result-${idx}`}>
-                            <div className="flex-row-div">
-                              <div className="left-flex">
-                                <Image avatar src={item.avatar} />
-                                <List.Content className="ml-1p">
-                                  {item.firstName} {item.lastName}
-                                </List.Content>
-                              </div>
-                              <div className="right-flex">
-                                <Popup
-                                  position="left center"
-                                  trigger={<Icon name="info circle" />}
-                                  content="More community features coming soon!"
+                    </Table.Header>
+                    <Table.Body>
+                      {books.length > 0 &&
+                        books.map((item, index) => {
+                          return (
+                            <Table.Row key={index}>
+                              <Table.Cell>
+                                <Image
+                                  centered
+                                  src={getLibGlyphURL(item.library)}
+                                  className="commons-itemized-glyph"
+                                  alt={getLibGlyphAltText(item.library)}
                                 />
-                              </div>
-                            </div>
-                          </List.Item>
-                        );
-                      })}
-                    </List>
-                  )}
-                  {users.length === 0 && (
-                    <p className="text-center">No results found.</p>
-                  )}
+                              </Table.Cell>
+                              <Table.Cell>
+                                <p>
+                                  <strong>
+                                    <Link
+                                      to={`/book/${item.bookID}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      {item.title}
+                                    </Link>
+                                  </strong>
+                                </p>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <p>{item.subject}</p>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <p>{item.author}</p>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <p>
+                                  <em>{item.affiliation}</em>
+                                </p>
+                              </Table.Cell>
+                            </Table.Row>
+                          );
+                        })}
+                      {books.length === 0 && (
+                        <Table.Row>
+                          <Table.Cell colSpan={5}>
+                            <p className="text-center">
+                              <em>No results found.</em>
+                            </p>
+                          </Table.Cell>
+                        </Table.Row>
+                      )}
+                    </Table.Body>
+                  </Table>
                 </Segment>
-              </Segment>
-            ) : (
-              <LoadingPlaceholder />
+              ) : (
+                <LoadingPlaceholder />
+              )}
+              <Header as="h3" dividing>
+                Assets
+              </Header>
+              {!assetsLoading ? (
+                <Segment basic>
+                  <Segment attached="top">
+                    <div className="flex-row-div">
+                      <div className="left-flex">
+                        <span>Displaying </span>
+                        <Dropdown
+                          className="search-itemsperpage-dropdown"
+                          selection
+                          options={catalogItemsPerPageOptions}
+                          onChange={(_e, { value }) => {
+                            const newLimit = (value as number) ?? 12;
+                            setAssetsLimit(newLimit);
+                            handleAssetsSearch(
+                              searchQuery,
+                              activeAssetPage,
+                              newLimit
+                            );
+                          }}
+                          value={assetsLimit}
+                          aria-label="Number of results to display per page"
+                        />
+                        <span> items per page.</span>
+                      </div>
+                      <div className="center-flex">
+                        <ConductorPagination
+                          activePage={activeAssetPage}
+                          totalPages={Math.ceil(assetsTotal / assetsLimit) || 1}
+                          firstItem={null}
+                          lastItem={null}
+                          onPageChange={(e, data) => {
+                            const newPage =
+                              parseInt(data.activePage?.toString() || "") ?? 1;
+                            setActiveAssetPage((data.activePage as number) ?? 1);
+                            handleAssetsSearch(searchQuery, newPage);
+                          }}
+                        />
+                      </div>
+                      <div className="right-flex">
+                        {/* <Dropdown
+                                placeholder="Sort by..."
+                                floating
+                                selection
+                                button
+                                options={bookSortOptions}
+                                onChange={(_e, { value }) =>
+                                  handleFilterSortChange(
+                                    "bookSort",
+                                    (value as string) ?? "title"
+                                  )
+                                }
+                                value={bookSort}
+                                aria-label="Sort Book Results by"
+                              /> */}
+                      </div>
+                    </div>
+                  </Segment>
+                  <Table celled attached title="Asset Search Results">
+                    <Table.Header>
+                      <Table.Row>
+                        <Table.HeaderCell scope="col" width={6}>
+                          <Header sub>Name</Header>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell scope="col">
+                          <Header sub>Author</Header>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell scope="col">
+                          <Header sub>License</Header>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell scope="col">
+                          <Header sub>Size</Header>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell scope="col">
+                          <Header sub>Tags</Header>
+                        </Table.HeaderCell>
+                        {/* <Table.HeaderCell scope="col">
+                                <Header sub>Download</Header>
+                              </Table.HeaderCell> */}
+                      </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                      {assets.length > 0 &&
+                        assets.map((item, index) => {
+                          return (
+                            <Table.Row key={index}>
+                              <Table.Cell>
+                                {item.storageType === "folder" ? (
+                                  <Icon name="folder outline" />
+                                ) : (
+                                  <FileIcon filename={item.name} />
+                                )}
+                                <a
+                                  aria-label={`Download ${item.name}`}
+                                  onClick={() => handleDownloadFile(item)}
+                                  className="text-link"
+                                >
+                                  {item.name}
+                                </a>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <span>{getPrettyAuthorsList(item.primaryAuthor, item.authors)}</span>
+                              </Table.Cell>
+                              <Table.Cell>
+                                {item.license && (
+                                  <span>
+                                    {getFilesLicenseText(item.license) ??
+                                      "Unknown"}
+                                  </span>
+                                )}
+                              </Table.Cell>
+                              <Table.Cell>
+                                {item.storageType === "file" &&
+                                  fileSizePresentable(item.size)}
+                              </Table.Cell>
+                              {/* <Table.Cell>
+                                      {item.createdDate && (
+                                        <span>
+                                          {getPrettyCreatedDate(item.createdDate)}
+                                        </span>
+                                      )}
+                                      {item.uploader && (
+                                        <span>
+                                          by
+                                          {getPrettyUploader(item.uploader)}
+                                        </span>
+                                      )}
+                                    </Table.Cell> */}
+                              <Table.Cell>
+                                <RenderAssetTags file={item} />
+                              </Table.Cell>
+                              {/* <Table.Cell></Table.Cell> */}
+                            </Table.Row>
+                          );
+                        })}
+                      {assets.length === 0 && (
+                        <Table.Row>
+                          <Table.Cell colSpan={5}>
+                            <p className="text-center">
+                              <em>No results found.</em>
+                            </p>
+                          </Table.Cell>
+                        </Table.Row>
+                      )}
+                    </Table.Body>
+                  </Table>
+                </Segment>
+              ) : (
+                <LoadingPlaceholder />
+              )}
+              <Header as="h3" dividing>
+                Homework &amp; Assessments
+              </Header>
+              {!hwLoading ? (
+                <Segment basic>
+                  <Segment attached="top">
+                    <div className="flex-row-div">
+                      <div className="left-flex">
+                        <span>Displaying </span>
+                        <Dropdown
+                          className="search-itemsperpage-dropdown"
+                          selection
+                          options={catalogItemsPerPageOptions}
+                          onChange={(_e, { value }) =>
+                            setHwLimit((value as number) ?? 12)
+                          }
+                          value={hwLimit}
+                          aria-label="Number of results to display per page"
+                        />
+                        <span> items per page.</span>
+                      </div>
+                      <div className="center-flex">
+                        <ConductorPagination
+                          activePage={activeHWPage}
+                          totalPages={Math.ceil(homeworkTotal / hwLimit) || 1}
+                          firstItem={null}
+                          lastItem={null}
+                          onPageChange={(e, data) => {
+                            const newPage =
+                              parseInt(data.activePage?.toString() || "") ?? 1;
+                            setActiveHWPage(newPage);
+                            handleHomeworkSearch(searchQuery, newPage);
+                          }}
+                        />
+                      </div>
+                      <div className="right-flex">
+                        <Dropdown
+                          placeholder="Sort by..."
+                          floating
+                          selection
+                          button
+                          options={hwSortOptions}
+                          onChange={(_e, { value }) =>
+                            setHomeworkSort((value as string) ?? "name")
+                          }
+                          value={homeworkSort}
+                          aria-label="Sort Homework and Assessments Results by"
+                        />
+                      </div>
+                    </div>
+                  </Segment>
+                  <Table celled attached title="Homework Search Results">
+                    <Table.Header>
+                      <Table.Row>
+                        <Table.HeaderCell width={6} scope="col">
+                          <Header sub>Name</Header>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell width={10} scope="col">
+                          <Header sub>Description</Header>
+                        </Table.HeaderCell>
+                      </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                      {homework.length > 0 &&
+                        homework.map((item, index) => {
+                          return (
+                            <Table.Row key={index}>
+                              <Table.Cell>
+                                <p
+                                  onClick={() => openHwModal(item)}
+                                  className="text-link"
+                                  tabIndex={0}
+                                >
+                                  <strong>{item.title}</strong>
+                                </p>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <p>{truncateString(item.description, 250)}</p>
+                              </Table.Cell>
+                            </Table.Row>
+                          );
+                        })}
+                      {homework.length === 0 && (
+                        <Table.Row>
+                          <Table.Cell colSpan="2">
+                            <p className="text-center">
+                              <em>No results found.</em>
+                            </p>
+                          </Table.Cell>
+                        </Table.Row>
+                      )}
+                    </Table.Body>
+                  </Table>
+                </Segment>
+              ) : (
+                <LoadingPlaceholder />
+              )}
+              <Header as="h3" dividing>
+                Users
+              </Header>
+              {!usersLoading ? (
+                <Segment basic>
+                  <Segment attached="top">
+                    <div className="flex-row-div">
+                      <div className="left-flex">
+                        <span>Displaying </span>
+                        <Dropdown
+                          className="search-itemsperpage-dropdown"
+                          selection
+                          options={catalogItemsPerPageOptions}
+                          onChange={(_e, { value }) =>
+                            setUsersLimit((value as number) ?? 12)
+                          }
+                          value={usersLimit}
+                          aria-label="Number of results to display per page"
+                        />
+                        <span> items per page.</span>
+                      </div>
+                      <div className="center-flex">
+                        <ConductorPagination
+                          activePage={activeUserPage}
+                          totalPages={Math.ceil(usersTotal / usersLimit) || 1}
+                          firstItem={null}
+                          lastItem={null}
+                          onPageChange={(e, data) => {
+                            const newPage =
+                              parseInt(data.activePage?.toString() ?? "") ?? 1;
+                            setActiveUserPage(newPage);
+                            handleUserSearch(searchQuery, newPage);
+                          }}
+                        />
+                      </div>
+                      <div className="right-flex">
+                        <Dropdown
+                          placeholder="Sort by..."
+                          floating
+                          selection
+                          button
+                          options={userSortOptions}
+                          onChange={(_e, { value }) =>
+                            setUsersSort((value as string) ?? "first")
+                          }
+                          value={usersSort}
+                          aria-label="Sort User Results by"
+                        />
+                      </div>
+                    </div>
+                  </Segment>
+                  <Segment basic attached>
+                    {users.length > 0 && (
+                      <List divided relaxed verticalAlign="middle">
+                        {users.map((item, idx) => {
+                          return (
+                            <List.Item key={`user-result-${idx}`}>
+                              <div className="flex-row-div">
+                                <div className="left-flex">
+                                  <Image avatar src={item.avatar} />
+                                  <List.Content className="ml-1p">
+                                    {item.firstName} {item.lastName}
+                                  </List.Content>
+                                </div>
+                                <div className="right-flex">
+                                  <Popup
+                                    position="left center"
+                                    trigger={<Icon name="info circle" />}
+                                    content="More community features coming soon!"
+                                  />
+                                </div>
+                              </div>
+                            </List.Item>
+                          );
+                        })}
+                      </List>
+                    )}
+                    {users.length === 0 && (
+                      <p className="text-center">No results found.</p>
+                    )}
+                  </Segment>
+                </Segment>
+              ) : (
+                <LoadingPlaceholder />
+              )}
+            </Segment>
+            {/* Homework View Modal */}
+            {selectedHW && (
+              <PreviewHomework
+                show={showHwModal}
+                homework={selectedHW}
+                onClose={() => closeHwModal()}
+              />
             )}
-          </Segment>
-          {/* Homework View Modal */}
-          {selectedHW && (
-            <PreviewHomework
-              show={showHwModal}
-              homework={selectedHW}
-              onClose={() => closeHwModal()}
+            {/* Create Alert Modal */}
+            <AlertModal
+              open={showAlertModal}
+              onClose={closeCreateAlertModal}
+              mode="create"
+              query={searchQuery}
             />
-          )}
-          {/* Create Alert Modal */}
-          <AlertModal
-            open={showAlertModal}
-            onClose={closeCreateAlertModal}
-            mode="create"
-            query={searchQuery}
-          />
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full"><Footer /></div>
+    </div>
   );
 };
 

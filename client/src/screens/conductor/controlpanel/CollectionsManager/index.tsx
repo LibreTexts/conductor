@@ -34,6 +34,7 @@ import api from "../../../../api";
 import { useModals } from "../../../../context/ModalContext";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
+import Footer from "../../../../components/navigation/Footer";
 
 type AllCollectionsResponse = {
     collections: Collection[];
@@ -384,133 +385,91 @@ const CollectionsManager = () => {
     }
 
     return (
-        <Grid className="controlpanel-container" divided="vertically" padded>
-            <Grid.Row>
-                <Grid.Column width={16}>
-                    <Header className="component-header">Collections Manager</Header>
-                </Grid.Column>
-            </Grid.Row>
-            <Grid.Row>
-                <Grid.Column width={16}>
-                    <Segment.Group>
-                        <Segment>
-                            <Breadcrumb>
-                                <Breadcrumb.Section as={Link} to="/controlpanel">
-                                    <span className="text-link">Control Panel</span>
-                                </Breadcrumb.Section>
-                                <Breadcrumb.Divider icon="right chevron" />
-                            </Breadcrumb>
-                            <DirectoryBreadcrumbs />
-                        </Segment>
-                        <Segment padded>
-                            <div className="flex-row-div">
-                                <div className="left-flex">
-                                    {org.collectionsDisplayLabel && (
-                                        <span>
-                                            These collections will appear as{" "}
-                                            <strong className="text-bold">
-                                                {org.collectionsDisplayLabel}
-                                            </strong>{" "}
-                                            in your Campus Commons. You can change this label in{" "}
-                                            <a href="/controlpanel/campussettings" target="_blank">
-                                                Campus Settings
-                                            </a>
-                                            .
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="right-flex">
-                                    <ActionItems />
-                                </div>
-                            </div>
-                        </Segment>
-                        {
-                            !rootMode && activeCollection && (
-                                <Segment padded>
-                                    {
-                                        activeCollection.description && (
-                                            <p
-                                                className='text-base text-center lg:text-left prose prose-code:before:hidden prose-code:after:hidden max-w-full'
-                                                dangerouslySetInnerHTML={{
-                                                    __html: DOMPurify.sanitize(marked(activeCollection.description, { breaks: true }))
-                                                }}
-                                            />
-                                        )
-                                    }
-                                    {
-                                        !activeCollection.description && (
-                                            <p>
-                                                <em>No collection description yet.</em>
-                                            </p>
-                                        )
-                                    }
-                                </Segment>
-                            )
-                        }
-                        <Segment>
-                            <Breakpoint name="desktop">
-                                <div className="collections-manager-pagemenu">
-                                    <div className="collections-manager-pagemenu-left">
-                                        <span>Displaying </span>
-                                        <Dropdown
-                                            className="collections-manager-pagemenu-dropdown"
-                                            selection
-                                            options={catalogItemsPerPageOptions}
-                                            onChange={(_e, { value }) => {
-                                                setItemsPerPage(value as number);
-                                            }}
-                                            value={itemsPerPage}
-                                            aria-label="Number of results to display per page"
-                                        />
-                                        <ResultsText
-                                            resultsCount={rootMode ? data?.collections.length || 0 : activeCollection?.resourceCount || 0}
-                                            totalCount={rootMode ? data?.total_items || 0 : activeCollection?.resourceCount || 0}
-                                        />
+        <div className="h-screen flex flex-col">
+            <Grid className="controlpanel-container" divided="vertically" padded>
+                <Grid.Row>
+                    <Grid.Column width={16}>
+                        <Header className="component-header">Collections Manager</Header>
+                    </Grid.Column>
+                </Grid.Row>
+                <Grid.Row>
+                    <Grid.Column width={16}>
+                        <Segment.Group>
+                            <Segment>
+                                <Breadcrumb>
+                                    <Breadcrumb.Section as={Link} to="/controlpanel">
+                                        <span className="text-link">Control Panel</span>
+                                    </Breadcrumb.Section>
+                                    <Breadcrumb.Divider icon="right chevron" />
+                                </Breadcrumb>
+                                <DirectoryBreadcrumbs />
+                            </Segment>
+                            <Segment padded>
+                                <div className="flex-row-div">
+                                    <div className="left-flex">
+                                        {org.collectionsDisplayLabel && (
+                                            <span>
+                                                These collections will appear as{" "}
+                                                <strong className="text-bold">
+                                                    {org.collectionsDisplayLabel}
+                                                </strong>{" "}
+                                                in your Campus Commons. You can change this label in{" "}
+                                                <a href="/controlpanel/campussettings" target="_blank">
+                                                    Campus Settings
+                                                </a>
+                                                .
+                                            </span>
+                                        )}
                                     </div>
-                                    <div className="collections-manager-pagemenu-right">
-                                        <ConductorPagination
-                                            activePage={rootMode ? page : resourcesPage}
-                                            totalPages={calcTotalPages(rootMode)}
-                                            firstItem={null}
-                                            lastItem={null}
-                                            onPageChange={(_e, { activePage }) => {
-                                                if (rootMode) {
-                                                    setPage(activePage as number);
-                                                } else {
-                                                    setResourcesPage(activePage as number);
-                                                }
-                                            }}
-                                            size="large"
-                                            siblingRange={0}
-                                        />
+                                    <div className="right-flex">
+                                        <ActionItems />
                                     </div>
                                 </div>
-                            </Breakpoint>
-                            <Breakpoint name="mobileOrTablet">
-                                <Grid>
-                                    <Grid.Row columns={1}>
-                                        <Grid.Column>
-                                            <div className="center-flex flex-wrap">
-                                                <span>Displaying </span>
-                                                <Dropdown
-                                                    className="collections-manager-pagemenu-dropdown"
-                                                    selection
-                                                    options={catalogItemsPerPageOptions}
-                                                    onChange={(_e, { value }) => {
-                                                        setItemsPerPage(value as number);
+                            </Segment>
+                            {
+                                !rootMode && activeCollection && (
+                                    <Segment padded>
+                                        {
+                                            activeCollection.description && (
+                                                <p
+                                                    className='text-base text-center lg:text-left prose prose-code:before:hidden prose-code:after:hidden max-w-full'
+                                                    dangerouslySetInnerHTML={{
+                                                        __html: DOMPurify.sanitize(marked(activeCollection.description, { breaks: true }))
                                                     }}
-                                                    value={itemsPerPage}
-                                                    aria-label="Number of results to display per page"
                                                 />
-                                            </div>
+                                            )
+                                        }
+                                        {
+                                            !activeCollection.description && (
+                                                <p>
+                                                    <em>No collection description yet.</em>
+                                                </p>
+                                            )
+                                        }
+                                    </Segment>
+                                )
+                            }
+                            <Segment>
+                                <Breakpoint name="desktop">
+                                    <div className="collections-manager-pagemenu">
+                                        <div className="collections-manager-pagemenu-left">
+                                            <span>Displaying </span>
+                                            <Dropdown
+                                                className="collections-manager-pagemenu-dropdown"
+                                                selection
+                                                options={catalogItemsPerPageOptions}
+                                                onChange={(_e, { value }) => {
+                                                    setItemsPerPage(value as number);
+                                                }}
+                                                value={itemsPerPage}
+                                                aria-label="Number of results to display per page"
+                                            />
                                             <ResultsText
                                                 resultsCount={rootMode ? data?.collections.length || 0 : activeCollection?.resourceCount || 0}
                                                 totalCount={rootMode ? data?.total_items || 0 : activeCollection?.resourceCount || 0}
                                             />
-                                        </Grid.Column>
-                                    </Grid.Row>
-                                    <Grid.Row columns={1}>
-                                        <Grid.Column className="collections-manager-pagination-mobile-container">
+                                        </div>
+                                        <div className="collections-manager-pagemenu-right">
                                             <ConductorPagination
                                                 activePage={rootMode ? page : resourcesPage}
                                                 totalPages={calcTotalPages(rootMode)}
@@ -523,86 +482,86 @@ const CollectionsManager = () => {
                                                         setResourcesPage(activePage as number);
                                                     }
                                                 }}
-                                                size="mini"
+                                                size="large"
                                                 siblingRange={0}
                                             />
-                                        </Grid.Column>
-                                    </Grid.Row>
-                                </Grid>
-                            </Breakpoint>
-                        </Segment>
-                        <Segment
-                            className="collections-manager"
-                            loading={loading}
-                            aria-live="polite"
-                            aria-busy={loading}
-                        >
-                            <VisualMode data={rootMode ? data?.collections : activeCollection?.resources} />
-                        </Segment>
-                        <Segment>
-                            <Breakpoint name="desktop">
-                                <div className="collections-manager-pagemenu">
-                                    <div className="collections-manager-pagemenu-left">
-                                        <span>Displaying </span>
-                                        <Dropdown
-                                            className="collections-manager-pagemenu-dropdown"
-                                            selection
-                                            options={catalogItemsPerPageOptions}
-                                            onChange={(_e, { value }) => {
-                                                setItemsPerPage(value as number);
-                                            }}
-                                            value={itemsPerPage}
-                                            aria-label="Number of results to display per page"
-                                        />
-                                        <ResultsText
-                                            resultsCount={rootMode ? data?.collections.length || 0 : activeCollection?.resourceCount || 0}
-                                            totalCount={rootMode ? data?.total_items || 0 : activeCollection?.resourceCount || 0}
-                                        />
+                                        </div>
                                     </div>
-                                    <div className="collections-manager-pagemenu-right">
-                                        <ConductorPagination
-                                            activePage={rootMode ? page : resourcesPage}
-                                            totalPages={calcTotalPages(rootMode)}
-                                            firstItem={null}
-                                            lastItem={null}
-                                            onPageChange={(_e, { activePage }) => {
-                                                if (rootMode) {
-                                                    setPage(activePage as number);
-                                                } else {
-                                                    setResourcesPage(activePage as number);
-                                                }
-                                            }}
-                                            size="large"
-                                            siblingRange={0}
-                                        />
-                                    </div>
-                                </div>
-                            </Breakpoint>
-                            <Breakpoint name="mobileOrTablet">
-                                <Grid>
-                                    <Grid.Row columns={1}>
-                                        <Grid.Column>
-                                            <div className="center-flex flex-wrap">
-                                                <span>Displaying </span>
-                                                <Dropdown
-                                                    className="collections-manager-pagemenu-dropdown"
-                                                    selection
-                                                    options={catalogItemsPerPageOptions}
-                                                    onChange={(_e, { value }) => {
-                                                        setItemsPerPage(value as number);
-                                                    }}
-                                                    value={itemsPerPage}
-                                                    aria-label="Number of results to display per page"
-                                                />
+                                </Breakpoint>
+                                <Breakpoint name="mobileOrTablet">
+                                    <Grid>
+                                        <Grid.Row columns={1}>
+                                            <Grid.Column>
+                                                <div className="center-flex flex-wrap">
+                                                    <span>Displaying </span>
+                                                    <Dropdown
+                                                        className="collections-manager-pagemenu-dropdown"
+                                                        selection
+                                                        options={catalogItemsPerPageOptions}
+                                                        onChange={(_e, { value }) => {
+                                                            setItemsPerPage(value as number);
+                                                        }}
+                                                        value={itemsPerPage}
+                                                        aria-label="Number of results to display per page"
+                                                    />
+                                                </div>
                                                 <ResultsText
                                                     resultsCount={rootMode ? data?.collections.length || 0 : activeCollection?.resourceCount || 0}
                                                     totalCount={rootMode ? data?.total_items || 0 : activeCollection?.resourceCount || 0}
                                                 />
-                                            </div>
-                                        </Grid.Column>
-                                    </Grid.Row>
-                                    <Grid.Row columns={1}>
-                                        <Grid.Column className="collections-manager-pagination-mobile-container">
+                                            </Grid.Column>
+                                        </Grid.Row>
+                                        <Grid.Row columns={1}>
+                                            <Grid.Column className="collections-manager-pagination-mobile-container">
+                                                <ConductorPagination
+                                                    activePage={rootMode ? page : resourcesPage}
+                                                    totalPages={calcTotalPages(rootMode)}
+                                                    firstItem={null}
+                                                    lastItem={null}
+                                                    onPageChange={(_e, { activePage }) => {
+                                                        if (rootMode) {
+                                                            setPage(activePage as number);
+                                                        } else {
+                                                            setResourcesPage(activePage as number);
+                                                        }
+                                                    }}
+                                                    size="mini"
+                                                    siblingRange={0}
+                                                />
+                                            </Grid.Column>
+                                        </Grid.Row>
+                                    </Grid>
+                                </Breakpoint>
+                            </Segment>
+                            <Segment
+                                className="collections-manager"
+                                loading={loading}
+                                aria-live="polite"
+                                aria-busy={loading}
+                            >
+                                <VisualMode data={rootMode ? data?.collections : activeCollection?.resources} />
+                            </Segment>
+                            <Segment>
+                                <Breakpoint name="desktop">
+                                    <div className="collections-manager-pagemenu">
+                                        <div className="collections-manager-pagemenu-left">
+                                            <span>Displaying </span>
+                                            <Dropdown
+                                                className="collections-manager-pagemenu-dropdown"
+                                                selection
+                                                options={catalogItemsPerPageOptions}
+                                                onChange={(_e, { value }) => {
+                                                    setItemsPerPage(value as number);
+                                                }}
+                                                value={itemsPerPage}
+                                                aria-label="Number of results to display per page"
+                                            />
+                                            <ResultsText
+                                                resultsCount={rootMode ? data?.collections.length || 0 : activeCollection?.resourceCount || 0}
+                                                totalCount={rootMode ? data?.total_items || 0 : activeCollection?.resourceCount || 0}
+                                            />
+                                        </div>
+                                        <div className="collections-manager-pagemenu-right">
                                             <ConductorPagination
                                                 activePage={rootMode ? page : resourcesPage}
                                                 totalPages={calcTotalPages(rootMode)}
@@ -615,18 +574,63 @@ const CollectionsManager = () => {
                                                         setResourcesPage(activePage as number);
                                                     }
                                                 }}
-                                                size="mini"
+                                                size="large"
                                                 siblingRange={0}
                                             />
-                                        </Grid.Column>
-                                    </Grid.Row>
-                                </Grid>
-                            </Breakpoint>
-                        </Segment>
-                    </Segment.Group>
-                </Grid.Column>
-            </Grid.Row>
-        </Grid>
+                                        </div>
+                                    </div>
+                                </Breakpoint>
+                                <Breakpoint name="mobileOrTablet">
+                                    <Grid>
+                                        <Grid.Row columns={1}>
+                                            <Grid.Column>
+                                                <div className="center-flex flex-wrap">
+                                                    <span>Displaying </span>
+                                                    <Dropdown
+                                                        className="collections-manager-pagemenu-dropdown"
+                                                        selection
+                                                        options={catalogItemsPerPageOptions}
+                                                        onChange={(_e, { value }) => {
+                                                            setItemsPerPage(value as number);
+                                                        }}
+                                                        value={itemsPerPage}
+                                                        aria-label="Number of results to display per page"
+                                                    />
+                                                    <ResultsText
+                                                        resultsCount={rootMode ? data?.collections.length || 0 : activeCollection?.resourceCount || 0}
+                                                        totalCount={rootMode ? data?.total_items || 0 : activeCollection?.resourceCount || 0}
+                                                    />
+                                                </div>
+                                            </Grid.Column>
+                                        </Grid.Row>
+                                        <Grid.Row columns={1}>
+                                            <Grid.Column className="collections-manager-pagination-mobile-container">
+                                                <ConductorPagination
+                                                    activePage={rootMode ? page : resourcesPage}
+                                                    totalPages={calcTotalPages(rootMode)}
+                                                    firstItem={null}
+                                                    lastItem={null}
+                                                    onPageChange={(_e, { activePage }) => {
+                                                        if (rootMode) {
+                                                            setPage(activePage as number);
+                                                        } else {
+                                                            setResourcesPage(activePage as number);
+                                                        }
+                                                    }}
+                                                    size="mini"
+                                                    siblingRange={0}
+                                                />
+                                            </Grid.Column>
+                                        </Grid.Row>
+                                    </Grid>
+                                </Breakpoint>
+                            </Segment>
+                        </Segment.Group>
+                    </Grid.Column>
+                </Grid.Row>
+            </Grid>
+            <div className="flex flex-col justify-end h-full"><Footer /></div>
+        </div>
     );
 };
 

@@ -4,7 +4,7 @@ import CommonsAuthor from "./screens/commons/Author";
 import CommonsBook from "./screens/commons/Book";
 import CommonsCatalog from "./components/commons/CommonsCatalog";
 import CommonsCollection from "./screens/commons/Collection";
-import CommonsFooter from "./components/commons/CommonsFooter";
+import Footer from "./components/navigation/Footer";
 import CommonsHomework from "./components/commons/CommonsHomework";
 import CommonsJumbotron from "./components/commons/CommonsJumbotron";
 import CommonsMenu from "./components/commons/CommonsMenu";
@@ -80,7 +80,7 @@ const Commons = () => {
           <Route exact path="/file/:projectID/:fileID" component={CommonsFile} />
         </Switch>
       </Suspense>
-      <CommonsFooter />
+      <Footer />
     </div>
   );
 };
