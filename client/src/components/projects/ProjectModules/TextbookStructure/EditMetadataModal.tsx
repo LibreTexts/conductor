@@ -166,6 +166,17 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
     ]);
   };
 
+  const handleInsertAllTags = () => {
+    setValue("tags", [
+      ...getValues("tags"),
+      ...displayTags.map((tag) => ({
+        key: tag,
+        text: tag,
+        value: tag,
+      })),
+    ]);
+  };
+
   const displayTags = useMemo(() => {
     if (!aiTags) return [];
 
@@ -243,7 +254,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                     loading={aiSummaryLoading}
                   >
                     <Icon name="refresh" />
-                    Regenerate
+                    Generate Again
                   </Button>
                   {aiSummary?.summary && (
                     <Button color="green" onClick={handleInsertSummary}>
@@ -264,12 +275,16 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                 Generate with AI
               </Button>
             )}
-            <Divider className="!mt-8"/>
+            <Divider className="!mt-8" />
             <p className="text-lg font-semibold mb-2">
               Tags
               <Popup
                 trigger={
-                  <Icon name="info circle" size="small" className="!mr-0 !ml-1" />
+                  <Icon
+                    name="info circle"
+                    size="small"
+                    className="!mr-0 !ml-1"
+                  />
                 }
                 content="Tags are used to categorize and organize pages. Some tags are not editable because they are used for specific system functions."
               />
@@ -294,9 +309,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                     renderLabel={(tag) => ({
                       color: "blue",
                       content: tag.text,
-                      className: isDisabledTag(tag.value)
-                        ? "!opacity-65 disabled-page-tag"
-                        : "",
+                      className: isDisabledTag(tag.value) ? "hidden" : "",
                       onRemove: (e: any, data: any) => {
                         e.stopPropagation();
                         if (isDisabledTag(data.value)) return;
@@ -320,6 +333,11 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                 className="!shadow-sm !shadow-blue-400"
               >
                 <div className="flex flex-wrap space-y-2 items-center">
+                  {displayTags.length === 0 && (
+                    <p className="text-center text-slate-500 italic">
+                      No tags available
+                    </p>
+                  )}
                   {displayTags.map((tag) => (
                     <Label
                       key={crypto.randomUUID()}
@@ -343,8 +361,14 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                     loading={aiTagsLoading}
                   >
                     <Icon name="refresh" />
-                    Regenerate
+                    Generate Again
                   </Button>
+                  {displayTags.length > 0 && (
+                    <Button color="green" onClick={handleInsertAllTags}>
+                      <Icon name="plus" />
+                      Add All
+                    </Button>
+                  )}
                 </div>
               </Segment>
             )}

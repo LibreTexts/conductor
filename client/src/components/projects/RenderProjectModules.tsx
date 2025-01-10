@@ -76,7 +76,6 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
   libreLibrary,
   libreCoverID,
 }) => {
-  const userState = useTypedSelector((state) => state.user);
   const [showDiscussion, setShowDiscussion] = useState(true);
   const [showFiles, setShowFiles] = useState(true);
 
@@ -632,7 +631,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
       );
     });
 
-    if(userState.isSuperAdmin && libreLibrary && libreCoverID) {
+    if(libreLibrary && libreCoverID) {
       modules.push(
         <Grid.Row key={"textbook-structure-module"}>
           <TextbookStructure projectID={projectID} libreLibrary={libreLibrary} libreCoverID={libreCoverID}/>
