@@ -62,11 +62,11 @@ export default function CtlTextArea<
             onChange={onChange}
             onBlur={onBlur}
             error={error?.message}
-            className={`!m-0 ${fluid ? "fluid-textarea" : ""} ${bordered ? 'border border-slate-400 rounded-md padded-textarea': ''}`}
+            className={`!m-0 ${fluid ? "fluid-textarea" : ""} ${bordered ? 'border border-slate-400 rounded-md padded-textarea': ''} ${bordered && showRemaining && maxLength && getRemainingChars(value) < 0 ? '!border-red-500' : ''}`}
             {...rest}
           />
           {maxLength && showRemaining && typeof value === "string" && (
-            <span className="muted-text small-text">
+            <span className={`font-semibold small-text ${getRemainingChars(value) < 0 ? '!text-red-500' : ''}`}>
               Characters remaining: {getRemainingChars(value)}
             </span>
           )}

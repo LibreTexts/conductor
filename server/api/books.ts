@@ -2180,6 +2180,12 @@ async function getPageAISummary(
     }
 
     const pageText = await _getPageTextContent(subdomain, parsedPageID);
+    if(!pageText) {
+      return res.send({
+        err: false,
+        summary: '',
+      });
+    }
 
     const aiSummaryRes = await axios.post('https://api.openai.com/v1/chat/completions', {
       model: 'gpt-4o',
@@ -2237,6 +2243,12 @@ async function getPageAITags(
     }
 
     const pageText = await _getPageTextContent(subdomain, parsedPageID);
+    if(!pageText) {
+      return res.send({
+        err: false,
+        tags: [],
+      });
+    }
 
     const aiTagsRes = await axios.post('https://api.openai.com/v1/chat/completions', {
       model: 'gpt-4o',
