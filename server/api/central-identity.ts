@@ -135,7 +135,6 @@ async function getUser(
     if (!userRes.data || !userRes.data.data) {
       return conductor500Err(res);
     }
-
     return res.send({
       err: false,
       user: userRes.data.data,
