@@ -31,6 +31,7 @@ import { dirtyValues } from "../../../utils/misc";
 import LoadingSpinner from "../../LoadingSpinner";
 import { CentralIdentityApp } from "../../../types/CentralIdentity";
 import { format, parseISO } from "date-fns";
+import { utcToZonedTime } from "date-fns-tz";
 import CopyButton from "../../util/CopyButton";
 import { useNotifications } from "../../../context/NotificationContext";
 const AddUserAppModal = lazy(() => import("./AddUserAppModal"));
@@ -128,7 +129,6 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
         handleGlobalError(res.data.errMsg);
         return;
       }
-
       setUserInitVal(res.data.user);
       reset(res.data.user);
     } catch (err) {
@@ -289,7 +289,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                   )}
                   {!editingFirstName && (
                     <p>
-                      {getValues("first_name")}{" "}
+                      {getValues("first_name")}
                       <Icon
                         name="edit"
                         size="small"
@@ -564,6 +564,20 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                         {getValues("external_idp")
                           ? getPrettyAuthSource(getValues("external_idp") ?? "")
                           : "LibreOne (Local)"}
+                      </p>
+                    </div>
+                    <div className="flex-row-div mb-2p">
+                      <p>
+                        <strong>Time of Account Creation: </strong>
+                        {getValues("created_at") 
+                          ? format(
+                              utcToZonedTime(
+                                parseISO(getValues("created_at") as string), 
+                                getValues("time_zone") as string
+                              ),
+                              "MM/dd/yyyy hh:mm aa"
+                            )
+                          : ""}
                       </p>
                     </div>
                     <div className="flex-row-div mb-2p">

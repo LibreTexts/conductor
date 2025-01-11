@@ -40,7 +40,7 @@ export type CentralIdentityUser = {
   active: boolean;
   avatar: string | null;
   bio_url?: string | null;
-  createdAt: string;
+  created_at: string;
   disabled: boolean | null;
   email: string;
   enabled: boolean;
@@ -54,8 +54,9 @@ export type CentralIdentityUser = {
   legacy: boolean;
   organizations: CentralIdentityOrg[];
   registration_complete: boolean | null;
-  updatedAt: string | null;
+  updated_at: string | null;
   user_type: "student" | "instructor";
+  time_zone: string | null;
   student_id?: string;
   uuid: string;
   verify_status:
