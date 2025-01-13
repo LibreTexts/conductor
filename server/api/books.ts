@@ -34,6 +34,7 @@ import {
   genLMSFileLink,
   genPermalink,
   getBookTOCFromAPI,
+  getBookTOCNew,
 } from "../util/bookutils.js";
 import {
   retrieveProjectFiles,
@@ -47,9 +48,10 @@ import {
 } from "../util/librariesmap.js";
 import projectsAPI from "./projects.js";
 import alertsAPI from "./alerts.js";
-import collectionsAPI from './collections.js';
+import mailAPI from "./mail.js";
+import collectionsAPI from "./collections.js";
 import axios from "axios";
-import { BookSortOption } from "../types/Book.js";
+import { BookSortOption, TableOfContents } from "../types/Book.js";
 import { isBookSortOption } from "../util/typeHelpers.js";
 import { z } from "zod";
 import {
@@ -79,6 +81,7 @@ import {
   updatePageDetailsSchema,
 } from "../validators/book.js";
 import * as cheerio from "cheerio";
+import { getWithPageIDParamAndCoverPageIDSchema } from "./validators/book.js";
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   _id: 0,
@@ -875,21 +878,43 @@ async function getCommonsCatalog(
             libraryTags: { $in: orgData.catalogMatchingTags },
           };
 
-          if (hasCustomEntries && hasCatalogMatchingTags && campusNames.length > 0) {
-            searchAreaObj = { $or: [idMatchObj, tagMatchObj, ...institutionOptions] };
-          } else if (hasCustomEntries && !hasCatalogMatchingTags && campusNames.length > 0) {
+          if (
+            hasCustomEntries &&
+            hasCatalogMatchingTags &&
+            campusNames.length > 0
+          ) {
+            searchAreaObj = {
+              $or: [idMatchObj, tagMatchObj, ...institutionOptions],
+            };
+          } else if (
+            hasCustomEntries &&
+            !hasCatalogMatchingTags &&
+            campusNames.length > 0
+          ) {
             searchAreaObj = {
               $or: [idMatchObj, ...institutionOptions],
             };
-          } else if(!hasCustomEntries && hasCatalogMatchingTags && campusNames.length > 0) {
+          } else if (
+            !hasCustomEntries &&
+            hasCatalogMatchingTags &&
+            campusNames.length > 0
+          ) {
             searchAreaObj = {
               $or: [tagMatchObj, ...institutionOptions],
             };
-          } else if (hasCustomEntries && hasCatalogMatchingTags && campusNames.length === 0) {
+          } else if (
+            hasCustomEntries &&
+            hasCatalogMatchingTags &&
+            campusNames.length === 0
+          ) {
             searchAreaObj = {
               $or: [idMatchObj, tagMatchObj],
             };
-          } else if (hasCustomEntries && !hasCatalogMatchingTags && campusNames.length === 0) {
+          } else if (
+            hasCustomEntries &&
+            !hasCatalogMatchingTags &&
+            campusNames.length === 0
+          ) {
             searchAreaObj = idMatchObj;
           } else {
             searchAreaObj = tagMatchObj;
@@ -930,17 +955,17 @@ async function getCommonsCatalog(
       }
       return false;
     });
-    
+
     const totalNumBooks = resultBooks.length;
     const offset = getRandomOffset(totalNumBooks, limit);
 
     const upperBound = () => {
-      if((offset + limit) > totalNumBooks) {
+      if (offset + limit > totalNumBooks) {
         return totalNumBooks;
       } else {
         return offset + limit;
       }
-    }
+    };
 
     const randomized = resultBooks.slice(offset, upperBound());
 
@@ -1449,8 +1474,8 @@ async function createBook(
  * @param {express.Response} res - Outgoing response.
  */
 async function deleteBook(
-    req: ZodReqWithUser<z.infer<typeof deleteBookSchema>>,
-    res: Response,
+  req: ZodReqWithUser<z.infer<typeof deleteBookSchema>>,
+  res: Response
 ) {
   try {
     const deleteProject = !!req.query?.deleteProject;
@@ -1484,17 +1509,17 @@ async function deleteBook(
     // </find and delete project and associated resources>
 
     await Promise.allSettled([
-      AdoptionReport.deleteMany({ 'resource.id': bookID }),
+      AdoptionReport.deleteMany({ "resource.id": bookID }),
       collectionsAPI.removeResourceFromAnyCollectionInternal(bookID),
     ]);
 
     // <delete from central API>
     try {
-      if (process.env.NODE_ENV === 'production') {
+      if (process.env.NODE_ENV === "production") {
         await deleteBookFromAPI(bookID);
         debug(`Book ${bookID} deleted from API.`);
       } else {
-        debug('Simulating book deletion from API.');
+        debug("Simulating book deletion from API.");
       }
     } catch (err) {
       debugError(`[Delete Book] ${err.toString()}`);
@@ -1505,7 +1530,7 @@ async function deleteBook(
     await Book.deleteOne({ bookID });
     return res.send({
       err: false,
-      msg: 'Book successfully deleted.',
+      msg: "Book successfully deleted.",
     });
   } catch (err) {
     debugError(err);
@@ -1665,7 +1690,12 @@ async function getBookDetail(
               {
                 $and: [
                   { $ifNull: ["$sourceOriginalPublicationDate", false] },
-                  { $gt: [{ $strLenBytes: "$sourceOriginalPublicationDate" }, 0] },
+                  {
+                    $gt: [
+                      { $strLenBytes: "$sourceOriginalPublicationDate" },
+                      0,
+                    ],
+                  },
                 ],
               },
               "$sourceOriginalPublicationDate",
@@ -1989,7 +2019,7 @@ async function downloadBookFile(
       true,
       "",
       true
-    )
+    );
 
     if (
       !downloadURLs ||
@@ -2029,7 +2059,7 @@ async function getBookTOC(
   res: Response
 ) {
   try {
-    const toc = await getBookTOCFromAPI(req.params.bookID);
+    const toc = await getBookTOCNew(req.params.bookID);
     return res.send({
       err: false,
       toc,
@@ -2091,14 +2121,23 @@ async function getLicenseReport(
 }
 
 async function getPageDetail(
-  req: z.infer<typeof getWithPageIDParamSchema>,
+  req: ZodReqWithUser<typeof getWithPageIDParamAndCoverPageIDSchema>,
   res: Response
 ) {
   try {
     const { pageID } = req.params;
+    const { coverPageID } = req.query;
+
+    const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
+    if(!canAccess){
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
 
     const [subdomain, coverID] = getLibraryAndPageFromBookID(pageID);
-    if(!subdomain || !coverID) {
+    if (!subdomain || !coverID) {
       return res.status(400).send({
         err: true,
         errMsg: conductorErrors.err2,
@@ -2110,20 +2149,25 @@ async function getPageDetail(
       path: parseInt(coverID),
       api: MindTouch.API.Page.GET_Page_Properties,
       subdomain,
-    })
-    .catch((err) => {
-      console.error(err)
+    }).catch((err) => {
+      console.error(err);
       throw new Error(`Error fetching page details: ${err}`);
     });
 
     if (!pagePropertiesRes.ok) {
-      throw new Error(`Error fetching page details: ${pagePropertiesRes.statusText}`);
+      throw new Error(
+        `Error fetching page details: ${pagePropertiesRes.statusText}`
+      );
     }
 
     const pagePropertiesRaw = await pagePropertiesRes.json();
-    const pageProperties = Array.isArray(pagePropertiesRaw?.property) ? pagePropertiesRaw.property : [pagePropertiesRaw?.property];
-    const overviewProperty = pageProperties.find((prop: any) => prop['@name'] === MindTouch.PageProps.PageOverview);
-    const overviewText = overviewProperty?.contents?.['#text'] || '';
+    const pageProperties = Array.isArray(pagePropertiesRaw?.property)
+      ? pagePropertiesRaw.property
+      : [pagePropertiesRaw?.property];
+    const overviewProperty = pageProperties.find(
+      (prop: any) => prop["@name"] === MindTouch.PageProps.PageOverview
+    );
+    const overviewText = overviewProperty?.contents?.["#text"] || "";
 
     const pageTagsRes = await CXOneFetch({
       scope: "page",
@@ -2131,7 +2175,7 @@ async function getPageDetail(
       api: MindTouch.API.Page.GET_Page_Tags,
       subdomain,
     }).catch((err) => {
-      console.error(err)
+      console.error(err);
       throw new Error(`Error fetching page tags: ${err}`);
     });
 
@@ -2140,7 +2184,12 @@ async function getPageDetail(
     }
 
     const pageTagsData = await pageTagsRes.json();
-    const pageTags = pageTagsData.tag || [];
+    const pageTags = [];
+    if(Array.isArray(pageTagsData.tag)){
+      pageTags.push(...pageTagsData.tag);
+    } else if(pageTagsData.tag){
+      pageTags.push(pageTagsData.tag);
+    }
 
     return res.send({
       err: false,
@@ -2157,66 +2206,56 @@ async function getPageDetail(
 }
 
 async function getPageAISummary(
-  req: z.infer<typeof getWithPageIDParamSchema>,
+  req: ZodReqWithUser<typeof getWithPageIDParamAndCoverPageIDSchema>,
   res: Response
 ) {
   try {
     const { pageID } = req.params;
+    const { coverPageID } = req.query;
 
-    const [subdomain, parsedPageID] = getLibraryAndPageFromBookID(pageID);
-    if(!subdomain || !parsedPageID) {
-      return res.status(400).send({
+    const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
+    if(!canAccess){
+      return res.status(403).send({
         err: true,
-        errMsg: conductorErrors.err2,
+        errMsg: conductorErrors.err8,
       });
     }
 
-    // Ensure OpenAI API key is set
-    if(!process.env.OPENAI_API_KEY) {
-      return res.status(500).send({
-        err: true,
-        errMsg: conductorErrors.err6,
-      });
-    }
+    const [error, summary] = await _generatePageAISummary(pageID);
 
-    const pageText = await _getPageTextContent(subdomain, parsedPageID);
-    if(!pageText) {
-      return res.send({
-        err: false,
-        summary: '',
-      });
-    }
-
-    const aiSummaryRes = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: 'Generate a summary of this page. Disregard any code blocks or images. The summary may not exceed 500 characters.',
-        },
-        {
-          role: 'user',
-          content: pageText,
-        }
-      ]
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+    if (error) {
+      switch (error) {
+        case "location":
+          return res.status(400).send({
+            err: true,
+            errMsg: conductorErrors.err2,
+          });
+        case "env":
+          return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6,
+          });
+        case "empty":
+          return res.send({
+            err: false,
+            summary: "",
+          });
+        case "badres":
+          return res.status(400).send({
+            err: true,
+            errMsg: "Error generating page summary.",
+          });
+        case "internal":
+          return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6,
+          });
       }
-    })
-
-    const aiSummaryOutput = aiSummaryRes.data?.choices?.[0]?.message?.content || '';
-    if(!aiSummaryOutput) {
-      return res.status(400).send({
-        err: true,
-        errMsg: 'Error generating page summary.',
-      });
-    };
+    }
 
     return res.send({
       err: false,
-      summary: aiSummaryOutput,
+      summary,
     });
   } catch (e) {
     debugError(e);
@@ -2227,15 +2266,202 @@ async function getPageAISummary(
   }
 }
 
+async function batchApplyAISummary(
+  req: ZodReqWithUser<typeof getWithPageIDParamSchema>,
+  res: Response
+) {
+  try {
+    const [coverPageLibrary, coverPageID] = getLibraryAndPageFromBookID(
+      req.params.pageID
+    );
+
+    const project = await Project.findOne({
+      libreCoverID: coverPageID,
+      libreLibrary: coverPageLibrary,
+    });
+    if(!project){
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const canAccess = await _canAccessPage(req.params.pageID, req.user.decoded.uuid);
+    if(!canAccess){
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    if (!canAccess) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const user = await User.findOne({ uuid: req.user.decoded.uuid }).orFail();
+    if(!user || !user.email){
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err9,
+      });
+    }
+
+    _batchApplySummariesAndNotify(coverPageLibrary, coverPageID, project.projectID, user.email); // Don't await, send response immediately
+
+    return res.send({
+      err: false,
+      msg: "Batch AI summaries generation started.",
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function _batchApplySummariesAndNotify(
+  library: string,
+  pageID: string,
+  projectID: string,
+  emailToNotify: string
+) {
+  try {
+    const fullID = `${library}-${pageID}`;
+    const toc = (await getBookTOCNew(fullID)) as TableOfContents;
+    const pageIDs: string[] = [];
+    const content = toc.children; // skip root pages
+
+    // recursively get all page IDs
+    const getIDs = (content: TableOfContents[]) => {
+      content.forEach((item) => {
+        pageIDs.push(item.id);
+        if (item.children) {
+          getIDs(item.children);
+        }
+      });
+    };
+
+    getIDs(content);
+
+    const promises = pageIDs.map((p) =>
+      _generatePageAISummary(`${library}-${p}`)
+    );
+    const results = await Promise.allSettled(promises);
+    const settledPageIDs: { id: string; summary: string }[] = [];
+
+    results.forEach((r, idx) => {
+      if (r.status === "fulfilled") {
+        settledPageIDs.push({
+          id: pageIDs[idx],
+          summary: r.value[1],
+        });
+      }
+    });
+
+    const updatedPromises = settledPageIDs.map((p) =>
+      _updatePageDetails(`${library}-${p.id}`, p.summary)
+    );
+    const updateResults = await Promise.allSettled(updatedPromises);
+    const failedUpdates = updateResults.filter((r) => r.status === "rejected");
+    failedUpdates.forEach((f) => {
+      debugError(f.reason);
+    });
+
+    await mailAPI.sendBatchAISummariesFinished(
+      emailToNotify,
+      projectID,
+      updateResults.length - failedUpdates.length
+    );
+  } catch (e) {
+    debugError(e);
+  }
+}
+
+async function _generatePageAISummary(
+  pageID: number | string
+): Promise<
+  ["location" | "env" | "empty" | "badres" | "internal" | null, string]
+> {
+  let error = null;
+  let summary = "";
+  try {
+    const [subdomain, parsedPageID] = getLibraryAndPageFromBookID(
+      pageID.toString()
+    );
+    if (!subdomain || !parsedPageID) {
+      throw new Error("location");
+    }
+
+    // Ensure OpenAI API key is set
+    if (!process.env.OPENAI_API_KEY) throw new Error("env");
+
+    const pageText = await _getPageTextContent(subdomain, parsedPageID);
+    if (!pageText) throw new Error("empty");
+
+    const aiSummaryRes = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Generate a summary of this page. Disregard any code blocks or images. The summary may not exceed 500 characters.",
+          },
+          {
+            role: "user",
+            content: pageText,
+          },
+        ],
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+      }
+    );
+
+    const aiSummaryOutput =
+      aiSummaryRes.data?.choices?.[0]?.message?.content || "";
+    if (!aiSummaryOutput) throw new Error("badres");
+
+    summary = aiSummaryOutput;
+
+    // If summary returned was longer than 500 chars, find last period before limit and truncate
+    if (summary.length > 500) {
+      const lastPeriodIndex = summary.lastIndexOf(".", 500);
+      summary = summary.slice(0, lastPeriodIndex + 1);
+    }
+  } catch (err: any) {
+    error = err.message ?? "internal";
+  }
+  return [error, summary];
+}
+
 async function getPageAITags(
-  req: z.infer<typeof getWithPageIDParamSchema>,
+  req: ZodReqWithUser<typeof getWithPageIDParamAndCoverPageIDSchema>,
   res: Response
 ) {
   try {
     const { pageID } = req.params;
+    const { coverPageID } = req.query;
+
+    const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
+    if(!canAccess){
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
 
     const [subdomain, parsedPageID] = getLibraryAndPageFromBookID(pageID);
-    if(!subdomain || !parsedPageID) {
+    if (!subdomain || !parsedPageID) {
       return res.status(400).send({
         err: true,
         errMsg: conductorErrors.err2,
@@ -2243,50 +2469,59 @@ async function getPageAITags(
     }
 
     const pageText = await _getPageTextContent(subdomain, parsedPageID);
-    if(!pageText) {
+    if (!pageText) {
       return res.send({
         err: false,
         tags: [],
       });
     }
 
-    const aiTagsRes = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: 'Generate a list of tags, separated by commas, for this page. Disregard any code blocks or images.',
+    const aiTagsRes = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Generate a list of tags, separated by commas, for this page. Disregard any code blocks or images.",
+          },
+          {
+            role: "user",
+            content: pageText,
+          },
+        ],
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         },
-        {
-          role: 'user',
-          content: pageText,
-        }
-      ]
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
       }
-    })
+    );
 
-    const aiTagsOutput = aiTagsRes.data?.choices?.[0]?.message?.content || '';
-    if(!aiTagsOutput) {
+    const aiTagsOutput = aiTagsRes.data?.choices?.[0]?.message?.content || "";
+    if (!aiTagsOutput) {
       return res.status(400).send({
         err: true,
-        errMsg: 'Error generating page summary.',
+        errMsg: "Error generating page summary.",
       });
-    };
+    }
 
-    const splitTags = aiTagsOutput.split(',').map((tag: string) => tag.trim()) || [];
+    const splitTags =
+      aiTagsOutput.split(",").map((tag: string) => tag.trim()) || [];
 
     // if tags end with a period, remove it
-    if(splitTags.length > 0 && splitTags[splitTags.length - 1].endsWith('.')) {
-      splitTags[splitTags.length - 1] = splitTags[splitTags.length - 1].slice(0, -1);
+    if (splitTags.length > 0 && splitTags[splitTags.length - 1].endsWith(".")) {
+      splitTags[splitTags.length - 1] = splitTags[splitTags.length - 1].slice(
+        0,
+        -1
+      );
     }
 
     return res.send({
       err: false,
-      tags: splitTags
+      tags: splitTags,
     });
   } catch (e) {
     debugError(e);
@@ -2297,29 +2532,30 @@ async function getPageAITags(
   }
 }
 
-async function _getPageTextContent(subdomain: string, pageID: string): Promise<string> {
+async function _getPageTextContent(
+  subdomain: string,
+  pageID: string
+): Promise<string> {
   const pageContentsRes = await CXOneFetch({
     scope: "page",
     path: parseInt(pageID),
     api: MindTouch.API.Page.GET_Page_Contents,
     subdomain,
-  })
-  .catch((err) => {
-    console.error(err)
+  }).catch((err) => {
+    console.error(err);
     throw new Error(`Error fetching page details: ${err}`);
   });
 
   if (!pageContentsRes.ok) {
-    throw new Error(`Error fetching page details: ${pageContentsRes.statusText}`);
+    throw new Error(
+      `Error fetching page details: ${pageContentsRes.statusText}`
+    );
   }
 
   const pageContent = await pageContentsRes.json();
   const pageRawBody = pageContent.body?.[0];
-  if(!pageRawBody) {
-    return res.send({
-      err: false,
-      summary: '',
-    });
+  if (!pageRawBody) {
+    return "";
   }
 
   const cheerioObj = cheerio.load(pageRawBody);
@@ -2329,87 +2565,48 @@ async function _getPageTextContent(subdomain: string, pageID: string): Promise<s
 }
 
 async function updatePageDetails(
-  req: z.infer<typeof updatePageDetailsSchema>,
+  req: ZodReqWithUser<typeof updatePageDetailsSchema>,
   res: Response
-){
+) {
   try {
     const { pageID } = req.params;
+    const { coverPageID } = req.query;
     const { summary, tags } = req.body;
 
-    const [subdomain, parsedPageID] = getLibraryAndPageFromBookID(pageID);
-    if(!subdomain || !parsedPageID) {
-      return res.status(400).send({
+    const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
+    if(!canAccess){
+      return res.status(403).send({
         err: true,
-        errMsg: conductorErrors.err2,
+        errMsg: conductorErrors.err8,
       });
     }
 
-    // Get current page properties and find the overview property
-    const pagePropertiesRes = await CXOneFetch({
-      scope: "page",
-      path: parseInt(parsedPageID),
-      api: MindTouch.API.Page.GET_Page_Properties,
-      subdomain,
-    })
-    .catch((err) => {
-      console.error(err)
-      throw new Error(`Error fetching page details: ${err}`);
-    });
-
-    if (!pagePropertiesRes.ok) {
-      throw new Error(`Error fetching page details: ${pagePropertiesRes.statusText}`);
+    const [error, success] = await _updatePageDetails(pageID, summary, tags);
+    if (error) {
+      switch (error) {
+        case "location":
+          return res.status(400).send({
+            err: true,
+            errMsg: conductorErrors.err2,
+          });
+        case "internal":
+          return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6,
+          });
+      }
     }
 
-    const pagePropertiesRaw = await pagePropertiesRes.json();    
-    const pageProperties = Array.isArray(pagePropertiesRaw?.property) ? pagePropertiesRaw.property : [pagePropertiesRaw?.property];
-
-    // Check if there is an existing overview property
-    const overviewProperty = pageProperties.find((prop: any) => prop['@name'] === MindTouch.PageProps.PageOverview);
-
-    // Update or set page overview property
-    const updatedOverviewRes = await CXOneFetch({
-      scope: "page",
-      path: parseInt(parsedPageID),
-      api: MindTouch.API.Page.PUT_Page_Property(MindTouch.PageProps.PageOverview),
-      subdomain,
-      options: {
-        method: "PUT",
-        headers: {
-          'Content-Type': 'text/plain',
-          ...(overviewProperty && overviewProperty['@etag']) && {
-            'Etag': overviewProperty['@etag'],
-          }
-        },
-        body: summary,
-      },
-    })
-
-    if (!updatedOverviewRes.ok) {
-      throw new Error(`Error updating page details: ${updatedOverviewRes.statusText}`);
-    }
-
-    // Update the page tags
-    const updatedTagsRes = await CXOneFetch({
-      scope: "page",
-      path: parseInt(parsedPageID),
-      api: MindTouch.API.Page.PUT_Page_Tags,
-      subdomain,
-      options: {
-        method: "PUT",
-        headers: {
-          'Content-Type': 'application/xml',
-        },
-        body: MindTouch.Templates.PUT_PageTags(tags),
-      },
-    })
-
-    if (!updatedTagsRes.ok) {
-      throw new Error(`Error updating page tags: ${updatedTagsRes.statusText}`);
+    if (!success) {
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err6,
+      });
     }
 
     return res.send({
       err: false,
-      msg: 'Page details updated successfully.',
+      msg: "Page details updated successfully.",
     });
   } catch (err) {
     debugError(err);
@@ -2418,6 +2615,101 @@ async function updatePageDetails(
       errMsg: conductorErrors.err6,
     });
   }
+}
+
+async function _updatePageDetails(
+  pageID: string,
+  summary?: string,
+  tags?: string[]
+): Promise<["location" | "internal" | null, boolean]> {
+  let error = null;
+  let success = false;
+  try {
+    const [subdomain, parsedPageID] = getLibraryAndPageFromBookID(pageID);
+    if (!subdomain || !parsedPageID) {
+      throw new Error("location");
+    }
+
+    // Get current page properties and find the overview property
+    const pagePropertiesRes = await CXOneFetch({
+      scope: "page",
+      path: parseInt(parsedPageID),
+      api: MindTouch.API.Page.GET_Page_Properties,
+      subdomain,
+    }).catch((err) => {
+      console.error(err);
+      throw new Error("internal");
+    });
+
+    if (!pagePropertiesRes.ok) {
+      throw new Error("internal");
+    }
+
+    const pagePropertiesRaw = await pagePropertiesRes.json();
+    const pageProperties = Array.isArray(pagePropertiesRaw?.property)
+      ? pagePropertiesRaw.property
+      : [pagePropertiesRaw?.property];
+
+    // Check if there is an existing overview property
+    const overviewProperty = pageProperties.find(
+      (prop: any) => prop["@name"] === MindTouch.PageProps.PageOverview
+    );
+
+    if (summary) {
+      // Update or set page overview property
+      const updatedOverviewRes = await CXOneFetch({
+        scope: "page",
+        path: parseInt(parsedPageID),
+        api: MindTouch.API.Page.PUT_Page_Property(
+          MindTouch.PageProps.PageOverview
+        ),
+        subdomain,
+        options: {
+          method: "PUT",
+          headers: {
+            "Content-Type": "text/plain",
+            ...(overviewProperty &&
+              overviewProperty["@etag"] && {
+                Etag: overviewProperty["@etag"],
+              }),
+          },
+          body: summary,
+        },
+      });
+
+      if (!updatedOverviewRes.ok) {
+        throw new Error("internal");
+      }
+    }
+
+    if (tags) {
+      // Update the page tags
+      const updatedTagsRes = await CXOneFetch({
+        scope: "page",
+        path: parseInt(parsedPageID),
+        api: MindTouch.API.Page.PUT_Page_Tags,
+        subdomain,
+        options: {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/xml",
+          },
+          body: MindTouch.Templates.PUT_PageTags(tags),
+        },
+      });
+
+      if (!updatedTagsRes.ok) {
+        throw new Error("internal");
+      }
+    }
+
+    success = true;
+  } catch (e: any) {
+    error = e.message ?? "internal";
+    success = false;
+  }
+
+  return [error, success];
 }
 
 /**
@@ -2488,14 +2780,19 @@ const generateKBExport = () => {
                 {
                   $and: [
                     { $ifNull: ["$sourceOriginalPublicationDate", false] },
-                    { $gt: [{ $strLenBytes: "$sourceOriginalPublicationDate" }, 0] },
+                    {
+                      $gt: [
+                        { $strLenBytes: "$sourceOriginalPublicationDate" },
+                        0,
+                      ],
+                    },
                   ],
                 },
                 "$sourceOriginalPublicationDate",
                 "$project.sourceOriginalPublicationDate", // undefined
               ],
             },
-          }
+          },
         },
         {
           $project: {
@@ -2542,11 +2839,12 @@ const generateKBExport = () => {
           ) {
             bookOut.license = item.license;
           }
-          if(typeof item.isbn === "string" && !isEmptyString(item.isbn)) {
+          if (typeof item.isbn === "string" && !isEmptyString(item.isbn)) {
             bookOut.print_identifier = item.isbn;
           }
-          if(item.sourceOriginalPublicationDate) {
-            bookOut.date_monograph_published_online = item.sourceOriginalPublicationDate.toString()
+          if (item.sourceOriginalPublicationDate) {
+            bookOut.date_monograph_published_online =
+              item.sourceOriginalPublicationDate.toString();
           }
           if (typeof item.lastUpdated === "string") {
             const lastUpdateDate = new Date(item.lastUpdated);
@@ -2632,6 +2930,29 @@ const retrieveKBExport = (_req: Request, res: Response) => {
     });
 };
 
+async function _canAccessPage(coverPageID: string, userID: string): Promise<boolean> {
+  try {
+    const [lib, coverID] = getLibraryAndPageFromBookID(coverPageID);
+    if (!lib || !coverID) {
+      return false;
+    }
+
+    const project = await Project.findOne({
+      libreLibrary: lib,
+      libreCoverID: coverID,
+    });
+
+    if (!project) {
+      return false;
+    }
+
+    return await projectsAPI.checkProjectMemberPermission(project, userID);
+  } catch (err){
+    debugError(err);
+    return false;
+  }
+}
+
 export default {
   syncWithLibraries,
   runAutomatedSyncWithLibraries,
@@ -2650,6 +2971,7 @@ export default {
   getLicenseReport,
   getPageDetail,
   getPageAISummary,
+  batchApplyAISummary,
   getPageAITags,
   updatePageDetails,
   retrieveKBExport,

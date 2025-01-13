@@ -338,37 +338,49 @@ class API {
     return res;
   }
 
-  async getPageDetails(pageID: string) {
+  async getPageDetails(pageID: string, coverPageID: string) {
     const res = await axios.get<PageDetailsResponse & ConductorBaseResponse>(
-      `/commons/pages/${pageID}`
+      `/commons/pages/${pageID}?coverPageID=${coverPageID}`,
     );
     return res;
   }
 
-  async getPageAISummary(pageID: string) {
+  async getPageAISummary(pageID: string, coverPageID: string) {
     const res = await axios.get<
       {
         summary: string;
       } & ConductorBaseResponse
-    >(`/commons/pages/${pageID}/ai-summary`);
+    >(`/commons/pages/${pageID}/ai-summary?coverPageID=${coverPageID}`);
     return res;
   }
 
-  async getPageAITags(pageID: string) {
+  async getPageAITags(pageID: string, coverPageID: string) {
     const res = await axios.get<
       {
         tags: string[];
       } & ConductorBaseResponse
-    >(`/commons/pages/${pageID}/ai-tags`);
+    >(`/commons/pages/${pageID}/ai-tags?coverPageID=${coverPageID}`);
+    return res;
+  }
+
+  /**
+   * Generates and applies an AI-generated summary to all pages in a book
+   * @param {string} pageID - the cover page of the book to apply the summaries to
+   */
+  async batchApplyPageAISummary(pageID: string) {
+    const res = await axios.patch<ConductorBaseResponse>(
+      `/commons/pages/${pageID}/ai-summary/batch`
+    );
     return res;
   }
 
   async updatePageDetails(
     pageID: string,
+    coverPageID: string,
     data: { summary: string; tags: string[] }
   ) {
     const res = await axios.patch<ConductorBaseResponse>(
-      `/commons/pages/${pageID}`,
+      `/commons/pages/${pageID}?coverPageID=${coverPageID}`,
       data
     );
     return res;
@@ -657,7 +669,11 @@ class API {
     return res;
   }
   async getProject(projectID: string) {
-    const res = await axios.get("/project", {
+    const res = await axios.get<
+      {
+        project: Project;
+      } & ConductorBaseResponse
+    >("/project", {
       params: {
         projectID,
       },
