@@ -17,7 +17,6 @@ import { Link } from "react-router-dom";
 import Breakpoint from "../util/Breakpoints";
 import { DEFAULT_PROJECT_MODULES } from "../../utils/projectHelpers";
 import { useTypedSelector } from "../../state/hooks";
-import TextbookStructure from "./ProjectModules/TextbookStructure";
 
 interface RenderProjectModulesProps {
   projectID: string;
@@ -630,14 +629,6 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
         moduleOrder.find((m) => m.key === b.key)?.order
       );
     });
-
-    if(libreLibrary && libreCoverID) {
-      modules.push(
-        <Grid.Row key={"textbook-structure-module"}>
-          <TextbookStructure projectID={projectID} libreLibrary={libreLibrary} libreCoverID={libreCoverID}/>
-        </Grid.Row>
-      );
-    }
 
     return <>{modules}</>;
   }, [projectID, project, DiscussionModule, FilesModule, TasksModule]);

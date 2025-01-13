@@ -759,6 +759,29 @@ const sendOrgEventRegistrationConfirmation = (addresses, orgEvent, participantNa
 };
 
 /**
+ * Sends a notification to the specified email addresses that page AI summaries have been generated and applied.
+ * @param {string[]} recipientAddresses - the email addresses to send the notification to
+ * @param {string} projectID - the ID of the connect project
+ * @param {number} updated - the number of pages updated with AI summaries
+ */
+const sendBatchAISummariesFinished = (recipientAddresses, projectID, updated) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: recipientAddresses,
+        subject: `AI Summaries Finished - Project ${projectID}`,
+        html: `
+            <p>Hi,</p>
+            <p>We're just writing to let you know that we've finished applying AI-generated page summaries to the textbook associated with this project.</p>
+            <p><strong>Updated:</strong> ${updated} pages</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            <br />
+            ${autoGenNoticeHTML}
+        `,
+    });
+};
+
+/**
  * Sends a confirmation email to the user who submitted a support ticket.
  * @param {string} recipientAddress - the user's email address
  * @param {string} ticketID - the ticket's uuid
@@ -1013,6 +1036,7 @@ export default {
     sendAnalyticsInvite,
     sendAnalyticsInviteAccepted,
     sendOrgEventRegistrationConfirmation,
+    sendBatchAISummariesFinished,
     sendSupportTicketCreateConfirmation,
     sendSupportTicketCreateInternalNotification,
     sendNewTicketMessageNotification,

@@ -1648,6 +1648,21 @@ const ProjectView = (props) => {
                           </Breakpoint>
                         </Button>
                       }
+                      {
+                        project.libreLibrary && project.libreCoverID && (
+                          <Button
+                          as={Link}
+                          color='pink'
+                          to={`/projects/${project.projectID}/textbook-curation`}
+                          aria-label='Textbook Curation'
+                        >
+                          <Icon name='book' />
+                          <Breakpoint name='desktop'>
+                          Textbook Curation
+                          </Breakpoint>
+                        </Button>
+                        )
+                      }
                       <Button
                         color='olive'
                         as={Link}

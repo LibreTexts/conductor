@@ -794,37 +794,42 @@ router
 router
   .route("/commons/pages/:pageID")
   .get(
-    middleware.validateZod(BookValidators.getWithPageIDParamSchema),
+    middleware.validateZod(BookValidators.getWithPageIDParamAndCoverPageIDSchema),
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
     booksAPI.getPageDetail
   )
   .patch(
     middleware.validateZod(BookValidators.updatePageDetailsSchema),
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
     booksAPI.updatePageDetails
   );
 
 router
   .route("/commons/pages/:pageID/ai-summary")
   .get(
+    middleware.validateZod(BookValidators.getWithPageIDParamAndCoverPageIDSchema),
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    booksAPI.getPageAISummary
+  );
+
+router
+  .route("/commons/pages/:pageID/ai-summary/batch")
+  .patch(
     middleware.validateZod(BookValidators.getWithPageIDParamSchema),
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-    booksAPI.getPageAISummary
+    booksAPI.batchApplyAISummary
   );
 
 router
   .route("/commons/pages/:pageID/ai-tags")
   .get(
-    middleware.validateZod(BookValidators.getWithPageIDParamSchema),
+    middleware.validateZod(BookValidators.getWithPageIDParamAndCoverPageIDSchema),
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
     booksAPI.getPageAITags
   );
 

@@ -5,22 +5,21 @@ import {
   Form,
   Icon,
   Label,
-  Loader,
   Modal,
   Popup,
   Segment,
 } from "semantic-ui-react";
-import { useModals } from "../../../../context/ModalContext";
+import { useModals } from "../../../context/ModalContext";
 import { Controller, useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import api from "../../../../api";
-import { GenericKeyTextValueObj, PageTag } from "../../../../types";
-import CtlTextArea from "../../../ControlledInputs/CtlTextArea";
+import api from "../../../api";
+import { GenericKeyTextValueObj } from "../../../types";
+import CtlTextArea from "../../ControlledInputs/CtlTextArea";
 import { useEffect, useMemo, useState } from "react";
-import useGlobalError from "../../../error/ErrorHooks";
-import LoadingSpinner from "../../../LoadingSpinner";
-import { useNotifications } from "../../../../context/NotificationContext";
-import "../../Projects.css";
+import useGlobalError from "../../error/ErrorHooks";
+import LoadingSpinner from "../../LoadingSpinner";
+import { useNotifications } from "../../../context/NotificationContext";
+import "../Projects.css";
 const SUMMARY_MAX_LENGTH = 500;
 const DISABLED_TAG_PREFIXES = [
   "article:",
@@ -41,12 +40,14 @@ type PageMetadata = {
 interface EditMetadataModalProps {
   library: string;
   pageID: string;
+  coverPageID: string;
   title: string;
 }
 
 const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   library,
   pageID,
+  coverPageID,
   title,
 }) => {
   const queryClient = useQueryClient();
@@ -65,7 +66,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   const { data, isLoading } = useQuery<PageMetadata>({
     queryKey: ["page-details", library, pageID],
     queryFn: async () => {
-      const res = await api.getPageDetails(`${library}-${pageID}`);
+      const res = await api.getPageDetails(`${library}-${pageID}`, coverPageID);
 
       const mappedTags = res.data.tags.map((tag) => ({
         key: tag["@id"],
@@ -89,7 +90,10 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   } = useQuery<{ summary: string }>({
     queryKey: ["ai-summary", library, pageID],
     queryFn: async () => {
-      const res = await api.getPageAISummary(`${library}-${pageID}`);
+      const res = await api.getPageAISummary(
+        `${library}-${pageID}`,
+        coverPageID
+      );
       return res.data;
     },
     refetchOnMount: false,
@@ -104,7 +108,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   } = useQuery<{ tags: string[] }>({
     queryKey: ["ai-tags", library, pageID],
     queryFn: async () => {
-      const res = await api.getPageAITags(`${library}-${pageID}`);
+      const res = await api.getPageAITags(`${library}-${pageID}`, coverPageID);
       return res.data;
     },
     refetchOnMount: false,
@@ -115,7 +119,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   const updatePageMutation = useMutation({
     mutationFn: async (data: PageMetadata) => {
       const tags = data.tags.map((tag) => tag.value);
-      await api.updatePageDetails(`${library}-${pageID}`, {
+      await api.updatePageDetails(`${library}-${pageID}`, coverPageID, {
         summary: data.summary,
         tags,
       });
