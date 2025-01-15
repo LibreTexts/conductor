@@ -1,4 +1,12 @@
-import { List, Grid, Header, Segment, Button, Icon } from "semantic-ui-react";
+import {
+  List,
+  Grid,
+  Header,
+  Segment,
+  Button,
+  Icon,
+  Breadcrumb,
+} from "semantic-ui-react";
 import { Link } from "react-router-dom-v5-compat";
 import { useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -195,16 +203,23 @@ const TextbookCuration = () => {
   return (
     <Grid className="component-container">
       <Grid.Column>
-        <div>
-          <Link to={`/projects/${projectID}`}>
-            <Icon name="arrow circle left" />
-            Back to Project Overview
-          </Link>
-        </div>
         <Header as="h2" dividing className="component-header">
-          Textbook Curation: {projectData?.title}
+          AI Co-Author: <span className="italic">{projectData?.title}</span>
         </Header>
         <Segment.Group size="large" raised className="mb-4p">
+          <Segment>
+            <Breadcrumb>
+              <Breadcrumb.Section as={Link} to="/projects">
+                Projects
+              </Breadcrumb.Section>
+              <Breadcrumb.Divider icon="right chevron" />
+              <Breadcrumb.Section as={Link} to={`/projects/${projectID}`}>
+                {projectData?.title || "Loading..."}
+              </Breadcrumb.Section>
+              <Breadcrumb.Divider icon="right chevron" />
+              <Breadcrumb.Section active>AI Co-Author</Breadcrumb.Section>
+            </Breadcrumb>
+          </Segment>
           <Segment loading={isLoading}>
             {data ? (
               <>

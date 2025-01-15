@@ -2129,7 +2129,7 @@ async function getPageDetail(
     const { coverPageID } = req.query;
 
     const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
-    if(!canAccess){
+    if (!canAccess) {
       return res.status(403).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -2164,9 +2164,10 @@ async function getPageDetail(
     const pageProperties = Array.isArray(pagePropertiesRaw?.property)
       ? pagePropertiesRaw.property
       : [pagePropertiesRaw?.property];
-    const overviewProperty = pageProperties.find(
-      (prop: any) => prop["@name"] === MindTouch.PageProps.PageOverview
-    );
+    console.log(pageProperties);
+    const overviewProperty = pageProperties
+      .filter((p) => !!p)
+      .find((prop: any) => prop["@name"] === MindTouch.PageProps.PageOverview);
     const overviewText = overviewProperty?.contents?.["#text"] || "";
 
     const pageTagsRes = await CXOneFetch({
@@ -2185,9 +2186,9 @@ async function getPageDetail(
 
     const pageTagsData = await pageTagsRes.json();
     const pageTags = [];
-    if(Array.isArray(pageTagsData.tag)){
+    if (Array.isArray(pageTagsData.tag)) {
       pageTags.push(...pageTagsData.tag);
-    } else if(pageTagsData.tag){
+    } else if (pageTagsData.tag) {
       pageTags.push(pageTagsData.tag);
     }
 
@@ -2214,7 +2215,7 @@ async function getPageAISummary(
     const { coverPageID } = req.query;
 
     const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
-    if(!canAccess){
+    if (!canAccess) {
       return res.status(403).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -2279,15 +2280,18 @@ async function batchApplyAISummary(
       libreCoverID: coverPageID,
       libreLibrary: coverPageLibrary,
     });
-    if(!project){
+    if (!project) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
       });
     }
 
-    const canAccess = await _canAccessPage(req.params.pageID, req.user.decoded.uuid);
-    if(!canAccess){
+    const canAccess = await _canAccessPage(
+      req.params.pageID,
+      req.user.decoded.uuid
+    );
+    if (!canAccess) {
       return res.status(403).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -2302,14 +2306,19 @@ async function batchApplyAISummary(
     }
 
     const user = await User.findOne({ uuid: req.user.decoded.uuid }).orFail();
-    if(!user || !user.email){
+    if (!user || !user.email) {
       return res.status(400).send({
         err: true,
         errMsg: conductorErrors.err9,
       });
     }
 
-    _batchApplySummariesAndNotify(coverPageLibrary, coverPageID, project.projectID, user.email); // Don't await, send response immediately
+    _batchApplySummariesAndNotify(
+      coverPageLibrary,
+      coverPageID,
+      project.projectID,
+      user.email
+    ); // Don't await, send response immediately
 
     return res.send({
       err: false,
@@ -2354,18 +2363,24 @@ async function _batchApplySummariesAndNotify(
     const results = await Promise.allSettled(promises);
     const settledPageIDs: { id: string; summary: string }[] = [];
 
-    results.forEach((r, idx) => {
-      if (r.status === "fulfilled") {
-        settledPageIDs.push({
-          id: pageIDs[idx],
-          summary: r.value[1],
-        });
-      }
-    });
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (result.status === "rejected") continue;
+      if (result.value[0] !== null) continue;
+      settledPageIDs.push({
+        id: pageIDs[i],
+        summary: result.value[1],
+      });
+    }
 
-    const updatedPromises = settledPageIDs.map((p) =>
-      _updatePageDetails(`${library}-${p.id}`, p.summary)
-    );
+    const updatedPromises = settledPageIDs.map((p) => {
+      // delay 1s between each update to avoid rate limiting
+      return new Promise<ReturnType<typeof _updatePageDetails>>((resolve) => {
+        setTimeout(async () => {
+          resolve(await _updatePageDetails(`${library}-${p.id}`, p.summary));
+        }, 1000);
+      });
+    });
     const updateResults = await Promise.allSettled(updatedPromises);
     const failedUpdates = updateResults.filter((r) => r.status === "rejected");
     failedUpdates.forEach((f) => {
@@ -2401,7 +2416,7 @@ async function _generatePageAISummary(
     if (!process.env.OPENAI_API_KEY) throw new Error("env");
 
     const pageText = await _getPageTextContent(subdomain, parsedPageID);
-    if (!pageText) throw new Error("empty");
+    if (!pageText || pageText.length < 50) throw new Error("empty");
 
     const aiSummaryRes = await axios.post(
       "https://api.openai.com/v1/chat/completions",
@@ -2411,7 +2426,7 @@ async function _generatePageAISummary(
           {
             role: "system",
             content:
-              "Generate a summary of this page. Disregard any code blocks or images. The summary may not exceed 500 characters.",
+              "Generate a summary of this page. Disregard any code blocks or images. The summary may not exceed 500 characters. If there is no summary, please return the word 'empty'.",
           },
           {
             role: "user",
@@ -2427,8 +2442,12 @@ async function _generatePageAISummary(
       }
     );
 
-    const aiSummaryOutput =
-      aiSummaryRes.data?.choices?.[0]?.message?.content || "";
+    const rawOutput = aiSummaryRes.data?.choices?.[0]?.message?.content;
+    const aiSummaryOutput = rawOutput
+      ? rawOutput === "empty"
+        ? ""
+        : rawOutput
+      : "";
     if (!aiSummaryOutput) throw new Error("badres");
 
     summary = aiSummaryOutput;
@@ -2453,7 +2472,7 @@ async function getPageAITags(
     const { coverPageID } = req.query;
 
     const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
-    if(!canAccess){
+    if (!canAccess) {
       return res.status(403).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -2469,7 +2488,7 @@ async function getPageAITags(
     }
 
     const pageText = await _getPageTextContent(subdomain, parsedPageID);
-    if (!pageText) {
+    if (!pageText || pageText.length < 50) {
       return res.send({
         err: false,
         tags: [],
@@ -2484,7 +2503,7 @@ async function getPageAITags(
           {
             role: "system",
             content:
-              "Generate a list of tags, separated by commas, for this page. Disregard any code blocks or images.",
+              "Generate a list of tags, separated by commas, for this page. Disregard any code blocks or images. If you are unable to create any tags, please return the word 'empty'.",
           },
           {
             role: "user",
@@ -2500,7 +2519,12 @@ async function getPageAITags(
       }
     );
 
-    const aiTagsOutput = aiTagsRes.data?.choices?.[0]?.message?.content || "";
+    const rawOutput = aiTagsRes.data?.choices?.[0]?.message?.content;
+    const aiTagsOutput = rawOutput
+      ? rawOutput === "empty"
+        ? ""
+        : rawOutput
+      : "";
     if (!aiTagsOutput) {
       return res.status(400).send({
         err: true,
@@ -2574,7 +2598,7 @@ async function updatePageDetails(
     const { summary, tags } = req.body;
 
     const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
-    if(!canAccess){
+    if (!canAccess) {
       return res.status(403).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -2651,9 +2675,9 @@ async function _updatePageDetails(
       : [pagePropertiesRaw?.property];
 
     // Check if there is an existing overview property
-    const overviewProperty = pageProperties.find(
-      (prop: any) => prop["@name"] === MindTouch.PageProps.PageOverview
-    );
+    const overviewProperty = pageProperties
+      .filter((p) => !!p)
+      .find((prop: any) => prop["@name"] === MindTouch.PageProps.PageOverview);
 
     if (summary) {
       // Update or set page overview property
@@ -2930,7 +2954,10 @@ const retrieveKBExport = (_req: Request, res: Response) => {
     });
 };
 
-async function _canAccessPage(coverPageID: string, userID: string): Promise<boolean> {
+async function _canAccessPage(
+  coverPageID: string,
+  userID: string
+): Promise<boolean> {
   try {
     const [lib, coverID] = getLibraryAndPageFromBookID(coverPageID);
     if (!lib || !coverID) {
@@ -2947,7 +2974,7 @@ async function _canAccessPage(coverPageID: string, userID: string): Promise<bool
     }
 
     return await projectsAPI.checkProjectMemberPermission(project, userID);
-  } catch (err){
+  } catch (err) {
     debugError(err);
     return false;
   }

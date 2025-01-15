@@ -773,6 +773,7 @@ const sendBatchAISummariesFinished = (recipientAddresses, projectID, updated) =>
             <p>Hi,</p>
             <p>We're just writing to let you know that we've finished applying AI-generated page summaries to the textbook associated with this project.</p>
             <p><strong>Updated:</strong> ${updated} pages</p>
+            <p>Please note that page summaries are cached and may take a few minutes to appear in the library.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
             <br />

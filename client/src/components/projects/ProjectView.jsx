@@ -1653,12 +1653,12 @@ const ProjectView = (props) => {
                           <Button
                           as={Link}
                           color='pink'
-                          to={`/projects/${project.projectID}/textbook-curation`}
+                          to={`/projects/${project.projectID}/ai-co-author`}
                           aria-label='Textbook Curation'
                         >
-                          <Icon name='book' />
+                          <Icon name='magic' />
                           <Breakpoint name='desktop'>
-                          Textbook Curation
+                          AI Co-Author
                           </Breakpoint>
                         </Button>
                         )
