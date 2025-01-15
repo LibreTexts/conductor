@@ -338,9 +338,16 @@ class API {
     return res;
   }
 
+  async getAllPageDetails(bookID: string) {
+    const res = await axios.get<
+      { details: PageDetailsResponse<"id", "title">[] } & ConductorBaseResponse
+    >(`/commons/book/${bookID}/page-details`);
+    return res;
+  }
+
   async getPageDetails(pageID: string, coverPageID: string) {
     const res = await axios.get<PageDetailsResponse & ConductorBaseResponse>(
-      `/commons/pages/${pageID}?coverPageID=${coverPageID}`,
+      `/commons/pages/${pageID}?coverPageID=${coverPageID}`
     );
     return res;
   }

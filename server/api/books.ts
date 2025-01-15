@@ -19,6 +19,7 @@ import {
   isValidDateObject,
   sleep,
   getRandomOffset,
+  delay,
 } from "../util/helpers.js";
 import {
   checkBookIDFormat,
@@ -51,7 +52,7 @@ import alertsAPI from "./alerts.js";
 import mailAPI from "./mail.js";
 import collectionsAPI from "./collections.js";
 import axios from "axios";
-import { BookSortOption, TableOfContents } from "../types/Book.js";
+import { BookSortOption, PageTag, TableOfContents } from "../types/Book.js";
 import { isBookSortOption } from "../util/typeHelpers.js";
 import { z } from "zod";
 import {
@@ -2136,17 +2137,122 @@ async function getPageDetail(
       });
     }
 
-    const [subdomain, coverID] = getLibraryAndPageFromBookID(pageID);
-    if (!subdomain || !coverID) {
-      return res.status(400).send({
+    const detailRes = await _getPageDetail(pageID);
+    if (!detailRes) {
+      throw new Error("fetch");
+    }
+
+    return res.send({
+      err: false,
+      overview: detailRes.overview,
+      tags: detailRes.tags,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function getAllPageDetails(
+  req: ZodReqWithUser<typeof getWithBookIDParamSchema>,
+  res: Response
+) {
+  try {
+    const { bookID } = req.params;
+    const canAccess = await _canAccessPage(bookID, req.user.decoded.uuid);
+    if (!canAccess) {
+      return res.status(403).send({
         err: true,
-        errMsg: conductorErrors.err2,
+        errMsg: conductorErrors.err8,
       });
+    }
+
+    const toc = (await getBookTOCNew(bookID)) as TableOfContents;
+    const pageIDs: string[] = [];
+    const content = toc.children; // skip root pages
+    const library = extractLibFromID(bookID);
+
+    // recursively get all page IDs
+    const getIDs = (content: TableOfContents[]) => {
+      content.forEach((item) => {
+        pageIDs.push(item.id);
+        if (item.children) {
+          getIDs(item.children);
+        }
+      });
+    };
+
+    getIDs(content);
+
+    const flattenToc = (content: TableOfContents[]) => {
+      const flat = [];
+      content.forEach((item) => {
+        flat.push(item);
+        if (item.children) {
+          flat.push(...flattenToc(item.children));
+        }
+      });
+      return flat;
+    };
+
+    const flatToc = flattenToc(content);
+
+    // for every 10 pages, increase delay by 50ms between requests
+    const getDelay = (i: number) => {
+      if (i < 10) {
+        return 50;
+      }
+      return Math.floor(i / 10) * 50;
+    };
+
+    const details: { id: string; overview: string; tags: PageTag[] }[] = [];
+    for (let i = 0; i < pageIDs.length; i++) {
+      await delay(getDelay(i));
+
+      try {
+        console.log(`Getting details for ${library}-${pageIDs[i]}`);
+        const val = await _getPageDetail(`${library}-${pageIDs[i]}`);
+        if (val) {
+          details.push({
+            id: pageIDs[i],
+            title: flatToc.find((item) => item.id === pageIDs[i])?.title || "",
+            overview: val.overview,
+            tags: val.tags,
+          });
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    return res.send({
+      err: false,
+      details,
+    });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function _getPageDetail(
+  fullPageID: string
+): Promise<{ overview: string; tags: PageTag[] } | null> {
+  try {
+    const [subdomain, pageID] = getLibraryAndPageFromBookID(fullPageID);
+    if (!subdomain || !pageID) {
+      throw new Error("location");
     }
 
     const pagePropertiesRes = await CXOneFetch({
       scope: "page",
-      path: parseInt(coverID),
+      path: parseInt(pageID),
       api: MindTouch.API.Page.GET_Page_Properties,
       subdomain,
     }).catch((err) => {
@@ -2164,7 +2270,6 @@ async function getPageDetail(
     const pageProperties = Array.isArray(pagePropertiesRaw?.property)
       ? pagePropertiesRaw.property
       : [pagePropertiesRaw?.property];
-    console.log(pageProperties);
     const overviewProperty = pageProperties
       .filter((p) => !!p)
       .find((prop: any) => prop["@name"] === MindTouch.PageProps.PageOverview);
@@ -2172,7 +2277,7 @@ async function getPageDetail(
 
     const pageTagsRes = await CXOneFetch({
       scope: "page",
-      path: parseInt(coverID),
+      path: parseInt(pageID),
       api: MindTouch.API.Page.GET_Page_Tags,
       subdomain,
     }).catch((err) => {
@@ -2192,17 +2297,13 @@ async function getPageDetail(
       pageTags.push(pageTagsData.tag);
     }
 
-    return res.send({
-      err: false,
+    return {
       overview: overviewText,
       tags: pageTags,
-    });
+    };
   } catch (e) {
     debugError(e);
-    return res.status(500).send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
+    return null;
   }
 }
 
@@ -2997,6 +3098,7 @@ export default {
   getBookTOC,
   getLicenseReport,
   getPageDetail,
+  getAllPageDetails,
   getPageAISummary,
   batchApplyAISummary,
   getPageAITags,

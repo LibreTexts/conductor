@@ -16,6 +16,7 @@ import { useModals } from "../../../context/ModalContext";
 import EditMetadataModal from "../../../components/projects/TextbookCuration/EditMetadataModal";
 import { useState } from "react";
 import ConfirmAISummariesModal from "../../../components/projects/TextbookCuration/ConfirmAISummariesModal";
+import AITagsModal from "../../../components/projects/TextbookCuration/AITagsModal";
 
 type WithUIState = Omit<TableOfContents, "children"> & {
   expanded: boolean;
@@ -129,6 +130,19 @@ const TextbookCuration = () => {
     );
   };
 
+  const handleOpenAITagsModal = () => {
+    if (!projectData?.libreLibrary || !projectData?.libreCoverID) {
+      return;
+    }
+
+    openModal(
+      <AITagsModal
+        coverPageID={`${projectData?.libreLibrary}-${projectData?.libreCoverID}`}
+        title={bookTitle}
+      />
+    );
+  };
+
   const renderNodes = (nodes: WithUIState[], indentLevel = 1) => {
     if (!projectData?.libreLibrary || !projectData?.libreCoverID) {
       return (
@@ -232,6 +246,10 @@ const TextbookCuration = () => {
                     <Button primary onClick={handleOpenBulkSummariesModal}>
                       <Icon name="magic" />
                       AI Page Summaries
+                    </Button>
+                    <Button primary onClick={handleOpenAITagsModal}>
+                      <Icon name="magic" />
+                      AI Page Tags
                     </Button>
                   </div>
                 </div>

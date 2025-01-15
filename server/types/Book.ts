@@ -5,3 +5,12 @@ export type TableOfContents = {
   url: string;
   children: TableOfContents[];
 };
+
+export type PageTag = {
+  "@value": string;
+  "@id": string;
+  "@href": string;
+  title: string;
+  type: string;
+  uri: string;
+};

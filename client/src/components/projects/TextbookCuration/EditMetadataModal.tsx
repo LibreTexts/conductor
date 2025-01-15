@@ -20,18 +20,7 @@ import useGlobalError from "../../error/ErrorHooks";
 import LoadingSpinner from "../../LoadingSpinner";
 import { useNotifications } from "../../../context/NotificationContext";
 import "../Projects.css";
-const SUMMARY_MAX_LENGTH = 500;
-const DISABLED_TAG_PREFIXES = [
-  "article:",
-  "authorname:",
-  "license:",
-  "licenseversion:",
-  "source@",
-  "stage:",
-  "lulu@",
-  "author@",
-  "printoptions:"
-];
+import { DISABLED_PAGE_TAG_PREFIXES, PAGE_SUMMARY_MAX_LENGTH } from "../../../utils/constants";
 
 type PageMetadata = {
   summary: string;
@@ -192,16 +181,16 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   }, [aiTags, watch("tags")]);
 
   const isDisabledTag = (value?: any): boolean => {
-    return DISABLED_TAG_PREFIXES.some((prefix) =>
+    return DISABLED_PAGE_TAG_PREFIXES.some((prefix) =>
       value?.toString().startsWith(prefix)
     );
   };
 
   const handleSave = async (data: PageMetadata) => {
-    if (data.summary.length > SUMMARY_MAX_LENGTH) {
+    if (data.summary.length > PAGE_SUMMARY_MAX_LENGTH) {
       addNotification({
         type: "error",
-        message: `Summary cannot be longer than ${SUMMARY_MAX_LENGTH} characters`,
+        message: `Summary cannot be longer than ${PAGE_SUMMARY_MAX_LENGTH} characters`,
       });
       return;
     }
@@ -407,7 +396,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
           loading={updatePageMutation.isLoading}
           disabled={
             (watch("summary") &&
-              watch("summary").length > SUMMARY_MAX_LENGTH) ||
+              watch("summary").length > PAGE_SUMMARY_MAX_LENGTH) ||
             (watch("tags") && watch("tags").length > 100)
           }
         >

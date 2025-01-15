@@ -791,6 +791,13 @@ router
     booksAPI.getBookPeerReviews
   );
 
+router.route("/commons/book/:bookID/page-details").get(
+  middleware.validateZod(BookValidators.getWithBookIDParamSchema),
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  booksAPI.getAllPageDetails
+);
+
 router
   .route("/commons/pages/:pageID")
   .get(

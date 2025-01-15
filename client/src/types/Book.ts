@@ -32,7 +32,7 @@ export type BookWithSourceData = Book & {
   sourceHarvestDate?: Date;
   sourceLastModifiedDate?: Date;
   sourceLanguage?: string;
-}
+};
 
 export type BookLinks = {
   online: string;
@@ -64,7 +64,10 @@ export type PageTag = {
   uri: string;
 };
 
-export type PageDetailsResponse = {
+export type PageDetailsResponse<
+T extends 'id' | undefined = undefined,
+K extends 'title' | undefined = undefined
+> = {
   overview: string;
   tags: PageTag[];
-}
+} & (T extends 'id' ? { id: string } : {}) & (K extends 'title' ? { title: string } : {});

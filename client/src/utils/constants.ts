@@ -119,3 +119,16 @@ export const CHAT_NOTIFY_OPTS = (
     },
   ];
 };
+
+export const PAGE_SUMMARY_MAX_LENGTH = 500;
+export const DISABLED_PAGE_TAG_PREFIXES = [
+  "article:",
+  "authorname:",
+  "license:",
+  "licenseversion:",
+  "source@",
+  "stage:",
+  "lulu@",
+  "author@",
+  "printoptions:",
+];
