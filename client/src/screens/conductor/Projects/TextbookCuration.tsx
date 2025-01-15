@@ -233,6 +233,10 @@ const TextbookCuration = () => {
                       <Icon name="magic" />
                       AI Page Summaries
                     </Button>
+                    <Button primary disabled>
+                      <Icon name="magic" />
+                      AI Page Tags - <span className="italic">Coming Soon</span>
+                    </Button>
                   </div>
                 </div>
                 {renderNodes(data)}
