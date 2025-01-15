@@ -36,7 +36,7 @@ const ConfirmAISummariesModal: React.FC<ConfirmAISummariesModalProps> = ({
       addNotification({
         type: "success",
         message:
-          "We're generating AI summaries for all pages in this book. We'll send you an email when it's complete.",
+          "We're generating AI summaries for this book. We'll send you an email when they're ready.",
       });
       closeAllModals();
     } catch (err) {

@@ -30,6 +30,7 @@ const DISABLED_TAG_PREFIXES = [
   "stage:",
   "lulu@",
   "author@",
+  "printoptions:"
 ];
 
 type PageMetadata = {
