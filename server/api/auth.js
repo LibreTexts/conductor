@@ -375,21 +375,29 @@ async function logout(_req, res) {
   try {
     // Attempt to invalidate the user's session
     const accessCookie = _req.cookies.conductor_access;
-    if (accessCookie) {
-      const accessCookieJWT = accessCookie.toString().split(" ")[1];
-      const claims = decodeJwt(accessCookieJWT.toString());
-      const userId = claims.sub;
-      const sessionId = claims.sessionId;
-      if (userId && sessionId) {
-        await Session.updateMany(
-          {
-            userId,
-            sessionId,
-          },
-          {
-            valid: false,
-          }
-        );
+    const signedCookie = _req.cookies.conductor_signed;
+    const sessionJWT = `${accessCookie}.${signedCookie}`;
+    if (accessCookie && signedCookie && sessionJWT) {
+      try {
+        const { payload } = await jwtVerify(sessionJWT, JWT_SECRET, {
+          issuer: JWT_COOKIE_DOMAIN,
+          audience: JWT_COOKIE_DOMAIN,
+        });
+
+        const { sessionId, uuid: userId } = payload;
+        if (userId && sessionId) {
+          await Session.updateMany(
+            {
+              userId,
+              sessionId,
+            },
+            {
+              valid: false,
+            }
+          );
+        }
+      } catch (e) {
+        debugError(e); // Just fail silently if we can't invalidate the DB sessions - we still want to log the user out
       }
     }
 
@@ -443,6 +451,7 @@ async function handleSingleLogout(req, res) {
       throw new Error("User not found");
     }
 
+    console.log(`Received logout request for user ${user.uuid}`);
     // Invalidate all sessions for the user
     await Session.updateMany(
       {
