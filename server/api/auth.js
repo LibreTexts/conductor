@@ -426,9 +426,11 @@ async function logout(_req, res) {
 
 async function handleSingleLogout(req, res) {
   try {
-    // Request body is of type application/x-www-form-urlencoded and should only contain the logout_token
     const body = req.body;
-    const { logout_token } = body;
+    const query = req.query;
+    // Load balancer/Cloudflare may rewrite as query param in production
+    // Support both, but prefer body
+    const logout_token = body.logout_token || query.logout_token;
     if (!logout_token) {
       throw new Error("No logout token provided");
     }
