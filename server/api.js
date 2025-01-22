@@ -110,6 +110,7 @@ router.use(middleware.authSanitizer);
 
 /* Auth */
 router.route("/oidc/libretexts").get(authAPI.completeLogin);
+router.route("/oidc/back-channel-slo").post(authAPI.handleSingleLogout);
 
 router.route("/auth/login").get(authAPI.initLogin);
 
