@@ -9,7 +9,7 @@ import bcrypt from "bcryptjs";
 import { body, query } from "express-validator";
 import { v4 as uuidv4 } from "uuid";
 import { randomBytes } from "crypto";
-import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
+import { createRemoteJWKSet, jwtVerify, SignJWT, decodeJwt } from "jose";
 import axios from "axios";
 import User from "../models/user.js";
 import OAuth from "./oauth.js";
@@ -17,6 +17,7 @@ import conductorErrors from "../conductor-errors.js";
 import { debugError } from "../debug.js";
 import { assembleUrl, isEmptyString, isFullURL } from "../util/helpers.js";
 import FormData from "form-data";
+import Session from "../models/session.js";
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = new TextEncoder().encode(process.env.SECRETKEY);
@@ -27,8 +28,10 @@ const oidcAuth = `${oidcBase}/cas/oidc/authorize`;
 const oidcToken = `${oidcBase}/cas/oidc/accessToken`;
 const oidcCallbackProto =
   process.env.NODE_ENV === "production" ? "https" : "http";
-const oidcCallbackHost = process.env.OIDC_CALLBACK_HOST ||
-  process.env.CONDUCTOR_DOMAIN || "commons.libretexts.org";
+const oidcCallbackHost =
+  process.env.OIDC_CALLBACK_HOST ||
+  process.env.CONDUCTOR_DOMAIN ||
+  "commons.libretexts.org";
 const oidcCallback = `${oidcCallbackProto}://${oidcCallbackHost}/api/v1/oidc/libretexts`;
 const oidcJWKS = `${oidcBase}/cas/oidc/jwks`;
 const oidcProfile = `${oidcBase}/cas/oidc/profile`;
@@ -38,16 +41,17 @@ const oidcLogout = `${oidcBase}/cas/logout`;
  * Creates a JWT for a local session.
  *
  * @param {string} uuid - The User UUID to initialize the session for.
+ * @param {string} sessionId - The session ID to use for the session.
  * @returns {string} The generated JWT.
  */
-async function createSessionJWT(uuid) {
-  return await new SignJWT({ uuid })
+async function createSessionJWT(uuid, sessionId) {
+  return await new SignJWT({ uuid, sessionId })
     .setSubject(uuid)
-    .setProtectedHeader({ alg: 'HS256' })
+    .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setIssuer(JWT_COOKIE_DOMAIN)
     .setAudience(JWT_COOKIE_DOMAIN)
-    .setExpirationTime('3d')
+    .setExpirationTime("3d")
     .sign(JWT_SECRET);
 }
 
@@ -58,8 +62,8 @@ async function createSessionJWT(uuid) {
  * @returns {string[]} The access and signed components.
  */
 function splitSessionJWT(sessionJWT) {
-  const splitJWT = sessionJWT.split('.');
-  const access = splitJWT.slice(0, 2).join('.');
+  const splitJWT = sessionJWT.split(".");
+  const access = splitJWT.slice(0, 2).join(".");
   const signed = splitJWT[2];
   return [access, signed];
 }
@@ -72,7 +76,17 @@ function splitSessionJWT(sessionJWT) {
  * @param {string} uuid - The User UUID to initialize the session for.
  */
 async function createAndAttachLocalSession(res, uuid) {
-  const sessionJWT = await createSessionJWT(uuid);
+  const sessionId = uuidv4();
+  const session = new Session({
+    sessionId,
+    userId: uuid,
+    createdAt: new Date().toISOString(),
+    valid: true,
+  });
+
+  await session.save();
+
+  const sessionJWT = await createSessionJWT(uuid, sessionId);
   const [access, signed] = splitSessionJWT(sessionJWT);
 
   const prodCookieConfig = {
@@ -80,14 +94,14 @@ async function createAndAttachLocalSession(res, uuid) {
     domain: JWT_COOKIE_DOMAIN,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   };
-  res.cookie('conductor_access', access, {
-    path: '/',
-    ...(process.env.NODE_ENV === 'production' && prodCookieConfig),
+  res.cookie("conductor_access", access, {
+    path: "/",
+    ...(process.env.NODE_ENV === "production" && prodCookieConfig),
   });
-  res.cookie('conductor_signed', signed, {
-    path: '/',
+  res.cookie("conductor_signed", signed, {
+    path: "/",
     httpOnly: true,
-    ...(process.env.NODE_ENV === 'production' && prodCookieConfig),
+    ...(process.env.NODE_ENV === "production" && prodCookieConfig),
   });
 }
 
@@ -125,7 +139,10 @@ async function initLogin(req, res) {
     domain: process.env.OIDC_CALLBACK_HOST || process.env.CONDUCTOR_DOMAIN,
     secure: true,
   };
-  if (process.env.CONDUCTOR_DOMAIN && process.env.CONDUCTOR_DOMAIN !== 'commons.libretexts.org') {
+  if (
+    process.env.CONDUCTOR_DOMAIN &&
+    process.env.CONDUCTOR_DOMAIN !== "commons.libretexts.org"
+  ) {
     const authRedirectURL = `${oidcCallbackProto}://${process.env.CONDUCTOR_DOMAIN}`;
     res.cookie("conductor_auth_redirect", authRedirectURL, {
       encode: String,
@@ -254,12 +271,12 @@ async function completeLogin(req, res) {
       // Sync data that may have been changed in a delegated IdP
       let doSync = false;
       const centralToLocalAttrs = [
-        ['email', 'email'],
-        ['given_name', 'firstName'],
-        ['family_name', 'lastName'],
-        ['picture', 'avatar']
+        ["email", "email"],
+        ["given_name", "firstName"],
+        ["family_name", "lastName"],
+        ["picture", "avatar"],
       ];
-      
+
       for (const [central, auth] of centralToLocalAttrs) {
         if (centralAttr[central] !== authUser[auth]) {
           doSync = true;
@@ -279,7 +296,7 @@ async function completeLogin(req, res) {
         firstName: centralAttr.given_name,
         lastName: centralAttr.family_name,
         email: centralAttr.email,
-        authType: 'sso',
+        authType: "sso",
         avatar:
           centralAttr.picture ||
           "https://cdn.libretexts.net/DefaultImages/avatar.png",
@@ -333,7 +350,7 @@ async function completeLogin(req, res) {
       // redirectURI is only a path or not provided
       redirectURL = assembleUrl([redirectURL, state.redirectURI ?? "home"]);
     }
-    
+
     if (!state.redirectURI && isNewMember) {
       redirectURL = `${redirectURL}?newmember=true`;
     }
@@ -356,6 +373,26 @@ async function completeLogin(req, res) {
  */
 async function logout(_req, res) {
   try {
+    // Attempt to invalidate the user's session
+    const accessCookie = _req.cookies.conductor_access;
+    if (accessCookie) {
+      const accessCookieJWT = accessCookie.toString().split(" ")[1];
+      const claims = decodeJwt(accessCookieJWT.toString());
+      const userId = claims.sub;
+      const sessionId = claims.sessionId;
+      if (userId && sessionId) {
+        await Session.updateMany(
+          {
+            userId,
+            sessionId,
+          },
+          {
+            valid: false,
+          }
+        );
+      }
+    }
+
     const prodCookieConfig = {
       secure: true,
       domain: JWT_COOKIE_DOMAIN,
@@ -370,6 +407,56 @@ async function logout(_req, res) {
       ...(process.env.NODE_ENV === "production" && prodCookieConfig),
     });
     return res.redirect(oidcLogout);
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function handleSingleLogout(req, res) {
+  try {
+    // Request body is of type application/x-www-form-urlencoded and should only contain the logout_token
+    const body = req.body;
+    const { logout_token } = body;
+    if (!logout_token) {
+      throw new Error("No logout token provided");
+    }
+
+    // Verify logout token with CAS public key set
+    const JWKS = createRemoteJWKSet(new URL(oidcJWKS));
+
+    const { payload } = await jwtVerify(logout_token, JWKS, {
+      issuer: `${oidcBase}/cas/oidc`,
+    });
+
+    const { sub } = payload; // sub will be the user's email
+    if (!sub) {
+      throw new Error("No sub provided in logout token");
+    }
+
+    // Find the matching user
+    const user = await User.findOne({ email: sub });
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Invalidate all sessions for the user
+    await Session.updateMany(
+      {
+        userId: user.uuid,
+      },
+      {
+        valid: false,
+      }
+    );
+
+    return res.send({
+      err: false,
+      msg: "Logout request received",
+    });
   } catch (e) {
     debugError(e);
     return res.status(500).send({
@@ -577,11 +664,28 @@ async function verifyRequest(req, res, next) {
     });
     req.user = { decoded: payload };
     req.decoded = payload; // TODO: Remove and update other handlers
+
+    const sessionId = payload.sessionId;
+    if (!sessionId) {
+      throw new Error("ERR_BAD_SESSION");
+    }
+
+    const session = await Session.findOne({
+      sessionId,
+      valid: true,
+    });
+
+    if (!session) {
+      throw new Error("ERR_BAD_SESSION");
+    }
     return next();
   } catch (e) {
     let tokenExpired = false;
-    if (e.code === 'ERR_JWT_EXPIRED') {
+    let sessionInvalid = false;
+    if (e.code === "ERR_JWT_EXPIRED") {
       tokenExpired = true;
+    } else if (e.message === "ERR_BAD_SESSION") {
+      sessionInvalid = true;
     } else {
       debugError(e);
     }
@@ -589,6 +693,7 @@ async function verifyRequest(req, res, next) {
       err: true,
       errMsg: conductorErrors.err5,
       ...(tokenExpired && { tokenExpired }),
+      ...(sessionInvalid && { sessionInvalid }),
     });
   }
 }
@@ -606,7 +711,7 @@ function optionalVerifyRequest(req, res, next) {
     return verifyRequest(req, res, next);
   }
   return next();
-};
+}
 
 /**
  * Pulls the user record from the database and adds
@@ -697,7 +802,7 @@ const checkHasRole = (user, org, role, silent = false) => {
     if (foundRole !== undefined) return true;
     return false;
   }
-  if (!silent){
+  if (!silent) {
     debugError(conductorErrors.err9);
   }
   return false;
@@ -749,32 +854,36 @@ const checkHasRoleMiddleware = (org, role) => {
   };
 };
 
-async function cloudflareSiteVerify(req, res){
+async function cloudflareSiteVerify(req, res) {
   try {
-    if(!req.query.token){
-      throw new Error('No token provided')
+    if (!req.query.token) {
+      throw new Error("No token provided");
     }
 
     const formdata = new FormData();
-    formdata.append('secret', process.env.CLOUDFLARE_TURNSTILE_SECRET);
-    formdata.append('response', req.query.token);
+    formdata.append("secret", process.env.CLOUDFLARE_TURNSTILE_SECRET);
+    formdata.append("response", req.query.token);
 
-    const cloudflareRes = await axios.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', formdata, {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
+    const cloudflareRes = await axios.post(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      formdata,
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
       }
-    })
+    );
 
-    if(!cloudflareRes.data){
-      throw new Error('No response from Cloudflare')
+    if (!cloudflareRes.data) {
+      throw new Error("No response from Cloudflare");
     }
-    
+
     const success = cloudflareRes.data.success || false;
 
     return res.send({
       err: false,
       success,
-    })
+    });
   } catch (err) {
     debugError(err);
     return res.status(500).send({
@@ -790,15 +899,17 @@ async function cloudflareSiteVerify(req, res){
  */
 const validate = (method) => {
   switch (method) {
-    case 'fallbackAuthLogin':
+    case "fallbackAuthLogin":
       return [
-        body('email', conductorErrors.err1).exists().isEmail(),
-        body('password', conductorErrors.err1).exists().isLength({ min: 1 }),
-      ]
-    case 'turnstile': 
+        body("email", conductorErrors.err1).exists().isEmail(),
+        body("password", conductorErrors.err1).exists().isLength({ min: 1 }),
+      ];
+    case "turnstile":
       return [
-        query('token', conductorErrors.err1).exists().isLength({ min: 1, max: 1024 }),
-      ]
+        query("token", conductorErrors.err1)
+          .exists()
+          .isLength({ min: 1, max: 1024 }),
+      ];
   }
 };
 
@@ -806,6 +917,7 @@ export default {
   initLogin,
   completeLogin,
   logout,
+  handleSingleLogout,
   fallbackAuthLogin,
   getLibreTextsAdmins,
   getCampusAdmins,

@@ -37,7 +37,8 @@ const Platform = () => {
     (err) => {
       if (
         err.response?.status === 401 &&
-        err.response?.data?.tokenExpired === true
+        (err.response?.data?.tokenExpired === true ||
+          err.response?.data?.sessionInvalid === true)
       ) {
         AuthHelper.logout(true, window.location);
       }
