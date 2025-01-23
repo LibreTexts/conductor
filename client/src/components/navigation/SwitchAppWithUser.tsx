@@ -48,7 +48,7 @@ const SwitchAppWithUser: React.FC<SwitchAppWithUserProps> = ({
           <>
             <Menu.Item onClick={() => setUserOpen(!userOpen)}>
               <span className="font-bold">
-                {user.firstName + " " + user.lastName}
+                {`${user.firstName} ${user.lastName} (${user.email})`}
               </span>
               <Icon
                 name={userOpen ? "angle up" : "angle down"}
