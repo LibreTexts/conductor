@@ -24,9 +24,18 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
   if (dropdown) {
     return (
       <Menu.Item {...props}>
-        <div className="flex flex-row items-center">
-        {showAvatar && <Image src={`${user.avatar}`} avatar />}
-        <Dropdown text={user.firstName + " " + user.lastName}>
+        <Dropdown
+          className="!flex items-center align-middle border border-slate-200 shadow-sm rounded-md pr-1.5"
+          trigger={
+            <div className="flex items-center align-middle p-1">
+              {showAvatar && <Image src={`${user.avatar}`} avatar />}
+              <div className="flex flex-col items-start justify-center ml-1">
+                <p className="font-bold">{`${user.firstName} ${user.lastName}`}</p>
+                <p className="text-sm">{user.email}</p>
+              </div>
+            </div>
+          }
+        >
           <Dropdown.Menu direction="left">
             <Dropdown.Item as={Link} to="/account/overview">
               <Icon name="settings" />
@@ -38,7 +47,6 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
             </Dropdown.Item>
           </Dropdown.Menu>
         </Dropdown>
-        </div>
       </Menu.Item>
     );
   }
