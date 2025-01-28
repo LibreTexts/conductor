@@ -1,9 +1,5 @@
-//
-// LibreTexts Conductor
-// auth.js
-
 "use strict";
-import express from "express";
+import { CookieOptions, NextFunction, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 
 import { body, query } from "express-validator";
@@ -18,6 +14,7 @@ import { debugError } from "../debug.js";
 import { assembleUrl, isEmptyString, isFullURL } from "../util/helpers.js";
 import FormData from "form-data";
 import Session from "../models/session.js";
+import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = new TextEncoder().encode(process.env.SECRETKEY);
@@ -44,7 +41,7 @@ const oidcLogout = `${oidcBase}/cas/logout`;
  * @param {string} sessionId - The session ID to use for the session.
  * @returns {string} The generated JWT.
  */
-async function createSessionJWT(uuid, sessionId) {
+async function createSessionJWT(uuid: string, sessionId: string) {
   return await new SignJWT({ uuid, sessionId })
     .setSubject(uuid)
     .setProtectedHeader({ alg: "HS256" })
@@ -61,7 +58,7 @@ async function createSessionJWT(uuid, sessionId) {
  * @param sessionJWT - JWT to split into components.
  * @returns {string[]} The access and signed components.
  */
-function splitSessionJWT(sessionJWT) {
+function splitSessionJWT(sessionJWT: string) {
   const splitJWT = sessionJWT.split(".");
   const access = splitJWT.slice(0, 2).join(".");
   const signed = splitJWT[2];
@@ -75,7 +72,7 @@ function splitSessionJWT(sessionJWT) {
  * @param {express.Response} res - The response object to attach the session cookies to.
  * @param {string} uuid - The User UUID to initialize the session for.
  */
-async function createAndAttachLocalSession(res, uuid) {
+async function createAndAttachLocalSession(res: Response, uuid: string) {
   const sessionId = uuidv4();
   const session = new Session({
     sessionId,
@@ -111,7 +108,14 @@ async function createAndAttachLocalSession(res, uuid) {
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
-async function initLogin(req, res) {
+async function initLogin(req: Request, res: Response) {
+  if (!process.env.OIDC_CLIENT_ID || !process.env.OIDC_CLIENT_SECRET) {
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+
   const state = JSON.stringify({
     state: randomBytes(10).toString("hex"),
     orgID: process.env.ORG_ID,
@@ -125,20 +129,23 @@ async function initLogin(req, res) {
 
   const nonce = uuidv4();
   const nonceHash = await bcrypt.hash(nonce, SALT_ROUNDS);
-  const params = new URLSearchParams({
+  const _params: Record<string, string> = {
     state,
     response_type: "code",
     client_id: process.env.OIDC_CLIENT_ID,
     redirect_uri: oidcCallback,
     nonce: nonceHash,
     scope: "openid profile email libretexts",
-  });
+  };
+
+  const params = new URLSearchParams(_params);
 
   const prodCookieConfig = {
-    sameSite: "lax",
+    sameSite: "lax" as CookieOptions["sameSite"],
     domain: process.env.OIDC_CALLBACK_HOST || process.env.CONDUCTOR_DOMAIN,
     secure: true,
   };
+
   if (
     process.env.CONDUCTOR_DOMAIN &&
     process.env.CONDUCTOR_DOMAIN !== "commons.libretexts.org"
@@ -169,16 +176,17 @@ async function initLogin(req, res) {
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
-async function completeLogin(req, res) {
+async function completeLogin(req: Request, res: Response) {
   try {
-    const formURLEncode = (value) =>
-      encodeURIComponent(value).replace(/%20/g, "+");
+    if (!process.env.OIDC_CLIENT_ID || !process.env.OIDC_CLIENT_SECRET) {
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err6,
+      });
+    }
 
-    // Network agent for development
-    const networkAgent =
-      process.env.NODE_ENV === "production"
-        ? null
-        : new https.Agent({ rejectUnauthorized: false });
+    const formURLEncode = (value: string) =>
+      encodeURIComponent(value).replace(/%20/g, "+");
 
     // Compare state nonce
     const { oidc_state } = req.cookies;
@@ -187,7 +195,7 @@ async function completeLogin(req, res) {
     let state = null;
     let stateCookie = null;
     try {
-      state = JSON.parse(stateQuery);
+      state = stateQuery?.toString() ? JSON.parse(stateQuery.toString()) : null; // Decode query state
       stateCookie = JSON.parse(Buffer.from(oidc_state, "base64").toString()); // Decode base64 state
     } catch (e) {
       debugError(`State query: ${stateQuery}`);
@@ -213,9 +221,6 @@ async function completeLogin(req, res) {
         code: req.query.code,
         redirect_uri: oidcCallback,
       },
-      ...(networkAgent && {
-        httpsAgent: networkAgent,
-      }),
     });
     const { access_token, id_token } = tokenRes?.data;
     if (!access_token || !id_token) {
@@ -223,11 +228,7 @@ async function completeLogin(req, res) {
     }
 
     // Verify ID token with CAS public key set
-    const JWKS = createRemoteJWKSet(new URL(oidcJWKS), {
-      ...(networkAgent && {
-        agent: networkAgent,
-      }),
-    });
+    const JWKS = createRemoteJWKSet(new URL(oidcJWKS));
     const { payload } = await jwtVerify(id_token, JWKS, {
       issuer: `${oidcBase}/cas/oidc`,
       audience: process.env.OIDC_CLIENT_ID,
@@ -236,13 +237,15 @@ async function completeLogin(req, res) {
     // Compare nonce hash
     const { oidc_nonce } = req.cookies;
     const { nonce } = payload;
-    if (!nonce || !oidc_nonce) {
+    const nonceString = nonce?.toString();
+    if (!nonce || !oidc_nonce || !nonceString) {
       return res.status(400).send({
         err: true,
         errMsg: conductorErrors.err71,
       });
     }
-    const nonceValid = await bcrypt.compare(oidc_nonce, nonce);
+
+    const nonceValid = await bcrypt.compare(oidc_nonce, nonceString);
     if (!nonceValid) {
       return res.status(400).send({
         err: true,
@@ -255,7 +258,6 @@ async function completeLogin(req, res) {
       params: {
         access_token: access_token,
       },
-      httpsAgent: networkAgent,
     });
     const profileData = profileRes.data;
     const centralAttr = profileData.attributes;
@@ -278,8 +280,10 @@ async function completeLogin(req, res) {
       ];
 
       for (const [central, auth] of centralToLocalAttrs) {
+        // @ts-ignore
         if (centralAttr[central] !== authUser[auth]) {
           doSync = true;
+          // @ts-ignore
           authUser[auth] = centralAttr[central];
         }
       }
@@ -371,7 +375,7 @@ async function completeLogin(req, res) {
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
-async function logout(_req, res) {
+async function logout(_req: Request, res: Response) {
   try {
     // Attempt to invalidate the user's session
     const accessCookie = _req.cookies.conductor_access;
@@ -424,7 +428,7 @@ async function logout(_req, res) {
   }
 }
 
-async function handleSingleLogout(req, res) {
+async function handleSingleLogout(req: Request, res: Response) {
   try {
     const body = req.body;
     const query = req.query;
@@ -483,13 +487,13 @@ async function handleSingleLogout(req, res) {
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
-async function fallbackAuthLogin(req, res) {
+async function fallbackAuthLogin(req: Request, res: Response) {
   try {
     const formattedEmail = String(req.body.email).toLowerCase();
     const foundUser = await User.findOne({
       $and: [{ email: formattedEmail }, { authType: "traditional" }],
     });
-    if (!foundUser) {
+    if (!foundUser || !foundUser.password) {
       return res.send({
         err: true,
         errMsg: conductorErrors.err12,
@@ -568,7 +572,7 @@ const getLibreTextsAdmins = (superAdmins = false) => {
  * @param {String} campus  - the orgID to retrieve admins for
  * @returns {Object[]} an array of the administrators and their information
  */
-const getCampusAdmins = (campus) => {
+const getCampusAdmins = (campus: string) => {
   return new Promise((resolve, reject) => {
     if (campus && !isEmptyString(campus)) {
       resolve(
@@ -618,10 +622,10 @@ const getCampusAdmins = (campus) => {
  * @param {String|String[]}  uuid - the user uuid(s) to lookup by
  * @returns {Object[]} an array of user objects
  */
-const getUserBasicWithEmail = (uuid) => {
+const getUserBasicWithEmail = (uuid: string | string[]) => {
   return new Promise((resolve, reject) => {
     /* Validate argument and build match object */
-    let matchObj = {};
+    let matchObj: Record<string, any> = {};
     if (typeof uuid === "string") {
       matchObj.uuid = uuid;
     } else if (typeof uuid === "object" && Array.isArray(uuid)) {
@@ -663,9 +667,13 @@ const getUserBasicWithEmail = (uuid) => {
  * @param {express.Response} res - Outgoing response object.
  * @param {express.NextFunction} next - The next function to run in the middleware chain.
  */
-async function verifyRequest(req, res, next) {
+async function verifyRequest(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   try {
+    if (!authHeader) {
+      throw new Error("ERR_BAD_SESSION");
+    }
+
     if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
       return OAuth.authenticate(req, res, next);
     }
@@ -673,7 +681,10 @@ async function verifyRequest(req, res, next) {
       issuer: JWT_COOKIE_DOMAIN,
       audience: JWT_COOKIE_DOMAIN,
     });
+
+    // @ts-ignore
     req.user = { decoded: payload };
+    // @ts-ignore
     req.decoded = payload; // TODO: Remove and update other handlers
 
     const sessionId = payload.sessionId;
@@ -690,7 +701,7 @@ async function verifyRequest(req, res, next) {
       throw new Error("ERR_BAD_SESSION");
     }
     return next();
-  } catch (e) {
+  } catch (e: any) {
     let tokenExpired = false;
     let sessionInvalid = false;
     if (e.code === "ERR_JWT_EXPIRED") {
@@ -717,7 +728,11 @@ async function verifyRequest(req, res, next) {
  * @param {Object} res - the express.js response object.
  * @param {Object} next - the next function in the middleware chain.
  */
-function optionalVerifyRequest(req, res, next) {
+function optionalVerifyRequest(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
   if (req.headers.authorization) {
     return verifyRequest(req, res, next);
   }
@@ -731,7 +746,11 @@ function optionalVerifyRequest(req, res, next) {
  * Method should only be called AFTER the 'verifyRequest'
  * method in a routing chain.
  */
-const getUserAttributes = (req, res, next) => {
+const getUserAttributes = (
+  req: ZodReqWithUser<Request>,
+  res: Response,
+  next: NextFunction
+) => {
   if (req.user.decoded !== undefined) {
     return User.findOne({
       uuid: req.user.decoded.uuid,
@@ -739,6 +758,7 @@ const getUserAttributes = (req, res, next) => {
       .then((user) => {
         if (user) {
           if (user.roles !== undefined) {
+            // @ts-ignore
             req.user.roles = user.roles;
           }
           return next();
@@ -773,9 +793,13 @@ const getUserAttributes = (req, res, next) => {
  * @param {express.Response} res - the express.js response object.
  * @param {express.NextFunction} next - the next function in the middleware chain.
  */
-function optionalGetUserAttributes(req, res, next) {
+function optionalGetUserAttributes(
+  req: ZodReqWithOptionalUser<Request>,
+  res: Response,
+  next: NextFunction
+) {
   if (req.user?.decoded) {
-    return getUserAttributes(req, res, next);
+    return getUserAttributes(req as ZodReqWithUser<Request>, res, next);
   }
   return next();
 }
@@ -788,7 +812,12 @@ function optionalGetUserAttributes(req, res, next) {
  * @param {String} role - The role identifier.
  * @returns {Boolean} True if user has role/permission, false otherwise.
  */
-const checkHasRole = (user, org, role, silent = false) => {
+const checkHasRole = (
+  user: Record<string, any>,
+  org: string,
+  role: string,
+  silent = false
+) => {
   if (user.roles !== undefined && Array.isArray(user.roles)) {
     let foundRole = user.roles.find((element) => {
       if (element.org && element.role) {
@@ -826,8 +855,8 @@ const checkHasRole = (user, org, role, silent = false) => {
  * @param {String} role - The role identifier.
  * @returns {Function} An Express.js middleware function.
  */
-const checkHasRoleMiddleware = (org, role) => {
-  return (req, res, next) => {
+const checkHasRoleMiddleware = (org: string, role: string) => {
+  return (req: ZodReqWithUser<Request>, res: Response, next: NextFunction) => {
     if (req.user.roles !== undefined && Array.isArray(req.user.roles)) {
       const foundRole = req.user.roles.find((element) => {
         if (element.org && element.role) {
@@ -865,7 +894,7 @@ const checkHasRoleMiddleware = (org, role) => {
   };
 };
 
-async function cloudflareSiteVerify(req, res) {
+async function cloudflareSiteVerify(req: Request, res: Response) {
   try {
     if (!req.query.token) {
       throw new Error("No token provided");
@@ -908,7 +937,7 @@ async function cloudflareSiteVerify(req, res) {
  * Middleware(s) to verify requests contain
  * necessary fields.
  */
-const validate = (method) => {
+const validate = (method: string) => {
   switch (method) {
     case "fallbackAuthLogin":
       return [
