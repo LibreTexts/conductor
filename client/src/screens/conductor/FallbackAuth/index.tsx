@@ -108,7 +108,7 @@ const FallbackAuth = () => {
       if (authRes.data?.err) {
         handleGlobalError(authRes.data.errMsg);
       }
-      if (Cookies.get("conductor_access") !== undefined) {
+      if (Cookies.get("conductor_access_v2") !== undefined) {
         dispatch({ type: "SET_AUTH" });
         if (redirectURI !== "") {
           // redirect to the page the user tried to visit directly

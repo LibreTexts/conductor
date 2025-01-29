@@ -19,6 +19,8 @@ import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
 const SALT_ROUNDS = 10;
 const JWT_SECRET = new TextEncoder().encode(process.env.SECRETKEY);
 const JWT_COOKIE_DOMAIN = (process.env.PRODUCTIONURLS || "").split(",")[0];
+const SESSION_DEFAULT_EXPIRY_MINUTES = 60 * 24 * 7; // 7 days
+const SESSION_DEFAULT_EXPIRY_MILLISECONDS = SESSION_DEFAULT_EXPIRY_MINUTES * 60 * 1000;
 
 const oidcBase = `https://${process.env.OIDC_HOST}`;
 const oidcAuth = `${oidcBase}/cas/oidc/authorize`;
@@ -71,14 +73,19 @@ function splitSessionJWT(sessionJWT: string) {
  *
  * @param {express.Response} res - The response object to attach the session cookies to.
  * @param {string} uuid - The User UUID to initialize the session for.
+ * @param {string} ticket - A CAS ticket ID to use for the session.
  */
-async function createAndAttachLocalSession(res: Response, uuid: string) {
+async function createAndAttachLocalSession(res: Response, uuid: string, ticket?: string) {
   const sessionId = uuidv4();
+  const sessionCreated = new Date();
+  const sessionExpiry = new Date(sessionCreated.getTime() + SESSION_DEFAULT_EXPIRY_MILLISECONDS);
   const session = new Session({
     sessionId,
     userId: uuid,
-    createdAt: new Date().toISOString(),
     valid: true,
+    createdAt: sessionCreated,
+    expiresAt: sessionExpiry,
+    ...ticket && { sessionTicket: ticket },
   });
 
   await session.save();
@@ -89,13 +96,13 @@ async function createAndAttachLocalSession(res: Response, uuid: string) {
   const prodCookieConfig = {
     secure: true,
     domain: JWT_COOKIE_DOMAIN,
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: SESSION_DEFAULT_EXPIRY_MILLISECONDS,
   };
-  res.cookie("conductor_access", access, {
+  res.cookie("conductor_access_v2", access, {
     path: "/",
     ...(process.env.NODE_ENV === "production" && prodCookieConfig),
   });
-  res.cookie("conductor_signed", signed, {
+  res.cookie("conductor_signed_v2", signed, {
     path: "/",
     httpOnly: true,
     ...(process.env.NODE_ENV === "production" && prodCookieConfig),
@@ -227,6 +234,10 @@ async function completeLogin(req: Request, res: Response) {
       throw new Error("notokens");
     }
 
+    // Session ID (sid) from id_token will be used as the ticket identifier
+    const idDecoded = decodeJwt(id_token)
+    const ticketID = idDecoded?.sid?.toString();
+
     // Verify ID token with CAS public key set
     const JWKS = createRemoteJWKSet(new URL(oidcJWKS));
     const { payload } = await jwtVerify(id_token, JWKS, {
@@ -335,7 +346,7 @@ async function completeLogin(req: Request, res: Response) {
     }
 
     // Create local session
-    await createAndAttachLocalSession(res, authUser.uuid);
+    await createAndAttachLocalSession(res, authUser.uuid, ticketID);
 
     // Redirect user
     let redirectURL = req.hostname;
@@ -378,8 +389,8 @@ async function completeLogin(req: Request, res: Response) {
 async function logout(_req: Request, res: Response) {
   try {
     // Attempt to invalidate the user's session
-    const accessCookie = _req.cookies.conductor_access;
-    const signedCookie = _req.cookies.conductor_signed;
+    const accessCookie = _req.cookies.conductor_access_v2;
+    const signedCookie = _req.cookies.conductor_signed_v2;
     const sessionJWT = `${accessCookie}.${signedCookie}`;
     if (accessCookie && signedCookie && sessionJWT) {
       try {
@@ -409,6 +420,17 @@ async function logout(_req: Request, res: Response) {
       secure: true,
       domain: JWT_COOKIE_DOMAIN,
     };
+    res.clearCookie("conductor_access_v2", {
+      path: "/",
+      ...(process.env.NODE_ENV === "production" && prodCookieConfig),
+    });
+    res.clearCookie("conductor_signed_v2", {
+      path: "/",
+      httpOnly: true,
+      ...(process.env.NODE_ENV === "production" && prodCookieConfig),
+    });
+
+    // Clear deprecated cookies
     res.clearCookie("conductor_access", {
       path: "/",
       ...(process.env.NODE_ENV === "production" && prodCookieConfig),
@@ -446,7 +468,7 @@ async function handleSingleLogout(req: Request, res: Response) {
       issuer: `${oidcBase}/cas/oidc`,
     });
 
-    const { sub } = payload; // sub will be the user's email
+    const { sub, sid } = payload; // sub will be the user's email
     if (!sub) {
       throw new Error("No sub provided in logout token");
     }
@@ -458,10 +480,11 @@ async function handleSingleLogout(req: Request, res: Response) {
     }
 
     console.log(`Received logout request for user ${user.uuid}`);
-    // Invalidate all sessions for the user
+    // Invalidate matching session(s) for the user (technically should only be one)
     await Session.updateMany(
       {
         userId: user.uuid,
+        sessionTicket: sid,
       },
       {
         valid: false,
@@ -704,6 +727,8 @@ async function verifyRequest(req: Request, res: Response, next: NextFunction) {
   } catch (e: any) {
     let tokenExpired = false;
     let sessionInvalid = false;
+    console.log('VERIFY REQUEST ERROR')
+    console.log(e)
     if (e.code === "ERR_JWT_EXPIRED") {
       tokenExpired = true;
     } else if (e.message === "ERR_BAD_SESSION") {
