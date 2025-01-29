@@ -10,7 +10,7 @@ const AuthHelper = {
    * @returns {boolean} True if the token is found, false otherwise
    */
   isAuthenticated: () => {
-    return Cookies.get("conductor_access") !== undefined;
+    return Cookies.get("conductor_access_v2") !== undefined;
   },
 
   /**
