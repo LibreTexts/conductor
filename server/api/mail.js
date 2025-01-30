@@ -1009,6 +1009,26 @@ const sendSupportTicketAssignedNotification = (recipientAddresses, ticketID, tic
     });
 }
 
+const sendProjectInvitation = (recipientAddresses, senderFirstName, senderLastName, projectTitle, inviteID, token) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: recipientAddresses,
+        subject: "Invitation To Project",
+        html: `
+            <p>Hi there,</p>
+            <br />
+            <p> ${senderFirstName} ${senderLastName} has invited you to join ${projectTitle} in Conductor! If you were expecting this invitation, please click the link below to accept the invite.</p>
+            <br />
+            <a href="https://commons.libretexts.org/projects/accept-invite/${inviteID}?token=${token}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/projects/accept-invite/${inviteID}?token=${token}</a>
+            <br />
+            <p>If you were not expecting this invitation, you can safely ignore this email</p>
+            <p>Thanks,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `
+    });
+}
+
 export default {
     sendPasswordReset,
     sendRegistrationConfirmation,
@@ -1045,5 +1065,6 @@ export default {
     sendNewInternalTicketMessageAssignedStaffNotification,
     sendSupportTicketAssignedNotification,
     sendSupportTicketAutoCloseWarning,
-    sendZIPFileReadyNotification
+    sendZIPFileReadyNotification,
+    sendProjectInvitation
 }
