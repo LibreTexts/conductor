@@ -5,9 +5,11 @@ import { Icon, SemanticICONS } from "semantic-ui-react";
 import CommonsFooter from "../../../components/commons/CommonsFooter";
 import { useTypedSelector } from "../../../state/hooks";
 import { isSupportStaff } from "../../../utils/supportHelpers";
+import { useMediaQuery } from "react-responsive";
 
 const SupportCenter = () => {
   const user = useTypedSelector((state) => state.user);
+  const isTailwindLg = useMediaQuery({ minWidth: 1024 });
 
   useEffect(() => {
     document.title = "LibreTexts | Support Center";
@@ -50,11 +52,10 @@ const SupportCenter = () => {
   }
 
   return (
-    <DefaultLayout h="screen-content">
+    <DefaultLayout h={isTailwindLg ? "screen-content" : "screen"}>
       <SupportCenterJumbotron />
       <div
-        className="flex flex-col lg:flex-row w-full justify-center my-14 flex-grow"
-        style={{ minHeight: "50vh" }}
+        className="flex flex-col lg:flex-row w-full justify-center my-0 lg:my-12 flex-grow !h-auto"
       >
         <HomeItem
           title="Contact Support"

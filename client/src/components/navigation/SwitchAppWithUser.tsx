@@ -68,7 +68,7 @@ const SwitchAppWithUser: React.FC<SwitchAppWithUserProps> = ({
       href={AuthHelper.generateLoginURL()}
       className="commons-nav-link"
     >
-      Login to Conductor <Icon name="lightning" className="float-right" />
+      Login with LibreOne <Icon name="lightning" className="float-right pl-2" />
     </Menu.Item>
   );
 };
