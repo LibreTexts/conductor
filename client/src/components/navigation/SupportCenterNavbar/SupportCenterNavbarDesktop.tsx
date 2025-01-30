@@ -1,66 +1,51 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import withUserStateDependency from "../../enhancers/withUserStateDependency.jsx";
 import { Button, Form, Icon, Image } from "semantic-ui-react";
-import Launchpad from "../navigation/Launchpad.js";
-import { useTypedSelector } from "../../state/hooks.js";
-import { useMediaQuery } from "react-responsive";
-import { isSupportStaff } from "../../utils/supportHelpers.js";
-import AuthHelper from "../util/AuthHelper.js";
+import Launchpad from "../Launchpad.js";
+import { isSupportStaff } from "../../../utils/supportHelpers.js";
+import AuthHelper from "../../util/AuthHelper.js";
+import UserDropdown from "../UserDropdown.js";
+import { User } from "../../../types/User.js";
 
-const SupportCenterNavbar: React.FC<{}> = () => {
-  const user = useTypedSelector((state) => state.user);
-  const [search, setSearch] = useState("");
-  const [showSearch, setShowSearch] = useState(true);
+interface SupportCenterNavbarDesktopProps {
+  search: string;
+  setSearch: React.Dispatch<React.SetStateAction<string>>;
+  showSearch: boolean;
+  user: User;
+  onSubmitSearch: () => void;
+}
 
-  const isTailwindXl = useMediaQuery(
-    { minWidth: 1280 }, // Tailwind XL breakpoint
-    undefined
-  );
-
-  useEffect(() => {
-    // dont show search bar on /insight
-    const split = window.location.href.split("/");
-    const last = split[split.length - 1];
-    if (last === "insight") {
-      setShowSearch(false);
-    } else {
-      setShowSearch(true);
-    }
-  }, [window.location.href]);
-
-  const handleSearch = () => {
-    if (!search) return;
-    window.location.href = `/insight/search?query=${encodeURIComponent(
-      search
-    )}`;
-  };
-
+const SupportCenterNavbarDesktop: React.FC<SupportCenterNavbarDesktopProps> = ({
+  search,
+  setSearch,
+  showSearch,
+  user,
+  onSubmitSearch,
+}) => {
   return (
     <div className="flex flex-row bg-white h-fit py-2 px-4 shadow-md border-b items-center justify-between">
-      <div className="flex flex-row w-4/5">
+      <div className="flex flex-row items-center flex-shrink-0">
         <div className="flex ml-2 mt-0.5">
           <Launchpad />
         </div>
-        {isTailwindXl && (
-          <div
-            className="flex flex-row items-center cursor-pointer"
-            onClick={() => window.location.assign("/support")}
-          >
-            <Image
-              src="https://cdn.libretexts.net/Logos/libretexts_full.png"
-              className="h-12 ml-6"
-            />
-            <span className="hidden lg:flex ml-2 base:text-xl lg:text-2xl font-semibold">
-              | Support Center
-            </span>
-          </div>
-        )}
+        <div
+          className="flex flex-row items-center cursor-pointer"
+          onClick={() => window.location.assign("/support")}
+        >
+          <Image
+            src="https://cdn.libretexts.net/Logos/libretexts_full.png"
+            className="h-12 ml-6"
+          />
+          <span className="flex ml-2 base:text-xl lg:text-2xl font-semibold text-nowrap">
+            | Support Center
+          </span>
+        </div>
+      </div>
+      <div className="flex flex-1 justify-center px-4">
         <Form
-          className="ml-8 w-3/5 xl:1/3 mt-1"
+          className="ml-8 w-full mt-1"
           onSubmit={(e) => {
             e.preventDefault();
-            handleSearch();
+            onSubmitSearch();
           }}
         >
           {showSearch && (
@@ -73,7 +58,7 @@ const SupportCenterNavbar: React.FC<{}> = () => {
           )}
         </Form>
       </div>
-      <div className="flex">
+      <div className="flex flex-row items-center flex-shrink-0">
         {/* Redirect to Conductor if logged in, else to Commons */}
         <Button
           className="h-10 !w-48 !mr-4"
@@ -85,13 +70,13 @@ const SupportCenterNavbar: React.FC<{}> = () => {
         </Button>
         {isSupportStaff(user) ? (
           <Button
-            className="h-10 !w-32"
+            className="h-10"
             color="blue"
             as={Link}
             to="/support/dashboard"
             size="small"
           >
-            Dashboard
+            Staff Dashboard
           </Button>
         ) : (
           <>
@@ -131,9 +116,10 @@ const SupportCenterNavbar: React.FC<{}> = () => {
             </Button>
           </>
         )}
+        <div className="ml-4">{user && user.uuid && <UserDropdown />}</div>
       </div>
     </div>
   );
 };
 
-export default withUserStateDependency(SupportCenterNavbar);
+export default SupportCenterNavbarDesktop;
