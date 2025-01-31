@@ -14,6 +14,7 @@ import { getSubdomainFromLibrary } from '../util/librariesclient.js';
 import {
   updateTeamWorkbenchPermissions,
 } from '../util/projectutils.js';
+import { SanitizedUserSelectProjection, SanitizedUserSelectQuery } from "../models/user.js";
 
 const checkProjectAdminPermission = (project:any, user:any) => {
     let projAdmins: any[] = [];
@@ -153,7 +154,7 @@ async function _addMemberToProjectInternal(
     )
   );
   await Promise.all(emailPromises).catch((e) => {
-    debugError('Error sending Team Member Added notification email: ', e);
+    debugError(`Error sending Team Member Added notification email: ${e}`);
   });
 
   return 'Successfully added user as team member!';
@@ -232,9 +233,11 @@ export async function createProjectInvitation(
 
     mailAPI.sendProjectInvitation(email, sender.firstName, sender.lastName, project.title, newInvitation.inviteID, newInvitation.token);
   
+    const { _id, token, ...responseInvitation } = newInvitation.toObject();
+
     return res.send({
       err: false,
-      newInvitation
+      responseInvitation
     });
   }
   catch (e) {
@@ -250,21 +253,25 @@ export async function getProjectInvitation(req: ZodReqWithUser<z.infer<typeof ge
   try{
     const { inviteID } = req.params;
     const { token } = req.query;
-
     if (!inviteID || !token) {
       return res.status(400).send({
         err: true,
         errMsg: conductorErrors.err1,
       });
     }
-    const invitation = await ProjectInvitation.findOne({ inviteID, token }).populate({
+
+    const invitation = await ProjectInvitation.findOne({ inviteID, token })
+    .select("-token -_id")
+    .populate({
       path: "project",
-      select: "title", 
+      select: "title -_id", 
     })
     .populate({
       path: "sender",
-      select: "firstName lastName",
-    });
+      select: "firstName lastName -_id"
+    })
+    .lean();
+
 
     if (!invitation) {
       return res.status(403).send({
@@ -283,22 +290,7 @@ export async function getProjectInvitation(req: ZodReqWithUser<z.infer<typeof ge
     if (invitation) {
       return res.status(200).send({
         err: false,
-        data: {
-          inviteID: invitation.inviteID,
-          projectID: invitation.projectID,
-          senderID: invitation.senderID,
-          email: invitation.email,
-          role: invitation.role,
-          accepted: invitation.accepted,
-          expires: invitation.expires,
-          project: {
-            title: invitation.project.title,
-          },
-          sender: {
-            firstName: invitation.sender.firstName,
-            lastName: invitation.sender.lastName,
-          },
-        },
+        data: invitation
       });
     }
 
@@ -343,36 +335,24 @@ export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<ty
 
 
     const invitations = await ProjectInvitation.find({ projectID, accepted: false, expires: { $gt: new Date() } })
+      .select("-token -_id")
       .sort({ createdAt: -1 }) 
       .skip((page - 1) * limit)
       .limit(limit)
       .populate({
         path: "sender",
-        select: "firstName lastName", 
-      });
+        select: "firstName lastName -_id", 
+      }).
+      lean();
 
       const totalInvitations = await ProjectInvitation.countDocuments({ projectID, accepted: false, expires: { $gt: new Date() } });
-
-      const formattedInvitations = invitations.map(invite => ({
-        inviteID: invite.inviteID,
-        projectID: invite.projectID,
-        senderID: invite.senderID,
-        sender: {
-          firstName: invite.sender.firstName,
-          lastName: invite.sender.lastName,
-        },
-        email: invite.email,
-        role: invite.role,
-        accepted: invite.accepted,
-        expires: invite.expires,
-      }));
   
 
 
       return res.status(200).send({
         err: false,
         data: {
-          invitations: formattedInvitations,
+          invitations: invitations,
           total: totalInvitations,
           pagination: {
             page,

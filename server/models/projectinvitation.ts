@@ -1,6 +1,6 @@
 import { model, Schema, Document } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
-import { SanitizedUserSelectProjection } from "./user.js";
+import { SanitizedUserSelectProjection, SanitizedUserSelectQuery } from "./user.js";
 
 export interface ProjectInvitationInterface extends Document {
     inviteID: string;
@@ -64,9 +64,9 @@ ProjectInvitationSchema.virtual("sender", {
     localField: "senderID",
     foreignField: "uuid",
     justOne: true,
-    options: {
-      projection: SanitizedUserSelectProjection,
-    },
+    // options: {
+    //   projection: SanitizedUserSelectProjection,
+    // },
   });
   
   ProjectInvitationSchema.virtual("project", {
