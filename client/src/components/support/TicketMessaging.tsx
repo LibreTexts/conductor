@@ -146,6 +146,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
                     onKeyDown={(e: any) => {
                       if (e.key === "Enter" && e.ctrlKey) {
                         if (!getValues("message")) return;
+                        if (sendMessageMutation.isLoading) return;
                         sendMessageMutation.mutateAsync();
                       }
                     }}
@@ -173,8 +174,10 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
                     color="blue"
                     onClick={async () => {
                       if (!getValues("message")) return;
+                      if (sendMessageMutation.isLoading) return;
                       await sendMessageMutation.mutateAsync();
                     }}
+                    loading={sendMessageMutation.isLoading}
                   >
                     <Icon name="send" />
                     Send

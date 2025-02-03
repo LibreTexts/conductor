@@ -17,7 +17,6 @@ export const GetUserTicketsValidator = z.object({
     sort: z.enum(["opened", "priority", "status"]).optional(),
   }),
 });
-export const GetAssignableUsersValidator = TicketUUIDParams;
 
 export const CreateTicketValidator = z.object({
   body: z.object({
@@ -80,6 +79,22 @@ export const AssignTicketValidator = z
   .object({
     body: z.object({
       assigned: z.array(z.string().uuid()).min(0).max(25),
+    }),
+  })
+  .merge(TicketUUIDParams);
+
+export const AddTicketCCValidator = z
+  .object({
+    body: z.object({
+      email: z.string().email(),
+    }),
+  })
+  .merge(TicketUUIDParams);
+
+export const RemoveTicketCCValidator = z
+  .object({
+    body: z.object({
+      email: z.string().email(),
     }),
   })
   .merge(TicketUUIDParams);

@@ -25,6 +25,7 @@ import {
   Project,
   ProjectFile,
   ProjectSearchParams,
+  SupportTicket,
   TableOfContents,
   User,
   UserSearchParams,
@@ -340,7 +341,7 @@ class API {
 
   async getPageDetails(pageID: string, coverPageID: string) {
     const res = await axios.get<PageDetailsResponse & ConductorBaseResponse>(
-      `/commons/pages/${pageID}?coverPageID=${coverPageID}`,
+      `/commons/pages/${pageID}?coverPageID=${coverPageID}`
     );
     return res;
   }
@@ -949,6 +950,55 @@ class API {
   async deleteCollectionResource(collID: string, resourceID: string) {
     return await axios.delete<ConductorBaseResponse>(
       `/commons/collection/${collID}/resources/${resourceID}`
+    );
+  }
+
+  // SUPPORT
+  async getSupportTicket(ticketID: string) {
+    return await axios.get<
+      {
+        ticket: SupportTicket;
+      } & ConductorBaseResponse
+    >(`/support/ticket/${ticketID}`);
+  }
+
+  async getSupportAssignableUsers() {
+    return await axios.get<
+      {
+        users: Pick<
+          User,
+          "uuid" | "firstName" | "lastName" | "email" | "avatar"
+        >[];
+      } & ConductorBaseResponse
+    >(`/support/assignable-users`);
+  }
+
+  async assignSupportTicket(ticketID: string, assigned: string[]) {
+    return await axios.patch<ConductorBaseResponse>(
+      `/support/ticket/${ticketID}/assign`,
+      {
+        assigned,
+      }
+    );
+  }
+
+  async addSupportTicketCC(ticketID: string, email: string) {
+    return await axios.post<ConductorBaseResponse>(
+      `/support/ticket/${ticketID}/cc`,
+      {
+        email,
+      }
+    );
+  }
+
+  async removeSupportTicketCC(ticketID: string, email: string) {
+    return await axios.delete<ConductorBaseResponse>(
+      `/support/ticket/${ticketID}/cc`,
+      {
+        data: {
+          email,
+        },
+      }
     );
   }
 

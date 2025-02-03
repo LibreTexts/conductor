@@ -1,20 +1,30 @@
-import { Button, Label } from "semantic-ui-react";
+import { Button, Icon, Label } from "semantic-ui-react";
 import { SupportTicket } from "../../types";
 import { format, parseISO } from "date-fns";
 import { getPrettySupportTicketCategory } from "../../utils/supportHelpers";
 import { capitalizeFirstLetter } from "../util/HelperFunctions";
+import { useModals } from "../../context/ModalContext";
+import AddCCModal from "./AddCCModal";
 
 interface TicketDetailsProps {
   ticket: SupportTicket;
 }
 
 const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
+  const { openModal, closeAllModals } = useModals();
+
   const centralIdentityURL = (centralID: string) => {
     return `/controlpanel/libreone/users?user_id=${centralID}`;
   };
 
+  const openAddCCModal = () => {
+    openModal(
+      <AddCCModal ticketId={ticket.uuid} onClose={closeAllModals} open />
+    );
+  };
+
   return (
-    <div className="flex flex-col border rounded-md p-4 shadow-md bg-white">
+    <div className="flex flex-col border rounded-md p-4 shadow-md bg-white h-fit space-y-1.5">
       <p className="2xl:text-xl">
         <span className="font-semibold">Subject:</span> {ticket?.title}
       </p>
@@ -48,8 +58,8 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
         )}
         {ticket.guest && (
           <div className="flex flex-row justify-center ml-1 text-xl">
-            {ticket.guest.firstName} {ticket.guest.lastName} ({ticket.guest.email})
-
+            {ticket.guest.firstName} {ticket.guest.lastName} (
+            {ticket.guest.email})
             <Label
               className="!ml-2 !p-2 !cursor-default"
               basic
@@ -58,7 +68,26 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
             >
               Guest
             </Label>
-          </div>)}
+          </div>
+        )}
+      </div>
+      <div className="flex flex-row items-center">
+        <p className="2xl:text-xl">
+          <span className="font-semibold">CC'd:</span>{" "}
+          {ticket?.ccedEmails?.join(", ") || "None"}
+        </p>
+        {ticket.status !== "closed" && (
+          <Button
+            className="!ml-2 !p-2 !min-w-20"
+            basic
+            color="blue"
+            size="mini"
+            onClick={() => openAddCCModal()}
+          >
+            <Icon name="plus" />
+            Add CC
+          </Button>
+        )}
       </div>
       <p className="2xl:text-xl">
         <span className="font-semibold">Category:</span>{" "}

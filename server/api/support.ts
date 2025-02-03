@@ -1,15 +1,16 @@
 import { z } from "zod";
 import {
   AddTicketAttachementsValidator,
+  AddTicketCCValidator,
   AssignTicketValidator,
   CreateTicketValidator,
   DeleteTicketValidator,
-  GetAssignableUsersValidator,
   GetClosedTicketsValidator,
   GetOpenTicketsValidator,
   GetTicketAttachmentValidator,
   GetTicketValidator,
   GetUserTicketsValidator,
+  RemoveTicketCCValidator,
   SendTicketMessageValidator,
   UpdateTicketValidator,
 } from "./validators/support";
@@ -180,9 +181,9 @@ async function getOpenInProgressTickets(
       .populate("assignedUsers")
       .populate("user")
       .exec()) as (SupportTicketInterface & {
-        assignedUsers?: UserInterface[];
-        user?: UserInterface;
-      })[];
+      assignedUsers?: UserInterface[];
+      user?: UserInterface;
+    })[];
 
     // We have to sort the tickets in memory because we can only alphabetically sort by priority in query
     if (req.query.sort === "priority") {
@@ -365,16 +366,8 @@ async function getSupportMetrics(req: Request, res: Response) {
   }
 }
 
-async function getAssignableUsers(
-  req: z.infer<typeof GetAssignableUsersValidator>,
-  res: Response
-) {
+async function getAssignableUsers(req: Request, res: Response) {
   try {
-    const ticketID = req.params.uuid;
-
-    const ticket = await SupportTicket.findOne({ uuid: ticketID }).orFail();
-    const existingAssignees = ticket.assignedUUIDs ?? [];
-
     const users = await User.find({
       $and: [
         {
@@ -385,10 +378,9 @@ async function getAssignableUsers(
             },
           },
         },
-        { uuid: { $nin: existingAssignees } },
       ],
     })
-      .select("uuid firstName lastName email")
+      .select("uuid firstName lastName email avatar")
       .sort({ firstName: 1 });
 
     return res.send({
@@ -498,6 +490,105 @@ async function assignTicket(
       capitalizeFirstLetter(ticket.priority),
       ticket.description
     );
+
+    return res.send({
+      err: false,
+      ticket,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function addTicketCC(
+  req: ZodReqWithOptionalUser<z.infer<typeof AddTicketCCValidator>>,
+  res: Response
+) {
+  try {
+    const { uuid } = req.params;
+    const { email } = req.body;
+
+    const ticket = await SupportTicket.findOne(
+      { uuid },
+    ).orFail().populate(["assignedUsers", "user"]);
+
+    if (!ticket.ccedEmails) ticket.ccedEmails = [];
+
+    const allEmails = [
+      // @ts-ignore
+      ...(ticket.assignedUsers ?? []).map((u) => u.email),
+      // @ts-ignore
+      ticket.user?.email,
+      ticket.guest?.email,
+      ...ticket.ccedEmails,
+    ].filter((e) => e);
+
+    // If email is already CCed or otherwise involved, nothing to do, return the ticket
+    if (allEmails.includes(email) || ticket.ccedEmails.includes(email)) {
+      return res.send({
+        err: false,
+        ticket,
+      });
+    }
+
+
+    // Determine who is adding the CC
+    const userUUID = req.user?.decoded.uuid;
+    let foundUser;
+    if (userUUID) {
+      foundUser = await User.findOne({ uuid: userUUID });
+    }
+
+    const adder = foundUser?.uuid
+    ? `${foundUser.firstName} ${foundUser.lastName}`
+    : `${ticket.guest?.firstName} ${ticket.guest?.lastName}`;
+
+    const feedEntry = _createFeedEntry_CCAdded(adder, email);
+    
+    // Add the feed entry and cc'd email to the ticket
+    ticket.feed.push(feedEntry);
+    ticket.ccedEmails.push(email);
+    await ticket.save();
+
+    // Notify the new CCed user with guest access key
+    await mailAPI.sendSupportTicketCCedNotification(
+      email,
+      ticket.uuid,
+      ticket.title,
+      ticket.guestAccessKey
+    );
+
+    return res.send({
+      err: false,
+      ticket,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function removeTicketCC(
+  req: z.infer<typeof RemoveTicketCCValidator>,
+  res: Response
+) {
+  try {
+    const { uuid } = req.params;
+    const { email } = req.body;
+
+    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+
+    // If email is not CCed, nothing to do, return the ticket
+    if (!ticket.ccedEmails || !ticket.ccedEmails.includes(email)) {
+      return res.send({
+        err: false,
+        ticket,
+      });
+    }
+
+    ticket.ccedEmails = ticket.ccedEmails.filter((e) => e !== email);
+    await ticket.save();
 
     return res.send({
       err: false,
@@ -772,7 +863,11 @@ async function updateTicket(
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
 
     // If status/priority/autoClose is the same, just return the ticket
-    if (ticket.status === status && ticket.priority === priority && autoCloseSilenced === ticket.autoCloseSilenced) {
+    if (
+      ticket.status === status &&
+      ticket.priority === priority &&
+      autoCloseSilenced === ticket.autoCloseSilenced
+    ) {
       return res.send({
         err: false,
         ticket,
@@ -818,7 +913,8 @@ async function updateTicket(
       updatedFeed.push(feedEntry);
     }
 
-    const autoCloseStatusChanged = autoCloseSilenced !== ticket.autoCloseSilenced;
+    const autoCloseStatusChanged =
+      autoCloseSilenced !== ticket.autoCloseSilenced;
 
     await SupportTicket.updateOne(
       { uuid },
@@ -831,7 +927,7 @@ async function updateTicket(
         ...(autoCloseStatusChanged && {
           autoCloseTriggered: false,
           autoCloseDate: null,
-        })
+        }),
       }
     ).orFail();
 
@@ -1326,8 +1422,8 @@ const _getTicketAuthorString = (
   const ticketAuthor = foundUser
     ? `${foundUser.firstName} ${foundUser.lastName}`
     : guest
-      ? `${guest.firstName} ${guest.lastName}`
-      : "Unknown";
+    ? `${guest.firstName} ${guest.lastName}`
+    : "Unknown";
   const authorString = `${ticketAuthor} (${emailToNotify})`;
   return authorString;
 };
@@ -1415,6 +1511,17 @@ const _createFeedEntryPriorityChanged = (
   };
 };
 
+const _createFeedEntry_CCAdded = (
+  adder: string,
+  email: string
+): SupportTicketFeedEntryInterface => {
+  return {
+    action: `CC'd user added: ${email}`,
+    blame: adder,
+    date: new Date().toISOString(),
+  };
+}
+
 const _createFeedEntry_AutoClosed = (): SupportTicketFeedEntryInterface => {
   return {
     action: "Ticket was automatically closed",
@@ -1443,4 +1550,6 @@ export default {
   findTicketsToInitAutoClose,
   autoCloseTickets,
   ticketAttachmentUploadHandler,
+  addTicketCC,
+  removeTicketCC,
 };
