@@ -1,3 +1,4 @@
+import { query } from "express";
 import { z } from "zod";
 
 const TicketUUIDParams = z.object({
@@ -35,16 +36,24 @@ export const CreateTicketValidator = z.object({
         organization: z.string().trim().min(1).max(255),
       })
       .optional(),
-    deviceInfo: z.object({
-      userAgent: z.string().optional(),
-      language: z.string().optional(),
-      screenResolution: z.string().optional(),
-      timeZone: z.string().optional(),
-    }).optional(),
+    deviceInfo: z
+      .object({
+        userAgent: z.string().optional(),
+        language: z.string().optional(),
+        screenResolution: z.string().optional(),
+        timeZone: z.string().optional(),
+      })
+      .optional(),
   }),
 });
 
-export const AddTicketAttachementsValidator = TicketUUIDParams;
+export const AddTicketAttachementsValidator = z
+  .object({
+    query: z.object({
+      accessKey: z.string().optional(),
+    }),
+  })
+  .merge(TicketUUIDParams);
 
 export const UpdateTicketValidator = z
   .object({
@@ -110,6 +119,9 @@ export const SendTicketMessageValidator = z
     body: z.object({
       message: z.string().trim().min(1).max(1000),
       attachments: z.array(z.string()).optional(),
+    }),
+    query: z.object({
+      accessKey: z.string().optional(),
     }),
   })
   .merge(TicketUUIDParams);

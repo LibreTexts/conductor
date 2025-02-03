@@ -74,7 +74,7 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
       <div className="flex flex-row items-center">
         <p className="2xl:text-xl">
           <span className="font-semibold">CC'd:</span>{" "}
-          {ticket?.ccedEmails?.join(", ") || "None"}
+          {ticket?.ccedEmails?.map((c) => c.email).join(", ") || "None"}
         </p>
         {ticket.status !== "closed" && (
           <Button
