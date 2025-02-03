@@ -39,6 +39,7 @@ export interface SupportTicketInterface extends Document {
   guestAccessKeyExpiration: string;
   capturedURL?: string;
   assignedUUIDs?: string[]; // User uuids
+  ccedEmails?: string[]; // Email addresses
   userUUID?: string; // User uuid
   guest?: SupportTicketGuestInterface;
   timeOpened: string;
@@ -67,24 +68,26 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
     type: [Number],
   },
   attachments: {
-    type: [{
-      name: {
-        type: String,
-        required: true,
+    type: [
+      {
+        name: {
+          type: String,
+          required: true,
+        },
+        uuid: {
+          type: String,
+          required: true,
+        },
+        uploadedBy: {
+          type: String,
+          required: true,
+        },
+        uploadedDate: {
+          type: String,
+          required: true,
+        },
       },
-      uuid: {
-        type: String,
-        required: true,
-      },
-      uploadedBy: {
-        type: String,
-        required: true,
-      },
-      uploadedDate: {
-        type: String,
-        required: true,
-      },
-    }],
+    ],
   },
   priority: {
     type: String,
@@ -112,6 +115,9 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
     type: String,
   },
   assignedUUIDs: {
+    type: [String],
+  },
+  ccedEmails: {
     type: [String],
   },
   userUUID: {
@@ -190,7 +196,7 @@ SupportTicketSchema.virtual("messages", {
   ref: "SupportTicketMessage",
   localField: "uuid",
   foreignField: "ticket",
-})
+});
 
 SupportTicketSchema.index({ title: "text" });
 SupportTicketSchema.set("toObject", { virtuals: true });

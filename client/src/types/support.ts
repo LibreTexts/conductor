@@ -23,6 +23,7 @@ export type SupportTicket = {
   assignedUsers?: UserWCentralID[];
   user?: UserWCentralID;
   guest?: SupportTicketGuest;
+  ccedEmails?: string[]; // Email addresses
   timeOpened: string;
   timeClosed?: string;
   feed: SupportTicketFeedEntry[];
