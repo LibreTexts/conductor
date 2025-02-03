@@ -27,6 +27,7 @@ export type SupportTicket = {
   timeOpened: string;
   timeClosed?: string;
   feed: SupportTicketFeedEntry[];
+  deviceInfo?: SupportTicketDeviceInfo;
   autoCloseTriggered?: boolean;
   autoCloseDate?: string;
   autoCloseSilenced?: boolean;
@@ -56,4 +57,11 @@ export type SupportTicketAttachment = {
   uuid: string;
   uploadedBy: string;
   uploadedDate: string;
+}
+
+export type SupportTicketDeviceInfo = {
+  userAgent?: string;
+  language?: string;
+  screenResolution?: string;
+  timeZone?: string;
 }

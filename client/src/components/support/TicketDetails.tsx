@@ -112,6 +112,34 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
           <span className="ml-2">N/A</span>
         )}
       </p>
+      <div className="flex flex-col">
+        <p className="2xl:text-xl">
+          <span className="font-semibold">Device Info:</span>{" "}
+          {ticket.deviceInfo && Object.keys(ticket.deviceInfo).length !== 0
+            ? ""
+            : "Not Available"}
+        </p>
+        {ticket.deviceInfo && (
+          <div className="mt-0.5 ml-1.5">
+            <p className="text-sm">
+              <span className="font-semibold">User Agent:</span>{" "}
+              {ticket.deviceInfo?.userAgent || "Unknown"}
+            </p>
+            <p className="text-sm">
+              <span className="font-semibold">Language:</span>{" "}
+              {ticket.deviceInfo?.language || "Unknown"}
+            </p>
+            <p className="text-sm">
+              <span className="font-semibold">Screen Resolution:</span>{" "}
+              {ticket.deviceInfo?.screenResolution || "Unknown"}
+            </p>
+            <p className="text-sm">
+              <span className="font-semibold">Time Zone:</span>{" "}
+              {ticket.deviceInfo?.timeZone || "Unknown"}
+            </p>
+          </div>
+        )}
+      </div>
       <p className="2xl:text-xl">
         <span className="font-semibold">Date Opened:</span>{" "}
         {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}

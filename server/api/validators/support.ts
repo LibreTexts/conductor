@@ -35,6 +35,12 @@ export const CreateTicketValidator = z.object({
         organization: z.string().trim().min(1).max(255),
       })
       .optional(),
+    deviceInfo: z.object({
+      userAgent: z.string().optional(),
+      language: z.string().optional(),
+      screenResolution: z.string().optional(),
+      timeZone: z.string().optional(),
+    }).optional(),
   }),
 });
 

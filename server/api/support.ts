@@ -650,6 +650,7 @@ async function createTicket(
       attachments,
       guest,
       capturedURL,
+      deviceInfo
     } = req.body;
     const userUUID = req.user?.decoded.uuid;
 
@@ -688,6 +689,7 @@ async function createTicket(
       feed: [feedEntry],
       guestAccessKey,
       guestAccessKeyExpiration: _getGuestAccessKeyExpiration(),
+      deviceInfo,
     });
 
     const emailToNotify = await _getTicketAuthorEmail(ticket);

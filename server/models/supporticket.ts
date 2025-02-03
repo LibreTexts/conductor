@@ -26,6 +26,13 @@ export interface SupportTicketAttachmentInterface {
   uploadedDate: string;
 }
 
+export interface SupportTicketDeviceInfoInterface {
+  userAgent?: string;
+  language?: string;
+  screenResolution?: string;
+  timeZone?: string;
+}
+
 export interface SupportTicketInterface extends Document {
   uuid: string;
   title: string;
@@ -45,6 +52,7 @@ export interface SupportTicketInterface extends Document {
   timeOpened: string;
   timeClosed?: string;
   feed: SupportTicketFeedEntryInterface[];
+  deviceInfo?: SupportTicketDeviceInfoInterface;
   autoCloseTriggered?: boolean;
   autoCloseDate?: string;
   autoCloseSilenced?: boolean;
@@ -161,6 +169,20 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
         },
       },
     ],
+  },
+  deviceInfo: {
+    userAgent: {
+      type: String,
+    },
+    language: {
+      type: String,
+    },
+    screenResolution: {
+      type: String,
+    },
+    timeZone: {
+      type: String,
+    },
   },
   autoCloseTriggered: {
     type: Boolean,
