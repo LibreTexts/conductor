@@ -217,6 +217,8 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
         vals.guest = undefined;
       }
 
+      vals.deviceInfo = getDeviceInfo();
+
       const res = await axios.post("/support/ticket", {
         ...vals,
       });
@@ -291,6 +293,15 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
 
   const disabledInputClasses =
     "!bg-gray-200 !border-slate-600 !border !rounded-md";
+
+  function getDeviceInfo() {
+    return {
+      userAgent: navigator.userAgent,
+      language: navigator.language,
+      screenResolution: `${window.screen.width}x${window.screen.height}`,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+  }
 
   return (
     <div
