@@ -278,7 +278,12 @@ const canAccessSupportTicket = async (
           });
         }
 
-        if (ticket.guestAccessKey === req.query.accessKey) {
+        const availableAccessKeys = [
+          ticket.guestAccessKey,
+          ...(ticket.ccedEmails || []).map((email) => email.accessKey),
+        ]
+
+        if (availableAccessKeys.includes(req.query.accessKey)) {
           return next();
         }
       }

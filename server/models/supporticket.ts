@@ -43,10 +43,12 @@ export interface SupportTicketInterface extends Document {
   status: "open" | "in_progress" | "closed";
   category: string;
   guestAccessKey: string;
-  guestAccessKeyExpiration: string;
   capturedURL?: string;
   assignedUUIDs?: string[]; // User uuids
-  ccedEmails?: string[]; // Email addresses
+  ccedEmails?: {
+    email: string;
+    accessKey: string;
+  }[]; // Email addresses
   userUUID?: string; // User uuid
   guest?: SupportTicketGuestInterface;
   timeOpened: string;
@@ -115,10 +117,6 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
     type: String,
     required: true,
   },
-  guestAccessKeyExpiration: {
-    type: String,
-    required: true,
-  },
   capturedURL: {
     type: String,
   },
@@ -126,7 +124,18 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
     type: [String],
   },
   ccedEmails: {
-    type: [String],
+    type: [
+      {
+        email: {
+          type: String,
+          required: true,
+        },
+        accessKey: {
+          type: String,
+          required: true,
+        },
+      },
+    ],
   },
   userUUID: {
     type: String,
