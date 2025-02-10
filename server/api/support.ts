@@ -745,7 +745,7 @@ async function createTicket(
 
     return res.send({
       err: false,
-      ticket: _removeAccessKeysFromResponse(ticket),
+      ticket: _removeAccessKeysFromResponse(ticket, true), // Allow guest access key to be returned here for attachments to be immediately uploaded
     });
   } catch (err) {
     debugError(err);
@@ -1590,8 +1590,11 @@ const _createFeedEntry_AutoClosed = (): SupportTicketFeedEntryInterface => {
   };
 };
 
-const _removeAccessKeysFromResponse = (ticket: SupportTicketInterface) => {
-  if (ticket.guestAccessKey) ticket.guestAccessKey = "REDACTED";
+const _removeAccessKeysFromResponse = (
+  ticket: SupportTicketInterface,
+  allowGuestAccessKey = false
+) => {
+  if (!allowGuestAccessKey) ticket.guestAccessKey = "REDACTED";
   if (ticket.ccedEmails && Array.isArray(ticket.ccedEmails)) {
     ticket.ccedEmails.forEach((c) => {
       c.accessKey = "REDACTED";
