@@ -43,23 +43,23 @@ const SupportCreateTicket = () => {
           />
         )}
         <div className="flex flex-col w-full h-full overflow-y-auto items-center justify-center">
-          <div className="flex flex-col w-full items-center mt-4">
+          <div className="flex flex-col w-full items-center mt-12">
             <h1 className="text-4xl font-semibold">Contact Support</h1>
             <p className="mt-2">
               Submit a support ticket to get help from our team.
             </p>
             <>
               {!isLoggedIn && !guestMode && (
-                <div className="flex flex-col w-2/5 mt-12 items-center">
+                <div className="flex flex-col w-1/2 lg:w-2/5 mt-8 items-center">
                   <button
                     onClick={() => redirectToLogin()}
-                    className="w-3/4 h-12 flex bg-primary rounded-md text-white text-lg my-2 items-center justify-center shadow-md hover:shadow-xl"
+                    className="w-full h-auto p-3 lg:w-3/4 lg:h-12 flex bg-primary rounded-md text-white text-lg my-2 items-center justify-center shadow-sm hover:shadow-md"
                   >
                     Log In with LibreOne (Recommended)
                   </button>
                   <button
                     onClick={() => setGuestMode(true)}
-                    className="w-3/4 h-12 flex bg-primary rounded-md text-white text-lg my-2 items-center justify-center shadow-md hover:shadow-xl"
+                    className="w-full h-auto p-3 lg:w-3/4 lg:h-12 flex bg-primary rounded-md text-white text-lg my-2 items-center justify-center shadow-sm hover:shadow-md"
                   >
                     Continue as Guest
                   </button>

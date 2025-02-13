@@ -112,6 +112,7 @@ router.use(middleware.authSanitizer);
 
 /* Auth */
 router.route("/oidc/libretexts").get(authAPI.completeLogin);
+router.route("/oidc/back-channel-slo").post(authAPI.handleSingleLogout);
 
 router.route("/auth/login").get(authAPI.initLogin);
 
@@ -796,7 +797,9 @@ router
 router
   .route("/commons/pages/:pageID")
   .get(
-    middleware.validateZod(BookValidators.getWithPageIDParamAndCoverPageIDSchema),
+    middleware.validateZod(
+      BookValidators.getWithPageIDParamAndCoverPageIDSchema
+    ),
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     booksAPI.getPageDetail
@@ -811,7 +814,9 @@ router
 router
   .route("/commons/pages/:pageID/ai-summary")
   .get(
-    middleware.validateZod(BookValidators.getWithPageIDParamAndCoverPageIDSchema),
+    middleware.validateZod(
+      BookValidators.getWithPageIDParamAndCoverPageIDSchema
+    ),
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     booksAPI.getPageAISummary
@@ -829,7 +834,9 @@ router
 router
   .route("/commons/pages/:pageID/ai-tags")
   .get(
-    middleware.validateZod(BookValidators.getWithPageIDParamAndCoverPageIDSchema),
+    middleware.validateZod(
+      BookValidators.getWithPageIDParamAndCoverPageIDSchema
+    ),
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     booksAPI.getPageAITags
@@ -2138,19 +2145,37 @@ router.route("/support/ticket/user").get(
 );
 
 router
-  .route("/support/ticket/:uuid/assign")
+  .route("/support/assignable-users")
   .get(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", "support"),
     supportAPI.getAssignableUsers
-  )
+  );
+
+router
+  .route("/support/ticket/:uuid/assign")
   .patch(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", "support"),
     middleware.validateZod(supportValidators.AssignTicketValidator),
     supportAPI.assignTicket
+  );
+
+router
+  .route("/support/ticket/:uuid/cc")
+  .post(
+    authAPI.optionalVerifyRequest,
+    middleware.canAccessSupportTicket,
+    middleware.validateZod(supportValidators.AddTicketCCValidator),
+    supportAPI.addTicketCC
+  )
+  .delete(
+    authAPI.optionalVerifyRequest,
+    middleware.canAccessSupportTicket,
+    middleware.validateZod(supportValidators.RemoveTicketCCValidator),
+    supportAPI.removeTicketCC
   );
 
 router

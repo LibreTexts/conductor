@@ -117,10 +117,10 @@ function authSanitizer(req: Request, _res: Response, next: NextFunction) {
     const { cookies } = req;
     if (
       !req.header("authorization") &&
-      cookies.conductor_access &&
-      cookies.conductor_signed
+      cookies.conductor_access_v2 &&
+      cookies.conductor_signed_v2
     ) {
-      req.headers.authorization = `${cookies.conductor_access}.${cookies.conductor_signed}`;
+      req.headers.authorization = `${cookies.conductor_access_v2}.${cookies.conductor_signed_v2}`;
     }
   }
   return next();
@@ -278,7 +278,12 @@ const canAccessSupportTicket = async (
           });
         }
 
-        if (ticket.guestAccessKey === req.query.accessKey) {
+        const availableAccessKeys = [
+          ticket.guestAccessKey,
+          ...(ticket.ccedEmails || []).map((email) => email.accessKey),
+        ]
+
+        if (availableAccessKeys.includes(req.query.accessKey)) {
           return next();
         }
       }

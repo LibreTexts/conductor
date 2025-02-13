@@ -1,15 +1,16 @@
 import { z } from "zod";
 import {
   AddTicketAttachementsValidator,
+  AddTicketCCValidator,
   AssignTicketValidator,
   CreateTicketValidator,
   DeleteTicketValidator,
-  GetAssignableUsersValidator,
   GetClosedTicketsValidator,
   GetOpenTicketsValidator,
   GetTicketAttachmentValidator,
   GetTicketValidator,
   GetUserTicketsValidator,
+  RemoveTicketCCValidator,
   SendTicketMessageValidator,
   UpdateTicketValidator,
 } from "./validators/support";
@@ -66,19 +67,14 @@ async function getTicket(
 ) {
   try {
     const { uuid } = req.params;
-    const ticket = await SupportTicket.findOneAndUpdate(
-      { uuid },
-      {
-        guestAccessKeyExpiration: _getGuestAccessKeyExpiration(), // update the expiration when ticket is accessed
-      }
-    )
+    const ticket = await SupportTicket.findOne({ uuid })
       .populate("user")
       .populate("assignedUsers")
       .orFail();
 
     return res.send({
       err: false,
-      ticket,
+      ticket: _removeAccessKeysFromResponse(ticket),
     });
   } catch (err: any) {
     if (err.name === "DocumentNotFoundError") {
@@ -125,6 +121,10 @@ async function getUserTickets(
       .limit(limit)
       .sort(sortObj as any)
       .populate("user");
+
+    tickets.forEach((t) => {
+      return _removeAccessKeysFromResponse(t);
+    });
 
     const total = await SupportTicket.countDocuments({ userUUID: uuid });
     return res.send({
@@ -180,9 +180,9 @@ async function getOpenInProgressTickets(
       .populate("assignedUsers")
       .populate("user")
       .exec()) as (SupportTicketInterface & {
-        assignedUsers?: UserInterface[];
-        user?: UserInterface;
-      })[];
+      assignedUsers?: UserInterface[];
+      user?: UserInterface;
+    })[];
 
     // We have to sort the tickets in memory because we can only alphabetically sort by priority in query
     if (req.query.sort === "priority") {
@@ -258,6 +258,9 @@ async function getOpenInProgressTickets(
     });
 
     const paginated = tickets.slice(offset, offset + limit);
+    paginated.forEach((t) => {
+      return _removeAccessKeysFromResponse(t);
+    });
 
     return res.send({
       err: false,
@@ -310,6 +313,10 @@ async function getClosedTickets(
 
     const total = await SupportTicket.countDocuments({
       status: "closed",
+    });
+
+    tickets.forEach((t) => {
+      return _removeAccessKeysFromResponse(t);
     });
 
     return res.send({
@@ -365,16 +372,8 @@ async function getSupportMetrics(req: Request, res: Response) {
   }
 }
 
-async function getAssignableUsers(
-  req: z.infer<typeof GetAssignableUsersValidator>,
-  res: Response
-) {
+async function getAssignableUsers(req: Request, res: Response) {
   try {
-    const ticketID = req.params.uuid;
-
-    const ticket = await SupportTicket.findOne({ uuid: ticketID }).orFail();
-    const existingAssignees = ticket.assignedUUIDs ?? [];
-
     const users = await User.find({
       $and: [
         {
@@ -385,10 +384,9 @@ async function getAssignableUsers(
             },
           },
         },
-        { uuid: { $nin: existingAssignees } },
       ],
     })
-      .select("uuid firstName lastName email")
+      .select("uuid firstName lastName email avatar")
       .sort({ firstName: 1 });
 
     return res.send({
@@ -428,7 +426,7 @@ async function assignTicket(
 
       return res.send({
         err: false,
-        ticket,
+        ticket: _removeAccessKeysFromResponse(ticket),
       });
     }
 
@@ -483,7 +481,7 @@ async function assignTicket(
     if (newAssigneeEmails.length === 0) {
       return res.send({
         err: false,
-        ticket,
+        ticket: _removeAccessKeysFromResponse(ticket),
       });
     }
 
@@ -501,7 +499,115 @@ async function assignTicket(
 
     return res.send({
       err: false,
-      ticket,
+      ticket: _removeAccessKeysFromResponse(ticket),
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function addTicketCC(
+  req: ZodReqWithOptionalUser<z.infer<typeof AddTicketCCValidator>>,
+  res: Response
+) {
+  try {
+    const { uuid } = req.params;
+    const { email } = req.body;
+
+    const ticket = await SupportTicket.findOne({ uuid })
+      .orFail()
+      .populate(["assignedUsers", "user"]);
+
+    if (!ticket.ccedEmails) ticket.ccedEmails = [];
+
+    const allEmails = [
+      // @ts-ignore
+      ...(ticket.assignedUsers ?? []).map((u) => u.email),
+      // @ts-ignore
+      ticket.user?.email,
+      ticket.guest?.email,
+      ...ticket.ccedEmails,
+    ].filter((e) => e);
+
+    // If email is already CCed or otherwise involved, nothing to do, return the ticket
+    if (
+      allEmails.includes(email) ||
+      ticket.ccedEmails.map((c) => c.email).includes(email)
+    ) {
+      return res.send({
+        err: false,
+        ticket: _removeAccessKeysFromResponse(ticket),
+      });
+    }
+
+    // Determine who is adding the CC
+    const userUUID = req.user?.decoded.uuid;
+    let foundUser;
+    if (userUUID) {
+      foundUser = await User.findOne({ uuid: userUUID });
+    }
+
+    const adder = foundUser?.uuid
+      ? `${foundUser.firstName} ${foundUser.lastName}`
+      : `${ticket.guest?.firstName} ${ticket.guest?.lastName}`;
+
+    const feedEntry = _createFeedEntry_CCAdded(adder, email);
+
+    // Add the feed entry and cc'd email to the ticket
+    ticket.feed.push(feedEntry);
+    const accessKey = _createGuestAccessKey();
+    ticket.ccedEmails.push({
+      email,
+      accessKey,
+    });
+    await ticket.save();
+
+    // Notify the new CCed user with guest access key
+    await mailAPI.sendSupportTicketCCedNotification(
+      email,
+      ticket.uuid,
+      ticket.title,
+      accessKey
+    );
+
+    return res.send({
+      err: false,
+      ticket: _removeAccessKeysFromResponse(ticket),
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function removeTicketCC(
+  req: z.infer<typeof RemoveTicketCCValidator>,
+  res: Response
+) {
+  try {
+    const { uuid } = req.params;
+    const { email } = req.body;
+
+    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+
+    // If email is not CCed, nothing to do, return the ticket
+    if (
+      !ticket.ccedEmails ||
+      !ticket.ccedEmails.map((c) => c.email).includes(email)
+    ) {
+      return res.send({
+        err: false,
+        ticket: _removeAccessKeysFromResponse(ticket),
+      });
+    }
+
+    ticket.ccedEmails = ticket.ccedEmails.filter((e) => e.email !== email);
+    await ticket.save();
+
+    return res.send({
+      err: false,
+      ticket: _removeAccessKeysFromResponse(ticket),
     });
   } catch (err) {
     debugError(err);
@@ -559,6 +665,7 @@ async function createTicket(
       attachments,
       guest,
       capturedURL,
+      deviceInfo,
     } = req.body;
     const userUUID = req.user?.decoded.uuid;
 
@@ -596,7 +703,7 @@ async function createTicket(
       timeOpened: new Date().toISOString(),
       feed: [feedEntry],
       guestAccessKey,
-      guestAccessKeyExpiration: _getGuestAccessKeyExpiration(),
+      deviceInfo,
     });
 
     const emailToNotify = await _getTicketAuthorEmail(ticket);
@@ -638,7 +745,7 @@ async function createTicket(
 
     return res.send({
       err: false,
-      ticket,
+      ticket: _removeAccessKeysFromResponse(ticket, true), // Allow guest access key to be returned here for attachments to be immediately uploaded
     });
   } catch (err) {
     debugError(err);
@@ -654,36 +761,50 @@ async function addTicketAttachments(
 ) {
   try {
     const { uuid } = req.params;
+    const { accessKey } = req.query;
     const userUUID = req.user?.decoded.uuid;
 
-    let foundUser;
-    if (userUUID) {
-      foundUser = await User.findOne({ uuid: userUUID });
-    }
-
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
+
+    let foundUploaderName = "Unknown";
+    if (userUUID) {
+      const user = await User.findOne({ uuid: userUUID });
+      if (user) {
+        foundUploaderName = `${user.firstName} ${user.lastName}`;
+      }
+    }
+    if (!foundUploaderName) {
+      if (accessKey === ticket.guestAccessKey) {
+        foundUploaderName = `${ticket.guest?.firstName} ${ticket.guest?.lastName}`;
+      }
+    }
+    if (!userUUID && accessKey !== ticket.guestAccessKey) {
+      const foundCC = ticket.ccedEmails?.find((c) => c.accessKey === accessKey);
+      if (foundCC) {
+        foundUploaderName = foundCC.email;
+      }
+    }
 
     // If no files, no-op, just return the ticket
     if (!req.files || req.files.length === 0) {
       return res.send({
         err: false,
-        ticket,
+        ticket: _removeAccessKeysFromResponse(ticket),
       });
     }
-
-    const uploader = foundUser?.uuid
-      ? `${foundUser.firstName} ${foundUser.lastName}`
-      : `${ticket.guest?.firstName} ${ticket.guest?.lastName}`;
 
     const uploadedFiles = await _uploadTicketAttachments(
       ticket.uuid,
       req.files,
-      uploader
+      foundUploaderName
     );
     ticket.attachments = [...(ticket.attachments ?? []), ...uploadedFiles];
 
     for (const f of uploadedFiles) {
-      const feedEntry = _createFeedEntry_AttachmentUploaded(uploader, f.name);
+      const feedEntry = _createFeedEntry_AttachmentUploaded(
+        foundUploaderName,
+        f.name
+      );
       ticket.feed.push(feedEntry);
     }
 
@@ -691,7 +812,7 @@ async function addTicketAttachments(
 
     return res.send({
       err: false,
-      ticket,
+      ticket: _removeAccessKeysFromResponse(ticket),
     });
   } catch (err) {
     debugError(err);
@@ -772,10 +893,14 @@ async function updateTicket(
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
 
     // If status/priority/autoClose is the same, just return the ticket
-    if (ticket.status === status && ticket.priority === priority && autoCloseSilenced === ticket.autoCloseSilenced) {
+    if (
+      ticket.status === status &&
+      ticket.priority === priority &&
+      autoCloseSilenced === ticket.autoCloseSilenced
+    ) {
       return res.send({
         err: false,
-        ticket,
+        ticket: _removeAccessKeysFromResponse(ticket),
       });
     }
 
@@ -818,7 +943,8 @@ async function updateTicket(
       updatedFeed.push(feedEntry);
     }
 
-    const autoCloseStatusChanged = autoCloseSilenced !== ticket.autoCloseSilenced;
+    const autoCloseStatusChanged =
+      autoCloseSilenced !== ticket.autoCloseSilenced;
 
     await SupportTicket.updateOne(
       { uuid },
@@ -831,13 +957,13 @@ async function updateTicket(
         ...(autoCloseStatusChanged && {
           autoCloseTriggered: false,
           autoCloseDate: null,
-        })
+        }),
       }
     ).orFail();
 
     return res.send({
       err: false,
-      ticket,
+      ticket: _removeAccessKeysFromResponse(ticket),
     });
   } catch (err) {
     debugError(err);
@@ -876,6 +1002,7 @@ async function createGeneralMessage(
   try {
     const { uuid } = req.params;
     const { message, attachments } = req.body;
+    const { accessKey } = req.query;
     const userUUID = req.user?.decoded.uuid;
 
     const ticket = await SupportTicket.findOneAndUpdate(
@@ -885,18 +1012,53 @@ async function createGeneralMessage(
         autoCloseDate: null,
       }
     ).orFail(); // reset auto-close trigger
-    let foundUser;
+
+    let foundSenderName = "Unknown";
+    let foundSenderUUID: string | undefined;
+    let foundSenderEmail: string | undefined;
+    let submitterIsGuest = false;
+
+    // Check if sender is a logged in user
     if (userUUID) {
-      foundUser = await User.findOne({ uuid: userUUID });
+      const foundUser = await User.findOne({ uuid: userUUID });
+      if (foundUser) {
+        foundSenderName = `${foundUser.firstName} ${foundUser.lastName}`;
+        foundSenderUUID = foundUser.uuid;
+        foundSenderEmail = foundUser.email;
+      }
     }
+
+    // Check if sender is the ticket guest
+    if (accessKey === ticket.guestAccessKey) {
+      foundSenderName = `${ticket.guest?.firstName} ${ticket.guest?.lastName}`;
+      foundSenderEmail = ticket.guest?.email;
+      submitterIsGuest = true;
+    }
+
+    // Check if sender is a CCed user
+    if (!userUUID && accessKey !== ticket.guestAccessKey) {
+      const foundCC = ticket.ccedEmails?.find((c) => c.accessKey === accessKey);
+      if (foundCC) {
+        foundSenderName = foundCC.email;
+        foundSenderEmail = foundCC.email;
+      }
+    }
+
+    const senderEmail = (returnLoggedIn: boolean) => {
+      if (foundSenderUUID) {
+        if (returnLoggedIn) return foundSenderEmail;
+        return undefined;
+      }
+      return foundSenderEmail;
+    };
 
     const ticketMessage = await SupportTicketMessage.create({
       uuid: v4(),
       ticket: ticket.uuid,
       message,
       attachments,
-      senderUUID: foundUser ? foundUser.uuid : undefined,
-      senderEmail: foundUser ? undefined : ticket.guest?.email, // fallback to guest email if no user
+      senderUUID: foundSenderUUID,
+      senderEmail: senderEmail(false), // only return email if not logged in
       timeSent: new Date().toISOString(),
       type: "general",
     });
@@ -916,43 +1078,49 @@ async function createGeneralMessage(
 
     const emailsToNotify = await _getEmails(allUUIDs);
 
-    // Remove the comment author from the list of emails to notify
-    if (foundUser && foundUser.uuid) {
-      const index = emailsToNotify.indexOf(foundUser.email);
-      if (index > -1) {
-        emailsToNotify.splice(index, 1);
-      }
-    }
-
-    // If the user was not found and the ticket has a guest, assume the guest is the comment author
-    // if (!foundUser && ticket.guest?.email) {
-    //   const index = emailsToNotify.indexOf(ticket.guest.email);
-    //   if (index > -1) {
-    //     emailsToNotify.splice(index, 1);
-    //   }
-    // }
-
-    // Filter null or undefined emails
-    const filteredEmails = emailsToNotify.filter((e) => e);
+    // Filter null or undefined emails and remove the sender from the list of emails to notify
+    const filteredEmails = emailsToNotify.filter(
+      (e) => e && e !== senderEmail(true)
+    );
     if (!filteredEmails) return conductor500Err(res);
 
-    // If the ticket has a guest, but the commenter was found, send a notification to the guest
-    // otherwise, we assume the commenter is the guest
-    const senderName = foundUser
-      ? `${foundUser?.firstName} ${foundUser?.lastName}`
-      : `${ticket.guest?.firstName} ${ticket.guest?.lastName}`;
-    if (ticket.guest?.email && foundUser?.uuid) {
+    const emailPromises = [];
+
+    // If there is a ticket guest and the sender is not the guest, send a notification to the guest
+    if (!submitterIsGuest && ticket.guest?.email) {
       const params = new URLSearchParams();
       params.append("accessKey", ticket.guestAccessKey);
-
-      await mailAPI.sendNewTicketMessageNotification(
-        [ticket.guest.email],
-        ticket.uuid,
-        ticket.title,
-        message,
-        senderName,
-        params.toString()
+      emailPromises.push(
+        mailAPI.sendNewTicketMessageNotification(
+          [ticket.guest?.email],
+          ticket.uuid,
+          ticket.title,
+          message,
+          foundSenderName,
+          params.toString()
+        )
       );
+    }
+
+    // If there are CCed emails, send a notification to each with their access key
+    if (ticket.ccedEmails && ticket.ccedEmails.length > 0) {
+      for (const ccedUser of ticket.ccedEmails) {
+        if (ccedUser.email === senderEmail(true)) continue; // if sender is CCed, don't send them an email
+
+        const accessKey = ccedUser.accessKey;
+        const params = new URLSearchParams();
+        params.append("accessKey", accessKey);
+        emailPromises.push(
+          mailAPI.sendNewTicketMessageNotification(
+            [ccedUser.email],
+            ticket.uuid,
+            ticket.title,
+            message,
+            foundSenderName,
+            params.toString()
+          )
+        );
+      }
     }
 
     // If no other emails to notify, return (ie ticket author commented on their own ticket before ticket was assigned to staff)
@@ -963,14 +1131,18 @@ async function createGeneralMessage(
       });
     }
 
-    await mailAPI.sendNewTicketMessageNotification(
-      filteredEmails,
-      ticket.uuid,
-      ticket.title,
-      message,
-      senderName,
-      ""
+    emailPromises.push(
+      mailAPI.sendNewTicketMessageNotification(
+        filteredEmails,
+        ticket.uuid,
+        ticket.title,
+        message,
+        foundSenderName,
+        ""
+      )
     );
+
+    await Promise.allSettled(emailPromises);
 
     return res.send({
       err: false,
@@ -1326,30 +1498,14 @@ const _getTicketAuthorString = (
   const ticketAuthor = foundUser
     ? `${foundUser.firstName} ${foundUser.lastName}`
     : guest
-      ? `${guest.firstName} ${guest.lastName}`
-      : "Unknown";
+    ? `${guest.firstName} ${guest.lastName}`
+    : "Unknown";
   const authorString = `${ticketAuthor} (${emailToNotify})`;
   return authorString;
 };
 
-const _getAssignedStaffEmails = async (staffUUIDs?: string[]) => {
-  try {
-    if (!staffUUIDs || staffUUIDs.length === 0) return [];
-    const staff = await User.find({ uuid: { $in: staffUUIDs } });
-    return staff.map((s) => s.email);
-  } catch (err) {
-    throw err;
-  }
-};
-
 const _createGuestAccessKey = (): string => {
   return randomBytes(32).toString("hex");
-};
-
-const _getGuestAccessKeyExpiration = (): string => {
-  const current = new Date();
-  const expiration = addMonths(current, 1);
-  return expiration.toISOString();
 };
 
 const _createFeedEntry_Assigned = (
@@ -1415,12 +1571,36 @@ const _createFeedEntryPriorityChanged = (
   };
 };
 
+const _createFeedEntry_CCAdded = (
+  adder: string,
+  email: string
+): SupportTicketFeedEntryInterface => {
+  return {
+    action: `CC'd user added: ${email}`,
+    blame: adder,
+    date: new Date().toISOString(),
+  };
+};
+
 const _createFeedEntry_AutoClosed = (): SupportTicketFeedEntryInterface => {
   return {
     action: "Ticket was automatically closed",
     blame: "Conductor System",
     date: new Date().toISOString(),
   };
+};
+
+const _removeAccessKeysFromResponse = (
+  ticket: SupportTicketInterface,
+  allowGuestAccessKey = false
+) => {
+  if (!allowGuestAccessKey) ticket.guestAccessKey = "REDACTED";
+  if (ticket.ccedEmails && Array.isArray(ticket.ccedEmails)) {
+    ticket.ccedEmails.forEach((c) => {
+      c.accessKey = "REDACTED";
+    });
+  }
+  return ticket;
 };
 
 export default {
@@ -1443,4 +1623,6 @@ export default {
   findTicketsToInitAutoClose,
   autoCloseTickets,
   ticketAttachmentUploadHandler,
+  addTicketCC,
+  removeTicketCC,
 };

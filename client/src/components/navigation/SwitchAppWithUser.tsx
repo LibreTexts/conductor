@@ -48,7 +48,7 @@ const SwitchAppWithUser: React.FC<SwitchAppWithUserProps> = ({
           <>
             <Menu.Item onClick={() => setUserOpen(!userOpen)}>
               <span className="font-bold">
-                {user.firstName + " " + user.lastName}
+                {`${user.firstName} ${user.lastName} (${user.email})`}
               </span>
               <Icon
                 name={userOpen ? "angle up" : "angle down"}
@@ -68,7 +68,7 @@ const SwitchAppWithUser: React.FC<SwitchAppWithUserProps> = ({
       href={AuthHelper.generateLoginURL()}
       className="commons-nav-link"
     >
-      Login to Conductor <Icon name="lightning" className="float-right" />
+      Login with LibreOne <Icon name="lightning" className="float-right pl-2" />
     </Menu.Item>
   );
 };

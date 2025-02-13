@@ -1039,6 +1039,35 @@ const sendProjectInvitation = (recipientAddresses, senderFirstName, senderLastNa
     });
 }
 
+/**
+ * Sends a notification to the specified email addresses that they've been added to receive updates on a support ticket.
+ * @param {string} recipientAddress - the email address to send the notification to
+ * @param {string} ticketID - the ticket's uuid
+ * @param {string} ticketTitle - the ticket's title
+ * @param {string} accessKey - the ticket's guest access key
+ * @returns 
+ */
+const sendSupportTicketCCedNotification = (recipientAddress, ticketID, ticketTitle, accessKey) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: [recipientAddress],
+        subject: `Added to Support Ticket: ${truncateString(ticketTitle, 30)}`,
+        html: `
+            <p>Hi,</p>
+            <p>You've been added to the following support ticket:</p>
+            <br />
+            <p><strong>Title:</strong> ${ticketTitle}</p>
+            <br />
+            <p>You can view the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}?accessKey=${accessKey}</a>.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            <br />
+            <p>Ticket ID: ${ticketID}</p>
+            ${autoGenNoticeHTML}
+        `
+    });
+}
+
 export default {
     sendPasswordReset,
     sendRegistrationConfirmation,
@@ -1076,5 +1105,6 @@ export default {
     sendSupportTicketAssignedNotification,
     sendSupportTicketAutoCloseWarning,
     sendZIPFileReadyNotification,
-    sendProjectInvitation
+    sendProjectInvitation,
+    sendSupportTicketCCedNotification
 }

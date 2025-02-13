@@ -1,3 +1,4 @@
+import { query } from "express";
 import { z } from "zod";
 
 const TicketUUIDParams = z.object({
@@ -17,7 +18,6 @@ export const GetUserTicketsValidator = z.object({
     sort: z.enum(["opened", "priority", "status"]).optional(),
   }),
 });
-export const GetAssignableUsersValidator = TicketUUIDParams;
 
 export const CreateTicketValidator = z.object({
   body: z.object({
@@ -36,10 +36,24 @@ export const CreateTicketValidator = z.object({
         organization: z.string().trim().min(1).max(255),
       })
       .optional(),
+    deviceInfo: z
+      .object({
+        userAgent: z.string().optional(),
+        language: z.string().optional(),
+        screenResolution: z.string().optional(),
+        timeZone: z.string().optional(),
+      })
+      .optional(),
   }),
 });
 
-export const AddTicketAttachementsValidator = TicketUUIDParams;
+export const AddTicketAttachementsValidator = z
+  .object({
+    query: z.object({
+      accessKey: z.string().optional(),
+    }),
+  })
+  .merge(TicketUUIDParams);
 
 export const UpdateTicketValidator = z
   .object({
@@ -84,11 +98,30 @@ export const AssignTicketValidator = z
   })
   .merge(TicketUUIDParams);
 
+export const AddTicketCCValidator = z
+  .object({
+    body: z.object({
+      email: z.string().email(),
+    }),
+  })
+  .merge(TicketUUIDParams);
+
+export const RemoveTicketCCValidator = z
+  .object({
+    body: z.object({
+      email: z.string().email(),
+    }),
+  })
+  .merge(TicketUUIDParams);
+
 export const SendTicketMessageValidator = z
   .object({
     body: z.object({
       message: z.string().trim().min(1).max(1000),
       attachments: z.array(z.string()).optional(),
+    }),
+    query: z.object({
+      accessKey: z.string().optional(),
     }),
   })
   .merge(TicketUUIDParams);

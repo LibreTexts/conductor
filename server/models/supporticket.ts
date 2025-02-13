@@ -26,6 +26,13 @@ export interface SupportTicketAttachmentInterface {
   uploadedDate: string;
 }
 
+export interface SupportTicketDeviceInfoInterface {
+  userAgent?: string;
+  language?: string;
+  screenResolution?: string;
+  timeZone?: string;
+}
+
 export interface SupportTicketInterface extends Document {
   uuid: string;
   title: string;
@@ -36,14 +43,18 @@ export interface SupportTicketInterface extends Document {
   status: "open" | "in_progress" | "closed";
   category: string;
   guestAccessKey: string;
-  guestAccessKeyExpiration: string;
   capturedURL?: string;
   assignedUUIDs?: string[]; // User uuids
+  ccedEmails?: {
+    email: string;
+    accessKey: string;
+  }[]; // Email addresses
   userUUID?: string; // User uuid
   guest?: SupportTicketGuestInterface;
   timeOpened: string;
   timeClosed?: string;
   feed: SupportTicketFeedEntryInterface[];
+  deviceInfo?: SupportTicketDeviceInfoInterface;
   autoCloseTriggered?: boolean;
   autoCloseDate?: string;
   autoCloseSilenced?: boolean;
@@ -67,24 +78,26 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
     type: [Number],
   },
   attachments: {
-    type: [{
-      name: {
-        type: String,
-        required: true,
+    type: [
+      {
+        name: {
+          type: String,
+          required: true,
+        },
+        uuid: {
+          type: String,
+          required: true,
+        },
+        uploadedBy: {
+          type: String,
+          required: true,
+        },
+        uploadedDate: {
+          type: String,
+          required: true,
+        },
       },
-      uuid: {
-        type: String,
-        required: true,
-      },
-      uploadedBy: {
-        type: String,
-        required: true,
-      },
-      uploadedDate: {
-        type: String,
-        required: true,
-      },
-    }],
+    ],
   },
   priority: {
     type: String,
@@ -104,15 +117,25 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
     type: String,
     required: true,
   },
-  guestAccessKeyExpiration: {
-    type: String,
-    required: true,
-  },
   capturedURL: {
     type: String,
   },
   assignedUUIDs: {
     type: [String],
+  },
+  ccedEmails: {
+    type: [
+      {
+        email: {
+          type: String,
+          required: true,
+        },
+        accessKey: {
+          type: String,
+          required: true,
+        },
+      },
+    ],
   },
   userUUID: {
     type: String,
@@ -156,6 +179,20 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
       },
     ],
   },
+  deviceInfo: {
+    userAgent: {
+      type: String,
+    },
+    language: {
+      type: String,
+    },
+    screenResolution: {
+      type: String,
+    },
+    timeZone: {
+      type: String,
+    },
+  },
   autoCloseTriggered: {
     type: Boolean,
   },
@@ -190,7 +227,7 @@ SupportTicketSchema.virtual("messages", {
   ref: "SupportTicketMessage",
   localField: "uuid",
   foreignField: "ticket",
-})
+});
 
 SupportTicketSchema.index({ title: "text" });
 SupportTicketSchema.set("toObject", { virtuals: true });

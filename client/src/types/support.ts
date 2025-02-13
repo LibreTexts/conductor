@@ -23,9 +23,13 @@ export type SupportTicket = {
   assignedUsers?: UserWCentralID[];
   user?: UserWCentralID;
   guest?: SupportTicketGuest;
+  ccedEmails?: {
+    email: string;
+  }[];
   timeOpened: string;
   timeClosed?: string;
   feed: SupportTicketFeedEntry[];
+  deviceInfo?: SupportTicketDeviceInfo;
   autoCloseTriggered?: boolean;
   autoCloseDate?: string;
   autoCloseSilenced?: boolean;
@@ -41,18 +45,25 @@ export type SupportTicketMessage = {
   senderEmail?: string; // else, fallback to the sender's email (ie guest)
   senderIsStaff: boolean;
   timeSent: string;
-  type: 'internal' | 'general'; // internal = staff only, general = user & staff
+  type: "internal" | "general"; // internal = staff only, general = user & staff
 };
 
 export type SupportTicketFeedEntry = {
   action: string;
   blame: string;
   date: string;
-}
+};
 
 export type SupportTicketAttachment = {
   name: string;
   uuid: string;
   uploadedBy: string;
   uploadedDate: string;
-}
+};
+
+export type SupportTicketDeviceInfo = {
+  userAgent?: string;
+  language?: string;
+  screenResolution?: string;
+  timeZone?: string;
+};

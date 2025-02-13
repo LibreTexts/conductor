@@ -54,7 +54,7 @@ const CentralIdentityInstructorVerifications = lazy(() => import('./screens/cond
 const CentralIdentityOrgs = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityOrgs'));
 const CentralIdentityServices = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityServices'));
 const CentralIdentityUsers = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUsers'));
-import SupportCenterNavbar from './components/support/Navbar';
+import SupportCenterNavbar from './components/navigation/SupportCenterNavbar';
 const SupportCenter = lazy(() => import('./screens/conductor/support'));
 const SupportCenterCreateTicket = lazy(() => import('./screens/conductor/support/SupportCreateTicket'));
 const SupportDashboard = lazy(() => import('./screens/conductor/support/Dashboard'));

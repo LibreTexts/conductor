@@ -27,6 +27,9 @@ export const isEmptyString = (str) => {
  * @returns {string} the truncated (if applicable) string
  */
 export const truncateString = (str, len) => {
+    if (typeof(str) !== 'string' || str.length === 0) {
+        return '';
+    }
     if (str.length > len) {
         let subString = str.substring(0, len);
         return subString + "...";

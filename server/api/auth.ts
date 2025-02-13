@@ -1,15 +1,11 @@
-//
-// LibreTexts Conductor
-// auth.js
-
 "use strict";
-import express from "express";
+import { CookieOptions, NextFunction, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 
 import { body, query } from "express-validator";
 import { v4 as uuidv4 } from "uuid";
 import { randomBytes } from "crypto";
-import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
+import { createRemoteJWKSet, jwtVerify, SignJWT, decodeJwt } from "jose";
 import axios from "axios";
 import User from "../models/user.js";
 import OAuth from "./oauth.js";
@@ -17,18 +13,24 @@ import conductorErrors from "../conductor-errors.js";
 import { debugError } from "../debug.js";
 import { assembleUrl, isEmptyString, isFullURL } from "../util/helpers.js";
 import FormData from "form-data";
+import Session from "../models/session.js";
+import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = new TextEncoder().encode(process.env.SECRETKEY);
 const JWT_COOKIE_DOMAIN = (process.env.PRODUCTIONURLS || "").split(",")[0];
+const SESSION_DEFAULT_EXPIRY_MINUTES = 60 * 24 * 7; // 7 days
+const SESSION_DEFAULT_EXPIRY_MILLISECONDS = SESSION_DEFAULT_EXPIRY_MINUTES * 60 * 1000;
 
 const oidcBase = `https://${process.env.OIDC_HOST}`;
 const oidcAuth = `${oidcBase}/cas/oidc/authorize`;
 const oidcToken = `${oidcBase}/cas/oidc/accessToken`;
 const oidcCallbackProto =
   process.env.NODE_ENV === "production" ? "https" : "http";
-const oidcCallbackHost = process.env.OIDC_CALLBACK_HOST ||
-  process.env.CONDUCTOR_DOMAIN || "commons.libretexts.org";
+const oidcCallbackHost =
+  process.env.OIDC_CALLBACK_HOST ||
+  process.env.CONDUCTOR_DOMAIN ||
+  "commons.libretexts.org";
 const oidcCallback = `${oidcCallbackProto}://${oidcCallbackHost}/api/v1/oidc/libretexts`;
 const oidcJWKS = `${oidcBase}/cas/oidc/jwks`;
 const oidcProfile = `${oidcBase}/cas/oidc/profile`;
@@ -38,16 +40,17 @@ const oidcLogout = `${oidcBase}/cas/logout`;
  * Creates a JWT for a local session.
  *
  * @param {string} uuid - The User UUID to initialize the session for.
+ * @param {string} sessionId - The session ID to use for the session.
  * @returns {string} The generated JWT.
  */
-async function createSessionJWT(uuid) {
-  return await new SignJWT({ uuid })
+async function createSessionJWT(uuid: string, sessionId: string) {
+  return await new SignJWT({ uuid, sessionId })
     .setSubject(uuid)
-    .setProtectedHeader({ alg: 'HS256' })
+    .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setIssuer(JWT_COOKIE_DOMAIN)
     .setAudience(JWT_COOKIE_DOMAIN)
-    .setExpirationTime('3d')
+    .setExpirationTime("3d")
     .sign(JWT_SECRET);
 }
 
@@ -57,9 +60,9 @@ async function createSessionJWT(uuid) {
  * @param sessionJWT - JWT to split into components.
  * @returns {string[]} The access and signed components.
  */
-function splitSessionJWT(sessionJWT) {
-  const splitJWT = sessionJWT.split('.');
-  const access = splitJWT.slice(0, 2).join('.');
+function splitSessionJWT(sessionJWT: string) {
+  const splitJWT = sessionJWT.split(".");
+  const access = splitJWT.slice(0, 2).join(".");
   const signed = splitJWT[2];
   return [access, signed];
 }
@@ -70,24 +73,39 @@ function splitSessionJWT(sessionJWT) {
  *
  * @param {express.Response} res - The response object to attach the session cookies to.
  * @param {string} uuid - The User UUID to initialize the session for.
+ * @param {string} ticket - A CAS ticket ID to use for the session.
  */
-async function createAndAttachLocalSession(res, uuid) {
-  const sessionJWT = await createSessionJWT(uuid);
+async function createAndAttachLocalSession(res: Response, uuid: string, ticket?: string) {
+  const sessionId = uuidv4();
+  const sessionCreated = new Date();
+  const sessionExpiry = new Date(sessionCreated.getTime() + SESSION_DEFAULT_EXPIRY_MILLISECONDS);
+  const session = new Session({
+    sessionId,
+    userId: uuid,
+    valid: true,
+    createdAt: sessionCreated,
+    expiresAt: sessionExpiry,
+    ...ticket && { sessionTicket: ticket },
+  });
+
+  await session.save();
+
+  const sessionJWT = await createSessionJWT(uuid, sessionId);
   const [access, signed] = splitSessionJWT(sessionJWT);
 
   const prodCookieConfig = {
     secure: true,
     domain: JWT_COOKIE_DOMAIN,
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: SESSION_DEFAULT_EXPIRY_MILLISECONDS,
   };
-  res.cookie('conductor_access', access, {
-    path: '/',
-    ...(process.env.NODE_ENV === 'production' && prodCookieConfig),
+  res.cookie("conductor_access_v2", access, {
+    path: "/",
+    ...(process.env.NODE_ENV === "production" && prodCookieConfig),
   });
-  res.cookie('conductor_signed', signed, {
-    path: '/',
+  res.cookie("conductor_signed_v2", signed, {
+    path: "/",
     httpOnly: true,
-    ...(process.env.NODE_ENV === 'production' && prodCookieConfig),
+    ...(process.env.NODE_ENV === "production" && prodCookieConfig),
   });
 }
 
@@ -97,7 +115,14 @@ async function createAndAttachLocalSession(res, uuid) {
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
-async function initLogin(req, res) {
+async function initLogin(req: Request, res: Response) {
+  if (!process.env.OIDC_CLIENT_ID || !process.env.OIDC_CLIENT_SECRET) {
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+
   const state = JSON.stringify({
     state: randomBytes(10).toString("hex"),
     orgID: process.env.ORG_ID,
@@ -111,21 +136,27 @@ async function initLogin(req, res) {
 
   const nonce = uuidv4();
   const nonceHash = await bcrypt.hash(nonce, SALT_ROUNDS);
-  const params = new URLSearchParams({
+  const _params: Record<string, string> = {
     state,
     response_type: "code",
     client_id: process.env.OIDC_CLIENT_ID,
     redirect_uri: oidcCallback,
     nonce: nonceHash,
     scope: "openid profile email libretexts",
-  });
+  };
+
+  const params = new URLSearchParams(_params);
 
   const prodCookieConfig = {
-    sameSite: "lax",
+    sameSite: "lax" as CookieOptions["sameSite"],
     domain: process.env.OIDC_CALLBACK_HOST || process.env.CONDUCTOR_DOMAIN,
     secure: true,
   };
-  if (process.env.CONDUCTOR_DOMAIN && process.env.CONDUCTOR_DOMAIN !== 'commons.libretexts.org') {
+
+  if (
+    process.env.CONDUCTOR_DOMAIN &&
+    process.env.CONDUCTOR_DOMAIN !== "commons.libretexts.org"
+  ) {
     const authRedirectURL = `${oidcCallbackProto}://${process.env.CONDUCTOR_DOMAIN}`;
     res.cookie("conductor_auth_redirect", authRedirectURL, {
       encode: String,
@@ -152,16 +183,17 @@ async function initLogin(req, res) {
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
-async function completeLogin(req, res) {
+async function completeLogin(req: Request, res: Response) {
   try {
-    const formURLEncode = (value) =>
-      encodeURIComponent(value).replace(/%20/g, "+");
+    if (!process.env.OIDC_CLIENT_ID || !process.env.OIDC_CLIENT_SECRET) {
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err6,
+      });
+    }
 
-    // Network agent for development
-    const networkAgent =
-      process.env.NODE_ENV === "production"
-        ? null
-        : new https.Agent({ rejectUnauthorized: false });
+    const formURLEncode = (value: string) =>
+      encodeURIComponent(value).replace(/%20/g, "+");
 
     // Compare state nonce
     const { oidc_state } = req.cookies;
@@ -170,7 +202,7 @@ async function completeLogin(req, res) {
     let state = null;
     let stateCookie = null;
     try {
-      state = JSON.parse(stateQuery);
+      state = stateQuery?.toString() ? JSON.parse(stateQuery.toString()) : null; // Decode query state
       stateCookie = JSON.parse(Buffer.from(oidc_state, "base64").toString()); // Decode base64 state
     } catch (e) {
       debugError(`State query: ${stateQuery}`);
@@ -196,21 +228,18 @@ async function completeLogin(req, res) {
         code: req.query.code,
         redirect_uri: oidcCallback,
       },
-      ...(networkAgent && {
-        httpsAgent: networkAgent,
-      }),
     });
     const { access_token, id_token } = tokenRes?.data;
     if (!access_token || !id_token) {
       throw new Error("notokens");
     }
 
+    // Session ID (sid) from id_token will be used as the ticket identifier
+    const idDecoded = decodeJwt(id_token)
+    const ticketID = idDecoded?.sid?.toString();
+
     // Verify ID token with CAS public key set
-    const JWKS = createRemoteJWKSet(new URL(oidcJWKS), {
-      ...(networkAgent && {
-        agent: networkAgent,
-      }),
-    });
+    const JWKS = createRemoteJWKSet(new URL(oidcJWKS));
     const { payload } = await jwtVerify(id_token, JWKS, {
       issuer: `${oidcBase}/cas/oidc`,
       audience: process.env.OIDC_CLIENT_ID,
@@ -219,13 +248,15 @@ async function completeLogin(req, res) {
     // Compare nonce hash
     const { oidc_nonce } = req.cookies;
     const { nonce } = payload;
-    if (!nonce || !oidc_nonce) {
+    const nonceString = nonce?.toString();
+    if (!nonce || !oidc_nonce || !nonceString) {
       return res.status(400).send({
         err: true,
         errMsg: conductorErrors.err71,
       });
     }
-    const nonceValid = await bcrypt.compare(oidc_nonce, nonce);
+
+    const nonceValid = await bcrypt.compare(oidc_nonce, nonceString);
     if (!nonceValid) {
       return res.status(400).send({
         err: true,
@@ -238,7 +269,6 @@ async function completeLogin(req, res) {
       params: {
         access_token: access_token,
       },
-      httpsAgent: networkAgent,
     });
     const profileData = profileRes.data;
     const centralAttr = profileData.attributes;
@@ -254,15 +284,17 @@ async function completeLogin(req, res) {
       // Sync data that may have been changed in a delegated IdP
       let doSync = false;
       const centralToLocalAttrs = [
-        ['email', 'email'],
-        ['given_name', 'firstName'],
-        ['family_name', 'lastName'],
-        ['picture', 'avatar']
+        ["email", "email"],
+        ["given_name", "firstName"],
+        ["family_name", "lastName"],
+        ["picture", "avatar"],
       ];
-      
+
       for (const [central, auth] of centralToLocalAttrs) {
+        // @ts-ignore
         if (centralAttr[central] !== authUser[auth]) {
           doSync = true;
+          // @ts-ignore
           authUser[auth] = centralAttr[central];
         }
       }
@@ -279,7 +311,7 @@ async function completeLogin(req, res) {
         firstName: centralAttr.given_name,
         lastName: centralAttr.family_name,
         email: centralAttr.email,
-        authType: 'sso',
+        authType: "sso",
         avatar:
           centralAttr.picture ||
           "https://cdn.libretexts.net/DefaultImages/avatar.png",
@@ -314,7 +346,7 @@ async function completeLogin(req, res) {
     }
 
     // Create local session
-    await createAndAttachLocalSession(res, authUser.uuid);
+    await createAndAttachLocalSession(res, authUser.uuid, ticketID);
 
     // Redirect user
     let redirectURL = req.hostname;
@@ -333,7 +365,7 @@ async function completeLogin(req, res) {
       // redirectURI is only a path or not provided
       redirectURL = assembleUrl([redirectURL, state.redirectURI ?? "home"]);
     }
-    
+
     if (!state.redirectURI && isNewMember) {
       redirectURL = `${redirectURL}?newmember=true`;
     }
@@ -354,12 +386,51 @@ async function completeLogin(req, res) {
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
-async function logout(_req, res) {
+async function logout(_req: Request, res: Response) {
   try {
+    // Attempt to invalidate the user's session
+    const accessCookie = _req.cookies.conductor_access_v2;
+    const signedCookie = _req.cookies.conductor_signed_v2;
+    const sessionJWT = `${accessCookie}.${signedCookie}`;
+    if (accessCookie && signedCookie && sessionJWT) {
+      try {
+        const { payload } = await jwtVerify(sessionJWT, JWT_SECRET, {
+          issuer: JWT_COOKIE_DOMAIN,
+          audience: JWT_COOKIE_DOMAIN,
+        });
+
+        const { sessionId, uuid: userId } = payload;
+        if (userId && sessionId) {
+          await Session.updateMany(
+            {
+              userId,
+              sessionId,
+            },
+            {
+              valid: false,
+            }
+          );
+        }
+      } catch (e) {
+        debugError(e); // Just fail silently if we can't invalidate the DB sessions - we still want to log the user out
+      }
+    }
+
     const prodCookieConfig = {
       secure: true,
       domain: JWT_COOKIE_DOMAIN,
     };
+    res.clearCookie("conductor_access_v2", {
+      path: "/",
+      ...(process.env.NODE_ENV === "production" && prodCookieConfig),
+    });
+    res.clearCookie("conductor_signed_v2", {
+      path: "/",
+      httpOnly: true,
+      ...(process.env.NODE_ENV === "production" && prodCookieConfig),
+    });
+
+    // Clear deprecated cookies
     res.clearCookie("conductor_access", {
       path: "/",
       ...(process.env.NODE_ENV === "production" && prodCookieConfig),
@@ -379,19 +450,73 @@ async function logout(_req, res) {
   }
 }
 
+async function handleSingleLogout(req: Request, res: Response) {
+  try {
+    const body = req.body;
+    const query = req.query;
+    // Load balancer/Cloudflare may rewrite as query param in production
+    // Support both, but prefer body
+    const logout_token = body.logout_token || query.logout_token;
+    if (!logout_token) {
+      throw new Error("No logout token provided");
+    }
+
+    // Verify logout token with CAS public key set
+    const JWKS = createRemoteJWKSet(new URL(oidcJWKS));
+
+    const { payload } = await jwtVerify(logout_token, JWKS, {
+      issuer: `${oidcBase}/cas/oidc`,
+    });
+
+    const { sub, sid } = payload; // sub will be the user's email
+    if (!sub) {
+      throw new Error("No sub provided in logout token");
+    }
+
+    // Find the matching user
+    const user = await User.findOne({ email: sub });
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    console.log(`Received logout request for user ${user.uuid}`);
+    // Invalidate matching session(s) for the user (technically should only be one)
+    await Session.updateMany(
+      {
+        userId: user.uuid,
+        sessionTicket: sid,
+      },
+      {
+        valid: false,
+      }
+    );
+
+    return res.send({
+      err: false,
+      msg: "Logout request received",
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
 /**
  * Handles login using the fallback authentication method (system administrators).
  *
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
-async function fallbackAuthLogin(req, res) {
+async function fallbackAuthLogin(req: Request, res: Response) {
   try {
     const formattedEmail = String(req.body.email).toLowerCase();
     const foundUser = await User.findOne({
       $and: [{ email: formattedEmail }, { authType: "traditional" }],
     });
-    if (!foundUser) {
+    if (!foundUser || !foundUser.password) {
       return res.send({
         err: true,
         errMsg: conductorErrors.err12,
@@ -470,7 +595,7 @@ const getLibreTextsAdmins = (superAdmins = false) => {
  * @param {String} campus  - the orgID to retrieve admins for
  * @returns {Object[]} an array of the administrators and their information
  */
-const getCampusAdmins = (campus) => {
+const getCampusAdmins = (campus: string) => {
   return new Promise((resolve, reject) => {
     if (campus && !isEmptyString(campus)) {
       resolve(
@@ -520,10 +645,10 @@ const getCampusAdmins = (campus) => {
  * @param {String|String[]}  uuid - the user uuid(s) to lookup by
  * @returns {Object[]} an array of user objects
  */
-const getUserBasicWithEmail = (uuid) => {
+const getUserBasicWithEmail = (uuid: string | string[]) => {
   return new Promise((resolve, reject) => {
     /* Validate argument and build match object */
-    let matchObj = {};
+    let matchObj: Record<string, any> = {};
     if (typeof uuid === "string") {
       matchObj.uuid = uuid;
     } else if (typeof uuid === "object" && Array.isArray(uuid)) {
@@ -565,9 +690,13 @@ const getUserBasicWithEmail = (uuid) => {
  * @param {express.Response} res - Outgoing response object.
  * @param {express.NextFunction} next - The next function to run in the middleware chain.
  */
-async function verifyRequest(req, res, next) {
+async function verifyRequest(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   try {
+    if (!authHeader) {
+      throw new Error("ERR_BAD_SESSION");
+    }
+
     if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
       return OAuth.authenticate(req, res, next);
     }
@@ -575,13 +704,35 @@ async function verifyRequest(req, res, next) {
       issuer: JWT_COOKIE_DOMAIN,
       audience: JWT_COOKIE_DOMAIN,
     });
+
+    // @ts-ignore
     req.user = { decoded: payload };
+    // @ts-ignore
     req.decoded = payload; // TODO: Remove and update other handlers
+
+    const sessionId = payload.sessionId;
+    if (!sessionId) {
+      throw new Error("ERR_BAD_SESSION");
+    }
+
+    const session = await Session.findOne({
+      sessionId,
+      valid: true,
+    });
+
+    if (!session) {
+      throw new Error("ERR_BAD_SESSION");
+    }
     return next();
-  } catch (e) {
+  } catch (e: any) {
     let tokenExpired = false;
-    if (e.code === 'ERR_JWT_EXPIRED') {
+    let sessionInvalid = false;
+    console.log('VERIFY REQUEST ERROR')
+    console.log(e)
+    if (e.code === "ERR_JWT_EXPIRED") {
       tokenExpired = true;
+    } else if (e.message === "ERR_BAD_SESSION") {
+      sessionInvalid = true;
     } else {
       debugError(e);
     }
@@ -589,6 +740,7 @@ async function verifyRequest(req, res, next) {
       err: true,
       errMsg: conductorErrors.err5,
       ...(tokenExpired && { tokenExpired }),
+      ...(sessionInvalid && { sessionInvalid }),
     });
   }
 }
@@ -601,12 +753,16 @@ async function verifyRequest(req, res, next) {
  * @param {Object} res - the express.js response object.
  * @param {Object} next - the next function in the middleware chain.
  */
-function optionalVerifyRequest(req, res, next) {
+function optionalVerifyRequest(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
   if (req.headers.authorization) {
     return verifyRequest(req, res, next);
   }
   return next();
-};
+}
 
 /**
  * Pulls the user record from the database and adds
@@ -615,7 +771,11 @@ function optionalVerifyRequest(req, res, next) {
  * Method should only be called AFTER the 'verifyRequest'
  * method in a routing chain.
  */
-const getUserAttributes = (req, res, next) => {
+const getUserAttributes = (
+  req: ZodReqWithUser<Request>,
+  res: Response,
+  next: NextFunction
+) => {
   if (req.user.decoded !== undefined) {
     return User.findOne({
       uuid: req.user.decoded.uuid,
@@ -623,6 +783,7 @@ const getUserAttributes = (req, res, next) => {
       .then((user) => {
         if (user) {
           if (user.roles !== undefined) {
+            // @ts-ignore
             req.user.roles = user.roles;
           }
           return next();
@@ -657,9 +818,13 @@ const getUserAttributes = (req, res, next) => {
  * @param {express.Response} res - the express.js response object.
  * @param {express.NextFunction} next - the next function in the middleware chain.
  */
-function optionalGetUserAttributes(req, res, next) {
+function optionalGetUserAttributes(
+  req: ZodReqWithOptionalUser<Request>,
+  res: Response,
+  next: NextFunction
+) {
   if (req.user?.decoded) {
-    return getUserAttributes(req, res, next);
+    return getUserAttributes(req as ZodReqWithUser<Request>, res, next);
   }
   return next();
 }
@@ -672,7 +837,12 @@ function optionalGetUserAttributes(req, res, next) {
  * @param {String} role - The role identifier.
  * @returns {Boolean} True if user has role/permission, false otherwise.
  */
-const checkHasRole = (user, org, role, silent = false) => {
+const checkHasRole = (
+  user: Record<string, any>,
+  org: string,
+  role: string,
+  silent = false
+) => {
   if (user.roles !== undefined && Array.isArray(user.roles)) {
     let foundRole = user.roles.find((element) => {
       if (element.org && element.role) {
@@ -697,7 +867,7 @@ const checkHasRole = (user, org, role, silent = false) => {
     if (foundRole !== undefined) return true;
     return false;
   }
-  if (!silent){
+  if (!silent) {
     debugError(conductorErrors.err9);
   }
   return false;
@@ -710,8 +880,8 @@ const checkHasRole = (user, org, role, silent = false) => {
  * @param {String} role - The role identifier.
  * @returns {Function} An Express.js middleware function.
  */
-const checkHasRoleMiddleware = (org, role) => {
-  return (req, res, next) => {
+const checkHasRoleMiddleware = (org: string, role: string) => {
+  return (req: ZodReqWithUser<Request>, res: Response, next: NextFunction) => {
     if (req.user.roles !== undefined && Array.isArray(req.user.roles)) {
       const foundRole = req.user.roles.find((element) => {
         if (element.org && element.role) {
@@ -749,32 +919,36 @@ const checkHasRoleMiddleware = (org, role) => {
   };
 };
 
-async function cloudflareSiteVerify(req, res){
+async function cloudflareSiteVerify(req: Request, res: Response) {
   try {
-    if(!req.query.token){
-      throw new Error('No token provided')
+    if (!req.query.token) {
+      throw new Error("No token provided");
     }
 
     const formdata = new FormData();
-    formdata.append('secret', process.env.CLOUDFLARE_TURNSTILE_SECRET);
-    formdata.append('response', req.query.token);
+    formdata.append("secret", process.env.CLOUDFLARE_TURNSTILE_SECRET);
+    formdata.append("response", req.query.token);
 
-    const cloudflareRes = await axios.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', formdata, {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
+    const cloudflareRes = await axios.post(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      formdata,
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
       }
-    })
+    );
 
-    if(!cloudflareRes.data){
-      throw new Error('No response from Cloudflare')
+    if (!cloudflareRes.data) {
+      throw new Error("No response from Cloudflare");
     }
-    
+
     const success = cloudflareRes.data.success || false;
 
     return res.send({
       err: false,
       success,
-    })
+    });
   } catch (err) {
     debugError(err);
     return res.status(500).send({
@@ -788,17 +962,19 @@ async function cloudflareSiteVerify(req, res){
  * Middleware(s) to verify requests contain
  * necessary fields.
  */
-const validate = (method) => {
+const validate = (method: string) => {
   switch (method) {
-    case 'fallbackAuthLogin':
+    case "fallbackAuthLogin":
       return [
-        body('email', conductorErrors.err1).exists().isEmail(),
-        body('password', conductorErrors.err1).exists().isLength({ min: 1 }),
-      ]
-    case 'turnstile': 
+        body("email", conductorErrors.err1).exists().isEmail(),
+        body("password", conductorErrors.err1).exists().isLength({ min: 1 }),
+      ];
+    case "turnstile":
       return [
-        query('token', conductorErrors.err1).exists().isLength({ min: 1, max: 1024 }),
-      ]
+        query("token", conductorErrors.err1)
+          .exists()
+          .isLength({ min: 1, max: 1024 }),
+      ];
   }
 };
 
@@ -806,6 +982,7 @@ export default {
   initLogin,
   completeLogin,
   logout,
+  handleSingleLogout,
   fallbackAuthLogin,
   getLibreTextsAdmins,
   getCampusAdmins,
