@@ -2300,4 +2300,13 @@ router
     projectInvitationsAPI.acceptProjectInvitation
   )
 
+router
+  .route("/project-invitations/:inviteID/update")
+  .put(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(ProjectInvitationValidators.updateProjectInvitationSchema),
+    projectInvitationsAPI.updateProjectInvitation
+  )
+
 export default router;

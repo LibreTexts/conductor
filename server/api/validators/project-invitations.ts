@@ -38,8 +38,17 @@ export const deleteProjectInvitationSchema = z.object({
     params: z.object({
         inviteID: _projectInviteIDSchema
     }),
-    query: z.object({
-        token: _projectTokenSchema
+    // query: z.object({
+    //     token: _projectTokenSchema
+    // })
+});
+
+export const updateProjectInvitationSchema = z.object({
+    params: z.object({
+        inviteID: _projectInviteIDSchema
+    }),
+    body: z.object({
+        role: z.nativeEnum(ProjectRole)
     })
 });
 

@@ -61,6 +61,7 @@ const SupportDashboard = lazy(() => import('./screens/conductor/support/Dashboar
 const SupportTicket = lazy(() => import('./screens/conductor/support/Ticket'));
 const SupportClosedTickets = lazy(() => import('./screens/conductor/support/closed'));
 const TextbookCuration = lazy(() => import('./screens/conductor/Projects/TextbookCuration'));
+const AcceptProjectInviteScreen = lazy(() => import('./screens/conductor/Projects/AcceptProjectInviteScreen'));
 
 /* 404 */
 import PageNotFound from './components/util/PageNotFound';
@@ -101,6 +102,7 @@ const Conductor = () => {
         <PrivateRoute exact path='/projects/:id/peerreview' component={ProjectPeerReview} />
         <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
         <PrivateRoute exact path='/projects/:id/ai-co-author' component={TextbookCuration} />
+        <PrivateRoute exact path='/projects/accept-invite/:id' component={AcceptProjectInviteScreen} />
         {/* <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />
         <PrivateRoute exact path='/analytics/invites' component={AnalyticsInvites} />
         <PrivateRoute exact path='/analytics/requestaccess' component={AnalyticsRequestAccess} />

@@ -1,4 +1,4 @@
-import {createProjectInvitationSchema, getProjectInvitationSchema, getAllProjectInvitationsSchema, deleteProjectInvitationSchema, acceptProjectInvitationSchema} from "./validators/project-invitations";
+import {createProjectInvitationSchema, getProjectInvitationSchema, getAllProjectInvitationsSchema, deleteProjectInvitationSchema, acceptProjectInvitationSchema, updateProjectInvitationSchema} from "./validators/project-invitations";
 import { ZodReqWithUser } from "../types";
 import { z } from "zod";
 import { Request, Response, NextFunction } from "express";
@@ -335,7 +335,7 @@ export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<ty
 
 
     const invitations = await ProjectInvitation.find({ projectID, accepted: false, expires: { $gt: new Date() } })
-      .select("-token -_id")
+      .select("-_id")
       .sort({ createdAt: -1 }) 
       .skip((page - 1) * limit)
       .limit(limit)
@@ -346,8 +346,6 @@ export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<ty
       lean();
 
       const totalInvitations = await ProjectInvitation.countDocuments({ projectID, accepted: false, expires: { $gt: new Date() } });
-  
-
 
       return res.status(200).send({
         err: false,
@@ -374,16 +372,15 @@ export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<ty
 export async function deleteProjectInvitation(req: ZodReqWithUser<z.infer<typeof deleteProjectInvitationSchema>>, res: Response){
   try{
       const { inviteID } = req.params;
-      const { token } = req.query;
 
-      if (!inviteID || !token) {
+      if (!inviteID) {
         return res.status(400).send({
           err: true,
           errMsg: conductorErrors.err1,
         });
       }
-
-      const invitation = await ProjectInvitation.findOne({ inviteID, token });
+      
+      const invitation = await ProjectInvitation.findOne({ inviteID });
       if (!invitation) {
         return res.status(403).send({
           err: true,
@@ -408,7 +405,7 @@ export async function deleteProjectInvitation(req: ZodReqWithUser<z.infer<typeof
         });
       }
 
-      await ProjectInvitation.deleteOne({ inviteID, token });
+      await ProjectInvitation.deleteOne({ inviteID});
 
       return res.status(200).send({
         err: false,
@@ -421,6 +418,42 @@ export async function deleteProjectInvitation(req: ZodReqWithUser<z.infer<typeof
         errMsg: conductorErrors.err6,
       });
     }
+}
+
+export async function updateProjectInvitation(req: ZodReqWithUser<z.infer<typeof updateProjectInvitationSchema>>, res: Response){
+  try {
+    const { inviteID } = req.params;
+    const { role } = req.body;
+
+    if (!inviteID || !role) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err1,
+      });
+    }
+
+    const updatedInvitation = await ProjectInvitation.findOneAndUpdate(
+      { inviteID },
+      { role },
+      { new: true }
+    );
+
+    if (!updatedInvitation) {
+      return res.status(404).json({ error: "Project invitation not found" });
+    }
+
+    return res.status(200).json({
+      err: false,
+      message: "Project invitation updated successfully",
+      data: updatedInvitation,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
 }
 
 export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof acceptProjectInvitationSchema>>, res: Response){
@@ -483,7 +516,7 @@ export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof
     return res.status(200).send({
       err: false,
       msg: "Invitation accepted and member added to project.",
-      data: result
+      data: projectID
     });
 
   } catch (e) {
@@ -501,5 +534,6 @@ export default {
   getProjectInvitation,
   getAllInvitationsForProject,
   deleteProjectInvitation,
+  updateProjectInvitation,
   acceptProjectInvitation
 }
