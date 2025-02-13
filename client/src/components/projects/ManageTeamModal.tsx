@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import axios from "axios";
 import {
   Modal,
@@ -14,6 +14,7 @@ import {
   Input,
   TableProps,
   Radio,
+  Pagination
 } from "semantic-ui-react";
 import { AddableProjectTeamMember, Project, User } from "../../types";
 import {
@@ -30,6 +31,14 @@ import api from "../../api";
 
 type ProjectDisplayMember = User & { roleValue: string; roleDisplay: string };
 
+interface ProjectInvitation {
+  inviteID: string;
+  email: string;
+  role: string;
+  projectID: string;
+  // token: string;
+}
+
 interface ManageTeamModalProps extends ModalProps {
   show: boolean;
   project: Project;
@@ -39,6 +48,12 @@ interface ManageTeamModalProps extends ModalProps {
 
 interface RenderCurrentTeamTableProps extends TableProps {
   project: Project;
+}
+
+interface RenderInvitationTableProps extends TableProps {
+  invitations: ProjectInvitation[];
+  loading: boolean;
+  onDeleteInvitation: (id: string) => void;
 }
 
 const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
@@ -53,12 +68,18 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [hasNotSearched, setHasNotSearched] = useState<boolean>(true);
   const [searchString, setSearchString] = useState<string>("");
+  const [inviteEmail, setInviteEmail] = useState<string>("");
   const [includeOutsideOrg, setIncludeOutsideOrg] = useState<boolean>(true);
+  const [invitationsLoading, setInvitationsLoading] = useState<boolean>(false);
+  const [pendingInvitations, setPendingInvitations] = useState<ProjectInvitation[]>([]);
   const [teamUserOptions, setTeamUserOptions] = useState<
     AddableProjectTeamMember[]
   >([]);
   const [teamUserOptsLoading, setTeamUserOptsLoading] =
     useState<boolean>(false);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const ITEMS_PER_PAGE = 5;
 
   const userOrgDomain = useMemo(() => {
     if (!user?.email) return "";
@@ -79,6 +100,75 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     }
   };
 
+  const handleInviteSubmit = async () => {
+    try {
+      if (!project.projectID || !inviteEmail) {
+        throw new Error("Please enter a valid email address");
+      }
+
+      setLoading(true);
+      const res = await axios.post(`/project-invitations/${project.projectID}`, {
+        email: inviteEmail,
+        role: "member"
+      });
+
+      if (res.data.err) {
+        handleGlobalError(res.data.errMsg);
+        return;
+      }
+
+      setInviteEmail("");
+      setCurrentPage(1);
+      await fetchPendingInvitations();
+      onDataChanged();
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPendingInvitations = async (page: number = 1) => {
+    try {
+      setInvitationsLoading(true);
+      const res = await axios.get(`/project-invitations/project/${project.projectID}?page=${page}&limit=${ITEMS_PER_PAGE}`);
+      
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      
+      setPendingInvitations(res.data.data.invitations || []);
+      setTotalPages(Math.ceil(res.data.data.total / ITEMS_PER_PAGE));
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setInvitationsLoading(false);
+    }
+  };
+
+  const handleDeleteInvitation = async (invitationId: string) => {
+    try {
+      setLoading(true);
+      const res = await axios.delete(`/project-invitations/${invitationId}`);
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      await fetchPendingInvitations();
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      await fetchPendingInvitations();
+    };
+  
+    fetchData();
+  }, []);
+  
   /**
    * Retrieves a list of users that can be added as team members to the
    * project, then processes and sets them in state.
@@ -106,7 +196,6 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
           "Invalid response from server. This may be caused by an internal error."
         );
       }
-
       setTeamUserOptions(res.data.users);
     } catch (err) {
       handleGlobalError(err);
@@ -155,6 +244,31 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
 
       setTeamUserOptions([]);
       onDataChanged();
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitChangeInvitationRole = async (
+    inviteID: string,
+    role: string
+  ) => {
+    try {
+      if (isEmptyString(inviteID) || isEmptyString(role)) {
+        throw new Error("Invalid invite ID or role. This may be caused by an internal error.");
+      }
+      setLoading(true);
+      const res = await axios.put(`/project-invitations/${inviteID}/update`, { role });
+  
+      if (res.data.err) {
+        handleGlobalError(res.data.errMsg);
+        return;
+      }
+  
+      await fetchPendingInvitations(currentPage);
+      onDataChanged(); 
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -263,6 +377,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     }
     const sortedTeam = sortUsersByName(projTeam) as ProjectDisplayMember[];
 
+
     return (
       <Table celled striped compact {...rest}>
         <Table.Header>
@@ -286,12 +401,12 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                   options={projectRoleOptions}
                   value={item.roleValue}
                   loading={loading}
-                  onChange={(_e, { value }) =>
+                  onChange={(_e, { value }) => {
                     submitChangeTeamMemberRole(
                       item.uuid,
                       value ? value.toString() : ""
                     )
-                  }
+                  }}
                 />
               </Table.Cell>
               <Table.Cell>
@@ -314,6 +429,88 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     );
   };
 
+
+  const RenderInvitationTable: React.FC<RenderInvitationTableProps> = ({
+    invitations,
+    loading,
+    onDeleteInvitation,
+    ...rest
+  }) => {
+    return (
+      <>
+        <Table celled striped compact {...rest}>
+          <Table.Header>
+            <Table.Row>
+              <Table.HeaderCell width={"7"}>Email Address</Table.HeaderCell>
+              <Table.HeaderCell width={"2"}>Role</Table.HeaderCell>
+              <Table.HeaderCell width={"1"}>Actions</Table.HeaderCell>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            {loading ? (
+              <Table.Row>
+                <Table.Cell colSpan={3}>
+                  <Loader active inline="centered" />
+                </Table.Cell>
+              </Table.Row>
+            ) : invitations.length === 0 ? (
+              <Table.Row>
+                <Table.Cell colSpan={3} textAlign="center">
+                  No pending invitations
+                </Table.Cell>
+              </Table.Row>
+            ) : (
+              invitations.map((invitation) => (
+                <Table.Row key={invitation.inviteID}>
+                  <Table.Cell>{invitation.email}</Table.Cell>
+                  <Table.Cell>
+                    <Dropdown
+                      placeholder="Change role..."
+                      selection
+                      options={projectRoleOptions}
+                      value={invitation.role}
+                      onChange={(_e, { value }) => {
+                        submitChangeInvitationRole(
+                          invitation.inviteID,
+                          value ? value.toString() : ""
+                        );
+                      }}
+                    />
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Button
+                      color="red"
+                      icon
+                      onClick={() => onDeleteInvitation(invitation.inviteID)}
+                    >
+                      <Icon name="remove circle" />
+                      <span className="ml-2">Delete</span>
+                    </Button>
+                  </Table.Cell>
+                </Table.Row>
+              ))
+            )}
+          </Table.Body>
+        </Table>
+        {totalPages > 1 && (
+          <div className="flex justify-center mt-4">
+            <Pagination
+              activePage={currentPage}
+              totalPages={totalPages}
+              onPageChange={(_e, { activePage }) => {
+                setCurrentPage(Number(activePage));
+                fetchPendingInvitations(Number(activePage));
+              }}
+              firstItem={totalPages > 2 ? undefined : null}
+              lastItem={totalPages > 2 ? undefined : null}
+            />
+          </div>
+        )}
+      </>
+    );
+  };
+
+
   return (
     <Modal open={show} onClose={handleClose} size="large" closeIcon>
       <Modal.Header>Manage Project Team</Modal.Header>
@@ -326,11 +523,42 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
               id="current-team-table"
               className="!mt-0.5"
             />
+            
+            <div className="mt-16">
+              <p className="text-xl font-semibold mb-4">Invite Team Members By Email</p>
+              <div className="flex flex-row gap-2 mb-4">
+                <Input
+                  placeholder="Enter email address..."
+                  value={inviteEmail}
+                  onChange={(e, { value }) => setInviteEmail(value)}
+                  className="flex-grow"
+                />
+                <Button
+                  color="green"
+                  onClick={handleInviteSubmit}
+                  disabled={!inviteEmail}
+                >
+                  <Icon name="send" />
+                  Send Invite
+                </Button>
+              </div>
+
+              <div className="mt-8">
+                <p className="text-lg font-semibold mb-2">Pending Invitations</p>
+                <RenderInvitationTable
+                  invitations={pendingInvitations}
+                  loading={invitationsLoading}
+                  onDeleteInvitation={handleDeleteInvitation}
+                  className="!mt-0.5"
+                />
+              </div>
+            </div>
+
             <Form onSubmit={(e) => e.preventDefault()} className="mt-16 h-72">
               <Form.Field className="flex flex-col">
                 <div className="flex flex-row justify-between items-center mb-1">
                   <div className="flex flex-row items-center">
-                    <p className="text-xl font-semibold">Add Team Members</p>
+                    <p className="text-xl font-semibold">Add Team Members By Name</p>
                     <Popup
                       content="Add users to the project team by searching for their name or email address. You can use the toggle switch to the right to restrict the search to users with the same email address domain as you."
                       trigger={
