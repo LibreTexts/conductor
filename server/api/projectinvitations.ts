@@ -335,7 +335,7 @@ export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<ty
 
 
     const invitations = await ProjectInvitation.find({ projectID, accepted: false, expires: { $gt: new Date() } })
-      .select("-_id")
+      .select("-token -_id")
       .sort({ createdAt: -1 }) 
       .skip((page - 1) * limit)
       .limit(limit)
