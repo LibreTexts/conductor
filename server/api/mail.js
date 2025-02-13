@@ -1009,6 +1009,16 @@ const sendSupportTicketAssignedNotification = (recipientAddresses, ticketID, tic
     });
 }
 
+/**
+ * Sends a notification to the specified email addresses that they have been invited to a project.
+ * @param {string[]} recipientAddresses 
+ * @param {string} senderFirstName
+ * @param {string} senderLastName
+ * @param {string} projectTitle
+ * @param {string} inviteID
+ * @param {string} token
+ * @returns 
+ */
 const sendProjectInvitation = (recipientAddresses, senderFirstName, senderLastName, projectTitle, inviteID, token) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
