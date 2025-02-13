@@ -1011,7 +1011,7 @@ const sendSupportTicketAssignedNotification = (recipientAddresses, ticketID, tic
 
 /**
  * Sends a notification to the specified email addresses that they have been invited to a project.
- * @param {string} recipientAddress
+ * @param {string} recipientAddresses
  * @param {string} senderFirstName
  * @param {string} senderLastName
  * @param {string} projectTitle
