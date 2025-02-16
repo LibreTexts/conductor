@@ -233,7 +233,7 @@ export async function createProjectInvitation(
 
     mailAPI.sendProjectInvitation(email, sender.firstName, sender.lastName, project.title, newInvitation.inviteID, newInvitation.token);
   
-    const { _id, token, ...responseInvitation } = newInvitation.toObject();
+    const { _id, token, __v, ...responseInvitation } = newInvitation.toObject();
 
     return res.send({
       err: false,
@@ -261,7 +261,7 @@ export async function getProjectInvitation(req: ZodReqWithUser<z.infer<typeof ge
     }
 
     const invitation = await ProjectInvitation.findOne({ inviteID, token })
-    .select("-token -_id")
+    .select("-token -_id -__v")
     .populate({
       path: "project",
       select: "title -_id", 
@@ -287,13 +287,11 @@ export async function getProjectInvitation(req: ZodReqWithUser<z.infer<typeof ge
       });
     }
 
-    if (invitation) {
-      return res.status(200).send({
-        err: false,
-        data: invitation
-      });
-    }
-
+    return res.status(200).send({
+      err: false,
+      invitation
+    });
+    
   }
   catch (e) {
     debugError(e);
@@ -335,7 +333,7 @@ export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<ty
 
 
     const invitations = await ProjectInvitation.find({ projectID, accepted: false, expires: { $gt: new Date() } })
-      .select("-token -_id")
+      .select("-token -_id -__v")
       .sort({ createdAt: -1 }) 
       .skip((page - 1) * limit)
       .limit(limit)
@@ -409,7 +407,7 @@ export async function deleteProjectInvitation(req: ZodReqWithUser<z.infer<typeof
 
       return res.status(200).send({
         err: false,
-        msg: "Invitation successfully deleted.",
+        deleted: true,
       });
     } catch (e) {
       debugError(e);
@@ -435,17 +433,19 @@ export async function updateProjectInvitation(req: ZodReqWithUser<z.infer<typeof
     const updatedInvitation = await ProjectInvitation.findOneAndUpdate(
       { inviteID },
       { role },
-      { new: true }
+      { new: true, projection: "-_id -token -__v" } 
     );
 
     if (!updatedInvitation) {
-      return res.status(404).json({ error: "Project invitation not found" });
+      return res.status(404).json({
+        err: true,
+        errMsg: conductorErrors.err11
+      });
     }
 
     return res.status(200).json({
       err: false,
-      message: "Project invitation updated successfully",
-      data: updatedInvitation,
+      updatedInvitation,
     });
   } catch (e) {
     debugError(e);

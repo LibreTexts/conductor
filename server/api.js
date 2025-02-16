@@ -36,7 +36,7 @@ import orgEventsAPI from "./api/orgevents.js";
 import paymentsAPI from "./api/payments.js";
 import kbAPI from "./api/kb.js";
 import supportAPI from "./api/support.js";
-import projectInvitationsAPI from "./api/projectinvitations.ts";
+import projectInvitationsAPI from "./api/projectinvitations.js";
 
 import * as centralIdentityValidators from "./api/validators/central-identity.js";
 import * as collectionValidators from "./api/validators/collections.js";
@@ -49,7 +49,7 @@ import * as AssetTagFrameworkValidators from "./api/validators/assettagframework
 import * as AuthorsValidators from "./api/validators/authors.js";
 import * as BookValidators from "./api/validators/book.js";
 import * as UserValidators from "./api/validators/user.js";
-import * as ProjectInvitationValidators from "./api/validators/project-invitations.ts";
+import * as ProjectInvitationValidators from "./api/validators/project-invitations.js";
 
 const router = express.Router();
 
@@ -2297,6 +2297,12 @@ router
     middleware.validateZod(ProjectInvitationValidators.getProjectInvitationSchema),
     projectInvitationsAPI.getProjectInvitation
   )
+  .delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(ProjectInvitationValidators.deleteProjectInvitationSchema),
+    projectInvitationsAPI.deleteProjectInvitation
+  )
 
 router
   .route("/project-invitations/project/:projectID")
@@ -2305,15 +2311,6 @@ router
     authAPI.getUserAttributes,
     middleware.validateZod(ProjectInvitationValidators.getAllProjectInvitationsSchema),
     projectInvitationsAPI.getAllInvitationsForProject
-  )
-
-router
-  .route("/project-invitations/:inviteID")  
-  .delete(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    middleware.validateZod(ProjectInvitationValidators.deleteProjectInvitationSchema),
-    projectInvitationsAPI.deleteProjectInvitation
   )
 
 router

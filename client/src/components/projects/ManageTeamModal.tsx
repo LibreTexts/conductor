@@ -107,15 +107,8 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
       }
 
       setLoading(true);
-      const res = await axios.post(`/project-invitations/${project.projectID}`, {
-        email: inviteEmail,
-        role: "member"
-      });
+      const res = await api.createProjectInvitation(project.projectID, inviteEmail, "member");
 
-      if (res.data.err) {
-        handleGlobalError(res.data.errMsg);
-        return;
-      }
 
       setInviteEmail("");
       setCurrentPage(1);
@@ -131,14 +124,12 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   const fetchPendingInvitations = async (page: number = 1) => {
     try {
       setInvitationsLoading(true);
-      const res = await axios.get(`/project-invitations/project/${project.projectID}?page=${page}&limit=${ITEMS_PER_PAGE}`);
       
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
+      const res = await api.getAllProjectInvitations(project.projectID, page, ITEMS_PER_PAGE);
+
       
-      setPendingInvitations(res.data.data.invitations || []);
-      setTotalPages(Math.ceil(res.data.data.total / ITEMS_PER_PAGE));
+      setPendingInvitations(res.data.invitations || []);
+      setTotalPages(Math.ceil(res.data.total / ITEMS_PER_PAGE));
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -149,10 +140,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   const handleDeleteInvitation = async (invitationId: string) => {
     try {
       setLoading(true);
-      const res = await axios.delete(`/project-invitations/${invitationId}`);
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
+      const res = await api.deleteInvitation(invitationId);
       await fetchPendingInvitations();
     } catch (err) {
       handleGlobalError(err);
@@ -163,11 +151,13 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
 
   useEffect(() => {
     const fetchData = async () => {
-      await fetchPendingInvitations();
+      if (show) {  // Only fetch if modal is shown
+        await fetchPendingInvitations();
+      }
     };
   
     fetchData();
-  }, []);
+  }, [show]);
   
   /**
    * Retrieves a list of users that can be added as team members to the
@@ -260,12 +250,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
         throw new Error("Invalid invite ID or role. This may be caused by an internal error.");
       }
       setLoading(true);
-      const res = await axios.put(`/project-invitations/${inviteID}/update`, { role });
-  
-      if (res.data.err) {
-        handleGlobalError(res.data.errMsg);
-        return;
-      }
+      const res = await api.updateInvitationRole(inviteID, role);
   
       await fetchPendingInvitations(currentPage);
       onDataChanged(); 

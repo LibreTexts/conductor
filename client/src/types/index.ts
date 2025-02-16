@@ -20,6 +20,7 @@ export * from "./OrgEvent";
 export * from "./PeerReview";
 export * from "./PeerReviewRubric";
 export * from "./Project";
+export * from "./ProjectInvitation"
 export * from "./support";
 export * from "./Search";
 export * from "./User";

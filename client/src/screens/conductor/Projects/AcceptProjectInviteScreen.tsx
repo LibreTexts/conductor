@@ -3,6 +3,7 @@ import { useLocation, Link } from "react-router-dom";
 import { Image, Button, Grid, Container } from "semantic-ui-react";
 import axios from "axios";
 import useGlobalError from "../../../components/error/ErrorHooks";
+import api from "../../../api";
 
 function AcceptProjectInviteScreen() {
   const location = useLocation();
@@ -29,26 +30,26 @@ function AcceptProjectInviteScreen() {
 
   const checkInviteStatus = async (inviteID: string, token: string | null) => {
     try {
-      const response = await axios.get(`/project-invitations/${inviteID}?token=${token}`);
-      const projectID = response.data.data.projectID;
+      const response = await api.getProjectInvitation(inviteID, token);
+      const projectID = response.invitation.projectID;
 
-      if (response.data.data.accepted) {
+      if (response.invitation.accepted) {
         window.location.href = `/projects/${projectID}`; 
         return;
       }
 
-      setProjectTitle(response.data.data.project.title);
-    } catch (error: any) {
-      handleGlobalError(error.response?.data?.errMsg || "An unexpected error occurred.");
+      setProjectTitle(response.invitation.project.title);
+    } catch (error) {
+      handleGlobalError(error);
     }
   };
 
   const handleAccept = async () => {
     try {
-      const response = await axios.post(`/project-invitation/${inviteID}/accept?token=${token}`);
-      window.location.href = `/projects/${response.data.data}`; // Redirect after accepting
-    } catch (error: any) {
-      handleGlobalError(error.response?.data?.errMsg || "An unexpected error occurred.");
+      const response = await api.acceptProjectInvitation(inviteID, token);
+      window.location.href = `/projects/${response.data}`; // Redirect after accepting
+    } catch (error) {
+      handleGlobalError(error);
     }
   };
 
