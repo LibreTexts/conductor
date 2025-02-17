@@ -8,6 +8,7 @@ import conductorErrors from "../conductor-errors.js";
 import authAPI from './auth.js';
 import ProjectInvitation from "../models/projectinvitation";
 import Project from '../models/project.js';
+import Organization from '../models/organization.js';
 import User from "../models/user";
 import mailAPI from './mail.js';
 import { getSubdomainFromLibrary } from '../util/librariesclient.js';
@@ -169,6 +170,7 @@ export async function createProjectInvitation(
 
     const { projectID } = req.params;
     const { email, role } = req.body;
+    const orgID = process.env.ORG_ID;
     if (!projectID || !email || !role) {
       return res.status(400).send({
         err: true,
@@ -187,7 +189,7 @@ export async function createProjectInvitation(
     }
 
   
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID, orgID }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
@@ -218,6 +220,7 @@ export async function createProjectInvitation(
     const existingInvitation = await ProjectInvitation.findOne({
       projectID,
       email,
+      orgID
     });
     if (existingInvitation) {
       await ProjectInvitation.deleteOne({ _id: existingInvitation._id });
@@ -228,10 +231,20 @@ export async function createProjectInvitation(
       senderID,
       email,
       role,
+      orgID,
     });
     await newInvitation.save();
 
-    mailAPI.sendProjectInvitation(email, sender.firstName, sender.lastName, project.title, newInvitation.inviteID, newInvitation.token);
+    const organization = await Organization.findOne({ orgID }).select("domain").lean();
+
+    if (!organization) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    mailAPI.sendProjectInvitation(email, sender.firstName, sender.lastName, project.title, newInvitation.inviteID, newInvitation.token, organization.domain);
   
     const { _id, token, __v, ...responseInvitation } = newInvitation.toObject();
 
@@ -253,6 +266,7 @@ export async function getProjectInvitation(req: ZodReqWithUser<z.infer<typeof ge
   try{
     const { inviteID } = req.params;
     const { token } = req.query;
+    const orgID = process.env.ORG_ID;
     if (!inviteID || !token) {
       return res.status(400).send({
         err: true,
@@ -260,7 +274,7 @@ export async function getProjectInvitation(req: ZodReqWithUser<z.infer<typeof ge
       });
     }
 
-    const invitation = await ProjectInvitation.findOne({ inviteID, token })
+    const invitation = await ProjectInvitation.findOne({ inviteID, token, orgID })
     .select("-token -_id -__v")
     .populate({
       path: "project",
@@ -305,6 +319,7 @@ export async function getProjectInvitation(req: ZodReqWithUser<z.infer<typeof ge
 export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<typeof getAllProjectInvitationsSchema>>, res: Response){
   try{
     const { projectID } = req.params;
+    const orgID = process.env.ORG_ID;
     if (!projectID) {
       return res.status(400).send({
         err: true,
@@ -315,7 +330,7 @@ export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<ty
     const page = req.query.page? parseInt(req.query.page.toString()) : 1;
     const limit = req.query.limit? parseInt(req.query.limit.toString()) : 10;
 
-    const project = await Project.findOne({projectID}).lean();
+    const project = await Project.findOne({projectID, orgID}).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
@@ -332,7 +347,7 @@ export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<ty
       }
 
 
-    const invitations = await ProjectInvitation.find({ projectID, accepted: false, expires: { $gt: new Date() } })
+    const invitations = await ProjectInvitation.find({ projectID, orgID, accepted: false, expires: { $gt: new Date() } })
       .select("-token -_id -__v")
       .sort({ createdAt: -1 }) 
       .skip((page - 1) * limit)
@@ -343,7 +358,7 @@ export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<ty
       }).
       lean();
 
-      const totalInvitations = await ProjectInvitation.countDocuments({ projectID, accepted: false, expires: { $gt: new Date() } });
+      const totalInvitations = await ProjectInvitation.countDocuments({ projectID, orgID, accepted: false, expires: { $gt: new Date() } });
 
       return res.status(200).send({
         err: false,
@@ -370,7 +385,7 @@ export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<ty
 export async function deleteProjectInvitation(req: ZodReqWithUser<z.infer<typeof deleteProjectInvitationSchema>>, res: Response){
   try{
       const { inviteID } = req.params;
-
+      const orgID = process.env.ORG_ID;
       if (!inviteID) {
         return res.status(400).send({
           err: true,
@@ -378,7 +393,7 @@ export async function deleteProjectInvitation(req: ZodReqWithUser<z.infer<typeof
         });
       }
       
-      const invitation = await ProjectInvitation.findOne({ inviteID });
+      const invitation = await ProjectInvitation.findOne({ inviteID, orgID });
       if (!invitation) {
         return res.status(403).send({
           err: true,
@@ -387,7 +402,7 @@ export async function deleteProjectInvitation(req: ZodReqWithUser<z.infer<typeof
       }
 
       const { projectID } = invitation;
-      const project = await Project.findOne({projectID}).lean();
+      const project = await Project.findOne({ projectID, orgID }).lean();
       if (!project) {
         return res.status(404).send({
           err: true,
@@ -403,7 +418,7 @@ export async function deleteProjectInvitation(req: ZodReqWithUser<z.infer<typeof
         });
       }
 
-      await ProjectInvitation.deleteOne({ inviteID});
+      await ProjectInvitation.deleteOne({ inviteID, orgID });
 
       return res.status(200).send({
         err: false,
@@ -422,6 +437,7 @@ export async function updateProjectInvitation(req: ZodReqWithUser<z.infer<typeof
   try {
     const { inviteID } = req.params;
     const { role } = req.body;
+    const orgID = process.env.ORG_ID;
 
     if (!inviteID || !role) {
       return res.status(400).send({
@@ -431,7 +447,7 @@ export async function updateProjectInvitation(req: ZodReqWithUser<z.infer<typeof
     }
 
     const updatedInvitation = await ProjectInvitation.findOneAndUpdate(
-      { inviteID },
+      { inviteID, orgID },
       { role },
       { new: true, projection: "-_id -token -__v" } 
     );
@@ -461,6 +477,7 @@ export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof
     
     const { inviteID } = req.params;
     const { token } = req.query;
+    const orgID = process.env.ORG_ID;
     if (!inviteID || !token) {
       return res.status(400).send({
         err: true,
@@ -468,7 +485,7 @@ export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof
       });
     }
 
-    const invitation = await ProjectInvitation.findOne({ inviteID, token });
+    const invitation = await ProjectInvitation.findOne({ inviteID, token, orgID });
 
     if (!invitation) {
       return res.status(403).send({

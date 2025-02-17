@@ -1017,9 +1017,10 @@ const sendSupportTicketAssignedNotification = (recipientAddresses, ticketID, tic
  * @param {string} projectTitle
  * @param {string} inviteID
  * @param {string} token
+ * @param {string} domain
  * @returns 
  */
-const sendProjectInvitation = (recipientAddresses, senderFirstName, senderLastName, projectTitle, inviteID, token) => {
+const sendProjectInvitation = (recipientAddresses, senderFirstName, senderLastName, projectTitle, inviteID, token, domain) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
@@ -1029,7 +1030,7 @@ const sendProjectInvitation = (recipientAddresses, senderFirstName, senderLastNa
             <br />
             <p> ${senderFirstName} ${senderLastName} has invited you to join ${projectTitle} in Conductor! If you were expecting this invitation, please click the link below to accept the invite.</p>
             <br />
-            <a href="https://commons.libretexts.org/projects/accept-invite/${inviteID}?token=${token}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/projects/accept-invite/${inviteID}?token=${token}</a>
+            <a href="${domain}/projects/accept-invite/${inviteID}?token=${token}" target="_blank" rel="noopener noreferrer">${domain}/projects/accept-invite/${inviteID}?token=${token}</a>
             <br />
             <p>If you were not expecting this invitation, you can safely ignore this email</p>
             <p>Thanks,</p>

@@ -11,6 +11,7 @@ export interface ProjectInvitationInterface extends Document {
     role: string;
     accepted: boolean;
     expires: Date;
+    orgID: string;
 }
 
 const ProjectInvitationSchema: Schema<ProjectInvitationInterface> = new Schema(
@@ -52,6 +53,10 @@ const ProjectInvitationSchema: Schema<ProjectInvitationInterface> = new Schema(
         expires: {
             type: Date,
             default: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        },
+        orgID: {          
+            type: String,
+            required: true
         }
     },
     {
