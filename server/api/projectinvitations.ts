@@ -16,6 +16,7 @@ import {
   updateTeamWorkbenchPermissions,
 } from '../util/projectutils.js';
 import { SanitizedUserSelectProjection, SanitizedUserSelectQuery } from "../models/user.js";
+import { ProjectRole } from "../util/projectinvitations";
 
 const checkProjectAdminPermission = (project:any, user:any) => {
     let projAdmins: any[] = [];
@@ -88,14 +89,17 @@ const constructProjectTeam = (project:any, exclude?:any) => {
 async function _addMemberToProjectInternal(
   projectID: string,
   uuid: string,
-  user: any 
+  user: any,
+  role: ProjectRole = ProjectRole.MEMBER,
+  acceptingInvitation = false
 ): Promise<string> {
   const project = await Project.findOne({ projectID }).lean();
   if (!project) {
     throw new Error(conductorErrors.err11); 
   }
 
-  if (!checkProjectAdminPermission(project, user)) {
+  // If user is accepting a valid invitation, we don't need to check for admin permissions
+  if (!checkProjectAdminPermission(project, user) && !acceptingInvitation) {
     throw new Error(conductorErrors.err8); 
   }
 
@@ -109,9 +113,24 @@ async function _addMemberToProjectInternal(
     throw new Error(conductorErrors.err7); 
   }
 
+  const addTo = () => {
+    switch(role) {
+      case ProjectRole.LEAD:
+        return { leads: uuid };
+      case ProjectRole.LIAISON:
+        return { liaisons: uuid };
+      case ProjectRole.MEMBER:
+        return { members: uuid };
+      case ProjectRole.AUDITOR:
+        return { auditors: uuid };
+      default:
+        return { members: uuid };
+    }
+  }
+
   const updateRes = await Project.updateOne(
     { projectID },
-    { $addToSet: { members: uuid } }
+    { $addToSet: addTo() }
   );
   if (updateRes.modifiedCount !== 1) {
     throw new Error('Project update failed.');
@@ -158,7 +177,7 @@ async function _addMemberToProjectInternal(
     debugError(`Error sending Team Member Added notification email: ${e}`);
   });
 
-  return 'Successfully added user as team member!';
+  return 'Successfully added user to project team!';
 }
 
 
@@ -508,9 +527,6 @@ export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof
       });
     }
 
-    invitation.accepted = true;
-    await invitation.save();
-
     const { projectID, email } = invitation;
 
     if (!projectID || !email) {
@@ -520,7 +536,12 @@ export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof
       });
     }
 
-    const user = await User.findOne({ email });
+    /**
+     * User does not necessarily need to have the same email as the invitation
+     * so long as inviteID and token are valid (and user is authenticated).
+     * Many people have multiple accounts/emails and may have been invited via a different one.
+    */
+    const user = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
 
     if (!user) {
       return res.status(404).send({
@@ -529,7 +550,12 @@ export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof
       });
     }
 
-    const result = await _addMemberToProjectInternal(projectID, user.uuid, req.user);
+    const result = await _addMemberToProjectInternal(projectID, user.uuid, req.user, (invitation.role as ProjectRole), true);
+
+    // Ensure invitation is successfully accepted before updating it
+    invitation.accepted = true;
+    await invitation.save();
+
     return res.status(200).send({
       err: false,
       msg: "Invitation accepted and member added to project.",
