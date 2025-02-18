@@ -29,6 +29,10 @@ import {
   TableOfContents,
   User,
   UserSearchParams,
+  BaseInvitation,
+  Sender,
+  ProjectSummary,
+  InvitationsResponse,
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -656,6 +660,7 @@ class API {
     const res = await axios.get<
       { users: AddableProjectTeamMember[] } & ConductorBaseResponse
     >(`/project/${params.projectID}/team/addable?${queryParams}`);
+
     return res;
   }
   async getPublicProjects(params?: { page?: number; limit?: number }) {
@@ -1018,6 +1023,84 @@ class API {
       params,
     });
   }
+
+  // Project Invitations
+  async createProjectInvitation(
+    projectID: string,
+    email: string,
+    role: string
+  ) {
+    const res = await axios.post<{ 
+      responseInvitation: BaseInvitation
+    } & ConductorBaseResponse>(
+      `/project-invitations/${projectID}`,
+      {
+        email,
+        role
+      }
+    );
+    return res.data;
+  }
+
+  async getAllProjectInvitations(
+    projectID: string, 
+    page: number = 1, 
+    limit: number
+  ) {
+    const res = await axios.get<{
+      data: InvitationsResponse;
+    } & ConductorBaseResponse>(`/project-invitations/project/${projectID}`, {
+      params: { page, limit },
+    });
+    return res.data;
+  }
+
+  async getProjectInvitation(
+    inviteID: string, 
+    token: string | null
+  ) {
+    const res = await axios.get<{
+      invitation: BaseInvitation & {sender: Sender} & {project: ProjectSummary};
+    } & ConductorBaseResponse>(`/project-invitations/${inviteID}`, {
+      params: { token },
+    });
+    return res.data;
+  }
+
+  async deleteInvitation(invitationId: string) {
+    const res = await axios.delete<
+      {
+        deleted: boolean;
+      } & ConductorBaseResponse
+    >(`/project-invitations/${invitationId}`);
+  
+    return res.data;
+  }
+  
+  async updateInvitationRole(inviteID: string, role: string) {
+    const res = await axios.put<
+      {
+        updatedInvitation: BaseInvitation;
+      } & ConductorBaseResponse
+    >(`/project-invitations/${inviteID}/update`, { role });
+  
+    return res.data; 
+  }
+  
+  async acceptProjectInvitation(inviteID: string | null, token: string | null){
+    const res = await axios.post<{ 
+      data: string
+    } & ConductorBaseResponse>(
+      `/project-invitation/${inviteID}/accept`,
+      {},
+      {
+        params: {token},
+      }
+    );
+
+    return res.data;
+  }
+
 }
 
 export default new API();

@@ -1010,6 +1010,37 @@ const sendSupportTicketAssignedNotification = (recipientAddresses, ticketID, tic
 }
 
 /**
+ * Sends a notification to the specified email addresses that they have been invited to a project.
+ * @param {string} recipientAddresses
+ * @param {string} senderFirstName
+ * @param {string} senderLastName
+ * @param {string} projectTitle
+ * @param {string} inviteID
+ * @param {string} token
+ * @param {string} domain
+ * @returns 
+ */
+const sendProjectInvitation = (recipientAddresses, senderFirstName, senderLastName, projectTitle, inviteID, token, domain) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: recipientAddresses,
+        subject: "Invitation To Project",
+        html: `
+            <p>Hi there,</p>
+            <br />
+            <p> ${senderFirstName} ${senderLastName} has invited you to join ${projectTitle} in Conductor! If you were expecting this invitation, please click the link below to accept the invite.</p>
+            <br />
+            <a href="${domain}/projects/accept-invite/${inviteID}?token=${token}" target="_blank" rel="noopener noreferrer">${domain}/projects/accept-invite/${inviteID}?token=${token}</a>
+            <br />
+            <p>If you were not expecting this invitation, you can safely ignore this email</p>
+            <p>Thanks,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `
+    });
+}
+
+/**
  * Sends a notification to the specified email addresses that they've been added to receive updates on a support ticket.
  * @param {string} recipientAddress - the email address to send the notification to
  * @param {string} ticketID - the ticket's uuid
@@ -1075,5 +1106,6 @@ export default {
     sendSupportTicketAssignedNotification,
     sendSupportTicketAutoCloseWarning,
     sendZIPFileReadyNotification,
+    sendProjectInvitation,
     sendSupportTicketCCedNotification
 }
