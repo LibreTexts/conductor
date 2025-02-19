@@ -96,11 +96,3 @@ export type CentralIdentityLicense = {
   created_at: Date;
   updated_at: Date;
 }
-
-export type ADAPTAccessCodeResponse = {
-  type: 'success',
-  access_code: string,
-} | {
-  type: 'error',
-  message: string,
-}

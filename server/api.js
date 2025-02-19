@@ -275,13 +275,6 @@ router.route("/central-identity/adapt-orgs").get(
   centralIdentityAPI.getADAPTOrgs
 );
 
-router.route("/central-identity/adapt-access-code").get(
-  authAPI.verifyRequest, // Don't need checkCentralIdentityConfig here because it does not require a valid API key
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware("libretexts", "support"),
-  centralIdentityAPI.generateADAPTAccessCode
-);
-
 router
   .route("/central-identity/systems")
   .get(
