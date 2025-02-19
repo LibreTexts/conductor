@@ -6,17 +6,17 @@ import b62 from "base62-random";
 import { debugError } from "../debug.js";
 import conductorErrors from "../conductor-errors.js";
 import authAPI from './auth.js';
-import ProjectInvitation from "../models/projectinvitation";
+import ProjectInvitation from "../models/projectinvitation.js";
 import Project from '../models/project.js';
 import Organization from '../models/organization.js';
-import User from "../models/user";
+import User from "../models/user.js";
 import mailAPI from './mail.js';
 import { getSubdomainFromLibrary } from '../util/librariesclient.js';
 import {
   updateTeamWorkbenchPermissions,
 } from '../util/projectutils.js';
 import { SanitizedUserSelectProjection, SanitizedUserSelectQuery } from "../models/user.js";
-import { ProjectRole } from "../util/projectinvitations";
+import { ProjectRole } from "../util/projectinvitations.js";
 
 const checkProjectAdminPermission = (project:any, user:any) => {
     let projAdmins: any[] = [];

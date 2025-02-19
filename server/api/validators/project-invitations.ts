@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { PaginationSchema } from "./misc.js";
-import { ProjectRole } from "../../util/projectinvitations";
+import { ProjectRole } from "../../util/projectinvitations.js";
 
 const _projectIDSchema = z.string()
 // const _projectIDSchema = z.string().trim().min(10).max(10);
