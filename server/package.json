@@ -5,10 +5,9 @@
   "main": "server.ts",
   "type": "module",
   "scripts": {
-    "start": "ts-node --esm server.ts",
-    "start:prod": "node dist/server.js",
-    "dev": "tsx watch server.ts",
-    "build": "tsc --build"
+    "dev": "tsx --watch server.ts",
+    "build": "tsup server.ts --format esm --dts --out-dir dist && tsc-alias",
+    "start:prod": "node --experimental-specifier-resolution=node dist/server.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.621.0",
@@ -52,7 +51,6 @@
     "sharp": "^0.32.6",
     "stripe": "^12.7.0",
     "swagger-ui-express": "^4.1.6",
-    "ts-node": "^10.9.1",
     "util": "^0.12.4",
     "uuid": "^8.3.1",
     "validator": "^13.9.0",
@@ -77,6 +75,8 @@
     "eslint": "^8.3.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-import": "^2.25.3",
+    "tsc-alias": "^1.8.10",
+    "tsup": "^8.3.6",
     "tsx": "^4.9.3",
     "typescript": "^5.4.2"
   },
