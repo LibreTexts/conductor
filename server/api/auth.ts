@@ -20,7 +20,8 @@ const SALT_ROUNDS = 10;
 const JWT_SECRET = new TextEncoder().encode(process.env.SECRETKEY);
 const JWT_COOKIE_DOMAIN = (process.env.PRODUCTIONURLS || "").split(",")[0];
 const SESSION_DEFAULT_EXPIRY_MINUTES = 60 * 24 * 7; // 7 days
-const SESSION_DEFAULT_EXPIRY_MILLISECONDS = SESSION_DEFAULT_EXPIRY_MINUTES * 60 * 1000;
+const SESSION_DEFAULT_EXPIRY_MILLISECONDS =
+  SESSION_DEFAULT_EXPIRY_MINUTES * 60 * 1000;
 
 const oidcBase = `https://${process.env.OIDC_HOST}`;
 const oidcAuth = `${oidcBase}/cas/oidc/authorize`;
@@ -75,17 +76,23 @@ function splitSessionJWT(sessionJWT: string) {
  * @param {string} uuid - The User UUID to initialize the session for.
  * @param {string} ticket - A CAS ticket ID to use for the session.
  */
-async function createAndAttachLocalSession(res: Response, uuid: string, ticket?: string) {
+async function createAndAttachLocalSession(
+  res: Response,
+  uuid: string,
+  ticket?: string
+) {
   const sessionId = uuidv4();
   const sessionCreated = new Date();
-  const sessionExpiry = new Date(sessionCreated.getTime() + SESSION_DEFAULT_EXPIRY_MILLISECONDS);
+  const sessionExpiry = new Date(
+    sessionCreated.getTime() + SESSION_DEFAULT_EXPIRY_MILLISECONDS
+  );
   const session = new Session({
     sessionId,
     userId: uuid,
     valid: true,
     createdAt: sessionCreated,
     expiresAt: sessionExpiry,
-    ...ticket && { sessionTicket: ticket },
+    ...(ticket && { sessionTicket: ticket }),
   });
 
   await session.save();
@@ -153,6 +160,7 @@ async function initLogin(req: Request, res: Response) {
     secure: true,
   };
 
+  // Handle redirection for org Commons (non-LibreTexts instances)
   if (
     process.env.CONDUCTOR_DOMAIN &&
     process.env.CONDUCTOR_DOMAIN !== "commons.libretexts.org"
@@ -164,6 +172,7 @@ async function initLogin(req: Request, res: Response) {
       ...(process.env.NODE_ENV === "production" && prodCookieConfig),
     });
   }
+
   res.cookie("oidc_state", base64State, {
     encode: String,
     httpOnly: true,
@@ -235,7 +244,7 @@ async function completeLogin(req: Request, res: Response) {
     }
 
     // Session ID (sid) from id_token will be used as the ticket identifier
-    const idDecoded = decodeJwt(id_token)
+    const idDecoded = decodeJwt(id_token);
     const ticketID = idDecoded?.sid?.toString();
 
     // Verify ID token with CAS public key set
@@ -348,29 +357,33 @@ async function completeLogin(req: Request, res: Response) {
     // Create local session
     await createAndAttachLocalSession(res, authUser.uuid, ticketID);
 
-    // Redirect user
-    let redirectURL = req.hostname;
-    if (req.cookies.conductor_auth_redirect) {
-      redirectURL = req.cookies.conductor_auth_redirect;
-    } else {
-      const domain =
-        process.env.NODE_ENV === "production"
-          ? process.env.CONDUCTOR_DOMAIN
-          : `localhost:${process.env.CLIENT_PORT || 3000}`;
-      redirectURL = `${oidcCallbackProto}://${domain}`;
+    // Determine base of redirect URL
+    let finalRedirectURL = `${req.protocol}://${req.get("host")}`; // Default to current host
+    if(req.cookies.conductor_auth_redirect){
+      finalRedirectURL = req.cookies.conductor_auth_redirect; // Use auth redirect cookie if available
     }
+
+    // Check if redirectURI is a full URL
     if (state.redirectURI && isFullURL(state.redirectURI)) {
-      redirectURL = state.redirectURI;
-    } else {
+      finalRedirectURL = state.redirectURI;
+    } else if (state.redirectURI && !isFullURL(state.redirectURI)) {
       // redirectURI is only a path or not provided
-      redirectURL = assembleUrl([redirectURL, state.redirectURI ?? "home"]);
+      finalRedirectURL = assembleUrl([finalRedirectURL, state.redirectURI]);
+    } else {
+      // Default to home if no redirectURI is provided
+      finalRedirectURL = assembleUrl([finalRedirectURL, "home"]);
     }
 
     if (!state.redirectURI && isNewMember) {
-      redirectURL = `${redirectURL}?newmember=true`;
+      const _final = new URL(finalRedirectURL);
+      const _params = new URLSearchParams(_final.search);
+      _params.set("newmember", "true");
+      finalRedirectURL = `${_final.origin}${
+        _final.pathname
+      }?${_params.toString()}`;
     }
 
-    return res.redirect(redirectURL);
+    return res.redirect(finalRedirectURL);
   } catch (e) {
     debugError(e);
     return res.status(500).send({
@@ -727,8 +740,8 @@ async function verifyRequest(req: Request, res: Response, next: NextFunction) {
   } catch (e: any) {
     let tokenExpired = false;
     let sessionInvalid = false;
-    console.log('VERIFY REQUEST ERROR')
-    console.log(e)
+    console.log("VERIFY REQUEST ERROR");
+    console.log(e);
     if (e.code === "ERR_JWT_EXPIRED") {
       tokenExpired = true;
     } else if (e.message === "ERR_BAD_SESSION") {
