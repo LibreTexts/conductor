@@ -29,7 +29,6 @@ import {
   CentralIdentityVerificationRequestStatus,
 } from "../types";
 import {
-  ADAPTAccessCodeResponse,
   CentralIdentityLicense,
   CentralIdentityUpdateVerificationRequestBody,
 } from "../types/CentralIdentity.js";
@@ -887,35 +886,6 @@ async function updateVerificationRequest(
   }
 }
 
-async function generateADAPTAccessCode(req: Request, res: Response) {
-  try {
-    if (!process.env.ADAPT_ACCESS_TOKEN) {
-      throw new Error("Missing required environment variable.");
-    }
-
-    const encoded = new TextEncoder().encode(process.env.ADAPT_ACCESS_TOKEN);
-    const jwtToSend = await new SignJWT({}).setProtectedHeader({ alg: 'HS256', typ: 'JWT' }).setIssuedAt().setExpirationTime('1h').sign(encoded);
-
-    const adaptRes = await axios.get<ADAPTAccessCodeResponse>("https://adapt.libretexts.org/api/access-code/instructor", {
-      headers: {
-        Authorization: `Bearer ${jwtToSend}`
-      }
-    });
-
-    if (adaptRes.data.type === 'error') {
-      throw new Error(adaptRes.data.message);
-    }
-
-    return res.send({
-      err: false,
-      access_code: adaptRes.data.access_code
-    });
-  } catch (err) {
-    debugError(err);
-    return conductor500Err(res);
-  }
-}
-
 
 async function processNewUserWebhookEvent(
   req: z.infer<typeof NewUserWebhookValidator>,
@@ -1155,7 +1125,6 @@ export default {
   getVerificationRequest,
   updateVerificationRequest,
   updateUser,
-  generateADAPTAccessCode,
   processNewUserWebhookEvent,
   processLibraryAccessWebhookEvent,
   processVerificationStatusUpdateWebook,
