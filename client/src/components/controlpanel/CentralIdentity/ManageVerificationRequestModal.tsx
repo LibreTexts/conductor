@@ -19,6 +19,7 @@ import {
   CentralIdentityVerificationRequest,
 } from "../../../types/CentralIdentity";
 import DenyVerificationRequestModal from "./DenyVerificationRequestModal";
+import ApproveWithMessageModal from "./ApproveWithMessageModal";
 import DOMPurify from "dompurify";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../../api";
@@ -44,6 +45,7 @@ const ManageVerificationRequestModal: React.FC<
   const [showDenyModal, setShowDenyModal] = useState<boolean>(false);
   const [denyType, setDenyType] = useState<"deny" | "request_change">("deny");
   const [approvedApps, setApprovedApps] = useState<CentralIdentityApp[]>([]);
+  const [showMessageModal, setShowMessageModal] = useState<boolean>(false);
 
   const { data: allApps, isFetching: allAppsLoading } = useQuery<
     CentralIdentityApp[]
@@ -369,6 +371,14 @@ const ManageVerificationRequestModal: React.FC<
             <Icon name="save" />
             Approve
           </Button>
+          <Button
+            color="green"
+            onClick={() => setShowMessageModal(true)}
+            loading={loading}
+          >
+            <Icon name="comment alternate" /> 
+            Approve w/ Message
+          </Button>
         </div>
         <div>
           <Button onClick={handleCancel} loading={loading}>
@@ -382,6 +392,13 @@ const ManageVerificationRequestModal: React.FC<
         requestId={requestId}
         onSave={() => onSave()}
         onCancel={() => setShowDenyModal(false)}
+      />
+      <ApproveWithMessageModal
+        open={showMessageModal}
+        onClose={() => setShowMessageModal(false)}
+        requestId={requestId} 
+        approvedApps={approvedApps}
+        onSave={onSave}
       />
     </Modal>
   );
