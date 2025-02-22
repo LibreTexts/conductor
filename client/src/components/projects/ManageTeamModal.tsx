@@ -77,9 +77,9 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   >([]);
   const [teamUserOptsLoading, setTeamUserOptsLoading] =
     useState<boolean>(false);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const ITEMS_PER_PAGE = 5;
+  const [currentInvitationPage, setCurrentInvitationPage] = useState<number>(1);
+  const [totalInvitationPages, setTotalInvitationPages] = useState<number>(1);
+  const ITEMS_PER_INVITATION_PAGE = 5;
 
   const userOrgDomain = useMemo(() => {
     if (!user?.email) return "";
@@ -111,7 +111,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
 
 
       setInviteEmail("");
-      setCurrentPage(1);
+      setCurrentInvitationPage(1);
       await fetchPendingInvitations();
       onDataChanged();
     } catch (err) {
@@ -125,11 +125,11 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     try {
       setInvitationsLoading(true);
       
-      const res = await api.getAllProjectInvitations(project.projectID, page, ITEMS_PER_PAGE);
+      const res = await api.getAllProjectInvitations(project.projectID, page, ITEMS_PER_INVITATION_PAGE);
 
       
       setPendingInvitations(res.data.invitations || []);
-      setTotalPages(Math.ceil(res.data.total / ITEMS_PER_PAGE));
+      setTotalInvitationPages(Math.ceil(res.data.total / ITEMS_PER_INVITATION_PAGE));
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -252,7 +252,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
       setLoading(true);
       const res = await api.updateInvitationRole(inviteID, role);
   
-      await fetchPendingInvitations(currentPage);
+      await fetchPendingInvitations(currentInvitationPage);
       onDataChanged(); 
     } catch (err) {
       handleGlobalError(err);
@@ -331,6 +331,9 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   }: {
     project: Project;
   }) => {
+    const [currentTeamPage, setCurrentTeamPage] = useState(1);
+    const ITEMS_PER_TEAM_PAGE = 5;
+  
     const projTeam: ProjectDisplayMember[] = [];
     if (project.leads && Array.isArray(project.leads)) {
       project.leads.forEach((item) => {
@@ -361,56 +364,74 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
       });
     }
     const sortedTeam = sortUsersByName(projTeam) as ProjectDisplayMember[];
-
-
+    
+    const totalTeamPages = Math.ceil(sortedTeam.length / ITEMS_PER_TEAM_PAGE);
+    const startIndex = (currentTeamPage - 1) * ITEMS_PER_TEAM_PAGE;
+    const paginatedTeam = sortedTeam.slice(startIndex, startIndex + ITEMS_PER_TEAM_PAGE);
+  
     return (
-      <Table celled striped compact {...rest}>
-        <Table.Header>
-          <Table.Row>
-            <Table.HeaderCell width={"7"}>Name</Table.HeaderCell>
-            <Table.HeaderCell width={"2"}>Role</Table.HeaderCell>
-            <Table.HeaderCell width={"1"}>Actions</Table.HeaderCell>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {sortedTeam.map((item) => (
-            <Table.Row key={item.uuid}>
-              <Table.Cell>
-                <Image avatar src={item.avatar} />
-                {item.firstName} {item.lastName}
-              </Table.Cell>
-              <Table.Cell>
-                <Dropdown
-                  placeholder="Change role..."
-                  selection
-                  options={projectRoleOptions}
-                  value={item.roleValue}
-                  loading={loading}
-                  onChange={(_e, { value }) => {
-                    submitChangeTeamMemberRole(
-                      item.uuid,
-                      value ? value.toString() : ""
-                    )
-                  }}
-                />
-              </Table.Cell>
-              <Table.Cell>
-                <Button
-                  color="red"
-                  className="ml-1p"
-                  onClick={() => {
-                    submitRemoveTeamMember(item.uuid);
-                  }}
-                  icon
-                >
-                  <Icon name="remove circle" />
-                  <span className="ml-2">Remove</span>
-                </Button>
-              </Table.Cell>
+      <>
+        <Table celled striped compact {...rest}>
+          <Table.Header>
+            <Table.Row>
+              <Table.HeaderCell width={"7"}>Name</Table.HeaderCell>
+              <Table.HeaderCell width={"2"}>Role</Table.HeaderCell>
+              <Table.HeaderCell width={"1"}>Actions</Table.HeaderCell>
             </Table.Row>
-          ))}
-        </Table.Body>
-      </Table>
+          </Table.Header>
+          <Table.Body>
+            {paginatedTeam.map((item) => (
+              <Table.Row key={item.uuid}>
+                <Table.Cell>
+                  <Image avatar src={item.avatar} />
+                  {item.firstName} {item.lastName}
+                </Table.Cell>
+                <Table.Cell>
+                  <Dropdown
+                    placeholder="Change role..."
+                    selection
+                    options={projectRoleOptions}
+                    value={item.roleValue}
+                    loading={loading}
+                    onChange={(_e, { value }) => {
+                      submitChangeTeamMemberRole(
+                        item.uuid,
+                        value ? value.toString() : ""
+                      )
+                    }}
+                  />
+                </Table.Cell>
+                <Table.Cell>
+                  <Button
+                    color="red"
+                    className="ml-1p"
+                    onClick={() => {
+                      submitRemoveTeamMember(item.uuid);
+                    }}
+                    icon
+                  >
+                    <Icon name="remove circle" />
+                    <span className="ml-2">Remove</span>
+                  </Button>
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </Table>
+        {totalTeamPages > 1 && (
+          <div className="flex justify-center mt-4">
+            <Pagination
+              activePage={currentTeamPage}
+              totalPages={totalTeamPages}
+              onPageChange={(_e, { activePage }) => {
+                setCurrentTeamPage(Number(activePage));
+              }}
+              firstItem={totalTeamPages > 2 ? undefined : null}
+              lastItem={totalTeamPages > 2 ? undefined : null}
+            />
+          </div>
+        )}
+      </>
     );
   };
 
@@ -477,17 +498,17 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
             )}
           </Table.Body>
         </Table>
-        {totalPages > 1 && (
+        {totalInvitationPages > 1 && (
           <div className="flex justify-center mt-4">
             <Pagination
-              activePage={currentPage}
-              totalPages={totalPages}
+              activePage={currentInvitationPage}
+              totalPages={totalInvitationPages}
               onPageChange={(_e, { activePage }) => {
-                setCurrentPage(Number(activePage));
+                setCurrentInvitationPage(Number(activePage));
                 fetchPendingInvitations(Number(activePage));
               }}
-              firstItem={totalPages > 2 ? undefined : null}
-              lastItem={totalPages > 2 ? undefined : null}
+              firstItem={totalInvitationPages > 2 ? undefined : null}
+              lastItem={totalInvitationPages > 2 ? undefined : null}
             />
           </div>
         )}
