@@ -388,13 +388,15 @@ class API {
   async batchGenerateAIMetadata(
     bookID: string,
     summaries: boolean,
-    tags: boolean
+    tags: boolean,
+    alttext: boolean
   ) {
     const res = await axios.post<ConductorBaseResponse>(
       `/commons/book/${bookID}/ai-metadata-batch`,
       {
         summaries,
         tags,
+        alttext,
       }
     );
     return res;

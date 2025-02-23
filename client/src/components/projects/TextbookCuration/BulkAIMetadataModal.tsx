@@ -26,6 +26,7 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [tags, setTags] = useState<boolean>(false);
   const [summaries, setSummaries] = useState<boolean>(false);
+  const [alttext, setAlttext] = useState<boolean>(false);
   const { data: projectData, isLoading: projectLoading } = useQuery<
     Project | undefined
   >({
@@ -64,8 +65,8 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
         throw new Error("Missing library or page ID");
       }
 
-      if (!summaries && !tags) {
-        throw new Error("Please select summaries and/or tags to generate.");
+      if (!summaries && !tags && !alttext) {
+        throw new Error("Please select a resource to generate.");
       }
 
       setLoading(true);
@@ -73,7 +74,8 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
       const res = await api.batchGenerateAIMetadata(
         `${library}-${pageID}`,
         summaries,
-        tags
+        tags,
+        alttext
       );
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -101,10 +103,16 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
       <Modal.Content>
         <p className="text-lg mb-2">
           Are you sure you want to generate AI metadata for all pages in this
-          book? This will overwrite any existing summaries and/or tags.
+          book? This will overwrite any existing summaries, tags, and image alt
+          text (if selected).
         </p>
-
-        <div className="flex flex-col space-y-6 my-6">
+        <p className="text-lg mb-2">
+          <strong>Note:</strong> Structural pages like the Table of Contents,
+          chapter cover pages, etc., will not be processed. This operation may
+          take some time, so we'll send you an email when it's complete. Only
+          one bulk operation can be run at a time on a book.
+        </p>
+        <div className="flex flex-col space-y-6 my-12">
           <Checkbox
             label="Generate Summaries"
             checked={summaries}
@@ -117,14 +125,14 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
             onChange={() => setTags(!tags)}
             toggle
           />
+          <Checkbox
+            label="Generate Image(s) Alt Text"
+            checked={alttext}
+            onChange={() => setAlttext(!alttext)}
+            toggle
+          />
         </div>
-        <p className="text-lg mb-2">
-          <strong>Note:</strong> Structural pages like the Table of Contents,
-          chapter cover pages, etc., will not be processed. This operation may
-          take some time, so we'll send you an email when it's complete. Only
-          one bulk operation can be run at a time per book.
-        </p>
-        <p className="text-sm text-center text-slate-500 italic px-12 mt-6">
+        <p className="text-sm text-center text-slate-500 italic px-4 mt-6">
           Caution: AI-generated output may not always be accurate. Please
           thoroughly review content before publishing. LibreTexts is not
           responsible for any inaccuracies in AI-generated content.
@@ -153,7 +161,7 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
               color="green"
               onClick={handleSubmit}
               loading={loading}
-              disabled={!summaries && !tags}
+              disabled={!summaries && !tags && !alttext}
             >
               <Icon name="magic" /> Generate
             </Button>

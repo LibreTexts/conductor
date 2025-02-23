@@ -57,7 +57,7 @@ export type ProjectFile = {
 export type ProjectFileWProjectData<K extends keyof Project> = ProjectFile & {
   projectInfo: {
     [P in K]: Project[P];
-  }
+  };
 };
 
 /**
@@ -69,7 +69,7 @@ export type ProjectFileWCustomData<
   T extends keyof Project = never
 > = ProjectFile & {
   projectInfo: Record<K, string> &
-  (T extends never ? {} : ProjectFileWProjectData<T>);
+    (T extends never ? {} : ProjectFileWProjectData<T>);
 };
 
 export enum ProjectStatus {
@@ -90,7 +90,7 @@ export enum ProjectClassification {
   MISCELLANEOUS = "miscellaneous",
 }
 
-export type ProjectModule = 'discussion' | 'files' | 'tasks';
+export type ProjectModule = "discussion" | "files" | "tasks";
 
 export type ProjectModuleConfig = {
   enabled: boolean;
@@ -105,17 +105,21 @@ export type ProjectModuleSettings = {
 
 export type ProjectBookBatchUpdateJob = {
   jobID: string;
-  type: "summaries" | "tags" | "summaries+tags";
+  type: ("summaries" | "tags" | "alttext")[];
   status: "pending" | "running" | "completed" | "failed";
-  processedPages: number;
-  failedPages: number;
-  totalPages: number;
+  successfulMetaPages?: number; // number of pages whose summaries and/or tags were updated
+  failedMetaPages?: number;
+  successfulImagePages?: number; // number of pages whose image(s) alt text was updated
+  failedImagePages?: number;
   dataSource: "user" | "generated";
   ranBy: string; // User UUID
   startTimestamp?: Date;
   endTimestamp?: Date;
-  error?: string;
-  results?: {
+  error?: string; // root-level error message, not for individual pages
+  imageResults?: {
+    [key: string]: any;
+  };
+  metaResults?: {
     [key: string]: any;
   };
 }
@@ -186,6 +190,9 @@ export type Project = {
   batchUpdateJobs?: ProjectBookBatchUpdateJob[];
 };
 
-export type AddableProjectTeamMember = Pick<User, "uuid" | "firstName" | "lastName" | "avatar"> & {
-  orgs: { name: string }[]
-}
+export type AddableProjectTeamMember = Pick<
+  User,
+  "uuid" | "firstName" | "lastName" | "avatar"
+> & {
+  orgs: { name: string }[];
+};

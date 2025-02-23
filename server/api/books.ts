@@ -42,8 +42,9 @@ import projectsAPI from "./projects.js";
 import alertsAPI from "./alerts.js";
 import mailAPI from "./mail.js";
 import collectionsAPI from "./collections.js";
-import axios from "axios";
+import axios, { AxiosResponse } from "axios";
 import {
+  _generatePageImagesAltTextResObj,
   BookSortOption,
   TableOfContents,
   TableOfContentsDetailed,
@@ -80,6 +81,8 @@ import {
 } from "./validators/book.js";
 import BookService from "./services/book-service.js";
 import { randomUUID } from "crypto";
+import * as cheerio from "cheerio";
+import AIService from "./services/ai-service.js";
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   _id: 0,
@@ -2325,35 +2328,34 @@ async function batchGenerateAIMetadata(
       });
     }
 
-    const jobType =
-      req.body.summaries && req.body.tags
-        ? "summaries+tags"
-        : req.body.summaries
-        ? "summaries"
-        : "tags";
+    const jobType: ProjectBookBatchUpdateJob["type"] = [];
+    if (req.body.summaries) jobType.push("summaries");
+    if (req.body.tags) jobType.push("tags");
+    if (req.body.alttext) jobType.push("alttext");
+
+    if (!jobType.length) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "No job type provided.",
+      });
+    }
 
     const job: ProjectBookBatchUpdateJob = {
       jobID: randomUUID(),
       type: jobType,
       status: "pending",
       dataSource: "generated",
-      processedPages: 0,
-      failedPages: 0,
-      totalPages: 0,
       startTimestamp: new Date(),
       ranBy: req.user.decoded.uuid,
     };
-
-    const jobs = project.batchUpdateJobs || [];
-    jobs.push(job);
 
     await Project.updateOne(
       {
         projectID: project.projectID,
       },
       {
-        $set: {
-          batchUpdateJobs: jobs,
+        $push: {
+          batchUpdateJobs: job,
         },
       }
     );
@@ -2439,26 +2441,22 @@ async function batchUpdateBookMetadata(
 
     const job: ProjectBookBatchUpdateJob = {
       jobID: randomUUID(),
-      type: "summaries+tags", // Default to summaries+tags for user data source
+      type: ["summaries", "tags"], // Default to summaries+tags for user data source
       status: "pending",
       dataSource: "user",
-      processedPages: 0,
-      failedPages: 0,
-      totalPages: 0,
+      successfulMetaPages: 0,
+      failedMetaPages: 0,
       startTimestamp: new Date(),
       ranBy: req.user.decoded.uuid,
     };
-
-    const jobs = project.batchUpdateJobs || [];
-    jobs.push(job);
 
     await Project.updateOne(
       {
         projectID: project.projectID,
       },
       {
-        $set: {
-          batchUpdateJobs: jobs,
+        $push: {
+          batchUpdateJobs: job,
         },
       }
     );
@@ -2486,6 +2484,18 @@ async function batchUpdateBookMetadata(
   }
 }
 
+/**
+ * Updates a Project's Book's metadata (overview, tags, or image alt text) in bulk.
+ * NOTE: We purposefully do most of the async calls one by one to avoid rate limiting.
+ * Using Promise.all (even with delay) will generally exceed limits for either MindTouch or OpenAI
+ * @param jobID - The job ID to run
+ * @param jobType - The type of job to run (summaries, tags, alttext, or any combination)
+ * @param projectID - The project ID
+ * @param bookID - The id of the connected book
+ * @param dataSource - The data source (user or generated). User means the data is provided in the request, generated means we will use AI to generate it
+ * @param emailsToNotify - The emails to notify when the job is complete
+ * @param data - The data to update (only for user data source)
+ */
 async function _runBulkUpdateJob(
   jobID: string,
   jobType: ProjectBookBatchUpdateJob["type"],
@@ -2493,8 +2503,8 @@ async function _runBulkUpdateJob(
   bookID: string,
   dataSource: ProjectBookBatchUpdateJob["dataSource"],
   emailsToNotify: string[],
-  data?: { id: string; summary?: string; tags?: string[] }[]
-) {
+  data?: { id: string; summary?: string; tags?: string[] }[] // Only for user data source
+): Promise<void> {
   try {
     // Outer catch-block will catch errors with updating a failed job
     try {
@@ -2528,7 +2538,6 @@ async function _runBulkUpdateJob(
         {
           $set: {
             "batchUpdateJobs.$[job].status": "running",
-            "batchUpdateJobs.$[job].totalPages": pageIDs.length,
           },
         },
         {
@@ -2536,7 +2545,24 @@ async function _runBulkUpdateJob(
         }
       );
 
+      // Job error tracking
+      const errors = {
+        meta: {
+          location: 0,
+          empty: 0,
+          internal: 0,
+        },
+        images: {
+          location: 0,
+          empty: 0,
+          internal: 0,
+        },
+      };
+      let successfulImages = 0;
+      let failedImages = 0;
+
       // Initialize new page details array
+      // page overview and tags can be updated in the same call, gather both as necessary before updating page
       let newPageDetails: {
         id: string;
         summary?: string;
@@ -2551,10 +2577,12 @@ async function _runBulkUpdateJob(
       if (dataSource === "generated") {
         // Get pages text content
         const pageTextPromises = pageIDs.map((p) => {
+          // Generate a random delay between 0 and 1s to avoid rate limiting
+          const delay = Math.floor(Math.random() * 1000);
           return new Promise<string>((resolve) => {
             setTimeout(async () => {
               resolve(await bookService.getPageTextContent(p));
-            }, 1000); // delay 1s between each page text fetch to avoid rate limiting
+            }, delay);
           });
         });
 
@@ -2566,114 +2594,127 @@ async function _runBulkUpdateJob(
           }
         });
 
-        if (["summaries", "summaries+tags"].includes(jobType)) {
-          const summaryPromises: Promise<
-            [
-              "location" | "env" | "empty" | "badres" | "internal" | null,
-              string
-            ]
-          >[] = [];
+        // Do alt-text updates
+        if (jobType.includes("alttext")) {
+          for (const page of pageTextsMap) {
+            const altTextRes = await _generateAndApplyPageImagesAltText(
+              bookService,
+              page[0]
+            );
 
-          // Create AI summary for each page
-          pageTextsMap.forEach((pText, pID) => {
-            // delay 1s between each summary generation to avoid rate limiting
-            const promise = new Promise<
-              ReturnType<typeof _generatePageAISummary>
-            >((resolve) => {
-              setTimeout(async () => {
-                resolve(_generatePageAISummary(bookService, pID, pText));
-              }, 1000);
-            });
-            // @ts-ignore
-            summaryPromises.push(promise);
-          });
+            if (altTextRes[0] !== null) {
+              if (altTextRes[0] === "empty") {
+                errors.images.location++;
+              } else {
+                errors.images.internal++;
+              }
 
-          const results = await Promise.allSettled(summaryPromises);
+              failedImages++;
+              continue;
+            }
 
-          // Add summaries to newPageDetails
-          for (let i = 0; i < results.length; i++) {
-            const result = results[i];
-            if (result.status === "rejected") continue;
-            if (result.value[0] !== null) continue;
-            newPageDetails.push({
-              id: pageIDs[i],
-              summary: result.value[1],
-              error: result.value[0] || undefined,
-            });
+            successfulImages++;
+          }
+
+          // update job status
+          await Project.updateOne(
+            {
+              projectID,
+            },
+            {
+              $set: {
+                "batchUpdateJobs.$[job].successfulImagePages": successfulImages,
+                "batchUpdateJobs.$[job].failedImagePages": failedImages,
+                "batchUpdateJobs.$[job].imageResults": errors.images,
+              },
+            },
+            {
+              arrayFilters: [{ "job.jobID": jobID }],
+            }
+          );
+        }
+
+        // Create AI summary for each page
+        if (jobType.includes("summaries")) {
+          for (const page of pageTextsMap) {
+            const aiSummaryRes = await _generatePageAISummary(
+              bookService,
+              page[0],
+              page[1]
+            );
+            if (aiSummaryRes[0] !== null) {
+              if (aiSummaryRes[0] === "empty") {
+                errors.meta.empty++;
+              } else {
+                errors.meta.internal++;
+              }
+              newPageDetails.push({
+                id: page[0],
+                error: aiSummaryRes[0],
+              });
+            } else {
+              newPageDetails.push({
+                id: page[0],
+                summary: aiSummaryRes[1],
+              });
+            }
           }
         }
 
-        if (["tags", "summaries+tags"].includes(jobType)) {
-          const tagPromises: Promise<
-            [
-              "location" | "env" | "empty" | "badres" | "internal" | null,
-              string[]
-            ]
-          >[] = [];
-
-          // Create AI tags for each page
-          pageTextsMap.forEach((pText, pID) => {
-            const promise = new Promise<ReturnType<typeof _generatePageAITags>>(
-              (resolve) => {
-                setTimeout(async () => {
-                  resolve(_generatePageAITags(bookService, pID, pText));
-                }, 1000); // delay 1s between each tag generation to avoid rate limiting
-              }
+        if (jobType.includes("tags")) {
+          for (const page of pageTextsMap) {
+            const aiTagsRes = await _generatePageAITags(
+              bookService,
+              page[0],
+              page[1]
             );
-            // @ts-ignore
-            tagPromises.push(promise);
-          });
+            const found = newPageDetails.find((p) => p.id === page[0]);
+            if (aiTagsRes[0] !== null) {
+              if (aiTagsRes[0] === "empty") {
+                errors.meta.empty++;
+              } else {
+                errors.meta.internal++;
+              }
 
-          const results = await Promise.allSettled(tagPromises);
+              // Update existing page details with error
+              if (found) {
+                found.error = aiTagsRes[0];
+                continue;
+              }
 
-          // Add tags to newPageDetails
-          for (let i = 0; i < results.length; i++) {
-            const result = results[i];
-            if (result.status === "rejected") continue;
-            if (result.value[0] !== null) continue;
-            const found = newPageDetails.find((p) => p.id === pageIDs[i]);
-            if (found) {
-              found.tags = result.value[1];
-            } else {
+              // Add new page details with error
               newPageDetails.push({
-                id: pageIDs[i],
-                tags: result.value[1],
-                error: result.value[0] || undefined,
+                id: page[0],
+                error: aiTagsRes[0],
+              });
+            } else {
+              if (found) {
+                found.tags = aiTagsRes[1];
+                continue;
+              }
+
+              newPageDetails.push({
+                id: page[0],
+                tags: aiTagsRes[1],
               });
             }
           }
         }
       }
 
-      // Bulk update page details
-      let processed = 0;
-      let failed = 0;
-      const BATCH_SIZE = 5;
-      const errors = {
-        location: 0,
-        env: 0,
-        empty: 0,
-        badres: 0,
-        internal: 0,
-      };
+      // Do final page details updates
+      let successfulMeta = 0;
+      let failedMeta = 0;
 
       const withoutErrors = newPageDetails.reduce((acc, curr) => {
         if (curr.error) {
           switch (curr.error) {
-            case "location":
-              errors.location++;
-              break;
-            case "env":
-              errors.env++;
-              break;
             case "empty":
-              errors.empty++;
-              break;
-            case "badres":
-              errors.badres++;
+              errors.meta.empty++;
               break;
             case "internal":
-              errors.internal++;
+            default:
+              errors.meta.internal++;
               break;
           }
           return acc;
@@ -2681,55 +2722,26 @@ async function _runBulkUpdateJob(
         return [...acc, curr];
       }, [] as { id: string; summary?: string; tags?: string[] }[]);
 
-      const updatePromises = withoutErrors.map((p) => {
-        // delay 1s between each update to avoid rate limiting
-        return new Promise<ReturnType<BookService["updatePageDetails"]>>(
-          (resolve) => {
-            setTimeout(async () => {
-              resolve(bookService.updatePageDetails(p.id, p.summary, p.tags));
-            }, 1000);
-          }
+      for (const page of withoutErrors) {
+        const updateRes = await bookService.updatePageDetails(
+          page.id,
+          page.summary,
+          page.tags
         );
-      });
-
-      for (let i = 0; i < updatePromises.length; i += BATCH_SIZE) {
-        const batch = updatePromises.slice(i, i + BATCH_SIZE);
-        const batchResults = await Promise.allSettled(batch);
-        batchResults.forEach((r) => {
-          if (r.status === "rejected") {
-            failed++;
-          } else {
-            if (r.value[0] !== null) {
-              failed++;
-              if (r.value[0] === "location") {
-                errors.location++;
-              }
-              if (r.value[0] === "internal") {
-                errors.internal++;
-              }
-            } else {
-              processed++;
-            }
+        if (updateRes[0] !== null) {
+          failedMeta++;
+          if (updateRes[0] === "location") {
+            errors.meta.location++;
           }
-        });
+          if (updateRes[0] === "internal") {
+            errors.meta.internal++;
+          }
+        } else {
+          successfulMeta++;
+        }
+
         console.log(
-          `JOB ${jobID} Update: Processed ${processed} pages, failed ${failed}.`
-        );
-
-        // update job status
-        await Project.updateOne(
-          {
-            projectID,
-          },
-          {
-            $set: {
-              "batchUpdateJobs.$[job].processedPages": processed,
-              "batchUpdateJobs.$[job].failedPages": failed,
-            },
-          },
-          {
-            arrayFilters: [{ "job.jobID": jobID }],
-          }
+          `JOB ${jobID} Update: ${successfulMeta} pages succeeded, failed ${failedMeta}.`
         );
       }
 
@@ -2742,7 +2754,12 @@ async function _runBulkUpdateJob(
           $set: {
             "batchUpdateJobs.$[job].status": "completed",
             "batchUpdateJobs.$[job].endTimestamp": new Date(),
-            "batchUpdateJobs.$[job].results": errors,
+            "batchUpdateJobs.$[job].imageResults": errors.images,
+            "batchUpdateJobs.$[job].successfulImagePages": successfulImages,
+            "batchUpdateJobs.$[job].failedImagePages": failedImages,
+            "batchUpdateJobs.$[job].metaResults": errors.meta,
+            "batchUpdateJobs.$[job].successfulMetaPages": successfulMeta,
+            "batchUpdateJobs.$[job].failedMetaPages": failedMeta,
           },
         },
         {
@@ -2750,22 +2767,35 @@ async function _runBulkUpdateJob(
         }
       );
 
-      const parsedResults: Record<string, any> = Object.entries(
-        errors || {}
+      const parsedMetaResults: Record<string, any> = Object.entries(
+        errors.meta || {}
       ).filter(([_, value]) => value !== 0);
-      const resultsString: string = parsedResults
+      const metaResultsString: string = parsedMetaResults
         .map(([key, value]: [string, any]) => {
           return `${value} pages failed with error: ${key}`;
         })
         .join(", ");
 
+      const parsedImageResults: Record<string, any> = Object.entries(
+        errors.images || {}
+      ).filter(([_, value]) => value !== 0);
+      const imageResultsString: string = parsedImageResults
+        .map(([key, value]: [string, any]) => {
+          return `${value} pages with images failed with error: ${key}`;
+        })
+        .join(", ");
+
+      const resultsString = `${metaResultsString}; ${imageResultsString}`;
+
       if (dataSource === "generated") {
+        const jobTypeString = jobType.map((t) => t).join(" and ");
         await mailAPI.sendBatchBookAIMetadataFinished(
           emailsToNotify,
           projectID,
           jobID,
-          jobType,
-          processed,  
+          jobTypeString,
+          successfulMeta,
+          successfulImages,
           resultsString
         );
       } else {
@@ -2773,7 +2803,7 @@ async function _runBulkUpdateJob(
           emailsToNotify,
           projectID,
           jobID,
-          processed,
+          successfulMeta,
           resultsString
         );
       }
@@ -2812,59 +2842,27 @@ async function _generatePageAISummary(
   bookService: BookService,
   pageID: number | string,
   _pageText?: string
-): Promise<
-  ["location" | "env" | "empty" | "badres" | "internal" | null, string]
-> {
+): Promise<["empty" | "internal" | null, string]> {
   let error = null;
   let summary = "";
   let pageText = _pageText;
   try {
-    // Ensure OpenAI API key is set
-    if (!process.env.OPENAI_API_KEY) throw new Error("env");
-
     if (!pageText) {
       pageText = await bookService.getPageTextContent(pageID.toString());
     }
-    if (!pageText || pageText.length < 50) throw new Error("empty");
+    if (!pageText) {
+      throw new Error("empty");
+    }
 
-    const aiSummaryRes = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content:
-              "Generate a summary of this page. Disregard any code blocks or images. The summary may not exceed 500 characters. If there is no summary, please return the word 'empty'.",
-          },
-          {
-            role: "user",
-            content: pageText,
-          },
-        ],
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-      }
-    );
+    const aiService = new AIService();
+    const aiSummaryOutput = await aiService.generatePageOverview(pageText);
 
-    const rawOutput = aiSummaryRes.data?.choices?.[0]?.message?.content;
-    const aiSummaryOutput = rawOutput
-      ? rawOutput === "empty"
-        ? ""
-        : rawOutput
-      : "";
-    if (!aiSummaryOutput) throw new Error("badres");
-
-    summary = aiSummaryOutput;
-
-    // If summary returned was longer than 500 chars, find last period before limit and truncate
-    if (summary.length > 500) {
-      const lastPeriodIndex = summary.lastIndexOf(".", 500);
-      summary = summary.slice(0, lastPeriodIndex + 1);
+    if (aiSummaryOutput === "empty") {
+      throw new Error("empty");
+    } else if (aiSummaryOutput === "internal") {
+      throw new Error("internal");
+    } else {
+      summary = aiSummaryOutput;
     }
   } catch (err: any) {
     error = err.message ?? "internal";
@@ -2882,69 +2880,162 @@ async function _generatePageAITags(
   bookService: BookService,
   pageID: number | string,
   _pageText?: string
-): Promise<
-  ["location" | "env" | "empty" | "badres" | "internal" | null, string[]]
-> {
+): Promise<["empty" | "internal" | null, string[]]> {
   let error = null;
-  let tags = [];
+  let tags: string[] = [];
   let pageText = _pageText;
   try {
     if (!pageText) {
       pageText = await bookService.getPageTextContent(pageID.toString());
     }
-    if (!pageText || pageText.length < 50) {
+    if (!pageText) {
       throw new Error("empty");
     }
 
-    const aiTagsRes = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content:
-              "Generate a list of tags, separated by commas, for this page. Disregard any code blocks or images. If you are unable to create any tags, please return the word 'empty'.",
-          },
-          {
-            role: "user",
-            content: pageText,
-          },
-        ],
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-      }
-    );
-
-    const rawOutput = aiTagsRes.data?.choices?.[0]?.message?.content;
-    const aiTagsOutput = rawOutput
-      ? rawOutput === "empty"
-        ? ""
-        : rawOutput
-      : "";
-    if (!aiTagsOutput) {
-      throw new Error("badres");
+    const aiService = new AIService();
+    const tagsRes = await aiService.generatePageTags(pageText);
+    if (tagsRes === "empty") {
+      throw new Error("empty");
+    }
+    if (tagsRes === "error" || !Array.isArray(tagsRes)) {
+      throw new Error("internal");
     }
 
-    const splitTags =
-      aiTagsOutput.split(",").map((tag: string) => tag.trim()) || [];
-
-    // if tags end with a period, remove it
-    if (splitTags.length > 0 && splitTags[splitTags.length - 1].endsWith(".")) {
-      splitTags[splitTags.length - 1] = splitTags[splitTags.length - 1].slice(
-        0,
-        -1
-      );
-    }
-    tags = splitTags;
+    tags = tagsRes;
   } catch (err: any) {
     error = err.message ?? "internal";
   }
   return [error, tags];
+}
+
+/**
+ * Internal function to generate AI tags for a page.
+ * @param bookService - The BookService instance to use.
+ * @param pageID - The page ID to generate tags for.
+ * @returns - Array of objects containing file ID and alt text, or undefined if an error occurred.
+ */
+async function _generateAndApplyPageImagesAltText(
+  bookService: BookService,
+  pageID: number | string
+): Promise<["empty" | "internal" | null, boolean]> {
+  let error = null;
+  let success = false;
+  try {
+    const pageImageData = await bookService.getPageImages(pageID.toString());
+    if (!pageImageData) {
+      return [null, true]; // If page doesn't have images, return success
+    }
+
+    const imageData = Array.isArray(pageImageData.file)
+      ? pageImageData.file
+      : [pageImageData.file];
+
+    const fileContentsPromises: Promise<string>[] = [];
+    for (let i = 0; i < imageData.length; i++) {
+      const fileName = imageData[i]["filename"];
+      fileContentsPromises.push(
+        bookService.getFileContent(pageID.toString(), fileName, "thumb")
+      );
+    }
+
+    const fileContentsResults = await Promise.allSettled(fileContentsPromises);
+    const fileContents: { fileID: string; contents: string }[] =
+      fileContentsResults.map((r, idx) => {
+        const fileID = imageData[idx]["@id"];
+        if (r.status === "fulfilled") {
+          return { fileID, contents: r.value };
+        }
+        return { fileID, contents: "" };
+      });
+
+    // Initialize final results array
+    const altTexts: _generatePageImagesAltTextResObj[] = [];
+
+    const aiService = new AIService();
+
+    // Purposely not using Promise.all here to avoid rate limiting issues (images use lots of tokens)
+    for (let i = 0; i < imageData.length; i++) {
+      const fileID = imageData[i]["@id"];
+      const fileType = imageData[i]["contents"]["@type"];
+      const fileSrc = imageData[i]["contents"]["@href"];
+      const content = fileContents.find((f) => f.fileID === fileID)?.contents;
+
+      if (!content) {
+        altTexts.push({
+          fileID,
+          src: fileSrc,
+          altText: "",
+          error: "fetcherror",
+        });
+        continue;
+      }
+
+      const completion = await aiService.generateImageAltText(
+        fileType,
+        content,
+        1000
+      );
+
+      if (["empty", "error", "unsupported"].includes(completion)) {
+        altTexts.push({
+          fileID,
+          src: fileSrc,
+          altText: "",
+          error: completion,
+        });
+        continue;
+      }
+
+      altTexts.push({ fileID, src: fileSrc, altText: completion });
+    }
+
+    // Get page content and parse for image elements
+    const pageContent = await bookService.getPageContent(pageID.toString());
+    // const decodedContent = decodeURIComponent(pageContent);
+    const cheerioContent = cheerio.load(pageContent);
+    const imageElements = cheerioContent("img");
+
+    for (let i = 0; i < altTexts.length; i++) {
+      const file = altTexts[i];
+
+      if (file.error || !file.altText) {
+        continue;
+      }
+
+      // Query params may vary between the file response and what is actually in the content
+      // So we need to get the base src URL for comparison
+      const baseSrc = new URL(file.src).pathname;
+
+      const found = imageElements.filter((_, el) => {
+        const src = cheerioContent(el).attr("src");
+        if (!src) return false;
+        return src.includes(baseSrc);
+      });
+
+      if (!found || found.length === 0) {
+        continue;
+      }
+
+      // Set new alt text
+      found.each((_, el) => {
+        cheerioContent(el).attr("alt", file.altText);
+      });
+    }
+
+    const modified = cheerioContent.html();
+    const updateSuccess = await bookService.updatePageContent(
+      pageID.toString(),
+      modified
+    );
+    if (!updateSuccess) {
+      throw new Error("internal");
+    }
+
+    success = true;
+  } catch (err: any) {
+    error = err.message ?? "internal";
+  }
+  return [error, success];
 }
 
 async function updatePageDetails(
@@ -2964,7 +3055,7 @@ async function updatePageDetails(
       });
     }
 
-    const bookService = new BookService(coverPageID);
+    const bookService = new BookService({ bookID: coverPageID });
     const [error, success] = await bookService.updatePageDetails(
       pageID,
       summary,
