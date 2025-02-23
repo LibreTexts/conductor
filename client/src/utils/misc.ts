@@ -233,3 +233,21 @@ export function upperFirst(str: string): string {
 export async function unwrapAPIResponse<T>(response: Promise<AxiosResponse<T>>): Promise<T> {
   return (await response).data;
 }
+
+/**
+ * CXOne page tags that should not be displayed/edited by users
+ */
+export const DISABLED_PAGE_TAG_PREFIXES = [
+  "article:",
+  "authorname:",
+  "license:",
+  "licenseversion:",
+  "source@",
+  "stage:",
+  "lulu@",
+  "author@",
+  "printoptions:",
+  "showtoc:",
+  "coverpage:",
+  "columns:"
+];

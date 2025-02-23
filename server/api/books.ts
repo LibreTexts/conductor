@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Request, Response } from "express";
 import fs from "fs-extra";
 import { debug, debugError, debugCommonsSync, debugServer } from "../debug.js";
@@ -7,25 +6,21 @@ import Book, { BookInterface } from "../models/book.js";
 import Collection from "../models/collection.js";
 import Organization, { OrganizationInterface } from "../models/organization.js";
 import CustomCatalog from "../models/customcatalog.js";
-import Project from "../models/project.js";
+import Project, { ProjectBookBatchUpdateJob } from "../models/project.js";
 import PeerReview from "../models/peerreview.js";
-import Tag from "../models/tag.js";
 import CIDDescriptor from "../models/ciddescriptor.js";
 import conductorErrors from "../conductor-errors.js";
 import {
   getSubdomainFromUrl,
-  getPaginationOffset,
   isEmptyString,
   isValidDateObject,
   sleep,
   getRandomOffset,
 } from "../util/helpers.js";
 import {
-  checkBookIDFormat,
   deleteBookFromAPI,
   extractLibFromID,
   getLibraryAndPageFromBookID,
-  isValidLibrary,
   genThumbnailLink,
   genPDFLink,
   genBookstoreLink,
@@ -33,11 +28,8 @@ import {
   genPubFilesLink,
   genLMSFileLink,
   genPermalink,
-  getBookTOCFromAPI,
-  getBookTOCNew,
 } from "../util/bookutils.js";
 import {
-  retrieveProjectFiles,
   downloadProjectFiles,
   updateTeamWorkbenchPermissions,
 } from "../util/projectutils.js";
@@ -51,7 +43,11 @@ import alertsAPI from "./alerts.js";
 import mailAPI from "./mail.js";
 import collectionsAPI from "./collections.js";
 import axios from "axios";
-import { BookSortOption, TableOfContents } from "../types/Book.js";
+import {
+  BookSortOption,
+  TableOfContents,
+  TableOfContentsDetailed,
+} from "../types/Book.js";
 import { isBookSortOption } from "../util/typeHelpers.js";
 import { z } from "zod";
 import {
@@ -75,13 +71,14 @@ import {
   getMasterCatalogSchema,
   getWithBookIDParamSchema,
   getWithBookIDBodySchema,
-  getBookFilesSchema,
   downloadBookFileSchema,
-  getWithPageIDParamSchema,
   updatePageDetailsSchema,
-} from "../validators/book.js";
-import * as cheerio from "cheerio";
-import { getWithPageIDParamAndCoverPageIDSchema } from "./validators/book.js";
+  batchGenerateAIMetadataSchema,
+  batchUpdateBookMetadataSchema,
+  bulkUpdatePageTagsSchema,
+  getWithPageIDParamAndCoverPageIDSchema,
+} from "./validators/book.js";
+import BookService from "./services/book-service.js";
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   _id: 0,
@@ -1521,7 +1518,7 @@ async function deleteBook(
       } else {
         debug("Simulating book deletion from API.");
       }
-    } catch (err) {
+    } catch (err: any) {
       debugError(`[Delete Book] ${err.toString()}`);
       return conductor500Err(res);
     }
@@ -1942,42 +1939,6 @@ const removeBookFromCustomCatalog = (
 };
 
 /**
- * Makes a request to a Book's respective library to retrieve the Book summary. If no summary has
- * been set, an empty string is returned.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'getBookSummary'
- *
- * @param {z.infer<typeof getWithBookIDParamSchema>} req - Incoming request object.
- * @param {express.Response} res - Outgoing response object.
- */
-async function getBookSummary(
-  req: z.infer<typeof getWithBookIDParamSchema>,
-  res: Response
-) {
-  try {
-    const { bookID } = req.params;
-    const book = await Book.findOne({ bookID }).lean();
-    if (!book) {
-      return res.status(404).send({
-        err: true,
-        errMsg: conductorErrors.err11,
-      });
-    }
-
-    return res.send({
-      err: false,
-      summary: book.summary || "",
-      bookID,
-    });
-  } catch (e) {
-    return res.status(500).send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
-  }
-}
-
-/**
  * Makes a request to a Book's respective Project to retrieve a signed download URL for a given file
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getBookFiles'
@@ -2059,7 +2020,8 @@ async function getBookTOC(
   res: Response
 ) {
   try {
-    const toc = await getBookTOCNew(req.params.bookID);
+    const bookService = new BookService({ bookID: req.params.bookID });
+    const toc = await bookService.getBookTOCNew();
     return res.send({
       err: false,
       toc,
@@ -2120,13 +2082,62 @@ async function getLicenseReport(
   }
 }
 
-async function getPageDetail(
-  req: ZodReqWithUser<typeof getWithPageIDParamAndCoverPageIDSchema>,
+async function getBookPagesDetails(
+  req: ZodReqWithUser<z.infer<typeof getWithBookIDParamSchema>>,
   res: Response
 ) {
   try {
-    const { pageID } = req.params;
+    const { bookID } = req.params;
+
+    const bookService = new BookService({ bookID });
+    const toc = await bookService.getBookTOCNew();
+
+    const [overviews, tags] = await Promise.all([
+      bookService.getAllPageOverviews(toc),
+      bookService.getAllPageTags(toc),
+    ]);
+
+    // Loop through table of contents and add overviews and tags to each page (based on ID)
+    // Table of contents is a nested array, so we need to loop through each level
+    const addOverviewsAndTags = (
+      toc: TableOfContents
+    ): TableOfContentsDetailed => {
+      const pageOverview = overviews.find((o) => o.id === toc.id);
+      const pageTags = tags.find((t) => t.id === toc.id)?.tags || [];
+
+      const page: TableOfContentsDetailed = {
+        ...toc,
+        overview: pageOverview?.overview || "",
+        tags: pageTags,
+        children: toc.children.map(addOverviewsAndTags),
+      };
+
+      return page;
+    };
+
+    const detailedToc = addOverviewsAndTags(toc);
+
+    return res.send({
+      err: false,
+      toc: detailedToc,
+    });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function getPageDetail(
+  req: ZodReqWithUser<z.infer<typeof getWithPageIDParamAndCoverPageIDSchema>>,
+  res: Response
+) {
+  try {
+    const { pageID: fullPageID } = req.params;
     const { coverPageID } = req.query;
+    const [_, pageID] = getLibraryAndPageFromBookID(fullPageID);
 
     const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
     if (!canAccess) {
@@ -2136,66 +2147,19 @@ async function getPageDetail(
       });
     }
 
-    const [subdomain, coverID] = getLibraryAndPageFromBookID(pageID);
-    if (!subdomain || !coverID) {
-      return res.status(400).send({
+    const bookService = new BookService({ bookID: coverPageID });
+    const details = await bookService.getPageDetails(pageID);
+    if (!details) {
+      return res.status(404).send({
         err: true,
-        errMsg: conductorErrors.err2,
+        errMsg: conductorErrors.err11,
       });
-    }
-
-    const pagePropertiesRes = await CXOneFetch({
-      scope: "page",
-      path: parseInt(coverID),
-      api: MindTouch.API.Page.GET_Page_Properties,
-      subdomain,
-    }).catch((err) => {
-      console.error(err);
-      throw new Error(`Error fetching page details: ${err}`);
-    });
-
-    if (!pagePropertiesRes.ok) {
-      throw new Error(
-        `Error fetching page details: ${pagePropertiesRes.statusText}`
-      );
-    }
-
-    const pagePropertiesRaw = await pagePropertiesRes.json();
-    const pageProperties = Array.isArray(pagePropertiesRaw?.property)
-      ? pagePropertiesRaw.property
-      : [pagePropertiesRaw?.property];
-    console.log(pageProperties);
-    const overviewProperty = pageProperties
-      .filter((p) => !!p)
-      .find((prop: any) => prop["@name"] === MindTouch.PageProps.PageOverview);
-    const overviewText = overviewProperty?.contents?.["#text"] || "";
-
-    const pageTagsRes = await CXOneFetch({
-      scope: "page",
-      path: parseInt(coverID),
-      api: MindTouch.API.Page.GET_Page_Tags,
-      subdomain,
-    }).catch((err) => {
-      console.error(err);
-      throw new Error(`Error fetching page tags: ${err}`);
-    });
-
-    if (!pageTagsRes.ok) {
-      throw new Error(`Error fetching page tags: ${pageTagsRes.statusText}`);
-    }
-
-    const pageTagsData = await pageTagsRes.json();
-    const pageTags = [];
-    if (Array.isArray(pageTagsData.tag)) {
-      pageTags.push(...pageTagsData.tag);
-    } else if (pageTagsData.tag) {
-      pageTags.push(pageTagsData.tag);
     }
 
     return res.send({
       err: false,
-      overview: overviewText,
-      tags: pageTags,
+      overview: details.overview,
+      tags: details.tags,
     });
   } catch (e) {
     debugError(e);
@@ -2207,12 +2171,13 @@ async function getPageDetail(
 }
 
 async function getPageAISummary(
-  req: ZodReqWithUser<typeof getWithPageIDParamAndCoverPageIDSchema>,
+  req: ZodReqWithUser<z.infer<typeof getWithPageIDParamAndCoverPageIDSchema>>,
   res: Response
 ) {
   try {
-    const { pageID } = req.params;
+    const { pageID: fullPageID } = req.params;
     const { coverPageID } = req.query;
+    const [_, pageID] = getLibraryAndPageFromBookID(fullPageID);
 
     const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
     if (!canAccess) {
@@ -2222,36 +2187,11 @@ async function getPageAISummary(
       });
     }
 
-    const [error, summary] = await _generatePageAISummary(pageID);
+    const bookService = new BookService({ bookID: coverPageID });
+    const [error, summary] = await _generatePageAISummary(bookService, pageID);
 
     if (error) {
-      switch (error) {
-        case "location":
-          return res.status(400).send({
-            err: true,
-            errMsg: conductorErrors.err2,
-          });
-        case "env":
-          return res.status(500).send({
-            err: true,
-            errMsg: conductorErrors.err6,
-          });
-        case "empty":
-          return res.send({
-            err: false,
-            summary: "",
-          });
-        case "badres":
-          return res.status(400).send({
-            err: true,
-            errMsg: "Error generating page summary.",
-          });
-        case "internal":
-          return res.status(500).send({
-            err: true,
-            errMsg: conductorErrors.err6,
-          });
-      }
+      return _handleAIErrorResponse(res, error);
     }
 
     return res.send({
@@ -2267,13 +2207,81 @@ async function getPageAISummary(
   }
 }
 
-async function batchApplyAISummary(
-  req: ZodReqWithUser<typeof getWithPageIDParamSchema>,
+async function getPageAITags(
+  req: ZodReqWithUser<z.infer<typeof getWithPageIDParamAndCoverPageIDSchema>>,
+  res: Response
+) {
+  try {
+    const { pageID: fullPageID } = req.params;
+    const { coverPageID } = req.query;
+    const [_, pageID] = getLibraryAndPageFromBookID(fullPageID);
+
+    const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
+    if (!canAccess) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const bookService = new BookService({ bookID: coverPageID });
+    const [error, tags] = await _generatePageAITags(bookService, pageID);
+    if (error) {
+      return _handleAIErrorResponse(res, error);
+    }
+
+    return res.send({
+      err: false,
+      tags,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+function _handleAIErrorResponse(res: Response, error: string) {
+  switch (error) {
+    case "location":
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    case "env":
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err6,
+      });
+    case "empty":
+      return res.send({
+        err: true,
+        errMsg:
+          "No summary available for this page. There may be insufficient content.",
+      });
+    case "badres":
+      return res.status(400).send({
+        err: true,
+        errMsg: "Error generating page summary.",
+      });
+    case "internal":
+    default:
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err6,
+      });
+  }
+}
+
+async function batchGenerateAIMetadata(
+  req: ZodReqWithUser<z.infer<typeof batchGenerateAIMetadataSchema>>,
   res: Response
 ) {
   try {
     const [coverPageLibrary, coverPageID] = getLibraryAndPageFromBookID(
-      req.params.pageID
+      req.params.bookID
     );
 
     const project = await Project.findOne({
@@ -2288,16 +2296,9 @@ async function batchApplyAISummary(
     }
 
     const canAccess = await _canAccessPage(
-      req.params.pageID,
+      req.params.bookID,
       req.user.decoded.uuid
     );
-    if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
-    }
-
     if (!canAccess) {
       return res.status(403).send({
         err: true,
@@ -2313,11 +2314,56 @@ async function batchApplyAISummary(
       });
     }
 
-    _batchApplySummariesAndNotify(
-      coverPageLibrary,
-      coverPageID,
+    const activeJob = project.batchUpdateJobs?.filter((j) =>
+      ["pending", "running"].includes(j.status)
+    );
+    if (activeJob && activeJob.length > 0) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "A batch AI summaries job is already running for this project.",
+      });
+    }
+
+    const jobType =
+      req.body.summaries && req.body.tags
+        ? "summaries+tags"
+        : req.body.summaries
+        ? "summaries"
+        : "tags";
+
+    const job: ProjectBookBatchUpdateJob = {
+      jobID: crypto.randomUUID(),
+      type: jobType,
+      status: "pending",
+      dataSource: "generated",
+      processedPages: 0,
+      failedPages: 0,
+      totalPages: 0,
+      startTimestamp: new Date(),
+      ranBy: req.user.decoded.uuid,
+    };
+
+    const jobs = project.batchUpdateJobs || [];
+    jobs.push(job);
+
+    await Project.updateOne(
+      {
+        projectID: project.projectID,
+      },
+      {
+        $set: {
+          batchUpdateJobs: jobs,
+        },
+      }
+    );
+
+    _runBulkUpdateJob(
+      job.jobID,
+      job.type,
       project.projectID,
-      user.email
+      req.params.bookID,
+      job.dataSource,
+      [user.email]
     ); // Don't await, send response immediately
 
     return res.send({
@@ -2333,89 +2379,395 @@ async function batchApplyAISummary(
   }
 }
 
-async function _batchApplySummariesAndNotify(
-  library: string,
-  pageID: string,
-  projectID: string,
-  emailToNotify: string
+async function batchUpdateBookMetadata(
+  req: ZodReqWithUser<z.infer<typeof batchUpdateBookMetadataSchema>>,
+  res: Response
 ) {
   try {
-    const fullID = `${library}-${pageID}`;
-    const toc = (await getBookTOCNew(fullID)) as TableOfContents;
-    const pageIDs: string[] = [];
-    const content = toc.children; // skip root pages
-
-    // recursively get all page IDs
-    const getIDs = (content: TableOfContents[]) => {
-      content.forEach((item) => {
-        pageIDs.push(item.id);
-        if (item.children) {
-          getIDs(item.children);
-        }
-      });
-    };
-
-    getIDs(content);
-
-    const promises = pageIDs.map((p) =>
-      _generatePageAISummary(`${library}-${p}`)
-    );
-    const results = await Promise.allSettled(promises);
-    const settledPageIDs: { id: string; summary: string }[] = [];
-
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
-      if (result.status === "rejected") continue;
-      if (result.value[0] !== null) continue;
-      settledPageIDs.push({
-        id: pageIDs[i],
-        summary: result.value[1],
+    const newPageData = req.body.pages;
+    if (!newPageData || !Array.isArray(newPageData) || newPageData.length < 1) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "No page data provided.",
       });
     }
 
-    const updatedPromises = settledPageIDs.map((p) => {
-      // delay 1s between each update to avoid rate limiting
-      return new Promise<ReturnType<typeof _updatePageDetails>>((resolve) => {
-        setTimeout(async () => {
-          resolve(await _updatePageDetails(`${library}-${p.id}`, p.summary));
-        }, 1000);
-      });
-    });
-    const updateResults = await Promise.allSettled(updatedPromises);
-    const failedUpdates = updateResults.filter((r) => r.status === "rejected");
-    failedUpdates.forEach((f) => {
-      debugError(f.reason);
-    });
-
-    await mailAPI.sendBatchAISummariesFinished(
-      emailToNotify,
-      projectID,
-      updateResults.length - failedUpdates.length
+    const [coverPageLibrary, coverPageID] = getLibraryAndPageFromBookID(
+      req.params.bookID
     );
+
+    const project = await Project.findOne({
+      libreCoverID: coverPageID,
+      libreLibrary: coverPageLibrary,
+    });
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const canAccess = await _canAccessPage(
+      req.params.bookID,
+      req.user.decoded.uuid
+    );
+    if (!canAccess) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const user = await User.findOne({ uuid: req.user.decoded.uuid }).orFail();
+    if (!user || !user.email) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err9,
+      });
+    }
+
+    const activeJob = project.batchUpdateJobs?.filter((j) =>
+      ["pending", "running"].includes(j.status)
+    );
+    if (activeJob && activeJob.length > 0) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "A batch AI summaries job is already running for this project.",
+      });
+    }
+
+    const job: ProjectBookBatchUpdateJob = {
+      jobID: crypto.randomUUID(),
+      type: "summaries+tags", // Default to summaries+tags for user data source
+      status: "pending",
+      dataSource: "user",
+      processedPages: 0,
+      failedPages: 0,
+      totalPages: 0,
+      startTimestamp: new Date(),
+      ranBy: req.user.decoded.uuid,
+    };
+
+    const jobs = project.batchUpdateJobs || [];
+    jobs.push(job);
+
+    await Project.updateOne(
+      {
+        projectID: project.projectID,
+      },
+      {
+        $set: {
+          batchUpdateJobs: jobs,
+        },
+      }
+    );
+
+    _runBulkUpdateJob(
+      job.jobID,
+      job.type,
+      project.projectID,
+      req.params.bookID,
+      job.dataSource,
+      [user.email],
+      newPageData
+    ); // Don't await, send response immediately
+
+    return res.send({
+      err: false,
+      msg: "Batch update started.",
+    });
   } catch (e) {
     debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
   }
 }
 
+async function _runBulkUpdateJob(
+  jobID: string,
+  jobType: ProjectBookBatchUpdateJob["type"],
+  projectID: string,
+  bookID: string,
+  dataSource: ProjectBookBatchUpdateJob["dataSource"],
+  emailsToNotify: string[],
+  data?: { id: string; summary?: string; tags?: string[] }[]
+) {
+  try {
+    // Outer catch-block will catch errors with updating a failed job
+    try {
+      // Inner catch-block will catch any errors and update job status
+      if (!data && dataSource === "user") {
+        throw new Error("No data provided for user data source");
+      }
+
+      // Create book service and get table of contents
+      const bookService = new BookService({ bookID });
+      const toc = await bookService.getBookTOCNew();
+      const pageIDs: string[] = [];
+      const content = toc.children; // skip root pages
+
+      // recursively get all page IDs
+      const getIDs = (content: TableOfContents[]) => {
+        content.forEach((item) => {
+          pageIDs.push(item.id);
+          if (item.children) {
+            getIDs(item.children);
+          }
+        });
+      };
+      getIDs(content);
+
+      // Update job with initial details
+      await Project.updateOne(
+        {
+          projectID,
+        },
+        {
+          $set: {
+            "batchUpdateJobs.$[job].status": "running",
+            "batchUpdateJobs.$[job].totalPages": pageIDs.length,
+          },
+        },
+        {
+          arrayFilters: [{ "job.jobID": jobID }],
+        }
+      );
+
+      // Initialize new page details array
+      let newPageDetails: { id: string; summary?: string; tags?: string[] }[] =
+        [];
+      if (dataSource === "user") {
+        newPageDetails = data || [];
+      }
+
+      // If data source is generated, get page text content and generate tags and/or summaries
+      if (dataSource === "generated") {
+        // Get pages text content
+        const pageTextPromises = pageIDs.map((p) => {
+          return new Promise<string>((resolve) => {
+            setTimeout(async () => {
+              resolve(await bookService.getPageTextContent(p));
+            }, 1000); // delay 1s between each page text fetch to avoid rate limiting
+          });
+        });
+
+        const pageTexts = await Promise.allSettled(pageTextPromises);
+        const pageTextsMap = new Map<string, string>();
+        pageIDs.forEach((p, i) => {
+          if (pageTexts[i].status === "fulfilled") {
+            pageTextsMap.set(p, pageTexts[i].value);
+          }
+        });
+
+        if (["summaries", "summaries+tags"].includes(jobType)) {
+          const summaryPromises: Promise<
+            [
+              "location" | "env" | "empty" | "badres" | "internal" | null,
+              string
+            ]
+          >[] = [];
+
+          // Create AI summary for each page
+          pageTextsMap.forEach((pText, pID) => {
+            // delay 1s between each summary generation to avoid rate limiting
+            const promise = new Promise<
+              ReturnType<typeof _generatePageAISummary>
+            >((resolve) => {
+              setTimeout(async () => {
+                resolve(_generatePageAISummary(bookService, pID, pText));
+              }, 1000);
+            });
+            // @ts-ignore
+            summaryPromises.push(promise);
+          });
+
+          const results = await Promise.allSettled(summaryPromises);
+
+          // Add summaries to newPageDetails
+          for (let i = 0; i < results.length; i++) {
+            const result = results[i];
+            if (result.status === "rejected") continue;
+            if (result.value[0] !== null) continue;
+            newPageDetails.push({
+              id: pageIDs[i],
+              summary: result.value[1],
+            });
+          }
+        }
+
+        if (["tags", "summaries+tags"].includes(jobType)) {
+          const tagPromises: Promise<
+            [
+              "location" | "env" | "empty" | "badres" | "internal" | null,
+              string[]
+            ]
+          >[] = [];
+
+          // Create AI tags for each page
+          pageTextsMap.forEach((pText, pID) => {
+            const promise = new Promise<ReturnType<typeof _generatePageAITags>>(
+              (resolve) => {
+                setTimeout(async () => {
+                  resolve(_generatePageAITags(bookService, pID, pText));
+                }, 1000); // delay 1s between each tag generation to avoid rate limiting
+              }
+            );
+            // @ts-ignore
+            tagPromises.push(promise);
+          });
+
+          const results = await Promise.allSettled(tagPromises);
+
+          // Add tags to newPageDetails
+          for (let i = 0; i < results.length; i++) {
+            const result = results[i];
+            if (result.status === "rejected") continue;
+            if (result.value[0] !== null) continue;
+            const found = newPageDetails.find((p) => p.id === pageIDs[i]);
+            if (found) {
+              found.tags = result.value[1];
+            } else {
+              newPageDetails.push({
+                id: pageIDs[i],
+                tags: result.value[1],
+              });
+            }
+          }
+        }
+      }
+
+      // Bulk update page details
+      let processed = 0;
+      let failed = 0;
+      const BATCH_SIZE = 5;
+      const resultMessages: string[] = [];
+
+      const updatePromises = newPageDetails.map((p) => {
+        // delay 1s between each update to avoid rate limiting
+        return new Promise<ReturnType<BookService["updatePageDetails"]>>(
+          (resolve) => {
+            setTimeout(async () => {
+              resolve(bookService.updatePageDetails(p.id, p.summary, p.tags));
+            }, 1000);
+          }
+        );
+      });
+
+      for (let i = 0; i < updatePromises.length; i += BATCH_SIZE) {
+        const batch = updatePromises.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.allSettled(batch);
+        batchResults.forEach((r) => {
+          if (r.status === "rejected") {
+            failed++;
+            resultMessages.push(r.reason);
+          } else {
+            processed++;
+            resultMessages.push(`Successfully updated ${r.value[0]}.`);
+          }
+        });
+        console.log(
+          `JOB ${jobID} Update: Processed ${processed} pages, failed ${failed}.`
+        );
+
+        // update job status
+        await Project.updateOne(
+          {
+            projectID,
+          },
+          {
+            $set: {
+              "batchUpdateJobs.$[job].processedPages": processed,
+              "batchUpdateJobs.$[job].failedPages": failed,
+            },
+          },
+          {
+            arrayFilters: [{ "job.jobID": jobID }],
+          }
+        );
+      }
+
+      // Final update
+      await Project.updateOne(
+        {
+          projectID,
+        },
+        {
+          $set: {
+            "batchUpdateJobs.$[job].status": "completed",
+            "batchUpdateJobs.$[job].endTimestamp": new Date(),
+          },
+        },
+        {
+          arrayFilters: [{ "job.jobID": jobID }],
+        }
+      );
+
+      if (dataSource === "generated") {
+        await mailAPI.sendBatchBookAIMetadataFinished(
+          emailsToNotify,
+          projectID,
+          jobID,
+          jobType,
+          processed
+        );
+      } else {
+        await mailAPI.sendBatchBookUpdateFinished(
+          emailsToNotify,
+          projectID,
+          jobID,
+          processed
+        );
+      }
+    } catch (e: any) {
+      // Catch any errors and update job status
+      await Project.updateOne(
+        {
+          projectID,
+        },
+        {
+          $set: {
+            "batchUpdateJobs.$[job].status": "failed",
+            "batchUpdateJobs.$[job].endTimestamp": new Date(),
+            "batchUpdateJobs.$[job].error": e.message
+              ? e.message
+              : e.toString(),
+          },
+        },
+        {
+          arrayFilters: [{ "job.jobID": jobID }],
+        }
+      );
+    }
+  } catch (err: any) {
+    debugError(err);
+  }
+}
+
+/**
+ * Internal function to generate an AI summary for a page.
+ * @param pageID - The page ID to generate a summary for.
+ * @param _pageText - Text content of the page. Optional, and will be fetched if not provided.
+ * @returns [error, summary] - Error message or null, and the generated summary.
+ */
 async function _generatePageAISummary(
-  pageID: number | string
+  bookService: BookService,
+  pageID: number | string,
+  _pageText?: string
 ): Promise<
   ["location" | "env" | "empty" | "badres" | "internal" | null, string]
 > {
   let error = null;
   let summary = "";
+  let pageText = _pageText;
   try {
-    const [subdomain, parsedPageID] = getLibraryAndPageFromBookID(
-      pageID.toString()
-    );
-    if (!subdomain || !parsedPageID) {
-      throw new Error("location");
-    }
-
     // Ensure OpenAI API key is set
     if (!process.env.OPENAI_API_KEY) throw new Error("env");
 
-    const pageText = await _getPageTextContent(subdomain, parsedPageID);
+    if (!pageText) {
+      pageText = await bookService.getPageTextContent(pageID.toString());
+    }
     if (!pageText || pageText.length < 50) throw new Error("empty");
 
     const aiSummaryRes = await axios.post(
@@ -2463,36 +2815,28 @@ async function _generatePageAISummary(
   return [error, summary];
 }
 
-async function getPageAITags(
-  req: ZodReqWithUser<typeof getWithPageIDParamAndCoverPageIDSchema>,
-  res: Response
-) {
+/**
+ * Internal function to generate AI tags for a page.
+ * @param pageID - The page ID to generate tags for.
+ * @param _pageText - Text content of the page. Optional, and will be fetched if not provided.
+ * @returns [error, tags] - Error message or null, and the generated tags.
+ */
+async function _generatePageAITags(
+  bookService: BookService,
+  pageID: number | string,
+  _pageText?: string
+): Promise<
+  ["location" | "env" | "empty" | "badres" | "internal" | null, string[]]
+> {
+  let error = null;
+  let tags = [];
+  let pageText = _pageText;
   try {
-    const { pageID } = req.params;
-    const { coverPageID } = req.query;
-
-    const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
-    if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
+    if (!pageText) {
+      pageText = await bookService.getPageTextContent(pageID.toString());
     }
-
-    const [subdomain, parsedPageID] = getLibraryAndPageFromBookID(pageID);
-    if (!subdomain || !parsedPageID) {
-      return res.status(400).send({
-        err: true,
-        errMsg: conductorErrors.err2,
-      });
-    }
-
-    const pageText = await _getPageTextContent(subdomain, parsedPageID);
     if (!pageText || pageText.length < 50) {
-      return res.send({
-        err: false,
-        tags: [],
-      });
+      throw new Error("empty");
     }
 
     const aiTagsRes = await axios.post(
@@ -2526,10 +2870,7 @@ async function getPageAITags(
         : rawOutput
       : "";
     if (!aiTagsOutput) {
-      return res.status(400).send({
-        err: true,
-        errMsg: "Error generating page summary.",
-      });
+      throw new Error("badres");
     }
 
     const splitTags =
@@ -2542,54 +2883,15 @@ async function getPageAITags(
         -1
       );
     }
-
-    return res.send({
-      err: false,
-      tags: splitTags,
-    });
-  } catch (e) {
-    debugError(e);
-    return res.status(500).send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
+    tags = splitTags;
+  } catch (err: any) {
+    error = err.message ?? "internal";
   }
-}
-
-async function _getPageTextContent(
-  subdomain: string,
-  pageID: string
-): Promise<string> {
-  const pageContentsRes = await CXOneFetch({
-    scope: "page",
-    path: parseInt(pageID),
-    api: MindTouch.API.Page.GET_Page_Contents,
-    subdomain,
-  }).catch((err) => {
-    console.error(err);
-    throw new Error(`Error fetching page details: ${err}`);
-  });
-
-  if (!pageContentsRes.ok) {
-    throw new Error(
-      `Error fetching page details: ${pageContentsRes.statusText}`
-    );
-  }
-
-  const pageContent = await pageContentsRes.json();
-  const pageRawBody = pageContent.body?.[0];
-  if (!pageRawBody) {
-    return "";
-  }
-
-  const cheerioObj = cheerio.load(pageRawBody);
-  const pageText = cheerioObj.text(); // Extract text from HTML
-
-  return pageText;
+  return [error, tags];
 }
 
 async function updatePageDetails(
-  req: ZodReqWithUser<typeof updatePageDetailsSchema>,
+  req: ZodReqWithUser<z.infer<typeof updatePageDetailsSchema>>,
   res: Response
 ) {
   try {
@@ -2605,11 +2907,17 @@ async function updatePageDetails(
       });
     }
 
-    const [error, success] = await _updatePageDetails(pageID, summary, tags);
+    const bookService = new BookService(coverPageID);
+    const [error, success] = await bookService.updatePageDetails(
+      pageID,
+      summary,
+      tags
+    );
+
     if (error) {
       switch (error) {
         case "location":
-          return res.status(400).send({
+          return res.status(404).send({
             err: true,
             errMsg: conductorErrors.err2,
           });
@@ -2641,99 +2949,51 @@ async function updatePageDetails(
   }
 }
 
-async function _updatePageDetails(
-  pageID: string,
-  summary?: string,
-  tags?: string[]
-): Promise<["location" | "internal" | null, boolean]> {
-  let error = null;
-  let success = false;
+async function bulkUpdatePageTags(
+  req: ZodReqWithUser<z.infer<typeof bulkUpdatePageTagsSchema>>,
+  res: Response
+) {
   try {
-    const [subdomain, parsedPageID] = getLibraryAndPageFromBookID(pageID);
-    if (!subdomain || !parsedPageID) {
-      throw new Error("location");
+    const { bookID } = req.params;
+    const { pages } = req.body;
+
+    const bookService = new BookService({ bookID });
+
+    const updatePromises = [];
+    for (let i = 0; i < pages.length; i++) {
+      const promise = new Promise((resolve, reject) => {
+        setTimeout(async () => {
+          const page = pages[i];
+          const [error, success] = await bookService.updatePageDetails(
+            page.id,
+            undefined,
+            page.tags
+          );
+          if (error) {
+            reject(error);
+          }
+          resolve({ error, success });
+        }, 1000);
+      });
+      updatePromises.push(promise);
     }
 
-    // Get current page properties and find the overview property
-    const pagePropertiesRes = await CXOneFetch({
-      scope: "page",
-      path: parseInt(parsedPageID),
-      api: MindTouch.API.Page.GET_Page_Properties,
-      subdomain,
-    }).catch((err) => {
-      console.error(err);
-      throw new Error("internal");
+    const results = await Promise.allSettled(updatePromises);
+    const failed = results.filter((r) => r.status === "rejected").length;
+    const processed = results.filter((r) => r.status === "fulfilled").length;
+
+    return res.send({
+      err: false,
+      failed,
+      processed,
     });
-
-    if (!pagePropertiesRes.ok) {
-      throw new Error("internal");
-    }
-
-    const pagePropertiesRaw = await pagePropertiesRes.json();
-    const pageProperties = Array.isArray(pagePropertiesRaw?.property)
-      ? pagePropertiesRaw.property
-      : [pagePropertiesRaw?.property];
-
-    // Check if there is an existing overview property
-    const overviewProperty = pageProperties
-      .filter((p) => !!p)
-      .find((prop: any) => prop["@name"] === MindTouch.PageProps.PageOverview);
-
-    if (summary) {
-      // Update or set page overview property
-      const updatedOverviewRes = await CXOneFetch({
-        scope: "page",
-        path: parseInt(parsedPageID),
-        api: MindTouch.API.Page.PUT_Page_Property(
-          MindTouch.PageProps.PageOverview
-        ),
-        subdomain,
-        options: {
-          method: "PUT",
-          headers: {
-            "Content-Type": "text/plain",
-            ...(overviewProperty &&
-              overviewProperty["@etag"] && {
-                Etag: overviewProperty["@etag"],
-              }),
-          },
-          body: summary,
-        },
-      });
-
-      if (!updatedOverviewRes.ok) {
-        throw new Error("internal");
-      }
-    }
-
-    if (tags) {
-      // Update the page tags
-      const updatedTagsRes = await CXOneFetch({
-        scope: "page",
-        path: parseInt(parsedPageID),
-        api: MindTouch.API.Page.PUT_Page_Tags,
-        subdomain,
-        options: {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/xml",
-          },
-          body: MindTouch.Templates.PUT_PageTags(tags),
-        },
-      });
-
-      if (!updatedTagsRes.ok) {
-        throw new Error("internal");
-      }
-    }
-
-    success = true;
-  } catch (e: any) {
-    error = e.message ?? "internal";
-    success = false;
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
   }
-
-  return [error, success];
 }
 
 /**
@@ -2973,7 +3233,7 @@ async function _canAccessPage(
       return false;
     }
 
-    return await projectsAPI.checkProjectMemberPermission(project, userID);
+    return projectsAPI.checkProjectMemberPermission(project, userID);
   } catch (err) {
     debugError(err);
     return false;
@@ -2993,13 +3253,15 @@ export default {
   addBookToCustomCatalog,
   removeBookFromCustomCatalog,
   downloadBookFile,
-  getBookSummary,
   getBookTOC,
   getLicenseReport,
+  getBookPagesDetails,
   getPageDetail,
   getPageAISummary,
-  batchApplyAISummary,
+  batchGenerateAIMetadata,
+  batchUpdateBookMetadata,
   getPageAITags,
   updatePageDetails,
+  bulkUpdatePageTags,
   retrieveKBExport,
 };

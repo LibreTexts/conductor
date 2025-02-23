@@ -2,7 +2,7 @@ import { SSMClient, GetParametersByPathCommand } from "@aws-sdk/client-ssm";
 import { debugError } from "../debug.js";
 import {
   CXOneFetchParams,
-  LibrariesSSMClient,
+  LibrariesSSMClient as LibrariesSSMClientType,
   LibraryAPIRequestHeaders,
   LibraryTokenPair,
   CXOneGroup,
@@ -12,85 +12,106 @@ import { createHmac } from "crypto";
 import CXOne from "./CXOne/index.js";
 import { libraryNameKeys, libraryNameKeysWDev } from "./librariesmap.js";
 
-export async function generateLibrariesSSMClient(): Promise<LibrariesSSMClient | null> {
-  try {
-    const libTokenPairPath = (process.env.AWS_SSM_LIB_TOKEN_PAIR_PATH || "/libkeys/production").replace(/['"]/g, '');
-    const apiUsername = process.env.LIBRARIES_API_USERNAME || "LibreBot";
-
-    const ssm = new SSMClient({
-      credentials: {
-        accessKeyId: process.env.AWS_SSM_ACCESS_KEY_ID || "unknown",
-        secretAccessKey: process.env.AWS_SSM_SECRET_KEY || "unknown",
-      },
-      region: process.env.AWS_SSM_REGION || "unknown",
-    });
-
-    return {
-      apiUsername,
-      libTokenPairPath,
-      ssm,
-    };
-  } catch (err) {
-    debugError(err);
-    return null;
-  }
-}
-
 /**
- * Retrieves the token pair requried to interact with a library's API.
+ * Singleton class for interacting with AWS SSM service to retrieve library API tokens.
  */
-export async function getLibraryCredentials(
-  lib: string
-): Promise<{ keyPair: LibraryTokenPair; apiUsername: string } | null> {
-  try {
-    const ssmClient = await generateLibrariesSSMClient();
-    if (!ssmClient) {
-      console.error("Failed to generate SSMClient - Null value returned.");
-      throw new Error("Error generating SSMClient.");
+class LibrariesSSMClient {
+  public apiUsername: string = "LibreBot";
+  public libTokenPairPath: string = "/libkeys/production";
+  public ssm: SSMClient = new SSMClient({
+    credentials: {
+      accessKeyId: process.env.AWS_SSM_ACCESS_KEY_ID || "unknown",
+      secretAccessKey: process.env.AWS_SSM_SECRET_KEY || "unknown",
+    },
+    region: process.env.AWS_SSM_REGION || "unknown",
+  });
+
+  public credentialsCache: Record<
+    string,
+    { keyPair: LibraryTokenPair; apiUsername: string; refreshAfter: Date }
+  > = {};
+
+  private static instance: LibrariesSSMClient;
+
+  private constructor() {
+    this.apiUsername = process.env.LIBRARIES_API_USERNAME || "LibreBot";
+    this.libTokenPairPath = (
+      process.env.AWS_SSM_LIB_TOKEN_PAIR_PATH || "/libkeys/production"
+    ).replace(/['"]/g, "");
+  }
+
+  public static getInstance() {
+    if (!LibrariesSSMClient.instance) {
+      LibrariesSSMClient.instance = new LibrariesSSMClient();
     }
 
-    const basePath = ssmClient.libTokenPairPath.endsWith("/")
-      ? ssmClient.libTokenPairPath
-      : `${ssmClient.libTokenPairPath}/`;
-    const pairResponse = await ssmClient.ssm.send(
-      new GetParametersByPathCommand({
-        Path: `${basePath}${lib}`,
-        MaxResults: 10,
-        Recursive: true,
-        WithDecryption: true,
-      })
-    );
+    return LibrariesSSMClient.instance;
+  }
 
-    if (pairResponse.$metadata.httpStatusCode !== 200) {
-      console.error(pairResponse.$metadata);
-      throw new Error("Error retrieving library token pair.");
-    }
-    if (!pairResponse.Parameters) {
-      console.error("No data returned from token pair retrieval. Lib: " + lib);
-      throw new Error("Error retrieving library token pair.");
-    }
+  public async getLibraryCredentials(lib: string) {
+    try {
+      // Check if credentials are cached and still valid
+      if (this.credentialsCache[lib]) {
+        const cached = this.credentialsCache[lib];
+        if (cached.refreshAfter > new Date()) {
+          return cached;
+        }
+      }
 
-    const libKey = pairResponse.Parameters.find((p) =>
-      p.Name?.includes(`${lib}/key`)
-    );
-    const libSec = pairResponse.Parameters.find((p) =>
-      p.Name?.includes(`${lib}/secret`)
-    );
-    if (!libKey?.Value || !libSec?.Value) {
-      console.error("Key param not found in token pair retrieval. Lib: " + lib);
-      throw new Error("Error retrieving library token pair.");
-    }
+      // If not, retrieve from SSM
+      const basePath = this.libTokenPairPath.endsWith("/")
+        ? this.libTokenPairPath
+        : `${this.libTokenPairPath}/`;
 
-    return {
-      keyPair: {
-        key: libKey.Value,
-        secret: libSec.Value,
-      },
-      apiUsername: ssmClient.apiUsername,
-    };
-  } catch (err) {
-    debugError(err);
-    return null;
+        const pairResponse = await this.ssm.send(
+        new GetParametersByPathCommand({
+          Path: `${basePath}${lib}`,
+          MaxResults: 10,
+          Recursive: true,
+          WithDecryption: true,
+        })
+      );
+
+      if (pairResponse.$metadata.httpStatusCode !== 200) {
+        console.error(pairResponse.$metadata);
+        throw new Error("Error retrieving library token pair.");
+      }
+      if (!pairResponse.Parameters) {
+        console.error(
+          "No data returned from token pair retrieval. Lib: " + lib
+        );
+        throw new Error("Error retrieving library token pair.");
+      }
+
+      const libKey = pairResponse.Parameters.find((p) =>
+        p.Name?.includes(`${lib}/key`)
+      );
+      const libSec = pairResponse.Parameters.find((p) =>
+        p.Name?.includes(`${lib}/secret`)
+      );
+      if (!libKey?.Value || !libSec?.Value) {
+        console.error(
+          "Key param not found in token pair retrieval. Lib: " + lib
+        );
+        throw new Error("Error retrieving library token pair.");
+      }
+
+      // Push to cache and return
+      const creds = {
+        keyPair: {
+          key: libKey.Value,
+          secret: libSec.Value,
+        },
+        apiUsername: this.apiUsername,
+        refreshAfter: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
+      };
+
+      this.credentialsCache[lib] = creds;
+      return creds;
+    } catch (err) {
+      debugError(err);
+      return null;
+    }
   }
 }
 
@@ -102,7 +123,12 @@ export async function generateAPIRequestHeaders(
   lib: string
 ): Promise<LibraryAPIRequestHeaders | null> {
   try {
-    const creds = await getLibraryCredentials(lib);
+    const libClient = LibrariesSSMClient.getInstance();
+    if (!libClient) {
+      throw new Error("Error generating library token pair. LibrariesSSMClient is null.");
+    }
+
+    const creds = await libClient.getLibraryCredentials(lib);
     if (!creds || !creds.keyPair || !creds.apiUsername) {
       console.log("Failed attempt to generate library token pair.");
       throw new Error("Error generating library token pair.");

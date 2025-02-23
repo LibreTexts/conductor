@@ -753,13 +753,6 @@ router
   );
 
 router
-  .route("/commons/book/:bookID/summary")
-  .get(
-    middleware.validateZod(BookValidators.getWithBookIDParamSchema),
-    booksAPI.getBookSummary
-  );
-
-router
   .route("/commons/book/:bookID/files/:fileID/download")
   .get(
     middleware.validateZod(BookValidators.downloadBookFileSchema),
@@ -778,6 +771,48 @@ router
   .get(
     middleware.validateZod(BookValidators.getWithBookIDParamSchema),
     booksAPI.getLicenseReport
+  );
+
+router
+  .route("/commons/book/:bookID/pages-details")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.getWithBookIDParamSchema),
+    booksAPI.getBookPagesDetails
+  )
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.bulkUpdatePageTagsSchema),
+    booksAPI.bulkUpdatePageTags
+  );
+
+router
+  .route("/commons/book/:bookID/page-tags")
+  .put(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.bulkUpdatePageTagsSchema),
+    booksAPI.bulkUpdatePageTags
+  );
+
+router
+  .route("/commons/book/:bookID/ai-metadata-batch")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.batchGenerateAIMetadataSchema),
+    booksAPI.batchGenerateAIMetadata
+  );
+
+router
+  .route("/commons/book/:bookID/update-metadata-batch")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.batchUpdateBookMetadataSchema),
+    booksAPI.batchUpdateBookMetadata
   );
 
 router
@@ -813,15 +848,6 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     booksAPI.getPageAISummary
-  );
-
-router
-  .route("/commons/pages/:pageID/ai-summary/batch")
-  .patch(
-    middleware.validateZod(BookValidators.getWithPageIDParamSchema),
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    booksAPI.batchApplyAISummary
   );
 
 router
@@ -2280,48 +2306,60 @@ router
   .post(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    middleware.validateZod(ProjectInvitationValidators.createProjectInvitationSchema),
+    middleware.validateZod(
+      ProjectInvitationValidators.createProjectInvitationSchema
+    ),
     projectInvitationsAPI.createProjectInvitation
-  )
+  );
 
 router
   .route("/project-invitations/:inviteID")
   .get(
-    middleware.validateZod(ProjectInvitationValidators.getProjectInvitationSchema),
+    middleware.validateZod(
+      ProjectInvitationValidators.getProjectInvitationSchema
+    ),
     projectInvitationsAPI.getProjectInvitation
   )
   .delete(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    middleware.validateZod(ProjectInvitationValidators.deleteProjectInvitationSchema),
+    middleware.validateZod(
+      ProjectInvitationValidators.deleteProjectInvitationSchema
+    ),
     projectInvitationsAPI.deleteProjectInvitation
-  )
+  );
 
 router
   .route("/project-invitations/project/:projectID")
   .get(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    middleware.validateZod(ProjectInvitationValidators.getAllProjectInvitationsSchema),
+    middleware.validateZod(
+      ProjectInvitationValidators.getAllProjectInvitationsSchema
+    ),
     projectInvitationsAPI.getAllInvitationsForProject
-  )
+  );
 
 router
   .route("/project-invitation/:inviteID/accept")
   .post(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    middleware.validateZod(ProjectInvitationValidators.acceptProjectInvitationSchema),
+    middleware.validateZod(
+      ProjectInvitationValidators.acceptProjectInvitationSchema
+    ),
     projectInvitationsAPI.acceptProjectInvitation
-  )
+  );
 
 router
   .route("/project-invitations/:inviteID/update")
   .put(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    middleware.validateZod(ProjectInvitationValidators.updateProjectInvitationSchema),
+    middleware.validateZod(
+      ProjectInvitationValidators.updateProjectInvitationSchema
+    ),
     projectInvitationsAPI.updateProjectInvitation
-  )
+  );
 
 export default router;

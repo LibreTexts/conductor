@@ -21,6 +21,7 @@ import {
   Homework,
   HomeworkSearchParams,
   PageDetailsResponse,
+  PageTag,
   PeerReview,
   Project,
   ProjectFile,
@@ -33,6 +34,9 @@ import {
   Sender,
   ProjectSummary,
   InvitationsResponse,
+  PageSimpleWTags,
+  PageSimpleWOverview,
+  TableOfContentsDetailed,
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -343,6 +347,15 @@ class API {
     return res;
   }
 
+  async getBookPagesDetails(bookID: string) {
+    const res = await axios.get<
+      {
+        toc: TableOfContentsDetailed;
+      } & ConductorBaseResponse
+    >(`/commons/book/${bookID}/pages-details`);
+    return res;
+  }
+
   async getPageDetails(pageID: string, coverPageID: string) {
     const res = await axios.get<PageDetailsResponse & ConductorBaseResponse>(
       `/commons/pages/${pageID}?coverPageID=${coverPageID}`
@@ -369,12 +382,38 @@ class API {
   }
 
   /**
-   * Generates and applies an AI-generated summary to all pages in a book
-   * @param {string} pageID - the cover page of the book to apply the summaries to
+   * Generates and applies AI-generated summaries, tags, or both, to all pages in a book
+   * @param {string} bookID - the cover page of the book to apply the summaries to
    */
-  async batchApplyPageAISummary(pageID: string) {
-    const res = await axios.patch<ConductorBaseResponse>(
-      `/commons/pages/${pageID}/ai-summary/batch`
+  async batchGenerateAIMetadata(
+    bookID: string,
+    summaries: boolean,
+    tags: boolean
+  ) {
+    const res = await axios.post<ConductorBaseResponse>(
+      `/commons/book/${bookID}/ai-metadata-batch`,
+      {
+        summaries,
+        tags,
+      }
+    );
+    return res;
+  }
+
+  /**
+   * Applies user-supplied summaries and tags to the respective pages in a book
+   * @param {string} bookID - the cover page of the book to apply the metadata to
+   * @param {Array<{ id: string; summary: string; tags: string[] }>} pages - the pages & data to update
+   */
+  async batchUpdateBookMetadata(
+    bookID: string,
+    pages: { id: string; summary: string; tags: string[] }[]
+  ) {
+    const res = await axios.post<ConductorBaseResponse>(
+      `/commons/book/${bookID}/update-metadata-batch`,
+      {
+        pages,
+      }
     );
     return res;
   }
@@ -388,6 +427,21 @@ class API {
       `/commons/pages/${pageID}?coverPageID=${coverPageID}`,
       data
     );
+    return res;
+  }
+
+  async bulkUpdatePageTags(
+    bookID: string,
+    pages: { id: string; tags: string[] }[]
+  ) {
+    const res = await axios.put<
+      {
+        failed: number;
+        processed: number;
+      } & ConductorBaseResponse
+    >(`/commons/book/${bookID}/page-tags`, {
+      pages,
+    });
     return res;
   }
 
@@ -1021,38 +1075,40 @@ class API {
     email: string,
     role: string
   ) {
-    const res = await axios.post<{ 
-      responseInvitation: BaseInvitation
-    } & ConductorBaseResponse>(
-      `/project-invitations/${projectID}`,
+    const res = await axios.post<
       {
-        email,
-        role
-      }
-    );
+        responseInvitation: BaseInvitation;
+      } & ConductorBaseResponse
+    >(`/project-invitations/${projectID}`, {
+      email,
+      role,
+    });
     return res.data;
   }
 
   async getAllProjectInvitations(
-    projectID: string, 
-    page: number = 1, 
+    projectID: string,
+    page: number = 1,
     limit: number
   ) {
-    const res = await axios.get<{
-      data: InvitationsResponse;
-    } & ConductorBaseResponse>(`/project-invitations/project/${projectID}`, {
+    const res = await axios.get<
+      {
+        data: InvitationsResponse;
+      } & ConductorBaseResponse
+    >(`/project-invitations/project/${projectID}`, {
       params: { page, limit },
     });
     return res.data;
   }
 
-  async getProjectInvitation(
-    inviteID: string, 
-    token: string | null
-  ) {
-    const res = await axios.get<{
-      invitation: BaseInvitation & {sender: Sender} & {project: ProjectSummary};
-    } & ConductorBaseResponse>(`/project-invitations/${inviteID}`, {
+  async getProjectInvitation(inviteID: string, token: string | null) {
+    const res = await axios.get<
+      {
+        invitation: BaseInvitation & { sender: Sender } & {
+          project: ProjectSummary;
+        };
+      } & ConductorBaseResponse
+    >(`/project-invitations/${inviteID}`, {
       params: { token },
     });
     return res.data;
@@ -1064,34 +1120,35 @@ class API {
         deleted: boolean;
       } & ConductorBaseResponse
     >(`/project-invitations/${invitationId}`);
-  
+
     return res.data;
   }
-  
+
   async updateInvitationRole(inviteID: string, role: string) {
     const res = await axios.put<
       {
         updatedInvitation: BaseInvitation;
       } & ConductorBaseResponse
     >(`/project-invitations/${inviteID}/update`, { role });
-  
-    return res.data; 
+
+    return res.data;
   }
-  
-  async acceptProjectInvitation(inviteID: string | null, token: string | null){
-    const res = await axios.post<{ 
-      data: string
-    } & ConductorBaseResponse>(
+
+  async acceptProjectInvitation(inviteID: string | null, token: string | null) {
+    const res = await axios.post<
+      {
+        data: string;
+      } & ConductorBaseResponse
+    >(
       `/project-invitation/${inviteID}/accept`,
       {},
       {
-        params: {token},
+        params: { token },
       }
     );
 
     return res.data;
   }
-
 }
 
 export default new API();

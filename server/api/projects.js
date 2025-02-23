@@ -3557,7 +3557,8 @@ const validate = (method) => {
       ]
     case 'getProject':
       return [
-          query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+          query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+          query('include', conductorErrors.err1).optional({ checkFalsy: true }).isArray()
       ]
     case 'getUserProjectsAdmin':
       return [
