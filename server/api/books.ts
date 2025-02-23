@@ -2537,8 +2537,12 @@ async function _runBulkUpdateJob(
       );
 
       // Initialize new page details array
-      let newPageDetails: { id: string; summary?: string; tags?: string[] }[] =
-        [];
+      let newPageDetails: {
+        id: string;
+        summary?: string;
+        tags?: string[];
+        error?: string;
+      }[] = [];
       if (dataSource === "user") {
         newPageDetails = data || [];
       }
@@ -2594,6 +2598,7 @@ async function _runBulkUpdateJob(
             newPageDetails.push({
               id: pageIDs[i],
               summary: result.value[1],
+              error: result.value[0] || undefined,
             });
           }
         }
@@ -2633,6 +2638,7 @@ async function _runBulkUpdateJob(
               newPageDetails.push({
                 id: pageIDs[i],
                 tags: result.value[1],
+                error: result.value[0] || undefined,
               });
             }
           }
@@ -2643,9 +2649,39 @@ async function _runBulkUpdateJob(
       let processed = 0;
       let failed = 0;
       const BATCH_SIZE = 5;
-      const resultMessages: string[] = [];
+      const errors = {
+        location: 0,
+        env: 0,
+        empty: 0,
+        badres: 0,
+        internal: 0,
+      };
 
-      const updatePromises = newPageDetails.map((p) => {
+      const withoutErrors = newPageDetails.reduce((acc, curr) => {
+        if (curr.error) {
+          switch (curr.error) {
+            case "location":
+              errors.location++;
+              break;
+            case "env":
+              errors.env++;
+              break;
+            case "empty":
+              errors.empty++;
+              break;
+            case "badres":
+              errors.badres++;
+              break;
+            case "internal":
+              errors.internal++;
+              break;
+          }
+          return acc;
+        }
+        return [...acc, curr];
+      }, [] as { id: string; summary?: string; tags?: string[] }[]);
+
+      const updatePromises = withoutErrors.map((p) => {
         // delay 1s between each update to avoid rate limiting
         return new Promise<ReturnType<BookService["updatePageDetails"]>>(
           (resolve) => {
@@ -2662,10 +2698,18 @@ async function _runBulkUpdateJob(
         batchResults.forEach((r) => {
           if (r.status === "rejected") {
             failed++;
-            resultMessages.push(r.reason);
           } else {
-            processed++;
-            resultMessages.push(`Successfully updated ${r.value[0]}.`);
+            if (r.value[0] !== null) {
+              failed++;
+              if (r.value[0] === "location") {
+                errors.location++;
+              }
+              if (r.value[0] === "internal") {
+                errors.internal++;
+              }
+            } else {
+              processed++;
+            }
           }
         });
         console.log(
@@ -2698,6 +2742,7 @@ async function _runBulkUpdateJob(
           $set: {
             "batchUpdateJobs.$[job].status": "completed",
             "batchUpdateJobs.$[job].endTimestamp": new Date(),
+            "batchUpdateJobs.$[job].results": errors,
           },
         },
         {
@@ -2705,20 +2750,31 @@ async function _runBulkUpdateJob(
         }
       );
 
+      const parsedResults: Record<string, any> = Object.entries(
+        errors || {}
+      ).filter(([_, value]) => value !== 0);
+      const resultsString: string = parsedResults
+        .map(([key, value]: [string, any]) => {
+          return `${value} pages failed with error: ${key}`;
+        })
+        .join(", ");
+
       if (dataSource === "generated") {
         await mailAPI.sendBatchBookAIMetadataFinished(
           emailsToNotify,
           projectID,
           jobID,
           jobType,
-          processed
+          processed,  
+          resultsString
         );
       } else {
         await mailAPI.sendBatchBookUpdateFinished(
           emailsToNotify,
           projectID,
           jobID,
-          processed
+          processed,
+          resultsString
         );
       }
     } catch (e: any) {
