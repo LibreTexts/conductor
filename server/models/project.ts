@@ -15,6 +15,23 @@ export type ProjectModuleSettings = {
   tasks: ProjectModuleConfig;
 };
 
+export type ProjectBookBatchUpdateJob = {
+  jobID: string;
+  type: "summaries" | "tags" | "summaries+tags";
+  status: "pending" | "running" | "completed" | "failed";
+  processedPages: number;
+  failedPages: number;
+  totalPages: number;
+  dataSource: "user" | "generated";
+  ranBy: string; // User UUID
+  startTimestamp?: Date;
+  endTimestamp?: Date;
+  error?: string; // root-level error message, not for individual pages
+  results?: {
+    [key: string]: any;
+  };
+}
+
 export interface ProjectInterface extends Document {
   orgID: string;
   projectID: string;
@@ -81,6 +98,7 @@ export interface ProjectInterface extends Document {
   sourceHarvestDate?: Date;
   sourceLastModifiedDate?: Date;
   sourceLanguage?: string;
+  batchUpdateJobs?: ProjectBookBatchUpdateJob[];
 }
 
 const ProjectSchema = new Schema<ProjectInterface>(
@@ -429,6 +447,36 @@ const ProjectSchema = new Schema<ProjectInterface>(
      * Language of the source material.
      */
     sourceLanguage: String,
+    /**
+     * Batch Update Jobs (can be user-defined content or AI generated).
+     */
+    batchUpdateJobs: [
+      {
+        jobID: String,
+        type: {
+          type: String,
+          enum: ["summaries", "tags", "summaries+tags"],
+        },
+        status: {
+          type: String,
+          enum: ["pending", "running", "completed", "failed"],
+        },
+        processedPages: Number,
+        failedPages: Number,
+        totalPages: Number,
+        dataSource: {
+          type: String,
+          enum: ["user", "generated"],
+        },
+        ranBy: String,
+        startTimestamp: Date,
+        endTimestamp: Date,
+        error: String,
+        results: {
+          type: Schema.Types.Mixed,
+        },
+      }
+    ],
   },
   {
     timestamps: true,

@@ -1,3 +1,5 @@
+import { Prettify } from "./Misc";
+
 export type Book = {
   coverID: string;
   bookID: string;
@@ -32,7 +34,7 @@ export type BookWithSourceData = Book & {
   sourceHarvestDate?: Date;
   sourceLastModifiedDate?: Date;
   sourceLanguage?: string;
-}
+};
 
 export type BookLinks = {
   online: string;
@@ -67,4 +69,30 @@ export type PageTag = {
 export type PageDetailsResponse = {
   overview: string;
   tags: PageTag[];
-}
+};
+
+type _PageSimple = {
+  id: string;
+  title: string;
+  url: string;
+};
+
+export type PageSimpleWTags = Prettify<
+  _PageSimple & {
+    tags: PageTag[];
+  }
+>;
+
+export type PageSimpleWOverview = Prettify<
+  _PageSimple & {
+    overview: string;
+  }
+>;
+
+export type TableOfContentsDetailed = Prettify<
+  Omit<TableOfContents, "children"> & {
+    overview: string;
+    tags: string[];
+    children: TableOfContentsDetailed[];
+  }
+>;

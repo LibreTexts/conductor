@@ -103,6 +103,23 @@ export type ProjectModuleSettings = {
   tasks: ProjectModuleConfig;
 };
 
+export type ProjectBookBatchUpdateJob = {
+  jobID: string;
+  type: "summaries" | "tags" | "summaries+tags";
+  status: "pending" | "running" | "completed" | "failed";
+  processedPages: number;
+  failedPages: number;
+  totalPages: number;
+  dataSource: "user" | "generated";
+  ranBy: string; // User UUID
+  startTimestamp?: Date;
+  endTimestamp?: Date;
+  error?: string;
+  results?: {
+    [key: string]: any;
+  };
+}
+
 export type Project = {
   orgID: string;
   projectID: string;
@@ -166,6 +183,7 @@ export type Project = {
   sourceHarvestDate?: Date;
   sourceLastModifiedDate?: Date;
   sourceLanguage?: string;
+  batchUpdateJobs?: ProjectBookBatchUpdateJob[];
 };
 
 export type AddableProjectTeamMember = Pick<User, "uuid" | "firstName" | "lastName" | "avatar"> & {

@@ -20,18 +20,8 @@ import useGlobalError from "../../error/ErrorHooks";
 import LoadingSpinner from "../../LoadingSpinner";
 import { useNotifications } from "../../../context/NotificationContext";
 import "../Projects.css";
+import { DISABLED_PAGE_TAG_PREFIXES } from "../../../utils/misc";
 const SUMMARY_MAX_LENGTH = 500;
-const DISABLED_TAG_PREFIXES = [
-  "article:",
-  "authorname:",
-  "license:",
-  "licenseversion:",
-  "source@",
-  "stage:",
-  "lulu@",
-  "author@",
-  "printoptions:"
-];
 
 type PageMetadata = {
   summary: string;
@@ -45,6 +35,10 @@ interface EditMetadataModalProps {
   title: string;
 }
 
+/**
+ * @deprecated
+ * This component is probably useless now, but leaving here for reference
+ */
 const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   library,
   pageID,
@@ -192,7 +186,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   }, [aiTags, watch("tags")]);
 
   const isDisabledTag = (value?: any): boolean => {
-    return DISABLED_TAG_PREFIXES.some((prefix) =>
+    return DISABLED_PAGE_TAG_PREFIXES.some((prefix) =>
       value?.toString().startsWith(prefix)
     );
   };

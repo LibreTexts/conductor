@@ -118,3 +118,56 @@ export const updatePageDetailsSchema = z.object({
     }),
   }),
 });
+
+// For AI-generated metadata
+export const batchGenerateAIMetadataSchema = z.object({
+  params: z.object({
+    bookID: z.string().refine(checkBookIDFormat, {
+      message: conductorErrors.err1,
+    }),
+  }),
+  body: z
+    .object({
+      summaries: z.coerce.boolean().optional(),
+      tags: z.coerce.boolean().optional(),
+    })
+    .refine((data) => data.summaries || data.tags, {
+      message: "At least one of 'summaries' or 'tags' must be true",
+    }),
+});
+
+// For user-defined metadata
+export const batchUpdateBookMetadataSchema = z.object({
+  params: z.object({
+    bookID: z.string().refine(checkBookIDFormat, {
+      message: conductorErrors.err1,
+    }),
+  }),
+  body: z.object({
+    pages: z.array(
+      z.object({
+        id: z.string(),
+        summary: z.string().max(500).optional(),
+        tags: z.array(z.string().max(255)).max(100).optional(),
+      })
+    ),
+  }),
+});
+
+const _ReducedPageSimpleWTagsSchema = z.array(
+  z.object({
+    id: z.string(),
+    tags: z.array(z.string()),
+  })
+);
+
+export const bulkUpdatePageTagsSchema = z.object({
+  params: z.object({
+    bookID: z.string().refine(checkBookIDFormat, {
+      message: conductorErrors.err1,
+    }),
+  }),
+  body: z.object({
+    pages: _ReducedPageSimpleWTagsSchema,
+  }),
+});

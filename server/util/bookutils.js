@@ -259,58 +259,6 @@ export const getBookTOCFromAPI = async (bookID, bookURL) => {
     return buildStructure(tocRes.data.toc.structured);
 };
 
-export const getBookTOCNew = async (bookID) => {
-    if(!checkBookIDFormat(bookID)) throw new Error('bookid');
-    const library = bookID.split("-")[0];
-    const pageID = bookID.split("-")[1];
-
-    const res = await CXOneFetch({
-        scope: "page",
-        path: pageID,
-        api: MindTouch.API.Page.GET_Page_Tree,
-        subdomain: library,
-        options: {
-            method: "GET",
-        }
-    });
-    const rawTree = await res.json()
-
-    function _buildHierarchy(page, parentID) {
-        const pageID = Number.parseInt(page['@id'], 10);
-        const subpages = [];
-
-        const processPage = (p) => ({
-            ...p,
-            id: pageID,
-            url: p['uri.ui'],
-        });
-
-
-        if (Array.isArray(page?.subpages?.page)) {
-            page.subpages.page.forEach((p) => subpages.push(_buildHierarchy(p, pageID)));
-        } else if (typeof page?.subpages?.page === 'object') {
-            // single page
-            subpages.push(_buildHierarchy(page.subpages.page, pageID));
-        }
-
-        return processPage({
-            ...page,
-            ...(parentID && { parentID }),
-            ...(subpages.length && { subpages }),
-        });
-    }
-
-    const structured = _buildHierarchy(rawTree?.page);
-    const buildStructure = (page) => ({
-        children: Array.isArray(page.subpages) ? page.subpages.map((s) => buildStructure(s)) : [],
-        id: page['@id'],
-        title: page.title,
-        url: page.url,
-    });
-
-    return buildStructure(structured)
-}
-
 export const deleteBookFromAPI = async (bookID) => {
     if (!process.env.LIBRE_API_ENDPOINT_ACCESS) {
         throw new Error('missing API key');

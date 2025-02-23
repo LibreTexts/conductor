@@ -759,21 +759,51 @@ const sendOrgEventRegistrationConfirmation = (addresses, orgEvent, participantNa
 };
 
 /**
- * Sends a notification to the specified email addresses that page AI summaries have been generated and applied.
+ * Sends a notification to the specified email addresses that page AI metadata has been generated and applied.
  * @param {string[]} recipientAddresses - the email addresses to send the notification to
- * @param {string} projectID - the ID of the connect project
- * @param {number} updated - the number of pages updated with AI summaries
+ * @param {string} projectID - the ID of the project
+ * @param {string} jobID - the ID of the job that was completed
+ * @param {string} jobType - the type of job that was completed (i.e. summaries, tags, or both)
+ * @param {number} updated - the number of pages updated
  */
-const sendBatchAISummariesFinished = (recipientAddresses, projectID, updated) => {
+const sendBatchBookAIMetadataFinished = (recipientAddresses, projectID, jobID, jobType, updated) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `AI Summaries Finished - Project ${projectID}`,
+        subject: `AI Metadata Generation Finished - Project ${projectID}`,
         html: `
             <p>Hi,</p>
-            <p>We're just writing to let you know that we've finished applying AI-generated page summaries to the textbook associated with this project.</p>
+            <p>We're just writing to let you know that we've finished applying AI-generated page ${jobType === 'summaries+tags' ? 'summaries and tags' : jobType === 'summaries' ? 'summaries' : 'tags'} to the textbook associated with this project.</p>
             <p><strong>Updated:</strong> ${updated} pages</p>
-            <p>Please note that page summaries are cached and may take a few minutes to appear in the library.</p>
+            <p>Job ID: ${jobID}</p>
+            <p>Please note that page summaries/tags are cached and may take a few minutes to appear in the library.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            <br />
+            ${autoGenNoticeHTML}
+        `,
+    });
+};
+
+/**
+ * Sends a notification to the specified email addresses that page AI metadata has been generated and applied.
+ * @param {string[]} recipientAddresses - the email addresses to send the notification to
+ * @param {string} projectID - the ID of the project
+ * @param {string} jobID - the ID of the job that was completed
+ * @param {string} jobType - the type of job that was completed (i.e. summaries, tags, or both)
+ * @param {number} updated - the number of pages updated
+ */
+const sendBatchBookUpdateFinished = (recipientAddresses, projectID, jobID, updated) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: recipientAddresses,
+        subject: `Bulk Update Job Finished - Project ${projectID}`,
+        html: `
+            <p>Hi,</p>
+            <p>We're just writing to let you know that we've finished applying your updates to the textbook associated with this project.</p>
+            <p><strong>Updated:</strong> ${updated} pages</p>
+            <p>Job ID: ${jobID}</p>
+            <p>Please note that page summaries/tags are cached and may take a few minutes to appear in the library.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
             <br />
@@ -1097,7 +1127,8 @@ export default {
     sendAnalyticsInvite,
     sendAnalyticsInviteAccepted,
     sendOrgEventRegistrationConfirmation,
-    sendBatchAISummariesFinished,
+    sendBatchBookAIMetadataFinished,
+    sendBatchBookUpdateFinished,
     sendSupportTicketCreateConfirmation,
     sendSupportTicketCreateInternalNotification,
     sendNewTicketMessageNotification,

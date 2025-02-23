@@ -1,9 +1,13 @@
-const LoadingSpinner: React.FC = () => {
+interface LoadingSpinnerProps {
+  text?: string;
+}
+
+const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ text }) => {
   return (
     <div>
       <div className="ui active inverted dimmer">
         <div className="ui text loader">
-          <span>Loading</span>
+          <span>{text || "Loading"}</span>
         </div>
       </div>
     </div>
