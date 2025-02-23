@@ -17,17 +17,21 @@ export type ProjectModuleSettings = {
 
 export type ProjectBookBatchUpdateJob = {
   jobID: string;
-  type: "summaries" | "tags" | "summaries+tags";
+  type: ("summaries" | "tags" | "alttext")[];
   status: "pending" | "running" | "completed" | "failed";
-  processedPages: number;
-  failedPages: number;
-  totalPages: number;
+  successfulMetaPages?: number; // number of pages whose summaries and/or tags were updated
+  failedMetaPages?: number;
+  successfulImagePages?: number; // number of pages whose image(s) alt text was updated
+  failedImagePages?: number;
   dataSource: "user" | "generated";
   ranBy: string; // User UUID
   startTimestamp?: Date;
   endTimestamp?: Date;
   error?: string; // root-level error message, not for individual pages
-  results?: {
+  imageResults?: {
+    [key: string]: any;
+  };
+  metaResults?: {
     [key: string]: any;
   };
 }
@@ -454,16 +458,17 @@ const ProjectSchema = new Schema<ProjectInterface>(
       {
         jobID: String,
         type: {
-          type: String,
-          enum: ["summaries", "tags", "summaries+tags"],
+          type: [String],
+          enum: ["summaries", "tags", "alttext"],
         },
         status: {
           type: String,
           enum: ["pending", "running", "completed", "failed"],
         },
-        processedPages: Number,
-        failedPages: Number,
-        totalPages: Number,
+        successfulMetaPages: Number,
+        failedMetaPages: Number,
+        successfulImagePages: Number,
+        failedImagePages: Number,
         dataSource: {
           type: String,
           enum: ["user", "generated"],
@@ -472,7 +477,10 @@ const ProjectSchema = new Schema<ProjectInterface>(
         startTimestamp: Date,
         endTimestamp: Date,
         error: String,
-        results: {
+        metaResults: {
+          type: Schema.Types.Mixed,
+        },
+        imageResults: {
           type: Schema.Types.Mixed,
         },
       }

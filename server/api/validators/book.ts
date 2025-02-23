@@ -130,9 +130,10 @@ export const batchGenerateAIMetadataSchema = z.object({
     .object({
       summaries: z.coerce.boolean().optional(),
       tags: z.coerce.boolean().optional(),
+      alttext: z.coerce.boolean().optional(),
     })
-    .refine((data) => data.summaries || data.tags, {
-      message: "At least one of 'summaries' or 'tags' must be true",
+    .refine((data) => data.summaries || data.tags || data.alttext, {
+      message: "At least one of 'summaries', 'tags', or 'alttext'  must be true",
     }),
 });
 

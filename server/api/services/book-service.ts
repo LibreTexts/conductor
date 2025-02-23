@@ -5,6 +5,7 @@ import {
   GetPageSubPagesResponse,
   PageBase,
   PageDetailsResponse,
+  PageImagesRes,
   PageSimpleWOverview,
   PageSimpleWTags,
   PageTag,
@@ -226,6 +227,76 @@ export default class BookService {
     return pageTags;
   }
 
+  /**
+   * Retrieves a base64 encoded string of a file from a page
+   * @param pageID - The ID of the page to fetch the file from
+   * @param fileName - The name of the file to fetch (should include the file extension)
+   * @param size - The size of the file to fetch (original, thumb, webview, bestfit)
+   * @returns {string} - The base64 encoded string of the file
+   */
+  async getFileContent(
+    pageID: string,
+    fileName: string,
+    size: "original" | "thumb" | "webview" | "bestfit" = "thumb"
+  ) {
+    const fileContentRes = await CXOneFetch({
+      scope: "page",
+      path: parseInt(pageID.toString()),
+      api: MindTouch.API.Page.GET_Page_File(fileName),
+      subdomain: this._library,
+      query: {
+        size,
+      },
+    }).catch((err) => {
+      console.error(err);
+      throw new Error(`Error fetching file content: ${err}`);
+    });
+
+    if (!fileContentRes.ok) {
+      throw new Error(
+        `Error fetching file content: ${fileContentRes.statusText}`
+      );
+    }
+
+    // Get the file stream and convert it to a base64 string
+    const fileStream = await fileContentRes.blob();
+    const arrayBuffer = await fileStream.arrayBuffer();
+    const fileData = Buffer.from(arrayBuffer).toString("base64");
+
+    return fileData;
+  }
+
+  /**
+   * Retrieves the content of a page as a string with unicode escape sequences
+   * @param pageID - The ID of the page to fetch content from
+   * @returns {string} - The raw content of the page
+   */
+  async getPageContent(pageID: string): Promise<string> {
+    const pageContentsRes = await CXOneFetch({
+      scope: "page",
+      path: parseInt(pageID),
+      api: MindTouch.API.Page.GET_Page_Contents,
+      subdomain: this._library,
+    }).catch((err) => {
+      console.error(err);
+      throw new Error(`Error fetching page details: ${err}`);
+    });
+
+    if (!pageContentsRes.ok) {
+      throw new Error(
+        `Error fetching page details: ${pageContentsRes.statusText}`
+      );
+    }
+
+    const pageContent = await pageContentsRes.json();
+    const pageRawBody = pageContent.body?.[0];
+    if (!pageRawBody) {
+      return "";
+    }
+
+    return pageRawBody.toString();
+  }
+
   async getPageDetails(
     pageID: string
   ): Promise<PageDetailsResponse | undefined> {
@@ -305,33 +376,72 @@ export default class BookService {
     return pageTags;
   }
 
+  /**
+   * Retrieves the pure text content of a page, excluding HTML tags
+   * @param pageID
+   * @returns {string} - The text content of the page
+   */
   async getPageTextContent(pageID: string): Promise<string> {
-    const pageContentsRes = await CXOneFetch({
-      scope: "page",
-      path: parseInt(pageID),
-      api: MindTouch.API.Page.GET_Page_Contents,
-      subdomain: this._library,
-    }).catch((err) => {
-      console.error(err);
-      throw new Error(`Error fetching page details: ${err}`);
-    });
-
-    if (!pageContentsRes.ok) {
-      throw new Error(
-        `Error fetching page details: ${pageContentsRes.statusText}`
-      );
-    }
-
-    const pageContent = await pageContentsRes.json();
-    const pageRawBody = pageContent.body?.[0];
-    if (!pageRawBody) {
-      return "";
-    }
-
+    const pageRawBody = await this.getPageContent(pageID);
     const cheerioObj = cheerio.load(pageRawBody);
     const pageText = cheerioObj.text(); // Extract text from HTML
 
     return pageText;
+  }
+
+  async getPageImages(pageID: string): Promise<PageImagesRes | undefined> {
+    const pageImagesRes = await CXOneFetch({
+      scope: "page",
+      path: parseInt(pageID),
+      api: MindTouch.API.Page.GET_Page_Images,
+      subdomain: this._library,
+    }).catch((err) => {
+      console.error(err);
+      throw new Error(`Error fetching page images: ${err}`);
+    });
+
+    if (!pageImagesRes.ok) {
+      throw new Error(
+        `Error fetching page images: ${pageImagesRes.statusText}`
+      );
+    }
+
+    const parsed = await pageImagesRes.json();
+    if (!parsed.file) {
+      return undefined;
+    }
+
+    return parsed;
+  }
+
+  async updatePageContent(pageID: string, content: string): Promise<boolean> {
+    try {
+      const updatedContentRes = await CXOneFetch({
+        scope: "page",
+        path: parseInt(pageID),
+        api: MindTouch.API.Page.POST_Contents,
+        subdomain: this._library,
+        query: {
+          edittime: "now",
+        },
+        options: {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain",
+          },
+          body: content,
+        },
+      });
+
+      if (!updatedContentRes.ok) {
+        throw new Error("internal");
+      }
+
+      return true;
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
   }
 
   async updatePageDetails(

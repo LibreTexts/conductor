@@ -418,11 +418,9 @@ const TextbookCuration = () => {
           <div className="flex flex-row justify-between">
             <div className="flex flex-col">
               <Message.Header>Bulk Update Job In Progress</Message.Header>
-
               <p>
                 AI-generated metadata is currently being applied. This may take
-                some time to complete. Last update: {job.processedPages || 0}{" "}
-                successful pages.
+                some time to complete.
               </p>
             </div>
             <Button
@@ -582,6 +580,7 @@ const TextbookCuration = () => {
         <div className="flex flex-row justify-between items-center mt-2">
           <p className="font-semibold text-lg">{node.title}</p>
         </div>
+        <p className="text-sm mt-1 font-semibold">Summary:</p>
         <div className="flex flex-row justify-between items-start">
           <CtlTextArea
             control={control}
@@ -603,6 +602,7 @@ const TextbookCuration = () => {
               icon
               style={{ backgroundColor: "#155789" }}
               className="!text-white"
+              title="View Page (opens in new tab)"
             >
               <Icon name="external alternate" />
             </Button>
@@ -613,12 +613,14 @@ const TextbookCuration = () => {
               style={{ backgroundColor: "#155789" }}
               className="!text-white !mt-2"
               onClick={() => fetchAISummary(node.id)}
+              title="Generate AI Summary"
             >
               <Icon name="magic" />
             </Button>
           </div>
         </div>
         <div className="border-t border-slate-300 mt-2 pt-2 w-full">
+        <p className="text-sm mt-1 font-semibold">Tags:</p>
           <div className="flex flex-row justify-between">
             <div className="space-y-1">
               {tags.map((t) => (
@@ -633,6 +635,7 @@ const TextbookCuration = () => {
                 onClick={() => {
                   handleOpenSingleAddTagModal(node.id);
                 }}
+                title="Add Individual Tag to Page"
               >
                 <Icon name="plus" />
               </Button>
@@ -643,6 +646,7 @@ const TextbookCuration = () => {
                 onClick={() => fetchAITags(node.id)}
                 loading={loading}
                 disabled={loading}
+                title="Generate AI Tags"
               >
                 <Icon name="magic" />
               </Button>
@@ -739,7 +743,7 @@ const TextbookCuration = () => {
               Welcome to LibreTexts' AI Co-Author tool. Here, you can curate
               AI-generated metadata for your textbook. You can generate and edit
               metadata for individual pages below, or use the bulk actions to
-              generate metadata for all pages at once.
+              generate metadata for all pages at once and return here to refine it.
             </p>
             <img
               src="https://cdn.libretexts.net/Images/benny-mascot-white.png"
@@ -830,13 +834,14 @@ const TextbookCuration = () => {
                     icon
                     title="Expand/Collapse All"
                   >
-                    <Icon name="expand arrows alternate" />
+                    <Icon name="arrows alternate vertical" />
                   </Button>
                   <Button
                     onClick={handleConfirmReset}
                     disabled={!hasMadeChanges}
                     loading={updateBookPagesMutation.isLoading}
                     color="red"
+                    title="Reset All Changes"
                   >
                     <Icon name="refresh" />
                     Reset
@@ -846,6 +851,7 @@ const TextbookCuration = () => {
                     onClick={handleConfirmSave}
                     disabled={!hasMadeChanges}
                     loading={updateBookPagesMutation.isLoading}
+                  title="Save Changes"
                   >
                     <Icon name="save" />
                     Save Changes
@@ -866,7 +872,7 @@ const TextbookCuration = () => {
                     icon
                     title="Expand/Collapse All"
                   >
-                    <Icon name="expand arrows alternate" />
+                    <Icon name="arrows alternate vertical" />
                   </Button>
                 </div>
               </>

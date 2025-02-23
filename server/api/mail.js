@@ -763,22 +763,24 @@ const sendOrgEventRegistrationConfirmation = (addresses, orgEvent, participantNa
  * @param {string[]} recipientAddresses - the email addresses to send the notification to
  * @param {string} projectID - the ID of the project
  * @param {string} jobID - the ID of the job that was completed
- * @param {string} jobType - the type of job that was completed (i.e. summaries, tags, or both)
- * @param {number} updated - the number of pages updated
+ * @param {string} jobType - the types of job that were completed (i.e. summaries, tags, or both)
+ * @param {number} updatedMeta - the number of pages whose metadata was updated
+ * @param {number} updatedImage - the number of pages who had image(s) alttext updated
  * @param {string} resultsString - the results of the job
  */
-const sendBatchBookAIMetadataFinished = (recipientAddresses, projectID, jobID, jobType, updated, resultsString) => {
+const sendBatchBookAIMetadataFinished = (recipientAddresses, projectID, jobID, jobType, updatedMeta, updatedImage, resultsString) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
         subject: `AI Metadata Generation Finished - Project ${projectID}`,
         html: `
             <p>Hi,</p>
-            <p>We're just writing to let you know that we've finished applying AI-generated page ${jobType === 'summaries+tags' ? 'summaries and tags' : jobType === 'summaries' ? 'summaries' : 'tags'} to the textbook associated with this project.</p>
-            <p><strong>Succesfully Updated:</strong> ${updated} pages</p>
+            <p>We're just writing to let you know that we've finished applying AI-generated ${jobType.map} to the textbook associated with this project.</p>
+            <p><strong>Succesfully Updated:</strong> ${updatedMeta} pages with summaries and/or tags</p>
+            <p><strong>Succesfully Updated:</strong> ${updatedImage} pages with image alt text</p>
             <p><strong>Could Not Update:</strong> ${resultsString || "N/A"}</p>
             <p>Job ID: ${jobID}</p>
-            <p>Please note that page summaries/tags are cached and may take a few minutes to appear in the library.</p>
+            <p>Please note that page content is cached and updates may take a few minutes to appear in the library.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
             <br />
@@ -807,7 +809,7 @@ const sendBatchBookUpdateFinished = (recipientAddresses, projectID, jobID, updat
             <p><strong>Successfully Updated:</strong> ${updated} pages</p>
             <p><strong>Could Not Update:</strong> ${resultsString || "N/A"}</p>
             <p>Job ID: ${jobID}</p>
-            <p>Please note that page summaries/tags are cached and may take a few minutes to appear in the library.</p>
+            <p>Please note that page content is cached and updates may take a few minutes to appear in the library.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
             <br />
