@@ -15,7 +15,7 @@ const ViewBulkUpdateHistoryModal: React.FC<ViewBulkUpdateHistoryModalProps> = ({
       <Modal.Header>View Bulk Update History</Modal.Header>
       <Modal.Content scrolling>
         <div className="mb-8">
-          <Table celled className="!mt-1">
+          <Table celled className="!mt-1" striped>
             <Table.Header fullWidth>
               <Table.Row key="header">
                 <Table.HeaderCell>Job ID</Table.HeaderCell>
@@ -24,43 +24,55 @@ const ViewBulkUpdateHistoryModal: React.FC<ViewBulkUpdateHistoryModalProps> = ({
                 <Table.HeaderCell>Source</Table.HeaderCell>
                 <Table.HeaderCell>Processed Pages</Table.HeaderCell>
                 <Table.HeaderCell>Failed Pages</Table.HeaderCell>
+                <Table.HeaderCell>Error Messages</Table.HeaderCell>
                 <Table.HeaderCell>Status</Table.HeaderCell>
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {project.batchUpdateJobs?.map((job, index) => (
-                <Table.Row key={job.jobID}>
-                  <Table.Cell>{job.jobID.slice(0, 8)}</Table.Cell>
-                  <Table.Cell>
-                    {job.startTimestamp
-                      ? new Intl.DateTimeFormat("en-US", {
-                          year: "numeric",
-                          month: "numeric",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "numeric",
-                          second: "numeric",
-                        }).format(new Date(job.startTimestamp?.toString()))
-                      : "N/A"}{" "}
-                    -{" "}
-                    {job.endTimestamp
-                      ? new Intl.DateTimeFormat("en-US", {
-                          year: "numeric",
-                          month: "numeric",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "numeric",
-                          second: "numeric",
-                        }).format(new Date(job.endTimestamp?.toString()))
-                      : "N/A"}
-                  </Table.Cell>
-                  <Table.Cell>{job.type}</Table.Cell>
-                  <Table.Cell>{job.dataSource}</Table.Cell>
-                  <Table.Cell>{job.processedPages}</Table.Cell>
-                  <Table.Cell>{job.failedPages}</Table.Cell>
-                  <Table.Cell>{job.status}</Table.Cell>
-                </Table.Row>
-              ))}
+              {project.batchUpdateJobs?.map((job, index) => {
+                const parsedResults = Object.entries(job.results || {}).filter(
+                  ([_, value]) => value !== 0 && value !== "0"
+                );
+                const errors = parsedResults
+                  .map(([key, value]) => {
+                    return `${value} pages failed with error: ${key}`;
+                  })
+                  .join(", ");
+                return (
+                  <Table.Row key={job.jobID}>
+                    <Table.Cell>{job.jobID.slice(0, 8)}</Table.Cell>
+                    <Table.Cell>
+                      {job.startTimestamp
+                        ? new Intl.DateTimeFormat("en-US", {
+                            year: "numeric",
+                            month: "numeric",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "numeric",
+                            second: "numeric",
+                          }).format(new Date(job.startTimestamp?.toString()))
+                        : "N/A"}{" "}
+                      -{" "}
+                      {job.endTimestamp
+                        ? new Intl.DateTimeFormat("en-US", {
+                            year: "numeric",
+                            month: "numeric",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "numeric",
+                            second: "numeric",
+                          }).format(new Date(job.endTimestamp?.toString()))
+                        : "N/A"}
+                    </Table.Cell>
+                    <Table.Cell>{job.type}</Table.Cell>
+                    <Table.Cell>{job.dataSource}</Table.Cell>
+                    <Table.Cell>{job.processedPages}</Table.Cell>
+                    <Table.Cell>{job.failedPages}</Table.Cell>
+                    <Table.Cell>{errors ?? "N/A"}</Table.Cell>
+                    <Table.Cell>{job.status}</Table.Cell>
+                  </Table.Row>
+                );
+              })}
             </Table.Body>
           </Table>
         </div>
