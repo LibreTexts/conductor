@@ -79,6 +79,7 @@ import {
   getWithPageIDParamAndCoverPageIDSchema,
 } from "./validators/book.js";
 import BookService from "./services/book-service.js";
+import { randomUUID } from "crypto";
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   _id: 0,
@@ -2332,7 +2333,7 @@ async function batchGenerateAIMetadata(
         : "tags";
 
     const job: ProjectBookBatchUpdateJob = {
-      jobID: crypto.randomUUID(),
+      jobID: randomUUID(),
       type: jobType,
       status: "pending",
       dataSource: "generated",
@@ -2437,7 +2438,7 @@ async function batchUpdateBookMetadata(
     }
 
     const job: ProjectBookBatchUpdateJob = {
-      jobID: crypto.randomUUID(),
+      jobID: randomUUID(),
       type: "summaries+tags", // Default to summaries+tags for user data source
       status: "pending",
       dataSource: "user",
