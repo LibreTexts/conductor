@@ -67,6 +67,10 @@ const TextbookCuration = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [bulkActionsOpen, setBulkActionsOpen] = useState<boolean>(false);
 
+  useEffect(() => {
+    window.location.href = `/projects/${projectID}/`; // temp redirect
+  }, [])
+
   const { control, setValue } = useForm<FormWorkingData>();
   const { fields, append, update, replace } = useFieldArray({
     control,
