@@ -7,6 +7,7 @@ import ProjectFile, {
 } from "../models/projectfile.js";
 import multer from "multer";
 import Project from "../models/project.js";
+import Organization from "../models/organization.js";
 import {
   PROJECT_FILES_S3_CLIENT_CONFIG,
   computeStructureAccessSettings,
@@ -438,6 +439,108 @@ async function getProjectFileDownloadURL(
       err: false,
       msg: "Successfully generated download link!",
       url: downloadURLs[0], // Only first index because we only requested one file
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function getPermanentLink(
+  req: ZodReqWithOptionalUser<z.infer<typeof getProjectFileDownloadURLSchema>>,
+  res: Response
+) {
+  try {
+    const { projectID, fileID } = req.params;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    const { orgID } = project;
+    const organization = await Organization.findOne({ orgID }).lean();
+    if (!organization) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    const projectFile = await ProjectFile.findOne({
+      projectID,
+      fileID,
+    }).lean();
+
+    if (!projectFile) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    if (projectFile.access !== "public") {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err29
+      });
+    }
+    const domain = organization.domain;
+    const permanentLink = `${domain}/permalink/${projectID}/${fileID}`;
+    return res.status(200).send({
+      error: false,
+      url: permanentLink,
+    });
+
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function redirectPermanentLink(
+  req: ZodReqWithOptionalUser<z.infer<typeof getProjectFileDownloadURLSchema>>,
+  res: Response
+) {
+  try {
+    const { projectID, fileID } = req.params;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+   
+    const downloadURLs = await downloadProjectFiles(
+      projectID,
+      [fileID],
+      undefined,
+      req.user?.decoded?.uuid,
+      false
+    );
+
+    if (
+      downloadURLs === null ||
+      !Array.isArray(downloadURLs) ||
+      downloadURLs.length === 0
+    ) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err63,
+      });
+    }
+
+    return res.send({
+      err: false,
+      msg: "Successfully generated permanent link!",
+      url: `https://commons.libretexts.org/permalink/${projectID}/${fileID}`,
+      redirectUrl: downloadURLs[0] 
     });
   } catch (e) {
     debugError(e);
@@ -1719,4 +1822,6 @@ export default {
   createProjectFileStreamUploadURL,
   createProjectFileStreamUploadURLOptions,
   _parseAndSaveAuthors,
+  getPermanentLink,
+  redirectPermanentLink
 };

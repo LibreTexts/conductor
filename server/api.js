@@ -1767,6 +1767,14 @@ router
   );
 
 router
+  .route("/project/:projectID/files/:fileID/permanent")
+  .get(projectfilesAPI.getPermanentLink);
+
+router
+  .route("/project/:projectID/files/:fileID/redirect")
+  .get(projectfilesAPI.redirectPermanentLink);
+
+router
   .route("/project/:projectID/files/:fileID/move")
   .put(
     authAPI.verifyRequest,
