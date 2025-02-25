@@ -1768,11 +1768,21 @@ router
 
 router
   .route("/project/:projectID/files/:fileID/permanent")
-  .get(projectfilesAPI.getPermanentLink);
+  .get(
+    middleware.validateZod(
+      ProjectFileValidators.getProjectFileSchema
+    ),
+    projectfilesAPI.getPermanentLink
+  );
 
 router
   .route("/project/:projectID/files/:fileID/redirect")
-  .get(projectfilesAPI.redirectPermanentLink);
+  .get(
+    middleware.validateZod(
+      ProjectFileValidators.getProjectFileSchema
+    ),
+    projectfilesAPI.redirectPermanentLink
+  );
 
 router
   .route("/project/:projectID/files/:fileID/move")
