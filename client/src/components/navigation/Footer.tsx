@@ -1,14 +1,14 @@
 import React from "react";
 import PropTypes from "prop-types";
 import { Icon, Image, SemanticICONS } from "semantic-ui-react";
-import "./CommonsFooter.css";
-import { useTypedSelector } from "../../../state/hooks";
-import { sanitizeCustomColor } from "../../../utils/campusSettingsHelpers";
+import "./Footer.css";
+import { useTypedSelector } from "../../state/hooks";
+import { sanitizeCustomColor } from "../../utils/campusSettingsHelpers";
 
 /**
- * Signals the bottom of all Commons interfaces, with LibreTexts contact links.
+ * Signals the bottom of all Commons and Conductor interfaces, with LibreTexts contact links.
  */
-const CommonsFooter = () => {
+const Footer = () => {
   // Global State
   const org = useTypedSelector((state) => state.org);
 
@@ -68,7 +68,7 @@ const CommonsFooter = () => {
 
   return (
     <div
-      id="commons-footer"
+      id="footer"
       className={
         org.orgID === "libretexts"
           ? "libretexts-footer"
@@ -82,12 +82,6 @@ const CommonsFooter = () => {
     >
       {org.orgID === "libretexts" ? (
         <>
-          <div className="footer-row">
-            <p>
-              The LibreTexts libraries are supported by the United States
-              Department of Education Open Textbook Pilot Project.
-            </p>
-          </div>
           <div className="footer-row footer-links">
             {contactLinks.map((item) => (
               <a
@@ -109,7 +103,7 @@ const CommonsFooter = () => {
         </>
       ) : (
         <>
-          <p id="commons-poweredby-tagline">
+          <p id="poweredby-tagline">
             <em>powered by</em>
           </p>
           <Image
@@ -128,4 +122,4 @@ const CommonsFooter = () => {
   );
 };
 
-export default CommonsFooter;
+export default Footer;
