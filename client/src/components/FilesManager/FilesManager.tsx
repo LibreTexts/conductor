@@ -375,14 +375,10 @@ const FilesManager: React.FC<FilesManagerProps> = ({
         setPermanentLink(permanentUrl);
         setShowPermanentLinkModal(true);
       } else {
-        handleGlobalError(
-          new Error("Unable to download file. Please try again later.")
-        );
+        handleGlobalError(response.data.errMsg);
       }
     } catch (error) {
-      handleGlobalError(
-        new Error("Unable to download file. Please try again later.")
-      );
+      handleGlobalError(error);
     }
   }, []);
 
