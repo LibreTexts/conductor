@@ -4,6 +4,9 @@ import { useSelector } from 'react-redux';
 
 import AnonRoute from './components/util/AnonRoute';
 import PrivateRoute from './components/util/PrivateRoute';
+import Footer from "./components/navigation/Footer";
+
+import "./Conductor.css";
 
 const AccountSettings = lazy(() => import('./screens/conductor/AccountSettings'));
 const AdoptionReports = lazy(() => import('./screens/conductor/controlpanel/AdoptionReports'));
@@ -86,68 +89,71 @@ const Conductor = () => {
   return (
     <div className='conductor'>
       <RenderNavbar />
-      <Suspense fallback={<LoadingSpinner />}>
-        <Switch>
-        <AnonRoute exact path='/login' component={Login} />
-        <AnonRoute exact path='/fallback-auth' component={FallbackAuth} />
-        <PrivateRoute exact path='/home' component={Home} />
-        <PrivateRoute exact path='/search' component={Search} />
-        <PrivateRoute exact path='/alerts' component={MyAlerts} />
-        <PrivateRoute exact path='/projects/(create)?' component={MyProjects} />
-        <PrivateRoute exact path='/projects/available' component={ProjectsAvailable} />       
-        <PrivateRoute exact path='/projects/completed' component={ProjectsCompleted} />
-        <PrivateRoute exact path='/projects/flagged' component={ProjectsFlagged} />
-        <PrivateRoute exact path='/projects/:id' component={ProjectView} />
-        <PrivateRoute exact path='/projects/:id/accessibility' component={ProjectAccessibility} />
-        <PrivateRoute exact path='/projects/:id/peerreview' component={ProjectPeerReview} />
-        <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
-        <PrivateRoute exact path='/projects/:id/ai-co-author' component={TextbookCuration} />
-        <PrivateRoute exact path='/projects/accept-invite/:id' component={AcceptProjectInviteScreen} />
-        {/* <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />
-        <PrivateRoute exact path='/analytics/invites' component={AnalyticsInvites} />
-        <PrivateRoute exact path='/analytics/requestaccess' component={AnalyticsRequestAccess} />
-        <PrivateRoute exact path='/analytics/:courseID/:pane?/:settingsPane?' component={AnalyticsCourseView} /> */}
-        <PrivateRoute exact path='/account/:activePane?' component={AccountSettings} />
-        <PrivateRoute exact path='/controlpanel' component={ControlPanel} />
-        <PrivateRoute exact path='/controlpanel/adoptionreports' component={AdoptionReports} />
-        <PrivateRoute exact path='/controlpanel/analyticsrequests' component={AnalyticsRequests} />
-        <PrivateRoute exact path='/controlpanel/assettagsmanager' component={AssetTagsManager} />
-        <PrivateRoute exact path='/controlpanel/peoplemanager' component={PeopleManager} />
-        <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
-        <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
-        <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />
-        <PrivateRoute exact path='/controlpanel/eventsmanager' component={EventsManager} />
-        <PrivateRoute exact path='/controlpanel/eventsmanager/:mode/:eventID?' component={ManageEvent} />
-        <PrivateRoute exact path='/controlpanel/harvestingrequests' component={HarvestingRequests} />
-        <PrivateRoute exact path='/controlpanel/homeworkmanager' component={HomeworkManager} />
-        <PrivateRoute exact path='/controlpanel/libreone' component={CentralIdentity} />
-        <PrivateRoute exact path='/controlpanel/libreone/instructor-verifications' component={CentralIdentityInstructorVerifications} />
-        <PrivateRoute exact path='/controlpanel/libreone/orgs' component={CentralIdentityOrgs} />
-        <PrivateRoute exact path='/controlpanel/libreone/services' component={CentralIdentityServices} />
-        <PrivateRoute exact path='/controlpanel/libreone/users' component={CentralIdentityUsers} />
-        <PrivateRoute exact path='/controlpanel/orgsmanager' component={OrganizationsManager} />
-        <PrivateRoute exact path='/controlpanel/peerreviewrubrics' component={PeerReviewRubrics} />
-        <PrivateRoute exact path='/controlpanel/peerreviewrubrics/:mode/:rubricID?' component={PeerReviewRubricManage} />
-        <PrivateRoute exact path='/controlpanel/usersmanager' component={UsersManager} />
-        <PrivateRoute exact path='/controlpanel/usersmanager/:uuid' component={UserDetails} />
-        <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
-        <Route exact path='/peerreview/:id' component={PeerReviewPage} />
-        {/* LibreTexts org public routes */}
-        <LibreTextsRoute exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} org={org}/>
-        <LibreTextsRoute exact path='/insight' key='insight' component={KnowledgeBase} org={org}/>
-        <LibreTextsRoute exact path='/insight/search' key='insightsearchresults' component={KBSearchResults} org={org}/>
-        <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
-        <LibreTextsRoute exact path='/insight/:slug' key='insightpageview' org={org} component={KBPage} />
-        <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
-        <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
-        <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} />
-        {/*LibreTexts org private routes */}
-        <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
-        <LibreTextsPrivateRoute exact path='/support/closed' key='supportclosedtickets' org={org} component={SupportClosedTickets} />
-        {/* 404 */}
-        <Route component={PageNotFound} />
-        </Switch>
-      </Suspense>
+      <div className='conductor-content'>
+        <Suspense fallback={<LoadingSpinner />}>
+          <Switch>
+          <AnonRoute exact path='/login' component={Login} />
+          <AnonRoute exact path='/fallback-auth' component={FallbackAuth} />
+          <PrivateRoute exact path='/home' component={Home} />
+          <PrivateRoute exact path='/search' component={Search} />
+          <PrivateRoute exact path='/alerts' component={MyAlerts} />
+          <PrivateRoute exact path='/projects/(create)?' component={MyProjects} />
+          <PrivateRoute exact path='/projects/available' component={ProjectsAvailable} />       
+          <PrivateRoute exact path='/projects/completed' component={ProjectsCompleted} />
+          <PrivateRoute exact path='/projects/flagged' component={ProjectsFlagged} />
+          <PrivateRoute exact path='/projects/:id' component={ProjectView} />
+          <PrivateRoute exact path='/projects/:id/accessibility' component={ProjectAccessibility} />
+          <PrivateRoute exact path='/projects/:id/peerreview' component={ProjectPeerReview} />
+          <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
+          <PrivateRoute exact path='/projects/:id/ai-co-author' component={TextbookCuration} />
+          <PrivateRoute exact path='/projects/accept-invite/:id' component={AcceptProjectInviteScreen} />
+          {/* <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />
+          <PrivateRoute exact path='/analytics/invites' component={AnalyticsInvites} />
+          <PrivateRoute exact path='/analytics/requestaccess' component={AnalyticsRequestAccess} />
+          <PrivateRoute exact path='/analytics/:courseID/:pane?/:settingsPane?' component={AnalyticsCourseView} /> */}
+          <PrivateRoute exact path='/account/:activePane?' component={AccountSettings} />
+          <PrivateRoute exact path='/controlpanel' component={ControlPanel} />
+          <PrivateRoute exact path='/controlpanel/adoptionreports' component={AdoptionReports} />
+          <PrivateRoute exact path='/controlpanel/analyticsrequests' component={AnalyticsRequests} />
+          <PrivateRoute exact path='/controlpanel/assettagsmanager' component={AssetTagsManager} />
+          <PrivateRoute exact path='/controlpanel/peoplemanager' component={PeopleManager} />
+          <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
+          <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
+          <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />
+          <PrivateRoute exact path='/controlpanel/eventsmanager' component={EventsManager} />
+          <PrivateRoute exact path='/controlpanel/eventsmanager/:mode/:eventID?' component={ManageEvent} />
+          <PrivateRoute exact path='/controlpanel/harvestingrequests' component={HarvestingRequests} />
+          <PrivateRoute exact path='/controlpanel/homeworkmanager' component={HomeworkManager} />
+          <PrivateRoute exact path='/controlpanel/libreone' component={CentralIdentity} />
+          <PrivateRoute exact path='/controlpanel/libreone/instructor-verifications' component={CentralIdentityInstructorVerifications} />
+          <PrivateRoute exact path='/controlpanel/libreone/orgs' component={CentralIdentityOrgs} />
+          <PrivateRoute exact path='/controlpanel/libreone/services' component={CentralIdentityServices} />
+          <PrivateRoute exact path='/controlpanel/libreone/users' component={CentralIdentityUsers} />
+          <PrivateRoute exact path='/controlpanel/orgsmanager' component={OrganizationsManager} />
+          <PrivateRoute exact path='/controlpanel/peerreviewrubrics' component={PeerReviewRubrics} />
+          <PrivateRoute exact path='/controlpanel/peerreviewrubrics/:mode/:rubricID?' component={PeerReviewRubricManage} />
+          <PrivateRoute exact path='/controlpanel/usersmanager' component={UsersManager} />
+          <PrivateRoute exact path='/controlpanel/usersmanager/:uuid' component={UserDetails} />
+          <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
+          <Route exact path='/peerreview/:id' component={PeerReviewPage} />
+          {/* LibreTexts org public routes */}
+          <LibreTextsRoute exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} org={org}/>
+          <LibreTextsRoute exact path='/insight' key='insight' component={KnowledgeBase} org={org}/>
+          <LibreTextsRoute exact path='/insight/search' key='insightsearchresults' component={KBSearchResults} org={org}/>
+          <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
+          <LibreTextsRoute exact path='/insight/:slug' key='insightpageview' org={org} component={KBPage} />
+          <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
+          <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
+          <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} />
+          {/*LibreTexts org private routes */}
+          <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
+          <LibreTextsPrivateRoute exact path='/support/closed' key='supportclosedtickets' org={org} component={SupportClosedTickets} />
+          {/* 404 */}
+          <Route component={PageNotFound} />
+          </Switch>
+        </Suspense>
+      </div>
+      <Footer />
     </div>
   )
 };
