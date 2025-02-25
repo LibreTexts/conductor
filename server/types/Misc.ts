@@ -25,3 +25,5 @@ export type License = {
 export type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
+
+export type Subtract<T, K> = Omit<T, keyof K>;
