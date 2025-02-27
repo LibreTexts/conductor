@@ -774,6 +774,54 @@ const updateUserRole = (req, res) => {
     });
 };
 
+const deleteUserRole = async (req, res) => {
+    try {
+      let isSuperAdmin = authAPI.checkHasRole(req.user, 'libretexts', 'superadmin');
+      if (!isSuperAdmin && (req.body.orgID !== process.env.ORG_ID)) {
+        return res.send({
+          err: true,
+          errMsg: conductorErrors.err8
+        });
+      }
+      
+      const user = await User.findOne({ uuid: req.body.uuid }).lean();
+      if (!user) {
+        return res.send({
+          err: true,
+          errMsg: conductorErrors.err7
+        });
+      }
+      
+      let newRoles = [];
+      if (user.roles && Array.isArray(user.roles)) {
+        newRoles = user.roles.filter((item) => item.org !== req.body.orgID);
+      }
+    
+      const updateRes = await User.updateOne(
+        { uuid: req.body.uuid }, 
+        { roles: newRoles }
+      );
+      
+      if (updateRes.matchedCount === 1 && updateRes.modifiedCount === 1) {
+        return res.send({
+          err: false,
+          msg: "Successfully deleted the user's role."
+        });
+      } else {
+        return res.send({
+          err: true,
+          errMsg: conductorErrors.err3
+        });
+      }
+    } catch (err) {
+      debugError(err);
+      return res.send({
+        err: true,
+        errMsg: conductorErrors.err6
+      });
+    }
+  };
+
 
 /**
  * Returns an array of strings containing the email addresses of the requested users.
@@ -903,6 +951,11 @@ const validate = (method) => {
                 body('orgID', conductorErrors.err1).exists().isString().isLength({ min: 2, max: 50 }),
                 body('role', conductorErrors.err1).exists().isString().custom(roleValidator)
             ]
+        case 'deleteUserRole': 
+            return [
+                body('uuid', 'Must provide a valid user identifier').isUUID(),
+                body('orgID', 'Must provide a valid organization identifier').isString().notEmpty()
+            ]
         case 'removeAuthorizedApplication':
             return [
                 param('clientID', conductorErrors.err1).exists().isLength({ min: 2, max: 50 }),
@@ -926,6 +979,7 @@ export default {
     getInstructorProfile,
     getUserRoles,
     updateUserRole,
+    deleteUserRole,
     getUserEmails,
     validate
 }

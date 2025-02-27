@@ -1010,6 +1010,17 @@ router
   );
 
 router
+  .route("/user/role/delete")
+  .delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+    usersAPI.validate("deleteUserRole"), 
+    middleware.checkValidationErrors,
+    usersAPI.deleteUserRole
+  );
+
+router
   .route("/user/instructorprofile")
   .get(authAPI.verifyRequest, usersAPI.getInstructorProfile)
   .put(

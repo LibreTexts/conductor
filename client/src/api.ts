@@ -1151,6 +1151,18 @@ class API {
 
     return res.data;
   }
+
+  // user manager
+  async deleteUserRole(orgID: string, uuid: string) {
+    const res = await axios.delete<ConductorBaseResponse>(`/user/role/delete`, {
+      data: {
+        orgID,
+        uuid,
+      },
+    });
+    return res;
+  }
+
 }
 
 export default new API();
