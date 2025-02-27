@@ -1,9 +1,10 @@
 import axios from "axios";
-import { Button, Dropdown, List, Loader, Modal } from "semantic-ui-react";
+import { Button, Dropdown, List, Loader, Modal, Icon } from "semantic-ui-react";
 import { Organization } from "../../../types";
 import React, { useEffect, useState } from "react";
 import useGlobalError from "../../error/ErrorHooks";
 import { UserRoleOptions } from "../../../utils/userHelpers";
+import api from "../../../api";
 
 type ManageUserRolesModalProps = {
   firstName: string;
@@ -107,6 +108,18 @@ const ManageUserRolesModal: React.FC<ManageUserRolesModalProps> = ({
     }
   }
 
+  async function deleteUserRole(orgID: string) {
+    try {
+      setLoading(true);
+      const res = await api.deleteUserRole(orgID, uuid);
+      await getUserRoles();
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <Modal size="large" open={show} onClose={onClose} {...props}>
       <Modal.Header>
@@ -119,6 +132,10 @@ const ManageUserRolesModal: React.FC<ManageUserRolesModalProps> = ({
         {loading && <Loader />}
         <List divided verticalAlign="middle">
           {allOrganizations.map((org) => {
+            const currentRole = userRoles.find(
+              (r) => r.org?.orgID === org.orgID
+            )?.roleInternal;
+            const hasRole = !!currentRole;
             return (
               <List.Item key={org.orgID}>
                 <div className="flex-row-div">
@@ -146,11 +163,17 @@ const ManageUserRolesModal: React.FC<ManageUserRolesModalProps> = ({
                       }
                       placeholder="No role set"
                       selection
-                      value={
-                        userRoles.find((r) => r.org?.orgID === org.orgID)
-                          ?.roleInternal
-                      }
+                      value={currentRole || ""}
                     />
+                      <Button 
+                        icon 
+                        size="mini" 
+                        onClick={() => deleteUserRole(org.orgID)}
+                        style={{ marginLeft: "5px" }}
+                        disabled={!hasRole}
+                      >
+                        <Icon name="x" />
+                      </Button>
                   </div>
                 </div>
               </List.Item>
