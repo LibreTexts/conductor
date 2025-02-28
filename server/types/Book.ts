@@ -81,6 +81,23 @@ export type TableOfContentsDetailed = Prettify<
   }
 >;
 
+export type PageFileProperty = {
+  "@revision": string;
+  "@resid": string;
+  "@name": string;
+  "@href": string;
+  "@etag"?: string;
+  "@resource-is-deleted": string;
+  "@resource-rev-is-deleted": string;
+  contents: {
+    "@type": string;
+    "@size": string;
+    "@href": string;
+    "#text": string;
+  };
+  "date.modified": string;
+};
+
 export type PageFile = {
   "@id": string;
   "@revision": string;
@@ -131,6 +148,11 @@ export type PageFile = {
     "@totalcount": string;
     "@href": string;
   };
+  properties?: {
+    "@count": string;
+    "@href": string;
+    property: PageFileProperty | PageFileProperty[];
+  };
   "user.createdby": {
     "@anonymous": string;
     "@virtual": string;
@@ -168,4 +190,5 @@ export type _generatePageImagesAltTextResObj = {
   src: string;
   altText: string;
   error?: string;
+  properties?: PageFileProperty[];
 };

@@ -1648,7 +1648,7 @@ const ProjectView = (props) => {
                           </Breakpoint>
                         </Button>
                       }
-                      {/* {
+                      {
                         project.libreLibrary && project.libreCoverID && (
                           <Button
                           as={Link}
@@ -1662,7 +1662,7 @@ const ProjectView = (props) => {
                           </Breakpoint>
                         </Button>
                         )
-                      } */}
+                      }
                       <Button
                         color='olive'
                         as={Link}

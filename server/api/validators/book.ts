@@ -119,6 +119,13 @@ export const updatePageDetailsSchema = z.object({
   }),
 });
 
+
+// If a resource type is specified, the overwrite option must also be specified
+const _resourceTypeSchema = z.object({
+  generate: z.coerce.boolean(),
+  overwrite: z.coerce.boolean(),
+}).optional();
+
 // For AI-generated metadata
 export const batchGenerateAIMetadataSchema = z.object({
   params: z.object({
@@ -128,11 +135,11 @@ export const batchGenerateAIMetadataSchema = z.object({
   }),
   body: z
     .object({
-      summaries: z.coerce.boolean().optional(),
-      tags: z.coerce.boolean().optional(),
-      alttext: z.coerce.boolean().optional(),
+      summaries: _resourceTypeSchema,
+      tags: _resourceTypeSchema,
+      alttext: _resourceTypeSchema,
     })
-    .refine((data) => data.summaries || data.tags || data.alttext, {
+    .refine((data) => data.summaries?.generate || data.tags?.generate || data.alttext?.generate, {
       message: "At least one of 'summaries', 'tags', or 'alttext'  must be true",
     }),
 });
@@ -148,7 +155,7 @@ export const batchUpdateBookMetadataSchema = z.object({
     pages: z.array(
       z.object({
         id: z.string(),
-        summary: z.string().max(500).optional(),
+        summary: z.string().max(550).optional(), // Technically anything past 500 is truncated by MindTouch, but allow for some buffer
         tags: z.array(z.string().max(255)).max(100).optional(),
       })
     ),

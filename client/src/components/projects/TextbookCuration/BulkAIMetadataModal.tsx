@@ -1,5 +1,5 @@
-import { Button, Checkbox, Icon, Modal } from "semantic-ui-react";
-import { useMemo, useState } from "react";
+import { Button, Checkbox, Icon, Modal, Table } from "semantic-ui-react";
+import { useEffect, useMemo, useState } from "react";
 import useGlobalError from "../../error/ErrorHooks";
 import "../Projects.css";
 import { useModals } from "../../../context/ModalContext";
@@ -7,6 +7,7 @@ import { useNotifications } from "../../../context/NotificationContext";
 import api from "../../../api";
 import { Project } from "../../../types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import ConfirmModal from "../../ConfirmModal";
 
 interface BulkAIMetadataModalProps {
   projectID: string;
@@ -20,13 +21,18 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
   pageID,
 }) => {
   const { handleGlobalError } = useGlobalError();
-  const { closeAllModals } = useModals();
+  const { openModal, closeAllModals } = useModals();
   const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState<boolean>(false);
+
   const [tags, setTags] = useState<boolean>(false);
+  const [overwriteTags, setOverwriteTags] = useState<boolean>(false);
   const [summaries, setSummaries] = useState<boolean>(false);
+  const [overwriteSummaries, setOverwriteSummaries] = useState<boolean>(false);
   const [alttext, setAlttext] = useState<boolean>(false);
+  const [overwriteAlttext, setOverwriteAlttext] = useState<boolean>(false);
+
   const { data: projectData, isLoading: projectLoading } = useQuery<
     Project | undefined
   >({
@@ -42,6 +48,19 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
     },
     enabled: !!projectID,
   });
+
+  // Reset overwrite checkboxes if the corresponding resource is not selected
+  useEffect(() => {
+    if (!summaries) {
+      setOverwriteSummaries(false);
+    }
+    if (!tags) {
+      setOverwriteTags(false);
+    }
+    if (!alttext) {
+      setOverwriteAlttext(false);
+    }
+  }, [summaries, tags, alttext]);
 
   const lastJob = useMemo(() => {
     if (!projectData || !projectData.batchUpdateJobs) {
@@ -59,7 +78,27 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
     })[0];
   }, [projectData]);
 
-  async function handleSubmit() {
+  async function handleSubmitButton() {
+    if (!summaries && !tags && !alttext) {
+      return;
+    }
+
+    if (overwriteSummaries || overwriteTags || overwriteAlttext) {
+      openModal(
+        <ConfirmModal
+          text="You have selected one or more overwrite options. This will replace any existing metadata and cannot be undone. Are you sure you want to continue?"
+          onConfirm={submitJob}
+          onCancel={closeAllModals}
+          confirmColor="red"
+          confirmText="Yes, Overwrite"
+        />
+      );
+      return;
+    }
+    submitJob();
+  }
+
+  async function submitJob() {
     try {
       if (!library || !pageID) {
         throw new Error("Missing library or page ID");
@@ -73,9 +112,9 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
 
       const res = await api.batchGenerateAIMetadata(
         `${library}-${pageID}`,
-        summaries,
-        tags,
-        alttext
+        { generate: summaries, overwrite: overwriteSummaries },
+        { generate: tags, overwrite: overwriteTags },
+        { generate: alttext, overwrite: overwriteAlttext }
       );
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -103,36 +142,81 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
       <Modal.Content>
         <p className="text-lg mb-2">
           Are you sure you want to generate AI metadata for all pages in this
-          book? This will overwrite any existing summaries, tags, and image alt
-          text (if selected).
+          book? This operation may take some time, so we'll send you an email
+          when it's complete. Only one bulk operation can be run at a time on a
+          book.
         </p>
-        <p className="text-lg mb-2">
-          <strong>Note:</strong> Structural pages like the Table of Contents,
-          chapter cover pages, etc., will not be processed. This operation may
-          take some time, so we'll send you an email when it's complete. Only
-          one bulk operation can be run at a time on a book.
+        <p>
+          Alt text generation is currently supported for the following image types: JPEG, PNG, GIF, WEBP, BMP, 
         </p>
-        <div className="flex flex-col space-y-6 my-12">
-          <Checkbox
-            label="Generate Summaries"
-            checked={summaries}
-            onChange={() => setSummaries(!summaries)}
-            toggle
-          />
-          <Checkbox
-            label="Generate Tags"
-            checked={tags}
-            onChange={() => setTags(!tags)}
-            toggle
-          />
-          <Checkbox
-            label="Generate Image(s) Alt Text"
-            checked={alttext}
-            onChange={() => setAlttext(!alttext)}
-            toggle
-          />
-        </div>
-        <p className="text-sm text-center text-slate-500 italic px-4 mt-6">
+        <Table celled striped className="mt-6">
+          <Table.Header>
+            <Table.Row>
+              <Table.HeaderCell>Resource Type</Table.HeaderCell>
+              <Table.HeaderCell>Overwrite?</Table.HeaderCell>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            <Table.Row>
+              <Table.Cell>
+                <Checkbox
+                  label="Generate Summaries"
+                  checked={summaries}
+                  onChange={() => setSummaries(!summaries)}
+                  toggle
+                />
+              </Table.Cell>
+              <Table.Cell className={summaries ? "" : "opacity-50"}>
+                <Checkbox
+                  label="Overwrite Existing Summaries"
+                  checked={overwriteSummaries}
+                  onChange={() => setOverwriteSummaries(!overwriteSummaries)}
+                  toggle
+                  disabled={!summaries}
+                />
+              </Table.Cell>
+            </Table.Row>
+            <Table.Row>
+              <Table.Cell>
+                <Checkbox
+                  label="Generate Tags"
+                  checked={tags}
+                  onChange={() => setTags(!tags)}
+                  toggle
+                />
+              </Table.Cell>
+              <Table.Cell className={tags ? "" : "opacity-50"}>
+                <Checkbox
+                  label="Overwrite Existing Tags"
+                  checked={overwriteTags}
+                  onChange={() => setOverwriteTags(!overwriteTags)}
+                  toggle
+                  disabled={!tags}
+                />
+              </Table.Cell>
+            </Table.Row>
+            <Table.Row>
+              <Table.Cell>
+                <Checkbox
+                  label="Generate Image(s) Alt Text"
+                  checked={alttext}
+                  onChange={() => setAlttext(!alttext)}
+                  toggle
+                />
+              </Table.Cell>
+              <Table.Cell className={alttext ? "" : "opacity-50"}>
+                <Checkbox
+                  label="Overwrite Existing Alt Text"
+                  checked={overwriteAlttext}
+                  onChange={() => setOverwriteAlttext(!overwriteAlttext)}
+                  toggle
+                  disabled={!alttext}
+                />
+              </Table.Cell>
+            </Table.Row>
+          </Table.Body>
+        </Table>
+        <p className="text-sm text-center text-slate-600 italic px-4 mt-6">
           Caution: AI-generated output may not always be accurate. Please
           thoroughly review content before publishing. LibreTexts is not
           responsible for any inaccuracies in AI-generated content.
@@ -159,7 +243,7 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
             </Button>
             <Button
               color="green"
-              onClick={handleSubmit}
+              onClick={handleSubmitButton}
               loading={loading}
               disabled={!summaries && !tags && !alttext}
             >
