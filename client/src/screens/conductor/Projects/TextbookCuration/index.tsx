@@ -4,7 +4,6 @@ import {
   Grid,
   Header,
   Icon,
-  Label,
   Segment,
   Accordion,
   Message,
@@ -28,21 +27,23 @@ import useGlobalError from "../../../../components/error/ErrorHooks";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import { useNotifications } from "../../../../context/NotificationContext";
 import "../../../../components/projects/Projects.css";
-import { DISABLED_PAGE_TAG_PREFIXES } from "../../../../utils/misc";
 import { useParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom-v5-compat";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import { useFieldArray, useForm } from "react-hook-form";
-import CtlTextArea from "../../../../components/ControlledInputs/CtlTextArea";
 import BulkAIMetadataModal from "../../../../components/projects/TextbookCuration/BulkAIMetadataModal";
 import BulkAddTagModal from "../../../../components/projects/TextbookCuration/BulkAddTagModal";
 import SingleAddTagModal from "../../../../components/projects/TextbookCuration/SingleAddTagModal";
 import ViewBulkUpdateHistoryModal from "../../../../components/projects/TextbookCuration/ViewBulkUpdateHistoryModal";
+import WelcomeToCoAuthorModal from "../../../../components/projects/TextbookCuration/WelcomeToCoAuthorModal";
+import NodeEditor from "../../../../components/projects/TextbookCuration/NodeEditor";
 
 type WithUIState = Prettify<
   Omit<TableOfContentsDetailed, "children"> & {
     expanded: boolean;
+    loading: boolean;
+    edited: boolean;
     isRoot: boolean;
     children: WithUIState[];
   }
@@ -58,23 +59,16 @@ type FormWorkingData = {
 
 const TextbookCuration = () => {
   const { id: projectID } = useParams<{ id: string }>();
-  const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
-  const { closeAllModals } = useModals();
+  const { openModal, closeAllModals } = useModals();
   const { addNotification } = useNotifications();
-  const { openModal } = useModals();
-  const [hasMadeChanges, setHasMadeChanges] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
+  const queryClient = useQueryClient();
   const [bulkActionsOpen, setBulkActionsOpen] = useState<boolean>(false);
 
-  useEffect(() => {
-    window.location.href = `/projects/${projectID}/`; // temp redirect
-  }, [])
-
-  const { control, setValue } = useForm<FormWorkingData>();
-  const { fields, append, update, replace } = useFieldArray({
+  const { control, setValue, watch, getValues } = useForm<FormWorkingData>();
+  const { fields, append } = useFieldArray({
     control,
-    name: "pages", // unique name for your Field Array
+    name: "pages",
   });
 
   const { data: projectData } = useQuery<Project | undefined>({
@@ -123,6 +117,8 @@ const TextbookCuration = () => {
           return {
             ...node,
             expanded: node.children.length === 0 ? true : false,
+            loading: false,
+            edited: false,
             isRoot,
             children: addExpandedState(node.children),
           };
@@ -131,6 +127,20 @@ const TextbookCuration = () => {
 
       const content = res.data.toc?.children || []; // Skip first level, it's the root
       const withUIState = addExpandedState(content, true);
+
+      // flatten the data recursively
+      const flatten = (nodes: WithUIState[]): void => {
+        nodes.forEach((node) => {
+          append({
+            pageID: node.id,
+            overview: node.overview,
+            tags: node.tags,
+          });
+          flatten(node.children);
+        });
+      };
+
+      flatten(withUIState);
 
       return withUIState;
     },
@@ -144,33 +154,33 @@ const TextbookCuration = () => {
   });
 
   useEffect(() => {
-    if (!data) return;
+    if (
+      window.localStorage.getItem("conductor_show_coauthor_welcome") === "false"
+    )
+      return;
+    openModal(<WelcomeToCoAuthorModal onClose={closeAllModals} />);
+  }, [window.localStorage]);
 
-    // flatten the data recursively
-    const flatten = (nodes: WithUIState[]): void => {
-      nodes.forEach((node) => {
-        const field = fields.find((f) => f.pageID === node.id);
-        if (!field) {
-          append({
-            pageID: node.id,
-            overview: node.overview,
-            tags: node.tags,
-          });
-        }
-        flatten(node.children);
-      });
-    };
-
-    flatten(data);
+  const hasMadeChanges = useMemo(() => {
+    return data?.some((node) => node.edited);
   }, [data]);
 
   const updateBookPagesMutation = useMutation({
-    mutationFn: async (data: FormWorkingData) => {
-      const simplified = data.pages.map((p) => ({
+    mutationFn: async (workingData: FormWorkingData) => {
+      // Only send edited pages for update
+      const editedNodes = data?.filter((node) => node.edited);
+      const editedPages = workingData.pages.filter((p) =>
+        editedNodes?.some((n) => n.id === p.pageID)
+      );
+      const simplified = editedPages.map((p) => ({
         id: p.pageID,
         summary: p.overview,
         tags: p.tags,
       }));
+
+      if (simplified.length === 0) {
+        return null;
+      }
 
       return api.batchUpdateBookMetadata(
         `${projectData?.libreLibrary}-${projectData?.libreCoverID}`,
@@ -184,7 +194,6 @@ const TextbookCuration = () => {
         type: "success",
         message: "Bulk update job created successfully!",
       });
-      setHasMadeChanges(false);
     },
     onError: (error) => {
       handleGlobalError(error);
@@ -195,25 +204,29 @@ const TextbookCuration = () => {
     try {
       if (!projectData?.libreLibrary || !pageID) return null;
 
-      setLoading(true);
+      handleSetNodeLoading(pageID, true);
+
       const res = await api.getPageAISummary(
         `${projectData?.libreLibrary}-${pageID}`,
         `${projectData?.libreLibrary}-${projectData?.libreCoverID}`
       );
       if (res.data.err) {
         throw new Error(
-          res.data.errMsg || "Failed to generate AI summary for this page."
+          res.data.errMsg ||
+            "Failed to generate AI summary for this page. It may have insufficient content."
         );
       }
       if (!res.data.summary) {
-        throw new Error("Failed to generate AI summary for this page.");
+        throw new Error(
+          "Failed to generate AI summary for this page. It may have insufficient content."
+        );
       }
 
       const fieldIdx = fields.findIndex((f) => f.pageID === pageID);
-      if (!fieldIdx) return;
+      if (fieldIdx === undefined) return;
 
       setValue(`pages.${fieldIdx}.overview`, res.data.summary);
-      setHasMadeChanges(true);
+      handleSetNodeEdited(pageID, true);
       addNotification({
         type: "success",
         message: "AI summary generated successfully!",
@@ -222,7 +235,7 @@ const TextbookCuration = () => {
       console.error(error);
       handleGlobalError(error);
     } finally {
-      setLoading(false);
+      handleSetNodeLoading(pageID, false);
     }
   }
 
@@ -230,30 +243,35 @@ const TextbookCuration = () => {
     try {
       if (!projectData?.libreLibrary || !pageID) return null;
 
-      setLoading(true);
+      handleSetNodeLoading(pageID, true);
+
       const res = await api.getPageAITags(
         `${projectData?.libreLibrary}-${pageID}`,
         `${projectData?.libreLibrary}-${projectData?.libreCoverID}`
       );
       if (res.data.err) {
         throw new Error(
-          res.data.errMsg || "Failed to generate AI tags for this page."
+          res.data.errMsg ||
+            "Failed to generate AI tags for this page. It may have insufficient content."
         );
       }
-      if (!res.data.tags) {
-        throw new Error("Failed to generate AI tags for this page.");
+      if (
+        !res.data.tags ||
+        res.data.tags.length === 0 ||
+        res.data.tags.every((t: string) => t === "")
+      ) {
+        throw new Error(
+          "Failed to generate AI tags for this page. It may have insufficient content."
+        );
       }
 
-      const field = fields.find((f) => f.pageID === pageID);
       const fieldIdx = fields.findIndex((f) => f.pageID === pageID);
-      if (!field || !fieldIdx) return;
+      if (fieldIdx === undefined) {
+        return;
+      }
 
-      update(fieldIdx, {
-        ...field,
-        tags: res.data.tags,
-      });
-
-      setHasMadeChanges(true);
+      setValue(`pages.${fieldIdx}.tags`, res.data.tags);
+      handleSetNodeEdited(pageID, true);
       addNotification({
         type: "success",
         message: "AI tags generated successfully!",
@@ -262,28 +280,21 @@ const TextbookCuration = () => {
       console.error(error);
       handleGlobalError(error);
     } finally {
-      setLoading(false);
+      handleSetNodeLoading(pageID, false);
     }
   }
 
   function handleRemoveSingleTag(pageID: string, tag: string) {
-    setLoading(true);
     const field = fields.find((f) => f.pageID === pageID);
     const fieldIdx = fields.findIndex((f) => f.pageID === pageID);
-    if (!field || !fieldIdx) {
-      setLoading(false);
+    if (!field || fieldIdx === undefined) {
       return;
     }
 
     const updatedTags = field.tags.filter((t) => t !== tag);
 
-    update(fieldIdx, {
-      ...field,
-      tags: updatedTags,
-    });
-
-    setHasMadeChanges(true);
-    setLoading(false);
+    setValue(`pages.${fieldIdx}.tags`, updatedTags);
+    handleSetNodeEdited(pageID, true);
   }
 
   function handleConfirmRemoveAllOccurrences(tag: string) {
@@ -302,29 +313,19 @@ const TextbookCuration = () => {
   }
 
   function handleDoRemoveAllOccurrences(tag: string) {
-    setLoading(true);
-    const updated = fields.map((p) => {
+    const pagesValues = getValues("pages");
+    const updated = pagesValues.map((p) => {
       return {
         ...p,
         tags: p.tags.filter((t) => t !== tag),
       };
     });
 
-    replace(updated);
-
-    setHasMadeChanges(true);
-    setLoading(false);
+    for (let i = 0; i < updated.length; i++) {
+      setValue(`pages.${i}.tags`, updated[i].tags);
+    }
+    handleSetNodeEdited("all", true);
   }
-
-  const isDisabledTag = (value: string): boolean => {
-    return DISABLED_PAGE_TAG_PREFIXES.some((prefix) =>
-      value?.toString().startsWith(prefix)
-    );
-  };
-
-  const filterDisabledTags = (arr: string[]): string[] => {
-    return arr.filter((tag) => !isDisabledTag(tag));
-  };
 
   function handleConfirmReset() {
     openModal(
@@ -392,6 +393,67 @@ const TextbookCuration = () => {
 
   const handleJumpTo = (to: "top" | "bottom") => {
     window.scrollTo(0, to === "top" ? 0 : document.body.scrollHeight);
+  };
+
+  const handleSetNodeLoading = (id: string | "all", loading: boolean) => {
+    // All nodes
+    if (id === "all") {
+      const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
+        return nodes.map((node) => {
+          return {
+            ...node,
+            loading,
+            children: toggleNode(node.children),
+          };
+        });
+      };
+
+      const updatedData = toggleNode(data!);
+      queryClient.setQueryData(
+        ["textbook-structure-detailed", projectID],
+        updatedData
+      );
+      return;
+    }
+
+    // Single node
+    const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
+      return nodes.map((node) => {
+        if (node.id === id) {
+          return { ...node, loading };
+        }
+        return {
+          ...node,
+          children: toggleNode(node.children),
+        };
+      });
+    };
+
+    const updatedData = toggleNode(data!);
+    queryClient.setQueryData(
+      ["textbook-structure-detailed", projectID],
+      updatedData
+    );
+  };
+
+  const handleSetNodeEdited = (id: string, edited: boolean) => {
+    const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
+      return nodes.map((node) => {
+        if (node.id === id) {
+          return { ...node, edited };
+        }
+        return {
+          ...node,
+          children: toggleNode(node.children),
+        };
+      });
+    };
+
+    const updatedData = toggleNode(data!);
+    queryClient.setQueryData(
+      ["textbook-structure-detailed", projectID],
+      updatedData
+    );
   };
 
   const handleExpandCollapseAll = () => {
@@ -477,8 +539,12 @@ const TextbookCuration = () => {
   };
 
   const handleBulkAddTags = (pages: string[], tags: string[]) => {
-    setLoading(true);
-    const updated = fields.map((p) => {
+    const pagesValues = getValues("pages");
+
+    // Trim whitespace from tags
+    tags.forEach((t) => t.trim());
+
+    const updated = pagesValues.map((p) => {
       if (pages.includes(p.pageID)) {
         return {
           ...p,
@@ -488,9 +554,9 @@ const TextbookCuration = () => {
       return p;
     });
 
-    replace(updated);
-    setHasMadeChanges(true);
-    setLoading(false);
+    for (let i = 0; i < updated.length; i++) {
+      setValue(`pages.${i}.tags`, updated[i].tags);
+    }
   };
 
   const handleOpenSingleAddTagModal = (pageID: string) => {
@@ -507,18 +573,25 @@ const TextbookCuration = () => {
   };
 
   const handleSingleAddTag = (pageID: string, tag: string) => {
-    setLoading(true);
-    const field = fields.find((f) => f.pageID === pageID);
     const fieldIdx = fields.findIndex((f) => f.pageID === pageID);
-    if (!field || !fieldIdx) return;
+    if (fieldIdx === undefined) {
+      return;
+    }
 
-    const updatedTags = [...field.tags, tag];
-    update(fieldIdx, {
-      ...field,
-      tags: updatedTags,
-    });
-    setHasMadeChanges(true);
-    setLoading(false);
+    const withNew = [...getValues(`pages.${fieldIdx}.tags`), tag.trim()];
+    const setTags = [...new Set(withNew)];
+    setValue(`pages.${fieldIdx}.tags`, setTags);
+    handleSetNodeEdited(pageID, true);
+  };
+
+  const handleUpdateSummary = (pageID: string, value: string) => {
+    const fieldIdx = fields.findIndex((f) => f.pageID === pageID);
+    if (fieldIdx === undefined) {
+      return;
+    }
+
+    setValue(`pages.${fieldIdx}.overview`, value);
+    handleSetNodeEdited(pageID, true);
   };
 
   const LoadingSkeleton = () => {
@@ -538,132 +611,6 @@ const TextbookCuration = () => {
     );
   };
 
-  const TagLabel = ({ pageID, tag }: { pageID: string; tag: string }) => {
-    return (
-      <Label
-        key={crypto.randomUUID()}
-        style={{
-          backgroundColor: "#155789",
-        }}
-        onClick={() => {
-          handleRemoveSingleTag(pageID, tag);
-        }}
-        onContextMenu={(e: any) => {
-          e.preventDefault();
-          handleConfirmRemoveAllOccurrences(tag);
-        }}
-        className="cursor-pointer !text-white"
-      >
-        {tag}
-      </Label>
-    );
-  };
-
-  const renderEditor = (node: WithUIState, indentLevel = 1) => {
-    const field = fields.find((f) => f.pageID === node.id);
-    const fieldIdx = fields.findIndex((f) => f.pageID === node.id);
-    if (!field) return null;
-
-    const hasChildren = node.children && node.children.length !== 0;
-    const tags = filterDisabledTags(field.tags);
-
-    const getIndent = () => {
-      if (indentLevel <= 2) return "!ml-4";
-      if (indentLevel === 3 && !hasChildren) return "!ml-4";
-      if (indentLevel === 3 && hasChildren) return "!ml-12";
-      return `!ml-${indentLevel * 3}`;
-    };
-
-    const indent = getIndent();
-
-    return (
-      <div
-        key={field.id}
-        className={`flex flex-col border-slate-300 border rounded-md px-3 pb-2 shadow-sm bg-gray-50 ${indent}`}
-      >
-        <div className="flex flex-row justify-between items-center mt-2">
-          <p className="font-semibold text-lg">{node.title}</p>
-        </div>
-        <p className="text-sm mt-1 font-semibold">Summary:</p>
-        <div className="flex flex-row justify-between items-start">
-          <CtlTextArea
-            control={control}
-            name={`pages.${fieldIdx}.overview`}
-            className="!w-full mt-0.5"
-            fluid
-            bordered
-            showRemaining
-            rows={4}
-            maxLength={500}
-            disabled={loading}
-            placeholder="Enter a page summary here..."
-          />
-          <div className="flex flex-col items-start ml-4 justify-start mt-1">
-            <Button
-              as={Link}
-              to={node.url}
-              target="_blank"
-              icon
-              style={{ backgroundColor: "#155789" }}
-              className="!text-white"
-              title="View Page (opens in new tab)"
-            >
-              <Icon name="external alternate" />
-            </Button>
-            <Button
-              icon
-              disabled={loading}
-              loading={loading}
-              style={{ backgroundColor: "#155789" }}
-              className="!text-white !mt-2"
-              onClick={() => fetchAISummary(node.id)}
-              title="Generate AI Summary"
-            >
-              <Icon name="magic" />
-            </Button>
-          </div>
-        </div>
-        <div className="border-t border-slate-300 mt-2 pt-2 w-full">
-        <p className="text-sm mt-1 font-semibold">Tags:</p>
-          <div className="flex flex-row justify-between">
-            <div className="space-y-1">
-              {tags.map((t) => (
-                <TagLabel pageID={node.id} tag={t} />
-              ))}
-            </div>
-            <div className="flex flex-col ">
-              <Button
-                icon
-                style={{ backgroundColor: "#155789" }}
-                className="!text-white"
-                onClick={() => {
-                  handleOpenSingleAddTagModal(node.id);
-                }}
-                title="Add Individual Tag to Page"
-              >
-                <Icon name="plus" />
-              </Button>
-              <Button
-                icon
-                style={{ backgroundColor: "#155789" }}
-                className="!text-white !mt-2"
-                onClick={() => fetchAITags(node.id)}
-                loading={loading}
-                disabled={loading}
-                title="Generate AI Tags"
-              >
-                <Icon name="magic" />
-              </Button>
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-row justify-end mt-2 w-full">
-          <p className="text-xs">ID: {node.id}</p>
-        </div>
-      </div>
-    );
-  };
-
   const renderNodes = (nodes: WithUIState[], indentLevel = 1) => {
     if (!projectData?.libreLibrary || !projectData?.libreCoverID) {
       return (
@@ -679,6 +626,7 @@ const TextbookCuration = () => {
       <Accordion fluid className="!py-0 !my-0">
         {nodes.map((node, idx) => {
           const hasChildren = node.children && node.children.length !== 0;
+          const fieldIdx = fields.findIndex((f) => f.pageID === node.id);
           return (
             <>
               <Accordion.Title
@@ -710,7 +658,21 @@ const TextbookCuration = () => {
                 )}
               </Accordion.Title>
               <Accordion.Content active={node.expanded} className="!p-0">
-                {node.expanded && renderEditor(node, indentLevel + 1)}
+                {node.expanded && (
+                  <NodeEditor
+                    node={node}
+                    indentLevel={indentLevel}
+                    control={control}
+                    fields={fields}
+                    tags={watch(`pages.${fieldIdx}.tags`)}
+                    onRemoveSingleTag={handleRemoveSingleTag}
+                    onRemoveAllOccurrences={handleConfirmRemoveAllOccurrences}
+                    onUpdateSummary={handleUpdateSummary}
+                    onAddSingleTag={handleOpenSingleAddTagModal}
+                    onFetchAISummary={fetchAISummary}
+                    onFetchAITags={fetchAITags}
+                  />
+                )}
                 {node.children &&
                   node.expanded &&
                   renderNodes(node.children, indentLevel + 1)}
@@ -747,7 +709,8 @@ const TextbookCuration = () => {
               Welcome to LibreTexts' AI Co-Author tool. Here, you can curate
               AI-generated metadata for your textbook. You can generate and edit
               metadata for individual pages below, or use the bulk actions to
-              generate metadata for all pages at once and return here to refine it.
+              generate metadata for all pages at once and return here to refine
+              it.
             </p>
             <img
               src="https://cdn.libretexts.net/Images/benny-mascot-white.png"
@@ -762,7 +725,7 @@ const TextbookCuration = () => {
           )}
           <Segment>
             {(isFetching || updateBookPagesMutation.isLoading) && (
-              <div className="my-4r">
+              <div className="my-16">
                 <LoadingSpinner text="Loading content... This may take a moment" />
               </div>
             )}
@@ -770,18 +733,18 @@ const TextbookCuration = () => {
               <div>
                 <p className="text-lg max-w-7xl">
                   <span className="font-semibold">Editing Summaries:</span> Use
-                  the magic wand icon to generate an AI summary for the page.
-                  This will replace the current summary with the AI-generated
-                  one, which you can then edit further.
+                  "Generate Summary" button to generate an AI summary for that
+                  page. This will replace the current summary with the
+                  AI-generated one, which you can then edit further.
                 </p>
 
                 <p className="text-lg max-w-7xl mt-4">
                   <span className="font-semibold">Editing Tags:</span> Use the
-                  magic wand icon to generate AI tags for the page. You can then
-                  left-click on a tag to remove it from that page, or
-                  right-click on a tag to remove it from <em>all</em> pages. You
-                  can also add individual tags to a page with the plus icon, or
-                  use the bulk actions to add tags to multiple pages at once.
+                  "Generate Tags" to generate new tags for the page. You can
+                  click the "X" icon to remove a tag from that page, or click
+                  the trash icon to remove it from <em>all</em> pages. You can
+                  also add individual tags to a page with the plus icon, or use
+                  the bulk actions to add tags to multiple pages at once.
                 </p>
               </div>
               <div className="flex flex-col justify-start">
@@ -855,7 +818,7 @@ const TextbookCuration = () => {
                     onClick={handleConfirmSave}
                     disabled={!hasMadeChanges}
                     loading={updateBookPagesMutation.isLoading}
-                  title="Save Changes"
+                    title="Save Changes"
                   >
                     <Icon name="save" />
                     Save Changes

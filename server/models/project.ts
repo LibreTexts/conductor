@@ -28,13 +28,27 @@ export type ProjectBookBatchUpdateJob = {
   startTimestamp?: Date;
   endTimestamp?: Date;
   error?: string; // root-level error message, not for individual pages
+  generateResources?: {
+    summaries?: {
+      generate: boolean;
+      overwrite: boolean;
+    };
+    tags?: {
+      generate: boolean;
+      overwrite: boolean;
+    };
+    alttext?: {
+      generate: boolean;
+      overwrite: boolean;
+    };
+  };
   imageResults?: {
     [key: string]: any;
   };
   metaResults?: {
     [key: string]: any;
   };
-}
+};
 
 export interface ProjectInterface extends Document {
   orgID: string;
@@ -477,13 +491,27 @@ const ProjectSchema = new Schema<ProjectInterface>(
         startTimestamp: Date,
         endTimestamp: Date,
         error: String,
+        generateResources: {
+          summaries: {
+            generate: Boolean,
+            overwrite: Boolean,
+          },
+          tags: {
+            generate: Boolean,
+            overwrite: Boolean,
+          },
+          alttext: {
+            generate: Boolean,
+            overwrite: Boolean,
+          },
+        },
         metaResults: {
           type: Schema.Types.Mixed,
         },
         imageResults: {
           type: Schema.Types.Mixed,
         },
-      }
+      },
     ],
   },
   {
@@ -521,8 +549,8 @@ ProjectSchema.index({
   projectID: 1,
 });
 ProjectSchema.index({ libreCoverID: 1, libreLibrary: 1, visibility: 1 });
-ProjectSchema.index({principalInvestigatorIDs: 1});
-ProjectSchema.index({coPrincipalInvestigatorIDs: 1});
+ProjectSchema.index({ principalInvestigatorIDs: 1 });
+ProjectSchema.index({ coPrincipalInvestigatorIDs: 1 });
 
 ProjectSchema.virtual("defaultPrimaryAuthor", {
   ref: "Author",

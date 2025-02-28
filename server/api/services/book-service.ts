@@ -49,6 +49,28 @@ export default class BookService {
     return this._coverID;
   }
 
+  /**
+   * Page tag prefixes that should be disabled/ignored for UI display
+   */
+  public DISABLED_PAGE_TAG_PREFIXES = [
+    "article:",
+    "authorname:",
+    "license:",
+    "licenseversion:",
+    "source@",
+    "stage:",
+    "lulu@",
+    "author@",
+    "printoptions:",
+    "showtoc:",
+    "coverpage:",
+    "columns:",
+    "transclude:",
+    "transcluded:",
+    "field:",
+    "printoptions:"
+  ];
+
   async getBookSummary(): Promise<string | undefined> {
     const book = await Book.findOne({ bookID: this._bookID });
     if (!book) {
@@ -139,10 +161,10 @@ export default class BookService {
 
     const flattenedPageData = collectPageData(toc);
 
-    const overviewPromises: Promise<string>[] = [];
+    const overviewPromises: Promise<{ overview: string }>[] = [];
     for (const page of flattenedPageData) {
       // Add a 1s delay between each fetch to avoid rate limiting
-      const _promise = new Promise<string>((resolve) => {
+      const _promise = new Promise<{ overview: string }>((resolve) => {
         setTimeout(async () => {
           resolve(this.getPageOverview(page.id));
         }, 1000);
@@ -161,7 +183,7 @@ export default class BookService {
           id: _page.id,
           title: _page.title,
           url: _page.url,
-          overview: _result.value,
+          overview: _result.value.overview,
         });
       }
     }
@@ -236,13 +258,13 @@ export default class BookService {
    */
   async getFileContent(
     pageID: string,
-    fileName: string,
+    fileID: string,
     size: "original" | "thumb" | "webview" | "bestfit" = "thumb"
   ) {
     const fileContentRes = await CXOneFetch({
-      scope: "page",
-      path: parseInt(pageID.toString()),
-      api: MindTouch.API.Page.GET_Page_File(fileName),
+      scope: "files",
+      path: parseInt(fileID.toString()),
+      api: MindTouch.API.File.GET_File(size),
       subdomain: this._library,
       query: {
         size,
@@ -269,13 +291,17 @@ export default class BookService {
   /**
    * Retrieves the content of a page as a string with unicode escape sequences
    * @param pageID - The ID of the page to fetch content from
+   * @param format - The format of the content to fetch (html or json)
    * @returns {string} - The raw content of the page
    */
-  async getPageContent(pageID: string): Promise<string> {
+  async getPageContent(
+    pageID: string,
+    format: "html" | "json"
+  ): Promise<string> {
     const pageContentsRes = await CXOneFetch({
       scope: "page",
       path: parseInt(pageID),
-      api: MindTouch.API.Page.GET_Page_Contents,
+      api: MindTouch.API.Page.GET_Page_Contents(format),
       subdomain: this._library,
     }).catch((err) => {
       console.error(err);
@@ -288,13 +314,17 @@ export default class BookService {
       );
     }
 
-    const pageContent = await pageContentsRes.json();
-    const pageRawBody = pageContent.body?.[0];
-    if (!pageRawBody) {
-      return "";
+    if (format === "html") {
+      const rawText = await pageContentsRes.text();
+      return rawText?.toString();
     }
 
-    return pageRawBody.toString();
+    const rawContent = await pageContentsRes.json();
+    const body = rawContent.body?.[0]?.toString() || "";
+    if (!body) {
+      return "";
+    }
+    return body;
   }
 
   async getPageDetails(
@@ -304,7 +334,7 @@ export default class BookService {
       throw new Error("Missing pageID");
     }
 
-    const overview = await this.getPageOverview(pageID);
+    const { overview } = await this.getPageOverview(pageID);
     const tags = await this.getPageTags(pageID);
 
     return {
@@ -313,7 +343,9 @@ export default class BookService {
     };
   }
 
-  async getPageOverview(pageID: string): Promise<string> {
+  async getPageOverview(
+    pageID: string
+  ): Promise<{ overview: string; etag?: string }> {
     if (!pageID) {
       throw new Error("Missing page ID");
     }
@@ -343,7 +375,10 @@ export default class BookService {
       .find((prop: any) => prop["@name"] === MindTouch.PageProps.PageOverview);
     const overviewText = overviewProperty?.contents?.["#text"] || "";
 
-    return overviewText;
+    return {
+      overview: overviewText,
+      etag: overviewProperty?.["@etag"],
+    };
   }
 
   async getPageTags(pageID: string): Promise<PageTag[]> {
@@ -382,7 +417,7 @@ export default class BookService {
    * @returns {string} - The text content of the page
    */
   async getPageTextContent(pageID: string): Promise<string> {
-    const pageRawBody = await this.getPageContent(pageID);
+    const pageRawBody = await this.getPageContent(pageID, "json");
     const cheerioObj = cheerio.load(pageRawBody);
     const pageText = cheerioObj.text(); // Extract text from HTML
 
@@ -423,6 +458,7 @@ export default class BookService {
         subdomain: this._library,
         query: {
           edittime: "now",
+          comment: "Updated by LibreBot"
         },
         options: {
           method: "POST",
@@ -455,34 +491,11 @@ export default class BookService {
       if (!pageID) {
         throw new Error("location");
       }
-      // Get current page properties and find the overview property
-      const pagePropertiesRes = await CXOneFetch({
-        scope: "page",
-        path: parseInt(pageID),
-        api: MindTouch.API.Page.GET_Page_Properties,
-        subdomain: this._library,
-      }).catch((err) => {
-        console.error(err);
-        throw new Error("internal");
-      });
-
-      if (!pagePropertiesRes.ok) {
-        throw new Error("internal");
-      }
-
-      const pagePropertiesRaw = await pagePropertiesRes.json();
-      const pageProperties = Array.isArray(pagePropertiesRaw?.property)
-        ? pagePropertiesRaw.property
-        : [pagePropertiesRaw?.property];
-
-      // Check if there is an existing overview property
-      const overviewProperty = pageProperties
-        .filter((p: any) => !!p)
-        .find(
-          (prop: any) => prop["@name"] === MindTouch.PageProps.PageOverview
-        );
 
       if (summary) {
+        // Get current page properties and find the overview property
+        const { etag } = await this.getPageOverview(pageID.toString());
+
         // Update or set page overview property
         const updatedOverviewRes = await CXOneFetch({
           scope: "page",
@@ -495,10 +508,9 @@ export default class BookService {
             method: "PUT",
             headers: {
               "Content-Type": "text/plain",
-              ...(overviewProperty &&
-                overviewProperty["@etag"] && {
-                  Etag: overviewProperty["@etag"],
-                }),
+              ...(etag && {
+                Etag: etag,
+              }),
             },
             body: summary,
           },
@@ -510,6 +522,20 @@ export default class BookService {
       }
 
       if (tags) {
+        const currentPageTags = await this.getPageTags(pageID.toString());
+
+        // Book functionality tags that should not be removed
+        const toKeep = currentPageTags.filter(
+          (tag) =>
+            !this.DISABLED_PAGE_TAG_PREFIXES.some((prefix) =>
+              tag["@value"].startsWith(prefix)
+            )
+        );
+        const toKeepValues = toKeep.map((tag) => tag["@value"]);
+
+        // Combine the tags to keep with the new tags into unique set
+        const withKeepSet = new Set<string>([...toKeepValues, ...tags]);
+
         // Update the page tags
         const updatedTagsRes = await CXOneFetch({
           scope: "page",
@@ -521,7 +547,7 @@ export default class BookService {
             headers: {
               "Content-Type": "application/xml",
             },
-            body: MindTouch.Templates.PUT_PageTags(tags),
+            body: MindTouch.Templates.PUT_PageTags(Array.from(withKeepSet)),
           },
         });
 

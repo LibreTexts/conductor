@@ -2,10 +2,10 @@ const DREAM_OUT_FORMAT = "dream.out.format=json";
 
 const CXOnePageAPIEndpoints = {
   GET_Page: `?${DREAM_OUT_FORMAT}`,
-  GET_Page_Contents: `contents?${DREAM_OUT_FORMAT}`,
+  GET_Page_Contents: (format: 'html' | 'json') => `contents${format === 'json' ? `?${DREAM_OUT_FORMAT}` : ''}`,
   GET_Page_Files: `files?${DREAM_OUT_FORMAT}`,
   GET_Page_File: (fileName: string) =>
-    `files/${encodeURIComponent(fileName)}?${DREAM_OUT_FORMAT}`,
+    `files/${encodeURIComponent(fileName)}`,
   GET_Page_Images: `images?${DREAM_OUT_FORMAT}`,
   GET_Page_Info: `info?${DREAM_OUT_FORMAT}`,
   GET_Page_Properties: `properties?${DREAM_OUT_FORMAT}`,
