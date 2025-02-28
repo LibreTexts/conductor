@@ -33,7 +33,7 @@ const WelcomeToCoAuthorModal: React.FC<WelcomeToCoAuthorModalProps> = ({
               knowledge base.
             </p>
             <p className="text-xl mt-6">
-              LibreTexts aims to continually empower educators and students with
+              LibreTexts aims to empower educators and students with
               the best tools and resources to create and share OER. We hope you
               enjoy using this tool and welcome feedback and suggestions to help
               us improve it. Please feel free to contact us via our{" "}

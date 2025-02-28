@@ -93,7 +93,14 @@ const BulkAddTagModal: React.FC<BulkAddTagModalProps> = ({
                     />
                   </Table.Cell>
                   <Table.Cell>
-                    <div className="flex flex-row justify-end">
+                    <div className="flex flex-row justify-start">
+                      {index > 0 || (index === 0 && fields.length > 0) ? (
+                        <Button
+                          color="red"
+                          onClick={() => remove(index)}
+                          icon="trash"
+                        />
+                      ) : null}
                       {
                         // If it's the last tag show the + button instead of the trash can
                         index === fields.length - 1 ? (
@@ -115,13 +122,6 @@ const BulkAddTagModal: React.FC<BulkAddTagModalProps> = ({
                           </Button>
                         ) : null
                       }
-                      {index > 0 ? (
-                        <Button
-                          color="red"
-                          onClick={() => remove(index)}
-                          icon="trash"
-                        />
-                      ) : null}
                     </div>
                   </Table.Cell>
                 </Table.Row>

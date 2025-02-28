@@ -88,7 +88,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
   }) => {
     return (
       <Label
-        key={crypto.randomUUID()}
+        key={pageID + "-" + tag}
         style={{
           backgroundColor: "#155789",
         }}
@@ -125,9 +125,11 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
       key={field.id}
       className={`flex flex-col border-slate-300 border rounded-md p-4 shadow-sm bg-gray-50/60 ${indent} max-h-96`}
     >
-      <Link to={node.url} target="_blank" className="font-semibold">
-        {node.title}
-      </Link>
+      <div>
+        <a href={node.url} target="_blank" className="font-semibold">
+          {node.title}
+        </a>
+      </div>
       <div className="flex flex-row justify-between items-stretch max-h-96 mt-2">
         <div className="flex flex-col w-4/6 border-r border-slate-500 pr-4 mr-4 h-full">
           <p className="text-base mt-1 font-semibold">Summary:</p>

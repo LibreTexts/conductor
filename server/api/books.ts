@@ -3182,15 +3182,22 @@ async function _generateAndApplyPageImagesAltText(
       }));
 
       const res = await CXOneFetch({
-        scope: "page",
+        scope: "files",
         path: file.fileID,
         api: MindTouch.API.File.PUT_File_Properties,
         subdomain: bookService.library,
         options: {
           method: "PUT",
           body: MindTouch.Templates.PUT_FileProperties(mappedProperties),
+          headers: {
+            "Content-Type": "application/xml",
+          }
         },
+      }).catch((e) => {
+        console.error("Error updating file properties for file: ", file.fileID, e);
+        return { status: 500 };
       });
+
 
       if (res.status !== 200) {
         console.log("Error updating file properties for file: ", file.fileID);
@@ -3202,7 +3209,6 @@ async function _generateAndApplyPageImagesAltText(
       const file = altTexts[i];
 
       if (file.error || !file.altText) {
-        console.log("No alt text for image: ", file.fileID, file.error);
         continue;
       }
 
@@ -3222,13 +3228,14 @@ async function _generateAndApplyPageImagesAltText(
 
       // Set new alt text
       found.each((_, el) => {
-        // If not overwriting and alt text is not set, set it ( for some reason many images have an alt text of " ", so handle those too)
-        if (!overwrite && ["", " "].includes(el.attribs["alt"])) {
-          cheerioContent(el).attr("alt", file.altText);
-        } else if (overwrite) {
-          // If overwriting, set it regardless
+        const currElementAltText = el.attribs["alt"];
+        if (overwrite) {
+          cheerioContent(el).attr("alt", file.altText); // If overwrite is true, always update the alt text
+        } else if (["", " "].includes(currElementAltText)) {
+          // If the alt text is empty, update it, regardless of overwrite (For some reason many img's have " " as alt text, so don't consider those as existing alt text)
           cheerioContent(el).attr("alt", file.altText);
         }
+        // If the alt text is not empty and overwrite is false, don't update it
       });
       didModify = true;
     }
