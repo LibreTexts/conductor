@@ -64,6 +64,8 @@ const TextbookCuration = () => {
   const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
   const [bulkActionsOpen, setBulkActionsOpen] = useState<boolean>(false);
+  const [nodeData, setNodeData] = useState<WithUIState[]>([]);
+  const [hasMadeChanges, setHasMadeChanges] = useState<boolean>(false);
 
   const { control, setValue, watch, getValues } = useForm<FormWorkingData>();
   const { fields, append } = useFieldArray({
@@ -98,7 +100,7 @@ const TextbookCuration = () => {
     return active || null;
   }, [projectData]);
 
-  const { data, isFetching } = useQuery<WithUIState[]>({
+  const { data: _data, isFetching } = useQuery<WithUIState[]>({
     queryKey: ["textbook-structure-detailed", projectID],
     queryFn: async () => {
       const res = await api.getBookPagesDetails(
@@ -141,6 +143,7 @@ const TextbookCuration = () => {
       };
 
       flatten(withUIState);
+      setNodeData(withUIState);
 
       return withUIState;
     },
@@ -161,17 +164,24 @@ const TextbookCuration = () => {
     openModal(<WelcomeToCoAuthorModal onClose={closeAllModals} />);
   }, [window.localStorage]);
 
-  const hasMadeChanges = useMemo(() => {
-    return data?.some((node) => node.edited);
-  }, [data]);
-
   const updateBookPagesMutation = useMutation({
     mutationFn: async (workingData: FormWorkingData) => {
+      // first, flat map node data so we can easily find edited pages
+      const flattened: WithUIState[] = [];
+      const flatNodeData = (nodes: WithUIState[]) => {
+        nodes.forEach((node) => {
+          flattened.push(node);
+          flatNodeData(node.children);
+        });
+      };
+      flatNodeData(nodeData);
+
       // Only send edited pages for update
-      const editedNodes = data?.filter((node) => node.edited);
+      const editedNodes = flattened.filter((node) => node.edited);
       const editedPages = workingData.pages.filter((p) =>
         editedNodes?.some((n) => n.id === p.pageID)
       );
+
       const simplified = editedPages.map((p) => ({
         id: p.pageID,
         summary: p.overview,
@@ -187,13 +197,17 @@ const TextbookCuration = () => {
         simplified
       );
     },
-    onSettled: () => {
-      queryClient.invalidateQueries(["project", projectID]); // Refresh the project data (with bulk update jobs)
-      queryClient.invalidateQueries(["textbook-structure-detailed", projectID]);
+    onSettled: async () => {
       addNotification({
         type: "success",
         message: "Bulk update job created successfully!",
       });
+
+      await queryClient.invalidateQueries(["project", projectID]); // Refresh the project data (with bulk update jobs)
+      await queryClient.invalidateQueries([
+        "textbook-structure-detailed",
+        projectID,
+      ]);
     },
     onError: (error) => {
       handleGlobalError(error);
@@ -201,6 +215,7 @@ const TextbookCuration = () => {
   });
 
   async function fetchAISummary(pageID: string) {
+    let success = false;
     try {
       if (!projectData?.libreLibrary || !pageID) return null;
 
@@ -222,11 +237,11 @@ const TextbookCuration = () => {
         );
       }
 
-      const fieldIdx = fields.findIndex((f) => f.pageID === pageID);
+      const fieldIdx = getValues("pages").findIndex((f) => f.pageID === pageID);
       if (fieldIdx === undefined) return;
 
       setValue(`pages.${fieldIdx}.overview`, res.data.summary);
-      handleSetNodeEdited(pageID, true);
+      success = true;
       addNotification({
         type: "success",
         message: "AI summary generated successfully!",
@@ -235,11 +250,12 @@ const TextbookCuration = () => {
       console.error(error);
       handleGlobalError(error);
     } finally {
-      handleSetNodeLoading(pageID, false);
+      handleUpdateSingleNode(pageID, { loading: false, edited: success });
     }
   }
 
   async function fetchAITags(pageID: string) {
+    let success = false;
     try {
       if (!projectData?.libreLibrary || !pageID) return null;
 
@@ -265,13 +281,13 @@ const TextbookCuration = () => {
         );
       }
 
-      const fieldIdx = fields.findIndex((f) => f.pageID === pageID);
+      const fieldIdx = getValues("pages").findIndex((f) => f.pageID === pageID);
       if (fieldIdx === undefined) {
         return;
       }
 
       setValue(`pages.${fieldIdx}.tags`, res.data.tags);
-      handleSetNodeEdited(pageID, true);
+      success = true;
       addNotification({
         type: "success",
         message: "AI tags generated successfully!",
@@ -280,13 +296,13 @@ const TextbookCuration = () => {
       console.error(error);
       handleGlobalError(error);
     } finally {
-      handleSetNodeLoading(pageID, false);
+      handleUpdateSingleNode(pageID, { loading: false, edited: success });
     }
   }
 
   function handleRemoveSingleTag(pageID: string, tag: string) {
-    const field = fields.find((f) => f.pageID === pageID);
-    const fieldIdx = fields.findIndex((f) => f.pageID === pageID);
+    const field = getValues("pages").find((f) => f.pageID === pageID);
+    const fieldIdx = getValues("pages").findIndex((f) => f.pageID === pageID);
     if (!field || fieldIdx === undefined) {
       return;
     }
@@ -294,7 +310,7 @@ const TextbookCuration = () => {
     const updatedTags = field.tags.filter((t) => t !== tag);
 
     setValue(`pages.${fieldIdx}.tags`, updatedTags);
-    handleSetNodeEdited(pageID, true);
+    handleSetNodeEdited(pageID);
   }
 
   function handleConfirmRemoveAllOccurrences(tag: string) {
@@ -324,7 +340,7 @@ const TextbookCuration = () => {
     for (let i = 0; i < updated.length; i++) {
       setValue(`pages.${i}.tags`, updated[i].tags);
     }
-    handleSetNodeEdited("all", true);
+    handleSetNodeEdited("all");
   }
 
   function handleConfirmReset() {
@@ -347,7 +363,9 @@ const TextbookCuration = () => {
       <ConfirmModal
         text="Are you sure you want to save these changes? This will create a bulk update job that may take some time to complete. We'll send you an email when it's done."
         onConfirm={async () => {
-          await updateBookPagesMutation.mutateAsync({ pages: fields });
+          updateBookPagesMutation.mutate({
+            pages: getValues("pages"),
+          });
           closeAllModals();
         }}
         onCancel={closeAllModals}
@@ -371,52 +389,55 @@ const TextbookCuration = () => {
     );
   };
 
-  const handleToggle = (id: string) => {
-    const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
+  const handleToggle = (id: string, currentState: boolean) => {
+    const toggleNodes = (nodes: WithUIState[]): WithUIState[] => {
       return nodes.map((node) => {
         if (node.id === id) {
-          return { ...node, expanded: !node.expanded };
+          return {
+            ...node,
+            expanded: !currentState,
+            children: toggleNodes(node.children),
+          };
         }
         return {
           ...node,
-          children: toggleNode(node.children),
+          children: toggleNodes(node.children),
         };
       });
     };
 
-    const updatedData = toggleNode(data!);
-    queryClient.setQueryData(
-      ["textbook-structure-detailed", projectID],
-      updatedData
-    );
+    setNodeData(toggleNodes(nodeData));
   };
 
   const handleJumpTo = (to: "top" | "bottom") => {
     window.scrollTo(0, to === "top" ? 0 : document.body.scrollHeight);
   };
 
-  const handleSetNodeLoading = (id: string | "all", loading: boolean) => {
-    // All nodes
-    if (id === "all") {
-      const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
-        return nodes.map((node) => {
+  // Useful to avoid race conditions/multiple re-renders when the same node will be updated multiple times in quick succession
+  // (ie. loading: true, then edited: true, then loading: false again)
+  const handleUpdateSingleNode = (
+    id: string,
+    data: Partial<Omit<WithUIState, "id">>
+  ) => {
+    const updateNode = (nodes: WithUIState[]): WithUIState[] => {
+      return nodes.map((node) => {
+        if (node.id === id) {
           return {
             ...node,
-            loading,
-            children: toggleNode(node.children),
+            ...data,
+            children: updateNode(node.children),
           };
-        });
-      };
+        }
+        return {
+          ...node,
+          children: updateNode(node.children),
+        };
+      });
+    };
+    setNodeData(updateNode(nodeData));
+  };
 
-      const updatedData = toggleNode(data!);
-      queryClient.setQueryData(
-        ["textbook-structure-detailed", projectID],
-        updatedData
-      );
-      return;
-    }
-
-    // Single node
+  const handleSetNodeLoading = (id: string, loading: boolean) => {
     const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
       return nodes.map((node) => {
         if (node.id === id) {
@@ -429,18 +450,29 @@ const TextbookCuration = () => {
       });
     };
 
-    const updatedData = toggleNode(data!);
-    queryClient.setQueryData(
-      ["textbook-structure-detailed", projectID],
-      updatedData
-    );
+    setNodeData(toggleNode(nodeData));
   };
 
-  const handleSetNodeEdited = (id: string, edited: boolean) => {
+  const handleSetNodeEdited = (id: string | "all") => {
+    if (id === "all") {
+      // recursively set all nodes to edited
+      const toggleAllNodes = (nodes: WithUIState[]): WithUIState[] => {
+        return nodes.map((node) => {
+          return {
+            ...node,
+            edited: true,
+            children: toggleAllNodes(node.children),
+          };
+        });
+      };
+
+      return;
+    }
+
     const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
       return nodes.map((node) => {
         if (node.id === id) {
-          return { ...node, edited };
+          return { ...node, edited: true };
         }
         return {
           ...node,
@@ -449,15 +481,19 @@ const TextbookCuration = () => {
       });
     };
 
-    const updatedData = toggleNode(data!);
-    queryClient.setQueryData(
-      ["textbook-structure-detailed", projectID],
-      updatedData
-    );
+    setNodeData(toggleNode(nodeData));
+    setHasMadeChanges(true);
   };
 
   const handleExpandCollapseAll = () => {
-    const anyExpanded = data?.some((node) => node.expanded);
+    // Find if any nodes are expanded recursively
+    const findExpanded = (nodes: WithUIState[]): boolean => {
+      return nodes.some((node) => {
+        return node.expanded || findExpanded(node.children);
+      });
+    };
+
+    const anyExpanded = findExpanded(nodeData);
 
     const expandAll = (nodes: WithUIState[]): WithUIState[] => {
       return nodes.map((node) => {
@@ -469,11 +505,7 @@ const TextbookCuration = () => {
       });
     };
 
-    const updatedData = expandAll(data!);
-    queryClient.setQueryData(
-      ["textbook-structure-detailed", projectID],
-      updatedData
-    );
+    setNodeData(expandAll(nodeData));
   };
 
   const ActiveJobAlert = (job: ProjectBookBatchUpdateJob) => {
@@ -515,7 +547,7 @@ const TextbookCuration = () => {
   };
 
   const handleOpenBulkAddTagsModal = () => {
-    if (!data) return;
+    if (!nodeData) return;
 
     // flatten all nodes recursively
     const flatten = (nodes: WithUIState[]): WithUIState[] => {
@@ -524,7 +556,7 @@ const TextbookCuration = () => {
       }, [] as WithUIState[]);
     };
 
-    const availablePages = flatten(data);
+    const availablePages = flatten(nodeData);
 
     openModal(
       <BulkAddTagModal
@@ -573,7 +605,7 @@ const TextbookCuration = () => {
   };
 
   const handleSingleAddTag = (pageID: string, tag: string) => {
-    const fieldIdx = fields.findIndex((f) => f.pageID === pageID);
+    const fieldIdx = getValues("pages").findIndex((f) => f.pageID === pageID);
     if (fieldIdx === undefined) {
       return;
     }
@@ -581,17 +613,17 @@ const TextbookCuration = () => {
     const withNew = [...getValues(`pages.${fieldIdx}.tags`), tag.trim()];
     const setTags = [...new Set(withNew)];
     setValue(`pages.${fieldIdx}.tags`, setTags);
-    handleSetNodeEdited(pageID, true);
+    handleSetNodeEdited(pageID);
   };
 
   const handleUpdateSummary = (pageID: string, value: string) => {
-    const fieldIdx = fields.findIndex((f) => f.pageID === pageID);
+    const fieldIdx = getValues("pages").findIndex((f) => f.pageID === pageID);
     if (fieldIdx === undefined) {
       return;
     }
 
     setValue(`pages.${fieldIdx}.overview`, value);
-    handleSetNodeEdited(pageID, true);
+    handleSetNodeEdited(pageID);
   };
 
   const LoadingSkeleton = () => {
@@ -623,10 +655,12 @@ const TextbookCuration = () => {
       );
     }
     return (
-      <Accordion fluid className="!py-0 !my-0">
+      <Accordion fluid className="!py-0 !my-0" key="tree-node-root">
         {nodes.map((node, idx) => {
           const hasChildren = node.children && node.children.length !== 0;
-          const fieldIdx = fields.findIndex((f) => f.pageID === node.id);
+          const fieldIdx = getValues("pages").findIndex(
+            (f) => f.pageID === node.id
+          );
           return (
             <>
               <Accordion.Title
@@ -647,13 +681,13 @@ const TextbookCuration = () => {
                         name={node.expanded ? "caret down" : "caret right"}
                         onClick={(e: any) => {
                           e.preventDefault();
-                          handleToggle(node.id);
+                          handleToggle(node.id, node.expanded);
                         }}
                       />
                     )}
-                    <Link to={node.url} target="_blank">
+                    <a href={node.url} target="_blank">
                       {node.title}
-                    </Link>
+                    </a>
                   </div>
                 )}
               </Accordion.Title>
@@ -825,7 +859,7 @@ const TextbookCuration = () => {
                   </Button>
                 </div>
                 {isFetching && <LoadingSkeleton />}
-                {data && renderNodes(data)}
+                {nodeData && renderNodes(nodeData)}
                 <div className="flex flex-row justify-center mt-6">
                   <Button
                     onClick={() => handleJumpTo("top")}

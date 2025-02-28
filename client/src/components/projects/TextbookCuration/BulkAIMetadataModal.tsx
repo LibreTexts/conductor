@@ -140,14 +140,19 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
     <Modal size="large" open={true} onClose={closeAllModals}>
       <Modal.Header>Generate AI Metadata?</Modal.Header>
       <Modal.Content>
-        <p className="text-lg mb-2">
+        <p className="text-lg mb-4">
           Are you sure you want to generate AI metadata for all pages in this
           book? This operation may take some time, so we'll send you an email
-          when it's complete. Only one bulk operation can be run at a time on a
-          book.
+          when it's complete.
+        </p>
+        <p className="text-lg mb-4">
+          Changes to each page will be saved automatically as the job
+          progresses. You can revise the generated metadata later if needed.
+          Only one bulk operation can be run at a time on a book.
         </p>
         <p>
-          Alt text generation is currently supported for the following image types: JPEG, PNG, GIF, WEBP, BMP, 
+          Alt text generation is currently supported for the following image
+          types: JPEG, PNG, GIF, WEBP, BMP
         </p>
         <Table celled striped className="mt-6">
           <Table.Header>
