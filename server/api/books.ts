@@ -2855,7 +2855,10 @@ async function _runBulkUpdateJob(
         })
         .join(", ");
 
-      const resultsString = `${metaResultsString}; ${imageResultsString}`;
+
+      const resultsString = [metaResultsString, imageResultsString].filter(
+        (r) => r.length > 0
+      ).join("; ");
 
       if (dataSource === "generated") {
         const jobTypeString = jobType.map((t) => t).join(" and ");
@@ -3244,14 +3247,14 @@ async function _generateAndApplyPageImagesAltText(
       return [null, true]; // If we didn't modify any images, return success
     }
 
-    const modifiedBody = cheerioContent("body").html();
-    if (!modifiedBody) {
+    const modifiedContentXML = cheerioContent.xml();
+    if (!modifiedContentXML) {
       return ["internal", false];
     }
 
     const updateSuccess = await bookService.updatePageContent(
       pageID.toString(),
-      modifiedBody
+      modifiedContentXML
     );
     if (!updateSuccess) {
       throw new Error("internal");

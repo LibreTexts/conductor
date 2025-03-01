@@ -18,6 +18,7 @@ const CXOnePageAPIEndpoints = {
   POST_Properties: `properties?${DREAM_OUT_FORMAT}`,
   POST_Security: `security?${DREAM_OUT_FORMAT}`,
   PUT_File_Default_Thumbnail: "files/=mindtouch.page%2523thumbnail",
+  PUT_Page_Overview: `overview?${DREAM_OUT_FORMAT}`,
   PUT_Page_Property: (property: string) =>
     `properties/${encodeURIComponent(property)}?${DREAM_OUT_FORMAT}`,
   PUT_Page_Tags: `tags?${DREAM_OUT_FORMAT}`,

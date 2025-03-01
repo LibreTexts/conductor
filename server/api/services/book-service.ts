@@ -13,6 +13,7 @@ import {
 } from "../../types";
 import * as cheerio from "cheerio";
 import Book from "../../models/book";
+import { encodeXML } from "entities";
 
 export interface BookServiceParams {
   bookID: string;
@@ -68,7 +69,7 @@ export default class BookService {
     "transclude:",
     "transcluded:",
     "field:",
-    "printoptions:"
+    "printoptions:",
   ];
 
   async getBookSummary(): Promise<string | undefined> {
@@ -449,7 +450,10 @@ export default class BookService {
     return parsed;
   }
 
-  async updatePageContent(pageID: string, content: string): Promise<boolean> {
+  async updatePageContent(
+    pageID: string,
+    xmlEncodedContent: string
+  ): Promise<boolean> {
     try {
       const updatedContentRes = await CXOneFetch({
         scope: "page",
@@ -458,14 +462,20 @@ export default class BookService {
         subdomain: this._library,
         query: {
           edittime: "now",
-          comment: "Updated by LibreBot"
+          comment: "Updated by LibreBot",
         },
         options: {
           method: "POST",
           headers: {
-            "Content-Type": "text/plain",
+            "Content-Type": "application/xml",
           },
-          body: content,
+          body: `
+          <content>
+          <body>
+          ${xmlEncodedContent}
+          </body>
+          </content>
+          `,
         },
       });
 
@@ -493,26 +503,25 @@ export default class BookService {
       }
 
       if (summary) {
-        // Get current page properties and find the overview property
-        const { etag } = await this.getPageOverview(pageID.toString());
+        // Ensure new summary is XML encoded
+        const encodedSummary = encodeXML(summary);
 
         // Update or set page overview property
         const updatedOverviewRes = await CXOneFetch({
           scope: "page",
           path: parseInt(pageID),
-          api: MindTouch.API.Page.PUT_Page_Property(
-            MindTouch.PageProps.PageOverview
-          ),
+          api: MindTouch.API.Page.PUT_Page_Overview,
           subdomain: this._library,
           options: {
             method: "PUT",
             headers: {
-              "Content-Type": "text/plain",
-              ...(etag && {
-                Etag: etag,
-              }),
+              "Content-Type": "application/xml",
             },
-            body: summary,
+            body: `
+            <overview>
+            ${encodedSummary}
+            </overview>
+            `,
           },
         });
 
