@@ -534,16 +534,48 @@ export default class BookService {
         const currentPageTags = await this.getPageTags(pageID.toString());
 
         // Book functionality tags that should not be removed
-        const toKeep = currentPageTags.filter(
-          (tag) =>
-            !this.DISABLED_PAGE_TAG_PREFIXES.some((prefix) =>
-              tag["@value"].startsWith(prefix)
-            )
+        const systemTags = currentPageTags.filter((tag) =>
+          this.DISABLED_PAGE_TAG_PREFIXES.some((prefix) =>
+            tag["@value"].startsWith(prefix)
+          )
         );
-        const toKeepValues = toKeep.map((tag) => tag["@value"]);
+        const systemTagValues = Array.from(
+          new Set<string>([...systemTags.map((tag) => tag["@value"])])
+        );
 
-        // Combine the tags to keep with the new tags into unique set
-        const withKeepSet = new Set<string>([...toKeepValues, ...tags]);
+        const withNewTags = [...systemTagValues, ...tags];
+
+        // Prefer new system tags over old ones
+        // For each item in this.DISABLED_PAGE_TAG_PREFIXES, check if there are multiple tags with the same prefix
+        // If so, keep the one from the new tags, and remove the old one (from toKeepValues)
+        // If not, keep the old one
+        const withNewSystemTagsPreferred = withNewTags.reduce((acc, tag) => {
+          // If it's not a system tag, keep it
+          if (
+            !this.DISABLED_PAGE_TAG_PREFIXES.some((prefix) =>
+              tag.startsWith(prefix)
+            )
+          ) {
+            return [...acc, tag];
+          }
+
+          const prefix = this.DISABLED_PAGE_TAG_PREFIXES.find((prefix) =>
+            tag.startsWith(prefix)
+          );
+          if (!prefix) {
+            return [...acc, tag];
+          }
+
+          const oldTag = systemTagValues.find((t) => t.startsWith(prefix));
+          const newTag = tags.find((t) => t.startsWith(prefix));
+          if (oldTag && newTag) {
+            return [...acc, newTag];
+          }
+          return [...acc, tag];
+        }, [] as string[]);
+
+        // Ensure no duplicates
+        const newTagsSet = new Set<string>([...withNewSystemTagsPreferred]);
 
         // Update the page tags
         const updatedTagsRes = await CXOneFetch({
@@ -556,7 +588,7 @@ export default class BookService {
             headers: {
               "Content-Type": "application/xml",
             },
-            body: MindTouch.Templates.PUT_PageTags(Array.from(withKeepSet)),
+            body: MindTouch.Templates.PUT_PageTags(Array.from(newTagsSet)),
           },
         });
 
