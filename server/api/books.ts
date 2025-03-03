@@ -82,6 +82,7 @@ import {
   batchUpdateBookMetadataSchema,
   bulkUpdatePageTagsSchema,
   getWithPageIDParamAndCoverPageIDSchema,
+  GeneratePageImagesAltTextSchema,
 } from "./validators/book.js";
 import BookService from "./services/book-service.js";
 import { randomUUID } from "crypto";
@@ -2256,6 +2257,46 @@ async function getPageAITags(
   }
 }
 
+async function generatePageImagesAltText(
+  req: ZodReqWithUser<z.infer<typeof GeneratePageImagesAltTextSchema>>,
+  res: Response
+) {
+  try {
+    const { pageID: fullPageID } = req.params;
+    const { coverPageID } = req.query;
+    const { overwrite } = req.body;
+    const [_, pageID] = getLibraryAndPageFromBookID(fullPageID);
+
+    const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
+    if (!canAccess) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const bookService = new BookService({ bookID: coverPageID });
+    const [error, success, modified_count] =
+      await _generateAndApplyPageImagesAltText(bookService, pageID, overwrite);
+
+    if (error) {
+      return _handleAIErrorResponse(res, error);
+    }
+
+    return res.send({
+      err: false,
+      success,
+      modified_count,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
 function _handleAIErrorResponse(res: Response, error: string) {
   switch (error) {
     case "location":
@@ -2628,14 +2669,15 @@ async function _runBulkUpdateJob(
         if (generateResources?.alttext?.generate) {
           // Purposefully doing this one-by-one because of strict rate limits
           for (const page of pageTextsMap) {
-            const [errCode, success] = await _generateAndApplyPageImagesAltText(
-              bookService,
-              page[0],
-              generateResources.alttext.overwrite ?? false
-            ).catch((e) => {
-              debugError(e);
-              return ["internal", false];
-            });
+            const [errCode, success, modifiedCount] =
+              await _generateAndApplyPageImagesAltText(
+                bookService,
+                page[0],
+                generateResources.alttext.overwrite ?? false
+              ).catch((e) => {
+                debugError(e);
+                return ["internal", false, 0];
+              });
 
             if (!success) {
               if (errCode === "location") {
@@ -2648,7 +2690,9 @@ async function _runBulkUpdateJob(
                 errors.images.internal++;
               }
             } else {
-              successfulImages++;
+              if (typeof modifiedCount === "number") {
+                successfulImages += modifiedCount;
+              }
             }
           }
 
@@ -2855,10 +2899,9 @@ async function _runBulkUpdateJob(
         })
         .join(", ");
 
-
-      const resultsString = [metaResultsString, imageResultsString].filter(
-        (r) => r.length > 0
-      ).join("; ");
+      const resultsString = [metaResultsString, imageResultsString]
+        .filter((r) => r.length > 0)
+        .join("; ");
 
       if (dataSource === "generated") {
         const jobTypeString = jobType.map((t) => t).join(" and ");
@@ -3014,19 +3057,20 @@ async function _generatePageAITags(
  * @param bookService - The BookService instance to use.
  * @param pageID - The page ID to generate tags for.
  * @param overwrite - Whether to overwrite existing tags.
- * @returns - Array of objects containing file ID and alt text, or undefined if an error occurred.
+ * @returns {[string|null, boolean, number]} - A tuple containing of [error message, success status, modified count], or undefined if an error occurred.
  */
 async function _generateAndApplyPageImagesAltText(
   bookService: BookService,
   pageID: number | string,
   overwrite: boolean
-): Promise<["empty" | "internal" | null, boolean]> {
+): Promise<["empty" | "internal" | null, boolean, number]> {
   let error = null;
   let success = false;
+  let modifiedCount = 0;
   try {
     const pageImageData = await bookService.getPageImages(pageID.toString());
     if (!pageImageData) {
-      return [null, true]; // If page doesn't have images, return success
+      return [null, true, 0]; // If page doesn't have images, return success
     }
 
     const calcImages = (imagesRes: PageImagesRes): PageFile[] => {
@@ -3165,7 +3209,7 @@ async function _generateAndApplyPageImagesAltText(
     const imageElements = cheerioContent("img");
 
     if (!imageElements || imageElements.length === 0) {
-      return [null, true]; // If we couldn't detect any images, return success
+      return [null, true, 0]; // If we couldn't detect any images, return success
     }
 
     // Need to update file properties
@@ -3194,13 +3238,16 @@ async function _generateAndApplyPageImagesAltText(
           body: MindTouch.Templates.PUT_FileProperties(mappedProperties),
           headers: {
             "Content-Type": "application/xml",
-          }
+          },
         },
       }).catch((e) => {
-        console.error("Error updating file properties for file: ", file.fileID, e);
+        console.error(
+          "Error updating file properties for file: ",
+          file.fileID,
+          e
+        );
         return { status: 500 };
       });
-
 
       if (res.status !== 200) {
         console.log("Error updating file properties for file: ", file.fileID);
@@ -3241,15 +3288,16 @@ async function _generateAndApplyPageImagesAltText(
         // If the alt text is not empty and overwrite is false, don't update it
       });
       didModify = true;
+      modifiedCount++;
     }
 
     if (!didModify) {
-      return [null, true]; // If we didn't modify any images, return success
+      return [null, true, 0]; // If we didn't modify any images, return success
     }
 
     const modifiedContentXML = cheerioContent.xml();
     if (!modifiedContentXML) {
-      return ["internal", false];
+      return ["internal", false, 0];
     }
 
     const updateSuccess = await bookService.updatePageContent(
@@ -3264,7 +3312,7 @@ async function _generateAndApplyPageImagesAltText(
   } catch (err: any) {
     error = err.message ?? "internal";
   }
-  return [error, success];
+  return [error, success, modifiedCount];
 }
 
 async function updatePageDetails(
@@ -3635,6 +3683,7 @@ export default {
   getBookPagesDetails,
   getPageDetail,
   getPageAISummary,
+  generatePageImagesAltText,
   batchGenerateAIMetadata,
   batchUpdateBookMetadata,
   getPageAITags,

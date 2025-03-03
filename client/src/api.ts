@@ -381,6 +381,22 @@ class API {
     return res;
   }
 
+  async generatePageImagesAltText(
+    pageID: string,
+    coverPageID: string,
+    overwrite: boolean
+  ) {
+    const res = await axios.post<
+      {
+        success: boolean;
+        modified_count: number;
+      } & ConductorBaseResponse
+    >(`/commons/pages/${pageID}/ai-alt-text?coverPageID=${coverPageID}`, {
+      overwrite,
+    });
+    return res;
+  }
+
   /**
    * Generates and applies AI-generated summaries, tags, or both, to all pages in a book
    * @param {string} bookID - the cover page of the book to apply the summaries to

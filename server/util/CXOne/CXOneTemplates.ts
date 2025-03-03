@@ -52,7 +52,7 @@ const CXOneTemplates = {
   <properties>
     ${properties.map((prop) => {
       return `<property name="${prop.name}" ${
-        prop.etag ? `etag=${prop.etag}` : ""
+        prop.etag ? `etag="${prop.etag}"` : ""
       }>
         <contents type="text/plain">${prop.value}</contents>
         </property>`;

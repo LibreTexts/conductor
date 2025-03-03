@@ -35,6 +35,7 @@ interface NodeEditorProps {
   onUpdateSummary: (pageID: string, summary: string) => void;
   onFetchAITags: (pageID: string) => void;
   onFetchAISummary: (pageID: string) => void;
+  onGeneratePageImagesAltText: (pageID: string) => void;
   showSystemTags?: boolean;
 }
 
@@ -50,6 +51,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
   onUpdateSummary,
   onFetchAISummary,
   onFetchAITags,
+  onGeneratePageImagesAltText,
   showSystemTags = false,
 }) => {
   const field = fields.find((f) => f.pageID === node.id);
@@ -64,12 +66,15 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
       value?.toString().startsWith(prefix)
     );
   };
-  
+
   const filterDisabledTags = (arr: string[]): string[] => {
     return arr.filter((tag) => !isDisabledTag(tag));
   };
 
-  const tags = useMemo(() => filterDisabledTags(propTags), [propTags, showSystemTags]);
+  const tags = useMemo(
+    () => filterDisabledTags(propTags),
+    [propTags, showSystemTags]
+  );
 
   const getIndent = () => {
     if (indentLevel <= 2) return "!ml-4";
@@ -128,7 +133,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
       key={field.id}
       className={`flex flex-col border-slate-300 border rounded-md p-4 shadow-sm bg-gray-50/60 ${indent} max-h-96`}
     >
-      <div>
+      <div className="flex flex-row justify-between items-center">
         <a href={node.url} target="_blank" className="font-semibold">
           {node.title}
         </a>
@@ -182,6 +187,16 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
           >
             <Icon name="magic" />
             Generate Summary
+          </Button>
+          <Button
+            loading={node.loading}
+            style={{ backgroundColor: "#155789" }}
+            className="!text-white"
+            onClick={() => onGeneratePageImagesAltText(node.id)}
+          >
+            <Icon name="magic" />
+            <Icon name="image outline" />
+            Generate Alt Text
           </Button>
         </div>
         <div className="flex flex-row w-2/6 pt-4">
