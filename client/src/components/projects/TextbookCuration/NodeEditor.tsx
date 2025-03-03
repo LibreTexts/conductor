@@ -2,7 +2,6 @@ import { Control, FieldArrayWithId, UseFormSetValue } from "react-hook-form";
 import { Prettify, TableOfContentsDetailed } from "../../../types";
 import React, { useMemo } from "react";
 import { DISABLED_PAGE_TAG_PREFIXES } from "../../../utils/misc";
-import { Link } from "react-router-dom";
 import CtlTextArea from "../../ControlledInputs/CtlTextArea";
 import { Button, Icon, Label, LabelDetail } from "semantic-ui-react";
 
@@ -36,17 +35,8 @@ interface NodeEditorProps {
   onUpdateSummary: (pageID: string, summary: string) => void;
   onFetchAITags: (pageID: string) => void;
   onFetchAISummary: (pageID: string) => void;
+  showSystemTags?: boolean;
 }
-
-const isDisabledTag = (value: string): boolean => {
-  return DISABLED_PAGE_TAG_PREFIXES.some((prefix) =>
-    value?.toString().startsWith(prefix)
-  );
-};
-
-const filterDisabledTags = (arr: string[]): string[] => {
-  return arr.filter((tag) => !isDisabledTag(tag));
-};
 
 const NodeEditor: React.FC<NodeEditorProps> = ({
   node,
@@ -60,13 +50,26 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
   onUpdateSummary,
   onFetchAISummary,
   onFetchAITags,
+  showSystemTags = false,
 }) => {
   const field = fields.find((f) => f.pageID === node.id);
   const fieldIdx = fields.findIndex((f) => f.pageID === node.id);
   if (!field) return null;
 
   const hasChildren = node.children && node.children.length !== 0;
-  const tags = useMemo(() => filterDisabledTags(propTags), [propTags]);
+
+  const isDisabledTag = (value: string): boolean => {
+    if (showSystemTags) return false; // Show all tags if showSystemTags is true
+    return DISABLED_PAGE_TAG_PREFIXES.some((prefix) =>
+      value?.toString().startsWith(prefix)
+    );
+  };
+  
+  const filterDisabledTags = (arr: string[]): string[] => {
+    return arr.filter((tag) => !isDisabledTag(tag));
+  };
+
+  const tags = useMemo(() => filterDisabledTags(propTags), [propTags, showSystemTags]);
 
   const getIndent = () => {
     if (indentLevel <= 2) return "!ml-4";

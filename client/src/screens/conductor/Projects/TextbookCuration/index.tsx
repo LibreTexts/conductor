@@ -13,6 +13,7 @@ import {
   DropdownMenu,
   DropdownItem,
   ButtonGroup,
+  Checkbox,
 } from "semantic-ui-react";
 import { useModals } from "../../../../context/ModalContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -38,6 +39,7 @@ import SingleAddTagModal from "../../../../components/projects/TextbookCuration/
 import ViewBulkUpdateHistoryModal from "../../../../components/projects/TextbookCuration/ViewBulkUpdateHistoryModal";
 import WelcomeToCoAuthorModal from "../../../../components/projects/TextbookCuration/WelcomeToCoAuthorModal";
 import NodeEditor from "../../../../components/projects/TextbookCuration/NodeEditor";
+import { useTypedSelector } from "../../../../state/hooks";
 
 type WithUIState = Prettify<
   Omit<TableOfContentsDetailed, "children"> & {
@@ -63,9 +65,12 @@ const TextbookCuration = () => {
   const { openModal, closeAllModals } = useModals();
   const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
+  const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
+
   const [bulkActionsOpen, setBulkActionsOpen] = useState<boolean>(false);
   const [nodeData, setNodeData] = useState<WithUIState[]>([]);
   const [hasMadeChanges, setHasMadeChanges] = useState<boolean>(false);
+  const [showSystemTags, setShowSystemTags] = useState<boolean>(false);
 
   const { control, setValue, watch, getValues } = useForm<FormWorkingData>();
   const { fields, append } = useFieldArray({
@@ -164,6 +169,12 @@ const TextbookCuration = () => {
     openModal(<WelcomeToCoAuthorModal onClose={closeAllModals} />);
   }, [window.localStorage]);
 
+  useEffect(() => {
+    if (isSuperAdmin) {
+      setShowSystemTags(true); // Show system tags by default for super admins
+    }
+  }, [isSuperAdmin])
+
   const updateBookPagesMutation = useMutation({
     mutationFn: async (workingData: FormWorkingData) => {
       // first, flat map node data so we can easily find edited pages
@@ -208,6 +219,16 @@ const TextbookCuration = () => {
         "textbook-structure-detailed",
         projectID,
       ]);
+    },
+    onError: (error) => {
+      handleGlobalError(error);
+    },
+  });
+
+  const refreshActiveJobStatusMutation = useMutation({
+    mutationFn: async () => {
+      queryClient.invalidateQueries(["project", projectID]);
+      queryClient.invalidateQueries(["textbook-structure-detailed", projectID]);
     },
     onError: (error) => {
       handleGlobalError(error);
@@ -522,11 +543,12 @@ const TextbookCuration = () => {
               </p>
             </div>
             <Button
-              onClick={() => {
-                queryClient.invalidateQueries(["project", projectID]);
+              onClick={async () => {
+                await refreshActiveJobStatusMutation.mutateAsync();
               }}
               icon
               color="blue"
+              loading={refreshActiveJobStatusMutation.isLoading}
             >
               <Icon name="refresh" />
             </Button>
@@ -706,6 +728,7 @@ const TextbookCuration = () => {
                     onAddSingleTag={handleOpenSingleAddTagModal}
                     onFetchAISummary={fetchAISummary}
                     onFetchAITags={fetchAITags}
+                    showSystemTags={showSystemTags}
                   />
                 )}
                 {node.children &&
@@ -726,7 +749,7 @@ const TextbookCuration = () => {
           AI Co-Author: <span className="italic">{projectData?.title}</span>
         </Header>
         <Segment.Group size="large" raised className="mb-4p">
-          <Segment>
+          <Segment className="flex flex-row justify-between items-center">
             <Breadcrumb>
               <Breadcrumb.Section as={Link} to="/projects">
                 Projects
@@ -738,6 +761,14 @@ const TextbookCuration = () => {
               <Breadcrumb.Divider icon="right chevron" />
               <Breadcrumb.Section active>AI Co-Author</Breadcrumb.Section>
             </Breadcrumb>
+            {isSuperAdmin && (
+              <Checkbox
+                label="Show System Tags (Admins)"
+                toggle
+                checked={showSystemTags}
+                onChange={() => setShowSystemTags(!showSystemTags)}
+              />
+            )}
           </Segment>
           <Segment className="flex flex-row items-center">
             <p className="font-semibold">
@@ -765,7 +796,7 @@ const TextbookCuration = () => {
               </div>
             )}
             <div className="flex flex-row justify-between">
-              <div>
+              <div className="flex flex-col">
                 <p className="text-lg max-w-7xl">
                   <span className="font-semibold">Editing Summaries:</span> Use
                   "Generate Summary" button to generate an AI summary for that
