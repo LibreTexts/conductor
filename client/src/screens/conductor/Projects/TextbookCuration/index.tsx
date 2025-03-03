@@ -178,45 +178,30 @@ const TextbookCuration = () => {
 
   const updateBookPagesMutation = useMutation({
     mutationFn: async (workingData: FormWorkingData) => {
-      // first, flat map node data so we can easily find edited pages
-      const flattened: WithUIState[] = [];
-      const flatNodeData = (nodes: WithUIState[]) => {
-        nodes.forEach((node) => {
-          flattened.push(node);
-          flatNodeData(node.children);
-        });
-      };
-      flatNodeData(nodeData);
-
-      // Only send edited pages for update
-      const editedNodes = flattened.filter((node) => node.edited);
-      const editedPages = workingData.pages.filter((p) =>
-        editedNodes?.some((n) => n.id === p.pageID)
-      );
-
-      const simplified = editedPages.map((p) => ({
-        id: p.pageID,
-        summary: p.overview,
-        tags: p.tags,
-      }));
-
-      const simplifiedSet = new Set(simplified.map((s) => JSON.stringify(s)));
-
-      if (simplifiedSet.size === 0) {
+      const pagesToUpdate = getPagesToUpdate(workingData);
+      if (!pagesToUpdate) {
         return null;
       }
 
-      const simplifiedArr = Array.from(simplifiedSet).map((s) => JSON.parse(s));
-
       return api.batchUpdateBookMetadata(
         `${projectData?.libreLibrary}-${projectData?.libreCoverID}`,
-        simplifiedArr
+        pagesToUpdate
       );
     },
-    onSettled: async () => {
+    onSettled: async (data) => {
+      if (!data || data.data.err) {
+        addNotification({
+          type: "error",
+          message: "Failed to create bulk update job. Please try again later.",
+        });
+        await queryClient.invalidateQueries(["project", projectID]); // Refresh the project data (with bulk update jobs)
+        return;
+      }
+
+      const message = data.data.msg;
       addNotification({
         type: "success",
-        message: "Bulk update job created successfully!",
+        message,
       });
 
       await queryClient.invalidateQueries(["project", projectID]); // Refresh the project data (with bulk update jobs)
@@ -239,6 +224,46 @@ const TextbookCuration = () => {
       handleGlobalError(error);
     },
   });
+
+  function getPagesToUpdate(workingData: FormWorkingData) {
+    // first, flat map node data so we can easily find edited pages
+    const flattened: WithUIState[] = [];
+    const flatNodeData = (nodes: WithUIState[]) => {
+      nodes.forEach((node) => {
+        flattened.push(node);
+        flatNodeData(node.children);
+      });
+    };
+    flatNodeData(nodeData);
+
+    // Only send edited pages for update
+    const editedNodes = flattened.filter((node) => node.edited);
+    const editedPages = workingData.pages.filter((p) =>
+      editedNodes?.some((n) => n.id === p.pageID)
+    );
+
+    const simplified = editedPages.map((p) => ({
+      id: p.pageID,
+      summary: p.overview,
+      tags: p.tags,
+    }));
+
+    const simplifiedSet = new Set(simplified.map((s) => JSON.stringify(s)));
+
+    return Array.from(simplifiedSet).map((s) => JSON.parse(s));
+  }
+
+  async function handleInitSave() {
+    const pagesToUpdate = getPagesToUpdate(getValues());
+    if (!pagesToUpdate || pagesToUpdate.length === 0) return;
+    if (pagesToUpdate.length <= 10) {
+      await updateBookPagesMutation.mutateAsync({
+        pages: getValues("pages"),
+      });
+    } else {
+      handleConfirmSave();
+    }
+  }
 
   async function fetchAISummary(pageID: string) {
     let success = false;
@@ -900,7 +925,7 @@ const TextbookCuration = () => {
                   </Button>
                   <Button
                     color="green"
-                    onClick={handleConfirmSave}
+                    onClick={handleInitSave}
                     disabled={!hasMadeChanges}
                     loading={updateBookPagesMutation.isLoading}
                     title="Save Changes"

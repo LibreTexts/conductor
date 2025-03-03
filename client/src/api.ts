@@ -427,7 +427,7 @@ class API {
     bookID: string,
     pages: { id: string; summary: string; tags: string[] }[]
   ) {
-    const res = await axios.post<ConductorBaseResponse>(
+    const res = await axios.post<{ msg: string } & ConductorBaseResponse>(
       `/commons/book/${bookID}/update-metadata-batch`,
       {
         pages,
