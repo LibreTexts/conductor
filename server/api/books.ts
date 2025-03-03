@@ -2500,43 +2500,90 @@ async function batchUpdateBookMetadata(
       });
     }
 
-    const job: ProjectBookBatchUpdateJob = {
-      jobID: randomUUID(),
-      type: ["summaries", "tags"], // Default to summaries+tags for user data source
-      status: "pending",
-      dataSource: "user",
-      successfulMetaPages: 0,
-      failedMetaPages: 0,
-      startTimestamp: new Date(),
-      ranBy: req.user.decoded.uuid,
-    };
+    // If there are more than 10 pages, start a batch update job, otherwise update pages immediately
+    if (newPageData.length > 10) {
+      const job: ProjectBookBatchUpdateJob = {
+        jobID: randomUUID(),
+        type: ["summaries", "tags"], // Default to summaries+tags for user data source
+        status: "pending",
+        dataSource: "user",
+        successfulMetaPages: 0,
+        failedMetaPages: 0,
+        startTimestamp: new Date(),
+        ranBy: req.user.decoded.uuid,
+      };
 
-    await Project.updateOne(
-      {
-        projectID: project.projectID,
-      },
-      {
-        $push: {
-          batchUpdateJobs: job,
+      await Project.updateOne(
+        {
+          projectID: project.projectID,
         },
+        {
+          $push: {
+            batchUpdateJobs: job,
+          },
+        }
+      );
+
+      _runBulkUpdateJob(
+        job.jobID,
+        job.type,
+        project.projectID,
+        req.params.bookID,
+        job.dataSource,
+        undefined,
+        [user.email],
+        newPageData
+      ); // Don't await, send response immediately
+
+      return res.send({
+        err: false,
+        msg: "Bulk update job initiated succesfully!",
+      });
+    } else {
+      const bookService = new BookService({ bookID: `${coverPageLibrary}-${coverPageID}` });
+      let successful = 0;
+      const errors = {
+        location: 0,
+        internal: 0,
+      };
+
+      const promises: ReturnType<typeof bookService.updatePageDetails>[] = [];
+
+      for (const page of newPageData) {
+        promises.push(
+          bookService.updatePageDetails(page.id, page.summary, page.tags)
+        );
       }
-    );
 
-    _runBulkUpdateJob(
-      job.jobID,
-      job.type,
-      project.projectID,
-      req.params.bookID,
-      job.dataSource,
-      undefined,
-      [user.email],
-      newPageData
-    ); // Don't await, send response immediately
+      for (const updateRes of await Promise.allSettled(promises)) {
+        if (updateRes.status === "rejected") {
+          errors.internal++;
+        } else {
+          if (updateRes.value[0] !== null) {
+            if (updateRes.value[0] === "location") {
+              errors.location++;
+            }
+            if (updateRes.value[0] === "internal") {
+              errors.internal++;
+            }
+          } else {
+            successful++;
+          }
+        }
+      }
 
-    return res.send({
-      err: false,
-      msg: "Batch update started.",
-    });
+      const buildResultsString = () => {
+        if (successful === newPageData.length) {
+          return "All pages updated successfully.";
+        }
+        return `${successful} pages updated successfully. ${errors.internal} pages failed to update due to internal errors. ${errors.location} pages failed to update because they could not be found.`;
+      };
+
+      return res.send({
+        err: false,
+        msg: buildResultsString(),
+      });
+    }
   } catch (e) {
     debugError(e);
     return res.status(500).send({
