@@ -199,13 +199,17 @@ const TextbookCuration = () => {
         tags: p.tags,
       }));
 
-      if (simplified.length === 0) {
+      const simplifiedSet = new Set(simplified.map((s) => JSON.stringify(s)));
+
+      if (simplifiedSet.size === 0) {
         return null;
       }
 
+      const simplifiedArr = Array.from(simplifiedSet).map((s) => JSON.parse(s));
+
       return api.batchUpdateBookMetadata(
         `${projectData?.libreLibrary}-${projectData?.libreCoverID}`,
-        simplified
+        simplifiedArr
       );
     },
     onSettled: async () => {
