@@ -58,6 +58,10 @@ const GeneratePageImagesAltTextModal: React.FC<
               page? This will immediately generate and apply alt text. This will
               take a moment to complete.
             </p>
+            <p className="text-lg mt-4">
+              Alt text generation is currently supported for the following image
+              types: JPEG, PNG, GIF, WEBP, BMP, SVG
+            </p>
             <div className="my-6">
               <Checkbox
                 label="Overwrite existing alt text?"

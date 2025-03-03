@@ -7,6 +7,7 @@ import {
   AltTextAICreateImage200Response,
   AltTextAICreateImage4XXResponse,
 } from "../../types";
+import { convertBase64SVGToBase64PNG } from "../../util/imageutils";
 
 export default class AIService {
   private OpenAIClient: OpenAI = new OpenAI({
@@ -297,6 +298,7 @@ export default class AIService {
     "image/gif",
     "image/webp",
     "image/bmp",
+    "image/svg+xml",
   ];
 
   public async generateImageAltText(
@@ -311,6 +313,11 @@ export default class AIService {
 
       if (delay) {
         await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+
+      // If image is SVG, convert to PNG
+      if (fileType === "image/svg+xml") {
+        imageBase64 = await convertBase64SVGToBase64PNG(imageBase64);
       }
 
       const response =
