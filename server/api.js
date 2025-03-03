@@ -861,6 +861,17 @@ router
     booksAPI.getPageAITags
   );
 
+router
+  .route("/commons/pages/:pageID/ai-alt-text")
+  .post(
+    middleware.validateZod(
+      BookValidators.GeneratePageImagesAltTextSchema
+    ),
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    booksAPI.generatePageImagesAltText
+  );
+
 router.route("/commons/filters").get(booksAPI.getCatalogFilterOptions);
 
 router

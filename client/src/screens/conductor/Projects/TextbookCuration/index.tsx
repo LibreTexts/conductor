@@ -40,6 +40,7 @@ import ViewBulkUpdateHistoryModal from "../../../../components/projects/Textbook
 import WelcomeToCoAuthorModal from "../../../../components/projects/TextbookCuration/WelcomeToCoAuthorModal";
 import NodeEditor from "../../../../components/projects/TextbookCuration/NodeEditor";
 import { useTypedSelector } from "../../../../state/hooks";
+import GeneratePageImagesAltTextModal from "../../../../components/projects/TextbookCuration/GeneratePageImagesAltTextModal";
 
 type WithUIState = Prettify<
   Omit<TableOfContentsDetailed, "children"> & {
@@ -173,7 +174,7 @@ const TextbookCuration = () => {
     if (isSuperAdmin) {
       setShowSystemTags(true); // Show system tags by default for super admins
     }
-  }, [isSuperAdmin])
+  }, [isSuperAdmin]);
 
   const updateBookPagesMutation = useMutation({
     mutationFn: async (workingData: FormWorkingData) => {
@@ -410,6 +411,17 @@ const TextbookCuration = () => {
         projectID={projectID}
         library={projectData?.libreLibrary}
         pageID={projectData?.libreCoverID}
+      />
+    );
+  };
+
+  const handleOpenGeneratePageImagesAltTextModal = (pageID: string) => {
+    if (!projectData?.libreCoverID) return;
+    openModal(
+      <GeneratePageImagesAltTextModal
+        coverPageID={`${projectData?.libreLibrary}-${projectData?.libreCoverID}`}
+        fullPageID={`${projectData?.libreLibrary}-${pageID}`}
+        onClose={closeAllModals}
       />
     );
   };
@@ -732,6 +744,9 @@ const TextbookCuration = () => {
                     onAddSingleTag={handleOpenSingleAddTagModal}
                     onFetchAISummary={fetchAISummary}
                     onFetchAITags={fetchAITags}
+                    onGeneratePageImagesAltText={
+                      handleOpenGeneratePageImagesAltTextModal
+                    }
                     showSystemTags={showSystemTags}
                   />
                 )}
