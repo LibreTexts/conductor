@@ -589,6 +589,7 @@ const TextbookCuration = () => {
     for (let i = 0; i < updated.length; i++) {
       setValue(`pages.${i}.tags`, updated[i].tags);
     }
+    setHasMadeChanges(true);
   };
 
   const handleOpenSingleAddTagModal = (pageID: string) => {
