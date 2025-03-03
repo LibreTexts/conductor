@@ -152,7 +152,7 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
         </p>
         <p>
           Alt text generation is currently supported for the following image
-          types: JPEG, PNG, GIF, WEBP, BMP
+          types: JPEG, PNG, GIF, WEBP, BMP, SVG
         </p>
         <Table celled striped className="mt-6">
           <Table.Header>
