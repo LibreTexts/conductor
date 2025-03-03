@@ -503,8 +503,10 @@ export default class BookService {
       }
 
       if (summary) {
-        // Ensure new summary is XML encoded
-        const encodedSummary = encodeXML(summary);
+        // Ensure new summary is XML encoded and newlines/whitespace is removed
+        const newLinesRemoved = summary.replace(/\n/g, "").trim();
+        const encodedSummary = encodeXML(newLinesRemoved);
+        const _body = `<overview>${encodedSummary}</overview>`;
 
         // Update or set page overview property
         const updatedOverviewRes = await CXOneFetch({
@@ -517,11 +519,7 @@ export default class BookService {
             headers: {
               "Content-Type": "application/xml",
             },
-            body: `
-            <overview>
-            ${encodedSummary}
-            </overview>
-            `,
+            body: _body,
           },
         });
 
