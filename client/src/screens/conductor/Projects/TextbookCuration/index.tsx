@@ -29,7 +29,7 @@ import LoadingSpinner from "../../../../components/LoadingSpinner";
 import { useNotifications } from "../../../../context/NotificationContext";
 import "../../../../components/projects/Projects.css";
 import { useParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
 import { Link } from "react-router-dom-v5-compat";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -60,6 +60,156 @@ type FormWorkingData = {
   }[];
 };
 
+type NodeStateReducerAction =
+  | {
+      type: "SET_LOADING";
+      id: string;
+      loading: boolean;
+    }
+  | {
+      type: "SET_EDITED";
+      id: string;
+      edited: boolean;
+    }
+  | {
+      type: "SET_EXPANDED";
+      id: string;
+      expanded: boolean;
+    }
+  | {
+      type: "EXPAND_COLLAPSE_ALL";
+    }
+  | {
+      type: "UPDATE_SINGLE_NODE";
+      id: string;
+      data: Partial<Omit<WithUIState, "id">>;
+    }
+  | {
+      type: "UPDATE_MANY_NODES";
+      ids: string[];
+      data: Partial<Omit<WithUIState, "id">>;
+    }
+  | {
+      type: "SET_NODE_DATA";
+      data: WithUIState[];
+    };
+
+function nodeStateReducer(
+  state: WithUIState[],
+  action: NodeStateReducerAction
+) {
+  switch (action.type) {
+    case "SET_LOADING": {
+      const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
+        return nodes.map((node) => {
+          if (node.id === action.id) {
+            return { ...node, loading: action.loading };
+          }
+          return {
+            ...node,
+            children: toggleNode(node.children),
+          };
+        });
+      };
+      const newState = toggleNode(state);
+      return newState;
+    }
+    case "SET_EDITED": {
+      const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
+        return nodes.map((node) => {
+          if (node.id === action.id) {
+            return { ...node, edited: action.edited };
+          }
+          return {
+            ...node,
+            children: toggleNode(node.children),
+          };
+        });
+      };
+      const newState = toggleNode(state);
+      return newState;
+    }
+    case "SET_EXPANDED": {
+      const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
+        return nodes.map((node) => {
+          if (node.id === action.id) {
+            return { ...node, expanded: action.expanded };
+          }
+          return {
+            ...node,
+            children: toggleNode(node.children),
+          };
+        });
+      };
+      const newState = toggleNode(state);
+      return newState;
+    }
+    case "EXPAND_COLLAPSE_ALL": {
+      // Find if any nodes are expanded recursively
+      const findExpanded = (nodes: WithUIState[]): boolean => {
+        return nodes.some((node) => {
+          return node.expanded || findExpanded(node.children);
+        });
+      };
+
+      const anyExpanded = findExpanded(state);
+
+      const expandAll = (nodes: WithUIState[]): WithUIState[] => {
+        return nodes.map((node) => {
+          return {
+            ...node,
+            expanded: !anyExpanded,
+            children: expandAll(node.children),
+          };
+        });
+      };
+
+      return expandAll(state);
+    }
+    case "UPDATE_SINGLE_NODE": {
+      const updateNode = (nodes: WithUIState[]): WithUIState[] => {
+        return nodes.map((node) => {
+          if (node.id === action.id) {
+            return {
+              ...node,
+              ...action.data,
+              children: updateNode(node.children),
+            };
+          }
+          return {
+            ...node,
+            children: updateNode(node.children),
+          };
+        });
+      };
+      return updateNode(state);
+    }
+    case "UPDATE_MANY_NODES": {
+      const updateNodes = (nodes: WithUIState[]): WithUIState[] => {
+        return nodes.map((node) => {
+          if (action.ids.includes(node.id)) {
+            return {
+              ...node,
+              ...action.data,
+              children: updateNodes(node.children),
+            };
+          }
+          return {
+            ...node,
+            children: updateNodes(node.children),
+          };
+        });
+      };
+      return updateNodes(state);
+    }
+    case "SET_NODE_DATA": {
+      return action.data;
+    }
+    default:
+      return state;
+  }
+}
+
 const TextbookCuration = () => {
   const { id: projectID } = useParams<{ id: string }>();
   const { handleGlobalError } = useGlobalError();
@@ -69,15 +219,22 @@ const TextbookCuration = () => {
   const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
 
   const [bulkActionsOpen, setBulkActionsOpen] = useState<boolean>(false);
-  const [nodeData, setNodeData] = useState<WithUIState[]>([]);
-  const [hasMadeChanges, setHasMadeChanges] = useState<boolean>(false);
   const [showSystemTags, setShowSystemTags] = useState<boolean>(false);
+  const [nodeState, dispatch] = useReducer(nodeStateReducer, []);
 
   const { control, setValue, watch, getValues } = useForm<FormWorkingData>();
   const { fields, append } = useFieldArray({
     control,
     name: "pages",
   });
+
+  const hasMadeChanges = useMemo<boolean>(() => {
+    const flattened = nodeState.reduce((acc, node) => {
+      return [...acc, node, ...node.children];
+    }, [] as WithUIState[]);
+
+    return flattened.some((node) => node.edited);
+  }, [nodeState]);
 
   const { data: projectData } = useQuery<Project | undefined>({
     queryKey: ["project", projectID],
@@ -149,7 +306,7 @@ const TextbookCuration = () => {
       };
 
       flatten(withUIState);
-      setNodeData(withUIState);
+      dispatch({ type: "SET_NODE_DATA", data: withUIState });
 
       return withUIState;
     },
@@ -234,7 +391,7 @@ const TextbookCuration = () => {
         flatNodeData(node.children);
       });
     };
-    flatNodeData(nodeData);
+    flatNodeData(nodeState);
 
     // Only send edited pages for update
     const editedNodes = flattened.filter((node) => node.edited);
@@ -270,7 +427,7 @@ const TextbookCuration = () => {
     try {
       if (!projectData?.libreLibrary || !pageID) return null;
 
-      handleSetNodeLoading(pageID, true);
+      dispatch({ type: "SET_LOADING", id: pageID, loading: true });
 
       const res = await api.getPageAISummary(
         `${projectData?.libreLibrary}-${pageID}`,
@@ -301,7 +458,11 @@ const TextbookCuration = () => {
       console.error(error);
       handleGlobalError(error);
     } finally {
-      handleUpdateSingleNode(pageID, { loading: false, edited: success });
+      dispatch({
+        type: "UPDATE_SINGLE_NODE",
+        id: pageID,
+        data: { loading: false, edited: success },
+      });
     }
   }
 
@@ -310,7 +471,7 @@ const TextbookCuration = () => {
     try {
       if (!projectData?.libreLibrary || !pageID) return null;
 
-      handleSetNodeLoading(pageID, true);
+      dispatch({ type: "SET_LOADING", id: pageID, loading: true });
 
       const res = await api.getPageAITags(
         `${projectData?.libreLibrary}-${pageID}`,
@@ -347,7 +508,11 @@ const TextbookCuration = () => {
       console.error(error);
       handleGlobalError(error);
     } finally {
-      handleUpdateSingleNode(pageID, { loading: false, edited: success });
+      dispatch({
+        type: "UPDATE_SINGLE_NODE",
+        id: pageID,
+        data: { loading: false, edited: success },
+      });
     }
   }
 
@@ -361,7 +526,7 @@ const TextbookCuration = () => {
     const updatedTags = field.tags.filter((t) => t !== tag);
 
     setValue(`pages.${fieldIdx}.tags`, updatedTags);
-    handleSetNodeEdited(pageID);
+    dispatch({ type: "SET_EDITED", id: pageID, edited: true });
   }
 
   function handleConfirmRemoveAllOccurrences(tag: string) {
@@ -381,17 +546,28 @@ const TextbookCuration = () => {
 
   function handleDoRemoveAllOccurrences(tag: string) {
     const pagesValues = getValues("pages");
-    const updated = pagesValues.map((p) => {
-      return {
-        ...p,
-        tags: p.tags.filter((t) => t !== tag),
-      };
-    });
 
-    for (let i = 0; i < updated.length; i++) {
-      setValue(`pages.${i}.tags`, updated[i].tags);
+    const modified: { pageID: string; overview: string; tags: string[] }[] = [];
+    // Get all pages and remove the tag from each
+    for (let i = 0; i < pagesValues.length; i++) {
+      const p = pagesValues[i];
+      if (p.tags.includes(tag)) {
+        modified.push({
+          ...p,
+          tags: p.tags.filter((t) => t !== tag),
+        });
+      }
     }
-    handleSetNodeEdited("all");
+
+    for (let i = 0; i < modified.length; i++) {
+      setValue(`pages.${i}.tags`, modified[i].tags);
+    }
+
+    dispatch({
+      type: "UPDATE_MANY_NODES",
+      ids: modified.map((m) => m.pageID),
+      data: { edited: true },
+    });
   }
 
   function handleConfirmReset() {
@@ -451,123 +627,8 @@ const TextbookCuration = () => {
     );
   };
 
-  const handleToggle = (id: string, currentState: boolean) => {
-    const toggleNodes = (nodes: WithUIState[]): WithUIState[] => {
-      return nodes.map((node) => {
-        if (node.id === id) {
-          return {
-            ...node,
-            expanded: !currentState,
-            children: toggleNodes(node.children),
-          };
-        }
-        return {
-          ...node,
-          children: toggleNodes(node.children),
-        };
-      });
-    };
-
-    setNodeData(toggleNodes(nodeData));
-  };
-
   const handleJumpTo = (to: "top" | "bottom") => {
     window.scrollTo(0, to === "top" ? 0 : document.body.scrollHeight);
-  };
-
-  // Useful to avoid race conditions/multiple re-renders when the same node will be updated multiple times in quick succession
-  // (ie. loading: true, then edited: true, then loading: false again)
-  const handleUpdateSingleNode = (
-    id: string,
-    data: Partial<Omit<WithUIState, "id">>
-  ) => {
-    const updateNode = (nodes: WithUIState[]): WithUIState[] => {
-      return nodes.map((node) => {
-        if (node.id === id) {
-          return {
-            ...node,
-            ...data,
-            children: updateNode(node.children),
-          };
-        }
-        return {
-          ...node,
-          children: updateNode(node.children),
-        };
-      });
-    };
-    setNodeData(updateNode(nodeData));
-  };
-
-  const handleSetNodeLoading = (id: string, loading: boolean) => {
-    const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
-      return nodes.map((node) => {
-        if (node.id === id) {
-          return { ...node, loading };
-        }
-        return {
-          ...node,
-          children: toggleNode(node.children),
-        };
-      });
-    };
-
-    setNodeData(toggleNode(nodeData));
-  };
-
-  const handleSetNodeEdited = (id: string | "all") => {
-    if (id === "all") {
-      // recursively set all nodes to edited
-      const toggleAllNodes = (nodes: WithUIState[]): WithUIState[] => {
-        return nodes.map((node) => {
-          return {
-            ...node,
-            edited: true,
-            children: toggleAllNodes(node.children),
-          };
-        });
-      };
-
-      return;
-    }
-
-    const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
-      return nodes.map((node) => {
-        if (node.id === id) {
-          return { ...node, edited: true };
-        }
-        return {
-          ...node,
-          children: toggleNode(node.children),
-        };
-      });
-    };
-
-    setNodeData(toggleNode(nodeData));
-    setHasMadeChanges(true);
-  };
-
-  const handleExpandCollapseAll = () => {
-    // Find if any nodes are expanded recursively
-    const findExpanded = (nodes: WithUIState[]): boolean => {
-      return nodes.some((node) => {
-        return node.expanded || findExpanded(node.children);
-      });
-    };
-
-    const anyExpanded = findExpanded(nodeData);
-
-    const expandAll = (nodes: WithUIState[]): WithUIState[] => {
-      return nodes.map((node) => {
-        return {
-          ...node,
-          expanded: !anyExpanded,
-          children: expandAll(node.children),
-        };
-      });
-    };
-
-    setNodeData(expandAll(nodeData));
   };
 
   const ActiveJobAlert = (job: ProjectBookBatchUpdateJob) => {
@@ -610,7 +671,7 @@ const TextbookCuration = () => {
   };
 
   const handleOpenBulkAddTagsModal = () => {
-    if (!nodeData) return;
+    if (!nodeState) return;
 
     // flatten all nodes recursively
     const flatten = (nodes: WithUIState[]): WithUIState[] => {
@@ -619,7 +680,7 @@ const TextbookCuration = () => {
       }, [] as WithUIState[]);
     };
 
-    const availablePages = flatten(nodeData);
+    const availablePages = flatten(nodeState);
 
     openModal(
       <BulkAddTagModal
@@ -639,20 +700,27 @@ const TextbookCuration = () => {
     // Trim whitespace from tags
     tags.forEach((t) => t.trim());
 
-    const updated = pagesValues.map((p) => {
+    const modified: { pageID: string; overview: string; tags: string[] }[] = [];
+    // Get all pages and add the tags to each
+    for (let i = 0; i < pagesValues.length; i++) {
+      const p = pagesValues[i];
       if (pages.includes(p.pageID)) {
-        return {
+        modified.push({
           ...p,
-          tags: [...new Set([...p.tags, ...tags])],
-        };
+          tags: [...p.tags, ...tags],
+        });
       }
-      return p;
-    });
-
-    for (let i = 0; i < updated.length; i++) {
-      setValue(`pages.${i}.tags`, updated[i].tags);
     }
-    setHasMadeChanges(true);
+
+    for (let i = 0; i < modified.length; i++) {
+      setValue(`pages.${i}.tags`, modified[i].tags);
+    }
+
+    dispatch({
+      type: "UPDATE_MANY_NODES",
+      ids: modified.map((m) => m.pageID),
+      data: { edited: true },
+    });
   };
 
   const handleOpenSingleAddTagModal = (pageID: string) => {
@@ -677,7 +745,7 @@ const TextbookCuration = () => {
     const withNew = [...getValues(`pages.${fieldIdx}.tags`), tag.trim()];
     const setTags = [...new Set(withNew)];
     setValue(`pages.${fieldIdx}.tags`, setTags);
-    handleSetNodeEdited(pageID);
+    dispatch({ type: "SET_EDITED", id: pageID, edited: true });
   };
 
   const handleUpdateSummary = (pageID: string, value: string) => {
@@ -687,7 +755,7 @@ const TextbookCuration = () => {
     }
 
     setValue(`pages.${fieldIdx}.overview`, value);
-    handleSetNodeEdited(pageID);
+    dispatch({ type: "SET_EDITED", id: pageID, edited: true });
   };
 
   const LoadingSkeleton = () => {
@@ -745,7 +813,11 @@ const TextbookCuration = () => {
                         name={node.expanded ? "caret down" : "caret right"}
                         onClick={(e: any) => {
                           e.preventDefault();
-                          handleToggle(node.id, node.expanded);
+                          dispatch({
+                            type: "SET_EXPANDED",
+                            id: node.id,
+                            expanded: !node.expanded,
+                          });
                         }}
                       />
                     )}
@@ -907,7 +979,7 @@ const TextbookCuration = () => {
                     <Icon name="arrow down" />
                   </Button>
                   <Button
-                    onClick={handleExpandCollapseAll}
+                    onClick={() => dispatch({ type: "EXPAND_COLLAPSE_ALL" })}
                     icon
                     title="Expand/Collapse All"
                   >
@@ -935,7 +1007,7 @@ const TextbookCuration = () => {
                   </Button>
                 </div>
                 {isFetching && <LoadingSkeleton />}
-                {nodeData && renderNodes(nodeData)}
+                {nodeState && renderNodes(nodeState)}
                 <div className="flex flex-row justify-center mt-6">
                   <Button
                     onClick={() => handleJumpTo("top")}
@@ -945,7 +1017,7 @@ const TextbookCuration = () => {
                     <Icon name="arrow up" />
                   </Button>
                   <Button
-                    onClick={handleExpandCollapseAll}
+                    onClick={() => dispatch({ type: "EXPAND_COLLAPSE_ALL" })}
                     icon
                     title="Expand/Collapse All"
                   >
