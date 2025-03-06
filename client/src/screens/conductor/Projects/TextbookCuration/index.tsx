@@ -554,7 +554,9 @@ const TextbookCuration = () => {
     }
 
     for (let i = 0; i < modified.length; i++) {
-      setValue(`pages.${i}.tags`, modified[i].tags);
+      const idx = pagesValues.findIndex((p) => p.pageID === modified[i].pageID);
+      if(!idx) continue;
+      setValue(`pages.${idx}.tags`, modified[i].tags);
     }
 
     dispatch({
@@ -709,7 +711,9 @@ const TextbookCuration = () => {
     }
 
     for (let i = 0; i < modified.length; i++) {
-      setValue(`pages.${i}.tags`, modified[i].tags);
+      const idx = pagesValues.findIndex((p) => p.pageID === modified[i].pageID);
+      if(!idx) continue;
+      setValue(`pages.${idx}.tags`, modified[i].tags);
     }
 
     dispatch({
