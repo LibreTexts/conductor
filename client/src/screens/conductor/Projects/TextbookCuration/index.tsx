@@ -634,8 +634,10 @@ const TextbookCuration = () => {
             <div className="flex flex-col">
               <Message.Header>Bulk Update Job In Progress</Message.Header>
               <p>
-                AI-generated metadata is currently being applied. This may take
-                some time to complete.
+                {job.dataSource === "generated"
+                  ? "AI-generated metadata is "
+                  : "Metadata updates are "}
+                currently being applied. This may take some time to complete.
               </p>
             </div>
             <Button
