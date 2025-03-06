@@ -776,17 +776,26 @@ const updateUserRole = (req, res) => {
 
 const deleteUserRole = async (req, res) => {
     try {
-      let isSuperAdmin = authAPI.checkHasRole(req.user, 'libretexts', 'superadmin');
-      if (!isSuperAdmin && (req.body.orgID !== process.env.ORG_ID)) {
+      const isSuperAdmin = authAPI.checkHasRole(req.user, 'libretexts', 'superadmin');
+      // Check if the user is trying to delete a role for an organization they are not a campus admin for (if not a super admin)
+      // or if they are trying to delete a role for the LibreTexts organization (only super admins can do this)
+      if (!isSuperAdmin && (req.body.orgID !== process.env.ORG_ID || req.body.orgID === 'libretexts')) {
         return res.send({
           err: true,
           errMsg: conductorErrors.err8
         });
       }
+
+      if(req.user.decoded.uuid === req.body.uuid) {
+        return res.status(403).send({
+          err: true,
+          errMsg: conductorErrors.err91
+        });
+      }
       
       const user = await User.findOne({ uuid: req.body.uuid }).lean();
       if (!user) {
-        return res.send({
+        return res.status(400).send({
           err: true,
           errMsg: conductorErrors.err7
         });
@@ -808,14 +817,14 @@ const deleteUserRole = async (req, res) => {
           msg: "Successfully deleted the user's role."
         });
       } else {
-        return res.send({
+        return res.status(500).send({
           err: true,
           errMsg: conductorErrors.err3
         });
       }
     } catch (err) {
       debugError(err);
-      return res.send({
+      return res.status(500).send({
         err: true,
         errMsg: conductorErrors.err6
       });
