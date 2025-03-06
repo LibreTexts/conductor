@@ -715,6 +715,11 @@ const TextbookCuration = () => {
       ids: modified.map((m) => m.pageID),
       data: { edited: true },
     });
+
+    addNotification({
+      type: "success",
+      message: "Tags added to selected pages.",
+    });
   };
 
   const handleOpenSingleAddTagModal = (pageID: string) => {

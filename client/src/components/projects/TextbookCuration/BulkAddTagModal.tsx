@@ -94,7 +94,7 @@ const BulkAddTagModal: React.FC<BulkAddTagModalProps> = ({
                   </Table.Cell>
                   <Table.Cell>
                     <div className="flex flex-row justify-start">
-                      {index > 0 || (index === 0 && fields.length > 0) ? (
+                      {index > 0 || (index === 0 && fields.length > 1) ? (
                         <Button
                           color="red"
                           onClick={() => remove(index)}
