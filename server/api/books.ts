@@ -3331,6 +3331,10 @@ async function _generateAndApplyPageImagesAltText(
         } else if (["", " "].includes(currElementAltText)) {
           // If the alt text is empty, update it, regardless of overwrite (For some reason many img's have " " as alt text, so don't consider those as existing alt text)
           cheerioContent(el).attr("alt", file.altText);
+        } else if(aiService.supportedFileExtensions.some((ext) => currElementAltText.endsWith(`.${ext}`))) {
+          // If the alt text ends with one of the supported file extensions, update it
+          // MindTouch sets the default alt text to the file name, so we'll consider it as junk and update it
+          cheerioContent(el).attr("alt", file.altText);
         }
         // If the alt text is not empty and overwrite is false, don't update it
       });

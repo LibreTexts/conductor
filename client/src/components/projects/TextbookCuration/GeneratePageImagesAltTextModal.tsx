@@ -60,7 +60,8 @@ const GeneratePageImagesAltTextModal: React.FC<
             </p>
             <p className="text-lg mt-4">
               Alt text generation is currently supported for the following image
-              types: JPEG, PNG, GIF, WEBP, BMP, SVG
+              types: JPEG, PNG, GIF, WEBP, BMP, SVG. Alt text consisting of only
+              the filename will be considered empty and always overwritten.
             </p>
             <div className="my-6">
               <Checkbox

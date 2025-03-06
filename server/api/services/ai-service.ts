@@ -301,6 +301,16 @@ export default class AIService {
     "image/svg+xml",
   ];
 
+  public supportedFileExtensions = [
+    "jpeg",
+    "jpg",
+    "png",
+    "gif",
+    "webp",
+    "bmp",
+    "svg",
+  ];
+
   public async generateImageAltText(
     fileType: string,
     imageBase64: string,
