@@ -327,12 +327,6 @@ const TextbookCuration = () => {
     openModal(<WelcomeToCoAuthorModal onClose={closeAllModals} />);
   }, [window.localStorage]);
 
-  useEffect(() => {
-    if (isSuperAdmin) {
-      setShowSystemTags(true); // Show system tags by default for super admins
-    }
-  }, [isSuperAdmin]);
-
   const updateBookPagesMutation = useMutation({
     mutationFn: async (workingData: FormWorkingData) => {
       const pagesToUpdate = getPagesToUpdate(workingData);
