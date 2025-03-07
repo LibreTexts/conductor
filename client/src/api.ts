@@ -348,17 +348,19 @@ class API {
   }
 
   async getBookPagesDetails(bookID: string) {
+    const nonce = Math.random().toString(36).substring(7);
     const res = await axios.get<
       {
         toc: TableOfContentsDetailed;
       } & ConductorBaseResponse
-    >(`/commons/book/${bookID}/pages-details`);
+    >(`/commons/book/${bookID}/pages-details?nonce=${nonce}`);
     return res;
   }
 
   async getPageDetails(pageID: string, coverPageID: string) {
+    const nonce = Math.random().toString(36).substring(7);
     const res = await axios.get<PageDetailsResponse & ConductorBaseResponse>(
-      `/commons/pages/${pageID}?coverPageID=${coverPageID}`
+      `/commons/pages/${pageID}?coverPageID=${coverPageID}?nonce=${nonce}`,
     );
     return res;
   }
@@ -1178,7 +1180,6 @@ class API {
     });
     return res;
   }
-
 }
 
 export default new API();
