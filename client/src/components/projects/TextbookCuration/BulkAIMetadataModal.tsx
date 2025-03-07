@@ -8,6 +8,7 @@ import api from "../../../api";
 import { Project } from "../../../types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ConfirmModal from "../../ConfirmModal";
+import Tooltip from "../../util/Tooltip";
 
 interface BulkAIMetadataModalProps {
   projectID: string;
@@ -150,7 +151,7 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
           progresses. You can revise the generated metadata later if needed.
           Only one bulk operation can be run at a time on a book.
         </p>
-        <p>
+        <p className="text-lg mb-4">
           Alt text generation is currently supported for the following image
           types: JPEG, PNG, GIF, WEBP, BMP, SVG. Alt text consisting of only the
           filename will be considered empty and always overwritten.
@@ -172,12 +173,21 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
                   toggle
                 />
               </Table.Cell>
-              <Table.Cell className={summaries ? "" : "opacity-50"}>
+              <Table.Cell
+                className={`${summaries ? "" : "opacity-50"} flex items-center`}
+              >
                 <Checkbox
                   label="Overwrite Existing Summaries"
                   checked={overwriteSummaries}
                   onChange={() => setOverwriteSummaries(!overwriteSummaries)}
                   toggle
+                  disabled={!summaries}
+                />
+                <Tooltip
+                  text="All existing summaries will be replaced with AI-generated summaries."
+                  children={
+                    <Icon name="question circle" className="!ml-1 !mb-1" />
+                  }
                   disabled={!summaries}
                 />
               </Table.Cell>
@@ -191,12 +201,22 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
                   toggle
                 />
               </Table.Cell>
-              <Table.Cell className={tags ? "" : "opacity-50"}>
+              <Table.Cell
+                className={`${tags ? "" : "opacity-50"} flex items-center`}
+              >
                 <Checkbox
                   label="Overwrite Existing Tags"
                   checked={overwriteTags}
                   onChange={() => setOverwriteTags(!overwriteTags)}
                   toggle
+                  disabled={!tags}
+                />
+                <Tooltip
+                  text="If selected, user-defined tags will be overwritten. If not selected, only pages without user-defined tags will have tags generated.
+                  Tags for system functions (e.g. 'license', 'licenseversion') are never overwritten."
+                  children={
+                    <Icon name="question circle" className="!ml-1 !mb-1" />
+                  }
                   disabled={!tags}
                 />
               </Table.Cell>
@@ -210,12 +230,21 @@ const BulkAIMetadataModal: React.FC<BulkAIMetadataModalProps> = ({
                   toggle
                 />
               </Table.Cell>
-              <Table.Cell className={alttext ? "" : "opacity-50"}>
+              <Table.Cell
+                className={`${alttext ? "" : "opacity-50"} flex items-center`}
+              >
                 <Checkbox
                   label="Overwrite Existing Alt Text"
                   checked={overwriteAlttext}
                   onChange={() => setOverwriteAlttext(!overwriteAlttext)}
                   toggle
+                  disabled={!alttext}
+                />
+                <Tooltip
+                  text="If selected, existing alt text will be replaced with AI-generated alt text. If not selected, only images without alt text will have alt text generated. Alt text consisting of only the filename will be considered empty and always overwritten."
+                  children={
+                    <Icon name="question circle" className="!ml-1 !mb-1" />
+                  }
                   disabled={!alttext}
                 />
               </Table.Cell>

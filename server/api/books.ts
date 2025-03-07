@@ -3093,7 +3093,6 @@ async function _generatePageAITags(
   try {
     const existing = await bookService.getPageTags(pageID.toString());
     const nonSystemTags = existing.filter((t) => !bookService.DISABLED_PAGE_TAG_PREFIXES.some((p) => t["@value"].startsWith(p)));
-    console.log(`NON SYSTEM TAGS FOR PAGE ${pageID}: ${nonSystemTags}`);
     if (nonSystemTags?.length > 0 && !overwrite) {
       return [null, []];
     }
