@@ -274,7 +274,10 @@ export default class AIService {
       const splitTags =
         aiTagsOutput.split(",").map((tag: string) => tag.trim()) || [];
 
-      // if tags end with a period, remove it
+      // Remove any extra whitespace from tags
+      splitTags.forEach((t) => t.trim());
+
+      // if tags end with a period, remove the period
       if (
         splitTags.length > 0 &&
         splitTags[splitTags.length - 1].endsWith(".")
@@ -285,7 +288,11 @@ export default class AIService {
         );
       }
 
-      return splitTags;
+      // Filter out any falsey values (empty strings, null, undefined, etc.)
+      const filtered = splitTags.filter((t) => !!t);
+      const unique = [...new Set(filtered)];
+
+      return unique.length > 10 ? unique.slice(0, 10) : unique;
     } catch (error) {
       console.error(error);
       return "error";

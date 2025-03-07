@@ -12,7 +12,7 @@ import {
   TableOfContents,
 } from "../../types";
 import * as cheerio from "cheerio";
-import Book from "../../models/book";
+import Book, { BookInterface } from "../../models/book";
 import { encodeXML } from "entities";
 
 export interface BookServiceParams {
@@ -71,6 +71,10 @@ export default class BookService {
     "field:",
     "printoptions:",
   ];
+
+  async getBookRecord(): Promise<BookInterface | undefined> {
+    return (await Book.findOne({ bookID: this._bookID })) ?? undefined;
+  }
 
   async getBookSummary(): Promise<string | undefined> {
     const book = await Book.findOne({ bookID: this._bookID });
@@ -528,7 +532,7 @@ export default class BookService {
         }
       }
 
-      if (tags) {
+      if (tags && tags.length) {
         const currentPageTags = await this.getPageTags(pageID.toString());
 
         // Book functionality tags that should not be removed
