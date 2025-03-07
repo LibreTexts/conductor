@@ -360,6 +360,11 @@ export default class BookService {
       path: parseInt(pageID),
       api: MindTouch.API.Page.GET_Page_Properties,
       subdomain: this._library,
+      options: {
+        headers: {
+          "Cache-Control": "no-cache",
+        }
+      }
     }).catch((err) => {
       console.error(err);
       throw new Error(`Error fetching page details: ${err}`);
@@ -396,6 +401,11 @@ export default class BookService {
       path: parseInt(pageID),
       api: MindTouch.API.Page.GET_Page_Tags,
       subdomain: this._library,
+      options: {
+        headers: {
+          "Cache-Control": "no-cache",
+        }
+      }
     }).catch((err) => {
       console.error(err);
       throw new Error(`Error fetching page tags: ${err}`);

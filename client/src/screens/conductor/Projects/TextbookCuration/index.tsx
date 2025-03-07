@@ -374,6 +374,7 @@ const TextbookCuration = () => {
     mutationFn: async () => {
       queryClient.invalidateQueries(["project", projectID]);
       queryClient.invalidateQueries(["textbook-structure-detailed", projectID]);
+      window.location.reload();
     },
     onError: (error) => {
       handleGlobalError(error);
