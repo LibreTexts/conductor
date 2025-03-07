@@ -13,6 +13,12 @@ type CXOneFetchPageParams = CXOneFetchBase & {
   api: string;
 };
 
+type CXOneFetchFilesParams = CXOneFetchBase & {
+  scope: "files";
+  path: string | number;
+  api: string;
+};
+
 type CXOneFetchGroupsParams = CXOneFetchBase & {
   scope: "groups";
 };
@@ -25,6 +31,7 @@ type CXOneFetchUsersParams = CXOneFetchBase & {
 
 export type CXOneFetchParams =
   | CXOneFetchPageParams
+  | CXOneFetchFilesParams
   | CXOneFetchGroupsParams
   | CXOneFetchUsersParams;
 

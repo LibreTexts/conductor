@@ -16,6 +16,7 @@ import {
   isValidDateObject,
   sleep,
   getRandomOffset,
+  truncateString,
 } from "../util/helpers.js";
 import {
   deleteBookFromAPI,
@@ -46,6 +47,9 @@ import axios, { AxiosResponse } from "axios";
 import {
   _generatePageImagesAltTextResObj,
   BookSortOption,
+  PageFile,
+  PageFileProperty,
+  PageImagesRes,
   TableOfContents,
   TableOfContentsDetailed,
 } from "../types/Book.js";
@@ -78,11 +82,13 @@ import {
   batchUpdateBookMetadataSchema,
   bulkUpdatePageTagsSchema,
   getWithPageIDParamAndCoverPageIDSchema,
+  GeneratePageImagesAltTextSchema,
 } from "./validators/book.js";
 import BookService from "./services/book-service.js";
 import { randomUUID } from "crypto";
 import * as cheerio from "cheerio";
 import AIService from "./services/ai-service.js";
+import { method } from "bluebird";
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   _id: 0,
@@ -2192,7 +2198,11 @@ async function getPageAISummary(
     }
 
     const bookService = new BookService({ bookID: coverPageID });
-    const [error, summary] = await _generatePageAISummary(bookService, pageID);
+    const [error, summary] = await _generatePageAISummary(
+      bookService,
+      pageID,
+      true
+    );
 
     if (error) {
       return _handleAIErrorResponse(res, error);
@@ -2229,7 +2239,7 @@ async function getPageAITags(
     }
 
     const bookService = new BookService({ bookID: coverPageID });
-    const [error, tags] = await _generatePageAITags(bookService, pageID);
+    const [error, tags] = await _generatePageAITags(bookService, pageID, true);
     if (error) {
       return _handleAIErrorResponse(res, error);
     }
@@ -2237,6 +2247,46 @@ async function getPageAITags(
     return res.send({
       err: false,
       tags,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function generatePageImagesAltText(
+  req: ZodReqWithUser<z.infer<typeof GeneratePageImagesAltTextSchema>>,
+  res: Response
+) {
+  try {
+    const { pageID: fullPageID } = req.params;
+    const { coverPageID } = req.query;
+    const { overwrite } = req.body;
+    const [_, pageID] = getLibraryAndPageFromBookID(fullPageID);
+
+    const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
+    if (!canAccess) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const bookService = new BookService({ bookID: coverPageID });
+    const [error, success, modified_count] =
+      await _generateAndApplyPageImagesAltText(bookService, pageID, overwrite);
+
+    if (error) {
+      return _handleAIErrorResponse(res, error);
+    }
+
+    return res.send({
+      err: false,
+      success,
+      modified_count,
     });
   } catch (e) {
     debugError(e);
@@ -2328,10 +2378,16 @@ async function batchGenerateAIMetadata(
       });
     }
 
+    const generateResources: ProjectBookBatchUpdateJob["generateResources"] = {
+      summaries: req.body.summaries,
+      tags: req.body.tags,
+      alttext: req.body.alttext,
+    };
     const jobType: ProjectBookBatchUpdateJob["type"] = [];
-    if (req.body.summaries) jobType.push("summaries");
-    if (req.body.tags) jobType.push("tags");
-    if (req.body.alttext) jobType.push("alttext");
+    console.log("GENERATE RESOURCES", generateResources);
+    if (generateResources.summaries?.generate) jobType.push("summaries");
+    if (generateResources.tags?.generate) jobType.push("tags");
+    if (generateResources.alttext?.generate) jobType.push("alttext");
 
     if (!jobType.length) {
       return res.status(400).send({
@@ -2345,6 +2401,7 @@ async function batchGenerateAIMetadata(
       type: jobType,
       status: "pending",
       dataSource: "generated",
+      generateResources: generateResources,
       startTimestamp: new Date(),
       ranBy: req.user.decoded.uuid,
     };
@@ -2366,6 +2423,11 @@ async function batchGenerateAIMetadata(
       project.projectID,
       req.params.bookID,
       job.dataSource,
+      {
+        summaries: req.body.summaries,
+        tags: req.body.tags,
+        alttext: req.body.alttext,
+      },
       [user.email]
     ); // Don't await, send response immediately
 
@@ -2439,42 +2501,92 @@ async function batchUpdateBookMetadata(
       });
     }
 
-    const job: ProjectBookBatchUpdateJob = {
-      jobID: randomUUID(),
-      type: ["summaries", "tags"], // Default to summaries+tags for user data source
-      status: "pending",
-      dataSource: "user",
-      successfulMetaPages: 0,
-      failedMetaPages: 0,
-      startTimestamp: new Date(),
-      ranBy: req.user.decoded.uuid,
-    };
+    // If there are more than 10 pages, start a batch update job, otherwise update pages immediately
+    if (newPageData.length > 10) {
+      const job: ProjectBookBatchUpdateJob = {
+        jobID: randomUUID(),
+        type: ["summaries", "tags"], // Default to summaries+tags for user data source
+        status: "pending",
+        dataSource: "user",
+        successfulMetaPages: 0,
+        failedMetaPages: 0,
+        startTimestamp: new Date(),
+        ranBy: req.user.decoded.uuid,
+      };
 
-    await Project.updateOne(
-      {
-        projectID: project.projectID,
-      },
-      {
-        $push: {
-          batchUpdateJobs: job,
+      await Project.updateOne(
+        {
+          projectID: project.projectID,
         },
+        {
+          $push: {
+            batchUpdateJobs: job,
+          },
+        }
+      );
+
+      _runBulkUpdateJob(
+        job.jobID,
+        job.type,
+        project.projectID,
+        req.params.bookID,
+        job.dataSource,
+        undefined,
+        [user.email],
+        newPageData
+      ); // Don't await, send response immediately
+
+      return res.send({
+        err: false,
+        msg: "Bulk update job initiated succesfully!",
+      });
+    } else {
+      const bookService = new BookService({
+        bookID: `${coverPageLibrary}-${coverPageID}`,
+      });
+      let successful = 0;
+      const errors = {
+        location: 0,
+        internal: 0,
+      };
+
+      const promises: ReturnType<typeof bookService.updatePageDetails>[] = [];
+
+      for (const page of newPageData) {
+        promises.push(
+          bookService.updatePageDetails(page.id, page.summary, page.tags)
+        );
       }
-    );
 
-    _runBulkUpdateJob(
-      job.jobID,
-      job.type,
-      project.projectID,
-      req.params.bookID,
-      job.dataSource,
-      [user.email],
-      newPageData
-    ); // Don't await, send response immediately
+      for (const updateRes of await Promise.allSettled(promises)) {
+        if (updateRes.status === "rejected") {
+          errors.internal++;
+        } else {
+          if (updateRes.value[0] !== null) {
+            if (updateRes.value[0] === "location") {
+              errors.location++;
+            }
+            if (updateRes.value[0] === "internal") {
+              errors.internal++;
+            }
+          } else {
+            successful++;
+          }
+        }
+      }
 
-    return res.send({
-      err: false,
-      msg: "Batch update started.",
-    });
+      const buildResultsString = () => {
+        if (successful === newPageData.length) {
+          return "All pages updated successfully.";
+        }
+        return `${successful} pages updated successfully. ${errors.internal} pages failed to update due to internal errors. ${errors.location} pages failed to update because they could not be found.`;
+      };
+
+      return res.send({
+        err: false,
+        msg: buildResultsString(),
+      });
+    }
   } catch (e) {
     debugError(e);
     return res.status(500).send({
@@ -2502,6 +2614,7 @@ async function _runBulkUpdateJob(
   projectID: string,
   bookID: string,
   dataSource: ProjectBookBatchUpdateJob["dataSource"],
+  generateResources: ProjectBookBatchUpdateJob["generateResources"],
   emailsToNotify: string[],
   data?: { id: string; summary?: string; tags?: string[] }[] // Only for user data source
 ): Promise<void> {
@@ -2512,6 +2625,14 @@ async function _runBulkUpdateJob(
       if (!data && dataSource === "user") {
         throw new Error("No data provided for user data source");
       }
+
+      if (!generateResources && dataSource === "generated") {
+        throw new Error(
+          "Resource generation not specified for generated data source"
+        );
+      }
+
+      console.log(`JOB ${jobID} STARTED.`);
 
       // Create book service and get table of contents
       const bookService = new BookService({ bookID });
@@ -2590,30 +2711,42 @@ async function _runBulkUpdateJob(
         const pageTextsMap = new Map<string, string>();
         pageIDs.forEach((p, i) => {
           if (pageTexts[i].status === "fulfilled") {
+            console.log("Collected page text for", p);
             pageTextsMap.set(p, pageTexts[i].value);
           }
         });
 
         // Do alt-text updates
-        if (jobType.includes("alttext")) {
+        if (generateResources?.alttext?.generate) {
+          // Purposefully doing this one-by-one because of strict rate limits
           for (const page of pageTextsMap) {
-            const altTextRes = await _generateAndApplyPageImagesAltText(
-              bookService,
-              page[0]
+            const [errCode, success, modifiedCount] =
+              await _generateAndApplyPageImagesAltText(
+                bookService,
+                page[0],
+                generateResources.alttext.overwrite ?? false
+              ).catch((e) => {
+                debugError(e);
+                return ["internal", false, 0];
+              });
+            console.log(
+              `Generated alt text for ${page[0]} with success: ${success} and error: ${errCode}`
             );
-
-            if (altTextRes[0] !== null) {
-              if (altTextRes[0] === "empty") {
+            if (!success) {
+              if (errCode === "location") {
                 errors.images.location++;
-              } else {
+              }
+              if (errCode === "empty") {
+                errors.images.empty++;
+              }
+              if (errCode === "internal") {
                 errors.images.internal++;
               }
-
-              failedImages++;
-              continue;
+            } else {
+              if (typeof modifiedCount === "number") {
+                successfulImages += modifiedCount;
+              }
             }
-
-            successfulImages++;
           }
 
           // update job status
@@ -2635,42 +2768,83 @@ async function _runBulkUpdateJob(
         }
 
         // Create AI summary for each page
-        if (jobType.includes("summaries")) {
+        if (generateResources?.summaries?.generate) {
+          const aiSummaryPromises = [];
           for (const page of pageTextsMap) {
-            const aiSummaryRes = await _generatePageAISummary(
-              bookService,
-              page[0],
-              page[1]
+            aiSummaryPromises.push(
+              _generatePageAISummary(
+                bookService,
+                page[0],
+                generateResources.summaries.overwrite ?? false,
+                page[1]
+              )
             );
-            if (aiSummaryRes[0] !== null) {
-              if (aiSummaryRes[0] === "empty") {
-                errors.meta.empty++;
-              } else {
-                errors.meta.internal++;
-              }
+          }
+
+          const aiSummaryResults = await Promise.allSettled(aiSummaryPromises);
+          for (let i = 0; i < aiSummaryResults.length; i++) {
+            const pageID = Array.from(pageTextsMap.keys())[i] || null;
+            if (!pageID) {
+              continue;
+            }
+            const aiSummaryRes = aiSummaryResults[i];
+            console.log(`Generated summary for ${pageID}: ${aiSummaryRes}`);
+            if (aiSummaryRes.status === "fulfilled") {
               newPageDetails.push({
-                id: page[0],
-                error: aiSummaryRes[0],
+                id: pageID,
+                summary: aiSummaryRes.value[1],
               });
             } else {
+              switch (aiSummaryRes.reason) {
+                case "location":
+                  errors.meta.location++;
+                  break;
+                case "empty":
+                  errors.meta.empty++;
+                  break;
+                case "internal":
+                default:
+                  errors.meta.internal++;
+                  break;
+              }
+
               newPageDetails.push({
-                id: page[0],
-                summary: aiSummaryRes[1],
+                id: pageID,
+                summary: "",
+                error: aiSummaryRes.reason,
               });
             }
           }
         }
 
-        if (jobType.includes("tags")) {
+        if (generateResources?.tags?.generate) {
+          const aiTagsResults: (["empty" | "internal" | null, string[]])[] = [];
           for (const page of pageTextsMap) {
-            const aiTagsRes = await _generatePageAITags(
+            const result = await _generatePageAITags(
               bookService,
               page[0],
+              generateResources.tags.overwrite ?? false,
               page[1]
-            );
-            const found = newPageDetails.find((p) => p.id === page[0]);
-            if (aiTagsRes[0] !== null) {
-              if (aiTagsRes[0] === "empty") {
+            ).catch((e) => {
+              debugError(e);
+              return ["internal", [] as string[]];
+            });
+            // @ts-ignore
+            aiTagsResults.push(result)
+          }
+
+          for (let i = 0; i < aiTagsResults.length; i++) {
+            const pageID = Array.from(pageTextsMap.keys())[i] || null;
+            const pageTagsRes = aiTagsResults[i];
+            console.log(`AI TAG RES FOR PAGE ${pageID}:`, pageTagsRes);
+
+            if (!pageID) {
+              continue;
+            }
+
+            const found = newPageDetails.find((p) => p.id === pageID);
+            if (pageTagsRes[0] !== null) {
+              if (pageTagsRes[0] === "empty") {
                 errors.meta.empty++;
               } else {
                 errors.meta.internal++;
@@ -2678,26 +2852,30 @@ async function _runBulkUpdateJob(
 
               // Update existing page details with error
               if (found) {
-                found.error = aiTagsRes[0];
+                found.error = pageTagsRes[0];
                 continue;
               }
 
-              // Add new page details with error
+              // Add new page details entry with error
               newPageDetails.push({
-                id: page[0],
-                error: aiTagsRes[0],
+                id: pageID,
+                error: pageTagsRes[0],
               });
-            } else {
-              if (found) {
-                found.tags = aiTagsRes[1];
-                continue;
-              }
 
-              newPageDetails.push({
-                id: page[0],
-                tags: aiTagsRes[1],
-              });
+              continue;
             }
+
+            // Update existing page details with tags
+            if (found) {
+              found.tags = pageTagsRes[1];
+              continue;
+            }
+
+            // Otherwise, add new page details entry with tags
+            newPageDetails.push({
+              id: pageID,
+              tags: pageTagsRes[1],
+            });
           }
         }
       }
@@ -2739,11 +2917,14 @@ async function _runBulkUpdateJob(
         } else {
           successfulMeta++;
         }
-
-        console.log(
-          `JOB ${jobID} Update: ${successfulMeta} pages succeeded, failed ${failedMeta}.`
-        );
       }
+
+      // Delay job for 1 minute to allow caching to update
+      await new Promise((resolve) => setTimeout(resolve, 60000));
+
+      console.log(
+        `JOB ${jobID} FINISHED: ${successfulMeta} pages succeeded, failed ${failedMeta}.`
+      );
 
       // Final update
       await Project.updateOne(
@@ -2785,7 +2966,12 @@ async function _runBulkUpdateJob(
         })
         .join(", ");
 
-      const resultsString = `${metaResultsString}; ${imageResultsString}`;
+      const resultsString = [metaResultsString, imageResultsString]
+        .filter((r) => r.length > 0)
+        .join("; ");
+
+      const book = await bookService.getBookRecord();
+      const bookTitle = book?.title || "Unknown Book";
 
       if (dataSource === "generated") {
         const jobTypeString = jobType.map((t) => t).join(" and ");
@@ -2796,7 +2982,8 @@ async function _runBulkUpdateJob(
           jobTypeString,
           successfulMeta,
           successfulImages,
-          resultsString
+          resultsString,
+          bookTitle
         );
       } else {
         await mailAPI.sendBatchBookUpdateFinished(
@@ -2804,7 +2991,8 @@ async function _runBulkUpdateJob(
           projectID,
           jobID,
           successfulMeta,
-          resultsString
+          resultsString,
+          bookTitle
         );
       }
     } catch (e: any) {
@@ -2835,18 +3023,29 @@ async function _runBulkUpdateJob(
 /**
  * Internal function to generate an AI summary for a page.
  * @param pageID - The page ID to generate a summary for.
+ * @param overwrite - Whether to overwrite an existing summary.
  * @param _pageText - Text content of the page. Optional, and will be fetched if not provided.
  * @returns [error, summary] - Error message or null, and the generated summary.
  */
 async function _generatePageAISummary(
   bookService: BookService,
   pageID: number | string,
+  overwrite: boolean,
   _pageText?: string
 ): Promise<["empty" | "internal" | null, string]> {
   let error = null;
   let summary = "";
   let pageText = _pageText;
   try {
+    // If existing summary and not overwriting, return it
+    const { overview: existing } = await bookService.getPageOverview(
+      pageID.toString()
+    );
+    if (existing && !overwrite) {
+      return [null, existing];
+    }
+
+    // If no page text provided, fetch it
     if (!pageText) {
       pageText = await bookService.getPageTextContent(pageID.toString());
     }
@@ -2855,7 +3054,12 @@ async function _generatePageAISummary(
     }
 
     const aiService = new AIService();
-    const aiSummaryOutput = await aiService.generatePageOverview(pageText);
+    const chunks = await aiService.chunkText(pageText, 2000);
+    if (chunks.length === 0) {
+      throw new Error("empty");
+    }
+
+    const aiSummaryOutput = await aiService.generatePageOverview(chunks);
 
     if (aiSummaryOutput === "empty") {
       throw new Error("empty");
@@ -2873,18 +3077,26 @@ async function _generatePageAISummary(
 /**
  * Internal function to generate AI tags for a page.
  * @param pageID - The page ID to generate tags for.
+ * @param overwrite - Whether to overwrite existing tags.
  * @param _pageText - Text content of the page. Optional, and will be fetched if not provided.
  * @returns [error, tags] - Error message or null, and the generated tags.
  */
 async function _generatePageAITags(
   bookService: BookService,
   pageID: number | string,
+  overwrite: boolean,
   _pageText?: string
 ): Promise<["empty" | "internal" | null, string[]]> {
   let error = null;
   let tags: string[] = [];
   let pageText = _pageText;
   try {
+    const existing = await bookService.getPageTags(pageID.toString());
+    const nonSystemTags = existing.filter((t) => !bookService.DISABLED_PAGE_TAG_PREFIXES.some((p) => t["@value"].startsWith(p)));
+    if (nonSystemTags?.length > 0 && !overwrite) {
+      return [null, []];
+    }
+
     if (!pageText) {
       pageText = await bookService.getPageTextContent(pageID.toString());
     }
@@ -2893,7 +3105,13 @@ async function _generatePageAITags(
     }
 
     const aiService = new AIService();
-    const tagsRes = await aiService.generatePageTags(pageText);
+    const chunks = await aiService.chunkText(pageText, 2000);
+    if (chunks.length === 0) {
+      throw new Error("empty");
+    }
+
+    const tagsRes = await aiService.generatePageTags(chunks);
+    console.log(`TAGS RES FOR ${pageID}: ${tagsRes}`);
     if (tagsRes === "empty") {
       throw new Error("empty");
     }
@@ -2912,29 +3130,58 @@ async function _generatePageAITags(
  * Internal function to generate AI tags for a page.
  * @param bookService - The BookService instance to use.
  * @param pageID - The page ID to generate tags for.
- * @returns - Array of objects containing file ID and alt text, or undefined if an error occurred.
+ * @param overwrite - Whether to overwrite existing tags.
+ * @returns {[string|null, boolean, number]} - A tuple containing of [error message, success status, modified count], or undefined if an error occurred.
  */
 async function _generateAndApplyPageImagesAltText(
   bookService: BookService,
-  pageID: number | string
-): Promise<["empty" | "internal" | null, boolean]> {
+  pageID: number | string,
+  overwrite: boolean
+): Promise<["empty" | "internal" | null, boolean, number]> {
   let error = null;
   let success = false;
+  let modifiedCount = 0;
   try {
     const pageImageData = await bookService.getPageImages(pageID.toString());
     if (!pageImageData) {
-      return [null, true]; // If page doesn't have images, return success
+      return [null, true, 0]; // If page doesn't have images, return success
     }
 
-    const imageData = Array.isArray(pageImageData.file)
-      ? pageImageData.file
-      : [pageImageData.file];
+    const calcImages = (imagesRes: PageImagesRes): PageFile[] => {
+      let arr = [];
+      if (Array.isArray(imagesRes.file)) {
+        arr = imagesRes.file;
+      } else {
+        arr = [imagesRes.file];
+      }
+
+      if (!overwrite) {
+        arr = arr.filter((f) => {
+          if (!f.properties || !f.properties.property) return true; // no properties, include
+
+          // Only include images that don't have an "alt" property
+          if (Array.isArray(f.properties.property)) {
+            return !f.properties.property.some(
+              (p) => p["@name"] === "alt" && p.contents["#text"]
+            );
+          }
+          return !(
+            f.properties.property["@name"] === "alt" &&
+            f.properties.property.contents["#text"]
+          );
+        });
+      }
+
+      return arr;
+    };
+
+    const imageData = calcImages(pageImageData);
 
     const fileContentsPromises: Promise<string>[] = [];
     for (let i = 0; i < imageData.length; i++) {
-      const fileName = imageData[i]["filename"];
+      const fileID = imageData[i]["@id"];
       fileContentsPromises.push(
-        bookService.getFileContent(pageID.toString(), fileName, "thumb")
+        bookService.getFileContent(pageID.toString(), fileID, "thumb")
       );
     }
 
@@ -2986,15 +3233,102 @@ async function _generateAndApplyPageImagesAltText(
         continue;
       }
 
-      altTexts.push({ fileID, src: fileSrc, altText: completion });
+      const findProperties = (): PageFileProperty[] => {
+        const properties = imageData[i].properties?.property;
+        if (!properties) return [];
+        return Array.isArray(properties) ? properties : [properties];
+      };
+
+      const fileProperties = findProperties();
+      const foundAlt = fileProperties.find((p) => p["@name"] === "alt");
+      if (foundAlt) {
+        if (overwrite) {
+          foundAlt.contents["#text"] = completion;
+        }
+      } else {
+        // Add new alt property
+        fileProperties.push({
+          "@revision": "",
+          "@href": "",
+          "@resid": "",
+          "@resource-is-deleted": "",
+          "@resource-rev-is-deleted": "",
+          "@etag": "",
+          "date.modified": "",
+          "@name": "alt",
+          contents: {
+            "@type": "text",
+            "@href": "",
+            "@size": "0",
+            "#text": completion,
+          },
+        });
+      }
+
+      altTexts.push({
+        fileID,
+        src: fileSrc,
+        altText: completion,
+        properties: fileProperties,
+      });
     }
 
     // Get page content and parse for image elements
-    const pageContent = await bookService.getPageContent(pageID.toString());
+    const pageContent = await bookService.getPageContent(
+      pageID.toString(),
+      "json"
+    );
     // const decodedContent = decodeURIComponent(pageContent);
     const cheerioContent = cheerio.load(pageContent);
     const imageElements = cheerioContent("img");
 
+    if (!imageElements || imageElements.length === 0) {
+      return [null, true, 0]; // If we couldn't detect any images, return success
+    }
+
+    // Need to update file properties
+    for (let i = 0; i < altTexts.length; i++) {
+      const file = altTexts[i];
+      if (file.error || !file.altText) {
+        console.log("No alt text for image: ", file.fileID, file.error);
+        continue;
+      }
+
+      if (!file.properties) continue;
+
+      const mappedProperties = file.properties.map((p) => ({
+        etag: p["@etag"],
+        name: p["@name"],
+        value: p.contents["#text"],
+      }));
+
+      const res = await CXOneFetch({
+        scope: "files",
+        path: file.fileID,
+        api: MindTouch.API.File.PUT_File_Properties,
+        subdomain: bookService.library,
+        options: {
+          method: "PUT",
+          body: MindTouch.Templates.PUT_FileProperties(mappedProperties),
+          headers: {
+            "Content-Type": "application/xml",
+          },
+        },
+      }).catch((e) => {
+        console.error(
+          "Error updating file properties for file: ",
+          file.fileID,
+          e
+        );
+        return { status: 500 };
+      });
+
+      if (res.status !== 200) {
+        console.log("Error updating file properties for file: ", file.fileID);
+      }
+    }
+
+    let didModify = false;
     for (let i = 0; i < altTexts.length; i++) {
       const file = altTexts[i];
 
@@ -3018,14 +3352,39 @@ async function _generateAndApplyPageImagesAltText(
 
       // Set new alt text
       found.each((_, el) => {
-        cheerioContent(el).attr("alt", file.altText);
+        const currElementAltText = el.attribs["alt"];
+        if (overwrite) {
+          cheerioContent(el).attr("alt", file.altText); // If overwrite is true, always update the alt text
+        } else if (["", " "].includes(currElementAltText)) {
+          // If the alt text is empty, update it, regardless of overwrite (For some reason many img's have " " as alt text, so don't consider those as existing alt text)
+          cheerioContent(el).attr("alt", file.altText);
+        } else if (
+          aiService.supportedFileExtensions.some((ext) =>
+            currElementAltText.endsWith(`.${ext}`)
+          )
+        ) {
+          // If the alt text ends with one of the supported file extensions, update it
+          // MindTouch sets the default alt text to the file name, so we'll consider it as junk and update it
+          cheerioContent(el).attr("alt", file.altText);
+        }
+        // If the alt text is not empty and overwrite is false, don't update it
       });
+      didModify = true;
+      modifiedCount++;
     }
 
-    const modified = cheerioContent.html();
+    if (!didModify) {
+      return [null, true, 0]; // If we didn't modify any images, return success
+    }
+
+    const modifiedContentXML = cheerioContent.xml();
+    if (!modifiedContentXML) {
+      return ["internal", false, 0];
+    }
+
     const updateSuccess = await bookService.updatePageContent(
       pageID.toString(),
-      modified
+      modifiedContentXML
     );
     if (!updateSuccess) {
       throw new Error("internal");
@@ -3035,7 +3394,7 @@ async function _generateAndApplyPageImagesAltText(
   } catch (err: any) {
     error = err.message ?? "internal";
   }
-  return [error, success];
+  return [error, success, modifiedCount];
 }
 
 async function updatePageDetails(
@@ -3406,6 +3765,7 @@ export default {
   getBookPagesDetails,
   getPageDetail,
   getPageAISummary,
+  generatePageImagesAltText,
   batchGenerateAIMetadata,
   batchUpdateBookMetadata,
   getPageAITags,

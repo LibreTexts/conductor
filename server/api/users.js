@@ -774,6 +774,63 @@ const updateUserRole = (req, res) => {
     });
 };
 
+const deleteUserRole = async (req, res) => {
+    try {
+      const isSuperAdmin = authAPI.checkHasRole(req.user, 'libretexts', 'superadmin');
+      // Check if the user is trying to delete a role for an organization they are not a campus admin for (if not a super admin)
+      // or if they are trying to delete a role for the LibreTexts organization (only super admins can do this)
+      if (!isSuperAdmin && (req.body.orgID !== process.env.ORG_ID || req.body.orgID === 'libretexts')) {
+        return res.send({
+          err: true,
+          errMsg: conductorErrors.err8
+        });
+      }
+
+      if(req.user.decoded.uuid === req.body.uuid) {
+        return res.status(403).send({
+          err: true,
+          errMsg: conductorErrors.err91
+        });
+      }
+      
+      const user = await User.findOne({ uuid: req.body.uuid }).lean();
+      if (!user) {
+        return res.status(400).send({
+          err: true,
+          errMsg: conductorErrors.err7
+        });
+      }
+      
+      let newRoles = [];
+      if (user.roles && Array.isArray(user.roles)) {
+        newRoles = user.roles.filter((item) => item.org !== req.body.orgID);
+      }
+    
+      const updateRes = await User.updateOne(
+        { uuid: req.body.uuid }, 
+        { roles: newRoles }
+      );
+      
+      if (updateRes.matchedCount === 1 && updateRes.modifiedCount === 1) {
+        return res.send({
+          err: false,
+          msg: "Successfully deleted the user's role."
+        });
+      } else {
+        return res.status(500).send({
+          err: true,
+          errMsg: conductorErrors.err3
+        });
+      }
+    } catch (err) {
+      debugError(err);
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err6
+      });
+    }
+  };
+
 
 /**
  * Returns an array of strings containing the email addresses of the requested users.
@@ -903,6 +960,11 @@ const validate = (method) => {
                 body('orgID', conductorErrors.err1).exists().isString().isLength({ min: 2, max: 50 }),
                 body('role', conductorErrors.err1).exists().isString().custom(roleValidator)
             ]
+        case 'deleteUserRole': 
+            return [
+                body('uuid', 'Must provide a valid user identifier').isUUID(),
+                body('orgID', 'Must provide a valid organization identifier').isString().notEmpty()
+            ]
         case 'removeAuthorizedApplication':
             return [
                 param('clientID', conductorErrors.err1).exists().isLength({ min: 2, max: 50 }),
@@ -926,6 +988,7 @@ export default {
     getInstructorProfile,
     getUserRoles,
     updateUserRole,
+    deleteUserRole,
     getUserEmails,
     validate
 }

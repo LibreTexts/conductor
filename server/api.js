@@ -873,6 +873,17 @@ router
     booksAPI.getPageAITags
   );
 
+router
+  .route("/commons/pages/:pageID/ai-alt-text")
+  .post(
+    middleware.validateZod(
+      BookValidators.GeneratePageImagesAltTextSchema
+    ),
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    booksAPI.generatePageImagesAltText
+  );
+
 router.route("/commons/filters").get(booksAPI.getCatalogFilterOptions);
 
 router
@@ -1019,6 +1030,17 @@ router
     usersAPI.validate("updateUserRole"),
     middleware.checkValidationErrors,
     usersAPI.updateUserRole
+  );
+
+router
+  .route("/user/role/delete")
+  .delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+    usersAPI.validate("deleteUserRole"), 
+    middleware.checkValidationErrors,
+    usersAPI.deleteUserRole
   );
 
 router

@@ -766,23 +766,29 @@ const sendOrgEventRegistrationConfirmation = (addresses, orgEvent, participantNa
  * @param {string} jobType - the types of job that were completed (i.e. summaries, tags, or both)
  * @param {number} updatedMeta - the number of pages whose metadata was updated
  * @param {number} updatedImage - the number of pages who had image(s) alttext updated
- * @param {string} resultsString - the results of the job
+ * @param {string} resultsString - the results of the job,
+ * @param {string} bookTitle - the title of the book that was updated
  */
-const sendBatchBookAIMetadataFinished = (recipientAddresses, projectID, jobID, jobType, updatedMeta, updatedImage, resultsString) => {
+const sendBatchBookAIMetadataFinished = (recipientAddresses, projectID, jobID, jobType, updatedMeta, updatedImage, resultsString, bookTitle) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `AI Metadata Generation Finished - Project ${projectID}`,
+        subject: `AI Metadata Generation Finished - ${bookTitle}`,
         html: `
             <p>Hi,</p>
-            <p>We're just writing to let you know that we've finished applying AI-generated ${jobType.map} to the textbook associated with this project.</p>
+            <p>We're just writing to let you know that we've finished applying AI-generated ${jobType} for ${bookTitle}.</p>
+            <br />
             <p><strong>Succesfully Updated:</strong> ${updatedMeta} pages with summaries and/or tags</p>
             <p><strong>Succesfully Updated:</strong> ${updatedImage} pages with image alt text</p>
             <p><strong>Could Not Update:</strong> ${resultsString || "N/A"}</p>
-            <p>Job ID: ${jobID}</p>
+            <br />
+            <p>You can access this project at <a href="https://${process.env.LIBRE_SUBDOMAIN}.libretexts.org/projects/${projectID}" target="_blank" rel="noopener noreferrer">https://${process.env.LIBRE_SUBDOMAIN}.libretexts.org/projects/${projectID}</a>.</p>
+            <br />
             <p>Please note that page content is cached and updates may take a few minutes to appear in the library.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
+            <br />
+            <p>Job ID: ${jobID}</p>
             <br />
             ${autoGenNoticeHTML}
         `,
@@ -797,21 +803,28 @@ const sendBatchBookAIMetadataFinished = (recipientAddresses, projectID, jobID, j
  * @param {string} jobType - the type of job that was completed (i.e. summaries, tags, or both)
  * @param {number} updated - the number of pages updated
  * @param {string} resultsString - the results of the job
+ * @param {string} bookTitle - the title of the book that was updated
  */
-const sendBatchBookUpdateFinished = (recipientAddresses, projectID, jobID, updated, resultsString) => {
+const sendBatchBookUpdateFinished = (recipientAddresses, projectID, jobID, updated, resultsString, bookTitle) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `Bulk Update Job Finished - Project ${projectID}`,
+        subject: `Bulk Update Job Finished - ${bookTitle}`,
         html: `
             <p>Hi,</p>
-            <p>We're just writing to let you know that we've finished applying your updates to the textbook associated with this project.</p>
+            <p>We're just writing to let you know that we've finished applying your updates to ${bookTitle}</p>
+            <br />
             <p><strong>Successfully Updated:</strong> ${updated} pages</p>
             <p><strong>Could Not Update:</strong> ${resultsString || "N/A"}</p>
-            <p>Job ID: ${jobID}</p>
+            <br />
+            <p>You can access this project at <a href="https://${process.env.LIBRE_SUBDOMAIN}.libretexts.org/projects/${projectID}" target="_blank" rel="noopener noreferrer">https://${process.env.LIBRE_SUBDOMAIN}.libretexts.org/projects/${projectID}</a>.</p>
+            <br />
             <p>Please note that page content is cached and updates may take a few minutes to appear in the library.</p>
+            <br />
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
+            <br />
+            <p>Job ID: ${jobID}</p>
             <br />
             ${autoGenNoticeHTML}
         `,

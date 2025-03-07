@@ -46,6 +46,18 @@ const CXOneTemplates = {
     })}
     </grants>
   </security>`,
+  PUT_FileProperties: (
+    properties: { name: string; value: string; etag?: string }[]
+  ) => `
+  <properties>
+    ${properties.map((prop) => {
+      return `<property name="${prop.name}" ${
+        prop.etag ? `etag="${prop.etag}"` : ""
+      }>
+        <contents type="text/plain">${prop.value}</contents>
+        </property>`;
+    })}
+    </properties>`,
   PROP_GuideTabs: `[{
     "templateKey": "Topic_heirarchy",
     "templateTitle": "Topic hierarchy",

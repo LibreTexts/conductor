@@ -249,5 +249,9 @@ export const DISABLED_PAGE_TAG_PREFIXES = [
   "printoptions:",
   "showtoc:",
   "coverpage:",
-  "columns:"
+  "columns:",
+  "transclude:",
+  "transcluded:",
+  "field:",
+  "printoptions:"
 ];
