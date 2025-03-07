@@ -41,6 +41,7 @@ import WelcomeToCoAuthorModal from "../../../../components/projects/TextbookCura
 import NodeEditor from "../../../../components/projects/TextbookCuration/NodeEditor";
 import { useTypedSelector } from "../../../../state/hooks";
 import GeneratePageImagesAltTextModal from "../../../../components/projects/TextbookCuration/GeneratePageImagesAltTextModal";
+import ActiveJobAlert from "../../../../components/projects/TextbookCuration/ActiveJobAlert";
 
 type WithUIState = Prettify<
   Omit<TableOfContentsDetailed, "children"> & {
@@ -555,7 +556,7 @@ const TextbookCuration = () => {
 
     for (let i = 0; i < modified.length; i++) {
       const idx = pagesValues.findIndex((p) => p.pageID === modified[i].pageID);
-      if(!idx) continue;
+      if (!idx) continue;
       setValue(`pages.${idx}.tags`, modified[i].tags);
     }
 
@@ -627,37 +628,6 @@ const TextbookCuration = () => {
     window.scrollTo(0, to === "top" ? 0 : document.body.scrollHeight);
   };
 
-  const ActiveJobAlert = (job: ProjectBookBatchUpdateJob) => {
-    return (
-      <Message icon info>
-        <Icon name="info circle" />
-        <Message.Content>
-          <div className="flex flex-row justify-between">
-            <div className="flex flex-col">
-              <Message.Header>Bulk Update Job In Progress</Message.Header>
-              <p>
-                {job.dataSource === "generated"
-                  ? "AI-generated metadata is "
-                  : "Metadata updates are "}
-                currently being applied. This may take some time to complete.
-              </p>
-            </div>
-            <Button
-              onClick={async () => {
-                await refreshActiveJobStatusMutation.mutateAsync();
-              }}
-              icon
-              color="blue"
-              loading={refreshActiveJobStatusMutation.isLoading}
-            >
-              <Icon name="refresh" />
-            </Button>
-          </div>
-        </Message.Content>
-      </Message>
-    );
-  };
-
   const handleOpenBulkUpdateHistoryModal = () => {
     if (!projectData) return;
     openModal(
@@ -712,7 +682,7 @@ const TextbookCuration = () => {
 
     for (let i = 0; i < modified.length; i++) {
       const idx = pagesValues.findIndex((p) => p.pageID === modified[i].pageID);
-      if(!idx) continue;
+      if (!idx) continue;
       setValue(`pages.${idx}.tags`, modified[i].tags);
     }
 
@@ -907,7 +877,11 @@ const TextbookCuration = () => {
           </Segment>
           {activeBatchJob && (
             <Segment>
-              <ActiveJobAlert {...activeBatchJob} />
+              <ActiveJobAlert
+                job={activeBatchJob}
+                onRefresh={() => refreshActiveJobStatusMutation.mutate()}
+                loading={refreshActiveJobStatusMutation.isLoading}
+              />
             </Segment>
           )}
           <Segment>

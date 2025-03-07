@@ -4,6 +4,7 @@ import { Button, Checkbox, Icon, Modal } from "semantic-ui-react";
 import useGlobalError from "../../error/ErrorHooks";
 import LoadingSpinner from "../../LoadingSpinner";
 import api from "../../../api";
+import Tooltip from "../../util/Tooltip";
 
 interface GeneratePageImagesAltTextModalProps {
   onClose: () => void;
@@ -63,12 +64,18 @@ const GeneratePageImagesAltTextModal: React.FC<
               types: JPEG, PNG, GIF, WEBP, BMP, SVG. Alt text consisting of only
               the filename will be considered empty and always overwritten.
             </p>
-            <div className="my-6">
+            <div className="my-6 flex items-center">
               <Checkbox
                 label="Overwrite existing alt text?"
                 checked={overwrite}
                 onChange={() => setOverwrite(!overwrite)}
                 toggle
+              />
+              <Tooltip
+                text="If selected, existing alt text will be replaced with AI-generated alt text. If not selected, only images without alt text will have alt text generated. Alt text consisting of only the filename will be considered empty and always overwritten."
+                children={
+                  <Icon name="question circle" className="!ml-1 !mb-1" />
+                }
               />
             </div>
           </>
