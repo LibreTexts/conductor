@@ -29,7 +29,7 @@ import LoadingSpinner from "../../../../components/LoadingSpinner";
 import { useNotifications } from "../../../../context/NotificationContext";
 import "../../../../components/projects/Projects.css";
 import { useParams } from "react-router-dom";
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { Fragment, useEffect, useMemo, useReducer, useState } from "react";
 import { Link } from "react-router-dom-v5-compat";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -146,26 +146,29 @@ function nodeStateReducer(
       return newState;
     }
     case "EXPAND_COLLAPSE_ALL": {
-      // Find if any nodes are expanded recursively
-      const findExpanded = (nodes: WithUIState[]): boolean => {
-        return nodes.some((node) => {
-          return node.expanded || findExpanded(node.children);
-        });
-      };
+      const expandedLocalStorage = localStorage.getItem(
+        "conductor_all_expanded"
+      );
+      const currentExpanded = expandedLocalStorage === "true";
 
-      const anyExpanded = findExpanded(state);
-
-      const expandAll = (nodes: WithUIState[]): WithUIState[] => {
+      const expandAll = (
+        nodes: WithUIState[],
+        newState: boolean
+      ): WithUIState[] => {
         return nodes.map((node) => {
           return {
             ...node,
-            expanded: !anyExpanded,
-            children: expandAll(node.children),
+            expanded: newState,
+            // children: expandAll(node.children, newState), // TODO: need to investigate nested expansion oddities, but this seems to work for now
           };
         });
       };
 
-      return expandAll(state);
+      localStorage.setItem(
+        "conductor_all_expanded",
+        (!currentExpanded).toString()
+      );
+      return expandAll(state, !currentExpanded);
     }
     case "UPDATE_SINGLE_NODE": {
       const updateNode = (nodes: WithUIState[]): WithUIState[] => {
@@ -762,19 +765,18 @@ const TextbookCuration = () => {
       );
     }
     return (
-      <Accordion fluid className="!py-0 !my-0" key="tree-node-root">
+      <Accordion fluid className="!py-0 !my-0" key={`tree-node-${indentLevel}`}>
         {nodes.map((node, idx) => {
           const hasChildren = node.children && node.children.length !== 0;
           const fieldIdx = getValues("pages").findIndex(
             (f) => f.pageID === node.id
           );
           return (
-            <>
+            <Fragment key={`tree-node-${node.id}-${idx}`}>
               <Accordion.Title
                 className={`flex justify-between items-center border-slate-300 ${
                   node.expanded ? " !pr-3" : ""
                 }`}
-                key={`tree-node-${node.id}-${idx}`}
                 active={node.expanded}
                 style={{
                   marginLeft: indentLevel === 1 ? "" : `${indentLevel}rem`,
@@ -826,7 +828,7 @@ const TextbookCuration = () => {
                   node.expanded &&
                   renderNodes(node.children, indentLevel + 1)}
               </Accordion.Content>
-            </>
+            </Fragment>
           );
         })}
       </Accordion>
