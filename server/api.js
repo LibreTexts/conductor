@@ -211,6 +211,18 @@ router
   );
 
 router
+  .route("/central-identity/users/applications/:applicationId")
+  .post(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(
+      centralIdentityValidators.CheckUsersApplicationAccessValidator
+    ),
+    centralIdentityAPI.checkUsersApplicationAccess
+  )
+
+router
   .route("/central-identity/users/:id/orgs")
   .get(
     middleware.checkCentralIdentityConfig,
