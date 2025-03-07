@@ -2384,6 +2384,7 @@ async function batchGenerateAIMetadata(
       alttext: req.body.alttext,
     };
     const jobType: ProjectBookBatchUpdateJob["type"] = [];
+    console.log("GENERATE RESOURCES", generateResources);
     if (generateResources.summaries?.generate) jobType.push("summaries");
     if (generateResources.tags?.generate) jobType.push("tags");
     if (generateResources.alttext?.generate) jobType.push("alttext");
@@ -2540,7 +2541,9 @@ async function batchUpdateBookMetadata(
         msg: "Bulk update job initiated succesfully!",
       });
     } else {
-      const bookService = new BookService({ bookID: `${coverPageLibrary}-${coverPageID}` });
+      const bookService = new BookService({
+        bookID: `${coverPageLibrary}-${coverPageID}`,
+      });
       let successful = 0;
       const errors = {
         location: 0,
@@ -2726,7 +2729,9 @@ async function _runBulkUpdateJob(
                 debugError(e);
                 return ["internal", false, 0];
               });
-              console.log(`Generated alt text for ${page[0]} with success: ${success} and error: ${errCode}`);
+            console.log(
+              `Generated alt text for ${page[0]} with success: ${success} and error: ${errCode}`
+            );
             if (!success) {
               if (errCode === "location") {
                 errors.images.location++;
@@ -2783,8 +2788,7 @@ async function _runBulkUpdateJob(
               continue;
             }
             const aiSummaryRes = aiSummaryResults[i];
-            // @ts-ignore
-            console.log(`Generated summary for ${pageID} with success: ${aiSummaryRes.status} and error: ${aiSummaryRes.reason}`);
+            console.log(`Generated summary for ${pageID}: ${aiSummaryRes}`);
             if (aiSummaryRes.status === "fulfilled") {
               newPageDetails.push({
                 id: pageID,
@@ -2814,28 +2818,33 @@ async function _runBulkUpdateJob(
         }
 
         if (generateResources?.tags?.generate) {
-          const aiTagsPromises = [];
+          const aiTagsResults: (["empty" | "internal" | null, string[]])[] = [];
           for (const page of pageTextsMap) {
-            aiTagsPromises.push(
-              _generatePageAITags(
-                bookService,
-                page[0],
-                generateResources.tags.overwrite ?? false,
-                page[1]
-              )
-            );
+            const result = await _generatePageAITags(
+              bookService,
+              page[0],
+              generateResources.tags.overwrite ?? false,
+              page[1]
+            ).catch((e) => {
+              debugError(e);
+              return ["internal", [] as string[]];
+            });
+            // @ts-ignore
+            aiTagsResults.push(result)
           }
 
-          for (let i = 0; i < aiTagsPromises.length; i++) {
+          for (let i = 0; i < aiTagsResults.length; i++) {
             const pageID = Array.from(pageTextsMap.keys())[i] || null;
-            const aiTagsRes = await aiTagsPromises[i];
+            const pageTagsRes = aiTagsResults[i];
+            console.log(`AI TAG RES FOR PAGE ${pageID}:`, pageTagsRes);
+
             if (!pageID) {
               continue;
             }
+
             const found = newPageDetails.find((p) => p.id === pageID);
-            console.log(`Generated tags for ${pageID} with success: ${aiTagsRes[0]} and error: ${aiTagsRes[1]}`);
-            if (aiTagsRes[0] !== null) {
-              if (aiTagsRes[0] === "empty") {
+            if (pageTagsRes[0] !== null) {
+              if (pageTagsRes[0] === "empty") {
                 errors.meta.empty++;
               } else {
                 errors.meta.internal++;
@@ -2843,26 +2852,30 @@ async function _runBulkUpdateJob(
 
               // Update existing page details with error
               if (found) {
-                found.error = aiTagsRes[0];
+                found.error = pageTagsRes[0];
                 continue;
               }
 
-              // Add new page details with error
+              // Add new page details entry with error
               newPageDetails.push({
                 id: pageID,
-                error: aiTagsRes[0],
+                error: pageTagsRes[0],
               });
-            } else {
-              if (found) {
-                found.tags = aiTagsRes[1];
-                continue;
-              }
 
-              newPageDetails.push({
-                id: pageID,
-                tags: aiTagsRes[1],
-              });
+              continue;
             }
+
+            // Update existing page details with tags
+            if (found) {
+              found.tags = pageTagsRes[1];
+              continue;
+            }
+
+            // Otherwise, add new page details entry with tags
+            newPageDetails.push({
+              id: pageID,
+              tags: pageTagsRes[1],
+            });
           }
         }
       }
@@ -2893,7 +2906,6 @@ async function _runBulkUpdateJob(
           page.summary,
           page.tags
         );
-        console.log(`Updated page ${page.id} with success: ${updateRes[0]} and error: ${updateRes[1]}`);
         if (updateRes[0] !== null) {
           failedMeta++;
           if (updateRes[0] === "location") {
@@ -2958,6 +2970,9 @@ async function _runBulkUpdateJob(
         .filter((r) => r.length > 0)
         .join("; ");
 
+      const book = await bookService.getBookRecord();
+      const bookTitle = book?.title || "Unknown Book";
+
       if (dataSource === "generated") {
         const jobTypeString = jobType.map((t) => t).join(" and ");
         await mailAPI.sendBatchBookAIMetadataFinished(
@@ -2967,7 +2982,8 @@ async function _runBulkUpdateJob(
           jobTypeString,
           successfulMeta,
           successfulImages,
-          resultsString
+          resultsString,
+          bookTitle
         );
       } else {
         await mailAPI.sendBatchBookUpdateFinished(
@@ -2975,7 +2991,8 @@ async function _runBulkUpdateJob(
           projectID,
           jobID,
           successfulMeta,
-          resultsString
+          resultsString,
+          bookTitle
         );
       }
     } catch (e: any) {
@@ -3075,8 +3092,10 @@ async function _generatePageAITags(
   let pageText = _pageText;
   try {
     const existing = await bookService.getPageTags(pageID.toString());
-    if (existing && existing.length > 0 && !overwrite) {
-      return [null, existing.map((t) => t["@value"])];
+    const nonSystemTags = existing.filter((t) => !bookService.DISABLED_PAGE_TAG_PREFIXES.some((p) => t["@value"].startsWith(p)));
+    console.log(`NON SYSTEM TAGS FOR PAGE ${pageID}: ${nonSystemTags}`);
+    if (nonSystemTags?.length > 0 && !overwrite) {
+      return [null, []];
     }
 
     if (!pageText) {
@@ -3093,6 +3112,7 @@ async function _generatePageAITags(
     }
 
     const tagsRes = await aiService.generatePageTags(chunks);
+    console.log(`TAGS RES FOR ${pageID}: ${tagsRes}`);
     if (tagsRes === "empty") {
       throw new Error("empty");
     }
@@ -3339,7 +3359,11 @@ async function _generateAndApplyPageImagesAltText(
         } else if (["", " "].includes(currElementAltText)) {
           // If the alt text is empty, update it, regardless of overwrite (For some reason many img's have " " as alt text, so don't consider those as existing alt text)
           cheerioContent(el).attr("alt", file.altText);
-        } else if(aiService.supportedFileExtensions.some((ext) => currElementAltText.endsWith(`.${ext}`))) {
+        } else if (
+          aiService.supportedFileExtensions.some((ext) =>
+            currElementAltText.endsWith(`.${ext}`)
+          )
+        ) {
           // If the alt text ends with one of the supported file extensions, update it
           // MindTouch sets the default alt text to the file name, so we'll consider it as junk and update it
           cheerioContent(el).attr("alt", file.altText);
