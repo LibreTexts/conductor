@@ -2708,6 +2708,7 @@ async function _runBulkUpdateJob(
         const pageTextsMap = new Map<string, string>();
         pageIDs.forEach((p, i) => {
           if (pageTexts[i].status === "fulfilled") {
+            console.log("Collected page text for", p);
             pageTextsMap.set(p, pageTexts[i].value);
           }
         });
@@ -2725,7 +2726,7 @@ async function _runBulkUpdateJob(
                 debugError(e);
                 return ["internal", false, 0];
               });
-
+              console.log(`Generated alt text for ${page[0]} with success: ${success} and error: ${errCode}`);
             if (!success) {
               if (errCode === "location") {
                 errors.images.location++;
@@ -2782,6 +2783,8 @@ async function _runBulkUpdateJob(
               continue;
             }
             const aiSummaryRes = aiSummaryResults[i];
+            // @ts-ignore
+            console.log(`Generated summary for ${pageID} with success: ${aiSummaryRes.status} and error: ${aiSummaryRes.reason}`);
             if (aiSummaryRes.status === "fulfilled") {
               newPageDetails.push({
                 id: pageID,
@@ -2830,6 +2833,7 @@ async function _runBulkUpdateJob(
               continue;
             }
             const found = newPageDetails.find((p) => p.id === pageID);
+            console.log(`Generated tags for ${pageID} with success: ${aiTagsRes[0]} and error: ${aiTagsRes[1]}`);
             if (aiTagsRes[0] !== null) {
               if (aiTagsRes[0] === "empty") {
                 errors.meta.empty++;
@@ -2889,6 +2893,7 @@ async function _runBulkUpdateJob(
           page.summary,
           page.tags
         );
+        console.log(`Updated page ${page.id} with success: ${updateRes[0]} and error: ${updateRes[1]}`);
         if (updateRes[0] !== null) {
           failedMeta++;
           if (updateRes[0] === "location") {
@@ -2901,6 +2906,9 @@ async function _runBulkUpdateJob(
           successfulMeta++;
         }
       }
+
+      // Delay job for 1 minute to allow caching to update
+      await new Promise((resolve) => setTimeout(resolve, 60000));
 
       console.log(
         `JOB ${jobID} FINISHED: ${successfulMeta} pages succeeded, failed ${failedMeta}.`
