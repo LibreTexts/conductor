@@ -1151,6 +1151,20 @@ class API {
 
     return res.data;
   }
+
+  // Library access
+  async checkTeamLibraryAccess(applicationId: string | number, ids: string[]) {
+    const res = await axios.post<
+      {
+        accessResults: { id: string; hasAccess: boolean }[];
+      } & ConductorBaseResponse
+    >(
+      `/central-identity/users/applications/${applicationId}`, {
+        ids
+      }
+    );
+    return res;
+  }
 }
 
 export default new API();

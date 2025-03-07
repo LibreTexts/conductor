@@ -27,6 +27,10 @@ import useGlobalError from "../error/ErrorHooks";
 import useDebounce from "../../hooks/useDebounce";
 import { useTypedSelector } from "../../state/hooks";
 import { extractEmailDomain } from "../../utils/misc";
+import {
+  libraryOptions,
+  getLibraryName
+} from '../util/LibraryOptions.js';
 import api from "../../api";
 
 type ProjectDisplayMember = User & { roleValue: string; roleDisplay: string };
@@ -48,6 +52,7 @@ interface ManageTeamModalProps extends ModalProps {
 
 interface RenderCurrentTeamTableProps extends TableProps {
   project: Project;
+  withoutAccess: string[];
 }
 
 interface RenderInvitationTableProps extends TableProps {
@@ -79,6 +84,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     useState<boolean>(false);
   const [currentInvitationPage, setCurrentInvitationPage] = useState<number>(1);
   const [totalInvitationPages, setTotalInvitationPages] = useState<number>(1);
+  const [membersWithoutAccess, setMembersWithoutAccess] = useState<string[]>([]);
   const ITEMS_PER_INVITATION_PAGE = 5;
 
   const userOrgDomain = useMemo(() => {
@@ -149,10 +155,38 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     }
   };
 
+  const fetchTeamMembersLibraryAccess = async () => {
+    try {
+      if (!project.projectID || !project.libreLibrary) return;
+      const teamMembers = [
+        ...(project?.auditors || []),
+        ...(project?.leads || []),
+        ...(project?.liaisons || []),
+        ...(project?.members || [])
+      ].map(member => {
+        return member.uuid
+      });
+
+      const res = await api.checkTeamLibraryAccess(getLibraryName(project.libreLibrary), teamMembers);
+
+      const withoutAccess = teamMembers.filter(
+        (member) => !res.data.accessResults.find((result: any) => result.id === member)?.hasAccess
+      );
+      setMembersWithoutAccess(withoutAccess);
+
+      return withoutAccess;
+      
+      
+    } catch (err) {
+      handleGlobalError(err);
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       if (show) {  // Only fetch if modal is shown
         await fetchPendingInvitations();
+        await fetchTeamMembersLibraryAccess();
       }
     };
   
@@ -327,9 +361,11 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
 
   const RenderCurrentTeamTable: React.FC<RenderCurrentTeamTableProps> = ({
     project,
+    withoutAccess,
     ...rest
   }: {
     project: Project;
+    withoutAccess: String[];
   }) => {
     const [currentTeamPage, setCurrentTeamPage] = useState(1);
     const ITEMS_PER_TEAM_PAGE = 5;
@@ -380,42 +416,53 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {paginatedTeam.map((item) => (
-              <Table.Row key={item.uuid}>
-                <Table.Cell>
-                  <Image avatar src={item.avatar} />
-                  {item.firstName} {item.lastName}
-                </Table.Cell>
-                <Table.Cell>
-                  <Dropdown
-                    placeholder="Change role..."
-                    selection
-                    options={projectRoleOptions}
-                    value={item.roleValue}
-                    loading={loading}
-                    onChange={(_e, { value }) => {
-                      submitChangeTeamMemberRole(
-                        item.uuid,
-                        value ? value.toString() : ""
-                      )
-                    }}
-                  />
-                </Table.Cell>
-                <Table.Cell>
-                  <Button
-                    color="red"
-                    className="ml-1p"
-                    onClick={() => {
-                      submitRemoveTeamMember(item.uuid);
-                    }}
-                    icon
-                  >
-                    <Icon name="remove circle" />
-                    <span className="ml-2">Remove</span>
-                  </Button>
-                </Table.Cell>
-              </Table.Row>
-            ))}
+            {paginatedTeam.map((item) => {
+              const lackAccess = withoutAccess.includes(item.uuid);
+              return (
+                <Table.Row key={item.uuid}>
+                  <Table.Cell>
+                    {lackAccess && (
+                      <Popup
+                        content="This user doesn't have access to the required library"
+                        trigger={
+                          <Icon name="warning sign" color="yellow" />
+                        }
+                      />
+                    )}
+                    <Image avatar src={item.avatar} />
+                    {item.firstName} {item.lastName}
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Dropdown
+                      placeholder="Change role..."
+                      selection
+                      options={projectRoleOptions}
+                      value={item.roleValue}
+                      loading={loading}
+                      onChange={(_e, { value }) => {
+                        submitChangeTeamMemberRole(
+                          item.uuid,
+                          value ? value.toString() : ""
+                        )
+                      }}
+                    />
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Button
+                      color="red"
+                      className="ml-1p"
+                      onClick={() => {
+                        submitRemoveTeamMember(item.uuid);
+                      }}
+                      icon
+                    >
+                      <Icon name="remove circle" />
+                      <span className="ml-2">Remove</span>
+                    </Button>
+                  </Table.Cell>
+                </Table.Row>
+              );
+            })}
           </Table.Body>
         </Table>
         {totalTeamPages > 1 && (
@@ -526,6 +573,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
             <p className="text-xl font-semibold">Current Team Members</p>
             <RenderCurrentTeamTable
               project={project}
+              withoutAccess={membersWithoutAccess}
               id="current-team-table"
               className="!mt-0.5"
             />
