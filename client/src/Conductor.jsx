@@ -19,6 +19,7 @@ const AssetTagsManager = lazy(() => import('./screens/conductor/controlpanel/Ass
 const BooksManager = lazy(() => import('./screens/conductor/controlpanel/BooksManager'));
 const CampusSettings = lazy(() => import('./components/controlpanel/CampusSettings'));
 const CollectionsManager = lazy(() => import('./screens/conductor/controlpanel/CollectionsManager'));
+const QRCodeGenerator = lazy(() => import('./screens/conductor/controlpanel/QRCodeGenerator'));
 const ControlPanel = lazy(() => import('./components/controlpanel/ControlPanel'));
 import EventsManager from './screens/conductor/controlpanel/EventsManager';
 import EventRegistration from './screens/conductor/OrgEvents/EventRegistration';
@@ -120,7 +121,8 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
           <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
           <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />
-          <PrivateRoute exact path='/controlpanel/eventsmanager' component={EventsManager} />
+          <PrivateRoute exact path='/controlpanel/qr-code-generator' component={QRCodeGenerator} />
+        <PrivateRoute exact path='/controlpanel/eventsmanager' component={EventsManager} />
           <PrivateRoute exact path='/controlpanel/eventsmanager/:mode/:eventID?' component={ManageEvent} />
           <PrivateRoute exact path='/controlpanel/harvestingrequests' component={HarvestingRequests} />
           <PrivateRoute exact path='/controlpanel/homeworkmanager' component={HomeworkManager} />

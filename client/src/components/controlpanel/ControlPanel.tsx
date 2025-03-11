@@ -79,6 +79,12 @@ const ControlPanel = () => {
             title: 'Organizations Manager',
             description: 'View and manage Organizations on the Conductor platform'
         },
+        {
+            url: '/controlpanel/qr-code-generator',
+            icon: 'qrcode',
+            title: 'QR Code Generator',
+            description: 'Generate branded QR codes for sharing'
+        },
     ];
 
 

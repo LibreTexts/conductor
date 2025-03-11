@@ -36,6 +36,7 @@
     "marked": "^4.0.10",
     "papaparse": "^5.4.1",
     "prop-types": "^15.7.2",
+    "qr-code-styling": "^1.9.1",
     "query-string": "^6.14.1",
     "react": "^17.0.2",
     "react-big-calendar": "^0.38.1",
