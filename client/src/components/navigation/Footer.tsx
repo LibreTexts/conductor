@@ -38,7 +38,7 @@ const Footer = () => {
     },
     {
       key: "legal",
-      href: "https://libretexts.org/legal/index.html",
+      href: "https://libretexts.org/privacy",
       text: "Legal",
       title: "Legal (opens in new tab)",
       icon: false,
