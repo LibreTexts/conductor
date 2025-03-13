@@ -41,11 +41,9 @@ const QRCodeGenerator: React.FC = () => {
       dotsOptions: {
         type: 'dots',
         color: '#000000',
-        gradient: undefined
       },
       backgroundOptions: {
         color: '#ffffff',
-        gradient: undefined
       },
       image: "https://cdn.libretexts.net/Logos/libretexts_icon.png",
       cornersSquareOptions: {
@@ -82,7 +80,7 @@ const QRCodeGenerator: React.FC = () => {
       }
     }, 100);
   };
-  
+
   if (!isSuperAdmin) {
     return null;
   }
