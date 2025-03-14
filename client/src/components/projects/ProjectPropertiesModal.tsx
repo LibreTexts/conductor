@@ -10,6 +10,7 @@ import {
   Popup,
   Dropdown,
   Card,
+  Message
 } from "semantic-ui-react";
 import {
   AssetTagFramework,
@@ -665,6 +666,8 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
     );
   }
 
+  const [copied, setCopied] = useState(false);
+
   return (
     <Modal open={show} closeOnDimmerClick={false} size="fullscreen">
       <Modal.Header>Edit Project Properties</Modal.Header>
@@ -768,6 +771,19 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                       </span>
                     }
                   />
+                  <Icon
+                    name="copy"
+                    className="cursor-pointer text-gray-500 hover:text-black"
+                    onClick={async () => {
+                      const url = getValues("projectURL"); 
+                      if (url) {
+                        await navigator.clipboard.writeText(url);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }
+                    }}
+                  />
+                  {copied && <span className="text-green-500 ml-2">Copied!</span>}
                 </label>
                 <CtlTextInput
                   name="projectURL"

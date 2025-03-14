@@ -26,7 +26,7 @@ export default function CtlTextInput<
   showErrorMsg = true,
   helpText,
   ...rest
-}: ControlledInputProps<TFieldValues, TName> & CtlTextInputProps) {
+}: ControlledInputProps<TFieldValues, TName> & CtlTextInputProps){
   const { className: restClassName } = rest;
   delete rest.className;
 
