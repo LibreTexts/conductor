@@ -759,7 +759,6 @@ async function updateProject(req, res) {
           errMsg: conductorErrors.err8,
         });
       }
-
       updateObj.projectURL = req.body.projectURL;
       if (libreURLRegex.test(req.body.projectURL)) {
         const projURLInfo = await getLibreTextInformation(
@@ -778,14 +777,21 @@ async function updateProject(req, res) {
           projURLInfo.lib,
           projURLInfo.id
         );
+        let otherProjectData;
+        if (typeof otherProject === 'string') {
+          otherProjectData = await Project.findOne({ projectID: otherProject }).lean();
+        }
 
         if (otherProject) {
+          const projectURL = `/projects/${otherProject}`;
           return res.status(409).send({
             err: true,
-            errMsg: conductorErrors.err80,
+            errMsg: "Oops, another Project already has that Book associated with it.",
             projectID: `${
               typeof otherProject === "string" ? otherProject : ""
             }`,
+            projectName: otherProjectData.title || null, 
+            projectURL: projectURL || null,
           });
         }
 
