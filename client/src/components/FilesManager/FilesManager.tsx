@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   Button,
   Loader,
@@ -43,6 +43,7 @@ import { useTypedSelector } from "../../state/hooks";
 import { base64ToBlob, copyToClipboard } from "../../utils/misc";
 import { useMediaQuery } from "react-responsive";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import PermanentLinkModal from "./PermanentLinkModal";
 
 interface FilesManagerProps extends SegmentProps {
   projectID: string;
@@ -94,7 +95,8 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   const [showMove, setShowMove] = useState(false);
   const [showLargeDownload, setShowLargeDownload] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
-
+  const [permanentLink, setPermanentLink] = useState("");
+  const [showPermanentLinkModal, setShowPermanentLinkModal] = useState(false);
   const [currDirectory, setCurrDirectory] = useState("");
   const [currDirPath, setCurrDirPath] = useState([
     {
@@ -365,6 +367,26 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     }
   }
 
+  const handlePermanentLinkClick = useCallback(async (projectID: string, fileID: string) => {
+    try {
+      const response = await api.getPermanentLink(projectID, fileID);
+      if (!response.data.err) {
+        const permanentUrl = response.data.url;
+        setPermanentLink(permanentUrl);
+        setShowPermanentLinkModal(true);
+      } else {
+        handleGlobalError(response.data.errMsg);
+      }
+    } catch (error) {
+      handleGlobalError(error);
+    }
+  }, []);
+
+  const closePermanentLinkModal = useCallback(() => {
+    setShowPermanentLinkModal(false);
+    setPermanentLink("");
+  }, []);
+
   function handleDownloadFile(
     projectID: string,
     fileID: string,
@@ -526,6 +548,13 @@ const FilesManager: React.FC<FilesManagerProps> = ({
               onClick={() =>
                 handleDownloadFile(projectID, item.fileID, item.isVideo)
               }
+            />
+          )}
+          {item.storageType === "file" && !item.isURL && item.access === "public" && (
+            <Dropdown.Item
+              icon="share"
+              text="Permanent Link"
+              onClick={() => handlePermanentLinkClick(projectID, item.fileID)}
             />
           )}
           {item.storageType === "file" &&
@@ -945,6 +974,11 @@ const FilesManager: React.FC<FilesManagerProps> = ({
         <LargeDownloadModal
           show={showLargeDownload}
           onClose={() => setShowLargeDownload(false)}
+        />
+        <PermanentLinkModal
+          open={showPermanentLinkModal}
+          link={permanentLink}
+          onClose={closePermanentLinkModal}
         />
       </Segment.Group>
     </Grid.Column>

@@ -239,6 +239,25 @@ class API {
       : ""
   }/api/v1/cloudflare/stream-url`;
 
+  async getPermanentLink(projectID: string, fileID: string){
+    const res = await axios.get<
+      {
+        url: string;
+      } & ConductorBaseResponse
+    >(`/project/${projectID}/files/${fileID}/permanent`);
+    return res;
+  }
+
+  async redirectPermanentLink(projectID: string, fileID: string){
+    const res = await axios.get<
+      {
+        url: string;
+        redirectUrl: string;
+      } & ConductorBaseResponse
+    >(`/project/${projectID}/files/${fileID}/redirect`);
+    return res;
+  }
+
   // Authors
   async getAuthors({
     page,
