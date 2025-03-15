@@ -63,7 +63,7 @@ class LibrariesSSMClient {
         ? this.libTokenPairPath
         : `${this.libTokenPairPath}/`;
 
-        const pairResponse = await this.ssm.send(
+      const pairResponse = await this.ssm.send(
         new GetParametersByPathCommand({
           Path: `${basePath}${lib}`,
           MaxResults: 10,
@@ -103,7 +103,7 @@ class LibrariesSSMClient {
           secret: libSec.Value,
         },
         apiUsername: this.apiUsername,
-        refreshAfter: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
+        refreshAfter: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
       };
 
       this.credentialsCache[lib] = creds;
@@ -125,7 +125,9 @@ export async function generateAPIRequestHeaders(
   try {
     const libClient = LibrariesSSMClient.getInstance();
     if (!libClient) {
-      throw new Error("Error generating library token pair. LibrariesSSMClient is null.");
+      throw new Error(
+        "Error generating library token pair. LibrariesSSMClient is null."
+      );
     }
 
     const creds = await libClient.getLibraryCredentials(lib);
@@ -196,6 +198,17 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
           finalOptions
         );
       }
+    } else if (scope === "files") {
+      const { path, api } = params;
+      const isNumber = !isNaN(Number(path));
+      const queryIsFirst = api.includes("?") ? false : true;
+      const url = `https://${subdomain}.libretexts.org/@api/deki/files/${
+        isNumber ? "" : "="
+      }${encodeURIComponent(encodeURIComponent(path))}/${api}${_parseQuery(
+        query,
+        queryIsFirst
+      )}`;
+      request = fetch(url, finalOptions);
     } else {
       const { path, api } = params;
       const isNumber = !isNaN(Number(path));
@@ -214,7 +227,9 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
       debugError(result.url);
       throw new Error(
         `Error fetching ${
-          params.scope === "groups"
+          params.scope === "files"
+            ? "files"
+            : params.scope === "groups"
             ? "groups"
             : params.scope === "users"
             ? "users"

@@ -4,7 +4,6 @@ import {
   Grid,
   Header,
   Icon,
-  Label,
   Segment,
   Accordion,
   Message,
@@ -14,6 +13,7 @@ import {
   DropdownMenu,
   DropdownItem,
   ButtonGroup,
+  Checkbox,
 } from "semantic-ui-react";
 import { useModals } from "../../../../context/ModalContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,21 +28,26 @@ import useGlobalError from "../../../../components/error/ErrorHooks";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import { useNotifications } from "../../../../context/NotificationContext";
 import "../../../../components/projects/Projects.css";
-import { DISABLED_PAGE_TAG_PREFIXES } from "../../../../utils/misc";
 import { useParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useReducer, useState } from "react";
 import { Link } from "react-router-dom-v5-compat";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import { useFieldArray, useForm } from "react-hook-form";
-import CtlTextArea from "../../../../components/ControlledInputs/CtlTextArea";
 import BulkAIMetadataModal from "../../../../components/projects/TextbookCuration/BulkAIMetadataModal";
 import BulkAddTagModal from "../../../../components/projects/TextbookCuration/BulkAddTagModal";
 import SingleAddTagModal from "../../../../components/projects/TextbookCuration/SingleAddTagModal";
 import ViewBulkUpdateHistoryModal from "../../../../components/projects/TextbookCuration/ViewBulkUpdateHistoryModal";
+import WelcomeToCoAuthorModal from "../../../../components/projects/TextbookCuration/WelcomeToCoAuthorModal";
+import NodeEditor from "../../../../components/projects/TextbookCuration/NodeEditor";
+import { useTypedSelector } from "../../../../state/hooks";
+import GeneratePageImagesAltTextModal from "../../../../components/projects/TextbookCuration/GeneratePageImagesAltTextModal";
+import ActiveJobAlert from "../../../../components/projects/TextbookCuration/ActiveJobAlert";
 
 type WithUIState = Prettify<
   Omit<TableOfContentsDetailed, "children"> & {
     expanded: boolean;
+    loading: boolean;
+    edited: boolean;
     isRoot: boolean;
     children: WithUIState[];
   }
@@ -56,26 +61,184 @@ type FormWorkingData = {
   }[];
 };
 
+type NodeStateReducerAction =
+  | {
+      type: "SET_LOADING";
+      id: string;
+      loading: boolean;
+    }
+  | {
+      type: "SET_EDITED";
+      id: string;
+      edited: boolean;
+    }
+  | {
+      type: "SET_EXPANDED";
+      id: string;
+      expanded: boolean;
+    }
+  | {
+      type: "EXPAND_COLLAPSE_ALL";
+    }
+  | {
+      type: "UPDATE_SINGLE_NODE";
+      id: string;
+      data: Partial<Omit<WithUIState, "id">>;
+    }
+  | {
+      type: "UPDATE_MANY_NODES";
+      ids: string[];
+      data: Partial<Omit<WithUIState, "id">>;
+    }
+  | {
+      type: "SET_NODE_DATA";
+      data: WithUIState[];
+    };
+
+function nodeStateReducer(
+  state: WithUIState[],
+  action: NodeStateReducerAction
+) {
+  switch (action.type) {
+    case "SET_LOADING": {
+      const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
+        return nodes.map((node) => {
+          if (node.id === action.id) {
+            return { ...node, loading: action.loading };
+          }
+          return {
+            ...node,
+            children: toggleNode(node.children),
+          };
+        });
+      };
+      const newState = toggleNode(state);
+      return newState;
+    }
+    case "SET_EDITED": {
+      const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
+        return nodes.map((node) => {
+          if (node.id === action.id) {
+            return { ...node, edited: action.edited };
+          }
+          return {
+            ...node,
+            children: toggleNode(node.children),
+          };
+        });
+      };
+      const newState = toggleNode(state);
+      return newState;
+    }
+    case "SET_EXPANDED": {
+      const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
+        return nodes.map((node) => {
+          if (node.id === action.id) {
+            return { ...node, expanded: action.expanded };
+          }
+          return {
+            ...node,
+            children: toggleNode(node.children),
+          };
+        });
+      };
+      const newState = toggleNode(state);
+      return newState;
+    }
+    case "EXPAND_COLLAPSE_ALL": {
+      const expandedLocalStorage = localStorage.getItem(
+        "conductor_all_expanded"
+      );
+      const currentExpanded = expandedLocalStorage === "true";
+
+      const expandAll = (
+        nodes: WithUIState[],
+        newState: boolean
+      ): WithUIState[] => {
+        return nodes.map((node) => {
+          return {
+            ...node,
+            expanded: newState,
+            // children: expandAll(node.children, newState), // TODO: need to investigate nested expansion oddities, but this seems to work for now
+          };
+        });
+      };
+
+      localStorage.setItem(
+        "conductor_all_expanded",
+        (!currentExpanded).toString()
+      );
+      return expandAll(state, !currentExpanded);
+    }
+    case "UPDATE_SINGLE_NODE": {
+      const updateNode = (nodes: WithUIState[]): WithUIState[] => {
+        return nodes.map((node) => {
+          if (node.id === action.id) {
+            return {
+              ...node,
+              ...action.data,
+              children: updateNode(node.children),
+            };
+          }
+          return {
+            ...node,
+            children: updateNode(node.children),
+          };
+        });
+      };
+      return updateNode(state);
+    }
+    case "UPDATE_MANY_NODES": {
+      const updateNodes = (nodes: WithUIState[]): WithUIState[] => {
+        return nodes.map((node) => {
+          if (action.ids.includes(node.id)) {
+            return {
+              ...node,
+              ...action.data,
+              children: updateNodes(node.children),
+            };
+          }
+          return {
+            ...node,
+            children: updateNodes(node.children),
+          };
+        });
+      };
+      return updateNodes(state);
+    }
+    case "SET_NODE_DATA": {
+      return action.data;
+    }
+    default:
+      return state;
+  }
+}
+
 const TextbookCuration = () => {
   const { id: projectID } = useParams<{ id: string }>();
-  const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
-  const { closeAllModals } = useModals();
+  const { openModal, closeAllModals } = useModals();
   const { addNotification } = useNotifications();
-  const { openModal } = useModals();
-  const [hasMadeChanges, setHasMadeChanges] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
+  const queryClient = useQueryClient();
+  const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
+
   const [bulkActionsOpen, setBulkActionsOpen] = useState<boolean>(false);
+  const [showSystemTags, setShowSystemTags] = useState<boolean>(false);
+  const [nodeState, dispatch] = useReducer(nodeStateReducer, []);
 
-  useEffect(() => {
-    window.location.href = `/projects/${projectID}/`; // temp redirect
-  }, [])
-
-  const { control, setValue } = useForm<FormWorkingData>();
-  const { fields, append, update, replace } = useFieldArray({
+  const { control, setValue, watch, getValues } = useForm<FormWorkingData>();
+  const { fields, append } = useFieldArray({
     control,
-    name: "pages", // unique name for your Field Array
+    name: "pages",
   });
+
+  const hasMadeChanges = useMemo<boolean>(() => {
+    const flattened = nodeState.reduce((acc, node) => {
+      return [...acc, node, ...node.children];
+    }, [] as WithUIState[]);
+
+    return flattened.some((node) => node.edited);
+  }, [nodeState]);
 
   const { data: projectData } = useQuery<Project | undefined>({
     queryKey: ["project", projectID],
@@ -104,7 +267,7 @@ const TextbookCuration = () => {
     return active || null;
   }, [projectData]);
 
-  const { data, isFetching } = useQuery<WithUIState[]>({
+  const { data: _data, isFetching } = useQuery<WithUIState[]>({
     queryKey: ["textbook-structure-detailed", projectID],
     queryFn: async () => {
       const res = await api.getBookPagesDetails(
@@ -123,6 +286,8 @@ const TextbookCuration = () => {
           return {
             ...node,
             expanded: node.children.length === 0 ? true : false,
+            loading: false,
+            edited: false,
             isRoot,
             children: addExpandedState(node.children),
           };
@@ -131,6 +296,21 @@ const TextbookCuration = () => {
 
       const content = res.data.toc?.children || []; // Skip first level, it's the root
       const withUIState = addExpandedState(content, true);
+
+      // flatten the data recursively
+      const flatten = (nodes: WithUIState[]): void => {
+        nodes.forEach((node) => {
+          append({
+            pageID: node.id,
+            overview: node.overview,
+            tags: node.tags,
+          });
+          flatten(node.children);
+        });
+      };
+
+      flatten(withUIState);
+      dispatch({ type: "SET_NODE_DATA", data: withUIState });
 
       return withUIState;
     },
@@ -144,76 +324,131 @@ const TextbookCuration = () => {
   });
 
   useEffect(() => {
-    if (!data) return;
-
-    // flatten the data recursively
-    const flatten = (nodes: WithUIState[]): void => {
-      nodes.forEach((node) => {
-        const field = fields.find((f) => f.pageID === node.id);
-        if (!field) {
-          append({
-            pageID: node.id,
-            overview: node.overview,
-            tags: node.tags,
-          });
-        }
-        flatten(node.children);
-      });
-    };
-
-    flatten(data);
-  }, [data]);
+    if (
+      window.localStorage.getItem("conductor_show_coauthor_welcome") === "false"
+    )
+      return;
+    openModal(<WelcomeToCoAuthorModal onClose={closeAllModals} />);
+  }, [window.localStorage]);
 
   const updateBookPagesMutation = useMutation({
-    mutationFn: async (data: FormWorkingData) => {
-      const simplified = data.pages.map((p) => ({
-        id: p.pageID,
-        summary: p.overview,
-        tags: p.tags,
-      }));
+    mutationFn: async (workingData: FormWorkingData) => {
+      const pagesToUpdate = getPagesToUpdate(workingData);
+      if (!pagesToUpdate) {
+        return null;
+      }
 
       return api.batchUpdateBookMetadata(
         `${projectData?.libreLibrary}-${projectData?.libreCoverID}`,
-        simplified
+        pagesToUpdate
       );
     },
-    onSettled: () => {
-      queryClient.invalidateQueries(["project", projectID]); // Refresh the project data (with bulk update jobs)
-      queryClient.invalidateQueries(["textbook-structure-detailed", projectID]);
+    onSettled: async (data) => {
+      if (!data || data.data.err) {
+        addNotification({
+          type: "error",
+          message: "Failed to create bulk update job. Please try again later.",
+        });
+        await queryClient.invalidateQueries(["project", projectID]); // Refresh the project data (with bulk update jobs)
+        return;
+      }
+
+      const message = data.data.msg;
       addNotification({
         type: "success",
-        message: "Bulk update job created successfully!",
+        message,
       });
-      setHasMadeChanges(false);
+
+      await queryClient.invalidateQueries(["project", projectID]); // Refresh the project data (with bulk update jobs)
+      await queryClient.invalidateQueries([
+        "textbook-structure-detailed",
+        projectID,
+      ]);
     },
     onError: (error) => {
       handleGlobalError(error);
     },
   });
 
+  const refreshActiveJobStatusMutation = useMutation({
+    mutationFn: async () => {
+      queryClient.invalidateQueries(["project", projectID]);
+      queryClient.invalidateQueries(["textbook-structure-detailed", projectID]);
+      window.location.reload();
+    },
+    onError: (error) => {
+      handleGlobalError(error);
+    },
+  });
+
+  function getPagesToUpdate(workingData: FormWorkingData) {
+    // first, flat map node data so we can easily find edited pages
+    const flattened: WithUIState[] = [];
+    const flatNodeData = (nodes: WithUIState[]) => {
+      nodes.forEach((node) => {
+        flattened.push(node);
+        flatNodeData(node.children);
+      });
+    };
+    flatNodeData(nodeState);
+
+    // Only send edited pages for update
+    const editedNodes = flattened.filter((node) => node.edited);
+    const editedPages = workingData.pages.filter((p) =>
+      editedNodes?.some((n) => n.id === p.pageID)
+    );
+
+    const simplified = editedPages.map((p) => ({
+      id: p.pageID,
+      summary: p.overview,
+      tags: p.tags,
+    }));
+
+    const simplifiedSet = new Set(simplified.map((s) => JSON.stringify(s)));
+
+    return Array.from(simplifiedSet).map((s) => JSON.parse(s));
+  }
+
+  async function handleInitSave() {
+    const pagesToUpdate = getPagesToUpdate(getValues());
+    if (!pagesToUpdate || pagesToUpdate.length === 0) return;
+    if (pagesToUpdate.length <= 10) {
+      await updateBookPagesMutation.mutateAsync({
+        pages: getValues("pages"),
+      });
+    } else {
+      handleConfirmSave();
+    }
+  }
+
   async function fetchAISummary(pageID: string) {
+    let success = false;
     try {
       if (!projectData?.libreLibrary || !pageID) return null;
 
-      setLoading(true);
+      dispatch({ type: "SET_LOADING", id: pageID, loading: true });
+
       const res = await api.getPageAISummary(
         `${projectData?.libreLibrary}-${pageID}`,
         `${projectData?.libreLibrary}-${projectData?.libreCoverID}`
       );
       if (res.data.err) {
         throw new Error(
-          res.data.errMsg || "Failed to generate AI summary for this page."
+          res.data.errMsg ||
+            "Failed to generate AI summary for this page. It may have insufficient content."
         );
       }
       if (!res.data.summary) {
-        throw new Error("Failed to generate AI summary for this page.");
+        throw new Error(
+          "Failed to generate AI summary for this page. It may have insufficient content."
+        );
       }
 
-      const fieldIdx = fields.findIndex((f) => f.pageID === pageID);
-      if (!fieldIdx) return;
+      const fieldIdx = getValues("pages").findIndex((f) => f.pageID === pageID);
+      if (fieldIdx === undefined) return;
 
       setValue(`pages.${fieldIdx}.overview`, res.data.summary);
-      setHasMadeChanges(true);
+      success = true;
       addNotification({
         type: "success",
         message: "AI summary generated successfully!",
@@ -222,38 +457,48 @@ const TextbookCuration = () => {
       console.error(error);
       handleGlobalError(error);
     } finally {
-      setLoading(false);
+      dispatch({
+        type: "UPDATE_SINGLE_NODE",
+        id: pageID,
+        data: { loading: false, edited: success },
+      });
     }
   }
 
   async function fetchAITags(pageID: string) {
+    let success = false;
     try {
       if (!projectData?.libreLibrary || !pageID) return null;
 
-      setLoading(true);
+      dispatch({ type: "SET_LOADING", id: pageID, loading: true });
+
       const res = await api.getPageAITags(
         `${projectData?.libreLibrary}-${pageID}`,
         `${projectData?.libreLibrary}-${projectData?.libreCoverID}`
       );
       if (res.data.err) {
         throw new Error(
-          res.data.errMsg || "Failed to generate AI tags for this page."
+          res.data.errMsg ||
+            "Failed to generate AI tags for this page. It may have insufficient content."
         );
       }
-      if (!res.data.tags) {
-        throw new Error("Failed to generate AI tags for this page.");
+      if (
+        !res.data.tags ||
+        res.data.tags.length === 0 ||
+        res.data.tags.every((t: string) => t === "")
+      ) {
+        throw new Error(
+          "Failed to generate AI tags for this page. It may have insufficient content."
+        );
       }
 
-      const field = fields.find((f) => f.pageID === pageID);
-      const fieldIdx = fields.findIndex((f) => f.pageID === pageID);
-      if (!field || !fieldIdx) return;
+      const fieldIdx = getValues("pages").findIndex((f) => f.pageID === pageID);
+      if (fieldIdx === undefined) {
+        return;
+      }
 
-      update(fieldIdx, {
-        ...field,
-        tags: res.data.tags,
-      });
-
-      setHasMadeChanges(true);
+      setValue(`pages.${fieldIdx}.tags`, res.data.tags);
+      success = true;
       addNotification({
         type: "success",
         message: "AI tags generated successfully!",
@@ -262,28 +507,25 @@ const TextbookCuration = () => {
       console.error(error);
       handleGlobalError(error);
     } finally {
-      setLoading(false);
+      dispatch({
+        type: "UPDATE_SINGLE_NODE",
+        id: pageID,
+        data: { loading: false, edited: success },
+      });
     }
   }
 
   function handleRemoveSingleTag(pageID: string, tag: string) {
-    setLoading(true);
-    const field = fields.find((f) => f.pageID === pageID);
-    const fieldIdx = fields.findIndex((f) => f.pageID === pageID);
-    if (!field || !fieldIdx) {
-      setLoading(false);
+    const field = getValues("pages").find((f) => f.pageID === pageID);
+    const fieldIdx = getValues("pages").findIndex((f) => f.pageID === pageID);
+    if (!field || fieldIdx === undefined) {
       return;
     }
 
     const updatedTags = field.tags.filter((t) => t !== tag);
 
-    update(fieldIdx, {
-      ...field,
-      tags: updatedTags,
-    });
-
-    setHasMadeChanges(true);
-    setLoading(false);
+    setValue(`pages.${fieldIdx}.tags`, updatedTags);
+    dispatch({ type: "SET_EDITED", id: pageID, edited: true });
   }
 
   function handleConfirmRemoveAllOccurrences(tag: string) {
@@ -302,29 +544,32 @@ const TextbookCuration = () => {
   }
 
   function handleDoRemoveAllOccurrences(tag: string) {
-    setLoading(true);
-    const updated = fields.map((p) => {
-      return {
-        ...p,
-        tags: p.tags.filter((t) => t !== tag),
-      };
+    const pagesValues = getValues("pages");
+
+    const modified: { pageID: string; overview: string; tags: string[] }[] = [];
+    // Get all pages and remove the tag from each
+    for (let i = 0; i < pagesValues.length; i++) {
+      const p = pagesValues[i];
+      if (p.tags.includes(tag)) {
+        modified.push({
+          ...p,
+          tags: p.tags.filter((t) => t !== tag),
+        });
+      }
+    }
+
+    for (let i = 0; i < modified.length; i++) {
+      const idx = pagesValues.findIndex((p) => p.pageID === modified[i].pageID);
+      if (!idx) continue;
+      setValue(`pages.${idx}.tags`, modified[i].tags);
+    }
+
+    dispatch({
+      type: "UPDATE_MANY_NODES",
+      ids: modified.map((m) => m.pageID),
+      data: { edited: true },
     });
-
-    replace(updated);
-
-    setHasMadeChanges(true);
-    setLoading(false);
   }
-
-  const isDisabledTag = (value: string): boolean => {
-    return DISABLED_PAGE_TAG_PREFIXES.some((prefix) =>
-      value?.toString().startsWith(prefix)
-    );
-  };
-
-  const filterDisabledTags = (arr: string[]): string[] => {
-    return arr.filter((tag) => !isDisabledTag(tag));
-  };
 
   function handleConfirmReset() {
     openModal(
@@ -346,7 +591,9 @@ const TextbookCuration = () => {
       <ConfirmModal
         text="Are you sure you want to save these changes? This will create a bulk update job that may take some time to complete. We'll send you an email when it's done."
         onConfirm={async () => {
-          await updateBookPagesMutation.mutateAsync({ pages: fields });
+          updateBookPagesMutation.mutate({
+            pages: getValues("pages"),
+          });
           closeAllModals();
         }}
         onCancel={closeAllModals}
@@ -370,76 +617,19 @@ const TextbookCuration = () => {
     );
   };
 
-  const handleToggle = (id: string) => {
-    const toggleNode = (nodes: WithUIState[]): WithUIState[] => {
-      return nodes.map((node) => {
-        if (node.id === id) {
-          return { ...node, expanded: !node.expanded };
-        }
-        return {
-          ...node,
-          children: toggleNode(node.children),
-        };
-      });
-    };
-
-    const updatedData = toggleNode(data!);
-    queryClient.setQueryData(
-      ["textbook-structure-detailed", projectID],
-      updatedData
+  const handleOpenGeneratePageImagesAltTextModal = (pageID: string) => {
+    if (!projectData?.libreCoverID) return;
+    openModal(
+      <GeneratePageImagesAltTextModal
+        coverPageID={`${projectData?.libreLibrary}-${projectData?.libreCoverID}`}
+        fullPageID={`${projectData?.libreLibrary}-${pageID}`}
+        onClose={closeAllModals}
+      />
     );
   };
 
   const handleJumpTo = (to: "top" | "bottom") => {
     window.scrollTo(0, to === "top" ? 0 : document.body.scrollHeight);
-  };
-
-  const handleExpandCollapseAll = () => {
-    const anyExpanded = data?.some((node) => node.expanded);
-
-    const expandAll = (nodes: WithUIState[]): WithUIState[] => {
-      return nodes.map((node) => {
-        return {
-          ...node,
-          expanded: !anyExpanded,
-          children: expandAll(node.children),
-        };
-      });
-    };
-
-    const updatedData = expandAll(data!);
-    queryClient.setQueryData(
-      ["textbook-structure-detailed", projectID],
-      updatedData
-    );
-  };
-
-  const ActiveJobAlert = (job: ProjectBookBatchUpdateJob) => {
-    return (
-      <Message icon info>
-        <Icon name="info circle" />
-        <Message.Content>
-          <div className="flex flex-row justify-between">
-            <div className="flex flex-col">
-              <Message.Header>Bulk Update Job In Progress</Message.Header>
-              <p>
-                AI-generated metadata is currently being applied. This may take
-                some time to complete.
-              </p>
-            </div>
-            <Button
-              onClick={() => {
-                queryClient.invalidateQueries(["project", projectID]);
-              }}
-              icon
-              color="blue"
-            >
-              <Icon name="refresh" />
-            </Button>
-          </div>
-        </Message.Content>
-      </Message>
-    );
   };
 
   const handleOpenBulkUpdateHistoryModal = () => {
@@ -453,7 +643,7 @@ const TextbookCuration = () => {
   };
 
   const handleOpenBulkAddTagsModal = () => {
-    if (!data) return;
+    if (!nodeState) return;
 
     // flatten all nodes recursively
     const flatten = (nodes: WithUIState[]): WithUIState[] => {
@@ -462,7 +652,7 @@ const TextbookCuration = () => {
       }, [] as WithUIState[]);
     };
 
-    const availablePages = flatten(data);
+    const availablePages = flatten(nodeState);
 
     openModal(
       <BulkAddTagModal
@@ -477,20 +667,39 @@ const TextbookCuration = () => {
   };
 
   const handleBulkAddTags = (pages: string[], tags: string[]) => {
-    setLoading(true);
-    const updated = fields.map((p) => {
+    const pagesValues = getValues("pages");
+
+    // Trim whitespace from tags
+    tags.forEach((t) => t.trim());
+
+    const modified: { pageID: string; overview: string; tags: string[] }[] = [];
+    // Get all pages and add the tags to each
+    for (let i = 0; i < pagesValues.length; i++) {
+      const p = pagesValues[i];
       if (pages.includes(p.pageID)) {
-        return {
+        modified.push({
           ...p,
-          tags: [...new Set([...p.tags, ...tags])],
-        };
+          tags: [...p.tags, ...tags],
+        });
       }
-      return p;
+    }
+
+    for (let i = 0; i < modified.length; i++) {
+      const idx = pagesValues.findIndex((p) => p.pageID === modified[i].pageID);
+      if (!idx) continue;
+      setValue(`pages.${idx}.tags`, modified[i].tags);
+    }
+
+    dispatch({
+      type: "UPDATE_MANY_NODES",
+      ids: modified.map((m) => m.pageID),
+      data: { edited: true },
     });
 
-    replace(updated);
-    setHasMadeChanges(true);
-    setLoading(false);
+    addNotification({
+      type: "success",
+      message: "Tags added to selected pages.",
+    });
   };
 
   const handleOpenSingleAddTagModal = (pageID: string) => {
@@ -507,18 +716,25 @@ const TextbookCuration = () => {
   };
 
   const handleSingleAddTag = (pageID: string, tag: string) => {
-    setLoading(true);
-    const field = fields.find((f) => f.pageID === pageID);
-    const fieldIdx = fields.findIndex((f) => f.pageID === pageID);
-    if (!field || !fieldIdx) return;
+    const fieldIdx = getValues("pages").findIndex((f) => f.pageID === pageID);
+    if (fieldIdx === undefined) {
+      return;
+    }
 
-    const updatedTags = [...field.tags, tag];
-    update(fieldIdx, {
-      ...field,
-      tags: updatedTags,
-    });
-    setHasMadeChanges(true);
-    setLoading(false);
+    const withNew = [...getValues(`pages.${fieldIdx}.tags`), tag.trim()];
+    const setTags = [...new Set(withNew)];
+    setValue(`pages.${fieldIdx}.tags`, setTags);
+    dispatch({ type: "SET_EDITED", id: pageID, edited: true });
+  };
+
+  const handleUpdateSummary = (pageID: string, value: string) => {
+    const fieldIdx = getValues("pages").findIndex((f) => f.pageID === pageID);
+    if (fieldIdx === undefined) {
+      return;
+    }
+
+    setValue(`pages.${fieldIdx}.overview`, value);
+    dispatch({ type: "SET_EDITED", id: pageID, edited: true });
   };
 
   const LoadingSkeleton = () => {
@@ -538,132 +754,6 @@ const TextbookCuration = () => {
     );
   };
 
-  const TagLabel = ({ pageID, tag }: { pageID: string; tag: string }) => {
-    return (
-      <Label
-        key={crypto.randomUUID()}
-        style={{
-          backgroundColor: "#155789",
-        }}
-        onClick={() => {
-          handleRemoveSingleTag(pageID, tag);
-        }}
-        onContextMenu={(e: any) => {
-          e.preventDefault();
-          handleConfirmRemoveAllOccurrences(tag);
-        }}
-        className="cursor-pointer !text-white"
-      >
-        {tag}
-      </Label>
-    );
-  };
-
-  const renderEditor = (node: WithUIState, indentLevel = 1) => {
-    const field = fields.find((f) => f.pageID === node.id);
-    const fieldIdx = fields.findIndex((f) => f.pageID === node.id);
-    if (!field) return null;
-
-    const hasChildren = node.children && node.children.length !== 0;
-    const tags = filterDisabledTags(field.tags);
-
-    const getIndent = () => {
-      if (indentLevel <= 2) return "!ml-4";
-      if (indentLevel === 3 && !hasChildren) return "!ml-4";
-      if (indentLevel === 3 && hasChildren) return "!ml-12";
-      return `!ml-${indentLevel * 3}`;
-    };
-
-    const indent = getIndent();
-
-    return (
-      <div
-        key={field.id}
-        className={`flex flex-col border-slate-300 border rounded-md px-3 pb-2 shadow-sm bg-gray-50 ${indent}`}
-      >
-        <div className="flex flex-row justify-between items-center mt-2">
-          <p className="font-semibold text-lg">{node.title}</p>
-        </div>
-        <p className="text-sm mt-1 font-semibold">Summary:</p>
-        <div className="flex flex-row justify-between items-start">
-          <CtlTextArea
-            control={control}
-            name={`pages.${fieldIdx}.overview`}
-            className="!w-full mt-0.5"
-            fluid
-            bordered
-            showRemaining
-            rows={4}
-            maxLength={500}
-            disabled={loading}
-            placeholder="Enter a page summary here..."
-          />
-          <div className="flex flex-col items-start ml-4 justify-start mt-1">
-            <Button
-              as={Link}
-              to={node.url}
-              target="_blank"
-              icon
-              style={{ backgroundColor: "#155789" }}
-              className="!text-white"
-              title="View Page (opens in new tab)"
-            >
-              <Icon name="external alternate" />
-            </Button>
-            <Button
-              icon
-              disabled={loading}
-              loading={loading}
-              style={{ backgroundColor: "#155789" }}
-              className="!text-white !mt-2"
-              onClick={() => fetchAISummary(node.id)}
-              title="Generate AI Summary"
-            >
-              <Icon name="magic" />
-            </Button>
-          </div>
-        </div>
-        <div className="border-t border-slate-300 mt-2 pt-2 w-full">
-        <p className="text-sm mt-1 font-semibold">Tags:</p>
-          <div className="flex flex-row justify-between">
-            <div className="space-y-1">
-              {tags.map((t) => (
-                <TagLabel pageID={node.id} tag={t} />
-              ))}
-            </div>
-            <div className="flex flex-col ">
-              <Button
-                icon
-                style={{ backgroundColor: "#155789" }}
-                className="!text-white"
-                onClick={() => {
-                  handleOpenSingleAddTagModal(node.id);
-                }}
-                title="Add Individual Tag to Page"
-              >
-                <Icon name="plus" />
-              </Button>
-              <Button
-                icon
-                style={{ backgroundColor: "#155789" }}
-                className="!text-white !mt-2"
-                onClick={() => fetchAITags(node.id)}
-                loading={loading}
-                disabled={loading}
-                title="Generate AI Tags"
-              >
-                <Icon name="magic" />
-              </Button>
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-row justify-end mt-2 w-full">
-          <p className="text-xs">ID: {node.id}</p>
-        </div>
-      </div>
-    );
-  };
-
   const renderNodes = (nodes: WithUIState[], indentLevel = 1) => {
     if (!projectData?.libreLibrary || !projectData?.libreCoverID) {
       return (
@@ -676,16 +766,18 @@ const TextbookCuration = () => {
       );
     }
     return (
-      <Accordion fluid className="!py-0 !my-0">
+      <Accordion fluid className="!py-0 !my-0" key={`tree-node-${indentLevel}`}>
         {nodes.map((node, idx) => {
           const hasChildren = node.children && node.children.length !== 0;
+          const fieldIdx = getValues("pages").findIndex(
+            (f) => f.pageID === node.id
+          );
           return (
-            <>
+            <Fragment key={`tree-node-${node.id}-${idx}`}>
               <Accordion.Title
                 className={`flex justify-between items-center border-slate-300 ${
                   node.expanded ? " !pr-3" : ""
                 }`}
-                key={`tree-node-${node.id}-${idx}`}
                 active={node.expanded}
                 style={{
                   marginLeft: indentLevel === 1 ? "" : `${indentLevel}rem`,
@@ -699,23 +791,45 @@ const TextbookCuration = () => {
                         name={node.expanded ? "caret down" : "caret right"}
                         onClick={(e: any) => {
                           e.preventDefault();
-                          handleToggle(node.id);
+                          dispatch({
+                            type: "SET_EXPANDED",
+                            id: node.id,
+                            expanded: !node.expanded,
+                          });
                         }}
                       />
                     )}
-                    <Link to={node.url} target="_blank">
+                    <a href={node.url} target="_blank">
                       {node.title}
-                    </Link>
+                    </a>
                   </div>
                 )}
               </Accordion.Title>
               <Accordion.Content active={node.expanded} className="!p-0">
-                {node.expanded && renderEditor(node, indentLevel + 1)}
+                {node.expanded && (
+                  <NodeEditor
+                    node={node}
+                    indentLevel={indentLevel}
+                    control={control}
+                    fields={fields}
+                    tags={watch(`pages.${fieldIdx}.tags`)}
+                    onRemoveSingleTag={handleRemoveSingleTag}
+                    onRemoveAllOccurrences={handleConfirmRemoveAllOccurrences}
+                    onUpdateSummary={handleUpdateSummary}
+                    onAddSingleTag={handleOpenSingleAddTagModal}
+                    onFetchAISummary={fetchAISummary}
+                    onFetchAITags={fetchAITags}
+                    onGeneratePageImagesAltText={
+                      handleOpenGeneratePageImagesAltTextModal
+                    }
+                    showSystemTags={showSystemTags}
+                  />
+                )}
                 {node.children &&
                   node.expanded &&
                   renderNodes(node.children, indentLevel + 1)}
               </Accordion.Content>
-            </>
+            </Fragment>
           );
         })}
       </Accordion>
@@ -729,7 +843,7 @@ const TextbookCuration = () => {
           AI Co-Author: <span className="italic">{projectData?.title}</span>
         </Header>
         <Segment.Group size="large" raised className="mb-4p">
-          <Segment>
+          <Segment className="flex flex-row justify-between items-center">
             <Breadcrumb>
               <Breadcrumb.Section as={Link} to="/projects">
                 Projects
@@ -741,13 +855,22 @@ const TextbookCuration = () => {
               <Breadcrumb.Divider icon="right chevron" />
               <Breadcrumb.Section active>AI Co-Author</Breadcrumb.Section>
             </Breadcrumb>
+            {isSuperAdmin && (
+              <Checkbox
+                label="Show System Tags (Admins)"
+                toggle
+                checked={showSystemTags}
+                onChange={() => setShowSystemTags(!showSystemTags)}
+              />
+            )}
           </Segment>
           <Segment className="flex flex-row items-center">
             <p className="font-semibold">
               Welcome to LibreTexts' AI Co-Author tool. Here, you can curate
               AI-generated metadata for your textbook. You can generate and edit
               metadata for individual pages below, or use the bulk actions to
-              generate metadata for all pages at once and return here to refine it.
+              generate metadata for all pages at once and return here to refine
+              it.
             </p>
             <img
               src="https://cdn.libretexts.net/Images/benny-mascot-white.png"
@@ -757,31 +880,35 @@ const TextbookCuration = () => {
           </Segment>
           {activeBatchJob && (
             <Segment>
-              <ActiveJobAlert {...activeBatchJob} />
+              <ActiveJobAlert
+                job={activeBatchJob}
+                onRefresh={() => refreshActiveJobStatusMutation.mutate()}
+                loading={refreshActiveJobStatusMutation.isLoading}
+              />
             </Segment>
           )}
           <Segment>
             {(isFetching || updateBookPagesMutation.isLoading) && (
-              <div className="my-4r">
+              <div className="my-16">
                 <LoadingSpinner text="Loading content... This may take a moment" />
               </div>
             )}
             <div className="flex flex-row justify-between">
-              <div>
+              <div className="flex flex-col">
                 <p className="text-lg max-w-7xl">
                   <span className="font-semibold">Editing Summaries:</span> Use
-                  the magic wand icon to generate an AI summary for the page.
-                  This will replace the current summary with the AI-generated
-                  one, which you can then edit further.
+                  "Generate Summary" button to generate an AI summary for that
+                  page. This will replace the current summary with the
+                  AI-generated one, which you can then edit further.
                 </p>
 
                 <p className="text-lg max-w-7xl mt-4">
                   <span className="font-semibold">Editing Tags:</span> Use the
-                  magic wand icon to generate AI tags for the page. You can then
-                  left-click on a tag to remove it from that page, or
-                  right-click on a tag to remove it from <em>all</em> pages. You
-                  can also add individual tags to a page with the plus icon, or
-                  use the bulk actions to add tags to multiple pages at once.
+                  "Generate Tags" to generate new tags for the page. You can
+                  click the "X" icon to remove a tag from that page, or click
+                  the trash icon to remove it from <em>all</em> pages. You can
+                  also add individual tags to a page with the plus icon, or use
+                  the bulk actions to add tags to multiple pages at once.
                 </p>
               </div>
               <div className="flex flex-col justify-start">
@@ -834,7 +961,7 @@ const TextbookCuration = () => {
                     <Icon name="arrow down" />
                   </Button>
                   <Button
-                    onClick={handleExpandCollapseAll}
+                    onClick={() => dispatch({ type: "EXPAND_COLLAPSE_ALL" })}
                     icon
                     title="Expand/Collapse All"
                   >
@@ -852,17 +979,17 @@ const TextbookCuration = () => {
                   </Button>
                   <Button
                     color="green"
-                    onClick={handleConfirmSave}
+                    onClick={handleInitSave}
                     disabled={!hasMadeChanges}
                     loading={updateBookPagesMutation.isLoading}
-                  title="Save Changes"
+                    title="Save Changes"
                   >
                     <Icon name="save" />
                     Save Changes
                   </Button>
                 </div>
                 {isFetching && <LoadingSkeleton />}
-                {data && renderNodes(data)}
+                {nodeState && renderNodes(nodeState)}
                 <div className="flex flex-row justify-center mt-6">
                   <Button
                     onClick={() => handleJumpTo("top")}
@@ -872,7 +999,7 @@ const TextbookCuration = () => {
                     <Icon name="arrow up" />
                   </Button>
                   <Button
-                    onClick={handleExpandCollapseAll}
+                    onClick={() => dispatch({ type: "EXPAND_COLLAPSE_ALL" })}
                     icon
                     title="Expand/Collapse All"
                   >

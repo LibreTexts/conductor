@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import DefaultLayout from "../../../components/kb/DefaultLayout";
 import SupportCenterJumbotron from "../../../components/support/Jumbotron";
 import { Icon, SemanticICONS } from "semantic-ui-react";
-import CommonsFooter from "../../../components/commons/CommonsFooter";
 import { useTypedSelector } from "../../../state/hooks";
 import { isSupportStaff } from "../../../utils/supportHelpers";
 import { useMediaQuery } from "react-responsive";
@@ -86,7 +85,6 @@ const SupportCenter = () => {
           />
         )}
       </div>
-      <CommonsFooter />
     </DefaultLayout>
   );
 };

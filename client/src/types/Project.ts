@@ -116,13 +116,27 @@ export type ProjectBookBatchUpdateJob = {
   startTimestamp?: Date;
   endTimestamp?: Date;
   error?: string; // root-level error message, not for individual pages
+  generateResources?: {
+    summaries?: {
+      generate: boolean;
+      overwrite: boolean;
+    };
+    tags?: {
+      generate: boolean;
+      overwrite: boolean;
+    };
+    alttext?: {
+      generate: boolean;
+      overwrite: boolean;
+    };
+  };
   imageResults?: {
     [key: string]: any;
   };
   metaResults?: {
     [key: string]: any;
   };
-}
+};
 
 export type Project = {
   orgID: string;

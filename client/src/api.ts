@@ -367,17 +367,19 @@ class API {
   }
 
   async getBookPagesDetails(bookID: string) {
+    const nonce = Math.random().toString(36).substring(7);
     const res = await axios.get<
       {
         toc: TableOfContentsDetailed;
       } & ConductorBaseResponse
-    >(`/commons/book/${bookID}/pages-details`);
+    >(`/commons/book/${bookID}/pages-details?nonce=${nonce}`);
     return res;
   }
 
   async getPageDetails(pageID: string, coverPageID: string) {
+    const nonce = Math.random().toString(36).substring(7);
     const res = await axios.get<PageDetailsResponse & ConductorBaseResponse>(
-      `/commons/pages/${pageID}?coverPageID=${coverPageID}`
+      `/commons/pages/${pageID}?coverPageID=${coverPageID}?nonce=${nonce}`,
     );
     return res;
   }
@@ -400,22 +402,38 @@ class API {
     return res;
   }
 
+  async generatePageImagesAltText(
+    pageID: string,
+    coverPageID: string,
+    overwrite: boolean
+  ) {
+    const res = await axios.post<
+      {
+        success: boolean;
+        modified_count: number;
+      } & ConductorBaseResponse
+    >(`/commons/pages/${pageID}/ai-alt-text?coverPageID=${coverPageID}`, {
+      overwrite,
+    });
+    return res;
+  }
+
   /**
    * Generates and applies AI-generated summaries, tags, or both, to all pages in a book
    * @param {string} bookID - the cover page of the book to apply the summaries to
    */
   async batchGenerateAIMetadata(
     bookID: string,
-    summaries: boolean,
-    tags: boolean,
-    alttext: boolean
+    summaries: { generate: boolean; overwrite: boolean },
+    tags: { generate: boolean; overwrite: boolean },
+    alttext: { generate: boolean; overwrite: boolean }
   ) {
     const res = await axios.post<ConductorBaseResponse>(
       `/commons/book/${bookID}/ai-metadata-batch`,
       {
-        summaries,
-        tags,
-        alttext,
+        ...(summaries.generate ? { summaries } : {}),
+        ...(tags.generate ? { tags } : {}),
+        ...(alttext.generate ? { alttext } : {}),
       }
     );
     return res;
@@ -430,7 +448,7 @@ class API {
     bookID: string,
     pages: { id: string; summary: string; tags: string[] }[]
   ) {
-    const res = await axios.post<ConductorBaseResponse>(
+    const res = await axios.post<{ msg: string } & ConductorBaseResponse>(
       `/commons/book/${bookID}/update-metadata-batch`,
       {
         pages,
@@ -1169,6 +1187,17 @@ class API {
     );
 
     return res.data;
+  }
+
+  // user manager
+  async deleteUserRole(orgID: string, uuid: string) {
+    const res = await axios.delete<ConductorBaseResponse>(`/user/role/delete`, {
+      data: {
+        orgID,
+        uuid,
+      },
+    });
+    return res;
   }
 }
 
