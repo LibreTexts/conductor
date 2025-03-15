@@ -10,6 +10,7 @@ import {
   Popup,
   Dropdown,
   Card,
+  Message
 } from "semantic-ui-react";
 import {
   AssetTagFramework,
@@ -567,7 +568,8 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
         coPrincipalInvestigators: getValues("coPrincipalInvestigatorIDs"),
       });
       if (res.data.err) {
-        throw new Error(res.data.errMsg);
+        let errorMessage = res.data.errMsg;
+        throw new Error(errorMessage);
       }
 
       // Invalidate cached project data
@@ -576,7 +578,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
 
       onClose();
       return;
-    } catch (err) {
+    } catch (err: any) {
       //  if (err.toJSON().status === 409) {
       //      handleGlobalError(
       //        err,
@@ -584,7 +586,14 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       //        err.response.data.projectID ?? "unknown"
       //      );
       //  }
-      handleGlobalError(err);
+
+        const errorMessage = err.response.data.errMsg;
+        if (err.response.data?.projectName && err.response.data?.projectURL) {
+          handleGlobalError(errorMessage, err.response.data.projectName, err.response.data.projectURL);
+        }
+        else {
+          handleGlobalError(errorMessage);
+        }
     } finally {
       setLoading(false);
     }
@@ -656,6 +665,8 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       />
     );
   }
+
+  const [copied, setCopied] = useState(false);
 
   return (
     <Modal open={show} closeOnDimmerClick={false} size="fullscreen">
@@ -760,6 +771,19 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                       </span>
                     }
                   />
+                  <Icon
+                    name="copy"
+                    className="cursor-pointer text-gray-500 hover:text-black"
+                    onClick={async () => {
+                      const url = getValues("projectURL"); 
+                      if (url) {
+                        await navigator.clipboard.writeText(url);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }
+                    }}
+                  />
+                  {copied && <span className="text-green-500 ml-2">Copied!</span>}
                 </label>
                 <CtlTextInput
                   name="projectURL"
