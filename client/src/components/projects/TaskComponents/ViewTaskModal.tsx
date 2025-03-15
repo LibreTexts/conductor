@@ -10,6 +10,7 @@ import {
   List,
   Image,
   Form,
+  Label,
 } from "semantic-ui-react";
 import Chat from "../../Chat";
 import DateInput from "../../DateInput";
@@ -634,6 +635,12 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
                                   {subtask.title}
                                 </span>
                                 {renderStatusIndicator(subtask.status)}
+                                {subtask.hasOwnProperty("overdue") &&
+                                  subtask.overdue === true && (
+                                    <Label color="red" className="ml-2p">
+                                      OVERDUE
+                                    </Label>
+                                  )}
                               </div>
                               <div className="right-flex">
                                 <Popup
