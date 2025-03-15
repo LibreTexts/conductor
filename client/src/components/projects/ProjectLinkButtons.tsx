@@ -17,6 +17,7 @@ interface ProjectLinkButtonsProps {
   projectID?: string;
   projectTitle?: string;
   projectVisibility?: string;
+  project: object;
 }
 
 const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
@@ -28,6 +29,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
   projectID,
   projectTitle,
   projectVisibility,
+  project
 }) => {
   const [showCreateWorkbenchModal, setShowCreateWorkbenchModal] =
     useState(false);
@@ -147,6 +149,16 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             projectTitle={projectTitle}
             onClose={() => setShowCreateWorkbenchModal(false)}
             onSuccess={() => window.location.reload()}
+          />
+        )}
+        {projectID && projectTitle && (
+          <CreateWorkbenchModal
+            show={showCreateWorkbenchModal}
+            projectID={projectID}
+            projectTitle={projectTitle}
+            onClose={() => setShowCreateWorkbenchModal(false)}
+            onSuccess={() => window.location.reload()}
+            project={project}
           />
         )}
       </div>
