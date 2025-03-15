@@ -462,6 +462,19 @@ async function getPermanentLink(
         errMsg: conductorErrors.err11,
       });
     }
+    if (!req.user){
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
     const { orgID } = project;
     const organization = await Organization.findOne({ orgID }).lean();
     if (!organization) {
@@ -510,13 +523,13 @@ async function redirectPermanentLink(
   try {
     const { projectID, fileID } = req.params;
     const project = await Project.findOne({ projectID }).lean();
+
     if (!project) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
       });
     }
-   
     const downloadURLs = await downloadProjectFiles(
       projectID,
       [fileID],

@@ -1769,6 +1769,8 @@ router
 router
   .route("/project/:projectID/files/:fileID/permanent")
   .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
     middleware.validateZod(
       ProjectFileValidators.getProjectFileSchema
     ),
