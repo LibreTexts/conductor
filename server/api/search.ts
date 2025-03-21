@@ -34,6 +34,7 @@ import authorsAPI from "./authors.js";
 import SearchQuery, {
   SearchQueryInterface_Raw,
 } from "../models/searchquery.js";
+import Tag from "../models/tag.js";
 
 const searchQueryCache: SearchQueryInterface_Raw[] = []; // in-memory cache for search queries
 
@@ -84,35 +85,37 @@ async function projectsSearch(
     // @ts-ignore
     const results = await Project.aggregate([
       ...projectMatchObjs,
-      ...(includeLeads ? [
-        {
-          $lookup: {
-            from: "users",
-            let: {
-              leads: "$leads",
-            },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $in: ["$uuid", "$$leads"],
+      ...(includeLeads
+        ? [
+            {
+              $lookup: {
+                from: "users",
+                let: {
+                  leads: "$leads",
+                },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $in: ["$uuid", "$$leads"],
+                      },
+                    },
                   },
-                },
+                  {
+                    $project: {
+                      _id: 0,
+                      uuid: 1,
+                      firstName: 1,
+                      lastName: 1,
+                      avatar: 1,
+                    },
+                  },
+                ],
+                as: "leads",
               },
-              {
-                $project: {
-                  _id: 0,
-                  uuid: 1,
-                  firstName: 1,
-                  lastName: 1,
-                  avatar: 1,
-                },
-              },
-            ],
-            as: "leads",
-          },
-        },
-      ] : []),
+            },
+          ]
+        : []),
       ...projectAPI.LOOKUP_PROJECT_PI_STAGES(false),
       {
         $project: {
@@ -139,11 +142,11 @@ async function projectsSearch(
       },
       {
         $sort: {
-          ...sort === "title" && { title: 1 },
-          ...sort === "classification" && { classification: 1 },
-          ...sort === "visibility" && { visibility: 1 },
-        }
-      }
+          ...(sort === "title" && { title: 1 }),
+          ...(sort === "classification" && { classification: 1 }),
+          ...(sort === "visibility" && { visibility: 1 }),
+        },
+      },
     ]);
 
     const totalCount = results.length;
@@ -168,15 +171,7 @@ async function booksSearch(
   res: Response
 ) {
   try {
-    // Create regex for query
     const query = req.query.searchQuery;
-    const queryRegex = query
-      ? {
-        $regex: query,
-        $options: "i",
-      }
-      : undefined;
-
     if (query) {
       addToSearchQueryCache(query, "books");
     }
@@ -194,13 +189,12 @@ async function booksSearch(
       course: req.query.course,
       publisher: req.query.publisher,
       affiliation: req.query.affiliation,
-      queryRegex: queryRegex,
+      query,
     });
 
+    // @ts-ignore
     const fromBooks = Book.aggregate([
-      {
-        $match: matchObj,
-      },
+      ...matchObj,
       {
         $project: {
           _id: 0,
@@ -209,38 +203,62 @@ async function booksSearch(
       },
     ]);
 
-    const fromProjects = Project.aggregate([
+    const fromProjectTags = Tag.aggregate([  
       {
         $search: {
           text: {
-            query: query,
-            path: ["tags"],
+            query,
+            path: ["title"],
             fuzzy: {
-              maxEdits: 2,
-              maxExpansions: 50,
-            },
-          },
-        },
+              maxEdits: 1,
+              maxExpansions: 50
+            }
+          }
+        }
+      },
+      {
+        $match: {
+          orgID: process.env.ORG_ID
+        }
+      },
+      {
+        $lookup: {
+          from: "projects",
+          localField: "tagID",
+          foreignField: "tags",
+          as: "matchingProjects"
+        }
+      },
+      {
+        $unwind: {
+          path: "$matchingProjects",
+          preserveNullAndEmptyArrays: false
+        }
+      },
+      {
+        $replaceRoot: {
+          newRoot: "$matchingProjects"
+        }
       },
       {
         $match: {
           libreCoverID: {
             $exists: true,
-            $ne: "",
+            $ne: ""
           },
           libreLibrary: {
             $exists: true,
-            $ne: "",
+            $ne: ""
           },
-          visibility: "public",
-        },
+          visibility: "public"
+        }
       },
       {
         $lookup: {
           from: "books",
           let: {
             library: "$libreLibrary",
-            pageID: "$libreCoverID",
+            pageID: "$libreCoverID"
           },
           pipeline: [
             {
@@ -250,50 +268,59 @@ async function booksSearch(
                     {
                       $and: [
                         {
-                          $ne: ["$$library", ""],
+                          $ne: ["$$library", ""]
                         },
                         {
-                          $ne: ["$$pageID", ""],
-                        },
-                      ],
+                          $ne: ["$$pageID", ""]
+                        }
+                      ]
                     },
                     {
                       $eq: [
                         "$bookID",
                         {
-                          $concat: ["$$library", "-", "$$pageID"],
-                        },
-                      ],
+                          $concat: [
+                            "$$library",
+                            "-",
+                            "$$pageID"
+                          ]
+                        }
+                      ]
                     },
                     {
-                      $eq: ["$bookID", false], // empty lookup
-                    },
-                  ],
-                },
-              },
-            },
+                      $eq: ["$bookID", false] // empty lookup
+                    }
+                  ]
+                }
+              }
+            }
           ],
-          as: "book",
-        },
+          as: "book"
+        }
+      },
+      {
+        $match: {
+          book: { $ne: [] }
+        }
       },
       {
         $replaceRoot: {
           newRoot: {
-            $arrayElemAt: ["$book", 0],
-          },
-        },
+            $arrayElemAt: ["$book", 0]
+          }
+        }
       },
       {
         $project: {
           _id: 0,
-          __v: 0,
-        },
-      },
+          __v: 0
+        }
+      }
     ]);
 
     const promises = [fromBooks];
     if (query) {
-      promises.push(fromProjects);
+      promises.push(fromProjectTags);
     }
 
     const [booksResults, projectsResults] = await Promise.all(promises);
@@ -349,7 +376,7 @@ function _generateBookMatchObj({
   course,
   publisher,
   affiliation,
-  queryRegex,
+  query,
 }: {
   library?: string;
   subject?: string;
@@ -359,8 +386,8 @@ function _generateBookMatchObj({
   course?: string;
   publisher?: string;
   affiliation?: string;
-  queryRegex?: object;
-}) {
+  query?: string;
+}): Record<string, any>[] {
   const bookFilters = [];
   let bookFiltersOptions = {};
 
@@ -412,17 +439,27 @@ function _generateBookMatchObj({
     ],
   };
 
-  if (queryRegex) {
-    bookMatchOptions.$and.push({
-      $or: [
-        { title: queryRegex },
-        { author: queryRegex },
-        { course: queryRegex },
-      ],
-    });
-  }
+  const search = {
+    text: {
+      query,
+      path: ["title", "author", "course"],
+      fuzzy: {
+        maxEdits: 2,
+        maxExpansions: 50,
+      },
+    },
+  };
 
-  return bookMatchOptions;
+  const steps: Record<string, any>[] = [
+    {
+      $match: bookMatchOptions,
+    },
+  ];
+
+  if (query) {
+    steps.unshift({ $search: search });
+  }
+  return steps;
 }
 
 function _generateProjectMatchObjs({
@@ -492,7 +529,7 @@ function _generateProjectMatchObjs({
   }
 
   if (!queryString) {
-    return [{ $match: projectFiltersOptions }]
+    return [{ $match: projectFiltersOptions }];
   }
 
   // Combine all filters and return
@@ -508,17 +545,17 @@ function _generateProjectMatchObjs({
             "libreCoverID",
             "libreShelf",
             "libreCampus",
-            "associatedOrgs"
-          ]
-        }
-      }
+            "associatedOrgs",
+          ],
+        },
+      },
     },
     {
       $match: {
         ...projectFiltersOptions,
-      }
-    }
-  ]
+      },
+    },
+  ];
 }
 
 export async function assetsSearch(
@@ -1302,8 +1339,8 @@ function _buildAssetsSearchQuery({
     type === "projectfiles"
       ? ["name", "description"]
       : type === "assettags"
-        ? ["value"]
-        : ["title", "associatedOrgs"];
+      ? ["value"]
+      : ["title", "associatedOrgs"];
 
   if (!query) {
     return [];
@@ -1313,22 +1350,22 @@ function _buildAssetsSearchQuery({
 
   const innerQuery = isExactMatchSearch
     ? {
-      phrase: {
-        query: strippedQuery,
-        path: SEARCH_FIELDS,
-        score: { boost: { value: 3 } },
-      },
-    }
-    : {
-      text: {
-        query,
-        path: SEARCH_FIELDS,
-        fuzzy: {
-          maxEdits: 2,
-          maxExpansions: 50,
+        phrase: {
+          query: strippedQuery,
+          path: SEARCH_FIELDS,
+          score: { boost: { value: 3 } },
         },
-      },
-    };
+      }
+    : {
+        text: {
+          query,
+          path: SEARCH_FIELDS,
+          fuzzy: {
+            maxEdits: 2,
+            maxExpansions: 50,
+          },
+        },
+      };
 
   return [
     {
@@ -1351,9 +1388,9 @@ async function homeworkSearch(
     const query = req.query.searchQuery;
     const queryRegex = query
       ? {
-        $regex: query,
-        $options: "i",
-      }
+          $regex: query,
+          $options: "i",
+        }
       : undefined;
 
     if (query) {
@@ -1425,9 +1462,9 @@ async function usersSearch(
     const query = req.query.searchQuery;
     const queryRegex = query
       ? {
-        $regex: query,
-        $options: "i",
-      }
+          $regex: query,
+          $options: "i",
+        }
       : undefined;
 
     if (query) {
@@ -1584,22 +1621,22 @@ function _buildAuthorsSearchQuery({ query }: { query?: string }) {
 
   const innerQuery = isExactMatchSearch
     ? {
-      phrase: {
-        query: strippedQuery,
-        path: SEARCH_FIELDS,
-        score: { boost: { value: 3 } },
-      },
-    }
-    : {
-      text: {
-        query,
-        path: SEARCH_FIELDS,
-        fuzzy: {
-          maxEdits: 2,
-          maxExpansions: 50,
+        phrase: {
+          query: strippedQuery,
+          path: SEARCH_FIELDS,
+          score: { boost: { value: 3 } },
         },
-      },
-    };
+      }
+    : {
+        text: {
+          query,
+          path: SEARCH_FIELDS,
+          fuzzy: {
+            maxEdits: 2,
+            maxExpansions: 50,
+          },
+        },
+      };
 
   return [
     {
@@ -2001,7 +2038,7 @@ async function getProjectFilterOptions(req: Request, res: Response) {
   try {
     return res.send({
       err: false,
-      statuses: ['available', 'open', 'completed'],
+      statuses: ["available", "open", "completed"],
     });
   } catch (err) {
     debugError(err);
