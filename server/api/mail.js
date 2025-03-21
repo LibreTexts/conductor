@@ -1108,7 +1108,7 @@ const sendSupportTicketCCedNotification = (recipientAddress, ticketID, ticketTit
             <br />
             <p><strong>Title:</strong> ${ticketTitle}</p>
             <br />
-            <p>You can view the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}?accessKey=${accessKey}</a>.</p>
+            <p>You can view the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}?accessKey=${accessKey}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}?accessKey=${accessKey}</a>.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
             <br />
