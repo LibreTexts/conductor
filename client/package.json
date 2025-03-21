@@ -99,12 +99,12 @@
     "@types/react-dom": "^18.0.11",
     "@types/react-router-dom": "^5.3.3",
     "@types/validator": "^13.7.15",
-    "@vitejs/plugin-react": "^3.1.0",
+    "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.15",
     "postcss": "^8.4.31",
     "sass": "^1.43.4",
     "tailwindcss": "^3.3.3",
-    "vite": "^4.5.9",
+    "vite": "^6.2.2",
     "vite-tsconfig-paths": "^4.0.5"
   }
 }
