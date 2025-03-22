@@ -2693,16 +2693,19 @@ const importA11YSectionsFromTOC = (req, res) => {
     let projectData = {};
     Project.findOne({
         projectID: req.body.projectID
-    }).lean().then((project) => {
+    }).lean().then(async (project) => {
         if (project) {
             projectData = project;
             // check user has permission to import TOC
             if (checkProjectMemberPermission(projectData, req.user)) {
+              const bookData = await Book.findOne({
+                library: projectData.libreLibrary,
+              }).lean();
                 if (
                     !isEmptyString(projectData.libreLibrary)
                     && !isEmptyString(projectData.libreCoverID)
                     && !isEmptyString(projectData.projectURL)
-                ) return getBookTOCFromAPI(null, projectData.projectURL);
+                ) return getBookTOCFromAPI(bookData.bookID, projectData.projectURL);
                 else throw (new Error('bookid'));
             } else {
                 throw (new Error('unauth'));
