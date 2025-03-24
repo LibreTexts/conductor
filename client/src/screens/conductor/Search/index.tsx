@@ -59,7 +59,7 @@ const Search = () => {
   const projLocationDefault = "global";
   const projStatusDefault = "any";
   const projVisibilityDefault = "public";
-  const projSortDefault = "title";
+  const projSortDefault = "relevance";
   const bookSortDefault = "title";
   const hwSortDefault = "name";
   const userSortDefault = "first";
@@ -154,6 +154,7 @@ const Search = () => {
     },
   ];
   const projSortOptions = [
+    { key: "relevance", text: "Sort by Relevance", value: "relevance" },
     { key: "title", text: "Sort by Title", value: "title" },
     {
       key: "classification",
@@ -190,6 +191,14 @@ const Search = () => {
     const query = urlParams.get("query");
     if (typeof query === "string" && query.length > 0) {
       document.title = `LibreTexts Conductor | Search | "${query}" | Results`;
+      
+      // Reset all pagination to 1 when query changes
+      setActiveAssetPage(1);
+      setActiveBookPage(1);
+      setActiveProjectPage(1);
+      setActiveHWPage(1);
+      setActiveUserPage(1);
+
       setSearchQuery(query);
       handleAssetsSearch(query);
       handleBooksSearch(query);
@@ -595,14 +604,11 @@ const Search = () => {
                 <Table celled attached title="Project Search Results">
                   <Table.Header>
                     <Table.Row>
-                      <Table.HeaderCell width={6}>
+                      <Table.HeaderCell width={5}>
                         <Header sub>Title</Header>
                       </Table.HeaderCell>
                       <Table.HeaderCell width={4}>
                         <Header sub>Author</Header>
-                      </Table.HeaderCell>
-                      <Table.HeaderCell width={2}>
-                        <Header sub>Progress (C/PR/A11Y)</Header>
                       </Table.HeaderCell>
                       <Table.HeaderCell width={2}>
                         <Header sub>Classification</Header>
@@ -639,7 +645,7 @@ const Search = () => {
                         return (
                           <Table.Row key={index}>
                             <Table.Cell>
-                              <p>
+                              <p className="truncate">
                                 <strong>
                                   <Link to={`/projects/${item.projectID}`}>
                                     {truncateString(item.title, 100)}
@@ -649,29 +655,6 @@ const Search = () => {
                             </Table.Cell>
                             <Table.Cell>
                               <p>{truncateString(item.author, 50)}</p>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <div className="flex-row-div projectportal-progress-row">
-                                <div className="projectportal-progress-col">
-                                  <span>{item.currentProgress}%</span>
-                                </div>
-                                <div className="projectportal-progresssep-col">
-                                  <span className="projectportal-progresssep">
-                                    /
-                                  </span>
-                                </div>
-                                <div className="projectportal-progress-col">
-                                  <span>{item.peerProgress}%</span>
-                                </div>
-                                <div className="projectportal-progresssep-col">
-                                  <span className="projectportal-progresssep">
-                                    /
-                                  </span>
-                                </div>
-                                <div className="projectportal-progress-col">
-                                  <span>{item.a11yProgress}%</span>
-                                </div>
-                              </div>
                             </Table.Cell>
                             <Table.Cell>
                               {item.classification &&
@@ -701,9 +684,7 @@ const Search = () => {
                             <Table.Cell>
                               {item.updatedAt && (
                                 <p>
-                                  {format(parseISO(item.updatedAt), "MM/dd/yy")}{" "}
-                                  at{" "}
-                                  {format(parseISO(item.updatedAt), "h:mm aa")}
+                                  {format(parseISO(item.updatedAt), "MM/dd/yy")}
                                 </p>
                               )}
                             </Table.Cell>
@@ -959,7 +940,12 @@ const Search = () => {
                               </a>
                             </Table.Cell>
                             <Table.Cell>
-                              <span>{getPrettyAuthorsList(item.primaryAuthor, item.authors)}</span>
+                              <span>
+                                {getPrettyAuthorsList(
+                                  item.primaryAuthor,
+                                  item.authors
+                                )}
+                              </span>
                             </Table.Cell>
                             <Table.Cell>
                               {item.license && (
