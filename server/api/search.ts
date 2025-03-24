@@ -3,17 +3,15 @@ import User from "../models/user.js";
 import Project from "../models/project.js";
 import Book from "../models/book.js";
 import Homework from "../models/homework.js";
-import conductorErrors from "../conductor-errors.js";
 import { debugError } from "../debug.js";
-import { getPaginationOffset, isValidDateObject } from "../util/helpers.js";
+import { getPaginationOffset } from "../util/helpers.js";
 import projectAPI from "./projects.js";
 import { ZodReqWithOptionalUser } from "../types/Express.js";
 import { Request, Response } from "express";
 import { conductor500Err } from "../util/errorutils.js";
 import { ProjectFileInterface } from "../models/projectfile.js";
-import { string, z } from "zod";
+import { z } from "zod";
 import AssetTag from "../models/assettag.js";
-import { getSchemaWithDefaults } from "../util/typeHelpers.js";
 import {
   assetSearchSchema,
   authorsSearchSchema,
@@ -26,7 +24,6 @@ import {
 import ProjectFile from "../models/projectfile.js";
 import authAPI from "./auth.js";
 import Author from "../models/author.js";
-import { levenshteinDistance } from "../util/searchutils.js";
 import Fuse from "fuse.js";
 import Organization from "../models/organization.js";
 import AssetTagFramework from "../models/assettagframework.js";
@@ -46,8 +43,12 @@ async function projectsSearch(
   res: Response
 ) {
   try {
-    const sort = req.query.sort || "title";
-    const includeLeads = req.query.leads === true;
+    const sort = req.query.sort || "relevance";
+    const includeLeads =
+      req.query.leads === true || req.query.leads?.toString() === "true";
+    const includePIs =
+      req.query.principalInvestigators === true ||
+      req.query.principalInvestigators?.toString() === "true";
 
     const query = req.query.searchQuery;
     if (query) {
@@ -116,7 +117,7 @@ async function projectsSearch(
             },
           ]
         : []),
-      ...projectAPI.LOOKUP_PROJECT_PI_STAGES(false),
+      ...(includePIs ? projectAPI.LOOKUP_PROJECT_PI_STAGES(false) : []),
       {
         $project: {
           _id: 0,
@@ -125,9 +126,6 @@ async function projectsSearch(
           title: 1,
           status: 1,
           visibility: 1,
-          currentProgress: 1,
-          peerProgress: 1,
-          a11yProgress: 1,
           classification: 1,
           leads: 1,
           author: 1,
@@ -138,15 +136,26 @@ async function projectsSearch(
           description: 1,
           principalInvestigators: 1,
           coPrincipalInvestigators: 1,
+          updatedAt: 1,
         },
       },
-      {
-        $sort: {
-          ...(sort === "title" && { title: 1 }),
-          ...(sort === "classification" && { classification: 1 }),
-          ...(sort === "visibility" && { visibility: 1 }),
-        },
-      },
+      ...(sort === "relevance"
+        ? [
+            {
+              $sort: {
+                score: -1,
+              },
+            },
+          ]
+        : [
+            {
+              $sort: {
+                ...(sort === "title" && { title: 1 }),
+                ...(sort === "classification" && { classification: 1 }),
+                ...(sort === "visibility" && { visibility: 1 }),
+              },
+            },
+          ]),
     ]);
 
     const totalCount = results.length;
@@ -203,7 +212,7 @@ async function booksSearch(
       },
     ]);
 
-    const fromProjectTags = Tag.aggregate([  
+    const fromProjectTags = Tag.aggregate([
       {
         $search: {
           text: {
@@ -211,54 +220,54 @@ async function booksSearch(
             path: ["title"],
             fuzzy: {
               maxEdits: 1,
-              maxExpansions: 50
-            }
-          }
-        }
+              maxExpansions: 50,
+            },
+          },
+        },
       },
       {
         $match: {
-          orgID: process.env.ORG_ID
-        }
+          orgID: process.env.ORG_ID,
+        },
       },
       {
         $lookup: {
           from: "projects",
           localField: "tagID",
           foreignField: "tags",
-          as: "matchingProjects"
-        }
+          as: "matchingProjects",
+        },
       },
       {
         $unwind: {
           path: "$matchingProjects",
-          preserveNullAndEmptyArrays: false
-        }
+          preserveNullAndEmptyArrays: false,
+        },
       },
       {
         $replaceRoot: {
-          newRoot: "$matchingProjects"
-        }
+          newRoot: "$matchingProjects",
+        },
       },
       {
         $match: {
           libreCoverID: {
             $exists: true,
-            $ne: ""
+            $ne: "",
           },
           libreLibrary: {
             $exists: true,
-            $ne: ""
+            $ne: "",
           },
-          visibility: "public"
-        }
+          visibility: "public",
+        },
       },
       {
         $lookup: {
           from: "books",
           let: {
             library: "$libreLibrary",
-            pageID: "$libreCoverID"
+            pageID: "$libreCoverID",
           },
           pipeline: [
             {
@@ -268,54 +277,50 @@ async function booksSearch(
                     {
                       $and: [
                         {
-                          $ne: ["$$library", ""]
+                          $ne: ["$$library", ""],
                         },
                         {
-                          $ne: ["$$pageID", ""]
-                        }
-                      ]
+                          $ne: ["$$pageID", ""],
+                        },
+                      ],
                     },
                     {
                       $eq: [
                         "$bookID",
                         {
-                          $concat: [
-                            "$$library",
-                            "-",
-                            "$$pageID"
-                          ]
-                        }
-                      ]
+                          $concat: ["$$library", "-", "$$pageID"],
+                        },
+                      ],
                     },
                     {
-                      $eq: ["$bookID", false] // empty lookup
-                    }
-                  ]
-                }
-              }
-            }
+                      $eq: ["$bookID", false], // empty lookup
+                    },
+                  ],
+                },
+              },
+            },
           ],
-          as: "book"
-        }
+          as: "book",
+        },
       },
       {
         $match: {
-          book: { $ne: [] }
-        }
+          book: { $ne: [] },
+        },
       },
       {
         $replaceRoot: {
           newRoot: {
-            $arrayElemAt: ["$book", 0]
-          }
-        }
+            $arrayElemAt: ["$book", 0],
+          },
+        },
       },
       {
         $project: {
           _id: 0,
-          __v: 0
-        }
-      }
+          __v: 0,
+        },
+      },
     ]);
 
     const promises = [fromBooks];
@@ -541,12 +546,23 @@ function _generateProjectMatchObjs({
           path: [
             "title",
             "author",
-            "libreLibrary",
-            "libreCoverID",
             "libreShelf",
             "libreCampus",
             "associatedOrgs",
           ],
+        },
+        scoreDetails: true,
+      },
+    },
+    {
+      $addFields: {
+        score: {
+          $getField: {
+            field: "value",
+            input: {
+              $meta: "searchScoreDetails",
+            },
+          },
         },
       },
     },

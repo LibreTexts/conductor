@@ -72,7 +72,8 @@ export type ProjectSearchParams = {
   status?: string;
   visibility?: "public" | "private";
   leads?: boolean;
-  sort?: "title" | "progress" | "classification" | "visibility" | "updated";
+  principalInvestigators?: boolean;
+  sort?: "relevance" | "title" | "progress" | "classification" | "visibility" | "updated";
 } & _commonSearchParams;
 
 export type UserSearchParams = {
