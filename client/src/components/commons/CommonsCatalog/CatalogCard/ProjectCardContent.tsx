@@ -28,26 +28,26 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
     );
   }, [project.libreLibrary]);
 
-  const piText =
-    project?.principalInvestigators &&
-    project?.principalInvestigators.length > 0
-      ? project?.principalInvestigators
-          ?.map((p) => `${p.firstName} ${p.lastName}`)
-          .join(", ")
-      : "No principal investigators";
+  // const piText =
+  //   project?.principalInvestigators &&
+  //   project?.principalInvestigators.length > 0
+  //     ? project?.principalInvestigators
+  //         ?.map((p) => `${p.firstName} ${p.lastName}`)
+  //         .join(", ")
+  //     : "No principal investigators";
 
-  const coPIText =
-    project?.coPrincipalInvestigators &&
-    project?.coPrincipalInvestigators.length > 0
-      ? project?.coPrincipalInvestigators
-          ?.map((p) => `${p.firstName} ${p.lastName}`)
-          .join(", ")
-      : "No co-principal investigators";
+  // const coPIText =
+  //   project?.coPrincipalInvestigators &&
+  //   project?.coPrincipalInvestigators.length > 0
+  //     ? project?.coPrincipalInvestigators
+  //         ?.map((p) => `${p.firstName} ${p.lastName}`)
+  //         .join(", ")
+  //     : "No co-principal investigators";
 
-  const associatedOrgText =
-    project?.associatedOrgs && project?.associatedOrgs.length > 0
-      ? project?.associatedOrgs.join(", ")
-      : "No associated organizations";
+  // const associatedOrgText =
+  //   project?.associatedOrgs && project?.associatedOrgs.length > 0
+  //     ? project?.associatedOrgs.join(", ")
+  //     : "No associated organizations";
 
   return (
     <Card.Content className="commons-content-card-inner-content" {...rest}>
@@ -72,7 +72,7 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
             : "No description available."}
         </p>
       </div>
-      <CardMetaWIcon icon="user">
+      {/* <CardMetaWIcon icon="user">
         <div className="line-clamp-1">{piText}</div>
       </CardMetaWIcon>
       <CardMetaWIcon icon="user plus">
@@ -80,7 +80,7 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
       </CardMetaWIcon>
       <CardMetaWIcon icon="university">
         <div className="line-clamp-1">{associatedOrgText}</div>
-      </CardMetaWIcon>
+      </CardMetaWIcon> */}
       <CardMetaWIcon icon="linkify">
         <div className="line-clamp-2">
           {project.projectURL ? (
