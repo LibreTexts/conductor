@@ -92,18 +92,6 @@ export const CHAT_NOTIFY_OPTS = (
     ];
   };
 
-  // Notify support cannot be selected as default option
-  const notifySupport = () => {
-    if (defaultOnly) return [];
-    return [
-      {
-        key: "support",
-        text: "Notify LibreTexts Support",
-        value: "support",
-      },
-    ];
-  };
-
   return [
     {
       key: "all",
@@ -111,7 +99,6 @@ export const CHAT_NOTIFY_OPTS = (
       value: "all",
     },
     ...notifySpecific(),
-    ...notifySupport(),
     {
       key: "none",
       text: `Don't notify anyone`,
