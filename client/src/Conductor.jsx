@@ -66,6 +66,7 @@ const SupportTicket = lazy(() => import('./screens/conductor/support/Ticket'));
 const SupportClosedTickets = lazy(() => import('./screens/conductor/support/closed'));
 const TextbookCuration = lazy(() => import('./screens/conductor/Projects/TextbookCuration'));
 const AcceptProjectInviteScreen = lazy(() => import('./screens/conductor/Projects/AcceptProjectInviteScreen'));
+const PermanentLinkRedirect = lazy(() => import('./components/FilesManager/PermanentLinkRedirect'));
 
 /* 404 */
 import PageNotFound from './components/util/PageNotFound';
@@ -122,7 +123,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
           <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />
           <PrivateRoute exact path='/controlpanel/qr-code-generator' component={QRCodeGenerator} />
-        <PrivateRoute exact path='/controlpanel/eventsmanager' component={EventsManager} />
+          <PrivateRoute exact path='/controlpanel/eventsmanager' component={EventsManager} />
           <PrivateRoute exact path='/controlpanel/eventsmanager/:mode/:eventID?' component={ManageEvent} />
           <PrivateRoute exact path='/controlpanel/harvestingrequests' component={HarvestingRequests} />
           <PrivateRoute exact path='/controlpanel/homeworkmanager' component={HomeworkManager} />
@@ -137,6 +138,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/usersmanager' component={UsersManager} />
           <PrivateRoute exact path='/controlpanel/usersmanager/:uuid' component={UserDetails} />
           <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
+          <Route exact path="/permalink/:projectID/:fileID" component={PermanentLinkRedirect} />
           <Route exact path='/peerreview/:id' component={PeerReviewPage} />
           {/* LibreTexts org public routes */}
           <LibreTextsRoute exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} org={org}/>
