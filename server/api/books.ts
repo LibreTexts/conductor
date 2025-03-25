@@ -2788,7 +2788,6 @@ async function _runBulkUpdateJob(
               continue;
             }
             const aiSummaryRes = aiSummaryResults[i];
-            console.log(`Generated summary for ${pageID}: ${aiSummaryRes}`);
             if (aiSummaryRes.status === "fulfilled") {
               newPageDetails.push({
                 id: pageID,
@@ -3111,7 +3110,6 @@ async function _generatePageAITags(
     }
 
     const tagsRes = await aiService.generatePageTags(chunks);
-    console.log(`TAGS RES FOR ${pageID}: ${tagsRes}`);
     if (tagsRes === "empty") {
       throw new Error("empty");
     }
