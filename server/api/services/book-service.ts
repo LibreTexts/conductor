@@ -464,6 +464,43 @@ export default class BookService {
     return parsed;
   }
 
+  async getPageVisibility(pageID: string): Promise<string> {
+    try {
+      if (!pageID) {
+        throw new Error("Missing page ID");
+      }
+  
+      const pageSecurityRes = await CXOneFetch({
+        scope: "page",
+        path: parseInt(pageID),
+        api: MindTouch.API.Page.GET_Page_Security,
+        subdomain: this._library,
+        options: {
+          headers: {
+            "Cache-Control": "no-cache",
+          }
+        }
+      }).catch((err) => {
+        console.error(err);
+        throw new Error(`Error fetching page security: ${err}`);
+      });
+  
+      if (!pageSecurityRes.ok) {
+        throw new Error(
+          `Error fetching page details: ${pageSecurityRes.statusText}`
+        );
+      }
+  
+      const pageSecurityRaw = await pageSecurityRes.json();
+      const visibility = pageSecurityRaw?.["permissions.page"]?.restriction?.["#text"]?.toString() ?? "Semi-Private";
+
+      return visibility;
+    } catch (err) {
+      console.error(err);
+      throw new Error("internal");
+    }
+  }
+
   async updatePageContent(
     pageID: string,
     xmlEncodedContent: string

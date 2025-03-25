@@ -9,6 +9,7 @@ const CXOnePageAPIEndpoints = {
   GET_Page_Images: `images?${DREAM_OUT_FORMAT}`,
   GET_Page_Info: `info?${DREAM_OUT_FORMAT}`,
   GET_Page_Properties: `properties?${DREAM_OUT_FORMAT}`,
+  GET_Page_Security: `security?${DREAM_OUT_FORMAT}`,
   GET_Page_Tree: `tree?${DREAM_OUT_FORMAT}&include=properties,lastmodified`,
   GET_Subpages: `subpages?${DREAM_OUT_FORMAT}`,
   GET_Page_Tags: `tags?${DREAM_OUT_FORMAT}`,
