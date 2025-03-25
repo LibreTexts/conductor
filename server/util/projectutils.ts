@@ -33,6 +33,7 @@ import { CXOneFetch, getLibUsers, getLibreBotUserId } from "./librariesclient.js
 import MindTouch from "./CXOne/index.js";
 import { URLSearchParams } from "url";
 import { getFileExtensionFromMimeType } from "./exports.js";
+import BookService from "../api/services/book-service.js";
 
 export const projectClassifications = [
   "harvesting",
@@ -1189,7 +1190,11 @@ export async function updateTeamWorkbenchPermissions(projectID: string, subdomai
     const auditors = getAuditors();
     const withoutAuditors = foundUsers.filter((u) => !auditors.map((a) => a.username).includes(u.username));
 
+    const bookService = new BookService({ bookID: `${project.libreLibrary}-${project.libreCoverID}` });
+    const bookVisibility = await bookService.getPageVisibility(project.libreCoverID);
+
     const body = MindTouch.Templates.PUT_TeamAsContributors(
+      bookVisibility,
       withoutAuditors.map((u) => u.id),
       auditors.map((u) => u.id),
       libreBotID
