@@ -32,6 +32,15 @@ export const CheckUserApplicationAccessValidator = z.object({
   }),
 });
 
+export const CheckUsersApplicationAccessValidator = z.object({
+  params: z.object({
+    applicationId: z.union([z.coerce.number().positive().int(), z.string()])
+  }),
+  body: z.object({
+    ids: z.array(z.string().uuid()),
+  })
+});
+
 
 export const GetVerificationRequestsSchema = z.object({
   query: z.object({
