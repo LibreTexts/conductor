@@ -15,6 +15,7 @@ import { assembleUrl, isEmptyString, isFullURL } from "../util/helpers.js";
 import FormData from "form-data";
 import Session from "../models/session.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
+import { z } from "zod";
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = new TextEncoder().encode(process.env.SECRETKEY);
@@ -281,14 +282,21 @@ async function completeLogin(req: Request, res: Response) {
     });
     const profileData = profileRes.data;
     const centralAttr = profileData.attributes;
+    console.log(`profileData.sub: ${profileData.sub}`);
+    console.log(`centralAttr.sub: ${centralAttr.sub}`);
     const authSub = profileData.sub || centralAttr.sub;
-    const targetOrg = state.orgID || process.env.ORG_ID;
+    const targetOrg = state.orgID || process.env.ORG_ID
+
+    const validUUID = (await z.string().uuid().safeParseAsync(authSub)).success;
 
     let authUser = null;
 
     // Check if user exists locally and sync
-    const existUser = await User.findOne({ centralID: authSub });
+    console.log(`Checking for user with centralID ${authSub}`);
+    // If validUUID, search by centralID, else we may have received an external subject id, so search by email
+    const existUser = await User.findOne(validUUID ? { centralID: authSub } : { email: centralAttr.email });
     if (existUser) {
+      console.log(`Found user with centralID ${authSub} and email ${existUser.email}`);
       authUser = existUser;
       // Sync data that may have been changed in a delegated IdP
       let doSync = false;
@@ -314,6 +322,7 @@ async function completeLogin(req: Request, res: Response) {
 
     // User doesn't exist locally, create them now
     if (!authUser) {
+      console.log(`Creating new user with centralID ${authSub}, email ${centralAttr.email}`);
       const newUser = new User({
         centralID: authSub,
         uuid: uuidv4(),
