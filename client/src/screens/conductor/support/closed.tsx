@@ -1,20 +1,19 @@
 import DefaultLayout from "../../../components/kb/DefaultLayout";
-import { useEffect, lazy, useState } from "react";
-import { useTypedSelector } from "../../../state/hooks";
-import { isSupportStaff } from "../../../utils/supportHelpers";
+import { useEffect, useState } from "react";
+import { getPrettySupportTicketCategory } from "../../../utils/supportHelpers";
 import { PaginationWithItemsSelect } from "../../../components/util/PaginationWithItemsSelect";
-import { Button, Icon, Table } from "semantic-ui-react";
-import LoadingSpinner from "../../../components/LoadingSpinner";
+import { Button, Icon } from "semantic-ui-react";
 import { capitalizeFirstLetter } from "../../../components/util/HelperFunctions";
 import { format, parseISO } from "date-fns";
 import { getRequesterText } from "../../../utils/kbHelpers";
 import { SupportTicket } from "../../../types";
 import axios from "axios";
 import useGlobalError from "../../../components/error/ErrorHooks";
+import SupportCenterTable from "../../../components/support/SupportCenterTable";
+import { Link } from "react-router-dom";
 
 const SupportDashboard = () => {
   const { handleGlobalError } = useGlobalError();
-  const user = useTypedSelector((state) => state.user);
   const [loading, setLoading] = useState(false);
   const [activePage, setActivePage] = useState<number>(1);
   const [activeSort, setActiveSort] = useState<string>("opened");
@@ -27,13 +26,6 @@ const SupportDashboard = () => {
     document.title = "LibreTexts | Closed Tickets";
     getClosedTickets();
   }, []);
-
-  //   useEffect(() => {
-  //     if (!isSupportStaff(user)) {
-  //       window.location.href = "/support"; // redirect to support center if not staff
-  //       return;
-  //     }
-  //   }, [user])
 
   useEffect(() => {
     getClosedTickets();
@@ -68,10 +60,6 @@ const SupportDashboard = () => {
     }
   }
 
-  function openTicket(uuid: string) {
-    window.open(`/support/ticket/${uuid}`, "_blank");
-  }
-
   return (
     <DefaultLayout>
       <div className="flex flex-col p-8" aria-busy={loading}>
@@ -91,64 +79,97 @@ const SupportDashboard = () => {
             activeSort={activeSort}
             setActiveSortFn={setActiveSort}
           />
-          <Table celled className="mt-4">
-            <Table.Header>
-              <Table.Row>
-                <Table.HeaderCell>ID</Table.HeaderCell>
-                <Table.HeaderCell>Date Opened</Table.HeaderCell>
-                <Table.HeaderCell>Subject</Table.HeaderCell>
-                <Table.HeaderCell>Requester</Table.HeaderCell>
-                <Table.HeaderCell>Assigned To</Table.HeaderCell>
-                <Table.HeaderCell>Priority</Table.HeaderCell>
-                <Table.HeaderCell>Date Closed</Table.HeaderCell>
-                <Table.HeaderCell>Actions</Table.HeaderCell>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {!loading &&
-                closedTickets?.map((ticket) => (
-                  <Table.Row key={ticket.uuid}>
-                    <Table.Cell>{ticket.uuid.slice(-7)}</Table.Cell>
-                    <Table.Cell>
-                      {format(
-                        parseISO(ticket.timeOpened),
-                        "MM/dd/yyyy hh:mm aa"
-                      )}
-                    </Table.Cell>
-                    <Table.Cell>{ticket.title}</Table.Cell>
-                    <Table.Cell>{getRequesterText(ticket)}</Table.Cell>
-                    <Table.Cell>
-                      {ticket.assignedUsers
-                        ? ticket.assignedUsers
-                            .map((u) => u.firstName)
-                            .join(", ")
-                        : "Unassigned"}
-                    </Table.Cell>
-                    <Table.Cell>
-                      {capitalizeFirstLetter(ticket.priority)}
-                    </Table.Cell>
-                    <Table.Cell>
-                      {ticket.timeClosed &&
-                        format(
-                          parseISO(ticket.timeClosed),
-                          "MM/dd/yyyy hh:mm aa"
-                        )}
-                    </Table.Cell>
-                    <Table.Cell>
+          <SupportCenterTable<SupportTicket & { actions?: string }>
+            loading={loading}
+            data={closedTickets}
+            columns={[
+              {
+                accessor: "uuid",
+                title: "ID",
+                render(record, index) {
+                  return record.uuid.slice(-7);
+                },
+              },
+              {
+                accessor: "timeOpened",
+                title: "Date Opened",
+                render(record) {
+                  return format(
+                    parseISO(record.timeOpened),
+                    "MM/dd/yyyy hh:mm aa"
+                  );
+                },
+              },
+              {
+                accessor: "title",
+                title: "Subject",
+                className: "!w-full !max-w-[40rem] break-words truncate",
+                render(record) {
+                  return record.title;
+                },
+              },
+              {
+                accessor: "category",
+                title: "Category",
+                render(record) {
+                  return getPrettySupportTicketCategory(record.category);
+                },
+              },
+              {
+                accessor: "user",
+                title: "Requester",
+                render(record) {
+                  return getRequesterText(record);
+                },
+              },
+              {
+                accessor: "assignedUsers",
+                title: "Assigned To",
+                render(record) {
+                  return record.assignedUsers
+                    ? record.assignedUsers.map((u) => u.firstName).join(", ")
+                    : "Unassigned";
+                },
+              },
+              {
+                accessor: "priority",
+                render(record) {
+                  return capitalizeFirstLetter(record.priority);
+                },
+              },
+              {
+                accessor: "timeClosed",
+                title: "Date Closed",
+                render(record) {
+                  if (!record.timeClosed) return "N/A";
+                  return format(
+                    parseISO(record.timeClosed),
+                    "MM/dd/yyyy hh:mm aa"
+                  );
+                },
+              },
+              {
+                accessor: "actions",
+                render(record) {
+                  return (
+                    <div className="flex flex-row whitespace-nowrap">
                       <Button
                         color="blue"
                         size="tiny"
-                        onClick={() => openTicket(ticket.uuid)}
+                        to={`/support/ticket/${record.uuid}`}
+                        target="_blank"
+                        as={Link}
+                        className="inline-flex"
                       >
                         <Icon name="eye" />
                         View
                       </Button>
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-              {loading && <LoadingSpinner />}
-            </Table.Body>
-          </Table>
+                    </div>
+                  );
+                },
+              },
+            ]}
+          />
           <PaginationWithItemsSelect
             activePage={activePage}
             totalPages={totalPages}
