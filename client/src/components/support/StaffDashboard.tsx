@@ -1,20 +1,20 @@
 import { useState, useEffect, lazy } from "react";
-import { Button, Dropdown, Icon, Table } from "semantic-ui-react";
+import { Button, Dropdown, Icon } from "semantic-ui-react";
 import useGlobalError from "../error/ErrorHooks";
 import { GenericKeyTextValueObj, SupportTicket } from "../../types";
 import axios from "axios";
-import { format, parseISO, set } from "date-fns";
+import { format, parseISO } from "date-fns";
 import TicketStatusLabel from "./TicketStatusLabel";
 import { getRequesterText } from "../../utils/kbHelpers";
 import { PaginationWithItemsSelect } from "../util/PaginationWithItemsSelect";
 import { useTypedSelector } from "../../state/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import LoadingSpinner from "../LoadingSpinner";
 import { capitalizeFirstLetter } from "../util/HelperFunctions";
 import { getPrettySupportTicketCategory } from "../../utils/supportHelpers";
 import { useNotifications } from "../../context/NotificationContext";
 import CopyButton from "../util/CopyButton";
 import { Link } from "react-router-dom";
+import SupportCenterTable from "./SupportCenterTable";
 const AssignTicketModal = lazy(() => import("./AssignTicketModal"));
 const SupportCenterSettingsModal = lazy(
   () => import("./SupportCenterSettingsModal")
@@ -35,7 +35,7 @@ const StaffDashboard = () => {
   const [activePage, setActivePage] = useState<number>(1);
   const [activeSort, setActiveSort] = useState<string>("opened");
   const [totalPages, setTotalPages] = useState<number>(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(25);
   const [totalItems, setTotalItems] = useState<number>(0);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [showAssignModal, setShowAssignModal] = useState<boolean>(false);
@@ -373,31 +373,24 @@ const StaffDashboard = () => {
             </Dropdown.Menu>
           </Dropdown>
         </div>
-        <Table celled className="mt-2">
-          <Table.Header>
-            <Table.Row>
-              <Table.HeaderCell>ID</Table.HeaderCell>
-              <Table.HeaderCell>Date Opened</Table.HeaderCell>
-              <Table.HeaderCell>Subject</Table.HeaderCell>
-              <Table.HeaderCell>Category</Table.HeaderCell>
-              <Table.HeaderCell>Requester</Table.HeaderCell>
-              <Table.HeaderCell>Assigned To</Table.HeaderCell>
-              <Table.HeaderCell>Priority</Table.HeaderCell>
-              <Table.HeaderCell>Status</Table.HeaderCell>
-              <Table.HeaderCell>Actions</Table.HeaderCell>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {!isFetching &&
-              openTickets?.map((ticket) => (
-                <Table.Row key={ticket.uuid}>
-                  <Table.Cell>{ticket.uuid.slice(-7)}
-                    <CopyButton val={ticket.uuid}>
+        <SupportCenterTable<SupportTicket & { actions?: string }>
+          loading={isFetching}
+          data={openTickets}
+          columns={[
+            {
+              accessor: "uuid",
+              title: "ID",
+              render(record, index) {
+                return (
+                  <>
+                    {record.uuid.slice(-7)}
+                    <CopyButton val={record.uuid}>
                       {({ copied, copy }) => (
-                        <Icon name="copy"
+                        <Icon
+                          name="copy"
                           className="cursor-pointer !ml-1"
                           onClick={() => {
-                            copy()
+                            copy();
                             addNotification({
                               message: "Ticket ID copied to clipboard",
                               type: "success",
@@ -408,53 +401,96 @@ const StaffDashboard = () => {
                         />
                       )}
                     </CopyButton>
-                  </Table.Cell>
-                  <Table.Cell>
-                    {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}
-                  </Table.Cell>
-                  <Table.Cell>{ticket.title}</Table.Cell>
-                  <Table.Cell>
-                    {getPrettySupportTicketCategory(ticket.category)}
-                  </Table.Cell>
-                  <Table.Cell>{getRequesterText(ticket)}</Table.Cell>
-                  <Table.Cell>
-                    {ticket.assignedUsers
-                      ? ticket.assignedUsers.map((u) => u.firstName).join(", ")
-                      : "Unassigned"}
-                  </Table.Cell>
-                  <Table.Cell>
-                    {capitalizeFirstLetter(ticket.priority)}
-                  </Table.Cell>
-                  <Table.Cell>
-                    <TicketStatusLabel status={ticket.status} />
-                  </Table.Cell>
-                  <Table.Cell>
+                  </>
+                );
+              },
+            },
+            {
+              accessor: "timeOpened",
+              title: "Date Opened",
+              render(record) {
+                return format(
+                  parseISO(record.timeOpened),
+                  "MM/dd/yyyy hh:mm aa"
+                );
+              },
+            },
+            {
+              accessor: "title",
+              title: "Subject",
+              className: "!w-full !max-w-[40rem] break-words truncate",
+              render(record) {
+                return record.title;
+              },
+            },
+            {
+              accessor: "category",
+              title: "Category",
+              render(record) {
+                return getPrettySupportTicketCategory(record.category);
+              },
+            },
+            {
+              accessor: "user",
+              title: "Requester",
+              render(record) {
+                return getRequesterText(record);
+              },
+            },
+            {
+              accessor: "assignedUsers",
+              title: "Assigned To",
+              render(record) {
+                return record.assignedUsers
+                  ? record.assignedUsers.map((u) => u.firstName).join(", ")
+                  : "Unassigned";
+              },
+            },
+            {
+              accessor: "priority",
+              render(record) {
+                return capitalizeFirstLetter(record.priority);
+              },
+            },
+            {
+              accessor: "status",
+              render(record) {
+                return <TicketStatusLabel status={record.status} />;
+              },
+            },
+            {
+              accessor: "actions",
+              render(record) {
+                return (
+                  <div className="flex flex-row whitespace-nowrap">
                     <Button
                       color="blue"
                       size="tiny"
-                      to={`/support/ticket/${ticket.uuid}`}
+                      to={`/support/ticket/${record.uuid}`}
                       target="_blank"
                       as={Link}
+                      className="inline-flex"
                     >
                       <Icon name="eye" />
                       View
                     </Button>
-                    {ticket.status === "open" && (
+                    {record.status === "open" && (
                       <Button
                         color="green"
                         size="tiny"
-                        onClick={() => openAssignModal(ticket.uuid)}
+                        onClick={() => openAssignModal(record.uuid)}
+                        className="inline-flex !ml-2"
                       >
                         <Icon name="user plus" />
                         Assign
                       </Button>
                     )}
-                  </Table.Cell>
-                </Table.Row>
-              ))}
-            {isFetching && <LoadingSpinner />}
-          </Table.Body>
-        </Table>
+                  </div>
+                );
+              },
+            },
+          ]}
+        />
         <PaginationWithItemsSelect
           activePage={activePage}
           totalPages={totalPages}
