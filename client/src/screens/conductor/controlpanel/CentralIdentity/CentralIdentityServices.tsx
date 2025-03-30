@@ -19,6 +19,7 @@ import { PaginationWithItemsSelect } from "../../../../components/util/Paginatio
 import ViewServiceDetailsModal from "../../../../components/controlpanel/CentralIdentity/ViewServiceDetailsModal";
 import useDebounce from "../../../../hooks/useDebounce";
 import { useTypedSelector } from "../../../../state/hooks";
+import api from "../../../../api";
 
 const CentralIdentityServices = () => {
   //Global State
@@ -71,14 +72,12 @@ const CentralIdentityServices = () => {
   async function getServices(searchString: string) {
     try {
       setLoading(true);
-      const res = await axios.get("/central-identity/services", {
-        params: {
-          activePage,
-          limit: itemsPerPage,
-          query: searchString,
-          sort: sortChoice,
-        }
-      });
+      const res = await api.getCentralIdentityServices({
+        activePage,
+        limit: itemsPerPage,
+        query: searchString,
+        sort: sortChoice
+      })
       if (
         res.data.err ||
         !res.data.services ||

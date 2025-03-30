@@ -3,6 +3,7 @@ import { Button, Form, Modal, Icon, Header } from "semantic-ui-react";
 import { CentralIdentityService } from "../../../types";
 import axios from "axios";
 import useGlobalError from "../../error/ErrorHooks";
+import api from "../../../api";
 
 interface ViewServiceDetailsModalProps {
   open: boolean;
@@ -21,13 +22,23 @@ const ViewServiceDetailsModal = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [formData, setFormData] = useState<Partial<CentralIdentityService>>({});
+  const [originalData, setOriginalData] = useState<Partial<CentralIdentityService>>({});
+  const [formChanged, setFormChanged] = useState<boolean>(false);
 
   useEffect(() => {
     if (service) {
       setFormData({ ...service });
     }
     setIsEditing(false);
+    setFormChanged(false);
   }, [service, open]);
+
+  useEffect(() => {
+    if (originalData && Object.keys(originalData).length > 0) {
+      const hasChanged = JSON.stringify(formData) !== JSON.stringify(originalData);
+      setFormChanged(hasChanged);
+    }
+  }, [formData, originalData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -39,15 +50,14 @@ const ViewServiceDetailsModal = ({
     
     try {
       setLoading(true);
-      const response = await axios.put(`/central-identity/services/${service.id}`, {
-        body: JSON.stringify(formData),
-      });
+      await api.updateCentralIdentityService({ body: JSON.stringify(formData) }, service.id);
       Object.assign(service, formData);
       
       if (onServiceUpdated) {
         onServiceUpdated();
       }
       setIsEditing(false);
+      setFormChanged(false);
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -59,6 +69,8 @@ const ViewServiceDetailsModal = ({
     setIsEditing(!isEditing);
     if (!isEditing) {
       setFormData({ ...service });
+      setOriginalData({ ...service });
+      setFormChanged(false);
     }
   };
 
@@ -137,7 +149,7 @@ const ViewServiceDetailsModal = ({
             <Button secondary onClick={toggleEditMode}>
               <Icon name="cancel" /> Cancel
             </Button>
-            <Button primary onClick={handleSubmit} loading={loading}>
+            <Button primary onClick={handleSubmit} loading={loading} disabled={!formChanged}>
               <Icon name="save" /> Save Changes
             </Button>
           </>

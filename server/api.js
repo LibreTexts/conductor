@@ -518,6 +518,10 @@ router
 router
   .route("/central-identity/services/:id")
   .put(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
     centralIdentityAPI.updateService
   );
 
