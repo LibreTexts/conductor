@@ -296,6 +296,12 @@ router
   );
 
 router
+  .route("/central-identity/services/:id")
+  .put(
+    centralIdentityAPI.updateService
+  );
+
+router
   .route("/central-identity/verification-requests")
   .get(
     middleware.checkCentralIdentityConfig,
