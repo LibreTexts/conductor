@@ -812,7 +812,6 @@ async function updateService(
     if (!parsedBody.service_Id || !parsedBody.service_Id.includes("libretexts.org")) {
       throw new Error("The service URL should have libretexts.org");
     }
-    
     const updateRes = await useCentralIdentityAxios(false).put(`/services/${id}`, body);
 
     if (!updateRes.data || updateRes.status !== 200) {

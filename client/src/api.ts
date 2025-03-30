@@ -13,6 +13,7 @@ import {
   CentralIdentityLicense,
   CentralIdentityOrg,
   CentralIdentityUser,
+  CentralIdentityService,
   CentralIdentityVerificationRequest,
   CollectionResource,
   ConductorBaseResponse,
@@ -556,6 +557,42 @@ class API {
         ...(sort ? { sort } : {}),
       },
     });
+    return res;
+  }
+
+  async getCentralIdentityServices({
+    activePage,
+    limit,
+    query,
+    sort,
+  }:{
+    activePage?: number;
+    limit?: number;
+    query?: string;
+    sort?: string;
+  }){
+    const res = await axios.get<
+      {
+        services: CentralIdentityService[];
+        totalCount: number;
+      } & ConductorBaseResponse
+    >("/central-identity/services", {
+      params: {
+        ...(activePage ? { activePage } : {}),
+        ...(limit ? { limit } : {}),
+        ...(query ? { query } : {}),
+        ...(sort ? { sort } : {}),
+      },
+    });
+    return res;
+  }
+
+  async updateCentralIdentityService( body: { body: string }, id: number){
+    const res = await axios.put<ConductorBaseResponse>(
+      `/central-identity/services/${id}`,
+      body
+    )
+
     return res;
   }
 
