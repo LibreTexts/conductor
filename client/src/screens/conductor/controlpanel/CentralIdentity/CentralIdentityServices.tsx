@@ -9,26 +9,39 @@ import {
   Table,
   Icon,
   Button,
+  Dropdown,
+  Input,
 } from "semantic-ui-react";
 import { CentralIdentityService } from "../../../../types";
 import axios from "axios";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
+import ViewServiceDetailsModal from "../../../../components/controlpanel/CentralIdentity/ViewServiceDetailsModal";
+import useDebounce from "../../../../hooks/useDebounce";
+import { useTypedSelector } from "../../../../state/hooks";
 
 const CentralIdentityServices = () => {
   //Global State
   const { handleGlobalError } = useGlobalError();
+  const { debounce } = useDebounce();
 
   //UI
   const [loading, setLoading] = useState<boolean>(false);
   const [activePage, setActivePage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
+  const [searchInput, setSearchInput] = useState<string>(""); 
+  const [searchString, setSearchString] = useState<string>(""); 
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [showUserModal, setShowUserModal] = useState<boolean>(false);
+  const [sortChoice, setSortChoice] = useState<string>("name");
   const TABLE_COLS = [
     { key: "name", text: "Name" },
     { key: "service_Id", text: "ID" },
     { key: "actions", text: "Actions" },
+  ];
+  const sortOptions = [
+    { key: "name", text: "Sort by Name", value: "name" },
+    { key: "service_Id", text: "Sort by Service URL", value: "service_Id" },
   ];
 
   //Data
@@ -36,15 +49,36 @@ const CentralIdentityServices = () => {
   const [selectedService, setSelectedService] =
     useState<CentralIdentityService | null>(null);
 
+  //Permissions
+  const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
+
   //Effects
   useEffect(() => {
-    getServices();
-  }, []);
+    if (isSuperAdmin){
+      getServices(searchString);
+    }
+  }, [activePage, itemsPerPage, searchString, sortChoice]);
 
-  async function getServices() {
+  const getServicesDebounced = debounce(
+    (searchVal: string) => setSearchString(searchVal),
+    250
+  );
+
+  function refreshServices() {
+    getServices(searchString);
+  }
+
+  async function getServices(searchString: string) {
     try {
       setLoading(true);
-      const res = await axios.get("/central-identity/services");
+      const res = await axios.get("/central-identity/services", {
+        params: {
+          activePage,
+          limit: itemsPerPage,
+          query: searchString,
+          sort: sortChoice,
+        }
+      });
       if (
         res.data.err ||
         !res.data.services ||
@@ -54,7 +88,6 @@ const CentralIdentityServices = () => {
         throw new Error("Error retrieving services");
       }
 
-      // console.log(res.data.services);
       setServices(res.data.services);
       setTotalPages(Math.ceil(res.data.totalCount / itemsPerPage));
     } catch (err) {
@@ -94,17 +127,43 @@ const CentralIdentityServices = () => {
                 <Breadcrumb.Section active>Services</Breadcrumb.Section>
               </Breadcrumb>
             </Segment>
+            <Segment>
+               <Grid>
+                 <Grid.Row>
+                  <Grid.Column width={11}>
+                     <Dropdown
+                       placeholder="Sort by..."
+                       floating
+                       selection
+                       button
+                       options={sortOptions}
+                       onChange={(_e, { value }) => {
+                         setSortChoice(value as string);
+                       }}
+                       value={sortChoice}
+                     />
+                   </Grid.Column>
+                   <Grid.Column width={5}>
+                     <Input
+                       icon="search"
+                       placeholder="Search by Name or ID..."
+                       onChange={(e) => {
+                         setSearchInput(e.target.value);
+                         getServicesDebounced(e.target.value);
+                       }}
+                       value={searchInput}
+                       fluid
+                    />
+                  </Grid.Column>
+                </Grid.Row>
+              </Grid>
+            </Segment>
             {loading && (
               <Segment>
                 <Loader active inline="centered" />
               </Segment>
             )}
 
-            {true ? (
-              <Segment>
-                <h2>THIS PAGE COMING SOON</h2>
-              </Segment>
-            ) : (
               <>
                 <Segment>
                   <PaginationWithItemsSelect
@@ -176,10 +235,15 @@ const CentralIdentityServices = () => {
                   />
                 </Segment>
               </>
-            )}
           </Segment.Group>
         </Grid.Column>
       </Grid.Row>
+      <ViewServiceDetailsModal
+        open={showUserModal}
+        onClose={() => setShowUserModal(false)}
+        service={selectedService}
+        onServiceUpdated={refreshServices}
+      />
     </Grid>
   );
 };
