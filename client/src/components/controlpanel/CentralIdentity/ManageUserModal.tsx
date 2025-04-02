@@ -156,6 +156,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
       }
 
       setUserApps([...(res.data.applications as CentralIdentityApp[])]);
+      console.log("res.data.applications:", res.data.applications);
     } catch (err) {
       handleGlobalError(err);
     } finally {
