@@ -135,7 +135,7 @@ const AddUserAppModal: React.FC<AddUserAppModalProps> = ({
             <div className="flex flex-row mb-6">
               <div className="w-1/2 pr-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-medium">Default Applications</h3>
+                  <h3 className="text-lg font-bold">Default Applications</h3>
                   <p className="underline cursor-pointer" onClick={handleSelectAllDefaultLibs}>
                     Select all defaults
                   </p>
@@ -156,7 +156,7 @@ const AddUserAppModal: React.FC<AddUserAppModalProps> = ({
               
               <div className="w-1/2 pl-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-medium">Other Applications</h3>
+                  <h3 className="text-lg font-bold">Other Applications</h3>
                   <p className="underline cursor-pointer" onClick={handleSelectAllOthersLibs}>
                     Select all others
                   </p>
