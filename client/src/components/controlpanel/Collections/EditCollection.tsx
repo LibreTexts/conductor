@@ -93,7 +93,7 @@ const EditCollection: FC<EditCollectionProps> = ({
     if (["nest", "create"].includes(mode)) {
       axiosReq = axios.post("/commons/collection", d);
     } else {
-      axiosReq = axios.patch(
+      axiosReq = axios.put(
         `/commons/collection/${collectionToEdit?.collID}`,
         d
       );
