@@ -41,6 +41,7 @@ export const projectClassifications = [
   "construction",
   "technology",
   "librefest",
+  "academy",
   "coursereport",
   "adoptionrequest",
   "miscellaneous",
