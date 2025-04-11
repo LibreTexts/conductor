@@ -117,7 +117,7 @@ export const RemoveTicketCCValidator = z
 export const SendTicketMessageValidator = z
   .object({
     body: z.object({
-      message: z.string().trim().min(1).max(1000),
+      message: z.string().trim().min(1).max(3000),
       attachments: z.array(z.string()).optional(),
     }),
     query: z.object({

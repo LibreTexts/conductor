@@ -25,6 +25,7 @@ import api from "../../../api";
 import { capitalizeFirstLetter } from "../../../components/util/HelperFunctions";
 import TicketAutoCloseWarning from "../../../components/support/TicketAutoCloseWarning";
 import { SupportTicketPriority } from "../../../types/support";
+import { useMediaQuery } from "react-responsive";
 
 const AssignTicketModal = lazy(
   () => import("../../../components/support/AssignTicketModal")
@@ -42,6 +43,7 @@ const SupportTicketView = () => {
   const location = useLocation();
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
+  const isTailwindLg = useMediaQuery({ minWidth: "1024px" });
 
   const [id, setId] = useState<string>("");
   const [accessKey, setAccessKey] = useState("");
@@ -81,8 +83,7 @@ const SupportTicketView = () => {
   });
 
   const updateTicketPriorityMutation = useMutation({
-    mutationFn: (priority: SupportTicketPriority) =>
-      updateTicket({ priority }),
+    mutationFn: (priority: SupportTicketPriority) => updateTicket({ priority }),
     onSuccess: () => {
       queryClient.invalidateQueries(["ticket", id]);
     },
@@ -207,17 +208,22 @@ const SupportTicketView = () => {
         medium: 2,
         low: 1,
       };
-      return priorityMap[priority] > priorityMap[currentPriority] ? "higher" : "lower";
+      return priorityMap[priority] > priorityMap[currentPriority]
+        ? "higher"
+        : "lower";
     };
 
     return allowed.map((opt) => ({
       value: capitalizeFirstLetter(opt),
-      icon: higherOrLower(opt as SupportTicketPriority) === "higher" ? "arrow up" : "arrow down",
+      icon:
+        higherOrLower(opt as SupportTicketPriority) === "higher"
+          ? "arrow up"
+          : "arrow down",
     }));
   }, [ticket]);
 
   const AdminOptions = () => (
-    <div className="flex flex-row">
+    <div className="flex flex-row mt-4 lg:mt-0">
       {ticket?.status === "open" && (
         <Button
           color="red"
@@ -235,6 +241,7 @@ const SupportTicketView = () => {
               toggleAutoCloseMutation.mutateAsync(!ticket?.autoCloseSilenced)
             }
             loading={loading || isFetching}
+            size={isTailwindLg ? undefined : "mini"}
           >
             <Icon name="shield alternate" />
             {ticket?.autoCloseSilenced ? "Enable" : "Disable"} Auto-Close
@@ -249,6 +256,7 @@ const SupportTicketView = () => {
             button
             className="icon"
             loading={loading || isFetching}
+            size={isTailwindLg ? undefined : "mini"}
           >
             <Dropdown.Menu>
               {changePriorityOptions.map((opt) => (
@@ -270,6 +278,7 @@ const SupportTicketView = () => {
             color="blue"
             onClick={() => setShowAssignModal(true)}
             loading={loading || isFetching}
+            size={isTailwindLg ? undefined : "mini"}
           >
             <Icon name="user plus" />
             {ticket?.assignedUUIDs && ticket?.assignedUUIDs?.length > 0
@@ -281,6 +290,7 @@ const SupportTicketView = () => {
             color="green"
             onClick={() => updateTicketStatusMutation.mutateAsync("closed")}
             loading={loading || isFetching}
+            size={isTailwindLg ? undefined : "mini"}
           >
             <Icon name="check" />
             Mark as Resolved
@@ -292,6 +302,7 @@ const SupportTicketView = () => {
           color="orange"
           onClick={() => updateTicketStatusMutation.mutateAsync("in_progress")}
           loading={loading || isFetching}
+          size={isTailwindLg ? undefined : "mini"}
         >
           <Icon name="undo" />
           Re-Open Ticket
@@ -305,7 +316,7 @@ const SupportTicketView = () => {
       <div aria-busy={isFetching} className="px-8 pt-8">
         {ticket && (
           <>
-            <div className="flex flex-row w-full justify-between">
+            <div className="flex flex-col lg:flex-row w-full justify-between">
               <div className="flex flex-row items-center">
                 <p className="text-3xl font-semibold">
                   Support Ticket: #{ticket?.uuid.slice(-7)}

@@ -54,7 +54,7 @@ const TicketComment: React.FC<TicketCommentProps> = ({ msg }) => {
             </p>
           </CommentMetadata>
         </div>
-        <CommentText className="!break-words">
+        <CommentText className="!break-all">
           {formatMessage(msg.message)}
         </CommentText>
       </CommentContent>
