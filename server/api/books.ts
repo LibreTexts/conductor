@@ -868,6 +868,8 @@ async function getCommonsCatalog(
         if (campusNames.length > 0) {
           institutionOptions.push({ publisher: { $in: campusNames } });
           institutionOptions.push({ course: { $in: campusNames } });
+          institutionOptions.push({ program: { $in: campusNames } });
+          institutionOptions.push({ affiliation: { $in: campusNames } });
         }
 
         const hasCustomEntries =
