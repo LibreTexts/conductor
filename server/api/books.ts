@@ -39,6 +39,7 @@ import {
   libraryNameKeys,
   unsupportedSyncLibraryNameKeys,
 } from "../util/librariesmap.js";
+import authAPI from "./auth.js";
 import projectsAPI from "./projects.js";
 import alertsAPI from "./alerts.js";
 import mailAPI from "./mail.js";
@@ -2149,12 +2150,16 @@ async function getPageDetail(
     const { coverPageID } = req.query;
     const [_, pageID] = getLibraryAndPageFromBookID(fullPageID);
 
+    // Check if the user has access to the page. If not, check if they are a superadmin first before returning 403.
     const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
     if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
+      const isSuperadmin = authAPI.checkHasRole(req.user, "libretexts", "superadmin", true);
+      if (!isSuperadmin) {
+        return res.status(403).send({
+          err: true,
+          errMsg: conductorErrors.err8,
+        });
+      }
     }
 
     const bookService = new BookService({ bookID: coverPageID });
@@ -2189,12 +2194,16 @@ async function getPageAISummary(
     const { coverPageID } = req.query;
     const [_, pageID] = getLibraryAndPageFromBookID(fullPageID);
 
+    // Check if the user has access to the page. If not, check if they are a superadmin first before returning 403.
     const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
     if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
+      const isSuperadmin = authAPI.checkHasRole(req.user, "libretexts", "superadmin", true);
+      if (!isSuperadmin) {
+        return res.status(403).send({
+          err: true,
+          errMsg: conductorErrors.err8,
+        });
+      }
     }
 
     const bookService = new BookService({ bookID: coverPageID });
@@ -2230,12 +2239,16 @@ async function getPageAITags(
     const { coverPageID } = req.query;
     const [_, pageID] = getLibraryAndPageFromBookID(fullPageID);
 
+    // Check if the user has access to the page. If not, check if they are a superadmin first before returning 403.
     const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
     if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
+      const isSuperadmin = authAPI.checkHasRole(req.user, "libretexts", "superadmin", true);
+      if (!isSuperadmin) {
+        return res.status(403).send({
+          err: true,
+          errMsg: conductorErrors.err8,
+        });
+      }
     }
 
     const bookService = new BookService({ bookID: coverPageID });
@@ -2267,12 +2280,16 @@ async function generatePageImagesAltText(
     const { overwrite } = req.body;
     const [_, pageID] = getLibraryAndPageFromBookID(fullPageID);
 
+    // Check if the user has access to the page. If not, check if they are a superadmin first before returning 403.
     const canAccess = await _canAccessPage(coverPageID, req.user.decoded.uuid);
     if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
+      const isSuperadmin = authAPI.checkHasRole(req.user, "libretexts", "superadmin", true);
+      if (!isSuperadmin) {
+        return res.status(403).send({
+          err: true,
+          errMsg: conductorErrors.err8,
+        });
+      }
     }
 
     const bookService = new BookService({ bookID: coverPageID });
@@ -2349,16 +2366,6 @@ async function batchGenerateAIMetadata(
       });
     }
 
-    const canAccess = await _canAccessPage(
-      req.params.bookID,
-      req.user.decoded.uuid
-    );
-    if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
-    }
 
     const user = await User.findOne({ uuid: req.user.decoded.uuid }).orFail();
     if (!user || !user.email) {
@@ -2366,6 +2373,22 @@ async function batchGenerateAIMetadata(
         err: true,
         errMsg: conductorErrors.err9,
       });
+    }
+
+    const canAccess = await _canAccessPage(
+      req.params.bookID,
+      req.user.decoded.uuid
+    );
+    
+    // If user can't access page, check if they are superadmin. If not, deny access.
+    if (!canAccess) {
+      const isSuperAdmin = authAPI.checkHasRole(user, "libretexts", "superadmin", true);
+      if (!isSuperAdmin) {
+        return res.status(403).send({
+          err: true,
+          errMsg: conductorErrors.err8,
+        });
+      }
     }
 
     const activeJob = project.batchUpdateJobs?.filter((j) =>
@@ -2472,23 +2495,28 @@ async function batchUpdateBookMetadata(
       });
     }
 
-    const canAccess = await _canAccessPage(
-      req.params.bookID,
-      req.user.decoded.uuid
-    );
-    if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
-    }
-
     const user = await User.findOne({ uuid: req.user.decoded.uuid }).orFail();
     if (!user || !user.email) {
       return res.status(400).send({
         err: true,
         errMsg: conductorErrors.err9,
       });
+    }
+
+    const canAccess = await _canAccessPage(
+      req.params.bookID,
+      req.user.decoded.uuid
+    );
+
+    // If user can't access page, check if they are superadmin. If not, deny access.
+    if (!canAccess) {
+      const isSuperAdmin = authAPI.checkHasRole(user, "libretexts", "superadmin", true);
+      if (!isSuperAdmin) {
+        return res.status(403).send({
+          err: true,
+          errMsg: conductorErrors.err8,
+        });
+      }
     }
 
     const activeJob = project.batchUpdateJobs?.filter((j) =>

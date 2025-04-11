@@ -865,6 +865,13 @@ const checkHasRole = (
   role: string,
   silent = false
 ) => {
+  if (!user) {
+    if (!silent) {
+      debugError(conductorErrors.err7);
+    }
+    return false;
+  }
+  
   if (user.roles !== undefined && Array.isArray(user.roles)) {
     let foundRole = user.roles.find((element) => {
       if (element.org && element.role) {
