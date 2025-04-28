@@ -7,6 +7,7 @@ import {
   DeleteTicketValidator,
   GetClosedTicketsValidator,
   GetOpenTicketsValidator,
+  GetRequestorOtherTicketsValidator,
   GetTicketAttachmentValidator,
   GetTicketValidator,
   GetUserTicketsValidator,
@@ -92,7 +93,7 @@ async function getUserTickets(
   try {
     const { uuid } = req.user?.decoded;
     if (!uuid) {
-      return res.send({
+      return res.status(403).send({
         err: true,
         errMsg: conductorErrors.err8,
       });
@@ -104,19 +105,103 @@ async function getUserTickets(
     if (req.query.limit) limit = parseInt(req.query.limit.toString());
     const offset = getPaginationOffset(page, limit);
 
+    const results = await _getUserTickets({
+      uuid: uuid,
+      sort: req.query.sort,
+      page,
+      limit,
+      offset,
+    });
+
+    if (!results) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      tickets: results.tickets,
+      total: results.total
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function getRequestorOtherTickets(
+  req: ZodReqWithUser<z.infer<typeof GetRequestorOtherTicketsValidator>>,
+  res: Response
+) {
+  try {
+    const { uuid, email, currentTicketUUID } = req.query;
+
+    let page = 1;
+    let limit = 25;
+    if (req.query.page) page = req.query.page;
+    if (req.query.limit) limit = parseInt(req.query.limit.toString());
+    const offset = getPaginationOffset(page, limit);
+
+    const results = await _getUserTickets({
+      uuid: uuid,
+      email: email,
+      sort: req.query.sort,
+      page,
+      limit,
+      offset,
+    });
+
+    if (!results) {
+      return conductor500Err(res);
+    }
+
+    // Filter out the current ticket from the results if provided
+    if(currentTicketUUID){
+      results.tickets = results.tickets.filter((t) => t.uuid !== currentTicketUUID);
+    }
+
+    return res.send({
+      err: false,
+      tickets: results.tickets,
+      total: results.total
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function _getUserTickets({
+  uuid,
+  email,
+  sort = "opened",
+  page = 1,
+  limit = 25,
+  offset = 0,
+}:{
+  uuid?: string;
+  email?: string;
+  sort?: string;
+  page?: number;
+  limit?: number;
+  offset?: number;
+}): Promise<{tickets: SupportTicketInterface[], total: number} | undefined> {
+  try {
+    if(!uuid && !email) return undefined;
+
     const getSortObj = () => {
-      if (req.query.sort === "priority") {
+      if (sort === "priority") {
         return { priority: -1 };
       }
-      if (req.query.sort === "status") {
+      if (sort === "status") {
         return { status: -1 };
       }
       return { timeOpened: -1 };
     };
 
     const sortObj = getSortObj();
+    const searchObj = uuid ? { userUUID: uuid } : { "guest.email": email };
 
-    const tickets = await SupportTicket.find({ userUUID: uuid })
+    const tickets = await SupportTicket.find(searchObj)
       .skip(offset)
       .limit(limit)
       .sort(sortObj as any)
@@ -126,15 +211,15 @@ async function getUserTickets(
       return _removeAccessKeysFromResponse(t);
     });
 
-    const total = await SupportTicket.countDocuments({ userUUID: uuid });
-    return res.send({
-      err: false,
+    const total = await SupportTicket.countDocuments(searchObj);
+
+    return {
       tickets,
-      total,
-    });
-  } catch (err) {
+      total
+    }
+  } catch (err){
     debugError(err);
-    return conductor500Err(res);
+    return undefined;
   }
 }
 
@@ -1606,6 +1691,7 @@ const _removeAccessKeysFromResponse = (
 export default {
   getTicket,
   getUserTickets,
+  getRequestorOtherTickets,
   getOpenInProgressTickets,
   getClosedTickets,
   getSupportMetrics,

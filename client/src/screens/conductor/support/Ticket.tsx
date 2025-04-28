@@ -26,6 +26,7 @@ import { capitalizeFirstLetter } from "../../../components/util/HelperFunctions"
 import TicketAutoCloseWarning from "../../../components/support/TicketAutoCloseWarning";
 import { SupportTicketPriority } from "../../../types/support";
 import { useMediaQuery } from "react-responsive";
+import TicketUserOtherTickets from "../../../components/support/TicketUserOtherTickets";
 
 const AssignTicketModal = lazy(
   () => import("../../../components/support/AssignTicketModal")
@@ -357,6 +358,11 @@ const SupportTicketView = () => {
                     guestAccessKey={accessKey}
                   />
                 </div>
+                {isSupportStaff(user) && (
+                  <div className="mt-4">
+                    <TicketUserOtherTickets ticket={ticket} />
+                  </div>
+                )}
               </div>
             </div>
           </>
