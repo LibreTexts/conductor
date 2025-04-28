@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy } from "react";
-import { Button, Dropdown, Icon } from "semantic-ui-react";
+import { Button, Dropdown, Icon, Input } from "semantic-ui-react";
 import useGlobalError from "../error/ErrorHooks";
 import { GenericKeyTextValueObj, SupportTicket } from "../../types";
 import axios from "axios";
@@ -15,9 +15,11 @@ import { useNotifications } from "../../context/NotificationContext";
 import CopyButton from "../util/CopyButton";
 import { Link } from "react-router-dom";
 import SupportCenterTable from "./SupportCenterTable";
+import useDebounce from "../../hooks/useDebounce";
+import LoadingSpinner from "../LoadingSpinner";
 const AssignTicketModal = lazy(() => import("./AssignTicketModal"));
 const SupportCenterSettingsModal = lazy(
-  () => import("./SupportCenterSettingsModal")
+  () => import("./SupportCenterSettingsModal"),
 );
 
 type SupportMetrics = {
@@ -29,9 +31,12 @@ type SupportMetrics = {
 const StaffDashboard = () => {
   const { handleGlobalError } = useGlobalError();
   const { addNotification } = useNotifications();
+  const queryClient = useQueryClient();
   const user = useTypedSelector((state) => state.user);
+  const { debounce } = useDebounce();
 
-  const [loading, setLoading] = useState(false);
+  const [queryInputString, setQueryInputString] = useState<string>("");
+  const [query, setQuery] = useState<string>("");
   const [activePage, setActivePage] = useState<number>(1);
   const [activeSort, setActiveSort] = useState<string>("opened");
   const [totalPages, setTotalPages] = useState<number>(1);
@@ -53,7 +58,6 @@ const StaffDashboard = () => {
     category: [],
   });
 
-  const queryClient = useQueryClient();
   const { data: openTickets, isFetching } = useQuery<SupportTicket[]>({
     queryKey: [
       "openTickets",
@@ -63,9 +67,11 @@ const StaffDashboard = () => {
       assigneeFilter,
       priorityFilter,
       categoryFilter,
+      query,
     ],
     queryFn: () =>
       getOpenTickets({
+        query: queryInputString,
         page: activePage,
         items: itemsPerPage,
         sort: activeSort,
@@ -77,17 +83,19 @@ const StaffDashboard = () => {
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 
-  const { data: supportMetrics } = useQuery<SupportMetrics>({
-    queryKey: ["supportMetrics"],
-    queryFn: getSupportMetrics,
-    staleTime: 1000 * 60 * 2, // 2 minutes
-  });
+  const { data: supportMetrics, isFetching: isFetchingMetrics } =
+    useQuery<SupportMetrics>({
+      queryKey: ["supportMetrics"],
+      queryFn: getSupportMetrics,
+      staleTime: 1000 * 60 * 2, // 2 minutes
+    });
 
   useEffect(() => {
     setActivePage(1); // Reset to first page when itemsPerPage changes
   }, [itemsPerPage]);
 
   async function getOpenTickets({
+    query,
     page,
     items,
     sort,
@@ -95,6 +103,7 @@ const StaffDashboard = () => {
     priorityFilter,
     categoryFilter,
   }: {
+    query: string;
     page: number;
     items: number;
     sort: string;
@@ -103,15 +112,15 @@ const StaffDashboard = () => {
     categoryFilter?: string;
   }) {
     try {
-      setLoading(true);
       const res = await axios.get("/support/ticket/open", {
         params: {
+          ...(query?.length > 3 && { query: query }),
           page: page,
           limit: items,
           sort: sort,
-          assignee: assigneeFilter,
-          priority: priorityFilter,
-          category: categoryFilter,
+          ...(assigneeFilter && { assignee: assigneeFilter }),
+          ...(priorityFilter && { priority: priorityFilter }),
+          ...(categoryFilter && { category: categoryFilter }),
         },
       });
       if (res.data.err) {
@@ -154,14 +163,11 @@ const StaffDashboard = () => {
     } catch (err) {
       handleGlobalError(err);
       return [];
-    } finally {
-      setLoading(false);
     }
   }
 
   async function getSupportMetrics(): Promise<SupportMetrics> {
     try {
-      setLoading(true);
       const res = await axios.get("/support/metrics");
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -186,10 +192,13 @@ const StaffDashboard = () => {
         lastSevenTicketCount: 0,
         avgDaysToClose: "0",
       };
-    } finally {
-      setLoading(false);
     }
   }
+
+  const debouncedQueryUpdate = debounce(
+    (searchString: string) => setQuery(searchString),
+    300,
+  );
 
   function openAssignModal(ticketId: string) {
     setSelectedTicketId(ticketId);
@@ -221,7 +230,7 @@ const StaffDashboard = () => {
 
   function getAssigneeName(uuid: string) {
     const user = openTickets?.find((t) =>
-      t.assignedUsers?.find((u) => u.uuid === uuid)
+      t.assignedUsers?.find((u) => u.uuid === uuid),
     );
     if (user) {
       return user.assignedUsers?.find((u) => u.uuid === uuid)?.firstName;
@@ -233,18 +242,20 @@ const StaffDashboard = () => {
   const DashboardMetric = ({
     metric,
     title,
+    loading = false,
   }: {
     metric: string;
     title: string;
+    loading?: boolean;
   }) => (
     <div className="flex flex-col bg-primary rounded-xl h-40 shadow-lg justify-center p-4 basis-1/4">
-      <p className="text-4xl font-semibold text-white">{metric}</p>
+      <p className="text-4xl font-semibold text-white">{loading ? <LoadingSpinner fullscreen={false} iconOnly light/> : metric}</p>
       <p className="text-2xl font-semibold text-white">{title}</p>
     </div>
   );
 
   return (
-    <div className="flex flex-col p-8" aria-busy={loading}>
+    <div className="flex flex-col p-8">
       <div className="flex flex-row justify-between items-center">
         <p className="text-4xl font-semibold">Staff Dashboard</p>
         <div className="flex flex-row">
@@ -275,18 +286,109 @@ const StaffDashboard = () => {
         <DashboardMetric
           metric={supportMetrics?.totalOpenTickets?.toString() ?? "0"}
           title="Open/In Progress Tickets"
+          loading={isFetchingMetrics}
         />
         <DashboardMetric
           metric={(supportMetrics?.avgDaysToClose?.toString() ?? 0) + " days"}
           title="Average Time to Resolution"
+          loading={isFetchingMetrics}
         />
         <DashboardMetric
           metric={supportMetrics?.lastSevenTicketCount?.toString() ?? "0"}
           title="New Tickets Past 7 Days"
+          loading={isFetchingMetrics}
         />
       </div>
       <div className="mt-12">
         <p className="text-3xl font-semibold mb-2">Open/In Progress Tickets</p>
+        <div className="flex flex-row my-2 justify-between">
+          <div className="flex flex-row items-center">
+            <Dropdown
+              text={
+                assigneeFilter
+                  ? getAssigneeName(assigneeFilter)
+                  : "Filter by Assignee"
+              }
+              icon="users"
+              floating
+              labeled
+              button
+              className="icon"
+              basic
+            >
+              <Dropdown.Menu>
+                {filterOptions.assignee.map((a) => (
+                  <Dropdown.Item
+                    key={a.key}
+                    onClick={() => handleFilterChange("assignee", a.value)}
+                  >
+                    {a.text}
+                  </Dropdown.Item>
+                ))}
+              </Dropdown.Menu>
+            </Dropdown>
+            <Dropdown
+              text={
+                priorityFilter
+                  ? capitalizeFirstLetter(priorityFilter)
+                  : "Filter by Priority"
+              }
+              icon="exclamation triangle"
+              floating
+              labeled
+              button
+              className="icon !ml-3"
+              basic
+            >
+              <Dropdown.Menu>
+                {filterOptions.priority.map((p) => (
+                  <Dropdown.Item
+                    key={p.key}
+                    onClick={() => handleFilterChange("priority", p.value)}
+                  >
+                    {p.text}
+                  </Dropdown.Item>
+                ))}
+              </Dropdown.Menu>
+            </Dropdown>
+            <Dropdown
+              text={
+                categoryFilter
+                  ? capitalizeFirstLetter(categoryFilter)
+                  : "Filter by Category"
+              }
+              icon="filter"
+              floating
+              labeled
+              button
+              className="icon !ml-3"
+              basic
+            >
+              <Dropdown.Menu>
+                {filterOptions.category.map((c) => (
+                  <Dropdown.Item
+                    key={c.key}
+                    onClick={() => handleFilterChange("category", c.value)}
+                  >
+                    {c.text}
+                  </Dropdown.Item>
+                ))}
+              </Dropdown.Menu>
+            </Dropdown>
+          </div>
+          <Input
+            type="text"
+            icon="search"
+            loading={isFetching}
+            className="min-w-[30rem]"
+            placeholder="ID, title, requester name, email, etc."
+            value={queryInputString}
+            onChange={(e) => {
+              setQueryInputString(e.target.value);
+              debouncedQueryUpdate(e.target.value);
+            }}
+          />
+        </div>
         <PaginationWithItemsSelect
           activePage={activePage}
           totalPages={totalPages}
@@ -299,80 +401,6 @@ const StaffDashboard = () => {
           activeSort={activeSort}
           setActiveSortFn={setActiveSort}
         />
-        <div className="flex flex-row mt-2">
-          <Dropdown
-            text={
-              assigneeFilter
-                ? getAssigneeName(assigneeFilter)
-                : "Filter by Assignee"
-            }
-            icon="users"
-            floating
-            labeled
-            button
-            className="icon"
-            basic
-          >
-            <Dropdown.Menu>
-              {filterOptions.assignee.map((a) => (
-                <Dropdown.Item
-                  key={a.key}
-                  onClick={() => handleFilterChange("assignee", a.value)}
-                >
-                  {a.text}
-                </Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </Dropdown>
-          <Dropdown
-            text={
-              priorityFilter
-                ? capitalizeFirstLetter(priorityFilter)
-                : "Filter by Priority"
-            }
-            icon="exclamation triangle"
-            floating
-            labeled
-            button
-            className="icon !ml-3"
-            basic
-          >
-            <Dropdown.Menu>
-              {filterOptions.priority.map((p) => (
-                <Dropdown.Item
-                  key={p.key}
-                  onClick={() => handleFilterChange("priority", p.value)}
-                >
-                  {p.text}
-                </Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </Dropdown>
-          <Dropdown
-            text={
-              categoryFilter
-                ? capitalizeFirstLetter(categoryFilter)
-                : "Filter by Category"
-            }
-            icon="filter"
-            floating
-            labeled
-            button
-            className="icon !ml-3"
-            basic
-          >
-            <Dropdown.Menu>
-              {filterOptions.category.map((c) => (
-                <Dropdown.Item
-                  key={c.key}
-                  onClick={() => handleFilterChange("category", c.value)}
-                >
-                  {c.text}
-                </Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </Dropdown>
-        </div>
         <SupportCenterTable<SupportTicket & { actions?: string }>
           loading={isFetching}
           data={openTickets}
@@ -411,7 +439,7 @@ const StaffDashboard = () => {
               render(record) {
                 return format(
                   parseISO(record.timeOpened),
-                  "MM/dd/yyyy hh:mm aa"
+                  "MM/dd/yyyy hh:mm aa",
                 );
               },
             },

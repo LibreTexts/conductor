@@ -19,21 +19,22 @@ export const GetUserTicketsValidator = z.object({
 });
 
 export const GetRequestorOtherTicketsValidator = z.object({
-  query: z.object({
-    email: z.string().email().or(z.literal("")).optional(),
-    uuid: z.string().uuid().or(z.literal("")).optional(),
-    currentTicketUUID: z.string().uuid().optional(),
-    page: z.coerce.number().min(1).optional(),
-    limit: z.coerce.number().min(1).optional(),
-    sort: z.enum(["opened", "priority", "status"]).optional(),
-  }).refine((data) => {
-    if (!data.email && !data.uuid) {
-      return false
-    }
-    return true;
-  }, "At least one of email or uuid is required")
+  query: z
+    .object({
+      email: z.string().email().or(z.literal("")).optional(),
+      uuid: z.string().uuid().or(z.literal("")).optional(),
+      currentTicketUUID: z.string().uuid().optional(),
+      page: z.coerce.number().min(1).optional(),
+      limit: z.coerce.number().min(1).optional(),
+      sort: z.enum(["opened", "priority", "status"]).optional(),
+    })
+    .refine((data) => {
+      if (!data.email && !data.uuid) {
+        return false;
+      }
+      return true;
+    }, "At least one of email or uuid is required"),
 });
-
 
 export const CreateTicketValidator = z.object({
   body: z.object({
@@ -81,14 +82,9 @@ export const UpdateTicketValidator = z
   })
   .merge(TicketUUIDParams);
 
-export const SearchTicketsValidator = z.object({
-  query: z.object({
-    query: z.string().min(3),
-  }),
-});
-
 export const GetOpenTicketsValidator = z.object({
   query: z.object({
+    query: z.string().min(3).or(z.literal("")).optional(),
     page: z.coerce.number().min(1).optional(),
     limit: z.coerce.number().min(1).optional(),
     sort: z.enum(["opened", "priority", "status", "category"]).optional(),
