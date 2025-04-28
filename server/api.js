@@ -1026,7 +1026,7 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
-    usersAPI.validate("deleteUserRole"), 
+    usersAPI.validate("deleteUserRole"),
     middleware.checkValidationErrors,
     usersAPI.deleteUserRole
   );
@@ -2204,6 +2204,14 @@ router.route("/support/ticket/user").get(
   middleware.validateZod(supportValidators.GetUserTicketsValidator), // TODO: RBAC
   supportAPI.getUserTickets
 );
+
+router.route("/support/ticket/requestor-other-tickets").get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "support"),
+  middleware.validateZod(supportValidators.GetRequestorOtherTicketsValidator),
+  supportAPI.getRequestorOtherTickets
+)
 
 router
   .route("/support/assignable-users")

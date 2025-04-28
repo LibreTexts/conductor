@@ -94,7 +94,7 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
 
   return (
     <div>
-      <div className="flex flex-col w-full bg-white rounded-md border-blue-500 border-2">
+      <div className="flex flex-col w-full bg-white rounded-md border-blue-500 border">
         <div className="flex flex-col border shadow-md rounded-md p-4">
           <p className="text-xl font-semibold text-center">Internal Comments</p>
           <div className="px-4 mt-1 mb-1">

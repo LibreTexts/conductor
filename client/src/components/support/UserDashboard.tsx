@@ -8,8 +8,10 @@ import TicketStatusLabel from "./TicketStatusLabel";
 import { PaginationWithItemsSelect } from "../util/PaginationWithItemsSelect";
 import { useQuery } from "@tanstack/react-query";
 import LoadingSpinner from "../LoadingSpinner";
+import { useTypedSelector } from "../../state/hooks";
 
 const UserDashboard = () => {
+  const user = useTypedSelector((state) => state.user);
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
   const [activePage, setActivePage] = useState<number>(1);
@@ -23,6 +25,7 @@ const UserDashboard = () => {
     queryFn: () => getUserTickets(activePage, itemsPerPage, activeSort),
     keepPreviousData: true,
     staleTime: 1000 * 60 * 2, // 2 minutes
+    enabled: !!user.uuid,
   });
 
   useEffect(() => {
@@ -31,9 +34,11 @@ const UserDashboard = () => {
 
   async function getUserTickets(page: number, limit: number, sort: string) {
     try {
+      if (!user.uuid) return;
       setLoading(true);
       const res = await axios.get("/support/ticket/user", {
         params: {
+          uuid: user.uuid,
           page,
           limit,
           sort,
@@ -48,7 +53,7 @@ const UserDashboard = () => {
       }
 
        setTotalItems(res.data.total);
-    
+
       setTotalPages(Math.ceil(res.data.total / itemsPerPage));
 
       return res.data.tickets;
