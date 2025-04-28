@@ -48,7 +48,11 @@ function SupportCenterTable<T>({
         {!loading &&
           data.length !== 0 &&
           data.map((record) => (
-            <Table.Row key={crypto.randomUUID()} onClick={() => onRowClick?.(record)} className={onRowClick ? "cursor-pointer hover:bg-gray-100" : ""}>
+            <Table.Row
+              key={crypto.randomUUID()}
+              onClick={() => onRowClick?.(record)}
+              className={onRowClick ? "cursor-pointer hover:bg-gray-100" : ""}
+            >
               {columns.map((column, index) => (
                 <Table.Cell
                   key={index}
@@ -72,7 +76,13 @@ function SupportCenterTable<T>({
           </Table.Row>
         )}
         {/* Loading spinner */}
-        {loading && <LoadingSpinner />}
+        {loading && (
+          <Table.Row className="!h-16">
+            <Table.Cell colSpan={columns.length} className="!text-center">
+              <LoadingSpinner fullscreen={false}/>
+            </Table.Cell>
+          </Table.Row>
+        )}
       </Table.Body>
     </Table>
   );
