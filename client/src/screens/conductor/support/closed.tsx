@@ -1,6 +1,9 @@
 import DefaultLayout from "../../../components/kb/DefaultLayout";
 import { useEffect, useState } from "react";
-import { getPrettySupportTicketCategory } from "../../../utils/supportHelpers";
+import {
+  getPrettySupportTicketCategory,
+  isSupportStaff,
+} from "../../../utils/supportHelpers";
 import { PaginationWithItemsSelect } from "../../../components/util/PaginationWithItemsSelect";
 import { Button, Icon } from "semantic-ui-react";
 import { capitalizeFirstLetter } from "../../../components/util/HelperFunctions";
@@ -11,8 +14,10 @@ import axios from "axios";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import SupportCenterTable from "../../../components/support/SupportCenterTable";
 import { Link } from "react-router-dom";
+import { useTypedSelector } from "../../../state/hooks";
 
 const SupportDashboard = () => {
+  const user = useTypedSelector((state) => state.user);
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
   const [activePage, setActivePage] = useState<number>(1);
@@ -65,6 +70,19 @@ const SupportDashboard = () => {
       <div className="flex flex-col p-8" aria-busy={loading}>
         <div className="flex flex-row justify-between items-center">
           <p className="text-4xl font-semibold">Closed Tickets</p>
+          {isSupportStaff(user) && (
+            <div className="flex flex-row">
+              <Button
+                color="blue"
+                size="tiny"
+                basic
+                onClick={() => (window.location.href = "/support/dashboard")}
+              >
+                <Icon name="clock outline" />
+                View Open Tickets
+              </Button>
+            </div>
+          )}
         </div>
         <div className="mt-12">
           <PaginationWithItemsSelect
@@ -96,7 +114,7 @@ const SupportDashboard = () => {
                 render(record) {
                   return format(
                     parseISO(record.timeOpened),
-                    "MM/dd/yyyy hh:mm aa"
+                    "MM/dd/yyyy hh:mm aa",
                   );
                 },
               },
@@ -144,7 +162,7 @@ const SupportDashboard = () => {
                   if (!record.timeClosed) return "N/A";
                   return format(
                     parseISO(record.timeClosed),
-                    "MM/dd/yyyy hh:mm aa"
+                    "MM/dd/yyyy hh:mm aa",
                   );
                 },
               },
