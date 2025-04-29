@@ -246,24 +246,34 @@ async function checkUsersApplicationAccess(
     const { ids } = req.body;
     const { applicationId } = req.params;
 
-    const users = await User.find({ uuid: { $in: ids } });
-
-    if (!users.length) return conductor404Err(res);
-
-    const accessResults = await Promise.all(
-      users.map(async (user) => {
-        if (!user.centralID) {
-          return { id: user.uuid, hasAccess: false }; 
-        }
-
-        const hasAccess = await checkUserApplicationAccessInternal(
-          user.centralID,
-          applicationId
-        );
-
-        return { id: user.uuid, hasAccess: hasAccess !== null ? hasAccess : false };
+    if(!applicationId || !ids || ids.length === 0){
+      return res.send({
+        err: false,
+        accessResults: [],
       })
-    );
+    }
+
+    const users = await User.find({ uuid: { $in: ids } });
+    if (!users?.length) return conductor404Err(res);
+
+    const accessPromises = users.map((u) => {
+      return new Promise<{ id: string;  hasAccess: boolean}>((resolve, reject) => {
+        if (!u.centralID) {
+          resolve({ id: u.uuid, hasAccess: false });
+        } else {
+          checkUserApplicationAccessInternal(u.centralID, applicationId)
+            .then((hasAccess) => {
+              resolve({ id: u.uuid, hasAccess: hasAccess ?? false });
+            })
+            .catch((err) => {
+              console.log(err);
+              reject(err);
+            });
+        }
+      })
+    });
+
+    const accessResults = await Promise.all(accessPromises);
 
     return res.send({
       err: false,

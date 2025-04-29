@@ -44,7 +44,6 @@ import {
 } from '../util/bookutils.js';
 import { validateA11YReviewSectionItem } from '../util/a11yreviewutils.js';
 import { isEmptyString, assembleUrl, getPaginationOffset, extractEmailDomain } from '../util/helpers.js';
-import { libraryNameKeys } from '../util/librariesmap.js';
 import authAPI from './auth.js';
 import mailAPI from './mail.js';
 import usersAPI from './users.js';
@@ -53,6 +52,7 @@ import centralIdentityAPI from './central-identity.js';
 import { getSubdomainFromLibrary } from '../util/librariesclient.js';
 import projectFilesAPI from './projectfiles.js';
 import ProjectFile from "../models/projectfile.js";
+import { getLibraryNameKeys } from './libraries.js';
 
 const projectListingProjection = {
     _id: 0,
@@ -82,7 +82,7 @@ const projectVisibilityOptions = ['private', 'public'];
 /**
  * Creates a new, empty Project within the current Organization.
  *
- * @param {express.Request} req - Incoming request object. 
+ * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
 async function createProject(req, res) {
@@ -475,7 +475,7 @@ async function getProject(req, res) {
       // @ts-ignore
       delete projResult.projectModules.__v;
     }
-    
+
     return res.send({
       err: false,
       project: projResult,
@@ -669,12 +669,20 @@ async function uploadProjectThumbnail(req, res) {
  */
 async function updateProject(req, res) {
   try {
-    const libNames = libraryNameKeys.join('|');
+    const libNameKeys = await getLibraryNameKeys(true);
+    if(!libNameKeys){
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err6,
+      });
+    }
+
+    const libNames = libNameKeys.join('|');
     const libreURLRegex = new RegExp(`(http(s)?:\/\/)?(${libNames}).libretexts.org\/`, 'i');
     const { projectID } = req.body;
     let updateObj = {};
     let sendCompleted = false;
-    
+
     const project = await Project.findOne({ projectID }).lean();
     if (!project) {
       return res.status(404).send({
@@ -873,7 +881,7 @@ async function updateProject(req, res) {
       if(!parsed || !Array.isArray(parsed)){
         throw new Error('Error parsing secondary authors');
       }
-      
+
       updateObj.defaultSecondaryAuthorIDs = parsed;
     }
     if(req.body.hasOwnProperty('defaultCorrespondingAuthor')){
@@ -931,7 +939,7 @@ async function updateProject(req, res) {
     }
 
 
-    
+
     if (Object.keys(updateObj).length > 0) {
       const updateRes = await Project.updateOne({ projectID }, updateObj);
       if (updateRes.modifiedCount !== 1) {
@@ -959,7 +967,7 @@ async function updateProject(req, res) {
       err: true,
       errMsg: conductorErrors.err6,
     });
-  } 
+  }
 };
 
 
@@ -1485,9 +1493,9 @@ const getCompletedProjects = (req, res) => {
 
 /**
  * Retrieves a list of public Projects with 'public' visibility.
- * @param {express.Request} req - Incoming request object. 
+ * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
- * @returns 
+ * @returns
  */
 async function getPublicProjects(req, res) {
   try {
@@ -1567,7 +1575,7 @@ async function getPublicProjects(req, res) {
 /**
  * Retrieves a list of Users that can be added to a Project team.
  *
- * @param {express.Request} req - Incoming request object. 
+ * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
 async function getAddableMembers(req, res) {
@@ -1678,7 +1686,7 @@ async function getAddableMembers(req, res) {
 /**
  * Adds a User to the members list of a Project.
  *
- * @param {express.Request} req - Incoming request object. 
+ * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
 async function addMemberToProject(req, res) {
@@ -1708,7 +1716,7 @@ async function addMemberToProject(req, res) {
         msg: 'Successfully added user as team member!',
       });
     }
-  
+
     const user = await User.findOne({ uuid }).lean();
     if (!user) {
       return res.status(400).send({
@@ -1738,7 +1746,7 @@ async function addMemberToProject(req, res) {
       if(!subdomain) {
         throw new Error("Invalid library");
       }
-      
+
       await updateTeamWorkbenchPermissions(projectID, subdomain, updatedProject.libreCoverID)
     }
 
@@ -1778,7 +1786,7 @@ async function addMemberToProject(req, res) {
  * Retrieves a list of the Project's team members.
  *
  * @param {express.Request} req - Incoming request object.
- * @param {express.Response} res - Outgoing response object. 
+ * @param {express.Response} res - Outgoing response object.
  */
 async function getProjectTeam(req, res) {
   try {
@@ -2024,7 +2032,7 @@ async function changeMemberRole(req, res) {
       if(!subdomain) {
         throw new Error("Invalid library");
       }
-      
+
       await updateTeamWorkbenchPermissions(projectID, subdomain, project.libreCoverID)
     }
 
@@ -2044,7 +2052,7 @@ async function changeMemberRole(req, res) {
 /**
  * Removes a team member from a Project.
  *
- * @param {express.Request} req - Incoming request object. 
+ * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
 async function removeMemberFromProject(req, res) {
@@ -2109,7 +2117,7 @@ async function removeMemberFromProject(req, res) {
       if(!subdomain) {
         throw new Error("Invalid library");
       }
-      
+
       await updateTeamWorkbenchPermissions(projectID, subdomain, project.libreCoverID)
     }
 
@@ -2299,7 +2307,7 @@ const getProjectPinStatus = (req, res) => {
 /**
  * Adds a project to the user's "pinned" list for quick access.
  *
- * @param {Object} req - The express.js request object. 
+ * @param {Object} req - The express.js request object.
  * @param {Object} res - The express.js response object.
  */
 const pinProject = (req, res) => {
@@ -2335,7 +2343,7 @@ const pinProject = (req, res) => {
 /**
  * Removes a project from the user's "pinned" list.
  *
- * @param {Object} req - The express.js request object. 
+ * @param {Object} req - The express.js request object.
  * @param {Object} res - The express.js response object.
  */
 const unpinProject = (req, res) => {
@@ -3026,7 +3034,7 @@ async function updateProjectBookReaderResources(req, res) {
 
 /**
  * Retrieves the LibreTexts standard identifier of the resource linked to a Project.
- * 
+ *
  * @param {object} project - Project information object.
  * @returns {string|null} The linked Book identifier, or null if no book is linked.
  */
@@ -3119,7 +3127,7 @@ const checkProjectMemberPermission = (project, user) => {
       }
       return false;
     }
-    
+
     return true;
   }
 
@@ -3130,7 +3138,7 @@ const checkProjectMemberPermission = (project, user) => {
 /**
  * Checks if a user has permission to perform high-level actions on a Project.
  * @param {Object} project - the project data object
- * @param {Object|String} user - the current user context 
+ * @param {Object|String} user - the current user context
  * @returns {Boolean} true if user has permission, false otherwise
  */
 const checkProjectAdminPermission = (project, user) => {
@@ -3354,7 +3362,7 @@ const validateFlaggingGroup = (group) => {
 
 /**
  * Validate a provided Project role title.
- * @param {String} role 
+ * @param {String} role
  * @returns {Boolean} true if valid role, false otherwise.
  */
 const validateProjectRole = (role) => {
@@ -3367,7 +3375,7 @@ const validateProjectRole = (role) => {
 /**
  * Verifies that a provided ADAPT Course URL contains a Course ID number.
  *
- * @param {string} url - The course url to validate. 
+ * @param {string} url - The course url to validate.
  * @returns {boolean} True if valid course url, false otherwise.
  */
 function validateADAPTCourseURL(url) {

@@ -20,6 +20,7 @@ import {
   HarvestRequest,
   Homework,
   HomeworkSearchParams,
+  Library,
   PageDetailsResponse,
   PageTag,
   PeerReview,
@@ -704,6 +705,29 @@ class API {
       params: {
         ...params,
       },
+    });
+    return res;
+  }
+
+  // Libraries
+  async getLibraries(){
+    const res = await axios.get<
+      {
+        libraries: Library[]
+      } & ConductorBaseResponse
+    >("/commons/libraries");
+    return res;
+  }
+
+  async getLibraryFromSubdomain(subdomain: string, includeHidden?: boolean){
+    const res = await axios.get<
+      {
+        library: Library
+      } & ConductorBaseResponse
+    >(`/commons/libraries/${subdomain}`, {
+      params: {
+        includeHidden
+      }
     });
     return res;
   }

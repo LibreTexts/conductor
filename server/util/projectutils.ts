@@ -4,7 +4,7 @@ import {
   getProductionURL,
   assembleUrl,
 } from "./helpers.js";
-import { libraryNameKeys } from "./librariesmap.js";
+import { getLibraryNameKeys } from "../api/libraries.js";
 import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
 import { debugError } from "../debug.js";
 import Project, { ProjectInterface } from "../models/project.js";
@@ -130,7 +130,7 @@ export const validateDefaultFileLicense = (obj: object): boolean => {
   if(!obj || typeof obj !== 'object') {
     return false;
   }
-  
+
   // Only check if name is present for now
   if(!('name' in obj) || typeof obj.name !== 'string') {
     return false;
@@ -184,9 +184,12 @@ export async function getLibreTextInformation(url: string) {
       throw new Error("Invalid URL argument");
     }
 
+    const libNameKeys = await getLibraryNameKeys();
+    if (!libNameKeys) throw new Error("Library retrieval failed")
+
     let subdomainSearch = stringContainsOneOfSubstring(
       url,
-      libraryNameKeys,
+      libNameKeys,
       true
     );
 
@@ -202,7 +205,7 @@ export async function getLibreTextInformation(url: string) {
     }
 
     textInfo.lib = subdomainSearch.substr as string; // TODO: add typing for stringContainsOneOfSubstring
-    let libNames = libraryNameKeys.join("|");
+    let libNames = libNameKeys.join("|");
     let libreURLRegex = new RegExp(
       `(http(s)?:\/\/)?(${libNames}).libretexts.org\/`,
       "i"
@@ -613,7 +616,7 @@ function _sortTagsLikeTheirFrameworks(paramTags: AssetTagWithFrameworkAndKey[]) 
     y.forEach((element, index) => {
       mapY.set(element.key.title, index);
     });
-  
+
     // Sort array X based on the order in array Y
     x.sort((a, b) => {
       const indexA = mapY.has(isAssetTagKeyObject(a.key) ? a.key.title : a.key) ? mapY.get(isAssetTagKeyObject(a.key) ? a.key.title : a.key) : Infinity;
@@ -623,7 +626,7 @@ function _sortTagsLikeTheirFrameworks(paramTags: AssetTagWithFrameworkAndKey[]) 
       }
       return indexA - indexB;
     });
-  
+
     return x;
   }
 
@@ -989,14 +992,14 @@ export async function parseAndZipS3Objects(
         });
       }
     }
-  
+
     const noUndefined = items.filter((item) => item.name && item.data) as {
       name: string;
       data: Uint8Array;
     }[];
- 
+
     const zipBuff = await generateZIPFile(noUndefined);
-    return zipBuff ?? null;  
+    return zipBuff ?? null;
   } catch (e) {
     debugError(e);
     return null;
@@ -1006,7 +1009,7 @@ export async function parseAndZipS3Objects(
 /**
  * Downloads and zips files from S3.
  * Sends an email to the user when the zip file is ready with a signed Cloudfront url.
- * 
+ *
  * @param projectID - The project ID to download files from
  * @param fileKeys - The file keys to download
  * @param allFiles - All relevant files in the project
@@ -1110,7 +1113,7 @@ export async function createZIPAndNotify(
     //     Body: zipBuff,
     //     ContentDisposition: `inline; filename=${tempFileID}.zip`,
     //     ContentType: "application/zip",
-    //   }), 
+    //   }),
     //   {
     //     requestTimeout: 600000 // 1 minute timeout
     //   }
@@ -1165,7 +1168,7 @@ export async function updateTeamWorkbenchPermissions(projectID: string, subdomai
     const centralIDs = conductorUsers
       .filter((user) => user.centralID)
       .map((user) => user.centralID.toString());
-    
+
     const libreBotID = await getLibreBotUserId(subdomain);
     if(!libreBotID) {
       throw new Error("Error getting LibreBot user ID");

@@ -24,6 +24,7 @@ interface CreateWorkbenchModalProps extends ModalProps {
   show: boolean;
   projectID: string;
   projectTitle: string;
+  project: any;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -35,7 +36,7 @@ interface CreateWorkbenchForm {
 
 interface TeamMemberWithoutAccess {
   uuid: string;
-  firstName: string; 
+  firstName: string;
   lastName: string;
   avatar: string;
 }
@@ -144,8 +145,8 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
   }
 
   async function checkTeamMembersAccess() {
-    if (!teamMembers.length || !getValues("library")) return [];
     try {
+      if (!teamMembers.length || !getValues("library")) return [];
       const ids = teamMembers.map((member) => member.uuid);
 
       const res = await api.checkTeamLibraryAccess(getValues("library"), ids);
@@ -163,10 +164,9 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
   async function handleCreateClick() {
     try {
       setLoading(true);
-      
+
       // Check team members' access
       const membersWithoutAccess = await checkTeamMembersAccess();
-
       if (membersWithoutAccess.length > 0) {
         setMembersWithoutAccess(membersWithoutAccess);
         setShowAccessWarning(true);
@@ -304,7 +304,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
           </Button>
         </Modal.Actions>
       </Modal>
-      <TeamAccessWarningModal 
+      <TeamAccessWarningModal
         open={showAccessWarning}
         selectedLibraryName={selectedLibraryName}
         membersWithoutAccess={membersWithoutAccess}

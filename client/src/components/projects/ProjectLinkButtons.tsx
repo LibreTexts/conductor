@@ -149,6 +149,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             projectTitle={projectTitle}
             onClose={() => setShowCreateWorkbenchModal(false)}
             onSuccess={() => window.location.reload()}
+            project={project}
           />
         )}
         {projectID && projectTitle && (

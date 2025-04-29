@@ -10,7 +10,7 @@ import {
 } from "../types";
 import { createHmac } from "crypto";
 import CXOne from "./CXOne/index.js";
-import { libraryNameKeys, libraryNameKeysWDev } from "./librariesmap.js";
+import { getLibraryNameKeys } from "../api/libraries";
 
 /**
  * Singleton class for interacting with AWS SSM service to retrieve library API tokens.
@@ -505,6 +505,16 @@ export const generateChapterOnePath = (bookPath: string): string => {
 };
 
 export const getSubdomainFromLibrary = (library: string): string | null => {
-  if (libraryNameKeysWDev.includes(library)) return library;
+  let subdomain: string | null = null;
+  getLibraryNameKeys(true).then((libs) => {
+    if (Array.isArray(libs)) {
+      const found = libs.find((lib) => lib === library);
+      if (found) {
+        subdomain = found;
+      }
+    }
+  }).catch((err) => {
+    debugError(err);
+  })
   return null;
 };

@@ -1,10 +1,10 @@
-import React from 'react';
-import { Modal, Button, Table, Image } from 'semantic-ui-react';
-import { getCentralAuthInstructorURL } from '../../utils/centralIdentityHelpers';
+import React from "react";
+import { Modal, Button, Table, Image } from "semantic-ui-react";
+import { getCentralAuthInstructorURL } from "../../utils/centralIdentityHelpers";
 
 interface TeamMemberWithoutAccess {
   uuid: string;
-  firstName: string; 
+  firstName: string;
   lastName: string;
   avatar: string;
 }
@@ -22,17 +22,23 @@ const TeamAccessWarningModal: React.FC<TeamAccessWarningModalProps> = ({
   selectedLibraryName,
   membersWithoutAccess,
   onCreateWithWarning,
-  onClose
+  onClose,
 }) => {
   return (
     <Modal open={open} size="small">
       <Modal.Header>Library Access Warning</Modal.Header>
       <Modal.Content>
         <p>
-          The following team members do not have instructor/editor-level access to the <b>{selectedLibraryName}</b> library. 
-          They will need to submit an <a href={getCentralAuthInstructorURL()} target="_blank">Instructor Verification Request</a> to get access.
+          The following team members do not have instructor/editor-level access
+          to the <b>{selectedLibraryName}</b> library. They will need to submit
+          an{" "}
+          <a href={getCentralAuthInstructorURL()} target="_blank">
+            Instructor Verification Request
+          </a>{" "}
+          to get access. You can proceed with the creation of the book, but they
+          will not be able to edit it until they have access.
         </p>
-        
+
         <Table basic="very">
           <Table.Header>
             <Table.Row>
@@ -43,8 +49,12 @@ const TeamAccessWarningModal: React.FC<TeamAccessWarningModalProps> = ({
             {membersWithoutAccess.map((member) => (
               <Table.Row key={member.uuid}>
                 <Table.Cell>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <Image src={member.avatar} avatar style={{ marginRight: '10px' }} />
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <Image
+                      src={member.avatar}
+                      avatar
+                      style={{ marginRight: "10px" }}
+                    />
                     {member.firstName} {member.lastName}
                   </div>
                 </Table.Cell>
@@ -54,17 +64,10 @@ const TeamAccessWarningModal: React.FC<TeamAccessWarningModalProps> = ({
         </Table>
       </Modal.Content>
       <Modal.Actions>
-        <Button 
-          color="blue" 
-          onClick={onCreateWithWarning}
-        >
-          I understand
+        <Button color="blue" onClick={onCreateWithWarning}>
+          I understand, proceed with creation
         </Button>
-        <Button 
-          onClick={onClose}
-        >
-          Cancel
-        </Button>
+        <Button onClick={onClose}>Cancel</Button>
       </Modal.Actions>
     </Modal>
   );

@@ -6,7 +6,7 @@ import Promise from 'bluebird';
 import axios from 'axios';
 import express from 'express';
 import base64 from 'base-64';
-import { libraryNameKeys } from './librariesmap.js';
+import { getLibraryNameKeys } from '../api/libraries.js';
 import Book from '../models/book.js';
 import { getProductionURL, isEmptyString, removeTrailingSlash, assembleUrl } from './helpers.js';
 import { CXOneFetch } from './librariesclient.js';
@@ -97,19 +97,25 @@ export function parseLibreTextsURL(orig) {
 
 /**
  * Verifies that a provided library shortname is a valid LibreTexts library identifier.
- * @param {String} lib - The library shortname to validate. 
+ * @param {String} lib - The library shortname to validate.
  * @returns {Boolean} True if valid identifier, false otherwise.
  */
 export const isValidLibrary = (lib) => {
-    let foundLib = libraryNameKeys.find(item => item === lib);
-    if (foundLib !== undefined) return true;
-    return false;
+  let foundLib = false;
+  getLibraryNameKeys().then((libs) => {
+    libs.forEach((item) => {
+      if (item === lib) {
+        foundLib = true;
+      }
+    })
+  })
+  return true;
 };
 
 
 /**
  * Verifies that a provided license identifier is valid and LibreTexts-recognized.
- * @param {String} lic - The license identifier to validate. 
+ * @param {String} lic - The license identifier to validate.
  * @returns {Boolean} True if valid identifier, false otherwise.
  */
 export const isValidLicense = (lic) => {
@@ -121,7 +127,7 @@ export const isValidLicense = (lic) => {
 
 /**
  * Verifies that a requested sorting method is valid and implemented.
- * @param {String} sort - The sorting method name to validate. 
+ * @param {String} sort - The sorting method name to validate.
  * @returns {Boolean} True if valid method, false otherwise.
  */
 export const isValidSort = (sort) => {
