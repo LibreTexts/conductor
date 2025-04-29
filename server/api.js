@@ -41,6 +41,7 @@ import projectInvitationsAPI from "./api/projectinvitations.js";
 import * as centralIdentityValidators from "./api/validators/central-identity.js";
 import * as collectionValidators from "./api/validators/collections.js";
 import * as kbValidators from "./api/validators/kb.js";
+import * as LibraryValidators from "./api/validators/libraries.js";
 import * as supportValidators from "./api/validators/support.js";
 import * as ProjectValidators from "./api/validators/projects.js";
 import * as ProjectFileValidators from "./api/validators/projectfiles.js";
@@ -209,6 +210,18 @@ router
     middleware.checkValidationErrors,
     centralIdentityAPI.deleteUserApplication
   );
+
+router
+  .route("/central-identity/users/applications/:applicationId")
+  .post(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(
+      centralIdentityValidators.CheckUsersApplicationAccessValidator
+    ),
+    centralIdentityAPI.checkUsersApplicationAccess
+  )
 
 router
   .route("/central-identity/users/:id/orgs")
@@ -691,15 +704,10 @@ router
 /* Libraries Directory */
 router.route("/commons/libraries").get(librariesAPI.getLibraries);
 
-router.route("/commons/libraries/main").get(librariesAPI.getMainLibraries);
-
-router
-  .route("/commons/libraries/shelves")
-  .get(
-    librariesAPI.validate("getLibraryShelves"),
-    middleware.checkValidationErrors,
-    librariesAPI.getLibraryShelves
-  );
+router.route("/commons/libraries/:subdomain").get(
+  middleware.validateZod(LibraryValidators.GetLibraryFromSubdomainSchema),
+  librariesAPI.getLibraryFromSubdomain
+)
 
 /* Commons Management */
 router

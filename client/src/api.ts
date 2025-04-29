@@ -20,6 +20,7 @@ import {
   HarvestRequest,
   Homework,
   HomeworkSearchParams,
+  Library,
   PageDetailsResponse,
   PageTag,
   PeerReview,
@@ -727,6 +728,29 @@ class API {
     return res;
   }
 
+  // Libraries
+  async getLibraries(){
+    const res = await axios.get<
+      {
+        libraries: Library[]
+      } & ConductorBaseResponse
+    >("/commons/libraries");
+    return res;
+  }
+
+  async getLibraryFromSubdomain(subdomain: string, includeHidden?: boolean){
+    const res = await axios.get<
+      {
+        library: Library
+      } & ConductorBaseResponse
+    >(`/commons/libraries/${subdomain}`, {
+      params: {
+        includeHidden
+      }
+    });
+    return res;
+  }
+
   //Projects
   async getAddableTeamMembers(params: {
     projectID: string;
@@ -1187,6 +1211,20 @@ class API {
     );
 
     return res.data;
+  }
+
+  // Library access
+  async checkTeamLibraryAccess(applicationId: string | number, ids: string[]) {
+    const res = await axios.post<
+      {
+        accessResults: { id: string; hasAccess: boolean }[];
+      } & ConductorBaseResponse
+    >(
+      `/central-identity/users/applications/${applicationId}`, {
+        ids
+      }
+    );
+    return res;
   }
 
   // user manager

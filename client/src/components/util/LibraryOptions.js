@@ -7,6 +7,7 @@ const libraries = [
     { key: 'bio',       text: 'Biology',        value: 'bio' },
     { key: 'biz',       text: 'Business',       value: 'biz' },
     { key: 'chem',      text: 'Chemistry',      value: 'chem' },
+    { key: 'dev',       text: 'Development',    value: 'dev' },
     { key: 'eng',       text: 'Engineering',    value: 'eng' },
     { key: 'espanol',   text: 'Español',        value: 'espanol' },
     { key: 'geo',       text: 'Geosciences',    value: 'geo' },

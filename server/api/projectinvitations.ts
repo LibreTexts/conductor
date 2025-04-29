@@ -541,7 +541,7 @@ export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof
      * so long as inviteID and token are valid (and user is authenticated).
      * Many people have multiple accounts/emails and may have been invited via a different one.
     */
-    const user = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+    const user = await User.findOne({ uuid: req.user.decoded.uuid }).lean(); 
 
     if (!user) {
       return res.status(404).send({
@@ -551,7 +551,7 @@ export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof
     }
 
     const result = await _addMemberToProjectInternal(projectID, user.uuid, req.user, (invitation.role as ProjectRole), true);
-
+    
     // Ensure invitation is successfully accepted before updating it
     invitation.accepted = true;
     await invitation.save();

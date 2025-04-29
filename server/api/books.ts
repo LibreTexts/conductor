@@ -35,10 +35,7 @@ import {
   updateTeamWorkbenchPermissions,
 } from "../util/projectutils.js";
 import { buildPeerReviewAggregation } from "../util/peerreviewutils.js";
-import {
-  libraryNameKeys,
-  unsupportedSyncLibraryNameKeys,
-} from "../util/librariesmap.js";
+import librariesAPI from "./libraries.js";
 import authAPI from "./auth.js";
 import projectsAPI from "./projects.js";
 import alertsAPI from "./alerts.js";
@@ -365,13 +362,17 @@ const syncWithLibraries = (_req: Request, res: Response) => {
   let generatedProjects = false; // did create new projects
   let updatedCollections = false; // did update auto-managed Collections
   // Build list(s) of HTTP requests to be performed
-  const libsToSync = libraryNameKeys.filter(
-    (key) => !unsupportedSyncLibraryNameKeys.includes(key)
-  );
-  libsToSync.forEach((lib) => {
-    shelvesRequests.push(axios.get(generateBookshelvesURL(lib)));
-    coursesRequests.push(axios.get(generateCoursesURL(lib)));
+  librariesAPI.getLibraryNameKeys(false, false).then((libs) => {
+    if (Array.isArray(libs)) {
+      libs.forEach((l) => {
+        shelvesRequests.push(axios.get(generateBookshelvesURL(l)));
+        coursesRequests.push(axios.get(generateCoursesURL(l)));
+      })
+    }
+  }).catch((err) => {
+    debugError(err);
   });
+
   allRequests = shelvesRequests.concat(coursesRequests);
   // Execute requests
   Promise.all(allRequests)

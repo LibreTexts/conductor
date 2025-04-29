@@ -1810,7 +1810,7 @@ const ProjectView = (props) => {
                               </Label.Group>
                             </div>
                           }
-                          <ProjectLinkButtons projectID={project.projectID} libreCoverID={project.libreCoverID} libreLibrary={project.libreLibrary} projectLink={project.projectURL} projectTitle={project.title} didCreateWorkbench={project.didCreateWorkbench} hasCommonsBook={project.hasCommonsBook} projectVisibility={project.visibility}/>
+                          <ProjectLinkButtons projectID={project.projectID} libreCoverID={project.libreCoverID} libreLibrary={project.libreLibrary} projectLink={project.projectURL} projectTitle={project.title} didCreateWorkbench={project.didCreateWorkbench} hasCommonsBook={project.hasCommonsBook} projectVisibility={project.visibility} project={project}/>
                           {(project.adaptCourseID && project.adaptCourseID !== '') && (
                             <div className="mt-1e">
                               <a

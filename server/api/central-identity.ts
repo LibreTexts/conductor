@@ -41,6 +41,7 @@ import {
   CheckUserApplicationAccessValidator,
   VerificationStatusUpdateWebhookValidator,
   GetVerificationRequestsSchema,
+  CheckUsersApplicationAccessValidator
 } from "./validators/central-identity.js";
 import Project, { ProjectInterface } from "../models/project.js";
 import { getSubdomainFromLibrary } from "../util/librariesclient.js";
@@ -236,6 +237,54 @@ async function checkUserApplicationAccess(
     return conductor500Err(res);
   }
 }
+
+async function checkUsersApplicationAccess(
+  req: z.infer<typeof CheckUsersApplicationAccessValidator>,
+  res: Response<{ err: boolean; accessResults: { id: string; hasAccess: boolean }[] }>
+) {
+  try {
+    const { ids } = req.body;
+    const { applicationId } = req.params;
+
+    if(!applicationId || !ids || ids.length === 0){
+      return res.send({
+        err: false,
+        accessResults: [],
+      })
+    }
+
+    const users = await User.find({ uuid: { $in: ids } });
+    if (!users?.length) return conductor404Err(res);
+
+    const accessPromises = users.map((u) => {
+      return new Promise<{ id: string;  hasAccess: boolean}>((resolve, reject) => {
+        if (!u.centralID) {
+          resolve({ id: u.uuid, hasAccess: false });
+        } else {
+          checkUserApplicationAccessInternal(u.centralID, applicationId)
+            .then((hasAccess) => {
+              resolve({ id: u.uuid, hasAccess: hasAccess ?? false });
+            })
+            .catch((err) => {
+              console.log(err);
+              reject(err);
+            });
+        }
+      })
+    });
+
+    const accessResults = await Promise.all(accessPromises);
+
+    return res.send({
+      err: false,
+      accessResults,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 
 async function checkUserApplicationAccessInternal(
   userId: string,
@@ -1105,6 +1154,7 @@ export default {
   getUser,
   getUserApplications,
   checkUserApplicationAccess,
+  checkUsersApplicationAccess,
   checkUserApplicationAccessInternal,
   _getUserOrgsRaw,
   getUserOrgs,

@@ -13,6 +13,7 @@ export * from "./HarvestRequest";
 export * from "./Homework";
 export * from "./InstructorVerifReq";
 export * from "./kb";
+export * from "./Library";
 export * from "./LicenseReport";
 export * from "./Misc";
 export * from "./Organization";
