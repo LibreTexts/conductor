@@ -94,7 +94,7 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
 
   return (
     <div>
-      <div className="flex flex-col w-full bg-white rounded-md">
+      <div className="flex flex-col w-full bg-white rounded-md border-blue-500 border">
         <div className="flex flex-col border shadow-md rounded-md p-4">
           <p className="text-xl font-semibold text-center">Internal Comments</p>
           <div className="px-4 mt-1 mb-1">
@@ -119,7 +119,7 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
                     value={watch("message")}
                     onChange={(e) => setValue("message", e.target.value)}
                     placeholder="Enter your message here..."
-                    maxLength={1000}
+                    maxLength={3000}
                     onKeyDown={(e: any) => {
                       if (e.key === "Enter" && e.ctrlKey) {
                         if (!getValues("message")) return;
@@ -132,7 +132,7 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
               <div className="flex flex-row w-full justify-between mt-2">
                 <div>
                   <p className="text-xs text-gray-500 ml-1">
-                    {watch("message")?.length ?? 0}/1000. Enter for new line.
+                    {watch("message")?.length ?? 0}/3000. Enter for new line.
                     Ctrl + Enter to send.
                   </p>
                 </div>

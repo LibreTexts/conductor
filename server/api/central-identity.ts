@@ -502,7 +502,7 @@ async function getApplicationsPriveledged(
 
     const appsRes = await _getApplicationsPriveledgedInternal(page, limit);
     if (!appsRes) return conductor500Err(res);
-
+    
     return res.send({
       err: false,
       applications: appsRes.applications,

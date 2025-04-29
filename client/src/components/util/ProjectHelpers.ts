@@ -21,13 +21,14 @@ const createTaskOptions = [
 
 const classificationOptions = [
     { key: 'empty',             text: 'Clear...',           value: '' },
-    { key: 'harvesting',        text: 'Harvesting',         value: 'harvesting' },
-    { key: 'curation',          text: 'Curation',           value: 'curation' },
     { key: 'construction',      text: 'Construction',       value: 'construction' },
-    { key: 'technology',        text: 'Technology',         value: 'technology' },
-    { key: 'librefest',         text: 'LibreFest',          value: 'librefest' },
-    { key: 'coursereport',      text: 'Course Report',      value: 'coursereport' },
+    { key: 'curation',          text: 'Curation',           value: 'curation' },
+    { key: 'harvesting',        text: 'Harvesting',         value: 'harvesting' },
+    { key: 'academy',           text: 'Academy',            value: 'academy' },
     { key: 'adoptionrequest',   text: 'Adoption Request',   value: 'adoptionrequest' },
+    { key: 'coursereport',      text: 'Course Report',      value: 'coursereport' },
+    { key: 'librefest',         text: 'LibreFest',          value: 'librefest' },
+    { key: 'technology',        text: 'Technology',         value: 'technology' },
     { key: 'miscellaneous',     text: 'Miscellaneous',      value: 'miscellaneous' }
 ];
 

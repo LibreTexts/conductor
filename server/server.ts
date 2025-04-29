@@ -49,6 +49,7 @@ app.use(
         "*.google-analytics.com", // gtag.js
         '*.cloudfront.net',
         '*.videodelivery.net', // Cloudflare Stream
+        'https://*.libretexts.net', // LibreTexts CDN
       ],
       defaultSrc: ["'self'"],
       fontSrc: [

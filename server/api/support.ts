@@ -7,6 +7,7 @@ import {
   DeleteTicketValidator,
   GetClosedTicketsValidator,
   GetOpenTicketsValidator,
+  GetRequestorOtherTicketsValidator,
   GetTicketAttachmentValidator,
   GetTicketValidator,
   GetUserTicketsValidator,
@@ -63,7 +64,7 @@ export const SUPPORT_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
 
 async function getTicket(
   req: z.infer<typeof GetTicketValidator>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { uuid } = req.params;
@@ -87,12 +88,12 @@ async function getTicket(
 
 async function getUserTickets(
   req: ZodReqWithUser<z.infer<typeof GetUserTicketsValidator>>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { uuid } = req.user?.decoded;
     if (!uuid) {
-      return res.send({
+      return res.status(403).send({
         err: true,
         errMsg: conductorErrors.err8,
       });
@@ -104,19 +105,105 @@ async function getUserTickets(
     if (req.query.limit) limit = parseInt(req.query.limit.toString());
     const offset = getPaginationOffset(page, limit);
 
+    const results = await _getUserTickets({
+      uuid: uuid,
+      sort: req.query.sort,
+      page,
+      limit,
+      offset,
+    });
+
+    if (!results) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      tickets: results.tickets,
+      total: results.total,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function getRequestorOtherTickets(
+  req: ZodReqWithUser<z.infer<typeof GetRequestorOtherTicketsValidator>>,
+  res: Response,
+) {
+  try {
+    const { uuid, email, currentTicketUUID } = req.query;
+
+    let page = 1;
+    let limit = 25;
+    if (req.query.page) page = req.query.page;
+    if (req.query.limit) limit = parseInt(req.query.limit.toString());
+    const offset = getPaginationOffset(page, limit);
+
+    const results = await _getUserTickets({
+      uuid: uuid,
+      email: email,
+      sort: req.query.sort,
+      page,
+      limit,
+      offset,
+    });
+
+    if (!results) {
+      return conductor500Err(res);
+    }
+
+    // Filter out the current ticket from the results if provided
+    if (currentTicketUUID) {
+      results.tickets = results.tickets.filter(
+        (t) => t.uuid !== currentTicketUUID,
+      );
+    }
+
+    return res.send({
+      err: false,
+      tickets: results.tickets,
+      total: results.total,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function _getUserTickets({
+  uuid,
+  email,
+  sort = "opened",
+  page = 1,
+  limit = 25,
+  offset = 0,
+}: {
+  uuid?: string;
+  email?: string;
+  sort?: string;
+  page?: number;
+  limit?: number;
+  offset?: number;
+}): Promise<{ tickets: SupportTicketInterface[]; total: number } | undefined> {
+  try {
+    if (!uuid && !email) return undefined;
+
     const getSortObj = () => {
-      if (req.query.sort === "priority") {
+      if (sort === "priority") {
         return { priority: -1 };
       }
-      if (req.query.sort === "status") {
+      if (sort === "status") {
         return { status: -1 };
       }
       return { timeOpened: -1 };
     };
 
     const sortObj = getSortObj();
+    const searchObj = uuid ? { userUUID: uuid } : { "guest.email": email };
 
-    const tickets = await SupportTicket.find({ userUUID: uuid })
+    const tickets = await SupportTicket.find(searchObj)
       .skip(offset)
       .limit(limit)
       .sort(sortObj as any)
@@ -126,21 +213,21 @@ async function getUserTickets(
       return _removeAccessKeysFromResponse(t);
     });
 
-    const total = await SupportTicket.countDocuments({ userUUID: uuid });
-    return res.send({
-      err: false,
+    const total = await SupportTicket.countDocuments(searchObj);
+
+    return {
       tickets,
       total,
-    });
+    };
   } catch (err) {
     debugError(err);
-    return conductor500Err(res);
+    return undefined;
   }
 }
 
 async function getOpenInProgressTickets(
   req: z.infer<typeof GetOpenTicketsValidator>,
-  res: Response
+  res: Response,
 ) {
   try {
     let page = 1;
@@ -149,7 +236,7 @@ async function getOpenInProgressTickets(
     if (req.query.limit) limit = parseInt(req.query.limit.toString());
     const offset = getPaginationOffset(page, limit);
 
-    const { assignee, category, priority } = req.query;
+    const { query, assignee, category, priority } = req.query;
 
     const getSortObj = () => {
       if (req.query.sort === "status") {
@@ -161,18 +248,118 @@ async function getOpenInProgressTickets(
       return { timeOpened: -1 };
     };
 
+    const tickets = [];
     const sortObj = getSortObj();
 
-    const tickets = await SupportTicket.find({
-      status: { $in: ["open", "in_progress"] },
-      ...(assignee ? { assignedUUIDs: assignee } : {}),
-      ...(category ? { category } : {}),
-      ...(priority ? { priority } : {}),
-    })
-      .sort(sortObj as any)
-      .populate("assignedUsers")
-      .populate("user")
-      .exec();
+    if (!query) {
+      const foundTickets = await SupportTicket.find({
+        status: { $in: ["open", "in_progress"] },
+        ...(assignee ? { assignedUUIDs: assignee } : {}),
+        ...(category ? { category } : {}),
+        ...(priority ? { priority } : {}),
+      })
+        .sort(sortObj as any)
+        .populate("assignedUsers")
+        .populate("user")
+        .exec();
+      tickets.push(...foundTickets);
+    } else {
+      const fromTicketResults = await SupportTicket.aggregate([
+        {
+          $search: {
+            text: {
+              query,
+              path: [
+                "title",
+                "description",
+                "uuid",
+                "guest.email",
+                "guest.firstName",
+                "guest.lastName",
+              ],
+              fuzzy: {
+                maxEdits: 2,
+              }
+            },
+          },
+        },
+        {
+          $addFields: {
+            score: { $meta: "searchScore" },
+          },
+        },
+      ]);
+
+      const fromUserResults = await User.aggregate([
+        {
+          $search: {
+            text: {
+              query,
+              path: ["firstName", "lastName", "email"],
+              fuzzy: {
+                maxEdits: 1,
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            score: { $meta: "searchScore" },
+          },
+        },
+        {
+          $lookup: {
+            from: "supporttickets",
+            localField: "uuid",
+            foreignField: "assignedUUIDs",
+            as: "tickets",
+          },
+        },
+        {
+          $unwind: "$tickets",
+        },
+        {
+          $replaceRoot: { newRoot: "$tickets" },
+        },
+      ]);
+
+      const allResults = [...fromTicketResults, ...fromUserResults];
+
+      const filteredAllResults = allResults.filter((t) => {
+        if (assignee && !t.assignedUUIDs?.includes(assignee)) return false;
+        if (category && t.category !== category) return false;
+        if (priority && t.priority !== priority) return false;
+        return true;
+      });
+
+      await User.populate(filteredAllResults, {
+        path: "user assignedUsers",
+        select: SanitizedUserSelectProjection,
+      });
+
+      tickets.push(...filteredAllResults);
+    }
+
+    const uniqueTickets = tickets.filter((t, index, self) => {
+      // Return only unique results
+      return (
+        index ===
+        self.findIndex((t2) => {
+          return t.uuid === t2.uuid;
+        })
+      );
+    });
+
+    // We have to sort the tickets in memory because we can only alphabetically sort by priority in query
+    if (req.query.sort === "priority") {
+      uniqueTickets.sort((a, b) => {
+        if (a.priority === "high" && b.priority !== "high") return -1;
+        if (a.priority !== "high" && b.priority === "high") return 1;
+        if (a.priority === "medium" && b.priority === "low") return -1;
+        if (a.priority === "low" && b.priority === "medium") return 1;
+        return 0;
+      });
+    }
 
     const unfiltered = (await SupportTicket.find({
       status: { $in: ["open", "in_progress"] },
@@ -183,17 +370,6 @@ async function getOpenInProgressTickets(
       assignedUsers?: UserInterface[];
       user?: UserInterface;
     })[];
-
-    // We have to sort the tickets in memory because we can only alphabetically sort by priority in query
-    if (req.query.sort === "priority") {
-      tickets.sort((a, b) => {
-        if (a.priority === "high" && b.priority !== "high") return -1;
-        if (a.priority !== "high" && b.priority === "high") return 1;
-        if (a.priority === "medium" && b.priority === "low") return -1;
-        if (a.priority === "low" && b.priority === "medium") return 1;
-        return 0;
-      });
-    }
 
     const assigneeOptions = unfiltered?.reduce((acc, ticket) => {
       if (!ticket.assignedUsers) return acc;
@@ -257,7 +433,7 @@ async function getOpenInProgressTickets(
       };
     });
 
-    const paginated = tickets.slice(offset, offset + limit);
+    const paginated = uniqueTickets.slice(offset, offset + limit);
     paginated.forEach((t) => {
       return _removeAccessKeysFromResponse(t);
     });
@@ -265,7 +441,7 @@ async function getOpenInProgressTickets(
     return res.send({
       err: false,
       tickets: paginated,
-      total: tickets.length || 0,
+      total: uniqueTickets.length || 0,
       filters: {
         assignee: assigneePretty,
         priority: priorityPretty,
@@ -280,7 +456,7 @@ async function getOpenInProgressTickets(
 
 async function getClosedTickets(
   req: z.infer<typeof GetClosedTicketsValidator>,
-  res: Response
+  res: Response,
 ) {
   try {
     let page = 1;
@@ -349,7 +525,7 @@ async function getSupportMetrics(req: Request, res: Response) {
         totalClosedTicketMins += differenceInMinutes(timeClosed, timeOpened);
       });
     const avgMinsToClose = Math.ceil(
-      totalClosedTicketMins / totalClosedTickets
+      totalClosedTicketMins / totalClosedTickets,
     );
 
     const sevenDaysAgo = subDays(new Date(), 7);
@@ -401,7 +577,7 @@ async function getAssignableUsers(req: Request, res: Response) {
 
 async function assignTicket(
   req: ZodReqWithUser<z.infer<typeof AssignTicketValidator>>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { uuid } = req.params;
@@ -421,7 +597,7 @@ async function assignTicket(
         {
           assignedUUIDs: [],
           status: "in_progress",
-        }
+        },
       ).orFail();
 
       return res.send({
@@ -431,7 +607,7 @@ async function assignTicket(
     }
 
     const newAssignees = assigned.filter(
-      (a) => !ticket.assignedUUIDs?.includes(a)
+      (a) => !ticket.assignedUUIDs?.includes(a),
     );
 
     const assignees = await User.find({ uuid: { $in: assigned } }).orFail();
@@ -452,7 +628,7 @@ async function assignTicket(
     // Create a feed entry for the assignment
     const feedEntry = _createFeedEntry_Assigned(
       `${assigner.firstName} ${assigner.lastName}`,
-      assignees.map((a) => `${a.firstName} ${a.lastName}`)
+      assignees.map((a) => `${a.firstName} ${a.lastName}`),
     );
 
     // Get metadata for notification emails
@@ -464,7 +640,7 @@ async function assignTicket(
     const authorString = _getTicketAuthorString(
       authorEmail ?? "Unknown",
       ticketUser ?? undefined,
-      ticket.guest ?? undefined
+      ticket.guest ?? undefined,
     );
 
     // Update the ticket with the new assigned users and set status to in_progress
@@ -474,7 +650,7 @@ async function assignTicket(
         assignedUUIDs: assigned,
         status: "in_progress",
         $push: { feed: feedEntry },
-      }
+      },
     ).orFail();
 
     // If no new assignees to notify (or assignee was removed), return
@@ -494,7 +670,7 @@ async function assignTicket(
       authorString,
       capitalizeFirstLetter(ticket.category),
       capitalizeFirstLetter(ticket.priority),
-      ticket.description
+      ticket.description,
     );
 
     return res.send({
@@ -509,7 +685,7 @@ async function assignTicket(
 
 async function addTicketCC(
   req: ZodReqWithOptionalUser<z.infer<typeof AddTicketCCValidator>>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { uuid } = req.params;
@@ -568,7 +744,7 @@ async function addTicketCC(
       email,
       ticket.uuid,
       ticket.title,
-      accessKey
+      accessKey,
     );
 
     return res.send({
@@ -583,7 +759,7 @@ async function addTicketCC(
 
 async function removeTicketCC(
   req: z.infer<typeof RemoveTicketCCValidator>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { uuid } = req.params;
@@ -618,7 +794,7 @@ async function removeTicketCC(
 async function ticketAttachmentUploadHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
   const config = multer({
     storage: multer.memoryStorage(),
@@ -653,7 +829,7 @@ async function ticketAttachmentUploadHandler(
 
 async function createTicket(
   req: ZodReqWithOptionalUser<z.infer<typeof CreateTicketValidator>>,
-  res: Response
+  res: Response,
 ) {
   try {
     const {
@@ -684,7 +860,7 @@ async function createTicket(
     const feedEntry = _createFeedEntry_Created(
       foundUser?.firstName
         ? `${foundUser.firstName} ${foundUser.lastName}`
-        : `${guest?.firstName} ${guest?.lastName}`
+        : `${guest?.firstName} ${guest?.lastName}`,
     );
 
     const guestAccessKey = _createGuestAccessKey();
@@ -712,7 +888,7 @@ async function createTicket(
     const authorString = _getTicketAuthorString(
       emailToNotify,
       foundUser,
-      guest
+      guest,
     );
 
     const params = new URLSearchParams();
@@ -723,7 +899,7 @@ async function createTicket(
     const submitterPromise = mailAPI.sendSupportTicketCreateConfirmation(
       emailToNotify,
       ticket.uuid,
-      addParams ? params.toString() : ""
+      addParams ? params.toString() : "",
     );
     emailPromises.push(submitterPromise);
 
@@ -736,7 +912,7 @@ async function createTicket(
       authorString,
       capitalizeFirstLetter(ticket.category),
       capitalizeFirstLetter(ticket.priority),
-      ticket.capturedURL ?? undefined
+      ticket.capturedURL ?? undefined,
     );
 
     if (teamToNotify.length > 0) emailPromises.push(teamPromise);
@@ -757,7 +933,7 @@ async function addTicketAttachments(
   req: ZodReqWithFiles<
     ZodReqWithOptionalUser<z.infer<typeof AddTicketAttachementsValidator>>
   >,
-  res: Response
+  res: Response,
 ) {
   try {
     const { uuid } = req.params;
@@ -796,14 +972,14 @@ async function addTicketAttachments(
     const uploadedFiles = await _uploadTicketAttachments(
       ticket.uuid,
       req.files,
-      foundUploaderName
+      foundUploaderName,
     );
     ticket.attachments = [...(ticket.attachments ?? []), ...uploadedFiles];
 
     for (const f of uploadedFiles) {
       const feedEntry = _createFeedEntry_AttachmentUploaded(
         foundUploaderName,
-        f.name
+        f.name,
       );
       ticket.feed.push(feedEntry);
     }
@@ -825,7 +1001,7 @@ async function addTicketAttachments(
  */
 async function getTicketAttachmentURL(
   req: z.infer<typeof GetTicketAttachmentValidator>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { uuid, attachmentUUID } = req.params;
@@ -852,7 +1028,7 @@ async function getTicketAttachmentURL(
     const exprDate = new Date();
     exprDate.setDate(exprDate.getDate() + 3); // 3 day expiration time
     const privKey = base64.decode(
-      process.env.AWS_SUPPORTFILES_CLOUDFRONT_PRIVKEY
+      process.env.AWS_SUPPORTFILES_CLOUDFRONT_PRIVKEY,
     );
 
     const fileURL = assembleUrl([
@@ -881,7 +1057,7 @@ async function getTicketAttachmentURL(
 
 async function updateTicket(
   req: ZodReqWithUser<z.infer<typeof UpdateTicketValidator>>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { uuid } = req.params;
@@ -913,7 +1089,7 @@ async function updateTicket(
         status === "closed"
       ) {
         const feedEntry = _createFeedEntry_Closed(
-          `${user.firstName} ${user.lastName}`
+          `${user.firstName} ${user.lastName}`,
         );
         updatedFeed.push(feedEntry);
       }
@@ -921,7 +1097,7 @@ async function updateTicket(
       // Check if ticket is being reopened, if so, add a feed entry
       if (ticket.status === "closed" && status === "in_progress") {
         const feedEntry = _createFeedEntry_Reopened(
-          `${user.firstName} ${user.lastName}`
+          `${user.firstName} ${user.lastName}`,
         );
         updatedFeed.push(feedEntry);
       }
@@ -938,7 +1114,7 @@ async function updateTicket(
     if (ticket.priority !== priority) {
       const feedEntry = _createFeedEntryPriorityChanged(
         `${user.firstName} ${user.lastName}`,
-        capitalizeFirstLetter(priority)
+        capitalizeFirstLetter(priority),
       );
       updatedFeed.push(feedEntry);
     }
@@ -958,7 +1134,7 @@ async function updateTicket(
           autoCloseTriggered: false,
           autoCloseDate: null,
         }),
-      }
+      },
     ).orFail();
 
     return res.send({
@@ -973,7 +1149,7 @@ async function updateTicket(
 
 async function getGeneralMessages(
   req: z.infer<typeof GetTicketValidator>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { uuid } = req.params;
@@ -997,7 +1173,7 @@ async function getGeneralMessages(
 
 async function createGeneralMessage(
   req: ZodReqWithOptionalUser<z.infer<typeof SendTicketMessageValidator>>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { uuid } = req.params;
@@ -1010,7 +1186,7 @@ async function createGeneralMessage(
       {
         autoCloseTriggered: false,
         autoCloseDate: null,
-      }
+      },
     ).orFail(); // reset auto-close trigger
 
     let foundSenderName = "Unknown";
@@ -1080,7 +1256,7 @@ async function createGeneralMessage(
 
     // Filter null or undefined emails and remove the sender from the list of emails to notify
     const filteredEmails = emailsToNotify.filter(
-      (e) => e && e !== senderEmail(true)
+      (e) => e && e !== senderEmail(true),
     );
     if (!filteredEmails) return conductor500Err(res);
 
@@ -1097,8 +1273,8 @@ async function createGeneralMessage(
           ticket.title,
           message,
           foundSenderName,
-          params.toString()
-        )
+          params.toString(),
+        ),
       );
     }
 
@@ -1117,8 +1293,8 @@ async function createGeneralMessage(
             ticket.title,
             message,
             foundSenderName,
-            params.toString()
-          )
+            params.toString(),
+          ),
         );
       }
     }
@@ -1138,8 +1314,8 @@ async function createGeneralMessage(
         ticket.title,
         message,
         foundSenderName,
-        ""
-      )
+        "",
+      ),
     );
 
     await Promise.allSettled(emailPromises);
@@ -1157,7 +1333,7 @@ async function createGeneralMessage(
 
 async function getInternalMessages(
   req: z.infer<typeof GetTicketValidator>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { uuid } = req.params;
@@ -1181,7 +1357,7 @@ async function getInternalMessages(
 
 async function createInternalMessage(
   req: ZodReqWithUser<z.infer<typeof SendTicketMessageValidator>>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { uuid } = req.params;
@@ -1193,7 +1369,7 @@ async function createInternalMessage(
       {
         autoCloseTriggered: false,
         autoCloseDate: null,
-      }
+      },
     ).orFail();
     const foundUser = await User.findOne({ uuid: userUUID }).orFail();
 
@@ -1230,7 +1406,7 @@ async function createInternalMessage(
           ? `${foundUser.firstName} ${foundUser.lastName}`
           : "Unknown Commenter",
         capitalizeFirstLetter(ticket.priority),
-        ticket.title
+        ticket.title,
       );
     }
 
@@ -1246,7 +1422,7 @@ async function createInternalMessage(
 
 async function deleteTicket(
   req: ZodReqWithUser<z.infer<typeof DeleteTicketValidator>>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { uuid } = req.params;
@@ -1279,7 +1455,7 @@ async function findTicketsToInitAutoClose(req: Request, res: Response) {
       }
 
       const lastMessageDate = new Date(
-        (lastMessage as SupportTicketMessageInterface).timeSent
+        (lastMessage as SupportTicketMessageInterface).timeSent,
       );
 
       const implementationDate = new Date("2024-05-19");
@@ -1307,14 +1483,14 @@ async function findTicketsToInitAutoClose(req: Request, res: Response) {
       {
         autoCloseTriggered: true,
         autoCloseDate: addDays(new Date(), 3).toISOString(), // 3 days from now
-      }
+      },
     );
 
     for (const ticket of toSet) {
       await _sendAutoCloseWarning(
         ticket as SupportTicketInterface & {
           messages: SupportTicketMessageInterface[];
-        }
+        },
       );
     }
 
@@ -1344,7 +1520,7 @@ async function autoCloseTickets(req: Request, res: Response) {
           autoCloseDate: null,
           timeClosed: new Date().toISOString(),
           feed: [...ticket.feed, feedEntry],
-        }
+        },
       );
     }
 
@@ -1358,7 +1534,9 @@ async function autoCloseTickets(req: Request, res: Response) {
 }
 
 async function _sendAutoCloseWarning(
-  ticket: SupportTicketInterface & { messages: SupportTicketMessageInterface[] }
+  ticket: SupportTicketInterface & {
+    messages: SupportTicketMessageInterface[];
+  },
 ) {
   try {
     const allCommenters = ticket.messages.map((m) => m.senderUUID);
@@ -1382,7 +1560,7 @@ async function _sendAutoCloseWarning(
       emails,
       ticket.uuid,
       ticket.title,
-      ticket.guest?.email ? params.toString() : ""
+      ticket.guest?.email ? params.toString() : "",
     );
   } catch (err) {
     throw err;
@@ -1392,7 +1570,7 @@ async function _sendAutoCloseWarning(
 async function _uploadTicketAttachments(
   ticketID: string,
   files: Express.Multer.File[],
-  uploader: string
+  uploader: string,
 ): Promise<SupportTicketAttachmentInterface[]> {
   try {
     if (
@@ -1423,7 +1601,7 @@ async function _uploadTicketAttachments(
           Body: file.buffer,
           ContentDisposition: `inline; filename="${fileUUID}.${fileExt}"`,
           ContentType: contentType,
-        })
+        }),
       );
       savedFiles.push({
         name: file.originalname,
@@ -1434,7 +1612,7 @@ async function _uploadTicketAttachments(
     });
 
     await async.eachLimit(uploadCommands, 2, async (command) =>
-      storageClient.send(command)
+      storageClient.send(command),
     );
 
     return savedFiles;
@@ -1455,7 +1633,7 @@ const _getSupportTeamEmails = async (): Promise<string[]> => {
 };
 
 const _getTicketAuthorEmail = async (
-  ticket: SupportTicketInterface
+  ticket: SupportTicketInterface,
 ): Promise<string | undefined> => {
   const hasUser = !!ticket.userUUID;
   if (hasUser) {
@@ -1470,7 +1648,7 @@ const _getTicketAuthorEmail = async (
 
 const _getEmails = async (
   uuids: string[],
-  staffOnly = false
+  staffOnly = false,
 ): Promise<string[]> => {
   try {
     if (!uuids || uuids.length === 0) return [];
@@ -1493,13 +1671,13 @@ const _getEmails = async (
 const _getTicketAuthorString = (
   emailToNotify: string,
   foundUser?: UserInterface,
-  guest?: { firstName: string; lastName: string }
+  guest?: { firstName: string; lastName: string },
 ) => {
   const ticketAuthor = foundUser
     ? `${foundUser.firstName} ${foundUser.lastName}`
     : guest
-    ? `${guest.firstName} ${guest.lastName}`
-    : "Unknown";
+      ? `${guest.firstName} ${guest.lastName}`
+      : "Unknown";
   const authorString = `${ticketAuthor} (${emailToNotify})`;
   return authorString;
 };
@@ -1510,7 +1688,7 @@ const _createGuestAccessKey = (): string => {
 
 const _createFeedEntry_Assigned = (
   assigner: string,
-  assignees: string[]
+  assignees: string[],
 ): SupportTicketFeedEntryInterface => {
   return {
     action: `Ticket was assigned to ${assignees.join(", ")}`,
@@ -1520,7 +1698,7 @@ const _createFeedEntry_Assigned = (
 };
 
 const _createFeedEntry_Created = (
-  creator: string
+  creator: string,
 ): SupportTicketFeedEntryInterface => {
   return {
     action: `Ticket was created`,
@@ -1530,7 +1708,7 @@ const _createFeedEntry_Created = (
 };
 
 const _createFeedEntry_Closed = (
-  closer: string
+  closer: string,
 ): SupportTicketFeedEntryInterface => {
   return {
     action: `Ticket was closed`,
@@ -1540,7 +1718,7 @@ const _createFeedEntry_Closed = (
 };
 
 const _createFeedEntry_Reopened = (
-  reopener: string
+  reopener: string,
 ): SupportTicketFeedEntryInterface => {
   return {
     action: `Ticket was reopened`,
@@ -1551,7 +1729,7 @@ const _createFeedEntry_Reopened = (
 
 const _createFeedEntry_AttachmentUploaded = (
   uploader: string,
-  fileName: string
+  fileName: string,
 ): SupportTicketFeedEntryInterface => {
   return {
     action: `Attachment uploaded: ${fileName}`,
@@ -1562,7 +1740,7 @@ const _createFeedEntry_AttachmentUploaded = (
 
 const _createFeedEntryPriorityChanged = (
   changer: string,
-  newPriority: string
+  newPriority: string,
 ): SupportTicketFeedEntryInterface => {
   return {
     action: `Priority changed to ${newPriority}`,
@@ -1573,7 +1751,7 @@ const _createFeedEntryPriorityChanged = (
 
 const _createFeedEntry_CCAdded = (
   adder: string,
-  email: string
+  email: string,
 ): SupportTicketFeedEntryInterface => {
   return {
     action: `CC'd user added: ${email}`,
@@ -1592,7 +1770,7 @@ const _createFeedEntry_AutoClosed = (): SupportTicketFeedEntryInterface => {
 
 const _removeAccessKeysFromResponse = (
   ticket: SupportTicketInterface,
-  allowGuestAccessKey = false
+  allowGuestAccessKey = false,
 ) => {
   if (!allowGuestAccessKey) ticket.guestAccessKey = "REDACTED";
   if (ticket.ccedEmails && Array.isArray(ticket.ccedEmails)) {
@@ -1606,6 +1784,7 @@ const _removeAccessKeysFromResponse = (
 export default {
   getTicket,
   getUserTickets,
+  getRequestorOtherTickets,
   getOpenInProgressTickets,
   getClosedTickets,
   getSupportMetrics,

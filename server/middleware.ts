@@ -231,7 +231,29 @@ const canAccessSupportTicket = async (
   next: NextFunction
 ) => {
   try {
-    if (req.user && req.user.decoded.uuid) {
+    // First check if the request is authorized with a valid accessKey
+    // We check this first in case a user is logged in, but was added as a CC to the ticket and is accessing the ticket via the accessKey
+    if (req.query && req.query.accessKey && req.params.uuid) {
+      const ticket = await SupportTicket.findOne({
+        uuid: req.params.uuid,
+      });
+
+      if (!ticket || !ticket.uuid) {
+        return res.status(404).send({
+          err: true,
+          errMsg: conductorErrors.err3,
+        });
+      }
+
+      const availableAccessKeys = [
+        ticket.guestAccessKey,
+        ...(ticket.ccedEmails || []).map((email) => email.accessKey),
+      ]
+
+      if (availableAccessKeys.includes(req.query.accessKey)) {
+        return next();
+      }
+    } else if (req.user && req.user.decoded.uuid) {
       const user = await User.findOne({ uuid: req.user.decoded.uuid });
       if (!user || !user.uuid) {
         throw new Error("unauthorized");
@@ -264,32 +286,9 @@ const canAccessSupportTicket = async (
 
         throw new Error("unauthorized");
       }
-    } else {
-      // if the user object is not present, check if the guestAccessKey is present and valid
-      if (req.query && req.query.accessKey && req.params.uuid) {
-        const ticket = await SupportTicket.findOne({
-          uuid: req.params.uuid,
-        });
-
-        if (!ticket || !ticket.uuid) {
-          return res.status(404).send({
-            err: true,
-            errMsg: conductorErrors.err3,
-          });
-        }
-
-        const availableAccessKeys = [
-          ticket.guestAccessKey,
-          ...(ticket.ccedEmails || []).map((email) => email.accessKey),
-        ]
-
-        if (availableAccessKeys.includes(req.query.accessKey)) {
-          return next();
-        }
-      }
     }
 
-    // if neither the user object nor the guestAccessKey is present, return unauthorized error
+    // if neither the user object nor the accessKey is present, return unauthorized error
     throw new Error("unauthorized");
   } catch (err: any) {
     if (process.env.NODE_ENV === "development") {

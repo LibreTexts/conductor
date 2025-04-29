@@ -1,4 +1,7 @@
-import { CentralIdentityVerificationRequestStatus, GenericKeyTextValueObj } from "../types";
+import {
+  CentralIdentityVerificationRequestStatus,
+  GenericKeyTextValueObj,
+} from "../types";
 
 export function getPrettyUserType(userType: string) {
   switch (userType) {
@@ -92,42 +95,37 @@ export const userTypeOptions: GenericKeyTextValueObj<string>[] = [
     key: "instructor",
     text: "Instructor",
     value: "instructor",
-  }
+  },
 ];
 
-export const verificationRequestStatusOptions: GenericKeyTextValueObj<CentralIdentityVerificationRequestStatus>[] = [
-  {
-    key: "Open",
-    text: "Open",
-    value: "open",
-  },
-  {
-    key: "Needs Change",
-    text: "Needs Change",
-    value: "needs_change",
-  },
-  {
-    key: "Approved",
-    text: "Approved",
-    value: "approved",
-  },
-  {
-    key: "Denied",
-    text: "Denied",
-    value: "denied",
-  }
-]
+export const verificationRequestStatusOptions: GenericKeyTextValueObj<CentralIdentityVerificationRequestStatus>[] =
+  [
+    {
+      key: "Open",
+      text: "Open",
+      value: "open",
+    },
+    {
+      key: "Needs Change",
+      text: "Needs Change",
+      value: "needs_change",
+    },
+    {
+      key: "Approved",
+      text: "Approved",
+      value: "approved",
+    },
+    {
+      key: "Denied",
+      text: "Denied",
+      value: "denied",
+    },
+  ];
 
 export const getCentralAuthProfileEditURL = () => {
-  return (
-    import.meta.env.VITE_CENTRAL_AUTH_EDIT_PROFILE_URL ||
-    "https://one.libretexts.org/profile"
-  );
+  return "https://one.libretexts.org/profile";
 };
 
 export const getCentralAuthInstructorURL = () => {
-  return (
-    import.meta.env.VITE_CENTRAL_AUTH_INSTRUCTOR_URL ||
-    "https://one.libretexts.org/instructor"
-  );
+  return "https://one.libretexts.org/instructor";
 };

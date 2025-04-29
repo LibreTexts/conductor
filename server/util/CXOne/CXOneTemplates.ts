@@ -19,13 +19,14 @@ const CXOneTemplates = {
     </grants.added>
   </security>`,
   PUT_TeamAsContributors: (
+    visibility: string,
     editorIDs: string[],
     viewerIDs: string[],
     libreBotID: string
   ) =>
     `<security>
     <permissions.page>
-      <restriction>Semi-Private</restriction>
+      <restriction>${visibility}</restriction>
     </permissions.page>
     <grants>
     <grant>

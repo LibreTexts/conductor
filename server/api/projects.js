@@ -767,7 +767,6 @@ async function updateProject(req, res) {
           errMsg: conductorErrors.err8,
         });
       }
-
       updateObj.projectURL = req.body.projectURL;
       if (libreURLRegex.test(req.body.projectURL)) {
         const projURLInfo = await getLibreTextInformation(
@@ -786,14 +785,21 @@ async function updateProject(req, res) {
           projURLInfo.lib,
           projURLInfo.id
         );
+        let otherProjectData;
+        if (typeof otherProject === 'string') {
+          otherProjectData = await Project.findOne({ projectID: otherProject }).lean();
+        }
 
         if (otherProject) {
+          const projectURL = `/projects/${otherProject}`;
           return res.status(409).send({
             err: true,
-            errMsg: conductorErrors.err80,
+            errMsg: "Oops, another Project already has that Book associated with it.",
             projectID: `${
               typeof otherProject === "string" ? otherProject : ""
             }`,
+            projectName: otherProjectData.title || null, 
+            projectURL: projectURL || null,
           });
         }
 
@@ -2695,16 +2701,19 @@ const importA11YSectionsFromTOC = (req, res) => {
     let projectData = {};
     Project.findOne({
         projectID: req.body.projectID
-    }).lean().then((project) => {
+    }).lean().then(async (project) => {
         if (project) {
             projectData = project;
             // check user has permission to import TOC
             if (checkProjectMemberPermission(projectData, req.user)) {
+              const bookData = await Book.findOne({
+                library: projectData.libreLibrary,
+              }).lean();
                 if (
                     !isEmptyString(projectData.libreLibrary)
                     && !isEmptyString(projectData.libreCoverID)
                     && !isEmptyString(projectData.projectURL)
-                ) return getBookTOCFromAPI(null, projectData.projectURL);
+                ) return getBookTOCFromAPI(bookData.bookID, projectData.projectURL);
                 else throw (new Error('bookid'));
             } else {
                 throw (new Error('unauth'));

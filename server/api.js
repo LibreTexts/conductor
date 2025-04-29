@@ -1797,6 +1797,26 @@ router
   );
 
 router
+  .route("/project/:projectID/files/:fileID/permanent")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(
+      ProjectFileValidators.getProjectFileSchema
+    ),
+    projectfilesAPI.getPermanentLink
+  );
+
+router
+  .route("/project/:projectID/files/:fileID/redirect")
+  .get(
+    middleware.validateZod(
+      ProjectFileValidators.getProjectFileSchema
+    ),
+    projectfilesAPI.redirectPermanentLink
+  );
+
+router
   .route("/project/:projectID/files/:fileID/move")
   .put(
     authAPI.verifyRequest,
@@ -2192,6 +2212,14 @@ router.route("/support/ticket/user").get(
   middleware.validateZod(supportValidators.GetUserTicketsValidator), // TODO: RBAC
   supportAPI.getUserTickets
 );
+
+router.route("/support/ticket/requestor-other-tickets").get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "support"),
+  middleware.validateZod(supportValidators.GetRequestorOtherTicketsValidator),
+  supportAPI.getRequestorOtherTickets
+)
 
 router
   .route("/support/assignable-users")

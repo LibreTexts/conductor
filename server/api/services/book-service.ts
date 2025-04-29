@@ -73,15 +73,25 @@ export default class BookService {
   ];
 
   async getBookRecord(): Promise<BookInterface | undefined> {
-    return (await Book.findOne({ bookID: this._bookID })) ?? undefined;
+    try {
+      return (await Book.findOne({ bookID: this._bookID })) ?? undefined;
+    } catch (err) {
+      console.error(err);
+      return undefined;
+    }
   }
 
   async getBookSummary(): Promise<string | undefined> {
-    const book = await Book.findOne({ bookID: this._bookID });
-    if (!book) {
+    try {
+      const book = await Book.findOne({ bookID: this._bookID });
+      if (!book) {
+        return undefined;
+      }
+      return book?.summary || "";
+    } catch (err) {
+      console.error(err);
       return undefined;
     }
-    return book?.summary || "";
   }
 
   async getBookTOCNew(): Promise<TableOfContents> {
@@ -303,33 +313,38 @@ export default class BookService {
     pageID: string,
     format: "html" | "json"
   ): Promise<string> {
-    const pageContentsRes = await CXOneFetch({
-      scope: "page",
-      path: parseInt(pageID),
-      api: MindTouch.API.Page.GET_Page_Contents(format),
-      subdomain: this._library,
-    }).catch((err) => {
+    try {
+      const pageContentsRes = await CXOneFetch({
+        scope: "page",
+        path: parseInt(pageID),
+        api: MindTouch.API.Page.GET_Page_Contents(format),
+        subdomain: this._library,
+      }).catch((err) => {
+        console.error(err);
+        throw new Error(`Error fetching page details: ${err}`);
+      });
+
+      if (!pageContentsRes.ok) {
+        throw new Error(
+          `Page content retrieval failed with status: ${pageContentsRes.statusText}`
+        );
+      }
+
+      if (format === "html") {
+        const rawText = await pageContentsRes.text();
+        return rawText?.toString();
+      }
+
+      const rawContent = await pageContentsRes.json();
+      const body = rawContent.body?.[0]?.toString() || "";
+      if (!body) {
+        return "";
+      }
+      return body;
+    } catch (err) {
       console.error(err);
-      throw new Error(`Error fetching page details: ${err}`);
-    });
-
-    if (!pageContentsRes.ok) {
-      throw new Error(
-        `Error fetching page details: ${pageContentsRes.statusText}`
-      );
-    }
-
-    if (format === "html") {
-      const rawText = await pageContentsRes.text();
-      return rawText?.toString();
-    }
-
-    const rawContent = await pageContentsRes.json();
-    const body = rawContent.body?.[0]?.toString() || "";
-    if (!body) {
       return "";
     }
-    return body;
   }
 
   async getPageDetails(
@@ -363,8 +378,8 @@ export default class BookService {
       options: {
         headers: {
           "Cache-Control": "no-cache",
-        }
-      }
+        },
+      },
     }).catch((err) => {
       console.error(err);
       throw new Error(`Error fetching page details: ${err}`);
@@ -404,8 +419,8 @@ export default class BookService {
       options: {
         headers: {
           "Cache-Control": "no-cache",
-        }
-      }
+        },
+      },
     }).catch((err) => {
       console.error(err);
       throw new Error(`Error fetching page tags: ${err}`);
@@ -432,11 +447,19 @@ export default class BookService {
    * @returns {string} - The text content of the page
    */
   async getPageTextContent(pageID: string): Promise<string> {
-    const pageRawBody = await this.getPageContent(pageID, "json");
-    const cheerioObj = cheerio.load(pageRawBody);
-    const pageText = cheerioObj.text(); // Extract text from HTML
+    try {
+      const pageRawBody = await this.getPageContent(pageID, "json");
+      if (!pageRawBody) {
+        return "";
+      }
+      const cheerioObj = cheerio.load(pageRawBody);
+      const pageText = cheerioObj.text(); // Extract text from HTML
 
-    return pageText;
+      return pageText;
+    } catch (err) {
+      console.error(err);
+      return "";
+    }
   }
 
   async getPageImages(pageID: string): Promise<PageImagesRes | undefined> {
@@ -462,6 +485,43 @@ export default class BookService {
     }
 
     return parsed;
+  }
+
+  async getPageVisibility(pageID: string): Promise<string> {
+    try {
+      if (!pageID) {
+        throw new Error("Missing page ID");
+      }
+  
+      const pageSecurityRes = await CXOneFetch({
+        scope: "page",
+        path: parseInt(pageID),
+        api: MindTouch.API.Page.GET_Page_Security,
+        subdomain: this._library,
+        options: {
+          headers: {
+            "Cache-Control": "no-cache",
+          }
+        }
+      }).catch((err) => {
+        console.error(err);
+        throw new Error(`Error fetching page security: ${err}`);
+      });
+  
+      if (!pageSecurityRes.ok) {
+        throw new Error(
+          `Error fetching page details: ${pageSecurityRes.statusText}`
+        );
+      }
+  
+      const pageSecurityRaw = await pageSecurityRes.json();
+      const visibility = pageSecurityRaw?.["permissions.page"]?.restriction?.["#text"]?.toString() ?? "Semi-Private";
+
+      return visibility;
+    } catch (err) {
+      console.error(err);
+      throw new Error("internal");
+    }
   }
 
   async updatePageContent(

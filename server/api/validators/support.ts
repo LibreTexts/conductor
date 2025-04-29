@@ -1,4 +1,3 @@
-import { query } from "express";
 import { z } from "zod";
 
 const TicketUUIDParams = z.object({
@@ -17,6 +16,24 @@ export const GetUserTicketsValidator = z.object({
     limit: z.coerce.number().min(1).optional(),
     sort: z.enum(["opened", "priority", "status"]).optional(),
   }),
+});
+
+export const GetRequestorOtherTicketsValidator = z.object({
+  query: z
+    .object({
+      email: z.string().email().or(z.literal("")).optional(),
+      uuid: z.string().uuid().or(z.literal("")).optional(),
+      currentTicketUUID: z.string().uuid().optional(),
+      page: z.coerce.number().min(1).optional(),
+      limit: z.coerce.number().min(1).optional(),
+      sort: z.enum(["opened", "priority", "status"]).optional(),
+    })
+    .refine((data) => {
+      if (!data.email && !data.uuid) {
+        return false;
+      }
+      return true;
+    }, "At least one of email or uuid is required"),
 });
 
 export const CreateTicketValidator = z.object({
@@ -65,14 +82,9 @@ export const UpdateTicketValidator = z
   })
   .merge(TicketUUIDParams);
 
-export const SearchTicketsValidator = z.object({
-  query: z.object({
-    query: z.string().min(3),
-  }),
-});
-
 export const GetOpenTicketsValidator = z.object({
   query: z.object({
+    query: z.string().min(3).or(z.literal("")).optional(),
     page: z.coerce.number().min(1).optional(),
     limit: z.coerce.number().min(1).optional(),
     sort: z.enum(["opened", "priority", "status", "category"]).optional(),
@@ -117,7 +129,7 @@ export const RemoveTicketCCValidator = z
 export const SendTicketMessageValidator = z
   .object({
     body: z.object({
-      message: z.string().trim().min(1).max(1000),
+      message: z.string().trim().min(1).max(3000),
       attachments: z.array(z.string()).optional(),
     }),
     query: z.object({

@@ -25,7 +25,7 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
 
   return (
     <div className="flex flex-col border rounded-md p-4 shadow-md bg-white h-fit space-y-1.5">
-      <p className="2xl:text-xl">
+      <p className="2xl:text-xl break-all">
         <span className="font-semibold">Subject:</span> {ticket?.title}
       </p>
       <div className="flex flex-row items-center">

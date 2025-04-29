@@ -66,9 +66,11 @@ export const projectSearchSchema = z.object({
       location: z.enum(["local", "global"]).default("global"),
       status: z.string().default("any"),
       classification: z.string().default("any"),
-      leads: z.coerce.boolean().default(false),
+      leads: z.coerce.boolean().optional(),
+      principalInvestigators: z.coerce.boolean().optional(),
       sort: z
         .enum([
+          "relevance",
           "title",
           "progress",
           "classification",
@@ -76,7 +78,7 @@ export const projectSearchSchema = z.object({
           "lead",
           "updated",
         ])
-        .default("title"),
+        .default("relevance"),
     })
     .merge(_commonItems),
 });

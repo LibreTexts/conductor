@@ -142,7 +142,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
                     value={watch("message")}
                     onChange={(e) => setValue("message", e.target.value)}
                     placeholder="Enter your message here..."
-                    maxLength={1000}
+                    maxLength={3000}
                     onKeyDown={(e: any) => {
                       if (e.key === "Enter" && e.ctrlKey) {
                         if (!getValues("message")) return;
@@ -156,7 +156,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
               <div className="flex flex-row w-full justify-between mt-2">
                 <div>
                   <p className="text-xs text-gray-500 ml-1">
-                    {watch("message")?.length ?? 0}/1000. Enter for new line.
+                    {watch("message")?.length ?? 0}/3000. Enter for new line.
                     Ctrl + Enter to send.
                   </p>
                   <p className="text-sm text-gray-500 italic mt-1 ml-0.5">

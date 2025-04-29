@@ -69,7 +69,7 @@ export default class AIService {
     {
       role: "system",
       content:
-        "Given the following list of tags, condense them into a new list of tags, each separated by a comma. If you are unable to generate a new list of tags, return only the word 'empty'. The final list of tags should not have more than 10 tags. If there are more than 10 tags, only return the first 10 tags.",
+        "Given the following list of tags, select the most 10 most useful tags for content tagging and organization purposes and return them as a new list, each separated by a comma. If you are unable to generate a new list of tags, return only the word 'empty'. The final list of tags should not have more than 10 tags. If there are more than 10 tags, only return the first 10 tags.",
     },
     {
       role: "user",
