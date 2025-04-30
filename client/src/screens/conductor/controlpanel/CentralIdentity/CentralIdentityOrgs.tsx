@@ -14,7 +14,6 @@ import { CentralIdentityOrg, CentralIdentitySystem } from "../../../../types";
 import axios from "axios";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
-import ManageUserModal from "../../../../components/controlpanel/CentralIdentity/ManageUserModal";
 
 const CentralIdentityOrgs = () => {
   //Global State
