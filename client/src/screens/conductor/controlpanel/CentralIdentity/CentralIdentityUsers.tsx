@@ -14,7 +14,6 @@ import {
 import { CentralIdentityUser } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
-import ManageUserModal from "../../../../components/controlpanel/CentralIdentity/ManageUserModal";
 import {
   getPrettyAuthSource,
   getPrettyUserType,
@@ -39,7 +38,6 @@ const CentralIdentityUsers = () => {
   const [sortChoice, setSortChoice] = useState<string>("first");
   const [searchInput, setSearchInput] = useState<string>(""); // For debouncing
   const [searchString, setSearchString] = useState<string>(""); // For the actual search
-  const [showUserModal, setShowUserModal] = useState<boolean>(false);
   const TABLE_COLS = [
     { key: "firstName", text: "First Name" },
     { key: "lastName", text: "Last Name" },
@@ -58,8 +56,7 @@ const CentralIdentityUsers = () => {
   ];
 
   //Data
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const { data: users, isFetching } = useQuery<CentralIdentityUser[]>({
+  const { data: users, isFetching, isLoading } = useQuery<CentralIdentityUser[]>({
     queryKey: [
       "central-identity-users",
       activePage,
@@ -76,18 +73,6 @@ const CentralIdentityUsers = () => {
       }),
     keepPreviousData: true,
   });
-
-  //Effects
-
-  // If a user_id is passed in the query string, open the modal for that user
-  useEffect(() => {
-    if (!location.search) return;
-    const params = new URLSearchParams(location.search);
-    if (params.get("user_id")) {
-      setSelectedUserId(params.get("user_id"));
-      setShowUserModal(true);
-    }
-  }, []);
 
   // Handlers & Methods
   async function getUsers({
@@ -133,14 +118,9 @@ const CentralIdentityUsers = () => {
     250
   );
 
-  function handleSelectUser(user: CentralIdentityUser) {
-    setSelectedUserId(user.uuid);
-    setShowUserModal(true);
-  }
-
-  function handleCloseUserModal() {
-    setShowUserModal(false);
-    setSelectedUserId(null);
+  function handleViewUser(user: CentralIdentityUser) {
+    console.log("user", user);
+    window.open(`/controlpanel/libreone/users/${user.uuid}`, "_blank");
   }
 
   return (
@@ -199,7 +179,7 @@ const CentralIdentityUsers = () => {
                 </Grid.Row>
               </Grid>
             </Segment>
-            {isFetching && <LoadingSpinner />}
+            {isFetching && isLoading && <LoadingSpinner />}
             <Segment>
               <PaginationWithItemsSelect
                 activePage={activePage}
@@ -211,7 +191,7 @@ const CentralIdentityUsers = () => {
               />
             </Segment>
             <Segment>
-              <Table striped celled selectable>
+              <Table striped celled>
                 <Table.Header>
                   <Table.Row>
                     {TABLE_COLS.map((item) => (
@@ -293,7 +273,11 @@ const CentralIdentityUsers = () => {
                           <Table.Cell>
                             <Button
                               color="blue"
-                              onClick={() => handleSelectUser(user)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleViewUser(user)
+                              }}
                             >
                               <Icon name="eye" />
                               View User
@@ -325,15 +309,6 @@ const CentralIdentityUsers = () => {
               />
             </Segment>
           </Segment.Group>
-
-          {selectedUserId && (
-            <ManageUserModal
-              show={showUserModal}
-              userId={selectedUserId}
-              onSave={() => handleCloseUserModal()}
-              onClose={() => setShowUserModal(false)}
-            />
-          )}
         </Grid.Column>
       </Grid.Row>
     </Grid>
