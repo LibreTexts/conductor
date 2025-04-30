@@ -346,6 +346,10 @@ const autoGenerateCollections = () => {
  * @param {Object} res - The Express.js response object.
  */
 const syncWithLibraries = (_req: Request, res: Response) => {
+  return res.send({
+    err: true,
+    msg: "This endpoint is currently unavailable.",
+  })
   let importCount = 0; // final count of imported books
   let didGenExports = false; // If KB Export files were generated
   let shelvesRequests = []; // requests from Bookshelves
@@ -2382,7 +2386,7 @@ async function batchGenerateAIMetadata(
       req.params.bookID,
       req.user.decoded.uuid
     );
-    
+
     // If user can't access page, check if they are superadmin. If not, deny access.
     if (!canAccess) {
       const isSuperAdmin = authAPI.checkHasRole(user, "libretexts", "superadmin", true);
