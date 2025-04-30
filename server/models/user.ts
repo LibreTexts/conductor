@@ -46,6 +46,8 @@ export const SanitizedUserSelectProjection = {
   authType: 0,
   roles: 0,
   isSystem: 0,
+  salt: 0,
+  hash: 0,
 }
 
 const UserSchema = new Schema<UserInterface>(
