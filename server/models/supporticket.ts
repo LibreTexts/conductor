@@ -229,7 +229,6 @@ SupportTicketSchema.virtual("messages", {
   foreignField: "ticket",
 });
 
-SupportTicketSchema.index({ title: "text" });
 SupportTicketSchema.set("toObject", { virtuals: true });
 SupportTicketSchema.set("toJSON", { virtuals: true });
 
