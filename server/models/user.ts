@@ -140,6 +140,10 @@ UserSchema.index({
 })
 
 UserSchema.index({
+  lastName: 1
+})
+
+UserSchema.index({
   email: "text",
   firstName: "text",
   lastName: "text",
