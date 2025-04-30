@@ -251,6 +251,37 @@ async function getOpenInProgressTickets(
     const tickets = [];
     const sortObj = getSortObj();
 
+    const lookupUserDataStages = (localField: "assignedUUIDs" | "userUUID") => {
+      return [
+        {
+          $lookup: {
+            from: "users",
+            localField: localField,
+            foreignField: "uuid",
+            as: localField === "assignedUUIDs" ? "assignedUsers" : "user",
+            pipeline: [
+              {
+                $project: {
+                  ...SanitizedUserSelectProjection,
+                },
+              },
+            ],
+          },
+        },
+        ...(localField === "userUUID"
+          ? [
+              {
+                $set: {
+                  user: {
+                    $arrayElemAt: ["$user", 0],
+                  },
+                },
+              },
+            ]
+          : []),
+      ];
+    };
+
     if (!query) {
       const foundTickets = await SupportTicket.find({
         status: { $in: ["open", "in_progress"] },
@@ -279,7 +310,7 @@ async function getOpenInProgressTickets(
               ],
               fuzzy: {
                 maxEdits: 2,
-              }
+              },
             },
           },
         },
@@ -288,6 +319,8 @@ async function getOpenInProgressTickets(
             score: { $meta: "searchScore" },
           },
         },
+        ...lookupUserDataStages("assignedUUIDs"),
+        ...lookupUserDataStages("userUUID"),
       ]);
 
       const fromUserResults = await User.aggregate([
@@ -311,7 +344,7 @@ async function getOpenInProgressTickets(
           $lookup: {
             from: "supporttickets",
             localField: "uuid",
-            foreignField: "assignedUUIDs",
+            foreignField: "userUUID",
             as: "tickets",
           },
         },
@@ -321,6 +354,8 @@ async function getOpenInProgressTickets(
         {
           $replaceRoot: { newRoot: "$tickets" },
         },
+        ...lookupUserDataStages("assignedUUIDs"),
+        ...lookupUserDataStages("userUUID"),
       ]);
 
       const allResults = [...fromTicketResults, ...fromUserResults];
@@ -330,11 +365,6 @@ async function getOpenInProgressTickets(
         if (category && t.category !== category) return false;
         if (priority && t.priority !== priority) return false;
         return true;
-      });
-
-      await User.populate(filteredAllResults, {
-        path: "user assignedUsers",
-        select: SanitizedUserSelectProjection,
       });
 
       tickets.push(...filteredAllResults);
