@@ -205,7 +205,21 @@ const CentralIdentityUserView = () => {
           <Grid.Row>
             <Grid.Column width={8}>
               <Segment>
-                <Header as="h3">User Details</Header>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+                  <Header as="h3" style={{ margin: 0 }}>User Details</Header>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    
+                    <CtlCheckbox
+                      name="disabled"
+                      control={control}
+                      toggle
+                      negated
+                    />
+                    <span>
+                      {getValues("disabled") ? <strong>Disabled</strong> : <strong>Active</strong>}
+                    </span>
+                  </div>
+                </div>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "1.5rem" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
                     <Image
@@ -224,20 +238,6 @@ const CentralIdentityUserView = () => {
                         />
                       }
                     />
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-                    <Header sub style={{ marginBottom: 4 }}>Account Status</Header>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                      <CtlCheckbox
-                        name="disabled"
-                        control={control}
-                        toggle
-                        negated
-                      />
-                      <span>
-                        {getValues("disabled") ? <strong>Disabled</strong> : "Active"}
-                      </span>
-                    </div>
                   </div>
                 </div>
                 <div style={{ marginBottom: "1.25rem", width: "100%" }}>
@@ -525,6 +525,15 @@ const CentralIdentityUserView = () => {
                       : "Unknown"}
                   </span>
                 </div>
+                <div style={{ marginTop: "2rem", display: "flex", gap: "1rem" }}>
+                  <Button onClick={loadUser}>Cancel</Button>
+                  {formState.isDirty && (
+                    <Button color="green" onClick={handleSave} loading={loading}>
+                      <Icon name="save" />
+                      Save Changes
+                    </Button>
+                  )}
+                </div>
               </Segment>
               
             </Grid.Column>
@@ -662,16 +671,6 @@ const CentralIdentityUserView = () => {
         userId={uuid}
         onClose={handleViewUserProjectsModalClose}
       />
-  
-      <div style={{ marginTop: "2rem", display: "flex", gap: "1rem" }}>
-        <Button onClick={loadUser}>Cancel</Button>
-        {formState.isDirty && (
-          <Button color="green" onClick={handleSave} loading={loading}>
-            <Icon name="save" />
-            Save Changes
-          </Button>
-        )}
-      </div>
     </div>
   );
 };
