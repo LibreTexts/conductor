@@ -205,34 +205,60 @@ const CentralIdentityUserView = () => {
           <Grid.Row>
             <Grid.Column width={8}>
               <Segment>
-                <Header as="h3">Profile</Header>
-                <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", marginBottom: "1.5rem" }}>
-                  <Image
-                    avatar
-                    size="small"
-                    src={getValues("avatar") ?? DEFAULT_AVATAR_URL}
-                  />
-                  <Popup
-                    content="Reset to default avatar"
-                    trigger={
-                      <Button
-                        icon="ban"
-                        circular
-                        size="tiny"
-                        onClick={handleResetAvatar}
+                <Header as="h3">User Details</Header>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+                    <Image
+                      avatar
+                      size="small"
+                      src={getValues("avatar") ?? DEFAULT_AVATAR_URL}
+                    />
+                    <Popup
+                      content="Reset to default avatar"
+                      trigger={
+                        <Button
+                          icon="ban"
+                          circular
+                          size="tiny"
+                          onClick={handleResetAvatar}
+                        />
+                      }
+                    />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                    <Header sub style={{ marginBottom: 4 }}>Account Status</Header>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <CtlCheckbox
+                        name="disabled"
+                        control={control}
+                        toggle
+                        negated
                       />
-                    }
-                  />
+                      <span>
+                        {getValues("disabled") ? <strong>Disabled</strong> : "Active"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div style={{ marginBottom: "1rem" }}>
+                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                  <Header sub>Email</Header>
+                  <span style={{ width: "100%", display: "block", fontSize: "1.1em", wordBreak: "break-all" }}>
+                    {getValues("email")}
+                  </span>
+                </div>
+                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
                   <Header sub>First Name</Header>
                   {editingFirstName ? (
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <CtlTextInput
-                        name="first_name"
-                        control={control}
-                        rules={{ required: true }}
-                      />
+                    <div style={{ display: "flex", width: "100%", gap: "0.5rem" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <CtlTextInput
+                          name="first_name"
+                          control={control}
+                          rules={{ required: true }}
+                          fluid
+                          style={{ width: "100%" }}
+                        />
+                      </div>
                       <Button
                         icon="close"
                         circular
@@ -244,8 +270,8 @@ const CentralIdentityUserView = () => {
                       />
                     </div>
                   ) : (
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                      <span>{getValues("first_name")}</span>
+                    <div style={{ display: "flex", alignItems: "center", width: "100%", gap: "0.5rem" }}>
+                      <span style={{ flex: 1 }}>{getValues("first_name")}</span>
                       <Button
                         icon="edit"
                         circular
@@ -255,15 +281,19 @@ const CentralIdentityUserView = () => {
                     </div>
                   )}
                 </div>
-                <div style={{ marginBottom: "1rem" }}>
+                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
                   <Header sub>Last Name</Header>
                   {editingLastName ? (
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <CtlTextInput
-                        name="last_name"
-                        control={control}
-                        rules={{ required: true }}
-                      />
+                    <div style={{ display: "flex", width: "100%", gap: "0.5rem" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <CtlTextInput
+                          name="last_name"
+                          control={control}
+                          rules={{ required: true }}
+                          fluid
+                          style={{ width: "100%" }}
+                        />
+                      </div>
                       <Button
                         icon="close"
                         circular
@@ -275,8 +305,8 @@ const CentralIdentityUserView = () => {
                       />
                     </div>
                   ) : (
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                      <span>{getValues("last_name")}</span>
+                    <div style={{ display: "flex", alignItems: "center", width: "100%", gap: "0.5rem" }}>
+                      <span style={{ flex: 1 }}>{getValues("last_name")}</span>
                       <Button
                         icon="edit"
                         circular
@@ -286,32 +316,10 @@ const CentralIdentityUserView = () => {
                     </div>
                   )}
                 </div>
-                <div style={{ marginBottom: "1rem" }}>
-                  <Header sub>Email</Header>
-                  <span>{getValues("email")}</span>
-                </div>
-                <div style={{ marginBottom: "1rem" }}>
-                  <Header sub>Account Status</Header>
-                  <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                    <CtlCheckbox
-                      name="disabled"
-                      control={control}
-                      toggle
-                      negated
-                    />
-                    <span>
-                      {getValues("disabled") ? <strong>Disabled</strong> : "Active"}
-                    </span>
-                  </div>
-                </div>
-              </Segment>
-  
-              <Segment>
-                <Header as="h3">Permissions</Header>
-                <div style={{ marginBottom: "1rem" }}>
-                  <strong>User Type:</strong>
+                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                  <Header sub>User Type</Header>
                   {editingUserType ? (
-                    <span style={{ marginLeft: "1rem" }}>
+                    <div style={{ display: "flex", gap: "0.5rem", width: "100%" }}>
                       <Controller
                         name="user_type"
                         control={control}
@@ -323,6 +331,7 @@ const CentralIdentityUserView = () => {
                               field.onChange(data.value?.toString() ?? "student");
                             }}
                             selection
+                            fluid
                           />
                         )}
                       />
@@ -335,26 +344,25 @@ const CentralIdentityUserView = () => {
                           handleResetDataItem("user_type");
                         }}
                       />
-                    </span>
+                    </div>
                   ) : (
-                    <span style={{ marginLeft: "1rem" }}>
-                      {getPrettyUserType(getValues("user_type"))}
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
+                      <span style={{ flex: 1 }}>{getPrettyUserType(getValues("user_type"))}</span>
                       <Button
                         icon="edit"
                         circular
                         size="tiny"
                         onClick={() => setEditingUserType(true)}
-                        style={{ marginLeft: "0.5rem" }}
                       />
-                    </span>
+                    </div>
                   )}
                 </div>
                 {getValues("user_type") === "student" && (
-                  <div style={{ marginBottom: "1rem" }}>
-                    <strong>Student ID:</strong>
+                  <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                    <Header sub>Student ID</Header>
                     {editingStudentId ? (
-                      <span style={{ marginLeft: "1rem" }}>
-                        <CtlTextInput name="student_id" control={control} />
+                      <div style={{ display: "flex", gap: "0.5rem", width: "100%" }}>
+                        <CtlTextInput name="student_id" control={control} style={{ flex: 1 }} fluid />
                         <Button
                           icon="close"
                           circular
@@ -364,162 +372,161 @@ const CentralIdentityUserView = () => {
                             handleResetDataItem("student_id");
                           }}
                         />
-                      </span>
+                      </div>
                     ) : (
-                      <span style={{ marginLeft: "1rem" }}>
-                        {getValues("student_id") ?? "Unknown"}
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
+                        <span style={{ flex: 1 }}>{getValues("student_id") ?? "Unknown"}</span>
                         <Button
                           icon="edit"
                           circular
                           size="tiny"
                           onClick={() => setEditingStudentId(true)}
-                          style={{ marginLeft: "0.5rem" }}
                         />
-                      </span>
+                      </div>
                     )}
                   </div>
                 )}
-                {watch("user_type") === "instructor" && (
-                  <div style={{ marginBottom: "1rem" }}>
-                    <strong>Verification Status:</strong>
-                    {editingVerifyStatus ? (
-                      <span style={{ marginLeft: "1rem" }}>
-                        <Controller
-                          name="verify_status"
-                          control={control}
-                          render={({ field }) => (
-                            <Dropdown
-                              options={verificationStatusOptions}
-                              {...field}
-                              onChange={(e, data) => {
-                                field.onChange(data.value?.toString() ?? "pending");
-                              }}
-                              selection
-                            />
-                          )}
-                        />
-                        <Button
-                          icon="close"
-                          circular
-                          size="tiny"
-                          onClick={() => {
-                            setEditingVerifyStatus(false);
-                            handleResetDataItem("verify_status");
-                          }}
-                        />
-                      </span>
-                    ) : (
-                      <span style={{ marginLeft: "1rem" }}>
-                        {getPrettyVerficationStatus(getValues("verify_status"))}
-                        <Button
-                          icon="edit"
-                          circular
-                          size="tiny"
-                          onClick={() => setEditingVerifyStatus(true)}
-                          style={{ marginLeft: "0.5rem" }}
-                        />
-                      </span>
-                    )}
-                  </div>
-                )}
-                {watch("user_type") === "instructor" && (
-                    <div style={{ marginBottom: "1rem" }}>
-                        <strong>Bio URL:</strong>
-                        {editingBioURL ? (
-                        <span style={{ marginLeft: "1rem" }}>
-                            <CtlTextInput
-                            name="bio_url"
+                {getValues("user_type") === "instructor" && (
+                  <>
+                    <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                      <Header sub>Verification Status</Header>
+                      {editingVerifyStatus ? (
+                        <div style={{ display: "flex", gap: "0.5rem", width: "100%" }}>
+                          <Controller
+                            name="verify_status"
                             control={control}
-                            placeholder="Bio URL..."
-                            />
-                            <Button
+                            render={({ field }) => (
+                              <Dropdown
+                                options={verificationStatusOptions}
+                                {...field}
+                                onChange={(e, data) => {
+                                  field.onChange(data.value?.toString() ?? "pending");
+                                }}
+                                selection
+                                fluid
+                              />
+                            )}
+                          />
+                          <Button
                             icon="close"
                             circular
                             size="tiny"
                             onClick={() => {
-                                setEditingBioURL(false);
-                                handleResetDataItem("bio_url");
+                              setEditingVerifyStatus(false);
+                              handleResetDataItem("verify_status");
                             }}
-                            />
-                        </span>
-                        ) : (
-                        <span style={{ marginLeft: "1rem" }}>
-                            {getValues("bio_url") ?? "Not Set"}
-                            <Button
+                          />
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
+                          <span style={{ flex: 1 }}>{getPrettyVerficationStatus(getValues("verify_status"))}</span>
+                          <Button
+                            icon="edit"
+                            circular
+                            size="tiny"
+                            onClick={() => setEditingVerifyStatus(true)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                      <Header sub>Bio URL</Header>
+                      {editingBioURL ? (
+                        <div style={{ width: "100%" }}>
+                          <CtlTextInput
+                            name="bio_url"
+                            control={control}
+                            placeholder="Bio URL..."
+                            fluid
+                            style={{ width: "100%" }}
+                          />
+                          <Button
+                            icon="close"
+                            circular
+                            size="tiny"
+                            onClick={() => {
+                              setEditingBioURL(false);
+                              handleResetDataItem("bio_url");
+                            }}
+                            style={{ marginTop: 8 }}
+                          />
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+                          <span style={{ flex: 1 }}>{getValues("bio_url") ?? "Not Set"}</span>
+                          <Button
                             icon="edit"
                             circular
                             size="tiny"
                             onClick={() => setEditingBioURL(true)}
-                            style={{ marginLeft: "0.5rem" }}
-                            />
-                        </span>
-                        )}
+                          />
+                        </div>
+                      )}
                     </div>
-                    )}
-              </Segment>
-              <Segment>
-                <Header as="h3">Authentication &amp; Security Data</Header>
-                <div style={{ marginBottom: "1rem" }}>
-                    <strong>UUID:</strong>
-                    <span style={{ marginLeft: "0.5rem", fontFamily: "monospace" }}>
+                  </>
+                )}
+                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                  <Header sub>UUID</Header>
+                  <span style={{ fontFamily: "monospace" }}>
                     {getValues("uuid")}
                     <CopyButton val={getValues("uuid") ?? "unknown"}>
-                        {({ copied, copy }) => (
+                      {({ copied, copy }) => (
                         <Icon
-                            name="copy"
-                            color={copied ? "green" : "blue"}
-                            style={{ cursor: "pointer", marginLeft: "0.5rem" }}
-                            onClick={copy}
+                          name="copy"
+                          color={copied ? "green" : "blue"}
+                          style={{ cursor: "pointer", marginLeft: "0.5rem" }}
+                          onClick={copy}
                         />
-                        )}
+                      )}
                     </CopyButton>
-                    </span>
+                  </span>
                 </div>
-                <div style={{ marginBottom: "1rem" }}>
-                    <strong>Authentication Source:</strong>
-                    <span style={{ marginLeft: "0.5rem" }}>
+                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                  <Header sub>Authentication Source</Header>
+                  <span>
                     {getValues("external_idp")
-                        ? getPrettyAuthSource(getValues("external_idp") ?? "")
-                        : "LibreOne (Local)"}
-                    </span>
+                      ? getPrettyAuthSource(getValues("external_idp") ?? "")
+                      : "LibreOne (Local)"}
+                  </span>
                 </div>
-                <div style={{ marginBottom: "1rem" }}>
-                    <strong>Time of Account Creation:</strong>
-                    <span style={{ marginLeft: "0.5rem" }}>
+                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                  <Header sub>Time of Account Creation</Header>
+                  <span>
                     {getValues("created_at")
-                        ? format(
-                            utcToZonedTime(
+                      ? format(
+                          utcToZonedTime(
                             parseISO(getValues("created_at") as string),
                             getValues("time_zone") as string
-                            ),
-                            "MM/dd/yyyy hh:mm aa"
+                          ),
+                          "MM/dd/yyyy hh:mm aa"
                         )
-                        : ""}
-                    </span>
+                      : ""}
+                  </span>
                 </div>
-                <div style={{ marginBottom: "1rem" }}>
-                    <strong>Time of Last Access:</strong>
-                    <span style={{ marginLeft: "0.5rem" }}>
+                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                  <Header sub>Time of Last Access</Header>
+                  <span>
                     {getValues("last_access")
-                        ? format(
-                            parseISO(getValues("last_access") as string),
-                            "MM/dd/yyyy hh:mm aa"
+                      ? format(
+                          parseISO(getValues("last_access") as string),
+                          "MM/dd/yyyy hh:mm aa"
                         )
-                        : "Unknown"}
-                    </span>
+                      : "Unknown"}
+                  </span>
                 </div>
-                <div>
-                    <strong>Time of Last Password Change:</strong>
-                    <span style={{ marginLeft: "0.5rem" }}>
+                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                  <Header sub>Time of Last Password Change</Header>
+                  <span>
                     {getValues("last_password_change")
-                        ? format(
-                            parseISO(getValues("last_password_change") as string),
-                            "MM/dd/yyyy hh:mm aa"
+                      ? format(
+                          parseISO(getValues("last_password_change") as string),
+                          "MM/dd/yyyy hh:mm aa"
                         )
-                        : "Unknown"}
-                    </span>
+                      : "Unknown"}
+                  </span>
                 </div>
               </Segment>
+              
             </Grid.Column>
   
             <Grid.Column width={8}>
