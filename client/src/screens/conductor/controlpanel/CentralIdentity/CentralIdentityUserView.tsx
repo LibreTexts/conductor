@@ -72,6 +72,16 @@ const CentralIdentityUserView = () => {
       last_password_change: "",
     },
   });
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyUUID = () => {
+    const uuid = typeof getValues("uuid") === "string" ? getValues("uuid") : "unknown";
+    navigator.clipboard.writeText(uuid)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500); 
+      });
+  };
 
   useEffect(() => {
     if (uuid) {
@@ -184,301 +194,169 @@ const CentralIdentityUserView = () => {
 
   return (
     <div style={{ padding: "2rem", maxWidth: 1200, margin: "0 auto" }}>
-      <Breadcrumb size="large" className="mb-4">
-        <Breadcrumb.Section as={Link} to="/controlpanel/libreone/users">
-          LibreOne Users
-        </Breadcrumb.Section>
-        <Breadcrumb.Divider />
-        <Breadcrumb.Section active>
-          {getValues("first_name")} {getValues("last_name")}
-        </Breadcrumb.Section>
-      </Breadcrumb>
-  
-      <Header as="h1" dividing>
-        Manage User
-      </Header>
-  
-      {loading ? (
-        <LoadingSpinner />
-      ) : (
-        <Grid stackable columns={2} divided>
-          <Grid.Row>
-            <Grid.Column width={8}>
-              <Segment>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
-                  <Header as="h3" style={{ margin: 0 }}>User Details</Header>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    
-                    <CtlCheckbox
-                      name="disabled"
-                      control={control}
-                      toggle
-                      negated
-                    />
-                    <span>
-                      {getValues("disabled") ? <strong>Disabled</strong> : <strong>Active</strong>}
+      <div className="controlpanel-container" style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <Header as="h1" dividing>
+          Manage User
+        </Header>
+    
+        {loading ? (
+          <LoadingSpinner />
+        ) : (
+          <Grid stackable columns={2} divided>
+            <Grid.Row>
+              <Grid.Column width={8}>
+                <Segment>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+                    <Header as="h3" style={{ margin: 0 }}>User Details</Header>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      
+                      <CtlCheckbox
+                        name="disabled"
+                        control={control}
+                        toggle
+                        negated
+                      />
+                      <span>
+                        {getValues("disabled") ? <strong>Disabled</strong> : <strong>Active</strong>}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+                      <Image
+                        avatar
+                        size="small"
+                        src={getValues("avatar") ?? DEFAULT_AVATAR_URL}
+                      />
+                      <Popup
+                        content="Reset to default avatar"
+                        trigger={
+                          <Button
+                            icon="ban"
+                            circular
+                            size="tiny"
+                            onClick={handleResetAvatar}
+                          />
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                    <Header sub>Email</Header>
+                    <span style={{ width: "100%", display: "block", fontSize: "1.1em", wordBreak: "break-all" }}>
+                      {getValues("email")}
                     </span>
                   </div>
-                </div>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "1.5rem" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-                    <Image
-                      avatar
-                      size="small"
-                      src={getValues("avatar") ?? DEFAULT_AVATAR_URL}
-                    />
-                    <Popup
-                      content="Reset to default avatar"
-                      trigger={
-                        <Button
-                          icon="ban"
-                          circular
-                          size="tiny"
-                          onClick={handleResetAvatar}
-                        />
-                      }
+                  <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                    <Header sub>First Name</Header>
+                    <CtlTextInput
+                      name="first_name"
+                      control={control}
+                      rules={{ required: true }}
+                      fluid
+                      style={{ width: "100%" }}
                     />
                   </div>
-                </div>
-                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                  <Header sub>Email</Header>
-                  <span style={{ width: "100%", display: "block", fontSize: "1.1em", wordBreak: "break-all" }}>
-                    {getValues("email")}
-                  </span>
-                </div>
-                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                  <Header sub>First Name</Header>
-                  {editingFirstName ? (
-                    <div style={{ display: "flex", width: "100%", gap: "0.5rem" }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <CtlTextInput
-                          name="first_name"
-                          control={control}
-                          rules={{ required: true }}
+                  <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                    <Header sub>Last Name</Header>
+                    <CtlTextInput
+                      name="last_name"
+                      control={control}
+                      rules={{ required: true }}
+                      fluid
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                  <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                    <Header sub>User Type</Header>
+                    <Controller
+                      name="user_type"
+                      control={control}
+                      render={({ field }) => (
+                        <Dropdown
+                          options={userTypeOptions}
+                          {...field}
+                          onChange={(e, data) => {
+                            field.onChange(data.value?.toString() ?? "student");
+                          }}
+                          selection
                           fluid
-                          style={{ width: "100%" }}
                         />
-                      </div>
-                      <Button
-                        icon="close"
-                        circular
-                        size="tiny"
-                        onClick={() => {
-                          handleResetDataItem("first_name");
-                          setEditingFirstName(false);
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", alignItems: "center", width: "100%", gap: "0.5rem" }}>
-                      <span style={{ flex: 1 }}>{getValues("first_name")}</span>
-                      <Button
-                        icon="edit"
-                        circular
-                        size="tiny"
-                        onClick={() => setEditingFirstName(true)}
+                      )}
+                    />
+                  </div>
+                  {getValues("user_type") === "student" && (
+                    <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                      <Header sub>Student ID</Header>
+                      <CtlTextInput
+                        name="student_id"
+                        control={control}
+                        fluid
+                        style={{ width: "100%" }}
                       />
                     </div>
                   )}
-                </div>
-                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                  <Header sub>Last Name</Header>
-                  {editingLastName ? (
-                    <div style={{ display: "flex", width: "100%", gap: "0.5rem" }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <CtlTextInput
-                          name="last_name"
-                          control={control}
-                          rules={{ required: true }}
-                          fluid
-                          style={{ width: "100%" }}
-                        />
-                      </div>
-                      <Button
-                        icon="close"
-                        circular
-                        size="tiny"
-                        onClick={() => {
-                          handleResetDataItem("last_name");
-                          setEditingLastName(false);
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", alignItems: "center", width: "100%", gap: "0.5rem" }}>
-                      <span style={{ flex: 1 }}>{getValues("last_name")}</span>
-                      <Button
-                        icon="edit"
-                        circular
-                        size="tiny"
-                        onClick={() => setEditingLastName(true)}
-                      />
-                    </div>
-                  )}
-                </div>
-                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                  <Header sub>User Type</Header>
-                  {editingUserType ? (
-                    <div style={{ display: "flex", gap: "0.5rem", width: "100%" }}>
+                  {getValues("user_type") === "instructor" && (
+                    <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                      <Header sub>Verification Status</Header>
                       <Controller
-                        name="user_type"
+                        name="verify_status"
                         control={control}
                         render={({ field }) => (
                           <Dropdown
-                            options={userTypeOptions}
+                            options={verificationStatusOptions}
                             {...field}
                             onChange={(e, data) => {
-                              field.onChange(data.value?.toString() ?? "student");
+                              field.onChange(data.value?.toString() ?? "pending");
                             }}
                             selection
                             fluid
                           />
                         )}
                       />
-                      <Button
-                        icon="close"
-                        circular
-                        size="tiny"
-                        onClick={() => {
-                          setEditingUserType(false);
-                          handleResetDataItem("user_type");
-                        }}
-                      />
                     </div>
-                  ) : (
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
-                      <span style={{ flex: 1 }}>{getPrettyUserType(getValues("user_type"))}</span>
-                      <Button
-                        icon="edit"
-                        circular
-                        size="tiny"
-                        onClick={() => setEditingUserType(true)}
+                  )}
+                  {getValues("user_type") === "instructor" && (
+                    <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                      <Header sub>Bio URL</Header>
+                      <CtlTextInput
+                        name="bio_url"
+                        control={control}
+                        placeholder="Bio URL..."
+                        fluid
+                        style={{ width: "100%" }}
                       />
                     </div>
                   )}
-                </div>
-                {getValues("user_type") === "student" && (
-                  <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                    <Header sub>Student ID</Header>
-                    {editingStudentId ? (
-                      <div style={{ display: "flex", gap: "0.5rem", width: "100%" }}>
-                        <CtlTextInput name="student_id" control={control} style={{ flex: 1 }} fluid />
-                        <Button
-                          icon="close"
-                          circular
-                          size="tiny"
-                          onClick={() => {
-                            setEditingStudentId(false);
-                            handleResetDataItem("student_id");
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
-                        <span style={{ flex: 1 }}>{getValues("student_id") ?? "Unknown"}</span>
-                        <Button
-                          icon="edit"
-                          circular
-                          size="tiny"
-                          onClick={() => setEditingStudentId(true)}
-                        />
-                      </div>
+                                    
+                  <div style={{
+                    marginTop: "2rem",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
+                    <Button onClick={loadUser}>Cancel</Button>
+                    {formState.isDirty && (
+                      <Button color="green" onClick={handleSave} loading={loading}>
+                        <Icon name="save" />
+                        Save
+                      </Button>
                     )}
                   </div>
-                )}
-                {getValues("user_type") === "instructor" && (
-                  <>
-                    <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                      <Header sub>Verification Status</Header>
-                      {editingVerifyStatus ? (
-                        <div style={{ display: "flex", gap: "0.5rem", width: "100%" }}>
-                          <Controller
-                            name="verify_status"
-                            control={control}
-                            render={({ field }) => (
-                              <Dropdown
-                                options={verificationStatusOptions}
-                                {...field}
-                                onChange={(e, data) => {
-                                  field.onChange(data.value?.toString() ?? "pending");
-                                }}
-                                selection
-                                fluid
-                              />
-                            )}
-                          />
-                          <Button
-                            icon="close"
-                            circular
-                            size="tiny"
-                            onClick={() => {
-                              setEditingVerifyStatus(false);
-                              handleResetDataItem("verify_status");
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
-                          <span style={{ flex: 1 }}>{getPrettyVerficationStatus(getValues("verify_status"))}</span>
-                          <Button
-                            icon="edit"
-                            circular
-                            size="tiny"
-                            onClick={() => setEditingVerifyStatus(true)}
-                          />
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                      <Header sub>Bio URL</Header>
-                      {editingBioURL ? (
-                        <div style={{ width: "100%" }}>
-                          <CtlTextInput
-                            name="bio_url"
-                            control={control}
-                            placeholder="Bio URL..."
-                            fluid
-                            style={{ width: "100%" }}
-                          />
-                          <Button
-                            icon="close"
-                            circular
-                            size="tiny"
-                            onClick={() => {
-                              setEditingBioURL(false);
-                              handleResetDataItem("bio_url");
-                            }}
-                            style={{ marginTop: 8 }}
-                          />
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                          <span style={{ flex: 1 }}>{getValues("bio_url") ?? "Not Set"}</span>
-                          <Button
-                            icon="edit"
-                            circular
-                            size="tiny"
-                            onClick={() => setEditingBioURL(true)}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
+                </Segment>
+                <Segment>
+                <Header as="h3" dividing>Authentication & Security Data</Header>
                 <div style={{ marginBottom: "1.25rem", width: "100%" }}>
                   <Header sub>UUID</Header>
                   <span style={{ fontFamily: "monospace" }}>
                     {getValues("uuid")}
-                    <CopyButton val={getValues("uuid") ?? "unknown"}>
-                      {({ copied, copy }) => (
-                        <Icon
-                          name="copy"
-                          color={copied ? "green" : "blue"}
-                          style={{ cursor: "pointer", marginLeft: "0.5rem" }}
-                          onClick={copy}
-                        />
-                      )}
-                    </CopyButton>
+                    <Icon
+                      name="copy"
+                      color={copied ? "green" : "blue"}
+                      style={{ cursor: "pointer", marginLeft: "0.5rem" }}
+                      onClick={handleCopyUUID}
+                    />
+                    {copied && <span style={{ color: "green", marginLeft: 8 }}>Copied!</span>}
                   </span>
                 </div>
                 <div style={{ marginBottom: "1.25rem", width: "100%" }}>
@@ -525,152 +403,144 @@ const CentralIdentityUserView = () => {
                       : "Unknown"}
                   </span>
                 </div>
-                <div style={{ marginTop: "2rem", display: "flex", gap: "1rem" }}>
-                  <Button onClick={loadUser}>Cancel</Button>
-                  {formState.isDirty && (
-                    <Button color="green" onClick={handleSave} loading={loading}>
-                      <Icon name="save" />
-                      Save Changes
-                    </Button>
-                  )}
-                </div>
               </Segment>
-              
-            </Grid.Column>
-  
-            <Grid.Column width={8}>
-              <Segment>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-                    <Header as="h3" style={{ margin: 0 }}>Organizations</Header>
-                    <Button
-                        icon
-                        color="blue"
-                        size="tiny"
-                        onClick={() => setShowAddOrgModal(true)}
-                    >
-                        <Icon name="plus" />
-                    </Button>
-                </div>
-                <Table compact celled>
-                  <Table.Header>
-                    <Table.Row>
-                      <Table.HeaderCell>Name</Table.HeaderCell>
-                      <Table.HeaderCell>System Name</Table.HeaderCell>
-                      <Table.HeaderCell>Actions</Table.HeaderCell>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {getValues("organizations") &&
-                     getValues("organizations")?.length > 0 ? (
-                      getValues("organizations").map((org) => (
-                        <Table.Row key={org.id}>
-                          <Table.Cell>{org.name}</Table.Cell>
-                          <Table.Cell>
-                            <span>
-                                {org.system ? org.system.name : ""}
-                            </span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <Button
-                              icon
-                              color="red"
-                              size="tiny"
-                              onClick={() =>
-                                handleOpenRemoveOrgOrAppModal("org", org.id.toString())
-                              }
-                            >
-                              <Icon name="trash" />
-                            </Button>
+                
+              </Grid.Column>
+    
+              <Grid.Column width={8}>
+                <Segment>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+                      <Header as="h3" style={{ margin: 0 }}>Organizations</Header>
+                      <Button
+                          icon
+                          color="blue"
+                          size="tiny"
+                          onClick={() => setShowAddOrgModal(true)}
+                      >
+                          <Icon name="plus" />
+                      </Button>
+                  </div>
+                  <Table compact celled>
+                    <Table.Header>
+                      <Table.Row>
+                        <Table.HeaderCell>Name</Table.HeaderCell>
+                        <Table.HeaderCell>System Name</Table.HeaderCell>
+                        <Table.HeaderCell>Actions</Table.HeaderCell>
+                      </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                      {getValues("organizations") &&
+                      getValues("organizations")?.length > 0 ? (
+                        getValues("organizations").map((org) => (
+                          <Table.Row key={org.id}>
+                            <Table.Cell>{org.name}</Table.Cell>
+                            <Table.Cell>
+                              <span>
+                                  {org.system ? org.system.name : ""}
+                              </span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <Button
+                                icon
+                                color="red"
+                                size="tiny"
+                                onClick={() =>
+                                  handleOpenRemoveOrgOrAppModal("org", org.id.toString())
+                                }
+                              >
+                                <Icon name="trash" />
+                              </Button>
+                            </Table.Cell>
+                          </Table.Row>
+                        ))
+                      ) : (
+                        <Table.Row>
+                          <Table.Cell colSpan={3} textAlign="center">
+                            <em>No organizations found.</em>
                           </Table.Cell>
                         </Table.Row>
-                      ))
-                    ) : (
+                      )}
+                    </Table.Body>
+                  </Table>
+                </Segment>
+    
+                <Segment>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+                      <Header as="h3" style={{ margin: 0 }}>Applications</Header>
+                      <Button
+                          icon
+                          color="blue"
+                          size="tiny"
+                          onClick={() => setShowAddAppModal(true)}
+                      >
+                          <Icon name="plus" />
+                      </Button>
+                  </div>
+                  <Table compact celled>
+                    <Table.Header>
                       <Table.Row>
-                        <Table.Cell colSpan={3} textAlign="center">
-                          <em>No organizations found.</em>
-                        </Table.Cell>
+                        <Table.HeaderCell>Name</Table.HeaderCell>
+                        <Table.HeaderCell>Actions</Table.HeaderCell>
                       </Table.Row>
-                    )}
-                  </Table.Body>
-                </Table>
-              </Segment>
-  
-              <Segment>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-                    <Header as="h3" style={{ margin: 0 }}>Applications</Header>
-                    <Button
-                        icon
-                        color="blue"
-                        size="tiny"
-                        onClick={() => setShowAddAppModal(true)}
-                    >
-                        <Icon name="plus" />
-                    </Button>
-                </div>
-                <Table compact celled>
-                  <Table.Header>
-                    <Table.Row>
-                      <Table.HeaderCell>Name</Table.HeaderCell>
-                      <Table.HeaderCell>Actions</Table.HeaderCell>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {userApps.length > 0 ? (
-                      userApps.map((app) => (
-                        <Table.Row key={app.id}>
-                          <Table.Cell>{app.name}</Table.Cell>
-                          <Table.Cell>
-                            <Button
-                              icon
-                              color="red"
-                              size="tiny"
-                              onClick={() =>
-                                handleOpenRemoveOrgOrAppModal("app", app.id.toString())
-                              }
-                            >
-                              <Icon name="trash" />
-                            </Button>
+                    </Table.Header>
+                    <Table.Body>
+                      {userApps.length > 0 ? (
+                        userApps.map((app) => (
+                          <Table.Row key={app.id}>
+                            <Table.Cell>{app.name}</Table.Cell>
+                            <Table.Cell>
+                              <Button
+                                icon
+                                color="red"
+                                size="tiny"
+                                onClick={() =>
+                                  handleOpenRemoveOrgOrAppModal("app", app.id.toString())
+                                }
+                              >
+                                <Icon name="trash" />
+                              </Button>
+                            </Table.Cell>
+                          </Table.Row>
+                        ))
+                      ) : (
+                        <Table.Row>
+                          <Table.Cell colSpan={2} textAlign="center">
+                            <em>No applications found.</em>
                           </Table.Cell>
                         </Table.Row>
-                      ))
-                    ) : (
-                      <Table.Row>
-                        <Table.Cell colSpan={2} textAlign="center">
-                          <em>No applications found.</em>
-                        </Table.Cell>
-                      </Table.Row>
-                    )}
-                  </Table.Body>
-                </Table>
-              </Segment>
-            </Grid.Column>
-          </Grid.Row>
-        </Grid>
-      )}
-      <AddUserAppModal
-        show={showAddAppModal}
-        userId={uuid}
-        currentApps={userApps.map((app) => app.id.toString())}
-        onClose={handleAddAppModalClose}
-      />
-      <AddUserOrgModal
-        show={showAddOrgModal}
-        userId={uuid}
-        currentOrgs={getValues("organizations")?.map((org) => org.id.toString())}
-        onClose={handleAddOrgModalClose}
-      />
-      <ConfirmRemoveOrgOrAppModal
-        show={showRemoveOrgOrAppModal}
-        type={removeOrgOrAppType}
-        userId={uuid}
-        targetId={removeOrgOrAppTargetId}
-        onClose={handleRemoveOrgOrAppModalClose}
-      />
-      <ViewUserProjectsModal
-        show={showViewUserProjectsModal}
-        userId={uuid}
-        onClose={handleViewUserProjectsModalClose}
-      />
+                      )}
+                    </Table.Body>
+                  </Table>
+                </Segment>
+              </Grid.Column>
+            </Grid.Row>
+          </Grid>
+        )}
+        <AddUserAppModal
+          show={showAddAppModal}
+          userId={uuid}
+          currentApps={userApps.map((app) => app.id.toString())}
+          onClose={handleAddAppModalClose}
+        />
+        <AddUserOrgModal
+          show={showAddOrgModal}
+          userId={uuid}
+          currentOrgs={getValues("organizations")?.map((org) => org.id.toString())}
+          onClose={handleAddOrgModalClose}
+        />
+        <ConfirmRemoveOrgOrAppModal
+          show={showRemoveOrgOrAppModal}
+          type={removeOrgOrAppType}
+          userId={uuid}
+          targetId={removeOrgOrAppTargetId}
+          onClose={handleRemoveOrgOrAppModalClose}
+        />
+        <ViewUserProjectsModal
+          show={showViewUserProjectsModal}
+          userId={uuid}
+          onClose={handleViewUserProjectsModalClose}
+        />
+      </div>
     </div>
   );
 };
