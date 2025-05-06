@@ -43,7 +43,7 @@ const checkProjectAdminPermission = (project:any, user:any) => {
             return false;
         });
         if (foundUser !== undefined) {
-            return true; 
+            return true;
         } else {
             return authAPI.checkHasRole(user, 'libretexts', 'superadmin');
         }
@@ -95,12 +95,12 @@ async function _addMemberToProjectInternal(
 ): Promise<string> {
   const project = await Project.findOne({ projectID }).lean();
   if (!project) {
-    throw new Error(conductorErrors.err11); 
+    throw new Error(conductorErrors.err11);
   }
 
   // If user is accepting a valid invitation, we don't need to check for admin permissions
   if (!checkProjectAdminPermission(project, user) && !acceptingInvitation) {
-    throw new Error(conductorErrors.err8); 
+    throw new Error(conductorErrors.err8);
   }
 
   const projectTeam = constructProjectTeam(project);
@@ -110,7 +110,7 @@ async function _addMemberToProjectInternal(
 
   const targetUser = await User.findOne({ uuid }).lean();
   if (!targetUser) {
-    throw new Error(conductorErrors.err7); 
+    throw new Error(conductorErrors.err7);
   }
 
   const addTo = () => {
@@ -207,7 +207,7 @@ export async function createProjectInvitation(
       });
     }
 
-  
+
     const project = await Project.findOne({ projectID, orgID }).lean();
     if (!project) {
       return res.status(404).send({
@@ -264,7 +264,7 @@ export async function createProjectInvitation(
     }
 
     mailAPI.sendProjectInvitation(email, sender.firstName, sender.lastName, project.title, newInvitation.inviteID, newInvitation.token, organization.domain);
-  
+
     const { _id, token, __v, ...responseInvitation } = newInvitation.toObject();
 
     return res.send({
@@ -297,7 +297,7 @@ export async function getProjectInvitation(req: ZodReqWithUser<z.infer<typeof ge
     .select("-token -_id -__v")
     .populate({
       path: "project",
-      select: "title -_id", 
+      select: "title -_id",
     })
     .populate({
       path: "sender",
@@ -312,7 +312,7 @@ export async function getProjectInvitation(req: ZodReqWithUser<z.infer<typeof ge
         errMsg: conductorErrors.err69
       });
     }
-    
+
     if (new Date() > new Date(invitation.expires)) {
       return res.status(404).send({
         err: true,
@@ -324,7 +324,7 @@ export async function getProjectInvitation(req: ZodReqWithUser<z.infer<typeof ge
       err: false,
       invitation
     });
-    
+
   }
   catch (e) {
     debugError(e);
@@ -338,7 +338,6 @@ export async function getProjectInvitation(req: ZodReqWithUser<z.infer<typeof ge
 export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<typeof getAllProjectInvitationsSchema>>, res: Response){
   try{
     const { projectID } = req.params;
-    const orgID = process.env.ORG_ID;
     if (!projectID) {
       return res.status(400).send({
         err: true,
@@ -349,7 +348,7 @@ export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<ty
     const page = req.query.page? parseInt(req.query.page.toString()) : 1;
     const limit = req.query.limit? parseInt(req.query.limit.toString()) : 10;
 
-    const project = await Project.findOne({projectID, orgID}).lean();
+    const project = await Project.findOne({projectID}).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
@@ -365,15 +364,15 @@ export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<ty
         });
       }
 
-
+    const orgID = project.orgID || "libretexts";
     const invitations = await ProjectInvitation.find({ projectID, orgID, accepted: false, expires: { $gt: new Date() } })
       .select("-token -_id -__v")
-      .sort({ createdAt: -1 }) 
+      .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .populate({
         path: "sender",
-        select: "firstName lastName -_id", 
+        select: "firstName lastName -_id",
       }).
       lean();
 
@@ -411,7 +410,7 @@ export async function deleteProjectInvitation(req: ZodReqWithUser<z.infer<typeof
           errMsg: conductorErrors.err1,
         });
       }
-      
+
       const invitation = await ProjectInvitation.findOne({ inviteID, orgID });
       if (!invitation) {
         return res.status(403).send({
@@ -428,7 +427,7 @@ export async function deleteProjectInvitation(req: ZodReqWithUser<z.infer<typeof
           errMsg: conductorErrors.err11,
         });
       }
-      
+
       const isAdmin = checkProjectAdminPermission(project, req.user);
       if (!isAdmin) {
         return res.status(403).send({
@@ -468,7 +467,7 @@ export async function updateProjectInvitation(req: ZodReqWithUser<z.infer<typeof
     const updatedInvitation = await ProjectInvitation.findOneAndUpdate(
       { inviteID, orgID },
       { role },
-      { new: true, projection: "-_id -token -__v" } 
+      { new: true, projection: "-_id -token -__v" }
     );
 
     if (!updatedInvitation) {
@@ -493,7 +492,7 @@ export async function updateProjectInvitation(req: ZodReqWithUser<z.infer<typeof
 
 export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof acceptProjectInvitationSchema>>, res: Response){
   try{
-    
+
     const { inviteID } = req.params;
     const { token } = req.query;
     const orgID = process.env.ORG_ID;
@@ -541,7 +540,7 @@ export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof
      * so long as inviteID and token are valid (and user is authenticated).
      * Many people have multiple accounts/emails and may have been invited via a different one.
     */
-    const user = await User.findOne({ uuid: req.user.decoded.uuid }).lean(); 
+    const user = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
 
     if (!user) {
       return res.status(404).send({
@@ -551,7 +550,7 @@ export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof
     }
 
     const result = await _addMemberToProjectInternal(projectID, user.uuid, req.user, (invitation.role as ProjectRole), true);
-    
+
     // Ensure invitation is successfully accepted before updating it
     invitation.accepted = true;
     await invitation.save();
