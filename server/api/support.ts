@@ -137,8 +137,8 @@ async function getRequestorOtherTickets(
 
     let page = 1;
     let limit = 25;
-    if (req.query.page) page = req.query.page;
-    if (req.query.limit) limit = parseInt(req.query.limit.toString());
+    if (req.query.page) page = parseInt(req.query.page.toString() || "1");
+    if (req.query.limit) limit = parseInt(req.query.limit.toString() || "25");
     const offset = getPaginationOffset(page, limit);
 
     const results = await _getUserTickets({
@@ -148,6 +148,7 @@ async function getRequestorOtherTickets(
       page,
       limit,
       offset,
+      populateAssignedUsers: true,
     });
 
     if (!results) {
@@ -179,6 +180,7 @@ async function _getUserTickets({
   page = 1,
   limit = 25,
   offset = 0,
+  populateAssignedUsers = false,
 }: {
   uuid?: string;
   email?: string;
@@ -186,6 +188,7 @@ async function _getUserTickets({
   page?: number;
   limit?: number;
   offset?: number;
+  populateAssignedUsers?: boolean;
 }): Promise<{ tickets: SupportTicketInterface[]; total: number } | undefined> {
   try {
     if (!uuid && !email) return undefined;
@@ -203,11 +206,17 @@ async function _getUserTickets({
     const sortObj = getSortObj();
     const searchObj = uuid ? { userUUID: uuid } : { "guest.email": email };
 
-    const tickets = await SupportTicket.find(searchObj)
+    const query =  SupportTicket.find(searchObj)
       .skip(offset)
       .limit(limit)
       .sort(sortObj as any)
-      .populate("user");
+      .populate("user")
+
+    if(populateAssignedUsers) {
+      query.populate("assignedUsers")
+    }
+
+    const tickets = await query.exec();
 
     tickets.forEach((t) => {
       return _removeAccessKeysFromResponse(t);

@@ -36,7 +36,7 @@ const TicketUserOtherTickets: React.FC<TicketUserOtherTicketsProps> = ({
       keepPreviousData: true,
       staleTime: 1000 * 60 * 10, // 10 minutes
       refetchOnWindowFocus: false,
-    },
+    }
   );
 
   useEffect(() => {
@@ -46,7 +46,7 @@ const TicketUserOtherTickets: React.FC<TicketUserOtherTicketsProps> = ({
   async function getRequesterOtherTickets(
     page: number,
     limit: number,
-    sort: string,
+    sort: string
   ) {
     try {
       setLoading(true);
@@ -59,8 +59,8 @@ const TicketUserOtherTickets: React.FC<TicketUserOtherTicketsProps> = ({
           ...(ticket.user?.uuid
             ? { uuid: ticket.user?.uuid }
             : ticket.guest?.email
-              ? { email: ticket.guest.email }
-              : {}),
+            ? { email: ticket.guest.email }
+            : {}),
         },
       });
       if (res.data.err) {
@@ -141,7 +141,9 @@ const TicketUserOtherTickets: React.FC<TicketUserOtherTicketsProps> = ({
             accessor: "assignedUsers",
             title: "Assigned To",
             render(record) {
-              return record.assignedUsers ? (
+              return record.assignedUsers &&
+                Array.isArray(record.assignedUsers) &&
+                record.assignedUsers.length > 0 ? (
                 <p className="line-clamp-1 truncate">
                   {record.assignedUsers.map((u) => u.firstName).join(", ")}
                 </p>
