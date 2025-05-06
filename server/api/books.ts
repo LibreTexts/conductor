@@ -345,15 +345,11 @@ const autoGenerateCollections = () => {
  * @param {Object} req - The Express.js request object.
  * @param {Object} res - The Express.js response object.
  */
-const syncWithLibraries = (_req: Request, res: Response) => {
-  return res.send({
-    err: true,
-    msg: "This endpoint is currently unavailable.",
-  })
+const syncWithLibraries = async (_req: Request, res: Response) => {
   let importCount = 0; // final count of imported books
   let didGenExports = false; // If KB Export files were generated
-  let shelvesRequests = []; // requests from Bookshelves
-  let coursesRequests = []; // requests from Campus Bookshelves
+  let shelvesRequests: Promise<AxiosResponse>[] = []; // requests from Bookshelves
+  let coursesRequests: Promise<AxiosResponse>[] = []; // requests from Campus Bookshelves
   let allRequests = []; // all requests to be made
   let allBooks: BookInterface[] = []; // all books returned from LT API
   let processedBooks: BookInterface[] = []; // all books processed for DB save
@@ -365,19 +361,23 @@ const syncWithLibraries = (_req: Request, res: Response) => {
   let newBookDBIds = []; // upserted MongoDb id's
   let generatedProjects = false; // did create new projects
   let updatedCollections = false; // did update auto-managed Collections
+
   // Build list(s) of HTTP requests to be performed
-  librariesAPI.getLibraryNameKeys(false, false).then((libs) => {
-    if (Array.isArray(libs)) {
-      libs.forEach((l) => {
-        shelvesRequests.push(axios.get(generateBookshelvesURL(l)));
-        coursesRequests.push(axios.get(generateCoursesURL(l)));
-      })
-    }
-  }).catch((err) => {
-    debugError(err);
-  });
+  const libs = await librariesAPI.getLibraryNameKeys(false, false);
+  if (Array.isArray(libs)) {
+    libs.forEach((l) => {
+      shelvesRequests.push(axios.get(generateBookshelvesURL(l)));
+      coursesRequests.push(axios.get(generateCoursesURL(l)));
+    });
+  } else {
+    return res.send({
+      err: true,
+      errMsg: conductorErrors.err16,
+    });
+  }
 
   allRequests = shelvesRequests.concat(coursesRequests);
+
   // Execute requests
   Promise.all(allRequests)
     .then((booksRes) => {
