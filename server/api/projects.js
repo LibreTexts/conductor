@@ -1748,7 +1748,7 @@ async function addMemberToProject(req, res) {
 
     // PUT user permissions for updated team if project is linked to a Workbench book
     if(updatedProject.didCreateWorkbench && updatedProject.libreLibrary && updatedProject.libreCoverID) {
-      const subdomain = getSubdomainFromLibrary(updatedProject.libreLibrary);
+      const subdomain = await getSubdomainFromLibrary(updatedProject.libreLibrary);
       if(!subdomain) {
         throw new Error("Invalid library");
       }
@@ -2034,7 +2034,7 @@ async function changeMemberRole(req, res) {
 
     // PUT user permissions for updated team if project is linked to a Workbench book
     if(project.didCreateWorkbench && project.libreLibrary && project.libreCoverID) {
-      const subdomain = getSubdomainFromLibrary(project.libreLibrary);
+      const subdomain = await getSubdomainFromLibrary(project.libreLibrary);
       if(!subdomain) {
         throw new Error("Invalid library");
       }
@@ -2119,7 +2119,7 @@ async function removeMemberFromProject(req, res) {
 
     // PUT user permissions for updated team if project is linked to a Workbench book
     if(project.didCreateWorkbench && project.libreLibrary && project.libreCoverID) {
-      const subdomain = getSubdomainFromLibrary(project.libreLibrary);
+      const subdomain = await getSubdomainFromLibrary(project.libreLibrary);
       if(!subdomain) {
         throw new Error("Invalid library");
       }

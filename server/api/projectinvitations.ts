@@ -148,7 +148,7 @@ async function _addMemberToProjectInternal(
     updatedProject.libreLibrary &&
     updatedProject.libreCoverID
   ) {
-    const subdomain = getSubdomainFromLibrary(updatedProject.libreLibrary);
+    const subdomain = await getSubdomainFromLibrary(updatedProject.libreLibrary);
     if (!subdomain) {
       throw new Error('Invalid library');
     }
