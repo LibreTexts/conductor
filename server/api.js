@@ -1481,6 +1481,13 @@ router
     projectsAPI.getAddableMembers
   );
 
+router.route("/project/:projectID/team/re-sync").put(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ProjectValidators.ReSyncProjectTeamBookAccessSchema),
+  projectsAPI.reSyncProjectTeamBookAccess
+)
+
 router
   .route("/project/:projectID/team/:uuid/role")
   .put(

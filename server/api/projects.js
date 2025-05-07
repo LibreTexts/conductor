@@ -2140,6 +2140,54 @@ async function removeMemberFromProject(req, res) {
   }
 }
 
+async function reSyncProjectTeamBookAccess(req, res){
+  try {
+    const { projectID } = req.params;
+    if (!projectID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err1,
+      });
+    }
+
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!checkProjectAdminPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      })
+    }
+
+    // PUT user permissions for updated team if project is linked to a Workbench book
+    if (project.didCreateWorkbench && project.libreLibrary && project.libreCoverID) {
+      const subdomain = await getSubdomainFromLibrary(project.libreLibrary);
+      if(!subdomain) {
+        throw new Error("Invalid library");
+      }
+
+      await updateTeamWorkbenchPermissions(projectID, subdomain, project.libreCoverID)
+    }
+
+    return res.send({
+      err: false,
+      errMsg: "Successfully initiated re-sync of team member(s) book access.",
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
 /**
  * Sets a flag on the Project identified by the projectID in the request body
  * and sends an email to the user(s) in the flagging group.
@@ -3689,6 +3737,7 @@ export default {
     getProjectTeam,
     changeMemberRole,
     removeMemberFromProject,
+    reSyncProjectTeamBookAccess,
     flagProject,
     clearProjectFlag,
     getProjectPinStatus,

@@ -771,6 +771,14 @@ class API {
 
     return res;
   }
+
+  async reSyncProjectTeamBookAccess(projectID: string){
+    const res = await axios.put<ConductorBaseResponse>(
+      `/project/${projectID}/team/re-sync`
+    );
+    return res;
+  }
+
   async getPublicProjects(params?: { page?: number; limit?: number }) {
     const res = await axios.get<
       {
