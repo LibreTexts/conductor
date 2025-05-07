@@ -504,17 +504,20 @@ export const generateChapterOnePath = (bookPath: string): string => {
   return `${bookPath}/01:_First_Chapter`;
 };
 
-export const getSubdomainFromLibrary = (library: string): string | null => {
-  let subdomain: string | null = null;
-  getLibraryNameKeys(true).then((libs) => {
-    if (Array.isArray(libs)) {
-      const found = libs.find((lib) => lib === library);
+export async function getSubdomainFromLibrary(
+  library: string
+): Promise<string | null> {
+  try {
+    const libNameKeys = await getLibraryNameKeys(true);
+    if (Array.isArray(libNameKeys)) {
+      const found = libNameKeys.find((lib) => lib === library);
       if (found) {
-        subdomain = found;
+        return found;
       }
     }
-  }).catch((err) => {
+    return null;
+  } catch (err) {
     debugError(err);
-  })
-  return null;
-};
+    return null;
+  }
+}

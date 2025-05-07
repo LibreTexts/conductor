@@ -1002,9 +1002,9 @@ async function processLibraryAccessWebhookEvent(
       libreLibrary: library,
     }).lean();
 
-    const withSubdomain = projects.map((project) => {
+    const withSubdomain = projects.map(async (project) => {
       if (!project.libreLibrary) return null;
-      const subdomain = getSubdomainFromLibrary(project.libreLibrary);
+      const subdomain = await getSubdomainFromLibrary(project.libreLibrary);
       return {
         projectID: project.projectID,
         subdomain,
@@ -1012,8 +1012,11 @@ async function processLibraryAccessWebhookEvent(
       };
     });
 
-    const promises = withSubdomain.map((project) => {
+    const promises = withSubdomain.map(async (projectPromise) => {
+      const project = await projectPromise;
+      
       if (!project) return null;
+      
       const { projectID, subdomain, libreCoverID } = project;
       if (!projectID || !subdomain || !libreCoverID) return null;
       return updateTeamWorkbenchPermissions(projectID, subdomain, libreCoverID);
