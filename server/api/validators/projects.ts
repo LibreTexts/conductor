@@ -21,3 +21,9 @@ export const findByBookSchema = z.object({
     bookID: bookIDSchema
   }),
 })
+
+export const ReSyncProjectTeamBookAccessSchema = z.object({
+  params: z.object({
+    projectID: z.string().length(10),
+  }),
+})

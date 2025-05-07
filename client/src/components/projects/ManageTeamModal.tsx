@@ -14,7 +14,7 @@ import {
   Input,
   TableProps,
   Radio,
-  Pagination
+  Pagination,
 } from "semantic-ui-react";
 import { AddableProjectTeamMember, Project, User } from "../../types";
 import {
@@ -27,11 +27,10 @@ import useGlobalError from "../error/ErrorHooks";
 import useDebounce from "../../hooks/useDebounce";
 import { useTypedSelector } from "../../state/hooks";
 import { extractEmailDomain } from "../../utils/misc";
-import {
-  libraryOptions,
-  getLibraryName
-} from '../util/LibraryOptions.js';
 import api from "../../api";
+import { useModals } from "../../context/ModalContext";
+import ConfirmModal from "../ConfirmModal";
+import { useNotifications } from "../../context/NotificationContext";
 
 type ProjectDisplayMember = User & { roleValue: string; roleDisplay: string };
 
@@ -70,13 +69,17 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
   const user = useTypedSelector((state) => state.user);
+  const { openModal, closeAllModals } = useModals();
+  const { addNotification } = useNotifications();
   const [loading, setLoading] = useState<boolean>(false);
   const [hasNotSearched, setHasNotSearched] = useState<boolean>(true);
   const [searchString, setSearchString] = useState<string>("");
   const [inviteEmail, setInviteEmail] = useState<string>("");
   const [includeOutsideOrg, setIncludeOutsideOrg] = useState<boolean>(true);
   const [invitationsLoading, setInvitationsLoading] = useState<boolean>(false);
-  const [pendingInvitations, setPendingInvitations] = useState<ProjectInvitation[]>([]);
+  const [pendingInvitations, setPendingInvitations] = useState<
+    ProjectInvitation[]
+  >([]);
   const [teamUserOptions, setTeamUserOptions] = useState<
     AddableProjectTeamMember[]
   >([]);
@@ -84,7 +87,9 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     useState<boolean>(false);
   const [currentInvitationPage, setCurrentInvitationPage] = useState<number>(1);
   const [totalInvitationPages, setTotalInvitationPages] = useState<number>(1);
-  const [membersWithoutAccess, setMembersWithoutAccess] = useState<string[]>([]);
+  const [membersWithoutAccess, setMembersWithoutAccess] = useState<string[]>(
+    []
+  );
   const ITEMS_PER_INVITATION_PAGE = 5;
 
   const userOrgDomain = useMemo(() => {
@@ -113,8 +118,11 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
       }
 
       setLoading(true);
-      const res = await api.createProjectInvitation(project.projectID, inviteEmail, "member");
-
+      const res = await api.createProjectInvitation(
+        project.projectID,
+        inviteEmail,
+        "member"
+      );
 
       setInviteEmail("");
       setCurrentInvitationPage(1);
@@ -131,11 +139,16 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     try {
       setInvitationsLoading(true);
 
-      const res = await api.getAllProjectInvitations(project.projectID, page, ITEMS_PER_INVITATION_PAGE);
-
+      const res = await api.getAllProjectInvitations(
+        project.projectID,
+        page,
+        ITEMS_PER_INVITATION_PAGE
+      );
 
       setPendingInvitations(res.data.invitations || []);
-      setTotalInvitationPages(Math.ceil(res.data.total / ITEMS_PER_INVITATION_PAGE));
+      setTotalInvitationPages(
+        Math.ceil(res.data.total / ITEMS_PER_INVITATION_PAGE)
+      );
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -157,18 +170,22 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
 
   const fetchTeamMembersLibraryAccess = async () => {
     try {
-      if (!project.projectID || !project.libreLibrary || !project.libreCoverID) return;
+      if (!project.projectID || !project.libreLibrary || !project.libreCoverID)
+        return;
       const teamMembers = [
         ...(project?.auditors || []),
         ...(project?.leads || []),
         ...(project?.liaisons || []),
-        ...(project?.members || [])
-      ].map(member => {
-        return member.uuid
+        ...(project?.members || []),
+      ].map((member) => {
+        return member.uuid;
       });
 
-      const libRes = await api.getLibraryFromSubdomain(project.libreLibrary, true);
-      if (!libRes || libRes.data.err){
+      const libRes = await api.getLibraryFromSubdomain(
+        project.libreLibrary,
+        true
+      );
+      if (!libRes || libRes.data.err) {
         throw new Error("Failed to fetch library information");
       }
 
@@ -177,13 +194,13 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
       const res = await api.checkTeamLibraryAccess(libID, teamMembers);
 
       const withoutAccess = teamMembers.filter(
-        (member) => !res.data.accessResults.find((result: any) => result.id === member)?.hasAccess
+        (member) =>
+          !res.data.accessResults.find((result: any) => result.id === member)
+            ?.hasAccess
       );
       setMembersWithoutAccess(withoutAccess);
 
       return withoutAccess;
-
-
     } catch (err) {
       handleGlobalError(err);
     }
@@ -191,7 +208,8 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
 
   useEffect(() => {
     const fetchData = async () => {
-      if (show) {  // Only fetch if modal is shown
+      if (show) {
+        // Only fetch if modal is shown
         await fetchPendingInvitations();
         await fetchTeamMembersLibraryAccess();
       }
@@ -282,13 +300,12 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     }
   };
 
-  const submitChangeInvitationRole = async (
-    inviteID: string,
-    role: string
-  ) => {
+  const submitChangeInvitationRole = async (inviteID: string, role: string) => {
     try {
       if (isEmptyString(inviteID) || isEmptyString(role)) {
-        throw new Error("Invalid invite ID or role. This may be caused by an internal error.");
+        throw new Error(
+          "Invalid invite ID or role. This may be caused by an internal error."
+        );
       }
       setLoading(true);
       const res = await api.updateInvitationRole(inviteID, role);
@@ -366,6 +383,58 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     }
   };
 
+  const submitReSyncAccess = async () => {
+    try {
+      if (
+        !project.libreCoverID ||
+        !project.libreLibrary ||
+        !project.didCreateWorkbench
+      )
+        return;
+
+      setLoading(true);
+
+      const res = await api.reSyncProjectTeamBookAccess(project.projectID);
+      if (res.data.err) {
+        handleGlobalError(res.data.errMsg);
+        return;
+      }
+
+      await fetchTeamMembersLibraryAccess();
+
+      addNotification({
+        type: "success",
+        message: "Succesfully requested re-sync of book access.",
+      });
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onReSyncAccessClick = async () => {
+    if (
+      !project.libreCoverID ||
+      !project.libreLibrary ||
+      !project.didCreateWorkbench
+    ) {
+      return;
+    }
+    openModal(
+      <ConfirmModal
+        text="Are you sure you want to re-sync book access? Conductor handles this automatically, so this is only necessary if you are having issues with access."
+        onConfirm={() => {
+          closeAllModals();
+          submitReSyncAccess();
+        }}
+        confirmText="Re-Sync"
+        cancelText="Cancel"
+        onCancel={closeAllModals}
+      />
+    );
+  };
+
   const RenderCurrentTeamTable: React.FC<RenderCurrentTeamTableProps> = ({
     project,
     withoutAccess,
@@ -410,7 +479,10 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
 
     const totalTeamPages = Math.ceil(sortedTeam.length / ITEMS_PER_TEAM_PAGE);
     const startIndex = (currentTeamPage - 1) * ITEMS_PER_TEAM_PAGE;
-    const paginatedTeam = sortedTeam.slice(startIndex, startIndex + ITEMS_PER_TEAM_PAGE);
+    const paginatedTeam = sortedTeam.slice(
+      startIndex,
+      startIndex + ITEMS_PER_TEAM_PAGE
+    );
 
     return (
       <>
@@ -428,14 +500,20 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
               return (
                 <Table.Row key={item.uuid}>
                   <Table.Cell>
-                    {lackAccess && project.libreLibrary && project.libreCoverID && (
-                      <Popup
-                        content="This user doesn't have access to the library for this project. If this is not expected, they should complete instructor verification or contact our Support Center."
-                        trigger={
-                          <Icon name="warning sign" color="yellow" className="!mr-2"/>
-                        }
-                      />
-                    )}
+                    {lackAccess &&
+                      project.libreLibrary &&
+                      project.libreCoverID && (
+                        <Popup
+                          content="This user doesn't have access to the library for this project. If this is not expected, they should complete instructor verification or contact our Support Center."
+                          trigger={
+                            <Icon
+                              name="warning sign"
+                              color="yellow"
+                              className="!mr-2"
+                            />
+                          }
+                        />
+                      )}
                     <Image avatar src={item.avatar} />
                     {item.firstName} {item.lastName}
                   </Table.Cell>
@@ -450,7 +528,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                         submitChangeTeamMemberRole(
                           item.uuid,
                           value ? value.toString() : ""
-                        )
+                        );
                       }}
                     />
                   </Table.Cell>
@@ -488,7 +566,6 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
       </>
     );
   };
-
 
   const RenderInvitationTable: React.FC<RenderInvitationTableProps> = ({
     invitations,
@@ -570,10 +647,19 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     );
   };
 
-
   return (
     <Modal open={show} onClose={handleClose} size="large" closeIcon>
-      <Modal.Header>Manage Project Team</Modal.Header>
+      <Modal.Header className="!flex !flex-row !justify-between !items-center !w-full">
+        <h2>Manage Project Team</h2>
+        {project.libreLibrary &&
+          project.libreCoverID &&
+          project.didCreateWorkbench && (
+            <Button size="small" onClick={onReSyncAccessClick}>
+              <Icon name="refresh" />
+              Re-Sync Book Access
+            </Button>
+          )}
+      </Modal.Header>
       <Modal.Content scrolling className="!min-h-[48rem]">
         {!loading ? (
           <>
@@ -586,7 +672,9 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
             />
 
             <div className="mt-16">
-              <p className="text-xl font-semibold mb-4">Invite Team Members By Email</p>
+              <p className="text-xl font-semibold mb-4">
+                Invite Team Members By Email
+              </p>
               <div className="flex flex-row gap-2 mb-4">
                 <Input
                   placeholder="Enter email address..."
@@ -605,7 +693,9 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
               </div>
 
               <div className="mt-8">
-                <p className="text-lg font-semibold mb-2">Pending Invitations</p>
+                <p className="text-lg font-semibold mb-2">
+                  Pending Invitations
+                </p>
                 <RenderInvitationTable
                   invitations={pendingInvitations}
                   loading={invitationsLoading}
@@ -619,7 +709,9 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
               <Form.Field className="flex flex-col">
                 <div className="flex flex-row justify-between items-center mb-1">
                   <div className="flex flex-row items-center">
-                    <p className="text-xl font-semibold">Add Team Members By Name</p>
+                    <p className="text-xl font-semibold">
+                      Add Team Members By Name
+                    </p>
                     <Popup
                       content="Add users to the project team by searching for their name or email address. You can use the toggle switch to the right to restrict the search to users with the same email address domain as you."
                       trigger={
@@ -678,13 +770,15 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                   )}
                   {!teamUserOptsLoading &&
                     teamUserOptions.map((item) => {
-                      const orgsStr = item.orgs ? truncateString(
-                        item.orgs
-                          .slice(0, 3)
-                          .map((org: { name: string }) => org.name)
-                          .join(", "),
-                        135
-                      ) : '';
+                      const orgsStr = item.orgs
+                        ? truncateString(
+                            item.orgs
+                              .slice(0, 3)
+                              .map((org: { name: string }) => org.name)
+                              .join(", "),
+                            135
+                          )
+                        : "";
                       return (
                         <Table.Row key={item.uuid}>
                           <Table.Cell>
@@ -692,7 +786,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                             {item.firstName} {item.lastName}
                           </Table.Cell>
                           <Table.Cell>
-                            {orgsStr && orgsStr !== 'Unknown Organization' && (
+                            {orgsStr && orgsStr !== "Unknown Organization" && (
                               <p>{orgsStr}</p>
                             )}
                           </Table.Cell>
