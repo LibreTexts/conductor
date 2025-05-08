@@ -58,6 +58,7 @@ const CentralIdentityInstructorVerifications = lazy(() => import('./screens/cond
 const CentralIdentityOrgs = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityOrgs'));
 const CentralIdentityServices = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityServices'));
 const CentralIdentityUsers = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUsers'));
+const CentralIdentityUserView = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUserView'));
 import SupportCenterNavbar from './components/navigation/SupportCenterNavbar';
 const SupportCenter = lazy(() => import('./screens/conductor/support'));
 const SupportCenterCreateTicket = lazy(() => import('./screens/conductor/support/SupportCreateTicket'));
@@ -132,6 +133,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/libreone/orgs' component={CentralIdentityOrgs} />
           <PrivateRoute exact path='/controlpanel/libreone/services' component={CentralIdentityServices} />
           <PrivateRoute exact path='/controlpanel/libreone/users' component={CentralIdentityUsers} />
+          <PrivateRoute exact path='/controlpanel/libreone/users/:uuid' component={CentralIdentityUserView} />
           <PrivateRoute exact path='/controlpanel/orgsmanager' component={OrganizationsManager} />
           <PrivateRoute exact path='/controlpanel/peerreviewrubrics' component={PeerReviewRubrics} />
           <PrivateRoute exact path='/controlpanel/peerreviewrubrics/:mode/:rubricID?' component={PeerReviewRubricManage} />
