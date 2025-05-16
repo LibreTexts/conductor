@@ -24,3 +24,4 @@ export * from "./ProjectInvitation"
 export * from "./support";
 export * from "./Search";
 export * from "./User";
+export * from "./Note";

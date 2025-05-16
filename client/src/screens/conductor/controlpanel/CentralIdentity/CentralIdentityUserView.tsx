@@ -36,6 +36,8 @@ const AddUserAppModal = lazy(() => import("../../../../components/controlpanel/C
 const AddUserOrgModal = lazy(() => import("../../../../components/controlpanel/CentralIdentity/AddUserOrgModal"));
 const ConfirmRemoveOrgOrAppModal = lazy(() => import("../../../../components/controlpanel/CentralIdentity/ConfirmRemoveOrgOrAppModal"));
 const ViewUserProjectsModal = lazy(() => import("../../../../components/controlpanel/CentralIdentity/ViewUserProjectsModal"));
+const InternalNotesSection = lazy(() => import("../../../../components/Notes/InternalNotesSection"));
+import api from "../../../../api";
 
 const CentralIdentityUserView = () => {
   const { uuid } = useParams<{ uuid: string }>();
@@ -95,7 +97,7 @@ const CentralIdentityUserView = () => {
       if (!uuid) return;
       setLoading(true);
 
-      const res = await axios.get(`/central-identity/users/${uuid}`);
+      const res = await api.getCentralIdentityUser(uuid);
       if (res.data.err) {
         handleGlobalError(res.data.errMsg);
         return;
@@ -114,9 +116,9 @@ const CentralIdentityUserView = () => {
       if (!uuid) return;
       setLoading(true);
 
-      const res = await axios.get(`/central-identity/users/${uuid}/applications`);
-      if (res.data.err || !res.data.applications || !Array.isArray(res.data.applications)) {
-        handleGlobalError(res.data.errMsg);
+      const res = await api.getCentralIdentityUserApplications(uuid);
+      if (res.data.err) {
+        handleGlobalError(res.data.errMsg || "An error occurred");
         return;
       }
 
@@ -173,7 +175,7 @@ const CentralIdentityUserView = () => {
       setLoading(true);
 
       const data = dirtyValues<CentralIdentityUser>(formState.dirtyFields, getValues());
-      const res = await axios.patch(`/central-identity/users/${userInitVal.uuid}`, data);
+      const res = await api.updateCentralIdentityUser(userInitVal.uuid, data);
 
       if (res.data.err) {
         handleGlobalError(res.data.errMsg);
@@ -420,48 +422,50 @@ const CentralIdentityUserView = () => {
                           <Icon name="plus" />
                       </Button>
                   </div>
-                  <Table compact celled>
-                    <Table.Header>
-                      <Table.Row>
-                        <Table.HeaderCell>Name</Table.HeaderCell>
-                        <Table.HeaderCell>System Name</Table.HeaderCell>
-                        <Table.HeaderCell>Actions</Table.HeaderCell>
-                      </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                      {getValues("organizations") &&
-                      getValues("organizations")?.length > 0 ? (
-                        getValues("organizations").map((org) => (
-                          <Table.Row key={org.id}>
-                            <Table.Cell>{org.name}</Table.Cell>
-                            <Table.Cell>
-                              <span>
-                                  {org.system ? org.system.name : ""}
-                              </span>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <Button
-                                icon
-                                color="red"
-                                size="tiny"
-                                onClick={() =>
-                                  handleOpenRemoveOrgOrAppModal("org", org.id.toString())
-                                }
-                              >
-                                <Icon name="trash" />
-                              </Button>
+                  <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+                    <Table compact celled>
+                      <Table.Header>
+                        <Table.Row>
+                          <Table.HeaderCell>Name</Table.HeaderCell>
+                          <Table.HeaderCell>System Name</Table.HeaderCell>
+                          <Table.HeaderCell>Actions</Table.HeaderCell>
+                        </Table.Row>
+                      </Table.Header>
+                      <Table.Body>
+                        {getValues("organizations") &&
+                        getValues("organizations")?.length > 0 ? (
+                          getValues("organizations").map((org) => (
+                            <Table.Row key={org.id}>
+                              <Table.Cell>{org.name}</Table.Cell>
+                              <Table.Cell>
+                                <span>
+                                    {org.system ? org.system.name : ""}
+                                </span>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <Button
+                                  icon
+                                  color="red"
+                                  size="tiny"
+                                  onClick={() =>
+                                    handleOpenRemoveOrgOrAppModal("org", org.id.toString())
+                                  }
+                                >
+                                  <Icon name="trash" />
+                                </Button>
+                              </Table.Cell>
+                            </Table.Row>
+                          ))
+                        ) : (
+                          <Table.Row>
+                            <Table.Cell colSpan={3} textAlign="center">
+                              <em>No organizations found.</em>
                             </Table.Cell>
                           </Table.Row>
-                        ))
-                      ) : (
-                        <Table.Row>
-                          <Table.Cell colSpan={3} textAlign="center">
-                            <em>No organizations found.</em>
-                          </Table.Cell>
-                        </Table.Row>
-                      )}
-                    </Table.Body>
-                  </Table>
+                        )}
+                      </Table.Body>
+                    </Table>
+                  </div>
                 </Segment>
     
                 <Segment>
@@ -476,41 +480,46 @@ const CentralIdentityUserView = () => {
                           <Icon name="plus" />
                       </Button>
                   </div>
-                  <Table compact celled>
-                    <Table.Header>
-                      <Table.Row>
-                        <Table.HeaderCell>Name</Table.HeaderCell>
-                        <Table.HeaderCell>Actions</Table.HeaderCell>
-                      </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                      {userApps.length > 0 ? (
-                        userApps.map((app) => (
-                          <Table.Row key={app.id}>
-                            <Table.Cell>{app.name}</Table.Cell>
-                            <Table.Cell>
-                              <Button
-                                icon
-                                color="red"
-                                size="tiny"
-                                onClick={() =>
-                                  handleOpenRemoveOrgOrAppModal("app", app.id.toString())
-                                }
-                              >
-                                <Icon name="trash" />
-                              </Button>
+                  <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+                    <Table compact celled>
+                      <Table.Header>
+                        <Table.Row>
+                          <Table.HeaderCell>Name</Table.HeaderCell>
+                          <Table.HeaderCell>Actions</Table.HeaderCell>
+                        </Table.Row>
+                      </Table.Header>
+                      <Table.Body>
+                        {userApps.length > 0 ? (
+                          userApps.map((app) => (
+                            <Table.Row key={app.id}>
+                              <Table.Cell>{app.name}</Table.Cell>
+                              <Table.Cell>
+                                <Button
+                                  icon
+                                  color="red"
+                                  size="tiny"
+                                  onClick={() =>
+                                    handleOpenRemoveOrgOrAppModal("app", app.id.toString())
+                                  }
+                                >
+                                  <Icon name="trash" />
+                                </Button>
+                              </Table.Cell>
+                            </Table.Row>
+                          ))
+                        ) : (
+                          <Table.Row>
+                            <Table.Cell colSpan={2} textAlign="center">
+                              <em>No applications found.</em>
                             </Table.Cell>
                           </Table.Row>
-                        ))
-                      ) : (
-                        <Table.Row>
-                          <Table.Cell colSpan={2} textAlign="center">
-                            <em>No applications found.</em>
-                          </Table.Cell>
-                        </Table.Row>
-                      )}
-                    </Table.Body>
-                  </Table>
+                        )}
+                      </Table.Body>
+                    </Table>
+                  </div>
+                </Segment>
+                <Segment>
+                  <InternalNotesSection userId={uuid} />
                 </Segment>
               </Grid.Column>
             </Grid.Row>
