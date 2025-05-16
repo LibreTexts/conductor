@@ -3,7 +3,7 @@ import { Segment, Header, Button, Icon, List, Loader, Pagination } from "semanti
 import EditNoteModal from "./EditNoteModal";
 import api from "../../api";
 import useGlobalError from "../../components/error/ErrorHooks";
-import { Note, InternalNotesSectionProps, User } from "../../types/Note";
+import { Note, InternalNotesSectionProps } from "../../types/Note";
 
 
 export default function InternalNotesSection({ userId, canEdit=true }: InternalNotesSectionProps) {

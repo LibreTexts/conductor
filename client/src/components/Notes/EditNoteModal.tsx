@@ -3,7 +3,7 @@ import { Modal, Button } from "semantic-ui-react";
 import { useForm } from "react-hook-form";
 import api from "../../api";
 import CtlTextArea from "../ControlledInputs/CtlTextArea";
-import { Note, EditNoteModalProps, NoteFormData } from "../../types/Note";
+import { EditNoteModalProps, NoteFormData } from "../../types/Note";
 
 export default function EditNoteModal({ open, onClose, note, userId }: EditNoteModalProps) {
   const [loading, setLoading] = useState(false);
