@@ -14,7 +14,7 @@ export type InternalNotesSectionProps = {
     canEdit?: boolean;
 };
   
-export type User = {
+export type BasicUserInfo = {
     uuid: string;
     first_name: string;
     last_name: string;
@@ -27,8 +27,8 @@ export type Note = {
     updated_at: string;
     created_at: string;
     created_by_id: string;
-    created_by_user: User;
+    created_by_user: BasicUserInfo;
     updated_by_id: string;
-    updated_by_user: User;
+    updated_by_user: BasicUserInfo;
     user_id: string;
 };
