@@ -42,3 +42,36 @@ export const UpdateUserPinnedProjectsSchema = z.object({
       return true;
     }, "projectID or folder is required for this action"),
 });
+
+
+export const GetUserNotesSchema = z.object({
+    params: z.object({
+      userId: z.string().uuid()
+    })
+});
+  
+export const CreateUserNoteSchema = z.object({
+    params: z.object({
+      userId: z.string().uuid()
+    }),
+    body: z.object({
+      content: z.string().min(1)
+    })
+});
+  
+export const UpdateUserNoteSchema = z.object({
+    params: z.object({
+      userId: z.string().uuid(),
+      noteId: z.string().uuid()
+    }),
+    body: z.object({
+      content: z.string().min(1)
+    })
+});
+
+export const DeleteUserNoteSchema = z.object({
+    params: z.object({
+      userId: z.string().uuid(),
+      noteId: z.string().uuid()
+    })
+});
