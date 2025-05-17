@@ -5,7 +5,7 @@ import { truncateString } from "../../util/HelperFunctions";
 import { Project } from "../../../types";
 
 type ProjectCardProps = {
-  project: Project;
+  project: Pick<Project, "projectID" | "title" | "updatedAt">;
   showPinButton?: boolean;
   onPin?: (projectID: string) => void;
 };
@@ -37,7 +37,7 @@ const ProjectCard = ({
   };
 
   return (
-    <Card raised {...props}>
+    <Card raised {...props} className="!max-h-[130px]">
       <div className="flex flex-col flex-grow p-4">
         <div className="flex">
           <div className="flex flex-col flex-1">
@@ -45,7 +45,7 @@ const ProjectCard = ({
               className="text-lg font-semibold opacity-85 text-black"
               to={`/projects/${project.projectID}`}
             >
-              {truncateString(project.title, 100)}
+              {truncateString(project.title, 75)}
             </Link>
             <span className="muted-text text-sm my-1">
               Last updated {updateDate} at {updateTime}
