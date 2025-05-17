@@ -21,15 +21,14 @@ import { Announcement, Project } from "../../../types";
 
 import ProjectCard from "../../../components/projects/ProjectCard";
 import useGlobalError from "../../../components/error/ErrorHooks";
-import { pinProject } from "../../../utils/projectHelpers";
 import Annnouncement from "../../../components/Home/Announcement";
 import UserMenu from "../../../components/Home/UserMenu";
 import useSystemAnnouncement from "../../../hooks/useSystemAnnouncement";
+import PinnedProjects from "../../../components/Home/PinnedProjects/PinnedProjects";
+import { useModals } from "../../../context/ModalContext";
+import AddPinnedProjectModal from "../../../components/Home/PinnedProjects/AddPinnedProjectModal";
 const NewMemberModal = lazy(
   () => import("../../../components/Home/NewMemberModal")
-);
-const PinProjectsModal = lazy(
-  () => import("../../../components/Home/PinProjectsModal")
 );
 const ViewAnnouncementModal = lazy(
   () => import("../../../components/Home/ViewAnnouncementModal")
@@ -43,6 +42,7 @@ const CreateProjectModal = lazy(
 
 const Home = () => {
   const { handleGlobalError } = useGlobalError();
+  const { openModal, closeAllModals } = useModals();
   const location = useLocation();
   const user = useTypedSelector((state) => state.user);
   const { sysAnnouncement } = useSystemAnnouncement();
@@ -50,13 +50,11 @@ const Home = () => {
   /* Data */
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
-  const [pinnedProjects, setPinnedProjects] = useState<Project[]>([]);
 
   /* UI */
   const [loadedAllAnnouncements, setLoadedAllAnnouncements] =
     useState<boolean>(false);
   const [loadedAllRecents, setLoadedAllRecents] = useState<boolean>(false);
-  const [loadedAllPinned, setLoadedAllPinned] = useState<boolean>(false);
   const [showNASuccess, setShowNASuccess] = useState<boolean>(false);
 
   // New Announcement Modal
@@ -70,9 +68,6 @@ const Home = () => {
 
   // New Member Modal
   const [showNMModal, setShowNMModal] = useState<boolean>(false);
-
-  // Edit Pinned Projects Modal
-  const [showPinnedModal, setShowPinnedModal] = useState<boolean>(false);
 
   // Create Project Modal
   const [showCreateProjectModal, setShowCreateProjectModal] =
@@ -137,26 +132,6 @@ const Home = () => {
   }, [setRecentProjects, setLoadedAllRecents, handleGlobalError]);
 
   /**
-   * Load the users's pinned projects and update the UI accordingly.
-   */
-  const getPinnedProjects = useCallback(async () => {
-    try {
-      setLoadedAllPinned(false);
-      const res = await axios.get("/projects/pinned");
-      if (res.data?.err) {
-        throw new Error(res.data.errMsg);
-      }
-      if (Array.isArray(res.data.projects)) {
-        setPinnedProjects(res.data.projects);
-      }
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setLoadedAllPinned(true);
-    }
-  }, [setPinnedProjects, setLoadedAllPinned, handleGlobalError]);
-
-  /**
    * Setup page & title on load and
    * load recent data.
    */
@@ -169,14 +144,9 @@ const Home = () => {
         node.setAttribute("rel", "noopener noreferrer");
       }
     });
-    getPinnedProjects();
     getRecentProjects();
     getAnnouncements();
-  }, [
-    getPinnedProjects,
-    getRecentProjects,
-    getAnnouncements,
-  ]);
+  }, [getRecentProjects, getAnnouncements]);
 
   /**
    * Open the Announcement View modal
@@ -200,14 +170,16 @@ const Home = () => {
   };
 
   async function handlePinProject(projectID: string) {
-    if (!projectID) return;
-    setLoadedAllPinned(true);
-    const success = await pinProject(projectID);
-    if (!success) {
-      handleGlobalError("Failed to pin project.");
-    }
-    getPinnedProjects();
-    setLoadedAllPinned(false);
+    openModal(
+      <AddPinnedProjectModal
+        projectID={projectID}
+        show={true}
+        onClose={() => {
+          closeAllModals();
+          getRecentProjects();
+        }}
+      />
+    );
   }
 
   return (
@@ -240,49 +212,7 @@ const Home = () => {
             icon="add"
             labelPosition="left"
           />
-          <Segment
-            padded={pinnedProjects.length > 0}
-            loading={!loadedAllPinned}
-          >
-            <div
-              className={
-                pinnedProjects.length > 0
-                  ? "dividing-header-custom"
-                  : "header-custom"
-              }
-            >
-              <h3>
-                <Icon name="pin" />
-                Pinned Projects
-              </h3>
-              <div className="right-flex">
-                <Popup
-                  content={<span>Edit Pinned Projects</span>}
-                  trigger={
-                    <Button
-                      color="blue"
-                      onClick={() => setShowPinnedModal(true)}
-                      icon
-                      circular
-                      size="tiny"
-                    >
-                      <Icon name="pencil" />
-                    </Button>
-                  }
-                  position="top center"
-                />
-              </div>
-            </div>
-            {pinnedProjects.length > 0 && (
-              <Segment basic loading={!loadedAllPinned}>
-                <Card.Group itemsPerRow={2}>
-                  {pinnedProjects.map((item) => (
-                    <ProjectCard project={item} key={item.projectID} />
-                  ))}
-                </Card.Group>
-              </Segment>
-            )}
-          </Segment>
+          <PinnedProjects />
           <Segment padded>
             <div className="dividing-header-custom">
               <h3>
@@ -390,13 +320,6 @@ const Home = () => {
       <NewMemberModal
         show={showNMModal}
         onClose={() => setShowNMModal(false)}
-      />
-      {/* Edit Pinned Projects Modal */}
-      <PinProjectsModal
-        show={showPinnedModal}
-        pinnedProjects={pinnedProjects}
-        onDataChange={() => getPinnedProjects()}
-        onClose={() => setShowPinnedModal(false)}
       />
       {/* Create Project Modal */}
       <CreateProjectModal

@@ -1268,36 +1268,78 @@ const getUserFlaggedProjects = (req, res) => {
  * @param {Object} req - The express.js request object.
  * @param {Object} res - The express.js response object.
  */
-const getUserPinnedProjects = (req, res) => {
-  return User.findOne(
-    { uuid: req.user.decoded.uuid },
-    { pinnedProjects: 1 },
-  ).lean().then((user) => {
-    if (user) {
-      const pinned = user.pinnedProjects || [];
-      return Project.aggregate([
-        {
-          $match: {
-            projectID: {
-              $in: pinned
-            }
-          }
-        }, {
-          $sort: {
-            title: -1,
-          }
-        }, {
-          $project: projectListingProjection
-        }
-      ]);
+const getUserPinnedProjects = async (req, res) => {
+  try {
+    if(!req.user.decoded.uuid){
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
     }
-    throw (new Error('user'));
-  }).then((projects) => {
+
+    const user = await User.findOne(
+      { uuid: req.user.decoded.uuid },
+      { pinnedProjects: 1 },
+    ).lean();
+
+    if(!user) {
+      throw new Error('user');
+    }
+
+    // transform the pinnedProjects array of objects into a flat array of IDs
+    // e.g. { folder: "Default", projects: ["abc", "def"] } => ["abc", "def"]
+    const pinnedIds = user.pinnedProjects?.reduce((acc, val) => {
+      if (Array.isArray(val.projects)) {
+        return acc.concat(val.projects);
+      }
+      return acc;
+    }, []) ?? [];
+
+    if (pinnedIds.length === 0) {
+      return res.send({
+        err: false,
+        pinned: user.pinnedProjects
+      });
+    }
+
+    const projects = await Project.aggregate([
+      {
+        $match: {
+          projectID: {
+            $in: pinnedIds
+          }
+        }
+      }, {
+        $sort: {
+          title: -1,
+        }
+      }, {
+        $project: {
+          _id: 0,
+          orgID: 1,
+          projectID: 1,
+          title: 1,
+          updatedAt: 1,
+        }
+      }
+    ]);
+
+    // rebuild the pinnedProjects array of objects with the project data
+    const pinned = user.pinnedProjects.map((folder) => {
+      const folderProjects = projects.filter((project) => {
+        return folder.projects.includes(project.projectID);
+      });
+      return {
+        folder: folder.folder,
+        projects: folderProjects
+      };
+    });
+
     return res.send({
       err: false,
-      projects,
+      pinned
     });
-  }).catch((err) => {
+  } catch (err){
     let errMsg = conductorErrors.err6;
     if (err.message === 'user') {
       errMsg = conductorErrors.err9;
@@ -1308,7 +1350,7 @@ const getUserPinnedProjects = (req, res) => {
       err: false,
       errMsg,
     });
-  });
+  }
 };
 
 /**
@@ -1328,7 +1370,12 @@ async function getRecentProjects(req, res) {
   }
   let userPinned = [];
   if (Array.isArray(user.pinnedProjects)) {
-    userPinned = user.pinnedProjects;
+    userPinned = user.pinnedProjects.reduce((acc, val) => {
+      if (Array.isArray(val.projects)) {
+        return acc.concat(val.projects);
+      }
+      return acc;
+    }, []);
   }
   try {
     const projects = await Project.aggregate([
@@ -2321,103 +2368,6 @@ const clearProjectFlag = (req, res) => {
         });
     });
 };
-
-
-/**
- * Looks up whether or not a user has a particular saved in their "pinned" list for quick access.
- *
- * @param {Object} req - The express.js request object.
- * @param {Object} res - The express.js response object.
- */
-const getProjectPinStatus = (req, res) => {
-  return User.findOne(
-    { uuid: req.user.decoded.uuid },
-    { pinnedProjects: 1 },
-  ).lean().then((user) => {
-    if (user) {
-      let pinned = false;
-      if (Array.isArray(user.pinnedProjects)) {
-        pinned = user.pinnedProjects.includes(req.query.projectID);
-      }
-      return res.send({
-        err: false,
-        pinned,
-      });
-    }
-    throw (new Error('notfound'));
-  }).catch((err) => {
-    let errMsg = conductorErrors.err6;
-    if (err.message === 'notfound') {
-      errMsg = conductorErrors.err9;
-    }
-    return res.send({
-      err: true,
-      errMsg,
-    });
-  });
-};
-
-
-/**
- * Adds a project to the user's "pinned" list for quick access.
- *
- * @param {Object} req - The express.js request object.
- * @param {Object} res - The express.js response object.
- */
-const pinProject = (req, res) => {
-  return Project.findOne({ projectID: req.body.projectID }).lean().then((project) => {
-    if (project) {
-      return User.updateOne({ uuid: req.user.decoded.uuid }, {
-        $addToSet: {
-          pinnedProjects: project.projectID,
-        }
-      });
-    }
-    throw (new Error('notfound'));
-  }).then(() => {
-    return res.send({
-      err: false,
-      msg: 'Project successfully pinned!',
-    });
-  }).catch((err) => {
-    let errMsg = conductorErrors.err6;
-    if (err.message === 'notfound') {
-      errMsg = conductorErrors.err11;
-    } else {
-      debugError(err);
-    }
-    return res.send({
-      err: true,
-      errMsg,
-    });
-  });
-};
-
-
-/**
- * Removes a project from the user's "pinned" list.
- *
- * @param {Object} req - The express.js request object.
- * @param {Object} res - The express.js response object.
- */
-const unpinProject = (req, res) => {
-  return User.updateOne(
-    { uuid: req.user.decoded.uuid },
-    { $pullAll: { pinnedProjects: [req.body.projectID] }},
-  ).then(() => {
-    return res.send({
-      err: false,
-      msg: 'Successfully unpinned project.',
-    });
-  }).catch((err) => {
-    debugError(err);
-    return res.send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
-  });
-};
-
 
 /**
  * Retrieves a list of project team members (or the OER Integration Request submitter)
@@ -3662,18 +3612,6 @@ const validate = (method) => {
       return [
           body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
       ]
-    case 'getProjectPinStatus':
-      return [
-          query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
-      ]
-    case 'pinProject':
-      return [
-        body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-      ]
-    case 'unpinProject':
-      return [
-        body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-      ]
     case 'createA11YReviewSection':
       return [
           body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
@@ -3740,9 +3678,6 @@ export default {
     reSyncProjectTeamBookAccess,
     flagProject,
     clearProjectFlag,
-    getProjectPinStatus,
-    pinProject,
-    unpinProject,
     notifyProjectCompleted,
     getOrgTags,
     requestProjectPublishing,

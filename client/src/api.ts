@@ -240,7 +240,7 @@ class API {
       : ""
   }/api/v1/cloudflare/stream-url`;
 
-  async getPermanentLink(projectID: string, fileID: string){
+  async getPermanentLink(projectID: string, fileID: string) {
     const res = await axios.get<
       {
         url: string;
@@ -249,7 +249,7 @@ class API {
     return res;
   }
 
-  async redirectPermanentLink(projectID: string, fileID: string){
+  async redirectPermanentLink(projectID: string, fileID: string) {
     const res = await axios.get<
       {
         url: string;
@@ -380,7 +380,7 @@ class API {
   async getPageDetails(pageID: string, coverPageID: string) {
     const nonce = Math.random().toString(36).substring(7);
     const res = await axios.get<PageDetailsResponse & ConductorBaseResponse>(
-      `/commons/pages/${pageID}?coverPageID=${coverPageID}?nonce=${nonce}`,
+      `/commons/pages/${pageID}?coverPageID=${coverPageID}?nonce=${nonce}`
     );
     return res;
   }
@@ -729,24 +729,24 @@ class API {
   }
 
   // Libraries
-  async getLibraries(){
+  async getLibraries() {
     const res = await axios.get<
       {
-        libraries: Library[]
+        libraries: Library[];
       } & ConductorBaseResponse
     >("/commons/libraries");
     return res;
   }
 
-  async getLibraryFromSubdomain(subdomain: string, includeHidden?: boolean){
+  async getLibraryFromSubdomain(subdomain: string, includeHidden?: boolean) {
     const res = await axios.get<
       {
-        library: Library
+        library: Library;
       } & ConductorBaseResponse
     >(`/commons/libraries/${subdomain}`, {
       params: {
-        includeHidden
-      }
+        includeHidden,
+      },
     });
     return res;
   }
@@ -772,9 +772,50 @@ class API {
     return res;
   }
 
-  async reSyncProjectTeamBookAccess(projectID: string){
+  async reSyncProjectTeamBookAccess(projectID: string) {
     const res = await axios.put<ConductorBaseResponse>(
       `/project/${projectID}/team/re-sync`
+    );
+    return res;
+  }
+
+  async getPinnedProjects() {
+    const res = await axios.get<
+      {
+        pinned: NonNullable<User["pinnedProjects"]>;
+      } & ConductorBaseResponse
+    >("/projects/pinned");
+    return res;
+  }
+
+  async getUserProjects() {
+    const res = await axios.get<
+      {
+        projects: Project[];
+      } & ConductorBaseResponse
+    >("/projects/all");
+    return res;
+  }
+
+  async updateUserPinnedProjects(
+    data:
+      | {
+          action: "add-project" | "move-project";
+          folder: string;
+          projectID: string;
+        }
+      | {
+          action: "remove-project";
+          projectID: string;
+        }
+      | {
+          action: "add-folder" | "remove-folder";
+          folder: string;
+        }
+  ) {
+    const res = await axios.patch<ConductorBaseResponse>(
+      "/user/projects/pinned",
+      data
     );
     return res;
   }
@@ -1227,11 +1268,9 @@ class API {
       {
         accessResults: { id: string; hasAccess: boolean }[];
       } & ConductorBaseResponse
-    >(
-      `/central-identity/users/applications/${applicationId}`, {
-        ids
-      }
-    );
+    >(`/central-identity/users/applications/${applicationId}`, {
+      ids,
+    });
     return res;
   }
 
