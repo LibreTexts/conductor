@@ -1,4 +1,5 @@
 import { Organization } from "./Organization";
+import { Project } from "./Project";
 
 export type User = {
   uuid: string;
@@ -11,7 +12,10 @@ export type User = {
     role: string;
   }[];
   authType: string;
-  pinnedProjects?: string[];
+  pinnedProjects?: {
+    folder: string;
+    projects: (string | Pick<Project, "orgID" | "projectID" | "title" | "updatedAt">)[];
+  }[];
   authorizedApps?: AuthorizedApp[];
   instructorProfile?: {
     institution: string;

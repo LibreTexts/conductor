@@ -90,6 +90,8 @@ import { buildLibraryPageGoURL } from '../../utils/projectHelpers';
 import ProjectLinkButtons from './ProjectLinkButtons';
 import { useModals } from '../../context/ModalContext';
 import RequestToPublishModal from './RequestToPublishModal';
+import { useIsProjectPinned, useUnpinProjectMutation } from '../Home/PinnedProjects/hooks';
+import AddPinnedProjectModal from '../Home/PinnedProjects/AddPinnedProjectModal';
 const ProjectPropertiesModal = lazy(() => import('./ProjectPropertiesModal'));
 const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
@@ -99,6 +101,8 @@ const ProjectView = (props) => {
   const { handleGlobalError } = useGlobalError();
   const { openModal, closeAllModals } = useModals();
   const user = useSelector((state) => state.user);
+  const isProjectPinned = useIsProjectPinned(props.match.params.id)
+  const unpinProjectMutation = useUnpinProjectMutation()
 
   // UI
   const [loadingData, setLoadingData] = useState(false);
@@ -111,7 +115,6 @@ const ProjectView = (props) => {
   // Project Data
   const [projectID, setProjectID] = useState('');
   const [project, setProject] = useState({});
-  const [projectPinned, setProjectPinned] = useState(false);
 
   // Project Permissions
   const [canViewDetails, setCanViewDetails] = useState(false);
@@ -121,10 +124,6 @@ const ProjectView = (props) => {
   // Edit Information Modal
   const [showEditModal, setShowEditModal] = useState(false);
   const [projTitle, setProjTitle] = useState('');
-
-  // Project Pin Modal
-  const [showPinnedModal, setShowPinnedModal] = useState(false);
-  const [pinnedModalDidPin, setPinnedModalDidPin] = useState(true);
 
   // Manage Team Modal
   const [showManageTeamModal, setShowManageTeamModal] = useState(false);
@@ -317,29 +316,7 @@ const ProjectView = (props) => {
       getProjectTasks();
     }
   }, [canViewDetails]);
-
-  /**
-   * Asks the server whether the user has saved the project to their "pinned" list and updates
-   * UI if necessary.
-   */
-  const getProjectPinStatus = () => {
-    axios.get('/project/pin', {
-      params: {
-        projectID: props.match.params.id,
-      }
-    }).then((res) => {
-      if (!res.data.err) {
-        if (typeof (res.data.pinned) === 'boolean') {
-          setProjectPinned(res.data.pinned);
-        }
-      } else {
-        throw (new Error(res.data.errMsg));
-      }
-    }).catch((err) => {
-      console.error(err); // handle silently
-    });
-  };
-
+ 
   /**
    * Retrieves the Project information via GET request
    * to the server and saves it to state.
@@ -354,7 +331,6 @@ const ProjectView = (props) => {
       if (!res.data.err) {
         if (res.data.project) {
           setProject(res.data.project);
-          getProjectPinStatus();
         }
       } else {
         handleGlobalError(res.data.errMsg);
@@ -480,46 +456,16 @@ const ProjectView = (props) => {
     getProject();
   };
 
-  /**
-   * Opens the Pin/Unpin success modal by setting state accordingly.
-   *
-   * @param {boolean} didPin - True if project was pinned, false if unpinned.
-   */
-  const openPinnedModal = (didPin) => {
-    setPinnedModalDidPin(didPin);
-    setShowPinnedModal(true);
-  };
-
-  /**
-   * Closes the Pin/Unpin success modal and resets state.
-   */
-  const closePinnedModal = () => {
-    setShowPinnedModal(false);
-    setPinnedModalDidPin(true);
-  };
-
-  /**
-   * Examines the current status of the user's project "pin" and submits the corresponding
-   * request to the server to toggle the pin. 
-   */
-  const toggleProjectPin = () => {
-    axios({
-      method: projectPinned ? 'DELETE' : 'PUT',
-      url: '/project/pin',
-      data: {
-        projectID: props.match.params.id,
-      },
-    }).then((res) => {
-      if (!res.data.err) {
-        getProjectPinStatus();
-        openPinnedModal(!projectPinned);
-      } else {
-        handleGlobalError(res.data.errMsg);
-      }
-    }).catch((err) => {
-      handleGlobalError(err);
-    });
-  };
+  const handlePinProject = () => {
+    if(!projectID) return;
+    openModal(
+      <AddPinnedProjectModal
+        show={true}
+        projectID={projectID}
+        onClose={() => closeAllModals()}
+      />
+    )
+  }
 
   /**
    * Opens the Manage Team Modal and sets the fields to their
@@ -1589,12 +1535,15 @@ const ProjectView = (props) => {
               <div className='flex-row-div flex-row-verticalcenter'>
                 <span className='muted-text mr-2r'>ID: {project.projectID || 'Loading...'}</span>
                 <Button
-                  content={`${projectPinned ? 'Unpin' : 'Pin'} Project`}
+                  content={`${isProjectPinned ? 'Unpin' : 'Pin'} Project`}
                   icon='pin'
                   labelPosition='left'
-                  color={projectPinned ? undefined : 'blue'}
+                  color={isProjectPinned ? undefined : 'blue'}
                   size='small'
-                  onClick={toggleProjectPin}
+                  onClick={() => {
+                    if(!project.projectID) return;
+                    isProjectPinned ? unpinProjectMutation.mutate(project.projectID) : handlePinProject(project.projectID);
+                  }}
                 />
               </div>
             </Segment>
@@ -2186,20 +2135,6 @@ const ProjectView = (props) => {
             onRequestSave={submitFlagProject}
             onClose={closeFlagModal}
           />
-          {/* Project Pinned Modal */}
-          <Modal open={showPinnedModal} onClose={closePinnedModal}>
-            <Modal.Header>{pinnedModalDidPin ? 'Pinned Project' : 'Unpinned Project'}</Modal.Header>
-            <Modal.Content>
-              {pinnedModalDidPin ? (
-                <p>Successfully added <em>{project.title}</em> to your Pinned Projects! Access it in one click from Home.</p>
-              ) : (
-                <p>Successfully removed <em>{project.title}</em> from your Pinned Projects.</p>
-              )}
-            </Modal.Content>
-            <Modal.Actions>
-              <Button onClick={closePinnedModal} color='blue'>Done</Button>
-            </Modal.Actions>
-          </Modal>
           {/* Manage Reader Resources */}
           {
             project.projectID  && (

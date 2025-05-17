@@ -14,7 +14,10 @@ export type UserInterface = Document & {
     role?: string;
   }[];
   customAvatar?: boolean;
-  pinnedProjects?: string[];
+  pinnedProjects?: {
+    folder: string;
+    projects: string[];
+  }[];
   authorizedApps?: {
     clientID: string;
     authorizedAt: Date;
@@ -84,7 +87,15 @@ const UserSchema = new Schema<UserInterface>(
       },
     ],
     customAvatar: Boolean, // if the user has set their own avatar
-    pinnedProjects: [String], // UUIDs of 'pinned' projects
+    pinnedProjects: [
+      {
+        folder: {
+          type: String,
+          required: true,
+        },
+        projects: [String],
+      }
+    ],
     /**
      * API Client applications the user has authorized to access their account.
      */

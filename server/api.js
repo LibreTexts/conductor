@@ -1061,6 +1061,15 @@ router
   );
 
 router
+  .route("/user/projects/pinned")
+  .patch(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(UserValidators.UpdateUserPinnedProjectsSchema),
+    usersAPI.updateUserPinnedProjects
+  )
+
+router
   .route("/users")
   .get(
     authAPI.verifyRequest,
@@ -1432,27 +1441,6 @@ router
     projectsAPI.validate("clearProjectFlag"),
     middleware.checkValidationErrors,
     projectsAPI.clearProjectFlag
-  );
-
-router
-  .route("/project/pin")
-  .get(
-    authAPI.verifyRequest,
-    projectsAPI.validate("getProjectPinStatus"),
-    middleware.checkValidationErrors,
-    projectsAPI.getProjectPinStatus
-  )
-  .put(
-    authAPI.verifyRequest,
-    projectsAPI.validate("pinProject"),
-    middleware.checkValidationErrors,
-    projectsAPI.pinProject
-  )
-  .delete(
-    authAPI.verifyRequest,
-    projectsAPI.validate("unpinProject"),
-    middleware.checkValidationErrors,
-    projectsAPI.unpinProject
   );
 
 router

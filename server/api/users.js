@@ -640,6 +640,109 @@ async function getInstructorProfile(req, res) {
     }
 }
 
+async function updateUserPinnedProjects(req, res) {
+    try {
+        const data = req.body;
+        const user = await User.findOne({ uuid: req.user.decoded.uuid });
+        if(!user){
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err9,
+            });
+        }
+
+        if(!user.pinnedProjects){
+            user.pinnedProjects = [];
+        }
+
+        // Cannot delete the default folder
+        if(data.folder && data.folder.toLowerCase().trim() === "default"){
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err2,
+            });
+        }
+
+        const foundFolder = user.pinnedProjects.find((folder) => folder.folder.toLowerCase().trim() === data.folder?.toLowerCase().trim());
+        
+        // If the action is not add-folder or remove-project and the folder is not found, return an error
+        if(!foundFolder && (!["add-folder", "remove-project"].includes(data.action))){
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err2,
+            });
+        }
+
+        const tryAddToFolder = (item, folderName) => {
+            if(item.folder.toLowerCase().trim() === folderName.toLowerCase().trim()){
+                const set = new Set(item.projects);
+                set.add(data.projectID);
+                item.projects = [...set];
+            }
+            return item;
+        }
+
+        let didUpdate = false;
+        switch (data.action){
+            case "add-project":
+                const alreadyPinned = foundFolder.projects.find((project) => project === data.projectID);
+                if(alreadyPinned) break;
+                user.pinnedProjects.map((item) => tryAddToFolder(item, data.folder));
+                didUpdate = true;
+                break;
+            case "remove-project":
+                // go through all folders and remove any occurrences of the projectID
+                user.pinnedProjects.map((item) => {
+                    item.projects = item.projects.filter((project) => project !== data.projectID);
+                    return item;
+                });
+                didUpdate = true;
+                break;
+            case "move-project":
+                // go through all folders and remove any occurrences of the projectID. Then, add it to the new folder
+                user.pinnedProjects.map((item) => {
+                    item.projects = item.projects.filter((project) => project !== data.projectID);
+                    return item;
+                });
+                user.pinnedProjects.map((item) => tryAddToFolder(item, data.folder));
+                didUpdate = true;
+            case "add-folder":
+                const folderExists = user.pinnedProjects.find((folder) => folder.folder.toLowerCase().trim() === data.folder.toLowerCase().trim());
+                if(folderExists) break; // idempotent, if the folder already exists, do nothing
+                user.pinnedProjects.push({
+                    folder: data.folder,
+                    projects: []
+                });
+                didUpdate = true;
+                break;
+            case "remove-folder":
+                let startLen = user.pinnedProjects.length;    
+                user.pinnedProjects = user.pinnedProjects.filter((folder) => folder.folder.toLowerCase().trim() !== foundFolder.folder.toLowerCase().trim());
+                let endLen = user.pinnedProjects.length;
+                if(startLen !== endLen) didUpdate = true;
+                break;
+            default:
+                throw new Error('Invalid action');
+        }
+
+        if(didUpdate){
+            await user.save();
+        }
+
+        return res.send({
+            err: false,
+            msg: didUpdate ? "Successfully updated pinned projects." : "No changes made.",
+            pinned: user.pinnedProjects
+        })
+    } catch (err) {
+        debugError(err);
+        return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6,
+        });
+    }
+}
+
 /**
  * Returns the roles held by the User identified in the request body. If the requesting user is a Campus Admin,
  * only the role object relevant to the Campus is returned.
@@ -986,6 +1089,7 @@ export default {
     getUserAuthorizedApplications,
     getAuthorizedApplications,
     getInstructorProfile,
+    updateUserPinnedProjects,
     getUserRoles,
     updateUserRole,
     deleteUserRole,
