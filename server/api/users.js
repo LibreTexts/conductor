@@ -6,7 +6,7 @@
 import express from 'express';
 import { body, query, param } from 'express-validator';
 import { debugError } from '../debug.js';
-import User from '../models/user.js';
+import User, { DEFAULT_PINNED_PROJECTS } from '../models/user.js';
 import conductorErrors from '../conductor-errors.js';
 import authAPI from './auth.js';
 import { getPaginationOffset } from '../util/helpers.js';
@@ -652,7 +652,7 @@ async function updateUserPinnedProjects(req, res) {
         }
 
         if(!user.pinnedProjects){
-            user.pinnedProjects = [];
+            user.pinnedProjects = [...DEFAULT_PINNED_PROJECTS];
         }
 
         // Cannot delete the default folder

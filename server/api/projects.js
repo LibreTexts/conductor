@@ -14,7 +14,7 @@ import {
 import b62 from 'base62-random';
 import multer from 'multer';
 import { v4 } from 'uuid';
-import User from '../models/user.js';
+import User, { DEFAULT_PINNED_PROJECTS } from '../models/user.js';
 import Project from '../models/project.js';
 import Book from '../models/book.js';
 import Tag from '../models/tag.js';
@@ -1284,6 +1284,13 @@ const getUserPinnedProjects = async (req, res) => {
 
     if(!user) {
       throw new Error('user');
+    }
+
+    if(!user.pinnedProjects || !Array.isArray(user.pinnedProjects)){
+      return res.send({
+        err: false,
+        pinned: DEFAULT_PINNED_PROJECTS
+      });
     }
 
     // transform the pinnedProjects array of objects into a flat array of IDs
