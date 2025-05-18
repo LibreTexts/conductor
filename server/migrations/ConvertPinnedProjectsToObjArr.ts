@@ -2,9 +2,9 @@ import User from "../models/user";
 
 export async function runMigration() {
   try {
-    const users = await User.find({
-      email: "info@libretexts.org",
-    }).lean();
+    const users = await User.find({}).lean();
+
+    const toUpdate = [];
 
     for (const user of users) {
       // If the user pinnedProjects is an array of strings, convert it to an array of objects [{folder: "Default", projects: [...originalIds]}]
@@ -44,15 +44,28 @@ export async function runMigration() {
         user.pinnedProjects
       );
 
-      await User.updateOne(
-        { _id: user._id },
-        {
-          $set: {
-            pinnedProjects: user.pinnedProjects,
-          },
-        }
-      );
+      toUpdate.push({
+        _id: user._id,
+        pinnedProjects: user.pinnedProjects,
+      })
     }
+
+    // Update 25 users at a time
+    const chunkSize = 25;
+    for (let i = 0; i < toUpdate.length; i += chunkSize) {
+      const chunk = toUpdate.slice(i, i + chunkSize);
+      // use bulkWrite to update the users
+      const bulkOps = chunk.map((user) => ({
+        updateOne: {
+          filter: { _id: user._id },
+          update: { $set: { pinnedProjects: user.pinnedProjects } },
+        },
+      }));
+
+      await User.bulkWrite(bulkOps);
+    }
+
+
   } catch (err) {
     console.error("Error during migration: ", err);
   }

@@ -53,6 +53,13 @@ export const SanitizedUserSelectProjection = {
   hash: 0,
 }
 
+export const DEFAULT_PINNED_PROJECTS = [
+  {
+    folder: "Default",
+    projects: [],
+  },
+]
+
 const UserSchema = new Schema<UserInterface>(
   {
     centralID: {
@@ -87,15 +94,23 @@ const UserSchema = new Schema<UserInterface>(
       },
     ],
     customAvatar: Boolean, // if the user has set their own avatar
-    pinnedProjects: [
-      {
-        folder: {
-          type: String,
-          required: true,
+    pinnedProjects: {
+      type: [
+        {
+          folder: {
+            type: String,
+            required: true,
+          },
+          projects: [String],
         },
-        projects: [String],
-      }
-    ],
+      ],
+      default: [
+        {
+          folder: "Default",
+          projects: [],
+        },
+      ],
+    },
     /**
      * API Client applications the user has authorized to access their account.
      */
