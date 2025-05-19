@@ -17,6 +17,7 @@ interface FilePreviewProps extends React.HTMLAttributes<HTMLDivElement> {
   videoStorageID?: string;
   storageType: "file" | "folder";
   videoStreamURL?: string;
+  rendererClassName?: string;
 }
 
 const FilePreview: React.FC<FilePreviewProps> = ({
@@ -29,6 +30,7 @@ const FilePreview: React.FC<FilePreviewProps> = ({
   videoStorageID,
   storageType,
   videoStreamURL,
+  rendererClassName,
   ...rest
 }) => {
   const { handleGlobalError } = useGlobalError();
@@ -99,6 +101,11 @@ const FilePreview: React.FC<FilePreviewProps> = ({
 
   return (
     <div {...rest}>
+      {!shouldShowPreview && (
+        <p className="text-sm italic muted-text">
+          File preview is not available for this file type.
+        </p>
+      )}
       {filePreviewURL && previewType === "image" && (
         <>
           <p className="font-semibold">File Preview</p>
@@ -114,7 +121,7 @@ const FilePreview: React.FC<FilePreviewProps> = ({
                 projectID={projectID}
                 fileID={fileID}
                 validImgExt={shouldShowPreview}
-                className="max-w-full max-h-full p-2"
+                className={"max-w-full max-h-full p-2 " + rendererClassName}
               />
             </div>
           )}

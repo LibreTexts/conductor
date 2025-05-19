@@ -36,6 +36,7 @@ const FileRenderer: React.FC<FileRendererProps> = ({
       xhr.onload = () => {
         if (!xhr.response) return;
         setFileBlob(xhr.response);
+        setLoading(false);
       };
       xhr.send();
     } catch (err) {
@@ -74,43 +75,42 @@ const FileRenderer: React.FC<FileRendererProps> = ({
     }
   }
 
-  if (!loading) {
-    if (validImgExt && fileBlob) {
-      return (
-        <div
-          aria-busy={loading}
-          className="cursor-pointer"
-          onClick={handleDownloadFile}
-          {...rest}
-        >
-          <img
-            src={URL.createObjectURL(fileBlob)}
-            alt="Rendered File"
-            className="cursor-pointer"
-          ></img>
-        </div>
-      );
-    }
-
+  if (!validImgExt) {
     return (
       <div className="bg-gray-100 p-4 rounded-md">
-        {!validImgExt && !fileBlob && (
-          <p className="font-semibold">
-            Preview is not available for this file type.
-          </p>
-        )}
-        {validImgExt && !fileBlob && (
-          <p className="font-semibold">
-            Oops, we ran into an error loading this file.
-          </p>
-        )}
+        <p className="font-semibold">
+          Preview is not available for this file type.
+        </p>
       </div>
     );
   }
 
-  return (
-    <div aria-busy={loading} className="bg-gray-100 p-4">
-      <p className="font-semibold">Loading File Preview...</p>
+  if (loading) {
+    return (
+      <div aria-busy={loading} className="bg-gray-100 p-4">
+        <p className="font-semibold">Loading File Preview...</p>
+      </div>
+    );
+  }
+
+  return fileBlob ? (
+    <div
+      aria-busy={loading}
+      className="cursor-pointer"
+      onClick={handleDownloadFile}
+      {...rest}
+    >
+      <img
+        src={URL.createObjectURL(fileBlob)}
+        alt="Rendered File"
+        className="cursor-pointer"
+      ></img>
+    </div>
+  ) : (
+    <div className="bg-gray-100 p-4 rounded-md">
+      <p className="font-semibold">
+        Oops, we ran into an error loading this file.
+      </p>
     </div>
   );
 };

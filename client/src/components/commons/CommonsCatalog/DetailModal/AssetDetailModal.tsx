@@ -7,6 +7,7 @@ import "../../Commons.css";
 import { useState } from "react";
 import useGlobalError from "../../../error/ErrorHooks";
 import { getPrettyNameFromMimeType } from "../../../../utils/common-mime-types";
+import FilePreview from "../../../FilesManager/FilePreview";
 
 interface AssetDetailModalProps {
   file: ConductorSearchResponseFile;
@@ -16,7 +17,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
   const { handleGlobalError } = useGlobalError();
   const [downloadLoading, setDownloadLoading] = useState(false);
 
-  const getAllAuthors = () => {
+  const getAuthorsElement = () => {
     const corresponding = file.correspondingAuthor
       ? `${file.correspondingAuthor?.firstName} ${file.correspondingAuthor?.lastName}* (<a href="mailto:${file.correspondingAuthor.email}">${file.correspondingAuthor?.email}</a>)`
       : "";
@@ -34,7 +35,9 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
       .filter((a) => a)
       .join(", ");
 
-    return <span dangerouslySetInnerHTML={{ __html: allTogether }} />;
+    return (
+      <span dangerouslySetInnerHTML={{ __html: allTogether || "Unknown Author" }} />
+    );
   };
 
   async function handleFileDownload(file: ConductorSearchResponseFile) {
@@ -67,8 +70,19 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
 
   return (
     <Modal.Content>
-      <div className="flex w-full h-32">
-        {file.projectInfo.thumbnail ? (
+      <div className="flex w-full h-auto">
+        <FilePreview
+          fileID={file.fileID}
+          projectID={file.projectID}
+          name={file.name}
+          isURL={file.isURL}
+          url={file.url}
+          isVideo={file.isVideo}
+          videoStorageID={file.videoStorageID}
+          storageType={file.storageType}
+          rendererClassName="max-h-[500px] max-w-[900px] overflow-auto !p-0"
+        />
+        {/* {file.projectInfo.thumbnail ? (
           <div
             onClick={() => window.open(`/commons-project/${file.projectID}`)}
             className="flex h-32 w-full rounded-md bg-left bg-no-repeat !bg-contain !cursor-pointer"
@@ -80,7 +94,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
           <div className="flex h-32 w-full">
             <Icon name={getFileTypeIcon(file)} size="massive" color="black" />
           </div>
-        )}
+        )} */}
       </div>
       <p className="text-xl font-semibold break-words hyphens-auto mt-4">
         {file.name}
@@ -92,7 +106,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
         <div>
           <Icon name="user" className="text-blue-500" />
         </div>
-        <p className="text-slate-600 ml-1.5">{getAllAuthors() || "Unknown"}</p>
+        <p className="text-slate-600 ml-1.5">{getAuthorsElement()}</p>
       </div>
       {file.storageType === "file" && (
         <CatalogDetailMeta
@@ -111,6 +125,17 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
           file.license?.version ? file.license.version : ""
         }`}
       />
+      <div className="flex my-4">
+        <div>
+          <Icon name="wrench" className="text-blue-500" />
+        </div>
+        <a
+          href={`/commons-project/${file.projectID}`}
+          className="text-blue-600 ml-1.5 hover:underline"
+        >
+          Go to Conductor Project
+        </a>
+      </div>
       <div className={`${file.tags ? "mt-8" : ""} flex`}>
         <div className="flex flex-row items-center w-full pr-4">
           <RenderAssetTags
