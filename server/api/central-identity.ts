@@ -73,6 +73,7 @@ async function getUsers(
     ) {
       page = req.query.page;
     }
+
     const offset = getPaginationOffset(page, limit);
 
     const usersRes = await useCentralIdentityAxios(false).get("/users", {
@@ -766,7 +767,12 @@ async function getSystems(
 }
 
 async function getServices(
-  req: TypedReqQuery<{ activePage?: number }>,
+  req: TypedReqQuery<{ 
+    activePage?: number;
+    limit?: number;
+    query?: string;
+    sort?: string;
+  }>,
   res: Response<{
     err: boolean;
     services: CentralIdentityService[];
@@ -775,19 +781,29 @@ async function getServices(
 ) {
   try {
     let page = 1;
-    let limit = 25;
+    let limit = req.query.limit || 10;
+    const sortChoice = req.query.sort || "name";
+    let searchQuery = '';
+
     if (
       req.query.activePage &&
       Number.isInteger(parseInt(req.query.activePage.toString()))
     ) {
       page = req.query.activePage;
     }
+
+    if (req.query.query) {
+      searchQuery = req.query.query.toString();
+    }
+
+
     const offset = getPaginationOffset(page, limit);
 
     const orgsRes = await useCentralIdentityAxios(false).get("/services", {
       params: {
         offset,
         limit,
+        query: searchQuery,
       },
     });
 
@@ -795,10 +811,65 @@ async function getServices(
       return conductor500Err(res);
     }
 
+    const sortData = (data: CentralIdentityService[], sortChoice: string) => {
+      switch (sortChoice) {
+        case "name":
+          return data.sort((a, b) => a.name.localeCompare(b.name));
+        case "service_Id":
+          return data.sort((a, b) => a.service_Id.localeCompare(b.service_Id));
+        default:
+          return data;
+      }
+    };
+
+    if (req.query.sort) {
+      orgsRes.data.data = sortData(orgsRes.data.data, sortChoice);
+    }
+
     return res.send({
       err: false,
       services: orgsRes.data.data,
-      totalCount: orgsRes.data.meta.total,
+      totalCount: orgsRes.data.meta.total ?? 0,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function updateService(
+  req: { body: { body: string };
+    params: {
+      id: string;
+    }
+   },
+  res: Response<{
+    err: boolean;
+    message: string;
+  }>
+) {
+  try {
+    const id = req.params.id;
+    
+    const body = req.body;
+
+    const parsedBody: CentralIdentityService = JSON.parse(body.body);
+
+    if (!parsedBody.name){
+      throw new Error("The service name is required");
+    }
+    if (!parsedBody.service_Id || !parsedBody.service_Id.includes("libretexts.org")) {
+      throw new Error("The service URL should have libretexts.org");
+    }
+    const updateRes = await useCentralIdentityAxios(false).put(`/services/${id}`, body);
+
+    if (!updateRes.data || updateRes.status !== 200) {
+      return conductor500Err(res);
+    }
+    
+    return res.send({
+      err: false,
+      message: updateRes.data.message
     });
   } catch (err) {
     debugError(err);
@@ -1174,6 +1245,7 @@ export default {
   getADAPTOrgs,
   getSystems,
   getServices,
+  updateService,
   getVerificationRequests,
   getVerificationRequest,
   updateVerificationRequest,
