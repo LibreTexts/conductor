@@ -25,6 +25,8 @@ export type Book = {
   hasPeerReviews: boolean;
   hasAdaptCourse: boolean;
   adaptCourseID?: string;
+  publicAssets?: number; // Computed field only added in Commons searches
+  instructorAssets?: number; // Computed field only added in Commons searches
 };
 
 export type BookWithSourceData = Book & {

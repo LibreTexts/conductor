@@ -19,7 +19,7 @@ const FileRenderer: React.FC<FileRendererProps> = ({
   ...rest
 }) => {
   const { handleGlobalError } = useGlobalError();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [fileBlob, setFileBlob] = useState<Blob | null>(null);
 
   useEffect(() => {

@@ -36,7 +36,9 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
       .join(", ");
 
     return (
-      <span dangerouslySetInnerHTML={{ __html: allTogether || "Unknown Author" }} />
+      <span
+        dangerouslySetInnerHTML={{ __html: allTogether || "Unknown Author" }}
+      />
     );
   };
 
@@ -69,7 +71,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
   }
 
   return (
-    <Modal.Content>
+    <Modal.Content className="max-h-screen overflow-y-auto">
       <div className="flex w-full h-auto">
         <FilePreview
           fileID={file.fileID}
@@ -80,7 +82,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
           isVideo={file.isVideo}
           videoStorageID={file.videoStorageID}
           storageType={file.storageType}
-          rendererClassName="max-h-[500px] max-w-[900px] overflow-auto !p-0"
+          rendererClassName="!max-h-[500px] !max-w-[900px] overflow-auto !p-0"
         />
         {/* {file.projectInfo.thumbnail ? (
           <div
@@ -133,7 +135,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
           href={`/commons-project/${file.projectID}`}
           className="text-blue-600 ml-1.5 hover:underline"
         >
-          Go to Conductor Project
+          View Conductor Project
         </a>
       </div>
       <div className={`${file.tags ? "mt-8" : ""} flex`}>
@@ -148,14 +150,28 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
             popupDisabled={true}
           />
         </div>
-        <div className="flex flex-col justify-end">
+        <div className="flex justify-end !w-full">
           <Button
             color="blue"
-            icon={file.isURL ? "external" : file.isVideo ? "play" : "download"}
             size="big"
             loading={downloadLoading}
             onClick={() => handleFileDownload(file)}
-          />
+            icon
+            className="!w-"
+          >
+            <div className="flex flex-row items-center gap-x-2">
+              <Icon
+                name={
+                  file.isURL ? "external" : file.isVideo ? "play" : "download"
+                }
+              />
+              {file.isURL
+                ? "Open External Link"
+                : file.isVideo
+                ? "Watch Video"
+                : "Download File"}
+            </div>
+          </Button>
         </div>
       </div>
     </Modal.Content>

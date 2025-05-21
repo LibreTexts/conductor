@@ -6,6 +6,7 @@ import FileRenderer from "./FileRenderer";
 import { Icon } from "semantic-ui-react";
 import URLFileHyperlink from "./URLFileHyperlink";
 import { Stream } from "@cloudflare/stream-react";
+import classNames from "classnames";
 
 interface FilePreviewProps extends React.HTMLAttributes<HTMLDivElement> {
   projectID: string;
@@ -121,7 +122,10 @@ const FilePreview: React.FC<FilePreviewProps> = ({
                 projectID={projectID}
                 fileID={fileID}
                 validImgExt={shouldShowPreview}
-                className={"max-w-full max-h-full p-2 " + rendererClassName}
+                className={classNames(
+                  "max-w-full max-h-full p-2 rounded-md",
+                  rendererClassName
+                )}
               />
             </div>
           )}

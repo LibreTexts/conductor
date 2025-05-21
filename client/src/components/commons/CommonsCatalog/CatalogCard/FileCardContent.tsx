@@ -63,10 +63,10 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
       )}
       <Card.Header
         as="button"
-        className="commons-content-card-header !my-2 text-left hover:underline cursor-pointer !text-blue-500 break-words hyphens-auto"
+        className="overflow-ellipsis !my-2 text-left hover:underline cursor-pointer !text-blue-500 break-words hyphens-auto"
         onClick={() => onDetailClick && onDetailClick()}
       >
-        <div className="line-clamp-2">{file.name}</div>
+        <p className="max-h-14 line-clamp-2 break-all overflow-hidden">{file.name}</p>
       </Card.Header>
       <Card.Description className="overflow-hidden !my-1">
         <div className="line-clamp-3">
@@ -154,7 +154,11 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
       </CardMetaWIcon> */}
       {file.storageType === "file" && (
         <CardMetaWIcon icon={getFileTypeIcon(file)}>
-          <div className="line-clamp-1">{file.isURL ? 'External Link' : getPrettyNameFromMimeType(file.mimeType) ?? ""}</div>
+          <div className="line-clamp-1">
+            {file.isURL
+              ? "External Link"
+              : getPrettyNameFromMimeType(file.mimeType) ?? ""}
+          </div>
         </CardMetaWIcon>
       )}
       <div className="w-full absolute bottom-4 left-0 text-center">

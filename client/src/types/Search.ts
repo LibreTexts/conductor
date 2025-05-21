@@ -28,6 +28,7 @@ export type BookFilters = {
   author?: string;
   course?: string;
   affiliation?: string;
+  assets?: string;
 };
 
 export type ProjectFilters = {
