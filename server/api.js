@@ -224,6 +224,36 @@ router
   )
 
 router
+  .route("/central-identity/users/:userId/notes")
+  .get(
+    authAPI.verifyRequest,
+    middleware.validateZod(UserValidators.GetUserNotesSchema),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.getUserNotes
+  )
+  .post(
+    authAPI.verifyRequest,
+    middleware.validateZod(UserValidators.CreateUserNoteSchema),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.createUserNote
+  );
+
+router
+  .route("/central-identity/users/:userId/notes/:noteId")
+  .patch(
+    authAPI.verifyRequest,
+    middleware.validateZod(UserValidators.UpdateUserNoteSchema),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.updateUserNote
+  )
+  .delete(
+    authAPI.verifyRequest,
+    middleware.validateZod(UserValidators.DeleteUserNoteSchema),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.deleteUserNote
+  );
+
+router
   .route("/central-identity/users/:id/orgs")
   .get(
     middleware.checkCentralIdentityConfig,
@@ -2413,36 +2443,6 @@ router
       ProjectInvitationValidators.updateProjectInvitationSchema
     ),
     projectInvitationsAPI.updateProjectInvitation
-  );
-
-router
-  .route("/user/notes/:userId")
-  .get(
-    authAPI.verifyRequest,
-    middleware.validateZod(UserValidators.GetUserNotesSchema),
-    middleware.checkValidationErrors,
-    centralIdentityAPI.getUserNotes
-  )
-  .post(
-    authAPI.verifyRequest,
-    middleware.validateZod(UserValidators.CreateUserNoteSchema),
-    middleware.checkValidationErrors,
-    centralIdentityAPI.createUserNote
-  );
-
-router
-  .route("/user/notes/:userId/:noteId")
-  .patch(
-    authAPI.verifyRequest,
-    middleware.validateZod(UserValidators.UpdateUserNoteSchema),
-    middleware.checkValidationErrors,
-    centralIdentityAPI.updateUserNote
-  )
-  .delete(
-    authAPI.verifyRequest,
-    middleware.validateZod(UserValidators.DeleteUserNoteSchema),
-    middleware.checkValidationErrors,
-    centralIdentityAPI.deleteUserNote
   );
 
 export default router;

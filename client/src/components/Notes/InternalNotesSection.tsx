@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { Segment, Header, Button, Icon, List, Loader, Pagination } from "semantic-ui-react";
+import {
+  Segment,
+  Header,
+  Button,
+  Icon,
+  List,
+  Loader,
+  Pagination,
+} from "semantic-ui-react";
 import EditNoteModal from "./EditNoteModal";
 import api from "../../api";
 import useGlobalError from "../../components/error/ErrorHooks";
 import { Note, InternalNotesSectionProps } from "../../types/Note";
 
-
-export default function InternalNotesSection({ userId, canEdit=true }: InternalNotesSectionProps) {
+export default function InternalNotesSection({
+  userId,
+  canEdit = true,
+}: InternalNotesSectionProps) {
   const [notes, setNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -58,55 +68,49 @@ export default function InternalNotesSection({ userId, canEdit=true }: InternalN
   }
 
   return (
-    <Segment style={{ 
-      maxHeight: "400px", 
-      display: "flex", 
-      flexDirection: "column", 
-      overflow: "hidden" 
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <Header as="h3">Internal Notes</Header>
+    <Segment className="flex flex-col overflow-hidden max-h-[800px] !shadow-none !border-none !px-0">
+      <div className="flex justify-between items-cente mb-4 border-b border-slate-300 pb-2">
+        <Header as="h3" className="!m-0">
+          Internal Notes (Newest First)
+        </Header>
         {canEdit && (
-          <Button color="blue" icon labelPosition="left" onClick={openNewNoteModal}>
-            <Icon name="add" /> Add Note
+          <Button color="blue" icon size="tiny" onClick={openNewNoteModal}>
+            <Icon name="plus" />
           </Button>
         )}
       </div>
-      <div style={{ 
-        flex: 1,
-        overflowY: "auto", 
-        marginTop: 16,
-        wordBreak: "break-word" ,
-        minHeight: 0
-      }}>
+      <div className="overflow-y-auto break-words pl-0.5 pr-4">
         {loading ? (
           <Loader active inline="centered" />
         ) : (
           <>
             <List divided relaxed>
               {notes.length === 0 && <div>No notes yet.</div>}
-              {notes.map(note => (
+              {notes.map((note) => (
                 <List.Item
                   key={note.uuid}
                   style={{ cursor: canEdit ? "pointer" : "default" }}
                   onClick={canEdit ? () => openEditNoteModal(note) : undefined}
+                  className="border border-slate-300 mb-2 !p-2 shadow-md rounded-md"
                 >
-                  <List.Content>
-                    <List.Description style={{ whiteSpace: "pre-wrap" }}>
+                  <List.Content className="p-1">
+                    <List.Description className="whitespace-pre-wrap text-base text-black">
                       {note.content}
                     </List.Description>
-                    <div style={{ 
-                      fontSize: 12, 
-                      color: "#888", 
-                      marginTop: 4,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 2
-                    }}>
+                    <div className="text-sm mt-2 flex flex-col gap-1 font-semibold">
                       <div>
-                        Created: {note.created_by_user.first_name} {note.created_by_user.last_name[0]}. • {new Date(note.created_at).toLocaleString()}
+                        {note.created_by_user.first_name}{" "}
+                        {note.created_by_user.last_name[0]}. •{" "}
+                        {new Date(note.created_at).toLocaleString()}
                         {note.updated_at !== note.created_at && (
-                          <> | Last updated: {note.updated_by_user.first_name} {note.updated_by_user.last_name[0]}. • {new Date(note.updated_at).toLocaleString()}</>
+                          <>
+                            {" "}
+                            | Last updated: {
+                              note.updated_by_user.first_name
+                            }{" "}
+                            {note.updated_by_user.last_name[0]}. •{" "}
+                            {new Date(note.updated_at).toLocaleString()}
+                          </>
                         )}
                       </div>
                     </div>
@@ -118,11 +122,13 @@ export default function InternalNotesSection({ userId, canEdit=true }: InternalN
         )}
       </div>
       {totalPages > 1 && (
-        <div style={{ 
-          display: "flex", 
-          justifyContent: "center", 
-          padding: "0.5rem 0"
-        }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            padding: "0.5rem 0",
+          }}
+        >
           <Pagination
             activePage={activePage}
             totalPages={totalPages}

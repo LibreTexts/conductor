@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Button } from "semantic-ui-react";
+import { Modal, Button, Icon } from "semantic-ui-react";
 import { useForm } from "react-hook-form";
 import api from "../../api";
 import CtlTextArea from "../ControlledInputs/CtlTextArea";
@@ -73,7 +73,6 @@ export default function EditNoteModal({ open, onClose, note, userId }: EditNoteM
           display: "flex", 
           justifyContent: "space-between", 
           width: "100%",
-          marginBottom: "1rem"
         }}>
           <div>
             {note && (

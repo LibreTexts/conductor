@@ -1315,7 +1315,7 @@ class API {
         total: number;
         has_more: boolean;
       } & ConductorBaseResponse
-    >(`/user/notes/${userID}`, {
+    >(`/central-identity/users/${userID}/notes`, {
       params: {
         page,
         limit
@@ -1329,7 +1329,7 @@ class API {
       {
         note: Note;
       } & ConductorBaseResponse
-    >(`/user/notes/${userID}`, { content: note });
+    >(`/central-identity/users/${userID}/notes`, { content: note });
     return res;
   }
 
@@ -1338,7 +1338,7 @@ class API {
       {
         note: Note;
       } & ConductorBaseResponse
-    >(`/user/notes/${userID}/${noteID}`, { content: note });
+    >(`/central-identity/users/${userID}/notes/${noteID}`, { content: note });
     return res;
   }
 
@@ -1347,7 +1347,7 @@ class API {
       {
         note: Note;
       } & ConductorBaseResponse
-    >(`/user/notes/${userID}/${noteID}`);
+    >(`/central-identity/users/${userID}/notes/${noteID}`);
     return res;
   }
 

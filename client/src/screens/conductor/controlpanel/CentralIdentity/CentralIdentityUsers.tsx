@@ -56,7 +56,11 @@ const CentralIdentityUsers = () => {
   ];
 
   //Data
-  const { data: users, isFetching, isLoading } = useQuery<CentralIdentityUser[]>({
+  const {
+    data: users,
+    isFetching,
+    isLoading,
+  } = useQuery<CentralIdentityUser[]>({
     queryKey: [
       "central-identity-users",
       activePage,
@@ -117,11 +121,6 @@ const CentralIdentityUsers = () => {
     (searchVal: string) => setSearchString(searchVal),
     250
   );
-
-  function handleViewUser(user: CentralIdentityUser) {
-    console.log("user", user);
-    window.open(`/controlpanel/libreone/users/${user.uuid}`, "_blank");
-  }
 
   return (
     <Grid className="controlpanel-container" divided="vertically">
@@ -272,12 +271,9 @@ const CentralIdentityUsers = () => {
                           </Table.Cell>
                           <Table.Cell>
                             <Button
+                              as="a"
                               color="blue"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleViewUser(user)
-                              }}
+                              href={`/controlpanel/libreone/users/${user.uuid}`}
                             >
                               <Icon name="eye" />
                               View User

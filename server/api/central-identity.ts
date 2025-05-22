@@ -346,7 +346,7 @@ async function getUserOrgs(
 async function _getMultipleUsersOrgs(uuids: string[]): Promise<Record<string, { name: string }[]>> {
   try {
 
-    if(!uuids || uuids.length === 0) {
+    if (!uuids || uuids.length === 0) {
       return {};
     }
 
@@ -505,7 +505,7 @@ async function getApplicationsPriveledged(
 
     const appsRes = await _getApplicationsPriveledgedInternal(page, limit);
     if (!appsRes) return conductor500Err(res);
-    
+
     return res.send({
       err: false,
       applications: appsRes.applications,
@@ -983,17 +983,22 @@ async function createUserNote(
     note: Note;
   }>
 ) {
-  try { 
-    const userId = req.user.decoded.uuid;
+  try {
+    const callingUserId = req.user.decoded.uuid;
+    const callingUser = await User.findOne({ uuid: callingUserId });
+    if (!callingUser || !callingUser.centralID) {
+      return conductor400Err(res);
+    }
+
     const noteRes = await useCentralIdentityAxios(false).post(
       `/users/${req.params.userId}/notes`,
-      { 
-        content: req.body.content 
+      {
+        content: req.body.content
       }, {
-        headers: {
-          'X-User-ID': userId 
-        }
+      headers: {
+        'X-User-ID': callingUser.centralID,
       }
+    }
     );
 
     if (!noteRes.data || !noteRes.data.data) {
@@ -1018,16 +1023,21 @@ async function updateUserNote(
   }>
 ) {
   try {
-    const userId = req.user.decoded.uuid;
+    const callingUserId = req.user.decoded.uuid;
+    const callingUser = await User.findOne({ uuid: callingUserId });
+    if (!callingUser || !callingUser.centralID) {
+      return conductor400Err(res);
+    }
+    
     const noteRes = await useCentralIdentityAxios(false).patch(
       `/users/${req.params.userId}/notes/${req.params.noteId}`,
-      { 
-        content: req.body.content 
+      {
+        content: req.body.content
       }, {
-        headers: {
-          'X-User-ID': userId 
-        }
+      headers: {
+        'X-User-ID': callingUser.centralID,
       }
+    }
     );
 
     if (!noteRes.data || !noteRes.data.data) {
