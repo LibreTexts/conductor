@@ -210,7 +210,7 @@ const ManageVerificationRequestModal: React.FC<
                   <p>
                     <strong>Name: </strong>
                     <a
-                      href={`/controlpanel/libreone/users?user_id=${request?.user.uuid}`}
+                      href={`/controlpanel/libreone/users/${request?.user.uuid}`}
                       target="_blank"
                     >
                       {request?.user.first_name} {request?.user.last_name}{" "}

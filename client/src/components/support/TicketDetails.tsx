@@ -14,7 +14,7 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
   const { openModal, closeAllModals } = useModals();
 
   const centralIdentityURL = (centralID: string) => {
-    return `/controlpanel/libreone/users?user_id=${centralID}`;
+    return `/controlpanel/libreone/users/${centralID}`;
   };
 
   const openAddCCModal = () => {
