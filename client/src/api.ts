@@ -38,6 +38,7 @@ import {
   PageSimpleWTags,
   PageSimpleWOverview,
   TableOfContentsDetailed,
+  Note,
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -592,6 +593,27 @@ class API {
     >("/central-identity/verification-requests", {
       params: queryParams,
     });
+    return res;
+  }
+
+  async getCentralIdentityUser(uuid: string) {
+    const res = await axios.get<{
+      user: CentralIdentityUser;
+    } & ConductorBaseResponse>(`/central-identity/users/${uuid}`);
+    return res;
+  }
+  
+  async getCentralIdentityUserApplications(uuid: string) {
+    const res = await axios.get<{
+      applications: CentralIdentityApp[];
+    } & ConductorBaseResponse>(`/central-identity/users/${uuid}/applications`);
+    return res;
+  }
+  
+  async updateCentralIdentityUser(uuid: string, data: Partial<CentralIdentityUser>) {
+    const res = await axios.patch<{
+      user: CentralIdentityUser;
+    } & ConductorBaseResponse>(`/central-identity/users/${uuid}`, data);
     return res;
   }
 
@@ -1284,6 +1306,51 @@ class API {
     });
     return res;
   }
+
+  // User Notes
+  async getUserNotes(userID: string, page: number = 1, limit: number = 25) {
+    const res = await axios.get<
+      {
+        notes: Note[];
+        total: number;
+        has_more: boolean;
+      } & ConductorBaseResponse
+    >(`/central-identity/users/${userID}/notes`, {
+      params: {
+        page,
+        limit
+      },
+    });
+    return res;
+  }
+
+  async createUserNote(userID: string, note: string) {
+    const res = await axios.post<
+      {
+        note: Note;
+      } & ConductorBaseResponse
+    >(`/central-identity/users/${userID}/notes`, { content: note });
+    return res;
+  }
+
+  async updateUserNote(userID: string, noteID: string, note: string) {
+    const res = await axios.patch<
+      {
+        note: Note;
+      } & ConductorBaseResponse
+    >(`/central-identity/users/${userID}/notes/${noteID}`, { content: note });
+    return res;
+  }
+
+  async deleteUserNote(userID: string, noteID: string) {
+    const res = await axios.delete<
+      {
+        note: Note;
+      } & ConductorBaseResponse
+    >(`/central-identity/users/${userID}/notes/${noteID}`);
+    return res;
+  }
+
 }
 
 export default new API();

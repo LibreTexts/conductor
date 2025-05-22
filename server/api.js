@@ -224,6 +224,44 @@ router
   )
 
 router
+  .route("/central-identity/users/:userId/notes")
+  .get(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(UserValidators.GetUserNotesSchema),
+    centralIdentityAPI.getUserNotes
+  )
+  .post(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(UserValidators.CreateUserNoteSchema),
+    centralIdentityAPI.createUserNote
+  );
+
+router
+  .route("/central-identity/users/:userId/notes/:noteId")
+  .patch(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(UserValidators.UpdateUserNoteSchema),
+    centralIdentityAPI.updateUserNote
+  )
+  .delete(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(UserValidators.DeleteUserNoteSchema),
+    centralIdentityAPI.deleteUserNote
+  );
+
+router
   .route("/central-identity/users/:id/orgs")
   .get(
     middleware.checkCentralIdentityConfig,

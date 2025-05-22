@@ -96,3 +96,22 @@ export type CentralIdentityLicense = {
   created_at: Date;
   updated_at: Date;
 }
+
+export type User = {
+  uuid: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+};
+
+export type Note = {
+  uuid: string;
+  content: string;
+  updated_at: string;
+  created_at: string;
+  created_by_id: string;
+  created_by_user: User;
+  updated_by_id: string;
+  updated_by_user: User;
+  user_id: string;
+};

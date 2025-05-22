@@ -10,7 +10,9 @@ import {
   TypedReqBody,
   TypedReqParams,
   TypedReqParamsAndBody,
+  TypedReqParamsAndQuery,
   TypedReqQuery,
+  Note,
 } from "../types/index.js";
 import { getPaginationOffset } from "../util/helpers.js";
 import {
@@ -49,6 +51,7 @@ import { updateTeamWorkbenchPermissions } from "../util/projectutils.js";
 import fse from "fs-extra";
 import axios from "axios";
 import { SignJWT } from "jose";
+import { ZodReqWithUser } from "../types/Express.js";
 
 async function getUsers(
   req: TypedReqQuery<{
@@ -343,7 +346,7 @@ async function getUserOrgs(
 async function _getMultipleUsersOrgs(uuids: string[]): Promise<Record<string, { name: string }[]>> {
   try {
 
-    if(!uuids || uuids.length === 0) {
+    if (!uuids || uuids.length === 0) {
       return {};
     }
 
@@ -502,7 +505,7 @@ async function getApplicationsPriveledged(
 
     const appsRes = await _getApplicationsPriveledgedInternal(page, limit);
     if (!appsRes) return conductor500Err(res);
-    
+
     return res.send({
       err: false,
       applications: appsRes.applications,
@@ -935,6 +938,147 @@ async function updateVerificationRequest(
   }
 }
 
+async function getUserNotes(
+  req: TypedReqParamsAndQuery<{ userId: string }, { page?: number; limit?: number }>,
+  res: Response<{
+    err: boolean;
+    notes: Note[];
+    total: number;
+    has_more: boolean;
+  }>
+) {
+  const page = req.query.page || 1;
+  const limit = req.query.limit || 25;
+  try {
+    const noteRes = await useCentralIdentityAxios(false).get(
+      `/users/${req.params.userId}/notes`,
+      {
+        params: {
+          page,
+          limit
+        }
+      }
+    );
+
+    if (!noteRes.data || !noteRes.data.data) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      notes: noteRes.data.data.notes,
+      total: noteRes.data.data.total,
+      has_more: noteRes.data.data.has_more,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function createUserNote(
+  req: ZodReqWithUser<TypedReqParamsAndBody<{ userId: string }, { content: string }>>,
+  res: Response<{
+    err: boolean;
+    note: Note;
+  }>
+) {
+  try {
+    const callingUserId = req.user.decoded.uuid;
+    const callingUser = await User.findOne({ uuid: callingUserId });
+    if (!callingUser || !callingUser.centralID) {
+      return conductor400Err(res);
+    }
+
+    const noteRes = await useCentralIdentityAxios(false).post(
+      `/users/${req.params.userId}/notes`,
+      {
+        content: req.body.content
+      }, {
+      headers: {
+        'X-User-ID': callingUser.centralID,
+      }
+    }
+    );
+
+    if (!noteRes.data || !noteRes.data.data) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      note: noteRes.data.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function updateUserNote(
+  req: ZodReqWithUser<TypedReqParamsAndBody<{ userId: string; noteId: string }, { content: string }>>,
+  res: Response<{
+    err: boolean;
+    note: Note;
+  }>
+) {
+  try {
+    const callingUserId = req.user.decoded.uuid;
+    const callingUser = await User.findOne({ uuid: callingUserId });
+    if (!callingUser || !callingUser.centralID) {
+      return conductor400Err(res);
+    }
+    
+    const noteRes = await useCentralIdentityAxios(false).patch(
+      `/users/${req.params.userId}/notes/${req.params.noteId}`,
+      {
+        content: req.body.content
+      }, {
+      headers: {
+        'X-User-ID': callingUser.centralID,
+      }
+    }
+    );
+
+    if (!noteRes.data || !noteRes.data.data) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      note: noteRes.data.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function deleteUserNote(
+  req: ZodReqWithUser<TypedReqParams<{ userId: string; noteId: string }>>,
+  res: Response<{
+    err: boolean;
+    note: Note;
+  }>
+) {
+  try {
+    const noteRes = await useCentralIdentityAxios(false).delete(
+      `/users/${req.params.userId}/notes/${req.params.noteId}`
+    );
+
+    if (!noteRes.data || !noteRes.data.data) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      note: noteRes.data.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
 
 async function processNewUserWebhookEvent(
   req: z.infer<typeof NewUserWebhookValidator>,
@@ -1183,4 +1327,8 @@ export default {
   processVerificationStatusUpdateWebook,
   getLicenses,
   validate,
+  getUserNotes,
+  createUserNote,
+  updateUserNote,
+  deleteUserNote,
 };
