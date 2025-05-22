@@ -81,6 +81,8 @@ function booksReducer(
       return { ...state, subject: action.payload };
     case "affiliation":
       return { ...state, affiliation: action.payload };
+    case "assets":
+      return { ...state, assets: action.payload };
     case "reset":
       return {};
     case "reset_one":

@@ -32,6 +32,7 @@ import SearchQuery, {
   SearchQueryInterface_Raw,
 } from "../models/searchquery.js";
 import Tag from "../models/tag.js";
+import { _getBookPublicOrInstructorAssetsCount } from "./books.js";
 
 const searchQueryCache: SearchQueryInterface_Raw[] = []; // in-memory cache for search queries
 
@@ -330,7 +331,7 @@ async function booksSearch(
 
     const [booksResults, projectsResults] = await Promise.all(promises);
 
-    const results = [...booksResults, ...(projectsResults ?? [])];
+    let results = [...booksResults, ...(projectsResults ?? [])];
 
     results.sort((a, b) => {
       let aData = null;
@@ -357,6 +358,27 @@ async function booksSearch(
       }
       return 0;
     });
+
+    const publicOrInstructorAssets = await _getBookPublicOrInstructorAssetsCount(
+      results.map((book) => book.bookID)
+    );
+
+    // Add the publicOrInstructorAssets field to each book
+    results.forEach((book) => {
+      const bookID = book.bookID;
+      const found = publicOrInstructorAssets.find((b) => b.bookID === bookID);
+      book.publicAssets = found?.publicAssets || 0;
+      book.instructorAssets = found?.instructorAssets || 0;
+    });
+
+    if(req.query.assets){
+      const assetsFilter = req.query.assets;
+      if (assetsFilter === "public") {
+        results = results.filter((book) => book.publicAssets > 0);
+      } else if (assetsFilter === "instructors") {
+        results = results.filter((book) => book.instructorAssets > 0);
+      }
+    }
 
     const totalCount = results.length;
     const paginated = results.slice(booksOffset, booksOffset + booksLimit);

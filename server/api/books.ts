@@ -962,7 +962,7 @@ async function getCommonsCatalog(
     }, []);
 
     // Ensure no duplicates
-    const resultBookIDs = new Set();
+    const resultBookIDs = new Set<string>();
     const resultBooks = aggResults.filter((book) => {
       if (!resultBookIDs.has(book.bookID)) {
         resultBookIDs.add(book.bookID);
@@ -983,6 +983,17 @@ async function getCommonsCatalog(
     };
 
     const randomized = resultBooks.slice(offset, upperBound());
+
+    // Check if the associated project has any public or instructor only files
+    const publicOrInstructorSearch = await _getBookPublicOrInstructorAssetsCount(randomized.map((r) => r.bookID) || []);
+
+    // Add the publicOrInstructorAssets field to each book
+    randomized.forEach((book) => {
+      const bookID = book.bookID;
+      const found = publicOrInstructorSearch.find((b) => b.bookID === bookID);
+      book.publicAssets = found?.publicAssets || 0;
+      book.instructorAssets = found?.instructorAssets || 0;
+    });
 
     return res.send({
       err: false,
@@ -3699,7 +3710,7 @@ const generateKBExport = () => {
                   let authorProcess = author.trim();
                   if (
                     authorProcess.toLowerCase() !==
-                      "no attribution by request" &&
+                    "no attribution by request" &&
                     authorProcess.length > 0
                   ) {
                     itemAuthors.push(authorProcess);
@@ -3780,6 +3791,122 @@ async function _canAccessPage(
   }
 }
 
+export async function _getBookPublicOrInstructorAssetsCount(ids: string[]): Promise<{
+  bookID: string;
+  publicAssets: number;
+  instructorAssets: number;
+}[]> {
+  return Book.aggregate([{
+    $match: {
+      bookID: { $in: ids },
+    }
+  },
+  {
+    $lookup: {
+      from: "projects",
+      let: {
+        bookIdParts: {
+          $split: ["$bookID", "-"]
+        }
+      },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $and: [
+                {
+                  $eq: [
+                    "$libreLibrary",
+                    {
+                      $arrayElemAt: [
+                        "$$bookIdParts",
+                        0
+                      ]
+                    }
+                  ]
+                },
+                {
+                  $eq: [
+                    "$libreCoverID",
+                    {
+                      $arrayElemAt: [
+                        "$$bookIdParts",
+                        1
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          $project: {
+            projectID: 1
+          }
+        }
+      ],
+      as: "projectDetails"
+    }
+  },
+  {
+    $addFields: {
+      project: {
+        $first: "$projectDetails"
+      }
+    }
+  },
+  {
+    $match: {
+      "project.projectID": {
+        $exists: true,
+        $ne: ""
+      }
+    }
+  },
+  {
+    $lookup: {
+      from: "projectfiles",
+      localField: "project.projectID",
+      foreignField: "projectID",
+      as: "projectFiles"
+    }
+  },
+  {
+    $project: {
+      bookID: "$bookID",
+      publicAssets: {
+        $size: {
+          $filter: {
+            input: "$projectFiles",
+            as: "file",
+            cond: {
+              $eq: [
+                "$$file.access",
+                "public"
+              ]
+            }
+          }
+        }
+      },
+      instructorAssets: {
+        $size: {
+          $filter: {
+            input: "$projectFiles",
+            as: "file",
+            cond: {
+              $eq: [
+                "$$file.access",
+                "instructors"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }]);
+}
+
 export default {
   syncWithLibraries,
   runAutomatedSyncWithLibraries,
@@ -3805,4 +3932,5 @@ export default {
   updatePageDetails,
   bulkUpdatePageTags,
   retrieveKBExport,
+  _getBookPublicOrInstructorAssetsCount
 };

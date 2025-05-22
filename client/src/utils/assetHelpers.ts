@@ -129,18 +129,23 @@ export function getPrettyAuthorsList(
  * @param {string} projectID - Identifier of the Project containing the File.
  * @param {string} fileID - Identifier of the File to download.
  */
+export async function downloadFile(projectID: string, fileID: string, noOpen: boolean): Promise<string>
+export async function downloadFile(projectID: string, fileID: string): Promise<boolean>
 export async function downloadFile(
   projectID: string,
-  fileID: string
-): Promise<boolean> {
+  fileID: string,
+  noOpen?: boolean
+): Promise<boolean | string> {
   try {
     if (!fileID) return false;
     const downloadRes = await axios.get(
       `/project/${projectID}/files/${fileID}/download`
     );
     if (!downloadRes.data.err) {
-      if (typeof downloadRes.data.url === "string") {
+      if (typeof downloadRes.data.url === "string" && !noOpen) {
         window.open(downloadRes.data.url, "_blank", "noreferrer");
+      } else if (typeof downloadRes.data.url === "string") {
+        return downloadRes.data.url;
       }
       return true;
     }

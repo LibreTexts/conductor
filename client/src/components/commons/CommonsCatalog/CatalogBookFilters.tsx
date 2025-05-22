@@ -20,6 +20,7 @@ type BookFilterData = {
   pubOptions: GenericKeyTextValueObj<string>[];
   affOptions: GenericKeyTextValueObj<string>[];
   cidOptions: GenericKeyTextValueObj<string>[];
+  assetOptions: GenericKeyTextValueObj<string>[];
 };
 
 interface CatalogBookFiltersProps {
@@ -62,6 +63,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
         pubOptions: [],
         affOptions: [],
         cidOptions: [],
+        assetOptions: [],
       };
 
       const res = await axios.get("/commons/filters");
@@ -125,6 +127,20 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
         });
       }
 
+      // These are static options for now
+      allFilters.assetOptions = [
+        {
+          key: "public",
+          text: "Public",
+          value: "public",
+        },
+        {
+          key: "instructors",
+          text: "Instructors Only",
+          value: "instructors",
+        },
+      ];
+
       return allFilters;
     } catch (err) {
       handleGlobalError(err);
@@ -136,6 +152,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
         pubOptions: [],
         affOptions: [],
         cidOptions: [],
+        assetOptions: [],
       };
     }
   }
@@ -249,6 +266,20 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
           icon="filter"
           options={data?.affOptions ?? []}
           filterKey="affiliation"
+          onFilterSelect={(key, val) =>
+            onFilterChange(key as keyof BookFilters, val)
+          }
+          loading={loading}
+        />
+        <CatalogFilterDropdown
+          text={
+            filters.assets
+              ? `Available Assets - ${filters.assets}`
+              : "Available Assets"
+          }
+          icon="file alternate outline"
+          options={data?.assetOptions ?? []}
+          filterKey="assets"
           onFilterSelect={(key, val) =>
             onFilterChange(key as keyof BookFilters, val)
           }
