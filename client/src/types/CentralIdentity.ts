@@ -2,12 +2,17 @@ export type CentralIdentitySystem = {
   id: number;
   logo: string | null;
   name: string;
+  created_at: string;
+  updated_at: string;
+  organizations?: CentralIdentityOrg[];
 };
 
 export type CentralIdentityOrg = {
   id: number;
   logo: string | null;
   name: string;
+  created_at: string;
+  updated_at: string;
   system?: CentralIdentitySystem;
 };
 

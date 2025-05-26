@@ -76,10 +76,12 @@ export interface TypedReqParamsWithUser<T>
   extends TypedReqParams<T>,
     TypedReqWithUser {}
 
+
+
 /**
  * Req with params object of type T and query object of type K
  * @type {T} T - The type interface of the params object
- * @type {K} K - The type interface of the params object
+ * @type {K} K - The type interface of the query object
  */
 export interface TypedReqParamsAndQuery<T, K>
   extends TypedReqParams<T>,
@@ -89,7 +91,7 @@ export interface TypedReqParamsAndQuery<T, K>
  * Req with params object of type T and query object of type K and extracted User
  * (only suitable for authenticated endpoints)
  * @type {T} T - The type interface of the params object
- * @type {K} K - The type interface of the params object
+ * @type {K} K - The type interface of the query object
  */
 export interface TypedReqParamsAndQueryWithUser<T, K>
   extends TypedReqParams<T>,

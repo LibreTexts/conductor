@@ -54,7 +54,7 @@ const CentralIdentityServices = () => {
         throw new Error("Error retrieving services");
       }
 
-      console.log(res.data.services);
+      // console.log(res.data.services);
       setServices(res.data.services);
       setTotalPages(Math.ceil(res.data.totalCount / itemsPerPage));
     } catch (err) {

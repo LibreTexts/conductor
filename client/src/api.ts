@@ -12,6 +12,7 @@ import {
   CentralIdentityApp,
   CentralIdentityLicense,
   CentralIdentityOrg,
+  CentralIdentitySystem,
   CentralIdentityUser,
   CentralIdentityVerificationRequest,
   CollectionResource,
@@ -484,7 +485,7 @@ class API {
     activePage?: number;
     limit?: number;
     query?: string;
-  }) {
+  }= {}) {
     const res = await axios.get<
       {
         orgs: CentralIdentityOrg[];
@@ -496,6 +497,132 @@ class API {
         limit,
         query,
       },
+    });
+    return res;
+  }
+
+  async getCentralIdentityOrg({
+    orgId
+  }: {
+    orgId: string
+  }) {
+    const res = await axios.get<
+      {
+        org: CentralIdentityOrg;
+      } & ConductorBaseResponse
+    >(`/central-identity/orgs/${orgId}`);
+    return res;
+  }
+
+  async postCentralIdentityOrg({
+    name,
+    logo,
+    systemId
+  }: {
+    name: string,
+    logo?: string,
+    systemId?: number
+  }) {
+
+    const res = await axios.post<
+      {
+        org: CentralIdentityOrg;
+      } & ConductorBaseResponse
+    >("/central-identity/orgs", {
+      name,
+      logo,
+      systemId
+    });
+    return res;
+  }
+
+  async patchCentralIdentityOrg({
+    orgId,
+    name,
+  }: {
+    orgId: number,
+    name?: string
+  }) {
+    const res = await axios.patch<
+      {
+        org: CentralIdentityOrg;
+      } & ConductorBaseResponse
+    >(`/central-identity/orgs/${orgId}`, {
+      name
+    });
+    return res;
+  }
+
+  async getCentralIdentitySystems({
+    activePage,
+    limit,
+  }: {
+    activePage?: number;
+    limit?: number;
+  } = {}){
+    const res = await axios.get<
+      {
+        systems: CentralIdentitySystem[];
+        totalCount: number;
+      } & ConductorBaseResponse
+    >("/central-identity/systems", {
+      params: {
+        activePage,
+        limit,
+      },
+    });
+    return res;
+  }
+
+  async postCentralIdentitySystem({
+    name,
+    logo
+  }: {
+    name: string,
+    logo?: string,
+  }
+  ){
+    const res = await axios.post<
+      {
+        system: CentralIdentitySystem[];
+      } & ConductorBaseResponse
+    >("/central-identity/systems", {
+      name,
+      logo
+    });
+    return res;
+  }
+
+  async getCentralIdentitySystem({
+    systemId
+  }: {
+    systemId: string
+  }){
+    const res = await axios.get<
+      {
+        system: CentralIdentitySystem;
+      } & ConductorBaseResponse
+    >(`/central-identity/systems/${systemId}`);
+    return res;
+  }
+
+  async putCentralIdentitySystem({
+    systemId,
+    name,
+    logo
+  }: {
+    systemId: string,
+    name?: string,
+    logo?: string,
+  }
+  ){
+    const res = await axios.put<
+      {
+        system: CentralIdentitySystem[];
+      } & ConductorBaseResponse
+    >(`/central-identity/systems/${systemId}`, {
+      name,
+      logo
     });
     return res;
   }
