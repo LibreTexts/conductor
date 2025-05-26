@@ -637,20 +637,23 @@ async function getOrgs(
   }>
 ) {
   try {
-    let page = 1;
-    let limit = req.query.limit || 25;
-    if (
-      req.query.activePage &&
-      Number.isInteger(parseInt(req.query.activePage.toString()))
-    ) {
-      page = req.query.activePage;
+    let limit = req.query.limit;
+    let offset;
+
+    if (req.query.limit !== undefined && Number.isInteger(parseInt(req.query.limit.toString()))) {
+      limit = parseInt(req.query.limit.toString());
+      
+      const page = req.query.activePage && Number.isInteger(parseInt(req.query.activePage.toString())) 
+        ? parseInt(req.query.activePage.toString()) 
+        : 1;
+      
+      offset = getPaginationOffset(page, limit);
     }
-    const offset = getPaginationOffset(page, limit);
 
     const orgsRes = await useCentralIdentityAxios(false).get("/organizations", {
       params: {
-        offset,
-        limit,
+        offset: offset ? offset : undefined,
+        limit: limit ? limit : undefined,
         query: req.query.query ? req.query.query : undefined,
       },
     });
@@ -670,6 +673,116 @@ async function getOrgs(
   }
 }
 
+async function getOrg( 
+  req: TypedReqParams<{ orgId: string }>,
+  res: Response<{ err: boolean; org: CentralIdentityOrg }>
+) {
+  try {
+    if (!req.params.orgId) {
+      return conductor400Err(res);
+    }
+
+    const orgRes = await useCentralIdentityAxios(false).get(
+      `/organizations/${req.params.orgId}`
+    );
+
+    if (!orgRes.data || !orgRes.data.data) { 
+      return conductor404Err(res); 
+    }
+    return res.send({
+      err: false,
+      org: orgRes.data.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function updateOrg(
+  req: TypedReqParamsAndBody<{ orgId: string }, Partial<CentralIdentityOrg>>,
+  res: Response<{ err: boolean; org?: CentralIdentityOrg }>
+) {
+  try {
+    if (!req.params.orgId) {
+      return conductor400Err(res);
+    }
+
+    const updateRes = await useCentralIdentityAxios(false).patch(
+      `/organizations/${req.params.orgId}`,
+      req.body
+    );
+
+    if (!updateRes.data || !updateRes.data.data) {
+      return conductor500Err(res); 
+    }
+
+    return res.send({
+      err: false,
+      org: updateRes.data.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function createOrg(
+  req: TypedReqBody<{ name: string; logo?: string; systemId?: number }>,
+  res: Response<{ err: boolean; org?: CentralIdentityOrg }>
+) {
+  try {
+    if (!req.body.name) {
+      return conductor400Err(res);
+    }
+    const orgRes = await useCentralIdentityAxios(false).post(
+      "/organizations",
+      {
+        name: req.body.name,
+        logo: req.body.logo || null,
+        system_id: req.body.systemId
+      }
+    );
+
+    if (!orgRes.data || !orgRes.data.data) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      org: orgRes.data.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function deleteOrg(
+  req: TypedReqParams<{ orgId: string }>,
+  res: Response<{ err: boolean }>
+) {
+  try {
+    if (!req.params.orgId) {
+      return conductor400Err(res);
+    }
+
+    const orgRes = await useCentralIdentityAxios(false).delete(
+      `/organizations/${req.params.orgId}`
+    );
+
+    if (orgRes.data.err || orgRes.data.errMsg) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
 /**
  * Returns the same list of orgs as ADAPT, for use where live/unclean (ie getOrgs) data is not appropriate.
  */
@@ -725,7 +838,7 @@ async function getADAPTOrgs(
 }
 
 async function getSystems(
-  req: TypedReqQuery<{ activePage?: number }>,
+  req: TypedReqQuery<{ activePage?: number; limit?: number}>,
   res: Response<{
     err: boolean;
     systems: CentralIdentitySystem[];
@@ -733,22 +846,24 @@ async function getSystems(
   }>
 ) {
   try {
-    let page = 1;
-    let limit = 25;
-    if (
-      req.query.activePage &&
-      Number.isInteger(parseInt(req.query.activePage.toString()))
-    ) {
-      page = req.query.activePage;
+    let limit = req.query.limit;
+    let offset;
+
+    if (req.query.limit !== undefined && Number.isInteger(parseInt(req.query.limit.toString()))) {
+      limit = parseInt(req.query.limit.toString());
+      
+      const page = req.query.activePage && Number.isInteger(parseInt(req.query.activePage.toString())) 
+        ? parseInt(req.query.activePage.toString()) 
+        : 1;
+      
+      offset = getPaginationOffset(page, limit);
     }
-    const offset = getPaginationOffset(page, limit);
 
     const orgsRes = await useCentralIdentityAxios(false).get(
-      "/organization-systems",
-      {
+      "/organization-systems", {
         params: {
-          offset,
-          limit,
+          offset: offset ? offset : undefined,
+          limit: limit ? limit : undefined,
         },
       }
     );
@@ -761,6 +876,117 @@ async function getSystems(
       err: false,
       systems: orgsRes.data.data,
       totalCount: orgsRes.data.meta.total,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function getSystem(
+  req: TypedReqParams<{ systemId?: string }>,
+  res: Response<{ err: boolean; system: CentralIdentitySystem }>
+) {
+  try {
+    if (!req.params.systemId) {
+      return conductor400Err(res);
+    }
+
+    const systemRes = await useCentralIdentityAxios(false).get(
+      `/organization-systems/${req.params.systemId}`
+    );
+
+    if (!systemRes.data || !systemRes.data.data) { 
+      return conductor404Err(res); 
+    }
+    return res.send({
+      err: false,
+      system: systemRes.data.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function updateSystem(
+  req: TypedReqParamsAndBody<{ systemId?: string }, Partial<CentralIdentitySystem>>,
+  res: Response<{ err: boolean; system?: CentralIdentitySystem }>
+) {
+  try {
+    if (!req.params.systemId) {
+      return conductor400Err(res);
+    }
+
+    const updateRes = await useCentralIdentityAxios(false).put(
+      `/organization-systems/${req.params.systemId}`,
+      req.body
+    );
+
+    if (!updateRes.data || !updateRes.data.data) {
+      return conductor500Err(res); 
+    }
+
+    return res.send({
+      err: false,
+      system: updateRes.data.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function createSystem(
+  req: TypedReqBody<{ name: string, logo: string }>,
+  res: Response<{ err: boolean; system?: CentralIdentitySystem }>
+) {
+  try {
+    if (!req.body.name) {
+      return conductor400Err(res);
+    }
+
+    const systemRes = await useCentralIdentityAxios(false).post(
+      "/organization-systems",
+      {
+        name: req.body.name,
+        logo: req.body.logo
+      }
+    );
+
+    if (!systemRes.data || !systemRes.data.data) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      system: systemRes.data.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function deleteSystem(
+  req: TypedReqParams<{ id: string }>,
+  res: Response<{ err: boolean }>
+) {
+  try {
+    if (!req.params.id) {
+      return conductor400Err(res);
+    }
+
+    const sysRes = await useCentralIdentityAxios(false).delete(
+      `/organization-systems/${req.params.id}`
+    );
+
+    if (sysRes.data.err || sysRes.data.errMsg) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
     });
   } catch (err) {
     debugError(err);
@@ -1277,6 +1503,39 @@ function validate(method: string) {
         param("query", conductorErrors.err1).optional().isString(),
       ];
     }
+    case "getOrg": { 
+      return [param("orgId", conductorErrors.err1).exists().isInt()];
+    }
+    case "updateOrg": {
+      return [
+        param("orgId", conductorErrors.err1).exists().isInt(),
+      ];
+    }
+    case "deleteOrg": {
+      return [param("orgId", conductorErrors.err1).exists().isInt()];
+    }
+    case "createOrg": {
+      return [
+        body("name", conductorErrors.err1).exists().isString(),
+        body("logo", conductorErrors.err1).optional().isString(),
+      ];
+    }
+    case "createSystem": {
+      return [
+        body("name", conductorErrors.err1).exists().isString(),
+        body("logo", conductorErrors.err1).optional().isString(),
+      ];
+    }
+    case "getSystem": { 
+      return [param("systemId", conductorErrors.err1).exists().isInt()];
+    }
+    case "updateSystem": {
+      return [
+        param("systemId", conductorErrors.err1).exists().isInt(),
+        body("name", conductorErrors.err1).optional().isString(),
+        body("logo", conductorErrors.err1).optional().isString(),
+      ];
+    }
     case "getADAPTOrgs": {
       return [
         param("activePage", conductorErrors.err1).optional().isInt(),
@@ -1315,8 +1574,16 @@ export default {
   getApplicationById,
   getLibraryFromSubdomain,
   getOrgs,
+  getOrg,
+  updateOrg,
+  createOrg,
+  deleteOrg,
   getADAPTOrgs,
   getSystems,
+  deleteSystem,
+  getSystem, 
+  updateSystem,
+  createSystem,
   getServices,
   getVerificationRequests,
   getVerificationRequest,

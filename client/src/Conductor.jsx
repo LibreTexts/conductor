@@ -20,6 +20,8 @@ const BooksManager = lazy(() => import('./screens/conductor/controlpanel/BooksMa
 const CampusSettings = lazy(() => import('./components/controlpanel/CampusSettings'));
 const CollectionsManager = lazy(() => import('./screens/conductor/controlpanel/CollectionsManager'));
 const QRCodeGenerator = lazy(() => import('./screens/conductor/controlpanel/QRCodeGenerator'));
+const CentralIdentityOrganizationView = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityOrganizationView'));
+const CentralIdentitySystemView = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentitySystemView'));
 const ControlPanel = lazy(() => import('./components/controlpanel/ControlPanel'));
 import EventsManager from './screens/conductor/controlpanel/EventsManager';
 import EventRegistration from './screens/conductor/OrgEvents/EventRegistration';
@@ -131,6 +133,8 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/libreone' component={CentralIdentity} />
           <PrivateRoute exact path='/controlpanel/libreone/instructor-verifications' component={CentralIdentityInstructorVerifications} />
           <PrivateRoute exact path='/controlpanel/libreone/orgs' component={CentralIdentityOrgs} />
+          <Route exact path="/controlpanel/libreone/orgs/org/:id" component={CentralIdentityOrganizationView} />
+          <Route exact path="/controlpanel/libreone/orgs/system/:systemId" component={CentralIdentitySystemView} />
           <PrivateRoute exact path='/controlpanel/libreone/services' component={CentralIdentityServices} />
           <PrivateRoute exact path='/controlpanel/libreone/users' component={CentralIdentityUsers} />
           <PrivateRoute exact path='/controlpanel/libreone/users/:uuid' component={CentralIdentityUserView} />

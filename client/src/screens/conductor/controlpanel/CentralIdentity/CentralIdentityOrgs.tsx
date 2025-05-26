@@ -1,58 +1,68 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect} from "react";
+import * as React from "react";
+import { Link, useHistory } from "react-router-dom";
 import {
-  Accordion,
+  Table,
+  Button,
+  Icon,
   Header,
   Segment,
   Grid,
   Breadcrumb,
-  Loader,
-  Icon,
-  Button,
+  Modal,
+  Message,
 } from "semantic-ui-react";
 import { CentralIdentityOrg, CentralIdentitySystem } from "../../../../types";
-import axios from "axios";
 import useGlobalError from "../../../../components/error/ErrorHooks";
+import { useTypedSelector } from "../../../../state/hooks";
+import CreateSystemModal from "../../../../components/controlpanel/CentralIdentity/CreateSystemModal";
+import CreateOrgModal from "../../../../components/controlpanel/CentralIdentity/CreateOrgModal";
 import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
+import api from "../../../../api";
 
 const CentralIdentityOrgs = () => {
-  //Global State
   const { handleGlobalError } = useGlobalError();
+  const history = useHistory();
+  const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
 
-  //UI
-  const [loading, setLoading] = useState<boolean>(false);
-  const [activePage, setActivePage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
-  const [showUserModal, setShowUserModal] = useState<boolean>(false);
-  const [activeIndices, setActiveIndices] = useState<number[]>([]);
-
-  //Data
+  const [loading, setLoading] = useState(false);
+  const [activePage, setActivePage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
   const [systems, setSystems] = useState<CentralIdentitySystem[]>([]);
-  const [selectedSystem, setSelectedSystem] =
-    useState<CentralIdentitySystem | null>(null);
+  const [organizations, setOrganizations] = useState<CentralIdentityOrg[]>([]);
+  const [expandedSystemIds, setExpandedSystemIds] = useState<number[]>([]);
+  const [showCreateSystemModal, setShowCreateSystemModal] = useState(false);
+  const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
 
-  //Effects
   useEffect(() => {
-    getSystems();
-  }, []);
+    if (isSuperAdmin) {
+      loadData();
+      setTotalPages(
+        Math.ceil(
+          (systems.length + organizations.length) / itemsPerPage
+        )
+      );
+    }
+  }, [activePage, itemsPerPage, isSuperAdmin]);
 
-  async function getSystems() {
+  async function loadData() {
     try {
       setLoading(true);
-      const res = await axios.get("/central-identity/systems");
-      console.log(res.data);
-      if (
-        res.data.err ||
-        !res.data.systems ||
-        !Array.isArray(res.data.systems) ||
-        res.data.totalCount === undefined
-      ) {
-        throw new Error("Error retrieving organizations");
-      }
-
-      setSystems(res.data.systems);
-      setTotalPages(Math.ceil(res.data.totalCount / itemsPerPage));
+      const [systemsRes, orgsRes] = await Promise.all([
+        await api.getCentralIdentitySystems(),
+        await api.getCentralIdentityOrgs()
+      ]);
+  
+      const systemsData = systemsRes.data.systems || [];
+      const orgsData = (orgsRes.data.orgs as CentralIdentityOrg[]).filter((org) => !org.system);
+      setSystems(systemsData);
+      setOrganizations(orgsData);
+      setTotalPages(
+        Math.ceil(
+          (systemsData.length + orgsData.length) / itemsPerPage
+        )
+      );
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -60,39 +70,55 @@ const CentralIdentityOrgs = () => {
     }
   }
 
-  function handleSelectSystem(system: CentralIdentitySystem) {
-    setSelectedSystem(system);
-    setShowUserModal(true);
+  function toggleSystemExpand(systemId: number) {
+    setExpandedSystemIds((prev) =>
+      prev.includes(systemId)
+        ? prev.filter((id) => id !== systemId)
+        : [...prev, systemId]
+    );
   }
 
-  const AccordionPanel = ({
-    system,
-    idx,
-  }: {
-    system: CentralIdentitySystem;
-    idx: number;
-  }) => {
-    return (
-      <>
-        <Accordion.Title
-          active={activeIndices.includes(idx)}
-          index={idx}
-          key={system.id}
-          onClick={() => activeIndices.push(idx)}
-        >
-          <Icon name="dropdown" />
-          {system.name}
-        </Accordion.Title>
-        <Accordion.Content active={activeIndices.includes(idx)}>
-          <p>
-            A dog is a type of domesticated animal. Known for its loyalty and
-            faithfulness, it can be found as a welcome guest in many households
-            across the world.
-          </p>
-        </Accordion.Content>
-      </>
+  function handleEdit(type: "org" | "system", id: number) {
+    history.push(
+      `/controlpanel/libreone/orgs/${type === "org" ? "org" : "system"}/${id}`
     );
+  }
+
+  const handlePageChange = (page: number) => {
+    setActivePage(page);
   };
+
+  const handleItemsPerPageChange = (items: number) => {
+    setItemsPerPage(items);
+    setActivePage(1);
+  };
+
+  const getPaginatedData = () => {
+    const startIndex = (activePage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    
+    const allItems = [
+      ...systems.map(system => ({
+        ...system,
+        type: 'system' as const
+      })),
+      ...organizations.map(org => ({
+        ...org,
+        type: 'org' as const
+      }))
+    ];
+    
+    return allItems.slice(startIndex, endIndex);
+  };
+
+  if (!isSuperAdmin) {
+    return (
+      <Message negative>
+        <Message.Header>Access Denied</Message.Header>
+        <p>You must be a Superadmin to access this page.</p>
+      </Message>
+    );
+  }
 
   return (
     <Grid className="controlpanel-container" divided="vertically">
@@ -113,7 +139,7 @@ const CentralIdentityOrgs = () => {
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
                 <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
-                  LibreOne Admin Consoles
+                  LibreOne Admin Console
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
                 <Breadcrumb.Section active>
@@ -121,60 +147,207 @@ const CentralIdentityOrgs = () => {
                 </Breadcrumb.Section>
               </Breadcrumb>
             </Segment>
-            {loading && (
-              <Segment>
-                <Loader active inline="centered" />
-              </Segment>
-            )}
-            {true ? (
-              <Segment>
-              <h2>THIS PAGE COMING SOON</h2>
-              </Segment>
-            ) : (
-              <>
-                <Segment>
-                  <PaginationWithItemsSelect
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    itemsPerPage={itemsPerPage}
-                    setItemsPerPageFn={setItemsPerPage}
-                    setActivePageFn={setActivePage}
-                    totalLength={systems.length}
-                  />
-                </Segment>
-                <Segment>
-                  {systems.length > 0 && (
-                    <Accordion
-                      panels={systems.map((system, idx) => {
-                        return (
-                          <AccordionPanel
-                            system={system}
-                            idx={idx}
-                            key={system.id}
-                          />
-                        );
-                      })}
-                      exclusive={false}
-                      fluid
-                    />
-                  )}
-                  {systems.length === 0 && <p>No organizations found</p>}
-                </Segment>
-                <Segment>
-                  <PaginationWithItemsSelect
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    itemsPerPage={itemsPerPage}
-                    setItemsPerPageFn={setItemsPerPage}
-                    setActivePageFn={setActivePage}
-                    totalLength={systems.length}
-                  />
-                </Segment>
-              </>
-            )}
+            <Segment>
+              <Button
+                color="blue"
+                onClick={() => setShowCreateSystemModal(true)}
+              >
+                <Icon name="plus" />
+                New System
+              </Button>
+              <Button
+                color="blue"
+                onClick={() => setShowCreateOrgModal(true)}
+                style={{ marginLeft: "10px" }}
+              >
+                <Icon name="plus" />
+                New Organization
+              </Button>
+            </Segment>
+            <Segment>
+              <PaginationWithItemsSelect
+                activePage={activePage}
+                totalPages={totalPages}
+                itemsPerPage={itemsPerPage}
+                setItemsPerPageFn={handleItemsPerPageChange}
+                setActivePageFn={handlePageChange}
+                totalLength={systems.length + organizations.length}
+              />
+            </Segment>
+            <Segment loading={loading}>
+              <Table celled>
+                <Table.Header>
+                  <Table.Row>
+                    <Table.HeaderCell width={1} textAlign="center"></Table.HeaderCell>
+                    <Table.HeaderCell width={2}>Logo</Table.HeaderCell>
+                    <Table.HeaderCell>Name</Table.HeaderCell>
+                    <Table.HeaderCell>Type</Table.HeaderCell>
+                    <Table.HeaderCell>Actions</Table.HeaderCell>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {getPaginatedData().map((item) => {
+                    if (item.type === 'system') {
+                      return (
+                        <React.Fragment key={`system-${item.id}`}>
+                          <Table.Row>
+                            <Table.Cell collapsing>
+                              <Icon
+                                name={
+                                  expandedSystemIds.includes(item.id)
+                                    ? "chevron down"
+                                    : "chevron right"
+                                }
+                                link
+                                onClick={() => toggleSystemExpand(item.id)}
+                              />
+                            </Table.Cell>
+                            <Table.Cell textAlign="center">
+                              {item.logo ? (
+                                <a 
+                                  href={item.logo} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  style={{ cursor: 'pointer' }}
+                                >
+                                  <img
+                                    src={item.logo}
+                                    alt={`${item.name} logo`}
+                                    style={{ width: 32, height: 32, objectFit: "contain", display: "inline-block" }}
+                                  />
+                                </a>
+                              ) : (
+                                <Icon name="image outline" size="large" />
+                              )}
+                            </Table.Cell>
+                            <Table.Cell>
+                              <b>{item.name}</b>
+                            </Table.Cell>
+                            <Table.Cell>System</Table.Cell>
+                            <Table.Cell>
+                              <Button
+                                icon
+                                color="blue"
+                                size="tiny"
+                                onClick={() => handleEdit("system", item.id)}
+                              >
+                                <Icon name="edit" />
+                              </Button>
+                            </Table.Cell>
+                          </Table.Row>
+                          {expandedSystemIds.includes(item.id) &&
+                            item.organizations &&
+                            item.organizations.map((org) => (
+                              <Table.Row key={`org-${org.id}`}>
+                                <Table.Cell />
+                                <Table.Cell textAlign="center">
+                                  {org.logo ? (
+                                    <a 
+                                      href={org.logo} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      style={{ cursor: 'pointer' }}
+                                    >
+                                      <img
+                                        src={org.logo}
+                                        alt={`${org.name} logo`}
+                                        style={{ width: 32, height: 32, objectFit: "contain", display: "inline-block"  }}
+                                      />
+                                    </a>
+                                  ) : (
+                                    <Icon name="image outline" size="large" />
+                                  )}
+                                </Table.Cell>
+                                <Table.Cell style={{ paddingLeft: 40 }}>
+                                  {org.name}
+                                </Table.Cell>
+                                <Table.Cell>Organization</Table.Cell>
+                                <Table.Cell>
+                                  <Button
+                                    icon
+                                    color="blue"
+                                    size="tiny"
+                                    onClick={() => handleEdit("org", org.id)}
+                                  >
+                                    <Icon name="edit" />
+                                  </Button>
+                                </Table.Cell>
+                              </Table.Row>
+                            ))}
+                        </React.Fragment>
+                      );
+                    } else {
+                      return (
+                        <Table.Row key={`org-${item.id}`}>
+                          <Table.Cell />
+                          <Table.Cell textAlign="center">
+                            {item.logo ? (
+                              <a 
+                                href={item.logo} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ cursor: 'pointer' }}
+                              >
+                                <img
+                                  src={item.logo}
+                                  alt={`${item.name} logo`}
+                                  style={{ width: 32, height: 32, objectFit: "contain", display: "inline-block" }}
+                                />
+                              </a>
+                            ) : (
+                              <Icon name="image outline" size="large" />
+                            )}
+                          </Table.Cell>
+                          <Table.Cell>{item.name}</Table.Cell>
+                          <Table.Cell>Organization</Table.Cell>
+                          <Table.Cell>
+                            <Button
+                              icon
+                              color="blue"
+                              size="tiny"
+                              onClick={() => handleEdit("org", item.id)}
+                            >
+                              <Icon name="edit" />
+                            </Button>
+                          </Table.Cell>
+                        </Table.Row>
+                      );
+                    }
+                  })}
+                </Table.Body>
+              </Table>
+            </Segment>
+            <Segment>
+              <PaginationWithItemsSelect
+                activePage={activePage}
+                totalPages={totalPages}
+                itemsPerPage={itemsPerPage}
+                setItemsPerPageFn={handleItemsPerPageChange}
+                setActivePageFn={handlePageChange}
+                totalLength={systems.length + organizations.length}
+              />
+            </Segment>
           </Segment.Group>
         </Grid.Column>
       </Grid.Row>
+
+      <CreateSystemModal
+        show={showCreateSystemModal}
+        onClose={() => setShowCreateSystemModal(false)}
+        onCreated={() => {
+          setShowCreateSystemModal(false);
+          loadData();
+        }}
+      />
+      
+      <CreateOrgModal
+        show={showCreateOrgModal}
+        onClose={() => setShowCreateOrgModal(false)}
+        onCreated={() => {
+          setShowCreateOrgModal(false);
+          loadData();
+        }}
+      />
     </Grid>
   );
 };

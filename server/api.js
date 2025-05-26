@@ -321,11 +321,53 @@ router
 
 router
   .route("/central-identity/orgs")
-  .get(
+  .get( 
     middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
     centralIdentityAPI.validate("getOrgs"),
     middleware.checkValidationErrors,
     centralIdentityAPI.getOrgs
+  )
+  .post(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("createOrg"), 
+    middleware.checkValidationErrors,
+    centralIdentityAPI.createOrg
+  );
+
+router
+  .route("/central-identity/orgs/:orgId")
+  .delete(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("deleteOrg"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.deleteOrg
+  )
+  .get(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("getOrg"), 
+    middleware.checkValidationErrors,
+    centralIdentityAPI.getOrg
+  )
+  .patch(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("updateOrg"), 
+    middleware.checkValidationErrors,
+    centralIdentityAPI.updateOrg
   );
 
 router.route("/central-identity/adapt-orgs").get(
@@ -342,6 +384,45 @@ router
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
     centralIdentityAPI.getSystems
+  )
+  .post(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("createSystem"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.createSystem
+  );
+
+router
+  .route("/central-identity/systems/:systemId")
+  .delete(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("deleteUserOrg"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.deleteSystem
+  )
+  .get(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("getSystem"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.getSystem
+  )
+  .put(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("updateSystem"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.updateSystem
   );
 
 router
