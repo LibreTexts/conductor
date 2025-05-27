@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Button,
+  Dropdown,
   Grid,
   Header,
   Icon,
@@ -17,6 +18,7 @@ import { Link } from "react-router-dom";
 import Breakpoint from "../util/Breakpoints";
 import { DEFAULT_PROJECT_MODULES } from "../../utils/projectHelpers";
 import { useTypedSelector } from "../../state/hooks";
+import SearchableDropdown from "../util/SearchableDropdown";
 
 interface RenderProjectModulesProps {
   projectID: string;
@@ -47,6 +49,7 @@ interface RenderProjectModulesProps {
   mngTaskLoading: boolean;
   libreLibrary?: string;
   libreCoverID?: string;
+  getTeamMemberOptions: (projData: any) => { value: string; label: string }[];
 }
 
 const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
@@ -74,9 +77,12 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
   mngTaskLoading,
   libreLibrary,
   libreCoverID,
+  getTeamMemberOptions
 }) => {
   const [showDiscussion, setShowDiscussion] = useState(true);
   const [showFiles, setShowFiles] = useState(true);
+
+  const [selectedValue, setSelectedValue] = useState<string>('');
 
   const DiscussionModule = useMemo(() => {
     return (
@@ -174,6 +180,17 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
     );
   }, [projectID, showFiles, canViewDetails, project.defaultFileLicense]);
 
+  const filteredTasks = useMemo(() => {
+    if (!selectedValue) return projTasks;
+
+    return projTasks.filter((task: any) => {
+      const assignees = task.assignees || [];
+      return assignees.some(
+        (a: { firstName: string; lastName: string }) => `${a.firstName} ${a.lastName}`.toLowerCase() === selectedValue.toLowerCase()
+      );
+    });
+  }, [projTasks, selectedValue]);
+
   const TasksModule = useMemo(() => {
     return (
       <Grid.Row key={"tasks-module"}>
@@ -184,25 +201,47 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
             </Header>
             <Segment.Group size="large" raised className="mb-4p">
               <Segment>
-                <div className="flex-row-div">
-                  <div className="left-flex">
-                    <Search
-                      input={{
-                        icon: "search",
-                        iconPosition: "left",
-                        placeholder: "Search tasks...",
-                      }}
-                      loading={taskSearchLoading}
-                      onResultSelect={(_e, { result }) =>
-                        openViewTaskModal(result.id)
-                      }
-                      onSearchChange={handleTaskSearch}
-                      results={taskSearchResults}
-                      value={taskSearchQuery}
-                    />
+                <div className="flex-col-div" style={{ gap: '1rem' }}>
+                  <div className="flex-row-div" style={{ 
+                    flexWrap: 'wrap', 
+                    gap: '0.5rem',
+                    marginBottom: '0.5rem' 
+                  }}>
+                    <div style={{ 
+                      flex: '1 1 auto', 
+                      minWidth: '200px',
+                      display: 'flex',
+                      gap: '0.5rem',
+                      flexWrap: 'wrap'
+                    }}>
+                      <Search
+                        input={{
+                          icon: "search",
+                          iconPosition: "left",
+                          placeholder: "Search tasks...",
+                        }}
+                        loading={taskSearchLoading}
+                        onResultSelect={(_e, { result }) =>
+                          openViewTaskModal(result.id)
+                        }
+                        onSearchChange={handleTaskSearch}
+                        results={taskSearchResults}
+                        value={taskSearchQuery}
+                        style={{ flex: '1 1 250px', minWidth: '150px' }}
+                      />
+                      <SearchableDropdown
+                        options={getTeamMemberOptions(project)}
+                        placeholder="Filter by..."
+                        value={selectedValue}
+                        onChange={(value) => {
+                          console.log('Selected:', value);
+                          setSelectedValue(value);
+                        }}
+                      />
+                    </div>
                   </div>
                   <div className="right-flex">
-                    <Button.Group fluid>
+                    <Button.Group fluid className="flex flex-wrap">
                       <Button
                         color="olive"
                         as={Link}
@@ -251,7 +290,8 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
               >
                 {projTasks.length > 0 ? (
                   <List divided verticalAlign="middle">
-                    {projTasks.map((item: any, idx: any) => {
+                    {console.log("filteredTasks:", filteredTasks)}
+                    {filteredTasks.map((item: any, idx: any) => {
                       let today = new Date();
                       let overdueTasks = false;
                       if (
@@ -596,6 +636,8 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
     mngTaskLoading,
     canViewDetails,
     toggleTaskDetail,
+    selectedValue,          
+    filteredTasks 
   ]);
 
   const CalculatedModules = useMemo(() => {
