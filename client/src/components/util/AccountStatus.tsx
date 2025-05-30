@@ -37,20 +37,19 @@ const AccountStatus = ({
     <Label
       as="a"
       target="_blank"
-      href="/verification/instructor"
-      aria-label="Unverified user, submit an Instructor Verfication Request (opens in new tab)"
+      href="https://one.libretexts.org/instructor"
+      aria-label="Unverified instructor, submit an Instructor Verfication Request (opens in new tab)"
       className="w-44"
     >
       <Popup
-        trigger={<span>Unverified User</span>}
+        trigger={<span>Unverified Instructor</span>}
         position="top center"
         content={
           <p className="text-center">
             {thirdPerson ? "They" : "You"} haven't yet been verified as an
             instructor by the LibreTexts team. The LibreTexts team can verify{" "}
             {thirdPerson ? "them" : "you"} if {thirdPerson ? "they" : "you"}{" "}
-            submit an Instructor Verification Request. The Conductor experience won't be
-            impacted by this.
+            submit an Instructor Verification Request.
           </p>
         }
       />
