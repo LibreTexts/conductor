@@ -1085,6 +1085,11 @@ async function getUserProjectsAdmin(req, res) {
   try {
     let userid = req.query.uuid;
     const centralID = req.query.centralID;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+
+    const offset = getPaginationOffset(page, limit);
+
     if (centralID) {
       const found = await User.findOne({centralID: req.query.uuid}).orFail();
       userid = found.uuid;
@@ -1140,10 +1145,16 @@ async function getUserProjectsAdmin(req, res) {
         $project: projectListingProjection,
       },
     ]);
+
+    const total = projects.length;
+    const paginatedProjects = projects.slice(offset, offset + limit);
+
     return res.send({
       err: false,
       uuid: userid,
-      projects: projects,
+      projects: paginatedProjects,
+      total_items: total,
+      has_more: total > offset + limit,
     });
   } catch (err) {
     debugError(err);
@@ -3585,7 +3596,9 @@ const validate = (method) => {
     case 'getUserProjectsAdmin':
       return [
           query('uuid', conductorErrors.err1).exists().isString().isUUID(),
-          query('centralID', conductorErrors.err1).optional({checkFalsy: true}).isBoolean().toBoolean()
+          query('centralID', conductorErrors.err1).optional({checkFalsy: true}).isBoolean().toBoolean(),
+          query('page', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0 }).toInt(),
+          query('limit', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 1, max: 100 }).toInt(),
       ]
     case 'addMemberToProject':
       return [
