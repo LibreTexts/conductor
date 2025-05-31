@@ -12,7 +12,11 @@ import {
   Image,
   Popup,
 } from "semantic-ui-react";
-import { CentralIdentityUser, CentralIdentityApp } from "../../../../types";
+import {
+  CentralIdentityUser,
+  CentralIdentityApp,
+  SupportTicket,
+} from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { useForm, Controller } from "react-hook-form";
 import axios from "axios";
@@ -50,16 +54,18 @@ const ConfirmRemoveOrgOrAppModal = lazy(
       "../../../../components/controlpanel/CentralIdentity/ConfirmRemoveOrgOrAppModal"
     )
 );
-const ViewUserProjectsModal = lazy(
-  () =>
-    import(
-      "../../../../components/controlpanel/CentralIdentity/ViewUserProjectsModal"
-    )
-);
 const InternalNotesSection = lazy(
   () => import("../../../../components/Notes/InternalNotesSection")
 );
+const UserSupportTickets = lazy(
+  () =>
+    import(
+      "../../../../components/controlpanel/CentralIdentity/UserSupportTickets"
+    )
+);
+
 import api from "../../../../api";
+import UserConductorData from "../../../../components/controlpanel/CentralIdentity/UserConductorData";
 
 const CentralIdentityUserView = () => {
   const { uuid } = useParams<{ uuid: string }>();
@@ -80,8 +86,6 @@ const CentralIdentityUserView = () => {
   const [userInitVal, setUserInitVal] = useState<
     CentralIdentityUser | undefined
   >(undefined);
-  const [showViewUserProjectsModal, setShowViewUserProjectsModal] =
-    useState<boolean>(false);
 
   const { handleGlobalError } = useGlobalError();
   const { addNotification } = useNotifications();
@@ -172,10 +176,6 @@ const CentralIdentityUserView = () => {
       return;
     }
     loadUserApps();
-  }
-
-  function handleViewUserProjectsModalClose() {
-    setShowViewUserProjectsModal(false);
   }
 
   async function handleSave() {
@@ -488,6 +488,7 @@ const CentralIdentityUserView = () => {
                   </span>
                 </div>
               </Segment>
+              <UserConductorData uuid={uuid} />
             </div>
             <div className="flex flex-col basis-1/2 ml-8">
               <Segment>
@@ -606,6 +607,7 @@ const CentralIdentityUserView = () => {
                   </Table>
                 </div>
               </Segment>
+              <UserSupportTickets uuid={uuid} />
               <Segment>
                 <InternalNotesSection userId={uuid} />
               </Segment>
@@ -634,11 +636,6 @@ const CentralIdentityUserView = () => {
         userId={uuid}
         targetId={removeOrgOrAppTargetId}
         onClose={handleRemoveOrgOrAppModalClose}
-      />
-      <ViewUserProjectsModal
-        show={showViewUserProjectsModal}
-        userId={uuid}
-        onClose={handleViewUserProjectsModalClose}
       />
     </Grid>
   );

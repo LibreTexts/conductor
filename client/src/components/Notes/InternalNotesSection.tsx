@@ -87,11 +87,11 @@ export default function InternalNotesSection({
             <List divided relaxed>
               {notes.length === 0 && <div>No notes yet.</div>}
               {notes.map((note) => (
-                <List.Item
+                <div
                   key={note.uuid}
                   style={{ cursor: canEdit ? "pointer" : "default" }}
                   onClick={canEdit ? () => openEditNoteModal(note) : undefined}
-                  className="border border-slate-300 mb-2 !p-2 shadow-md rounded-md"
+                  className="border border-slate-300 mb-2 !p-2 rounded-md"
                 >
                   <List.Content className="p-1">
                     <List.Description className="whitespace-pre-wrap text-base text-black">
@@ -115,7 +115,7 @@ export default function InternalNotesSection({
                       </div>
                     </div>
                   </List.Content>
-                </List.Item>
+                </div>
               ))}
             </List>
           </>

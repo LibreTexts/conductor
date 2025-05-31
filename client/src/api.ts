@@ -235,11 +235,10 @@ class API {
     return res;
   }
 
-  public cloudflareStreamUploadURL: string = `${
-    import.meta.env.MODE === "development"
-      ? import.meta.env.VITE_DEV_BASE_URL
-      : ""
-  }/api/v1/cloudflare/stream-url`;
+  public cloudflareStreamUploadURL: string = `${import.meta.env.MODE === "development"
+    ? import.meta.env.VITE_DEV_BASE_URL
+    : ""
+    }/api/v1/cloudflare/stream-url`;
 
   async getPermanentLink(projectID: string, fileID: string) {
     const res = await axios.get<
@@ -602,14 +601,14 @@ class API {
     } & ConductorBaseResponse>(`/central-identity/users/${uuid}`);
     return res;
   }
-  
+
   async getCentralIdentityUserApplications(uuid: string) {
     const res = await axios.get<{
       applications: CentralIdentityApp[];
     } & ConductorBaseResponse>(`/central-identity/users/${uuid}/applications`);
     return res;
   }
-  
+
   async updateCentralIdentityUser(uuid: string, data: Partial<CentralIdentityUser>) {
     const res = await axios.patch<{
       user: CentralIdentityUser;
@@ -822,18 +821,18 @@ class API {
   async updateUserPinnedProjects(
     data:
       | {
-          action: "add-project" | "move-project";
-          folder: string;
-          projectID: string;
-        }
+        action: "add-project" | "move-project";
+        folder: string;
+        projectID: string;
+      }
       | {
-          action: "remove-project";
-          projectID: string;
-        }
+        action: "remove-project";
+        projectID: string;
+      }
       | {
-          action: "add-folder" | "remove-folder";
-          folder: string;
-        }
+        action: "add-folder" | "remove-folder";
+        folder: string;
+      }
   ) {
     const res = await axios.patch<ConductorBaseResponse>(
       "/user/projects/pinned",
@@ -1144,6 +1143,27 @@ class API {
         ticket: SupportTicket;
       } & ConductorBaseResponse
     >(`/support/ticket/${ticketID}`);
+  }
+
+  async getUserSupportTickets({ uuid, page, limit, sort }: {
+    uuid: string;
+    page?: number;
+    limit?: number;
+    sort?: string;
+  }) {
+    return await axios.get<
+      {
+        tickets: SupportTicket[];
+        total: number;
+      } & ConductorBaseResponse
+    >(`/support/ticket/user`, {
+      params: {
+        uuid,
+        page,
+        limit,
+        sort,
+      },
+    });
   }
 
   async getSupportAssignableUsers() {

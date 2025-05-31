@@ -9,6 +9,7 @@ import { PaginationWithItemsSelect } from "../util/PaginationWithItemsSelect";
 import { useQuery } from "@tanstack/react-query";
 import LoadingSpinner from "../LoadingSpinner";
 import { useTypedSelector } from "../../state/hooks";
+import api from "../../api";
 
 const UserDashboard = () => {
   const user = useTypedSelector((state) => state.user);
@@ -34,16 +35,16 @@ const UserDashboard = () => {
 
   async function getUserTickets(page: number, limit: number, sort: string) {
     try {
-      if (!user.uuid) return;
+      if (!user.uuid) return [];
       setLoading(true);
-      const res = await axios.get("/support/ticket/user", {
-        params: {
-          uuid: user.uuid,
-          page,
-          limit,
-          sort,
-        },
-      });
+      
+      const res = await api.getUserSupportTickets({
+        uuid: user.uuid,
+        page,
+        limit,
+        sort,
+      })
+
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -59,6 +60,7 @@ const UserDashboard = () => {
       return res.data.tickets;
     } catch (err) {
       handleGlobalError(err);
+      return [];
     } finally {
       setLoading(false);
     }
