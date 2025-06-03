@@ -68,6 +68,7 @@ app.use(
         "https://*.cloudflare.com", // Cloudflare (Turnstile)
         "https://*.libretexts.net", // LibreTexts CDN
         "'sha256-wjPyHKFbRc4HkIhBXM6I/dBX9NqqdnXFbz8jONRWKCU='", // gtag.js inline
+        "'sha256-pnIV3nmqaM9pcomyIJxQz4o3MHOOZiXIQ7B+8Wca1Fw='", // Matomo (traffic.libretexts.org) inline
         "*.googletagmanager.com", // gtag.js,
         "*.ssa.gov", // ANDI,
         "https://ajax.googleapis.com", // Google CDN (jQuery for ANDI)
