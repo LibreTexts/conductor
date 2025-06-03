@@ -67,32 +67,31 @@ router.use(
     origin(origin, callback) {
       /* Build dynamic origins list */
       let allowedOrigins = [];
+
       if (process.env.NODE_ENV === "production") {
-        allowedOrigins = String(process.env.PRODUCTIONURLS).split(",");
+        allowedOrigins = String(process.env.PRODUCTIONURLS).split(",").map((url) => url.trim());
         allowedOrigins.push(/\.libretexts\.org$/); // any LibreTexts subdomain
       }
+
       if (process.env.NODE_ENV === "development") {
         if (process.env.DEVELOPMENTURLS) {
-          allowedOrigins = String(process.env.DEVELOPMENTURLS).split(",");
+          allowedOrigins = String(process.env.DEVELOPMENTURLS).split(",").map((url) => url.trim());
         } else {
-          allowedOrigins = ["localhost:5000"];
+          allowedOrigins = ["http://localhost:5000"];
         }
       }
 
       /* Check provided origin */
       const foundOrigin = allowedOrigins.find((allowed) => {
-        if (typeof allowed === "string") {
-          return allowed === origin;
-        }
-        if (allowed instanceof RegExp) {
-          return allowed.test(origin);
-        }
+        if (typeof allowed === "string") return allowed === origin;
+        if (allowed instanceof RegExp) return allowed.test(origin);
         return false;
       });
+      
       if (foundOrigin) {
         return callback(null, origin);
       }
-      return callback(null, "https://libretexts.org"); // default
+      return callback(new Error("CORS policy: Not allowed by CORS"));
     },
     methods: ["GET", "PUT", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
