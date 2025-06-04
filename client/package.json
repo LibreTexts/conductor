@@ -87,7 +87,6 @@
     ]
   },
   "devDependencies": {
-    "@types/date-and-time": "^3.0.3",
     "@types/dompurify": "^3.0.0",
     "@types/file-saver": "^2.0.6",
     "@types/js-cookie": "^3.0.3",
