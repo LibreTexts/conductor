@@ -584,7 +584,7 @@ class API {
   ){
     const res = await axios.post<
       {
-        system: CentralIdentitySystem[];
+        system: CentralIdentitySystem;
       } & ConductorBaseResponse
     >("/central-identity/systems", {
       name,
