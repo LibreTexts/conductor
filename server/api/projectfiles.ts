@@ -308,8 +308,8 @@ export async function addProjectFile(
         license: licenseObj
           ? { ...licenseObj, sourceURL: req.body.fileURL }
           : {
-              sourceURL: req.body.fileURL, // Set Source url as url
-            },
+            sourceURL: req.body.fileURL, // Set Source url as url
+          },
         primaryAuthor: defaultPrimary,
         authors: defaultSecondary,
         publisher: req.body.publisher,
@@ -462,7 +462,7 @@ async function getPermanentLink(
         errMsg: conductorErrors.err11,
       });
     }
-    if (!req.user){
+    if (!req.user) {
       return res.status(403).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -522,6 +522,7 @@ async function redirectPermanentLink(
 ) {
   try {
     const { projectID, fileID } = req.params;
+    const { direct } = req.query;
     const project = await Project.findOne({ projectID }).lean();
 
     if (!project) {
@@ -530,6 +531,11 @@ async function redirectPermanentLink(
         errMsg: conductorErrors.err11,
       });
     }
+
+    if (!direct) {
+      return res.redirect('https://commons.libretexts.org/download/' + projectID + '/' + fileID);
+    }
+
     const downloadURLs = await downloadProjectFiles(
       projectID,
       [fileID],
@@ -549,12 +555,7 @@ async function redirectPermanentLink(
       });
     }
 
-    return res.send({
-      err: false,
-      msg: "Successfully generated permanent link!",
-      url: `https://commons.libretexts.org/permalink/${projectID}/${fileID}`,
-      redirectUrl: downloadURLs[0] 
-    });
+    return res.redirect(downloadURLs[0]);
   } catch (e) {
     debugError(e);
     return res.status(500).send({
@@ -1193,9 +1194,9 @@ async function moveProjectFile(
  */
 async function removeProjectFilesInternal(projectID: string, fileIDs: string[]) {
   if (
-      !process.env.CLOUDFLARE_STREAM_ACCOUNT_ID ||
-      !process.env.CLOUDFLARE_STREAM_API_TOKEN ||
-      !process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE
+    !process.env.CLOUDFLARE_STREAM_ACCOUNT_ID ||
+    !process.env.CLOUDFLARE_STREAM_API_TOKEN ||
+    !process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE
   ) {
     throw new Error("Missing Cloudflare credentials");
   }
@@ -1220,34 +1221,34 @@ async function removeProjectFilesInternal(projectID: string, fileIDs: string[]) 
   const allFileIds = objsToDelete.map((o => o.fileID));
 
   const filesToDelete = objsToDelete
-      .map((obj) => {
-        if (obj.storageType === "file" && !obj.isURL && !obj.isVideo) {
-          return {
-            Key: `${projectID}/${obj.fileID}`,
-          };
-        }
-        return null;
-      })
-      .filter((obj) => obj !== null);
+    .map((obj) => {
+      if (obj.storageType === "file" && !obj.isURL && !obj.isVideo) {
+        return {
+          Key: `${projectID}/${obj.fileID}`,
+        };
+      }
+      return null;
+    })
+    .filter((obj) => obj !== null);
 
   const videosToDelete = objsToDelete
-      .map((obj) => {
-        if (obj.storageType === "file" && obj.isVideo && obj.videoStorageID) {
-          return obj.videoStorageID;
-        }
-        return null;
-      })
-      .filter((obj) => obj !== null);
+    .map((obj) => {
+      if (obj.storageType === "file" && obj.isVideo && obj.videoStorageID) {
+        return obj.videoStorageID;
+      }
+      return null;
+    })
+    .filter((obj) => obj !== null);
 
   if (filesToDelete.length > 0) {
     const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
     const deleteRes = await storageClient.send(
-        new DeleteObjectsCommand({
-          Bucket: process.env.AWS_PROJECTFILES_BUCKET,
-          Delete: {
-            Objects: filesToDelete as { Key: string }[],
-          },
-        })
+      new DeleteObjectsCommand({
+        Bucket: process.env.AWS_PROJECTFILES_BUCKET,
+        Delete: {
+          Objects: filesToDelete as { Key: string }[],
+        },
+      })
     );
     if (Array.isArray(deleteRes.Errors) && deleteRes.Errors.length > 0) {
       throw new Error('delete_errors_encountered');
@@ -1297,8 +1298,8 @@ async function removeProjectFile(
     return res.status(500).send({
       err: true,
       errMsg: (e as Error)?.message === 'delete_errors_encountered'
-          ? conductorErrors.err58
-          : conductorErrors.err6,
+        ? conductorErrors.err58
+        : conductorErrors.err6,
     });
   }
 }
@@ -1347,11 +1348,11 @@ async function getProjectFileEmbedHTML(
 
     const fileRes = await _getProjectFileEmbedHTML(projectID, fileID);
 
-    if('err' in fileRes ) {
-      if(fileRes.err === 'notfound') {
+    if ('err' in fileRes) {
+      if (fileRes.err === 'notfound') {
         return conductor404Err(res);
       }
-      
+
       if (fileRes.err === 'unauthorized') {
         return res.status(401).send({
           err: true,
@@ -1374,16 +1375,16 @@ async function getProjectFileEmbedHTML(
   }
 }
 
-async function _getProjectFileEmbedHTML(projectID: string, fileID: string): Promise<{ media_id: string, embed_url: string, embed_html: string } | {err: string}>  {
+async function _getProjectFileEmbedHTML(projectID: string, fileID: string): Promise<{ media_id: string, embed_url: string, embed_html: string } | { err: string }> {
   try {
     const file = await ProjectFile.findOne({ projectID, fileID }).lean();
     if (!file || !file.videoStorageID) {
-      return {err: 'notfound'};
+      return { err: 'notfound' };
     }
 
     // Check if file is public
     if (file.access !== "public") {
-      return {err: 'unauthorized'};
+      return { err: 'unauthorized' };
     }
 
     const ENDPOINT = `https://customer-${process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${file.videoStorageID}/iframe`;
@@ -1395,9 +1396,9 @@ async function _getProjectFileEmbedHTML(projectID: string, fileID: string): Prom
       embed_url: ENDPOINT,
       embed_html: HTML,
     }
-  } catch (err){
+  } catch (err) {
     debugError(err);
-    return {err: 'internal'};
+    return { err: 'internal' };
   }
 }
 
@@ -1459,11 +1460,9 @@ async function updateProjectFileCaptions(
       return conductor400Err(res);
     }
 
-    const UPLOAD_URL = `https://api.cloudflare.com/client/v4/accounts/${
-      process.env.CLOUDFLARE_STREAM_ACCOUNT_ID
-    }/stream/${
-      file.videoStorageID
-    }/captions/${req.body.language.toLowerCase()}`;
+    const UPLOAD_URL = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID
+      }/stream/${file.videoStorageID
+      }/captions/${req.body.language.toLowerCase()}`;
 
     const _formData = new FormData();
     const blob = new Blob([captionFile.buffer], {
@@ -1771,7 +1770,7 @@ async function _parseAndSaveAuthors(
 
       // If author is new author, it was likely sent with an arbitrary _id for UI, remove it before saving
       // @ts-ignore
-      const {_id, ...authorData} = author;
+      const { _id, ...authorData } = author;
       const newAuthor = await Author.create({
         ...authorData,
         orgID: process.env.ORG_ID,
@@ -1836,5 +1835,5 @@ export default {
   createProjectFileStreamUploadURLOptions,
   _parseAndSaveAuthors,
   getPermanentLink,
-  redirectPermanentLink
+  redirectPermanentLink,
 };

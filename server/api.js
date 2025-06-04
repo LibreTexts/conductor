@@ -52,59 +52,67 @@ import * as BookValidators from "./api/validators/book.js";
 import * as UserValidators from "./api/validators/user.js";
 import * as ProjectInvitationValidators from "./api/validators/project-invitations.js";
 
-const router = express.Router();
-router.use(
-  cors({
-    origin(origin, callback) {
-      /* Build dynamic origins list */
-      let allowedOrigins = [];
+const corsMiddleware = cors({
+  origin(origin, callback) {
+    /* Build dynamic origins list */
+    let allowedOrigins = [];
 
-      // Allow same-origin requests
-      if (!origin) {
-        return callback(null, true);
-      }
+    // Allow same-origin requests
+    if (!origin) {
+      return callback(null, true);
+    }
 
-      // Check allowed production and development origins
-      if (process.env.NODE_ENV === "production") {
-        allowedOrigins = String(process.env.PRODUCTIONURLS).split(",").map((url) => url.trim());
-        allowedOrigins.push(/\.libretexts\.org$/); // any LibreTexts subdomain
-      }
+    // Check allowed production and development origins
+    if (process.env.NODE_ENV === "production") {
+      allowedOrigins = String(process.env.PRODUCTIONURLS).split(",").map((url) => url.trim());
+      allowedOrigins.push(/\.libretexts\.org$/); // any LibreTexts subdomain
+    }
 
-      if (process.env.NODE_ENV === "development") {
-        if (process.env.DEVELOPMENTURLS) {
-          allowedOrigins = String(process.env.DEVELOPMENTURLS).split(",").map((url) => url.trim());
-        } else {
-          allowedOrigins = ["http://localhost:5000"];
-        }
+    if (process.env.NODE_ENV === "development") {
+      if (process.env.DEVELOPMENTURLS) {
+        allowedOrigins = String(process.env.DEVELOPMENTURLS).split(",").map((url) => url.trim());
+      } else {
+        allowedOrigins = ["http://localhost:5000"];
       }
+    }
 
-      /* Check provided origin */
-      const foundOrigin = allowedOrigins.find((allowed) => {
-        if (typeof allowed === "string") return allowed === origin;
-        if (allowed instanceof RegExp) return allowed.test(origin);
-        return false;
-      });
-      
-      if (foundOrigin) {
-        return callback(null, origin);
-      }
-      return callback(new Error("CORS policy: Not allowed by CORS"));
-    },
-    methods: ["GET", "PUT", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Origin",
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "upload-length",
-      "tus-resumable",
-      "upload-metadata",
-    ],
-    credentials: true,
-    maxAge: 7200,
-  })
+    /* Check provided origin */
+    const foundOrigin = allowedOrigins.find((allowed) => {
+      if (typeof allowed === "string") return allowed === origin;
+      if (allowed instanceof RegExp) return allowed.test(origin);
+      return false;
+    });
+    
+    if (foundOrigin) {
+      return callback(null, origin);
+    }
+    return callback(new Error("CORS policy: Not allowed by CORS"));
+  },
+  methods: ["GET", "PUT", "POST", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Origin",
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "upload-length",
+    "tus-resumable",
+    "upload-metadata",
+  ],
+  credentials: true,
+  maxAge: 7200,
+});
+
+// Handle asset permalinks (no /api/v1 prefix)
+export const permalinkRouter = express.Router();
+permalinkRouter.use(corsMiddleware);
+permalinkRouter.route("/:projectID/:fileID").get(
+  middleware.validateZod(ProjectFileValidators.getProjectFileDownloadURLSchema),
+  projectfilesAPI.redirectPermanentLink
 );
 
+// Handle standard API routes (with /api/v1 prefix)
+const router = express.Router();
+router.use(corsMiddleware);
 router.use(
   middleware.middlewareFilter(["/payments/webhook"], bodyParser.json())
 );

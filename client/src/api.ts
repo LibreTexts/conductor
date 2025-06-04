@@ -249,16 +249,6 @@ class API {
     return res;
   }
 
-  async redirectPermanentLink(projectID: string, fileID: string) {
-    const res = await axios.get<
-      {
-        url: string;
-        redirectUrl: string;
-      } & ConductorBaseResponse
-    >(`/project/${projectID}/files/${fileID}/redirect`);
-    return res;
-  }
-
   // Authors
   async getAuthors({
     page,
