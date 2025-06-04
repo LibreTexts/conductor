@@ -140,6 +140,7 @@ export const getProjectFileDownloadURLSchema = z.object({
   params: _projectFileParams,
   query: z.object({
     shouldIncrement: z.coerce.boolean().optional(),
+    direct: z.coerce.boolean().optional(),
   }),
 });
 

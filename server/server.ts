@@ -13,7 +13,7 @@ import cookieParser from "cookie-parser";
 import Promise from "bluebird";
 import helmet from "helmet";
 import { debug, debugServer, debugDB } from "./debug.js";
-import api from "./api.js";
+import api, { permalinkRouter } from "./api.js";
 
 // Prevent startup without ORG_ID env variable
 if (!process.env.ORG_ID) {
@@ -87,6 +87,7 @@ app.use(
 
 // Serve API
 app.use("/api/v1", api);
+app.use("/permalink", permalinkRouter);
 
 app.use("/health", (_req, res) =>
   res.send({ healthy: true, msg: "Server appears healthy." })
