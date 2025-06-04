@@ -53,21 +53,18 @@ import * as UserValidators from "./api/validators/user.js";
 import * as ProjectInvitationValidators from "./api/validators/project-invitations.js";
 
 const router = express.Router();
-
-const ssoRoutes = ["/auth/login", "/auth/logout", "/oidc/libretexts"];
-const apiAuthRoutes = ["/oauth2.0/authorize", "/oauth2.0/accessToken"];
-
-router.use(
-  middleware.middlewareFilter(["/payments/webhook"], bodyParser.json())
-);
-router.use(bodyParser.urlencoded({ extended: false }));
-
 router.use(
   cors({
     origin(origin, callback) {
       /* Build dynamic origins list */
       let allowedOrigins = [];
 
+      // Allow same-origin requests
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      // Check allowed production and development origins
       if (process.env.NODE_ENV === "production") {
         allowedOrigins = String(process.env.PRODUCTIONURLS).split(",").map((url) => url.trim());
         allowedOrigins.push(/\.libretexts\.org$/); // any LibreTexts subdomain
@@ -108,6 +105,10 @@ router.use(
   })
 );
 
+router.use(
+  middleware.middlewareFilter(["/payments/webhook"], bodyParser.json())
+);
+router.use(bodyParser.urlencoded({ extended: false }));
 router.use(middleware.authSanitizer);
 
 /* Auth */
