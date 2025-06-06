@@ -185,6 +185,24 @@ const checkSuperAdmin = (roles) => {
   return false;
 };
 
+/**
+ * Checks if a user has the Support role in Conductor.
+ * This is a separate check from Super Admin.
+ * @param {object[]} roles - Array of user roles in associated Organizations.
+ * @returns {boolean} True if Support role is present, false otherwise.
+ */
+const checkSupportRole = (roles) => {
+  if (Array.isArray(roles)) {
+    const foundSupport = roles.find((item) => (
+      item.org === 'libretexts' && item.role === 'support'
+    ));
+    if (foundSupport) {
+      return true;
+    }
+  }
+  return false;
+};
+
 
 
 /**
@@ -213,5 +231,6 @@ export {
     basicArraysEqual,
     checkCampusAdmin,
     checkSuperAdmin,
+    checkSupportRole,
     setsEqual,
 };

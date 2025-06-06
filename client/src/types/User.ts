@@ -26,6 +26,7 @@ export type User = {
   verifiedInstructor: boolean;
   isCampusAdmin: boolean;
   isSuperAdmin: boolean;
+  isSupport: boolean;
   createdAt?: string;
 };
 

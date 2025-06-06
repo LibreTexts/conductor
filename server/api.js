@@ -732,7 +732,7 @@ router
     middleware.checkLibreCommons,
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    authAPI.checkHasRoleMiddleware("libretexts", "support"),
     harvestingRequestsAPI.validate("getRequests"),
     middleware.checkValidationErrors,
     harvestingRequestsAPI.getRequests

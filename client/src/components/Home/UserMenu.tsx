@@ -32,7 +32,7 @@ const UserMenu: React.FC = () => {
           </div>
         </Menu.Item>
       )}
-      {(user.isSuperAdmin || user.isCampusAdmin) && (
+      {(user.isSuperAdmin || user.isCampusAdmin || user.isSupport) && (
         <Menu.Item as={Link} to="/controlpanel">
           Control Panel
           <Icon name="dashboard" />
