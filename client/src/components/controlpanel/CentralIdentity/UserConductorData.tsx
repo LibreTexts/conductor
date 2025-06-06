@@ -41,7 +41,7 @@ const UserConductorData: React.FC<UserConductorDataProps> = ({ uuid }) => {
       >("/user/projects", {
         params: {
           uuid,
-          centralID: true,
+          centralID: false,
           page: activePage,
           limit: itemsPerPage,
         },

@@ -15,6 +15,7 @@ import {
   TypedReqBodyWithUser,
   TypedReqParamsAndBodyWithUser,
   TypedReqParamsAndQueryWithUser,
+  TypedReqParamsWithUser,
   TypedReqQueryWithUser,
   TypedReqUser,
   TypedReqWithUser,
@@ -307,6 +308,68 @@ const canAccessSupportTicket = async (
   }
 };
 
+/**
+ * Checks if the uuid in the request parameters is that of the calling user or if the user has the support role.
+ * @param {express.Request} req - The Express.js request object.
+ * @param {express.Response} res - The Express.js response object.
+ * @param {express.NextFunction} next - The next function in the middleware chain.
+ * @returns {express.NextFunction|express.Response} An invocation of the next middleware, or an error response.
+ */
+const isSelfOrSupport = async (
+  req: TypedReqParamsWithUser<{ uuid: string }>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.params?.uuid) {
+      throw new Error("badreq");
+    }
+    
+    if (!req.user || !req.user.decoded || !req.user.decoded.uuid) {
+      throw new Error("unauthorized");
+    }
+
+    const user = await User.findOne({ uuid: req.user.decoded.uuid });
+    if (!user || !user.uuid) {
+      throw new Error("unauthorized");
+    }
+
+    // if the user object is present, check if the user has the support role (or is superadmin)
+    const hasSupportRole = authAPI.checkHasRole(
+      user,
+      "libretexts",
+      "support",
+      true
+    );
+
+    // if the user has the support role, allow access
+    if (hasSupportRole) {
+      return next();
+    }
+
+    // if the user does not have the support role, check if the calling user uuid matches the uuid in the request parameters
+    if (req.params.uuid === req.user.decoded.uuid) {
+      return next();
+    }
+
+    throw new Error("unauthorized"); // If the user is not the owner and does not have the support role, throw an error
+  } catch (err: any) {
+    if (process.env.NODE_ENV === "development") {
+      debugError(err);
+    }
+    if (err.message === "unauthorized") {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+    return res.status(400).send({
+      err: true,
+      errMsg: conductorErrors.err2,
+    });
+  }
+};
+
 const validateZod = (schema: AnyZodObject) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     let validationErrors: string[] = [];
@@ -317,7 +380,7 @@ const validateZod = (schema: AnyZodObject) => {
         params: req.params,
       });
 
-      if(!validationRes.success) {
+      if (!validationRes.success) {
         validationErrors = extractZodErrorMessages(validationRes.error);
         throw new Error("Validation failed");
       }
@@ -346,5 +409,6 @@ export default {
   checkCentralIdentityConfig,
   authLibreOneRequest,
   canAccessSupportTicket,
+  isSelfOrSupport,
   validateZod,
 };

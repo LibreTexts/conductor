@@ -133,6 +133,70 @@ const getBasicAccountInfo = (req, res) => {
     });
 };
 
+async function getCentralID(req, res) { 
+    try {
+        const { uuid} = req.params;
+        if (!uuid || uuid.length === 0) {
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err1,
+            });
+        }
+
+        const user = await User.findOne({ uuid }).lean();
+
+        if (!user) {
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err9,
+            });
+        }
+
+        return res.send({
+            err: false,
+            centralID: user.centralID || null,
+        })
+    } catch (err) {
+        debugError(err);
+        return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6,
+        });
+    }
+}
+
+async function getUserFromCentralID(req, res) {
+    try {
+        const { centralID } = req.params;
+        if (!centralID || centralID.length === 0) {
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err1,
+            });
+        }
+
+        const user = await User.findOne({ centralID }).lean();
+
+        if (!user) {
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err9,
+            });
+        }
+
+        return res.send({
+            err: false,
+            uuid: user.uuid,
+        })
+    } catch (err) {
+        debugError(err);
+        return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6,
+        });
+    }
+}
+
 /**
  * Checks if the User has been verified as an instructor at an academic institution.
  *
@@ -1049,6 +1113,14 @@ const validate = (method) => {
             return [
                 query('uuid', conductorErrors.err1).exists().isString().isUUID()
             ]
+        case 'getCentralID':
+            return [
+                param('uuid', conductorErrors.err1).exists().isString().isUUID()
+            ]
+        case 'getUserFromCentralID':
+            return [
+                param('centralID', conductorErrors.err1).exists().isString().isUUID()
+            ]
         case 'deleteUser':
             return [
                 body('uuid', conductorErrors.err1).exists().isString().isUUID()
@@ -1079,6 +1151,8 @@ const validate = (method) => {
 export default {
     getBasicUserInfo,
     getBasicAccountInfo,
+    getCentralID,
+    getUserFromCentralID,
     checkVerifiedInstructorStatus,
     updateUserInstructorProfile,
     getUsersList,

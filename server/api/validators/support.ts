@@ -11,6 +11,9 @@ const TicketPriority = z.enum(["low", "medium", "high", "severe"]);
 export const GetTicketValidator = TicketUUIDParams;
 export const DeleteTicketValidator = TicketUUIDParams;
 export const GetUserTicketsValidator = z.object({
+  params: z.object({
+    uuid: z.string().uuid(),
+  }),
   query: z.object({
     page: z.coerce.number().min(1).optional(),
     limit: z.coerce.number().min(1).optional(),
