@@ -27,6 +27,7 @@ const userInitialState = <User>{
   isAuthenticated: false,
   isCampusAdmin: false,
   isSuperAdmin: false,
+  isSupport: false,
   verifiedInstructor: false,
 };
 
@@ -72,6 +73,7 @@ export default function userReducer(
         email: action.payload.email,
         isCampusAdmin: action.payload.isCampusAdmin,
         isSuperAdmin: action.payload.isSuperAdmin,
+        isSupport: action.payload.isSupport,
         verifiedInstructor: action.payload.verifiedInstructor,
       };
     case "CLEAR_USER_INFO":
