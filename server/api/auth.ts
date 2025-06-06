@@ -853,6 +853,7 @@ function optionalGetUserAttributes(
 
 /**
  * Checks that the user has a certain role within the specified Organization.
+ * Users with the "superadmin" role in the "libretexts" organization will always return true.
  * NOTE: This method should NOT be used as middleware.
  * @param {Object} user - The user data object.
  * @param {String} org - The Organization identifier.

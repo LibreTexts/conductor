@@ -1273,9 +1273,8 @@ class API {
         tickets: SupportTicket[];
         total: number;
       } & ConductorBaseResponse
-    >(`/support/ticket/user`, {
+    >(`/support/user/${uuid}/tickets`, {
       params: {
-        uuid,
         page,
         limit,
         sort,
@@ -1338,6 +1337,24 @@ class API {
     >("/users", {
       params,
     });
+  }
+
+  async getUserCentralID(uuid: string) {
+    const res = await axios.get<
+    {
+      centralID: string | null;
+    } & ConductorBaseResponse
+    >(`/user/${uuid}/central-id`);
+    return res.data;
+  }
+
+  async getUserFromCentralID(centralID: string) {
+    const res = await axios.get<
+      {
+        uuid: string;
+      } & ConductorBaseResponse
+    >(`/user/from-central-id/${centralID}`);
+    return res.data;
   }
 
   // Project Invitations

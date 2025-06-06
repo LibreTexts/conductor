@@ -1134,6 +1134,28 @@ router
   );
 
 router
+  .route("/user/:uuid/central-id")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    usersAPI.validate("getCentralID"),
+    middleware.checkValidationErrors,
+    usersAPI.getCentralID
+  )
+
+router
+  .route("/user/from-central-id/:centralID")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    usersAPI.validate("getUserFromCentralID"),
+    middleware.checkValidationErrors,
+    usersAPI.getUserFromCentralID
+  );
+
+router
   .route("/user/roles")
   .get(
     authAPI.verifyRequest,
@@ -2328,10 +2350,11 @@ router
     supportAPI.getClosedTickets
   );
 
-router.route("/support/ticket/user").get(
+router.route("/support/user/:uuid/tickets").get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  middleware.validateZod(supportValidators.GetUserTicketsValidator), // TODO: RBAC
+  middleware.validateZod(supportValidators.GetUserTicketsValidator),
+  middleware.isSelfOrSupport,
   supportAPI.getUserTickets
 );
 

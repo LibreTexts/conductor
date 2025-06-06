@@ -86,6 +86,7 @@ const CentralIdentityUserView = () => {
   const [userInitVal, setUserInitVal] = useState<
     CentralIdentityUser | undefined
   >(undefined);
+  const [userLocalID, setUserLocalID] = useState<string>("");
 
   const { handleGlobalError } = useGlobalError();
   const { addNotification } = useNotifications();
@@ -107,6 +108,7 @@ const CentralIdentityUserView = () => {
   useEffect(() => {
     if (uuid) {
       loadUser();
+      loadUserLocalID();
       loadUserApps();
     }
   }, [uuid]);
@@ -125,6 +127,27 @@ const CentralIdentityUserView = () => {
       reset(res.data.user);
     } catch (err) {
       handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadUserLocalID() {
+    try {
+      if (!uuid) return;
+      setLoading(true);
+
+      const res = await api.getUserFromCentralID(uuid);
+      if (res.err) {
+        handleGlobalError(res.errMsg || "An error occurred");
+        return;
+      }
+
+      setUserLocalID(res.uuid);
+    } catch (err) {
+      handleGlobalError(
+        "User does not have a local Conductor record. This may or may not be expected."
+      );
     } finally {
       setLoading(false);
     }
@@ -488,7 +511,7 @@ const CentralIdentityUserView = () => {
                   </span>
                 </div>
               </Segment>
-              <UserConductorData uuid={uuid} />
+              {userLocalID && <UserConductorData uuid={userLocalID} />}
             </div>
             <div className="flex flex-col basis-1/2 ml-8">
               <Segment>
@@ -607,7 +630,7 @@ const CentralIdentityUserView = () => {
                   </Table>
                 </div>
               </Segment>
-              <UserSupportTickets uuid={uuid} />
+              {userLocalID && <UserSupportTickets uuid={userLocalID} />}
               <Segment>
                 <InternalNotesSection userId={uuid} />
               </Segment>

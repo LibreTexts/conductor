@@ -86,18 +86,16 @@ async function getTicket(
   }
 }
 
+/**
+ * Gets support tickets for a given user ID.
+ * NOTE: This function does not check if the user has access to the tickets. That must be handled by middleware (e.g. `middleware.isSelfOrSupport`).
+ */
 async function getUserTickets(
   req: ZodReqWithUser<z.infer<typeof GetUserTicketsValidator>>,
   res: Response,
 ) {
   try {
-    const { uuid } = req.user?.decoded;
-    if (!uuid) {
-      return res.status(403).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
-    }
+    const { uuid } = req.params;
 
     let page = 1;
     let limit = 25;
