@@ -184,10 +184,23 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
     if (!selectedValue) return projTasks;
 
     return projTasks.filter((task: any) => {
-      const assignees = task.assignees || [];
-      return assignees.some(
-        (a: { firstName: string; lastName: string }) => `${a.firstName} ${a.lastName}`.toLowerCase() === selectedValue.toLowerCase()
+      const taskAssignees = task.assignees || [];
+      const subtasks = task.subtasks || [];
+      
+      const isAssignedToMainTask = taskAssignees.some(
+        (a: { firstName: string; lastName: string }) => 
+          `${a.firstName} ${a.lastName}`.toLowerCase() === selectedValue.toLowerCase()
       );
+  
+      const isAssignedToSubtask = subtasks.some((subtask: any) => {
+        const subtaskAssignees = subtask.assignees || [];
+        return subtaskAssignees.some(
+          (a: { firstName: string; lastName: string }) =>
+            `${a.firstName} ${a.lastName}`.toLowerCase() === selectedValue.toLowerCase()
+        );
+      });
+  
+      return isAssignedToMainTask || isAssignedToSubtask;
     });
   }, [projTasks, selectedValue]);
 
@@ -234,7 +247,6 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                         placeholder="Filter by..."
                         value={selectedValue}
                         onChange={(value) => {
-                          console.log('Selected:', value);
                           setSelectedValue(value);
                         }}
                       />
@@ -290,7 +302,6 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
               >
                 {projTasks.length > 0 ? (
                   <List divided verticalAlign="middle">
-                    {console.log("filteredTasks:", filteredTasks)}
                     {filteredTasks.map((item: any, idx: any) => {
                       let today = new Date();
                       let overdueTasks = false;
