@@ -7,6 +7,7 @@ import useSystemAnnouncement from "../../../hooks/useSystemAnnouncement";
 import SystemAnnouncement from "../../../components/util/SystemAnnouncement";
 import { useDocumentTitle } from "usehooks-ts";
 import useSupportAnnouncement from "../../../hooks/useSupportAnnouncement";
+import { Message } from 'semantic-ui-react';
 
 const SupportCreateTicket = () => {
   useDocumentTitle("LibreTexts | Contact Support");
@@ -53,7 +54,30 @@ const SupportCreateTicket = () => {
         <div className="flex flex-col w-full h-full overflow-y-auto items-center justify-center">
           <div className="flex flex-col w-full items-center mt-12">
             <h1 className="text-4xl font-semibold">Contact Support</h1>
-            <p className="mt-2">Submit a request to get help from our team.</p>
+            <p className="mt-2">
+              Submit a request to get help from our team.
+            </p>
+            <div className="flex flex-col border rounded-lg mt-4 w-full lg:w-2/3 bg-white">
+              <Message info>
+                <Message.Content>
+                  <div>
+                    <strong>Important:</strong>
+                    <p>
+                      Please do not submit a support ticket for account creation. You can visit {' '} 
+                      <a 
+                        href="https://register.libretexts.org" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[#276f86] hover:underline"
+                      >
+                        https://register.libretexts.org
+                      </a>
+                      {' '} to create an account and complete instructor verification (if applicable).
+                    </p>
+                  </div>
+                </Message.Content>
+              </Message>
+            </div>
             <>
               {!isLoggedIn && !guestMode && (
                 <div className="flex flex-col w-1/2 lg:w-2/5 mt-8 items-center">
