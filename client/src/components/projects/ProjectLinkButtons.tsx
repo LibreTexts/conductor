@@ -18,6 +18,7 @@ interface ProjectLinkButtonsProps {
   projectTitle?: string;
   projectVisibility?: string;
   project: object;
+  isProjectMemberOrAdmin?: boolean;
 }
 
 const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
@@ -29,7 +30,8 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
   projectID,
   projectTitle,
   projectVisibility,
-  project
+  project,
+  isProjectMemberOrAdmin = false,
 }) => {
   const [showCreateWorkbenchModal, setShowCreateWorkbenchModal] =
     useState(false);
@@ -41,7 +43,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
         Important Actions:{" "}
       </Header>
       <div className="flex flex-row flex-wrap gap-2">
-        {!projectLink && !didCreateWorkbench && (
+        {!projectLink && !didCreateWorkbench && isProjectMemberOrAdmin && (
           <Button
             color="green"
             onClick={() => setShowCreateWorkbenchModal(true)}
@@ -117,7 +119,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             }
           />
         )}
-        {(validWorkbench || hasCommonsBook) && libreCoverID && libreLibrary && (
+        {(validWorkbench || hasCommonsBook) && libreCoverID && libreLibrary && isProjectMemberOrAdmin && (
           <Popup
             content="This link will open the book in the LibreTexts OER Remixer."
             trigger={
