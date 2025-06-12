@@ -199,11 +199,11 @@ const Home = () => {
           </Message>
         </div>
       )}
-      <div className="flex flex-col xl:flex-row w-full">
-        <div className="flex flex-col mb-4 xl:w-1/6 xl:mr-12 xl:mb-0">
+      <div className="flex flex-col w-full">
+        <div className="flex flex-col mb-4">
           <UserMenu />
         </div>
-        <div className="flex flex-col mb-8 xl:w-1/2 xl:mr-12 xl:mb-0">
+        <div className="flex flex-col w-full">
           <Button
             onClick={() => setShowCreateProjectModal(true)}
             fluid
@@ -213,44 +213,8 @@ const Home = () => {
             labelPosition="left"
           />
           <PinnedProjects />
-          <Segment padded>
-            <div className="dividing-header-custom">
-              <h3>
-                <Icon name="clock outline" />
-                Recently Edited Projects
-              </h3>
-              <div className="right-flex">
-                <Popup
-                  content={
-                    <span>
-                      To see all of your projects, visit{" "}
-                      <strong>Projects</strong> in the Navbar.
-                    </span>
-                  }
-                  trigger={<Icon name="info circle" />}
-                  position="top center"
-                />
-              </div>
-            </div>
-            <Segment basic loading={!loadedAllRecents}>
-              <Card.Group itemsPerRow={2}>
-                {recentProjects.length > 0 &&
-                  recentProjects.map((item) => (
-                    <ProjectCard
-                      project={item}
-                      key={item.projectID}
-                      showPinButton={true}
-                      onPin={(pid) => handlePinProject(pid)}
-                    />
-                  ))}
-                {recentProjects.length === 0 && (
-                  <p>You don't have any projects right now.</p>
-                )}
-              </Card.Group>
-            </Segment>
-          </Segment>
         </div>
-        <div className="flex flex-col mb-8 xl:w-1/3 xl:mb-0">
+        <div className="flex flex-col mt-4">
           <Segment padded>
             <div className="dividing-header-custom">
               <h3>Announcements</h3>
