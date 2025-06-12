@@ -9,6 +9,7 @@ import {
   CommentText,
 } from "semantic-ui-react";
 import { format, parseISO } from "date-fns";
+import Linkify from "linkify-react";
 
 interface TicketCommentProps {
   msg: SupportTicketMessage;
@@ -22,10 +23,10 @@ const TicketComment: React.FC<TicketCommentProps> = ({ msg }) => {
         return null;
       }
       return (
-        <span key={index}>
+        <Linkify key={index} options={{rel: "noopener noreferrer"}}>
           {line}
           <br />
-        </span>
+        </Linkify>
       );
     });
   };
@@ -54,7 +55,7 @@ const TicketComment: React.FC<TicketCommentProps> = ({ msg }) => {
             </p>
           </CommentMetadata>
         </div>
-        <CommentText className="!break-all">
+        <CommentText className="![overflow-wrap:anywhere]">
           {formatMessage(msg.message)}
         </CommentText>
       </CommentContent>
