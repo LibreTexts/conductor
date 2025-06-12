@@ -10,6 +10,7 @@ import {
   CommentText,
 } from "semantic-ui-react";
 import { format, parseISO } from "date-fns";
+import Linkify from "linkify-react";
 
 interface _GeneralMessagingProps {
   scope: "general";
@@ -76,7 +77,9 @@ const TicketCommentsContainer = forwardRef(
               </div>
               <CommentText>
                 <span className="font-semibold">Ticket Description: </span>
-                {props.ticket?.description}
+                <Linkify options={{ rel: "noopener noreferrer" }}>
+                  {props.ticket?.description}
+                </Linkify>
               </CommentText>
             </CommentContent>
           </Comment>
