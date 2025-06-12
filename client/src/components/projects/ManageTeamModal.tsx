@@ -387,8 +387,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     try {
       if (
         !project.libreCoverID ||
-        !project.libreLibrary ||
-        !project.didCreateWorkbench
+        !project.libreLibrary
       )
         return;
 
@@ -416,8 +415,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   const onReSyncAccessClick = async () => {
     if (
       !project.libreCoverID ||
-      !project.libreLibrary ||
-      !project.didCreateWorkbench
+      !project.libreLibrary
     ) {
       return;
     }
@@ -652,8 +650,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
       <Modal.Header className="!flex !flex-row !justify-between !items-center !w-full">
         <h2>Manage Project Team</h2>
         {project.libreLibrary &&
-          project.libreCoverID &&
-          project.didCreateWorkbench && (
+          project.libreCoverID && (
             <Button size="small" onClick={onReSyncAccessClick}>
               <Icon name="refresh" />
               Re-Sync Book Access

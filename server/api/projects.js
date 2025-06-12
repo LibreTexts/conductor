@@ -2231,7 +2231,7 @@ async function reSyncProjectTeamBookAccess(req, res){
     }
 
     // PUT user permissions for updated team if project is linked to a Workbench book
-    if (project.didCreateWorkbench && project.libreLibrary && project.libreCoverID) {
+    if (project.libreLibrary && project.libreCoverID) {
       const subdomain = await getSubdomainFromLibrary(project.libreLibrary);
       if(!subdomain) {
         throw new Error("Invalid library");
