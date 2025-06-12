@@ -404,6 +404,7 @@ const StaffDashboard = () => {
         <SupportCenterTable<SupportTicket & { actions?: string }>
           loading={isFetching}
           data={openTickets}
+          className="!my-4"
           columns={[
             {
               accessor: "uuid",
