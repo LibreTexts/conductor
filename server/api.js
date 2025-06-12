@@ -6,6 +6,7 @@
 import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
+import { catchInternal } from "./util/helpers.js";
 import middleware from "./middleware.js"; // Route middleware
 import assetTagFrameworkAPI from "./api/assettagframeworks.js";
 import authorsAPI from "./api/authors.js";
@@ -2055,6 +2056,35 @@ router
     projectsAPI.updateProjectBookReaderResources
     // No DELETE ENDPOINT - Reader Resources are only PUT with the new data, even if empty
   );
+
+router.route('/project/:projectID/book/traffic-analytics/aggregated-metrics-by-page').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ProjectValidators.getTrafficAnalyticsDataBaseSchema),
+  catchInternal((req, res) => projectsAPI.getTrafficAnalyticsData(req, res, 'getAggregatedMetricsByPage')),
+);
+
+router.route('/project/:projectID/book/traffic-analytics/page-views').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ProjectValidators.getTrafficAnalyticsDataBaseSchema),
+  catchInternal((req, res) => projectsAPI.getTrafficAnalyticsData(req, res, 'getPageViews')),
+);
+
+router.route('/project/:projectID/book/traffic-analytics/unique-visitors').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ProjectValidators.getTrafficAnalyticsDataBaseSchema),
+  catchInternal((req, res) => projectsAPI.getTrafficAnalyticsData(req, res, 'getUniqueVisitors')),
+);
+
+router.route('/project/:projectID/book/traffic-analytics/visitor-countries').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ProjectValidators.getTrafficAnalyticsDataBaseSchema),
+  catchInternal((req, res) => projectsAPI.getTrafficAnalyticsData(req, res, 'getVisitorCountries')),
+);
+
 router.route("/orgevents").get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,

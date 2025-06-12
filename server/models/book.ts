@@ -26,6 +26,7 @@ export interface BookInterface extends Document {
   lastUpdated?: string;
   libraryTags?: string[];
   readerResources: ReaderResource[];
+  trafficAnalyticsConfigured?: boolean;
 }
 
 const BookSchema = new Schema<BookInterface>(
@@ -146,6 +147,10 @@ const BookSchema = new Schema<BookInterface>(
         url: String,
       },
     ],
+    /**
+     * Indicates traffic analytics have been configured for this Book.
+     */
+    trafficAnalyticsConfigured: Boolean,
   },
   {
     timestamps: true,

@@ -18,12 +18,25 @@ export const GetAddableTeamMembersSchema = z.object({
 
 export const findByBookSchema = z.object({
   params: z.object({
-    bookID: bookIDSchema
+    bookID: bookIDSchema,
   }),
-})
+});
 
 export const ReSyncProjectTeamBookAccessSchema = z.object({
   params: z.object({
     projectID: z.string().length(10),
   }),
-})
+});
+
+export const TrafficAnalyticsAggregationPeriodEnum = z.enum(['day', 'week', 'month', 'year']);
+
+export const getTrafficAnalyticsDataBaseSchema = z.object({
+  params: z.object({
+    projectID: z.string().length(10),
+  }),
+  query: z.object({
+    fromDate: z.string().date(),
+    period: TrafficAnalyticsAggregationPeriodEnum,
+    toDate: z.string().date(),
+  }),
+});

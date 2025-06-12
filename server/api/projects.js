@@ -53,6 +53,7 @@ import { getSubdomainFromLibrary } from '../util/librariesclient.js';
 import projectFilesAPI from './projectfiles.js';
 import ProjectFile from "../models/projectfile.js";
 import { getLibraryNameKeys } from './libraries.js';
+import TrafficAnalyticsService from "./services/traffic-analytics-service.js";
 
 const projectListingProjection = {
     _id: 0,
@@ -3057,6 +3058,63 @@ async function updateProjectBookReaderResources(req, res) {
   }
 }
 
+async function getTrafficAnalyticsData(req, res, func) {
+  const projectID = req.params.projectID;
+  const project = await Project.findOne({projectID}).lean();
+  if (!project) {
+    return res.status(404).send({
+      err: true,
+      errMsg: conductorErrors.err11,
+    });
+  }
+
+  const hasPermission = checkProjectGeneralPermission(project, req.user);
+  if (!hasPermission) {
+    return res.status(401).send({
+      err: true,
+      errMsg: conductorErrors.err8,
+    });
+  }
+
+  const bookID = getBookLinkedToProject(project);
+  if (!bookID) {
+    return res.status(400).send({
+      err: true,
+      errMsg: conductorErrors.err28,
+    });
+  }
+
+  const foundBook = await Book.findOne({bookID}).lean();
+  if (!foundBook?.links?.online) {
+    return res.status(400).send({
+      err: true,
+      errMsg: conductorErrors.err28,
+    });
+  }
+
+  if (!foundBook.trafficAnalyticsConfigured) {
+    return res.status(200).send({
+      err: false,
+      data: [],
+    });
+  }
+
+  const trafficAnalytics = new TrafficAnalyticsService();
+  try {
+    const data = await trafficAnalytics[func](foundBook.links.online, req.query);
+    res.send({
+      err: false,
+      data,
+    });
+  } catch (err) {
+    debugError(err);
+    res.send({
+      err: false,
+      data: [],
+    });
+  }
+}
+
 /**
  * Retrieves the LibreTexts standard identifier of the resource linked to a Project.
  *
@@ -3708,6 +3766,7 @@ export default {
     autoGenerateProjects,
     getProjectBookReaderResources,
     updateProjectBookReaderResources,
+    getTrafficAnalyticsData,
     checkProjectGeneralPermission,
     checkProjectMemberPermission,
     checkProjectAdminPermission,

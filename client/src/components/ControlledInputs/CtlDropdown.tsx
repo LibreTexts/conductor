@@ -17,28 +17,30 @@ function CtlDropdown<
 }: ControlledInputProps<TFieldValues, TName> & CtlDropdownProps) {
   const { className: restClassName } = rest;
   delete rest.className;
+
   return (
     <Controller
       control={control}
       name={name}
       rules={rules}
       render={({
-        field,
+        field: { onChange: fieldOnChange, value },
         fieldState: { error },
       }) => (
         <div className={`${restClassName ?? ""}`}>
           {label && (
             <label
-              className={`form-field-label ${required ? "form-required" : ""}`}
+              className={`form-field-label ${required ? "form-required" : ""} mr-2`}
             >
               {label}
             </label>
           )}
           <Select
-            {...field}
+            {...rest}
+            value={value}
+            onChange={(_e, { value: newValue }) => fieldOnChange(newValue)}
             options={rest.options ?? []}
             error={error?.message ? true : false}
-            {...rest}
           />
         </div>
       )}

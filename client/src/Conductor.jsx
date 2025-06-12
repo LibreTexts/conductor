@@ -46,6 +46,7 @@ const PeopleManager = lazy(() => import('./screens/conductor/controlpanel/People
 import ProjectAccessibility from './components/projects/ProjectAccessibility';
 import ProjectPeerReview from './components/projects/ProjectPeerReview';
 const MyProjects = lazy(() => import('./screens/conductor/Projects'));
+const ProjectAnalytics = lazy(() => import('./screens/conductor/Projects/Analytics'));
 const ProjectsAvailable = lazy(() => import('./screens/conductor/Projects/ProjectsAvailable'));
 const ProjectsCompleted = lazy(() => import('./screens/conductor/Projects/ProjectsCompleted'));
 const ProjectsFlagged = lazy(() => import('./screens/conductor/Projects/ProjectsFlagged'));
@@ -111,6 +112,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/projects/:id/peerreview' component={ProjectPeerReview} />
           <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
           <PrivateRoute exact path='/projects/:id/ai-co-author' component={TextbookCuration} />
+          <PrivateRoute exact path='/projects/:id/analytics' component={ProjectAnalytics} />
           <PrivateRoute exact path='/projects/accept-invite/:id' component={AcceptProjectInviteScreen} />
           {/* <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />
           <PrivateRoute exact path='/analytics/invites' component={AnalyticsInvites} />
