@@ -93,8 +93,16 @@ const CommonsProject = () => {
         </Segment>
         <Segment loading={!loadedData} className="">
           <div className="flex flex-col lg:flex-row px-1 pb-8">
-            <div className="flex flex-col w-full lg:w-1/4 min-h-48 h-fit border shadow-md p-4 rounded-md mr-16">
-              <Header as="h1" className="!mb-2 !ml-0.5">
+            <div className="flex flex-col w-full lg:w-1/4 lg:max-w-[400px] min-h-48 h-fit border shadow-md p-4 rounded-md mr-16">
+              {project?.thumbnail && (
+                <div
+                  className="h-48 w-full bg-contain bg-center rounded-md bg-no-repeat"
+                  style={{
+                    backgroundImage: `url(${project.thumbnail})`,
+                  }}
+                />
+              )}
+              <Header as="h1" className="!mb-4 !ml-0.5">
                 {project?.projectURL ? (
                   <a
                     href={project?.projectURL}
