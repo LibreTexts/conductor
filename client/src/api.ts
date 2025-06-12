@@ -54,6 +54,13 @@ import {
   CustomFilter,
 } from "./types/Search";
 import { CloudflareCaptionData, SortDirection } from "./types/Misc";
+import {
+  TrafficAnalyticsAggregatedMetricsByPageDataPoint,
+  TrafficAnalyticsBaseRequestParams,
+  TrafficAnalyticsPageViewsDataPoint,
+  TrafficAnalyticsUniqueVisitorsDataPoint,
+  TrafficAnalyticsVisitorCountriesDataPoint,
+} from "./types/TrafficAnalytics";
 
 /**
  * @fileoverview
@@ -1505,6 +1512,46 @@ class API {
     return res;
   }
 
+  // Project Traffic Analytics
+  async getProjectTrafficAnalyticsAggregatedMetricsByPage(params: TrafficAnalyticsBaseRequestParams, signal?: AbortSignal) {
+    const { projectID, ...rest } = params;
+    return await axios.get<{
+      data: TrafficAnalyticsAggregatedMetricsByPageDataPoint[]
+    } & ConductorBaseResponse>(`/project/${projectID}/book/traffic-analytics/aggregated-metrics-by-page`, {
+      params: rest,
+      signal,
+    });
+  }
+
+  async getProjectTrafficAnalyticsPageViews(params: TrafficAnalyticsBaseRequestParams, signal?: AbortSignal) {
+    const { projectID, ...rest } = params;
+    return await axios.get<{
+      data: TrafficAnalyticsPageViewsDataPoint[]
+    } & ConductorBaseResponse>(`/project/${projectID}/book/traffic-analytics/page-views`, {
+      params: rest,
+      signal,
+    });
+  }
+
+  async getProjectTrafficAnalyticsUniqueVisitors(params: TrafficAnalyticsBaseRequestParams, signal?: AbortSignal) {
+    const { projectID, ...rest } = params;
+    return await axios.get<{
+      data: TrafficAnalyticsUniqueVisitorsDataPoint[]
+    } & ConductorBaseResponse>(`/project/${projectID}/book/traffic-analytics/unique-visitors`, {
+      params: rest,
+      signal,
+    });
+  }
+
+  async getProjectTrafficAnalyticsVisitorCountries(params: TrafficAnalyticsBaseRequestParams, signal?: AbortSignal) {
+    const { projectID, ...rest } = params;
+    return await axios.get<{
+      data: TrafficAnalyticsVisitorCountriesDataPoint[]
+    } & ConductorBaseResponse>(`/project/${projectID}/book/traffic-analytics/visitor-countries`, {
+      params: rest,
+      signal,
+    });
+  }
 }
 
 export default new API();

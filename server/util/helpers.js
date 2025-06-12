@@ -5,6 +5,8 @@
 import { validate as uuidValidate } from 'uuid';
 import { format as formatDate, parseISO } from "date-fns";
 import validator from 'validator';
+import { debugError } from "../debug.js";
+import conductorErrors from "../conductor-errors.js";
 
 /**
  * Checks that a string has a (trimmed) length greater than 0.
@@ -370,4 +372,25 @@ export function extractEmailDomain(email) {
       return parts[1];
   }
   return null;
+}
+
+/**
+ * Wraps an async API function in order to catch internal errors and return an HTTP
+ * response appropriate for end-users.
+ *
+ * @param fn - The async Express-style function to wrap.
+ * @returns A response fulfilled by the API function, or an HTTP 500 error.
+ */
+export function catchInternal(fn) {
+  return async function safeFunction(req, res) {
+    try {
+      return await fn(req, res);
+    } catch (e) {
+      debugError(e);
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err6,
+      });
+    }
+  };
 }
