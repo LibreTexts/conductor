@@ -57,7 +57,7 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
           style={{ backgroundImage: `url(${project.thumbnail})` }}
         ></div>
       ) : (
-        <div className="flex justify-center">
+        <div className="flex justify-center h-[35%] items-center">
           <Icon name="clipboard list" size="massive" color="black" />
         </div>
       )}
