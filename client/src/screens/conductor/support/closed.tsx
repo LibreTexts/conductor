@@ -98,6 +98,7 @@ const SupportDashboard = () => {
             setActiveSortFn={setActiveSort}
           />
           <SupportCenterTable<SupportTicket & { actions?: string }>
+            className="!my-4"
             loading={loading}
             data={closedTickets}
             columns={[
