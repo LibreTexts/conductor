@@ -4,6 +4,7 @@ export * from "./AssetTagging";
 export * from "./a11y";
 export * from "./BaseDocument";
 export * from "./Book";
+export * from "./Bookstore";
 export * from "./Catalog";
 export * from "./CentralIdentity";
 export * from "./Collection";

@@ -1,4 +1,4 @@
-import DefaultLayout from "../../../components/kb/DefaultLayout";
+import AlternateLayout from "../../../components/navigation/AlternateLayout";
 import { useEffect, useState } from "react";
 import {
   getPrettySupportTicketCategory,
@@ -66,7 +66,7 @@ const SupportDashboard = () => {
   }
 
   return (
-    <DefaultLayout>
+    <AlternateLayout>
       <div className="flex flex-col p-8" aria-busy={loading}>
         <div className="flex flex-row justify-between items-center">
           <p className="text-4xl font-semibold">Closed Tickets</p>
@@ -203,7 +203,7 @@ const SupportDashboard = () => {
           />
         </div>
       </div>
-    </DefaultLayout>
+    </AlternateLayout>
   );
 };
 

@@ -44,6 +44,7 @@ import {
 } from "../util/exports.js";
 import { v4 as uuidv4 } from "uuid";
 import Project from "../models/project.js";
+import StripeService from "./services/stripe-service.js";
 
 async function getOrgEvents(
   req: TypedReqQuery<{ page?: number }>,
@@ -543,9 +544,9 @@ async function submitRegistration(
       }
 
       if (computedTotal > 0) {
-        const stripeClient = new Stripe(stripeKey, {
-          apiVersion: "2022-11-15",
-        });
+        const stripeService = new StripeService();
+        const stripeClient = stripeService.getInstance();
+        
         const urlProto =
           process.env.NODE_ENV === "production" ? "https" : "http";
         const urlDomain =

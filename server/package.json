@@ -52,7 +52,7 @@
     "path": "^0.12.7",
     "react-timezone-select": "^2.1.1",
     "sharp": "^0.32.6",
-    "stripe": "^12.7.0",
+    "stripe": "^18.2.1",
     "swagger-ui-express": "^4.1.6",
     "util": "^0.12.4",
     "uuid": "^8.3.1",

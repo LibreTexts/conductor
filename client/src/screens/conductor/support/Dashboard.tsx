@@ -1,4 +1,4 @@
-import DefaultLayout from "../../../components/kb/DefaultLayout";
+import AlternateLayout from "../../../components/navigation/AlternateLayout";
 import { useEffect, lazy, useMemo } from "react";
 import { useTypedSelector } from "../../../state/hooks";
 import { isSupportStaff } from "../../../utils/supportHelpers";
@@ -26,9 +26,9 @@ const SupportDashboard = () => {
   }, [user]);
 
   return (
-    <DefaultLayout>
+    <AlternateLayout>
       {toRender}
-    </DefaultLayout>
+    </AlternateLayout>
   );
 };
 

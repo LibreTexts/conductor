@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, useMemo } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import useGlobalError from "../../../components/error/ErrorHooks";
-import DefaultLayout from "../../../components/kb/DefaultLayout";
+import DefaultLayout from "../../../components/navigation/AlternateLayout";
 import { SupportTicket } from "../../../types";
 import axios from "axios";
 import TicketStatusLabel from "../../../components/support/TicketStatusLabel";
