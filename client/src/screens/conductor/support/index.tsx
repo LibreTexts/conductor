@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import DefaultLayout from "../../../components/kb/DefaultLayout";
+import DefaultLayout from "../../../components/navigation/AlternateLayout";
 import SupportCenterJumbotron from "../../../components/support/Jumbotron";
 import { Icon, SemanticICONS } from "semantic-ui-react";
 import { useTypedSelector } from "../../../state/hooks";

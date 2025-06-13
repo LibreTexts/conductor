@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import DefaultLayout from "../../../components/kb/DefaultLayout";
+import AlternativeLayout from "../../../components/navigation/AlternateLayout";
 import FeaturedList from "../../../components/kb/FeaturedList";
 import KBJumbotron from "../../../components/kb/Jumbotron";
 
@@ -9,10 +9,10 @@ const KnowledgeBase = () => {
   }, []);
   
   return (
-    <DefaultLayout>
+    <AlternativeLayout>
       <KBJumbotron />
       <FeaturedList />
-    </DefaultLayout>
+    </AlternativeLayout>
   );
 };
 

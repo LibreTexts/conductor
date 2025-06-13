@@ -1,6 +1,9 @@
 import classNames from "classnames";
 
-const DefaultLayout = ({
+/**
+ * Alternative layout for non-typical pages, e.g. Support Center, Bookstore, etc.
+ */
+const AlternateLayout = ({
   children,
   altBackground,
   h = "screen",
@@ -25,4 +28,4 @@ const DefaultLayout = ({
   );
 };
 
-export default DefaultLayout;
+export default AlternateLayout;

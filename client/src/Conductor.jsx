@@ -17,6 +17,8 @@ const AnalyticsRequestAccess = lazy(() => import('./screens/conductor/analytics/
 const AnalyticsRequests = lazy(() => import('./screens/conductor/controlpanel/AnalyticsRequests'));
 const AssetTagsManager = lazy(() => import('./screens/conductor/controlpanel/AssetTagsManager'));
 const BooksManager = lazy(() => import('./screens/conductor/controlpanel/BooksManager'));
+const Bookstore = lazy(() => import('./screens/conductor/bookstore'));
+const BookstoreCatalog = lazy(() => import('./screens/conductor/bookstore/catalog'));
 const CampusSettings = lazy(() => import('./components/controlpanel/CampusSettings'));
 const CollectionsManager = lazy(() => import('./screens/conductor/controlpanel/CollectionsManager'));
 const QRCodeGenerator = lazy(() => import('./screens/conductor/controlpanel/QRCodeGenerator'));
@@ -76,10 +78,15 @@ const PermanentLinkDownload = lazy(() => import('./components/FilesManager/Perma
 import PageNotFound from './components/util/PageNotFound';
 import LibreTextsRoute from './components/util/LibreTextsRoute';
 import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
+import BookstoreNavbar from './components/navigation/BookstoreNavbar';
+import CartProvider from './providers/CartProvider';
 
 const RenderNavbar = () => {
   if(window.location.pathname.includes('/insight') || window.location.pathname.includes('/support')){
     return <SupportCenterNavbar />;
+  }
+  if(window.location.pathname.includes('/bookstore')){
+    return <BookstoreNavbar />;
   }
   return <Navbar />
 }
@@ -158,6 +165,10 @@ const Conductor = () => {
           <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
           <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} />
           {/*LibreTexts org private routes */}
+          {/* <CartProvider> */}
+            <LibreTextsPrivateRoute exact path='/bookstore' key='bookstore' org={org} component={Bookstore} />
+            <LibreTextsPrivateRoute exact path='/bookstore/catalog' key='bookstorecatalog' org={org} component={BookstoreCatalog} />
+          {/* </CartProvider> */}
           <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
           <LibreTextsPrivateRoute exact path='/support/closed' key='supportclosedtickets' org={org} component={SupportClosedTickets} />
           {/* 404 */}

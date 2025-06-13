@@ -18,19 +18,51 @@ const SwitchAppWithUser: React.FC<SwitchAppWithUserProps> = ({
   isMobile = false,
 }) => {
   const [userOpen, setUserOpen] = useState(false);
+
+  const getSupportCenterHref = () => {
+    // Always nav to main commons in production, otherwise use the current origin (e.g. development)
+    if (window.location.origin.endsWith("libretexts.org")) {
+      return `https://commons.libretexts.org/support${
+        isSupportStaff(user) ? "/dashboard" : ""
+      }`;
+    }
+    return `${window.location.origin}/support${
+      isSupportStaff(user) ? "/dashboard" : ""
+    }`;
+  };
+
+  const getBookstoreHref = () => {
+    // Always nav to main bookstore in production, otherwise use the current origin (e.g. development)
+    if (window.location.origin.endsWith("libretexts.org")) {
+      return `https://bookstore.libretexts.org`;
+    }
+    return `${window.location.origin}/bookstore`;
+  };
+
   if (user.isAuthenticated) {
     return (
       <>
         {parent === "conductor" && (
-          <Menu.Item
-            as="a"
-            href={`https://commons.libretexts.org/support${isSupportStaff(user) ? "/dashboard" : ""}`}
-            className="commons-nav-link"
-            aria-label="Support Center"
-          >
-            <Icon name="text telephone" className="float-right" />
-            Support Center
-          </Menu.Item>
+          <>
+            {/* <Menu.Item
+              as="a"
+              href={getBookstoreHref()}
+              className="commons-nav-link"
+              aria-label="Bookstore"
+            >
+              <Icon name="shopping cart" className="float-right" />
+              Bookstore
+            </Menu.Item> */}
+            <Menu.Item
+              as="a"
+              href={getSupportCenterHref()}
+              className="commons-nav-link"
+              aria-label="Support Center"
+            >
+              <Icon name="text telephone" className="float-right" />
+              Support Center
+            </Menu.Item>
+          </>
         )}
         <Menu.Item
           as={Link}

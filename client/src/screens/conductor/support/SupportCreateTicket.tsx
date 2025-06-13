@@ -1,4 +1,4 @@
-import DefaultLayout from "../../../components/kb/DefaultLayout";
+import DefaultLayout from "../../../components/navigation/AlternateLayout";
 import { useEffect, useState } from "react";
 import { useTypedSelector } from "../../../state/hooks";
 import AuthHelper from "../../../components/util/AuthHelper";
