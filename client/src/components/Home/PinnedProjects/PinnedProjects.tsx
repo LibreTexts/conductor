@@ -40,7 +40,7 @@ const PinnedProjects: React.FC<PinnedProjectsInterface> = () => {
   const panes = useMemo(() => {
     if (!data) return [];
 
-    const classList = "xl:!ml-24 2xl:!ml-4 3xl:!ml-0 !max-h-[500px] overflow-y-auto xl:!mr-1"
+    const classList = "xl:!ml-24 2xl:!ml-4 3xl:!ml-0 !max-h-[500px] xl:!mr-1 !pt-1"
     const allItemsLength = data
       ?.map((i) => i.projects?.length)
       .reduce((acc, curr) => acc + (curr || 0), 0);
@@ -99,12 +99,11 @@ const PinnedProjects: React.FC<PinnedProjectsInterface> = () => {
         );
       },
     });
-
     return items;
   }, [data]);
 
   return (
-    <Segment padded={Object.entries(data || {}).length > 0} loading={isLoading} className="!pb-10">
+    <Segment padded={Object.entries(data || {}).length > 0} loading={isLoading} className="!pb-10 mt-4">
       <div className="header-custom mb-5">
         <h3>
           <Icon name="pin" />
@@ -128,10 +127,18 @@ const PinnedProjects: React.FC<PinnedProjectsInterface> = () => {
           />
         </div>
       </div>
-      <Tab
-        panes={panes}
-        menu={{ vertical: isTailwindLg, tabular: !isTailwindLg }}
-      ></Tab>
+      <div className="overflow-x-auto -mx-4 px-4"> 
+        <div className="min-w-min"> 
+          <Tab
+            panes={panes}
+            menu={{ 
+              vertical: isTailwindLg, 
+              tabular: !isTailwindLg,
+              className: !isTailwindLg ? 'flex-nowrap whitespace-nowrap' : ''
+            }}
+          />
+        </div>
+      </div>
     </Segment>
   );
 };

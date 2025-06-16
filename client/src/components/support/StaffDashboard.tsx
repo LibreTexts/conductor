@@ -255,7 +255,7 @@ const StaffDashboard = () => {
   );
 
   return (
-    <div className="flex flex-col p-8">
+    <div className="flex flex-col p-8 overflow-y-auto">
       <div className="flex flex-row justify-between items-center">
         <p className="text-4xl font-semibold">Staff Dashboard</p>
         <div className="flex flex-row">
