@@ -852,20 +852,35 @@ function optionalGetUserAttributes(
 }
 
 /**
- * Checks that the user has a certain role within the specified Organization.
+ * Checks that the user has at least one of the provided roles within the specified Organization.
  * Users with the "superadmin" role in the "libretexts" organization will always return true.
  * NOTE: This method should NOT be used as middleware.
  * @param {Object} user - The user data object.
  * @param {String} org - The Organization identifier.
- * @param {String} role - The role identifier.
- * @returns {Boolean} True if user has role/permission, false otherwise.
+ * @param {String | String[]} role - The role identifier.
+ * @returns {Boolean} True if valid roles are provided and the user has at least one of them, false otherwise.
  */
 const checkHasRole = (
   user: Record<string, any>,
   org: string,
-  role: string,
+  role: string | string[],
   silent = false
 ) => {
+  const rawMatchRoles = Array.isArray(role) ? role : [role]; // Always convert to an array for simplicity in checks
+  
+  // Ensure roles are strings, not empty, and not null/undefined, and always lowercase
+  const matchRoles = rawMatchRoles
+    .filter((r) => typeof r === "string" && r.trim() !== "")
+    .map((r) => r.toLowerCase());
+
+  // If no valid roles are provided, fail-closed and return false
+  if (matchRoles.length === 0) {
+    if (!silent) {
+      debugError(conductorErrors.err92);
+    }
+    return false;
+  }
+
   if (!user) {
     if (!silent) {
       debugError(conductorErrors.err7);
@@ -876,7 +891,7 @@ const checkHasRole = (
   if (user.roles !== undefined && Array.isArray(user.roles)) {
     let foundRole = user.roles.find((element) => {
       if (element.org && element.role) {
-        if (element.org === org && element.role === role) {
+        if (element.org === org && matchRoles.includes(element.role?.toLowerCase() || "")) {
           return element;
         } else if (
           element.org === "libretexts" &&
@@ -910,12 +925,34 @@ const checkHasRole = (
  * @param {String} role - The role identifier.
  * @returns {Function} An Express.js middleware function.
  */
-const checkHasRoleMiddleware = (org: string, role: string) => {
+const checkHasRoleMiddleware = (org: string, role: string | string[]) => {
   return (req: ZodReqWithUser<Request>, res: Response, next: NextFunction) => {
+    if (!org || isEmptyString(org)) {
+      debugError(conductorErrors.err10);
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err10,
+      });
+    }
+
+    const rawMatchRoles = Array.isArray(role) ? role : [role]; // Always convert to an array for simplicity in checks
+    // Ensure roles are strings, not empty, and not null/undefined, and always lowercase
+    const matchRoles = rawMatchRoles
+      .filter((r) => typeof r === "string" && r.trim() !== "")
+      .map((r) => r.toLowerCase());
+    // If no valid roles are provided, fail-closed and return 400
+    if (matchRoles.length === 0) {
+      debugError(conductorErrors.err92);
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err92,
+      });
+    }
+
     if (req.user.roles !== undefined && Array.isArray(req.user.roles)) {
       const foundRole = req.user.roles.find((element) => {
         if (element.org && element.role) {
-          if (element.org === org && element.role === role) {
+          if (element.org === org && matchRoles.includes(element.role?.toLowerCase() || "")) {
             return element;
           } else if (
             element.org === "libretexts" &&

@@ -302,8 +302,8 @@ const checkProjectAdminPermission = (project: Project, user: User) => {
     /* Check user has permission */
     if (userUUID !== '' && checkUserInArray(projAdmins, userUUID)) {
         return true; // user has organic project permissions
-    } else if (typeof(user) === 'object' && user.isSuperAdmin === true) {
-        return true; // user is a SuperAdmin
+    } else if (typeof(user) === 'object' && (user.isSuperAdmin === true || user.isSupport === true)) {
+        return true; // user is a SuperAdmin or Support
     }
     return false;
 };

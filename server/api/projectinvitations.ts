@@ -45,7 +45,7 @@ const checkProjectAdminPermission = (project:any, user:any) => {
         if (foundUser !== undefined) {
             return true;
         } else {
-            return authAPI.checkHasRole(user, 'libretexts', 'superadmin');
+            return authAPI.checkHasRole(user, 'libretexts', ['superadmin', 'support']);
         }
     }
     return false;
