@@ -889,7 +889,7 @@ const checkHasRole = (
   }
   
   if (user.roles !== undefined && Array.isArray(user.roles)) {
-    let foundRole = user.roles.find((element) => {
+    const foundRole = user.roles.find((element) => {
       if (element.org && element.role) {
         if (element.org === org && matchRoles.includes(element.role?.toLowerCase() || "")) {
           return element;
