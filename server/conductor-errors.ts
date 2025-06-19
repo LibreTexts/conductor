@@ -98,6 +98,7 @@ const conductorErrors = {
   err89: "Ticket is not in a valid status for this action.",
   err90: "Cannot get embed code for non-public resource.",
   err91: "Sorry, you can't remove your own role(s). Please contact our Support Center for assistance.",
+  err92: "Sorry, an internal error occurred as a result of internal misconfiguration. Please contact our Support Center for assistance.",
 };
 
 export default conductorErrors;

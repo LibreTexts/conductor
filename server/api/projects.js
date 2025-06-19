@@ -3166,7 +3166,7 @@ const checkProjectGeneralPermission = (project, user) => {
             return true; // user is in the project team
         } else {
             // check if user is a SuperAdmin
-            return authAPI.checkHasRole(user, 'libretexts', 'superadmin');
+            return authAPI.checkHasRole(user, 'libretexts', ['superadmin', 'support']);
         }
     }
     return false;
@@ -3206,7 +3206,7 @@ const checkProjectMemberPermission = (project, user) => {
     if (!foundUser) {
       if (typeof user === "object") {
         // no user found in project team, check if user is a SuperAdmin
-        return authAPI.checkHasRole(user, "libretexts", "superadmin");
+        return authAPI.checkHasRole(user, "libretexts", ["superadmin", "support"]);
       }
       return false;
     }
@@ -3253,7 +3253,7 @@ const checkProjectAdminPermission = (project, user) => {
             return true; // user is a project admin
         } else {
             // check if user is a SuperAdmin
-            return authAPI.checkHasRole(user, 'libretexts', 'superadmin');
+            return authAPI.checkHasRole(user, 'libretexts', ['superadmin', 'support']);
         }
     }
     return false;
