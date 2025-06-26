@@ -29,6 +29,7 @@ import {
   verificationStatusOptions,
 } from "../../../../utils/centralIdentityHelpers";
 import { isCentralIdentityUserProperty } from "../../../../utils/typeHelpers";
+import HandleUserDisableModal from "../../../../components/controlpanel/CentralIdentity/HandleUserDisableModal";
 import { dirtyValues } from "../../../../utils/misc";
 import { useNotifications } from "../../../../context/NotificationContext";
 import CtlTextInput from "../../../../components/ControlledInputs/CtlTextInput";
@@ -74,6 +75,7 @@ const CentralIdentityUserView = () => {
 
   const [loading, setLoading] = useState<boolean>(false);
   const [showAddAppModal, setShowAddAppModal] = useState<boolean>(false);
+  const [showDisableUserModal, setShowDisableUserModal] = useState<boolean>(false);
   const [showAddOrgModal, setShowAddOrgModal] = useState<boolean>(false);
   const [userApps, setUserApps] = useState<CentralIdentityApp[]>([]);
   const [showRemoveOrgOrAppModal, setShowRemoveOrgOrAppModal] =
@@ -201,6 +203,15 @@ const CentralIdentityUserView = () => {
     loadUserApps();
   }
 
+  function handleOpenDisableUserModal() {
+    setShowDisableUserModal(true);
+  }
+
+  function handleCloseDisableUserModal() {
+    setShowDisableUserModal(false);
+    loadUser();
+  }
+
   async function handleSave() {
     try {
       if (!userInitVal) return;
@@ -221,6 +232,24 @@ const CentralIdentityUserView = () => {
         message: "User updated successfully!",
         type: "success",
       });
+      loadUser();
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleReEnableUser() {
+    try {
+      if (!uuid) return;
+      setLoading(true);
+      const res = await axios.patch(`/central-identity/users/${uuid}/reEnable`);
+      
+      if (res.data?.err) {
+        handleGlobalError(res.data.errMsg || res.data.err);
+        return;
+      }
       loadUser();
     } catch (err) {
       handleGlobalError(err);
@@ -305,6 +334,25 @@ const CentralIdentityUserView = () => {
                       }
                     />
                   </div>
+                  {getValues("disabled") ? (
+                    <Button
+                      icon
+                      color="yellow"
+                      size="tiny"
+                      onClick={handleReEnableUser}
+                    >
+                      <Icon name="refresh" /> Re-Enable User
+                    </Button>
+                  ):  
+                    <Button
+                      icon
+                      color="red"
+                      size="tiny"
+                      onClick={handleOpenDisableUserModal}
+                    >
+                      <Icon name="ban" /> Disable User
+                    </Button>
+                  }
                 </div>
                 <div style={{ marginBottom: "1.25rem", width: "100%" }}>
                   <Header sub>Email</Header>
@@ -659,6 +707,11 @@ const CentralIdentityUserView = () => {
         userId={uuid}
         targetId={removeOrgOrAppTargetId}
         onClose={handleRemoveOrgOrAppModalClose}
+      />
+      <HandleUserDisableModal
+        show={showDisableUserModal}
+        userId={uuid}
+        onClose={handleCloseDisableUserModal}
       />
     </Grid>
   );
