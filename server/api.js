@@ -179,6 +179,30 @@ router
   );
 
 router
+  .route("/central-identity/users/:id/disable")
+  .patch(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("disableUser"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.disableUser
+  )
+
+router
+  .route("/central-identity/users/:id/reEnable")
+  .patch(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("reEnableUser"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.reEnableUser
+  )
+
+router
   .route("/central-identity/users/:id/applications")
   .get(
     middleware.checkCentralIdentityConfig,
@@ -231,6 +255,16 @@ router
     ),
     centralIdentityAPI.checkUsersApplicationAccess
   )
+
+router
+  .route("/central-identity/users/:id/disable")
+  .patch(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.disableUser
+  );
 
 router
   .route("/central-identity/users/:userId/notes")

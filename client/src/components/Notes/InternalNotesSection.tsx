@@ -69,7 +69,7 @@ export default function InternalNotesSection({
 
   return (
     <Segment className="flex flex-col overflow-hidden max-h-[800px] !shadow-none !border-none !px-0">
-      <div className="flex justify-between items-cente mb-4 border-b border-slate-300 pb-2">
+      <div className="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
         <Header as="h3" className="!m-0">
           Internal Notes (Newest First)
         </Header>
