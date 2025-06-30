@@ -197,7 +197,12 @@ const ProjectPeerReview = (props) => {
                 setUserProjectMember(true);
                 setCanViewDetails(true);
             } else {
-                setCanViewDetails(checkCanViewProjectDetails(project, user));
+                if (project.visibility === 'public') {
+                    setCanViewDetails(true);
+                }
+                else {
+                    setCanViewDetails(checkCanViewProjectDetails(project, user));
+                }
             }
         }
     }, [project, user, setUserProjectMember, setCanViewDetails]);
@@ -528,7 +533,7 @@ const ProjectPeerReview = (props) => {
                                                         </div>
                                                         <div className='right-flex'>
                                                             <Button.Group fluid>
-                                                                {openAccessPR ? (
+                                                                {userProjectMember ? (
                                                                     <Button
                                                                         color='purple'
                                                                         onClick={() => setShowInviteModal(true)}
