@@ -38,7 +38,7 @@ const ProjectCard = ({
 
   return (
     <Card raised {...props} className="!max-h-[130px]">
-      <div className="flex flex-col flex-grow p-4">
+      <div className="flex flex-col flex-grow p-4 overflow-y-auto overflow-x-auto">
         <div className="flex">
           <div className="flex flex-col flex-1">
             <Link
