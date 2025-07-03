@@ -21,7 +21,6 @@ const PinnedProjects: React.FC<PinnedProjectsInterface> = () => {
   const { openModal, closeAllModals } = useModals();
   const isTailwindLg = useMediaQuery({ minWidth: 1024 });
   const isXL = useMediaQuery({ minWidth: 1280 });
-  console.log("isXL", isXL);
   const { data, isLoading } = usePinnedProjects();
 
   const onShowPinnedModal = () => {
