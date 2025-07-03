@@ -199,11 +199,11 @@ const Home = () => {
           </Message>
         </div>
       )}
-      <div className="flex flex-col w-full">
-        <div className="flex flex-col mb-4">
+      <div className="flex flex-col xl:flex-row w-full min-h-screen">
+        <div className="flex flex-col mb-4 xl:w-1/6 xl:mr-12 xl:mb-0">
           <UserMenu />
         </div>
-        <div className="flex flex-col w-full">
+        <div className="flex flex-col mb-8 xl:w-1/2 xl:mr-12 xl:mb-0 flex-1 max-h-[1000px] min-h-fit">
           <Button
             onClick={() => setShowCreateProjectModal(true)}
             fluid
@@ -214,7 +214,7 @@ const Home = () => {
           />
           <PinnedProjects />
         </div>
-        <div className="flex flex-col mt-4">
+        <div className="flex flex-col mb-8 xl:w-1/3 xl:mb-0">
           <Segment padded>
             <div className="dividing-header-custom">
               <h3>Announcements</h3>
