@@ -55,8 +55,6 @@ const ProjectsFlagged = lazy(() => import('./screens/conductor/Projects/Projects
 import ProjectTimeline from './components/projects/ProjectTimeline';
 import ProjectView from './components/projects/ProjectView';
 const Search = lazy(() => import('./screens/conductor/Search'));
-import UserDetails from './components/controlpanel/UserDetails';
-const UsersManager = lazy(() => import('./screens/conductor/controlpanel/UsersManager'));
 import LoadingSpinner from './components/LoadingSpinner';
 const CentralIdentity = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity'));
 const CentralIdentityInstructorVerifications = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityInstructorVerifications'));
@@ -150,8 +148,6 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/orgsmanager' component={OrganizationsManager} />
           <PrivateRoute exact path='/controlpanel/peerreviewrubrics' component={PeerReviewRubrics} />
           <PrivateRoute exact path='/controlpanel/peerreviewrubrics/:mode/:rubricID?' component={PeerReviewRubricManage} />
-          <PrivateRoute exact path='/controlpanel/usersmanager' component={UsersManager} />
-          <PrivateRoute exact path='/controlpanel/usersmanager/:uuid' component={UserDetails} />
           <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
           <Route exact path="/download/:projectID/:fileID" component={PermanentLinkDownload} />
           <Route exact path='/peerreview/:id' component={PeerReviewPage} />
