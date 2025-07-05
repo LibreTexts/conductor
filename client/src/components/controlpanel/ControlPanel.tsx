@@ -143,13 +143,6 @@ const ControlPanel = () => {
       description:
         "Manage branding settings for your Conductor instance and your Campus Commons",
     },
-    {
-      url: "/controlpanel/usersmanager",
-      icon: "users",
-      title: "Users Manager",
-      description:
-        "See which Conductor users have access to your instance and manage their permissions",
-    },
   ];
 
   if (org.FEAT_AssetTagsManager) {
