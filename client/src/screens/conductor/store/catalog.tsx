@@ -155,7 +155,7 @@ export default function CatalogPage() {
       let optionsString = "";
       section.options.forEach((option) => {
         if (option.checked) {
-          optionsString += `,${option.value}`;
+          optionsString += `${optionsString ? "," : ""}${option.value}`;
         }
       });
       if (optionsString) {
