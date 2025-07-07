@@ -68,6 +68,10 @@ export default class StoreService {
 
             return product;
         } catch (error) {
+            if (error instanceof Stripe.errors.StripeInvalidRequestError && error.code === 'resource_missing') {
+                debug(`Product with ID ${product_id} not found in Stripe.`);
+                return null;
+            }
             debug("Error searching store product:", error);
             throw new Error("Failed to search store product");
         }
@@ -441,7 +445,7 @@ export default class StoreService {
             }
 
             const mapped = filtered_shipping_options.map((opt) => {
-                // ensure cost_excl_tax is a number and conver it to cents
+                // ensure cost_excl_tax is a number and convert it to cents
                 if (!opt.cost_excl_tax || isNaN(parseFloat(opt.cost_excl_tax))) {
                     debug("Invalid cost_excl_tax for shipping option:", opt);
                     return null; // Skip invalid options
