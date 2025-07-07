@@ -109,6 +109,7 @@ export default function StoreHome() {
                 alt="A library bookshelf with various books"
                 src="https://cdn.libretexts.net/Images/inaki-del-olmo-NIJuEQw0RKg-unsplash-min.jpg"
                 className="size-full object-cover"
+                loading="lazy"
               />
             </div>
           </div>
