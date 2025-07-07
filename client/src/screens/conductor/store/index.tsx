@@ -106,8 +106,8 @@ export default function StoreHome() {
             </div>
             <div className="h-48 w-full sm:h-64 lg:absolute lg:right-0 lg:top-0 lg:h-full lg:w-1/2">
               <img
-                alt=""
-                src="/inaki-del-olmo-NIJuEQw0RKg-unsplash.jpg"
+                alt="Image of a library bookshelf with various books"
+                src="https://cdn.libretexts.net/Images/inaki-del-olmo-NIJuEQw0RKg-unsplash-min.jpg"
                 className="size-full object-cover"
               />
             </div>
