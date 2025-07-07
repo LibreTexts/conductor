@@ -17,8 +17,6 @@ const AnalyticsRequestAccess = lazy(() => import('./screens/conductor/analytics/
 const AnalyticsRequests = lazy(() => import('./screens/conductor/controlpanel/AnalyticsRequests'));
 const AssetTagsManager = lazy(() => import('./screens/conductor/controlpanel/AssetTagsManager'));
 const BooksManager = lazy(() => import('./screens/conductor/controlpanel/BooksManager'));
-const Bookstore = lazy(() => import('./screens/conductor/bookstore'));
-const BookstoreCatalog = lazy(() => import('./screens/conductor/bookstore/catalog'));
 const CampusSettings = lazy(() => import('./components/controlpanel/CampusSettings'));
 const CollectionsManager = lazy(() => import('./screens/conductor/controlpanel/CollectionsManager'));
 const QRCodeGenerator = lazy(() => import('./screens/conductor/controlpanel/QRCodeGenerator'));
@@ -55,6 +53,13 @@ const ProjectsFlagged = lazy(() => import('./screens/conductor/Projects/Projects
 import ProjectTimeline from './components/projects/ProjectTimeline';
 import ProjectView from './components/projects/ProjectView';
 const Search = lazy(() => import('./screens/conductor/Search'));
+const Store = lazy(() => import('./screens/conductor/store'));
+const StoreCart = lazy(() => import('./screens/conductor/store/cart'));
+const StoreCatalog = lazy(() => import('./screens/conductor/store/catalog'));
+const StoreOrder = lazy(() => import('./screens/conductor/store/order'));
+const StoreProduct = lazy(() => import('./screens/conductor/store/product'));
+const StoreShipping = lazy(() => import('./screens/conductor/store/shipping'));
+const StoreSuccess = lazy(() => import('./screens/conductor/store/success'));
 import UserDetails from './components/controlpanel/UserDetails';
 const UsersManager = lazy(() => import('./screens/conductor/controlpanel/UsersManager'));
 import LoadingSpinner from './components/LoadingSpinner';
@@ -78,15 +83,15 @@ const PermanentLinkDownload = lazy(() => import('./components/FilesManager/Perma
 import PageNotFound from './components/util/PageNotFound';
 import LibreTextsRoute from './components/util/LibreTextsRoute';
 import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
-import BookstoreNavbar from './components/navigation/BookstoreNavbar';
+import StoreNavbar from './components/navigation/StoreNavbar';
 import CartProvider from './providers/CartProvider';
 
 const RenderNavbar = () => {
   if(window.location.pathname.includes('/insight') || window.location.pathname.includes('/support')){
     return <SupportCenterNavbar />;
   }
-  if(window.location.pathname.includes('/bookstore')){
-    return <BookstoreNavbar />;
+  if(window.location.pathname.includes('/store')){
+    return <StoreNavbar />;
   }
   return <Navbar />
 }
@@ -101,6 +106,7 @@ const Conductor = () => {
 
   return (
     <div className='conductor'>
+      <CartProvider> 
       <RenderNavbar />
       <div className='conductor-content'>
         <Suspense fallback={<LoadingSpinner />}>
@@ -161,14 +167,17 @@ const Conductor = () => {
           <LibreTextsRoute exact path='/insight/search' key='insightsearchresults' component={KBSearchResults} org={org}/>
           <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
           <LibreTextsRoute exact path='/insight/:slug' key='insightpageview' org={org} component={KBPage} />
+          <LibreTextsRoute exact path='/store' key='store' org={org} component={Store} />
+          <LibreTextsRoute exact path='/store/cart' key='storecart' org={org} component={StoreCart} />
+          <LibreTextsRoute exact path='/store/catalog' key='storecatalog' org={org} component={StoreCatalog} />
+          <LibreTextsRoute exact path='/store/checkout/shipping' key='storeshipping' org={org} component={StoreShipping} />
+          <LibreTextsRoute exact path='/store/checkout/success' key='storesuccess' org={org} component={StoreSuccess} />
+          <LibreTextsRoute exact path='/store/order/:order_id' key='storeorder' org={org} component={StoreOrder} />
+          <LibreTextsRoute exact path='/store/product/:product_id' key='storeproduct' org={org} component={StoreProduct} />
           <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
           <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
           <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} />
           {/*LibreTexts org private routes */}
-          {/* <CartProvider> */}
-            <LibreTextsPrivateRoute exact path='/bookstore' key='bookstore' org={org} component={Bookstore} />
-            <LibreTextsPrivateRoute exact path='/bookstore/catalog' key='bookstorecatalog' org={org} component={BookstoreCatalog} />
-          {/* </CartProvider> */}
           <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
           <LibreTextsPrivateRoute exact path='/support/closed' key='supportclosedtickets' org={org} component={SupportClosedTickets} />
           {/* 404 */}
@@ -177,6 +186,7 @@ const Conductor = () => {
         </Suspense>
       </div>
       <Footer />
+      </CartProvider>
     </div>
   )
 };

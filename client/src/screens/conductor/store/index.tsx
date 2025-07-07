@@ -2,64 +2,41 @@ import { useState } from "react";
 import { Icon } from "semantic-ui-react";
 import AlternateLayout from "../../../components/navigation/AlternateLayout";
 import { DEMO_PRODUCTS } from "./demo-data";
+import {
+  IconBook2,
+  IconKey,
+  IconSchool,
+  IconShirt,
+  IconShoppingCart,
+} from "@tabler/icons-react";
 
-const collections = [
-  {
-    name: "Desk and Office",
-    description: "Work from home accessories",
-    imageSrc:
-      "https://tailwindcss.com/plus-assets/img/ecommerce-images/home-page-02-edition-01.jpg",
-    imageAlt:
-      "Desk with leather desk pad, walnut desk organizer, wireless keyboard and mouse, and porcelain mug.",
-    href: "#",
-  },
-  {
-    name: "Self-Improvement",
-    description: "Journals and note-taking",
-    imageSrc:
-      "https://tailwindcss.com/plus-assets/img/ecommerce-images/home-page-02-edition-02.jpg",
-    imageAlt:
-      "Wood table with porcelain mug, leather journal, brass pen, leather key ring, and a houseplant.",
-    href: "#",
-  },
-  {
-    name: "Travel",
-    description: "Daily commute essentials",
-    imageSrc:
-      "https://tailwindcss.com/plus-assets/img/ecommerce-images/home-page-02-edition-03.jpg",
-    imageAlt: "Collection of four insulated travel bottles on wooden shelf.",
-    href: "#",
-  },
-];
-export default function Example() {
+const CategoryLink = ({
+  href,
+  children,
+  target,
+}: {
+  href: string;
+  children: React.ReactNode;
+  target?: "_blank";
+}) => (
+  <a
+    href={href}
+    target={target}
+    className="flex items-center justify-center rounded-md border border-transparent bg-primary px-6 py-3 font-medium text-white hover:shadow-sm hover:text-gray-300 min-h-[3rem] text-center"
+    style={{
+      fontSize: 'clamp(0.75rem, 2.5vw, 1rem)',
+      lineHeight: '1.2',
+    }}
+  >
+    {children}
+  </a>
+);
+
+export default function StoreHome() {
   return (
     <AlternateLayout>
       <main>
-        {/* Hero */}
         <div className="flex flex-col border-b border-gray-200 lg:border-0">
-          {/* <nav aria-label="Offers" className="order-last lg:order-first">
-            <div className="mx-auto max-w-7xl lg:px-8">
-              <ul
-                role="list"
-                className="grid grid-cols-1 divide-y divide-gray-200 lg:grid-cols-3 lg:divide-x lg:divide-y-0"
-              >
-                {offers.map((offer) => (
-                  <li key={offer.name} className="flex flex-col">
-                    <a
-                      href={offer.href}
-                      className="relative flex flex-1 flex-col justify-center bg-white px-4 py-6 text-center focus:z-10"
-                    >
-                      <p className="text-sm text-gray-500">{offer.name}</p>
-                      <p className="font-semibold text-gray-900">
-                        {offer.description}
-                      </p>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </nav> */}
-
           <div className="relative">
             <div
               aria-hidden="true"
@@ -69,7 +46,7 @@ export default function Example() {
               <div className="mx-auto px-4 sm:px-6 lg:grid lg:grid-cols-2 lg:px-8">
                 <div className="mx-auto max-w-2xl py-24 lg:max-w-none lg:py-64">
                   <div className="lg:pr-16">
-                    <h1 className="sr-only">LibreTexts Bookstore</h1>
+                    <h1 className="sr-only">LibreTexts Store</h1>
                     <h2 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl xl:text-6xl">
                       Your favorite OER, on your desk
                     </h2>
@@ -78,28 +55,27 @@ export default function Example() {
                       LibreTexts swag, and more.
                     </p>
 
-                    <div className="my-6 flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
-                      <a
-                        href="/bookstore/catalog?category=books"
-                        className="block rounded-md border border-transparent bg-primary px-8 py-3 font-medium text-white hover:shadow-sm hover:text-gray-300"
-                      >
-                        <Icon name="book" className="inline !mr-3" />
+                    <div className="my-6 grid grid-cols-1 gap-y-4 sm:grid-cols-3 sm:gap-x-4">
+                      <CategoryLink href="/store/catalog?category=books">
+                        <IconBook2 className="inline !mr-3" />
                         Shop Books
-                      </a>
-                      <a
-                        href="/bookstore/catalog?category=access-codes"
-                        className="block rounded-md border border-transparent bg-primary px-8 py-3 font-medium text-white hover:shadow-sm sm:ml-4 hover:text-gray-300"
-                      >
-                        <Icon name="key" className="inline !mr-3" />
+                      </CategoryLink>
+                      <CategoryLink href="/store/catalog?category=access-codes">
+                        <IconKey className="inline !mr-3" />
                         Shop Access Codes
-                      </a>
-                      <a
-                        href="/bookstore/catalog"
-                        className="block rounded-md border border-transparent bg-primary px-8 py-3 font-medium text-white hover:shadow-sm sm:ml-4 hover:text-gray-300"
-                      >
-                        <Icon name="cart" className="inline !mr-3" />
+                      </CategoryLink>
+                      <CategoryLink href="/store/catalog?category=academy">
+                        <IconSchool className="inline !mr-3" />
+                        Shop Prof. Dev.
+                      </CategoryLink>
+                      <CategoryLink href="https://swagstore.libretexts.org" target="_blank">
+                        <IconShirt className="inline !mr-3" />
+                        Shop Merch
+                      </CategoryLink>
+                      <CategoryLink href="/store/catalog">
+                        <IconShoppingCart className="inline !mr-3" />
                         Shop All Items
-                      </a>
+                      </CategoryLink>
                     </div>
                     <p className="text-sm text-gray-600">
                       LibreTexts textbooks are{" "}
@@ -132,7 +108,7 @@ export default function Example() {
                 Trending items
               </h2>
               <a
-                href="/bookstore/catalog"
+                href="/store/catalog"
                 className="hidden text-base font-semibold text-primary sm:block"
               >
                 See everything
@@ -161,7 +137,7 @@ export default function Example() {
                         </div>
                         <div className="mt-6">
                           <h3 className="mt-1 text-xl font-semibold text-gray-900">
-                            <a href={`/bookstore/product/${product.id}`}>
+                            <a href={`/store/product/${product.id}`}>
                               <span className="absolute inset-0" />
                               {product.name}
                             </a>
@@ -198,7 +174,7 @@ export default function Example() {
 
             <div className="mt-12 px-4 sm:hidden">
               <a
-                href="/bookstore/catalog"
+                href="/store/catalog"
                 className="text-sm font-semibold text-primary "
               >
                 See everything

@@ -14,44 +14,77 @@ import {
 import AlternateLayout from "../../../components/navigation/AlternateLayout";
 import classNames from "classnames";
 import { Icon } from "semantic-ui-react";
-import ProductCard from "../../../components/bookstore/ProductCard";
+import ProductCard from "../../../components/store/ProductCard";
 import { useSearchParams } from "react-router-dom-v5-compat";
 import { DEMO_PRODUCTS } from "./demo-data";
+import { useQuery } from "@tanstack/react-query";
+import api from "../../../api";
+import { StoreProduct } from "../../../types";
+import useGlobalError from "../../../components/error/ErrorHooks";
+import { formatPrice } from "../../../utils/storeHelpers";
+import TruncatedText from "../../../components/util/TruncatedText";
 
-const sortOptions = [
-  { name: "Most Popular", href: "#", current: true },
-  { name: "Best Rating", href: "#", current: false },
-  { name: "Newest", href: "#", current: false },
-  { name: "Price: Low to High", href: "#", current: false },
-  { name: "Price: High to Low", href: "#", current: false },
-];
+// const sortOptions = [
+//   { name: "Most Popular", href: "#", current: true },
+//   { name: "Best Rating", href: "#", current: false },
+//   { name: "Newest", href: "#", current: false },
+//   { name: "Price: Low to High", href: "#", current: false },
+//   { name: "Price: High to Low", href: "#", current: false },
+// ];
 const initialFilters = [
   {
     id: "category",
     name: "Category",
     options: [
-      { value: "academy-courses", label: "Academy Courses", checked: false },
+      { value: "academy", label: "Academy Courses", checked: false },
       {
         value: "access-codes",
         label: "Application Access Codes",
         checked: false,
       },
       { value: "books", label: "Books", checked: true },
-      { value: "swag", label: "Swag", checked: false },
     ],
-  },
-  {
-    id: "subject",
-    name: "Subject",
-    options: [{ value: "biology", label: "Biology", checked: false }],
   },
 ];
 
 export default function CatalogPage() {
+  const { handleGlobalError } = useGlobalError();
   const [searchParams] = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [filters, setFilters] = useState(initialFilters);
+
+  const { data, isFetching } = useQuery<StoreProduct[]>({
+    queryKey: ["store-products", filters],
+    queryFn: fetchProducts,
+  });
+
+  async function fetchProducts() {
+    try {
+      const products = await api.getStoreProducts({
+        limit: 100,
+        category: filters
+          .find((f) => f.id === "category")
+          ?.options.filter((o) => o.checked)
+          .map((o) => o.value)
+          .join(","),
+        query: searchParams.get("query") || undefined,
+      });
+
+      if (products.data.err) {
+        throw new Error(products.data.errMsg);
+      }
+
+      if (!products.data) {
+        throw new Error("Invalid response from server.");
+      }
+
+      return products.data.products;
+    } catch (err) {
+      handleGlobalError(err);
+      return [];
+    }
+  }
 
   useEffect(() => {
     const params = Object.fromEntries(searchParams.entries());
@@ -122,9 +155,6 @@ export default function CatalogPage() {
     optionValue: string,
     checked: boolean
   ) {
-    console.log(
-      `Updating filter: sectionId=${sectionId}, optionValue=${optionValue}, checked=${checked}`
-    );
     const updatedFilters = filters.map((section) => {
       if (section.id === sectionId) {
         return {
@@ -143,12 +173,17 @@ export default function CatalogPage() {
   function handleUpdateSearchParams(newFilters: typeof filters = filters) {
     const newParams = new URLSearchParams();
     newFilters.forEach((section) => {
+      let optionsString = "";
       section.options.forEach((option) => {
         if (option.checked) {
-          newParams.append(section.id, option.value);
+          optionsString += `,${option.value}`;
         }
       });
+      if (optionsString) {
+        newParams.append(section.id, optionsString);
+      }
     });
+
     // Update the URL with the new search params
     window.history.replaceState(
       {},
@@ -195,6 +230,7 @@ export default function CatalogPage() {
                   key={section.id}
                   as="div"
                   className="border-t border-gray-200 px-4 py-6"
+                  defaultOpen={true}
                 >
                   <h3 className="-mx-2 -my-3 flow-root">
                     <DisclosureButton className="group flex w-full items-center justify-between bg-white px-2 py-3 text-gray-400 hover:text-gray-500">
@@ -284,7 +320,7 @@ export default function CatalogPage() {
 
           <div className="flex items-center">
             <Menu as="div" className="relative inline-block text-left">
-              <div>
+              {/* <div>
                 <MenuButton className="group inline-flex justify-center text-sm font-medium text-gray-700 hover:text-gray-900">
                   Sort
                   <Icon
@@ -293,9 +329,9 @@ export default function CatalogPage() {
                     className="ml-1 size-5 text-gray-400 group-hover:text-gray-500"
                   />
                 </MenuButton>
-              </div>
+              </div> */}
 
-              <MenuItems
+              {/* <MenuItems
                 transition
                 className="absolute right-0 z-10 mt-2 w-40 origin-top-right rounded-md bg-white shadow-2xl ring-1 ring-black/5 transition focus:outline-none data-[closed]:scale-95 data-[closed]:transform data-[closed]:opacity-0 data-[enter]:duration-100 data-[leave]:duration-75 data-[enter]:ease-out data-[leave]:ease-in"
               >
@@ -316,16 +352,16 @@ export default function CatalogPage() {
                     </MenuItem>
                   ))}
                 </div>
-              </MenuItems>
+              </MenuItems> */}
             </Menu>
 
-            <button
+            {/* <button
               type="button"
               className="-m-2 ml-5 p-2 text-gray-400 hover:text-gray-500 sm:ml-7"
             >
               <span className="sr-only">View grid</span>
               <Icon name="grid layout" aria-hidden="true" className="size-5" />
-            </button>
+            </button> */}
             <button
               type="button"
               onClick={() => setMobileFiltersOpen(true)}
@@ -430,31 +466,44 @@ export default function CatalogPage() {
 
             {/* Product grid */}
             <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-3 lg:col-span-3 lg:gap-x-8">
-              {displayProducts.map((product) => (
+              {!isFetching && data?.length === 0 && (
+                <div className="col-span-3 text-center">
+                  <h2 className="text-2xl font-semibold text-gray-900">
+                    No products found
+                  </h2>
+                  <p className="mt-2 text-gray-500">
+                    Try adjusting your filters or search criteria.
+                  </p>
+                </div>
+              )}
+              {data?.map((product) => (
                 <div
                   key={product.id}
-                  className="inline-flex w-64 flex-col text-center lg:w-auto border rounded-md p-4 shadow-sm"
+                  className="inline-flex w-64 flex-col text-center lg:w-auto border rounded-md p-6 shadow-sm"
                 >
                   <div className="group relative">
                     <div className="flex justify-center">
                       <img
-                        alt={product.imageAlt}
-                        src={product.imageSrc}
-                        className="aspect-auto h-64 w-fit rounded-md bg-gray-white object-contain group-hover:opacity-75"
+                        alt={`Image of ${product.name}`}
+                        src={product.images[0]}
+                        className="aspect-auto h-60 w-fit rounded-md bg-gray-white object-contain group-hover:opacity-75"
                       />
                     </div>
                     <div className="mt-6">
                       <h3 className="mt-1 text-xl font-semibold text-gray-900">
-                        <a href={`/bookstore/product/${product.id}`}>
+                        <a href={`/store/product/${product.id}`}>
                           <span className="absolute inset-0" />
                           {product.name}
                         </a>
                       </h3>
-                      <p className="text-base text-gray-500 mt-4">
-                        {product.subtitle}
-                      </p>
-                      <p className="mt-4 text-lg text-gray-900 font-semibold">
-                        {product.price}
+                      <TruncatedText
+                        text={product.description}
+                        maxLines={3}
+                        preciseTruncation={true}
+                        className="mt-2 text-sm text-gray-500 h-20"
+                      />
+                      <p className="mt-4 text-xl text-gray-900 font-semibold">
+                        {formatPrice(product.prices[0].unit_amount, true)}
                       </p>
                     </div>
                   </div>

@@ -1,7 +1,7 @@
 import classNames from "classnames";
 
 /**
- * Alternative layout for non-typical pages, e.g. Support Center, Bookstore, etc.
+ * Alternative layout for non-typical pages, e.g. Support Center, Store, etc.
  */
 const AlternateLayout = ({
   children,

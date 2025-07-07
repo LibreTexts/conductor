@@ -40,6 +40,12 @@ import {
   PageSimpleWOverview,
   TableOfContentsDetailed,
   Note,
+  StoreProduct,
+  StoreCheckoutSessionItem,
+  ClientConfig,
+  StoreGetShippingOptionsRes,
+  StoreCheckoutForm,
+  StoreShippingOption,
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -483,6 +489,72 @@ class API {
     return res;
   }
 
+  // Store
+  async getStoreProducts({
+    limit = 100,
+    starting_after,
+    category,
+    query
+  }: {
+    limit?: number;
+    starting_after?: string;
+    category?: string;
+    query?: string;
+  } = {}) {
+    const res = await axios.get<
+      { products: StoreProduct[] } & ConductorBaseResponse
+    >("/store/products", {
+      params: {
+        limit,
+        starting_after,
+        category,
+        query
+      },
+    });
+    return res;
+  }
+
+  async getStoreProduct(product_id: string) {
+    const res = await axios.get<
+      { product: StoreProduct } & ConductorBaseResponse
+    >(`/store/products/${product_id}`);
+    return res;
+  }
+
+  async createCheckoutSession({
+    items,
+    shipping_option_id,
+    shipping_address
+  }: { items: StoreCheckoutSessionItem[], shipping_option_id: number | "digital_delivery_only", shipping_address: StoreCheckoutForm }) {
+    const res = await axios.post<
+      {
+        session_id: string;
+        checkout_url: string;
+      } & ConductorBaseResponse
+    >("/store/checkout/session", {
+      items,
+      shipping_option_id,
+      shipping_address
+    });
+    return res;
+  }
+
+  async getShippingOptions({
+    items,
+    shipping_address,
+  }: {
+    items: StoreCheckoutSessionItem[];
+    shipping_address: Pick<StoreCheckoutForm, 'address_line_1' | 'state' | 'postal_code' | 'country' | 'city'>;
+  }) {
+    const res = await axios.post<
+      { options: StoreGetShippingOptionsRes } & ConductorBaseResponse
+    >("/store/checkout/shipping-options", {
+      items,
+      shipping_address,
+    });
+    return res;
+  }
+
   // Central Identity
   async getCentralIdentityOrgs({
     activePage,
@@ -492,7 +564,7 @@ class API {
     activePage?: number;
     limit?: number;
     query?: string;
-  }= {}) {
+  } = {}) {
     const res = await axios.get<
       {
         orgs: CentralIdentityOrg[];
@@ -566,7 +638,7 @@ class API {
   }: {
     activePage?: number;
     limit?: number;
-  } = {}){
+  } = {}) {
     const res = await axios.get<
       {
         systems: CentralIdentitySystem[];
@@ -588,7 +660,7 @@ class API {
     name: string,
     logo?: string,
   }
-  ){
+  ) {
     const res = await axios.post<
       {
         system: CentralIdentitySystem;
@@ -604,7 +676,7 @@ class API {
     systemId
   }: {
     systemId: string
-  }){
+  }) {
     const res = await axios.get<
       {
         system: CentralIdentitySystem;
@@ -622,7 +694,7 @@ class API {
     name?: string,
     logo?: string,
   }
-  ){
+  ) {
     const res = await axios.put<
       {
         system: CentralIdentitySystem[];
@@ -738,6 +810,11 @@ class API {
       user: CentralIdentityUser;
     } & ConductorBaseResponse>(`/central-identity/users/${uuid}`, data);
     return res;
+  }
+
+  // Client Config
+  async getClientConfig() {
+    return await axios.get<{ data: ClientConfig } & ConductorBaseResponse>("/config");
   }
 
   // Commons
@@ -1348,9 +1425,9 @@ class API {
 
   async getUserCentralID(uuid: string) {
     const res = await axios.get<
-    {
-      centralID: string | null;
-    } & ConductorBaseResponse
+      {
+        centralID: string | null;
+      } & ConductorBaseResponse
     >(`/user/${uuid}/central-id`);
     return res.data;
   }

@@ -60,7 +60,7 @@ export default class StripeService {
                     const piSessions = await this.instance.checkout.sessions.list({
                         payment_intent: paymentIntent.id,
                         limit: 1,
-                        expand: ['data.payment_intent'],
+                        expand: ['data.payment_intent', 'data.line_items'],
                     });
 
                     if (piSessions.data.length < 1) {
@@ -75,6 +75,7 @@ export default class StripeService {
 
                     switch (checkoutSession.metadata.feature) {
                         case 'events':
+                        case 'store':
                             return {
                                 feature: checkoutSession.metadata.feature,
                                 checkout_session: checkoutSession,

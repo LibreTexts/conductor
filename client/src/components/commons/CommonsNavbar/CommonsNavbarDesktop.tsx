@@ -8,6 +8,7 @@ import SwitchAppWithUser from "../../navigation/SwitchAppWithUser";
 import DonateLink from "./DonateLink";
 import Launchpad from "../../navigation/Launchpad";
 import SupportDropdown from "./SupportDropdown";
+import StoreLink from "./StoreLink";
 
 interface CommonsNavbarDesktopProps extends MenuProps {
   org: Organization;
@@ -40,6 +41,7 @@ const CommonsNavbarDesktop: React.FC<CommonsNavbarDesktopProps> = ({
             <>
               <DonateLink />
               <AccountRequestLink />
+              <StoreLink />
             </>
           )}
           <SupportDropdown />

@@ -31,12 +31,12 @@ const SwitchAppWithUser: React.FC<SwitchAppWithUserProps> = ({
     }`;
   };
 
-  const getBookstoreHref = () => {
-    // Always nav to main bookstore in production, otherwise use the current origin (e.g. development)
+  const getStoreHref = () => {
+    // Always nav to main store in production, otherwise use the current origin (e.g. development)
     if (window.location.origin.endsWith("libretexts.org")) {
-      return `https://bookstore.libretexts.org`;
+      return `https://store.libretexts.org`;
     }
-    return `${window.location.origin}/bookstore`;
+    return `${window.location.origin}/store`;
   };
 
   if (user.isAuthenticated) {
@@ -44,15 +44,15 @@ const SwitchAppWithUser: React.FC<SwitchAppWithUserProps> = ({
       <>
         {parent === "conductor" && (
           <>
-            {/* <Menu.Item
+            <Menu.Item
               as="a"
-              href={getBookstoreHref()}
+              href={getStoreHref()}
               className="commons-nav-link"
-              aria-label="Bookstore"
+              aria-label="Store"
             >
               <Icon name="shopping cart" className="float-right" />
-              Bookstore
-            </Menu.Item> */}
+              Store
+            </Menu.Item>
             <Menu.Item
               as="a"
               href={getSupportCenterHref()}
