@@ -2,9 +2,9 @@ import { useMediaQuery } from "react-responsive";
 import withUserStateDependency from "../../../enhancers/withUserStateDependency";
 import { useEffect, useState } from "react";
 import { useTypedSelector } from "../../../state/hooks";
-import BookstoreNavbarDesktop from "./BookstoreNavbarDesktop";
+import StoreNavbarDesktop from "./StoreNavbarDesktop";
 
-const BookstoreNavbar: React.FC = () => {
+const StoreNavbar: React.FC = () => {
   const user = useTypedSelector((state) => state.user);
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(true);
@@ -14,25 +14,35 @@ const BookstoreNavbar: React.FC = () => {
   );
 
   useEffect(() => {
-    // dont show search bar on /insight
-    const split = window.location.href.split("/");
-    const last = split[split.length - 1];
-    if (last === "insight") {
-      setShowSearch(false);
+    // if there is a query parameter in the URL on first render, set it as the search value
+    const urlParams = new URLSearchParams(window.location.search);
+    const query = urlParams.get("query");
+    if (query) {
+      setSearch(query);
     } else {
-      setShowSearch(true);
+      setSearch("");
     }
-  }, [window.location.href]);
+  }, [])
 
   const handleSearch = () => {
     if (!search) return;
-    window.location.href = `/insight/search?query=${encodeURIComponent(
-      search
-    )}`;
+
+    const currQuery =
+      window.location.pathname === "/store/catalog"
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams();
+
+    const queryChanged = currQuery.get("query") !== search;
+    if (queryChanged){
+      currQuery.set("query", search);
+      currQuery.set("page", "1"); // Reset to first page on new search
+    }
+
+    window.location.href = `/store/catalog?${currQuery.toString()}`;
   };
 
   return (
-    <BookstoreNavbarDesktop
+    <StoreNavbarDesktop
       search={search}
       setSearch={setSearch}
       showSearch={showSearch}
@@ -63,4 +73,4 @@ const BookstoreNavbar: React.FC = () => {
   // );
 };
 
-export default withUserStateDependency(BookstoreNavbar);
+export default withUserStateDependency(StoreNavbar);

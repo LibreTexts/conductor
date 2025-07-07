@@ -11,7 +11,9 @@ import middleware from "./middleware.js"; // Route middleware
 import assetTagFrameworkAPI from "./api/assettagframeworks.js";
 import authorsAPI from "./api/authors.js";
 import authAPI from "./api/auth.js";
+import storeAPI from "./api/store.js";
 import centralIdentityAPI from "./api/central-identity.js";
+import clientConfigAPI from "./api/client-config.js";
 import usersAPI from "./api/users.js";
 import orgsAPI from "./api/organizations.js";
 import alertsAPI from "./api/alerts.js";
@@ -39,6 +41,7 @@ import kbAPI from "./api/kb.js";
 import supportAPI from "./api/support.js";
 import projectInvitationsAPI from "./api/projectinvitations.js";
 
+import * as storeValidators from "./api/validators/store.js";
 import * as centralIdentityValidators from "./api/validators/central-identity.js";
 import * as collectionValidators from "./api/validators/collections.js";
 import * as kbValidators from "./api/validators/kb.js";
@@ -115,7 +118,7 @@ permalinkRouter.route("/:projectID/:fileID").get(
 const router = express.Router();
 router.use(corsMiddleware);
 router.use(
-  middleware.middlewareFilter(["/payments/webhook"], bodyParser.json())
+  middleware.middlewareFilter(["/payments/webhook", "/store/webhooks/stripe", "/store/webhooks/lulu"], bodyParser.json())
 );
 router.use(bodyParser.urlencoded({ extended: false }));
 router.use(middleware.authSanitizer);
@@ -475,6 +478,11 @@ router
   .route("/central-identity/licenses")
   .get(middleware.checkCentralIdentityConfig, centralIdentityAPI.getLicenses);
 
+/* Client Config */
+router.route('/config').get(
+  clientConfigAPI.getClientConfig
+);
+
 /* OAuth (server) */
 router
   .route("/oauth2.0/authorize")
@@ -662,6 +670,45 @@ router
     adoptionReportAPI.deleteReport
   );
 
+router.route("/store/checkout/session").post(
+  middleware.validateZod(storeValidators.CreateCheckoutSessionSchema),
+  storeAPI.createCheckoutSession
+)
+
+router.route("/store/checkout/shipping-options").post(
+  middleware.validateZod(storeValidators.GetShippingOptionsSchema),
+  storeAPI.getShippingOptions
+)
+
+router.route("/store/products").get(
+  middleware.validateZod(storeValidators.GetStoreProductsSchema),
+  storeAPI.getStoreProducts
+)
+
+router.route("/store/products/most-popular").get(
+  middleware.validateZod(storeValidators.GetMostPopularStoreProductsSchema),
+  storeAPI.getMostPopularStoreProducts
+);
+
+router.route("/store/products/:product_id").get(
+  middleware.validateZod(storeValidators.GetStoreProductSchema),
+  storeAPI.getStoreProduct
+);
+
+router.route("/store/sync").post(
+  storeAPI.syncBooksToStripe
+);
+
+router.route("/store/webhooks/stripe").post(
+    express.raw({ type: "application/json" }),
+    storeAPI.processStripeWebhook
+  );
+
+router.route("/store/webhooks/lulu").post(
+  express.raw({ type: "application/json" }),
+  storeAPI.processLuluWebhook
+)
+  
 /* Translation Feedback */
 // (submission route can be anonymous)
 router

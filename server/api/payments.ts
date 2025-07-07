@@ -17,7 +17,7 @@ async function processStripeWebhookEvent(req: Request, res: Response) {
     }
 
     const stripeService = new StripeService();
-    const event = await stripeService.parseWebhookEvent(req.body, req.headers['stripe-signature']);
+    const event = await stripeService.parseWebhookEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET);
 
     const result = await stripeService.processWebhookEvent(event);
     if (result === 'bad_request') {

@@ -1,13 +1,16 @@
 import { createContext, useContext } from "react";
-import { ClearAndCreateCart } from "../providers/CartProvider";
-import { Cart } from "../types";
+import { StoreProduct, StoreProductPrice, Cart } from "../types";
 
 export interface CartContextType {
   cart: Cart | undefined;
   refreshCart: () => Promise<void>;
   productCount: number;
-  numInCart: (variant_id: string) => number;
-  clearAndCreateCart: ClearAndCreateCart;
+  numInCart: (productId: string) => number;
+  hasDigitalProducts: boolean;
+  clearAndCreateCart: () => void;
+  addToCart: (product: StoreProduct, price: StoreProductPrice, quantity: number) => void;
+  removeFromCart: (productId: string, priceId: string) => void;
+  updateQuantity: (productId: string, priceId: string, quantity: number) => void;
   loading: boolean;
 }
 
