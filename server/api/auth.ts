@@ -749,8 +749,6 @@ async function verifyRequest(req: Request, res: Response, next: NextFunction) {
   } catch (e: any) {
     let tokenExpired = false;
     let sessionInvalid = false;
-    console.log("VERIFY REQUEST ERROR");
-    console.log(e);
     if (e.code === "ERR_JWT_EXPIRED") {
       tokenExpired = true;
     } else if (e.message === "ERR_BAD_SESSION") {

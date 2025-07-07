@@ -1,60 +1,99 @@
 import axios, { AxiosInstance } from "axios";
 import { LuluPrintJob, LuluPrintJobParams, LuluShippingLineItem, LuluShippingOption, LuluShippingCalculationAddress, ResolvedProduct, LuluPrintJobLineItem } from "../../types";
-import path from "node:path";
+import { decodeJwt } from "jose"
+import { debug } from "../../debug";
 
 export default class LuluService {
-    private _axiosInstance = axios.create({
-        baseURL: process.env.NODE_ENV === 'production' ? "https://api.lulu.com/" : 'https://api.sandbox.lulu.com/',
-    });
+    private _authAxiosInstance: AxiosInstance;
+    private _axiosInstance: AxiosInstance;
     private _accessToken: string | null = null;
-    private _accessTokenExpiry: Date | null = null;
+    private _accessTokenExpiration: number | null = null;
+    private _tokenFetchPromise: Promise<string> | null = null;
 
-    constructor() { }
+    private readonly EXPIRATION_BUFFER_SECONDS = 60; // Buffer to ensure token is refreshed before it expires
 
-    async getAuthenticatedInstance(): Promise<AxiosInstance> {
-        // Check if we have a valid access token (add a 30 second buffer to the expiry time to avoid race conditions)
-        if (this._accessToken && this._accessTokenExpiry && this._accessTokenExpiry > new Date(Date.now() + 30000)) {
-            return this._axiosInstance;
-        } else {
-            await this.getAccessToken(); // Fetch a new access token if the current one is invalid or expired
+    constructor() {
+        const axiosConfig = {
+            baseURL: process.env.NODE_ENV === 'production' ? "https://api.lulu.com/" : 'https://api.sandbox.lulu.com/',
+            headers: {
+                'Content-Type': 'application/json',
+            }
         }
 
-        // Set the Authorization header for the axios instance
-        this._axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${this._accessToken}`;
-        this._axiosInstance.defaults.headers.common['Content-Type'] = 'application/json';
+        this._authAxiosInstance = axios.create(axiosConfig); // Seperate instance for fetching access tokens without interceptors
+        this._axiosInstance = axios.create(axiosConfig);
 
+        this._axiosInstance.interceptors.request.use(async (config) => {
+            try {
+                const token = await this.getAccessToken();
+                if (token) {
+                    config.headers['Authorization'] = `Bearer ${token}`;
+                } else {
+                    throw new Error("Failed to retrieve access token");
+                }
+                return config;
+            } catch (error) {
+                return Promise.reject(error);
+            }
+        }, (error) => {
+            debug("[LuluService]: Error in request interceptor:", error);
+            return Promise.reject(error);
+        });
+    }
+
+    async getAuthenticatedInstance(): Promise<AxiosInstance> {
         return this._axiosInstance;
     }
 
-    async getAccessToken(): Promise<string> {
+    async fetchAccessToken(): Promise<string> {
         try {
-            if (this._accessToken) {
-                return this._accessToken;
-            }
+            const params = new URLSearchParams();
+            params.append('grant_type', 'client_credentials');
 
-            const response = await this._axiosInstance.post('/auth/realms/glasstree/protocol/openid-connect/token', {
-                grant_type: 'client_credentials',
-            }, {
+            const response = await this._authAxiosInstance.post('/auth/realms/glasstree/protocol/openid-connect/token', params.toString(), {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'Authorization': `Basic ${Buffer.from(`${process.env.LULU_CLIENT_ID}:${process.env.LULU_CLIENT_SECRET}`).toString('base64')}`,
-                }
+                },
             });
 
-            // Check if the response contains an access token
-            if (!response.data || !response.data.access_token || !response.data.expires_in) {
-                throw new Error("Invalid response from Lulu API: Missing access_token or expires_in");
+            if (!response.data || !response.data.access_token) {
+                throw new Error("Invalid response from Lulu API: Missing access_token");
             }
 
-            // set the expiry to the current time plus the expires_in value from the response
-            this._accessTokenExpiry = new Date(Date.now() + response.data.expires_in * 1000);
-            this._accessToken = response.data.access_token;
+            const decodedToken = decodeJwt(response.data.access_token);
+            if (!decodedToken || !decodedToken.exp || typeof decodedToken.exp !== 'number') {
+                throw new Error("Invalid access token: Missing expiration");
+            }
 
-            return this._accessToken || ""
+            this._accessToken = response.data.access_token;
+            this._accessTokenExpiration = decodedToken.exp;
+
+            return this._accessToken || '';
         } catch (error) {
-            console.error("Error getting access token from Lulu:", error);
-            throw new Error("Failed to retrieve access token from Lulu");
+            debug("Error fetching access token from Lulu:", error);
+            this._accessToken = null;
+            this._accessTokenExpiration = null;
+            throw new Error("Failed to fetch access token from Lulu");
+        } finally {
+            this._tokenFetchPromise = null;
         }
+    }
+
+    async getAccessToken(): Promise<string | null> {
+        const currentTime = Math.floor(Date.now() / 1000);
+
+        if (this._accessToken && this._accessTokenExpiration && this._accessTokenExpiration > (currentTime + this.EXPIRATION_BUFFER_SECONDS)) {
+            return this._accessToken;
+        }
+
+        // If a token fetch is already in progress, wait for it to complete
+        if (this._tokenFetchPromise) {
+            return await this._tokenFetchPromise;
+        }
+
+        this._tokenFetchPromise = this.fetchAccessToken();
+        return await this._tokenFetchPromise;
     }
 
     getPodPackageID({ hardcover, color }: { hardcover: boolean, color: boolean }): string {
@@ -87,7 +126,7 @@ export default class LuluService {
             });
             return response.data;
         } catch (error) {
-            console.error("Error fetching shipping options from Lulu:", error);
+            debug("[LuluService]: Error fetching shipping options from Lulu:", error);
             throw new Error("Failed to retrieve shipping options from Lulu");
         }
     }
@@ -107,7 +146,7 @@ export default class LuluService {
 
             return response.data;
         } catch (error) {
-            console.error("Error creating print job on Lulu:", error);
+            debug("[LuluService]: Error creating print job on Lulu:", error);
             throw new Error("Failed to create print job on Lulu");
         }
     }
