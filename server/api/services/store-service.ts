@@ -90,6 +90,7 @@ export default class StoreService {
 
             const prices = await stripe.prices.search({
                 query: 'metadata["store"]:"true" AND active:"true"',
+                limit: 100,
                 expand: ['data.product'],
             });
 
@@ -674,13 +675,12 @@ export default class StoreService {
             const stripe = this.stripeService.getInstance();
 
             const alllibraries = await getLibraryNameKeys(false, false);
-            let libraries = ["chem"] // Only chem library for now (dev)
-            if (!libraries || libraries.length === 0) {
+            if (!alllibraries || alllibraries.length === 0) {
                 debug("No libraries found to sync books.");
                 return undefined;
             }
 
-            for (const library of libraries) {
+            for (const library of alllibraries) {
                 const bookshelf = await axios.get(`https://api.libretexts.org/DownloadsCenter/${library}/Bookshelves.json`);
                 const courses = await axios.get(`https://api.libretexts.org/DownloadsCenter/${library}/Courses.json`);
                 if ((!bookshelf || !bookshelf.data) && (!courses || !courses.data)) {
@@ -716,7 +716,7 @@ export default class StoreService {
                 for (const book of Array.from(allItems)) {
                     try {
                         // add a slight delay to avoid hitting API rate limits
-                        await new Promise(resolve => setTimeout(resolve, 150));
+                        await new Promise(resolve => setTimeout(resolve, 100));
 
                         // Check if the book already exists in Stripe as a product
                         const existingProducts = await stripe.products.search({

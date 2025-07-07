@@ -15,6 +15,7 @@ import { useModals } from "../../../context/ModalContext";
 import ConfirmModal from "../../../components/ConfirmModal";
 import { useNotifications } from "../../../context/NotificationContext";
 import SearchableDropdown from "../../../components/util/SearchableDropdown";
+import { buildLibraryPageGoURL } from "../../../utils/projectHelpers";
 
 const MAX_QUANTITY = 10;
 
@@ -271,12 +272,20 @@ export default function ProductPage() {
                 {formatPrice((price?.unit_amount || 0) * quantity, true)}
               </button>
               {isBook && (
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-center rounded-md border border-primary px-8 py-3 text-base font-medium text-primary hover:bg-primary hover:text-white"
+                <a
+                  href={buildLibraryPageGoURL(
+                    product?.metadata["book_id"].split("-")[0] || "unknown",
+                    product?.metadata["book_id"].split("-")[1] || "unknown"
+                  )}
+                  target="_blank"
                 >
-                  Read Online
-                </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-center rounded-md border border-primary px-8 py-3 text-base font-medium text-primary hover:bg-primary hover:text-white"
+                  >
+                    Read Online
+                  </button>
+                </a>
               )}
             </div>
 
