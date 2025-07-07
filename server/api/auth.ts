@@ -282,8 +282,6 @@ async function completeLogin(req: Request, res: Response) {
     });
     const profileData = profileRes.data;
     const centralAttr = profileData.attributes;
-    console.log(`profileData.sub: ${profileData.sub}`);
-    console.log(`centralAttr.sub: ${centralAttr.sub}`);
     const authSub = profileData.sub || centralAttr.sub;
     const targetOrg = state.orgID || process.env.ORG_ID
 
@@ -292,11 +290,9 @@ async function completeLogin(req: Request, res: Response) {
     let authUser = null;
 
     // Check if user exists locally and sync
-    console.log(`Checking for user with centralID ${authSub}`);
     // If validUUID, search by centralID, else we may have received an external subject id, so search by email
     const existUser = await User.findOne(validUUID ? { centralID: authSub } : { email: centralAttr.email });
     if (existUser) {
-      console.log(`Found user with centralID ${authSub} and email ${existUser.email}`);
       authUser = existUser;
       // Sync data that may have been changed in a delegated IdP
       let doSync = false;
@@ -501,7 +497,6 @@ async function handleSingleLogout(req: Request, res: Response) {
       throw new Error("User not found");
     }
 
-    console.log(`Received logout request for user ${user.uuid}`);
     // Invalidate matching session(s) for the user (technically should only be one)
     await Session.updateMany(
       {
