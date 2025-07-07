@@ -713,7 +713,7 @@ export default class StoreService {
                     }
                 }
 
-                for (const book of Array.from(allItems).slice(0, 100)) { // Limit to 100 books for now
+                for (const book of Array.from(allItems)) {
                     try {
                         // add a slight delay to avoid hitting API rate limits
                         await new Promise(resolve => setTimeout(resolve, 150));
