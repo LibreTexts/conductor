@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogBackdrop,
@@ -7,22 +7,18 @@ import {
   DisclosureButton,
   DisclosurePanel,
   Menu,
-  MenuButton,
-  MenuItem,
-  MenuItems,
 } from "@headlessui/react";
 import AlternateLayout from "../../../components/navigation/AlternateLayout";
-import classNames from "classnames";
 import { Icon } from "semantic-ui-react";
-import ProductCard from "../../../components/store/ProductCard";
 import { useSearchParams } from "react-router-dom-v5-compat";
-import { DEMO_PRODUCTS } from "./demo-data";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../../api";
 import { StoreProduct } from "../../../types";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import { formatPrice } from "../../../utils/storeHelpers";
 import TruncatedText from "../../../components/util/TruncatedText";
+import LoadingSpinner from "../../../components/LoadingSpinner";
+import Pagination from "../../../components/util/Pagination";
 
 // const sortOptions = [
 //   { name: "Most Popular", href: "#", current: true },
@@ -54,20 +50,26 @@ export default function CatalogPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [filters, setFilters] = useState(initialFilters);
 
+  const [activePage, setActivePage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [totalItems, setTotalItems] = useState(0);
+
   const { data, isFetching } = useQuery<StoreProduct[]>({
-    queryKey: ["store-products", filters],
+    queryKey: ["store-products", filters, activePage, itemsPerPage],
     queryFn: fetchProducts,
   });
 
   async function fetchProducts() {
     try {
       const products = await api.getStoreProducts({
-        limit: 100,
-        category: filters
-          .find((f) => f.id === "category")
-          ?.options.filter((o) => o.checked)
-          .map((o) => o.value)
-          .join(","),
+        page: activePage,
+        limit: itemsPerPage,
+        category:
+          filters
+            .find((f) => f.id === "category")
+            ?.options.filter((o) => o.checked)
+            .map((o) => o.value)
+            .join(",") || undefined,
         query: searchParams.get("query") || undefined,
       });
 
@@ -79,6 +81,8 @@ export default function CatalogPage() {
         throw new Error("Invalid response from server.");
       }
 
+      setTotalItems(products.data.meta.total_count);
+
       return products.data.products;
     } catch (err) {
       handleGlobalError(err);
@@ -89,9 +93,10 @@ export default function CatalogPage() {
   useEffect(() => {
     const params = Object.fromEntries(searchParams.entries());
     // You can use params to filter products or perform other actions
-    console.log("Query Parameters:", params);
     const categories = params.category ? params.category.split(",") : [];
     const subjects = params.subject ? params.subject.split(",") : [];
+    const page = params.page ? parseInt(params.page, 10) : 1;
+    const limit = params.limit ? parseInt(params.limit, 10) : 12;
 
     // Update filters based on search params
     const updatedFilters = initialFilters.map((filter) => {
@@ -117,38 +122,13 @@ export default function CatalogPage() {
     });
 
     setFilters(updatedFilters);
+    setActivePage(page);
+    setItemsPerPage(limit);
   }, [searchParams]);
 
-  const displayProducts = useMemo(() => {
-    const results = DEMO_PRODUCTS.filter((product) => {
-      const categoryFilter = filters.find((f) => f.id === "category");
-      console.log("Category Filter:", categoryFilter);
-      const subjectFilter = filters.find((f) => f.id === "subject");
-      console.log("Subject Filter:", subjectFilter);
-      if (!categoryFilter) return true;
-
-      const categoryMatch = categoryFilter.options.some(
-        (option) =>
-          option.checked &&
-          product.category.toLowerCase().includes(option.value)
-      );
-
-      // const subjectMatch =
-      //   !subjectFilter ||
-      //   subjectFilter.options.some(
-      //     (option) =>
-      //       option.checked &&
-      //       product.subtitle.toLowerCase().includes(option.value)
-      //   );
-
-      // if (categoryFilter && subjectFilter) {
-      //   return categoryMatch && subjectMatch;
-      // }
-      return categoryMatch;
-    });
-    console.log("Filtered Products:", results);
-    return results;
-  }, [filters, DEMO_PRODUCTS]);
+  useEffect(() => {
+    handleUpdateSearchParams(filters);
+  }, [filters, activePage, itemsPerPage]);
 
   function handleUpdateFilters(
     sectionId: string,
@@ -167,7 +147,6 @@ export default function CatalogPage() {
       return section;
     });
     setFilters(updatedFilters);
-    handleUpdateSearchParams(updatedFilters);
   }
 
   function handleUpdateSearchParams(newFilters: typeof filters = filters) {
@@ -183,6 +162,10 @@ export default function CatalogPage() {
         newParams.append(section.id, optionsString);
       }
     });
+
+    // Add pagination parameters
+    newParams.set("page", activePage.toString());
+    newParams.set("limit", itemsPerPage.toString());
 
     // Update the URL with the new search params
     window.history.replaceState(
@@ -465,50 +448,54 @@ export default function CatalogPage() {
             </form>
 
             {/* Product grid */}
-            <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-3 lg:col-span-3 lg:gap-x-8">
-              {!isFetching && data?.length === 0 && (
-                <div className="col-span-3 text-center">
-                  <h2 className="text-2xl font-semibold text-gray-900">
-                    No products found
-                  </h2>
-                  <p className="mt-2 text-gray-500">
-                    Try adjusting your filters or search criteria.
-                  </p>
-                </div>
-              )}
-              {data?.map((product) => (
-                <div
-                  key={product.id}
-                  className="inline-flex w-64 flex-col text-center lg:w-auto border rounded-md p-6 shadow-sm"
-                >
-                  <div className="group relative">
-                    <div className="flex justify-center">
-                      <img
-                        alt={`Image of ${product.name}`}
-                        src={product.images[0]}
-                        className="aspect-auto h-60 w-fit rounded-md bg-gray-white object-contain group-hover:opacity-75"
-                      />
-                    </div>
-                    <div className="mt-6">
-                      <h3 className="mt-1 text-xl font-semibold text-gray-900">
-                        <a href={`/store/product/${product.id}`}>
-                          <span className="absolute inset-0" />
-                          {product.name}
-                        </a>
-                      </h3>
-                      <TruncatedText
-                        text={product.description}
-                        maxLines={3}
-                        preciseTruncation={true}
-                        className="mt-2 text-sm text-gray-500 h-20"
-                      />
-                      <p className="mt-4 text-xl text-gray-900 font-semibold">
-                        {formatPrice(product.prices[0].unit_amount, true)}
-                      </p>
-                    </div>
+            <div className="flex flex-col lg:col-span-3">
+              <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-3 lg:col-span-3 lg:gap-x-8">
+                {isFetching && (
+                  <LoadingSpinner iconOnly className="col-span-3" />
+                )}
+                {!isFetching && data?.length === 0 && (
+                  <div className="col-span-3 text-center">
+                    <h2 className="text-2xl font-semibold text-gray-900">
+                      No products found
+                    </h2>
+                    <p className="mt-2 text-gray-500">
+                      Try adjusting your filters or search criteria.
+                    </p>
                   </div>
+                )}
+                {data?.map((product) => (
+                  <div
+                    key={product.id}
+                    className="inline-flex w-64 flex-col text-center lg:w-auto border rounded-md p-6 shadow-sm"
+                  >
+                    <div className="group relative">
+                      <div className="flex justify-center">
+                        <img
+                          alt={`Image of ${product.name}`}
+                          src={product.images[0]}
+                          className="aspect-auto h-60 w-fit rounded-md bg-gray-white object-contain group-hover:opacity-75"
+                        />
+                      </div>
+                      <div className="mt-6">
+                        <h3 className="mt-1 text-xl font-semibold text-gray-900">
+                          <a href={`/store/product/${product.id}`}>
+                            <span className="absolute inset-0" />
+                            {product.name}
+                          </a>
+                        </h3>
+                        <TruncatedText
+                          text={product.description}
+                          maxLines={3}
+                          preciseTruncation={true}
+                          className="mt-2 text-sm text-gray-500 h-20"
+                        />
+                        <p className="mt-4 text-xl text-gray-900 font-semibold">
+                          {formatPrice(product.prices[0].unit_amount, true)}
+                        </p>
+                      </div>
+                    </div>
 
-                  {/* <h4 className="sr-only">Available colors</h4>
+                    {/* <h4 className="sr-only">Available colors</h4>
                       <ul
                         role="list"
                         className="mt-auto flex items-center justify-center space-x-3 pt-6"
@@ -523,8 +510,17 @@ export default function CatalogPage() {
                           </li>
                         ))}
                       </ul> */}
-                </div>
-              ))}
+                  </div>
+                ))}
+              </div>
+              <Pagination
+                activePage={activePage}
+                totalPages={Math.ceil(totalItems / itemsPerPage)}
+                onPageChange={(page) => {
+                  setActivePage(page);
+                }}
+                className="mt-8"
+              />
             </div>
           </div>
         </section>

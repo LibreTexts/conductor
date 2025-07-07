@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import StoreService from "./services/store-service";
 import { z } from "zod";
-import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema } from "./validators/store";
+import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema } from "./validators/store";
 import { conductor400Err, conductor500Err } from "../util/errorutils";
 import { debugError } from "../debug";
 import { LuluWebhookData, StoreShippingOption } from "../types";
@@ -35,9 +35,11 @@ export async function getStoreProduct(req: z.infer<typeof GetStoreProductSchema>
 
 export async function getStoreProducts(req: z.infer<typeof GetStoreProductsSchema>, res: Response) {
   try {
-    const limit = req.query?.limit || 100;
+    const limit = req.query?.limit ? parseInt(req.query.limit?.toString(), 10) : 100;
+    const page = req.query?.page ? parseInt(req.query.page?.toString(), 10) : 1;
 
     const results = await storeService.getStoreProducts({
+      page: page,
       starting_after: req.query?.starting_after,
       limit: limit,
       category: req.query?.category,
@@ -47,12 +49,30 @@ export async function getStoreProducts(req: z.infer<typeof GetStoreProductsSchem
     return res.status(200).send({
       err: false,
       message: "Store products fetched successfully.",
-      products: results,
-      // meta: {
-      //   has_more: results.has_more,
-      //   next_page: results.next_page,
-      // }
+      products: results.items,
+      meta: {
+        has_more: results.has_more,
+        total_count: results.total_count,
+        cursor: results.cursor,
+      }
     })
+  } catch (error) {
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
+
+export async function getMostPopularStoreProducts(req: z.infer<typeof GetMostPopularStoreProductsSchema>, res: Response) {
+  try {
+    const limit = req.query?.limit ? parseInt(req.query.limit?.toString(), 10) : 10;
+
+    const products = await storeService.getMostPopularStoreProducts({ limit });
+
+    return res.status(200).send({
+      err: false,
+      message: "Most popular store products fetched successfully.",
+      products,
+    });
   } catch (error) {
     debugError(error);
     return conductor500Err(res);
@@ -139,12 +159,12 @@ export async function processLuluWebhook(req: Request, res: Response) {
 
 export async function processStripeWebhook(req: Request, res: Response) {
   try {
-    if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+    if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_STORE_WEBHOOK_SECRET) {
       return conductor500Err(res);
     }
 
     const stripeService = new StripeService();
-    const event = await stripeService.parseWebhookEvent(req.body, req.headers['stripe-signature']);
+    const event = await stripeService.parseWebhookEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_STORE_WEBHOOK_SECRET);
 
     const result = await stripeService.processWebhookEvent(event);
     if (result === 'bad_request') {
@@ -202,6 +222,7 @@ export async function syncBooksToStripe(req: Request, res: Response) {
 export default {
   getStoreProduct,
   getStoreProducts,
+  getMostPopularStoreProducts,
   createCheckoutSession,
   getShippingOptions,
   processLuluWebhook,

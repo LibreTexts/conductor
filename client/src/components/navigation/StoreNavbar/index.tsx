@@ -31,7 +31,12 @@ const StoreNavbar: React.FC = () => {
       window.location.pathname === "/store/catalog"
         ? new URLSearchParams(window.location.search)
         : new URLSearchParams();
-    currQuery.set("query", search);
+
+    const queryChanged = currQuery.get("query") !== search;
+    if (queryChanged){
+      currQuery.set("query", search);
+      currQuery.set("page", "1"); // Reset to first page on new search
+    }
 
     window.location.href = `/store/catalog?${currQuery.toString()}`;
   };

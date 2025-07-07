@@ -7,10 +7,7 @@ import { useParams } from "react-router-dom";
 import api from "../../../api";
 import StyledRadioSelect from "../../../components/util/StyledRadioSelect";
 import StyledQuantitySelect from "../../../components/util/StyledQuantitySelect";
-import {
-  APP_LICENSE_FAQS,
-  BOOK_FAQS,
-} from "../../../components/store/FAQS";
+import { APP_LICENSE_FAQS, BOOK_FAQS } from "../../../components/store/FAQS";
 import Linkify from "linkify-react";
 import { findBookPrice, formatPrice } from "../../../utils/storeHelpers";
 import { useCart } from "../../../context/CartContext";
@@ -166,7 +163,7 @@ export default function ProductPage() {
             <img
               alt={`${product?.name} product image`}
               src={product?.images[0]}
-              className="aspect-[4/3] w-full rounded-lg bg-gray-100 object-cover"
+              className="aspect-[4/3] w-full rounded-lg bg-gray-100 object-contain"
             />
           </div>
 
@@ -241,7 +238,14 @@ export default function ProductPage() {
                 />
               </>
             )}
-
+            {!isBook && (
+              <p className="mt-6 text-xs  text-slate-500">
+                Only one active subscription per user is allowed at a time. You
+                can purchase access codes on behalf of other users, but you will
+                not be able to apply multiple access codes for the same app to
+                your account at the same time to stack discounts/extend access.
+              </p>
+            )}
             <StyledQuantitySelect
               className="mt-6"
               value={quantity}
@@ -292,7 +296,7 @@ export default function ProductPage() {
               </div>
             </div> */}
 
-            {isBook && (
+            {isBook ? (
               <div className="mt-10 border-t border-gray-200 pt-10">
                 <h3 className="font-medium text-gray-900">
                   License Information
@@ -305,6 +309,17 @@ export default function ProductPage() {
                   >
                     Please view full licensing details for this book here.
                   </a>
+                </p>
+              </div>
+            ) : (
+              <div className="mt-10 border-t border-gray-200 pt-10">
+                <h3 className="font-medium text-gray-900">
+                  Delivery Information
+                </h3>
+                <p className="mt-4 text-gray-500">
+                  This product is delivered digitally. After purchase, you will
+                  receive an email with an access code and instructions on how
+                  to redeem it.
                 </p>
               </div>
             )}

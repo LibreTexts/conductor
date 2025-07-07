@@ -20,6 +20,7 @@ export default class StripeService {
     public async parseWebhookEvent(
         body: string | Buffer,
         signatureHeader: string | string[] | undefined,
+        signingSecret: string
     ): Promise<Stripe.Event> {
         try {
             let signature: string | undefined;
@@ -34,7 +35,7 @@ export default class StripeService {
                 throw new Error('Invalid Stripe event signature provided.');
             }
 
-            return this.instance.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET || '');
+            return this.instance.webhooks.constructEvent(body, signature, signingSecret);
         } catch (error) {
             console.error('Error processing Stripe webhook event:', error);
             throw new Error('Failed to process Stripe webhook event');

@@ -491,20 +491,30 @@ class API {
 
   // Store
   async getStoreProducts({
+    page = 1,
     limit = 100,
     starting_after,
     category,
     query
   }: {
+    page?: number;
     limit?: number;
     starting_after?: string;
     category?: string;
     query?: string;
   } = {}) {
     const res = await axios.get<
-      { products: StoreProduct[] } & ConductorBaseResponse
+      {
+        products: StoreProduct[]
+        meta: {
+          has_more: boolean;
+          total_count: number;
+          cursor?: string;
+        }
+      } & ConductorBaseResponse
     >("/store/products", {
       params: {
+        page,
         limit,
         starting_after,
         category,
@@ -518,6 +528,21 @@ class API {
     const res = await axios.get<
       { product: StoreProduct } & ConductorBaseResponse
     >(`/store/products/${product_id}`);
+    return res;
+  }
+
+  async getMostPopularStoreProducts({
+    limit = 10,
+  }: {
+    limit?: number;
+  } = {}) {
+    const res = await axios.get<
+      { products: StoreProduct[] } & ConductorBaseResponse
+    >("/store/products/most-popular", {
+      params: {
+        limit,
+      },
+    });
     return res;
   }
 

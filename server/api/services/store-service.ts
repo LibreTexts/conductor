@@ -11,6 +11,7 @@ import LuluService from "./lulu-service";
 import StoreOrder, { StoreOrderInterface } from "../../models/storeorder";
 import centralIdentityAPI from "../central-identity"
 import Fuse from "fuse.js";
+import { getPaginationOffset } from "../../util/helpers";
 
 const BASE_COST = 1.80;
 const PAGE_MULTIPLIER = 0.032;
@@ -72,31 +73,44 @@ export default class StoreService {
         }
     }
 
-    public async getStoreProducts({ limit, starting_after, category, query }: {
+    public async getStoreProducts({ limit, starting_after, category, query, page }: {
         limit?: number;
         starting_after?: string;
         category?: string;
         query?: string;
-    }): Promise<StoreProduct[]> {
+        page?: number;
+    }): Promise<{
+        items: StoreProduct[];
+        has_more: boolean;
+        total_count: number;
+        cursor?: string;
+    }> {
         try {
             const stripe = this.stripeService.getInstance();
 
             const prices = await stripe.prices.search({
                 query: 'metadata["store"]:"true" AND active:"true"',
-                limit: limit || 100,
                 expand: ['data.product'],
             });
 
             if (!prices || !prices.data || prices.data.length === 0) {
                 debug("No bookstore products found.");
-                return [];
+                return {
+                    items: [],
+                    has_more: false,
+                    total_count: 0,
+                };
             }
 
             const products = this._groupByProduct(prices.data);
 
             if (products.length === 0) {
                 debug("No store products found.");
-                return [];
+                return {
+                    items: [],
+                    has_more: false,
+                    total_count: 0,
+                };
             }
 
             let filteredProducts = products;
@@ -131,11 +145,65 @@ export default class StoreService {
                     .map(result => result.item);
             }
 
+            // const lastItem = starting_after ? filteredProducts.find(item => item.id === starting_after) : undefined;
+            // if (lastItem) {
+            //     const index = filteredProducts.indexOf(lastItem);
+            //     if (index !== -1) {
+            //         filteredProducts = filteredProducts.slice(index + 1);
+            //     }
+            // }
 
-            return filteredProducts;
+            const offset = page ? getPaginationOffset(page, limit || 100) : 0;
+            const paginated = filteredProducts.slice(offset, offset + (limit || 100));
+
+            return {
+                items: paginated,
+                has_more: filteredProducts.length > (limit || 100),
+                total_count: filteredProducts.length,
+                cursor: paginated.length > 0 ? paginated[paginated.length - 1].id : undefined
+            };
         } catch (error) {
             debug("Error fetching store products:", error);
             throw new Error("Failed to fetch store products");
+        }
+    }
+
+    public async getMostPopularStoreProducts({
+        limit
+    }: {
+        limit: number;
+    }): Promise<StoreProduct[]> {
+        try {
+            const stripe = this.stripeService.getInstance();
+
+            const prices = await stripe.prices.search({
+                query: 'metadata["store"]:"true" AND active:"true"',
+                expand: ['data.product'],
+            });
+
+            if (!prices || !prices.data || prices.data.length === 0) {
+                debug("No bookstore products found.");
+                return [];
+            }
+
+            const products = this._groupByProduct(prices.data);
+
+            if (products.length === 0) {
+                debug("No store products found.");
+                return [];
+            }
+
+            // For now, grab a random selection of products
+            const sortedProducts = products.sort(() => Math.random() - 0.5);
+            if (sortedProducts.length === 0) {
+                debug("No products available for most popular store products.");
+                return [];
+            }
+
+            return sortedProducts.slice(0, limit);
+        } catch (error) {
+            debug("Error fetching most popular store products:", error);
+            throw new Error("Failed to fetch most popular store products");
         }
     }
 
@@ -230,6 +298,9 @@ export default class StoreService {
                 metadata: {
                     application: 'conductor',
                     feature: 'store',
+                },
+                payment_intent_data: {
+                    receipt_email: shipping_address.email,
                 }
             });
 
@@ -567,7 +638,7 @@ export default class StoreService {
                 return storeOrder;
             }
         } catch (error) {
-            throw new Error("Fatal error during order processing")
+            throw new Error("Fatal error during order processing: " + error);
         }
     }
 

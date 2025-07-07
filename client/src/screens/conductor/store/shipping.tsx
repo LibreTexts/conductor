@@ -49,6 +49,7 @@ export default function ShippingPage() {
   const proceedDisabled = useMemo(() => {
     if (!cart || cart.items.length === 0) return true;
     if (!shippingCalculated.current) return true;
+    if (shippingLoading) return true;
 
     // If there are shipping options other than digital delivery, one must be selected
     if (shippingOptions === "digital_delivery_only") {
@@ -58,7 +59,13 @@ export default function ShippingPage() {
     }
 
     return false;
-  }, [cart, shippingCalculated, selectedShippingOption]);
+  }, [
+    cart,
+    shippingCalculated.current,
+    selectedShippingOption,
+    shippingOptions,
+    shippingLoading,
+  ]);
 
   const updateShippingOptionsDebounced = debounce(updateShippingOptions, 500);
   useEffect(() => {
@@ -102,6 +109,15 @@ export default function ShippingPage() {
 
       setShippingOptions(response.data.options);
       shippingCalculated.current = true;
+
+      if (response.data.options === "digital_delivery_only") {
+        setSelectedShippingOption(null);
+      } else if (response.data.options.length > 0) {
+        // Automatically select the first shipping option
+        setSelectedShippingOption(response.data.options[0]);
+      } else {
+        setSelectedShippingOption(null);
+      }
     } catch (error) {
       console.error("Error updating shipping options:", error);
       setError(

@@ -1,7 +1,5 @@
-import { useState } from "react";
-import { Icon } from "semantic-ui-react";
+import { useQuery } from "@tanstack/react-query";
 import AlternateLayout from "../../../components/navigation/AlternateLayout";
-import { DEMO_PRODUCTS } from "./demo-data";
 import {
   IconBook2,
   IconKey,
@@ -9,6 +7,11 @@ import {
   IconShirt,
   IconShoppingCart,
 } from "@tabler/icons-react";
+import { StoreProduct } from "../../../types";
+import api from "../../../api";
+import LoadingSpinner from "../../../components/LoadingSpinner";
+import TruncatedText from "../../../components/util/TruncatedText";
+import { formatPrice } from "../../../utils/storeHelpers";
 
 const CategoryLink = ({
   href,
@@ -24,8 +27,8 @@ const CategoryLink = ({
     target={target}
     className="flex items-center justify-center rounded-md border border-transparent bg-primary px-6 py-3 font-medium text-white hover:shadow-sm hover:text-gray-300 min-h-[3rem] text-center"
     style={{
-      fontSize: 'clamp(0.75rem, 2.5vw, 1rem)',
-      lineHeight: '1.2',
+      fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
+      lineHeight: "1.2",
     }}
   >
     {children}
@@ -33,6 +36,17 @@ const CategoryLink = ({
 );
 
 export default function StoreHome() {
+  const { data, isLoading } = useQuery<StoreProduct[]>({
+    queryKey: ["store-most-popular-products"],
+    queryFn: async () => {
+      const res = await api.getMostPopularStoreProducts({
+        limit: 10,
+      });
+      return res.data.products;
+    },
+    refetchOnWindowFocus: false,
+  });
+
   return (
     <AlternateLayout>
       <main>
@@ -68,7 +82,10 @@ export default function StoreHome() {
                         <IconSchool className="inline !mr-3" />
                         Shop Prof. Dev.
                       </CategoryLink>
-                      <CategoryLink href="https://swagstore.libretexts.org" target="_blank">
+                      <CategoryLink
+                        href="https://swagstore.libretexts.org"
+                        target="_blank"
+                      >
                         <IconShirt className="inline !mr-3" />
                         Shop Merch
                       </CategoryLink>
@@ -122,36 +139,42 @@ export default function StoreHome() {
                   role="list"
                   className="mx-4 inline-flex space-x-8 sm:mx-6 lg:mx-0 lg:grid lg:grid-cols-4 lg:gap-x-8 lg:space-x-0 gap-y-8"
                 >
-                  {DEMO_PRODUCTS.map((product) => (
-                    <li
-                      key={product.id}
-                      className="inline-flex w-64 flex-col text-center lg:w-auto border rounded-md p-4 shadow-sm"
-                    >
-                      <div className="group relative">
-                        <div className="flex justify-center">
-                          <img
-                            alt={product.imageAlt}
-                            src={product.imageSrc}
-                            className="aspect-auto h-64 w-fit rounded-md bg-gray-white object-contain group-hover:opacity-75"
-                          />
+                  {isLoading && <LoadingSpinner iconOnly />}
+                  {!isLoading &&
+                    data &&
+                    data.map((product) => (
+                      <li
+                        key={product.id}
+                        className="inline-flex w-64 flex-col text-center lg:w-auto border rounded-md p-4 shadow-sm"
+                      >
+                        <div className="group relative">
+                          <div className="flex justify-center">
+                            <img
+                              alt={`${product.name} product image`}
+                              src={product?.images[0]}
+                              className="aspect-auto h-64 w-fit rounded-md bg-gray-white object-contain group-hover:opacity-75"
+                            />
+                          </div>
+                          <div className="mt-6">
+                            <h3 className="mt-1 text-xl font-semibold text-gray-900">
+                              <a href={`/store/product/${product.id}`}>
+                                <span className="absolute inset-0" />
+                                {product.name}
+                              </a>
+                            </h3>
+                            <TruncatedText
+                              text={product.description}
+                              maxLines={3}
+                              preciseTruncation={true}
+                              className="mt-2 text-sm text-gray-500 h-20"
+                            />
+                            <p className="mt-4 text-lg text-gray-900">
+                              {formatPrice(product.prices[0].unit_amount, true)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="mt-6">
-                          <h3 className="mt-1 text-xl font-semibold text-gray-900">
-                            <a href={`/store/product/${product.id}`}>
-                              <span className="absolute inset-0" />
-                              {product.name}
-                            </a>
-                          </h3>
-                          <p className="text-base text-gray-500 mt-4">
-                            {product.subtitle}
-                          </p>
-                          <p className="mt-4 text-lg text-gray-900">
-                            {product.price}
-                          </p>
-                        </div>
-                      </div>
 
-                      {/* <h4 className="sr-only">Available colors</h4>
+                        {/* <h4 className="sr-only">Available colors</h4>
                       <ul
                         role="list"
                         className="mt-auto flex items-center justify-center space-x-3 pt-6"
@@ -166,8 +189,8 @@ export default function StoreHome() {
                           </li>
                         ))}
                       </ul> */}
-                    </li>
-                  ))}
+                      </li>
+                    ))}
                 </ul>
               </div>
             </div>
@@ -183,41 +206,6 @@ export default function StoreHome() {
             </div>
           </div>
         </section>
-
-        {/* Collections */}
-        {/* <section aria-labelledby="collections-heading" className="bg-gray-100">
-          <div className="mx-32 px-4 sm:px-6 lg:px-8">
-            <div className="mx-auto max-w-2xl py-16 sm:py-24 lg:max-w-none lg:py-32">
-              <h2
-                id="collections-heading"
-                className="text-2xl font-bold text-gray-900"
-              >
-                Collections
-              </h2>
-
-              <div className="mt-6 space-y-12 lg:grid lg:grid-cols-3 lg:gap-x-6 lg:space-y-0">
-                {collections.map((collection) => (
-                  <div key={collection.name} className="group relative">
-                    <img
-                      alt={collection.imageAlt}
-                      src={collection.imageSrc}
-                      className="w-full rounded-lg bg-white object-cover group-hover:opacity-75 max-sm:h-80 sm:aspect-[2/1] lg:aspect-square"
-                    />
-                    <h3 className="mt-6 text-sm text-gray-500">
-                      <a href={collection.href}>
-                        <span className="absolute inset-0" />
-                        {collection.name}
-                      </a>
-                    </h3>
-                    <p className="text-base font-semibold text-gray-900">
-                      {collection.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section> */}
       </main>
     </AlternateLayout>
   );

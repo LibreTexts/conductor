@@ -2,7 +2,7 @@ const COMMON_ITEMS = [
   {
     question: "What is your return policy?",
     answer:
-      "We do not accept returns for physical books. However, if you have any issues with the processing of your order, please contact our Support Center and we will do our best to resolve the issue.",
+      "We generally do not accept returns or refunds. However, if you have any issues with the processing of your order, please contact our Support Center and we will do our best to resolve the issue.",
   },
   {
     question: "Are discounts available for bulk purchases?",

@@ -26,11 +26,18 @@ const _FullShippingAddress = _BasicShippingAddress.extend({
 
 export const GetStoreProductsSchema = z.object({
     query: z.object({
+        page: z.coerce.number().optional().default(1),
         limit: z.coerce.number().optional().default(100),
         starting_after: z.string().optional(),
         category: z.string().optional(),
         query: z.string().optional().or(z.literal("")),
     }).optional(),
+});
+
+export const GetMostPopularStoreProductsSchema = z.object({
+    query: z.object({
+        limit: z.coerce.number().optional().default(10),
+    }),
 });
 
 export const GetStoreProductSchema = z.object({

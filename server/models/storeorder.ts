@@ -29,11 +29,7 @@ const StoreOrderSchema = new Schema<StoreOrderInterface>({
         default: "pending",
     },
     error: String,
-    luluJobID: {
-        type: String,
-        required: false,
-        unique: true, // Ensure that each Lulu job ID is unique
-    },
+    luluJobID: String,
     luluJobStatus: String,
     luluJobError: String
 })

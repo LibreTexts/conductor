@@ -685,10 +685,15 @@ router.route("/store/products").get(
   storeAPI.getStoreProducts
 )
 
+router.route("/store/products/most-popular").get(
+  middleware.validateZod(storeValidators.GetMostPopularStoreProductsSchema),
+  storeAPI.getMostPopularStoreProducts
+);
+
 router.route("/store/products/:product_id").get(
   middleware.validateZod(storeValidators.GetStoreProductSchema),
   storeAPI.getStoreProduct
-)
+);
 
 router.route("/store/sync").post(
   storeAPI.syncBooksToStripe
