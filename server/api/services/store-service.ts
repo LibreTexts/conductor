@@ -302,7 +302,8 @@ export default class StoreService {
                 },
                 payment_intent_data: {
                     receipt_email: shipping_address.email,
-                }
+                },
+                allow_promotion_codes: true,
             });
 
             return {
@@ -681,8 +682,15 @@ export default class StoreService {
             }
 
             for (const library of alllibraries) {
-                const bookshelf = await axios.get(`https://api.libretexts.org/DownloadsCenter/${library}/Bookshelves.json`);
-                const courses = await axios.get(`https://api.libretexts.org/DownloadsCenter/${library}/Courses.json`);
+                const bookshelf = await axios.get(`https://api.libretexts.org/DownloadsCenter/${library}/Bookshelves.json`).catch((err) => {
+                    debug(`Error fetching bookshelf for library ${library}:`, err);
+                    return null;
+                });
+                const courses = await axios.get(`https://api.libretexts.org/DownloadsCenter/${library}/Courses.json`).catch((err) => {
+                    debug(`Error fetching courses for library ${library}:`, err);
+                    return null;
+                });
+
                 if ((!bookshelf || !bookshelf.data) && (!courses || !courses.data)) {
                     debug(`No books or courses found for library: ${library}`);
                     continue;
