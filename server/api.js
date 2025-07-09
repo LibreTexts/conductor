@@ -206,6 +206,18 @@ router
   )
 
 router
+  .route("/central-identity/users/:id/academy-online")
+  .patch(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("updateUserAcademyOnlineAccess"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.updateUserAcademyOnlineAccess
+  );
+
+router
   .route("/central-identity/users/:id/applications")
   .get(
     middleware.checkCentralIdentityConfig,

@@ -175,6 +175,34 @@ async function updateUser(
   }
 }
 
+async function updateUserAcademyOnlineAccess(
+  req: TypedReqParamsAndBody<{ id: string }, { academy_online: number; academy_online_expires_in_days: number }>,
+  res: Response<{ err: boolean; user: CentralIdentityUser }>
+) {
+  try {
+    if (!req.params.id) {
+      return conductor400Err(res);
+    }
+
+    const userRes = await useCentralIdentityAxios(false).patch(
+      `/users/${req.params.id}/academy-online`,
+      req.body
+    );
+
+    if (!userRes.data) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      user: userRes.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 async function getUserApplications(
   req: TypedReqParams<{ id: string }>,
   res: Response<{ err: boolean; applications: CentralIdentityApp[] }>
@@ -1565,6 +1593,13 @@ function validate(method: string) {
     case "updateUser": {
       return [param("id", conductorErrors.err1).exists().isUUID()];
     }
+    case "updateUserAcademyOnlineAccess": {
+      return [
+        param("id", conductorErrors.err1).exists().isUUID(),
+        body("academy_online", conductorErrors.err1).exists().isInt({ min: 0, max: 4 }),
+        body("academy_online_expires_in_days", conductorErrors.err1).exists().isInt({ min: 0, max: 730 }),
+      ];
+    }
     case "getOrgs": {
       return [
         param("activePage", conductorErrors.err1).optional().isInt(),
@@ -1670,6 +1705,7 @@ export default {
   getVerificationRequest,
   updateVerificationRequest,
   updateUser,
+  updateUserAcademyOnlineAccess,
   processNewUserWebhookEvent,
   processLibraryAccessWebhookEvent,
   processVerificationStatusUpdateWebook,

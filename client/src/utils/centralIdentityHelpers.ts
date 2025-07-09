@@ -122,6 +122,41 @@ export const verificationRequestStatusOptions: GenericKeyTextValueObj<CentralIde
     },
   ];
 
+export const academyOnlineAccessLevels: GenericKeyTextValueObj<number>[] = [
+  {
+    key: "0",
+    text: "No Access/Not Assigned",
+    value: 0,
+  },
+  {
+    key: "1",
+    text: "LibreTexts Team (Reserved)",
+    value: 1,
+  },
+  {
+    key: "2",
+    text: "LibreNet Admin (Reserved)",
+    value: 2,
+  },
+  {
+    key: "3",
+    text: "General Subscriber",
+    value: 3,
+  },
+  {
+    key: "4",
+    text: "ADAPT Subscriber",
+    value: 4,
+  }
+]
+
+export const getPrettyAcademyOnlineAccessLevel = (level: number) => {
+  const accessLevel = academyOnlineAccessLevels.find(
+    (access) => access.value === level
+  );
+  return accessLevel ? `${level} - ${accessLevel.text}` : "Unknown";
+}
+
 export const getCentralAuthProfileEditURL = () => {
   return "https://one.libretexts.org/profile";
 };

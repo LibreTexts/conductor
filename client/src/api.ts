@@ -46,6 +46,7 @@ import {
   StoreGetShippingOptionsRes,
   StoreCheckoutForm,
   StoreShippingOption,
+  EditAcademyOnlineAccessFormValues,
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -849,6 +850,13 @@ class API {
     const res = await axios.patch<ConductorBaseResponse>(
       `/central-identity/users/${uuid}/re-enable`
     );
+    return res;
+  }
+
+  async updateCentralIdentityUserAcademyOnlineAccess(uuid: string, data: EditAcademyOnlineAccessFormValues) {
+    const res = await axios.patch<{
+      user: CentralIdentityUser;
+    } & ConductorBaseResponse>(`/central-identity/users/${uuid}/academy-online`, data);
     return res;
   }
 

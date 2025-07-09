@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy } from "react";
+import { useState, useEffect, lazy, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   Header,
@@ -22,6 +22,7 @@ import { useForm, Controller } from "react-hook-form";
 import axios from "axios";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import {
+  getPrettyAcademyOnlineAccessLevel,
   getPrettyAuthSource,
   getPrettyUserType,
   getPrettyVerficationStatus,
@@ -67,6 +68,7 @@ const UserSupportTickets = lazy(
 
 import api from "../../../../api";
 import UserConductorData from "../../../../components/controlpanel/CentralIdentity/UserConductorData";
+import EditUserAcademyOnlineModal from "../../../../components/controlpanel/CentralIdentity/EditUserAcademyOnlineModal";
 
 const CentralIdentityUserView = () => {
   const { uuid } = useParams<{ uuid: string }>();
@@ -75,7 +77,10 @@ const CentralIdentityUserView = () => {
 
   const [loading, setLoading] = useState<boolean>(false);
   const [showAddAppModal, setShowAddAppModal] = useState<boolean>(false);
-  const [showDisableUserModal, setShowDisableUserModal] = useState<boolean>(false);
+  const [showDisableUserModal, setShowDisableUserModal] =
+    useState<boolean>(false);
+  const [showAcademyAccessModal, setShowAcademyAccessModal] =
+    useState<boolean>(false);
   const [showAddOrgModal, setShowAddOrgModal] = useState<boolean>(false);
   const [userApps, setUserApps] = useState<CentralIdentityApp[]>([]);
   const [showRemoveOrgOrAppModal, setShowRemoveOrgOrAppModal] =
@@ -115,6 +120,13 @@ const CentralIdentityUserView = () => {
     }
   }, [uuid]);
 
+  const academyOnlineExpires = useMemo(() => {
+    const academyOnlineExpires = getValues("academy_online_expires");
+    if (!academyOnlineExpires) return "Never";
+    const parsedDate = parseISO(academyOnlineExpires);
+    return format(parsedDate, "MM/dd/yyyy hh:mm aa");
+  }, [watch("academy_online_expires")]);
+
   async function loadUser() {
     try {
       if (!uuid) return;
@@ -147,6 +159,7 @@ const CentralIdentityUserView = () => {
 
       setUserLocalID(res.uuid);
     } catch (err) {
+      console.error(err);
       handleGlobalError(
         "User does not have a local Conductor record. This may or may not be expected."
       );
@@ -212,6 +225,13 @@ const CentralIdentityUserView = () => {
     loadUser();
   }
 
+  function handleAcademyAccessModalClose(didUpdate = false) {
+    setShowAcademyAccessModal(false);
+    if (didUpdate) {
+      loadUser();
+    }
+  }
+
   async function handleSave() {
     try {
       if (!userInitVal) return;
@@ -245,7 +265,7 @@ const CentralIdentityUserView = () => {
       if (!uuid) return;
       setLoading(true);
       const res = await api.reEnableCentralIdentityUser(uuid);
-      
+
       if (res.data?.err) {
         handleGlobalError(res.data.errMsg || res.data.err);
         return;
@@ -346,7 +366,7 @@ const CentralIdentityUserView = () => {
                     >
                       <Icon name="refresh" /> Re-Enable User
                     </Button>
-                  ):  
+                  ) : (
                     <Button
                       color="red"
                       onClick={handleOpenDisableUserModal}
@@ -354,7 +374,7 @@ const CentralIdentityUserView = () => {
                     >
                       <Icon name="ban" /> Disable User
                     </Button>
-                  }
+                  )}
                 </div>
                 <div style={{ marginBottom: "1.25rem", width: "100%" }}>
                   <Header sub>Email</Header>
@@ -680,6 +700,35 @@ const CentralIdentityUserView = () => {
                   </Table>
                 </div>
               </Segment>
+              <Segment>
+                <div className="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
+                  <Header as="h3" style={{ margin: 0 }}>
+                    Academy Online
+                  </Header>
+                  <Button
+                    icon
+                    color="blue"
+                    size="tiny"
+                    onClick={() => setShowAcademyAccessModal(true)}
+                  >
+                    <Icon name="pencil" />
+                  </Button>
+                </div>
+                <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+                  <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                    <Header sub>Level</Header>
+                    <span>
+                      {getPrettyAcademyOnlineAccessLevel(
+                        getValues("academy_online")
+                      )}
+                    </span>
+                  </div>
+                  <div style={{ marginBottom: "1.25rem", width: "100%" }}>
+                    <Header sub>Access Expires</Header>
+                    <span>{academyOnlineExpires}</span>
+                  </div>
+                </div>
+              </Segment>
               {userLocalID && <UserSupportTickets uuid={userLocalID} />}
               <Segment>
                 <InternalNotesSection userId={uuid} />
@@ -714,6 +763,14 @@ const CentralIdentityUserView = () => {
         show={showDisableUserModal}
         userId={uuid}
         onClose={handleCloseDisableUserModal}
+      />
+      <EditUserAcademyOnlineModal
+        show={showAcademyAccessModal}
+        userId={uuid}
+        onClose={() => handleAcademyAccessModalClose(true)}
+        onChanged={() => {
+          handleAcademyAccessModalClose(true);
+        }}
       />
     </Grid>
   );

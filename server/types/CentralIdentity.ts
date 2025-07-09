@@ -40,17 +40,22 @@ export type CentralIdentityApp = {
 };
 
 export type CentralIdentityUser = {
+  academy_online: number;
+  academy_online_expires: string | null;
   active: boolean;
   avatar: string | null;
   bio_url?: string | null;
   createdAt: string;
   disabled: boolean | null;
+  disabled_reason?: string | null;
+  disabled_date?: string | null;
   email: string;
   enabled: boolean;
   expired: boolean | null;
   external_idp: string | null;
   external_subject_id: string | null;
   first_name: string;
+  lang: string;
   last_name: string;
   last_password_change: string | null;
   legacy: boolean;
