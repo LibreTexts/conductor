@@ -110,7 +110,6 @@ async function getUsers(
     if (req.query.sort) {
       usersRes.data.data = sortData(usersRes.data.data, sortChoice);
     }
-
     return res.send({
       err: false,
       users: usersRes.data.data,
@@ -1471,6 +1470,52 @@ async function processVerificationStatusUpdateWebook(
   }
 }
 
+async function disableUser(
+  req: ZodReqWithUser<TypedReqParamsAndBody<{ id: string }, { reason: string }>>,
+  res: Response
+) {
+  try {
+    const uuid = req.params.id;
+    const { reason } = req.body;
+
+    const userRes = await useCentralIdentityAxios(false).patch(
+      `/users/${uuid}/disable`,
+      { disabled_reason: reason }
+    );
+
+    res.send({
+      err: false,
+      msg: "User successfully disabled.",
+      meta: {},
+    })
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function reEnableUser(
+  req: ZodReqWithUser<TypedReqParams<{ id: string }>>,
+  res: Response
+) {
+  try {
+    const uuid = req.params.id;
+
+    const userRes = await useCentralIdentityAxios(false).patch(
+      `/users/${uuid}/re-enable`,
+    );
+
+    res.send({
+      err: false,
+      msg: "User successfully re-enabled.",
+      meta: {},
+    })
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 /**
  * Middleware(s) to verify that requests contain necessary and/or valid fields.
  */
@@ -1560,6 +1605,17 @@ function validate(method: string) {
         body("logo", conductorErrors.err1).optional().isString(),
       ];
     }
+    case "disableUser": {
+      return [
+        param("id", conductorErrors.err1).exists().isUUID(),
+        body("reason", conductorErrors.err1).optional().isString(),
+      ];
+    }
+    case "reEnableUser": {
+      return [
+        param("id", conductorErrors.err1).exists().isUUID(),
+      ];
+    }
     case "getADAPTOrgs": {
       return [
         param("activePage", conductorErrors.err1).optional().isInt(),
@@ -1623,4 +1679,6 @@ export default {
   createUserNote,
   updateUserNote,
   deleteUserNote,
+  disableUser,
+  reEnableUser
 };
