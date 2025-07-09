@@ -1,4 +1,6 @@
+import useClientConfig from "../../../hooks/useClientConfig";
 import { Organization, User } from "../../../types";
+import EnvironmentBanner from "../../navigation/EnvironmentBanner";
 import CommonsNavbarDesktop from "./CommonsNavbarDesktop";
 import CommonsNavbarMobile from "./CommonsNavbarMobile";
 import { useMediaQuery } from "react-responsive";
@@ -19,11 +21,19 @@ const CommonsNavbar: React.FC<CommonsNavbarProps> = ({ org, user }) => {
     undefined
   );
 
+  const { isProduction } = useClientConfig();
+
   const getCommonsTitle = () =>
     org.orgID === "libretexts" ? "LibreCommons" : "Campus Commons";
 
   return (
-    <div className="nav-menu">
+    <div
+      className="nav-menu"
+      style={{
+        height: isProduction ? "60px" : "100px",
+      }}
+    >
+      <EnvironmentBanner />
       {isTailwindXl ? (
         <CommonsNavbarDesktop
           org={org}

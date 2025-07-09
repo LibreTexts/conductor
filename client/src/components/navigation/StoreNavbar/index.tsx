@@ -1,17 +1,13 @@
-import { useMediaQuery } from "react-responsive";
 import withUserStateDependency from "../../../enhancers/withUserStateDependency";
 import { useEffect, useState } from "react";
 import { useTypedSelector } from "../../../state/hooks";
 import StoreNavbarDesktop from "./StoreNavbarDesktop";
+import EnvironmentBanner from "../EnvironmentBanner";
 
 const StoreNavbar: React.FC = () => {
   const user = useTypedSelector((state) => state.user);
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(true);
-  const isTailwindLg = useMediaQuery(
-    { minWidth: 1024 }, // Tailwind LG breakpoint
-    undefined
-  );
 
   useEffect(() => {
     // if there is a query parameter in the URL on first render, set it as the search value
@@ -22,7 +18,7 @@ const StoreNavbar: React.FC = () => {
     } else {
       setSearch("");
     }
-  }, [])
+  }, []);
 
   const handleSearch = () => {
     if (!search) return;
@@ -33,7 +29,7 @@ const StoreNavbar: React.FC = () => {
         : new URLSearchParams();
 
     const queryChanged = currQuery.get("query") !== search;
-    if (queryChanged){
+    if (queryChanged) {
       currQuery.set("query", search);
       currQuery.set("page", "1"); // Reset to first page on new search
     }
@@ -42,13 +38,16 @@ const StoreNavbar: React.FC = () => {
   };
 
   return (
-    <StoreNavbarDesktop
-      search={search}
-      setSearch={setSearch}
-      showSearch={showSearch}
-      user={user}
-      onSubmitSearch={handleSearch}
-    />
+    <>
+      <EnvironmentBanner />
+      <StoreNavbarDesktop
+        search={search}
+        setSearch={setSearch}
+        showSearch={showSearch}
+        user={user}
+        onSubmitSearch={handleSearch}
+      />
+    </>
   );
 
   // if (isTailwindLg) {
