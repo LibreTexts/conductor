@@ -740,6 +740,21 @@ class API {
     return res;
   }
 
+  async disableCentralIdentityUser(uuid: string, reason: string) {
+    const res = await axios.patch<ConductorBaseResponse>(
+      `/central-identity/users/${uuid}/disable`,
+      { reason }
+    );
+    return res;
+  }
+
+  async reEnableCentralIdentityUser(uuid: string) {
+    const res = await axios.patch<ConductorBaseResponse>(
+      `/central-identity/users/${uuid}/re-enable`
+    );
+    return res;
+  }
+
   // Commons
   async getCommonsCatalog(paramsObj?: { activePage?: number; limit?: number }) {
     const res = await axios.get<

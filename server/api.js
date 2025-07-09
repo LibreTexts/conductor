@@ -191,7 +191,7 @@ router
   )
 
 router
-  .route("/central-identity/users/:id/reEnable")
+  .route("/central-identity/users/:id/re-enable")
   .patch(
     middleware.checkCentralIdentityConfig,
     authAPI.verifyRequest,
@@ -255,16 +255,6 @@ router
     ),
     centralIdentityAPI.checkUsersApplicationAccess
   )
-
-router
-  .route("/central-identity/users/:id/disable")
-  .patch(
-    middleware.checkCentralIdentityConfig,
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-    centralIdentityAPI.disableUser
-  );
 
 router
   .route("/central-identity/users/:userId/notes")

@@ -1476,15 +1476,14 @@ async function reEnableUser(
 ) {
   try {
     const uuid = req.params.id;
-    console.log("reEnableUser");
 
     const userRes = await useCentralIdentityAxios(false).patch(
-      `/users/${uuid}/reEnable`,
+      `/users/${uuid}/re-enable`,
     );
 
     res.send({
       err: false,
-      msg: "User successfully renabled.",
+      msg: "User successfully re-enabled.",
       meta: {},
     })
   } catch (err) {

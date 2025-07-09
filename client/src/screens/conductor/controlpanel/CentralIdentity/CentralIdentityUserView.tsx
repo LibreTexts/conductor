@@ -244,7 +244,7 @@ const CentralIdentityUserView = () => {
     try {
       if (!uuid) return;
       setLoading(true);
-      const res = await axios.patch(`/central-identity/users/${uuid}/reEnable`);
+      const res = await api.reEnableCentralIdentityUser(uuid);
       
       if (res.data?.err) {
         handleGlobalError(res.data.errMsg || res.data.err);

@@ -1,12 +1,11 @@
-// ... existing code ...
 import { useEffect, useState } from "react";
 import { Button, Modal, Icon, ModalProps } from "semantic-ui-react";
 import LoadingSpinner from "../../LoadingSpinner";
 import useGlobalError from "../../error/ErrorHooks";
 import { useForm } from "react-hook-form";
 import { NoteFormData } from "../../../types/Note";
-import axios from "axios";
 import CtlTextArea from "../../ControlledInputs/CtlTextArea";
+import api from "../../../api";
 
 interface HandleUserDisableModalProps extends ModalProps {
   show: boolean;
@@ -44,9 +43,7 @@ const HandleUserDisableModal: React.FC<HandleUserDisableModalProps> = ({
       if (!userId) return;
       setLoading(true);
 
-      const res = await axios.patch(`/central-identity/users/${userId}/disable`, {
-        reason: reason
-      });
+      const res = await api.disableCentralIdentityUser(userId, reason);
       if (res.data?.err) {
         handleGlobalError(res.data.errMsg || res.data.err);
         return;
