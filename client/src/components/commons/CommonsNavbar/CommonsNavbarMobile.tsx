@@ -8,6 +8,7 @@ import SwitchAppWithUser from "../../navigation/SwitchAppWithUser";
 import DonateLink from "./DonateLink";
 import Launchpad from "../../navigation/Launchpad";
 import SupportDropdown from "./SupportDropdown";
+import StoreLink from "./StoreLink";
 
 interface CommonsNavbarMobileProps {
   org: Organization;
@@ -67,6 +68,7 @@ const CommonsNavbarMobile: React.FC<CommonsNavbarMobileProps> = ({
               <>
                 <DonateLink isMobile={true} />
                 <AccountRequestLink isMobile={true} />
+                <StoreLink isMobile={true} />
                 <SupportMenuItem />
                 <Menu.Item onClick={() => setCommonsOpen(!commonsOpen)}>
                   Campus Commons

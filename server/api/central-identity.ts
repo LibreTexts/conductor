@@ -484,6 +484,30 @@ async function deleteUserOrg(
   }
 }
 
+/**
+ * Directs LibreOne's API to generate an access code for a product and sends it to the user's email.
+ * Note: This function is intended for internal use only and should not be exposed to the API.
+ * @param param0 - An object containing the price ID and email address.
+ * @returns A boolean indicating whether the access code was successfully generated.
+ */
+async function _generateAccessCode({ priceId, email }:{ priceId: string; email: string}): Promise<boolean> {
+  try {
+    const res = await useCentralIdentityAxios(false).post('/store/access-code/generate', {
+      stripe_price_id: priceId,
+      email: email,
+    });
+
+    if (!res.data || !res.data.data || !res.data.data.code) {
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    debugError(err);
+    return false
+  }
+}
+
 async function getApplicationsPriveledged(
   req: TypedReqQuery<{ activePage?: number }>,
   res: Response<{
@@ -1625,6 +1649,7 @@ export default {
   deleteUserApplication,
   addUserOrgs,
   deleteUserOrg,
+  _generateAccessCode,
   getApplicationsPriveledged,
   getApplicationsPublic,
   getApplicationById,

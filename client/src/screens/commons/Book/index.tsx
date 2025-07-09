@@ -171,7 +171,7 @@ const CommonsBook = () => {
     {
       key: "print",
       text: "Buy Print Copy",
-      href: book.links?.buy,
+      href: `https://commons.libretexts.org/store/product/${book.bookID}`,
       icon: "shopping cart",
     },
     {

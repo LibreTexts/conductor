@@ -1493,6 +1493,23 @@ const ProjectView = (props) => {
     );
   };
 
+  const getTeamMemberOptions = (projData) => {
+    const transformMembers = (role, roleDisplay) => (item) => ({
+      image: `${item.avatar}`,
+      value: `${item.firstName} ${item.lastName}`,
+      label: `${item.firstName} ${item.lastName}`,
+    });
+
+    const allTeamMembers = [
+      ...projData.leads.map(transformMembers('lead', 'Lead')),
+      ...projData.liaisons.map(transformMembers('liaison', 'Liaison')),
+      ...projData.members.map(transformMembers('member', 'Member')),
+      ...projData.auditors.map(transformMembers('auditor', 'Auditor')),
+    ];
+
+    return allTeamMembers;
+  };
+
 
   return (
     <Grid className='component-container'>
@@ -1877,6 +1894,7 @@ const ProjectView = (props) => {
                   mngTaskLoading={mngTaskLoading}
                   libreLibrary={project.libreLibrary}
                   libreCoverID={project.libreCoverID}
+                  getTeamMemberOptions={getTeamMemberOptions}
                 />                
               </Grid>
             </Segment>

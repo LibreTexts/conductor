@@ -188,10 +188,10 @@ export function getAssetFilterText(key: string) {
 }
 
 export function extractEmailDomain(email: string): string | null {
-  if(!email) return null;
+  if (!email) return null;
   const parts = email.split("@");
   if (parts.length === 2) {
-      return parts[1];
+    return parts[1];
   }
   return null;
 }
