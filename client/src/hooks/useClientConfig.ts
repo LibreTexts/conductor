@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ClientConfig } from "../types";
 import api from "../api";
+import { useMemo } from "react";
 
 const useClientConfig = () => {
     const { data, isFetching } = useQuery<ClientConfig | null>({
@@ -15,12 +16,18 @@ const useClientConfig = () => {
                 return null;
             }
         },
-        staleTime: 1000 * 60 * 3, // 3 minutes
+        staleTime: 1000 * 60 * 5, // 5 minutes
         refetchOnMount: false,
         refetchOnWindowFocus: false,
     });
 
-    return { clientConfig: data, loading: isFetching };
+    const isProduction = useMemo(() => {
+        // Default to true if data is not available to avoid flashing incorrect state
+        if (!data || !data.env || isFetching) return true;
+        return data.env === "production";
+    }, [data, isFetching]);
+
+    return { clientConfig: data, loading: isFetching, isProduction };
 };
 
 export default useClientConfig;

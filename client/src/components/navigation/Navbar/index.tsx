@@ -5,6 +5,8 @@ import { useTypedSelector } from "../../../state/hooks.js";
 import { useMediaQuery } from "react-responsive";
 import NavbarDesktop from "./NavbarDesktop.js";
 import NavbarMobile from "./NavbarMobile.js";
+import EnvironmentBanner from "../EnvironmentBanner.js";
+import useClientConfig from "../../../hooks/useClientConfig.js";
 
 const Navbar: React.FC = () => {
   // Global State, Location, and Error Handling
@@ -12,6 +14,7 @@ const Navbar: React.FC = () => {
 
   const user = useTypedSelector((state) => state.user);
   const org = useTypedSelector((state) => state.org);
+  const { isProduction } = useClientConfig();
 
   // UI
   const [activeItem, setActiveItem] = useState("");
@@ -62,7 +65,11 @@ const Navbar: React.FC = () => {
   }
 
   return (
-    <div className="nav-menu">
+    <div
+      className="nav-menu"
+      style={{ height: isProduction ? "60px" : "100px" }}
+    >
+      <EnvironmentBanner />
       {isTailwindXl ? (
         <NavbarDesktop
           org={org}

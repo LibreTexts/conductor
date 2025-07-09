@@ -4,6 +4,7 @@ import SupportCenterNavbarDesktop from "./SupportCenterNavbarDesktop";
 import SupportCenterNavbarMobile from "./SupportCenterNavbarMobile";
 import { useEffect, useState } from "react";
 import { useTypedSelector } from "../../../state/hooks";
+import EnvironmentBanner from "../EnvironmentBanner";
 
 const SupportCenterNavbar: React.FC = () => {
   const user = useTypedSelector((state) => state.user);
@@ -34,23 +35,29 @@ const SupportCenterNavbar: React.FC = () => {
 
   if (isTailwindLg) {
     return (
-      <SupportCenterNavbarDesktop
+      <>
+        <EnvironmentBanner />
+        <SupportCenterNavbarDesktop
+          search={search}
+          setSearch={setSearch}
+          showSearch={showSearch}
+          user={user}
+          onSubmitSearch={handleSearch}
+        />
+      </>
+    );
+  }
+  return (
+    <>
+      <EnvironmentBanner />
+      <SupportCenterNavbarMobile
         search={search}
         setSearch={setSearch}
         showSearch={showSearch}
         user={user}
         onSubmitSearch={handleSearch}
       />
-    );
-  }
-  return (
-    <SupportCenterNavbarMobile
-      search={search}
-      setSearch={setSearch}
-      showSearch={showSearch}
-      user={user}
-      onSubmitSearch={handleSearch}
-    />
+    </>
   );
 };
 

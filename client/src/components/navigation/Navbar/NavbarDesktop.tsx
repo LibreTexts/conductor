@@ -21,7 +21,7 @@ const NavbarDesktop: React.FC<NavbarDesktopProps> = ({
   const user = useTypedSelector((state) => state.user);
 
   return (
-    <Menu className="flex w-full" secondary>
+    <Menu className="flex w-full !mt-0" secondary>
       <div className="flex flex-row px-4 justify-between w-full items-center shadow-md">
         <div className="flex flex-row items-center">
           <div>
