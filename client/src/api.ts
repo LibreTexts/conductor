@@ -850,6 +850,7 @@ class API {
       `/central-identity/users/${uuid}/re-enable`
     );
     return res;
+  }
 
   // Client Config
   async getClientConfig() {
