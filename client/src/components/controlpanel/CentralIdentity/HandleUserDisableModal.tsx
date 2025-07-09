@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { NoteFormData } from "../../../types/Note";
 import CtlTextArea from "../../ControlledInputs/CtlTextArea";
 import api from "../../../api";
+import { useNotifications } from "../../../context/NotificationContext";
 
 interface HandleUserDisableModalProps extends ModalProps {
   show: boolean;
@@ -23,6 +24,7 @@ const HandleUserDisableModal: React.FC<HandleUserDisableModalProps> = ({
 }) => {
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
+  const { addNotification } = useNotifications();
   const { control, reset, watch } = useForm<NoteFormData>({
     defaultValues: {
       content: ""
@@ -50,6 +52,12 @@ const HandleUserDisableModal: React.FC<HandleUserDisableModalProps> = ({
       }
 
       if (onDisabled) onDisabled();
+
+      addNotification({
+        type: "success",
+        message: "User successfully disabled.",
+      });
+
       onClose();
     } catch (err) {
       handleGlobalError(err);
@@ -68,7 +76,7 @@ const HandleUserDisableModal: React.FC<HandleUserDisableModalProps> = ({
           <LoadingSpinner />
         ) : (
             <>
-                <p>
+                <p className="mb-2">
                     Reason: Why are you disabling this user?
                 </p>
                 <CtlTextArea

@@ -251,6 +251,10 @@ const CentralIdentityUserView = () => {
         return;
       }
       loadUser();
+      addNotification({
+        message: "User successfully re-enabled.",
+        type: "success",
+      });
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -336,19 +340,17 @@ const CentralIdentityUserView = () => {
                   </div>
                   {getValues("disabled") ? (
                     <Button
-                      icon
                       color="yellow"
-                      size="tiny"
+                      size="small"
                       onClick={handleReEnableUser}
                     >
                       <Icon name="refresh" /> Re-Enable User
                     </Button>
                   ):  
                     <Button
-                      icon
                       color="red"
-                      size="tiny"
                       onClick={handleOpenDisableUserModal}
+                      size="small"
                     >
                       <Icon name="ban" /> Disable User
                     </Button>
