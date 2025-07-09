@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import useClientConfig from "../../hooks/useClientConfig";
 import classNames from "classnames";
 
@@ -7,12 +6,8 @@ interface EnvironmentBannerProps {
 }
 
 const EnvironmentBanner: React.FC<EnvironmentBannerProps> = ({ className }) => {
-  const { clientConfig, loading } = useClientConfig();
-  const isNotProduction = useMemo(() => {
-    return clientConfig?.env !== "production";
-  }, [clientConfig]);
-
-  if (loading || !isNotProduction) {
+  const { loading, isProduction } = useClientConfig();
+  if (loading || isProduction) {
     return null; // Don't render the banner if loading or in production
   }
 
