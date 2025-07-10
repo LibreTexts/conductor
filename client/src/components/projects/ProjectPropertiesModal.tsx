@@ -1330,7 +1330,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               name="license.modifiedFromSource"
               control={control}
               label="Modified from source?"
-              className="ml-2"
               labelDirection="row-reverse"
             />
           </div>
@@ -1425,7 +1424,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               name="defaultFileLicense.modifiedFromSource"
               control={control}
               label="File modified from source?"
-              className="ml-2"
               labelDirection="row-reverse"
             />
           </div>
