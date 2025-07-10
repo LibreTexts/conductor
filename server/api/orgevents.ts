@@ -546,7 +546,7 @@ async function submitRegistration(
       if (computedTotal > 0) {
         const stripeService = new StripeService();
         const stripeClient = stripeService.getInstance();
-        
+
         const urlProto =
           process.env.NODE_ENV === "production" ? "https" : "http";
         const urlDomain =
@@ -622,9 +622,8 @@ async function submitRegistration(
           formattedStartDate = format(orgEvent.startDate, "MMMM d, yyyy");
           formattedStartTime = format(orgEvent.startDate, "h:mm a");
         }
-        return `${formattedStartTime} (${
-          orgEvent.timeZone.abbrev ?? ""
-        }) on ${formattedStartDate}`;
+        return `${formattedStartTime} (${orgEvent.timeZone.abbrev ?? ""
+          }) on ${formattedStartDate}`;
       };
 
       mailAPI
@@ -634,8 +633,8 @@ async function submitRegistration(
           foundRegisteredBy && foundRegisteredBy.firstName
             ? foundRegisteredBy.firstName
             : firstName
-            ? firstName
-            : "Unknown",
+              ? firstName
+              : "Unknown",
           convertAndFormatStartDate()
         )
         .catch((e: unknown) => debugError(e));
@@ -860,7 +859,7 @@ async function _validateFeeWaiver(
 
 async function setRegistrationPaidStatus(
   checkoutSession: Stripe.Checkout.Session,
-  paymentIntent: Stripe.PaymentIntent,
+  paymentIntent: Stripe.PaymentIntent | null,
   res: Response
 ) {
   try {
@@ -878,7 +877,7 @@ async function setRegistrationPaidStatus(
     }
     if (!orgEvent.regFee) {
       debug(
-        `Event ${orgEvent.eventID} does not require registration fee but received PaymentIntent ${paymentIntent.id}.`
+        `Event ${orgEvent.eventID} does not require registration fee ${paymentIntent ? `but received PaymentIntent ${paymentIntent.id}.` : ''}`
       );
       return res.send({
         err: false,
@@ -913,12 +912,19 @@ async function setRegistrationPaidStatus(
     // make idempotent: Stripe may send event multiple times
     if (participant.paymentStatus !== "unpaid") {
       debug(
-        `Participant ${participant._id} does not required payment status update but received PaymentIntent ${paymentIntent.id}.`
+        `Participant ${participant._id} does not required payment status update but received Checkout Session ${checkoutSession.id} and PaymentIntent ${paymentIntent?.id}.`
       );
       return res.send({
         err: false,
         msg: "No registration status update necessary.",
       });
+    }
+
+    if (!paymentIntent) {
+      debugError(
+        `Received Checkout Session ${checkoutSession.id} without PaymentIntent. Cannot update registration status.`
+      );
+      return conductor500Err(res);
     }
 
     let newPaymentStatus = "paid";
@@ -968,8 +974,8 @@ async function setRegistrationPaidStatus(
       participant.user && participant.user.firstName
         ? participant.user.firstName
         : participant.firstName
-        ? participant.firstName
-        : "Unknown";
+          ? participant.firstName
+          : "Unknown";
 
     const convertAndFormatStartDate = (): string => {
       let formattedStartTime = "";
@@ -985,9 +991,8 @@ async function setRegistrationPaidStatus(
         formattedStartDate = format(orgEvent.startDate, "MMMM d, yyyy");
         formattedStartTime = format(orgEvent.startDate, "h:mm a");
       }
-      return `${formattedStartTime} (${
-        orgEvent.timeZone.abbrev ?? ""
-      }) on ${formattedStartDate}`;
+      return `${formattedStartTime} (${orgEvent.timeZone.abbrev ?? ""
+        }) on ${formattedStartDate}`;
     };
 
     mailAPI
