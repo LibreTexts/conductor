@@ -432,7 +432,7 @@ async function getAppLicenses(
     const available = await useCentralIdentityAxios(false).get("/store/products");
 
     if (!available.data || !available.data.data) {
-      return [];
+      return res.send({ err: false, licenses: [] });
     }
 
     return res.send({
