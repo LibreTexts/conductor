@@ -17,7 +17,7 @@ const BASE_COST = 1.80;
 const PAGE_MULTIPLIER = 0.032;
 const HARDCOVER_SURCHARGE = 7.35;
 const COLOR_MULTIPLIER = 1.5;
-const OPERATING_COST_MULTIPLIER = 0.16;
+const OPERATING_COST_MULTIPLIER = 0.20;
 
 export default class StoreService {
     private stripeService = new StripeService();
@@ -790,7 +790,7 @@ export default class StoreService {
                                         hardcover: option.hardcover,
                                         color: option.color,
                                     });
-                                    
+
                                     // ensure nickname and tax_behavior are set correctly
                                     if (!existingPrice.nickname || existingPrice.nickname !== nickname || (!existingPrice.tax_behavior || existingPrice.tax_behavior === 'unspecified' || !existingPrice.metadata['store'])) {
                                         debug(`Updating existing price ${existingPrice.id} for ${product.name} with hardcover=${option.hardcover} and color=${option.color}.`);
