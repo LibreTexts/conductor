@@ -494,13 +494,11 @@ class API {
 
   // Store
   async getStoreProducts({
-    page = 1,
     limit = 100,
     starting_after,
     category,
     query
   }: {
-    page?: number;
     limit?: number;
     starting_after?: string;
     category?: string;
@@ -517,7 +515,6 @@ class API {
       } & ConductorBaseResponse
     >("/store/products", {
       params: {
-        page,
         limit,
         starting_after,
         category,

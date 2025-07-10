@@ -11,18 +11,24 @@ import LuluService from "./lulu-service";
 import StoreOrder, { StoreOrderInterface } from "../../models/storeorder";
 import centralIdentityAPI from "../central-identity"
 import Fuse from "fuse.js";
-import { getPaginationOffset } from "../../util/helpers";
+import NodeCache from "node-cache";
 
 const BASE_COST = 1.80;
 const PAGE_MULTIPLIER = 0.032;
 const HARDCOVER_SURCHARGE = 7.35;
 const COLOR_MULTIPLIER = 1.5;
-const OPERATING_COST_MULTIPLIER = 0.20;
+const OPERATING_COST_MULTIPLIER = 0.24;
 
-export default class StoreService {
+class StoreService {
     private stripeService = new StripeService();
     private luluService = new LuluService();
-    constructor() { }
+    private cache: NodeCache;
+    private DATA_KEY: string;
+
+    constructor() {
+        this.cache = new NodeCache({ stdTTL: 60 * 5, checkperiod: 120 }); // Cache for 5 minutes
+        this.DATA_KEY = 'store_products';
+     }
 
     public async searchStoreProduct(product_id: string): Promise<StoreProduct | null> {
         try {
@@ -77,12 +83,12 @@ export default class StoreService {
         }
     }
 
-    public async getStoreProducts({ limit, starting_after, category, query, page }: {
+
+    public async getStoreProducts({ limit = 20, starting_after, category, query }: {
         limit?: number;
         starting_after?: string;
         category?: string;
         query?: string;
-        page?: number;
     }): Promise<{
         items: StoreProduct[];
         has_more: boolean;
@@ -90,80 +96,29 @@ export default class StoreService {
         cursor?: string;
     }> {
         try {
-            const stripe = this.stripeService.getInstance();
+            const allProducts = await this._fetchAllProducts(category);
 
-            const prices = await stripe.prices.search({
-                query: 'metadata["store"]:"true" AND active:"true"',
-                limit: 100,
-                expand: ['data.product'],
-            });
-
-            if (!prices || !prices.data || prices.data.length === 0) {
-                debug("No bookstore products found.");
-                return {
-                    items: [],
-                    has_more: false,
-                    total_count: 0,
-                };
-            }
-
-            const products = this._groupByProduct(prices.data);
-
-            if (products.length === 0) {
-                debug("No store products found.");
-                return {
-                    items: [],
-                    has_more: false,
-                    total_count: 0,
-                };
-            }
-
-            let filteredProducts = products;
-
-            // If a category is specified, filter products by their metadata store_category
-            if (category) {
-                const splitCategories = category.split(',');
-                filteredProducts = filteredProducts.filter(product => {
-                    if (!product || !product.metadata) {
-                        return false; // Skip products without metadata
-                    }
-                    const storeCategory = product.metadata.store_category;
-                    if (!storeCategory) {
-                        return false; // Skip products without a store category
-                    }
-
-                    return splitCategories.includes(storeCategory);
-                });
-            }
-
-            if (query) {
-                const fuse = new Fuse(filteredProducts, {
+            let filteredProducts = allProducts;
+            if (query && query.trim() !== '') {
+                // Perform fuzzy search
+                const fuse = new Fuse(allProducts, {
                     threshold: 0.3,
                     keys: ["name"],
                     includeScore: true,
-                })
+                });
 
-                // sort by highest score and map to filteredProducts
                 const results = fuse.search(query);
                 filteredProducts = results
                     .sort((a, b) => a.score! - b.score!)
                     .map(result => result.item);
             }
 
-            // const lastItem = starting_after ? filteredProducts.find(item => item.id === starting_after) : undefined;
-            // if (lastItem) {
-            //     const index = filteredProducts.indexOf(lastItem);
-            //     if (index !== -1) {
-            //         filteredProducts = filteredProducts.slice(index + 1);
-            //     }
-            // }
-
-            const offset = page ? getPaginationOffset(page, limit || 100) : 0;
-            const paginated = filteredProducts.slice(offset, offset + (limit || 100));
+            const startIndex = starting_after ? filteredProducts.findIndex(p => p.id === starting_after) + 1 : 0;
+            const paginated = filteredProducts.slice(startIndex, startIndex + limit);
 
             return {
                 items: paginated,
-                has_more: filteredProducts.length > (limit || 100),
+                has_more: startIndex + limit < filteredProducts.length,
                 total_count: filteredProducts.length,
                 cursor: paginated.length > 0 ? paginated[paginated.length - 1].id : undefined
             };
@@ -783,37 +738,28 @@ export default class StoreService {
                             })
 
                             if (existingPrice) {
-                                // if the price already exists and is the same currency and amount, skip it
+                                // if the price already exists and is the same currency and amount, update it
                                 // otherwise, we must delete it and create a new one
                                 if (existingPrice.unit_amount === option.price && existingPrice.currency === 'usd') {
-                                    const nickname = this._buildBookPriceNickname({
-                                        hardcover: option.hardcover,
-                                        color: option.color,
+                                    await stripe.prices.update(existingPrice.id, {
+                                        tax_behavior: 'exclusive',
+                                        nickname: this._buildBookPriceNickname({
+                                            hardcover: option.hardcover,
+                                            color: option.color,
+                                        }),
+                                        metadata: {
+                                            ...existingPrice.metadata,
+                                            store: "true",
+                                            store_category: "books",
+                                        }
                                     });
-
-                                    // ensure nickname and tax_behavior are set correctly
-                                    if (!existingPrice.nickname || existingPrice.nickname !== nickname || (!existingPrice.tax_behavior || existingPrice.tax_behavior === 'unspecified' || !existingPrice.metadata['store'])) {
-                                        debug(`Updating existing price ${existingPrice.id} for ${product.name} with hardcover=${option.hardcover} and color=${option.color}.`);
-                                        await stripe.prices.update(existingPrice.id, {
-                                            tax_behavior: 'exclusive',
-                                            nickname: this._buildBookPriceNickname({
-                                                hardcover: option.hardcover,
-                                                color: option.color,
-                                            }),
-                                            metadata: {
-                                                ...existingPrice.metadata,
-                                                store: "true",
-                                            }
-                                        });
-                                        continue;
-                                    }
-                                    debug(`Price for ${product.name} with hardcover=${option.hardcover} and color=${option.color} already exists.`);
+                                    debug(`Price for ${product.name} with hardcover=${option.hardcover} and color=${option.color} updated.`);
                                     continue;
-                                } else {
-                                    await stripe.prices.update(existingPrice.id, { active: false }); // Archive the existing price
-                                    debug(`Archived existing price ${existingPrice.id} for ${product.name} with hardcover=${option.hardcover} and color=${option.color}.`);
-                                    // Continue to create a new price
                                 }
+
+                                await stripe.prices.update(existingPrice.id, { active: false }); // Archive the existing price
+                                debug(`Archived existing price ${existingPrice.id} for ${product.name} with hardcover=${option.hardcover} and color=${option.color}.`);
+                                // Proceed to create a new price
                             }
 
                             // Create new price
@@ -828,6 +774,7 @@ export default class StoreService {
                                 }),
                                 metadata: {
                                     store: "true",
+                                    store_category: "books",
                                     book_id: `${library}-${book.id}`,
                                     bookstore: "true",
                                     hardcover: String(option.hardcover),
@@ -919,6 +866,49 @@ export default class StoreService {
 
     public getBookThumbnailUrl({ library, id }: { library: string, id: string }): string {
         return `https://${library}.libretexts.org/@api/deki/pages/${id}/files/=mindtouch.page%2523thumbnail`
+    }
+
+    private async _fetchAllProducts(category?: string): Promise<StoreProduct[]> {
+        const stripe = this.stripeService.getInstance();
+        const allProducts: StoreProduct[] = [];
+        let hasMore = true;
+        let nextPage = null;
+
+        const cached = this.cache.get(this.DATA_KEY);
+        if (cached) {
+            return cached as StoreProduct[];
+        }
+
+        while (hasMore) {
+            const prices = await stripe.prices.search({
+                query: this._buildStripeSearchQuery(category),
+                limit: 100, // Max limit for Stripe
+                expand: ['data.product'],
+                ...(nextPage && { page: nextPage }),
+            });
+
+            if (!prices?.data?.length) {
+                break;
+            }
+
+            const products = this._groupByProduct(prices.data);
+            allProducts.push(...products);
+
+            hasMore = prices.has_more;
+            nextPage = prices.next_page
+        }
+
+        this.cache.set(this.DATA_KEY, allProducts);
+
+        return allProducts;
+    }
+
+    private _buildStripeSearchQuery(category?: string): string {
+        let query = 'metadata["store"]:"true" AND active:"true"';
+        if (category) {
+            query += ` AND metadata["store_category"]:"${category}"`;
+        }
+        return query;
     }
 
     private async _processDigitalItems({ items, email }: { items: ResolvedProduct[]; email: string }): Promise<boolean> {
@@ -1046,3 +1036,5 @@ export default class StoreService {
         return nickname;
     }
 }
+
+export default new StoreService();
