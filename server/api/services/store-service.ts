@@ -786,8 +786,13 @@ export default class StoreService {
                                 // if the price already exists and is the same currency and amount, skip it
                                 // otherwise, we must delete it and create a new one
                                 if (existingPrice.unit_amount === option.price && existingPrice.currency === 'usd') {
+                                    const nickname = this._buildBookPriceNickname({
+                                        hardcover: option.hardcover,
+                                        color: option.color,
+                                    });
+                                    
                                     // ensure nickname and tax_behavior are set correctly
-                                    if (!existingPrice.nickname || (!existingPrice.tax_behavior || existingPrice.tax_behavior === 'unspecified' || !existingPrice.metadata['store'])) {
+                                    if (!existingPrice.nickname || existingPrice.nickname !== nickname || (!existingPrice.tax_behavior || existingPrice.tax_behavior === 'unspecified' || !existingPrice.metadata['store'])) {
                                         debug(`Updating existing price ${existingPrice.id} for ${product.name} with hardcover=${option.hardcover} and color=${option.color}.`);
                                         await stripe.prices.update(existingPrice.id, {
                                             tax_behavior: 'exclusive',
@@ -1036,7 +1041,7 @@ export default class StoreService {
             nickname += (nickname ? ' + ' : '') + 'Color';
         }
         if (!hardcover && !color) {
-            nickname += 'Base';
+            nickname += 'Paperback + Black & White';
         }
         return nickname;
     }
