@@ -73,3 +73,5 @@ export type StoreShippingOption = {
     total_days_max: number;
     cost_excl_tax: number;
 }
+
+export type StoreDigitalDeliveryOption = "apply_to_account" | "email_access_codes";

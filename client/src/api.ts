@@ -49,6 +49,7 @@ import {
   EditAcademyOnlineAccessFormValues,
   CentralIdentityUserLicenseResult,
   CentralIdentityAppLicense,
+  StoreDigitalDeliveryOption,
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -549,8 +550,10 @@ class API {
   async createCheckoutSession({
     items,
     shipping_option_id,
-    shipping_address
-  }: { items: StoreCheckoutSessionItem[], shipping_option_id: number | "digital_delivery_only", shipping_address: StoreCheckoutForm }) {
+    shipping_address,
+    digital_delivery_option,
+    digital_delivery_account
+  }: { items: StoreCheckoutSessionItem[], shipping_option_id: number | "digital_delivery_only", shipping_address: StoreCheckoutForm, digital_delivery_option?: StoreDigitalDeliveryOption | null, digital_delivery_account?: string | null }) {
     const res = await axios.post<
       {
         session_id: string;
@@ -559,7 +562,9 @@ class API {
     >("/store/checkout/session", {
       items,
       shipping_option_id,
-      shipping_address
+      shipping_address,
+      ...(digital_delivery_option && { digital_delivery_option }),
+      ...(digital_delivery_account && { digital_delivery_account })
     });
     return res;
   }

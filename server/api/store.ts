@@ -78,7 +78,7 @@ export async function getMostPopularStoreProducts(req: z.infer<typeof GetMostPop
 
 export async function createCheckoutSession(req: z.infer<typeof CreateCheckoutSessionSchema>, res: Response) {
   try {
-    const { items, shipping_option_id, shipping_address } = req.body;
+    const { items, shipping_option_id, shipping_address, digital_delivery_option, digital_delivery_account } = req.body;
 
     const shippingOptions = await storeService.getShippingOptions({
       items,
@@ -99,7 +99,14 @@ export async function createCheckoutSession(req: z.infer<typeof CreateCheckoutSe
       });
     }
 
-    const { session_id, checkout_url } = await storeService.createCheckoutSession({ items, shipping_option: foundShippingOption, shipping_address });
+    if (digital_delivery_option === 'apply_to_account' && !digital_delivery_account) {
+      return res.status(400).send({
+        err: true,
+        message: "Digital delivery account must be provided when digital delivery option is 'apply_to_account'.",
+      });
+    }
+
+    const { session_id, checkout_url } = await storeService.createCheckoutSession({ items, shipping_option: foundShippingOption, shipping_address, digital_delivery_option, digital_delivery_account });
 
     return res.status(200).send({
       err: false,

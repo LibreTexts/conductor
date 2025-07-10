@@ -1,5 +1,5 @@
 import conductorErrors from "../conductor-errors.js";
-import { debugError } from "../debug.js";
+import { debug, debugError } from "../debug.js";
 import { Request, Response } from "express";
 import { param, body, oneOf } from "express-validator";
 import {
@@ -636,6 +636,7 @@ async function _generateAccessCode({ priceId, email }: { priceId: string; email:
       email: email,
     });
 
+    debug("Generate access code response:", res.data);
     if (!res.data || !res.data.data || !res.data.data.code) {
       return false;
     }
@@ -643,7 +644,33 @@ async function _generateAccessCode({ priceId, email }: { priceId: string; email:
     return true;
   } catch (err) {
     debugError(err);
-    return false
+    return false;
+  }
+}
+
+/**
+ * Automatically delivers a digital product to a user's account by applying the license.
+ * This function is intended for internal use only and should not be exposed to the API.
+ * @param param0 - An object containing the price ID and user ID.
+ * @returns A boolean indicating whether the delivery was successful.
+ */
+async function _autoDeliverDigitalProduct({priceId, user_id}: { priceId: string; user_id: string }): Promise<boolean> {
+  try {
+    const res = await useCentralIdentityAxios(false).post('/app-licenses/auto-apply', {
+      stripe_price_id: priceId,
+      user_id: user_id,
+    });
+
+    debug("Auto deliver digital product response:", res.data);
+
+    if (!res.data || !res.data.data || !res.data.data.success) {
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    debugError(err);
+    return false;
   }
 }
 
@@ -1814,6 +1841,7 @@ export default {
   addUserOrgs,
   deleteUserOrg,
   _generateAccessCode,
+  _autoDeliverDigitalProduct,
   getApplicationsPriveledged,
   getApplicationsPublic,
   getApplicationById,

@@ -54,6 +54,7 @@ import ProjectTimeline from './components/projects/ProjectTimeline';
 import ProjectView from './components/projects/ProjectView';
 const Search = lazy(() => import('./screens/conductor/Search'));
 const Store = lazy(() => import('./screens/conductor/store'));
+const StoreAuthCheck = lazy(() => import('./screens/conductor/store/auth-check'));
 const StoreCart = lazy(() => import('./screens/conductor/store/cart'));
 const StoreCatalog = lazy(() => import('./screens/conductor/store/catalog'));
 const StoreOrder = lazy(() => import('./screens/conductor/store/order'));
@@ -170,6 +171,7 @@ const Conductor = () => {
           <LibreTextsRoute exact path='/store' key='store' org={org} component={Store} />
           <LibreTextsRoute exact path='/store/cart' key='storecart' org={org} component={StoreCart} />
           <LibreTextsRoute exact path='/store/catalog' key='storecatalog' org={org} component={StoreCatalog} />
+          <LibreTextsRoute exact path='/store/checkout/auth-check' key='storeauthcheck' org={org} component={StoreAuthCheck} />
           <LibreTextsRoute exact path='/store/checkout/shipping' key='storeshipping' org={org} component={StoreShipping} />
           <LibreTextsRoute exact path='/store/checkout/success' key='storesuccess' org={org} component={StoreSuccess} />
           <LibreTextsRoute exact path='/store/order/:order_id' key='storeorder' org={org} component={StoreOrder} />
