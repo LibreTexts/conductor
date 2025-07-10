@@ -45,45 +45,53 @@ export default class StripeService {
     public async processWebhookEvent(event: Stripe.Event): Promise<{
         feature: string;
         checkout_session: Stripe.Checkout.Session;
-        payment_intent: Stripe.PaymentIntent;
+        payment_intent: Stripe.PaymentIntent | null; // Payment Intent can be null if the order was free
     } | 'bad_request' | 'not_implemented'> {
         try {
             if (!event || !event.type || !event.data) {
                 throw new Error('Invalid Stripe event data provided.');
             }
             switch (event.type) {
+                case 'checkout.session.completed':
                 case 'payment_intent.succeeded':
-                    const paymentIntent: Record<string, any> = event.data.object;
-                    if (!paymentIntent.id) {
+                    const data = event.data.object.object === 'checkout.session' ? event.data.object as Stripe.Checkout.Session : event.data.object as Stripe.PaymentIntent;
+                    let checkout_session: Stripe.Checkout.Session | null = null;
+                    let payment_intent: Stripe.PaymentIntent | null = null;
+
+                    if (data.object === 'checkout.session') {
+                        checkout_session = await this.getExpandedCheckoutSession(data.id);
+                        if (!checkout_session) {
+                            console.log('Stripe checkout session not found. Cannot further process the event.');
+                            return 'bad_request';
+                        }
+                        payment_intent = await this.getPaymentIntentFromCheckoutSession(checkout_session);
+                    }
+
+                    if (data.object === 'payment_intent') {
+                        checkout_session = await this.getCheckoutSessionFromPaymentIntent(data);
+                        payment_intent = data;
+                    }
+
+                    if (!checkout_session) {
+                        console.log('Stripe checkout session is missing. Cannot further process the event.');
                         return 'bad_request';
                     }
 
-                    const piSessions = await this.instance.checkout.sessions.list({
-                        payment_intent: paymentIntent.id,
-                        limit: 1,
-                        expand: ['data.payment_intent', 'data.line_items'],
-                    });
-
-                    if (piSessions.data.length < 1) {
+                    if (!checkout_session.metadata || !checkout_session.metadata.feature) {
+                        debug('Stripe checkout session metadata is missing. Cannot further process the event.');
                         return 'bad_request';
                     }
 
-                    const checkoutSession = piSessions.data[0];
-                    if (checkoutSession.metadata?.application !== 'conductor') {
-                        debug(`Stripe event for unknown application: ${checkoutSession.metadata?.application}`);
-                        return 'not_implemented';
-                    }
-
-                    switch (checkoutSession.metadata.feature) {
+                    switch (checkout_session.metadata?.feature) {
                         case 'events':
                         case 'store':
                             return {
-                                feature: checkoutSession.metadata.feature,
-                                checkout_session: checkoutSession,
-                                payment_intent: paymentIntent as Stripe.PaymentIntent,
+                                feature: checkout_session.metadata?.feature,
+                                checkout_session,
+                                payment_intent,
                             }
                         default:
-                            debug(`Unhandle Stripe application feature: ${checkoutSession.metadata.feature}`);
+                            debug(`Unhandle Stripe application feature: ${checkout_session.metadata?.feature}`);
                             return 'not_implemented';
                     }
                 default:
@@ -93,6 +101,64 @@ export default class StripeService {
         } catch (error) {
             console.error('Error processing Stripe webhook event:', error);
             throw new Error('Failed to process Stripe webhook event');
+        }
+    }
+
+    public async getPaymentIntentFromCheckoutSession(checkoutSession: Stripe.Checkout.Session): Promise<Stripe.PaymentIntent | null> {
+        if (!checkoutSession || !checkoutSession.payment_intent) {
+            return null;
+        }
+
+        try {
+            const paymentIntentId = typeof checkoutSession.payment_intent === 'string' ? checkoutSession.payment_intent : checkoutSession.payment_intent.id;
+            return await this.instance.paymentIntents.retrieve(paymentIntentId);
+        } catch (error) {
+            console.error('Error retrieving payment intent from checkout session:', error);
+            return null;
+        }
+    }
+
+    public async getExpandedCheckoutSession(checkoutSessionId: string): Promise<Stripe.Checkout.Session | null> {
+        if (!checkoutSessionId) {
+            return null;
+        }
+
+        try {
+            const session = await this.instance.checkout.sessions.retrieve(checkoutSessionId, {
+                expand: ['payment_intent', 'line_items'],
+            });
+
+            if (!session) {
+                return null;
+            }
+
+            return session as Stripe.Checkout.Session;
+        } catch (error) {
+            console.error('Error retrieving expanded checkout session:', error);
+            return null;
+        }
+    }
+
+    public async getCheckoutSessionFromPaymentIntent(paymentIntent: Stripe.PaymentIntent): Promise<Stripe.Checkout.Session | null> {
+        if (!paymentIntent || !paymentIntent.id) {
+            return null;
+        }
+
+        try {
+            const sessions = await this.instance.checkout.sessions.list({
+                payment_intent: paymentIntent.id,
+                limit: 1,
+                expand: ['data.payment_intent', 'data.line_items'],
+            });
+
+            if (sessions.data.length < 1) {
+                return null;
+            }
+
+            return sessions.data[0] as Stripe.Checkout.Session;
+        } catch (error) {
+            console.error('Error retrieving checkout session from payment intent:', error);
+            return null;
         }
     }
 }

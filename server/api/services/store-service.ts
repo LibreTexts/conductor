@@ -493,15 +493,13 @@ export default class StoreService {
 
     public async processOrder({
         checkout_session,
-        payment_intent
     }: {
         checkout_session: Stripe.Checkout.Session;
-        payment_intent: Stripe.PaymentIntent;
     }): Promise<StoreOrderInterface> {
         try {
             // Immediately create a StoreOrder record so we can track processing errors
             const storeOrder = await StoreOrder.create({
-                id: checkout_session.id,
+                id: checkout_session.id, // Id has unique constraint, so this will fail if the order already exists
                 status: "pending",
                 error: "",
             });
@@ -580,15 +578,15 @@ export default class StoreService {
                             price,
                             quantity: item.quantity,
                         })
+                    } else if (product.metadata['digital'] === 'true') {
+                        digitalItems.push({
+                            product_id: item.product_id,
+                            price_id: item.price_id,
+                            product: product,
+                            price,
+                            quantity: item.quantity,
+                        })
                     }
-
-                    digitalItems.push({
-                        product_id: item.product_id,
-                        price_id: item.price_id,
-                        product: product,
-                        price,
-                        quantity: item.quantity,
-                    })
                 }
 
                 // Handle book items

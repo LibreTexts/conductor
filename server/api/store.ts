@@ -189,7 +189,6 @@ export async function processStripeWebhook(req: Request, res: Response) {
     // We don't need to wait for this to finish, so we can just call it
     storeService.processOrder({
       checkout_session: result.checkout_session,
-      payment_intent: result.payment_intent,
     }).catch((error) => {
       debugError(error);
     });

@@ -9,6 +9,8 @@ export interface StoreOrderInterface extends Document {
     luluJobID?: string;
     luluJobStatus?: string;
     luluJobError?: string; // Error message if the Lulu job fails
+    createdAt?: Date; // Automatically set by Mongoose
+    updatedAt?: Date; // Automatically set by Mongoose
 }
 
 /**
@@ -32,6 +34,8 @@ const StoreOrderSchema = new Schema<StoreOrderInterface>({
     luluJobID: String,
     luluJobStatus: String,
     luluJobError: String
+}, {
+    timestamps: true
 })
 
 const StoreOrder = model<StoreOrderInterface>('StoreOrder', StoreOrderSchema);
