@@ -91,7 +91,7 @@ export default class StripeService {
                                 payment_intent,
                             }
                         default:
-                            debug(`Unhandle Stripe application feature: ${checkout_session.metadata?.feature}`);
+                            debug(`Unhandled Stripe application feature: ${checkout_session.metadata?.feature}`);
                             return 'not_implemented';
                     }
                 default:
