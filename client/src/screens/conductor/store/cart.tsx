@@ -85,9 +85,6 @@ export default function CartPage() {
                             <StyledQuantitySelect
                               value={item.quantity}
                               onChange={(v) => {
-                                console.log(
-                                  `Updating quantity for ${item.product.name} to ${v}`
-                                );
                                 updateQuantity(
                                   item.product.id,
                                   item.price.id,
@@ -189,7 +186,7 @@ export default function CartPage() {
               </dl>
 
               <div className="mt-6">
-                <Link to="/store/checkout/shipping">
+                <Link to="/store/checkout/auth-check">
                   <button
                     type="submit"
                     className="w-full rounded-md border border-transparent bg-primary px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-50"

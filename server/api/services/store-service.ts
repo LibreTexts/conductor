@@ -28,7 +28,7 @@ class StoreService {
     constructor() {
         this.cache = new NodeCache({ stdTTL: 60 * 5, checkperiod: 120 }); // Cache for 5 minutes
         this.DATA_KEY = 'store_products';
-     }
+    }
 
     public async searchStoreProduct(product_id: string): Promise<StoreProduct | null> {
         try {
@@ -187,11 +187,15 @@ class StoreService {
     public async createCheckoutSession({
         items,
         shipping_option,
-        shipping_address
+        shipping_address,
+        digital_delivery_option,
+        digital_delivery_account
     }: {
         items: z.infer<typeof CreateCheckoutSessionSchema>['body']['items'];
         shipping_option: StoreShippingOption | "digital_delivery_only";
         shipping_address: z.infer<typeof CreateCheckoutSessionSchema>['body']['shipping_address'];
+        digital_delivery_option?: z.infer<typeof CreateCheckoutSessionSchema>['body']['digital_delivery_option'];
+        digital_delivery_account?: z.infer<typeof CreateCheckoutSessionSchema>['body']['digital_delivery_account'];
     }): Promise<{
         session_id: string;
         checkout_url: string;
@@ -258,6 +262,12 @@ class StoreService {
                 metadata: {
                     application: 'conductor',
                     feature: 'store',
+                    ...(digital_delivery_option && {
+                        digital_delivery_option: digital_delivery_option,
+                    }),
+                    ...(digital_delivery_account && {
+                        digital_delivery_account: digital_delivery_account,
+                    }),
                 },
                 payment_intent_data: {
                     receipt_email: shipping_address.email,
@@ -462,6 +472,10 @@ class StoreService {
             // Begin processing the order
             try {
                 const stripe = this.stripeService.getInstance();
+                if (!checkout_session || !checkout_session.id) {
+                    throw new Error("Invalid checkout session provided.");
+                }
+
                 const lineItems: ({
                     product_id: string,
                     price_id: string
@@ -585,9 +599,20 @@ class StoreService {
                         throw new Error("MISSING_EMAIL_FOR_DIGITAL_ITEMS");
                     }
 
+                    const digital_delivery_account = checkout_session.metadata?.['digital_delivery_account'] || '';
+                    const digital_delivery_option = checkout_session.metadata?.['digital_delivery_option'] || 'email_access_codes'; // Default to email access codes if not specified
+                    if (digital_delivery_option !== 'apply_to_account' && digital_delivery_option !== 'email_access_codes') {
+                        throw new Error("INVALID_DIGITAL_DELIVERY_OPTION");
+                    }
+                    if (digital_delivery_option === 'apply_to_account' && !digital_delivery_account) {
+                        throw new Error("Digital delivery account must be provided when digital delivery option is 'apply_to_account'.");
+                    }
+
                     await this._processDigitalItems({
                         items: digitalItems,
-                        email
+                        email,
+                        digital_delivery_account,
+                        digital_delivery_option
                     })
                 }
 
@@ -911,7 +936,13 @@ class StoreService {
         return query;
     }
 
-    private async _processDigitalItems({ items, email }: { items: ResolvedProduct[]; email: string }): Promise<boolean> {
+    private async _processDigitalItems({ items, email, digital_delivery_option, digital_delivery_account }:
+        {
+            items: ResolvedProduct[],
+            email: string,
+            digital_delivery_option: z.infer<typeof CreateCheckoutSessionSchema>['body']['digital_delivery_option'],
+            digital_delivery_account: z.infer<typeof CreateCheckoutSessionSchema>['body']['digital_delivery_account']
+        }): Promise<boolean> {
         try {
             if (!items || items.length === 0) {
                 debug("No digital items to process.");
@@ -924,10 +955,26 @@ class StoreService {
                     continue; // Skip non-digital items
                 }
 
-                const didGenerate = await centralIdentityAPI._generateAccessCode({ priceId: item.price_id, email });
-                if (!didGenerate) {
-                    debug(`Failed to generate access code for product ${item.product.id} for email ${email}`);
-                    continue; // Skip this item if access code generation failed
+                if (digital_delivery_option === 'email_access_codes') {
+                    const didGenerate = await centralIdentityAPI._generateAccessCode({ priceId: item.price_id, email });
+                    if (!didGenerate) {
+                        debug(`Failed to generate access code for product ${item.product.id} for email ${email}`);
+                        continue; // Skip this item if access code generation failed
+                    }
+                } else {
+                    if (!digital_delivery_account) {
+                        debug(`Digital delivery account must be provided when digital delivery option is 'apply_to_account' for product ${item.product.id}`);
+                        continue; // Skip this item if account is not provided
+                    }
+
+                    const didDeliver = await centralIdentityAPI._autoDeliverDigitalProduct({
+                        priceId: item.price_id,
+                        user_id: digital_delivery_account
+                    });
+                    if (!didDeliver) {
+                        debug(`Failed to deliver digital product ${item.product.id} to account ${digital_delivery_account}`);
+                        continue; // Skip this item if delivery failed
+                    }
                 }
                 successfulItems.push(item);
             }

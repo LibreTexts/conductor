@@ -4,6 +4,7 @@ import { Controller, useForm } from "react-hook-form";
 import { useCart } from "../../../context/CartContext";
 import {
   StoreCheckoutForm,
+  StoreDigitalDeliveryOption,
   StoreGetShippingOptionsRes,
   StoreShippingOption,
 } from "../../../types";
@@ -16,10 +17,12 @@ import Select from "../../../components/NextGenInputs/Select";
 import { formatPrice } from "../../../utils/storeHelpers";
 import { Icon } from "semantic-ui-react";
 import LoadingSpinner from "../../../components/LoadingSpinner";
+import { useTypedSelector } from "../../../state/hooks";
 
 export default function ShippingPage() {
-  const { cart } = useCart();
+  const { cart, hasDigitalProducts } = useCart();
   const { debounce } = useDebounce();
+  const user = useTypedSelector((state) => state.user);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const shippingCalculated = useRef(false);
@@ -28,6 +31,8 @@ export default function ShippingPage() {
     useState<StoreGetShippingOptionsRes>("digital_delivery_only");
   const [selectedShippingOption, setSelectedShippingOption] =
     useState<StoreShippingOption | null>(null);
+  const [selectedDigitalDeliveryOption, setSelectedDigitalDeliveryOption] =
+    useState<StoreDigitalDeliveryOption | null>(null);
 
   const { control, getValues, setValue, watch, trigger } =
     useForm<StoreCheckoutForm>({
@@ -51,6 +56,15 @@ export default function ShippingPage() {
     if (!shippingCalculated.current) return true;
     if (shippingLoading) return true;
 
+    // If there are digital products and the user is logged in, a digital delivery option must be selected
+    if (
+      hasDigitalProducts &&
+      user?.uuid &&
+      !selectedDigitalDeliveryOption
+    ) {
+      return true;
+    }
+
     // If there are shipping options other than digital delivery, one must be selected
     if (shippingOptions === "digital_delivery_only") {
       return false;
@@ -65,6 +79,9 @@ export default function ShippingPage() {
     selectedShippingOption,
     shippingOptions,
     shippingLoading,
+    hasDigitalProducts,
+    selectedDigitalDeliveryOption,
+    user?.uuid,
   ]);
 
   const updateShippingOptionsDebounced = debounce(updateShippingOptions, 500);
@@ -131,6 +148,14 @@ export default function ShippingPage() {
   async function confirmOrder() {
     try {
       setLoading(true);
+
+      // If there are digital products and the user is logged in, use their selected digital delivery option
+      // Otherwise, if there are digital products but the user is not logged in, default to "email_access_codes"
+      // If there are no digital products, set to null
+      const digitalDeliveryOption = hasDigitalProducts && user?.uuid ? 
+        selectedDigitalDeliveryOption || "email_access_codes" :
+        null;
+
       const response = await api.createCheckoutSession({
         items:
           cart?.items.map((item) => ({
@@ -153,6 +178,12 @@ export default function ShippingPage() {
           postal_code: getValues("postal_code"),
           country: getValues("country"),
         },
+        ...(digitalDeliveryOption && {
+          digital_delivery_option: digitalDeliveryOption,
+        }),
+        ...(digitalDeliveryOption === "apply_to_account" && {
+          digital_delivery_account: user?.uuid || "",
+        }),
       });
 
       if (response.data.err) {
@@ -483,7 +514,81 @@ export default function ShippingPage() {
                   </dd>
                 </div>
               </dl>
-
+              {hasDigitalProducts && user?.uuid && (
+                <div className="border-t border-gray-200 px-4 py-6 sm:px-6">
+                  <p className=" text-gray-900">
+                    You have digital products in your cart. How would you like
+                    to redeem them?
+                  </p>
+                  <fieldset>
+                    <legend className="sr-only">
+                      Digital Delivery Options
+                    </legend>
+                    <RadioGroup
+                      value={selectedDigitalDeliveryOption}
+                      onChange={setSelectedDigitalDeliveryOption}
+                      className="mt-4 grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-4"
+                    >
+                      <Radio
+                        key="apply_to_account"
+                        value="apply_to_account"
+                        aria-label="Apply to my LibreOne account"
+                        aria-description="Automatically apply digital products to your LibreOne account"
+                        className="group relative flex cursor-pointer rounded-md border border-gray-300 bg-white p-4 shadow-sm focus:outline-none data-[checked]:border-transparent data-[focus]:ring-2 data-[focus]:ring-indigo-500"
+                      >
+                        <span className="flex flex-1">
+                          <span className="flex flex-col">
+                            <span className="block text-sm font-medium text-gray-900">
+                              Automatically apply to my LibreOne account
+                            </span>
+                          </span>
+                        </span>
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute -inset-px rounded-lg border-2 border-transparent group-data-[focus]:border group-data-[checked]:border-indigo-500"
+                        />
+                      </Radio>
+                      <Radio
+                        key="email_access_codes"
+                        value="email_access_codes"
+                        aria-label="Email access code"
+                        aria-description="Automatically email access code for digital products"
+                        className="group relative flex cursor-pointer rounded-md border border-gray-300 bg-white p-4 shadow-sm focus:outline-none data-[checked]:border-transparent data-[focus]:ring-2 data-[focus]:ring-indigo-500"
+                      >
+                        <span className="flex flex-1">
+                          <span className="flex flex-col">
+                            <span className="block text-sm font-medium text-gray-900">
+                              I'm purchasing for someone else, email me the
+                              access code(s)
+                            </span>
+                          </span>
+                        </span>
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute -inset-px rounded-lg border-2 border-transparent group-data-[focus]:border group-data-[checked]:border-indigo-500"
+                        />
+                      </Radio>
+                    </RadioGroup>
+                  </fieldset>
+                  <p className="mt-2 text-sm text-gray-500">
+                    If you select "Automatically apply to my LibreOne account",
+                    access is applied to the LibreOne account you are currently
+                    logged in with, NOT the email address you provide here.
+                  </p>
+                </div>
+              )}
+              {hasDigitalProducts && !user?.uuid && (
+                <div className="border-t border-gray-200 px-4 py-6 sm:px-6">
+                  <div className="mt-2 text-gray-900">
+                    <p>
+                      You have digital products in your cart but you are not
+                      signed in. You will receive an email with access codes for
+                      your digital products after purchase. Please ensure your
+                      email address is correct.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="border-t border-gray-200 px-4 py-6 sm:px-6">
                 <button
                   type="submit"

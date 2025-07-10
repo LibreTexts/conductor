@@ -326,10 +326,22 @@ export default function ProductPage() {
                   Delivery Information
                 </h3>
                 <p className="mt-4 text-gray-500">
-                  This product is delivered digitally. After purchase, you will
-                  receive an email with an access code and instructions on how
-                  to redeem it.
+                  Since this is a digital product, you have two convenient
+                  delivery options at checkout:
                 </p>
+                <ul className="mt-4 list-disc space-y-2 pl-5 text-sm/6 text-gray-500 marker:text-gray-300">
+                  <li>
+                    <strong>Automatic Account Application:</strong> Have the
+                    product automatically applied to your account.
+                  </li>
+                  <li>
+                    <strong>Email Access Code: </strong>Receive an access code
+                    via email. You can then apply this code to your account
+                    later or give it to another user. If you choose this
+                    option, the access code will be sent to your email address
+                    immediately after your purchase is complete.
+                  </li>
+                </ul>
               </div>
             )}
           </div>

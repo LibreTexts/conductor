@@ -50,9 +50,19 @@ export const CreateCheckoutSessionSchema = z.object({
         items: z.array(_ProductPriceQuantity)
             .min(1, "At least one item is required"),
         shipping_option_id: z.number().or(z.literal("digital_delivery_only")),
-        shipping_address: _FullShippingAddress
-    }),
-});
+        shipping_address: _FullShippingAddress,
+        digital_delivery_option: z.enum(["apply_to_account", "email_access_codes"]).optional(),
+        digital_delivery_account: z.string().uuid().optional().or(z.literal(""))
+    }).refine(data => {
+        // if digital_delivery_option is "apply_to_account", digital_delivery_account must be provided
+        if (data.digital_delivery_option === "apply_to_account" && !data.digital_delivery_account) {
+            return false;
+        }
+        return true;
+    }, {
+        message: "If digital delivery option is 'apply_to_account', digital delivery account must be provided"
+    })
+})
 
 export const UpdateCheckoutSessionSchema = z.object({
     body: z.object({
