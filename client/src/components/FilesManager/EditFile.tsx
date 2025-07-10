@@ -541,7 +541,7 @@ const EditFile: React.FC<EditFileProps> = ({
                 <div className="flex flex-col basis-1/2">
                   <p
                     onClick={handleToggleAll}
-                    className="text-right underline text-sm text-gray-500 mr-2 mb-2 cursor-pointer"
+                    className="text-right underline text-sm text-gray-500 mr-2 mb-2 cursor-pointer !-mt-1"
                   >
                     Toggle All
                   </p>
@@ -590,7 +590,7 @@ const EditFile: React.FC<EditFileProps> = ({
                           />
                         </div>
                         {selectedLicenseVersions().length > 0 && (
-                          <div className="mt-2">
+                          <div className="mt-4">
                             <label
                               className="form-field-label form-required"
                               htmlFor="selectLicenseVersion"
@@ -637,8 +637,6 @@ const EditFile: React.FC<EditFileProps> = ({
                           label="File Source URL"
                           placeholder="https://example.com"
                           className="mt-2"
-                          required
-                          rules={required}
                           helpText="URL where the file was sourced from"
                           disabled={watch('license.sourceURL') === 'local'}
                         />
@@ -659,7 +657,6 @@ const EditFile: React.FC<EditFileProps> = ({
                             name="license.modifiedFromSource"
                             control={control}
                             label="File modified from source?"
-                            className="ml-2"
                             labelDirection="row-reverse"
                           />
                         </div>

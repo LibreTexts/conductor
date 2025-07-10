@@ -55,7 +55,7 @@ export default function CtlCheckbox<
         >
           {label && (
             <label
-              className={`form-field-label ${required ? "form-required" : ""}`}
+              className={`form-field-label ${required ? "form-required" : ""} ${labelDirection === "row-reverse" ? "ml-2" : ""}`}
             >
               {label}
             </label>
