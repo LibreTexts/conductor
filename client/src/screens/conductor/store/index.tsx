@@ -80,7 +80,7 @@ export default function StoreHome() {
                       </CategoryLink>
                       <CategoryLink href="/store/catalog?category=academy">
                         <IconSchool className="inline !mr-3" />
-                        Shop Prof. Dev.
+                        Shop Academy Online
                       </CategoryLink>
                       <CategoryLink
                         href="https://swagstore.libretexts.org"

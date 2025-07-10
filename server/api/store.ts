@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import StoreService from "./services/store-service";
+import storeService from "./services/store-service";
 import { z } from "zod";
 import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema } from "./validators/store";
 import { conductor400Err, conductor500Err } from "../util/errorutils";
@@ -7,7 +7,6 @@ import { debugError } from "../debug";
 import { LuluWebhookData, StoreShippingOption } from "../types";
 import StripeService from "./services/stripe-service";
 
-const storeService = new StoreService();
 
 export async function getStoreProduct(req: z.infer<typeof GetStoreProductSchema>, res: Response) {
   try {
@@ -35,11 +34,9 @@ export async function getStoreProduct(req: z.infer<typeof GetStoreProductSchema>
 
 export async function getStoreProducts(req: z.infer<typeof GetStoreProductsSchema>, res: Response) {
   try {
-    const limit = req.query?.limit ? parseInt(req.query.limit?.toString(), 10) : 100;
-    const page = req.query?.page ? parseInt(req.query.page?.toString(), 10) : 1;
+    const limit = req.query?.limit ? parseInt(req.query.limit?.toString(), 10) : 48;
 
     const results = await storeService.getStoreProducts({
-      page: page,
       starting_after: req.query?.starting_after,
       limit: limit,
       category: req.query?.category,

@@ -26,8 +26,7 @@ const _FullShippingAddress = _BasicShippingAddress.extend({
 
 export const GetStoreProductsSchema = z.object({
     query: z.object({
-        page: z.coerce.number().optional().default(1),
-        limit: z.coerce.number().optional().default(100),
+        limit: z.coerce.number().optional(),
         starting_after: z.string().optional(),
         category: z.string().optional(),
         query: z.string().optional().or(z.literal("")),

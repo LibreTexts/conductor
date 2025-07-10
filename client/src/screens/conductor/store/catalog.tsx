@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogBackdrop,
@@ -11,14 +11,11 @@ import {
 import AlternateLayout from "../../../components/navigation/AlternateLayout";
 import { Icon } from "semantic-ui-react";
 import { useSearchParams } from "react-router-dom-v5-compat";
-import { useQuery } from "@tanstack/react-query";
-import api from "../../../api";
-import { StoreProduct } from "../../../types";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import { formatPrice } from "../../../utils/storeHelpers";
 import TruncatedText from "../../../components/util/TruncatedText";
 import LoadingSpinner from "../../../components/LoadingSpinner";
-import Pagination from "../../../components/util/Pagination";
+import { usePaginatedStoreProducts } from "../../../hooks/usePaginatedStoreProducts";
 
 // const sortOptions = [
 //   { name: "Most Popular", href: "#", current: true },
@@ -27,7 +24,8 @@ import Pagination from "../../../components/util/Pagination";
 //   { name: "Price: Low to High", href: "#", current: false },
 //   { name: "Price: High to Low", href: "#", current: false },
 // ];
-const initialFilters = [
+
+const initFilters = [
   {
     id: "category",
     name: "Category",
@@ -38,7 +36,7 @@ const initialFilters = [
         label: "Application Access Codes",
         checked: false,
       },
-      { value: "books", label: "Books", checked: true },
+      { value: "books", label: "Books", checked: false },
     ],
   },
 ];
@@ -48,131 +46,81 @@ export default function CatalogPage() {
   const [searchParams] = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const [filters, setFilters] = useState(initialFilters);
+  const [filters, setFilters] = useState(initFilters);
+  const selectedCategory = useMemo(() => {
+    // find first "category" filter that has a checked option
+    const categoryFilter = filters.find((section) => section.id === "category");
+    return (
+      categoryFilter?.options.find((option) => option.checked)?.value || ""
+    );
+  }, [filters]);
 
-  const [activePage, setActivePage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(12);
-  const [totalItems, setTotalItems] = useState(0);
+  const searchQuery = searchParams.get("query");
 
-  const { data, isFetching } = useQuery<StoreProduct[]>({
-    queryKey: ["store-products", filters, activePage, itemsPerPage],
-    queryFn: fetchProducts,
+  const { data, isFetching, hasMore, loadMore } = usePaginatedStoreProducts({
+    category: selectedCategory,
+    itemsPerPage: 48,
+    searchQuery: searchQuery || undefined,
   });
-
-  async function fetchProducts() {
-    try {
-      const products = await api.getStoreProducts({
-        page: activePage,
-        limit: itemsPerPage,
-        category:
-          filters
-            .find((f) => f.id === "category")
-            ?.options.filter((o) => o.checked)
-            .map((o) => o.value)
-            .join(",") || undefined,
-        query: searchParams.get("query") || undefined,
-      });
-
-      if (products.data.err) {
-        throw new Error(products.data.errMsg);
-      }
-
-      if (!products.data) {
-        throw new Error("Invalid response from server.");
-      }
-
-      setTotalItems(products.data.meta.total_count);
-
-      return products.data.products;
-    } catch (err) {
-      handleGlobalError(err);
-      return [];
-    }
-  }
 
   useEffect(() => {
     const params = Object.fromEntries(searchParams.entries());
-    // You can use params to filter products or perform other actions
-    const categories = params.category ? params.category.split(",") : [];
-    const subjects = params.subject ? params.subject.split(",") : [];
-    const page = params.page ? parseInt(params.page, 10) : 1;
-    const limit = params.limit ? parseInt(params.limit, 10) : 12;
-
-    // Update filters based on search params
-    const updatedFilters = initialFilters.map((filter) => {
-      if (filter.id === "category") {
-        return {
-          ...filter,
-          options: filter.options.map((option) => ({
-            ...option,
-            checked: categories.includes(option.value),
-          })),
-        };
-      }
-      if (filter.id === "subject") {
-        return {
-          ...filter,
-          options: filter.options.map((option) => ({
-            ...option,
-            checked: subjects.includes(option.value),
-          })),
-        };
-      }
-      return filter;
-    });
-
-    setFilters(updatedFilters);
-    setActivePage(page);
-    setItemsPerPage(limit);
+    const category = params.category ? params.category : "";
+    if (category) {
+      handleUpdateFilter("category", category, true);
+    }
   }, [searchParams]);
 
   useEffect(() => {
-    handleUpdateSearchParams(filters);
-  }, [filters, activePage, itemsPerPage]);
+    handleUpdateSearchParams({ category: selectedCategory });
+  }, [selectedCategory]);
 
-  function handleUpdateFilters(
-    sectionId: string,
-    optionValue: string,
-    checked: boolean
-  ) {
-    const updatedFilters = filters.map((section) => {
-      if (section.id === sectionId) {
-        return {
-          ...section,
-          options: section.options.map((option) =>
-            option.value === optionValue ? { ...option, checked } : option
-          ),
-        };
-      }
-      return section;
-    });
-    setFilters(updatedFilters);
-  }
-
-  function handleUpdateSearchParams(newFilters: typeof filters = filters) {
+  function handleUpdateSearchParams(newFilters: Record<string, string>) {
     const newParams = new URLSearchParams();
-    newFilters.forEach((section) => {
-      let optionsString = "";
-      section.options.forEach((option) => {
-        if (option.checked) {
-          optionsString += `${optionsString ? "," : ""}${option.value}`;
-        }
-      });
-      if (optionsString) {
-        newParams.append(section.id, optionsString);
+
+    // Keep existing search query
+    if (searchQuery) {
+      newParams.set("query", searchQuery);
+    }
+
+    Object.entries(newFilters).forEach(([key, value]) => {
+      if (value) {
+        newParams.set(key, value);
       }
     });
-
-    // Add pagination parameters
-    newParams.set("page", activePage.toString());
-    newParams.set("limit", itemsPerPage.toString());
 
     // Update the URL with the new search params
     window.history.replaceState(
       {},
       "",
-      `${window.location.pathname}?${newParams.toString()}`
+      `${window.location.pathname}${newParams.toString() ? `?${newParams.toString()}` : ""}`
     );
+  }
+
+  function handleUpdateFilter(
+    filterId: string,
+    optionValue: string,
+    isChecked: boolean
+  ) {
+    // Update the selected category based on the filter
+    if (filterId === "category") {
+      // when a new category is selected, clear any other "checked" categories
+      const updatedFilters = filters.map((section) => {
+        if (section.id === filterId) {
+          return {
+            ...section,
+            options: section.options.map((option) => ({
+              ...option,
+              checked: option.value === optionValue ? isChecked : false,
+            })),
+          };
+        }
+        return section;
+      });
+
+      setFilters(updatedFilters);
+      handleUpdateSearchParams({ category: isChecked ? optionValue : "" });
+    }
   }
 
   return (
@@ -242,13 +190,13 @@ export default function CatalogPage() {
                             <div className="group grid size-4 grid-cols-1">
                               <input
                                 defaultValue={option.value}
-                                defaultChecked={option.checked}
+                                checked={option.checked}
                                 id={`filter-mobile-${section.id}-${optionIdx}`}
                                 name={`${section.id}[]`}
                                 type="checkbox"
                                 onClick={(e) => {
                                   const isChecked = e.currentTarget.checked;
-                                  handleUpdateFilters(
+                                  handleUpdateFilter(
                                     section.id,
                                     option.value,
                                     isChecked
@@ -304,47 +252,47 @@ export default function CatalogPage() {
           <div className="flex items-center">
             <Menu as="div" className="relative inline-block text-left">
               {/* <div>
-                <MenuButton className="group inline-flex justify-center text-sm font-medium text-gray-700 hover:text-gray-900">
-                  Sort
-                  <Icon
-                    name="chevron down"
-                    aria-hidden="true"
-                    className="ml-1 size-5 text-gray-400 group-hover:text-gray-500"
-                  />
-                </MenuButton>
-              </div> */}
+                 <MenuButton className="group inline-flex justify-center text-sm font-medium text-gray-700 hover:text-gray-900">
+                   Sort
+                   <Icon
+                     name="chevron down"
+                     aria-hidden="true"
+                     className="ml-1 size-5 text-gray-400 group-hover:text-gray-500"
+                   />
+                 </MenuButton>
+               </div> */}
 
               {/* <MenuItems
-                transition
-                className="absolute right-0 z-10 mt-2 w-40 origin-top-right rounded-md bg-white shadow-2xl ring-1 ring-black/5 transition focus:outline-none data-[closed]:scale-95 data-[closed]:transform data-[closed]:opacity-0 data-[enter]:duration-100 data-[leave]:duration-75 data-[enter]:ease-out data-[leave]:ease-in"
-              >
-                <div className="py-1">
-                  {sortOptions.map((option) => (
-                    <MenuItem key={option.name}>
-                      <a
-                        href={option.href}
-                        className={classNames(
-                          option.current
-                            ? "font-medium text-gray-900"
-                            : "text-gray-500",
-                          "block px-4 py-2 text-sm data-[focus]:bg-gray-100 data-[focus]:outline-none"
-                        )}
-                      >
-                        {option.name}
-                      </a>
-                    </MenuItem>
-                  ))}
-                </div>
-              </MenuItems> */}
+                 transition
+                 className="absolute right-0 z-10 mt-2 w-40 origin-top-right rounded-md bg-white shadow-2xl ring-1 ring-black/5 transition focus:outline-none data-[closed]:scale-95 data-[closed]:transform data-[closed]:opacity-0 data-[enter]:duration-100 data-[leave]:duration-75 data-[enter]:ease-out data-[leave]:ease-in"
+               >
+                 <div className="py-1">
+                   {sortOptions.map((option) => (
+                     <MenuItem key={option.name}>
+                       <a
+                         href={option.href}
+                         className={classNames(
+                           option.current
+                             ? "font-medium text-gray-900"
+                             : "text-gray-500",
+                           "block px-4 py-2 text-sm data-[focus]:bg-gray-100 data-[focus]:outline-none"
+                         )}
+                       >
+                         {option.name}
+                       </a>
+                     </MenuItem>
+                   ))}
+                 </div>
+               </MenuItems> */}
             </Menu>
 
             {/* <button
-              type="button"
-              className="-m-2 ml-5 p-2 text-gray-400 hover:text-gray-500 sm:ml-7"
-            >
-              <span className="sr-only">View grid</span>
-              <Icon name="grid layout" aria-hidden="true" className="size-5" />
-            </button> */}
+               type="button"
+               className="-m-2 ml-5 p-2 text-gray-400 hover:text-gray-500 sm:ml-7"
+             >
+               <span className="sr-only">View grid</span>
+               <Icon name="grid layout" aria-hidden="true" className="size-5" />
+             </button> */}
             <button
               type="button"
               onClick={() => setMobileFiltersOpen(true)}
@@ -360,7 +308,6 @@ export default function CatalogPage() {
           <h2 id="products-heading" className="sr-only">
             Products
           </h2>
-
           <div className="grid grid-cols-1 gap-x-8 gap-y-10 lg:grid-cols-4">
             {/* Filters */}
             <form className="hidden lg:block">
@@ -397,19 +344,19 @@ export default function CatalogPage() {
                             <div className="group grid size-4 grid-cols-1">
                               <input
                                 defaultValue={option.value}
-                                defaultChecked={option.checked}
+                                checked={option.checked}
                                 id={`filter-${section.id}-${optionIdx}`}
                                 name={`${section.id}[]`}
                                 type="checkbox"
                                 onClick={(e) => {
                                   const isChecked = e.currentTarget.checked;
-                                  handleUpdateFilters(
+                                  handleUpdateFilter(
                                     section.id,
                                     option.value,
                                     isChecked
                                   );
                                 }}
-                                className="col-start-1 row-start-1 appearance-none rounded border border-gray-300 bg-white checked:border-indigo-600 checked:bg-indigo-600 indeterminate:border-indigo-600 indeterminate:bg-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:checked:bg-gray-100 forced-colors:appearance-auto"
+                                className="col-start-1 row-start-1 appearance-none rounded-full border border-gray-300 bg-white checked:border-indigo-600 checked:bg-indigo-600 indeterminate:border-indigo-600 indeterminate:bg-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:checked:bg-gray-100 forced-colors:appearance-auto"
                               />
                               <svg
                                 fill="none"
@@ -496,31 +443,41 @@ export default function CatalogPage() {
                     </div>
 
                     {/* <h4 className="sr-only">Available colors</h4>
-                      <ul
-                        role="list"
-                        className="mt-auto flex items-center justify-center space-x-3 pt-6"
-                      >
-                        {product.availableColors.map((color) => (
-                          <li
-                            key={color.name}
-                            style={{ backgroundColor: color.colorBg }}
-                            className="size-4 rounded-full border border-black/10"
-                          >
-                            <span className="sr-only">{color.name}</span>
-                          </li>
-                        ))}
-                      </ul> */}
+                       <ul
+                         role="list"
+                         className="mt-auto flex items-center justify-center space-x-3 pt-6"
+                       >
+                         {product.availableColors.map((color) => (
+                           <li
+                             key={color.name}
+                             style={{ backgroundColor: color.colorBg }}
+                             className="size-4 rounded-full border border-black/10"
+                           >
+                             <span className="sr-only">{color.name}</span>
+                           </li>
+                         ))}
+                       </ul> */}
                   </div>
                 ))}
               </div>
-              <Pagination
-                activePage={activePage}
-                totalPages={Math.ceil(totalItems / itemsPerPage)}
-                onPageChange={(page) => {
-                  setActivePage(page);
-                }}
-                className="mt-8"
-              />
+              {hasMore && (
+                <div className="flex flex-col items-center justify-center mt-12 w-full">
+                  <button
+                    onClick={() => loadMore?.()}
+                    disabled={isFetching}
+                    className="flex items-center justify-center rounded-md border border-transparent bg-primary px-6 py-3 font-medium text-white hover:shadow-sm hover:text-gray-300 min-h-[3rem] text-center"
+                    style={{
+                      fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
+                      lineHeight: "1.2",
+                    }}
+                  >
+                    {isFetching ? "Loading..." : "Load More"}
+                  </button>
+                  <div className="mt-4 text-sm text-gray-500">
+                    Showing {data?.length || 0} items
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </section>
