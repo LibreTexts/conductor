@@ -771,7 +771,8 @@ router.route("/store/products/:product_id").get(
   storeAPI.getStoreProduct
 );
 
-router.route("/store/sync").post(
+router.route("/store/sync").put(
+  middleware.checkLibreAPIKey,
   storeAPI.syncBooksToStripe
 );
 
