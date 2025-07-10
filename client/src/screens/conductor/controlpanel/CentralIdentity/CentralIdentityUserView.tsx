@@ -811,7 +811,7 @@ const CentralIdentityUserView = () => {
                         })
                       ) : (
                         <Table.Row>
-                          <Table.Cell colSpan={2} textAlign="center">
+                          <Table.Cell colSpan={7} textAlign="center">
                             <em>No applications found.</em>
                           </Table.Cell>
                         </Table.Row>
