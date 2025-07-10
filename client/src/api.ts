@@ -46,6 +46,9 @@ import {
   StoreGetShippingOptionsRes,
   StoreCheckoutForm,
   StoreShippingOption,
+  EditAcademyOnlineAccessFormValues,
+  CentralIdentityUserLicenseResult,
+  CentralIdentityAppLicense,
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -849,6 +852,52 @@ class API {
     const res = await axios.patch<ConductorBaseResponse>(
       `/central-identity/users/${uuid}/re-enable`
     );
+    return res;
+  }
+
+  async updateCentralIdentityUserAcademyOnlineAccess(uuid: string, data: EditAcademyOnlineAccessFormValues) {
+    const res = await axios.patch<{
+      user: CentralIdentityUser;
+    } & ConductorBaseResponse>(`/central-identity/users/${uuid}/academy-online`, data);
+    return res;
+  }
+
+  async getCentralIdentityUserAppLicenses(uuid: string) {
+    const res = await axios.get<{
+      licenses: CentralIdentityUserLicenseResult[];
+    } & ConductorBaseResponse>(`/central-identity/users/${uuid}/app-licenses`);
+    return res;
+  }
+
+  async grantCentralIdentityAppLicense(data: { user_id?: string; org_id?: string; application_license_id: string }) {
+    const res = await axios.post<
+      {
+        entity_id: string;
+        application_license_id: string;
+      } & ConductorBaseResponse
+    >("/central-identity/app-licenses/grant", data);
+    return res;
+  }
+
+  async revokeCentralIdentityAppLicense(
+    // Either user_id or org_id must be present, but not both
+    data: { user_id?: string; org_id?: string; application_license_id: string }
+  ) {
+    const res = await axios.post<
+      {
+        entity_id: string;
+        application_license_id: string;
+      } & ConductorBaseResponse
+    >("/central-identity/app-licenses/revoke", data);
+    return res;
+  }
+
+  async getCentralIdentityAvailableAppLicenses() {
+    const res = await axios.get<
+      {
+        licenses: CentralIdentityAppLicense[];
+      } & ConductorBaseResponse
+    >("/central-identity/app-licenses");
     return res;
   }
 

@@ -40,17 +40,22 @@ export type CentralIdentityApp = {
 };
 
 export type CentralIdentityUser = {
+  academy_online: number;
+  academy_online_expires: string | null;
   active: boolean;
   avatar: string | null;
   bio_url?: string | null;
   createdAt: string;
   disabled: boolean | null;
+  disabled_reason?: string | null;
+  disabled_date?: string | null;
   email: string;
   enabled: boolean;
   expired: boolean | null;
   external_idp: string | null;
   external_subject_id: string | null;
   first_name: string;
+  lang: string;
   last_name: string;
   last_password_change: string | null;
   legacy: boolean;
@@ -115,3 +120,52 @@ export type Note = {
   updated_by_user: User;
   user_id: string;
 };
+
+export type CentralIdentityAppLicense = {
+  uuid: string;
+  name: string;
+  stripe_id: string | null;
+  picture_url: string | null;
+  perpetual: boolean;
+  trial: boolean;
+  is_academy_license: boolean;
+  academy_level: number;
+  duration_days: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CentralIdentityOrgAppLicense = {
+  application_license_id: string;
+  org_id: number;
+  original_purchase_date: string;
+  last_renewed_at: string;
+  expires_at: string;
+  revoked: boolean;
+  revoked_at: string | null;
+  stripe_subscription_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CentralIdentityUserAppLicense = {
+  uuid: string;
+  user_id: string;
+  application_license_id: string;
+  original_purchase_date: string;
+  last_renewed_at: string;
+  expires_at: string;
+  revoked: boolean;
+  revoked_at: string | null;
+  stripe_subscription_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CentralIdentityUserLicenseResult = CentralIdentityUserAppLicense & {
+  granted_by: 'self'
+  application_license: CentralIdentityAppLicense;
+} | CentralIdentityOrgAppLicense & {
+  granted_by: 'org';
+  application_license: CentralIdentityAppLicense;
+}

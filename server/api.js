@@ -206,6 +206,18 @@ router
   )
 
 router
+  .route("/central-identity/users/:id/academy-online")
+  .patch(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("updateUserAcademyOnlineAccess"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.updateUserAcademyOnlineAccess
+  );
+
+router
   .route("/central-identity/users/:id/applications")
   .get(
     middleware.checkCentralIdentityConfig,
@@ -258,6 +270,17 @@ router
     ),
     centralIdentityAPI.checkUsersApplicationAccess
   )
+
+router.route("/central-identity/users/:id/app-licenses")
+.get(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  centralIdentityAPI.validate("getUserAppLicenses"),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.getUserAppLicenses
+)
 
 router
   .route("/central-identity/users/:userId/notes")
@@ -329,6 +352,35 @@ router
     middleware.checkValidationErrors,
     centralIdentityAPI.deleteUserOrg
   );
+
+router.route("/central-identity/app-licenses").get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  centralIdentityAPI.getAppLicenses
+);
+
+router.route("/central-identity/app-licenses/grant")
+.post(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  centralIdentityAPI.validate("grantAppLicense"),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.grantAppLicense
+);
+
+router.route("/central-identity/app-licenses/revoke")
+.post(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  centralIdentityAPI.validate("revokeAppLicense"),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.revokeAppLicense
+);
 
 router
   .route("/central-identity/apps")
