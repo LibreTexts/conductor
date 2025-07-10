@@ -1,7 +1,7 @@
 import conductorErrors from "../conductor-errors.js";
 import { debugError } from "../debug.js";
 import { Request, Response } from "express";
-import { param, body } from "express-validator";
+import { param, body, oneOf } from "express-validator";
 import {
   CentralIdentityOrg,
   CentralIdentityService,
@@ -31,8 +31,10 @@ import {
   CentralIdentityVerificationRequestStatus,
 } from "../types";
 import {
+  CentralIdentityAppLicense,
   CentralIdentityLicense,
   CentralIdentityUpdateVerificationRequestBody,
+  CentralIdentityUserLicenseResult,
 } from "../types/CentralIdentity.js";
 import User from "../models/user.js";
 import { v4 as uuidv4 } from "uuid";
@@ -276,7 +278,7 @@ async function checkUsersApplicationAccess(
     const { ids } = req.body;
     const { applicationId } = req.params;
 
-    if(!applicationId || !ids || ids.length === 0){
+    if (!applicationId || !ids || ids.length === 0) {
       return res.send({
         err: false,
         accessResults: [],
@@ -287,7 +289,7 @@ async function checkUsersApplicationAccess(
     if (!users?.length) return conductor404Err(res);
 
     const accessPromises = users.map((u) => {
-      return new Promise<{ id: string;  hasAccess: boolean}>((resolve, reject) => {
+      return new Promise<{ id: string; hasAccess: boolean }>((resolve, reject) => {
         if (!u.centralID) {
           resolve({ id: u.uuid, hasAccess: false });
         } else {
@@ -296,7 +298,7 @@ async function checkUsersApplicationAccess(
               resolve({ id: u.uuid, hasAccess: hasAccess ?? false });
             })
             .catch((err) => {
-              console.log(err);
+              debugError(err);
               reject(err);
             });
         }
@@ -331,6 +333,115 @@ async function checkUserApplicationAccessInternal(
   } catch (err) {
     debugError(err);
     return null;
+  }
+}
+
+async function getUserAppLicenses(
+  req: TypedReqParams<{ id: string }>,
+  res: Response<{ err: boolean; licenses: CentralIdentityUserLicenseResult[] }>
+) {
+  try {
+    if (!req.params.id) return conductor400Err(res);
+
+    const licensesRes = await useCentralIdentityAxios(false).get(
+      `/app-licenses/user/${req.params.id}`,
+      {
+        params: {
+          includeRevoked: true,
+          includeExpired: true,
+        },
+      }
+    );
+
+    if (!licensesRes.data || !licensesRes.data.data) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      licenses: licensesRes.data.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function grantAppLicense(
+  req: TypedReqBody<({ user_id: string } | { org_id: string }) & { application_license_id: string }>,
+  res: Response<{ err: boolean; entity_id: string; application_license_id: string }>
+) {
+  try {
+    const grantResponse = await useCentralIdentityAxios(false).post(
+      '/app-licenses/manual-grant',
+      {
+        ...('user_id' in req.body ? { user_id: req.body.user_id } : { org_id: req.body.org_id }),
+        application_license_id: req.body.application_license_id,
+      },
+    );
+
+    if (!grantResponse.data || !grantResponse.data.data) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      entity_id: grantResponse.data.data.id,
+      application_license_id: grantResponse.data.data.application_license_id
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function revokeAppLicense(
+  req: TypedReqBody<({ user_id: string } | { org_id: string }) & { application_license_id: string }>,
+  res: Response<{ err: boolean; entity_id: string; application_license_id: string }>
+) {
+  try {
+    const revokeResponse = await useCentralIdentityAxios(false).post(
+      '/app-licenses/manual-revoke',
+      {
+        ...('user_id' in req.body ? { user_id: req.body.user_id } : { org_id: req.body.org_id }),
+        application_license_id: req.body.application_license_id,
+      }
+    );
+
+    if (!revokeResponse.data || !revokeResponse.data.data) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      entity_id: revokeResponse.data.data.id,
+      application_license_id: revokeResponse.data.data.application_license_id
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+
+async function getAppLicenses(
+  req: Request,
+  res: Response<{ err: boolean; licenses: CentralIdentityAppLicense[] }>
+) {
+  try {
+    const available = await useCentralIdentityAxios(false).get("/store/products");
+
+    if (!available.data || !available.data.data) {
+      return [];
+    }
+
+    return res.send({
+      err: false,
+      licenses: available.data.data
+    });
+  } catch (err) {
+    debugError(err);
+    return [];
   }
 }
 
@@ -518,7 +629,7 @@ async function deleteUserOrg(
  * @param param0 - An object containing the price ID and email address.
  * @returns A boolean indicating whether the access code was successfully generated.
  */
-async function _generateAccessCode({ priceId, email }:{ priceId: string; email: string}): Promise<boolean> {
+async function _generateAccessCode({ priceId, email }: { priceId: string; email: string }): Promise<boolean> {
   try {
     const res = await useCentralIdentityAxios(false).post('/store/access-code/generate', {
       stripe_price_id: priceId,
@@ -693,11 +804,11 @@ async function getOrgs(
 
     if (req.query.limit !== undefined && Number.isInteger(parseInt(req.query.limit.toString()))) {
       limit = parseInt(req.query.limit.toString());
-      
-      const page = req.query.activePage && Number.isInteger(parseInt(req.query.activePage.toString())) 
-        ? parseInt(req.query.activePage.toString()) 
+
+      const page = req.query.activePage && Number.isInteger(parseInt(req.query.activePage.toString()))
+        ? parseInt(req.query.activePage.toString())
         : 1;
-      
+
       offset = getPaginationOffset(page, limit);
     }
 
@@ -724,7 +835,7 @@ async function getOrgs(
   }
 }
 
-async function getOrg( 
+async function getOrg(
   req: TypedReqParams<{ orgId: string }>,
   res: Response<{ err: boolean; org: CentralIdentityOrg }>
 ) {
@@ -737,8 +848,8 @@ async function getOrg(
       `/organizations/${req.params.orgId}`
     );
 
-    if (!orgRes.data || !orgRes.data.data) { 
-      return conductor404Err(res); 
+    if (!orgRes.data || !orgRes.data.data) {
+      return conductor404Err(res);
     }
     return res.send({
       err: false,
@@ -765,7 +876,7 @@ async function updateOrg(
     );
 
     if (!updateRes.data || !updateRes.data.data) {
-      return conductor500Err(res); 
+      return conductor500Err(res);
     }
 
     return res.send({
@@ -889,7 +1000,7 @@ async function getADAPTOrgs(
 }
 
 async function getSystems(
-  req: TypedReqQuery<{ activePage?: number; limit?: number}>,
+  req: TypedReqQuery<{ activePage?: number; limit?: number }>,
   res: Response<{
     err: boolean;
     systems: CentralIdentitySystem[];
@@ -902,21 +1013,21 @@ async function getSystems(
 
     if (req.query.limit !== undefined && Number.isInteger(parseInt(req.query.limit.toString()))) {
       limit = parseInt(req.query.limit.toString());
-      
-      const page = req.query.activePage && Number.isInteger(parseInt(req.query.activePage.toString())) 
-        ? parseInt(req.query.activePage.toString()) 
+
+      const page = req.query.activePage && Number.isInteger(parseInt(req.query.activePage.toString()))
+        ? parseInt(req.query.activePage.toString())
         : 1;
-      
+
       offset = getPaginationOffset(page, limit);
     }
 
     const orgsRes = await useCentralIdentityAxios(false).get(
       "/organization-systems", {
-        params: {
-          offset: offset ? offset : undefined,
-          limit: limit ? limit : undefined,
-        },
-      }
+      params: {
+        offset: offset ? offset : undefined,
+        limit: limit ? limit : undefined,
+      },
+    }
     );
 
     if (!orgsRes.data || !orgsRes.data.data || !orgsRes.data.meta) {
@@ -947,8 +1058,8 @@ async function getSystem(
       `/organization-systems/${req.params.systemId}`
     );
 
-    if (!systemRes.data || !systemRes.data.data) { 
-      return conductor404Err(res); 
+    if (!systemRes.data || !systemRes.data.data) {
+      return conductor404Err(res);
     }
     return res.send({
       err: false,
@@ -975,7 +1086,7 @@ async function updateSystem(
     );
 
     if (!updateRes.data || !updateRes.data.data) {
-      return conductor500Err(res); 
+      return conductor500Err(res);
     }
 
     return res.send({
@@ -1305,7 +1416,7 @@ async function updateUserNote(
     if (!callingUser || !callingUser.centralID) {
       return conductor400Err(res);
     }
-    
+
     const noteRes = await useCentralIdentityAxios(false).patch(
       `/users/${req.params.userId}/notes/${req.params.noteId}`,
       {
@@ -1435,9 +1546,9 @@ async function processLibraryAccessWebhookEvent(
 
     const promises = withSubdomain.map(async (projectPromise) => {
       const project = await projectPromise;
-      
+
       if (!project) return null;
-      
+
       const { projectID, subdomain, libreCoverID } = project;
       if (!projectID || !subdomain || !libreCoverID) return null;
       return updateTeamWorkbenchPermissions(projectID, subdomain, libreCoverID);
@@ -1563,6 +1674,20 @@ function validate(method: string) {
     case "getUserApplications": {
       return [param("id", conductorErrors.err1).exists().isUUID()];
     }
+    case "getUserAppLicenses": {
+      return [param("id", conductorErrors.err1).exists().isUUID()];
+    }
+    case "grantAppLicense":
+    case "revokeAppLicense": {
+      return [
+        oneOf([
+          // Either user_id or org_id must be present
+          body("user_id", conductorErrors.err1).exists().isUUID(),
+          body("org_id", conductorErrors.err1).exists().isUUID(),
+        ]),
+        body("application_license_id", conductorErrors.err1).exists().isUUID(),
+      ]
+    }
     case "getUserOrgs": {
       return [param("id", conductorErrors.err1).exists().isUUID()];
     }
@@ -1607,7 +1732,7 @@ function validate(method: string) {
         param("query", conductorErrors.err1).optional().isString(),
       ];
     }
-    case "getOrg": { 
+    case "getOrg": {
       return [param("orgId", conductorErrors.err1).exists().isInt()];
     }
     case "updateOrg": {
@@ -1630,7 +1755,7 @@ function validate(method: string) {
         body("logo", conductorErrors.err1).optional().isString(),
       ];
     }
-    case "getSystem": { 
+    case "getSystem": {
       return [param("systemId", conductorErrors.err1).exists().isInt()];
     }
     case "updateSystem": {
@@ -1673,6 +1798,7 @@ function validate(method: string) {
 export default {
   getUsers,
   getUser,
+  getUserAppLicenses,
   getUserApplications,
   checkUserApplicationAccess,
   checkUsersApplicationAccess,
@@ -1681,6 +1807,9 @@ export default {
   getUserOrgs,
   _getMultipleUsersOrgs,
   addUserApplications,
+  getAppLicenses,
+  grantAppLicense,
+  revokeAppLicense,
   deleteUserApplication,
   addUserOrgs,
   deleteUserOrg,
@@ -1697,7 +1826,7 @@ export default {
   getADAPTOrgs,
   getSystems,
   deleteSystem,
-  getSystem, 
+  getSystem,
   updateSystem,
   createSystem,
   getServices,

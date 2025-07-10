@@ -15,26 +15,20 @@ import {
 import {
   CentralIdentityUser,
   CentralIdentityApp,
-  SupportTicket,
+  CentralIdentityUserLicenseResult,
 } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { useForm, Controller } from "react-hook-form";
-import axios from "axios";
-import LoadingSpinner from "../../../../components/LoadingSpinner";
 import {
   getPrettyAcademyOnlineAccessLevel,
   getPrettyAuthSource,
-  getPrettyUserType,
-  getPrettyVerficationStatus,
   userTypeOptions,
   verificationStatusOptions,
 } from "../../../../utils/centralIdentityHelpers";
-import { isCentralIdentityUserProperty } from "../../../../utils/typeHelpers";
 import HandleUserDisableModal from "../../../../components/controlpanel/CentralIdentity/HandleUserDisableModal";
 import { dirtyValues } from "../../../../utils/misc";
 import { useNotifications } from "../../../../context/NotificationContext";
 import CtlTextInput from "../../../../components/ControlledInputs/CtlTextInput";
-import CtlCheckbox from "../../../../components/ControlledInputs/CtlCheckbox";
 import CopyButton from "../../../../components/util/CopyButton";
 import { format, parseISO } from "date-fns";
 import { utcToZonedTime } from "date-fns-tz";
@@ -69,6 +63,9 @@ const UserSupportTickets = lazy(
 import api from "../../../../api";
 import UserConductorData from "../../../../components/controlpanel/CentralIdentity/UserConductorData";
 import EditUserAcademyOnlineModal from "../../../../components/controlpanel/CentralIdentity/EditUserAcademyOnlineModal";
+import { useModals } from "../../../../context/ModalContext";
+import ConfirmModal from "../../../../components/ConfirmModal";
+import AddUserAppLicenseModal from "../../../../components/controlpanel/CentralIdentity/AddUserAppLicenseModal";
 
 const CentralIdentityUserView = () => {
   const { uuid } = useParams<{ uuid: string }>();
@@ -83,6 +80,9 @@ const CentralIdentityUserView = () => {
     useState<boolean>(false);
   const [showAddOrgModal, setShowAddOrgModal] = useState<boolean>(false);
   const [userApps, setUserApps] = useState<CentralIdentityApp[]>([]);
+  const [userAppLicenses, setUserAppLicenses] = useState<
+    CentralIdentityUserLicenseResult[]
+  >([]);
   const [showRemoveOrgOrAppModal, setShowRemoveOrgOrAppModal] =
     useState<boolean>(false);
   const [removeOrgOrAppType, setRemoveOrgOrAppType] = useState<"org" | "app">(
@@ -97,6 +97,7 @@ const CentralIdentityUserView = () => {
 
   const { handleGlobalError } = useGlobalError();
   const { addNotification } = useNotifications();
+  const { openModal, closeAllModals } = useModals();
   const { control, formState, reset, watch, getValues, setValue } =
     useForm<CentralIdentityUser>({
       defaultValues: {
@@ -117,6 +118,7 @@ const CentralIdentityUserView = () => {
       loadUser();
       loadUserLocalID();
       loadUserApps();
+      loadUserAppLicenses();
     }
   }, [uuid]);
 
@@ -160,9 +162,9 @@ const CentralIdentityUserView = () => {
       setUserLocalID(res.uuid);
     } catch (err) {
       console.error(err);
-      handleGlobalError(
-        "User does not have a local Conductor record. This may or may not be expected."
-      );
+      // handleGlobalError(
+      //   "User does not have a local Conductor record. This may or may not be expected."
+      // );
     } finally {
       setLoading(false);
     }
@@ -180,6 +182,25 @@ const CentralIdentityUserView = () => {
       }
 
       setUserApps([...(res.data.applications as CentralIdentityApp[])]);
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadUserAppLicenses() {
+    try {
+      if (!uuid) return;
+      setLoading(true);
+
+      const res = await api.getCentralIdentityUserAppLicenses(uuid);
+      if (res.data.err) {
+        handleGlobalError(res.data.errMsg || "An error occurred");
+        return;
+      }
+
+      setUserAppLicenses(res.data.licenses);
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -280,6 +301,64 @@ const CentralIdentityUserView = () => {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleInitRevokeAppLicense(application_license_id: string) {
+    if (!uuid || !application_license_id) return;
+    openModal(
+      <ConfirmModal
+        text="Are you sure you want to revoke this application license? This does not handle any refunds, it simply removes the license from the user."
+        onConfirm={() => {
+          handleRevokeAppLicense(application_license_id);
+        }}
+        onCancel={closeAllModals}
+      />
+    );
+  }
+
+  async function handleRevokeAppLicense(application_license_id: string) {
+    try {
+      if (!uuid || !application_license_id) return;
+      setLoading(true);
+
+      const res = await api.revokeCentralIdentityAppLicense({
+        user_id: uuid,
+        application_license_id: application_license_id,
+      });
+
+      if (res.data.err) {
+        handleGlobalError(res.data.errMsg || "An error occurred");
+        return;
+      }
+
+      addNotification({
+        message: "Application license revoked successfully.",
+        type: "success",
+      });
+
+      closeAllModals();
+      loadUserAppLicenses();
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAddUserAppLicense() {
+    if (!uuid || !userAppLicenses) return;
+    openModal(
+      <AddUserAppLicenseModal
+        show={true}
+        userId={uuid}
+        userCurrentApps={userAppLicenses}
+        onClose={closeAllModals}
+        onChanged={() => {
+          closeAllModals();
+          loadUserAppLicenses();
+        }}
+      />
+    );
   }
 
   return (
@@ -644,11 +723,107 @@ const CentralIdentityUserView = () => {
                   </Table>
                 </div>
               </Segment>
-
               <Segment>
                 <div className="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
                   <Header as="h3" style={{ margin: 0 }}>
-                    Applications
+                    Application Licenses
+                  </Header>
+                  <Button
+                    icon
+                    color="blue"
+                    size="tiny"
+                    onClick={handleAddUserAppLicense}
+                  >
+                    <Icon name="plus" />
+                  </Button>
+                </div>
+                <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+                  <Table compact celled>
+                    <Table.Header>
+                      <Table.Row>
+                        <Table.HeaderCell>Name</Table.HeaderCell>
+                        <Table.HeaderCell>Original Purchase</Table.HeaderCell>
+                        <Table.HeaderCell>Last Renewed</Table.HeaderCell>
+                        <Table.HeaderCell>Expires At</Table.HeaderCell>
+                        <Table.HeaderCell>Revoked?</Table.HeaderCell>
+                        <Table.HeaderCell>Granted Through</Table.HeaderCell>
+                        <Table.HeaderCell>Actions</Table.HeaderCell>
+                      </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                      {userAppLicenses.length > 0 ? (
+                        userAppLicenses.map((app) => {
+                          const isExpired =
+                            new Date(app.expires_at) < new Date();
+                          return (
+                            <Table.Row key={app.application_license_id}>
+                              <Table.Cell>
+                                {app.application_license.name}
+                              </Table.Cell>
+                              <Table.Cell>
+                                {app.original_purchase_date &&
+                                  new Intl.DateTimeFormat("en-US", {
+                                    dateStyle: "short",
+                                  }).format(
+                                    new Date(app.original_purchase_date)
+                                  )}
+                              </Table.Cell>
+                              <Table.Cell>
+                                {app.last_renewed_at &&
+                                  new Intl.DateTimeFormat("en-US", {
+                                    dateStyle: "short",
+                                  }).format(new Date(app.last_renewed_at))}
+                              </Table.Cell>
+                              <Table.Cell>
+                                {app.application_license.perpetual
+                                  ? "Perpetual"
+                                  : `${
+                                      isExpired ? "Expired " : ""
+                                    }${new Intl.DateTimeFormat("en-US", {
+                                      dateStyle: "short",
+                                    }).format(new Date(app.expires_at))}`}
+                              </Table.Cell>
+                              <Table.Cell>
+                                {app.revoked && app.revoked_at
+                                  ? new Intl.DateTimeFormat("en-US", {
+                                      dateStyle: "short",
+                                    }).format(new Date(app.revoked_at))
+                                  : "No"}
+                              </Table.Cell>
+                              <Table.Cell>{app.granted_by}</Table.Cell>
+                              <Table.Cell>
+                                <Button
+                                  disabled={app.revoked}
+                                  icon
+                                  color="red"
+                                  size="tiny"
+                                  onClick={() =>
+                                    handleInitRevokeAppLicense(
+                                      app.application_license_id.toString()
+                                    )
+                                  }
+                                >
+                                  <Icon name="trash" />
+                                </Button>
+                              </Table.Cell>
+                            </Table.Row>
+                          );
+                        })
+                      ) : (
+                        <Table.Row>
+                          <Table.Cell colSpan={2} textAlign="center">
+                            <em>No applications found.</em>
+                          </Table.Cell>
+                        </Table.Row>
+                      )}
+                    </Table.Body>
+                  </Table>
+                </div>
+              </Segment>
+              <Segment>
+                <div className="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
+                  <Header as="h3" style={{ margin: 0 }}>
+                    Application Security Access
                   </Header>
                   <Button
                     icon
@@ -767,7 +942,7 @@ const CentralIdentityUserView = () => {
       <EditUserAcademyOnlineModal
         show={showAcademyAccessModal}
         userId={uuid}
-        onClose={() => handleAcademyAccessModalClose(true)}
+        onClose={() => handleAcademyAccessModalClose(false)}
         onChanged={() => {
           handleAcademyAccessModalClose(true);
         }}
