@@ -912,7 +912,7 @@ async function setRegistrationPaidStatus(
     // make idempotent: Stripe may send event multiple times
     if (participant.paymentStatus !== "unpaid") {
       debug(
-        `Participant ${participant._id} does not required payment status update but received Checkout Session ${checkoutSession.id} and PaymentIntent ${paymentIntent?.id}.`
+        `Participant ${participant._id} does not require payment status update but received Checkout Session ${checkoutSession.id} and PaymentIntent ${paymentIntent?.id}.`
       );
       return res.send({
         err: false,
