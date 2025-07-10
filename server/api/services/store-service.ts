@@ -601,9 +601,6 @@ class StoreService {
 
                     const digital_delivery_account = checkout_session.metadata?.['digital_delivery_account'] || '';
                     const digital_delivery_option = checkout_session.metadata?.['digital_delivery_option'] || 'email_access_codes'; // Default to email access codes if not specified
-                    if (!digital_delivery_option) {
-                        throw new Error("MISSING_DIGITAL_DELIVERY_OPTION");
-                    }
                     if (digital_delivery_option !== 'apply_to_account' && digital_delivery_option !== 'email_access_codes') {
                         throw new Error("INVALID_DIGITAL_DELIVERY_OPTION");
                     }
