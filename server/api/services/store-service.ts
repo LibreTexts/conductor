@@ -195,7 +195,7 @@ class StoreService {
         shipping_option: StoreShippingOption | "digital_delivery_only";
         shipping_address: z.infer<typeof CreateCheckoutSessionSchema>['body']['shipping_address'];
         digital_delivery_option?: z.infer<typeof CreateCheckoutSessionSchema>['body']['digital_delivery_option'];
-        digital_delivery_account?: z.infer<typeof CreateCheckoutSessionSchema>['body']['digital_delivery_account'];
+        digital_delivery_account?: string | null
     }): Promise<{
         session_id: string;
         checkout_url: string;
@@ -258,7 +258,7 @@ class StoreService {
                 consent_collection: {
                     terms_of_service: 'required',
                 },
-                success_url: `${process.env.NODE_ENV === 'production' ? 'https://commons.libretexts.org' : `http://localhost:${process.env.CLIENT_PORT}`}/store/checkout/success?checkout_session_id={CHECKOUT_SESSION_ID}`,
+                success_url: `${process.env.CLIENT__MAIN_COMMONS_URL ? process.env.CLIENT__MAIN_COMMONS_URL : (process.env.NODE_ENV === 'production' ? 'https://commons.libretexts.org' : `http://localhost:${process.env.CLIENT_PORT}`)}/store/checkout/success?checkout_session_id={CHECKOUT_SESSION_ID}`,
                 metadata: {
                     application: 'conductor',
                     feature: 'store',
@@ -941,7 +941,7 @@ class StoreService {
             items: ResolvedProduct[],
             email: string,
             digital_delivery_option: z.infer<typeof CreateCheckoutSessionSchema>['body']['digital_delivery_option'],
-            digital_delivery_account: z.infer<typeof CreateCheckoutSessionSchema>['body']['digital_delivery_account']
+            digital_delivery_account?: string | null
         }): Promise<boolean> {
         try {
             if (!items || items.length === 0) {
@@ -972,7 +972,7 @@ class StoreService {
                         user_id: digital_delivery_account
                     });
                     if (!didDeliver) {
-                        debug(`Failed to deliver digital product ${item.product.id} to account ${digital_delivery_account}`);
+                        debug(`Failed to deliver digital product ${item.product.id} (price ${item.price_id}) to account ${digital_delivery_account}`);
                         continue; // Skip this item if delivery failed
                     }
                 }

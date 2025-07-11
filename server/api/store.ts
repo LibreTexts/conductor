@@ -4,8 +4,9 @@ import { z } from "zod";
 import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema } from "./validators/store";
 import { conductor400Err, conductor500Err } from "../util/errorutils";
 import { debugError } from "../debug";
-import { LuluWebhookData, StoreShippingOption } from "../types";
+import { LuluWebhookData, StoreShippingOption, ZodReqWithOptionalUser } from "../types";
 import StripeService from "./services/stripe-service";
+import User from "../models/user";
 
 
 export async function getStoreProduct(req: z.infer<typeof GetStoreProductSchema>, res: Response) {
@@ -75,10 +76,9 @@ export async function getMostPopularStoreProducts(req: z.infer<typeof GetMostPop
     return conductor500Err(res);
   }
 }
-
-export async function createCheckoutSession(req: z.infer<typeof CreateCheckoutSessionSchema>, res: Response) {
+export async function createCheckoutSession(req: ZodReqWithOptionalUser<z.infer<typeof CreateCheckoutSessionSchema>>, res: Response) {
   try {
-    const { items, shipping_option_id, shipping_address, digital_delivery_option, digital_delivery_account } = req.body;
+    const { items, shipping_option_id, shipping_address, digital_delivery_option } = req.body;
 
     const shippingOptions = await storeService.getShippingOptions({
       items,
@@ -99,11 +99,20 @@ export async function createCheckoutSession(req: z.infer<typeof CreateCheckoutSe
       });
     }
 
-    if (digital_delivery_option === 'apply_to_account' && !digital_delivery_account) {
-      return res.status(400).send({
-        err: true,
-        message: "Digital delivery account must be provided when digital delivery option is 'apply_to_account'.",
-      });
+    let digital_delivery_account: string | null = null;
+    if (digital_delivery_option === 'apply_to_account') {
+      const user = await User.findOne({
+        uuid: req.user?.decoded.uuid,
+      })
+
+      if (!user || !user.centralID) {
+        return res.status(400).send({
+          err: true,
+          message: "Digital delivery account must be provided when digital delivery option is 'apply_to_account'.",
+        });
+      }
+
+      digital_delivery_account = user.centralID;
     }
 
     const { session_id, checkout_url } = await storeService.createCheckoutSession({ items, shipping_option: foundShippingOption, shipping_address, digital_delivery_option, digital_delivery_account });
