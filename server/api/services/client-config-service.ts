@@ -5,7 +5,7 @@ export default class ClientConfigService {
     async getConfig() {
         return {
             env: process.env.CLIENT__ENV || process.env.NODE_ENV,
-            stripe_public_key: process.env.CLIENT__STRIPE_PUBLIC_KEY || "",
+            main_commons_url: process.env.CLIENT__MAIN_COMMONS_URL || "",
         };
     }
 }
