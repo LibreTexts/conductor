@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from "react";
 import { useTypedSelector } from "../../../state/hooks";
-import { redirect } from "react-router-dom-v5-compat";
 import AlternateLayout from "../../../components/navigation/AlternateLayout";
 import { Icon } from "semantic-ui-react";
 import AuthHelper from "../../../components/util/AuthHelper";
@@ -14,7 +13,7 @@ export default function AuthCheckPage() {
 
   useEffect(() => {
     if (isLoggedIn) {
-      redirect("/store/checkout/shipping");
+      window.location.assign("/store/checkout/shipping");
     }
   }, [isLoggedIn]);
 

@@ -181,9 +181,6 @@ export default function ShippingPage() {
         ...(digitalDeliveryOption && {
           digital_delivery_option: digitalDeliveryOption,
         }),
-        ...(digitalDeliveryOption === "apply_to_account" && {
-          digital_delivery_account: user?.uuid || "",
-        }),
       });
 
       if (response.data.err) {
@@ -195,7 +192,7 @@ export default function ShippingPage() {
       window.location.href = response.data.checkout_url;
     } catch (error) {
       console.error("Error confirming order:", error);
-      setError("Failed to confirm order");
+      setError("Failed to submit order. Please check your details and try again.");
     } finally {
       setLoading(false);
     }
@@ -516,7 +513,7 @@ export default function ShippingPage() {
               </dl>
               {hasDigitalProducts && user?.uuid && (
                 <div className="border-t border-gray-200 px-4 py-6 sm:px-6">
-                  <p className=" text-gray-900">
+                  <p className=" text-gray-900 font-semibold">
                     You have digital products in your cart. How would you like
                     to redeem them?
                   </p>
@@ -570,7 +567,7 @@ export default function ShippingPage() {
                       </Radio>
                     </RadioGroup>
                   </fieldset>
-                  <p className="mt-2 text-sm text-gray-500">
+                  <p className="mt-4 text-sm text-gray-500">
                     If you select "Automatically apply to my LibreOne account",
                     access is applied to the LibreOne account you are currently
                     logged in with, NOT the email address you provide here.
