@@ -1,5 +1,6 @@
 import { Dropdown, Icon, Menu, } from "semantic-ui-react";
 import { useState } from "react";
+import useClientConfig from "../../../hooks/useClientConfig";
 
 
 interface SupportDropdownProps {
@@ -8,6 +9,7 @@ interface SupportDropdownProps {
 
 const SupportDropdown: React.FC<SupportDropdownProps> = ({ isMobile = false }) => {
     const [mouseIndex, setMouseIndex] = useState(0);
+    const { clientConfig } = useClientConfig();
 
     const itemsArr = [
         {
@@ -15,7 +17,7 @@ const SupportDropdown: React.FC<SupportDropdownProps> = ({ isMobile = false }) =
             props: {
                 key: "libretexts",
                 as: "a",
-                href: "https://commons.libretexts.org/insight",
+                href: `${clientConfig?.main_commons_url || "https://commons.libretexts.org"}/insight`,
                 target: "_blank",
                 rel: "noopener noreferrer",
             },
@@ -35,7 +37,7 @@ const SupportDropdown: React.FC<SupportDropdownProps> = ({ isMobile = false }) =
             props: {
                 key: "contact",
                 as: "a",
-                href: "https://commons.libretexts.org/support/contact",
+                href: `${clientConfig?.main_commons_url || "https://commons.libretexts.org"}/support/contact`,
                 target: "_blank",
                 rel: "noopener noreferrer",
             },

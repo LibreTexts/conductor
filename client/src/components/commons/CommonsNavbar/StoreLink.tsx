@@ -1,10 +1,12 @@
 import { Icon, Menu } from "semantic-ui-react";
+import useClientConfig from "../../../hooks/useClientConfig";
 
 const StoreLink = ({ isMobile = false }) => {
+  const { clientConfig } = useClientConfig();
   return (
     <Menu.Item
       as="a"
-      href="https://commons.libretexts.org/store"
+      href={`${clientConfig?.main_commons_url || "https://commons.libretexts.org"}/store`}
       target="_blank"
       className="commons-nav-link"
     >

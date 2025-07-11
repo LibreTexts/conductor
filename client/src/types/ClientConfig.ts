@@ -1,4 +1,4 @@
 export type ClientConfig = {
     env: string;
-    stripe_public_key: string;
+    main_commons_url: string;
 };
