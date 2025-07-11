@@ -747,6 +747,8 @@ router
   );
 
 router.route("/store/checkout/session").post(
+  authAPI.optionalVerifyRequest,
+  authAPI.optionalGetUserAttributes,
   middleware.validateZod(storeValidators.CreateCheckoutSessionSchema),
   storeAPI.createCheckoutSession
 )
