@@ -72,26 +72,26 @@ export default function StoreHome() {
                     <div className="my-6 grid grid-cols-1 gap-y-4 sm:grid-cols-3 sm:gap-x-4">
                       <CategoryLink href="/store/catalog?category=books">
                         <IconBook2 className="inline !mr-3" />
-                        Shop Books
+                        Books
                       </CategoryLink>
                       <CategoryLink href="/store/catalog?category=access-codes">
                         <IconKey className="inline !mr-3" />
-                        Shop Access Codes
+                        Access Codes
                       </CategoryLink>
                       <CategoryLink href="/store/catalog?category=academy">
                         <IconSchool className="inline !mr-3" />
-                        Shop Academy Online
+                        Academy Online Courses
                       </CategoryLink>
                       <CategoryLink
                         href="https://swagstore.libretexts.org"
                         target="_blank"
                       >
                         <IconShirt className="inline !mr-3" />
-                        Shop Merch
+                        Merch
                       </CategoryLink>
                       <CategoryLink href="/store/catalog">
                         <IconShoppingCart className="inline !mr-3" />
-                        Shop All Items
+                        All Items
                       </CategoryLink>
                     </div>
                     <p className="text-sm text-gray-600">
