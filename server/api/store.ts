@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import storeService from "./services/store-service";
 import { z } from "zod";
-import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema, AdminGetStoreOrdersSchema, AdminGetStoreOrderSchema } from "./validators/store";
+import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema, AdminGetStoreOrdersSchema, AdminGetStoreOrderSchema, AdminResubmitPrintJobSchema } from "./validators/store";
 import { conductor400Err, conductor404Err, conductor500Err } from "../util/errorutils";
 import { debugError } from "../debug";
 import { LuluWebhookData, StoreShippingOption, ZodReqWithOptionalUser } from "../types";
@@ -269,6 +269,36 @@ export async function adminGetStoreOrder(req: z.infer<typeof AdminGetStoreOrderS
   }
 }
 
+export async function adminResubmitPrintJob(req: z.infer<typeof AdminResubmitPrintJobSchema>, res: Response) {
+  try {
+    const { order_id } = req.params;
+    if (!order_id) {
+      return conductor400Err(res);
+    }
+
+    const result = await storeService.resubmitLuluJob(order_id);
+    if (!result) {
+      return conductor404Err(res);
+    }
+
+    if ('error' in result) {
+      return res.status(200).send({
+        err: true,
+        errMsg: "Failed to resubmit store order print job: " + result.error,
+      });
+    }
+
+    return res.status(200).send({
+      err: false,
+      message: "Store order print job resubmitted successfully.",
+      data: result,
+    });
+  } catch (error) {
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
+
 export default {
   getStoreProduct,
   getStoreProducts,
@@ -280,4 +310,5 @@ export default {
   syncBooksToStripe,
   adminGetStoreOrder,
   adminGetStoreOrders,
+  adminResubmitPrintJob,
 };

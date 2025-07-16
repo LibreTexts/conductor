@@ -774,6 +774,14 @@ router.route("/store/admin/orders/:order_id").get(
   storeAPI.adminGetStoreOrder
 );
 
+router.route("/store/admin/orders/:order_id/resubmit").post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(storeValidators.AdminResubmitPrintJobSchema),
+  storeAPI.adminResubmitPrintJob
+);
+
 router.route("/store/products").get(
   middleware.validateZod(storeValidators.GetStoreProductsSchema),
   storeAPI.getStoreProducts

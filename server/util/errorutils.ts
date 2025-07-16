@@ -52,3 +52,31 @@ export function conductor500Err(res: Response) {
     errMsg: conductorErrors.err6,
   });
 }
+
+/**
+ * Serializes an error object into a string representation.
+ * @param error - The error object to serialize, which can be an instance of Error or any other object.
+ * @returns A string representation of the error object. If the error is an instance of Error, it will include the name, message, stack trace, and any additional properties.
+ * If the error is a plain object, it will be serialized as JSON.
+ * For other types, it will return the string representation of the error.
+ */
+export const serializeError = (error: any): string => {
+  if (error instanceof Error) {
+    return JSON.stringify({
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      ...Object.getOwnPropertyNames(error).reduce((acc, key) => {
+        if (key !== 'name' && key !== 'message' && key !== 'stack') {
+          // @ts-ignore
+          acc[key] = error[key];
+        }
+        return acc;
+      }, {})
+    });
+  } else if (typeof error === 'object' && error !== null) {
+    return JSON.stringify(error, null, 2);
+  } else {
+    return String(error);
+  }
+}

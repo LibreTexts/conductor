@@ -3,7 +3,7 @@ import { debug } from "../../debug";
 import StripeService from "./stripe-service";
 import { getLibraryNameKeys } from "../libraries";
 import axios from "axios";
-import { BookPriceOption, StoreProduct, StoreShippingOption, DownloadCenterItem, LuluShippingLineItem, ResolvedProduct, LuluPrintJobLineItem, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession } from "../../types";
+import { BookPriceOption, StoreProduct, StoreShippingOption, DownloadCenterItem, LuluShippingLineItem, ResolvedProduct, LuluPrintJobLineItem, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession, LuluPrintJob } from "../../types";
 import { checkBookIDFormat } from "../../util/bookutils";
 import { CreateCheckoutSessionSchema, GetShippingOptionsSchema, AdminGetStoreOrdersSchema } from "../validators/store";
 import { z } from "zod";
@@ -12,6 +12,7 @@ import StoreOrder, { RawStoreOrder } from "../../models/storeorder";
 import centralIdentityAPI from "../central-identity"
 import Fuse from "fuse.js";
 import NodeCache from "node-cache";
+import { serializeError } from "../../util/errorutils";
 
 const BASE_COST = 1.80;
 const PAGE_MULTIPLIER = 0.032;
@@ -471,31 +472,12 @@ class StoreService {
                 error: "",
             });
 
-            // Begin processing the order
             try {
-                const stripe = this.stripeService.getInstance();
                 if (!checkout_session || !checkout_session.id) {
                     throw new Error("Invalid checkout session provided.");
                 }
 
-                const lineItems: ({
-                    product_id: string,
-                    price_id: string
-                    quantity: number
-                })[] = checkout_session.line_items?.data?.map((i) => {
-                    let product_id = '';
-                    if (i.price?.product && typeof i.price.product === 'string') {
-                        product_id = i.price.product;
-                    } else if (i.price?.product && typeof i.price.product === 'object' && i.price.product.id) {
-                        product_id = i.price.product.id;
-                    }
-
-                    return ({
-                        product_id: product_id,
-                        price_id: i.price?.id || '',
-                        quantity: i.quantity || 1,
-                    })
-                }) || []
+                const lineItems = this._parseLineItemsFromCheckoutSession(checkout_session);
 
                 if (!lineItems || lineItems.length === 0) {
                     throw new Error("NO_LINE_ITEMS");
@@ -505,60 +487,7 @@ class StoreService {
                     throw new Error("TOO_MANY_LINE_ITEMS");
                 }
 
-
-                let shippingItem: ResolvedProduct | null = null;
-                const bookItems: ResolvedProduct[] = [];
-                const digitalItems: ResolvedProduct[] = [];
-
-                for (const item of lineItems) {
-                    if (!item.product_id || !item.price_id) {
-                        throw new Error("INVALID_LINE_ITEM");
-                    }
-
-                    const price = await stripe.prices.retrieve(item.price_id, {
-                        expand: ['product'],
-                    });
-
-                    if (!price || !price.product || typeof price.product === 'string') {
-                        throw new Error("INVALID_LINE_ITEM_PRICE")
-                    }
-                    if (!price.product.id) {
-                        throw new Error("INVALID_LINE_ITEM_PRODUCT");
-                    }
-                    if (price.product.id !== item.product_id) {
-                        throw new Error("LINE_ITEM_PRODUCT_MISMATCH");
-                    }
-
-                    const product = price.product as Stripe.Product;
-
-                    if (product.metadata['is_shipping'] === 'true') {
-                        shippingItem = {
-                            product_id: item.product_id,
-                            price_id: item.price_id,
-                            product: product,
-                            price,
-                            quantity: item.quantity,
-                        };
-                    }
-
-                    if (product.metadata['store_category'] === 'books') {
-                        bookItems.push({
-                            product_id: item.product_id,
-                            price_id: item.price_id,
-                            product: product,
-                            price,
-                            quantity: item.quantity,
-                        })
-                    } else if (product.metadata['digital'] === 'true') {
-                        digitalItems.push({
-                            product_id: item.product_id,
-                            price_id: item.price_id,
-                            product: product,
-                            price,
-                            quantity: item.quantity,
-                        })
-                    }
-                }
+                const { books: bookItems, digital: digitalItems, shipping: shippingItem } = await this._separateProductsByCategory(lineItems);
 
                 // Handle book items
                 if (bookItems.length > 0) {
@@ -579,6 +508,7 @@ class StoreService {
                             postcode: checkout_session.customer_details?.address?.postal_code || '',
                             country_code: checkout_session.customer_details?.address?.country || '',
                             phone_number: checkout_session.customer_details?.phone || '',
+                            email: checkout_session.customer_details?.email || '', // Will default to the contact email on Lulu account if not provided
                             is_business: false,
                         },
                         line_items: luluLineItems,
@@ -623,7 +553,15 @@ class StoreService {
                 await this._failStoreOrder(storeOrder, error.toString());
                 return storeOrder;
             }
-        } catch (error) {
+        } catch (error: any) {
+            // If error is mongodb duplicate key error, it means the order already exists and we likely just received the webhook multiple times
+            if (error.code === 11000) {
+                debug(`StoreOrder with ID ${checkout_session.id} already exists. This is likely a duplicate webhook event.`);
+                const existingOrder = await StoreOrder.findOne({ id: checkout_session.id });
+                if (existingOrder) {
+                    return existingOrder;
+                }
+            }
             throw new Error("Fatal error during order processing: " + error);
         }
     }
@@ -647,6 +585,72 @@ class StoreService {
             await storeOrder.save();
         } catch (error) {
             debug("Error processing Lulu order update:", error);
+        }
+    }
+
+    public async resubmitLuluJob(orderId: string): Promise<LuluPrintJob | {
+        error: string;
+        detail?: string;
+    }> {
+        try {
+            const store_order = await StoreOrder.findOne({ id: orderId });
+            if (!store_order) {
+                debug(`No StoreOrder found for ID: ${orderId}`);
+                return { error: `No StoreOrder found for ID: ${orderId}` };
+            }
+
+            const { session } = await this._fetchCheckoutSession(store_order.id);
+            if (!session || !session.id) {
+                debug(`No valid Stripe checkout session found for StoreOrder ID: ${store_order.id}`);
+                return { error: `No valid Stripe checkout session found for StoreOrder ID: ${store_order.id}` };
+            }
+
+            const lineItems = this._parseLineItemsFromCheckoutSession(session);
+            if (!lineItems || lineItems.length === 0) {
+                debug(`No valid line items found for StoreOrder ID: ${store_order.id}`);
+                return { error: `No valid line items found for StoreOrder ID: ${store_order.id}` };
+            }
+
+            const { books, shipping } = await this._separateProductsByCategory(lineItems);
+            if (!books || books.length === 0) {
+                debug(`No valid book items found for StoreOrder ID: ${store_order.id}`);
+                return { error: `No valid book items found for StoreOrder ID: ${store_order.id}` };
+            }
+
+            if (!shipping) {
+                debug(`No valid shipping item found for StoreOrder ID: ${store_order.id}`);
+                return { error: `No valid shipping item found for StoreOrder ID: ${store_order.id}` };
+            }
+
+            const luluLineItems = this.luluService.buildPrintJobLineItems(books);
+            const printJob = await this.luluService.createPrintJob({
+                external_id: store_order.id,
+                shipping_address: {
+                    name: session.customer_details?.name || '',
+                    street1: session.customer_details?.address?.line1 || '',
+                    street2: session.customer_details?.address?.line2 || '',
+                    city: session.customer_details?.address?.city || '',
+                    state_code: session.customer_details?.address?.state || '',
+                    postcode: session.customer_details?.address?.postal_code || '',
+                    country_code: session.customer_details?.address?.country || '',
+                    phone_number: session.customer_details?.phone || '',
+                    email: session.customer_details?.email || '', // Will default to the contact email on Lulu account if not provided
+                    is_business: false,
+                },
+                line_items: luluLineItems,
+                shipping_level: shipping.product.metadata['lulu_shipping_option_level'] as LuluShippingLevel || 'MAIL',
+            })
+
+            if (!printJob || !printJob.id) {
+                debug(`Failed to create Lulu print job for StoreOrder ID: ${store_order.id}`);
+                return { error: `Failed to create Lulu print job for StoreOrder ID: ${store_order.id} with an internal error` };
+            }
+
+            return printJob;
+        } catch (error) {
+            debug("Error retrying Lulu job:", error);
+            const errorString = serializeError(error);
+            return { error: "Failed to retry Lulu job", detail: errorString };
         }
     }
 
@@ -692,10 +696,10 @@ class StoreService {
 
             const order_data: StoreOrderWithStripeSession[] = [];
             for (const order of orders) {
-                const session_data = await this._fetchCheckoutSession(order.id);
+                const { session } = await this._fetchCheckoutSession(order.id);
                 order_data.push({
                     ...order.toObject(), // Convert Mongoose document to plain object
-                    stripe_session: session_data || null
+                    stripe_session: session
                 });
             }
 
@@ -725,18 +729,12 @@ class StoreService {
             }
 
             const withSession: StoreOrderWithStripeSession = { ...order.toObject(), stripe_session: null };
-            const session_data = await this._fetchCheckoutSession(order.id);
-            if (session_data) {
-                withSession.stripe_session = session_data;
+            const { session, charge } = await this._fetchCheckoutSession(order.id);
+            if (session) {
+                withSession.stripe_session = session;
             }
-
-            // Attempt to fetch the receipt URL from the payment intent
-            if (session_data?.payment_intent && typeof session_data?.payment_intent === 'object' && session_data?.payment_intent?.latest_charge) {
-                const stripe = this.stripeService.getInstance();
-                const charge = await stripe.charges.retrieve(typeof session_data.payment_intent.latest_charge === 'string' ? session_data.payment_intent.latest_charge : session_data.payment_intent.latest_charge.id);
-                if (charge) {
-                    withSession.stripe_charge = charge;
-                }
+            if (charge) {
+                withSession.stripe_charge = charge;
             }
 
             return withSession;
@@ -1026,12 +1024,15 @@ class StoreService {
         return allProducts;
     }
 
-    private async _fetchCheckoutSession(sessionId: string): Promise<Stripe.Checkout.Session | null> {
+    private async _fetchCheckoutSession(sessionId: string, opts: { includeCharges?: boolean } = {}): Promise<{
+        session: Stripe.Checkout.Session | null;
+        charge?: Stripe.Charge | null;
+    }> {
         const stripe = this.stripeService.getInstance();
         const cached = this.cache.get(sessionId);
 
-        if (cached) {
-            return cached as Stripe.Checkout.Session;
+        if (cached && !opts.includeCharges) {
+            return { session: cached as Stripe.Checkout.Session };
         }
 
         try {
@@ -1039,11 +1040,22 @@ class StoreService {
                 expand: ['line_items', 'customer_details', 'payment_intent', 'line_items.data.price.product'],
             });
 
+
+            if (!session || !session.id) {
+                debug("No valid Stripe checkout session found for ID:", sessionId);
+                return { session: null, charge: null };
+            }
+
+            let charge: Stripe.Charge | null = null;
+            if (opts.includeCharges && session?.payment_intent && typeof session?.payment_intent === 'object' && session?.payment_intent?.latest_charge) {
+                charge = await stripe.charges.retrieve(typeof session?.payment_intent.latest_charge === 'string' ? session?.payment_intent.latest_charge : session?.payment_intent.latest_charge.id);
+            }
+
             this.cache.set(sessionId, session, 60 * 60); // Cache for 1 hour
-            return session;
+            return { session, charge };
         } catch (error) {
             debug("Error fetching checkout session:", error);
-            return null;
+            return { session: null, charge: null };
         }
     }
 
@@ -1110,6 +1122,80 @@ class StoreService {
         }
     }
 
+    private async _separateProductsByCategory(items: { product_id: string, price_id: string, quantity: number }[]): Promise<{
+        books: ResolvedProduct[],
+        digital: ResolvedProduct[],
+        shipping: ResolvedProduct | null,
+    }> {
+        let shippingItem: ResolvedProduct | null = null;
+        const bookItems: ResolvedProduct[] = [];
+        const digitalItems: ResolvedProduct[] = [];
+        const stripe = this.stripeService.getInstance();
+        if (!items || items.length === 0) {
+            return {
+                books: bookItems,
+                digital: digitalItems,
+                shipping: shippingItem,
+            };
+        }
+
+        for (const item of items) {
+            if (!item.product_id || !item.price_id) {
+                throw new Error("INVALID_LINE_ITEM");
+            }
+
+            const price = await stripe.prices.retrieve(item.price_id, {
+                expand: ['product'],
+            });
+
+            if (!price || !price.product || typeof price.product === 'string') {
+                throw new Error("INVALID_LINE_ITEM_PRICE")
+            }
+            if (!price.product.id) {
+                throw new Error("INVALID_LINE_ITEM_PRODUCT");
+            }
+            if (price.product.id !== item.product_id) {
+                throw new Error("LINE_ITEM_PRODUCT_MISMATCH");
+            }
+
+            const product = price.product as Stripe.Product;
+
+            if (product.metadata['is_shipping'] === 'true') {
+                shippingItem = {
+                    product_id: item.product_id,
+                    price_id: item.price_id,
+                    product: product,
+                    price,
+                    quantity: item.quantity,
+                };
+            }
+
+            if (product.metadata['store_category'] === 'books') {
+                bookItems.push({
+                    product_id: item.product_id,
+                    price_id: item.price_id,
+                    product: product,
+                    price,
+                    quantity: item.quantity,
+                })
+            } else if (product.metadata['digital'] === 'true') {
+                digitalItems.push({
+                    product_id: item.product_id,
+                    price_id: item.price_id,
+                    product: product,
+                    price,
+                    quantity: item.quantity,
+                })
+            }
+        }
+
+        return {
+            books: bookItems,
+            digital: digitalItems,
+            shipping: shippingItem,
+        }
+    }
+
     private _shippingAddressToStripeData(shipping_address: z.infer<typeof CreateCheckoutSessionSchema>['body']['shipping_address']): Stripe.CustomerCreateParams {
         return {
             email: shipping_address.email,
@@ -1136,6 +1222,23 @@ class StoreService {
                 }
             }
         }
+    }
+
+    private _parseLineItemsFromCheckoutSession(session: Stripe.Checkout.Session): { product_id: string, price_id: string, quantity: number }[] {
+        return session.line_items?.data?.map((i) => {
+            let product_id = '';
+            if (i.price?.product && typeof i.price.product === 'string') {
+                product_id = i.price.product;
+            } else if (i.price?.product && typeof i.price.product === 'object' && i.price.product.id) {
+                product_id = i.price.product.id;
+            }
+
+            return ({
+                product_id: product_id,
+                price_id: i.price?.id || '',
+                quantity: i.quantity || 1,
+            })
+        }) || []
     }
 
     /**

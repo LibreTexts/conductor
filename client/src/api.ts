@@ -608,6 +608,13 @@ class API {
     return res;
   }
 
+  async adminResubmitPrintJob(order_id: string) {
+    const res = await axios.post<
+      { data: StoreOrderWithStripeSession } & ConductorBaseResponse
+    >(`/store/admin/orders/${order_id}/resubmit`);
+    return res;
+  }
+
   // Central Identity
   async getCentralIdentityOrgs({
     activePage,
