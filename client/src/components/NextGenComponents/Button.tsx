@@ -34,10 +34,10 @@ const Button: React.FC<ButtonProps> = ({
 
   const IconComponent = () => {
     if (!icon) return null;
-    const Icon: JSX.Element = (TablerIcons[icon] ||
-      TablerIcons["IconQuestionMark"]) as unknown as JSX.Element;
+    const Icon = TablerIcons[icon] || TablerIcons["IconQuestionMark"];
+    if (typeof Icon !== "function") return null;
     // @ts-ignore
-    return Icon ? <Icon className="h-5 w-5" stroke={2} /> : null;
+    return <Icon className="h-5 w-5" stroke={2} />;
   };
 
   return (

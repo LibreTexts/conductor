@@ -250,6 +250,7 @@ export async function adminGetStoreOrder(req: z.infer<typeof AdminGetStoreOrderS
   try {
     const order_id = req.params.order_id;
     if (!order_id) {
+      return conductor400Err(res);
     }
 
     const order = await storeService.adminGetStoreOrder(order_id);

@@ -83,7 +83,6 @@ export type StoreOrder = {
     error: string;
     luluJobID?: string;
     luluJobStatus?: string;
-    luluJobError?: string;
     luluJobStatusMessage?: string;
     createdAt?: Date;
     updatedAt?: Date;
