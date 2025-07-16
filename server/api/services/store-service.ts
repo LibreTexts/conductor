@@ -569,17 +569,22 @@ class StoreService {
 
     public async processLuluOrderUpdate({ data }: { data: LuluWebhookData['data'] }) {
         try {
-            const luluJobID = data.id.toString();
-
-            const storeOrder = await StoreOrder.findOne({
-                luluJobID: luluJobID,
-            });
-
-            if (!storeOrder) {
-                debug(`No StoreOrder found for Lulu job ID: ${luluJobID}`);
+            const checkout_session_id = data.external_id;
+            if (!checkout_session_id) {
+                debug("No external_id found in Lulu webhook data.");
                 return;
             }
 
+            const storeOrder = await StoreOrder.findOne({
+                id: checkout_session_id,
+            });
+
+            if (!storeOrder) {
+                debug(`No StoreOrder found with id: ${checkout_session_id}`);
+                return;
+            }
+
+            storeOrder.luluJobID = data.id.toString(); // Update the Lulu job ID (e.g. on resubmits)
             storeOrder.luluJobStatus = data.status?.name || "unknown";
             storeOrder.luluJobStatusMessage = data.status?.message || "";
             await storeOrder.save();
@@ -645,6 +650,11 @@ class StoreService {
                 debug(`Failed to create Lulu print job for StoreOrder ID: ${store_order.id}`);
                 return { error: `Failed to create Lulu print job for StoreOrder ID: ${store_order.id} with an internal error` };
             }
+
+            store_order.luluJobID = printJob.id.toString();
+            store_order.luluJobStatus = printJob.status["name"] || "unknown";
+            store_order.luluJobStatusMessage = printJob.status["message"] || "";
+            await store_order.save();
 
             return printJob;
         } catch (error) {
