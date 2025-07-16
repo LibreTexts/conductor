@@ -582,7 +582,7 @@ export default function ShippingPage() {
                   control={control}
                   render={({ field }) => (
                     <Input
-                      label="Address line 2"
+                      label="Address line 2 (optional)"
                       placeholder="Address line 2"
                       autoComplete="address-line2"
                       {...field}
@@ -597,6 +597,7 @@ export default function ShippingPage() {
                 <Controller
                   name="city"
                   control={control}
+                  rules={{ required: true }}
                   render={({ field }) => (
                     <Input
                       label="City"

@@ -3,7 +3,7 @@ import storeService from "./services/store-service";
 import { z } from "zod";
 import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema, AdminGetStoreOrdersSchema, AdminGetStoreOrderSchema, AdminResubmitPrintJobSchema } from "./validators/store";
 import { conductor400Err, conductor404Err, conductor500Err } from "../util/errorutils";
-import { debugError } from "../debug";
+import { debug, debugError } from "../debug";
 import { LuluWebhookData, StoreShippingOption, ZodReqWithOptionalUser } from "../types";
 import StripeService from "./services/stripe-service";
 import User from "../models/user";
@@ -158,6 +158,7 @@ export async function processLuluWebhook(req: Request, res: Response) {
     }
 
     const data = json.data as LuluWebhookData['data'];
+    debug("Processing Lulu webhook data:", data);
     await storeService.processLuluOrderUpdate({ data });
 
     return res.status(200).send({
@@ -284,7 +285,7 @@ export async function adminResubmitPrintJob(req: z.infer<typeof AdminResubmitPri
     if ('error' in result) {
       return res.status(200).send({
         err: true,
-        errMsg: "Failed to resubmit store order print job: " + result.error,
+        errMsg: `${result.error}. ${result.detail || ""}`,
       });
     }
 
