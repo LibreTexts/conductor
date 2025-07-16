@@ -57,6 +57,8 @@ const Store = lazy(() => import('./screens/conductor/store'));
 const StoreAuthCheck = lazy(() => import('./screens/conductor/store/auth-check'));
 const StoreCart = lazy(() => import('./screens/conductor/store/cart'));
 const StoreCatalog = lazy(() => import('./screens/conductor/store/catalog'));
+const StoreManager = lazy(() => import('./screens/conductor/controlpanel/StoreManager'));
+const StoreManagerOrderView = lazy(() => import('./screens/conductor/controlpanel/StoreManager/order-view'));
 const StoreOrder = lazy(() => import('./screens/conductor/store/order'));
 const StoreProduct = lazy(() => import('./screens/conductor/store/product'));
 const StoreShipping = lazy(() => import('./screens/conductor/store/shipping'));
@@ -91,7 +93,7 @@ const RenderNavbar = () => {
   if(window.location.pathname.includes('/insight') || window.location.pathname.includes('/support')){
     return <SupportCenterNavbar />;
   }
-  if(window.location.pathname.includes('/store')){
+  if(window.location.pathname.startsWith('/store')){
     return <StoreNavbar />;
   }
   return <Navbar />
@@ -157,6 +159,8 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/orgsmanager' component={OrganizationsManager} />
           <PrivateRoute exact path='/controlpanel/peerreviewrubrics' component={PeerReviewRubrics} />
           <PrivateRoute exact path='/controlpanel/peerreviewrubrics/:mode/:rubricID?' component={PeerReviewRubricManage} />
+          <PrivateRoute exact path='/controlpanel/store' component={StoreManager} />
+          <PrivateRoute exact path='/controlpanel/store/orders/:order_id' component={StoreManagerOrderView} />
           <PrivateRoute exact path='/controlpanel/usersmanager' component={UsersManager} />
           <PrivateRoute exact path='/controlpanel/usersmanager/:uuid' component={UserDetails} />
           <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />

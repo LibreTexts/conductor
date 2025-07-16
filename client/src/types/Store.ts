@@ -75,3 +75,30 @@ export type StoreShippingOption = {
 }
 
 export type StoreDigitalDeliveryOption = "apply_to_account" | "email_access_codes";
+
+export type StoreOrder = {
+    _id: string; // MongoDB ObjectID
+    id: string; // Stripe checkout session ID
+    status: "pending" | "completed" | "failed";
+    error: string;
+    luluJobID?: string;
+    luluJobStatus?: string;
+    luluJobError?: string;
+    luluJobStatusMessage?: string;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
+export type StoreOrderWithStripeSession = StoreOrder & {
+    stripe_session: Stripe.Checkout.Session;
+    stripe_charge?: Stripe.Charge | null;
+}
+
+export type GetStoreOrdersResponse = {
+    items: StoreOrderWithStripeSession[];
+    meta: {
+        total_count: number;
+        has_more: boolean;
+        next_page: string | null;
+    };
+}

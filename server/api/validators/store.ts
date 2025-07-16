@@ -1,4 +1,3 @@
-import { query } from 'express';
 import { z } from 'zod';
 
 const _ProductPriceQuantity = z.object({
@@ -72,4 +71,18 @@ export const GetShippingOptionsSchema = z.object({
     })
 })
 
+export const AdminGetStoreOrdersSchema = z.object({
+    query: z.object({
+        starting_after: z.string().optional().or(z.literal("")),
+        limit: z.coerce.number().optional().default(25),
+        status: z.string().optional().or(z.literal("")),
+        lulu_status: z.string().optional().or(z.literal("")),
+        query: z.string().optional().or(z.literal("")),
+    }).optional(),
+})
 
+export const AdminGetStoreOrderSchema = z.object({
+    params: z.object({
+        order_id: z.string().min(1, "Order ID is required"),
+    }),
+});

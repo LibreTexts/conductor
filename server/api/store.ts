@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import storeService from "./services/store-service";
 import { z } from "zod";
-import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema } from "./validators/store";
-import { conductor400Err, conductor500Err } from "../util/errorutils";
+import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema, AdminGetStoreOrdersSchema, AdminGetStoreOrderSchema } from "./validators/store";
+import { conductor400Err, conductor404Err, conductor500Err } from "../util/errorutils";
 import { debugError } from "../debug";
 import { LuluWebhookData, StoreShippingOption, ZodReqWithOptionalUser } from "../types";
 import StripeService from "./services/stripe-service";
@@ -231,6 +231,43 @@ export async function syncBooksToStripe(req: Request, res: Response) {
   }
 }
 
+export async function adminGetStoreOrders(req: z.infer<typeof AdminGetStoreOrdersSchema>, res: Response) {
+  try {
+    const order_data = await storeService.adminGetStoreOrders(req.query);
+    return res.status(200).send({
+      err: false,
+      message: "Store orders fetched successfully.",
+      items: order_data.items,
+      meta: order_data.meta,
+    });
+  } catch (error) {
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
+
+export async function adminGetStoreOrder(req: z.infer<typeof AdminGetStoreOrderSchema>, res: Response) {
+  try {
+    const order_id = req.params.order_id;
+    if (!order_id) {
+    }
+
+    const order = await storeService.adminGetStoreOrder(order_id);
+    if (!order) {
+      return conductor404Err(res);
+    }
+
+    return res.status(200).send({
+      err: false,
+      message: "Store order fetched successfully.",
+      data: order,
+    });
+  } catch (error) {
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
+
 export default {
   getStoreProduct,
   getStoreProducts,
@@ -240,4 +277,6 @@ export default {
   processLuluWebhook,
   processStripeWebhook,
   syncBooksToStripe,
+  adminGetStoreOrder,
+  adminGetStoreOrders,
 };

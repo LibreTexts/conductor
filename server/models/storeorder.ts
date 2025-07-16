@@ -1,17 +1,17 @@
-import { Document, model, Schema } from "mongoose";
+import { HydratedDocument, model, Schema } from "mongoose";
 
-
-
-export interface StoreOrderInterface extends Document {
+export interface RawStoreOrder {
     id: string; // stripe checkout session id;
     status: "pending" | "completed" | "failed";
     error: string; // Error message if the order fails
     luluJobID?: string;
     luluJobStatus?: string;
-    luluJobError?: string; // Error message if the Lulu job fails
+    luluJobStatusMessage?: string; // Error message if the Lulu job fails
     createdAt?: Date; // Automatically set by Mongoose
     updatedAt?: Date; // Automatically set by Mongoose
 }
+
+export type StoreOrderDocument = HydratedDocument<RawStoreOrder>;
 
 /**
  * StoreOrder is a lightweight model to track orders made through the store,
@@ -19,7 +19,7 @@ export interface StoreOrderInterface extends Document {
  * The vast majority of order information is/should be stored in Stripe,
  * but this model helps us quickly store and retrieve specialized order information
  */
-const StoreOrderSchema = new Schema<StoreOrderInterface>({
+const StoreOrderSchema = new Schema<RawStoreOrder>({
     id: {
         type: String,
         required: true,
@@ -33,10 +33,10 @@ const StoreOrderSchema = new Schema<StoreOrderInterface>({
     error: String,
     luluJobID: String,
     luluJobStatus: String,
-    luluJobError: String
+    luluJobStatusMessage: String,
 }, {
     timestamps: true
 })
 
-const StoreOrder = model<StoreOrderInterface>('StoreOrder', StoreOrderSchema);
+const StoreOrder = model<RawStoreOrder>('StoreOrder', StoreOrderSchema);
 export default StoreOrder;

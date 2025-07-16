@@ -24,3 +24,12 @@ export const findBookPrice = ({ product, hardcover, color }: {
             p.metadata["color"] === (color ? "true" : "false");
     })
 }
+
+export const truncateOrderId = (orderId: string): string => {
+    if(!orderId || !orderId.startsWith("cs_")) {
+        return orderId;
+    }
+    const firstPart = orderId.slice(0, 12);
+    const secondPart = orderId.slice(-12);
+    return `${firstPart}...${secondPart}`;
+}

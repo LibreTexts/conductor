@@ -758,6 +758,22 @@ router.route("/store/checkout/shipping-options").post(
   storeAPI.getShippingOptions
 )
 
+router.route("/store/admin/orders").get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(storeValidators.AdminGetStoreOrdersSchema),
+  storeAPI.adminGetStoreOrders
+);
+
+router.route("/store/admin/orders/:order_id").get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(storeValidators.AdminGetStoreOrderSchema),
+  storeAPI.adminGetStoreOrder
+);
+
 router.route("/store/products").get(
   middleware.validateZod(storeValidators.GetStoreProductsSchema),
   storeAPI.getStoreProducts
