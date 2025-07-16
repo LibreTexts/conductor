@@ -624,7 +624,7 @@ const getProjectTasks = (req, res) => {
         projectID: req.query.projectID
     }).lean().then((project) => {
         if (project) {
-            if (projectsAPI.checkProjectMemberPermission(project, req.user)) {
+            if (projectsAPI.checkProjectGeneralPermission(project, req.user)) {
                 return Task.aggregate([
                     {
                         $match: {

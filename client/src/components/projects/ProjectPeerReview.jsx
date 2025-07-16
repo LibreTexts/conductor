@@ -197,7 +197,12 @@ const ProjectPeerReview = (props) => {
                 setUserProjectMember(true);
                 setCanViewDetails(true);
             } else {
-                setCanViewDetails(checkCanViewProjectDetails(project, user));
+                if (project.visibility === 'public') {
+                    setCanViewDetails(true);
+                }
+                else {
+                    setCanViewDetails(checkCanViewProjectDetails(project, user));
+                }
             }
         }
     }, [project, user, setUserProjectMember, setCanViewDetails]);
@@ -528,7 +533,7 @@ const ProjectPeerReview = (props) => {
                                                         </div>
                                                         <div className='right-flex'>
                                                             <Button.Group fluid>
-                                                                {openAccessPR ? (
+                                                                {userProjectMember ? (
                                                                     <Button
                                                                         color='purple'
                                                                         onClick={() => setShowInviteModal(true)}
@@ -610,17 +615,19 @@ const ProjectPeerReview = (props) => {
                                                                                 </div>
                                                                             </div>
                                                                             <div className='right-flex'>
-                                                                                <Popup
-                                                                                    trigger={(
-                                                                                        <Button
-                                                                                            icon='trash'
-                                                                                            color='red'
-                                                                                            onClick={() => openDeleteModal(item.peerReviewID, item.author)}
-                                                                                        />
-                                                                                    )}
-                                                                                    position='top center'
-                                                                                    content='Delete Review'
-                                                                                />
+                                                                                {userProjectMember && (
+                                                                                    <Popup
+                                                                                        trigger={(
+                                                                                            <Button
+                                                                                                icon='trash'
+                                                                                                color='red'
+                                                                                                onClick={() => openDeleteModal(item.peerReviewID, item.author)}
+                                                                                            />
+                                                                                        )}
+                                                                                        position='top center'
+                                                                                        content='Delete Review'
+                                                                                    />
+                                                                                )}
                                                                                 <Popup
                                                                                     trigger={(
                                                                                         <Button
@@ -659,7 +666,7 @@ const ProjectPeerReview = (props) => {
                                     }
                                 </Grid.Row>
                                 <Grid.Row>
-                                    {(canViewDetails && showDiscussion) &&
+                                    {(userProjectMember && showDiscussion) &&
                                         <Grid.Column>
                                             <Header as='h2' dividing className='mt-1p'>
                                                 Peer Review Discussion
