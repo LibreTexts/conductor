@@ -246,6 +246,7 @@ class StoreService {
             }
 
             const line_items = createLineItems();
+            const shipping_address_metadata = JSON.stringify(shipping_address);
             const session = await stripe.checkout.sessions.create({
                 customer,
                 line_items,
@@ -262,6 +263,7 @@ class StoreService {
                 metadata: {
                     application: 'conductor',
                     feature: 'store',
+                    shipping_address: shipping_address_metadata,
                     ...(digital_delivery_option && {
                         digital_delivery_option: digital_delivery_option,
                     }),
