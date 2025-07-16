@@ -147,7 +147,8 @@ export default class LuluService {
             return response.data;
         } catch (error) {
             debug("[LuluService]: Error creating print job on Lulu:", error);
-            throw new Error("Failed to create print job on Lulu");
+            const errorString = error instanceof Error ? `${error.name}: ${error.message}\n${error.stack}` : JSON.stringify(error);
+            throw new Error("Failed to create print job on Lulu: " + errorString);
         }
     }
 
