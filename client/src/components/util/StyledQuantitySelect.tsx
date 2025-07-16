@@ -14,7 +14,7 @@ const StyledQuantitySelect: React.FC<StyledQuantitySelectProps> = ({
   value = 1,
   onChange,
   min = 1,
-  max = 99,
+  max = 199,
   disabled = false,
   className = "",
   label = "Quantity:",

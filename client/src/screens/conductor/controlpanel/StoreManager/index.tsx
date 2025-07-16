@@ -25,7 +25,7 @@ const StoreManager = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [luluStatusFilter, setLuluStatusFilter] = useState("all");
   // const [sortBy, setSortBy] = useState("created");
-  const { data, isFetching, fetchNextPage } =
+  const { data, isFetching, isInitialLoading, fetchNextPage } =
     useInfiniteQuery<GetStoreOrdersResponse>({
       queryKey: ["store-orders", limit, statusFilter, luluStatusFilter],
       queryFn: async ({ pageParam = null }) => {
@@ -132,6 +132,7 @@ const StoreManager = () => {
               <SupportCenterTable<
                 StoreOrderWithStripeSession & { actions?: string }
               >
+                loading={isInitialLoading}
                 data={allData || []}
                 columns={[
                   {
@@ -281,7 +282,7 @@ const StoreManager = () => {
                 <div className="flex justify-center mt-4 w-full">
                   <Button
                     onClick={() => fetchNextPage()}
-                    loading={isFetching}
+                    loading={isFetching || isInitialLoading}
                     variant="primary"
                     icon="IconDownload"
                   >

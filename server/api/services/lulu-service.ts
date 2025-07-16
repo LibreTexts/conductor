@@ -143,11 +143,13 @@ export default class LuluService {
                 ...params,
                 contact_email: process.env.BOOKSTORE_CONTACT_EMAIL,
                 production_delay: 120
+            }).catch((error) => {
+                debug("[LuluService]: Error creating print job on Lulu:", error);
+                throw new Error(serializeError(error.response?.data || error));
             });
 
             return response.data;
         } catch (error) {
-            debug("[LuluService]: Error creating print job on Lulu:", error);
             const errorString = serializeError(error);
             throw new Error("Failed to create print job on Lulu: " + errorString);
         }
