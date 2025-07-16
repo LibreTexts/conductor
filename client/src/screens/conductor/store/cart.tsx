@@ -91,7 +91,6 @@ export default function CartPage() {
                                   v
                                 );
                               }}
-                              max={10}
                               label=""
                             />
                           </div>

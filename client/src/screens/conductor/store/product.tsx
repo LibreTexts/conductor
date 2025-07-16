@@ -14,10 +14,7 @@ import { useCart } from "../../../context/CartContext";
 import { useModals } from "../../../context/ModalContext";
 import ConfirmModal from "../../../components/ConfirmModal";
 import { useNotifications } from "../../../context/NotificationContext";
-import SearchableDropdown from "../../../components/util/SearchableDropdown";
 import { buildLibraryPageGoURL } from "../../../utils/projectHelpers";
-
-const MAX_QUANTITY = 10;
 
 export default function ProductPage() {
   const { openModal, closeAllModals } = useModals();
@@ -252,7 +249,6 @@ export default function ProductPage() {
               value={quantity}
               onChange={setQuantity}
               min={1}
-              max={MAX_QUANTITY}
             />
 
             {/* <p className="mt-6 text-2xl font-semibold text-gray-900">
