@@ -105,6 +105,13 @@ const ControlPanel = () => {
       description: "Generate branded QR codes for sharing",
       roles: ["superAdmin"],
     },
+    {
+      url: "/controlpanel/store",
+      icon: "cart",
+      title: "Store Manager",
+      description: "Manage the LibreTexts Store",
+      roles: ["superAdmin"],
+    },
   ];
 
   let campusAdminTools: ControlPanelListItem[] = [

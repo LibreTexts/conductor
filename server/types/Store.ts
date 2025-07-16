@@ -1,4 +1,6 @@
 import Stripe from "stripe";
+import { RawStoreOrder } from "../models/storeorder";
+import { Prettify } from "./Misc";
 
 export type DownloadCenterItem = {
     id: string;
@@ -44,3 +46,8 @@ export type ResolvedProduct = {
     price: Stripe.Price;
     quantity: number;
 }
+
+export type StoreOrderWithStripeSession = Prettify<RawStoreOrder & {
+    stripe_session: Stripe.Checkout.Session | null;
+    stripe_charge?: Stripe.Charge | null
+}>

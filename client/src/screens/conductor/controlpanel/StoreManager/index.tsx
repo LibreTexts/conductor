@@ -1,73 +1,62 @@
-import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { Header, Segment, Grid, Breadcrumb } from "semantic-ui-react";
 import {
-  Header,
-  Segment,
-  Grid,
-  Breadcrumb,
-  Loader,
-  Table,
-  Icon,
-  Button,
-} from "semantic-ui-react";
-import { CentralIdentityService } from "../../../../types";
-import axios from "axios";
+  GetStoreOrdersResponse,
+  StoreOrderWithStripeSession,
+} from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
-import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
+import SupportCenterTable from "../../../../components/support/SupportCenterTable";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import api from "../../../../api";
+import Button from "../../../../components/NextGenComponents/Button";
+import useDocumentTitle from "../../../../hooks/useDocumentTitle";
+import CopyButton from "../../../../components/util/CopyButton";
+import { IconClipboardFilled } from "@tabler/icons-react";
+import { useNotifications } from "../../../../context/NotificationContext";
+import { formatPrice, truncateOrderId } from "../../../../utils/storeHelpers";
+import Select from "../../../../components/NextGenInputs/Select";
+import { useState } from "react";
 
 const StoreManager = () => {
-  //Global State
+  useDocumentTitle("LibreTexts Store Management");
+  const limit = 5;
+  const { addNotification } = useNotifications();
   const { handleGlobalError } = useGlobalError();
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [luluStatusFilter, setLuluStatusFilter] = useState("all");
+  // const [sortBy, setSortBy] = useState("created");
+  const { data, isFetching, fetchNextPage } =
+    useInfiniteQuery<GetStoreOrdersResponse>({
+      queryKey: ["store-orders", limit, statusFilter, luluStatusFilter],
+      queryFn: async ({ pageParam = null }) => {
+        const response = await api.adminGetStoreOrders({
+          limit,
+          starting_after: pageParam || undefined,
+          status: statusFilter === "all" ? undefined : statusFilter,
+          lulu_status:
+            luluStatusFilter === "all" ? undefined : luluStatusFilter,
+          // sort_by: sortBy,
+        });
 
-  //UI
-  const [loading, setLoading] = useState<boolean>(false);
-  const [activePage, setActivePage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
-  const [showUserModal, setShowUserModal] = useState<boolean>(false);
-  const TABLE_COLS = [
-    { key: "name", text: "Name" },
-    { key: "service_Id", text: "ID" },
-    { key: "actions", text: "Actions" },
-  ];
+        if (response.data.err) {
+          handleGlobalError(
+            response.data.errMsg || "Failed to fetch store orders."
+          );
+          return {
+            items: [],
+            meta: { total_count: 0, has_more: false, next_page: null },
+          };
+        }
+        return response.data;
+      },
+      getNextPageParam: (lastPage) =>
+        lastPage?.meta?.has_more ? lastPage.meta.next_page : undefined,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: false,
+    });
 
-  //Data
-  const [services, setServices] = useState<CentralIdentityService[]>([]);
-  const [selectedService, setSelectedService] =
-    useState<CentralIdentityService | null>(null);
-
-  //Effects
-  useEffect(() => {
-    getServices();
-  }, []);
-
-  async function getServices() {
-    try {
-      setLoading(true);
-      const res = await axios.get("/central-identity/services");
-      if (
-        res.data.err ||
-        !res.data.services ||
-        !Array.isArray(res.data.services) ||
-        res.data.totalCount === undefined
-      ) {
-        throw new Error("Error retrieving services");
-      }
-
-      // console.log(res.data.services);
-      setServices(res.data.services);
-      setTotalPages(Math.ceil(res.data.totalCount / itemsPerPage));
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function handleSelectService(service: CentralIdentityService) {
-    setSelectedService(service);
-    setShowUserModal(true);
-  }
+  const allData = data?.pages.flatMap((page) => page.items) || [];
+  const lastPage = data?.pages[data.pages.length - 1];
 
   return (
     <Grid className="controlpanel-container" divided="vertically">
@@ -87,96 +76,220 @@ const StoreManager = () => {
                   Control Panel
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
-                  LibreOne Admin Consoles
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>Services</Breadcrumb.Section>
+                <Breadcrumb.Section active>Store Management</Breadcrumb.Section>
               </Breadcrumb>
             </Segment>
-            {loading && (
-              <Segment>
-                <Loader active inline="centered" />
-              </Segment>
-            )}
-
-            {true ? (
-              <Segment>
-                <h2>THIS PAGE COMING SOON</h2>
-              </Segment>
-            ) : (
-              <>
-                <Segment>
-                  <PaginationWithItemsSelect
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    itemsPerPage={itemsPerPage}
-                    setItemsPerPageFn={setItemsPerPage}
-                    setActivePageFn={setActivePage}
-                    totalLength={services.length}
+            <Segment>
+              <div className="flex items-center justify-between w-full mb-4">
+                <div className="flex items-center">
+                  <Select
+                    name="luluStatusFilter"
+                    options={[
+                      { value: "all", label: "All" },
+                      { value: "CREATED", label: "Created" },
+                      { value: "IN_PRODUCTION", label: "In Production" },
+                      {
+                        value: "PRODUCTION_DELAYED",
+                        label: "Production Delayed",
+                      },
+                      { value: "REJECTED", label: "Rejected" },
+                      { value: "SHIPPED", label: "Shipped" },
+                    ]}
+                    label="Lulu Job Status"
+                    onChange={(e) => {
+                      setLuluStatusFilter(e.target.value);
+                    }}
+                    className="mr-4"
                   />
-                </Segment>
-                <Segment>
-                  <Table striped celled>
-                    <Table.Header>
-                      <Table.Row>
-                        {TABLE_COLS.map((item) => (
-                          <Table.HeaderCell key={item.key}>
-                            <span>{item.text}</span>
-                          </Table.HeaderCell>
-                        ))}
-                      </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                      {services.length > 0 &&
-                        services.map((s) => {
-                          return (
-                            <Table.Row
-                              key={s.service_Id}
-                              className="word-break-all"
+                  <Select
+                    name="statusFilter"
+                    options={[
+                      { value: "all", label: "All" },
+                      { value: "pending", label: "Pending" },
+                      { value: "completed", label: "Completed" },
+                      { value: "failed", label: "Failed" },
+                    ]}
+                    label="Order Status"
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value);
+                    }}
+                  />
+                </div>
+                {/* <div className="flex items-center">
+                  <Select
+                    name="sortBy"
+                    options={[
+                      { value: "created", label: "Date Created" },
+                      { value: "status", label: "Status" },
+                    ]}
+                    label="Sort By"
+                    onChange={(e) => {
+                      setSortBy(e.target.value);
+                    }}
+                  />
+                </div> */}
+              </div>
+              <SupportCenterTable<
+                StoreOrderWithStripeSession & { actions?: string }
+              >
+                data={allData || []}
+                columns={[
+                  {
+                    accessor: "id",
+                    title: "Order ID",
+                    render(record, index) {
+                      return (
+                        <div className="flex items-center">
+                          <span>{truncateOrderId(record.id)}</span>
+                          <CopyButton val={record.id}>
+                            {({ copied, copy }) => (
+                              <IconClipboardFilled
+                                className="cursor-pointer !ml-1.5 w-5 h-5 text-primary"
+                                onClick={() => {
+                                  copy();
+                                  addNotification({
+                                    message: "Order ID copied to clipboard",
+                                    type: "success",
+                                    duration: 2000,
+                                  });
+                                }}
+                              />
+                            )}
+                          </CopyButton>
+                        </div>
+                      );
+                    },
+                  },
+                  {
+                    accessor: "createdAt",
+                    title: "Order Date",
+                    render(record, index) {
+                      return (
+                        <span>
+                          {record.createdAt
+                            ? new Date(record.createdAt).toLocaleDateString(
+                                "en-US",
+                                {
+                                  year: "numeric",
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                }
+                              )
+                            : ""}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    accessor: "stripe_session",
+                    title: "Customer Email",
+                    render(record, index) {
+                      return (
+                        <span>
+                          {record.stripe_session?.customer_details?.email ||
+                            "Unknown"}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    accessor: "stripe_session",
+                    title: "Total Amount",
+                    render(record, index) {
+                      return (
+                        <span>
+                          {record.stripe_session?.amount_total
+                            ? formatPrice(
+                                record.stripe_session.amount_total,
+                                true
+                              )
+                            : "$0.00"}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    accessor: "luluJobID",
+                    title: "Lulu Job ID",
+                    render(record, index) {
+                      return (
+                        <span>
+                          {record.luluJobID && (
+                            <a
+                              className="text-blue-600 hover:underline"
+                              href={`https://developers.lulu.com/print-jobs/detail/${record.luluJobID}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
                             >
-                              <Table.Cell>
-                                <span>{s.name}</span>
-                              </Table.Cell>
-                              <Table.Cell>
-                                <span>{s.service_Id}</span>
-                              </Table.Cell>
-                              <Table.Cell>
-                                <Button
-                                  color="blue"
-                                  onClick={() => handleSelectService(s)}
-                                >
-                                  <Icon name="eye" />
-                                  View Service
-                                </Button>
-                              </Table.Cell>
-                            </Table.Row>
-                          );
-                        })}
-                      {services.length === 0 && (
-                        <Table.Row>
-                          <Table.Cell colSpan={TABLE_COLS.length + 1}>
-                            <p className="text-center">
-                              <em>No results found.</em>
-                            </p>
-                          </Table.Cell>
-                        </Table.Row>
-                      )}
-                    </Table.Body>
-                  </Table>
-                </Segment>
-                <Segment>
-                  <PaginationWithItemsSelect
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    itemsPerPage={itemsPerPage}
-                    setItemsPerPageFn={setItemsPerPage}
-                    setActivePageFn={setActivePage}
-                    totalLength={services.length}
-                  />
-                </Segment>
-              </>
-            )}
+                              {record.luluJobID}
+                            </a>
+                          )}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    accessor: "luluJobStatus",
+                    title: "Lulu Job Status",
+                    render(record, index) {
+                      return (
+                        <span
+                          className={`capitalize ${
+                            record.luluJobStatus === "ERROR"
+                              ? "text-red-600 font-semibold"
+                              : ""
+                          }`}
+                        >
+                          {record.luluJobStatus || ""}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    accessor: "status",
+                    title: "Status",
+                    render(record, index) {
+                      return (
+                        <span
+                          className={`capitalize ${
+                            record.status === "failed"
+                              ? "text-red-600 font-semibold"
+                              : ""
+                          }`}
+                        >
+                          {record.status}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    accessor: "actions",
+                    title: "Actions",
+                    render(record, index) {
+                      return (
+                        <Link to={`/controlpanel/store/orders/${record.id}`}>
+                          <Button variant="primary" icon="IconEye" size="small">
+                            View Details
+                          </Button>
+                        </Link>
+                      );
+                    },
+                  },
+                ]}
+              />
+              {lastPage?.meta?.has_more && (
+                <div className="flex justify-center mt-4 w-full">
+                  <Button
+                    onClick={() => fetchNextPage()}
+                    loading={isFetching}
+                    variant="primary"
+                    icon="IconDownload"
+                  >
+                    Load More
+                  </Button>
+                </div>
+              )}
+            </Segment>
           </Segment.Group>
         </Grid.Column>
       </Grid.Row>

@@ -3,12 +3,12 @@ import { debug } from "../../debug";
 import StripeService from "./stripe-service";
 import { getLibraryNameKeys } from "../libraries";
 import axios from "axios";
-import { BookPriceOption, StoreProduct, StoreShippingOption, DownloadCenterItem, LuluShippingLineItem, ResolvedProduct, LuluPrintJobLineItem, LuluShippingLevel, LuluWebhookData } from "../../types";
+import { BookPriceOption, StoreProduct, StoreShippingOption, DownloadCenterItem, LuluShippingLineItem, ResolvedProduct, LuluPrintJobLineItem, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession } from "../../types";
 import { checkBookIDFormat } from "../../util/bookutils";
-import { CreateCheckoutSessionSchema, GetShippingOptionsSchema } from "../validators/store";
+import { CreateCheckoutSessionSchema, GetShippingOptionsSchema, AdminGetStoreOrdersSchema } from "../validators/store";
 import { z } from "zod";
 import LuluService from "./lulu-service";
-import StoreOrder, { StoreOrderInterface } from "../../models/storeorder";
+import StoreOrder, { RawStoreOrder } from "../../models/storeorder";
 import centralIdentityAPI from "../central-identity"
 import Fuse from "fuse.js";
 import NodeCache from "node-cache";
@@ -460,7 +460,7 @@ class StoreService {
         checkout_session,
     }: {
         checkout_session: Stripe.Checkout.Session;
-    }): Promise<StoreOrderInterface> {
+    }): Promise<RawStoreOrder> {
         try {
             // Immediately create a StoreOrder record so we can track processing errors
             const storeOrder = await StoreOrder.create({
@@ -641,10 +641,105 @@ class StoreService {
             }
 
             storeOrder.luluJobStatus = data.status?.name || "unknown";
-            storeOrder.luluJobError = data.status?.message || "";
+            storeOrder.luluJobStatusMessage = data.status?.message || "";
             await storeOrder.save();
         } catch (error) {
             debug("Error processing Lulu order update:", error);
+        }
+    }
+
+    public async adminGetStoreOrders(params: z.infer<typeof AdminGetStoreOrdersSchema>['query']): Promise<{
+        items: StoreOrderWithStripeSession[];
+        meta: {
+            total_count: number;
+            has_more: boolean;
+            next_page: string | null;
+        };
+    }> {
+        try {
+            let limit = params?.limit ? parseInt(params.limit.toString(), 10) : 25;
+            let filter: any = { $and: [] };
+
+            if (params?.starting_after) {
+                // ensure mongoID is properly formatted
+                filter.$and.push({ _id: { $lt: params.starting_after } });
+            }
+            if (params?.status) {
+                filter.$and.push({ status: params?.status });
+            }
+            if (params?.lulu_status) {
+                filter.$and.push({ luluJobStatus: params?.lulu_status });
+            }
+            if (params?.query && params?.query.trim() !== '') {
+                filter.$and.push(
+                    { id: new RegExp(params.query, 'i') },
+                );
+            }
+
+            const orders = await StoreOrder.find(filter).sort({ _id: -1 }).limit(limit).exec();
+            if (!orders || orders.length === 0) {
+                return {
+                    items: [],
+                    meta: {
+                        total_count: 0,
+                        has_more: false,
+                        next_page: null
+                    }
+                };
+            }
+
+            const order_data: StoreOrderWithStripeSession[] = [];
+            for (const order of orders) {
+                const session_data = await this._fetchCheckoutSession(order.id);
+                order_data.push({
+                    ...order.toObject(), // Convert Mongoose document to plain object
+                    stripe_session: session_data || null
+                });
+            }
+
+            const total_count = await StoreOrder.countDocuments(filter);
+            const has_more = total_count > orders.length;
+            const next_page = (orders.length === limit ? orders[orders.length - 1]._id?.toString() : null) || null;
+            return {
+                items: order_data,
+                meta: {
+                    total_count,
+                    has_more,
+                    next_page
+                }
+            };
+        } catch (error) {
+            debug("Error fetching store orders:", error);
+            throw new Error("Failed to fetch store orders");
+        }
+    }
+
+    public async adminGetStoreOrder(orderId: string): Promise<StoreOrderWithStripeSession | null> {
+        try {
+            const order = await StoreOrder.findOne({ id: orderId }).sort({ _id: -1 });
+            if (!order) {
+                return null;
+            }
+
+            const withSession: StoreOrderWithStripeSession = { ...order.toObject(), stripe_session: null };
+            const session_data = await this._fetchCheckoutSession(order.id);
+            if (session_data) {
+                withSession.stripe_session = session_data;
+            }
+
+            // Attempt to fetch the receipt URL from the payment intent
+            if (session_data?.payment_intent && typeof session_data?.payment_intent === 'object' && session_data?.payment_intent?.latest_charge) {
+                const stripe = this.stripeService.getInstance();
+                const charge = await stripe.charges.retrieve(typeof session_data.payment_intent.latest_charge === 'string' ? session_data.payment_intent.latest_charge : session_data.payment_intent.latest_charge.id);
+                if (charge) {
+                    withSession.stripe_charge = charge;
+                }
+            }
+
+            return withSession;
+        } catch (error) {
+            debug("Error fetching store order:", error);
+            throw new Error("Failed to fetch store order");
         }
     }
 
@@ -928,6 +1023,27 @@ class StoreService {
         return allProducts;
     }
 
+    private async _fetchCheckoutSession(sessionId: string): Promise<Stripe.Checkout.Session | null> {
+        const stripe = this.stripeService.getInstance();
+        const cached = this.cache.get(sessionId);
+
+        if (cached) {
+            return cached as Stripe.Checkout.Session;
+        }
+
+        try {
+            const session = await stripe.checkout.sessions.retrieve(sessionId, {
+                expand: ['line_items', 'customer_details', 'payment_intent', 'line_items.data.price.product'],
+            });
+
+            this.cache.set(sessionId, session, 60 * 60); // Cache for 1 hour
+            return session;
+        } catch (error) {
+            debug("Error fetching checkout session:", error);
+            return null;
+        }
+    }
+
     private _buildStripeSearchQuery(category?: string): string {
         let query = 'metadata["store"]:"true" AND active:"true"';
         if (category) {
@@ -1021,10 +1137,10 @@ class StoreService {
 
     /**
      * Helper function to fail a store order and update its status and error message.
-     * @param storeOrder - The StoreOrderInterface instance to update.
+     * @param storeOrder - The RawStoreOrder instance to update.
      * @param error - The error message to set on the store order.
      */
-    private async _failStoreOrder(storeOrder: StoreOrderInterface, error: string) {
+    private async _failStoreOrder(storeOrder: RawStoreOrder, error: string) {
         return await StoreOrder.updateOne({
             id: storeOrder.id,
         }, {

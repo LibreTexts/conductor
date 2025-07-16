@@ -50,6 +50,9 @@ import {
   CentralIdentityUserLicenseResult,
   CentralIdentityAppLicense,
   StoreDigitalDeliveryOption,
+  StoreOrder,
+  GetStoreOrdersResponse,
+  StoreOrderWithStripeSession,
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -582,6 +585,26 @@ class API {
       items,
       shipping_address,
     });
+    return res;
+  }
+
+  async adminGetStoreOrders(params: {
+    starting_after?: string;
+    limit?: number;
+    status?: string;
+    lulu_status?: string;
+    query?: string;
+  }) {
+    const res = await axios.get<GetStoreOrdersResponse & ConductorBaseResponse>("/store/admin/orders", {
+      params,
+    });
+    return res;
+  }
+
+  async adminGetStoreOrder(order_id: string) {
+    const res = await axios.get<
+      { data: StoreOrderWithStripeSession } & ConductorBaseResponse
+    >(`/store/admin/orders/${order_id}`);
     return res;
   }
 
