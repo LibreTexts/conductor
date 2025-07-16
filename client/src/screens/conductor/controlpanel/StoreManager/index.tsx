@@ -19,7 +19,7 @@ import { useState } from "react";
 
 const StoreManager = () => {
   useDocumentTitle("LibreTexts Store Management");
-  const limit = 5;
+  const limit = 25;
   const { addNotification } = useNotifications();
   const { handleGlobalError } = useGlobalError();
   const [statusFilter, setStatusFilter] = useState("all");
