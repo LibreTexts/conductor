@@ -86,3 +86,5 @@ export const AdminGetStoreOrderSchema = z.object({
         order_id: z.string().min(1, "Order ID is required"),
     }),
 });
+
+export const AdminResubmitPrintJobSchema = AdminGetStoreOrderSchema;

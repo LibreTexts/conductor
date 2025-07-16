@@ -1,20 +1,21 @@
-import classNames from "classnames";
 import { Link, useParams } from "react-router-dom";
-import { Header, Segment, Grid, Breadcrumb, Loader } from "semantic-ui-react";
+import { Header, Segment, Grid, Breadcrumb } from "semantic-ui-react";
 import { formatPrice, truncateOrderId } from "../../../../utils/storeHelpers";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { StoreOrderWithStripeSession } from "../../../../types";
 import api from "../../../../api";
 import Stripe from "stripe";
 import {
-  IconBox,
   IconBrandMastercard,
   IconBrandVisa,
   IconCloudComputing,
   IconPackage,
-  IconTerminal,
 } from "@tabler/icons-react";
 import { useMemo } from "react";
+import useGlobalError from "../../../../components/error/ErrorHooks";
+import Button from "../../../../components/NextGenComponents/Button";
+import { useModals } from "../../../../context/ModalContext";
+import ConfirmModal from "../../../../components/ConfirmModal";
 
 type PopulatedLineItem = Stripe.LineItem & {
   price:
@@ -29,7 +30,10 @@ type PopulatedLineItem = Stripe.LineItem & {
 };
 
 const OrderView = () => {
+  const { handleGlobalError } = useGlobalError();
+  const { openModal, closeAllModals } = useModals();
   const { order_id } = useParams<{ order_id: string }>();
+  const queryClient = useQueryClient();
   const { data, isLoading } = useQuery<StoreOrderWithStripeSession>({
     queryKey: ["store-order", order_id],
     queryFn: async () => {
@@ -79,6 +83,52 @@ const OrderView = () => {
       </dl>
     );
   };
+
+  const resubmitPrintJobMutation = useMutation({
+    mutationFn: async () => {
+      if (!order_id)
+        throw new Error("Order ID is required to resubmit print job.");
+      const response = await api.adminResubmitPrintJob(order_id);
+      if (response.data.err) {
+        throw new Error(
+          response.data.errMsg || "Failed to resubmit print job."
+        );
+      }
+      return response.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["store-order", order_id]);
+      openModal(
+        <ConfirmModal
+          text="Print job resubmitted successfully. It may take some time for the status to update."
+          onConfirm={closeAllModals}
+          onCancel={closeAllModals}
+          confirmText="OK"
+        />
+      );
+    },
+    onError(error, variables, context) {
+      handleGlobalError(error);
+    },
+  });
+
+  function initResubmitPrintJob() {
+    if (!data?.luluJobID) {
+      handleGlobalError(new Error("No Lulu job ID found for this order."));
+      return;
+    }
+
+    openModal(
+      <ConfirmModal
+        text="Are you sure you want to re-submit this print job?"
+        onConfirm={() => {
+          resubmitPrintJobMutation.mutate();
+          closeAllModals();
+        }}
+        onCancel={closeAllModals}
+      />
+    );
+  }
 
   return (
     <Grid className="controlpanel-container" divided="vertically">
@@ -212,47 +262,64 @@ const OrderView = () => {
                   })}
                 </div>
               </section>
-              <section aria-labelledby="lulu-heading" className="mt-12">
-                <h2
-                  id="lulu-heading"
-                  className="font-semibold text-lg text-gray-900 ml-1 mb-2"
-                >
-                  Lulu Job Information
-                </h2>
-                <div className="rounded-lg bg-gray-100 p-8 text-sm shadow-sm border">
-                  <div>
-                    <dt className="font-medium text-gray-900">Lulu Job ID</dt>
-                    <dd className="mt-1 text-gray-500">
-                      <a
-                        href={`https://developers.lulu.com/print-jobs/detail/${data?.luluJobID}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block"
+              {data?.luluJobID && (
+                <section aria-labelledby="lulu-heading" className="mt-12">
+                  <h2
+                    id="lulu-heading"
+                    className="font-semibold text-lg text-gray-900 ml-1 mb-2"
+                  >
+                    Lulu Job Information
+                  </h2>
+                  <div className="rounded-lg bg-gray-100 p-8 text-sm shadow-sm border flex flex-row justify-between">
+                    <div className="flex flex-col">
+                      <div>
+                        <dt className="font-medium text-gray-900">
+                          Lulu Job ID
+                        </dt>
+                        <dd className="mt-1 text-gray-500">
+                          <a
+                            href={`https://developers.lulu.com/print-jobs/detail/${data?.luluJobID}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block"
+                          >
+                            {data?.luluJobID}
+                          </a>
+                        </dd>
+                      </div>
+                      <div className="mt-4">
+                        <dt className="font-medium text-gray-900">
+                          Last Lulu Job Status
+                        </dt>
+                        <dd className="mt-1 text-gray-500">
+                          <span className="block">{data?.luluJobStatus}</span>
+                        </dd>
+                      </div>
+                      <div className="mt-4">
+                        <dt className="font-medium text-gray-900">
+                          Last Lulu Job Status Update
+                        </dt>
+                        <dd className="mt-1 text-gray-500">
+                          <span className="block">
+                            {data?.luluJobStatusMessage || "No status message"}
+                          </span>
+                        </dd>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <Button
+                        icon="IconRefreshAlert"
+                        onClick={initResubmitPrintJob}
+                        disabled={
+                          resubmitPrintJobMutation.isLoading || !data?.luluJobID
+                        }
                       >
-                        {data?.luluJobID}
-                      </a>
-                    </dd>
+                        Re-Submit Print Job
+                      </Button>
+                    </div>
                   </div>
-                  <div className="mt-4">
-                    <dt className="font-medium text-gray-900">
-                      Last Lulu Job Status
-                    </dt>
-                    <dd className="mt-1 text-gray-500">
-                      <span className="block">{data?.luluJobStatus}</span>
-                    </dd>
-                  </div>
-                  <div className="mt-4">
-                    <dt className="font-medium text-gray-900">
-                      Last Lulu Job Status Update
-                    </dt>
-                    <dd className="mt-1 text-gray-500">
-                      <span className="block">
-                        {data?.luluJobStatusMessage || "No status message"}
-                      </span>
-                    </dd>
-                  </div>
-                </div>
-              </section>
+                </section>
+              )}
 
               <section aria-labelledby="summary-heading" className="mt-12">
                 <h2

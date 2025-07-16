@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from "axios";
 import { LuluPrintJob, LuluPrintJobParams, LuluShippingLineItem, LuluShippingOption, LuluShippingCalculationAddress, ResolvedProduct, LuluPrintJobLineItem } from "../../types";
 import { decodeJwt } from "jose"
 import { debug } from "../../debug";
+import { serializeError } from "../../util/errorutils";
 
 export default class LuluService {
     private _authAxiosInstance: AxiosInstance;
@@ -147,8 +148,18 @@ export default class LuluService {
             return response.data;
         } catch (error) {
             debug("[LuluService]: Error creating print job on Lulu:", error);
-            const errorString = error instanceof Error ? `${error.name}: ${error.message}\n${error.stack}` : JSON.stringify(error);
+            const errorString = serializeError(error);
             throw new Error("Failed to create print job on Lulu: " + errorString);
+        }
+    }
+
+    async resubmitPrintJob(params: Omit<LuluPrintJobParams, 'contact_email' | 'production_delay'>): Promise<LuluPrintJob> {
+        try {
+            return await this.createPrintJob(params);
+        } catch (error) {
+            debug("[LuluService]: Error resubmitting print job on Lulu:", error);
+            const errorString = serializeError(error);
+            throw new Error("Failed to resubmit print job on Lulu: " + errorString);
         }
     }
 

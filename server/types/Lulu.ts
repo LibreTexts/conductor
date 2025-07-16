@@ -41,6 +41,7 @@ export type LuluFullShippingAddress = {
     is_business: boolean;
     name: string;
     phone_number: string;
+    email: string;
     postcode: string;
     state_code: string;
     street1: string;

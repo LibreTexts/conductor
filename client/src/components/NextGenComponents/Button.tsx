@@ -1,5 +1,6 @@
 import classNames from "classnames";
 import * as TablerIcons from "@tabler/icons-react";
+import { isValidElement } from "react";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "tertiary";
@@ -34,8 +35,20 @@ const Button: React.FC<ButtonProps> = ({
 
   const IconComponent = () => {
     if (!icon) return null;
-    const Icon = TablerIcons[icon] || TablerIcons["IconQuestionMark"];
-    if (typeof Icon !== "function") return null;
+
+    const Icon = TablerIcons[icon];
+
+    if (!Icon) {
+      console.warn(`Icon "${icon}" not found in TablerIcons.`);
+      return <TablerIcons.IconQuestionMark className="h-5 w-5" stroke={2} />;
+    }
+
+    // @ts-ignore
+    if (!isValidElement(<Icon />)) {
+      console.warn(`Icon "${icon}" is not a valid React component.`);
+      return <TablerIcons.IconQuestionMark className="h-5 w-5" stroke={2} />;
+    }
+
     // @ts-ignore
     return <Icon className="h-5 w-5" stroke={2} />;
   };
