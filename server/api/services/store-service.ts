@@ -700,7 +700,8 @@ class StoreService {
             }
 
             const total_count = await StoreOrder.countDocuments(filter);
-            const has_more = total_count > orders.length;
+            const previously_fetched_count = params?.starting_after ? await StoreOrder.countDocuments({ _id: { $gt: params.starting_after } }) : 0;
+            const has_more = total_count > (previously_fetched_count + orders.length);
             const next_page = (orders.length === limit ? orders[orders.length - 1]._id?.toString() : null) || null;
             return {
                 items: order_data,
