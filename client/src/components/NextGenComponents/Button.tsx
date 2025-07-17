@@ -20,16 +20,16 @@ const Button: React.FC<ButtonProps> = ({
     "flex items-center justify-center font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:pointer-events-none";
   const variantClasses = {
     primary:
-      "rounded-md border border-transparent bg-primary px-6 py-2 font-medium text-white hover:shadow-sm hover:text-gray-300 text-center",
+      "rounded-md border border-transparent bg-primary font-medium text-white hover:shadow-sm hover:text-gray-300 text-center",
     secondary:
       "rounded-md border border-transparent bg-secondary p-4 font-medium text-white hover:shadow-sm hover:text-gray-300 text-center",
     tertiary:
       "rounded-md border border-transparent bg-tertiary p-4 font-medium text-white hover:shadow-sm hover:text-gray-300 text-center",
   };
   const sizeClasses = {
-    small: "small",
-    medium: "medium",
-    large: "large",
+    small: "px-3 py-1.5 text-sm",
+    medium: "px-6 py-2",
+    large: "px-8 py-3 text-lg",
   };
 
   const IconComponent = () => {
