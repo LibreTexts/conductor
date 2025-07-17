@@ -16,6 +16,7 @@ import useGlobalError from "../../../../components/error/ErrorHooks";
 import Button from "../../../../components/NextGenComponents/Button";
 import { useModals } from "../../../../context/ModalContext";
 import ConfirmModal from "../../../../components/ConfirmModal";
+import { buildLibraryPageGoURL } from "../../../../utils/projectHelpers";
 
 type PopulatedLineItem = Stripe.LineItem & {
   price:
@@ -242,6 +243,28 @@ const OrderView = () => {
                                 <MetadataDisplay
                                   metadata={lineItem.price?.product?.metadata}
                                 />
+                                <div className="mt-4">
+                                  {lineItem.price?.product?.metadata[
+                                    "book_id"
+                                  ] && (
+                                    <a
+                                      href={buildLibraryPageGoURL(
+                                        lineItem.price?.product?.metadata[
+                                          "book_id"
+                                        ].split("-")[0] || "unknown",
+                                        lineItem.price?.product?.metadata[
+                                          "book_id"
+                                        ].split("-")[1] || "unknown"
+                                      )}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <Button icon="IconExternalLink" size="small">
+                                        View Book Online
+                                      </Button>
+                                    </a>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
