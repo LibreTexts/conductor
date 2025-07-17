@@ -545,7 +545,12 @@ class StoreService {
                         email,
                         digital_delivery_account,
                         digital_delivery_option
-                    })
+                    });
+
+                    if (bookItems.length === 0) {
+                        storeOrder.status = 'completed'; // If only digital items, mark as completed
+                        await storeOrder.save();
+                    }
                 }
 
                 return storeOrder;
@@ -582,6 +587,11 @@ class StoreService {
             if (!storeOrder) {
                 debug(`No StoreOrder found with id: ${checkout_session_id}`);
                 return;
+            }
+
+            // If the order has shipped, consider it completed
+            if(data.status?.name === 'SHIPPED'){
+                storeOrder.status = 'completed';
             }
 
             storeOrder.luluJobID = data.id.toString(); // Update the Lulu job ID (e.g. on resubmits)
