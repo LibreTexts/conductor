@@ -11,7 +11,7 @@ import api from "../../../../api";
 import Button from "../../../../components/NextGenComponents/Button";
 import useDocumentTitle from "../../../../hooks/useDocumentTitle";
 import CopyButton from "../../../../components/util/CopyButton";
-import { IconClipboardFilled } from "@tabler/icons-react";
+import { IconClipboardFilled, IconCloudComputing } from "@tabler/icons-react";
 import { useNotifications } from "../../../../context/NotificationContext";
 import { formatPrice, truncateOrderId } from "../../../../utils/storeHelpers";
 import Select from "../../../../components/NextGenInputs/Select";
@@ -186,10 +186,33 @@ const StoreManager = () => {
                     title: "Customer Email",
                     render(record, index) {
                       return (
-                        <span>
-                          {record.stripe_session?.customer_details?.email ||
-                            "Unknown"}
-                        </span>
+                        <div className="flex items-center">
+                          <span>
+                            {record.stripe_session?.customer_details?.email ||
+                              "Unknown"}
+                          </span>
+                          <CopyButton
+                            val={
+                              record.stripe_session?.customer_details?.email ||
+                              "Unknown"
+                            }
+                          >
+                            {({ copied, copy }) => (
+                              <IconClipboardFilled
+                                className="cursor-pointer !ml-1.5 w-5 h-5 text-primary"
+                                onClick={() => {
+                                  copy();
+                                  addNotification({
+                                    message:
+                                      "Customer email copied to clipboard",
+                                    type: "success",
+                                    duration: 2000,
+                                  });
+                                }}
+                              />
+                            )}
+                          </CopyButton>
+                        </div>
                       );
                     },
                   },
@@ -213,6 +236,14 @@ const StoreManager = () => {
                     accessor: "luluJobID",
                     title: "Lulu Job ID",
                     render(record, index) {
+                      if (!record.luluJobID && record.status !== "failed") {
+                        return (
+                          <span className="text-gray-500">
+                            <IconCloudComputing className="inline-block h-5 w-5 text-gray-500 mr-1 pb-0.5" />
+                            Digital Only
+                          </span>
+                        );
+                      }
                       return (
                         <span>
                           {record.luluJobID && (
@@ -236,12 +267,13 @@ const StoreManager = () => {
                       return (
                         <span
                           className={`capitalize ${
-                            record.luluJobStatus === "ERROR"
+                            record.luluJobStatus &&
+                            ["REJECTED", "ERROR"].includes(record.luluJobStatus)
                               ? "text-red-600 font-semibold"
                               : ""
                           }`}
                         >
-                          {record.luluJobStatus || ""}
+                          {record.luluJobStatus || "--"}
                         </span>
                       );
                     },
@@ -268,11 +300,15 @@ const StoreManager = () => {
                     title: "Actions",
                     render(record, index) {
                       return (
-                        <Link to={`/controlpanel/store/orders/${record.id}`}>
+                        <a
+                          href={`/controlpanel/store/orders/${record.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           <Button variant="primary" icon="IconEye" size="small">
                             View Details
                           </Button>
-                        </Link>
+                        </a>
                       );
                     },
                   },

@@ -8,6 +8,7 @@ import Stripe from "stripe";
 import {
   IconBrandMastercard,
   IconBrandVisa,
+  IconClipboardFilled,
   IconCloudComputing,
   IconPackage,
 } from "@tabler/icons-react";
@@ -17,6 +18,8 @@ import Button from "../../../../components/NextGenComponents/Button";
 import { useModals } from "../../../../context/ModalContext";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import { buildLibraryPageGoURL } from "../../../../utils/projectHelpers";
+import CopyButton from "../../../../components/util/CopyButton";
+import { useNotifications } from "../../../../context/NotificationContext";
 
 type PopulatedLineItem = Stripe.LineItem & {
   price:
@@ -31,6 +34,7 @@ type PopulatedLineItem = Stripe.LineItem & {
 };
 
 const OrderView = () => {
+  const { addNotification } = useNotifications();
   const { handleGlobalError } = useGlobalError();
   const { openModal, closeAllModals } = useModals();
   const { order_id } = useParams<{ order_id: string }>();
@@ -154,7 +158,24 @@ const OrderView = () => {
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
                 <Breadcrumb.Section active>
-                  {truncateOrderId(order_id)}
+                  <div className="flex items-center">
+                    <span>{truncateOrderId(order_id)}</span>
+                    <CopyButton val={order_id}>
+                      {({ copied, copy }) => (
+                        <IconClipboardFilled
+                          className="cursor-pointer !ml-1.5 w-5 h-5 text-primary"
+                          onClick={() => {
+                            copy();
+                            addNotification({
+                              message: "Order ID copied to clipboard",
+                              type: "success",
+                              duration: 2000,
+                            });
+                          }}
+                        />
+                      )}
+                    </CopyButton>
+                  </div>
                 </Breadcrumb.Section>
               </Breadcrumb>
               <div className="flex items-center">
@@ -194,6 +215,8 @@ const OrderView = () => {
                 <div className="space-y-6">
                   {data?.stripe_session?.line_items?.data.map((item) => {
                     const lineItem = item as PopulatedLineItem;
+                    const bookID =
+                      lineItem.price?.product?.metadata?.["book_id"] || "";
                     const digitalProduct =
                       lineItem.price?.product?.metadata?.digital === "true";
                     return (
@@ -221,7 +244,11 @@ const OrderView = () => {
                               <div className="mt-6 sm:ml-6 sm:mt-0">
                                 <h3 className="text-base font-medium text-gray-900">
                                   <a
-                                    href={`https://commons.libretexts.org/store/products/${lineItem.price?.product?.id}`}
+                                    href={`https://commons.libretexts.org/store/products/${
+                                      bookID
+                                        ? bookID
+                                        : lineItem.price?.product?.id
+                                    }`}
                                   >
                                     {lineItem.price?.product?.name}{" "}
                                     {lineItem.price?.nickname ? (
@@ -249,17 +276,16 @@ const OrderView = () => {
                                   ] && (
                                     <a
                                       href={buildLibraryPageGoURL(
-                                        lineItem.price?.product?.metadata[
-                                          "book_id"
-                                        ].split("-")[0] || "unknown",
-                                        lineItem.price?.product?.metadata[
-                                          "book_id"
-                                        ].split("-")[1] || "unknown"
+                                        bookID.split("-")[0] || "unknown",
+                                        bookID.split("-")[1] || "unknown"
                                       )}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                     >
-                                      <Button icon="IconExternalLink" size="small">
+                                      <Button
+                                        icon="IconExternalLink"
+                                        size="small"
+                                      >
                                         View Book Online
                                       </Button>
                                     </a>
@@ -293,7 +319,7 @@ const OrderView = () => {
                   >
                     Lulu Job Information
                   </h2>
-                  <div className="rounded-lg bg-gray-100 p-8 text-sm shadow-sm border flex flex-row justify-between">
+                  <div className="rounded-lg bg-gray-50 p-8 text-sm flex flex-row justify-between">
                     <div className="flex flex-col">
                       <div>
                         <dt className="font-medium text-gray-900">
@@ -336,6 +362,7 @@ const OrderView = () => {
                         disabled={
                           resubmitPrintJobMutation.isLoading || !data?.luluJobID
                         }
+                        loading={resubmitPrintJobMutation.isLoading}
                       >
                         Re-Submit Print Job
                       </Button>
@@ -352,7 +379,7 @@ const OrderView = () => {
                   Summary
                 </h2>
 
-                <div className="rounded-lg bg-gray-100 px-6 py-6 lg:grid lg:grid-cols-12 lg:gap-x-8 lg:px-0 lg:py-8">
+                <div className="rounded-lg bg-gray-50 px-6 py-6 lg:grid lg:grid-cols-12 lg:gap-x-8 lg:px-0 lg:py-8">
                   <dl className="grid grid-cols-1 gap-6 text-sm sm:grid-cols-2 md:gap-x-8 lg:col-span-5 lg:pl-8">
                     <div>
                       <dt className="font-medium text-gray-900">
@@ -374,8 +401,15 @@ const OrderView = () => {
                         </span>
                         <span className="block">
                           {shippingAddress?.city}, {shippingAddress?.state}{" "}
+                          {shippingAddress?.postal_code}{" "}
                           {shippingAddress?.country &&
                             `(${shippingAddress?.country})`}
+                        </span>
+                        <span className="block">
+                          {shippingAddress?.email || "No email provided"}
+                        </span>
+                        <span className="block">
+                          {shippingAddress?.phone || "No phone number provided"}
                         </span>
                       </dd>
                     </div>
@@ -443,24 +477,43 @@ const OrderView = () => {
                     <div className="flex items-center justify-between py-4">
                       <dt className="text-gray-600">Shipping</dt>
                       <dd className="font-medium text-gray-900">
-                        {foundShippingItem
+                        {foundShippingItem && foundShippingItem.amount_total
                           ? formatPrice(foundShippingItem.amount_total, true)
-                          : "Free"}
+                          : "$0.00"}
                       </dd>
                     </div>
                     <div className="flex items-center justify-between py-4">
                       <dt className="text-gray-600">Tax</dt>
                       <dd className="font-medium text-gray-900">
-                        {formatPrice(
-                          data?.stripe_session?.total_details?.amount_tax,
-                          true
-                        )}
+                        {data?.stripe_session?.total_details?.amount_tax
+                          ? formatPrice(
+                              data?.stripe_session?.total_details?.amount_tax,
+                              true
+                            )
+                          : "$0.00"}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between py-4">
+                      <dt className="text-gray-600">Discount</dt>
+                      <dd className="font-medium text-gray-900">
+                        {data?.stripe_session?.total_details?.amount_discount
+                          ? `(${formatPrice(
+                              data?.stripe_session?.total_details
+                                ?.amount_discount,
+                              true
+                            )})`
+                          : "$0.00"}
                       </dd>
                     </div>
                     <div className="flex items-center justify-between pt-4">
                       <dt className="font-medium text-gray-900">Order total</dt>
                       <dd className="font-semibold text-primary">
-                        {formatPrice(data?.stripe_session?.amount_total, true)}
+                        {data?.stripe_session?.amount_total
+                          ? formatPrice(
+                              data?.stripe_session?.amount_total,
+                              true
+                            )
+                          : "$0.00"}
                       </dd>
                     </div>
                   </dl>
