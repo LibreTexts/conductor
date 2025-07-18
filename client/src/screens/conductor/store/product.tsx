@@ -15,7 +15,10 @@ import { useModals } from "../../../context/ModalContext";
 import ConfirmModal from "../../../components/ConfirmModal";
 import { useNotifications } from "../../../context/NotificationContext";
 import { buildLibraryPageGoURL } from "../../../utils/projectHelpers";
+import Button from "../../../components/NextGenComponents/Button";
+import { IconWindowMaximize } from "@tabler/icons-react";
 
+const BOOK_PAGE_LIMIT = 799;
 export default function ProductPage() {
   const { openModal, closeAllModals } = useModals();
   const { addNotification } = useNotifications();
@@ -102,6 +105,14 @@ export default function ProductPage() {
     if (!product) return true;
     if (!price) return true;
   }, [product, price]);
+
+  const tooManyPages = useMemo(() => {
+    if (!product) return false;
+    if (!isBook) return false;
+
+    const numPages = parseInt(product.metadata["num_pages"], 10);
+    return numPages > BOOK_PAGE_LIMIT;
+  }, [product, isBook]);
 
   function handleAddToCart() {
     if (!product) return;
@@ -244,29 +255,35 @@ export default function ProductPage() {
                 your account at the same time to stack discounts/extend access.
               </p>
             )}
+            {product?.metadata["learn_more_about_academy"] && (
+              <div className="mt-6 flex flex-row items-center">
+                <a
+                  href={product.metadata["learn_more_about_academy"]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-primary hover:text-primary-hover font-medium"
+                >
+                  <IconWindowMaximize className="inline-block mr-2 size-5 text-primary pb-1" />
+                  Learn more about Academy Online
+                </a>
+              </div>
+            )}
             <StyledQuantitySelect
               className="mt-6"
               value={quantity}
               onChange={setQuantity}
               min={1}
+              disabled={cartLoading || tooManyPages}
             />
-
-            {/* <p className="mt-6 text-2xl font-semibold text-gray-900">
-              Subtotal: {formatPrice(price, true)}
-            </p> */}
-
             <div className="mt-6 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-              <button
-                type="button"
-                className={`flex !w-full items-center justify-center rounded-md border border-transparent bg-primary px-8 py-3 text-base font-medium text-white hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500 ${
-                  isBook ? "col-span-1" : "col-span-2"
-                }`}
+              <Button
                 onClick={handleAddToCart}
-                disabled={disabled || cartLoading}
+                disabled={disabled || cartLoading || tooManyPages}
+                icon="IconShoppingCartPlus"
               >
                 Add to Cart -{" "}
                 {formatPrice((price?.unit_amount || 0) * quantity, true)}
-              </button>
+              </Button>
               {isBook && (
                 <a
                   href={buildLibraryPageGoURL(
@@ -274,17 +291,28 @@ export default function ProductPage() {
                     product?.metadata["book_id"].split("-")[1] || "unknown"
                   )}
                   target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-center rounded-md border border-primary px-8 py-3 text-base font-medium text-primary hover:bg-primary hover:text-white"
-                  >
+                  <Button icon="IconBook2" variant="secondary" fluid>
                     Read Online
-                  </button>
+                  </Button>
                 </a>
               )}
             </div>
-
+            {tooManyPages && (
+              <p className="mt-4 text-slate-600 font-semibold">
+                This book has more than {BOOK_PAGE_LIMIT} pages and can't be
+                printed at this time. Please contact our{" "}
+                <a
+                  href="https://support.libretexts.org"
+                  target="_blank"
+                  className="text-primary hover:text-primary-hover font-medium"
+                >
+                  Support Center
+                </a>{" "}
+                if you need help with alternative options.
+              </p>
+            )}
             {/* <div className="mt-10 border-t border-gray-200 pt-10">
               <h3 className="text-sm font-medium text-gray-900">Highlights</h3>
               <div className="mt-4">
@@ -333,8 +361,8 @@ export default function ProductPage() {
                   <li>
                     <strong>Email Access Code: </strong>Receive an access code
                     via email. You can then apply this code to your account
-                    later or give it to another user. If you choose this
-                    option, the access code will be sent to your email address
+                    later or give it to another user. If you choose this option,
+                    the access code will be sent to your email address
                     immediately after your purchase is complete.
                   </li>
                 </ul>

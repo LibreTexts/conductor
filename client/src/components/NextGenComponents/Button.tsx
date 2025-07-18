@@ -6,6 +6,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: "small" | "medium" | "large";
   icon?: keyof typeof TablerIcons;
   loading?: boolean;
+  fluid?: boolean;
+  className?: string;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -14,6 +16,7 @@ const Button: React.FC<ButtonProps> = ({
   className,
   children,
   icon,
+  fluid = false,
   ...props
 }) => {
   const baseClasses =
@@ -22,7 +25,7 @@ const Button: React.FC<ButtonProps> = ({
     primary:
       "rounded-md border border-transparent bg-primary font-medium text-white hover:shadow-sm hover:text-gray-300 text-center",
     secondary:
-      "rounded-md border border-transparent bg-secondary p-4 font-medium text-white hover:shadow-sm hover:text-gray-300 text-center",
+      "rounded-md border border-primary bg-transparent font-medium text-primary hover:shadow-sm hover:bg-primary hover:text-white text-center",
     tertiary:
       "rounded-md border border-transparent bg-tertiary p-4 font-medium text-white hover:shadow-sm hover:text-gray-300 text-center",
   };
@@ -54,6 +57,8 @@ const Button: React.FC<ButtonProps> = ({
         baseClasses,
         variantClasses[variant],
         sizeClasses[size],
+        fluid && "!w-full",
+        props.loading && "cursor-wait",
         className
       )}
     >
