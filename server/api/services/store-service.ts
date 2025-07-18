@@ -24,11 +24,9 @@ class StoreService {
     private stripeService = new StripeService();
     private luluService = new LuluService();
     private cache: NodeCache;
-    private DATA_KEY: string;
 
     constructor() {
         this.cache = new NodeCache({ stdTTL: 60 * 5, checkperiod: 120 }); // Cache for 5 minutes
-        this.DATA_KEY = 'store_products';
     }
 
     public async searchStoreProduct(product_id: string): Promise<StoreProduct | null> {
@@ -98,6 +96,14 @@ class StoreService {
     }> {
         try {
             const allProducts = await this._fetchAllProducts(category);
+            if (!allProducts || allProducts.length === 0) {
+                return {
+                    items: [],
+                    has_more: false,
+                    total_count: 0,
+                    cursor: undefined
+                };
+            }
 
             let filteredProducts = allProducts;
             if (query && query.trim() !== '') {
@@ -590,7 +596,7 @@ class StoreService {
             }
 
             // If the order has shipped, consider it completed
-            if(data.status?.name === 'SHIPPED'){
+            if (data.status?.name === 'SHIPPED') {
                 storeOrder.status = 'completed';
             }
 
@@ -1015,7 +1021,8 @@ class StoreService {
         let hasMore = true;
         let nextPage = null;
 
-        const cached = this.cache.get(this.DATA_KEY);
+        const cacheKey = `store_products_${!category || category === 'all' ? 'all' : category}`;
+        const cached = this.cache.get(cacheKey);
         if (cached) {
             return cached as StoreProduct[];
         }
@@ -1039,7 +1046,7 @@ class StoreService {
             nextPage = prices.next_page
         }
 
-        this.cache.set(this.DATA_KEY, allProducts);
+        this.cache.set(cacheKey, allProducts);
 
         return allProducts;
     }
@@ -1081,7 +1088,7 @@ class StoreService {
 
     private _buildStripeSearchQuery(category?: string): string {
         let query = 'metadata["store"]:"true" AND active:"true"';
-        if (category) {
+        if (category && category !== 'all') {
             query += ` AND metadata["store_category"]:"${category}"`;
         }
         return query;

@@ -30,6 +30,7 @@ const initFilters = [
     id: "category",
     name: "Category",
     options: [
+      { value: "all", label: "All Categories", checked: true },
       { value: "academy", label: "Academy Courses", checked: false },
       {
         value: "access-codes",
@@ -84,6 +85,10 @@ export default function CatalogPage() {
     }
 
     Object.entries(newFilters).forEach(([key, value]) => {
+      if (key === "category" && value === "all") {
+        newParams.delete("category");
+        return; // Skip adding "all" category to params
+      }
       if (value) {
         newParams.set(key, value);
       }
@@ -430,11 +435,14 @@ export default function CatalogPage() {
                             {product.name}
                           </a>
                         </h3>
+                        {product.metadata?.book_author && (
+                          <p className="text-sm text-gray-500">{product.metadata.book_author}</p>
+                        )}
                         <TruncatedText
                           text={product.description}
                           maxLines={3}
                           preciseTruncation={true}
-                          className="mt-2 text-sm text-gray-500 h-20"
+                          className="mt-2 text-xs text-gray-500 h-20"
                         />
                         <p className="mt-4 text-xl text-gray-900 font-semibold">
                           {formatPrice(product.prices[0].unit_amount, true)}
