@@ -21,8 +21,6 @@ const StoreNavbar: React.FC = () => {
   }, []);
 
   const handleSearch = () => {
-    if (!search) return;
-
     const currQuery =
       window.location.pathname === "/store/catalog"
         ? new URLSearchParams(window.location.search)
@@ -30,8 +28,11 @@ const StoreNavbar: React.FC = () => {
 
     const queryChanged = currQuery.get("query") !== search;
     if (queryChanged) {
-      currQuery.set("query", search);
-      currQuery.set("page", "1"); // Reset to first page on new search
+      if(search.trim() === "") {
+        currQuery.delete("query"); // Remove query if search is empty
+      } else {
+        currQuery.set("query", search);
+      }
     }
 
     window.location.href = `/store/catalog?${currQuery.toString()}`;

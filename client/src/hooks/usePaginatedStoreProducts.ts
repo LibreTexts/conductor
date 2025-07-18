@@ -24,7 +24,7 @@ export function usePaginatedStoreProducts({
     queryFn: async ({ pageParam }) => {
       const products = await api.getStoreProducts({
         limit: itemsPerPage,
-        category: category || undefined,
+        category: category ? category === 'all' ? undefined : category : undefined,
         starting_after: pageParam,
         query: searchQuery || undefined
       });
