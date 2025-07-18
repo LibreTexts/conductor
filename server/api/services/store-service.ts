@@ -290,7 +290,7 @@ class StoreService {
             }
         } catch (error) {
             debug("Error creating checkout session:", error);
-            throw new Error("Failed to create checkout session");
+            throw new Error("Failed to create checkout session: " + (error instanceof Error ? error.message : "Unknown error"));
         }
     }
 

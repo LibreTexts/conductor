@@ -425,7 +425,8 @@ export default function ShippingPage() {
     } catch (error: any) {
       console.error("Error updating shipping options:", error);
       setError(
-        "Failed to update shipping options. Please check your address and try again: " + error.message
+        "Failed to update shipping options. Please check your address and try again: " +
+          error.message
       );
     } finally {
       setShippingLoading(false);
@@ -741,7 +742,7 @@ export default function ShippingPage() {
                               href={`/store/product/${item.product.id}`}
                               className="font-semibold text-gray-700 hover:text-gray-800"
                             >
-                              {item.price.nickname}
+                              {item.product.name} - {item.price.nickname}
                             </a>
                           </h4>
                           {/* <p className="mt-1 text-sm text-gray-500">

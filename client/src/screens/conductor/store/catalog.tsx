@@ -435,9 +435,7 @@ export default function CatalogPage() {
                             {product.name}
                           </a>
                         </h3>
-                        {product.metadata?.book_author && (
-                          <p className="text-sm text-gray-500">{product.metadata.book_author}</p>
-                        )}
+                          <p className="text-sm text-gray-500">{product.metadata?.book_id ? product.metadata?.book_author ? product.metadata?.book_author : "Unknown" : "LibreTexts"}</p>
                         <TruncatedText
                           text={product.description}
                           maxLines={3}
