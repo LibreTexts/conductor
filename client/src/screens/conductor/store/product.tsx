@@ -274,6 +274,11 @@ export default function ProductPage() {
               onChange={setQuantity}
               min={1}
               disabled={cartLoading || tooManyPages}
+              aria-label={
+                tooManyPages
+                  ? "Quantity selection is disabled because the book exceeds the page limit."
+                  : undefined
+              }
             />
             <div className="mt-6 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
               <Button
