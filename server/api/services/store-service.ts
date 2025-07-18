@@ -170,15 +170,14 @@ class StoreService {
 
     public async getCheckoutSession(checkout_session_id: string) {
         try {
-            const stripe = this.stripeService.getInstance();
-            const session = await stripe.checkout.sessions.retrieve(checkout_session_id);
-
+            const { session, charge } = await this._fetchCheckoutSession(checkout_session_id, { includeCharges: true });
+            
             if (!session) {
                 debug(`No checkout session found with ID: ${checkout_session_id}`);
                 return null;
             }
 
-            return session
+            return {session, charge}
         } catch (error) {
             debug("Error fetching checkout session:", error);
             throw new Error("Failed to fetch checkout session");

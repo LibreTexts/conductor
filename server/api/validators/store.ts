@@ -54,6 +54,12 @@ export const CreateCheckoutSessionSchema = z.object({
     })
 })
 
+export const GetOrderInfoSchema = z.object({
+    params: z.object({
+        order_id: z.string().min(1, "Order ID is required"),
+    }),
+});
+
 export const UpdateCheckoutSessionSchema = z.object({
     body: z.object({
         checkout_session_id: z.string().min(1, "Checkout session ID is required"),

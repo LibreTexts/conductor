@@ -28,3 +28,4 @@ export * from "./support";
 export * from "./Search";
 export * from "./User";
 export * from "./Note";
+export * from "./Order";
