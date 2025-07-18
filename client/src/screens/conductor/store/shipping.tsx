@@ -422,10 +422,10 @@ export default function ShippingPage() {
       } else {
         setSelectedShippingOption(null);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating shipping options:", error);
       setError(
-        "Failed to update shipping options. Please check your address and try again."
+        "Failed to update shipping options. Please check your address and try again: " + error.message
       );
     } finally {
       setShippingLoading(false);
@@ -493,28 +493,60 @@ export default function ShippingPage() {
       <div className="mx-auto max-w-2xl px-4 pb-24 pt-16 sm:px-6 lg:max-w-7xl lg:px-8">
         <h2 className="sr-only">Shipping</h2>
         <form
-          className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16 min-w-[1200px]"
+          className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16 min-w-[90vw] lg:min-w-[1200px]"
           onSubmit={(e) => {
             e.preventDefault();
           }}
         >
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">
-              Contact & Shipping information
-            </h2>
-            <p className="text-sm text-gray-500 mb-4">
-              All fields are required unless marked as optional.
-            </p>
-            <div className="mt-4 grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4">
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">
+            Contact & Shipping information
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            All fields are required unless marked as optional.
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4">
+            <Controller
+              name="first_name"
+              control={control}
+              rules={{ required: true }}
+              render={({ field }) => (
+                <Input
+                  label="First name"
+                  placeholder="First name"
+                  autoComplete="given-name"
+                  {...field}
+                  onChange={(e) => {
+                    field.onChange(e);
+                  }}
+                />
+              )}
+            />
+            <Controller
+              name="last_name"
+              control={control}
+              rules={{ required: true }}
+              render={({ field }) => (
+                <Input
+                  label="Last name"
+                  placeholder="Last name"
+                  autoComplete="family-name"
+                  {...field}
+                  onChange={(e) => {
+                    field.onChange(e);
+                  }}
+                />
+              )}
+            />
+
+            <div className="sm:col-span-2">
               <Controller
-                name="first_name"
+                name="company"
                 control={control}
-                rules={{ required: true }}
                 render={({ field }) => (
                   <Input
-                    label="First name"
-                    placeholder="First name"
-                    autoComplete="given-name"
+                    label="Company (optional)"
+                    placeholder="Company (optional)"
+                    autoComplete="organization"
                     {...field}
                     onChange={(e) => {
                       field.onChange(e);
@@ -522,15 +554,18 @@ export default function ShippingPage() {
                   />
                 )}
               />
+            </div>
+
+            <div className="sm:col-span-2">
               <Controller
-                name="last_name"
+                name="address_line_1"
                 control={control}
                 rules={{ required: true }}
                 render={({ field }) => (
                   <Input
-                    label="Last name"
-                    placeholder="Last name"
-                    autoComplete="family-name"
+                    label="Address line 1"
+                    placeholder="Address line 1"
+                    autoComplete="address-line1"
                     {...field}
                     onChange={(e) => {
                       field.onChange(e);
@@ -538,178 +573,141 @@ export default function ShippingPage() {
                   />
                 )}
               />
+            </div>
 
-              <div className="sm:col-span-2">
-                <Controller
-                  name="company"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      label="Company (optional)"
-                      placeholder="Company (optional)"
-                      autoComplete="organization"
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                      }}
-                    />
-                  )}
-                />
-              </div>
+            <div className="sm:col-span-2">
+              <Controller
+                name="address_line_2"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    label="Address line 2 (optional)"
+                    placeholder="Address line 2"
+                    autoComplete="address-line2"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                    }}
+                  />
+                )}
+              />
+            </div>
+            <div>
+              <Controller
+                name="city"
+                control={control}
+                rules={{ required: true }}
+                render={({ field }) => (
+                  <Input
+                    label="City"
+                    placeholder="City"
+                    autoComplete="address-level2"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                    }}
+                  />
+                )}
+              />
+            </div>
 
-              <div className="sm:col-span-2">
-                <Controller
-                  name="address_line_1"
-                  control={control}
-                  rules={{ required: true }}
-                  render={({ field }) => (
-                    <Input
-                      label="Address line 1"
-                      placeholder="Address line 1"
-                      autoComplete="address-line1"
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                      }}
-                    />
-                  )}
-                />
-              </div>
+            <div>
+              <Controller
+                name="state"
+                control={control}
+                rules={{ required: true }}
+                render={({ field }) => (
+                  <Select
+                    label="State / Province"
+                    options={STATE_CODES.map((state) => ({
+                      value: state.abbreviation,
+                      label: state.name,
+                    }))}
+                    autoComplete="address-level1"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                    }}
+                  />
+                )}
+              />
+            </div>
 
-              <div className="sm:col-span-2">
-                <Controller
-                  name="address_line_2"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      label="Address line 2 (optional)"
-                      placeholder="Address line 2"
-                      autoComplete="address-line2"
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                      }}
-                    />
-                  )}
-                />
-              </div>
-              <div>
-                <Controller
-                  name="city"
-                  control={control}
-                  rules={{ required: true }}
-                  render={({ field }) => (
-                    <Input
-                      label="City"
-                      placeholder="City"
-                      autoComplete="address-level2"
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                      }}
-                    />
-                  )}
-                />
-              </div>
+            <div>
+              <Controller
+                name="postal_code"
+                control={control}
+                rules={{ required: true }}
+                render={({ field }) => (
+                  <Input
+                    label="Postal code"
+                    placeholder="Postal code"
+                    autoComplete="postal-code"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                    }}
+                  />
+                )}
+              />
+            </div>
 
-              <div>
-                <Controller
-                  name="state"
-                  control={control}
-                  rules={{ required: true }}
-                  render={({ field }) => (
-                    <Select
-                      label="State / Province"
-                      options={STATE_CODES.map((state) => ({
-                        value: state.abbreviation,
-                        label: state.name,
-                      }))}
-                      autoComplete="address-level1"
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                      }}
-                    />
-                  )}
-                />
-              </div>
-
-              <div>
-                <Controller
-                  name="postal_code"
-                  control={control}
-                  rules={{ required: true }}
-                  render={({ field }) => (
-                    <Input
-                      label="Postal code"
-                      placeholder="Postal code"
-                      autoComplete="postal-code"
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                      }}
-                    />
-                  )}
-                />
-              </div>
-
-              <div>
-                <Controller
-                  name="country"
-                  control={control}
-                  rules={{ required: true }}
-                  render={({ field }) => (
-                    <Select
-                      label="Country / Region"
-                      options={[
-                        { value: "US", label: "United States" },
-                        { value: "CA", label: "Canada" },
-                      ]}
-                      autoComplete="country"
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                      }}
-                    />
-                  )}
-                />
-              </div>
-              <div>
-                <Controller
-                  name="email"
-                  control={control}
-                  rules={{ required: true }}
-                  render={({ field }) => (
-                    <Input
-                      label="Email address"
-                      placeholder="Email address"
-                      autoComplete="email"
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                      }}
-                    />
-                  )}
-                />
-              </div>
-              <div>
-                <Controller
-                  name="phone"
-                  control={control}
-                  rules={{ required: true }}
-                  render={({ field }) => (
-                    <Input
-                      label="Phone number"
-                      placeholder="Phone number"
-                      autoComplete="tel"
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                      }}
-                    />
-                  )}
-                />
-              </div>
+            <div>
+              <Controller
+                name="country"
+                control={control}
+                rules={{ required: true }}
+                render={({ field }) => (
+                  <Select
+                    label="Country / Region"
+                    options={[
+                      { value: "US", label: "United States" },
+                      { value: "CA", label: "Canada" },
+                    ]}
+                    autoComplete="country"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                    }}
+                  />
+                )}
+              />
+            </div>
+            <div>
+              <Controller
+                name="email"
+                control={control}
+                rules={{ required: true }}
+                render={({ field }) => (
+                  <Input
+                    label="Email address"
+                    placeholder="Email address"
+                    autoComplete="email"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                    }}
+                  />
+                )}
+              />
+            </div>
+            <div>
+              <Controller
+                name="phone"
+                control={control}
+                rules={{ required: true }}
+                render={({ field }) => (
+                  <Input
+                    label="Phone number"
+                    placeholder="Phone number"
+                    autoComplete="tel"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                    }}
+                  />
+                )}
+              />
             </div>
             <ShippingOptions
               shippingCalculated={shippingCalculated}

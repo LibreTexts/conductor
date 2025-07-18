@@ -5,8 +5,9 @@ import { Link } from "react-router-dom";
 import SwitchAppWithUser from "../SwitchAppWithUser";
 import { User } from "../../../types";
 import { isSupportStaff } from "../../../utils/supportHelpers";
+import { useCart } from "../../../context/CartContext";
 
-interface SupportCenterNavbarMobileProps {
+interface StoreNavbarMobileProps {
   search: string;
   setSearch: React.Dispatch<React.SetStateAction<string>>;
   showSearch: boolean;
@@ -14,13 +15,14 @@ interface SupportCenterNavbarMobileProps {
   onSubmitSearch: () => void;
 }
 
-const SupportCenterNavbarMobile: React.FC<SupportCenterNavbarMobileProps> = ({
+const StoreNavbarMobile: React.FC<StoreNavbarMobileProps> = ({
   search,
   setSearch,
   showSearch,
   user,
   onSubmitSearch,
 }) => {
+  const { productCount } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
   return (
     <Menu
@@ -41,7 +43,7 @@ const SupportCenterNavbarMobile: React.FC<SupportCenterNavbarMobileProps> = ({
             className="h-12"
           />
           <span className="flex ml-2 text-2xl font-semibold text-nowrap">
-            Support Center
+            Store
           </span>
         </div>
         <Button icon onClick={() => setMenuOpen(!menuOpen)} basic>
@@ -60,7 +62,7 @@ const SupportCenterNavbarMobile: React.FC<SupportCenterNavbarMobileProps> = ({
             >
               {showSearch && (
                 <Form.Input
-                  placeholder="Search LibreTexts Insight..."
+                  placeholder="Search LibreTexts Store..."
                   icon="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -68,20 +70,9 @@ const SupportCenterNavbarMobile: React.FC<SupportCenterNavbarMobileProps> = ({
               )}
             </Form>
             <Menu.Item
-              name={user && user.uuid ? "back-to-conductor" : "back-to-commons"}
+              name="cart"
               as={Link}
-              to={user && user.uuid ? "/home" : "/"}
-            />
-            <Menu.Item
-              name={
-                user && user.uuid
-                  ? isSupportStaff(user)
-                    ? "staff-dashboard"
-                    : "my-tickets"
-                  : "contact-support"
-              }
-              as={Link}
-              to={user && user.uuid ? "/support/dashboard" : "/support/contact"}
+              to="/store/cart"
             />
             <SwitchAppWithUser user={user} parent="commons" isMobile />
           </Menu>
@@ -91,4 +82,4 @@ const SupportCenterNavbarMobile: React.FC<SupportCenterNavbarMobileProps> = ({
   );
 };
 
-export default SupportCenterNavbarMobile;
+export default StoreNavbarMobile;
