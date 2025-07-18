@@ -53,6 +53,8 @@ import {
   StoreOrder,
   GetStoreOrdersResponse,
   StoreOrderWithStripeSession,
+  OrderCharge,
+  OrderSession
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -1750,6 +1752,17 @@ class API {
       signal,
     });
   }
+
+  async getCheckoutSession(order_id: string) {
+    const res = await axios.get<{
+      data: {
+        charge: OrderCharge;
+        session: OrderSession;
+      }
+    } & ConductorBaseResponse>(`/store/checkout/session/${order_id}`);
+    return res.data;
+  }
+
 }
 
 export default new API();

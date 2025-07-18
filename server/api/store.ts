@@ -7,6 +7,7 @@ import { debug, debugError } from "../debug";
 import { LuluWebhookData, StoreShippingOption, ZodReqWithOptionalUser } from "../types";
 import StripeService from "./services/stripe-service";
 import User from "../models/user";
+import { data } from "cheerio/dist/commonjs/api/attributes";
 
 
 export async function getStoreProduct(req: z.infer<typeof GetStoreProductSchema>, res: Response) {
@@ -299,6 +300,31 @@ export async function adminResubmitPrintJob(req: z.infer<typeof AdminResubmitPri
     return conductor500Err(res);
   }
 }
+export async function getOrder(req: Request, res: Response) {
+  try {
+    const { order_id } = req.params;
+              
+    const result = await storeService.getCheckoutSession(order_id);
+
+    if (!result) {
+      return conductor404Err(res);
+    }
+
+    const { session, charge } = result;
+
+    return res.status(200).send({
+      err: false,
+      data: {
+        session,
+        charge
+      },
+      message: "Order fetched successfully.",
+    });
+  } catch (error) {
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
 
 export default {
   getStoreProduct,
@@ -312,4 +338,5 @@ export default {
   adminGetStoreOrder,
   adminGetStoreOrders,
   adminResubmitPrintJob,
+  getOrder
 };

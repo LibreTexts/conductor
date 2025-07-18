@@ -782,6 +782,13 @@ router.route("/store/admin/orders/:order_id/resubmit").post(
   storeAPI.adminResubmitPrintJob
 );
 
+router.route("/store/checkout/session/:order_id").get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(storeValidators.GetOrderInfoSchema),
+  storeAPI.getOrder
+)
+
 router.route("/store/products").get(
   middleware.validateZod(storeValidators.GetStoreProductsSchema),
   storeAPI.getStoreProducts
