@@ -36,7 +36,7 @@ const StoreNavbarMobile: React.FC<StoreNavbarMobileProps> = ({
         </div>
         <div
           className="flex flex-row items-center cursor-pointer"
-          onClick={() => window.location.assign("/support")}
+          onClick={() => window.location.assign("/store")}
         >
           <Image
             src="https://cdn.libretexts.net/Logos/libretexts_icon.png"
