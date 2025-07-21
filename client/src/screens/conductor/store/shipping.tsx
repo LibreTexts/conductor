@@ -18,6 +18,7 @@ import { formatPrice } from "../../../utils/storeHelpers";
 import { Icon } from "semantic-ui-react";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import { useTypedSelector } from "../../../state/hooks";
+import Checkbox from "../../../components/NextGenInputs/Checkbox";
 
 const STATE_CODES = [
   {
@@ -324,6 +325,8 @@ export default function ShippingPage() {
     useState<StoreShippingOption | null>(null);
   const [selectedDigitalDeliveryOption, setSelectedDigitalDeliveryOption] =
     useState<StoreDigitalDeliveryOption | null>(null);
+  const [shippingConfirmation, setShippingConfirmation] = useState(false);
+  const [finalConfirmation, setFinalConfirmation] = useState(false);
 
   const { control, getValues, setValue, watch, trigger } =
     useForm<StoreCheckoutForm>({
@@ -359,6 +362,10 @@ export default function ShippingPage() {
       return true;
     }
 
+    if (!shippingConfirmation || !finalConfirmation) {
+      return true;
+    }
+
     return false;
   }, [
     cart,
@@ -369,6 +376,8 @@ export default function ShippingPage() {
     hasDigitalProducts,
     selectedDigitalDeliveryOption,
     user?.uuid,
+    shippingConfirmation,
+    finalConfirmation,
   ]);
 
   const updateShippingOptionsDebounced = debounce(updateShippingOptions, 500);
@@ -492,7 +501,6 @@ export default function ShippingPage() {
   return (
     <AlternateLayout>
       <div className="mx-auto max-w-2xl px-4 pb-24 pt-16 sm:px-6 lg:max-w-7xl lg:px-8">
-        <h2 className="sr-only">Shipping</h2>
         <form
           className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16 min-w-[90vw] lg:min-w-[1200px]"
           onSubmit={(e) => {
@@ -881,6 +889,25 @@ export default function ShippingPage() {
                   </div>
                 </div>
               )}
+              <div className="border-t border-gray-200 px-4 py-6 sm:px-6 space-y-4">
+                <p className="text-sm text-gray-500">
+                  Please confirm to proceed to payment:
+                </p>
+                <Checkbox
+                  name="shipping-confirmation"
+                  label="I have confirmed my email address and shipping details are correct. I understand that if my information is incorrect, LibreTexts may not be able to contact me or ship my order."
+                  required
+                  checked={shippingConfirmation}
+                  onChange={(e) => setShippingConfirmation(e.target.checked)}
+                />
+                <Checkbox
+                  name="final-confirmation"
+                  label="I have confirmed my order details and understand that ALL ORDERS ARE FINAL. I understand that I cannot cancel or modify my order after it has been placed."
+                  required
+                  checked={finalConfirmation}
+                  onChange={(e) => setFinalConfirmation(e.target.checked)}
+                />
+              </div>
               <div className="border-t border-gray-200 px-4 py-6 sm:px-6">
                 <button
                   type="submit"
@@ -897,6 +924,16 @@ export default function ShippingPage() {
                 </button>
               </div>
             </div>
+            <p className="mt-4 text-sm text-gray-500 text-center">
+              If you have any questions or concerns, please contact our{" "}
+              <a
+                href="https://support.libretexts.org"
+                className="text-primary hover:underline"
+              >
+                Support Center
+              </a>{" "}
+              before proceeding.
+            </p>
             {error && (
               <div className="mt-4 text-red-600 text-center flex items-center justify-center text-lg">
                 <Icon name="exclamation triangle" className="!mb-1 !mr-2" />
