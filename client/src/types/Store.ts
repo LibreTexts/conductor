@@ -79,7 +79,7 @@ export type StoreDigitalDeliveryOption = "apply_to_account" | "email_access_code
 export type StoreOrder = {
     _id: string; // MongoDB ObjectID
     id: string; // Stripe checkout session ID
-    status: "pending" | "completed" | "failed";
+    status: "pending" | "completed" | "failed" | "canceled";
     error: string;
     luluJobID?: string;
     luluJobStatus?: string;

@@ -2,7 +2,7 @@ import { HydratedDocument, model, Schema } from "mongoose";
 
 export interface RawStoreOrder {
     id: string; // stripe checkout session id;
-    status: "pending" | "completed" | "failed";
+    status: "pending" | "completed" | "failed" | "canceled";
     error: string; // Error message if the order fails
     luluJobID?: string;
     luluJobStatus?: string;
@@ -27,7 +27,7 @@ const StoreOrderSchema = new Schema<RawStoreOrder>({
     },
     status: {
         type: String,
-        enum: ["pending", "completed", "failed"],
+        enum: ["pending", "completed", "failed", "canceled"],
         default: "pending",
     },
     error: String,

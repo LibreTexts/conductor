@@ -327,6 +327,7 @@ export default function ShippingPage() {
     useState<StoreDigitalDeliveryOption | null>(null);
   const [shippingConfirmation, setShippingConfirmation] = useState(false);
   const [finalConfirmation, setFinalConfirmation] = useState(false);
+  const [productionTimeConfirmation, setProductionTimeConfirmation] = useState(false);
 
   const { control, getValues, setValue, watch, trigger } =
     useForm<StoreCheckoutForm>({
@@ -362,7 +363,7 @@ export default function ShippingPage() {
       return true;
     }
 
-    if (!shippingConfirmation || !finalConfirmation) {
+    if (!shippingConfirmation || !finalConfirmation || !productionTimeConfirmation) {
       return true;
     }
 
@@ -378,6 +379,7 @@ export default function ShippingPage() {
     user?.uuid,
     shippingConfirmation,
     finalConfirmation,
+    productionTimeConfirmation,
   ]);
 
   const updateShippingOptionsDebounced = debounce(updateShippingOptions, 500);
@@ -899,6 +901,15 @@ export default function ShippingPage() {
                   required
                   checked={shippingConfirmation}
                   onChange={(e) => setShippingConfirmation(e.target.checked)}
+                />
+                <Checkbox
+                  name="production-time-confirmation"
+                  label="I understand that books are printed on demand and may take 5-6 days to ship; LibreTexts is not responsible for delays in production or shipping."
+                  required
+                  checked={productionTimeConfirmation}
+                  onChange={(e) =>
+                    setProductionTimeConfirmation(e.target.checked)
+                  }
                 />
                 <Checkbox
                   name="final-confirmation"
