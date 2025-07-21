@@ -753,6 +753,13 @@ router.route("/store/checkout/session").post(
   storeAPI.createCheckoutSession
 )
 
+router.route("/store/checkout/session/:order_id").get(
+  authAPI.optionalVerifyRequest, // User does not need to be logged in to check order status - order ID is pseudorandom
+  authAPI.optionalGetUserAttributes,
+  middleware.validateZod(storeValidators.GetOrderInfoSchema),
+  storeAPI.getOrder
+)
+
 router.route("/store/checkout/shipping-options").post(
   middleware.validateZod(storeValidators.GetShippingOptionsSchema),
   storeAPI.getShippingOptions
