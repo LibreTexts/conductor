@@ -13,6 +13,7 @@ import centralIdentityAPI from "../central-identity"
 import Fuse from "fuse.js";
 import NodeCache from "node-cache";
 import { serializeError } from "../../util/errorutils";
+import mailAPI from "../mail"
 
 const BASE_COST = 1.80;
 const PAGE_MULTIPLIER = 0.032;
@@ -557,6 +558,10 @@ class StoreService {
                         storeOrder.status = 'completed'; // If only digital items, mark as completed
                         await storeOrder.save();
                     }
+                }
+
+                if (checkout_session.customer_details?.email) { // Customer email should always be present, but just in case
+                    await mailAPI.sendStoreOrderConfirmation(checkout_session.customer_details?.email, checkout_session.id)
                 }
 
                 return storeOrder;
