@@ -1009,6 +1009,33 @@ const sendSupportTicketAutoCloseWarning = (recipientAddresses, ticketID, subject
     });
 };
 
+/**
+ * Sends an order confirmation email to the customer.
+ * @param {string} recipientAddress - the email address to send the notification to
+ * @param {string} orderID - the order's id (checkout session id)
+ */
+const sendStoreOrderConfirmation = (recipientAddress, orderID) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: DEFAULT_MAIL_FROM,
+        to: [recipientAddress],
+        subject: `LibreTexts Store Order Confirmation: ${orderID}`,
+        html: `
+            <p>Hi,</p>
+            <p>Thank you for your order! You can view your order details and check its status at any time by using the link below:</p>
+            <br />
+            <p><a href="https://commons.libretexts.org/store/order/${orderID}" target="_blank" rel="noopener noreferrer">View Order Status</a></p>
+            <br />
+            <p>You should have also received an email receipt for your order from our secure payment processor, Stripe.</p>
+            <p>If you have any questions or concerns about your order, please contact our <a href="https://commons.libretexts.org/support" target="_blank" rel="noopener noreferrer">Support Center</a> and be sure to include your order ID.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            <br />
+            <p>Order ID: ${orderID}</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+};
+
 const sendZIPFileReadyNotification = (url, recipientAddress) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
@@ -1159,6 +1186,7 @@ export default {
     sendNewInternalTicketMessageAssignedStaffNotification,
     sendSupportTicketAssignedNotification,
     sendSupportTicketAutoCloseWarning,
+    sendStoreOrderConfirmation,
     sendZIPFileReadyNotification,
     sendProjectInvitation,
     sendSupportTicketCCedNotification
