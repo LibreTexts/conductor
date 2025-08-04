@@ -11,14 +11,14 @@ const _BasicShippingAddress = z.object({
     country: z.enum(['US', 'CA']),
     postal_code: z.string().min(1, "Postal code is required"),
     state: z.string().length(2, "State must be a 2-letter code"),
-    address_line_1: z.string().min(1, "Street address is required"),
+    address_line_1: z.string().min(1, "Street address is required").max(30, "Address line 1 cannot exceed 30 characters"),
 })
 
 const _FullShippingAddress = _BasicShippingAddress.extend({
     first_name: z.string().min(1, "First name is required"),
     last_name: z.string().min(1, "Last name is required"),
     company: z.string().optional().or(z.literal("")),
-    address_line_2: z.string().optional().or(z.literal("")),
+    address_line_2: z.string().max(30, "Address line 2 cannot exceed 30 characters").optional().or(z.literal("")),
     phone: z.string().min(1, "Phone number is required"),
     email: z.string().email("Invalid email address")
 })

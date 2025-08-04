@@ -578,6 +578,7 @@ export default function ShippingPage() {
                     placeholder="Address line 1"
                     autoComplete="address-line1"
                     {...field}
+                    maxLength={30}
                     onChange={(e) => {
                       field.onChange(e);
                     }}
@@ -596,6 +597,7 @@ export default function ShippingPage() {
                     placeholder="Address line 2"
                     autoComplete="address-line2"
                     {...field}
+                    maxLength={30}
                     onChange={(e) => {
                       field.onChange(e);
                     }}
