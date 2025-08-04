@@ -179,6 +179,16 @@ const OrderView = () => {
                 </Breadcrumb.Section>
               </Breadcrumb>
               <div className="flex items-center">
+                <div
+                  className={`font-medium capitalize ${
+                    data?.status === "failed"
+                      ? "text-red-600"
+                      : "text-gray-900"
+                  }`}
+                >
+                  Status: {data?.status || "Unknown"}
+                </div>
+                <div className="mx-2 text-gray-400">•</div>
                 <div className="font-medium text-gray-900">
                   Ordered{" "}
                   {data?.createdAt
@@ -244,7 +254,7 @@ const OrderView = () => {
                               <div className="mt-6 sm:ml-6 sm:mt-0">
                                 <h3 className="text-base font-medium text-gray-900">
                                   <a
-                                    href={`https://commons.libretexts.org/store/products/${
+                                    href={`https://commons.libretexts.org/store/product/${
                                       bookID
                                         ? bookID
                                         : lineItem.price?.product?.id
@@ -274,6 +284,7 @@ const OrderView = () => {
                                   {lineItem.price?.product?.metadata[
                                     "book_id"
                                   ] && (
+                                    <div className="flex flex-row space-x-2">
                                     <a
                                       href={buildLibraryPageGoURL(
                                         bookID.split("-")[0] || "unknown",
@@ -286,9 +297,22 @@ const OrderView = () => {
                                         icon="IconExternalLink"
                                         size="small"
                                       >
-                                        View Book Online
+                                        View Book in Library
                                       </Button>
                                     </a>
+                                    <a
+                                      href={`https://commons.libretexts.org/store/product/${bookID}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <Button
+                                        icon="IconExternalLink"
+                                        size="small"
+                                      >
+                                        View Book in Store
+                                      </Button>
+                                    </a>
+                                    </div>
                                   )}
                                 </div>
                               </div>
