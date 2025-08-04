@@ -312,7 +312,7 @@ const STATE_CODES = [
 ];
 
 export default function ShippingPage() {
-  const { cart, hasDigitalProducts } = useCart();
+  const { cart, hasDigitalProducts, hasPhysicalProducts } = useCart();
   const { debounce } = useDebounce();
   const user = useTypedSelector((state) => state.user);
   const [loading, setLoading] = useState(false);
@@ -356,10 +356,7 @@ export default function ShippingPage() {
       return true;
     }
 
-    // If there are shipping options other than digital delivery, one must be selected
-    if (shippingOptions === "digital_delivery_only") {
-      return false;
-    } else if (!selectedShippingOption) {
+    if (hasPhysicalProducts && !selectedShippingOption) {
       return true;
     }
 
@@ -375,6 +372,7 @@ export default function ShippingPage() {
     shippingOptions,
     shippingLoading,
     hasDigitalProducts,
+    hasPhysicalProducts,
     selectedDigitalDeliveryOption,
     user?.uuid,
     shippingConfirmation,
@@ -504,11 +502,12 @@ export default function ShippingPage() {
     <AlternateLayout>
       <div className="mx-auto max-w-2xl px-4 pb-24 pt-16 sm:px-6 lg:max-w-7xl lg:px-8">
         <form
-          className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16 min-w-[90vw] lg:min-w-[1200px]"
+          className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16 min-w-[90vw] lg:min-w-[1200px] lg:items-start"
           onSubmit={(e) => {
             e.preventDefault();
           }}
         >
+          <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">
             Contact & Shipping information
           </h2>
@@ -728,6 +727,7 @@ export default function ShippingPage() {
               selectedShippingOption={selectedShippingOption}
               setSelectedShippingOption={setSelectedShippingOption}
             />
+          </div>
           </div>
 
           {/* Order summary */}

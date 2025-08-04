@@ -211,7 +211,7 @@ class StoreService {
             const stripe = this.stripeService.getInstance();
             const customer = await this.upsertCustomer({ shipping_address });
 
-            const createLineItems = (): Stripe.Checkout.SessionCreateParams.LineItem[] => {
+            const createLineItems = async (): Promise<Stripe.Checkout.SessionCreateParams.LineItem[]> => {
                 const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = items.map(item => {
                     return {
                         price: item.price_id,
@@ -219,13 +219,20 @@ class StoreService {
                     };
                 });
 
+                const separated = await this._separateProductsByCategory(items)
+
                 if (shipping_option === 'digital_delivery_only') {
+                    if (separated.books.length > 0) {
+                        debug("Shipping option is 'digital_delivery_only' but book items were provided. This is not allowed.");
+                        throw new Error("Shipping option is 'digital_delivery_only' but book items were provided.");
+                    }
+
                     return lineItems
                 }
 
                 if (!shipping_option || !shipping_option.id || !shipping_option.cost_excl_tax) {
-                    debug("A shipping option was provided to createCheckoutSession but it is invalid:", shipping_option);
-                    throw new Error("A shipping option was provided to createCheckoutSession but it is invalid")
+                    debug("Invalid or missing shipping option:", shipping_option);
+                    throw new Error("Invalid or missing shipping option");
                 }
 
                 lineItems.push({
@@ -252,7 +259,7 @@ class StoreService {
                 return lineItems
             }
 
-            const line_items = createLineItems();
+            const line_items = await createLineItems();
             const shipping_address_metadata = JSON.stringify(shipping_address);
             const session = await stripe.checkout.sessions.create({
                 customer,

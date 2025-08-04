@@ -7,6 +7,7 @@ export interface CartContextType {
   productCount: number;
   numInCart: (productId: string) => number;
   hasDigitalProducts: boolean;
+  hasPhysicalProducts: boolean;
   clearAndCreateCart: () => void;
   addToCart: (product: StoreProduct, price: StoreProductPrice, quantity: number) => void;
   removeFromCart: (productId: string, priceId: string) => void;
