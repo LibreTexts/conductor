@@ -614,6 +614,7 @@ class StoreService {
             storeOrder.luluJobID = data.id.toString(); // Update the Lulu job ID (e.g. on resubmits)
             storeOrder.luluJobStatus = data.status?.name || "unknown";
             storeOrder.luluJobStatusMessage = data.status?.message || "";
+            storeOrder.luluJobStatusUpdates = [...(storeOrder.luluJobStatusUpdates || []), data];
             await storeOrder.save();
         } catch (error) {
             debug("Error processing Lulu order update:", error);

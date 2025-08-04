@@ -7,6 +7,7 @@ export interface RawStoreOrder {
     luluJobID?: string;
     luluJobStatus?: string;
     luluJobStatusMessage?: string; // Error message if the Lulu job fails
+    luluJobStatusUpdates?: Array<Record<string, any>>; // Array of status updates data from Lulu, if any
     createdAt?: Date; // Automatically set by Mongoose
     updatedAt?: Date; // Automatically set by Mongoose
 }
@@ -34,6 +35,9 @@ const StoreOrderSchema = new Schema<RawStoreOrder>({
     luluJobID: String,
     luluJobStatus: String,
     luluJobStatusMessage: String,
+    luluJobStatusUpdates: {
+        type: [Object],
+    },
 }, {
     timestamps: true
 })
