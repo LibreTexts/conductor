@@ -186,6 +186,11 @@ const CartProvider = ({ children }: { children: React.ReactNode }) => {
     return cart.items.some((item) => item.product.metadata?.digital === "true");
   }, [cart]);
 
+  const hasPhysicalProducts = useMemo(() => {
+    if (!cart || !cart.items) return false;
+    return cart.items.some((item) => item.product.metadata?.digital !== "true");
+  }, [cart]);
+
   return (
     <CartContext.Provider
       value={{
@@ -194,6 +199,7 @@ const CartProvider = ({ children }: { children: React.ReactNode }) => {
         productCount,
         numInCart,
         hasDigitalProducts,
+        hasPhysicalProducts,
         clearAndCreateCart,
         addToCart,
         removeFromCart,
