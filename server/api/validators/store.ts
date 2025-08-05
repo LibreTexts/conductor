@@ -18,7 +18,7 @@ const _FullShippingAddress = _BasicShippingAddress.extend({
     first_name: z.string().min(1, "First name is required"),
     last_name: z.string().min(1, "Last name is required"),
     company: z.string().optional().or(z.literal("")),
-    address_line_2: z.string().max(30, "Address line 2 cannot exceed 30 characters").optional().or(z.literal("")),
+    address_line_2: z.string().optional().refine(val => !val || val.length <= 30, "Address line 2 cannot exceed 30 characters").or(z.literal("")),
     phone: z.string().min(1, "Phone number is required"),
     email: z.string().email("Invalid email address")
 })
