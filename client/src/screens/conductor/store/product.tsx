@@ -299,7 +299,7 @@ export default function ProductPage() {
                   rel="noopener noreferrer"
                 >
                   <Button icon="IconBook2" variant="secondary" fluid>
-                    Read Online
+                    Read Online - Free
                   </Button>
                 </a>
               )}
