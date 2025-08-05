@@ -92,7 +92,7 @@ const ShippingOptions: React.FC<ShippingOptionsProps> = ({
   };
 
   return (
-    <div className="mt-10 border-t border-gray-200 pt-10">
+    <div className="mt-10 border-t border-gray-200 pt-10 col-span-2">
       <p className="text-lg font-medium text-gray-900">Shipping options</p>
       <OptionsDisplay />
     </div>

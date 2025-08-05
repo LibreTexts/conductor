@@ -22,6 +22,7 @@ export type LuluShippingOption = {
     currency: string,
     home_only: boolean,
     id: number,
+    carrier_service_name?: string | null,
     level: LuluShippingLevel,
     max_delivery_date: string,
     max_dispatch_date: string,
