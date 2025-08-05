@@ -435,6 +435,7 @@ class StoreService {
 
                 return {
                     id: opt.id,
+                    title: `${opt.level}${opt.carrier_service_name ? ` (${opt.carrier_service_name})` : ''}`,
                     total_days_min: opt.total_days_min,
                     total_days_max: opt.total_days_max,
                     lulu_shipping_level: opt.level,
@@ -442,30 +443,20 @@ class StoreService {
                 }
             });
 
-            // Only return the slowest and fastest shipping options (e.g. standard and expedited)
-            const slowest = mapped.reduce((prev, curr) => {
-                if (!prev || !curr) return curr; // Handle case where one of them is null
-                return prev.total_days_min > curr.total_days_min ? prev : curr;
-            });
-            const fastest = mapped.reduce((prev, curr) => {
-                if (!prev || !curr) return curr; // Handle case where one of them is null
-                return prev.total_days_min < curr.total_days_min ? prev : curr;
-            });
-            if (!slowest || !fastest) {
-                debug("No valid shipping options found after filtering.");
-                throw new Error("No valid shipping options found after filtering");
-            }
-
-            return [
-                {
-                    title: "Standard Shipping",
-                    ...slowest,
-                },
-                {
-                    title: "Expedited Shipping (Fastest)",
-                    ...fastest,
+            // Sort options by cost_excl_tax first, then by total_days_min
+            mapped.sort((a, b) => {
+                if (!a || !b) return 0; // Skip null options
+                if (a.cost_excl_tax === null || b.cost_excl_tax === null) {
+                    return a.cost_excl_tax === null ? 1 : -1; // Place null costs at the end
                 }
-            ]
+                if (a.cost_excl_tax === b.cost_excl_tax) {
+                    // If costs are equal, sort by total_days_min
+                    return a.total_days_min - b.total_days_min;
+                }
+                return a.cost_excl_tax - b.cost_excl_tax;
+            });
+
+            return mapped.filter(opt => opt !== null);
         } catch (error) {
             debug("Error fetching shipping options:", error);
             throw new Error("Failed to fetch shipping options");
