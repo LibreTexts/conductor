@@ -445,7 +445,8 @@ class StoreService {
 
             // Sort options by cost_excl_tax first, then by total_days_min
             mapped.sort((a, b) => {
-                if (!a || !b) return 0; // Skip null options
+                if (!a) return 1; // Place nulls at the end
+                if (!b) return -1;
                 if (a.cost_excl_tax === null || b.cost_excl_tax === null) {
                     return a.cost_excl_tax === null ? 1 : -1; // Place null costs at the end
                 }
