@@ -58,7 +58,7 @@ const ISBNsTable: React.FC<ISBNsTableProps> = ({ control, setValue }) => {
 
   return (
     <div>
-      <h3>ISBN's</h3>
+      <h3 className="font-bold">ISBN's</h3>
       <Table celled fluid>
         <Table.Header>
           <Table.Row>
