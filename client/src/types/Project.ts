@@ -195,7 +195,11 @@ export type Project = {
   coPrincipalInvestigators?: ProjectFileAuthor[];
   description?: string;
   contentArea?: string;
-  isbn?: string;
+  isbns?: {
+    medium: string;
+    format: string;
+    isbn: string;
+  }[];
   doi?: string;
   sourceOriginalPublicationDate?: Date;
   sourceHarvestDate?: Date;

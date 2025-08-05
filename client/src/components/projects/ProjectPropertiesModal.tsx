@@ -27,6 +27,7 @@ import { lazy, useEffect, useState, useCallback, useRef, useMemo } from "react";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 import CtlTextArea from "../ControlledInputs/CtlTextArea";
+import ISBNsTable from './ISBNsTable';
 import {
   classificationOptions,
   statusOptions,
@@ -128,7 +129,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       coPrincipalInvestigators: [],
       description: "",
       contentArea: "",
-      isbn: "",
+      isbns: [],
       doi: "",
       sourceLanguage: "",
       projectModules: {
@@ -562,8 +563,12 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
         throw new Error("Please fix the errors in the form before submitting.");
       }
 
+      const values = getValues();
+      values.isbns = (values.isbns || []).filter(
+        (row) => row.medium && row.format
+      );
       const res = await axios.put("/project", {
-        ...getValues(),
+        ...values,
         principalInvestigators: getValues("principalInvestigatorIDs"),
         coPrincipalInvestigators: getValues("coPrincipalInvestigatorIDs"),
       });
@@ -1180,13 +1185,9 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             />
           </div>
           <div className="flex flex-row justify-between mb-3">
-            <CtlTextInput
-              name="isbn"
-              control={control}
-              label="ISBN"
-              placeholder="Enter ISBN..."
-              className="basis-1/2 mr-8"
-            />
+            <div className="basis-1/2 mr-8">
+              <ISBNsTable control={control} setValue={setValue} />
+            </div>
             <CtlTextInput
               name="doi"
               control={control}
