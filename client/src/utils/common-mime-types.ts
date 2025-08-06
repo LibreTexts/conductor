@@ -68,6 +68,10 @@ const COMMON_MIME_TYPES: {
         name: "WEBM",
         value: "video/webm",
       },
+      {
+        name: "MKV",
+        value: "video/x-matroska",
+      }
     ],
   },
   {

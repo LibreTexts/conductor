@@ -91,3 +91,10 @@ export const isSupportStaff = (user?: User): boolean => {
   );
   return !!foundRole;
 };
+
+
+export const supportTicketAttachmentAllowedTypes = [
+  "image/*",
+  "video/*",
+  "application/pdf",
+]

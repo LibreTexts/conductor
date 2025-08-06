@@ -8,6 +8,7 @@ import api from "../../api";
 import FileUploader from "../FileUploader";
 import axios from "axios";
 import { useQueryClient } from "@tanstack/react-query";
+import { supportTicketAttachmentAllowedTypes } from "../../utils/supportHelpers";
 
 interface TicketAttachmentsProps {
   ticket: SupportTicket;
@@ -142,10 +143,11 @@ const TicketAttachments: React.FC<TicketAttachmentsProps> = ({
         {showUpload && (
           <div className="my-2">
             <FileUploader
-              multiple={true}
+              fileTypes={supportTicketAttachmentAllowedTypes}
               maxFiles={4}
+              maxFileSize={100 * 1024 * 1024} // 100 MB
               onUpload={saveFilesToState}
-              showUploads={true}
+              allowScreenCast
             />
             {files.length > 0 && (
               <div className="flex flex-row justify-end mt-4">

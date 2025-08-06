@@ -1,20 +1,22 @@
-import React, { useState, useRef } from "react";
-import PropTypes from "prop-types";
-import { Button, Icon, Label } from "semantic-ui-react";
-import useGlobalError from "../error/ErrorHooks";
-import styles from "./FileUploader.module.css";
-import { truncateString } from "../util/HelperFunctions";
+import React, { useState } from "react";
+import Uppy from "@uppy/core";
+import "@uppy/core/dist/style.min.css";
+import "@uppy/dashboard/dist/style.min.css";
+import "@uppy/screen-capture/dist/style.css";
+import { Dashboard, useUppyEvent } from "@uppy/react";
+import ScreenCapture from "@uppy/screen-capture";
+import classNames from "classnames";
+import "./FileUploader.css"; // Custom styles for the uploader
 
-interface FileUploaderProps
-  extends React.DetailedHTMLProps<
-    React.FormHTMLAttributes<HTMLFormElement>,
-    HTMLFormElement
-  > {
-  multiple?: boolean;
+interface FileUploaderProps {
+  minFiles?: number; // minimum number of files required
   maxFiles?: number;
+  maxFileSize?: number; // in bytes, e.g., 10485760 for 10MB
+  fileTypes?: string[]; // e.g., ['image/*', 'application/pdf']
   disabled?: boolean;
   onUpload: (files: FileList) => void;
-  showUploads?: boolean;
+  className?: string;
+  allowScreenCast?: boolean; // optional prop for screen cast
 }
 
 /**
@@ -22,164 +24,69 @@ interface FileUploaderProps
  * multiple and maximum numbers of files.
  */
 const FileUploader: React.FC<FileUploaderProps> = ({
-  multiple = false,
+  minFiles = 0,
   maxFiles = 1,
+  maxFileSize = 10485760, // default to 10MB
+  fileTypes,
   disabled = false,
   onUpload,
-  showUploads = false,
-  ...props
+  className,
+  allowScreenCast = false,
 }) => {
-  // Global Error Handling
-  const { handleGlobalError } = useGlobalError();
-  const inputReference = useRef<HTMLInputElement | null>(null);
-
-  // Uploader State
-  const [dragActive, setDragActive] = useState(false);
-  const [files, setFiles] = useState<File[]>([]); // for showing uploads
-
-  /**
-   * Activates the "droppable" area visual state when a file is dragged into the uploader.
-   *
-   * @param {React.DragEvent} e - The event that triggered the handler.
-   */
-  function handleFileDrag(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
+  const [uppy] = useState(() => {
+    const uppy = new Uppy({
+      debug: true,
+      
+      restrictions: {
+        maxFileSize: maxFileSize,
+        minNumberOfFiles: minFiles,
+        maxNumberOfFiles: maxFiles,
+        allowedFileTypes: fileTypes || undefined,
+      },
+    });
+    if (allowScreenCast) {
+      uppy.use(ScreenCapture, {
+        preferredVideoMimeType: "video/webm",
+      });
     }
-  }
+    return uppy;
+  });
 
-  /**
-   * Performs basic validation and triggers the passed upload handler.
-   *
-   * @param {React.FormEvent} e - The event that triggered the handler, containing a FileList.
-   * @param {string} src - The source of the file upload, either 'select' or 'drag'.
-   */
-  function processFileTransfer(
-    e: React.DragEvent | React.ChangeEvent,
-    src = "select"
-  ) {
-    let filesToUpload: FileList | null = null;
-    if (src === "drag") {
-      if ((e as React.DragEvent).dataTransfer?.files) {
-        filesToUpload = (e as React.DragEvent).dataTransfer.files;
+  useUppyEvent(uppy, "state-update", (prevState, newState) => {
+    const stateFiles = Object.values(newState.files);
+
+    const dataTransfer = new DataTransfer();
+    stateFiles.forEach((file) => {
+      if (file.data) {
+        if (file.data instanceof File) {
+          dataTransfer.items.add(file.data);
+        } else if (file.data instanceof Blob) {
+          const newFile = new File(
+            [file.data],
+            file.name || `${crypto.randomUUID()}.${file.extension}`,
+            {
+              type: file.type,
+              lastModified: new Date().getTime(),
+            }
+          );
+          dataTransfer.items.add(newFile);
+        }
       }
-    } else {
-      // @ts-expect-error
-      if ((e as React.ChangeEvent).target?.files) {
-        // @ts-expect-error
-        filesToUpload = e.target.files;
-      }
-    }
+    });
 
-    const newLength = files
-      ? files.length + (filesToUpload ? filesToUpload.length : 0)
-      : 0;
-    if (multiple && maxFiles && newLength > maxFiles) {
-      // too many files
-      handleGlobalError(
-        `This uploader accepts a maximum of ${maxFiles} files.`
-      );
-    } else if (filesToUpload && filesToUpload.length > 0) {
-      // files uploaded
-      setFiles([...files, ...Array.from(filesToUpload)]); // for showing uploads (not actually used for upload)
-      onUpload(filesToUpload);
-    }
-  }
-
-  /**
-   * Starts the transfer process when a file has been dragged into the uploader.
-   *
-   * @param {React.FormEvent} e - The event that triggered the handler.
-   */
-  function handleFileDrop(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    processFileTransfer(e, "drag");
-  }
-
-  /**
-   * Starts the transfer process when a file has been selected using the OS picker.
-   *
-   * @param {React.ChangeEvent} e - The event that triggered the handler.
-   */
-  function handleInputChange(e: React.ChangeEvent) {
-    e.preventDefault();
-    processFileTransfer(e);
-  }
-
-  /**
-   * Activates the OS file picker by virtually "clicking" the hidden file input.
-   */
-  function handleUploadClick() {
-    if (inputReference.current) {
-      inputReference.current.click();
-    }
-  }
-
-  /**
-   * Prevents default actions if the form submit process is triggered.
-   *
-   * @param {React.FormEvent} e - The event that triggered the handler.
-   */
-  function handleFormSubmit(e: React.FormEvent) {
-    e.preventDefault();
-  }
+    const fileList = dataTransfer.files;
+    onUpload(fileList); // Always send new file list even if empty
+  });
 
   return (
-    <form
-      onDragEnter={handleFileDrag}
-      onSubmit={handleFormSubmit}
-      {...props}
-      id={styles.uploader_form}
-    >
-      <input
-        ref={inputReference}
-        type="file"
-        id={styles.uploader_input}
-        multiple={multiple}
-        onChange={handleInputChange}
-        disabled={disabled}
-      />
-      <label
-        id={styles.uploader_label}
-        htmlFor={styles.uploader_input}
-        className={dragActive ? styles.drag_active : ""}
-      >
-        <Icon name="upload" size="big" />
-        <p id={styles.uploader_instructions}>Drag and drop your file or</p>
-        <Button onClick={handleUploadClick} color="blue" disabled={disabled}>
-          Select file(s)
-        </Button>
-      </label>
-      {!disabled && dragActive && (
-        <div
-          id={styles.uploader_drag_area}
-          onDragEnter={handleFileDrag}
-          onDragLeave={handleFileDrag}
-          onDragOver={handleFileDrag}
-          onDrop={handleFileDrop}
-        />
-      )}
-      {showUploads && multiple && files && files.length > 0 && (
-        <div className="flex flex-row justify-start mt-2">
-          {Array.from(files).map((file) => (
-            <Label
-              color="blue"
-              size="tiny"
-              key={crypto.randomUUID()}
-              className="mr-2"
-            >
-              {truncateString(file.name, 40)}
-            </Label>
-          ))}
-        </div>
-      )}
-    </form>
+    <Dashboard
+      uppy={uppy}
+      width={"100%"}
+      height={"250px"}
+      hideUploadButton
+      disabled={disabled}
+      className={classNames(className)}
+    />
   );
 };
 
