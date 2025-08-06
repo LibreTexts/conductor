@@ -873,7 +873,7 @@ class StoreService {
                                     store_category: "books",
                                     book_author: book.author || "Anonymous",
                                     book_institution: book.institution || "",
-                                    numPages: book.numPages.toString(),
+                                    num_pages: book.numPages.toString(),
                                 }
                             });
                         } else {
@@ -893,7 +893,7 @@ class StoreService {
                             });
                         }
 
-                        const priceOptions = this.calculateBookPrices({ numPages: book.numPages });
+                        const priceOptions = this.calculateBookPrices({ num_pages: book.numPages });
                         const existingPrices = await stripe.prices.list({
                             product: product.id,
                             active: true,
@@ -971,11 +971,11 @@ class StoreService {
     }
 
 
-    public calculateBookPrices({ numPages }: { numPages: number }): { numPages: number; options: BookPriceOption[] } {
+    public calculateBookPrices({ num_pages }: { num_pages: number }): { num_pages: number; options: BookPriceOption[] } {
         try {
             const options: BookPriceOption[] = [];
-            const page_cost = numPages * PAGE_MULTIPLIER;
-            const color_cost = (COLOR_MULTIPLIER * numPages / 100);
+            const page_cost = num_pages * PAGE_MULTIPLIER;
+            const color_cost = (COLOR_MULTIPLIER * num_pages / 100);
 
             function roundAndConvertToCents(value: number): number {
                 return Math.round(value * 100);
@@ -1023,7 +1023,7 @@ class StoreService {
             });
 
             return {
-                numPages,
+                num_pages,
                 options,
             };
         } catch (error) {
