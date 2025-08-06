@@ -110,8 +110,8 @@ export default function ProductPage() {
     if (!product) return false;
     if (!isBook) return false;
 
-    const numPages = parseInt(product.metadata["num_pages"], 10);
-    return numPages > BOOK_PAGE_LIMIT;
+    const num_pages = parseInt(product.metadata["num_pages"], 10);
+    return num_pages > BOOK_PAGE_LIMIT;
   }, [product, isBook]);
 
   function handleAddToCart() {
