@@ -8,7 +8,7 @@ import { checkBookIDFormat } from "../../util/bookutils";
 import { CreateCheckoutSessionSchema, GetShippingOptionsSchema, AdminGetStoreOrdersSchema } from "../validators/store";
 import { z } from "zod";
 import LuluService from "./lulu-service";
-import StoreOrder, { RawStoreOrder } from "../../models/storeorder";
+import StoreOrder, { RawStoreOrder, RawStoreOrderNotification, StoreOrderDocument } from "../../models/storeorder";
 import centralIdentityAPI from "../central-identity"
 import Fuse from "fuse.js";
 import NodeCache from "node-cache";
@@ -178,13 +178,13 @@ class StoreService {
     public async getCheckoutSession(checkout_session_id: string) {
         try {
             const { session, charge } = await this._fetchCheckoutSession(checkout_session_id, { includeCharges: true });
-            
+
             if (!session) {
                 debug(`No checkout session found with ID: ${checkout_session_id}`);
                 return null;
             }
 
-            return {session, charge}
+            return { session, charge }
         } catch (error) {
             debug("Error fetching checkout session:", error);
             throw new Error("Failed to fetch checkout session");
@@ -482,8 +482,15 @@ class StoreService {
                     throw new Error("Invalid checkout session provided.");
                 }
 
-                const lineItems = this._parseLineItemsFromCheckoutSession(checkout_session);
+                // Get and save customer's email addr for order
+                const email = checkout_session.customer_details?.email || checkout_session.customer_email;
+                if (!email) {
+                    throw new Error("MISSING_EMAIL");
+                }
+                storeOrder.customerEmail = email;
+                await storeOrder.save(); // Save the email to the order now in case processing fails later
 
+                const lineItems = this._parseLineItemsFromCheckoutSession(checkout_session);
                 if (!lineItems || lineItems.length === 0) {
                     throw new Error("NO_LINE_ITEMS");
                 }
@@ -513,7 +520,7 @@ class StoreService {
                             postcode: checkout_session.customer_details?.address?.postal_code || '',
                             country_code: checkout_session.customer_details?.address?.country || '',
                             phone_number: checkout_session.customer_details?.phone || '',
-                            email: checkout_session.customer_details?.email || '', // Will default to the contact email on Lulu account if not provided
+                            email: email || '', // Will default to the contact email on Lulu account if not provided
                             is_business: false,
                         },
                         line_items: luluLineItems,
@@ -531,11 +538,6 @@ class StoreService {
                 }
 
                 if (digitalItems.length > 0) {
-                    const email = checkout_session.customer_details?.email || checkout_session.customer_email;
-                    if (!email) {
-                        throw new Error("MISSING_EMAIL_FOR_DIGITAL_ITEMS");
-                    }
-
                     const digital_delivery_account = checkout_session.metadata?.['digital_delivery_account'] || '';
                     const digital_delivery_option = checkout_session.metadata?.['digital_delivery_option'] || 'email_access_codes'; // Default to email access codes if not specified
                     if (digital_delivery_option !== 'apply_to_account' && digital_delivery_option !== 'email_access_codes') {
@@ -598,8 +600,23 @@ class StoreService {
                 return;
             }
 
+            const customerEmail = storeOrder.customerEmail || await this.stripeService.getCustomerEmailFromCheckoutSession(storeOrder.id);
+
+            // If the order is now in production and we haven't sent a notification yet, send one
+            if (customerEmail && data.status?.name === 'IN_PRODUCTION' && !storeOrder.notificationsSent?.some((n) => n.status === 'IN_PRODUCTION')) {
+                await mailAPI.sendStoreOrderInProductionUpdate(customerEmail, storeOrder.id).catch((err) => {
+                    debug("Failed to send store order in production update email:", err);
+                });
+                storeOrder.notificationsSent = [...(storeOrder.notificationsSent || []), { status: 'IN_PRODUCTION' }];
+            }
+
             // If the order has shipped, consider it completed
             if (data.status?.name === 'SHIPPED') {
+                if (customerEmail) {
+                    const notificationsSent = await this._processShippingUpdates(storeOrder, data, customerEmail);
+                    storeOrder.notificationsSent = [...(storeOrder.notificationsSent || []), ...notificationsSent];
+                }
+
                 storeOrder.status = 'completed';
             }
 
@@ -1151,6 +1168,35 @@ class StoreService {
             debug("Error processing digital items:", error);
             return false;
         }
+    }
+
+    private async _processShippingUpdates(storeOrder: StoreOrderDocument, data: LuluWebhookData['data'], customerEmail: string): Promise<RawStoreOrderNotification[]> {
+        // Lulu technically returns an array of tracking URLs per item - it is unlikely there would be more than one, but we need to handle it
+        const trackingInfoToSend: { trackingID: string; trackingURLs: string[] }[] = [];
+        const line_items = data.line_items || [];
+        const alreadySent = storeOrder.notificationsSent?.filter((n) => n.status === 'SHIPPED') || []
+
+        if (line_items.length > 0) {
+            for (const item of line_items) {
+                if (item.tracking_id && !alreadySent.some(n => n.status === 'SHIPPED' && n.trackingID === item.tracking_id)) {
+                    trackingInfoToSend.push({ trackingID: item.tracking_id, trackingURLs: item.tracking_urls || [] });
+                }
+            }
+        }
+
+        const flattenedTrackingUrls = trackingInfoToSend.flatMap(info => info.trackingURLs);
+
+        await mailAPI.sendStoreOrderShippedUpdate(customerEmail, storeOrder.id, flattenedTrackingUrls).catch((err) => {
+            debug("Failed to send store order shipped update email:", err);
+        });
+
+        const notificationsSent = trackingInfoToSend.map((info) => ({
+            status: "SHIPPED",
+            trackingID: info.trackingID,
+            trackingURLs: info.trackingURLs
+        })) as RawStoreOrderNotification[];
+
+        return notificationsSent;
     }
 
     private async _separateProductsByCategory(items: { product_id: string, price_id: string, quantity: number }[]): Promise<{

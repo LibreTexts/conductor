@@ -1036,6 +1036,67 @@ const sendStoreOrderConfirmation = (recipientAddress, orderID) => {
     });
 };
 
+/**
+ * Sends a notification email to the customer when their order is in production.
+ * @param {String} recipientAddress 
+ * @param {String} orderID 
+ * @returns 
+ */
+const sendStoreOrderInProductionUpdate = (recipientAddress, orderID) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: DEFAULT_MAIL_FROM,
+        to: [recipientAddress],
+        subject: `LibreTexts Store Order Update: ${orderID.slice(-6)}`,
+        html: `
+            <p>Hi,</p>
+            <p>We're writing to let you know that your order is currently in production. We will notify you when your item(s) have shipped.</p>
+            <br />
+            <p>You can view your order details and check its status at any time by using the link below:</p>
+            <br />
+            <p><a href="https://commons.libretexts.org/store/order/${orderID}" target="_blank" rel="noopener noreferrer">View Order Status</a></p>
+            <br />
+            <p>If you have any questions or concerns about your order, please contact our <a href="https://commons.libretexts.org/support" target="_blank" rel="noopener noreferrer">Support Center</a> and be sure to include your order ID.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            <br />
+            <p>Order ID: ${orderID}</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+}
+
+/**
+ * Sends a notification email to the customer when their order has shipped.
+ * @param {String} recipientAddress 
+ * @param {String} orderID 
+ * @param {String[]} trackingURLs 
+ * @returns 
+ */
+const sendStoreOrderShippedUpdate = (recipientAddress, orderID, trackingURLs) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: DEFAULT_MAIL_FROM,
+        to: [recipientAddress],
+        subject: `LibreTexts Store Order Shipped: ${orderID.slice(-6)}`,
+        html: `
+            <p>Hi,</p>
+            <p>We're writing to let you know that one or more items in your order have shipped! You can track these items using the link(s) below:</p>
+            <br />
+            ${trackingURLs.map(url => `<p><a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a></p>`).join('')}
+            <br />
+            <p>You can also view your order details and check its status at any time by using the link below:</p>
+            <br />
+            <p><a href="https://commons.libretexts.org/store/order/${orderID}" target="_blank" rel="noopener noreferrer">View Order Status</a></p>
+            <br />
+            <p>If you have any questions or concerns about your order, please contact our <a href="https://commons.libretexts.org/support" target="_blank" rel="noopener noreferrer">Support Center</a> and be sure to include your order ID.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            <br />
+            <p>Order ID: ${orderID}</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+}
+
 const sendZIPFileReadyNotification = (url, recipientAddress) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
@@ -1187,6 +1248,8 @@ export default {
     sendSupportTicketAssignedNotification,
     sendSupportTicketAutoCloseWarning,
     sendStoreOrderConfirmation,
+    sendStoreOrderInProductionUpdate,
+    sendStoreOrderShippedUpdate,
     sendZIPFileReadyNotification,
     sendProjectInvitation,
     sendSupportTicketCCedNotification

@@ -61,7 +61,7 @@ export default class StripeService {
                     if (data.object === 'checkout.session') {
                         checkout_session = await this.getExpandedCheckoutSession(data.id);
                         if (!checkout_session) {
-                            console.log('Stripe checkout session not found. Cannot further process the event.');
+                            debug('Stripe checkout session not found. Cannot further process the event.');
                             return 'bad_request';
                         }
                         payment_intent = await this.getPaymentIntentFromCheckoutSession(checkout_session);
@@ -73,7 +73,7 @@ export default class StripeService {
                     }
 
                     if (!checkout_session) {
-                        console.log('Stripe checkout session is missing. Cannot further process the event.');
+                        debug('Stripe checkout session is missing. Cannot further process the event.');
                         return 'bad_request';
                     }
 
@@ -135,6 +135,31 @@ export default class StripeService {
             return session as Stripe.Checkout.Session;
         } catch (error) {
             console.error('Error retrieving expanded checkout session:', error);
+            return null;
+        }
+    }
+
+    public async getCustomerEmailFromCheckoutSession(_checkoutSession: string | Stripe.Checkout.Session): Promise<string | null> {
+        try {
+            let checkoutSession: Stripe.Checkout.Session | null = null;
+            if (typeof _checkoutSession === 'string') {
+                checkoutSession = await this.getExpandedCheckoutSession(_checkoutSession);
+            }
+            if (!checkoutSession || !checkoutSession.customer) {
+                return null;
+            }
+
+
+            const customerId = typeof checkoutSession.customer === 'string' ? checkoutSession.customer : checkoutSession.customer.id;
+            const customer = await this.instance.customers.retrieve(customerId);
+
+            if (!customer || customer.deleted) {
+                return null;
+            }
+
+            return customer.email;
+        } catch (error) {
+            console.error('Error retrieving customer email from checkout session:', error);
             return null;
         }
     }

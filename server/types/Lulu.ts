@@ -95,6 +95,12 @@ export type LuluPrintJob = {
     external_id: string,
     id: number,
     line_items: LuluPrintJobLineItem & {
+        is_reprint: boolean,
+        pod_package_id: string,
+        order_line_item_id: string | null,
+        tracking_id?: string | null,
+        carrier_name?: string | null,
+        tracking_urls?: string[] | null,
         printable_id: string | null,
         status: {
             messages: Record<string, string> | null,
