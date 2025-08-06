@@ -11,11 +11,16 @@ import api from "../../../../api";
 import Button from "../../../../components/NextGenComponents/Button";
 import useDocumentTitle from "../../../../hooks/useDocumentTitle";
 import CopyButton from "../../../../components/util/CopyButton";
-import { IconClipboardFilled, IconCloudComputing } from "@tabler/icons-react";
+import {
+  IconClipboardFilled,
+  IconCloudComputing,
+  IconInfoCircle,
+} from "@tabler/icons-react";
 import { useNotifications } from "../../../../context/NotificationContext";
 import { formatPrice, truncateOrderId } from "../../../../utils/storeHelpers";
 import Select from "../../../../components/NextGenInputs/Select";
 import { useState } from "react";
+import Tooltip from "../../../../components/util/Tooltip";
 
 const StoreManager = () => {
   useDocumentTitle("LibreTexts Store Management");
@@ -268,7 +273,9 @@ const StoreManager = () => {
                         <span
                           className={`capitalize ${
                             record.luluJobStatus &&
-                            ["REJECTED", "ERROR"].includes(record.luluJobStatus)
+                            ["REJECTED", "ERROR", "CREATED"].includes(
+                              record.luluJobStatus
+                            )
                               ? "text-red-600 font-semibold"
                               : ""
                           }`}
