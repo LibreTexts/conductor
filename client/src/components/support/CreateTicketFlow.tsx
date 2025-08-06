@@ -16,6 +16,7 @@ import { Controller, get, useForm } from "react-hook-form";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 import {
+  supportTicketAttachmentAllowedTypes,
   SupportTicketCategoryOptions,
   SupportTicketPriorityOptions,
 } from "../../utils/supportHelpers";
@@ -282,7 +283,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
 
   async function saveFilesToState(filesToSet: FileList) {
     setLoading(true);
-    setFiles([...files, ...Array.from(filesToSet)]);
+    setFiles([...Array.from(filesToSet)]);
     setLoading(false);
   }
 
@@ -542,7 +543,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
             <p className="text-center italic">
               <strong>Note:</strong> Please include any relevant ADAPT question
               or course ID's in your description. Screenshots and videos of the
-              issue are also extremely helpful. If your issue is related to a
+              issue are also extremely helpful and you can capture them using the "Screencast" feature below. If your issue is related to a
               Conductor project, please include the project ID if possible. This
               will help us resolve your issue faster.
             </p>
@@ -551,10 +552,12 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
             Attachments (optional) (max 4 files, 100 MB each)
           </label>
           <FileUploader
-            multiple={true}
+            fileTypes={supportTicketAttachmentAllowedTypes}
             maxFiles={4}
+            maxFileSize={100 * 1024 * 1024} // 100 MB
             onUpload={saveFilesToState}
-            showUploads={true}
+            className="mt-2"
+            allowScreenCast
           />
           {/*{!isLoggedIn && (
             <div className="flex flex-row items-center justify-center mt-8">

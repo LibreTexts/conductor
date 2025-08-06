@@ -38,6 +38,7 @@ type FilesUploaderProps = ModalProps & {
 } & (_AddProps | _ReplaceProps);
 
 const MAX_ADD_FILES = 20;
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 
 /**
  * Modal interface to upload Project Files to a Project.
@@ -62,6 +63,7 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
   // State
   const [loading, setLoading] = useState<boolean>(false);
   const [urlDisabled, setUrlDisabled] = useState<boolean>(false);
+  const [files, setFiles] = useState<File[]>([]);
   const [fileDisabled, setFileDisabled] = useState<boolean>(false);
   const [validURL, setValidURL] = useState<boolean>(false);
   const [urlInput, setUrlInput] = useState<string>("");
@@ -91,6 +93,15 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
     }
   }, [urlInput]);
 
+  // Disable URL input if files are selected
+  useEffect(() => {
+    if (files.length > 0) {
+      setUrlDisabled(true);
+    } else {
+      setUrlDisabled(false);
+    }
+  }, [files]);
+
   useEffect(() => {
     if (!urlInput) return;
 
@@ -105,10 +116,14 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
   /**
    * Handles upload to the server after files are collected using the FileUploader.
    *
-   * @param {FileList} files - Files selected for upload by the user.
+   * @param {File[]} files - Files selected for upload by the user.
    */
-  async function handleUpload(files: FileList) {
+  async function handleUpload(files: File[]) {
     try {
+      if (!files || files.length === 0) {
+        return;
+      }
+
       setLoading(true);
       const formData = new FormData();
       formData.append("parentID", uploadPath);
@@ -137,12 +152,8 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
         formData.append("overwriteName", overwriteName.toString()); // Only used for replace mode
       }
 
-      const filesArray = Array.from(files);
-
-      const videoFiles = filesArray.filter((file) =>
-        file.type.startsWith("video")
-      );
-      const standardFiles = filesArray.filter(
+      const videoFiles = files.filter((file) => file.type.startsWith("video"));
+      const standardFiles = files.filter(
         (file) => !file.type.startsWith("video")
       );
 
@@ -292,6 +303,10 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
     onFinishedUpload();
   }
 
+  async function saveFilesToState(filesToSet: FileList) {
+    setFiles([...Array.from(filesToSet)]);
+  }
+
   return (
     <Modal size="large" open={show} onClose={onClose} {...props}>
       <Modal.Header>
@@ -320,17 +335,19 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
               <p>
                 Files will be uploaded to the <strong>{dirText}</strong> folder.
                 Up to <strong>{MAX_ADD_FILES} files</strong> can be uploaded at
-                once, with a maximum of <strong>100 MB</strong> each. Your organization
-                has a video length limit of{" "}
+                once, with a maximum of <strong>100 MB</strong> each. Your
+                organization has a video length limit of{" "}
                 <strong>{org.videoLengthLimit}</strong> minutes.
               </p>
             )}
 
             <FileUploader
-              multiple={mode === "add" ? true : false}
+              className="mt-2"
               maxFiles={mode === "add" ? MAX_ADD_FILES : 1}
-              onUpload={handleUpload}
+              maxFileSize={MAX_FILE_SIZE}
+              onUpload={saveFilesToState}
               disabled={fileDisabled}
+              minFiles={1}
             />
             <Divider horizontal>Or</Divider>
             <div>
@@ -388,7 +405,7 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
         ) : (
           <Button onClick={handleCancelUpload}>Cancel Upload</Button>
         )}
-        {urlInput && (
+        {urlInput && !urlDisabled && (
           <Button
             color="green"
             icon
@@ -399,6 +416,19 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
           >
             <Icon name="save" />
             Save URL
+          </Button>
+        )}
+        {files.length > 0 && !fileDisabled && (
+          <Button
+            color="green"
+            icon
+            labelPosition="left"
+            loading={loading}
+            onClick={() => handleUpload(files)}
+            disabled={fileDisabled || loading}
+          >
+            <Icon name="upload" />
+            Upload Files
           </Button>
         )}
       </Modal.Actions>

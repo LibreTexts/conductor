@@ -1636,7 +1636,7 @@ async function _uploadTicketAttachments(
           Bucket: process.env.AWS_SUPPORTFILES_BUCKET,
           Key: fileKey,
           Body: file.buffer,
-          ContentDisposition: `inline; filename="${fileUUID}.${fileExt}"`,
+          ContentDisposition: `${fileExt === "mkv" ? "attachment" : "inline"};filename="${fileUUID}.${fileExt}"`, // MKV files do not render properly in Chrome, so force download
           ContentType: contentType,
         }),
       );
@@ -1654,6 +1654,7 @@ async function _uploadTicketAttachments(
 
     return savedFiles;
   } catch (err) {
+    debugError(err);
     throw err;
   }
 }
