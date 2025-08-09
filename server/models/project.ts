@@ -15,6 +15,12 @@ export type ProjectModuleSettings = {
   tasks: ProjectModuleConfig;
 };
 
+export type ISBNFormat = {
+  medium: string;
+  format: string;
+  isbn: string;
+};
+
 export type ProjectBookBatchUpdateJob = {
   jobID: string;
   type: ("summaries" | "tags" | "alttext")[];
@@ -110,7 +116,7 @@ export interface ProjectInterface extends Document {
   coPrincipalInvestigatorIDs?: string[];
   description?: string;
   contentArea: string;
-  isbn?: string;
+  isbns?: ISBNFormat[];
   doi?: string;
   sourceOriginalPublicationDate?: Date;
   sourceHarvestDate?: Date;
@@ -444,7 +450,13 @@ const ProjectSchema = new Schema<ProjectInterface>(
     /**
      * ISBN of the associated Book/resource.
      */
-    isbn: String,
+    isbns: [
+      {
+        medium: { type: String },
+        format: { type: String },
+        isbn: { type: String },
+      }
+    ],
     /**
      * DOI of the associated Book/resource.
      */
