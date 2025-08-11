@@ -66,6 +66,7 @@ import EditUserAcademyOnlineModal from "../../../../components/controlpanel/Cent
 import { useModals } from "../../../../context/ModalContext";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import AddUserAppLicenseModal from "../../../../components/controlpanel/CentralIdentity/AddUserAppLicenseModal";
+import ChangeUserEmailModal from "../../../../components/controlpanel/CentralIdentity/ChangeUserEmailModal";
 
 const CentralIdentityUserView = () => {
   const { uuid } = useParams<{ uuid: string }>();
@@ -437,23 +438,46 @@ const CentralIdentityUserView = () => {
                       }
                     />
                   </div>
-                  {getValues("disabled") ? (
-                    <Button
-                      color="yellow"
-                      size="small"
-                      onClick={handleReEnableUser}
-                    >
-                      <Icon name="refresh" /> Re-Enable User
-                    </Button>
-                  ) : (
-                    <Button
-                      color="red"
-                      onClick={handleOpenDisableUserModal}
-                      size="small"
-                    >
-                      <Icon name="ban" /> Disable User
-                    </Button>
-                  )}
+                  <div className="flex flex-row gap-2">
+                    {!getValues("external_idp") && (
+                      <Button
+                        color="blue"
+                        size="small"
+                        onClick={() => {
+                          openModal(
+                            <ChangeUserEmailModal
+                              show={true}
+                              userId={getValues("uuid")}
+                              onChanged={() => {
+                                loadUser();
+                                closeAllModals();
+                              }}
+                              onClose={() => closeAllModals()}
+                            />
+                          );
+                        }}
+                      >
+                        <Icon name="pencil" /> Change Email
+                      </Button>
+                    )}
+                    {getValues("disabled") ? (
+                      <Button
+                        color="yellow"
+                        size="small"
+                        onClick={handleReEnableUser}
+                      >
+                        <Icon name="refresh" /> Re-Enable User
+                      </Button>
+                    ) : (
+                      <Button
+                        color="red"
+                        onClick={handleOpenDisableUserModal}
+                        size="small"
+                      >
+                        <Icon name="ban" /> Disable User
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div style={{ marginBottom: "1.25rem", width: "100%" }}>
                   <Header sub>Email</Header>
