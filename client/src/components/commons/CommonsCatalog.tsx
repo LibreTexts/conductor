@@ -211,6 +211,9 @@ const CommonsCatalog = () => {
         search: url.search,
       });
 
+      // Reset active page when a new search is run
+      setActivePage(1);
+
       // Reset the advanced search filters when a new search is run
       assetsDispatch({ type: "reset", payload: "" });
       authorsDispatch({ type: "reset" });
@@ -328,13 +331,14 @@ const CommonsCatalog = () => {
   async function handleBooksSearch(
     query?: string,
     bookFilters?: BookFilters,
-    clearAndUpdate = false
+    clearAndUpdate = false,
+    page = activePage
   ) {
     try {
       setBooksLoading(true);
       const res = await api.booksSearch({
         ...(query && { searchQuery: query }),
-        page: activePage,
+        page: page,
         limit: ITEMS_PER_PAGE,
         ...bookFilters,
       });
@@ -394,7 +398,8 @@ const CommonsCatalog = () => {
   async function handleAssetsSearch(
     query?: string,
     assetFilters?: Record<string, string>,
-    clearAndUpdate = false
+    clearAndUpdate = false,
+    page = activePage
   ) {
     try {
       setAssetsLoading(true);
@@ -408,7 +413,7 @@ const CommonsCatalog = () => {
 
       const res = await api.assetsSearch({
         ...(query && { searchQuery: query }),
-        page: activePage,
+        page,
         limit: ITEMS_PER_PAGE,
         license: assetFilters?.license,
         fileType: assetFilters?.fileType,
@@ -507,13 +512,14 @@ const CommonsCatalog = () => {
   async function handleProjectsSearch(
     query?: string,
     projectFilters?: ProjectFilters,
-    clearAndUpdate = false
+    clearAndUpdate = false,
+    page = activePage
   ) {
     try {
       setProjectsLoading(true);
       const res = await api.projectsSearch({
         searchQuery: query,
-        page: activePage,
+        page,
         limit: ITEMS_PER_PAGE,
         ...projectFilters,
       });
@@ -574,7 +580,7 @@ const CommonsCatalog = () => {
     const nextPage = activePage + 1;
     setActivePage(nextPage);
     if (searchString || bookFiltersApplied()) {
-      return handleBooksSearch(searchString);
+      return handleBooksSearch(searchString, booksState, false, nextPage);
     } else {
       return loadCommonsCatalog(false, nextPage);
     }
@@ -585,7 +591,7 @@ const CommonsCatalog = () => {
     const nextPage = activePage + 1;
     setActivePage(nextPage);
     if (searchString || assetFiltersApplied()) {
-      return handleAssetsSearch(searchString);
+      return handleAssetsSearch(searchString, assetsState, false, nextPage);
     } else {
       return loadPublicAssets();
     }
@@ -593,9 +599,10 @@ const CommonsCatalog = () => {
 
   function handleLoadMoreProjects() {
     if (loadingDisabled) return;
-    setActivePage(activePage + 1);
+    const nextPage = activePage + 1;
+    setActivePage(nextPage);
     if (searchString) {
-      return handleProjectsSearch(searchString);
+      return handleProjectsSearch(searchString, projectsState, false, nextPage);
     } else {
       return loadPublicProjects();
     }
