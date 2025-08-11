@@ -54,6 +54,7 @@ import projectFilesAPI from './projectfiles.js';
 import ProjectFile from "../models/projectfile.js";
 import { getLibraryNameKeys } from './libraries.js';
 import TrafficAnalyticsService from "./services/traffic-analytics-service.js";
+import ProjectInvitation from '../models/projectinvitation.js';
 
 const projectListingProjection = {
     _id: 0,
@@ -2192,6 +2193,13 @@ async function removeMemberFromProject(req, res) {
 
       await updateTeamWorkbenchPermissions(projectID, subdomain, project.libreCoverID)
     }
+
+    const user = await User.findOne({ uuid }); 
+    // Delete the invitation for the removed user from the project
+    await ProjectInvitation.deleteOne({
+      projectID,
+      email: user.email,
+    });
 
     return res.send({
       err: false,
