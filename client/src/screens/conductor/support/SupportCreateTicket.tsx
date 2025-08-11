@@ -5,6 +5,7 @@ import AuthHelper from "../../../components/util/AuthHelper";
 import CreateTicketFlow from "../../../components/support/CreateTicketFlow";
 import useSystemAnnouncement from "../../../hooks/useSystemAnnouncement";
 import SystemAnnouncement from "../../../components/util/SystemAnnouncement";
+import { Message } from 'semantic-ui-react';
 
 const SupportCreateTicket = () => {
   const user = useTypedSelector((state) => state.user);
@@ -48,6 +49,27 @@ const SupportCreateTicket = () => {
             <p className="mt-2">
               Submit a support ticket to get help from our team.
             </p>
+            <div className="flex flex-col border rounded-lg mt-4 w-full lg:w-2/3 bg-white">
+              <Message info>
+                <Message.Content>
+                  <div>
+                    <strong>Important:</strong>
+                    <p>
+                      Please do not submit a support ticket for account creation. You can visit {' '} 
+                      <a 
+                        href="https://register.libretexts.org" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[#276f86] hover:underline"
+                      >
+                        https://register.libretexts.org
+                      </a>
+                      {' '} to create an account and complete instructor verification (if applicable).
+                    </p>
+                  </div>
+                </Message.Content>
+              </Message>
+            </div>
             <>
               {!isLoggedIn && !guestMode && (
                 <div className="flex flex-col w-1/2 lg:w-2/5 mt-8 items-center">

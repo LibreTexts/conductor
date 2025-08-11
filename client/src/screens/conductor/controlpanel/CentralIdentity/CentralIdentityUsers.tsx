@@ -44,7 +44,6 @@ const CentralIdentityUsers = () => {
     { key: "email", text: "Email" },
     { key: "userType", text: "User Type" },
     { key: "verification", text: "Verification Status" },
-    { key: "studentId", text: "Student ID" },
     { key: "Auth Source", text: "Auth Source" },
     { key: "Actions", text: "Actions" },
   ];
@@ -166,7 +165,7 @@ const CentralIdentityUsers = () => {
                   <Grid.Column width={5}>
                     <Input
                       icon="search"
-                      placeholder="Search by Name, Email, Student ID, or UUID..."
+                      placeholder="Search by Name, Email, or UUID..."
                       onChange={(e) => {
                         setSearchInput(e.target.value);
                         getUsersDebounced(e.target.value);
@@ -250,13 +249,6 @@ const CentralIdentityUsers = () => {
                               <span>
                                 {getPrettyVerficationStatus(user.verify_status)}
                               </span>
-                            ) : (
-                              <span className="muted-text">N/A</span>
-                            )}
-                          </Table.Cell>
-                          <Table.Cell>
-                            {user.student_id ? (
-                              <span>{user.student_id}</span>
                             ) : (
                               <span className="muted-text">N/A</span>
                             )}
