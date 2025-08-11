@@ -61,6 +61,20 @@ export const homeworkSearchSchema = z.object({
     .merge(_commonItems),
 });
 
+export const miniReposSearchSchema = z.object({
+  query: z
+    .object({
+      status: z.string().default("any"),
+      sort: z
+        .enum([
+          "relevance",
+          "title",
+        ])
+        .default("relevance"),
+    })
+    .merge(_commonItems),
+});
+
 export const projectSearchSchema = z.object({
   query: z
     .object({

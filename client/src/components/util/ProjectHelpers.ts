@@ -29,6 +29,7 @@ const classificationOptions = [
     { key: 'coursereport',      text: 'Course Report',      value: 'coursereport' },
     { key: 'librefest',         text: 'LibreFest',          value: 'librefest' },
     { key: 'technology',        text: 'Technology',         value: 'technology' },
+    { key: "minirepo",          text: 'Mini-Repo',          value: 'minirepo' },
     { key: 'miscellaneous',     text: 'Miscellaneous',      value: 'miscellaneous' }
 ];
 

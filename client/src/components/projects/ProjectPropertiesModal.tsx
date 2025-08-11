@@ -49,6 +49,8 @@ import { useModals } from "../../context/ModalContext";
 import AdminChangeURL from "./AdminChangeURL";
 import CtlDateInput from "../ControlledInputs/CtlDateInput";
 import languageCodes from "../../utils/languageCodes";
+import Tooltip from "../util/Tooltip";
+import AboutProjectClassificationsModal from "./AboutProjectClassificationsModal";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
 
@@ -716,9 +718,23 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             <div className="w-full mr-6">
               <label
                 htmlFor="projectClassification"
-                className="form-field-label"
+                className="form-field-label flex flex-row"
               >
-                Classification
+                <span className="mr-0.5">Classification</span>
+                <Tooltip text="Click to learn more about project classifications.">
+                  <Icon
+                    name="question circle"
+                    className="!ml-1 !mb-1"
+                    onClick={() =>
+                      openModal(
+                        <AboutProjectClassificationsModal
+                          show={true}
+                          onClose={() => closeAllModals()}
+                        />
+                      )
+                    }
+                  />
+                </Tooltip>
               </label>
               <Controller
                 name="classification"

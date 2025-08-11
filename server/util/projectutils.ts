@@ -45,6 +45,7 @@ export const projectClassifications = [
   "coursereport",
   "adoptionrequest",
   "miscellaneous",
+  "minirepo"
 ];
 
 export const constrRoadmapSteps = [

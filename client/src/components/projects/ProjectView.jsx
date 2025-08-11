@@ -92,6 +92,7 @@ import { useModals } from '../../context/ModalContext';
 import RequestToPublishModal from './RequestToPublishModal';
 import { useIsProjectPinned, useUnpinProjectMutation } from '../Home/PinnedProjects/hooks';
 import AddPinnedProjectModal from '../Home/PinnedProjects/AddPinnedProjectModal';
+import { ProjectClassification } from '../../types';
 const ProjectPropertiesModal = lazy(() => import('./ProjectPropertiesModal'));
 const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
@@ -316,6 +317,11 @@ const ProjectView = (props) => {
       getProjectTasks();
     }
   }, [canViewDetails]);
+
+  const isMiniRepo = useMemo(() => {
+    if (!project) return false;
+    return project.classification === ProjectClassification.MINI_REPO;
+  }, [project]);
  
   /**
    * Retrieves the Project information via GET request
@@ -1615,7 +1621,7 @@ const ProjectView = (props) => {
                         </Button>
                       }
                       {
-                        project.libreLibrary && project.libreCoverID && (
+                        project.libreLibrary && project.libreCoverID && !isMiniRepo && (
                           <Button
                           as={Link}
                           color='pink'
@@ -1640,28 +1646,33 @@ const ProjectView = (props) => {
                         Timeline
                         </Breakpoint>
                       </Button>
-                      <Button
-                        color='orange'
-                        as={Link}
-                        to={`${props.match.url}/peerreview`}
-                        aria-label='Peer Review'
-                      >
-                        <Icon name='clipboard list' />
-                        <Breakpoint name='desktop'>
-                          Peer Review
-                        </Breakpoint>
-                      </Button>
-                      <Button
-                        color='teal'
-                        as={Link}
-                        to={`${props.match.url}/accessibility`}
-                        aria-label='Accessibility'
-                      >
-                        <Icon name='universal access' />
-                        <Breakpoint name='desktop'>
-                        Accessibility
-                        </Breakpoint>
-                      </Button>
+                      {
+                        !isMiniRepo && (
+                        <>
+                          <Button
+                            color='orange'
+                            as={Link}
+                            to={`${props.match.url}/peerreview`}
+                            aria-label='Peer Review'
+                          >
+                            <Icon name='clipboard list' />
+                            <Breakpoint name='desktop'>
+                              Peer Review
+                            </Breakpoint>
+                          </Button>
+                          <Button
+                            color='teal'
+                            as={Link}
+                            to={`${props.match.url}/accessibility`}
+                            aria-label='Accessibility'
+                          >
+                            <Icon name='universal access' />
+                            <Breakpoint name='desktop'>
+                            Accessibility
+                            </Breakpoint>
+                          </Button>
+                        </>
+                      )}
                       <Dropdown text='More Tools' color='purple' as={Button} className='text-center-force'>
                         <Dropdown.Menu>
                           {userProjectMember && (
@@ -1776,7 +1787,19 @@ const ProjectView = (props) => {
                               </Label.Group>
                             </div>
                           }
-                          <ProjectLinkButtons projectID={project.projectID} libreCoverID={project.libreCoverID} libreLibrary={project.libreLibrary} projectLink={project.projectURL} projectTitle={project.title} didCreateWorkbench={project.didCreateWorkbench} hasCommonsBook={project.hasCommonsBook} projectVisibility={project.visibility} project={project} isProjectMemberOrAdmin={userProjectAdmin || userProjectMember}/>
+                          <ProjectLinkButtons
+                            projectID={project.projectID}
+                            libreCoverID={project.libreCoverID}
+                            libreLibrary={project.libreLibrary}
+                            projectLink={project.projectURL}
+                            projectTitle={project.title}
+                            didCreateWorkbench={project.didCreateWorkbench}
+                            hasCommonsBook={project.hasCommonsBook}
+                            projectClassification={project.classification}
+                            projectVisibility={project.visibility}
+                            project={project}
+                            isProjectMemberOrAdmin={userProjectAdmin || userProjectMember}
+                          />
                           {(project.adaptCourseID && project.adaptCourseID !== '') && (
                             <div className="mt-1e">
                               <a

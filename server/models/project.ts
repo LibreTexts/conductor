@@ -73,7 +73,8 @@ export interface ProjectInterface extends Document {
     | "librefest"
     | "coursereport"
     | "adoptionrequest"
-    | "miscellaneous";
+    | "miscellaneous"
+    | "minirepo"
   leads?: string[];
   liaisons?: string[];
   members?: string[];

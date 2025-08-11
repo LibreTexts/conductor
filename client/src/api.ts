@@ -69,6 +69,7 @@ import {
   AuthorSearchParams,
   ConductorSearchResponseFile,
   CustomFilter,
+  MiniRepoSearchParams,
 } from "./types/Search";
 import { CloudflareCaptionData, SortDirection } from "./types/Misc";
 import {
@@ -1114,6 +1115,17 @@ class API {
     const res = await axios.get<
       ConductorSearchResponse<"homework"> & ConductorBaseResponse
     >("/search/homework", {
+      params: {
+        ...params,
+      },
+    });
+    return res;
+  }
+
+  async miniReposSearch(params: MiniRepoSearchParams) {
+    const res = await axios.get<
+      ConductorSearchResponse<"minirepos"> & ConductorBaseResponse
+    >("/search/minirepos", {
       params: {
         ...params,
       },

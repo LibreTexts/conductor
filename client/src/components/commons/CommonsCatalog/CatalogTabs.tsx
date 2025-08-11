@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { TabProps, Icon, Popup } from "semantic-ui-react";
 import {
   AssetFilters,
@@ -10,9 +10,10 @@ import {
   CommonsModule,
   ConductorSearchResponseAuthor,
   ConductorSearchResponseFile,
+  MiniRepoFiltersAction,
   Project,
   ProjectFilters,
-  ProjectFiltersAction
+  ProjectFiltersAction,
 } from "../../../types";
 import CatalogTab from "./CatalogTab";
 import BooksTable from "./BooksTable";
@@ -26,6 +27,7 @@ import { useTypedSelector } from "../../../state/hooks";
 import AuthorsTable from "./AuthorsTable";
 import CatalogAuthorFilters from "./CatalogAuthorFilters";
 import CatalogProjectFilters from "./CatalogProjectFilters";
+import CatalogMiniRepoFilters from "./CatalogMiniRepoFilters";
 
 interface CatalogTabsProps extends TabProps {
   activeTab: CommonsModule;
@@ -42,6 +44,11 @@ interface CatalogTabsProps extends TabProps {
   assets: ConductorSearchResponseFile[];
   assetsCount: number;
   assetsLoading: boolean;
+  miniRepoFilters: ProjectFilters;
+  miniRepoFiltersDispatch: React.Dispatch<MiniRepoFiltersAction>;
+  miniRepos: Project[];
+  miniReposCount: number;
+  miniReposLoading: boolean;
   projectFilters: ProjectFilters;
   projectFiltersDispatch: React.Dispatch<ProjectFiltersAction>;
   projects: Project[];
@@ -52,6 +59,7 @@ interface CatalogTabsProps extends TabProps {
   authorsLoading: boolean;
   onLoadMoreBooks: () => void;
   onLoadMoreAssets: () => void;
+  onLoadMoreMiniRepos: () => void;
   onLoadMoreProjects: () => void;
   onLoadMoreAuthors: () => void;
   onTriggerStopLoading: () => void;
@@ -72,6 +80,11 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
   assets,
   assetsCount,
   assetsLoading,
+  miniRepos,
+  miniRepoFilters,
+  miniRepoFiltersDispatch,
+  miniReposCount,
+  miniReposLoading,
   projectFilters,
   projectFiltersDispatch,
   projects,
@@ -82,6 +95,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
   authorsLoading,
   onLoadMoreBooks,
   onLoadMoreAssets,
+  onLoadMoreMiniRepos,
   onLoadMoreProjects,
   onLoadMoreAuthors,
   onTriggerStopLoading,
@@ -116,7 +130,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
       );
     }
 
-    if (!moduleSettings || moduleSettings.assets.enabled) {
+    if (!moduleSettings || moduleSettings.assets?.enabled) {
       labels.push(
         <TabLabel
           title="Assets"
@@ -130,7 +144,21 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
       );
     }
 
-    if (!moduleSettings || moduleSettings.projects.enabled) {
+    if (!moduleSettings || moduleSettings.minirepos?.enabled) {
+      labels.push(
+        <TabLabel
+          title="Mini-Repos"
+          index="minirepos"
+          itemsCount={miniReposCount}
+          loading={miniReposLoading}
+          isActive={activeTab === "minirepos"}
+          onClick={() => onActiveTabChange("minirepos")}
+          key={"minirepos-tab-label"}
+        />
+      );
+    }
+
+    if (!moduleSettings || moduleSettings.projects?.enabled) {
       labels.push(
         <TabLabel
           title="Projects"
@@ -144,7 +172,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
       );
     }
 
-    if (!moduleSettings || moduleSettings.authors.enabled) {
+    if (!moduleSettings || moduleSettings.authors?.enabled) {
       labels.push(
         <TabLabel
           title="Authors"
@@ -259,6 +287,14 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             }
           />
         )}
+        {activeTab === "minirepos" && (
+          <CatalogMiniRepoFilters
+            filters={miniRepoFilters}
+            onFilterChange={(type, value) =>
+              miniRepoFiltersDispatch({ type, payload: value })
+            }
+          />
+        )}
         {activeTab === "projects" && (
           <CatalogProjectFilters
             filters={projectFilters}
@@ -289,6 +325,20 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             loading={assetsLoading}
             itemizedRender={<AssetsTable items={assets} />}
             visualRender={<VisualMode items={assets} loading={assetsLoading} />}
+          />
+        )}
+        {activeTab === "minirepos" && (
+          <CatalogTab
+            key={"minirepos-tab"}
+            itemizedMode={itemizedMode}
+            dataLength={miniRepos.length}
+            totalLength={miniReposCount}
+            getNextPage={onLoadMoreMiniRepos}
+            loading={miniReposLoading}
+            itemizedRender={<ProjectsTable items={miniRepos} />}
+            visualRender={
+              <VisualMode items={miniRepos} loading={miniReposLoading} />
+            }
           />
         )}
         {activeTab === "projects" && (

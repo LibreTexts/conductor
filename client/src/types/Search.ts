@@ -1,6 +1,7 @@
 import { Author } from "./Author";
 import { Book } from "./Book";
 import { Homework } from "./Homework";
+import { GenericKeyTextValueObj } from "./Misc";
 import {
   Project,
   ProjectFileWCustomData,
@@ -68,6 +69,12 @@ export type HomeworkSearchParams = {
   sort?: "name" | "description";
 } & _commonSearchParams;
 
+export type MiniRepoSearchParams = {
+  status?: string;
+  visibility?: "public" | "private";
+  sort?: "relevance" | "title" | "progress" | "classification" | "visibility" | "updated";
+} & _commonSearchParams;
+
 export type ProjectSearchParams = {
   location?: "local" | "global";
   status?: string;
@@ -89,7 +96,7 @@ export type ConductorSearchResponseFile = ProjectFileWProjectData<
 >;
 
 export type ConductorSearchResponse<
-  T extends "assets" | "books" | "homework" | "projects" | "users" | "authors"
+  T extends "assets" | "books" | "homework" | "projects" | "users" | "authors" | "minirepos"
 > = {
   numResults: number;
   // if origin is 'commons', then response is of type CommonsSearchResultsObject
@@ -106,6 +113,8 @@ export type ConductorSearchResponse<
     ? User[]
     : T extends "authors"
     ? ConductorSearchResponseAuthor[]
+    : T extends "minirepos"
+    ? Project[]
     : never;
 };
 
@@ -136,6 +145,15 @@ export type BookFiltersAction =
       type: "reset";
     };
 
+export type MiniRepoFiltersAction =
+  | {
+      type: keyof ProjectFilters | "reset_one";
+      payload: string
+    }
+  | {
+      type: "reset"
+    };
+
 export type ProjectFiltersAction =
   | {
       type: keyof ProjectFilters | "reset_one";
@@ -144,3 +162,7 @@ export type ProjectFiltersAction =
   | {
       type: "reset"
     };
+
+export type ProjectFilterData = {
+  statusOptions: GenericKeyTextValueObj<string>[];
+};

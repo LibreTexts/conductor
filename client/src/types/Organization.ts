@@ -1,4 +1,4 @@
-export type CommonsModule = "books" | "assets" | "projects" | "authors";
+export type CommonsModule = "books" | "assets" | "projects" | "authors" | "minirepos";
 
 export type CommonsModuleConfig = {
   enabled: boolean;
@@ -8,6 +8,7 @@ export type CommonsModuleConfig = {
 export type CommonsModuleSettings = {
   books: CommonsModuleConfig;
   assets: CommonsModuleConfig;
+  minirepos: CommonsModuleConfig;
   projects: CommonsModuleConfig;
   authors: CommonsModuleConfig;
 }
