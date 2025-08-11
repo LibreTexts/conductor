@@ -720,7 +720,7 @@ async function updateUserPinnedProjects(req, res) {
         }
 
         // Cannot delete the default folder
-        if(data.folder && data.folder.toLowerCase().trim() === "default"){
+        if(data.folder && data.folder.toLowerCase().trim() === "default" && data.action === "remove-folder"){
             return res.status(400).send({
                 err: true,
                 errMsg: conductorErrors.err2,
