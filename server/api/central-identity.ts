@@ -206,6 +206,37 @@ async function updateUserAcademyOnlineAccess(
   }
 }
 
+async function changeUserEmail(
+  req: TypedReqParamsAndBody<{ id: string }, { email: string }>,
+  res: Response<{ err: boolean; user: CentralIdentityUser }>
+) {
+  try {
+    if (!req.params.id){
+      return conductor400Err(res);
+    }
+
+    const userRes = await useCentralIdentityAxios(false).post(
+      `/users/${req.params.id}/email-change-direct`,
+      req.body
+    );
+
+    if (!userRes.data || !userRes.data.data) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      user: userRes.data.data,
+    });
+  } catch (error: any) {
+    if ('status' in error && error.status === 400) {
+      return conductor400Err(res);
+    }
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
+
 async function getUserApplications(
   req: TypedReqParams<{ id: string }>,
   res: Response<{ err: boolean; applications: CentralIdentityApp[] }>
@@ -1823,6 +1854,12 @@ function validate(method: string) {
         body("academy_online_expires_in_days", conductorErrors.err1).exists().isInt({ min: 0, max: 730 }),
       ];
     }
+    case "changeUserEmail": {
+      return [
+        param("id", conductorErrors.err1).exists().isUUID(),
+        body("email", conductorErrors.err1).exists().isEmail(),
+      ];
+    }
     case "getOrgs": {
       return [
         param("activePage", conductorErrors.err1).optional().isInt(),
@@ -1935,6 +1972,7 @@ export default {
   updateVerificationRequest,
   updateUser,
   updateUserAcademyOnlineAccess,
+  changeUserEmail,
   processNewUserWebhookEvent,
   processLibraryAccessWebhookEvent,
   processVerificationStatusUpdateWebook,

@@ -182,6 +182,18 @@ router
   );
 
 router
+  .route("/central-identity/users/:id/email")
+  .put(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("changeUserEmail"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.changeUserEmail
+  );
+
+router
   .route("/central-identity/users/:id/disable")
   .patch(
     middleware.checkCentralIdentityConfig,

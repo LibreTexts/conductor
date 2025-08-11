@@ -911,6 +911,13 @@ class API {
     return res;
   }
 
+  async changeCentralIdentityUserEmail(uuid: string, email: string) {
+    const res = await axios.put<{
+      user: CentralIdentityUser;
+    } & ConductorBaseResponse>(`/central-identity/users/${uuid}/email`, { email });
+    return res;
+  }
+
   async disableCentralIdentityUser(uuid: string, reason: string) {
     const res = await axios.patch<ConductorBaseResponse>(
       `/central-identity/users/${uuid}/disable`,
