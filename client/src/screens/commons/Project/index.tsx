@@ -8,9 +8,6 @@ import {
   Image,
   Button,
 } from "semantic-ui-react";
-import useGlobalError from "../../../components/error/ErrorHooks";
-import { Project } from "../../../types";
-import api from "../../../api";
 import { useTypedSelector } from "../../../state/hooks";
 import FilesManager from "../../../components/FilesManager";
 import {
@@ -21,43 +18,18 @@ import {
   getLibGlyphURL,
   getLibraryName,
 } from "../../../components/util/LibraryOptions";
+import useProject from "../../../hooks/useProject";
 
 /**
  * Displays a public Project's page in the Commons catalog.
  */
 const CommonsProject = () => {
   const { id: projectID } = useParams<{ id: string }>();
-  const { handleGlobalError } = useGlobalError();
   const org = useTypedSelector((state) => state.org);
+  const { project, isLoading, isMiniRepo } = useProject(projectID);
 
   // Project data
-  const [loadedData, setLoadedData] = useState<boolean>(false);
-  const [project, setProject] = useState<Project | null>(null);
   const [showAssets, setShowAssets] = useState<boolean>(true);
-
-  useEffect(() => {
-    loadProject();
-  }, [projectID]);
-
-  async function loadProject() {
-    try {
-      setLoadedData(false);
-      const res = await api.getProject(projectID);
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-
-      if (!res.data.project) {
-        throw new Error("Error processing server data.");
-      }
-
-      setProject(res.data.project);
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setLoadedData(true);
-    }
-  }
 
   /**
    * Update page title when data is available.
@@ -91,7 +63,7 @@ const CommonsProject = () => {
             </Breadcrumb.Section>
           </Breadcrumb>
         </Segment>
-        <Segment loading={!loadedData} className="">
+        <Segment loading={isLoading} className="">
           <div className="flex flex-col lg:flex-row px-1 pb-8">
             <div className="flex flex-col w-full lg:w-1/4 lg:max-w-[400px] min-h-48 h-fit border shadow-md p-4 rounded-md mr-16">
               {project?.thumbnail && (

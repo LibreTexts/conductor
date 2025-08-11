@@ -89,8 +89,9 @@ const CampusSettingsForm = forwardRef(
         commonsModules: {
           books: { enabled: true, order: 1 },
           assets: { enabled: true, order: 2 },
-          projects: { enabled: true, order: 3 },
-          authors: { enabled: true, order: 4 },
+          minirepos: { enabled: true, order: 3 },
+          projects: { enabled: true, order: 4 },
+          authors: { enabled: true, order: 5 },
         },
         showCollections: true,
         assetFilterExclusions: [],

@@ -9,7 +9,7 @@ const TabLabel = ({
   onClick,
   loading,
 }: {
-  title: "Books" | "Assets" | "Projects" | "Authors";
+  title: "Books" | "Assets" | "Projects" | "Authors" | "Mini-Repos";
   index: CommonsModule;
   itemsCount: number | null;
   isActive: boolean;
@@ -32,6 +32,8 @@ const TabLabel = ({
             ? "file alternate outline"
             : title === "Authors"
             ? "write"
+            : title === "Mini-Repos"
+            ? "folder open outline"
             : 'wrench'
         }
       />

@@ -1,17 +1,21 @@
 import CatalogFilterDropdown from "./CatalogFilterDropdown";
-import { ProjectFilters, ProjectFiltersAction } from "../../../types";
+import { MiniRepoFiltersAction, ProjectFilters } from "../../../types";
 import { upperFirst } from "../../../utils/misc";
 import useProjectFilterOptions from "../../../hooks/useProjectFilterOptions";
 
-interface CatalogProjectFiltersProps {
+interface CatalogMiniRepoFiltersProps {
   filters: Record<string, string>;
-  onFilterChange: (type: ProjectFiltersAction["type"], payload: string) => void;
+  onFilterChange: (
+    type: MiniRepoFiltersAction["type"],
+    payload: string
+  ) => void;
 }
 
-const CatalogProjectFilters: React.FC<CatalogProjectFiltersProps> = ({
+const CatalogMiniRepoFilters: React.FC<CatalogMiniRepoFiltersProps> = ({
   filters,
   onFilterChange,
 }) => {
+  // Mini repos use same filter options as projects
   const { data, isLoading } = useProjectFilterOptions();
 
   return (
@@ -36,4 +40,4 @@ const CatalogProjectFilters: React.FC<CatalogProjectFiltersProps> = ({
   );
 };
 
-export default CatalogProjectFilters;
+export default CatalogMiniRepoFilters;

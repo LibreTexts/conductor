@@ -33,12 +33,16 @@ export const DEFAULT_COMMONS_MODULES: NonNullable<
     enabled: true,
     order: 2,
   },
-  projects: {
+  minirepos: {
     enabled: true,
     order: 3,
   },
-  authors: {
+  projects: {
     enabled: true,
     order: 4,
+  },
+  authors: {
+    enabled: true,
+    order: 5,
   }
 };

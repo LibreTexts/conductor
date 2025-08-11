@@ -18,6 +18,7 @@ import {
   autocompleteSchema,
   bookSearchSchema,
   homeworkSearchSchema,
+  miniReposSearchSchema,
   projectSearchSchema,
   userSearchSchema,
 } from "./validators/search.js";
@@ -89,34 +90,34 @@ async function projectsSearch(
       ...projectMatchObjs,
       ...(includeLeads
         ? [
-            {
-              $lookup: {
-                from: "users",
-                let: {
-                  leads: "$leads",
-                },
-                pipeline: [
-                  {
-                    $match: {
-                      $expr: {
-                        $in: ["$uuid", "$$leads"],
-                      },
-                    },
-                  },
-                  {
-                    $project: {
-                      _id: 0,
-                      uuid: 1,
-                      firstName: 1,
-                      lastName: 1,
-                      avatar: 1,
-                    },
-                  },
-                ],
-                as: "leads",
+          {
+            $lookup: {
+              from: "users",
+              let: {
+                leads: "$leads",
               },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $in: ["$uuid", "$$leads"],
+                    },
+                  },
+                },
+                {
+                  $project: {
+                    _id: 0,
+                    uuid: 1,
+                    firstName: 1,
+                    lastName: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
+              as: "leads",
             },
-          ]
+          },
+        ]
         : []),
       ...(includePIs ? projectAPI.LOOKUP_PROJECT_PI_STAGES(false) : []),
       {
@@ -142,27 +143,126 @@ async function projectsSearch(
       },
       ...(sort === "relevance"
         ? [
-            {
-              $sort: {
-                score: -1,
-              },
+          {
+            $sort: {
+              score: -1,
             },
-          ]
+          },
+        ]
         : [
-            {
-              $sort: {
-                ...(sort === "title" && { title: 1 }),
-                ...(sort === "classification" && { classification: 1 }),
-                ...(sort === "visibility" && { visibility: 1 }),
-              },
+          {
+            $sort: {
+              ...(sort === "title" && { title: 1 }),
+              ...(sort === "classification" && { classification: 1 }),
+              ...(sort === "visibility" && { visibility: 1 }),
             },
-          ]),
+          },
+        ]),
     ]);
 
     const totalCount = results.length;
     const paginated = results.slice(
       projectsOffset,
       projectsOffset + projectsLimit
+    );
+
+    return res.send({
+      err: false,
+      numResults: totalCount,
+      results: paginated,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+/**
+ * Performs a global search for Projects that have "mini-repo" classification
+ */
+async function miniReposSearch(
+  req: ZodReqWithOptionalUser<z.infer<typeof miniReposSearchSchema>>,
+  res: Response
+) {
+  try {
+    const sort = req.query.sort || "relevance";
+
+    const query = req.query.searchQuery;
+    if (query) {
+      addToSearchQueryCache(query, "minirepos"); // don't await
+    }
+
+    // Get pagination offsets
+    const reposPage = parseInt(req.query.page?.toString()) || 1;
+    const reposLimit = parseInt(req.query.limit?.toString()) || 25;
+    const reposOffset = getPaginationOffset(reposPage, req.query.limit);
+
+    let isSuperAdmin = false;
+
+    if (req.user?.decoded?.uuid) {
+      const user = await User.findOne({ uuid: req.user?.decoded?.uuid });
+      if (user) {
+        isSuperAdmin = authAPI.checkHasRole(
+          user,
+          "libretexts",
+          "superadmin",
+          true
+        );
+      }
+    }
+
+    const reposMatchObjs = _generateMiniReposMatchObjs({
+      projStatus: req.query.status,
+      queryString: query,
+      userUUID: req.user?.decoded.uuid,
+      isSuperAdmin: isSuperAdmin,
+    });
+
+    // @ts-ignore
+    const results = await Project.aggregate([
+      ...reposMatchObjs,
+      {
+        $project: {
+          _id: 0,
+          orgID: 1,
+          projectID: 1,
+          title: 1,
+          status: 1,
+          visibility: 1,
+          classification: 1,
+          leads: 1,
+          author: 1,
+          thumbnail: 1,
+          projectURL: 1,
+          contentArea: 1,
+          associatedOrgs: 1,
+          description: 1,
+          principalInvestigators: 1,
+          coPrincipalInvestigators: 1,
+          updatedAt: 1,
+        },
+      },
+      ...(sort === "relevance"
+        ? [
+          {
+            $sort: {
+              score: -1,
+            },
+          },
+        ]
+        : [
+          {
+            $sort: {
+              ...(sort === "title" && { title: 1 }),
+            },
+          },
+        ]),
+    ]);
+
+    const totalCount = results.length;
+    const paginated = results.slice(
+      reposOffset,
+      reposOffset + reposLimit
     );
 
     return res.send({
@@ -371,7 +471,7 @@ async function booksSearch(
       book.instructorAssets = found?.instructorAssets || 0;
     });
 
-    if(req.query.assets){
+    if (req.query.assets) {
       const assetsFilter = req.query.assets;
       if (assetsFilter === "public") {
         results = results.filter((book) => book.publicAssets > 0);
@@ -554,6 +654,100 @@ function _generateProjectMatchObjs({
   } else {
     projectFiltersOptions = { ...projectFilters[0] };
   }
+
+  if (!queryString) {
+    return [{ $match: projectFiltersOptions }];
+  }
+
+  // Combine all filters and return
+  return [
+    {
+      $search: {
+        text: {
+          query: queryString,
+          path: [
+            "title",
+            "author",
+            "libreShelf",
+            "libreCampus",
+            "associatedOrgs",
+          ],
+        },
+        scoreDetails: true,
+      },
+    },
+    {
+      $addFields: {
+        score: {
+          $getField: {
+            field: "value",
+            input: {
+              $meta: "searchScoreDetails",
+            },
+          },
+        },
+      },
+    },
+    {
+      $match: {
+        ...projectFiltersOptions,
+      },
+    },
+  ];
+}
+
+function _generateMiniReposMatchObjs({
+  projStatus,
+  queryString,
+  userUUID,
+  isSuperAdmin,
+}: {
+  projStatus?: string;
+  queryString?: string;
+  userUUID?: string;
+  isSuperAdmin?: boolean;
+}): Record<string, any>[] {
+  const projectFilters: Record<string, any>[] = [];
+  let projectFiltersOptions: Record<string, any> = { $and: [] };
+
+  // If project status is not 'any', add it to the filters
+  if (projStatus && projectAPI.projectStatusOptions.includes(projStatus)) {
+    projectFilters.push({ status: projStatus });
+  }
+
+  // Generate visibility query
+  let visibilityQuery = {};
+  if (!isSuperAdmin) {
+    // If user is not a super admin, add visibility query
+    if (userUUID) {
+      const teamMemberQuery =
+        projectAPI.constructProjectTeamMemberQuery(userUUID);
+
+      // If userUUID is provided, add query for private projects that the user is a member of
+      const privateProjectQuery = {
+        $and: [{ visibility: "private" }, { $or: teamMemberQuery }],
+      };
+
+      visibilityQuery = {
+        $or: [privateProjectQuery, { visibility: "public" }],
+      };
+    } else {
+      // If userUUID is not provided, only show public projects
+      visibilityQuery = { visibility: "public" };
+    }
+
+    if (Object.keys(visibilityQuery).length > 0) {
+      projectFilters.push(visibilityQuery);
+    }
+  }
+
+  // Add any applied filters to match obj
+  projectFiltersOptions = {
+    $and: [
+      { classification: "minirepo" },
+      ...projectFilters
+    ]
+  };
 
   if (!queryString) {
     return [{ $match: projectFiltersOptions }];
@@ -1377,8 +1571,8 @@ function _buildAssetsSearchQuery({
     type === "projectfiles"
       ? ["name", "description"]
       : type === "assettags"
-      ? ["value"]
-      : ["title", "associatedOrgs"];
+        ? ["value"]
+        : ["title", "associatedOrgs"];
 
   if (!query) {
     return [];
@@ -1388,22 +1582,22 @@ function _buildAssetsSearchQuery({
 
   const innerQuery = isExactMatchSearch
     ? {
-        phrase: {
-          query: strippedQuery,
-          path: SEARCH_FIELDS,
-          score: { boost: { value: 3 } },
-        },
-      }
+      phrase: {
+        query: strippedQuery,
+        path: SEARCH_FIELDS,
+        score: { boost: { value: 3 } },
+      },
+    }
     : {
-        text: {
-          query,
-          path: SEARCH_FIELDS,
-          fuzzy: {
-            maxEdits: 2,
-            maxExpansions: 50,
-          },
+      text: {
+        query,
+        path: SEARCH_FIELDS,
+        fuzzy: {
+          maxEdits: 2,
+          maxExpansions: 50,
         },
-      };
+      },
+    };
 
   return [
     {
@@ -1426,9 +1620,9 @@ async function homeworkSearch(
     const query = req.query.searchQuery;
     const queryRegex = query
       ? {
-          $regex: query,
-          $options: "i",
-        }
+        $regex: query,
+        $options: "i",
+      }
       : undefined;
 
     if (query) {
@@ -1500,9 +1694,9 @@ async function usersSearch(
     const query = req.query.searchQuery;
     const queryRegex = query
       ? {
-          $regex: query,
-          $options: "i",
-        }
+        $regex: query,
+        $options: "i",
+      }
       : undefined;
 
     if (query) {
@@ -1659,22 +1853,22 @@ function _buildAuthorsSearchQuery({ query }: { query?: string }) {
 
   const innerQuery = isExactMatchSearch
     ? {
-        phrase: {
-          query: strippedQuery,
-          path: SEARCH_FIELDS,
-          score: { boost: { value: 3 } },
-        },
-      }
+      phrase: {
+        query: strippedQuery,
+        path: SEARCH_FIELDS,
+        score: { boost: { value: 3 } },
+      },
+    }
     : {
-        text: {
-          query,
-          path: SEARCH_FIELDS,
-          fuzzy: {
-            maxEdits: 2,
-            maxExpansions: 50,
-          },
+      text: {
+        query,
+        path: SEARCH_FIELDS,
+        fuzzy: {
+          maxEdits: 2,
+          maxExpansions: 50,
         },
-      };
+      },
+    };
 
   return [
     {
@@ -2257,6 +2451,7 @@ export default {
   assetsSearch,
   booksSearch,
   homeworkSearch,
+  miniReposSearch,
   projectsSearch,
   usersSearch,
   authorsSearch,

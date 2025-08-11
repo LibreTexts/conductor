@@ -1280,6 +1280,13 @@ router
     searchAPI.homeworkSearch
   );
 router
+  .route("/search/minirepos")
+  .get(
+    authAPI.optionalVerifyRequest,
+    middleware.validateZod(SearchValidators.miniReposSearchSchema),
+    searchAPI.miniReposSearch
+  );
+router
   .route("/search/projects")
   .get(
     authAPI.optionalVerifyRequest,

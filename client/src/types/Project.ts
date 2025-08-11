@@ -88,6 +88,7 @@ export enum ProjectClassification {
   COURSE_REPORT = "coursereport",
   ADOPTION_REQUEST = "adoptionrequest",
   MISCELLANEOUS = "miscellaneous",
+  MINI_REPO = "minirepo"
 }
 
 export type ProjectModule = "discussion" | "files" | "tasks";

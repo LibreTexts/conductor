@@ -14,6 +14,7 @@ import {
   CommonsModule,
   ConductorSearchResponseAuthor,
   ConductorSearchResponseFile,
+  MiniRepoFiltersAction,
   Project,
   ProjectFilters,
   ProjectFiltersAction,
@@ -94,6 +95,24 @@ function booksReducer(
   }
 }
 
+function miniReposReducer(
+  state: ProjectFilters,
+  action: MiniRepoFiltersAction
+): ProjectFilters {
+  switch (action.type) {
+    case "status":
+      return { ...state, status: action.payload };
+    case "reset":
+      return {};
+    case "reset_one":
+      const newState = { ...state };
+      delete newState[action.payload as keyof ProjectFilters];
+      return newState;
+    default:
+      return state;
+  }
+}
+
 function projectsReducer(
   state: ProjectFilters,
   action: ProjectFiltersAction
@@ -128,6 +147,7 @@ const CommonsCatalog = () => {
   const [assetsState, assetsDispatch] = useReducer(assetsReducer, {});
   const [authorsState, authorsDispatch] = useReducer(authorsReducer, {});
   const [booksState, booksDispatch] = useReducer(booksReducer, {});
+  const [miniReposState, miniReposDispatch] = useReducer(miniReposReducer, {});
   const [projectsState, projectsDispatch] = useReducer(projectsReducer, {});
 
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -147,6 +167,9 @@ const CommonsCatalog = () => {
   const [assets, setAssets] = useState<ConductorSearchResponseFile[]>([]);
   const [assetsCount, setAssetsCount] = useState<number>(0);
 
+  const [miniRepos, setMiniRepos] = useState<Project[]>([]);
+  const [miniReposCount, setMiniReposCount] = useState<number>(0);
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsCount, setProjectsCount] = useState<number>(0);
 
@@ -155,6 +178,7 @@ const CommonsCatalog = () => {
 
   const [booksLoading, setBooksLoading] = useState(false);
   const [assetsLoading, setAssetsLoading] = useState(false);
+  const [miniReposLoading, setMiniReposLoading] = useState(false);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [authorsLoading, setAuthorsLoading] = useState(false);
 
@@ -177,8 +201,9 @@ const CommonsCatalog = () => {
       bookFilters: booksState,
       authorFilters: authorsState,
       projectFilters: projectsState,
+      miniRepoFilters: miniReposState,
     });
-  }, [assetsState, booksState, authorsState, projectsState, location.search]);
+  }, [assetsState, booksState, authorsState, miniReposState, projectsState, location.search]);
 
   const getSuggestionsDebounced = debounce(
     (searchVal: string) => getSearchSuggestions(searchVal),
@@ -195,7 +220,8 @@ const CommonsCatalog = () => {
         assetFiltersApplied() ||
         bookFiltersApplied() ||
         authorFiltersApplied() ||
-        projectFiltersApplied()
+        projectFiltersApplied() ||
+        miniRepoFiltersApplied()
       ) {
         runSearch({ query: search }); // handle no search query but filters
       } else {
@@ -219,6 +245,7 @@ const CommonsCatalog = () => {
       authorsDispatch({ type: "reset" });
       booksDispatch({ type: "reset" });
       projectsDispatch({ type: "reset" });
+      miniReposDispatch({ type: "reset" });
     }
   };
 
@@ -239,10 +266,12 @@ const CommonsCatalog = () => {
     authorsDispatch({ type: "reset" });
     booksDispatch({ type: "reset" });
     projectsDispatch({ type: "reset" });
+    miniReposDispatch({ type: "reset" });
     setActivePage(1);
     setBooks([]);
     setAssets([]);
     setProjects([]);
+    setMiniRepos([]);
     setAuthors([]);
     loadInitialData(true);
   };
@@ -253,12 +282,14 @@ const CommonsCatalog = () => {
     bookFilters,
     authorFilters,
     projectFilters,
+    miniRepoFilters,
   }: {
     query?: string;
     assetFilters?: AssetFilters;
     bookFilters?: BookFilters;
     authorFilters?: AuthorFilters;
     projectFilters?: ProjectFilters;
+    miniRepoFilters?: ProjectFilters;
   }) {
     try {
       if (loadingDisabled) return;
@@ -269,7 +300,8 @@ const CommonsCatalog = () => {
         (!assetFilters || !Object.keys(assetFilters).length) &&
         (!bookFilters || !Object.keys(bookFilters).length) &&
         (!authorFilters || !Object.keys(authorFilters).length) &&
-        (!projectFilters || !Object.keys(projectFilters).length)
+        (!projectFilters || !Object.keys(projectFilters).length) &&
+        (!miniRepoFilters || !Object.keys(miniRepoFilters).length)
       ) {
         return loadInitialData(true);
       }
@@ -277,6 +309,7 @@ const CommonsCatalog = () => {
       await Promise.all([
         handleBooksSearch(query ?? searchString, bookFilters, true),
         handleAssetsSearch(query ?? searchString, assetFilters, true),
+        handleMiniReposSearch(query ?? searchString, miniRepoFilters, true),
         handleProjectsSearch(query ?? searchString, projectFilters, true),
         handleAuthorsSearch(query ?? searchString, authorFilters, true),
       ]);
@@ -293,6 +326,7 @@ const CommonsCatalog = () => {
         loadPublicAssets(clear),
         loadPublicProjects(clear),
         handleAuthorsSearch("", {}, clear),
+        handleMiniReposSearch("", {}, clear),
       ]);
     } catch (err) {
       handleGlobalError(err);
@@ -453,9 +487,9 @@ const CommonsCatalog = () => {
     try {
       setAuthorsLoading(true);
       const res = await api.authorsSearch({
-        searchQuery: query,
         page,
         limit: ITEMS_PER_PAGE,
+        ...(query && { searchQuery: query }),
         ...authorFilters,
       });
 
@@ -476,6 +510,42 @@ const CommonsCatalog = () => {
       handleGlobalError(err);
     } finally {
       setAuthorsLoading(false);
+    }
+  }
+
+  // Mini-Repos
+  async function handleMiniReposSearch(
+    query?: string,
+    miniRepoFilters?: ProjectFilters,
+    clearAndUpdate = false,
+    page = activePage
+  ) {
+    try {
+      setMiniReposLoading(true);
+      const res = await api.miniReposSearch({
+        page,
+        limit: ITEMS_PER_PAGE,
+        ...(query && { searchQuery: query }),
+        ...miniRepoFilters,
+      });
+
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+
+      if (!res.data.results || !Array.isArray(res.data.results)) {
+        throw new Error("No results found.");
+      }
+
+      updateMiniRepos(res.data.results, clearAndUpdate);
+
+      if (typeof res.data.numResults === "number") {
+        setMiniReposCount(res.data.numResults);
+      }
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setMiniReposLoading(false);
     }
   }
 
@@ -571,6 +641,10 @@ const CommonsCatalog = () => {
     return Object.keys(assetsState).length > 0;
   };
 
+  const miniRepoFiltersApplied = (): boolean => {
+    return Object.keys(miniReposState).length > 0;
+  };
+
   const projectFiltersApplied = (): boolean => {
     return Object.keys(projectsState).length > 0;
   };
@@ -595,6 +669,13 @@ const CommonsCatalog = () => {
     } else {
       return loadPublicAssets();
     }
+  }
+
+  function handleLoadMoreMiniRepos() {
+    if (loadingDisabled) return;
+    const nextPage = activePage + 1;
+    setActivePage(nextPage);
+    return handleMiniReposSearch(searchString, miniReposState, false, nextPage);
   }
 
   function handleLoadMoreProjects() {
@@ -640,6 +721,14 @@ const CommonsCatalog = () => {
     }
   }
 
+  function updateMiniRepos(newMiniRepos: Project[], clearAndUpdate = false) {
+    if (clearAndUpdate) {
+      setMiniRepos([...newMiniRepos]);
+    } else {
+      setMiniRepos([...miniRepos, ...newMiniRepos]);
+    }
+  }
+
   function updateProjects(newProjects: Project[], clearAndUpdate = false) {
     if (clearAndUpdate) {
       setProjects([...newProjects]);
@@ -671,24 +760,24 @@ const CommonsCatalog = () => {
           <Segment.Group raised>
             {((org.commonsHeader && org.commonsHeader !== "") ||
               (org.commonsMessage && org.commonsMessage !== "")) && (
-                <Segment padded>
-                  {org.commonsHeader && org.commonsHeader !== "" && (
-                    <Header
-                      id="commons-intro-header"
-                      as="h2"
-                      className="text-center lg:text-left"
-                    >
-                      {org.commonsHeader}
-                    </Header>
-                  )}
-                  <p
-                    id="commons-intro-message"
+              <Segment padded>
+                {org.commonsHeader && org.commonsHeader !== "" && (
+                  <Header
+                    id="commons-intro-header"
+                    as="h2"
                     className="text-center lg:text-left"
                   >
-                    {org.commonsMessage}
-                  </p>
-                </Segment>
-              )}
+                    {org.commonsHeader}
+                  </Header>
+                )}
+                <p
+                  id="commons-intro-message"
+                  className="text-center lg:text-left"
+                >
+                  {org.commonsMessage}
+                </p>
+              </Segment>
+            )}
             <Segment>
               <div className="my-8 flex flex-row items-center justify-center w-full">
                 <Form
@@ -732,16 +821,16 @@ const CommonsCatalog = () => {
                       {(searchString !== "" ||
                         Object.keys(assetsState).length !== 0 ||
                         Object.keys(booksState).length !== 0) && (
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleResetSearch();
-                            }}
-                            className="!-mt-[0.25px] !-mb-[0.25px] !px-2 !py-0 !bg-white !border-y-[1.57px] !border-gray-200"
-                          >
-                            <Icon name="close" color="grey" />
-                          </button>
-                        )}
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleResetSearch();
+                          }}
+                          className="!-mt-[0.25px] !-mb-[0.25px] !px-2 !py-0 !bg-white !border-y-[1.57px] !border-gray-200"
+                        >
+                          <Icon name="close" color="grey" />
+                        </button>
+                      )}
                       <Button
                         color="blue"
                         onClick={() => updateSearchParam(searchString)}
@@ -786,6 +875,11 @@ const CommonsCatalog = () => {
                 booksCount={booksCount}
                 assets={assets}
                 assetsCount={assetsCount}
+                miniRepos={miniRepos}
+                miniRepoFilters={miniReposState}
+                miniRepoFiltersDispatch={miniReposDispatch}
+                miniReposCount={miniReposCount}
+                miniReposLoading={miniReposLoading}
                 projectFilters={projectsState}
                 projectFiltersDispatch={projectsDispatch}
                 projects={projects}
@@ -798,6 +892,7 @@ const CommonsCatalog = () => {
                 authorsLoading={authorsLoading}
                 onLoadMoreBooks={handleLoadMoreBooks}
                 onLoadMoreAssets={handleLoadMoreAssets}
+                onLoadMoreMiniRepos={handleLoadMoreMiniRepos}
                 onLoadMoreProjects={handleLoadMoreProjects}
                 onLoadMoreAuthors={handleLoadMoreAuthors}
                 onTriggerStopLoading={() => setLoadingDisabled(true)}
