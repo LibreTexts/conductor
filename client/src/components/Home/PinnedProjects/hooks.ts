@@ -1,5 +1,4 @@
 import {
-  QueryClient,
   useMutation,
   useQuery,
   useQueryClient,
@@ -7,6 +6,8 @@ import {
 import api from "../../../api";
 import { User } from "../../../types";
 import { useMemo } from "react";
+import useGlobalError from "../../error/ErrorHooks";
+import { useNotifications } from "../../../context/NotificationContext";
 
 type FolderAndProject = {
   folderName: string;
@@ -71,6 +72,9 @@ export function useIsProjectPinned(projectID: any, deps: any[] = []) {
 
 export function useAddFolderMutation() {
   const queryClient = useQueryClient();
+  const { handleGlobalError } = useGlobalError();
+  const { addNotification } = useNotifications();
+
   return useMutation({
     mutationFn: async (folderName: string) => {
       const res = await api.updateUserPinnedProjects({
@@ -95,12 +99,24 @@ export function useAddFolderMutation() {
         );
       }
     },
+    onSuccess: () => {
+      addNotification({
+        message: "Folder created.",
+        type: "success",
+      });
+    },
     onSettled: () => queryClient.invalidateQueries(["pinnedProjects"]),
+    onError(error, variables, context) {
+      handleGlobalError(error);
+    },
   });
 }
 
 export function useRemoveFolderMutation() {
   const queryClient = useQueryClient();
+  const { handleGlobalError } = useGlobalError();
+  const { addNotification } = useNotifications();
+
   return useMutation({
     mutationFn: async (folderName: string) => {
       const res = await api.updateUserPinnedProjects({
@@ -119,12 +135,24 @@ export function useRemoveFolderMutation() {
         );
       }
     },
+    onSuccess: () => {
+      addNotification({
+        message: "Folder removed.",
+        type: "success",
+      });
+    },
     onSettled: () => queryClient.invalidateQueries(["pinnedProjects"]),
+    onError(error, variables, context) {
+      handleGlobalError(error);
+    },
   });
 }
 
 export function usePinProjectMutation() {
   const queryClient = useQueryClient();
+  const { handleGlobalError } = useGlobalError();
+  const { addNotification } = useNotifications();
+
   return useMutation({
     mutationFn: async ({ folderName, projectID }: FolderAndProject) => {
       if (!folderName || !projectID) {
@@ -158,12 +186,24 @@ export function usePinProjectMutation() {
         );
       }
     },
+    onSuccess: () => {
+      addNotification({
+        message: "Project pinned successfully.",
+        type: "success",
+      });
+    },
     onSettled: () => queryClient.invalidateQueries(["pinnedProjects"]),
+    onError(error, variables, context) {
+      handleGlobalError(error);
+    },
   });
 }
 
 export function useUnpinProjectMutation() {
   const queryClient = useQueryClient();
+  const { handleGlobalError } = useGlobalError();
+  const { addNotification } = useNotifications();
+
   return useMutation({
     mutationFn: async (projectID: string) => {
       const res = await api.updateUserPinnedProjects({
@@ -200,12 +240,24 @@ export function useUnpinProjectMutation() {
         );
       }
     },
+    onSuccess: () => {
+      addNotification({
+        message: "Project unpinned successfully.",
+        type: "success",
+      });
+    },
     onSettled: () => queryClient.invalidateQueries(["pinnedProjects"]),
+    onError(error, variables, context) {
+      handleGlobalError(error);
+    },
   });
 }
 
 export function useMoveProjectMutation() {
   const queryClient = useQueryClient();
+  const { handleGlobalError } = useGlobalError();
+  const { addNotification } = useNotifications();
+
   return useMutation({
     mutationFn: async ({
       folderName,
@@ -255,6 +307,15 @@ export function useMoveProjectMutation() {
         );
       }
     },
+    onSuccess: () => {
+      addNotification({
+        message: "Project moved successfully.",
+        type: "success",
+      });
+    },
     onSettled: () => queryClient.invalidateQueries(["pinnedProjects"]),
+    onError(error, variables, context) {
+      handleGlobalError(error);
+    },
   });
 }
