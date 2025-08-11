@@ -146,12 +146,11 @@ const ProjectAccessibility = (props) => {
                     setProject(res.data.project);
                 }
             } else {
-                // console.log('Request error:', err)
                 handleGlobalError(res.data.errMsg);
             }
             setLoadingData(false);
         }).catch((err) => {
-            handleGlobalError( err);
+            handleGlobalError(err);
             setLoadingData(false);
         });
     };
