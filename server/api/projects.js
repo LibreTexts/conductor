@@ -81,6 +81,13 @@ const projectListingProjection = {
 const projectStatusOptions = ['completed', 'available', 'open'];
 const projectVisibilityOptions = ['private', 'public'];
 
+function isValidISBN(isbn) {
+  // Allow empty string (optional field)
+  if (!isbn) return true;
+  // Only digits, and length 10 or 13
+  return (/^\d{10}$/.test(isbn) || /^\d{13}$/.test(isbn));
+}
+
 /**
  * Creates a new, empty Project within the current Organization.
  *
@@ -671,6 +678,18 @@ async function uploadProjectThumbnail(req, res) {
  */
 async function updateProject(req, res) {
   try {
+
+    if (req.body.isbns && Array.isArray(req.body.isbns)) {
+      for (const row of req.body.isbns) {
+        if (row.isbn && !isValidISBN(row.isbn)) {
+          return res.status(400).json({
+            err: true,
+            errMsg: "Each ISBN must be either 10 or 13 digits and contain only numbers."
+          });
+        }
+      }
+    }
+    
     const libNameKeys = await getLibraryNameKeys(true);
     if(!libNameKeys){
       return res.status(500).send({
@@ -927,8 +946,8 @@ async function updateProject(req, res) {
     if(req.body.hasOwnProperty('defaultChatNotification')){
       updateObj.defaultChatNotification = req.body.defaultChatNotification;
     }
-    if(req.body.hasOwnProperty('isbn')){
-      updateObj.isbn = req.body.isbn;
+    if(req.body.hasOwnProperty('isbns')){
+      updateObj.isbns = req.body.isbns;
     }
     if(req.body.hasOwnProperty('doi')){
       updateObj.doi = req.body.doi;
