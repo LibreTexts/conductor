@@ -17,6 +17,7 @@ export type CentralIdentityOrg = {
 };
 
 export type CentralIdentityService = {
+  id: number;
   service_Id: string;
   name: string;
   body: string;
