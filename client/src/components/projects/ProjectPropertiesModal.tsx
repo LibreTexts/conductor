@@ -10,7 +10,7 @@ import {
   Popup,
   Dropdown,
   Card,
-  Message
+  Message,
 } from "semantic-ui-react";
 import {
   AssetTagFramework,
@@ -27,7 +27,7 @@ import { lazy, useEffect, useState, useCallback, useRef, useMemo } from "react";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 import CtlTextArea from "../ControlledInputs/CtlTextArea";
-import ISBNsTable from './ISBNsTable';
+import ISBNsTable from "./ISBNsTable";
 import {
   classificationOptions,
   statusOptions,
@@ -592,13 +592,16 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       //      );
       //  }
 
-        const errorMessage = err.response.data.errMsg;
-        if (err.response.data?.projectName && err.response.data?.projectURL) {
-          handleGlobalError(errorMessage, err.response.data.projectName, err.response.data.projectURL);
-        }
-        else {
-          handleGlobalError(errorMessage);
-        }
+      const errorMessage = err.response.data.errMsg;
+      if (err.response.data?.projectName && err.response.data?.projectURL) {
+        handleGlobalError(
+          errorMessage,
+          err.response.data.projectName,
+          err.response.data.projectURL
+        );
+      } else {
+        handleGlobalError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -780,7 +783,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                     name="copy"
                     className="cursor-pointer text-gray-500 hover:text-black"
                     onClick={async () => {
-                      const url = getValues("projectURL"); 
+                      const url = getValues("projectURL");
                       if (url) {
                         await navigator.clipboard.writeText(url);
                         setCopied(true);
@@ -788,7 +791,9 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                       }
                     }}
                   />
-                  {copied && <span className="text-green-500 ml-2">Copied!</span>}
+                  {copied && (
+                    <span className="text-green-500 ml-2">Copied!</span>
+                  )}
                 </label>
                 <CtlTextInput
                   name="projectURL"
@@ -1184,10 +1189,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               className="basis-1/2"
             />
           </div>
-          <div className="flex flex-row justify-between mb-3">
-            <div className="basis-1/2 mr-8">
-              <ISBNsTable control={control} setValue={setValue} />
-            </div>
+          <div className="flex flex-row justify-between mb-6">
             <CtlTextInput
               name="doi"
               control={control}
@@ -1195,6 +1197,9 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               placeholder="Enter DOI..."
               className="basis-1/2"
             />
+          </div>
+          <div className="flex flex-row justify-between mb-6">
+              <ISBNsTable control={control} setValue={setValue} />
           </div>
           <div className="flex flex-row justify-between mb-3">
             <CtlDateInput

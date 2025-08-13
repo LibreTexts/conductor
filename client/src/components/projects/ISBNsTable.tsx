@@ -57,9 +57,9 @@ const ISBNsTable: React.FC<ISBNsTableProps> = ({ control, setValue }) => {
         );
 
   return (
-    <div>
+    <div className="w-full">
       <h3 className="font-bold">ISBN's</h3>
-      <Table celled fluid>
+      <Table celled fluid compact striped className="!mt-0.5 !mb-0">
         <Table.Header>
           <Table.Row>
             <Table.HeaderCell>Medium</Table.HeaderCell>
@@ -81,6 +81,7 @@ const ISBNsTable: React.FC<ISBNsTableProps> = ({ control, setValue }) => {
                             selection
                             options={mediumOptions}
                             placeholder="Select Medium"
+                            className="w-full"
                             value={field.value}
                             onChange={(_, data) => {
                                 field.onChange(data.value);
@@ -113,11 +114,12 @@ const ISBNsTable: React.FC<ISBNsTableProps> = ({ control, setValue }) => {
                         selection
                         options={formatDropdownOptions}
                         placeholder="Select Format"
+                        className="w-full"
                         value={field.value}
                         onChange={(_, data) => field.onChange(data.value)}
                         onBlur={field.onBlur}
                         disabled={!isbns[idx]?.medium}
-                        style={{ minWidth: 120, maxWidth: 180, width: '100%' }}
+                        style={{ minWidth: 120 }}
                         />
                     );
                     }}
@@ -129,7 +131,7 @@ const ISBNsTable: React.FC<ISBNsTableProps> = ({ control, setValue }) => {
                   name={`isbns.${idx}.isbn`}
                   disabled={!isbns[idx]?.format}
                   render={({ field }) => (
-                    <Input {...field} placeholder="Enter value" />
+                    <Input {...field} placeholder="Digits only - no dashes" className="w-full"/>
                   )}
                 />
               </Table.Cell>
@@ -158,6 +160,7 @@ const ISBNsTable: React.FC<ISBNsTableProps> = ({ control, setValue }) => {
         icon
         labelPosition="left"
         onClick={() => append({ medium: "", format: "", isbn: "" })}
+        className="!mt-2"
       >
         <Icon name="plus" />
         Add Format
