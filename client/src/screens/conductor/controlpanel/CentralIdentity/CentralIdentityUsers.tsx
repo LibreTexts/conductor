@@ -1,13 +1,10 @@
-import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Header,
   Segment,
   Grid,
   Breadcrumb,
-  Table,
-  Icon,
-  Button,
   Dropdown,
   Input,
 } from "semantic-ui-react";
@@ -22,32 +19,22 @@ import {
 import useDebounce from "../../../../hooks/useDebounce";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../../../api";
-import LoadingSpinner from "../../../../components/LoadingSpinner";
+import SupportCenterTable from "../../../../components/support/SupportCenterTable";
+import { IconLockExclamation } from "@tabler/icons-react";
 
 const CentralIdentityUsers = () => {
   //Global State & Hooks
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
-  const location = useLocation();
 
   //UI
   const [activePage, setActivePage] = useState<number>(1);
   const [totalItems, setTotalItems] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(25);
   const [sortChoice, setSortChoice] = useState<string>("first");
   const [searchInput, setSearchInput] = useState<string>(""); // For debouncing
   const [searchString, setSearchString] = useState<string>(""); // For the actual search
-  const TABLE_COLS = [
-    { key: "firstName", text: "First Name" },
-    { key: "lastName", text: "Last Name" },
-    { key: "email", text: "Email" },
-    { key: "userType", text: "User Type" },
-    { key: "verification", text: "Verification Status" },
-    { key: "studentId", text: "Student ID" },
-    { key: "Auth Source", text: "Auth Source" },
-    { key: "Actions", text: "Actions" },
-  ];
   const sortOptions = [
     { key: "first", text: "Sort by First Name", value: "first" },
     { key: "last", text: "Sort by Last Name", value: "last" },
@@ -56,11 +43,7 @@ const CentralIdentityUsers = () => {
   ];
 
   //Data
-  const {
-    data: users,
-    isFetching,
-    isLoading,
-  } = useQuery<CentralIdentityUser[]>({
+  const { data: users, isLoading } = useQuery<CentralIdentityUser[]>({
     queryKey: [
       "central-identity-users",
       activePage,
@@ -117,10 +100,10 @@ const CentralIdentityUsers = () => {
     }
   }
 
-  const getUsersDebounced = debounce(
-    (searchVal: string) => setSearchString(searchVal),
-    250
-  );
+  const getUsersDebounced = debounce((searchVal: string) => {
+    setActivePage(1); // Reset to first page on new search
+    setSearchString(searchVal);
+  }, 250);
 
   return (
     <Grid className="controlpanel-container" divided="vertically">
@@ -178,7 +161,6 @@ const CentralIdentityUsers = () => {
                 </Grid.Row>
               </Grid>
             </Segment>
-            {isFetching && isLoading && <LoadingSpinner />}
             <Segment>
               <PaginationWithItemsSelect
                 activePage={activePage}
@@ -190,109 +172,103 @@ const CentralIdentityUsers = () => {
               />
             </Segment>
             <Segment>
-              <Table striped celled>
-                <Table.Header>
-                  <Table.Row>
-                    {TABLE_COLS.map((item) => (
-                      <Table.HeaderCell key={item.key}>
-                        <span>{item.text}</span>
-                      </Table.HeaderCell>
-                    ))}
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {users &&
-                    users.length > 0 &&
-                    users.map((user) => {
+              <SupportCenterTable<CentralIdentityUser & { actions?: string }>
+                data={users}
+                loading={isLoading}
+                onRowClick={(record) => {
+                  window.open(`/controlpanel/libreone/users/${record.uuid}`);
+                }}
+                columns={[
+                  {
+                    accessor: "first_name",
+                    title: "First Name",
+                    render(record) {
                       return (
-                        <Table.Row key={user.uuid} className="word-break-all">
-                          <Table.Cell>
-                            <span>
-                              {user.first_name}{" "}
-                              {user.disabled && (
-                                <Icon
-                                  name="lock"
-                                  className="ml-1p"
-                                  size="small"
-                                />
-                              )}
-                            </span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>
-                              {user.last_name}
-                              {user.disabled && (
-                                <Icon
-                                  name="lock"
-                                  className="ml-1p"
-                                  size="small"
-                                />
-                              )}
-                            </span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>
-                              {user.email}
-                              {user.disabled && (
-                                <Icon
-                                  name="lock"
-                                  className="ml-1p"
-                                  size="small"
-                                />
-                              )}
-                            </span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>{getPrettyUserType(user.user_type)}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            {user.user_type === "instructor" ? (
-                              <span>
-                                {getPrettyVerficationStatus(user.verify_status)}
-                              </span>
-                            ) : (
-                              <span className="muted-text">N/A</span>
-                            )}
-                          </Table.Cell>
-                          <Table.Cell>
-                            {user.student_id ? (
-                              <span>{user.student_id}</span>
-                            ) : (
-                              <span className="muted-text">N/A</span>
-                            )}
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>
-                              {user.external_idp
-                                ? getPrettyAuthSource(user.external_idp)
-                                : "LibreOne"}
-                              {user.disabled && " (Disabled)"}
-                            </span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <Button
-                              as="a"
-                              color="blue"
-                              href={`/controlpanel/libreone/users/${user.uuid}`}
-                            >
-                              <Icon name="eye" />
-                              View User
-                            </Button>
-                          </Table.Cell>
-                        </Table.Row>
+                        <div className="flex items-center">
+                          <span>{record.first_name} </span>
+                          {record.disabled && (
+                            <IconLockExclamation className="h-5 w-5 ml-1" />
+                          )}
+                        </div>
                       );
-                    })}
-                  {users?.length === 0 && (
-                    <Table.Row>
-                      <Table.Cell colSpan={TABLE_COLS.length + 1}>
-                        <p className="text-center">
-                          <em>No results found.</em>
-                        </p>
-                      </Table.Cell>
-                    </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
+                    },
+                  },
+                  {
+                    accessor: "last_name",
+                    title: "Last Name",
+                    render(record) {
+                      return (
+                        <div className="flex items-center">
+                          <span>{record.last_name} </span>
+                          {record.disabled && (
+                            <IconLockExclamation className="h-5 w-5 ml-1" />
+                          )}
+                        </div>
+                      );
+                    },
+                  },
+                  {
+                    accessor: "email",
+                    render(record) {
+                      return (
+                        <div className="flex items-center">
+                          <span>{record.email} </span>
+                          {record.disabled && (
+                            <IconLockExclamation className="h-5 w-5 ml-1" />
+                          )}
+                        </div>
+                      );
+                    },
+                  },
+                  {
+                    accessor: "email",
+                    render(record) {
+                      return (
+                        <div className="flex items-center">
+                          <span>{record.email} </span>
+                          {record.disabled && (
+                            <IconLockExclamation className="h-5 w-5 ml-1" />
+                          )}
+                        </div>
+                      );
+                    },
+                  },
+                  {
+                    accessor: "user_type",
+                    title: "User Type",
+                    render(record) {
+                      return getPrettyUserType(record.user_type);
+                    },
+                  },
+                  {
+                    accessor: "verify_status",
+                    title: "Verification Status",
+                    render(record) {
+                      return record.user_type === "instructor" ? (
+                        <span>
+                          {getPrettyVerficationStatus(record.verify_status)}
+                        </span>
+                      ) : (
+                        <span className="muted-text">N/A</span>
+                      );
+                    },
+                  },
+                  {
+                    accessor: "external_idp",
+                    title: "Auth Source",
+                    render(record) {
+                      return (
+                        <span>
+                          {record.external_idp
+                            ? getPrettyAuthSource(record.external_idp)
+                            : "LibreOne"}
+                          {record.disabled && " (Disabled)"}
+                        </span>
+                      );
+                    },
+                  },
+                ]}
+              />
             </Segment>
             <Segment>
               <PaginationWithItemsSelect
