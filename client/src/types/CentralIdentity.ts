@@ -179,3 +179,17 @@ export type CentralIdentityUserLicenseResult = CentralIdentityUserAppLicense & {
   granted_by: 'org';
   application_license: CentralIdentityAppLicense;
 }
+
+export type CentralIdentityOrgAdminResult = {
+  user_id: string;
+  organization_id: string;
+  admin_role: string;
+  created_at: string;
+  updated_at: string;
+  user: {
+    uuid: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+  }
+}

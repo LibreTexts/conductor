@@ -2,6 +2,8 @@ import classNames from "classnames";
 import { Table, TableProps } from "semantic-ui-react";
 import LoadingSpinner from "../LoadingSpinner";
 import { capitalizeFirstLetter } from "../util/HelperFunctions";
+import { NestedKeyOf } from "../../types";
+import { getNestedProperty } from "../../utils/misc";
 
 interface SupportCenterTableProps<T = Record<string, unknown>> {
   loading?: boolean;
@@ -10,7 +12,7 @@ interface SupportCenterTableProps<T = Record<string, unknown>> {
   noDataText?: string;
   onRowClick?: (record: T) => void;
   columns?: {
-    accessor: keyof T;
+    accessor: NestedKeyOf<T>;
     title?: React.ReactNode;
     render?: (record: T, index: number) => React.ReactNode;
     className?: string;
@@ -67,7 +69,7 @@ function SupportCenterTable<T>({
                   >
                     {column.render
                       ? column.render(record, index)
-                      : (record[column.accessor] as React.ReactNode)}
+                      : (getNestedProperty(record, column.accessor) as React.ReactNode)}
                   </Table.Cell>
                 ))}
               </Table.Row>

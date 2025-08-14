@@ -1,17 +1,16 @@
-import { useState, useEffect} from "react";
+import { useState, useEffect } from "react";
 import * as React from "react";
 import { Link, useHistory } from "react-router-dom";
 import {
   Table,
-  Button,
   Icon,
   Header,
   Segment,
   Grid,
   Breadcrumb,
-  Modal,
   Message,
 } from "semantic-ui-react";
+import Button from "../../../../components/NextGenComponents/Button";
 import { CentralIdentityOrg, CentralIdentitySystem } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { useTypedSelector } from "../../../../state/hooks";
@@ -39,9 +38,7 @@ const CentralIdentityOrgs = () => {
     if (isSuperAdmin) {
       loadData();
       setTotalPages(
-        Math.ceil(
-          (systems.length + organizations.length) / itemsPerPage
-        )
+        Math.ceil((systems.length + organizations.length) / itemsPerPage)
       );
     }
   }, [activePage, itemsPerPage, isSuperAdmin]);
@@ -51,17 +48,17 @@ const CentralIdentityOrgs = () => {
       setLoading(true);
       const [systemsRes, orgsRes] = await Promise.all([
         await api.getCentralIdentitySystems(),
-        await api.getCentralIdentityOrgs()
+        await api.getCentralIdentityOrgs(),
       ]);
-  
+
       const systemsData = systemsRes.data.systems || [];
-      const orgsData = (orgsRes.data.orgs as CentralIdentityOrg[]).filter((org) => !org.system);
+      const orgsData = (orgsRes.data.orgs as CentralIdentityOrg[]).filter(
+        (org) => !org.system
+      );
       setSystems(systemsData);
       setOrganizations(orgsData);
       setTotalPages(
-        Math.ceil(
-          (systemsData.length + orgsData.length) / itemsPerPage
-        )
+        Math.ceil((systemsData.length + orgsData.length) / itemsPerPage)
       );
     } catch (err) {
       handleGlobalError(err);
@@ -96,18 +93,18 @@ const CentralIdentityOrgs = () => {
   const getPaginatedData = () => {
     const startIndex = (activePage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    
+
     const allItems = [
-      ...systems.map(system => ({
+      ...systems.map((system) => ({
         ...system,
-        type: 'system' as const
+        type: "system" as const,
       })),
-      ...organizations.map(org => ({
+      ...organizations.map((org) => ({
         ...org,
-        type: 'org' as const
-      }))
+        type: "org" as const,
+      })),
     ];
-    
+
     return allItems.slice(startIndex, endIndex);
   };
 
@@ -147,20 +144,17 @@ const CentralIdentityOrgs = () => {
                 </Breadcrumb.Section>
               </Breadcrumb>
             </Segment>
-            <Segment>
+            <Segment className="flex flex-row gap-2">
               <Button
-                color="blue"
+                icon="IconPlus"
                 onClick={() => setShowCreateSystemModal(true)}
               >
-                <Icon name="plus" />
                 New System
               </Button>
               <Button
-                color="blue"
+                icon="IconPlus"
                 onClick={() => setShowCreateOrgModal(true)}
-                style={{ marginLeft: "10px" }}
               >
-                <Icon name="plus" />
                 New Organization
               </Button>
             </Segment>
@@ -178,7 +172,10 @@ const CentralIdentityOrgs = () => {
               <Table celled>
                 <Table.Header>
                   <Table.Row>
-                    <Table.HeaderCell width={1} textAlign="center"></Table.HeaderCell>
+                    <Table.HeaderCell
+                      width={1}
+                      textAlign="center"
+                    ></Table.HeaderCell>
                     <Table.HeaderCell width={2}>Logo</Table.HeaderCell>
                     <Table.HeaderCell>Name</Table.HeaderCell>
                     <Table.HeaderCell>Type</Table.HeaderCell>
@@ -187,7 +184,7 @@ const CentralIdentityOrgs = () => {
                 </Table.Header>
                 <Table.Body>
                   {getPaginatedData().map((item) => {
-                    if (item.type === 'system') {
+                    if (item.type === "system") {
                       return (
                         <React.Fragment key={`system-${item.id}`}>
                           <Table.Row>
@@ -204,16 +201,21 @@ const CentralIdentityOrgs = () => {
                             </Table.Cell>
                             <Table.Cell textAlign="center">
                               {item.logo ? (
-                                <a 
-                                  href={item.logo} 
-                                  target="_blank" 
+                                <a
+                                  href={item.logo}
+                                  target="_blank"
                                   rel="noopener noreferrer"
-                                  style={{ cursor: 'pointer' }}
+                                  style={{ cursor: "pointer" }}
                                 >
                                   <img
                                     src={item.logo}
                                     alt={`${item.name} logo`}
-                                    style={{ width: 32, height: 32, objectFit: "contain", display: "inline-block" }}
+                                    style={{
+                                      width: 32,
+                                      height: 32,
+                                      objectFit: "contain",
+                                      display: "inline-block",
+                                    }}
                                   />
                                 </a>
                               ) : (
@@ -226,12 +228,10 @@ const CentralIdentityOrgs = () => {
                             <Table.Cell>System</Table.Cell>
                             <Table.Cell>
                               <Button
-                                icon
-                                color="blue"
-                                size="tiny"
+                                icon="IconEye"
                                 onClick={() => handleEdit("system", item.id)}
                               >
-                                <Icon name="edit" />
+                                View
                               </Button>
                             </Table.Cell>
                           </Table.Row>
@@ -242,16 +242,21 @@ const CentralIdentityOrgs = () => {
                                 <Table.Cell />
                                 <Table.Cell textAlign="center">
                                   {org.logo ? (
-                                    <a 
-                                      href={org.logo} 
-                                      target="_blank" 
+                                    <a
+                                      href={org.logo}
+                                      target="_blank"
                                       rel="noopener noreferrer"
-                                      style={{ cursor: 'pointer' }}
+                                      style={{ cursor: "pointer" }}
                                     >
                                       <img
                                         src={org.logo}
                                         alt={`${org.name} logo`}
-                                        style={{ width: 32, height: 32, objectFit: "contain", display: "inline-block"  }}
+                                        style={{
+                                          width: 32,
+                                          height: 32,
+                                          objectFit: "contain",
+                                          display: "inline-block",
+                                        }}
                                       />
                                     </a>
                                   ) : (
@@ -264,12 +269,10 @@ const CentralIdentityOrgs = () => {
                                 <Table.Cell>Organization</Table.Cell>
                                 <Table.Cell>
                                   <Button
-                                    icon
-                                    color="blue"
-                                    size="tiny"
+                                    icon="IconEye"
                                     onClick={() => handleEdit("org", org.id)}
                                   >
-                                    <Icon name="edit" />
+                                    View
                                   </Button>
                                 </Table.Cell>
                               </Table.Row>
@@ -282,16 +285,21 @@ const CentralIdentityOrgs = () => {
                           <Table.Cell />
                           <Table.Cell textAlign="center">
                             {item.logo ? (
-                              <a 
-                                href={item.logo} 
-                                target="_blank" 
+                              <a
+                                href={item.logo}
+                                target="_blank"
                                 rel="noopener noreferrer"
-                                style={{ cursor: 'pointer' }}
+                                style={{ cursor: "pointer" }}
                               >
                                 <img
                                   src={item.logo}
                                   alt={`${item.name} logo`}
-                                  style={{ width: 32, height: 32, objectFit: "contain", display: "inline-block" }}
+                                  style={{
+                                    width: 32,
+                                    height: 32,
+                                    objectFit: "contain",
+                                    display: "inline-block",
+                                  }}
                                 />
                               </a>
                             ) : (
@@ -302,12 +310,10 @@ const CentralIdentityOrgs = () => {
                           <Table.Cell>Organization</Table.Cell>
                           <Table.Cell>
                             <Button
-                              icon
-                              color="blue"
-                              size="tiny"
+                              icon="IconEye"
                               onClick={() => handleEdit("org", item.id)}
                             >
-                              <Icon name="edit" />
+                              View
                             </Button>
                           </Table.Cell>
                         </Table.Row>
@@ -339,7 +345,7 @@ const CentralIdentityOrgs = () => {
           loadData();
         }}
       />
-      
+
       <CreateOrgModal
         show={showCreateOrgModal}
         onClose={() => setShowCreateOrgModal(false)}

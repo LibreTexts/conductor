@@ -3,6 +3,8 @@ import {
   CommonsModule,
   CommonsModuleSettings,
   GenericKeyTextValueObj,
+  NestedKeyOf,
+  NestedValueOf,
 } from "../types";
 import { FieldNamesMarkedBoolean } from "react-hook-form";
 import { SemanticCOLORS } from "semantic-ui-react";
@@ -255,3 +257,20 @@ export const DISABLED_PAGE_TAG_PREFIXES = [
   "field:",
   "printoptions:"
 ];
+
+export function getNestedProperty<T, K extends NestedKeyOf<T>>(
+  obj: T,
+  path: K
+): NestedValueOf<T, K> {
+  const keys = (path as string).split(".");
+  let result: any = obj;
+  
+  for (const key of keys) {
+    if (result == null || typeof result !== "object") {
+      return undefined as any;
+    }
+    result = result[key];
+  }
+  
+  return result;
+}

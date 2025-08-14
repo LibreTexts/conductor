@@ -7,7 +7,6 @@
 import express, { NextFunction, Request, Response } from "express";
 import { validationResult } from "express-validator";
 import conductorErrors from "./conductor-errors.js";
-import { centralIdentityConfigured } from "./util/centralIdentity.js";
 import { AnyZodObject } from "zod";
 import { debugError } from "./debug.js";
 import authAPI from "./api/auth.js";
@@ -23,6 +22,7 @@ import {
 import SupportTicket from "./models/supporticket.js";
 import User from "./models/user.js";
 import { extractZodErrorMessages } from "./api/validators/misc.js";
+import CentralIdentityService from "./api/services/central-identity-service.js";
 
 /**
  * Checks the results of the validation stage for an API route.
@@ -187,7 +187,9 @@ function checkCentralIdentityConfig(
   res: Response,
   next: NextFunction
 ) {
-  if (centralIdentityConfigured) return next();
+  const service = new CentralIdentityService();
+  const configured = service.isConfigured();
+  if (configured) return next();
   return res.status(500).send({
     err: true,
     errMsg: conductorErrors.err16,
