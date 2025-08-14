@@ -4,7 +4,7 @@ import { Request, Response } from "express";
 import { param, body, oneOf } from "express-validator";
 import {
   CentralIdentityOrg,
-  CentralIdentityService,
+  CentralIdentityService as CentralIdentityServiceType,
   CentralIdentitySystem,
   CentralIdentityUser,
   TypedReqBody,
@@ -21,10 +21,6 @@ import {
   conductor500Err,
   conductorErr,
 } from "../util/errorutils.js";
-import {
-  isCentralIdentityVerificationRequestStatus,
-  useCentralIdentityAxios,
-} from "../util/centralIdentity.js";
 import {
   CentralIdentityApp,
   CentralIdentityVerificationRequest,
@@ -51,9 +47,10 @@ import Project, { ProjectInterface } from "../models/project.js";
 import { getSubdomainFromLibrary } from "../util/librariesclient.js";
 import { updateTeamWorkbenchPermissions } from "../util/projectutils.js";
 import fse from "fs-extra";
-import axios from "axios";
-import { SignJWT } from "jose";
 import { ZodReqWithUser } from "../types/Express.js";
+import CentralIdentityService from "./services/central-identity-service.js";
+
+const centralIdentityService = new CentralIdentityService();
 
 async function getUsers(
   req: TypedReqQuery<{
@@ -81,12 +78,10 @@ async function getUsers(
 
     const offset = getPaginationOffset(page, limit);
 
-    const usersRes = await useCentralIdentityAxios(false).get("/users", {
-      params: {
-        offset,
-        limit,
-        query: req.query.query ? req.query.query : undefined,
-      },
+    const usersRes = await centralIdentityService.getUsers({
+      offset,
+      limit,
+      query: req.query.query ? req.query.query : undefined,
     });
 
     if (!usersRes.data || !usersRes.data.data || !usersRes.data.meta) {
@@ -133,10 +128,7 @@ async function getUser(
       return conductor400Err(res);
     }
 
-    const userRes = await useCentralIdentityAxios(false).get(
-      `/users/${req.params.id}`
-    );
-
+    const userRes = await centralIdentityService.getUser(req.params.id);
     if (!userRes.data || !userRes.data.data) {
       return conductor500Err(res);
     }
@@ -159,11 +151,34 @@ async function updateUser(
       return conductor400Err(res);
     }
 
-    const userRes = await useCentralIdentityAxios(false).patch(
-      `/users/${req.params.id}`,
-      req.body
-    );
+    const userRes = await centralIdentityService.updateUser(req.params.id, req.body);
+    if (!userRes.data) {
+      return conductor500Err(res);
+    }
 
+    return res.send({
+      err: false,
+      user: userRes.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function updateUserAdminRole(
+  req: TypedReqParamsAndBody<{ id: string; orgId: string }, { admin_role: string }>,
+  res: Response
+) {
+  try {
+    const { id, orgId } = req.params;
+    const { admin_role } = req.body;
+
+    if (!id || !orgId || !admin_role) {
+      return conductor400Err(res);
+    }
+
+    const userRes = await centralIdentityService.updateUserAdminRole(id, orgId, admin_role);
     if (!userRes.data) {
       return conductor500Err(res);
     }
@@ -187,8 +202,8 @@ async function updateUserAcademyOnlineAccess(
       return conductor400Err(res);
     }
 
-    const userRes = await useCentralIdentityAxios(false).patch(
-      `/users/${req.params.id}/academy-online`,
+    const userRes = await centralIdentityService.updateUserAcademyAccess(
+      req.params.id,
       req.body
     );
 
@@ -211,15 +226,11 @@ async function changeUserEmail(
   res: Response<{ err: boolean; user: CentralIdentityUser }>
 ) {
   try {
-    if (!req.params.id){
+    if (!req.params.id) {
       return conductor400Err(res);
     }
 
-    const userRes = await useCentralIdentityAxios(false).post(
-      `/users/${req.params.id}/email-change-direct`,
-      req.body
-    );
-
+    const userRes = await centralIdentityService.updateUserEmailDirect(req.params.id, req.body.email);
     if (!userRes.data || !userRes.data.data) {
       return conductor500Err(res);
     }
@@ -260,10 +271,7 @@ async function getUserApplicationsInternal(
   userId: string
 ): Promise<CentralIdentityApp[] | null> {
   try {
-    const appsRes = await useCentralIdentityAxios(false).get(
-      `/users/${userId}/applications`
-    );
-
+    const appsRes = await centralIdentityService.getUserApplications(userId);
     if (!appsRes.data || !appsRes.data.data) {
       return null;
     }
@@ -375,16 +383,10 @@ async function getUserAppLicenses(
   try {
     if (!req.params.id) return conductor400Err(res);
 
-    const licensesRes = await useCentralIdentityAxios(false).get(
-      `/app-licenses/user/${req.params.id}`,
-      {
-        params: {
-          includeRevoked: true,
-          includeExpired: true,
-        },
-      }
-    );
-
+    const licensesRes = await centralIdentityService.getUserAppLicenses(req.params.id, {
+      includeRevoked: true,
+      includeExpired: true,
+    });
     if (!licensesRes.data || !licensesRes.data.data) {
       return conductor500Err(res);
     }
@@ -404,13 +406,10 @@ async function grantAppLicense(
   res: Response<{ err: boolean; entity_id: string; application_license_id: string }>
 ) {
   try {
-    const grantResponse = await useCentralIdentityAxios(false).post(
-      '/app-licenses/manual-grant',
-      {
-        ...('user_id' in req.body ? { user_id: req.body.user_id } : { org_id: req.body.org_id }),
-        application_license_id: req.body.application_license_id,
-      },
-    );
+    const grantResponse = await centralIdentityService.manualGrantAppLicense({
+      ...('user_id' in req.body ? { user_id: req.body.user_id } : { org_id: req.body.org_id }),
+      application_license_id: req.body.application_license_id
+    });
 
     if (!grantResponse.data || !grantResponse.data.data) {
       return conductor500Err(res);
@@ -432,13 +431,10 @@ async function revokeAppLicense(
   res: Response<{ err: boolean; entity_id: string; application_license_id: string }>
 ) {
   try {
-    const revokeResponse = await useCentralIdentityAxios(false).post(
-      '/app-licenses/manual-revoke',
-      {
-        ...('user_id' in req.body ? { user_id: req.body.user_id } : { org_id: req.body.org_id }),
-        application_license_id: req.body.application_license_id,
-      }
-    );
+    const revokeResponse = await centralIdentityService.revokeAppLicense({
+      ...('user_id' in req.body ? { user_id: req.body.user_id } : { org_id: req.body.org_id }),
+      application_license_id: req.body.application_license_id,
+    });
 
     if (!revokeResponse.data || !revokeResponse.data.data) {
       return conductor500Err(res);
@@ -461,8 +457,7 @@ async function getAppLicenses(
   res: Response<{ err: boolean; licenses: CentralIdentityAppLicense[] }>
 ) {
   try {
-    const available = await useCentralIdentityAxios(false).get("/store/products");
-
+    const available = await centralIdentityService.getStoreProducts();
     if (!available.data || !available.data.data) {
       return res.send({ err: false, licenses: [] });
     }
@@ -478,10 +473,7 @@ async function getAppLicenses(
 }
 
 async function _getUserOrgsRaw(id: string): Promise<CentralIdentityOrg[]> {
-  const orgsRes = await useCentralIdentityAxios(false).get(
-    `/users/${id}/organizations`
-  );
-
+  const orgsRes = await centralIdentityService.getUserOrgs(id);
   if (!orgsRes.data || !orgsRes.data.data) {
     return [];
   }
@@ -520,10 +512,7 @@ async function _getMultipleUsersOrgs(uuids: string[]): Promise<Record<string, { 
       return {};
     }
 
-    const queryString = uuids.map(uuid => `uuids[]=${encodeURIComponent(uuid)}`).join('&');
-
-    const userRes = await useCentralIdentityAxios(false).get("/users/organizations" + "?" + queryString);
-
+    const userRes = await centralIdentityService.getMultipleUsersOrgs(uuids);
     if (!userRes.data || !userRes.data.data) {
       return {};
     }
@@ -543,15 +532,19 @@ async function addUserApplications(
   res: Response<{ err: boolean; applications: string[] }>
 ) {
   try {
+    const userId = req.params?.id;
+    if (!userId || !req.body.applications || req.body.applications.length === 0) {
+      return conductor400Err(res);
+    }
+
     const parsedIds: string[] = req.body.applications.map((id) =>
       id.toString()
     );
+
     const promiseArr = parsedIds.map((id) =>
-      useCentralIdentityAxios(false).post(
-        `/users/${req.params.id}/applications`,
-        {
-          application_id: id,
-        }
+      centralIdentityService.addUserApplication(
+        userId,
+        id
       )
     );
 
@@ -580,9 +573,13 @@ async function deleteUserApplication(
   res: Response<{ err: boolean }>
 ) {
   try {
-    const appRes = await useCentralIdentityAxios(false).delete(
-      `/users/${req.params.id
-      }/applications/${req.params.applicationId?.toString()}`
+    if (!req.params.id || !req.params.applicationId) {
+      return conductor400Err(res);
+    }
+
+    const appRes = await centralIdentityService.deleteUserApplication(
+      req.params.id,
+      req.params.applicationId
     );
 
     if (appRes.data.err || appRes.data.errMsg) {
@@ -603,14 +600,12 @@ async function addUserOrgs(
   res: Response<{ err: boolean; orgs: string[] }>
 ) {
   try {
+    const uuid = req.params.id;
+    if (!uuid) return conductor400Err(res);
+
     const parsedIds: string[] = req.body.orgs.map((id) => id.toString());
     const promiseArr = parsedIds.map((id) =>
-      useCentralIdentityAxios(false).post(
-        `/users/${req.params.id}/organizations`,
-        {
-          organization_id: id,
-        }
-      )
+      centralIdentityService.addUserOrg(uuid, id)
     );
 
     const results = await Promise.all(promiseArr);
@@ -638,8 +633,13 @@ async function deleteUserOrg(
   res: Response<{ err: boolean }>
 ) {
   try {
-    const orgRes = await useCentralIdentityAxios(false).delete(
-      `/users/${req.params.id}/organizations/${req.params.orgId?.toString()}`
+    if (!req.params.id || !req.params.orgId) {
+      return conductor400Err(res);
+    }
+
+    const orgRes = await centralIdentityService.deleteUserOrg(
+      req.params.id,
+      req.params.orgId
     );
 
     if (orgRes.data.err || orgRes.data.errMsg) {
@@ -663,12 +663,7 @@ async function deleteUserOrg(
  */
 async function _generateAccessCode({ priceId, email }: { priceId: string; email: string }): Promise<boolean> {
   try {
-    const res = await useCentralIdentityAxios(false).post('/store/access-code/generate', {
-      stripe_price_id: priceId,
-      email: email,
-    });
-
-    debug("Generate access code response:", res.data);
+    const res = await centralIdentityService.generateAccessCode(priceId, email);
     if (!res.data || !res.data.data || !res.data.data.code) {
       return false;
     }
@@ -686,15 +681,9 @@ async function _generateAccessCode({ priceId, email }: { priceId: string; email:
  * @param param0 - An object containing the price ID and user ID.
  * @returns A boolean indicating whether the delivery was successful.
  */
-async function _autoDeliverDigitalProduct({priceId, user_id}: { priceId: string; user_id: string }): Promise<boolean> {
+async function _autoDeliverDigitalProduct({ priceId, user_id }: { priceId: string; user_id: string }): Promise<boolean> {
   try {
-    const res = await useCentralIdentityAxios(false).post('/app-licenses/auto-apply', {
-      stripe_price_id: priceId,
-      user_id: user_id,
-    });
-
-    debug("Auto deliver digital product response:", res.data);
-
+    const res = await centralIdentityService.autoApplyAppLicense(priceId, user_id);
     if (!res.data || !res.data.data || !res.data.data.success) {
       return false;
     }
@@ -748,13 +737,7 @@ async function _getApplicationsPriveledgedInternal(
   try {
     const offset = getPaginationOffset(page, limit);
 
-    const appsRes = await useCentralIdentityAxios(false).get("/applications", {
-      params: {
-        offset,
-        limit,
-      },
-    });
-
+    const appsRes = await centralIdentityService.getApplicationsPriveleged({ offset, limit });
     if (!appsRes.data || !appsRes.data.data || !appsRes.data.meta) {
       return null;
     }
@@ -871,14 +854,7 @@ async function getOrgs(
       offset = getPaginationOffset(page, limit);
     }
 
-    const orgsRes = await useCentralIdentityAxios(false).get("/organizations", {
-      params: {
-        offset: offset ? offset : undefined,
-        limit: limit ? limit : undefined,
-        query: req.query.query ? req.query.query : undefined,
-      },
-    });
-
+    const orgsRes = await centralIdentityService.getOrgs({ offset, limit, query: req.query.query });
     if (!orgsRes.data || !orgsRes.data.data || !orgsRes.data.meta) {
       return conductor500Err(res);
     }
@@ -903,10 +879,7 @@ async function getOrg(
       return conductor400Err(res);
     }
 
-    const orgRes = await useCentralIdentityAxios(false).get(
-      `/organizations/${req.params.orgId}`
-    );
-
+    const orgRes = await centralIdentityService.getOrg(req.params.orgId);
     if (!orgRes.data || !orgRes.data.data) {
       return conductor404Err(res);
     }
@@ -929,11 +902,7 @@ async function updateOrg(
       return conductor400Err(res);
     }
 
-    const updateRes = await useCentralIdentityAxios(false).patch(
-      `/organizations/${req.params.orgId}`,
-      req.body
-    );
-
+    const updateRes = await centralIdentityService.updateOrg(req.params.orgId, req.body);
     if (!updateRes.data || !updateRes.data.data) {
       return conductor500Err(res);
     }
@@ -956,8 +925,7 @@ async function createOrg(
     if (!req.body.name) {
       return conductor400Err(res);
     }
-    const orgRes = await useCentralIdentityAxios(false).post(
-      "/organizations",
+    const orgRes = await centralIdentityService.createOrg(
       {
         name: req.body.name,
         logo: req.body.logo || null,
@@ -988,10 +956,7 @@ async function deleteOrg(
       return conductor400Err(res);
     }
 
-    const orgRes = await useCentralIdentityAxios(false).delete(
-      `/organizations/${req.params.orgId}`
-    );
-
+    const orgRes = await centralIdentityService.deleteOrg(req.params.orgId);
     if (orgRes.data.err || orgRes.data.errMsg) {
       return conductor500Err(res);
     }
@@ -1004,6 +969,31 @@ async function deleteOrg(
     return conductor500Err(res);
   }
 }
+
+async function getOrgAdmins(
+  req: TypedReqParams<{ orgId: string }>,
+  res: Response
+) {
+  try {
+    if (!req.params.orgId) {
+      return conductor400Err(res);
+    }
+
+    const adminsRes = await centralIdentityService.getOrgAdmins(req.params.orgId);
+    if (!adminsRes.data || !adminsRes.data.data) {
+      return conductor404Err(res);
+    }
+
+    return res.send({
+      err: false,
+      admins: adminsRes.data.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 /**
  * Returns the same list of orgs as ADAPT, for use where live/unclean (ie getOrgs) data is not appropriate.
  */
@@ -1080,15 +1070,7 @@ async function getSystems(
       offset = getPaginationOffset(page, limit);
     }
 
-    const orgsRes = await useCentralIdentityAxios(false).get(
-      "/organization-systems", {
-      params: {
-        offset: offset ? offset : undefined,
-        limit: limit ? limit : undefined,
-      },
-    }
-    );
-
+    const orgsRes = await centralIdentityService.getSystems({ offset, limit });
     if (!orgsRes.data || !orgsRes.data.data || !orgsRes.data.meta) {
       return conductor500Err(res);
     }
@@ -1113,13 +1095,11 @@ async function getSystem(
       return conductor400Err(res);
     }
 
-    const systemRes = await useCentralIdentityAxios(false).get(
-      `/organization-systems/${req.params.systemId}`
-    );
-
+    const systemRes = await centralIdentityService.getSystem(req.params.systemId);
     if (!systemRes.data || !systemRes.data.data) {
       return conductor404Err(res);
     }
+
     return res.send({
       err: false,
       system: systemRes.data.data,
@@ -1139,11 +1119,7 @@ async function updateSystem(
       return conductor400Err(res);
     }
 
-    const updateRes = await useCentralIdentityAxios(false).put(
-      `/organization-systems/${req.params.systemId}`,
-      req.body
-    );
-
+    const updateRes = await centralIdentityService.updateSystem(req.params.systemId, req.body);
     if (!updateRes.data || !updateRes.data.data) {
       return conductor500Err(res);
     }
@@ -1167,8 +1143,7 @@ async function createSystem(
       return conductor400Err(res);
     }
 
-    const systemRes = await useCentralIdentityAxios(false).post(
-      "/organization-systems",
+    const systemRes = await centralIdentityService.createSystem(
       {
         name: req.body.name,
         logo: req.body.logo
@@ -1198,10 +1173,7 @@ async function deleteSystem(
       return conductor400Err(res);
     }
 
-    const sysRes = await useCentralIdentityAxios(false).delete(
-      `/organization-systems/${req.params.id}`
-    );
-
+    const sysRes = await centralIdentityService.deleteSystem(req.params.id);
     if (sysRes.data.err || sysRes.data.errMsg) {
       return conductor500Err(res);
     }
@@ -1216,7 +1188,7 @@ async function deleteSystem(
 }
 
 async function getServices(
-  req: TypedReqQuery<{ 
+  req: TypedReqQuery<{
     activePage?: number;
     limit?: number;
     query?: string;
@@ -1224,7 +1196,7 @@ async function getServices(
   }>,
   res: Response<{
     err: boolean;
-    services: CentralIdentityService[];
+    services: CentralIdentityServiceType[];
     totalCount: number;
   }>
 ) {
@@ -1248,19 +1220,16 @@ async function getServices(
 
     const offset = getPaginationOffset(page, limit);
 
-    const orgsRes = await useCentralIdentityAxios(false).get("/services", {
-      params: {
-        offset,
-        limit,
-        query: searchQuery,
-      },
-    });
-
+    const orgsRes = await centralIdentityService.getServices({
+      offset,
+      limit,
+      query: searchQuery
+    })
     if (!orgsRes.data || !orgsRes.data.data || !orgsRes.data.meta) {
       return conductor500Err(res);
     }
 
-    const sortData = (data: CentralIdentityService[], sortChoice: string) => {
+    const sortData = (data: CentralIdentityServiceType[], sortChoice: string) => {
       switch (sortChoice) {
         case "name":
           return data.sort((a, b) => a.name.localeCompare(b.name));
@@ -1287,11 +1256,12 @@ async function getServices(
 }
 
 async function updateService(
-  req: { body: { body: string };
+  req: {
+    body: { body: string };
     params: {
       id: string;
     }
-   },
+  },
   res: Response<{
     err: boolean;
     message: string;
@@ -1299,23 +1269,22 @@ async function updateService(
 ) {
   try {
     const id = req.params.id;
-    
+
     const body = req.body;
 
-    const parsedBody: CentralIdentityService = JSON.parse(body.body);
+    const parsedBody: CentralIdentityServiceType = JSON.parse(body.body);
 
-    if (!parsedBody.name){
+    if (!parsedBody.name) {
       throw new Error("The service name is required");
     }
     if (!parsedBody.service_Id || !parsedBody.service_Id.includes("libretexts.org")) {
       throw new Error("The service URL should have libretexts.org");
     }
-    const updateRes = await useCentralIdentityAxios(false).put(`/services/${id}`, body);
-
+    const updateRes = await centralIdentityService.updateService(id, parsedBody);
     if (!updateRes.data || updateRes.status !== 200) {
       return conductor500Err(res);
     }
-    
+
     return res.send({
       err: false,
       message: updateRes.data.message
@@ -1341,17 +1310,11 @@ async function getVerificationRequests(
 
     const offset = getPaginationOffset(page, limit);
 
-    const requestsRes = await useCentralIdentityAxios(false).get(
-      "/verification-requests",
-      {
-        params: {
-          offset,
-          limit,
-          status,
-        },
-      }
-    );
-
+    const requestsRes = await centralIdentityService.getVerificationRequests({
+      offset,
+      limit,
+      status
+    });
     if (!requestsRes.data || !requestsRes.data.data || !requestsRes.data.meta) {
       return conductor500Err(res);
     }
@@ -1375,19 +1338,19 @@ async function getVerificationRequest(
   }>
 ) {
   try {
-    const requestRes = await useCentralIdentityAxios(false).get(
-      `/verification-requests/${req.params.id}`
-    );
+    const requestId = req.params.id;
+    if (!requestId) {
+      return conductor400Err(res);
+    }
 
+    const requestRes = await centralIdentityService.getVerificationRequest(requestId);
     if (!requestRes.data || !requestRes.data.data) {
       return conductor500Err(res);
     }
 
     // TODO: This is a temporary fix until the backend is updated to return the user object
     requestRes.data.data.user = (
-      await useCentralIdentityAxios(false).get(
-        `/users/${requestRes.data.data.user_id}`
-      )
+      await centralIdentityService.getUser(requestRes.data.data.user_id)
     ).data.data;
 
     return res.send({
@@ -1408,7 +1371,7 @@ async function getLicenses(
   }>
 ) {
   try {
-    const licensesRes = await useCentralIdentityAxios().get("/licenses");
+    const licensesRes = await centralIdentityService.getLicenses();
     if (!licensesRes.data || !licensesRes.data.data) {
       return conductor500Err(res);
     }
@@ -1418,8 +1381,7 @@ async function getLicenses(
       licenses: licensesRes?.data?.data ?? [],
     });
   } catch (err) {
-    // debugError(err);
-    // return conductor500Err(res);
+    debugError(err);
     return res.send({
       err: false,
       licenses: [],
@@ -1437,8 +1399,13 @@ async function updateVerificationRequest(
   }>
 ) {
   try {
-    const patch = await useCentralIdentityAxios(false).patch(
-      `/verification-requests/${req.params.id}`,
+    const requestId = req.params.id;
+    if (!requestId) {
+      return conductor400Err(res);
+    }
+
+    const patch = await centralIdentityService.updateVerificationRequest(
+      requestId,
       req.body.request
     );
 
@@ -1467,16 +1434,12 @@ async function getUserNotes(
   const page = req.query.page || 1;
   const limit = req.query.limit || 25;
   try {
-    const noteRes = await useCentralIdentityAxios(false).get(
-      `/users/${req.params.userId}/notes`,
-      {
-        params: {
-          page,
-          limit
-        }
-      }
-    );
+    const userId = req.params.userId;
+    if (!userId) {
+      return conductor400Err(res);
+    }
 
+    const noteRes = await centralIdentityService.getUserNotes(userId, { page, limit });
     if (!noteRes.data || !noteRes.data.data) {
       return conductor500Err(res);
     }
@@ -1501,21 +1464,17 @@ async function createUserNote(
   }>
 ) {
   try {
+    const userId = req.params.userId;
     const callingUserId = req.user.decoded.uuid;
     const callingUser = await User.findOne({ uuid: callingUserId });
-    if (!callingUser || !callingUser.centralID) {
+    if (!userId || !callingUser || !callingUser.centralID) {
       return conductor400Err(res);
     }
 
-    const noteRes = await useCentralIdentityAxios(false).post(
-      `/users/${req.params.userId}/notes`,
-      {
-        content: req.body.content
-      }, {
-      headers: {
-        'X-User-ID': callingUser.centralID,
-      }
-    }
+    const noteRes = await centralIdentityService.createUserNote(
+      userId,
+      req.body.content,
+      callingUserId
     );
 
     if (!noteRes.data || !noteRes.data.data) {
@@ -1540,21 +1499,18 @@ async function updateUserNote(
   }>
 ) {
   try {
+    const { userId, noteId } = req.params;
     const callingUserId = req.user.decoded.uuid;
     const callingUser = await User.findOne({ uuid: callingUserId });
-    if (!callingUser || !callingUser.centralID) {
+    if (!userId || !noteId || !callingUser || !callingUser.centralID) {
       return conductor400Err(res);
     }
 
-    const noteRes = await useCentralIdentityAxios(false).patch(
-      `/users/${req.params.userId}/notes/${req.params.noteId}`,
-      {
-        content: req.body.content
-      }, {
-      headers: {
-        'X-User-ID': callingUser.centralID,
-      }
-    }
+    const noteRes = await centralIdentityService.updateUserNote(
+      userId,
+      noteId,
+      req.body.content,
+      callingUserId
     );
 
     if (!noteRes.data || !noteRes.data.data) {
@@ -1579,8 +1535,14 @@ async function deleteUserNote(
   }>
 ) {
   try {
-    const noteRes = await useCentralIdentityAxios(false).delete(
-      `/users/${req.params.userId}/notes/${req.params.noteId}`
+    const { userId, noteId } = req.params;
+    if (!userId || !noteId) {
+      return conductor400Err(res);
+    }
+
+    const noteRes = await centralIdentityService.deleteUserNote(
+      userId,
+      noteId
     );
 
     if (!noteRes.data || !noteRes.data.data) {
@@ -1746,16 +1708,14 @@ async function disableUser(
     const uuid = req.params.id;
     const { reason } = req.body;
 
-    const userRes = await useCentralIdentityAxios(false).patch(
-      `/users/${uuid}/disable`,
-      { disabled_reason: reason }
-    );
+    if (!uuid) return conductor400Err(res);
 
-    res.send({
+    await centralIdentityService.disableUser(uuid, reason);
+    return res.send({
       err: false,
       msg: "User successfully disabled.",
       meta: {},
-    })
+    });
   } catch (err) {
     debugError(err);
     return conductor500Err(res);
@@ -1767,13 +1727,13 @@ async function reEnableUser(
   res: Response
 ) {
   try {
-    const uuid = req.params.id;
+    if (!req.params?.id) {
+      return conductor400Err(res);
+    }
 
-    const userRes = await useCentralIdentityAxios(false).patch(
-      `/users/${uuid}/re-enable`,
-    );
+    await centralIdentityService.reEnableUser(req.params.id);
 
-    res.send({
+    return res.send({
       err: false,
       msg: "User successfully re-enabled.",
       meta: {},
@@ -1836,6 +1796,7 @@ function validate(method: string) {
       return [
         param("id", conductorErrors.err1).exists().isUUID(),
         body("orgs", conductorErrors.err1).exists().isArray(),
+        body("admin_role", conductorErrors.err1).optional().isString(),
       ];
     }
     case "deleteUserOrg": {
@@ -1846,6 +1807,13 @@ function validate(method: string) {
     }
     case "updateUser": {
       return [param("id", conductorErrors.err1).exists().isUUID()];
+    }
+    case "updateUserAdminRole": {
+      return [
+        param("id", conductorErrors.err1).exists().isUUID(),
+        param("orgId", conductorErrors.err1).exists().isInt(),
+        body("admin_role", conductorErrors.err1).exists().isString()
+      ];
     }
     case "updateUserAcademyOnlineAccess": {
       return [
@@ -1883,6 +1851,9 @@ function validate(method: string) {
         body("name", conductorErrors.err1).exists().isString(),
         body("logo", conductorErrors.err1).optional().isString(),
       ];
+    }
+    case "getOrgAdmins": {
+      return [param("orgId", conductorErrors.err1).exists().isInt()];
     }
     case "createSystem": {
       return [
@@ -1959,6 +1930,7 @@ export default {
   updateOrg,
   createOrg,
   deleteOrg,
+  getOrgAdmins,
   getADAPTOrgs,
   getSystems,
   deleteSystem,
@@ -1972,6 +1944,7 @@ export default {
   updateVerificationRequest,
   updateUser,
   updateUserAcademyOnlineAccess,
+  updateUserAdminRole,
   changeUserEmail,
   processNewUserWebhookEvent,
   processLibraryAccessWebhookEvent,

@@ -55,7 +55,8 @@ import {
   GetStoreOrdersResponse,
   StoreOrderWithStripeSession,
   OrderCharge,
-  OrderSession
+  OrderSession,
+  CentralIdentityOrgAdminResult
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -695,6 +696,15 @@ class API {
     return res;
   }
 
+  async getCentralIdentityOrgAdmins(orgId: number | string){
+    const res = await axios.get<
+      {
+        admins: CentralIdentityOrgAdminResult[];
+      } & ConductorBaseResponse
+    >(`/central-identity/orgs/${orgId}/admins`);
+    return res;
+  }
+
   async getCentralIdentitySystems({
     activePage,
     limit,
@@ -929,6 +939,22 @@ class API {
   async reEnableCentralIdentityUser(uuid: string) {
     const res = await axios.patch<ConductorBaseResponse>(
       `/central-identity/users/${uuid}/re-enable`
+    );
+    return res;
+  }
+
+  async updateCentralIdentityUserOrgs(uuid: string, orgs: Array<string | number>){
+    const res = await axios.post<ConductorBaseResponse>(
+      `/central-identity/users/${uuid}/orgs`,
+      { orgs }
+    );
+    return res;
+  }
+
+  async updateCentralIdentityUserOrgAdminRole(uuid: string, orgId: string | number, admin_role: string) {
+    const res = await axios.patch<ConductorBaseResponse>(
+      `/central-identity/users/${uuid}/orgs/${orgId}/admin-role`,
+      { admin_role }
     );
     return res;
   }

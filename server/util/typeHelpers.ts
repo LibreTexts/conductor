@@ -1,4 +1,4 @@
-import { BookSortOption } from "../types";
+import { BookSortOption, CentralIdentityVerificationRequestStatus } from "../types";
 import { AssetTagKeyInterface } from "../models/assettagkey.js";
 import { AssetTagFrameworkInterface } from "../models/assettagframework";
 import { Types } from "mongoose";
@@ -66,4 +66,15 @@ export function isAuthorObject(value: any): value is AuthorInterface {
   if (!value) return false;
   if (typeof value !== "object") return false;
   return "firstName" in value && "lastName" in value;
+}
+
+export function isCentralIdentityVerificationRequestStatus(
+  text: string
+): text is CentralIdentityVerificationRequestStatus {
+  return (
+    text === "approved" ||
+    text === "denied" ||
+    text === "needs_change" ||
+    text === "open"
+  );
 }

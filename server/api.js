@@ -365,6 +365,18 @@ router
     centralIdentityAPI.deleteUserOrg
   );
 
+router
+  .route("/central-identity/users/:id/orgs/:orgId/admin-role")
+  .patch(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("updateUserAdminRole"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.updateUserAdminRole
+  );
+
 router.route("/central-identity/app-licenses").get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
@@ -460,6 +472,18 @@ router
     centralIdentityAPI.validate("updateOrg"), 
     middleware.checkValidationErrors,
     centralIdentityAPI.updateOrg
+  );
+
+router
+  .route("/central-identity/orgs/:orgId/admins")
+  .get(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("getOrgAdmins"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.getOrgAdmins
   );
 
 router.route("/central-identity/adapt-orgs").get(

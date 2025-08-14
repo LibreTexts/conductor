@@ -57,3 +57,21 @@ export type License = {
 export type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
+
+export type NestedKeyOf<T> = T extends Record<string, any>
+  ? {
+      [K in keyof T]: K extends string
+        ? T[K] extends Record<string, any>
+          ? K | `${K}.${NestedKeyOf<T[K]>}`
+          : K
+        : never;
+    }[keyof T]
+  : never;
+
+export type NestedValueOf<T, K extends string> = K extends keyof T
+  ? T[K]
+  : K extends `${infer P}.${infer S}`
+  ? P extends keyof T
+    ? NestedValueOf<T[P], S>
+    : never
+  : never;
