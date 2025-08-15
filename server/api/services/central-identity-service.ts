@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from "axios";
-import { CentralIdentityOrg, CentralIdentityService as CentralIdentityServiceType, CentralIdentitySystem, CentralIdentityUpdateVerificationRequestBody, CentralIdentityUser } from "../../types";
+import { CentralIdentityAppLicense, CentralIdentityOrg, CentralIdentityService as CentralIdentityServiceType, CentralIdentitySystem, CentralIdentityUpdateVerificationRequestBody, CentralIdentityUser } from "../../types";
 
 export default class CentralIdentityService {
     private instance: AxiosInstance;
@@ -257,13 +257,31 @@ export default class CentralIdentityService {
     }
 
     async getStoreProducts() {
-        return this.instance.get(`/store-products`);
+        return this.instance.get<{
+            data: CentralIdentityAppLicense[];
+            meta: {
+                total: number
+            }
+        }>(`/store/products`);
     }
 
     async generateAccessCode(stripe_price_id: string, email: string) {
         return this.instance.post(`/store/access-code/generate`, {
             stripe_price_id,
             email
+        });
+    }
+
+    async bulkGenerateAccessCodes(application_license_id: string, quantity: number) {
+        return this.instance.post<{
+            data: string[];
+            meta: {
+                application_license: CentralIdentityAppLicense;
+                total_generated: number
+            }
+        }>(`/store/access-code/bulk`, {
+            application_license_id,
+            quantity
         });
     }
 

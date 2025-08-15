@@ -697,7 +697,7 @@ class API {
     return res;
   }
 
-  async getCentralIdentityOrgAdmins(orgId: number | string){
+  async getCentralIdentityOrgAdmins(orgId: number | string) {
     const res = await axios.get<
       {
         admins: CentralIdentityOrgAdminResult[];
@@ -854,12 +854,12 @@ class API {
     limit,
     query,
     sort,
-  }:{
+  }: {
     activePage?: number;
     limit?: number;
     query?: string;
     sort?: string;
-  }){
+  }) {
     const res = await axios.get<
       {
         services: CentralIdentityService[];
@@ -876,7 +876,7 @@ class API {
     return res;
   }
 
-  async updateCentralIdentityService( body: { body: string }, id: number){
+  async updateCentralIdentityService(body: { body: string }, id: number) {
     const res = await axios.put<ConductorBaseResponse>(
       `/central-identity/services/${id}`,
       body
@@ -944,7 +944,7 @@ class API {
     return res;
   }
 
-  async updateCentralIdentityUserOrgs(uuid: string, orgs: Array<string | number>){
+  async updateCentralIdentityUserOrgs(uuid: string, orgs: Array<string | number>) {
     const res = await axios.post<ConductorBaseResponse>(
       `/central-identity/users/${uuid}/orgs`,
       { orgs }
@@ -994,6 +994,17 @@ class API {
         application_license_id: string;
       } & ConductorBaseResponse
     >("/central-identity/app-licenses/revoke", data);
+    return res;
+  }
+
+  
+  async bulkGenerateCentralIdentityAppLicenseAccessCodes(
+    application_license_id: string,
+    quantity: number
+  ) {
+    const res = await axios.post(`/central-identity/app-licenses/${application_license_id}/bulk-generate`, {
+      quantity
+    });
     return res;
   }
 
