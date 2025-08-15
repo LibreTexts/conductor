@@ -49,6 +49,7 @@ import { updateTeamWorkbenchPermissions } from "../util/projectutils.js";
 import fse from "fs-extra";
 import { ZodReqWithUser } from "../types/Express.js";
 import CentralIdentityService from "./services/central-identity-service.js";
+import { createStandardWorkBook, generateWorkSheetColumnDefinitions } from "../util/exports.js";
 
 const centralIdentityService = new CentralIdentityService();
 
@@ -471,6 +472,54 @@ async function getAppLicenses(
   } catch (err) {
     debugError(err);
     return [];
+  }
+}
+
+async function bulkGenerateAccessCodes(
+  req: TypedReqParamsAndBody<{ id: string }, { quantity: number }>,
+  res: Response
+) {
+  try {
+    const { id } = req.params;
+    const { quantity } = req.body;
+
+    if (!id || !quantity) {
+      return conductor400Err(res);
+    }
+
+    const generateRes = await centralIdentityService.bulkGenerateAccessCodes(id, quantity);
+    if (!generateRes.data || !generateRes.data.data) {
+      return conductor500Err(res);
+    }
+
+    const codes = generateRes.data.data;
+    const appLicenseName = generateRes.data?.meta?.application_license?.name || "Unknown";
+
+    const workbook = createStandardWorkBook();
+    if (!workbook) {
+      throw new Error("Failed to generate workbook");
+    }
+
+    const worksheet = workbook.addWorksheet("access_codes");
+
+    worksheet.columns = generateWorkSheetColumnDefinitions([
+      "application_license.name",
+      "access_code"
+    ]);
+
+    for (const code of codes) {
+      worksheet.addRow([appLicenseName, code]);
+    }
+
+    const filename = `access_codes_${new Date().getTime()}.csv`;
+    const csv = await workbook.csv.writeBuffer();
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+
+    return res.send(csv);
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
   }
 }
 
@@ -1781,6 +1830,12 @@ function validate(method: string) {
         body("application_license_id", conductorErrors.err1).exists().isUUID(),
       ]
     }
+    case "bulkGenerateAccessCodes": {
+      return [
+        param("id", conductorErrors.err1).exists().isUUID(),
+        body("quantity", conductorErrors.err1).exists().isInt({ min: 1, max: 1000 })
+      ]
+    }
     case "getUserOrgs": {
       return [param("id", conductorErrors.err1).exists().isUUID()];
     }
@@ -1920,6 +1975,7 @@ export default {
   getAppLicenses,
   grantAppLicense,
   revokeAppLicense,
+  bulkGenerateAccessCodes,
   deleteUserApplication,
   addUserOrgs,
   deleteUserOrg,

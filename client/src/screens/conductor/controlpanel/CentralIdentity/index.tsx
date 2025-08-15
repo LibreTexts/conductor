@@ -34,6 +34,12 @@ const CentralIdentity = () => {
 
   const listItems: CentralIdentityListItem[] = [
     {
+      url: "/controlpanel/libreone/app-licenses",
+      icon: "key",
+      title: "App Licenses",
+      description: "View and manage App Licenses",
+    },
+    {
       url: "/controlpanel/libreone/instructor-verifications",
       icon: "check circle",
       title: "Instructor Verification Requests",
@@ -97,13 +103,16 @@ const CentralIdentity = () => {
                   Control Panel
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>LibreOne Admin Consoles</Breadcrumb.Section>
+                <Breadcrumb.Section active>
+                  LibreOne Admin Consoles
+                </Breadcrumb.Section>
               </Breadcrumb>
             </Segment>
             <Segment>
               <p className="mt-1p mb-1p">
-                Welcome to the LibreOne Admin Consoles. Here, you will find several tools
-                to manage users throughout the LibreVerse via the LibreOne CAS.
+                Welcome to the LibreOne Admin Consoles. Here, you will find
+                several tools to manage users throughout the LibreVerse via the
+                LibreOne CAS.
               </p>
               <Segment basic>
                 {isSuperAdmin && org.orgID === "libretexts" && (

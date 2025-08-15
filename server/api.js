@@ -406,6 +406,17 @@ router.route("/central-identity/app-licenses/revoke")
   centralIdentityAPI.revokeAppLicense
 );
 
+router.route("/central-identity/app-licenses/:id/bulk-generate")
+.post(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  centralIdentityAPI.validate("bulkGenerateAccessCodes"),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.bulkGenerateAccessCodes
+);
+
 router
   .route("/central-identity/apps")
   .get(
