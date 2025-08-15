@@ -158,8 +158,8 @@ export async function processLuluWebhook(req: Request, res: Response) {
       return conductor400Err(res);
     }
 
+    debug("[STORE]: Lulu webhook event received");
     const data = json.data as LuluWebhookData['data'];
-    debug("Processing Lulu webhook data:", data);
     await storeService.processLuluOrderUpdate({ data });
 
     return res.status(200).send({
@@ -303,7 +303,7 @@ export async function adminResubmitPrintJob(req: z.infer<typeof AdminResubmitPri
 export async function getOrder(req: Request, res: Response) {
   try {
     const { order_id } = req.params;
-              
+
     const result = await storeService.getCheckoutSession(order_id);
 
     if (!result) {
