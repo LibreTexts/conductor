@@ -9,12 +9,13 @@ type Option = {
 type SearchableDropdownProps = {
   options: Option[];
   placeholder?: string;
-  onChange?: (value: string) => void;
-  value?: string | null;
+  onChange?: (value: string | string[]) => void;
+  value?: string | string[] | null;
   disabled?: boolean;
   className?: string;
   fluid?: boolean;
   style?: React.CSSProperties;
+  multiple?: boolean;
 };
 
 const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
@@ -25,11 +26,13 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   disabled = false,
   className = "",
   fluid = false,
-  style
+  style,
+  multiple = false,
 }) => {
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [selected, setSelected] = useState<Option | null>(null);
+  const [selectedMulti, setSelectedMulti] = useState<Option[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,30 +47,54 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   }, []);
 
   useEffect(() => {
-    if (value) {
-      const option = options.find(opt => opt.value === value);
-      if (option) {
-        setSelected(option);
-        setSearch(option.label);
-      }
+    if (multiple) {
+      const valueAsArray = Array.isArray(value) ? value : [];
+      setSelectedMulti(options.filter((opt) => valueAsArray.includes(opt.value)));
+      setSelected(null); // Ensure single-select state is cleared
     } else {
-      setSelected(null);
-      setSearch('');
+      if (value && typeof value === 'string') {
+        const option = options.find(opt => opt.value === value);
+        if (option) {
+          setSelected(option);
+          setSearch(option.label);
+        }
+      } else {
+        setSelected(null);
+        setSearch('');
+      }
+      setSelectedMulti([]); // Ensure multi-select state is cleared
     }
-  }, [value, options]);
+  }, [value, options, multiple]);
 
   const filteredOptions = useMemo(() => {
-    return options.filter(option =>
+    let baseOptions = options.filter((option) =>
       option.label.toLowerCase().includes(search.toLowerCase())
     );
-  }, [options, search]);
+
+    // If multiple, filter out already selected options
+    if (multiple) {
+      const selectedValues = selectedMulti.map((opt) => opt.value);
+      baseOptions = baseOptions.filter((opt) => !selectedValues.includes(opt.value));
+    }
+    return baseOptions;
+  }, [options, search, multiple, selectedMulti]);
 
   const handleSelect = (option: Option) => {
-    setSelected(option);
-    setSearch(option.label);
-    setIsOpen(false);
-    if (onChange) {
-      onChange(option.value);
+    if (multiple) {
+      const newSelection = [...selectedMulti, option];
+      setSelectedMulti(newSelection);
+      setSearch(''); // Clear search input after selection
+      setIsOpen(false);
+      if (onChange) {
+        onChange(newSelection.map((opt) => opt.value));
+      }
+    } else {
+      setSelected(option);
+      setSearch(option.label);
+      setIsOpen(false);
+      if (onChange) {
+        onChange(option.value);
+      }
     }
   };
 
@@ -85,6 +112,15 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
     }
   };
 
+  const handleRemove = (valueToRemove: string) => {
+    if (disabled) return;
+    const newSelection = selectedMulti.filter((opt) => opt.value !== valueToRemove);
+    setSelectedMulti(newSelection);
+    if (onChange) {
+      onChange(newSelection.map((opt) => opt.value));
+    }
+  };
+
   return (
     <div className={`ui search dropdown ${fluid ? 'fluid' : ''} ${className} ${isOpen ? 'active visible' : ''} ${disabled ? 'disabled' : ''}`} 
         ref={dropdownRef}
@@ -96,7 +132,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
           value={search}
           onChange={handleInputChange}
           onFocus={() => setIsOpen(true)}
-          placeholder={placeholder}
+          placeholder={multiple && selectedMulti.length > 0 ? 'Add more...' : placeholder}
           disabled={disabled}
           className={`
             w-full px-3 py-2 pr-10
@@ -138,7 +174,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
                     className={`
                         px-3 py-2 cursor-pointer flex items-center
                         hover:bg-gray-100
-                        ${selected?.value === option.value ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-900'}
+                        ${!multiple && selected?.value === option.value ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-900'}
                         transition-colors duration-150
                     `}
                     >

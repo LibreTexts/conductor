@@ -827,11 +827,13 @@ class API {
     limit,
     query,
     sort,
+    academy_online,
   }: {
     page?: number;
     limit?: number;
     query?: string;
     sort?: string;
+    academy_online?: number[];
   }) {
     const res = await axios.get<
       {
@@ -844,6 +846,7 @@ class API {
         ...(limit ? { limit } : {}),
         ...(query ? { query } : {}),
         ...(sort ? { sort } : {}),
+        ...(academy_online ? { academy_online } : {}),
       },
     });
     return res;
@@ -1327,7 +1330,6 @@ class API {
     });
     return res;
   }
-
   async getProjectFile(projectID: string, fileID: string) {
     const res = await axios.get<
       {
@@ -1848,3 +1850,4 @@ class API {
 }
 
 export default new API();
+

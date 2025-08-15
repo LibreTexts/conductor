@@ -1,7 +1,7 @@
 import conductorErrors from "../conductor-errors.js";
 import { debug, debugError } from "../debug.js";
 import { Request, Response } from "express";
-import { param, body, oneOf } from "express-validator";
+import { query, param, body, oneOf } from "express-validator";
 import {
   CentralIdentityOrg,
   CentralIdentityService as CentralIdentityServiceType,
@@ -58,6 +58,7 @@ async function getUsers(
     limit?: number;
     query?: string;
     sort?: string;
+    academy_online?: number[];
   }>,
   res: Response<{
     err: boolean;
@@ -79,9 +80,10 @@ async function getUsers(
     const offset = getPaginationOffset(page, limit);
 
     const usersRes = await centralIdentityService.getUsers({
-      offset,
-      limit,
-      query: req.query.query ? req.query.query : undefined,
+        offset,
+        limit,
+        query: req.query.query ? req.query.query : undefined,
+        academy_online: req.query.academy_online ? req.query.academy_online : undefined,
     });
 
     if (!usersRes.data || !usersRes.data.data || !usersRes.data.meta) {
@@ -1751,10 +1753,12 @@ function validate(method: string) {
   switch (method) {
     case "getUsers": {
       return [
-        param("page", conductorErrors.err1).optional().isInt(),
-        param("limit", conductorErrors.err1).optional().isInt(),
-        param("query", conductorErrors.err1).optional().isString(),
-        param("sort", conductorErrors.err1).optional().isString(),
+        query("page", conductorErrors.err1).optional().isInt(),
+        query("limit", conductorErrors.err1).optional().isInt(),
+        query("query", conductorErrors.err1).optional().isString(),
+        query("sort", conductorErrors.err1).optional().isString(),
+        query("academy_online").optional().isArray(),
+        query("academy_online.*").optional().isInt(),
       ];
     }
     case "getUser": {

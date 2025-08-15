@@ -8,6 +8,7 @@ import {
   Dropdown,
   Input,
 } from "semantic-ui-react";
+import Breakpoint from "../../../../components/util/Breakpoints";
 import { CentralIdentityUser } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
@@ -15,10 +16,12 @@ import {
   getPrettyAuthSource,
   getPrettyUserType,
   getPrettyVerficationStatus,
+  academyOnlineAccessLevels,
 } from "../../../../utils/centralIdentityHelpers";
 import useDebounce from "../../../../hooks/useDebounce";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../../../api";
+import SearchableDropdown from "../../../../components/util/SearchableDropdown";
 import SupportCenterTable from "../../../../components/support/SupportCenterTable";
 import { IconLockExclamation } from "@tabler/icons-react";
 
@@ -35,12 +38,28 @@ const CentralIdentityUsers = () => {
   const [sortChoice, setSortChoice] = useState<string>("first");
   const [searchInput, setSearchInput] = useState<string>(""); // For debouncing
   const [searchString, setSearchString] = useState<string>(""); // For the actual search
+  const [academyFilters, setAcademyFilters] = useState<string[]>([]);
+
+  const TABLE_COLS = [
+    { key: "firstName", text: "First Name" },
+    { key: "lastName", text: "Last Name" },
+    { key: "email", text: "Email" },
+    { key: "userType", text: "User Type" },
+    { key: "verification", text: "Verification Status" },
+    { key: "studentId", text: "Student ID" },
+    { key: "Auth Source", text: "Auth Source" },
+    { key: "Actions", text: "Actions" },
+  ];
   const sortOptions = [
     { key: "first", text: "Sort by First Name", value: "first" },
     { key: "last", text: "Sort by Last Name", value: "last" },
     { key: "email", text: "Sort by Email", value: "email" },
     { key: "auth", text: "Sort by Auth Method", value: "auth" },
   ];
+  const academyOptions = academyOnlineAccessLevels.map((o) => ({
+    value: String(o.value),
+    label: `${o.value} - ${o.text}`,
+  }));
 
   //Data
   const { data: users, isLoading } = useQuery<CentralIdentityUser[]>({
@@ -50,6 +69,7 @@ const CentralIdentityUsers = () => {
       itemsPerPage,
       sortChoice,
       searchString,
+      academyFilters,
     ],
     queryFn: () =>
       getUsers({
@@ -79,6 +99,7 @@ const CentralIdentityUsers = () => {
         limit: itemsPerPage,
         query: searchString,
         sort: sortChoice,
+        academy_online: academyFilters.map(Number),
       });
 
       if (
@@ -134,17 +155,42 @@ const CentralIdentityUsers = () => {
               <Grid>
                 <Grid.Row>
                   <Grid.Column width={11}>
-                    <Dropdown
-                      placeholder="Sort by..."
-                      floating
-                      selection
-                      button
-                      options={sortOptions}
-                      onChange={(_e, { value }) => {
-                        setSortChoice(value as string);
-                      }}
-                      value={sortChoice}
-                    />
+                    <div className="flex flex-row gap-2 flex-wrap">
+                      <Dropdown
+                        placeholder="Sort by..."
+                        floating
+                        selection
+                        button
+                        options={sortOptions}
+                        onChange={(_e, { value }) => {
+                          setSortChoice(value as string);
+                        }}
+                        value={sortChoice}
+                      />
+                      <SearchableDropdown
+                        options={academyOptions}
+                        placeholder="Filter by Academy Online Access..."
+                        multiple
+                        value={academyFilters}
+                        onChange={(value) =>
+                          setAcademyFilters(Array.isArray(value) ? value : [])
+                        }
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {academyFilters.map((filter) => (
+                        <span key={filter} className="bg-gray-200 text-gray-800 text-sm font-medium px-2.5 py-1 rounded-full flex items-center">
+                          {academyOptions.find(o => o.value === filter)?.label || filter}
+                          <button
+                            type="button"
+                            className="ml-2 text-gray-500 hover:text-gray-800"
+                            onClick={() => setAcademyFilters(academyFilters.filter(f => f !== filter))}
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      ))}
+                    </div>
                   </Grid.Column>
                   <Grid.Column width={5}>
                     <Input

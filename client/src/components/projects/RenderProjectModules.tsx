@@ -247,7 +247,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                         placeholder="Filter by..."
                         value={selectedValue}
                         onChange={(value) => {
-                          setSelectedValue(value);
+                          setSelectedValue(Array.isArray(value) ? value[0] : value);
                         }}
                       />
                     </div>
