@@ -39,6 +39,7 @@ const CentralIdentityUsers = () => {
   const [searchInput, setSearchInput] = useState<string>(""); // For debouncing
   const [searchString, setSearchString] = useState<string>(""); // For the actual search
   const [academyFilters, setAcademyFilters] = useState<string[]>([]);
+  const [adminRoleFilters, setAdminRoleFilters] = useState<string[]>([]);
 
   const TABLE_COLS = [
     { key: "firstName", text: "First Name" },
@@ -56,6 +57,12 @@ const CentralIdentityUsers = () => {
     { key: "email", text: "Sort by Email", value: "email" },
     { key: "auth", text: "Sort by Auth Method", value: "auth" },
   ];
+
+  const adminRoleOptions = [
+    { value: "org_admin", label: "Org Admin" },
+    { value: "org_sys_admin", label: "Org Sys Admin" },
+  ];
+
   const academyOptions = academyOnlineAccessLevels.map((o) => ({
     value: String(o.value),
     label: `${o.value} - ${o.text}`,
@@ -70,6 +77,7 @@ const CentralIdentityUsers = () => {
       sortChoice,
       searchString,
       academyFilters,
+      adminRoleFilters,
     ],
     queryFn: () =>
       getUsers({
@@ -100,6 +108,7 @@ const CentralIdentityUsers = () => {
         query: searchString,
         sort: sortChoice,
         academy_online: academyFilters.map(Number),
+        admin_role: adminRoleFilters,
       });
 
       if (
@@ -176,6 +185,15 @@ const CentralIdentityUsers = () => {
                           setAcademyFilters(Array.isArray(value) ? value : [])
                         }
                       />
+                      <SearchableDropdown
+                        options={adminRoleOptions}
+                        placeholder="Filter by Admin Role..."
+                        multiple
+                        value={adminRoleFilters}
+                        onChange={(value) =>
+                          setAdminRoleFilters(Array.isArray(value) ? value : [])
+                        }
+                      />
                     </div>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {academyFilters.map((filter) => (
@@ -185,6 +203,20 @@ const CentralIdentityUsers = () => {
                             type="button"
                             className="ml-2 text-gray-500 hover:text-gray-800"
                             onClick={() => setAcademyFilters(academyFilters.filter(f => f !== filter))}
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {adminRoleFilters.map((role) => (
+                        <span key={role} className="bg-blue-200 text-blue-800 text-sm font-medium px-2.5 py-1 rounded-full flex items-center">
+                          {adminRoleOptions.find(o => o.value === role)?.label || role}
+                          <button
+                            type="button"
+                            className="ml-2 text-blue-500 hover:text-blue-800"
+                            onClick={() => setAdminRoleFilters(adminRoleFilters.filter(r => r !== role))}
                           >
                             &times;
                           </button>
