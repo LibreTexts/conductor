@@ -106,14 +106,15 @@ export default class CentralIdentityService {
         return this.instance.delete(`/organization-systems/${systemId}`);
     }
 
-    async getUsers({ offset, limit, query, academy_online }: {
+    async getUsers({ offset, limit, query, academy_online, admin_role }: {
         offset?: number;
         limit?: number;
         query?: string;
         academy_online?: number[];
+        admin_role?: string[];
     }) {
         return this.instance.get("/users", {
-            params: { offset, limit, query, academy_online }
+            params: { offset, limit, query, academy_online, admin_role }
         });
     }
 

@@ -60,6 +60,7 @@ async function getUsers(
     query?: string;
     sort?: string;
     academy_online?: number[];
+    admin_role?: string[];
   }>,
   res: Response<{
     err: boolean;
@@ -85,6 +86,7 @@ async function getUsers(
         limit,
         query: req.query.query ? req.query.query : undefined,
         academy_online: req.query.academy_online ? req.query.academy_online : undefined,
+        admin_role: req.query.admin_role ? req.query.admin_role : undefined,
     });
 
     if (!usersRes.data || !usersRes.data.data || !usersRes.data.meta) {

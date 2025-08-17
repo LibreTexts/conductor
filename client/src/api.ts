@@ -828,12 +828,14 @@ class API {
     query,
     sort,
     academy_online,
+    admin_role,
   }: {
     page?: number;
     limit?: number;
     query?: string;
     sort?: string;
     academy_online?: number[];
+    admin_role?: string[];
   }) {
     const res = await axios.get<
       {
@@ -847,6 +849,7 @@ class API {
         ...(query ? { query } : {}),
         ...(sort ? { sort } : {}),
         ...(academy_online ? { academy_online } : {}),
+        ...(admin_role ? { admin_role } : {}),
       },
     });
     return res;
