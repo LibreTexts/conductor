@@ -70,18 +70,32 @@ const CentralIdentityAppLicenses = () => {
                   },
                   {
                     accessor: "perpetual",
+                    render(record) {
+                      return <span>{record.perpetual ? "Yes" : "No"}</span>;
+                    },
                   },
                   {
                     accessor: "trial",
+                    render(record) {
+                      return <span>{record.trial ? "Yes" : "No"}</span>;
+                    },
                   },
                   {
                     accessor: "is_academy_license",
                     title: "Is Academy License",
+                    render(record) {
+                      return (
+                        <span>{record.is_academy_license ? "Yes" : "No"}</span>
+                      );
+                    },
                   },
                   {
                     accessor: "academy_level",
                     title: "Academy Level",
-                    render(record, index) {
+                    render(record) {
+                      if (record.academy_level === null) {
+                        return <span>N/A</span>;
+                      }
                       return (
                         <span>
                           {getPrettyAcademyOnlineAccessLevel(
