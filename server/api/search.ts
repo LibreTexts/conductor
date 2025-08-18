@@ -744,6 +744,7 @@ function _generateMiniReposMatchObjs({
   // Add any applied filters to match obj
   projectFiltersOptions = {
     $and: [
+      { orgID: process.env.ORG_ID },
       { classification: "minirepo" },
       ...projectFilters
     ]
