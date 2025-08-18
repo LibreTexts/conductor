@@ -17,6 +17,7 @@ import {
   getPrettyUserType,
   getPrettyVerficationStatus,
   academyOnlineAccessLevels,
+  getPrettyAcademyOnlineAccessLevel,
 } from "../../../../utils/centralIdentityHelpers";
 import useDebounce from "../../../../hooks/useDebounce";
 import { useQuery } from "@tanstack/react-query";
@@ -179,12 +180,20 @@ const CentralIdentityUsers = () => {
                     </div>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {academyFilters.map((filter) => (
-                        <span key={filter} className="bg-gray-200 text-gray-800 text-sm font-medium px-2.5 py-1 rounded-full flex items-center">
-                          {academyOptions.find(o => o.value === filter)?.label || filter}
+                        <span
+                          key={filter}
+                          className="bg-gray-200 text-gray-800 text-sm font-medium px-2.5 py-1 rounded-full flex items-center"
+                        >
+                          {academyOptions.find((o) => o.value === filter)
+                            ?.label || filter}
                           <button
                             type="button"
                             className="ml-2 text-gray-500 hover:text-gray-800"
-                            onClick={() => setAcademyFilters(academyFilters.filter(f => f !== filter))}
+                            onClick={() =>
+                              setAcademyFilters(
+                                academyFilters.filter((f) => f !== filter)
+                              )
+                            }
                           >
                             &times;
                           </button>
@@ -284,6 +293,13 @@ const CentralIdentityUsers = () => {
                       ) : (
                         <span className="muted-text">N/A</span>
                       );
+                    },
+                  },
+                  {
+                    accessor: "academy_online",
+                    title: "Academy Online Access",
+                    render(record) {
+                      return getPrettyAcademyOnlineAccessLevel(record.academy_online);
                     },
                   },
                   {
