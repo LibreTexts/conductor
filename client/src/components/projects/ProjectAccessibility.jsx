@@ -27,7 +27,6 @@ import axios from 'axios';
 import queryString from 'query-string';
 
 import Messaging from '../Messaging';
-import { MentionsInput, Mention } from 'react-mentions';
 
 import {
     isEmptyString,
