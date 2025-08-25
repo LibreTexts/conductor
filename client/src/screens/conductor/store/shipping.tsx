@@ -18,7 +18,8 @@ import { formatPrice } from "../../../utils/storeHelpers";
 import { Icon } from "semantic-ui-react";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import { useTypedSelector } from "../../../state/hooks";
-import Checkbox from "../../../components/NextGenInputs/Checkbox";
+import { useModals } from "../../../context/ModalContext";
+import ConfirmOrderModal from "../../../components/store/ConfirmOrderModal";
 
 const STATE_CODES = [
   {
@@ -314,6 +315,7 @@ const STATE_CODES = [
 export default function ShippingPage() {
   const { cart, hasDigitalProducts, hasPhysicalProducts } = useCart();
   const { debounce } = useDebounce();
+  const { openModal, closeAllModals } = useModals();
   const user = useTypedSelector((state) => state.user);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -325,9 +327,6 @@ export default function ShippingPage() {
     useState<StoreShippingOption | null>(null);
   const [selectedDigitalDeliveryOption, setSelectedDigitalDeliveryOption] =
     useState<StoreDigitalDeliveryOption | null>(null);
-  const [shippingConfirmation, setShippingConfirmation] = useState(false);
-  const [finalConfirmation, setFinalConfirmation] = useState(false);
-  const [productionTimeConfirmation, setProductionTimeConfirmation] = useState(false);
 
   const { control, getValues, setValue, watch, trigger } =
     useForm<StoreCheckoutForm>({
@@ -360,10 +359,6 @@ export default function ShippingPage() {
       return true;
     }
 
-    if (!shippingConfirmation || !finalConfirmation || !productionTimeConfirmation) {
-      return true;
-    }
-
     return false;
   }, [
     cart,
@@ -374,10 +369,7 @@ export default function ShippingPage() {
     hasDigitalProducts,
     hasPhysicalProducts,
     selectedDigitalDeliveryOption,
-    user?.uuid,
-    shippingConfirmation,
-    finalConfirmation,
-    productionTimeConfirmation,
+    user?.uuid
   ]);
 
   const updateShippingOptionsDebounced = debounce(updateShippingOptions, 500);
@@ -498,6 +490,19 @@ export default function ShippingPage() {
     }
   }
 
+  async function handleProceedToPayment() {
+    openModal(
+      <ConfirmOrderModal
+        isOpen
+        onClose={closeAllModals}
+        onConfirm={() => {
+          closeAllModals();
+          confirmOrder();
+        }}
+      />
+    );
+  }
+
   return (
     <AlternateLayout>
       <div className="mx-auto max-w-2xl px-4 pb-24 pt-16 sm:px-6 lg:max-w-7xl lg:px-8">
@@ -508,226 +513,226 @@ export default function ShippingPage() {
           }}
         >
           <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">
-            Contact & Shipping information
-          </h2>
-          <p className="text-sm text-gray-500 mb-4">
-            All fields are required unless marked as optional.
-          </p>
-          <div className="mt-4 grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4">
-            <Controller
-              name="first_name"
-              control={control}
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Input
-                  label="First name"
-                  placeholder="First name"
-                  autoComplete="given-name"
-                  {...field}
-                  onChange={(e) => {
-                    field.onChange(e);
-                  }}
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">
+              Contact & Shipping information
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              All fields are required unless marked as optional.
+            </p>
+            <div className="mt-4 grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4">
+              <Controller
+                name="first_name"
+                control={control}
+                rules={{ required: true }}
+                render={({ field }) => (
+                  <Input
+                    label="First name"
+                    placeholder="First name"
+                    autoComplete="given-name"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                    }}
+                  />
+                )}
+              />
+              <Controller
+                name="last_name"
+                control={control}
+                rules={{ required: true }}
+                render={({ field }) => (
+                  <Input
+                    label="Last name"
+                    placeholder="Last name"
+                    autoComplete="family-name"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                    }}
+                  />
+                )}
+              />
+
+              <div className="sm:col-span-2">
+                <Controller
+                  name="company"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      label="Company (optional)"
+                      placeholder="Company (optional)"
+                      autoComplete="organization"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                      }}
+                    />
+                  )}
                 />
-              )}
-            />
-            <Controller
-              name="last_name"
-              control={control}
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Input
-                  label="Last name"
-                  placeholder="Last name"
-                  autoComplete="family-name"
-                  {...field}
-                  onChange={(e) => {
-                    field.onChange(e);
-                  }}
+              </div>
+
+              <div className="sm:col-span-2">
+                <Controller
+                  name="address_line_1"
+                  control={control}
+                  rules={{ required: true }}
+                  render={({ field }) => (
+                    <Input
+                      label="Address line 1"
+                      placeholder="Address line 1"
+                      autoComplete="address-line1"
+                      {...field}
+                      maxLength={30}
+                      onChange={(e) => {
+                        field.onChange(e);
+                      }}
+                    />
+                  )}
                 />
-              )}
-            />
+              </div>
 
-            <div className="sm:col-span-2">
-              <Controller
-                name="company"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    label="Company (optional)"
-                    placeholder="Company (optional)"
-                    autoComplete="organization"
-                    {...field}
-                    onChange={(e) => {
-                      field.onChange(e);
-                    }}
-                  />
-                )}
-              />
-            </div>
+              <div className="sm:col-span-2">
+                <Controller
+                  name="address_line_2"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      label="Address line 2 (optional)"
+                      placeholder="Address line 2"
+                      autoComplete="address-line2"
+                      {...field}
+                      maxLength={30}
+                      onChange={(e) => {
+                        field.onChange(e);
+                      }}
+                    />
+                  )}
+                />
+              </div>
+              <div>
+                <Controller
+                  name="city"
+                  control={control}
+                  rules={{ required: true }}
+                  render={({ field }) => (
+                    <Input
+                      label="City"
+                      placeholder="City"
+                      autoComplete="address-level2"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                      }}
+                    />
+                  )}
+                />
+              </div>
 
-            <div className="sm:col-span-2">
-              <Controller
-                name="address_line_1"
-                control={control}
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <Input
-                    label="Address line 1"
-                    placeholder="Address line 1"
-                    autoComplete="address-line1"
-                    {...field}
-                    maxLength={30}
-                    onChange={(e) => {
-                      field.onChange(e);
-                    }}
-                  />
-                )}
-              />
-            </div>
+              <div>
+                <Controller
+                  name="state"
+                  control={control}
+                  rules={{ required: true }}
+                  render={({ field }) => (
+                    <Select
+                      label="State / Province"
+                      options={STATE_CODES.map((state) => ({
+                        value: state.abbreviation,
+                        label: state.name,
+                      }))}
+                      autoComplete="address-level1"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                      }}
+                    />
+                  )}
+                />
+              </div>
 
-            <div className="sm:col-span-2">
-              <Controller
-                name="address_line_2"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    label="Address line 2 (optional)"
-                    placeholder="Address line 2"
-                    autoComplete="address-line2"
-                    {...field}
-                    maxLength={30}
-                    onChange={(e) => {
-                      field.onChange(e);
-                    }}
-                  />
-                )}
-              />
-            </div>
-            <div>
-              <Controller
-                name="city"
-                control={control}
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <Input
-                    label="City"
-                    placeholder="City"
-                    autoComplete="address-level2"
-                    {...field}
-                    onChange={(e) => {
-                      field.onChange(e);
-                    }}
-                  />
-                )}
-              />
-            </div>
+              <div>
+                <Controller
+                  name="postal_code"
+                  control={control}
+                  rules={{ required: true }}
+                  render={({ field }) => (
+                    <Input
+                      label="Postal code"
+                      placeholder="Postal code"
+                      autoComplete="postal-code"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                      }}
+                    />
+                  )}
+                />
+              </div>
 
-            <div>
-              <Controller
-                name="state"
-                control={control}
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <Select
-                    label="State / Province"
-                    options={STATE_CODES.map((state) => ({
-                      value: state.abbreviation,
-                      label: state.name,
-                    }))}
-                    autoComplete="address-level1"
-                    {...field}
-                    onChange={(e) => {
-                      field.onChange(e);
-                    }}
-                  />
-                )}
+              <div>
+                <Controller
+                  name="country"
+                  control={control}
+                  rules={{ required: true }}
+                  render={({ field }) => (
+                    <Select
+                      label="Country / Region"
+                      options={[
+                        { value: "US", label: "United States" },
+                        { value: "CA", label: "Canada" },
+                      ]}
+                      autoComplete="country"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                      }}
+                    />
+                  )}
+                />
+              </div>
+              <div>
+                <Controller
+                  name="email"
+                  control={control}
+                  rules={{ required: true }}
+                  render={({ field }) => (
+                    <Input
+                      label="Email address"
+                      placeholder="Email address"
+                      autoComplete="email"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                      }}
+                    />
+                  )}
+                />
+              </div>
+              <div>
+                <Controller
+                  name="phone"
+                  control={control}
+                  rules={{ required: true }}
+                  render={({ field }) => (
+                    <Input
+                      label="Phone number"
+                      placeholder="Phone number"
+                      autoComplete="tel"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                      }}
+                    />
+                  )}
+                />
+              </div>
+              <ShippingOptions
+                shippingCalculated={shippingCalculated}
+                shippingOptions={shippingOptions}
+                selectedShippingOption={selectedShippingOption}
+                setSelectedShippingOption={setSelectedShippingOption}
               />
             </div>
-
-            <div>
-              <Controller
-                name="postal_code"
-                control={control}
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <Input
-                    label="Postal code"
-                    placeholder="Postal code"
-                    autoComplete="postal-code"
-                    {...field}
-                    onChange={(e) => {
-                      field.onChange(e);
-                    }}
-                  />
-                )}
-              />
-            </div>
-
-            <div>
-              <Controller
-                name="country"
-                control={control}
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <Select
-                    label="Country / Region"
-                    options={[
-                      { value: "US", label: "United States" },
-                      { value: "CA", label: "Canada" },
-                    ]}
-                    autoComplete="country"
-                    {...field}
-                    onChange={(e) => {
-                      field.onChange(e);
-                    }}
-                  />
-                )}
-              />
-            </div>
-            <div>
-              <Controller
-                name="email"
-                control={control}
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <Input
-                    label="Email address"
-                    placeholder="Email address"
-                    autoComplete="email"
-                    {...field}
-                    onChange={(e) => {
-                      field.onChange(e);
-                    }}
-                  />
-                )}
-              />
-            </div>
-            <div>
-              <Controller
-                name="phone"
-                control={control}
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <Input
-                    label="Phone number"
-                    placeholder="Phone number"
-                    autoComplete="tel"
-                    {...field}
-                    onChange={(e) => {
-                      field.onChange(e);
-                    }}
-                  />
-                )}
-              />
-            </div>
-            <ShippingOptions
-              shippingCalculated={shippingCalculated}
-              shippingOptions={shippingOptions}
-              selectedShippingOption={selectedShippingOption}
-              setSelectedShippingOption={setSelectedShippingOption}
-            />
-          </div>
           </div>
 
           {/* Order summary */}
@@ -893,39 +898,11 @@ export default function ShippingPage() {
                   </div>
                 </div>
               )}
-              <div className="border-t border-gray-200 px-4 py-6 sm:px-6 space-y-4">
-                <p className="text-sm text-gray-500">
-                  Please confirm to proceed to payment:
-                </p>
-                <Checkbox
-                  name="shipping-confirmation"
-                  label="I have confirmed my email address and shipping details are correct. I understand that if my information is incorrect, LibreTexts may not be able to contact me or ship my order."
-                  required
-                  checked={shippingConfirmation}
-                  onChange={(e) => setShippingConfirmation(e.target.checked)}
-                />
-                <Checkbox
-                  name="production-time-confirmation"
-                  label="I understand that books are printed on demand and may take 5-6 days to ship; LibreTexts is not responsible for delays in production or shipping."
-                  required
-                  checked={productionTimeConfirmation}
-                  onChange={(e) =>
-                    setProductionTimeConfirmation(e.target.checked)
-                  }
-                />
-                <Checkbox
-                  name="final-confirmation"
-                  label="I have confirmed my order details and understand that ALL ORDERS ARE FINAL. I understand that I cannot cancel or modify my order after it has been placed."
-                  required
-                  checked={finalConfirmation}
-                  onChange={(e) => setFinalConfirmation(e.target.checked)}
-                />
-              </div>
               <div className="border-t border-gray-200 px-4 py-6 sm:px-6">
                 <button
                   type="submit"
                   className="w-full rounded-md border border-transparent bg-primary px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-50 disabled:bg-opacity-55 disabled:cursor-not-allowed"
-                  onClick={confirmOrder}
+                  onClick={handleProceedToPayment}
                   disabled={proceedDisabled || loading || shippingLoading}
                 >
                   {loading || shippingLoading ? (
