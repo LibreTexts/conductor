@@ -207,6 +207,8 @@ export type Project = {
   sourceLastModifiedDate?: Date;
   sourceLanguage?: string;
   batchUpdateJobs?: ProjectBookBatchUpdateJob[];
+  publicAssets?: number;
+  instructorAssets?: number;
 };
 
 export type AddableProjectTeamMember = Pick<

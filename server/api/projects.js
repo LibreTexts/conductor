@@ -1606,6 +1606,39 @@ async function getPublicProjects(req, res) {
           },
           ...LOOKUP_PROJECT_PI_STAGES(false),
           {
+            $lookup: {
+              from: "projectfiles",
+              localField: "projectID",
+              foreignField: "projectID",
+              as: "files",
+            },
+          },
+          {
+            $addFields: {
+              publicAssets: {
+                $size: {
+                  $filter: {
+                    input: "$files",
+                    cond: { $eq: ["$$this.access", "public"] }
+                  }
+                }
+              },
+              instructorAssets: {
+                $size: {
+                  $filter: {
+                    input: "$files",
+                    cond: { $eq: ["$$this.access", "instructor"] }
+                  }
+                }
+              }
+            },
+          },
+          {
+            $project: {
+              files: 0
+            }
+          },
+          {
             $project: {
               _id: 0,
               orgID: 1,
@@ -1626,7 +1659,9 @@ async function getPublicProjects(req, res) {
               description: 1,
               principalInvestigators: 1,
               coPrincipalInvestigators: 1,
-              associatedOrgs: 1
+              associatedOrgs: 1,
+              publicAssets: 1,
+              instructorAssets: 1
             },
           },
           {
