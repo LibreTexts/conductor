@@ -141,6 +141,39 @@ async function projectsSearch(
           updatedAt: 1,
         },
       },
+      {
+        $lookup: {
+          from: "projectfiles",
+          localField: "projectID",
+          foreignField: "projectID",
+          as: "files",
+        },
+      },
+      {
+        $addFields: {
+          publicAssets: {
+            $size: {
+              $filter: {
+                input: "$files",
+                cond: { $eq: ["$$this.access", "public"] }
+              }
+            }
+          },
+          instructorAssets: {
+            $size: {
+              $filter: {
+                input: "$files",
+                cond: { $eq: ["$$this.access", "instructor"] }
+              }
+            }
+          }
+        },
+      },
+      {
+        $project: {
+          files: 0
+        }
+      },
       ...(sort === "relevance"
         ? [
           {
@@ -241,6 +274,39 @@ async function miniReposSearch(
           coPrincipalInvestigators: 1,
           updatedAt: 1,
         },
+      },
+      {
+        $lookup: {
+          from: "projectfiles",
+          localField: "projectID",
+          foreignField: "projectID",
+          as: "files",
+        },
+      },
+      {
+        $addFields: {
+          publicAssets: {
+            $size: {
+              $filter: {
+                input: "$files",
+                cond: { $eq: ["$$this.access", "public"] }
+              }
+            }
+          },
+          instructorAssets: {
+            $size: {
+              $filter: {
+                input: "$files",
+                cond: { $eq: ["$$this.access", "instructor"] }
+              }
+            }
+          }
+        },
+      },
+      {
+        $project: {
+          files: 0
+        }
       },
       ...(sort === "relevance"
         ? [
