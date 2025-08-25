@@ -23,7 +23,7 @@ const TicketComment: React.FC<TicketCommentProps> = ({ msg }) => {
         return null;
       }
       return (
-        <Linkify key={index} options={{rel: "noopener noreferrer"}}>
+        <Linkify key={index} options={{rel: "noopener noreferrer", target: "_blank"}}>
           {line}
           <br />
         </Linkify>
