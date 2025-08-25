@@ -42,7 +42,6 @@ import Chat from '../Chat';
 import DateInput from '../DateInput/index.tsx';
 import ReaderResourcesManager from '../../components/ReaderResourcesManager/ReaderResourcesManager';
 import RenderProjectModules from './RenderProjectModules';
-import { MentionsInput, Mention } from 'react-mentions'
 import Breakpoint from '../util/Breakpoints';
 
 import {
