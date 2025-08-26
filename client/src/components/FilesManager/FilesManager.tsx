@@ -12,6 +12,7 @@ import {
   SemanticWIDTHS,
   Popup,
   Dropdown,
+  Message,
 } from "semantic-ui-react";
 const AddFolder = React.lazy(() => import("./AddFolder"));
 const ChangeAccess = React.lazy(() => import("./ChangeAccess"));
@@ -638,13 +639,23 @@ const FilesManager: React.FC<FilesManagerProps> = ({
           Hide
         </Button>
       </Header>
+      {projectVisibility === "private" && files && files.length > 0 && (
+        <Message 
+          size="small" 
+          color="blue" 
+          style={{ backgroundColor: "#fff" }}
+        >
+          <Message.Content>
+            Heads up! Your project's visibility is set to 'Private', so assets shown here won't be visible in Commons even if their access is set to 'Public'.
+          </Message.Content>
+        </Message>
+      )}
       <Segment.Group size="large" raised className="mb-4">
         {canViewDetails && (
           <Segment>
             <p style={{ fontSize: "0.9em" }} className="mb-4">
               If your project has supporting files, use this tool to upload and
-              organize them. Files with 'public' access will be visible to the
-              public on Commons via the resource's catalog entry.
+              organize them.
             </p>
             <Button.Group
               fluid
