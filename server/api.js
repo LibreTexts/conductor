@@ -179,6 +179,15 @@ router
     centralIdentityAPI.validate("updateUser"),
     middleware.checkValidationErrors,
     centralIdentityAPI.updateUser
+  )
+  .delete(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(centralIdentityValidators.DeleteUserValidator),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.deleteUser
   );
 
 router
