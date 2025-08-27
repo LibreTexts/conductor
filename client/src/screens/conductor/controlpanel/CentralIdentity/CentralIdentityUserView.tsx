@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, useMemo } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useHistory, useParams } from "react-router-dom";
 import {
   Header,
   Segment,
@@ -67,9 +67,12 @@ import { useModals } from "../../../../context/ModalContext";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import AddUserAppLicenseModal from "../../../../components/controlpanel/CentralIdentity/AddUserAppLicenseModal";
 import ChangeUserEmailModal from "../../../../components/controlpanel/CentralIdentity/ChangeUserEmailModal";
+import { useTypedSelector } from "../../../../state/hooks";
+import ConfirmDeleteUserModal from "../../../../components/controlpanel/CentralIdentity/ConfirmDeleteUserModal";
 
 const CentralIdentityUserView = () => {
   const { uuid } = useParams<{ uuid: string }>();
+  const history = useHistory();
   const DEFAULT_AVATAR_URL =
     "https://cdn.libretexts.net/DefaultImages/avatar.png";
 
@@ -80,6 +83,8 @@ const CentralIdentityUserView = () => {
   const [showAcademyAccessModal, setShowAcademyAccessModal] =
     useState<boolean>(false);
   const [showAddOrgModal, setShowAddOrgModal] = useState<boolean>(false);
+  const [showDeleteUserModal, setShowDeleteUserModal] = useState<boolean>(false);
+  const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
   const [userApps, setUserApps] = useState<CentralIdentityApp[]>([]);
   const [userAppLicenses, setUserAppLicenses] = useState<
     CentralIdentityUserLicenseResult[]
@@ -99,6 +104,32 @@ const CentralIdentityUserView = () => {
   const { handleGlobalError } = useGlobalError();
   const { addNotification } = useNotifications();
   const { openModal, closeAllModals } = useModals();
+  const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
+
+  const handleDeleteUser = async () => {
+    try {
+      setDeleteLoading(true);
+      const res = await api.deleteCentralIdentityUser(uuid!);
+      
+      if (res.data.err) {
+        throw new Error("Failed to delete user");
+      }
+
+      addNotification({
+        type: "success",
+        message: "User deleted successfully",
+      });
+
+      // Navigate back to users list
+      history.push("/controlpanel/libreone/users");
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteUserModal(false);
+    }
+  };
+
   const { control, formState, reset, watch, getValues, setValue } =
     useForm<CentralIdentityUser>({
       defaultValues: {
@@ -475,6 +506,16 @@ const CentralIdentityUserView = () => {
                         size="small"
                       >
                         <Icon name="ban" /> Disable User
+                      </Button>
+                    )}
+                    {isSuperAdmin && (
+                      <Button
+                        color="red"
+                        size="small"
+                        onClick={() => setShowDeleteUserModal(true)}
+                        style={{ backgroundColor: "#d32f2f" }}
+                      >
+                        <Icon name="trash" /> Delete User
                       </Button>
                     )}
                   </div>
@@ -970,6 +1011,14 @@ const CentralIdentityUserView = () => {
         onChanged={() => {
           handleAcademyAccessModalClose(true);
         }}
+      />
+      <ConfirmDeleteUserModal
+        open={showDeleteUserModal}
+        userName={`${getValues("first_name")} ${getValues("last_name")}`}
+        userUuid={getValues("uuid")}
+        onClose={() => setShowDeleteUserModal(false)}
+        onConfirmDelete={handleDeleteUser}
+        loading={deleteLoading}
       />
     </Grid>
   );

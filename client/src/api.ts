@@ -967,6 +967,13 @@ class API {
     return res;
   }
 
+  async deleteCentralIdentityUser(uuid: string) {
+    const res = await axios.delete<ConductorBaseResponse>(
+      `/central-identity/users/${uuid}`
+    );
+    return res;
+  }
+
   async reEnableCentralIdentityUser(uuid: string) {
     const res = await axios.patch<ConductorBaseResponse>(
       `/central-identity/users/${uuid}/re-enable`

@@ -153,6 +153,11 @@ export default class CentralIdentityService {
         return this.instance.patch(`/users/${userId}/re-enable`);
     }
 
+    async deleteUser(userId: string) {
+        console.log("Deleting user", userId);
+        return this.instance.delete(`/users/${userId}`);
+    }
+
     async updateUserAdminRole(userId: string, orgId: string, adminRole: string) {
         return this.instance.post(`/users/${userId}/organizations/${orgId}/admin-role`, { admin_role: adminRole });
     }
