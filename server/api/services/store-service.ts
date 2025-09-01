@@ -30,6 +30,49 @@ class StoreService {
         this.cache = new NodeCache({ stdTTL: 60 * 5, checkperiod: 120 }); // Cache for 5 minutes
     }
 
+    private _redactPersonalInfo(text: string): string {
+        if (!text || typeof text !== 'string') return text;
+        
+        const words = text.trim().split(/\s+/);
+    
+        const redactedWords = words.map(word => {
+            if (word.length <= 1) return word;
+            
+            if (word.length === 2) {
+                return word[0] + '*';
+            }
+            
+            return word[0] + '*'.repeat(word.length - 1);
+        });
+        
+        return redactedWords.join(' ');
+    }
+    
+    private _redactEmail(email: string): string {
+        if (!email || typeof email !== 'string' || !email.includes('@')) return email;
+        
+        const [localPart, domain] = email.split('@');
+        if (localPart.length <= 1) return email;
+        
+        const redactedLocal = localPart[0] + '*'.repeat(Math.max(localPart.length - 1, 1));
+        return `${redactedLocal}@${domain}`;
+    }
+    
+    private _redactPhoneNumber(phone: string): string {
+        if (!phone || typeof phone !== 'string') return phone;
+        
+        // Keep first 3 and last 4 digits, redact the middle
+        const digits = phone.replace(/\D/g, '');
+        
+        // Preserve original formatting structure but with redacted digits
+        return phone.replace(/\d/g, (digit, index) => {
+            const digitIndex = phone.slice(0, index).replace(/\D/g, '').length;
+            if (digitIndex < 3) return digit;
+            if (digitIndex >= digits.length - 4) return digit;
+            return '*';
+        });
+    }
+
     public async searchStoreProduct(product_id: string): Promise<StoreProduct | null> {
         try {
             const stripe = this.stripeService.getInstance();
@@ -184,7 +227,68 @@ class StoreService {
                 return null;
             }
 
-            return { session, charge }
+            // Extract and redact only the data needed by the frontend
+            const redactedSession = {
+                id: session.id,
+                created: session.created,
+                amount_subtotal: session.amount_subtotal,
+                amount_total: session.amount_total,
+                total_details: {
+                    amount_discount: session.total_details?.amount_discount || 0,
+                    amount_shipping: session.total_details?.amount_shipping || 0,
+                    amount_tax: session.total_details?.amount_tax || 0,
+                },
+                line_items: {
+                    data: session.line_items?.data?.map(item => ({
+                        id: item.id,
+                        amount_total: item.amount_total,
+                        price: {
+                            product: {
+                                name: (item.price?.product as Stripe.Product)?.name,
+                                description: (item.price?.product as Stripe.Product)?.description,
+                                images: (item.price?.product as Stripe.Product)?.images,
+                                metadata: (item.price?.product as Stripe.Product)?.metadata,
+                            }
+                        }
+                    })) || []
+                },
+                customer_details: session.customer_details ? {
+                    // Redact customer name
+                    name: session.customer_details.name ? this._redactPersonalInfo(session.customer_details.name) : undefined,
+                    // Redact email
+                    email: session.customer_details.email ? this._redactEmail(session.customer_details.email) : undefined,
+                    // Redact phone
+                    phone: session.customer_details.phone ? this._redactPhoneNumber(session.customer_details.phone) : undefined,
+                    address: session.customer_details.address ? {
+                        // Redact line1 and line2 (street addresses)
+                        line1: session.customer_details.address.line1 ? this._redactPersonalInfo(session.customer_details.address.line1) : undefined,
+                        line2: session.customer_details.address.line2 ? this._redactPersonalInfo(session.customer_details.address.line2) : undefined,
+                        // Keep city, state, postal_code visible
+                        city: session.customer_details.address.city,
+                        state: session.customer_details.address.state,
+                        postal_code: session.customer_details.address.postal_code,
+                        country: session.customer_details.address.country,
+                    } : undefined
+                } : undefined
+            };
+
+            const redactedCharge = charge ? {
+                id: charge.id,
+                payment_intent: charge.payment_intent,
+                payment_method_details: {
+                    type: charge.payment_method_details?.type,
+                    card: charge.payment_method_details?.card ? {
+                        brand: charge.payment_method_details.card.brand,
+                        last4: charge.payment_method_details.card.last4,
+                        exp_month: charge.payment_method_details.card.exp_month,
+                        exp_year: charge.payment_method_details.card.exp_year,
+                    } : undefined
+                }
+            } : null;
+
+            return { session: redactedSession, charge: redactedCharge };
+
+            // return { session, charge }
         } catch (error) {
             debug("Error fetching checkout session:", error);
             throw new Error("Failed to fetch checkout session");
