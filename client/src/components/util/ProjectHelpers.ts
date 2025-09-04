@@ -363,7 +363,7 @@ const getFilesAccessText = (access: string) => {
 const getFilesLicenseText = (license: License | undefined) => {
     if (license) {
         if(license.name && license.version){
-            return `${license.name} (${license.version})`;
+            return `${license.name} ${license.version}`;
         } else if(license.name){
             return license.name.toString();
         }
