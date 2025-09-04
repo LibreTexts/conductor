@@ -67,21 +67,6 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   projectHasDefaultLicense = false,
   projectVisibility = "private",
 }) => {
-  const TABLE_COLS: {
-    key: string;
-    text: string;
-    width: SemanticWIDTHS;
-    collapsing?: boolean;
-  }[] = [
-    { key: "name", text: "Name", width: 5 },
-    { key: "access", text: "Access", width: 2 },
-    // { key: "license", text: "License", width: 2 },
-    // { key: "size", text: "Size", width: 1 },
-    // { key: "uploaded", text: "Created/Uploaded", width: 3 },
-    { key: "tags", text: "Tags", width: 10 },
-    { key: "actions", text: "", width: 1, collapsing: true },
-  ];
-
   const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
@@ -116,6 +101,35 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false,
   });
+
+  const hasAnyTags = useMemo(() => {
+    if (!files || files.length === 0) return false;
+    return files.some(file => file.tags && file.tags.length > 0);
+  }, [files]);
+
+  console.log("Has Any Tags", hasAnyTags);
+
+  
+  const TABLE_COLS: {
+    key: string;
+    text: string;
+    width: SemanticWIDTHS;
+    collapsing?: boolean;
+  }[] = useMemo(() => {
+    const baseCols = [
+      { key: "name", text: "Name", width: hasAnyTags ? 5 : 7 as SemanticWIDTHS },
+      { key: "access", text: "Access", width: hasAnyTags ? 3 : 5 as SemanticWIDTHS },
+      { key: "actions", text: "", width: hasAnyTags ? 1 : 2 as SemanticWIDTHS, collapsing: true },
+    ];
+
+    if (hasAnyTags) {
+      // Insert tags column before actions
+      baseCols.splice(-1, 0, { key: "tags", text: "Tags", width: 9 });
+    }
+
+    return baseCols;
+  }, [hasAnyTags]);
+
 
   async function getFiles() {
     try {
@@ -619,9 +633,11 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                 )}
               </p>
               <p>{item.description}</p>
-              <div>
-                <RenderAssetTags file={item} popupDisabled spreadArray />
-              </div>
+              {hasAnyTags && item.tags && item.tags.length > 0 && (
+                <div>
+                  <RenderAssetTags file={item} popupDisabled spreadArray />
+                </div>
+              )}
             </div>
             <div className="flex flex-col">{RowMenu(item)}</div>
           </div>
@@ -756,7 +772,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                       />
                     </Table.HeaderCell>
                   )}
-                  {TABLE_COLS.map((item) => (
+                  {/* {TABLE_COLS.map((item) => (
                     <Table.HeaderCell
                       key={item.key}
                       collapsing={item.collapsing}
@@ -764,7 +780,24 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                     >
                       {item.text}
                     </Table.HeaderCell>
-                  ))}
+                  ))} */}
+                  {isTailwindLg ? (
+                    // Desktop: Show all columns
+                    TABLE_COLS.map((item) => (
+                      <Table.HeaderCell
+                        key={item.key}
+                        collapsing={item.collapsing}
+                        width={item.width}
+                      >
+                        {item.text}
+                      </Table.HeaderCell>
+                    ))
+                  ) : (
+                    // Mobile: Just show a single "Files" header
+                    <Table.HeaderCell>
+                      Files
+                    </Table.HeaderCell>
+                  )}
                 </Table.Row>
               </Table.Header>
               <Table.Body>
@@ -887,11 +920,13 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                         )}
                       </Table.Cell>
                       <Table.Cell>
-                        <RenderAssetTags
-                          file={item}
-                          popupDisabled
-                          spreadArray
-                        />
+                        {item.tags && item.tags.length > 0 && (
+                          <RenderAssetTags
+                            file={item}
+                            popupDisabled
+                            spreadArray
+                          />
+                        )}
                       </Table.Cell>
                       <Table.Cell>{RowMenu(item)}</Table.Cell>
                     </Table.Row>
