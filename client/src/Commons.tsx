@@ -42,8 +42,7 @@ const Commons = () => {
    * @returns A redirect URL or null.
    */
   const getCommonsTabRedirect = (): string | null => {
-    const splitPath = location.pathname.split("/");
-    const path = splitPath[2]; // Get the first segment of the path
+    const path = splitPath[2]; // Get the third segment of the path (e.g., for "/catalog/assets", this is "assets")
     if (!COMMONS_MODULES.includes(path) || splitPath.length > 3) return null; 
 
     const search = new URLSearchParams(location.search); // Pass-through any existing query parameters
