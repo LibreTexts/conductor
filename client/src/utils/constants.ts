@@ -106,3 +106,12 @@ export const CHAT_NOTIFY_OPTS = (
     },
   ];
 };
+
+
+export const COMMONS_MODULES = [
+  "books",
+  "assets",
+  "authors",
+  "projects",
+  "minirepos",
+];

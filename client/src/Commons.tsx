@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useState } from "react";
-import { useLocation, Switch, Route } from "react-router-dom";
+import { useLocation, Switch, Route, useHistory } from "react-router-dom";
 import CommonsAuthor from "./screens/commons/Author";
 import CommonsBook from "./screens/commons/Book";
 import CommonsCatalog from "./components/commons/CommonsCatalog";
@@ -18,6 +18,7 @@ import { useTypedSelector } from "./state/hooks";
 import LoadingSpinner from "./components/LoadingSpinner";
 import useSystemAnnouncement from "./hooks/useSystemAnnouncement";
 import { CompatRoute } from "react-router-dom-v5-compat";
+import { COMMONS_MODULES } from "./utils/constants";
 
 /**
  * The public-facing catalog and showcase application.
@@ -25,6 +26,7 @@ import { CompatRoute } from "react-router-dom-v5-compat";
 const Commons = () => {
   // Global State and Location
   const location = useLocation();
+  const history = useHistory();
   const org = useTypedSelector((state) => state.org);
   const user = useTypedSelector((state) => state.user);
   const { sysAnnouncement } = useSystemAnnouncement();
@@ -33,10 +35,34 @@ const Commons = () => {
   // Menu state
   const [activeItem, setActiveItem] = useState("");
 
+
+  /**
+   * Handle potential redirects for commons tabs.
+   * The path must only be one of the defined COMMONS_MODULES (e.g. "/catalog/assets")
+   * If not, or the path includes other segments, return null.
+   * @returns A redirect URL or null.
+   */
+  const getCommonsTabRedirect = (): string | null => {
+    const splitPath = location.pathname.split("/");
+    const path = splitPath[2]; // Get the third segment of the path (e.g., for "/catalog/assets", this is "assets")
+    if (!COMMONS_MODULES.includes(path) || splitPath.length > 3) return null; 
+
+    const search = new URLSearchParams(location.search); // Pass-through any existing query parameters
+    search.set("active_tab", path);
+
+    return `/catalog?${search.toString()}`;
+  }
+
   /**
    * Subscribe to changes to location and update the Menu with the active page.
    */
   useEffect(() => {
+    const redirect = getCommonsTabRedirect();
+    if (redirect) {
+      history.replace(redirect); // use history.replace for better perf+UX than window.location.href
+      return;
+    }
+
     const currentPath = location.pathname;
     if (currentPath.includes("/collection")) {
       setActiveItem("collections");

@@ -19,7 +19,9 @@ import {
   ProjectFile,
   Project,
   Author,
+  CommonsModule,
 } from "../types";
+import { COMMONS_MODULES } from "./constants";
 
 export function isCatalogLocation(
   location: string
@@ -256,4 +258,8 @@ export const isProjectFile = (obj: any): obj is ProjectFile => {
     "size" in obj &&
     "description" in obj
   );
+};
+
+export const isCommonsModuleType = (string: any): string is CommonsModule => {
+  return COMMONS_MODULES.includes(string);
 };

@@ -1,4 +1,4 @@
-export type CommonsModule = "books" | "assets" | "projects" | "authors" | "minirepos";
+export type CommonsModule = "books" | "assets" | "projects" | "authors" | "minirepos"; // see utils/constants.ts
 
 export type CommonsModuleConfig = {
   enabled: boolean;

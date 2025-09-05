@@ -49,6 +49,7 @@ const Platform = () => {
   const commonsPaths = [
     "/",
     "/catalog",
+    "/catalog/:entryType",
     "/collections",
     "/collections/:path",
     "/collections/:path*",

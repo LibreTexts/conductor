@@ -25,6 +25,8 @@ import { useHistory, useLocation } from "react-router-dom";
 import { truncateString } from "../util/HelperFunctions";
 import { getDefaultCommonsModule } from "../../utils/misc";
 import { useMediaQuery } from "react-responsive";
+import useURLSyncedState from "../../hooks/useURLSyncedState";
+import { COMMONS_MODULES } from "../../utils/constants";
 
 function assetsReducer(
   state: Record<string, string>,
@@ -156,9 +158,6 @@ const CommonsCatalog = () => {
 
   const [searchString, setSearchString] = useState<string>("");
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<CommonsModule>(
-    getDefaultCommonsModule(org.commonsModules)
-  );
   const [activePage, setActivePage] = useState(1);
 
   const [books, setBooks] = useState<Book[]>([]);
@@ -181,6 +180,12 @@ const CommonsCatalog = () => {
   const [miniReposLoading, setMiniReposLoading] = useState(false);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [authorsLoading, setAuthorsLoading] = useState(false);
+
+  const [activeTab, setActiveTab] = useURLSyncedState<CommonsModule>(
+    'active_tab',
+    getDefaultCommonsModule(org.commonsModules),
+    COMMONS_MODULES as readonly CommonsModule[]
+  );
 
   useEffect(() => {
     // Set page title based on the organization
