@@ -25,7 +25,7 @@ const useURLSyncedState = <T extends string>(
     useEffect(() => {
         const handlePopState = () => {
             const params = new URLSearchParams(window.location.search);
-            const urlValue = (params.get(key) as T) || defaultValue;
+            const urlValue = params.get(key);
             const validValue = isValidValue(urlValue) ? urlValue : defaultValue;
             setState(validValue);
         };
