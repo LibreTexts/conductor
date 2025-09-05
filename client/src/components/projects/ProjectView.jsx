@@ -1634,6 +1634,21 @@ const ProjectView = (props) => {
                         </Button>
                         )
                       }
+                      {
+                        project.hasTrafficAnalyticsConfigured && (
+                          <Button
+                          as={Link}
+                          color='green'
+                          to={`/projects/${project.projectID}/analytics`}
+                          aria-label='Textbook analytics'
+                        >
+                          <Icon name='dashboard' />
+                          <Breakpoint name='desktop'>
+                          Analytics
+                          </Breakpoint>
+                        </Button>
+                        )
+                      }
                       <Button
                         color='olive'
                         as={Link}
