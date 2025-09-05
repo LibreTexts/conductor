@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useState } from "react";
-import { useLocation, Switch, Route } from "react-router-dom";
+import { useLocation, Switch, Route, useHistory } from "react-router-dom";
 import CommonsAuthor from "./screens/commons/Author";
 import CommonsBook from "./screens/commons/Book";
 import CommonsCatalog from "./components/commons/CommonsCatalog";
@@ -26,6 +26,7 @@ import { COMMONS_MODULES } from "./utils/constants";
 const Commons = () => {
   // Global State and Location
   const location = useLocation();
+  const history = useHistory();
   const org = useTypedSelector((state) => state.org);
   const user = useTypedSelector((state) => state.user);
   const { sysAnnouncement } = useSystemAnnouncement();
@@ -42,6 +43,7 @@ const Commons = () => {
    * @returns A redirect URL or null.
    */
   const getCommonsTabRedirect = (): string | null => {
+    const splitPath = location.pathname.split("/");
     const path = splitPath[2]; // Get the third segment of the path (e.g., for "/catalog/assets", this is "assets")
     if (!COMMONS_MODULES.includes(path) || splitPath.length > 3) return null; 
 
@@ -57,7 +59,7 @@ const Commons = () => {
   useEffect(() => {
     const redirect = getCommonsTabRedirect();
     if (redirect) {
-      window.location.href = redirect;
+      history.replace(redirect); // use history.replace for better perf+UX than window.location.href
       return;
     }
 
