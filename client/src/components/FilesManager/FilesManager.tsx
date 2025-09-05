@@ -106,9 +106,6 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     if (!files || files.length === 0) return false;
     return files.some(file => file.tags && file.tags.length > 0);
   }, [files]);
-
-  console.log("Has Any Tags", hasAnyTags);
-
   
   const TABLE_COLS: {
     key: string;
@@ -119,7 +116,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     const baseCols = [
       { key: "name", text: "Name", width: hasAnyTags ? 5 : 7 as SemanticWIDTHS },
       { key: "access", text: "Access", width: hasAnyTags ? 3 : 5 as SemanticWIDTHS },
-      { key: "actions", text: "", width: hasAnyTags ? 1 : 2 as SemanticWIDTHS, collapsing: true },
+      { key: "actions", text: "", width: hasAnyTags ? 1 : 4 as SemanticWIDTHS, collapsing: true },
     ];
 
     if (hasAnyTags) {
