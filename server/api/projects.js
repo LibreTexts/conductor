@@ -418,19 +418,33 @@ async function getProject(req, res) {
               $project: {
                 _id: 0,
                 bookID: 1,
+                trafficAnalyticsConfigured: 1
               }
             }
           ],
-          as: 'hasCommonsBook',
+          as: 'bookData',
         }
-      }, {
+      },
+      {
         $addFields: {
-          hasCommonsBook: {
+          hasBookData: {
             $cond: [
               {
                 $gt: [
-                  { $size: '$hasCommonsBook' },
+                  { $size: '$bookData' },
                   0
+                ]
+              },
+              true,
+              false,
+            ],
+          },
+          hasTrafficAnalyticsConfigured: {
+            $cond: [
+              {
+                $and: [
+                  { $gt: [{ $size: '$bookData' }, 0] },
+                  { $eq: [{ $arrayElemAt: ['$bookData.trafficAnalyticsConfigured', 0] }, true] }
                 ]
               },
               true,
