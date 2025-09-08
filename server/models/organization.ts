@@ -1,5 +1,13 @@
 import { model, Document, Schema } from "mongoose";
 
+export const COMMONS_MODULES = [
+  "books",
+  "assets",
+  "authors",
+  "projects",
+  "minirepos",
+];
+
 export type CommonsModuleConfig = {
   enabled: boolean;
   order: number;
@@ -10,6 +18,7 @@ export type CommonsModuleSettings = {
   assets: CommonsModuleConfig;
   projects: CommonsModuleConfig;
   authors: CommonsModuleConfig;
+  minirepos: CommonsModuleConfig;
 }
 
 export interface OrganizationInterface extends Document {
@@ -201,6 +210,12 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
           },
         },
         authors: {
+          type: {
+            enabled: Boolean,
+            order: Number,
+          },
+        },
+        minirepos: {
           type: {
             enabled: Boolean,
             order: Number,

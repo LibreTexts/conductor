@@ -9,7 +9,7 @@ import express, {Request, Response, NextFunction} from 'express';
 import { body, param, query } from 'express-validator';
 import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import Organization, { OrganizationInterface } from '../models/organization.js';
+import Organization, { COMMONS_MODULES, OrganizationInterface } from '../models/organization.js';
 import { ensureUniqueStringArray, isEmptyString, sanitizeCustomColor } from '../util/helpers.js';
 import conductorErrors from '../conductor-errors.js';
 import { debugError } from '../debug.js';
@@ -400,7 +400,6 @@ function validateBrandingAssetName(assetName: string) {
 }
 
 function validateCommonsModules(commonsModules: any) {
-  const validModules = ['books', 'assets', 'projects', 'authors'];
   if (typeof commonsModules !== 'object') {
     return false;
   }
@@ -410,7 +409,7 @@ function validateCommonsModules(commonsModules: any) {
       continue;
     }
 
-    if (!validModules.includes(module)) {
+    if (!COMMONS_MODULES.includes(module)) {
       return false;
     }
     if (typeof commonsModules[module] !== 'object') {
