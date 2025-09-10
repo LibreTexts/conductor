@@ -12,7 +12,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { capitalizeFirstLetter } from "../util/HelperFunctions";
 import { getPrettySupportTicketCategory } from "../../utils/supportHelpers";
 import { useNotifications } from "../../context/NotificationContext";
-import CopyButton from "../util/CopyButton";
 import { Link } from "react-router-dom";
 import SupportCenterTable from "./SupportCenterTable";
 import useDebounce from "../../hooks/useDebounce";
@@ -409,29 +408,9 @@ const StaffDashboard = () => {
             {
               accessor: "uuid",
               title: "ID",
+              copyButton: true,
               render(record, index) {
-                return (
-                  <>
-                    {record.uuid.slice(-7)}
-                    <CopyButton val={record.uuid}>
-                      {({ copied, copy }) => (
-                        <Icon
-                          name="copy"
-                          className="cursor-pointer !ml-1"
-                          onClick={() => {
-                            copy();
-                            addNotification({
-                              message: "Ticket ID copied to clipboard",
-                              type: "success",
-                              duration: 2000,
-                            });
-                          }}
-                          color={copied ? "green" : "blue"}
-                        />
-                      )}
-                    </CopyButton>
-                  </>
-                );
+                return record.uuid.slice(-7);
               },
             },
             {

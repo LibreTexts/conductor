@@ -1,9 +1,11 @@
 import classNames from "classnames";
-import { Table, TableProps } from "semantic-ui-react";
+import { Table, TableProps, Icon } from "semantic-ui-react";
 import LoadingSpinner from "../LoadingSpinner";
 import { capitalizeFirstLetter } from "../util/HelperFunctions";
 import { NestedKeyOf } from "../../types";
 import { getNestedProperty } from "../../utils/misc";
+import CopyButton from "../util/CopyButton";
+import { useNotifications } from "../../context/NotificationContext";
 
 interface SupportCenterTableProps<T = Record<string, unknown>> {
   loading?: boolean;
@@ -16,6 +18,7 @@ interface SupportCenterTableProps<T = Record<string, unknown>> {
     title?: React.ReactNode;
     render?: (record: T, index: number) => React.ReactNode;
     className?: string;
+    copyButton?: boolean;
   }[];
   className?: string;
 }
@@ -30,6 +33,44 @@ function SupportCenterTable<T>({
   className = "",
 }: SupportCenterTableProps<T>) {
   const { className: tableClassName, ...restTableProps } = tableProps;
+  const { addNotification } = useNotifications();
+
+  const renderCellContent = (column: any, record: T, index: number) => {
+    const cellValue = column.render
+      ? column.render(record, index)
+      : (getNestedProperty(record, column.accessor) as React.ReactNode);
+
+    if (!column.copyButton) {
+      return cellValue;
+    }
+
+    // If copyButton is enabled, wrap content with copy functionality
+    const copyValue = String(getNestedProperty(record, column.accessor) || '');
+
+    return (
+      <div className="flex justify-start items-center">
+        <span>{cellValue}</span>
+        <CopyButton val={copyValue}>
+          {({ copied, copy }) => (
+            <Icon
+              name="copy"
+              className="cursor-pointer !ml-2"
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation(); // Prevent row click when clicking copy button
+                copy();
+                addNotification({
+                  message: "Copied to clipboard",
+                  type: "success",
+                  duration: 2000,
+                });
+              }}
+              color={copied ? "green" : "blue"}
+            />
+          )}
+        </CopyButton>
+      </div>
+    );
+  };
 
   return (
     <div className={classNames("w-full overflow-x-auto", className)}>
@@ -67,9 +108,7 @@ function SupportCenterTable<T>({
                       column.className
                     )}
                   >
-                    {column.render
-                      ? column.render(record, index)
-                      : (getNestedProperty(record, column.accessor) as React.ReactNode)}
+                    {renderCellContent(column, record, index)}
                   </Table.Cell>
                 ))}
               </Table.Row>
