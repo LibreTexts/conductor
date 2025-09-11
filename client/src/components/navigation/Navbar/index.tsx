@@ -7,6 +7,7 @@ import NavbarDesktop from "./NavbarDesktop.js";
 import NavbarMobile from "./NavbarMobile.js";
 import EnvironmentBanner from "../EnvironmentBanner.js";
 import useClientConfig from "../../../hooks/useClientConfig.js";
+import CommonsNavbar from "../../commons/CommonsNavbar/index.js";
 
 const Navbar: React.FC = () => {
   // Global State, Location, and Error Handling
@@ -60,7 +61,10 @@ const Navbar: React.FC = () => {
     //setSearchInput
   ]);
 
-  if (!user.isAuthenticated) {
+  // If anonymous user is access project analytics, render CommonsNavbar instead for aesthetic purposes
+  if (location.pathname.endsWith('/analytics') && !user.isAuthenticated) {
+    return <CommonsNavbar org={org} user={user} />;
+  } else if (!user.isAuthenticated) {
     return null;
   }
 

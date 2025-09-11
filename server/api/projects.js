@@ -978,8 +978,9 @@ async function updateProject(req, res) {
     if(req.body.hasOwnProperty('sourceLanguage')){
       updateObj.sourceLanguage = req.body.sourceLanguage;
     }
-
-
+    if(req.body.hasOwnProperty('allowAnonTrafficAnalytics')){
+      updateObj.allowAnonTrafficAnalytics = req.body.allowAnonTrafficAnalytics;
+    }
 
     if (Object.keys(updateObj).length > 0) {
       const updateRes = await Project.updateOne({ projectID }, updateObj);
@@ -3144,12 +3145,23 @@ async function getTrafficAnalyticsData(req, res, func) {
     });
   }
 
-  const hasPermission = checkProjectGeneralPermission(project, req.user);
-  if (!hasPermission) {
-    return res.status(401).send({
-      err: true,
-      errMsg: conductorErrors.err8,
-    });
+  // Check if anonymous traffic analytics is allowed
+  // If not, the user must have general project permissions
+  if (!project.allowAnonTrafficAnalytics) {
+    if (!req.user?.decoded?.uuid){
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+    
+    const hasPermission = checkProjectGeneralPermission(project, req.user);
+    if (!hasPermission) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
   }
 
   const bookID = getBookLinkedToProject(project);
@@ -3697,6 +3709,7 @@ const validate = (method) => {
           body('defaultChatNotification', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('allowAnonPR', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
           body('preferredPRRubric', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
+          body('allowAnonTrafficAnalytics', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
           body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),
           body('license', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateLicense),
