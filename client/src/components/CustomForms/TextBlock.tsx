@@ -2,9 +2,11 @@ import { useEffect } from "react";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { CustomFormTextBlock } from "../../types";
+import classNames from "classnames";
 
-const TextBlock: React.FC<{ item: CustomFormTextBlock }> = ({
+const TextBlock: React.FC<{ item: CustomFormTextBlock; className?: string }> = ({
   item,
+  className,
   ...rest
 }) => {
 
@@ -19,7 +21,7 @@ const TextBlock: React.FC<{ item: CustomFormTextBlock }> = ({
 
   return (
     <p
-      className="mb-2p prose prose-code:before:hidden prose-code:after:hidden"
+      className={classNames("mb-2p prose prose-code:before:hidden prose-code:after:hidden", className)}
       key={item.order}
       dangerouslySetInnerHTML={{
         __html: DOMPurify.sanitize(marked(item.text, { breaks: true })),
