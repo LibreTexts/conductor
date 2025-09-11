@@ -6,13 +6,17 @@ import { useEffect, useMemo } from "react";
 
 const useProject = (id: string) => {
     const { handleGlobalError } = useGlobalError();
+
+    const useProjectQueryKey = ['project', id];
+
     const { data, error, isLoading, isError } = useQuery<Project>({
-        queryKey: ['project', id],
+        queryKey: useProjectQueryKey,
         queryFn: async () => {
             const res = await api.getProject(id);
             return res.data.project || undefined;
         },
-        enabled: !!id
+        enabled: !!id,
+        refetchOnWindowFocus: false
     })
 
     useEffect(() => {
@@ -26,7 +30,7 @@ const useProject = (id: string) => {
         return data.classification === ProjectClassification.MINI_REPO;
     }, [data])
 
-    return { project: data, error, isLoading, isError, isMiniRepo }
+    return { project: data, error, isLoading, isError, isMiniRepo, useProjectQueryKey }
 }
 
 export default useProject;

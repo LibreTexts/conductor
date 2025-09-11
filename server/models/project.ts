@@ -103,6 +103,7 @@ export interface ProjectInterface extends Document {
   flagDescrip?: string;
   defaultChatNotification?: string;
   allowAnonPR: boolean;
+  allowAnonTrafficAnalytics?: boolean
   preferredPRRubric?: string;
   cidDescriptors?: string[];
   associatedOrgs?: string[];
@@ -336,6 +337,13 @@ const ProjectSchema = new Schema<ProjectInterface>(
     allowAnonPR: {
       type: Boolean,
       default: true,
+    },
+    /**
+     * Allow public access to traffic analytics (if Project is public and has associated Book).
+     */
+    allowAnonTrafficAnalytics: {
+      type: Boolean,
+      default: false,
     },
     /**
      * The rubricID of the team's preferred Peer Review rubric.

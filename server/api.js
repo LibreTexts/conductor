@@ -2279,29 +2279,29 @@ router
   );
 
 router.route('/project/:projectID/book/traffic-analytics/aggregated-metrics-by-page').get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
+  authAPI.optionalVerifyRequest,
+  authAPI.optionalGetUserAttributes,
   middleware.validateZod(ProjectValidators.getTrafficAnalyticsDataBaseSchema),
   catchInternal((req, res) => projectsAPI.getTrafficAnalyticsData(req, res, 'getAggregatedMetricsByPage')),
 );
 
 router.route('/project/:projectID/book/traffic-analytics/page-views').get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
+  authAPI.optionalVerifyRequest,
+  authAPI.optionalGetUserAttributes,
   middleware.validateZod(ProjectValidators.getTrafficAnalyticsDataBaseSchema),
   catchInternal((req, res) => projectsAPI.getTrafficAnalyticsData(req, res, 'getPageViews')),
 );
 
 router.route('/project/:projectID/book/traffic-analytics/unique-visitors').get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
+  authAPI.optionalVerifyRequest,
+  authAPI.optionalGetUserAttributes,
   middleware.validateZod(ProjectValidators.getTrafficAnalyticsDataBaseSchema),
   catchInternal((req, res) => projectsAPI.getTrafficAnalyticsData(req, res, 'getUniqueVisitors')),
 );
 
 router.route('/project/:projectID/book/traffic-analytics/visitor-countries').get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
+  authAPI.optionalVerifyRequest,
+  authAPI.optionalGetUserAttributes,
   middleware.validateZod(ProjectValidators.getTrafficAnalyticsDataBaseSchema),
   catchInternal((req, res) => projectsAPI.getTrafficAnalyticsData(req, res, 'getVisitorCountries')),
 );

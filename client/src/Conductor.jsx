@@ -110,7 +110,7 @@ const Conductor = () => {
 
   return (
     <div className='conductor'>
-      <CartProvider> 
+      <CartProvider>
       <RenderNavbar />
       <div className='conductor-content'>
         <Suspense fallback={<LoadingSpinner />}>
@@ -129,7 +129,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/projects/:id/peerreview' component={ProjectPeerReview} />
           <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
           <PrivateRoute exact path='/projects/:id/ai-co-author' component={TextbookCuration} />
-          <PrivateRoute exact path='/projects/:id/analytics' component={ProjectAnalytics} />
+          <Route exact path='/projects/:id/analytics' component={ProjectAnalytics} /> {/* Auth handled at page level. Can be private or public*/}
           <PrivateRoute exact path='/projects/accept-invite/:id' component={AcceptProjectInviteScreen} />
           {/* <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />
           <PrivateRoute exact path='/analytics/invites' component={AnalyticsInvites} />

@@ -174,6 +174,7 @@ export type Project = {
   flagDescrip: string;
   defaultChatNotification?: string;
   allowAnonPR: boolean;
+  allowAnonTrafficAnalytics?: boolean;
   preferredPRRubric: String;
   cidDescriptors: CIDDescriptor[];
   associatedOrgs: string[];

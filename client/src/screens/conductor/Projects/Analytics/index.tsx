@@ -5,13 +5,14 @@ import {
   Segment,
   Form,
   DropdownItemProps,
-  Icon, SegmentInline
+  Icon, SegmentInline,
+  Checkbox
 } from "semantic-ui-react";
 import {Link} from "react-router-dom-v5-compat";
-import {useQuery} from "@tanstack/react-query";
+import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {Project} from "../../../../types";
 import api from "../../../../api";
-import {useParams} from "react-router-dom";
+import {useHistory, useParams} from "react-router-dom";
 import {useEffect, useMemo} from "react";
 import {useForm} from "react-hook-form";
 import CtlDateInput from "../../../../components/ControlledInputs/CtlDateInput";
@@ -25,9 +26,30 @@ import {parseAndFormatDate} from "../../../../utils/misc";
 import {TrafficAnalyticsAggregationPeriod} from "../../../../types/TrafficAnalytics";
 import {differenceInCalendarDays} from "date-fns";
 import AggregatedMetricsByPageChart from "./TrafficAnalytics/AggregatedMetricsByPageChart";
+import useProject from "../../../../hooks/useProject";
+import { useTypedSelector } from "../../../../state/hooks";
+import classNames from "classnames";
+import useGlobalError from "../../../../components/error/ErrorHooks";
+import { useNotifications } from "../../../../context/NotificationContext";
 
 const ProjectAnalytics = () => {
-  const {id: projectID} = useParams<{ id: string }>();
+  const { id: projectID } = useParams<{ id: string }>();
+ 
+  const history = useHistory();
+  const queryClient = useQueryClient();
+  const user = useTypedSelector(state => state.user);
+  const { handleGlobalError } = useGlobalError();
+  const { addNotification } = useNotifications();
+  const { project: projectData, useProjectQueryKey } = useProject(projectID || "");
+
+  useEffect(() => {
+    if (!user || !projectData) return; // Ensure user and project data are available before checking permissions
+    if (!user.isAuthenticated && !projectData.allowAnonTrafficAnalytics){
+      history.replace('/') // Redirect to Commons
+    }
+  }, [user, projectData])
+
+
   const initialDates = useMemo(() => {
     const toDate = new Date();
     const fromDate = new Date();
@@ -105,20 +127,6 @@ const ProjectAnalytics = () => {
       disabled: !allowed.includes(item.value as string),
     }));
   }, [dateFilterWatch('fromDate'), dateFilterWatch('toDate')]);
-
-  const {data: projectData} = useQuery<Project | undefined>({
-    queryKey: ["project", projectID],
-    queryFn: async () => {
-      if (!projectID) return undefined;
-      const res = await api.getProject(projectID);
-      if (res.data.err) {
-        throw res.data.errMsg;
-      }
-      return res.data.project;
-    },
-    enabled: !!projectID,
-    refetchOnWindowFocus: false,
-  });
 
   const {data: pageViewsData, isFetching: pageViewsLoading} = useQuery({
     queryKey: [
@@ -225,26 +233,62 @@ const ProjectAnalytics = () => {
   });
   const stabilizedVisitorCountriesData = useMemo(() => visitorCountriesData ?? [], [visitorCountriesData]);
 
+  const updateAnalyticsVisibilityMutation = useMutation({
+    mutationFn: async (allowAnonTrafficAnalytics: boolean) => {
+      if (!projectID) return;
+      const res = await api.updateProject({
+        projectID,
+        allowAnonTrafficAnalytics
+      });
+
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+    },
+    onError(error, variables, context) {
+      handleGlobalError(error);
+    },
+    onSuccess(){
+      queryClient.invalidateQueries(useProjectQueryKey);
+      addNotification({
+        message: "Analytics settings updated successfully.",
+        type: "success"
+      })
+    }
+  })
+
   return (
     <Grid className="component-container">
       <Grid.Column>
-        <Header as="h2" dividing className="component-header">
+        <Header as="h2" dividing className={classNames("component-header", user.isAuthenticated ? "" : "!mt-8")}>
           Analytics: <span className="italic">{projectData?.title}</span>
         </Header>
         <Segment.Group size="large" raised className="mb-4p">
-          <Segment>
-            <Breadcrumb>
-              <Breadcrumb.Section as={Link} to="/projects">
-                Projects
-              </Breadcrumb.Section>
-              <Breadcrumb.Divider icon="right chevron"/>
-              <Breadcrumb.Section as={Link} to={`/projects/${projectID}`}>
-                {projectData?.title || "Loading..."}
-              </Breadcrumb.Section>
-              <Breadcrumb.Divider icon="right chevron"/>
-              <Breadcrumb.Section active>Analytics</Breadcrumb.Section>
-            </Breadcrumb>
-          </Segment>
+          {
+            user.isAuthenticated && (
+            <Segment className="flex flex-col md:flex-row space-y-4 md:space-y-0 items-center justify-between">
+              <Breadcrumb>
+                <Breadcrumb.Section as={Link} to="/projects">
+                  Projects
+                </Breadcrumb.Section>
+                <Breadcrumb.Divider icon="right chevron"/>
+                <Breadcrumb.Section as={Link} to={`/projects/${projectID}`}>
+                  {projectData?.title || "Loading..."}
+                </Breadcrumb.Section>
+                <Breadcrumb.Divider icon="right chevron"/>
+                <Breadcrumb.Section active>Analytics</Breadcrumb.Section>
+              </Breadcrumb>
+              <div className="flex flex-row items-center">
+                <p className="mr-2">Allow public access to traffic analytics</p>
+                <Checkbox
+                  toggle
+                  name="allowAnonTrafficAnalytics"
+                  checked={projectData?.allowAnonTrafficAnalytics}
+                  onChange={() => updateAnalyticsVisibilityMutation.mutate(!projectData?.allowAnonTrafficAnalytics)}
+                />
+              </div>
+            </Segment>
+          )}
           {
             (projectData?.libreLibrary && projectData?.libreCoverID)
               ? (
