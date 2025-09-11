@@ -23,7 +23,6 @@ import { useTypedSelector } from "../../../../state/hooks";
 import api from "../../../../api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import SupportCenterTable from "../../../../components/support/SupportCenterTable";
-import CopyButton from "../../../../components/util/CopyButton";
 import { useNotifications } from "../../../../context/NotificationContext";
 const DEFAULT_LOGO_URL = "https://cdn.libretexts.net/DefaultImages/avatar.png";
 
@@ -228,30 +227,7 @@ const CentralIdentityOrganizationView = () => {
                         {
                           accessor: "user.email",
                           title: "Email",
-                          render(record, index) {
-                            return (
-                              <div className="flex flex-row">
-                                {record.user.email}
-                                <CopyButton val={record.user.email}>
-                                  {({ copied, copy }) => (
-                                    <Icon
-                                      name="copy"
-                                      className="cursor-pointer !ml-1"
-                                      onClick={() => {
-                                        copy();
-                                        addNotification({
-                                          message: "Email copied to clipboard",
-                                          type: "success",
-                                          duration: 2000,
-                                        });
-                                      }}
-                                      color={copied ? "green" : "blue"}
-                                    />
-                                  )}
-                                </CopyButton>
-                              </div>
-                            );
-                          },
+                          copyButton: true,
                         },
                         {
                           accessor: "admin_role",

@@ -9,7 +9,6 @@ import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import SupportCenterTable from "./SupportCenterTable";
 import { PaginationWithItemsSelect } from "../util/PaginationWithItemsSelect";
-import CopyButton from "../util/CopyButton";
 import TicketStatusLabel from "./TicketStatusLabel";
 import { Link } from "react-router-dom";
 

@@ -10,7 +10,6 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import api from "../../../../api";
 import Button from "../../../../components/NextGenComponents/Button";
 import useDocumentTitle from "../../../../hooks/useDocumentTitle";
-import CopyButton from "../../../../components/util/CopyButton";
 import {
   IconClipboardFilled,
   IconCloudComputing,
@@ -143,33 +142,15 @@ const StoreManager = () => {
                   {
                     accessor: "id",
                     title: "Order ID",
-                    render(record, index) {
-                      return (
-                        <div className="flex items-center">
-                          <span>{truncateOrderId(record.id)}</span>
-                          <CopyButton val={record.id}>
-                            {({ copied, copy }) => (
-                              <IconClipboardFilled
-                                className="cursor-pointer !ml-1.5 w-5 h-5 text-primary"
-                                onClick={() => {
-                                  copy();
-                                  addNotification({
-                                    message: "Order ID copied to clipboard",
-                                    type: "success",
-                                    duration: 2000,
-                                  });
-                                }}
-                              />
-                            )}
-                          </CopyButton>
-                        </div>
-                      );
+                    copyButton: true,
+                    render(record) {
+                      return truncateOrderId(record.id);
                     },
                   },
                   {
                     accessor: "createdAt",
                     title: "Order Date",
-                    render(record, index) {
+                    render(record) {
                       return (
                         <span>
                           {record.createdAt
@@ -189,42 +170,20 @@ const StoreManager = () => {
                   {
                     accessor: "stripe_session",
                     title: "Customer Email",
-                    render(record, index) {
+                    copyButton: true,
+                    render(record) {
                       return (
-                        <div className="flex items-center">
-                          <span>
-                            {record.stripe_session?.customer_details?.email ||
-                              "Unknown"}
-                          </span>
-                          <CopyButton
-                            val={
-                              record.stripe_session?.customer_details?.email ||
-                              "Unknown"
-                            }
-                          >
-                            {({ copied, copy }) => (
-                              <IconClipboardFilled
-                                className="cursor-pointer !ml-1.5 w-5 h-5 text-primary"
-                                onClick={() => {
-                                  copy();
-                                  addNotification({
-                                    message:
-                                      "Customer email copied to clipboard",
-                                    type: "success",
-                                    duration: 2000,
-                                  });
-                                }}
-                              />
-                            )}
-                          </CopyButton>
-                        </div>
+                        <span>
+                          {record.stripe_session?.customer_details?.email ||
+                            "Unknown"}
+                        </span>
                       );
                     },
                   },
                   {
                     accessor: "stripe_session",
                     title: "Total Amount",
-                    render(record, index) {
+                    render(record) {
                       return (
                         <span>
                           {record.stripe_session?.amount_total
@@ -240,7 +199,7 @@ const StoreManager = () => {
                   {
                     accessor: "luluJobID",
                     title: "Lulu Job ID",
-                    render(record, index) {
+                    render(record) {
                       if (!record.luluJobID && record.status !== "failed") {
                         return (
                           <span className="text-gray-500">
@@ -268,7 +227,7 @@ const StoreManager = () => {
                   {
                     accessor: "luluJobStatus",
                     title: "Lulu Job Status",
-                    render(record, index) {
+                    render(record) {
                       return (
                         <span
                           className={`capitalize ${
@@ -288,7 +247,7 @@ const StoreManager = () => {
                   {
                     accessor: "status",
                     title: "Status",
-                    render(record, index) {
+                    render(record) {
                       return (
                         <span
                           className={`capitalize ${
@@ -305,7 +264,7 @@ const StoreManager = () => {
                   {
                     accessor: "actions",
                     title: "Actions",
-                    render(record, index) {
+                    render(record) {
                       return (
                         <a
                           href={`/controlpanel/store/orders/${record.id}`}
