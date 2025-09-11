@@ -3192,31 +3192,8 @@ async function _generateAndApplyPageImagesAltText(
     }
 
     const calcImages = (imagesRes: PageImagesRes): PageFile[] => {
-      let arr = [];
-      if (Array.isArray(imagesRes.file)) {
-        arr = imagesRes.file;
-      } else {
-        arr = [imagesRes.file];
-      }
-
-      if (!overwrite) {
-        arr = arr.filter((f) => {
-          if (!f.properties || !f.properties.property) return true; // no properties, include
-
-          // Only include images that don't have an "alt" property
-          if (Array.isArray(f.properties.property)) {
-            return !f.properties.property.some(
-              (p) => p["@name"] === "alt" && p.contents["#text"]
-            );
-          }
-          return !(
-            f.properties.property["@name"] === "alt" &&
-            f.properties.property.contents["#text"]
-          );
-        });
-      }
-
-      return arr;
+      const arr = Array.isArray(imagesRes.file) ? imagesRes.file : [imagesRes.file];
+      return arr.filter((f) => _checkCanEditAltText(f, overwrite));
     };
 
     const imageData = calcImages(pageImageData);
@@ -3790,6 +3767,26 @@ async function _canAccessPage(
     return false;
   }
 }
+
+function _checkCanEditAltText(file: PageFile, overwrite: boolean): boolean {
+  // If overwriting is enabled, we can always edit
+  if (overwrite) return true;
+
+  // If no properties exist, we can edit (no existing alt text)
+  if (!file.properties || !file.properties.property) return true;
+
+  // Check if alt property exists with content
+  if (Array.isArray(file.properties.property)) {
+    const altTextPropertyExists = file.properties.property.some(
+      (p) => p["@name"] === "alt" && p.contents["#text"]
+    );
+    return !altTextPropertyExists;
+  }
+
+  // Single property - check if it's an "alt" property with content
+  const altTextPropertyExists = file.properties.property["@name"] === "alt" && file.properties.property.contents["#text"];
+  return !altTextPropertyExists;
+};
 
 export async function _getBookPublicOrInstructorAssetsCount(ids: string[]): Promise<{
   bookID: string;
