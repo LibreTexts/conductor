@@ -414,12 +414,12 @@ const EventRegistration = () => {
                           item.uiType === "heading" &&
                           isCustomFormHeadingOrTextBlock(item)
                         ) {
-                          return <HeadingBlock item={item} key={item.order} />;
+                          return <HeadingBlock item={item} key={item.order} className="!min-w-full" />;
                         } else if (
                           item.uiType === "textBlock" &&
                           isCustomFormHeadingOrTextBlock(item)
                         ) {
-                          return <TextBlock item={item} key={item.order} />;
+                          return <TextBlock item={item} key={item.order} className="!min-w-full" />;
                         } else if (
                           item.uiType === "prompt" &&
                           isCustomFormPromptBlock(item)
