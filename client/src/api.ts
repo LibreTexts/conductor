@@ -703,8 +703,6 @@ class API {
         admins: CentralIdentityOrgAdminResult[];
       } & ConductorBaseResponse
     >(`/central-identity/orgs/${orgId}/admins`);
-
-    console.log("DATA:", res.data);
     return res;
   }
 
