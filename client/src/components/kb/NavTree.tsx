@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
 import { KBTreeNode } from "../../types";
@@ -13,6 +14,8 @@ const NavTree = () => {
   const user = useTypedSelector((state) => state.user);
   const [canEdit, setCanEdit] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(true);
+  const navTreeRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
 
   const {
     data: tree,
@@ -28,6 +31,25 @@ const NavTree = () => {
   useEffect(() => {
     setCanEdit(canEditKB(user));
   }, [user]);
+
+  useEffect(() => {
+    // Restore scroll position with a delay to ensure content is loaded
+    const savedScrollPosition = localStorage.getItem('navScrollPosition');
+    if (savedScrollPosition && navTreeRef.current) {
+      setTimeout(() => {
+        if (navTreeRef.current) {
+          navTreeRef.current.scrollTop = parseInt(savedScrollPosition, 10);
+        }
+      }, 100); // Small delay to let content render
+    }
+  }, [tree]); 
+
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (navTreeRef.current) {
+      const scrollPosition = navTreeRef.current.scrollTop;
+      localStorage.setItem('navScrollPosition', scrollPosition.toString());
+    }
+  }
 
   useEffect(() => {
     // Load preference from local storage on first render
@@ -63,6 +85,12 @@ const NavTree = () => {
     return `/insight/${slug}`;
   };
 
+  // Function to check if a link is active
+  const isActiveLink = (slug: string) => {
+    const linkPath = getLink(slug);
+    return location.pathname === linkPath;
+  };
+
   function handleCreatePage(parent?: string) {
     if (!parent) {
       window.location.assign(`/insight/new`);
@@ -82,6 +110,7 @@ const NavTree = () => {
 
   return (
     <div
+      ref={navTreeRef}
       aria-busy={loading}
       className={`h-screen-content overflow-y-auto border-r-2 p-4 ${
         drawerOpen ? "min-w-[15rem]" : "min-w-[4rem]"
@@ -129,16 +158,22 @@ const NavTree = () => {
             </Popup>
           </div>
           {tree?.map((node) => {
+            const isActive = isActiveLink(node.slug);
             return (
               <div
                 key={node.uuid}
-                className="p-2 rounded-xl hover:bg-slate-100"
+                className={`p-2 rounded-xl hover:bg-slate-100 ${
+                  isActive ? "bg-blue-100 border-l-4 border-blue-500" : ""
+                }`}
               >
                 <div className="flex flex-row justify-between items-center">
                   <div className="flex flex-row items-center overflow-x-clip align-middle">
                     <a
-                      className="text-lg font-semibold text-black break-words hyphens-auto"
+                      className={`text-lg font-semibold break-words hyphens-auto ${
+                        isActive ? "text-blue-600" : "text-black"
+                      }`}
                       href={getLink(node.slug)}
+                      onClick={handleLinkClick}
                     >
                       {truncateString(node.title, 50)}
                     </a>
@@ -148,14 +183,20 @@ const NavTree = () => {
                 <div className="pl-4">
                   {node.children &&
                     node.children.map((child) => {
+                      const isChildActive = isActiveLink(child.slug);
                       return (
                         <div
                           key={child.uuid}
-                          className="p-2 flex flex-row items-center"
+                          className={`p-2 flex flex-row items-center ${
+                            isChildActive ? "bg-blue-50 rounded" : ""
+                          }`}
                         >
                           <a
-                            className="text-md font-semibold text-gray-600 break-words hyphens-auto"
+                            className={`text-md font-semibold break-words hyphens-auto ${
+                              isChildActive ? "text-blue-600" : "text-gray-600"
+                            }`}
                             href={getLink(child.slug)}
+                            onClick={handleLinkClick}
                           >
                             {truncateString(child.title, 50)}
                           </a>
