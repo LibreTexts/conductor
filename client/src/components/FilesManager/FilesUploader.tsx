@@ -17,6 +17,7 @@ import api from "../../api";
 import { useTypedSelector } from "../../state/hooks";
 import tusUpload from "../../utils/tusUpload";
 import { calculateVideoLength } from "../../utils/assetHelpers";
+import { supportTicketAttachmentAllowedTypes } from "../../utils/supportHelpers";
 
 type _AddProps = {
   mode: "add";
@@ -343,6 +344,7 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
 
             <FileUploader
               className="mt-2"
+              fileTypes={supportTicketAttachmentAllowedTypes}
               maxFiles={mode === "add" ? MAX_ADD_FILES : 1}
               maxFileSize={MAX_FILE_SIZE}
               onUpload={saveFilesToState}
