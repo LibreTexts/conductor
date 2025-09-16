@@ -41,7 +41,8 @@ import {
   CheckUserApplicationAccessValidator,
   VerificationStatusUpdateWebhookValidator,
   GetVerificationRequestsSchema,
-  CheckUsersApplicationAccessValidator
+  CheckUsersApplicationAccessValidator,
+  DeleteUserValidator
 } from "./validators/central-identity.js";
 import Project, { ProjectInterface } from "../models/project.js";
 import { getSubdomainFromLibrary } from "../util/librariesclient.js";
@@ -1797,6 +1798,33 @@ async function reEnableUser(
   }
 }
 
+async function deleteUser(
+  req: ZodReqWithUser<z.infer<typeof DeleteUserValidator>>,
+  res: Response
+) {
+  try {
+    if (!req.params.id) {
+      return conductor400Err(res);
+    }
+
+    console.log("DELETING USER", req.params.id);
+    const deleteRes = await centralIdentityService.deleteUser(req.params.id);
+
+    if (deleteRes.data.err || deleteRes.data.errMsg) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      msg: "User successfully deleted.",
+      meta: {},
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 /**
  * Middleware(s) to verify that requests contain necessary and/or valid fields.
  */
@@ -2018,5 +2046,6 @@ export default {
   updateUserNote,
   deleteUserNote,
   disableUser,
-  reEnableUser
+  reEnableUser,
+  deleteUser
 };

@@ -47,3 +47,9 @@ export const GetVerificationRequestsSchema = z.object({
     status: z.enum(["open", "closed"]).optional()
   }).merge(PaginationSchema),
 });
+
+export const DeleteUserValidator = z.object({
+  params: z.object({
+    id: z.string().uuid(),
+  }),
+});
