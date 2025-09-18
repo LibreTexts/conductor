@@ -62,7 +62,7 @@ KBPageSchema.virtual("lastEditedBy", {
   foreignField: "uuid",
   justOne: true,
   options: {
-    projection: SanitizedUserSelectProjection
+    projection: {uuid: 1, firstName: 1, lastName: 1, avatar: 1}
   },
 })
 

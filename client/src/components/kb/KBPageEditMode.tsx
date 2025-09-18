@@ -62,6 +62,7 @@ const KBPageEditMode = ({
       const res = await axios.get(
         `/kb/page/${isUUID ? `${slug}` : `slug/${slug}`}`
       );
+      
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
