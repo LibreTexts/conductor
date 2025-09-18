@@ -59,7 +59,10 @@ async function getKBPage(
     }
 
     const kbPage = await KBPage.findOne(matchObj)
-      .populate("lastEditedBy")
+      .populate({
+        path: "lastEditedBy",
+        select: "uuid firstName lastName avatar",
+      })
       .lean()
       .orFail();
 
