@@ -48,6 +48,20 @@ const KBPageViewMode = ({
     }
   }
 
+  const generateTOC = (content: string) => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(content, "text/html");
+    const headings = doc.querySelectorAll("h1, h2, h3");
+    return Array.from(headings).map((heading, index) => ({
+      id: `toc-${index}`,
+      text: heading.textContent || "",
+      link: `#${heading.id || `toc-${index}`}`,
+    }));
+  };
+
+  const toc = page?.body ? generateTOC(page.body) : [];
+  console.log("toc", toc);
+
   return (
     <div aria-busy={loading}>
       <div className="flex flex-row items-center">
@@ -64,6 +78,19 @@ const KBPageViewMode = ({
         />
         {canEdit && <PageStatusLabel status={page?.status} className="!mt-0.5"/>}
       </div>
+
+      {toc.length > 0 && (
+        <div className="mt-6 mb-9">
+          <h3>Articles in this section</h3>
+          <ul>
+            {toc.map((item) => (
+              <li key={item.id}>
+                <a href={item.link}>{item.text}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mt-6 mb-9">
         <KBRenderer content={page?.body} />
