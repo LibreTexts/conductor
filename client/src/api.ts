@@ -79,6 +79,7 @@ import {
   TrafficAnalyticsUniqueVisitorsDataPoint,
   TrafficAnalyticsVisitorCountriesDataPoint,
 } from "./types/TrafficAnalytics";
+import { EventSource } from "extended-eventsource";
 
 /**
  * @fileoverview
@@ -87,6 +88,10 @@ import {
  */
 
 class API {
+  private readonly BASE_URL: string = import.meta.env.MODE === "development"
+    ? `${import.meta.env.VITE_DEV_BASE_URL}/api/v1`
+    : "/api/v1";
+
   // ANNOUNCEMENTS
   async getSystemAnnouncement() {
     const res = await axios.get<
@@ -406,7 +411,7 @@ class API {
       {
         summary: string;
       } & ConductorBaseResponse
-    >(`/commons/pages/${pageID}/ai-summary?coverPageID=${coverPageID}`);
+    >(`/co-author/pages/${pageID}/ai-summary?coverPageID=${coverPageID}`);
     return res;
   }
 
@@ -415,7 +420,7 @@ class API {
       {
         tags: string[];
       } & ConductorBaseResponse
-    >(`/commons/pages/${pageID}/ai-tags?coverPageID=${coverPageID}`);
+    >(`/co-author/pages/${pageID}/ai-tags?coverPageID=${coverPageID}`);
     return res;
   }
 
@@ -429,7 +434,7 @@ class API {
         success: boolean;
         modified_count: number;
       } & ConductorBaseResponse
-    >(`/commons/pages/${pageID}/ai-alt-text?coverPageID=${coverPageID}`, {
+    >(`/co-author/pages/${pageID}/ai-alt-text?coverPageID=${coverPageID}`, {
       overwrite,
     });
     return res;
@@ -439,21 +444,25 @@ class API {
    * Generates and applies AI-generated summaries, tags, or both, to all pages in a book
    * @param {string} bookID - the cover page of the book to apply the summaries to
    */
-  async batchGenerateAIMetadata(
+  batchGenerateAIMetadata(
     bookID: string,
-    summaries: { generate: boolean; overwrite: boolean },
-    tags: { generate: boolean; overwrite: boolean },
-    alttext: { generate: boolean; overwrite: boolean }
+    config: {
+      summaries: { generate: boolean; overwrite: boolean },
+      tags: { generate: boolean; overwrite: boolean },
+      alttext: { generate: boolean; overwrite: boolean }
+    }
   ) {
-    const res = await axios.post<ConductorBaseResponse>(
-      `/commons/book/${bookID}/ai-metadata-batch`,
+    return new EventSource(
+      `${this.BASE_URL}/co-author/books/${bookID}/ai-metadata-batch`,
       {
-        ...(summaries.generate ? { summaries } : {}),
-        ...(tags.generate ? { tags } : {}),
-        ...(alttext.generate ? { alttext } : {}),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+        method: "POST",
+        body: JSON.stringify(config)
       }
     );
-    return res;
   }
 
   /**
@@ -461,17 +470,21 @@ class API {
    * @param {string} bookID - the cover page of the book to apply the metadata to
    * @param {Array<{ id: string; summary: string; tags: string[] }>} pages - the pages & data to update
    */
-  async batchUpdateBookMetadata(
+  batchUpdateBookMetadata(
     bookID: string,
     pages: { id: string; summary: string; tags: string[] }[]
   ) {
-    const res = await axios.post<{ msg: string } & ConductorBaseResponse>(
-      `/commons/book/${bookID}/update-metadata-batch`,
+    return new EventSource(
+      `${this.BASE_URL}/co-author/books/${bookID}/update-metadata-batch`,
       {
-        pages,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+        method: "POST",
+        body: JSON.stringify({ pages }),
       }
     );
-    return res;
   }
 
   async updatePageDetails(
@@ -495,7 +508,7 @@ class API {
         failed: number;
         processed: number;
       } & ConductorBaseResponse
-    >(`/commons/book/${bookID}/page-tags`, {
+    >(`/commons/books/${bookID}/page-tags`, {
       pages,
     });
     return res;
@@ -1003,7 +1016,7 @@ class API {
     return res;
   }
 
-  
+
   async bulkGenerateCentralIdentityAppLicenseAccessCodes(
     application_license_id: string,
     quantity: number

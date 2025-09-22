@@ -14,6 +14,8 @@ import {
 import * as cheerio from "cheerio";
 import Book, { BookInterface } from "../../models/book";
 import { encodeXML } from "entities";
+import Project from "../../models/project";
+import projectsAPI from "../projects";
 
 export interface BookServiceParams {
   bookID: string;
@@ -71,6 +73,24 @@ export default class BookService {
     "field:",
     "printoptions:",
   ];
+
+  async canAccessPage(userID: string): Promise<boolean> {
+    try {
+      const project = await Project.findOne({
+        libreLibrary: this._library,
+        libreCoverID: this._coverID,
+      });
+
+      if (!project) {
+        return false;
+      }
+
+      return projectsAPI.checkProjectMemberPermission(project, userID);
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
+  }
 
   async getBookRecord(): Promise<BookInterface | undefined> {
     try {
@@ -492,7 +512,7 @@ export default class BookService {
       if (!pageID) {
         throw new Error("Missing page ID");
       }
-  
+
       const pageSecurityRes = await CXOneFetch({
         scope: "page",
         path: parseInt(pageID),
@@ -507,13 +527,13 @@ export default class BookService {
         console.error(err);
         throw new Error(`Error fetching page security: ${err}`);
       });
-  
+
       if (!pageSecurityRes.ok) {
         throw new Error(
           `Error fetching page details: ${pageSecurityRes.statusText}`
         );
       }
-  
+
       const pageSecurityRaw = await pageSecurityRes.json();
       const visibility = pageSecurityRaw?.["permissions.page"]?.restriction?.["#text"]?.toString() ?? "Semi-Private";
 

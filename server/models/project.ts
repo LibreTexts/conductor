@@ -33,6 +33,7 @@ export type ProjectBookBatchUpdateJob = {
   ranBy: string; // User UUID
   startTimestamp?: Date;
   endTimestamp?: Date;
+  logs?: string[]; // log messages, including errors
   error?: string; // root-level error message, not for individual pages
   generateResources?: {
     summaries?: {
@@ -511,6 +512,7 @@ const ProjectSchema = new Schema<ProjectInterface>(
         ranBy: String,
         startTimestamp: Date,
         endTimestamp: Date,
+        logs: [String],
         error: String,
         generateResources: {
           summaries: {
