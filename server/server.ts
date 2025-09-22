@@ -14,12 +14,18 @@ import Promise from "bluebird";
 import helmet from "helmet";
 import { debug, debugServer, debugDB } from "./debug.js";
 import api, { permalinkRouter } from "./api.js";
+import rateLimit from "express-rate-limit";
 
 // Prevent startup without ORG_ID env variable
 if (!process.env.ORG_ID) {
   debug("[FATAL ERROR]: The ORG_ID environment variable is missing.");
   exit(1);
 }
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 200, // limit each IP to 200 requests per windowMs
+});
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -36,6 +42,7 @@ await mongoose
   .catch((err) => debugDB(err));
 debugDB("Connected to MongoDB Atlas.");
 
+app.use(limiter);
 app.use(cookieParser());
 app.use(helmet.hidePoweredBy());
 app.use(
