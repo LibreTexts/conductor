@@ -6,7 +6,6 @@ import {
   Icon,
   Segment,
   Accordion,
-  Message,
   Placeholder,
   PlaceholderLine,
   Dropdown,
@@ -16,24 +15,29 @@ import {
   Checkbox,
 } from "semantic-ui-react";
 import { useModals } from "../../../../context/ModalContext";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../../../../api";
 import {
+  FormWorkingData,
   Prettify,
-  Project,
-  ProjectBookBatchUpdateJob,
   TableOfContentsDetailed,
 } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import { useNotifications } from "../../../../context/NotificationContext";
 import "../../../../components/projects/Projects.css";
-import { useParams } from "react-router-dom";
-import { Fragment, useEffect, useMemo, useReducer, useState } from "react";
+import { useHistory, useParams } from "react-router-dom";
+import React, {
+  Fragment,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { Link } from "react-router-dom-v5-compat";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import { useFieldArray, useForm } from "react-hook-form";
-import BulkAIMetadataModal from "../../../../components/projects/TextbookCuration/BulkAIMetadataModal";
 import BulkAddTagModal from "../../../../components/projects/TextbookCuration/BulkAddTagModal";
 import SingleAddTagModal from "../../../../components/projects/TextbookCuration/SingleAddTagModal";
 import ViewBulkUpdateHistoryModal from "../../../../components/projects/TextbookCuration/ViewBulkUpdateHistoryModal";
@@ -42,6 +46,8 @@ import NodeEditor from "../../../../components/projects/TextbookCuration/NodeEdi
 import { useTypedSelector } from "../../../../state/hooks";
 import GeneratePageImagesAltTextModal from "../../../../components/projects/TextbookCuration/GeneratePageImagesAltTextModal";
 import ActiveJobAlert from "../../../../components/projects/TextbookCuration/ActiveJobAlert";
+import useProject from "../../../../hooks/useProject";
+import BatchUpdateModal from "../../../../components/projects/TextbookCuration/BatchUpdateModal";
 
 type WithUIState = Prettify<
   Omit<TableOfContentsDetailed, "children"> & {
@@ -52,14 +58,6 @@ type WithUIState = Prettify<
     children: WithUIState[];
   }
 >;
-
-type FormWorkingData = {
-  pages: {
-    pageID: string;
-    overview: string;
-    tags: string[];
-  }[];
-};
 
 type NodeStateReducerAction =
   | {
@@ -219,8 +217,15 @@ const TextbookCuration = () => {
   const { handleGlobalError } = useGlobalError();
   const { openModal, closeAllModals } = useModals();
   const { addNotification } = useNotifications();
-  const queryClient = useQueryClient();
+
+  const history = useHistory();
   const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
+  const {
+    project: projectData,
+    bookID,
+    activeBatchJob,
+    mutations,
+  } = useProject(projectID);
 
   const [bulkActionsOpen, setBulkActionsOpen] = useState<boolean>(false);
   const [showSystemTags, setShowSystemTags] = useState<boolean>(false);
@@ -239,33 +244,6 @@ const TextbookCuration = () => {
 
     return flattened.some((node) => node.edited);
   }, [nodeState]);
-
-  const { data: projectData } = useQuery<Project | undefined>({
-    queryKey: ["project", projectID],
-    queryFn: async () => {
-      if (!projectID) return undefined;
-      const res = await api.getProject(projectID);
-      if (res.data.err) {
-        throw res.data.errMsg;
-      }
-
-      return res.data.project;
-    },
-    enabled: !!projectID,
-    refetchOnWindowFocus: false,
-  });
-
-  const activeBatchJob = useMemo(() => {
-    if (!projectData || !projectData.batchUpdateJobs) {
-      return null;
-    }
-
-    const active = projectData.batchUpdateJobs.find((job) =>
-      ["pending", "running"].includes(job.status)
-    );
-
-    return active || null;
-  }, [projectData]);
 
   const { data: _data, isFetching } = useQuery<WithUIState[]>({
     queryKey: ["textbook-structure-detailed", projectID],
@@ -331,56 +309,6 @@ const TextbookCuration = () => {
     openModal(<WelcomeToCoAuthorModal onClose={closeAllModals} />);
   }, [window.localStorage]);
 
-  const updateBookPagesMutation = useMutation({
-    mutationFn: async (workingData: FormWorkingData) => {
-      const pagesToUpdate = getPagesToUpdate(workingData);
-      if (!pagesToUpdate) {
-        return null;
-      }
-
-      return api.batchUpdateBookMetadata(
-        `${projectData?.libreLibrary}-${projectData?.libreCoverID}`,
-        pagesToUpdate
-      );
-    },
-    onSettled: async (data) => {
-      if (!data || data.data.err) {
-        addNotification({
-          type: "error",
-          message: "Failed to create bulk update job. Please try again later.",
-        });
-        await queryClient.invalidateQueries(["project", projectID]); // Refresh the project data (with bulk update jobs)
-        return;
-      }
-
-      const message = data.data.msg;
-      addNotification({
-        type: "success",
-        message,
-      });
-
-      await queryClient.invalidateQueries(["project", projectID]); // Refresh the project data (with bulk update jobs)
-      await queryClient.invalidateQueries([
-        "textbook-structure-detailed",
-        projectID,
-      ]);
-    },
-    onError: (error) => {
-      handleGlobalError(error);
-    },
-  });
-
-  const refreshActiveJobStatusMutation = useMutation({
-    mutationFn: async () => {
-      queryClient.invalidateQueries(["project", projectID]);
-      queryClient.invalidateQueries(["textbook-structure-detailed", projectID]);
-      window.location.reload();
-    },
-    onError: (error) => {
-      handleGlobalError(error);
-    },
-  });
-
   function getPagesToUpdate(workingData: FormWorkingData) {
     // first, flat map node data so we can easily find edited pages
     const flattened: WithUIState[] = [];
@@ -412,13 +340,15 @@ const TextbookCuration = () => {
   async function handleInitSave() {
     const pagesToUpdate = getPagesToUpdate(getValues());
     if (!pagesToUpdate || pagesToUpdate.length === 0) return;
-    if (pagesToUpdate.length <= 10) {
-      await updateBookPagesMutation.mutateAsync({
-        pages: getValues("pages"),
-      });
-    } else {
-      handleConfirmSave();
-    }
+
+    openModal(
+      <BatchUpdateModal
+        projectID={projectID}
+        open={true}
+        pages={pagesToUpdate}
+        onClose={() => closeAllModals()}
+      />
+    );
   }
 
   async function fetchAISummary(pageID: string) {
@@ -585,37 +515,6 @@ const TextbookCuration = () => {
       />
     );
   }
-
-  function handleConfirmSave() {
-    openModal(
-      <ConfirmModal
-        text="Are you sure you want to save these changes? This will create a bulk update job that may take some time to complete. We'll send you an email when it's done."
-        onConfirm={async () => {
-          updateBookPagesMutation.mutate({
-            pages: getValues("pages"),
-          });
-          closeAllModals();
-        }}
-        onCancel={closeAllModals}
-        confirmText="Save"
-        confirmColor="green"
-      />
-    );
-  }
-
-  const handleOpenBulkAIMetadataModal = () => {
-    if (!projectData?.libreLibrary || !projectData?.libreCoverID) {
-      return;
-    }
-
-    openModal(
-      <BulkAIMetadataModal
-        projectID={projectID}
-        library={projectData?.libreLibrary}
-        pageID={projectData?.libreCoverID}
-      />
-    );
-  };
 
   const handleOpenGeneratePageImagesAltTextModal = (pageID: string) => {
     if (!projectData?.libreCoverID) return;
@@ -882,13 +781,16 @@ const TextbookCuration = () => {
             <Segment>
               <ActiveJobAlert
                 job={activeBatchJob}
-                onRefresh={() => refreshActiveJobStatusMutation.mutate()}
-                loading={refreshActiveJobStatusMutation.isLoading}
+                onRefresh={() => {
+                  mutations.refreshActiveJobStatus.mutate();
+                  window.location.reload();
+                }}
+                loading={mutations.refreshActiveJobStatus.isLoading}
               />
             </Segment>
           )}
           <Segment>
-            {(isFetching || updateBookPagesMutation.isLoading) && (
+            {isFetching && (
               <div className="my-16">
                 <LoadingSpinner text="Loading content... This may take a moment" />
               </div>
@@ -931,7 +833,11 @@ const TextbookCuration = () => {
                       <DropdownItem
                         icon="magic"
                         content="Generate AI Metadata"
-                        onClick={handleOpenBulkAIMetadataModal}
+                        onClick={() =>
+                          history.push(
+                            `/projects/${projectID}/ai-co-author/batch`
+                          )
+                        }
                         disabled={!!activeBatchJob}
                       />
                       <DropdownItem
@@ -970,7 +876,6 @@ const TextbookCuration = () => {
                   <Button
                     onClick={handleConfirmReset}
                     disabled={!hasMadeChanges}
-                    loading={updateBookPagesMutation.isLoading}
                     color="red"
                     title="Reset All Changes"
                   >
@@ -981,7 +886,6 @@ const TextbookCuration = () => {
                     color="green"
                     onClick={handleInitSave}
                     disabled={!hasMadeChanges}
-                    loading={updateBookPagesMutation.isLoading}
                     title="Save Changes"
                   >
                     <Icon name="save" />

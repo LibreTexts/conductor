@@ -1,12 +1,9 @@
 import OpenAI from "openai";
 import { ChatCompletionMessageParam } from "openai/resources";
-import { encodeGenerator, decode, decodeGenerator } from "gpt-tokenizer";
+import { encodeGenerator, decodeGenerator } from "gpt-tokenizer";
 import { APIPromise } from "openai/core";
 import axios from "axios";
-import {
-  AltTextAICreateImage200Response,
-  AltTextAICreateImage4XXResponse,
-} from "../../types";
+import { AltTextAICreateImage200Response } from "../../types";
 import { convertBase64SVGToBase64PNG } from "../../util/imageutils";
 
 export default class AIService {
@@ -24,85 +21,58 @@ export default class AIService {
   private _pageOverviewMessages = (
     pageText: string
   ): ChatCompletionMessageParam[] => [
-    {
-      role: "system",
-      content:
-        "Generate a summary of this text. Disregard any code blocks, equations, or images. The summary may not exceed 500 characters. If you are unable to generate a summary, return only the word 'empty'.",
-    },
-    {
-      role: "user",
-      content: pageText,
-    },
-  ];
+      {
+        role: "system",
+        content:
+          "Generate a summary of this page of a textbook. Your goal is to create a concise, yet meaningful summary for readers to quickly understand what the main ideas of the page are. Disregard any code blocks, equations, or images. The summary may not exceed 500 characters. If you are unable to generate a summary, return only the word 'empty'.",
+      },
+      {
+        role: "user",
+        content: pageText,
+      },
+    ];
 
   private _summarizeSummaryMessages = (
     summaries: string[]
   ): ChatCompletionMessageParam[] => [
-    {
-      role: "system",
-      content:
-        "Given the following list of summaries, seperated by semicolons, generate a concise summary of these summaries. The final summary may not exceed 500 characters. If you are unable to generate a final summary, return only the word 'empty'. When referring to the content that is being summarized, refer to it as 'this page'.",
-    },
-    {
-      role: "user",
-      content: summaries.join(";"),
-    },
-  ];
+      {
+        role: "system",
+        content:
+          "Given the following list of summaries of textbook pages, seperated by semicolons, generate a concise overall summary of these summaries. The final summary may not exceed 500 characters. If you are unable to generate a final summary, return only the word 'empty'. When referring to the content that is being summarized, refer to it as 'this page'.",
+      },
+      {
+        role: "user",
+        content: summaries.join(";"),
+      },
+    ];
 
   private _pageTagsMessages = (
     pageText: string
   ): ChatCompletionMessageParam[] => [
-    {
-      role: "system",
-      content:
-        "Generate a list of tags, separated by commas, for this text. Disregard any code blocks, equations, or images. The tags should be only alphanumeric. If you are unable to create any tags, return only the word 'empty'.",
-    },
-    {
-      role: "user",
-      content: pageText,
-    },
-  ];
+      {
+        role: "system",
+        content:
+          "Generate a list of meta-tags, separated by commas, for this page of a textbook. Disregard any code blocks, equations, or images. The tags should be only alphanumeric. If you are unable to create any tags, return only the word 'empty'.",
+      },
+      {
+        role: "user",
+        content: pageText,
+      },
+    ];
 
   private _tagsSummaryMessages = (
     tags: string[]
   ): ChatCompletionMessageParam[] => [
-    {
-      role: "system",
-      content:
-        "Given the following list of tags, select the most 10 most useful tags for content tagging and organization purposes and return them as a new list, each separated by a comma. If you are unable to generate a new list of tags, return only the word 'empty'. The final list of tags should not have more than 10 tags. If there are more than 10 tags, only return the first 10 tags.",
-    },
-    {
-      role: "user",
-      content: tags.join(", "),
-    },
-  ];
-
-  private _imageAltTextMessages = (
-    fileType: string,
-    imageBase64: string
-  ): ChatCompletionMessageParam[] => [
-    {
-      role: "system",
-      content:
-        "Create an alt text description for this image. The description should be concise and descriptive, no longer than 125 characters. If you are unable to create an alt text description, please return only the word 'empty'. If you are able to create an alt text description, simply return that description without any additional text.",
-    },
-    {
-      role: "user",
-      content: [
-        {
-          type: "text",
-          text: "Here is the url of the image: ",
-        },
-        {
-          type: "image_url",
-          image_url: {
-            url: `data:image/${fileType};base64,${imageBase64}`,
-            detail: "low",
-          },
-        },
-      ],
-    },
-  ];
+      {
+        role: "system",
+        content:
+          "Given the following list of meta-tags for textbook pages, select the most 10 most useful tags for content tagging and organization purposes and return them as a new list, each separated by a comma. If you are unable to generate a new list of tags, return only the word 'empty'. The final list of tags should not have more than 10 tags. If there are more than 10 tags, only return the first 10 tags.",
+      },
+      {
+        role: "user",
+        content: tags.join(", "),
+      },
+    ];
 
   /**
    * Split text into chunks based on the desired number of tokens per chunk

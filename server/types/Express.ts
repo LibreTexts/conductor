@@ -13,7 +13,7 @@ export interface TypedReqUser {
   roles: { _id: string; org: string; role: string }[];
 }
 
-export type ZodReqWithUser<T> = T &  { user: TypedReqUser };
+export type ZodReqWithUser<T> = Express.Request & T &  { user: TypedReqUser };
 export type ZodReqWithOptionalUser<T> = T & { user?: TypedReqUser };
 export type ZodReqWithFiles<T> = T & { files: Express.Multer.File[] };
 
