@@ -48,6 +48,7 @@
     "jose": "^4.15.5",
     "mailgun.js": "^10.2.1",
     "marked": "^4.0.10",
+    "mime": "^4.1.0",
     "mongoose": "^8.15.0",
     "multer": "^2.0.2",
     "node-cache": "^5.1.2",
