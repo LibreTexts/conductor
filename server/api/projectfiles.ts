@@ -72,6 +72,7 @@ import { Schema } from "mongoose";
 import User from "../models/user.js";
 import { generateVideoStreamURL } from "../util/videoutils.js";
 import axios from "axios";
+import mime from "mime";
 
 const filesStorage = multer.memoryStorage();
 const MAX_UPLOAD_FILES = 20;
@@ -251,7 +252,10 @@ export async function addProjectFile(
       req.files.forEach((file) => {
         const newID = v4();
         const fileKey = assembleUrl([projectID, newID]);
-        const contentType = file.mimetype || "application/octet-stream";
+
+        // Prefer mime type from "mime" package, or fall back to multer's detected type, or finally default
+        const contentType = mime.getType(file.originalname) || file.mimetype || "application/octet-stream";
+        
         uploadCommands.push(
           new PutObjectCommand({
             Bucket: process.env.AWS_PROJECTFILES_BUCKET,
@@ -960,13 +964,17 @@ async function updateProjectFile(
       // replace file
       const file = req.files[0];
       const replaceKey = assembleUrl([projectID, fileID]);
+
+      // Prefer mime type from "mime" package, or fall back to multer's detected type, or finally default
+      const contentType = mime.getType(file.originalname) || file.mimetype || "application/octet-stream";
+
       await storageClient.send(
         new PutObjectCommand({
           Bucket: process.env.AWS_PROJECTFILES_BUCKET,
           Key: replaceKey,
           Body: file.buffer,
           ContentDisposition: `inline; filename=${file.originalname}`,
-          ContentType: file.mimetype || "application/octet-stream",
+          ContentType: contentType,
         })
       );
     }
