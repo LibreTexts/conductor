@@ -171,6 +171,7 @@ const NavTree = () => {
                       className={`text-lg font-semibold break-words hyphens-auto ${
                         isActive ? "text-blue-600" : "text-black"
                       }`}
+                      data-active={isActive}
                       href={getLink(node.slug)}
                       onClick={handleLinkClick}
                     >
@@ -193,6 +194,7 @@ const NavTree = () => {
                             className={`text-md font-semibold break-words hyphens-auto ${
                               isChildActive ? "text-blue-600" : "text-gray-600"
                             }`}
+                            data-active={isChildActive}
                             href={getLink(child.slug)}
                             onClick={handleLinkClick}
                           >
