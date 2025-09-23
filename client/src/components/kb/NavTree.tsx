@@ -164,6 +164,7 @@ const NavTree = () => {
                 key={node.uuid}
                 id={`node-${index}`} 
                 className="p-2 rounded-xl hover:bg-slate-100"
+                data-active={isActive}
               >
                 <div className="flex flex-row justify-between items-center">
                   <div className="flex flex-row items-center overflow-x-clip align-middle">
@@ -171,7 +172,6 @@ const NavTree = () => {
                       className={`text-lg font-semibold break-words hyphens-auto ${
                         isActive ? "text-blue-600" : "text-black"
                       }`}
-                      data-active={isActive}
                       href={getLink(node.slug)}
                       onClick={handleLinkClick}
                     >
@@ -189,12 +189,12 @@ const NavTree = () => {
                           key={child.uuid}
                           id={`child-${index}`}
                           className="p-2 flex flex-row items-center"
+                          data-active={isChildActive}
                         >
                           <a
                             className={`text-md font-semibold break-words hyphens-auto ${
                               isChildActive ? "text-blue-600" : "text-gray-600"
                             }`}
-                            data-active={isChildActive}
                             href={getLink(child.slug)}
                             onClick={handleLinkClick}
                           >
