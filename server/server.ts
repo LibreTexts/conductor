@@ -42,6 +42,7 @@ await mongoose
   .catch((err) => debugDB(err));
 debugDB("Connected to MongoDB Atlas.");
 
+app.set("trust proxy", 1); // Trust first proxy (i.e. ALB)
 app.use(limiter);
 app.use(cookieParser());
 app.use(helmet.hidePoweredBy());
