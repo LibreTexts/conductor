@@ -22,9 +22,9 @@ if (!process.env.ORG_ID) {
   exit(1);
 }
 
-const limiter = rateLimit({
+const apiLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
-  limit: 300, // limit each IP to 300 requests per windowMs
+  limit: 400, // limit each IP to 400 requests per windowMs
   keyGenerator: (req) => {
     const forwardFor = req.headers['x-forwarded-for'];
     if (forwardFor && typeof forwardFor === 'string') {
@@ -54,7 +54,6 @@ await mongoose
 debugDB("Connected to MongoDB Atlas.");
 
 app.set("trust proxy", 1); // Trust first proxy (i.e. ALB)
-app.use(limiter);
 app.use(cookieParser());
 app.use(helmet.hidePoweredBy());
 app.use(
@@ -105,7 +104,7 @@ app.use(
 );
 
 // Serve API
-app.use("/api/v1", api);
+app.use("/api/v1", apiLimiter, api);
 app.use("/permalink", permalinkRouter);
 
 app.use("/health", (_req, res) =>
