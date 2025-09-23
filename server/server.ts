@@ -14,7 +14,7 @@ import Promise from "bluebird";
 import helmet from "helmet";
 import { debug, debugServer, debugDB } from "./debug.js";
 import api, { permalinkRouter } from "./api.js";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 // Prevent startup without ORG_ID env variable
 if (!process.env.ORG_ID) {
@@ -23,8 +23,19 @@ if (!process.env.ORG_ID) {
 }
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  limit: 200, // limit each IP to 200 requests per windowMs
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  limit: 300, // limit each IP to 300 requests per windowMs
+  keyGenerator: (req) => {
+    const forwardFor = req.headers['x-forwarded-for'];
+    if (forwardFor && typeof forwardFor === 'string') {
+      const ips = forwardFor.split(',').map(ip => ip.trim());
+      if (ips.length > 0) {
+        return ipKeyGenerator(ips[0]); // Use the first IP in the list        
+      }
+    }
+
+    return ipKeyGenerator(req.ip || ""); // Fallback to req.ip if no X-Forwarded-For header
+  }
 });
 
 const app = express();
