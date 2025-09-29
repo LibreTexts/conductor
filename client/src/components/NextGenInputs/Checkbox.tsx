@@ -5,6 +5,7 @@ interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
   className?: string;
   inputClassName?: string;
+  labelClassName?: string;
 }
 
 const Checkbox: React.FC<CheckboxProps> = ({
@@ -12,6 +13,7 @@ const Checkbox: React.FC<CheckboxProps> = ({
   label,
   name,
   inputClassName,
+  labelClassName,
   ...props
 }) => {
   return (
@@ -52,7 +54,7 @@ const Checkbox: React.FC<CheckboxProps> = ({
         </div>
       </div>
       <div className="text-sm/6">
-        <label htmlFor={name} className="font-medium text-gray-900">
+        <label htmlFor={name} className={classNames("font-medium text-gray-900", labelClassName)}>
           {label}
         </label>
       </div>
