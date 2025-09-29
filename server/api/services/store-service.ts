@@ -521,7 +521,10 @@ class StoreService {
             });
 
             const filtered_shipping_options = shipping_options.filter(opt => {
-                return opt.cost_excl_tax && !opt.business_only && !opt.home_only
+                if (!opt.cost_excl_tax) return false;
+                if (opt.business_only || opt.home_only) return false;
+                if (opt.carrier_service_name && opt.carrier_service_name.toLowerCase().includes('overnight')) return false; // Exclude overnight options
+                return true;
             });
 
             if (!filtered_shipping_options || filtered_shipping_options.length === 0) {
