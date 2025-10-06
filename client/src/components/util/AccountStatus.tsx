@@ -51,7 +51,7 @@ const AccountStatus = ({
     <Label
       as="a"
       target="_blank"
-      href={clientConfig?.instructor_verification_url || undefined}
+      href={clientConfig.instructor_verification_url}
       aria-label="Unverified instructor, submit an Instructor Verification Request (opens in new tab)"
       className="w-44"
     >
