@@ -860,7 +860,7 @@ async function getCommonsCatalog(
           });
 
           institutionOptions.push(campusMatchObj("publisher"));
-          institutionOptions.push(campusMatchObj("campus"));
+          institutionOptions.push(campusMatchObj("course"));
           institutionOptions.push(campusMatchObj("program"));
           institutionOptions.push(campusMatchObj("affiliation"));
         }
