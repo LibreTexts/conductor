@@ -330,7 +330,7 @@ export const checkIsCampusBook = (book, campusNames) => {
         const valueStr = String(value).toLowerCase();
         return campusNames.some((item) => {
             const itemStr = String(item).toLowerCase();
-            return valueStr.includes(itemStr) || valueStr === itemStr;
+            return valueStr.includes(itemStr);
         });
     });
 
