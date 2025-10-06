@@ -1,4 +1,4 @@
-import { format as formatDate, parseISO } from "date-fns";
+import { format as formatDate, parse, parseISO } from "date-fns";
 import {
   CommonsModule,
   CommonsModuleSettings,
@@ -264,13 +264,24 @@ export function getNestedProperty<T, K extends NestedKeyOf<T>>(
 ): NestedValueOf<T, K> {
   const keys = (path as string).split(".");
   let result: any = obj;
-  
+
   for (const key of keys) {
     if (result == null || typeof result !== "object") {
       return undefined as any;
     }
     result = result[key];
   }
-  
+
   return result;
+}
+
+export function toISODateOnly(date: Date): string {
+  if (date == null || isNaN(new Date(date).getTime())) return '';
+  const _date = new Date(date);
+  return _date.toISOString().split('T')[0];
+}
+
+export function fromISODateOnly(dateString: string): Date | null {
+  if (!dateString) return null;
+  return parse(dateString, 'yyyy-MM-dd', new Date());
 }
