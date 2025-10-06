@@ -157,14 +157,14 @@ const NavTree = () => {
               </Popup.Content>
             </Popup>
           </div>
-          {tree?.map((node) => {
+          {tree?.map((node, index) => {
             const isActive = isActiveLink(node.slug);
             return (
               <div
                 key={node.uuid}
-                className={`p-2 rounded-xl hover:bg-slate-100 ${
-                  isActive ? "bg-blue-100 border-l-4 border-blue-500" : ""
-                }`}
+                id={`node-${index}`} 
+                className="p-2 rounded-xl hover:bg-slate-100"
+                data-active={isActive}
               >
                 <div className="flex flex-row justify-between items-center">
                   <div className="flex flex-row items-center overflow-x-clip align-middle">
@@ -182,14 +182,14 @@ const NavTree = () => {
                 </div>
                 <div className="pl-4">
                   {node.children &&
-                    node.children.map((child) => {
+                    node.children.map((child, index) => {
                       const isChildActive = isActiveLink(child.slug);
                       return (
                         <div
                           key={child.uuid}
-                          className={`p-2 flex flex-row items-center ${
-                            isChildActive ? "bg-blue-50 rounded" : ""
-                          }`}
+                          id={`child-${index}`}
+                          className="p-2 flex flex-row items-center"
+                          data-active={isChildActive}
                         >
                           <a
                             className={`text-md font-semibold break-words hyphens-auto ${

@@ -1,4 +1,3 @@
-import { useParams } from "react-router-dom";
 import useGlobalError from "../../components/error/ErrorHooks";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -8,6 +7,15 @@ import PageLastEditor from "./PageLastEditor";
 import KBFooter from "./KBFooter";
 import PageStatusLabel from "./PageStatusLabel";
 import { checkIsUUID } from "../../utils/kbHelpers";
+import { useQuery } from "@tanstack/react-query";
+
+type TOCItem = {
+  id: string;
+  text: string;
+  link: string;
+  isActive: boolean;
+};
+
 
 const KBPageViewMode = ({
   slug,
@@ -19,6 +27,12 @@ const KBPageViewMode = ({
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState<KBPage | null>(null);
+  const [toc, setToc] = useState<TOCItem[] | null>(null);
+
+  const { isFetching: sidebarLoading } = useQuery({
+    queryKey: ["nav-tree"],
+    enabled: false, // Don't fetch, just check loading state
+  });
 
   useEffect(() => {
     if (slug) {
@@ -48,6 +62,46 @@ const KBPageViewMode = ({
     }
   }
 
+  const generateTOC = () => {
+    // Find the active node container in the DOM
+    const activeNodeContainer = document.querySelector('div[id^="node-"][data-active="true"]');
+    if (!activeNodeContainer) return [];
+
+    // Find all child elements within this node's children container
+    const childrenLinks = activeNodeContainer.querySelectorAll('div[id^="child-"]');
+    
+    const toc = Array.from(childrenLinks).map((childDiv, index) => {
+      const link = childDiv.querySelector('a[href^="/insight/"]'); 
+      if (!link) return null;
+      
+      const href = link.getAttribute('href');
+      const text = link.textContent?.trim();
+      const dataActive = link.getAttribute('data-active') === 'true';
+      
+      return {
+        id: `child-${index}`,
+        text: text || '',
+        link: href || '#',
+        isActive: dataActive
+      };
+    }).filter((item) => item !== null);
+
+
+    return toc;
+  };
+
+  useEffect(() => {
+    if (!sidebarLoading) {
+      const timer = setTimeout(() => {
+        const toc = generateTOC();
+        if (!toc) return;
+        setToc(toc as TOCItem[]);
+      }, 100);
+  
+      return () => clearTimeout(timer); // Cleanup
+    }
+  }, [sidebarLoading]);
+
   return (
     <div aria-busy={loading}>
       <div className="flex flex-row items-center">
@@ -64,6 +118,19 @@ const KBPageViewMode = ({
         />
         {canEdit && <PageStatusLabel status={page?.status} className="!mt-0.5"/>}
       </div>
+
+      {toc && toc.length > 0 && (
+        <div className="mt-6 mb-9">
+          <h3 className="text-xl font-bold underline mb-4">Articles in this section</h3>
+          <ul>
+            {toc.map((item) => (
+              <li key={item.id}>
+                <a href={item.link}>{item.text}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mt-6 mb-9">
         <KBRenderer content={page?.body} />
