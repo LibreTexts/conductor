@@ -1,5 +1,6 @@
 import { Label, Icon, Popup } from "semantic-ui-react";
 import { User } from "../../types";
+import useClientConfig from "../../hooks/useClientConfig";
 /**
  * Displays the appropriate text based on the user's status as a verified instructor
  */
@@ -10,9 +11,17 @@ const AccountStatus = ({
   verifiedInstructor: boolean;
   thirdPerson?: boolean;
 }) => {
+  const { clientConfig, loading } = useClientConfig();
+
+  if (loading) return null;
+
   if (verifiedInstructor) {
     return (
-      <Label aria-label="User is a verified instructor" color="green" className="w-44">
+      <Label
+        aria-label="User is a verified instructor"
+        color="green"
+        className="w-44"
+      >
         <Popup
           trigger={
             <span>
@@ -33,24 +42,29 @@ const AccountStatus = ({
       </Label>
     );
   }
+
+  if (!clientConfig?.instructor_verification_url) {
+    return null;
+  }
+
   return (
     <Label
       as="a"
       target="_blank"
-      href="/verification/instructor"
-      aria-label="Unverified user, submit an Instructor Verfication Request (opens in new tab)"
+      href={clientConfig.instructor_verification_url}
+      aria-label="Unverified instructor, submit an Instructor Verification Request (opens in new tab)"
       className="w-44"
     >
       <Popup
-        trigger={<span>Unverified User</span>}
+        trigger={<span>Unverified Instructor</span>}
         position="top center"
         content={
           <p className="text-center">
             {thirdPerson ? "They" : "You"} haven't yet been verified as an
             instructor by the LibreTexts team. The LibreTexts team can verify{" "}
             {thirdPerson ? "them" : "you"} if {thirdPerson ? "they" : "you"}{" "}
-            submit an Instructor Verification Request. The Conductor experience won't be
-            impacted by this.
+            submit an Instructor Verification Request. The Conductor experience
+            won't be impacted by this.
           </p>
         }
       />
