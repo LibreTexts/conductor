@@ -29,6 +29,7 @@ import {
   genPubFilesLink,
   genLMSFileLink,
   genPermalink,
+  checkIsCampusBook,
 } from "../util/bookutils.js";
 import {
   downloadProjectFiles,
@@ -703,57 +704,34 @@ const runAutomatedSyncWithLibraries = (req: Request, res: Response) => {
  * @param {Object} orgData - An Organization information object.
  * @returns {String[]} An array of known Organization names.
  */
-const buildOrganizationNamesList = (orgData: OrganizationInterface) => {
-  if (orgData) {
-    let campusNames: string[] = []; // stores all variations of the organization name
-    let normNames: string[] = []; // temporarily stores the normalized variations
-    if (orgData.name && !isEmptyString(orgData.name)) {
-      if (!campusNames.includes(orgData.name)) {
-        campusNames.push(orgData.name);
-      }
+const buildOrganizationNamesList = (orgData: OrganizationInterface): string[] => {
+  if (!orgData) return [];
+
+  const names = new Set<string>();
+  
+  // Collect base names
+  const fields = ['name', 'shortName', 'abbreviation'] as const;
+  fields.forEach((field) => {
+    const value = orgData[field];
+    if (value && !isEmptyString(value)) {
+      names.add(value);
     }
-    if (orgData.shortName && !isEmptyString(orgData.shortName)) {
-      if (!campusNames.includes(orgData.shortName)) {
-        campusNames.push(orgData.shortName);
-      }
-    }
-    if (orgData.abbreviation && !isEmptyString(orgData.abbreviation)) {
-      if (!campusNames.includes(orgData.abbreviation)) {
-        campusNames.push(orgData.abbreviation);
-      }
-    }
-    if (
-      orgData.aliases &&
-      Array.isArray(orgData.aliases) &&
-      orgData.aliases.length > 0
-    ) {
-      campusNames = campusNames.concat(orgData.aliases);
-    }
-    // Normalize the names to remove common punctuation, then add to campusNames list
-    campusNames.forEach((name) => {
-      let normed = String(name)
-        .replace(/,/g, "")
-        .replace(/-/g, "")
-        .replace(/:/g, "")
-        .replace(/'/g, "");
-      if (!normNames.includes(normed) && !campusNames.includes(normed)) {
-        normNames.push(normed);
-      }
-      let lowerNormed = String(normed).toLowerCase();
-      if (
-        !normNames.includes(lowerNormed) &&
-        !campusNames.includes(lowerNormed)
-      ) {
-        normNames.push(lowerNormed);
-      }
-    });
-    if (normNames.length > 0) {
-      campusNames = campusNames.concat(normNames);
-    }
-    return campusNames;
-  } else {
-    return [];
+  });
+  
+  // Add aliases
+  if (Array.isArray(orgData.aliases) && orgData.aliases.length > 0) {
+    orgData.aliases.forEach((alias) => names.add(alias));
   }
+  
+  // Generate normalized variations
+  const normalizedVariations = Array.from(names).flatMap((name) => {
+    const normalized = String(name).replace(/[,\-:']/g, '');
+    return [normalized, normalized.toLowerCase()];
+  });
+  
+  normalizedVariations.forEach((variant) => names.add(variant));
+  
+  return Array.from(names);
 };
 
 /**
@@ -862,10 +840,29 @@ async function getCommonsCatalog(
         const institutionOptions = [];
         const campusNames = buildOrganizationNamesList(orgData);
         if (campusNames.length > 0) {
-          institutionOptions.push({ publisher: { $in: campusNames } });
-          institutionOptions.push({ course: { $in: campusNames } });
-          institutionOptions.push({ program: { $in: campusNames } });
-          institutionOptions.push({ affiliation: { $in: campusNames } });
+          const lowerCampusNames = campusNames.map((name) => name.toLowerCase());
+
+          const campusMatchObj = (fieldName: string) => ({
+            $expr: {
+              $anyElementTrue: {
+                $map: {
+                  input: lowerCampusNames,
+                  as: "value",
+                  in: {
+                    $regexMatch: {
+                      input: { $toLower: `$${fieldName}` },
+                      regex: "$$value",
+                    }
+                  }
+                }
+              }
+            }
+          });
+
+          institutionOptions.push(campusMatchObj("publisher"));
+          institutionOptions.push(campusMatchObj("campus"));
+          institutionOptions.push(campusMatchObj("program"));
+          institutionOptions.push(campusMatchObj("affiliation"));
         }
 
         const hasCustomEntries =
@@ -1127,28 +1124,9 @@ const getMasterCatalog = (
       }
       // Check if book originated from the Organization
       if (Object.keys(orgData).length > 0) {
-        var campusNames = buildOrganizationNamesList(orgData);
+        const campusNames = buildOrganizationNamesList(orgData);
         sortedBooks.forEach((book) => {
-          var isCampusBook = campusNames.some((item) => {
-            if (book.course && !isEmptyString(book.course)) {
-              return (
-                String(book.course).includes(item) ||
-                String(book.course) === item
-              );
-            } else if (book.program && !isEmptyString(book.program)) {
-              return (
-                String(book.program).includes(item) ||
-                String(book.program) === item
-              );
-            } else if (book.affiliation && !isEmptyString(book.affiliation)) {
-              return (
-                String(book.affiliation).includes(item) ||
-                String(book.affiliation) === item
-              );
-            } else {
-              return false;
-            }
-          });
+          const isCampusBook = checkIsCampusBook(book, campusNames);
           if (isCampusBook) book.isCampusBook = true;
         });
       }
