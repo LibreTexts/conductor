@@ -313,7 +313,7 @@ export const deleteBookFromAPI = async (bookID) => {
  * @returns {boolean} True if the book matches any campus names, false otherwise.
  */
 export const checkIsCampusBook = (book, campusNames) => {
-    const fields = ['course', 'program', 'affiliation']
+    const fields = ['course', 'program', 'affiliation'];
 
     if (!book || typeof(book) !== 'object') {
         return false;
