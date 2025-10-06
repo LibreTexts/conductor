@@ -14,12 +14,29 @@ import Promise from "bluebird";
 import helmet from "helmet";
 import { debug, debugServer, debugDB } from "./debug.js";
 import api, { permalinkRouter } from "./api.js";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 // Prevent startup without ORG_ID env variable
 if (!process.env.ORG_ID) {
   debug("[FATAL ERROR]: The ORG_ID environment variable is missing.");
   exit(1);
 }
+
+const apiLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  limit: 400, // limit each IP to 400 requests per windowMs
+  keyGenerator: (req) => {
+    const forwardFor = req.headers['x-forwarded-for'];
+    if (forwardFor && typeof forwardFor === 'string') {
+      const ips = forwardFor.split(',').map(ip => ip.trim());
+      if (ips.length > 0) {
+        return ipKeyGenerator(ips[0]); // Use the first IP in the list        
+      }
+    }
+
+    return ipKeyGenerator(req.ip || ""); // Fallback to req.ip if no X-Forwarded-For header
+  }
+});
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -36,6 +53,7 @@ await mongoose
   .catch((err) => debugDB(err));
 debugDB("Connected to MongoDB Atlas.");
 
+app.set("trust proxy", 1); // Trust first proxy (i.e. ALB)
 app.use(cookieParser());
 app.use(helmet.hidePoweredBy());
 app.use(
@@ -86,7 +104,7 @@ app.use(
 );
 
 // Serve API
-app.use("/api/v1", api);
+app.use("/api/v1", apiLimiter, api);
 app.use("/permalink", permalinkRouter);
 
 app.use("/health", (_req, res) =>

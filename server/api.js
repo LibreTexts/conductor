@@ -11,6 +11,7 @@ import middleware from "./middleware.js"; // Route middleware
 import assetTagFrameworkAPI from "./api/assettagframeworks.js";
 import authorsAPI from "./api/authors.js";
 import authAPI from "./api/auth.js";
+import coAuthorAPI from "./api/co-author.js";
 import storeAPI from "./api/store.js";
 import centralIdentityAPI from "./api/central-identity.js";
 import clientConfigAPI from "./api/client-config.js";
@@ -1147,23 +1148,6 @@ router
     booksAPI.bulkUpdatePageTags
   );
 
-router
-  .route("/commons/book/:bookID/ai-metadata-batch")
-  .post(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    middleware.validateZod(BookValidators.batchGenerateAIMetadataSchema),
-    booksAPI.batchGenerateAIMetadata
-  );
-
-router
-  .route("/commons/book/:bookID/update-metadata-batch")
-  .post(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    middleware.validateZod(BookValidators.batchUpdateBookMetadataSchema),
-    booksAPI.batchUpdateBookMetadata
-  );
 
 router
   .route("/commons/book/:bookID/peerreviews")
@@ -1187,39 +1171,6 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     booksAPI.updatePageDetails
-  );
-
-router
-  .route("/commons/pages/:pageID/ai-summary")
-  .get(
-    middleware.validateZod(
-      BookValidators.getWithPageIDParamAndCoverPageIDSchema
-    ),
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    booksAPI.getPageAISummary
-  );
-
-router
-  .route("/commons/pages/:pageID/ai-tags")
-  .get(
-    middleware.validateZod(
-      BookValidators.getWithPageIDParamAndCoverPageIDSchema
-    ),
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    booksAPI.getPageAITags
-  );
-
-router
-  .route("/commons/pages/:pageID/ai-alt-text")
-  .post(
-    middleware.validateZod(
-      BookValidators.GeneratePageImagesAltTextSchema
-    ),
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    booksAPI.generatePageImagesAltText
   );
 
 router.route("/commons/filters").get(booksAPI.getCatalogFilterOptions);
@@ -1261,6 +1212,58 @@ router
 router
   .route("/commons/homework/sync/automated")
   .put(middleware.checkLibreAPIKey, homeworkAPI.runAutomatedHomeworkSync);
+
+/* Coauthor */
+router
+  .route("/co-author/books/:bookID/ai-metadata-batch")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.batchGenerateAIMetadataSchema),
+    coAuthorAPI.batchGenerateAIMetadata
+  );
+
+router
+  .route("/co-author/books/:bookID/update-metadata-batch")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.batchUpdateBookMetadataSchema),
+    coAuthorAPI.batchUpdateBookMetadata
+  );
+
+router
+  .route("/co-author/pages/:pageID/ai-summary")
+  .get(
+    middleware.validateZod(
+      BookValidators.getWithPageIDParamAndCoverPageIDSchema
+    ),
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    coAuthorAPI.getPageAISummary
+  );
+
+router
+  .route("/co-author/pages/:pageID/ai-tags")
+  .get(
+    middleware.validateZod(
+      BookValidators.getWithPageIDParamAndCoverPageIDSchema
+    ),
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    coAuthorAPI.getPageAITags
+  );
+
+router
+  .route("/co-author/pages/:pageID/ai-alt-text")
+  .post(
+    middleware.validateZod(
+      BookValidators.GeneratePageImagesAltTextSchema
+    ),
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    coAuthorAPI.generatePageImagesAltText
+  );
 
 /* Search */
 router

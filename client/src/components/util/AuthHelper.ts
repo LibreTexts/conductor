@@ -13,6 +13,13 @@ const AuthHelper = {
     return Cookies.get("conductor_access_v2") !== undefined;
   },
 
+  getAuthToken: () => {
+    const access = Cookies.get("conductor_access_v2");
+    const signed = Cookies.get("conductor_signed_v2");
+    if (!access || !signed) return null;
+    return `${access}.${signed}`;
+  },
+
   /**
    * Generates a URL to direct the browser to the LibreOne CAS login screen.
    *

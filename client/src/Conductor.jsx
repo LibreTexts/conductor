@@ -80,6 +80,7 @@ const SupportDashboard = lazy(() => import('./screens/conductor/support/Dashboar
 const SupportTicket = lazy(() => import('./screens/conductor/support/Ticket'));
 const SupportClosedTickets = lazy(() => import('./screens/conductor/support/closed'));
 const TextbookCuration = lazy(() => import('./screens/conductor/Projects/TextbookCuration'));
+const BatchRun = lazy(() => import('./screens/conductor/Projects/TextbookCuration/BatchRun'));
 const AcceptProjectInviteScreen = lazy(() => import('./screens/conductor/Projects/AcceptProjectInviteScreen'));
 const PermanentLinkDownload = lazy(() => import('./components/FilesManager/PermanentLinkDownload'));
 
@@ -129,6 +130,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/projects/:id/peerreview' component={ProjectPeerReview} />
           <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
           <PrivateRoute exact path='/projects/:id/ai-co-author' component={TextbookCuration} />
+          <PrivateRoute exact path='/projects/:id/ai-co-author/batch' component={BatchRun} />
           <Route exact path='/projects/:id/analytics' component={ProjectAnalytics} /> {/* Auth handled at page level. Can be private or public*/}
           <PrivateRoute exact path='/projects/accept-invite/:id' component={AcceptProjectInviteScreen} />
           {/* <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />

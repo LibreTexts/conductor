@@ -25,11 +25,12 @@ const ConfirmOrderModal: React.FC<ConfirmOrderModalProps> = ({
       <Modal.Content>
         <Checkbox
           name="production-time-confirmation"
-          label="I understand that books are printed on demand and may take 3-5 days to process IN ADDITION to shipping time. 'Overnight' or 'Expedited' shipping does not expedite production time. LibreTexts is not responsible for delays in production or shipping."
+          label="I understand that books are printed on demand and may take 3-5 days to process IN ADDITION to shipping time. 'Expedited' shipping does not expedite production time, only shipping time. LibreTexts is not responsible for delays in production or shipping."
           required
           checked={productionTimeConfirmation}
           onChange={(e) => setProductionTimeConfirmation(e.target.checked)}
-          className="mb-4"
+          className="mb-8"
+          labelClassName="text-lg font-normal"
         />
         <Checkbox
           name="shipping-confirmation"
@@ -37,7 +38,8 @@ const ConfirmOrderModal: React.FC<ConfirmOrderModalProps> = ({
           required
           checked={shippingConfirmation}
           onChange={(e) => setShippingConfirmation(e.target.checked)}
-          className="mb-4"
+          className="mb-8"
+          labelClassName="text-lg font-normal"
         />
         <Checkbox
           name="final-confirmation"
@@ -46,6 +48,7 @@ const ConfirmOrderModal: React.FC<ConfirmOrderModalProps> = ({
           checked={finalConfirmation}
           onChange={(e) => setFinalConfirmation(e.target.checked)}
           className="mb-2"
+          labelClassName="text-lg font-normal"
         />
       </Modal.Content>
       <Modal.Actions className="flex justify-end gap-2">

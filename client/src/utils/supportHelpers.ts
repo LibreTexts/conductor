@@ -94,6 +94,17 @@ export const isSupportStaff = (user?: User): boolean => {
 
 
 export const supportTicketAttachmentAllowedTypes = [
+  "application/msword", // .doc
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+  "application/vnd.ms-powerpoint", // .ppt
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
+  "application/vnd.ms-excel", // .xls
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+  "text/csv", // .csv
+  "application/json", // .json
+  "text/plain", // .txt
+  "text/html", // .html
+  "application/vnd.oasis.opendocument.text", // .odt
   "image/*",
   "video/*",
   "application/pdf",
