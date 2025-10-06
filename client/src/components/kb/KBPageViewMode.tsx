@@ -93,7 +93,9 @@ const KBPageViewMode = ({
   useEffect(() => {
     if (!sidebarLoading) {
       const timer = setTimeout(() => {
-        setToc(generateTOC());
+        const toc = generateTOC();
+        if (!toc) return;
+        setToc(toc as TOCItem[]);
       }, 100);
   
       return () => clearTimeout(timer); // Cleanup
