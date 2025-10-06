@@ -17,6 +17,8 @@ import DateInput from "../../DateInput";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { User } from "../../../types";
+import Input from "../../NextGenInputs/Input"
+import { fromISODateOnly, toISODateOnly } from "../../../utils/misc";
 
 interface ViewTaskModalProps {
   show: boolean;
@@ -188,14 +190,16 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
                   <Form>
                     <Form.Group inline>
                       <Form.Field inline>
-                        <DateInput
-                          value={viewTaskStartDateNew}
-                          className="mt-2p"
+                        <Input
+                          name="startDate"
+                          type="date"
+                          value={toISODateOnly(viewTaskStartDateNew)}
                           label=""
-                          error={false}
-                          onChange={(value) =>
-                            setViewTaskStartDateNew(value as Date)
-                          }
+                          onChange={(e) => {
+                            const parsed = fromISODateOnly(e.target.value);
+                            if (!parsed) return;
+                            setViewTaskStartDateNew(parsed);
+                          }}
                         />
                       </Form.Field>
                       <Button
@@ -248,14 +252,16 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
                   <Form>
                     <Form.Group inline>
                       <Form.Field inline>
-                        <DateInput
-                          value={viewTaskEndDateNew}
-                          className="mt-2p"
+                        <Input
+                          name="endDate"
+                          type="date"
+                          value={toISODateOnly(viewTaskEndDateNew)}
                           label=""
-                          error={false}
-                          onChange={(value) =>
-                            setViewTaskEndDateNew(value as Date)
-                          }
+                          onChange={(e) =>{
+                            const parsed = fromISODateOnly(e.target.value);
+                            if (!parsed) return;
+                            setViewTaskEndDateNew(parsed)
+                          }}
                         />
                       </Form.Field>
                       <Button

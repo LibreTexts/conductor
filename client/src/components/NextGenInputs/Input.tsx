@@ -5,6 +5,7 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   name: string;
   label: string;
   className?: string;
+  labelClassName?: string;
   inputClassName?: string;
 }
 
@@ -12,6 +13,7 @@ const Input: React.FC<InputProps> = ({
   className,
   label,
   name,
+  labelClassName,
   inputClassName,
   ...props
 }) => {
@@ -19,7 +21,7 @@ const Input: React.FC<InputProps> = ({
     <div className={classNames(className)}>
       <label
         htmlFor={name}
-        className="block text-sm/6 font-medium text-gray-700"
+        className={classNames("block text-sm/6 font-medium text-gray-700", labelClassName)}
       >
         {label}
       </label>

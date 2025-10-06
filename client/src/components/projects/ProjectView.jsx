@@ -43,6 +43,7 @@ import DateInput from '../DateInput/index.tsx';
 import ReaderResourcesManager from '../../components/ReaderResourcesManager/ReaderResourcesManager';
 import RenderProjectModules from './RenderProjectModules';
 import Breakpoint from '../util/Breakpoints';
+import NextGenInput from '../NextGenInputs/Input.jsx';
 
 import {
   isEmptyString,
@@ -644,10 +645,10 @@ const ProjectView = (props) => {
         if (!isEmptyString(mngTaskDescrip)) taskData.description = mngTaskDescrip;
         if (mngTaskParent !== '') taskData.parent = mngTaskParent;
         if (mngTaskStartDate !== null) {
-          taskData.startDate = date.format(mngTaskStartDate, 'YYYY-MM-DD');
+          taskData.startDate = mngTaskStartDate
         }
         if (mngTaskEndDate !== null) {
-          taskData.endDate = date.format(mngTaskEndDate, 'YYYY-MM-DD');
+          taskData.endDate = mngTaskEndDate;
         }
         axios.post('/project/task', taskData).then((res) => {
           if (!res.data.err) {
@@ -2001,21 +2002,26 @@ const ProjectView = (props) => {
                 </Form.Field>
                 {(mngTaskMode === 'add') &&
                 <Form.Field inline>
-                  <DateInput
+                  <NextGenInput
+                    name='startDate'
                     value={mngTaskStartDate}
-                    onChange={(value) => setMngTaskStartDate(value)}
+                    onChange={(e) => setMngTaskStartDate(e.target.value)}
                     label='Start Date'
-                    inlineLabel={false}
+                    type='date'
+                    labelClassName='!text-black !font-bold'
                   />
-                  </Form.Field>
+                </Form.Field>
                 }
                 {(mngTaskMode === 'add') &&
                 <Form.Field inline>
-                  <DateInput
+                  <NextGenInput
+                    name='endDate'
                     value={mngTaskEndDate}
-                    className='mt-2p'
-                    onChange={(value) => setMngTaskEndDate(value)}
+                    onChange={(e) => setMngTaskEndDate(e.target.value)}
                     label='End Date'
+                    type='date'
+                    labelClassName='!text-black !font-bold'
+                    className='!mt-4'
                   />
                   </Form.Field>
                 }
