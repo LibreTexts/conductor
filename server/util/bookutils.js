@@ -304,3 +304,35 @@ export const deleteBookFromAPI = async (bookID) => {
         }
     );
 }
+
+/**
+ * Checks if a book has any fields that match any of the provided campus names.
+ * Comparison is case-insensitive and checks for both exact matches and substring matches.
+ * @param {object} book - The book object to check.
+ * @param {string[]} campusNames - Array of campus names to check against.
+ * @returns {boolean} True if the book matches any campus names, false otherwise.
+ */
+export const checkIsCampusBook = (book, campusNames) => {
+    const fields = ['course', 'program', 'affiliation'];
+
+    if (!book || typeof(book) !== 'object') {
+        return false;
+    }
+
+    if (!Array.isArray(campusNames) || campusNames.length === 0) {
+        return false;
+    }
+
+    const isCampusBook = fields.some((field) => {
+        const value = book[field];
+        if (!value) return false;
+
+        const valueStr = String(value).toLowerCase();
+        return campusNames.some((item) => {
+            const itemStr = String(item).toLowerCase();
+            return valueStr.includes(itemStr);
+        });
+    });
+
+    return isCampusBook;
+}
