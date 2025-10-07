@@ -1626,10 +1626,7 @@ async function getBookDetail(
             ],
           },
           allowAnonPR: {
-            $and: [
-              { $ne: [{ $type: "$project.allowAnonPR" }, "missing"] },
-              { $ne: ["$project.allowAnonPR", false] },
-            ],
+            $eq: ["$project.allowAnonPR", true]
           },
           hasPeerReviews: {
             $and: [
