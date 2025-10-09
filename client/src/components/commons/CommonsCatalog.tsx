@@ -22,6 +22,7 @@ import {
 import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
 import { useHistory, useLocation } from "react-router-dom";
+import { useSessionStorage } from "usehooks-ts";
 import { truncateString } from "../util/HelperFunctions";
 import { getDefaultCommonsModule } from "../../utils/misc";
 import { useMediaQuery } from "react-responsive";
@@ -137,15 +138,19 @@ const CommonsCatalog = () => {
   // Global State and Location/History
   const org = useTypedSelector((state) => state.org);
   const history = useHistory();
-  const location = useLocation();
+  const location = useLocation();  
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
   const isTailwindLg = useMediaQuery(
     { minWidth: 1024 }, // Tailwind LG breakpoint
     undefined
   );
-  const ITEMS_PER_PAGE = 24;
+  const [seenBooks, setSeenBooks] = useSessionStorage<Set<string>>('seenBooks', new Set<string>(), {
+    serializer: (value) => JSON.stringify(Array.from(value)),
+    deserializer: (value) => new Set(JSON.parse(value)),
+  });
 
+  const ITEMS_PER_PAGE = 24;
   const [assetsState, assetsDispatch] = useReducer(assetsReducer, {});
   const [authorsState, authorsDispatch] = useReducer(authorsReducer, {});
   const [booksState, booksDispatch] = useReducer(booksReducer, {});
@@ -299,6 +304,8 @@ const CommonsCatalog = () => {
     try {
       if (loadingDisabled) return;
       setActivePage(1);
+      // seenBooks is not used when running a search, just reset it to ensure state is clean
+      setSeenBooks(new Set<string>());
 
       if (
         !query &&
@@ -345,16 +352,20 @@ const CommonsCatalog = () => {
       const res = await api.getCommonsCatalog({
         activePage: page,
         limit: ITEMS_PER_PAGE,
+        excludeIds: Array.from(seenBooks)
       });
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
 
       if (Array.isArray(res.data.books)) {
+        const bookIDs = res.data.books.map((book) => book.bookID);
         if (clear) {
           setBooks([...res.data.books]);
+          setSeenBooks(new Set([...bookIDs]));
         } else {
           setBooks([...books, ...res.data.books]);
+          setSeenBooks(new Set([...Array.from(seenBooks), ...bookIDs]));
         }
       }
       if (typeof res.data.numTotal === "number") {

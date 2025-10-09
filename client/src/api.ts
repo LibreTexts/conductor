@@ -1042,7 +1042,7 @@ class API {
   }
 
   // Commons
-  async getCommonsCatalog(paramsObj?: { activePage?: number; limit?: number }) {
+  async getCommonsCatalog(paramsObj?: { activePage?: number; limit?: number, excludeIds?: string[] }) {
     const res = await axios.get<
       {
         books: Book[];
@@ -1050,7 +1050,10 @@ class API {
         numTotal: number;
       } & ConductorBaseResponse
     >("/commons/catalog", {
-      params: paramsObj,
+      params: {
+        ...paramsObj,
+        excludeIds: paramsObj?.excludeIds?.join(",") || undefined
+      },
     });
     return res;
   }
