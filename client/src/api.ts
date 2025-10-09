@@ -1042,17 +1042,15 @@ class API {
   }
 
   // Commons
-  async getCommonsCatalog(paramsObj?: { activePage?: number; limit?: number }) {
-    const res = await axios.get<
+  async getCommonsCatalog(params?: { activePage?: number; limit?: number, seed?: number }) {
+    return await axios.get<
       {
         books: Book[];
-        numFound: number;
         numTotal: number;
+        hasMore: boolean;
+        seed: number;
       } & ConductorBaseResponse
-    >("/commons/catalog", {
-      params: paramsObj,
-    });
-    return res;
+    >("/commons/catalog", { params });
   }
 
   // Harvest Requests
