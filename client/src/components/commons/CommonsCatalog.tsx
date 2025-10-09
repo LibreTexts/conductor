@@ -22,6 +22,7 @@ import {
 import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
 import { useHistory, useLocation } from "react-router-dom";
+import { useSessionStorage } from "usehooks-ts";
 import { truncateString } from "../util/HelperFunctions";
 import { getDefaultCommonsModule } from "../../utils/misc";
 import { useMediaQuery } from "react-responsive";
@@ -144,8 +145,12 @@ const CommonsCatalog = () => {
     { minWidth: 1024 }, // Tailwind LG breakpoint
     undefined
   );
-  const ITEMS_PER_PAGE = 24;
+  const [randomSeed, setRandomSeed] = useSessionStorage<number>(
+    "randomSeed",
+    0
+  );
 
+  const ITEMS_PER_PAGE = 24;
   const [assetsState, assetsDispatch] = useReducer(assetsReducer, {});
   const [authorsState, authorsDispatch] = useReducer(authorsReducer, {});
   const [booksState, booksDispatch] = useReducer(booksReducer, {});
@@ -182,7 +187,7 @@ const CommonsCatalog = () => {
   const [authorsLoading, setAuthorsLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useURLSyncedState<CommonsModule>(
-    'active_tab',
+    "active_tab",
     getDefaultCommonsModule(org.commonsModules),
     COMMONS_MODULES as readonly CommonsModule[]
   );
@@ -208,7 +213,14 @@ const CommonsCatalog = () => {
       projectFilters: projectsState,
       miniRepoFilters: miniReposState,
     });
-  }, [assetsState, booksState, authorsState, miniReposState, projectsState, location.search]);
+  }, [
+    assetsState,
+    booksState,
+    authorsState,
+    miniReposState,
+    projectsState,
+    location.search,
+  ]);
 
   const getSuggestionsDebounced = debounce(
     (searchVal: string) => getSearchSuggestions(searchVal),
@@ -299,6 +311,8 @@ const CommonsCatalog = () => {
     try {
       if (loadingDisabled) return;
       setActivePage(1);
+      // randomSeed is not used when running a search, just reset it to ensure state is clean
+      setRandomSeed(0);
 
       if (
         !query &&
@@ -345,6 +359,7 @@ const CommonsCatalog = () => {
       const res = await api.getCommonsCatalog({
         activePage: page,
         limit: ITEMS_PER_PAGE,
+        seed: randomSeed || undefined,
       });
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -357,8 +372,12 @@ const CommonsCatalog = () => {
           setBooks([...books, ...res.data.books]);
         }
       }
+
       if (typeof res.data.numTotal === "number") {
         setBooksCount(res.data.numTotal);
+      }
+      if (typeof res.data.seed === "number") {
+        setRandomSeed(res.data.seed);
       }
     } catch (err) {
       handleGlobalError(err);
