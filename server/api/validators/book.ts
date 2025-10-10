@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { checkBookIDFormat } from "../../util/bookutils.js";
 import conductorErrors from "../../conductor-errors.js";
-import { query } from "express";
 
 // Book ID format: library-pageid (e.g. "chem-123")
 export const bookIDSchema = z.string().regex(/^[a-zA-Z]{2,12}-\d{1,12}$/, {
@@ -20,6 +19,12 @@ export const getCommonsCatalogSchema = z.object({
   query: z.object({
     activePage: z.coerce.number().min(1).default(1),
     limit: z.coerce.number().min(1).default(10),
+    // Comma-separated list of book ID's to exclude
+    excludeIds: z.string().optional().refine((val) => {
+      const split = val?.split(",") || [];
+      if (split.length === 0) return true;
+      return split.every((v) => bookIDSchema.safeParse(v).success);
+    }),
     sort: z
       .union([z.literal("title"), z.literal("author"), z.literal("random")])
       .optional()

@@ -64,7 +64,7 @@ import { ZodReqWithUser } from "../types/Express.js";
 import User from "../models/user.js";
 import centralIdentity from "./central-identity.js";
 const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
-import { PipelineStage } from "mongoose";
+import { PipelineStage, Types } from "mongoose";
 import {
   createBookSchema,
   deleteBookSchema,
@@ -708,7 +708,7 @@ const buildOrganizationNamesList = (orgData: OrganizationInterface): string[] =>
   if (!orgData) return [];
 
   const names = new Set<string>();
-  
+
   // Collect base names
   const fields = ['name', 'shortName', 'abbreviation'] as const;
   fields.forEach((field) => {
@@ -717,20 +717,20 @@ const buildOrganizationNamesList = (orgData: OrganizationInterface): string[] =>
       names.add(value);
     }
   });
-  
+
   // Add aliases
   if (Array.isArray(orgData.aliases) && orgData.aliases.length > 0) {
     orgData.aliases.forEach((alias) => names.add(alias));
   }
-  
+
   // Generate normalized variations
   const normalizedVariations = Array.from(names).flatMap((name) => {
     const normalized = String(name).replace(/[,\-:']/g, '');
     return [normalized, normalized.toLowerCase()];
   });
-  
+
   normalizedVariations.forEach((variant) => names.add(variant));
-  
+
   return Array.from(names);
 };
 
@@ -747,10 +747,9 @@ async function getCommonsCatalog(
 ) {
   try {
     const orgID = process.env.ORG_ID;
-    const activePage = req.query.activePage
-      ? parseInt(req.query.activePage.toString())
-      : 1;
     const limit = req.query.limit ? parseInt(req.query.limit.toString()) : 10;
+    const excludeIdsRawSet = new Set<string>(req.query.excludeIds?.split(",") || []);
+    const excludeIds = Array.from(excludeIdsRawSet);
 
     let sortObj = {};
     if (req.query.sort && req.query.sort === "author") {
@@ -778,11 +777,6 @@ async function getCommonsCatalog(
         ],
       },
     };
-    const projectWithAssociatedBookProjection = {
-      _id: 0,
-      libreLibrary: 1,
-      libreCoverID: 1,
-    };
 
     const projResults =
       (await Project.aggregate([
@@ -790,27 +784,30 @@ async function getCommonsCatalog(
           $match: projectWithAssociatedBookQuery,
         },
         {
-          $project: projectWithAssociatedBookProjection,
+          $project: {
+            _id: 0,
+            libreLibrary: 1,
+            libreCoverID: 1,
+          },
         },
       ])) ?? [];
 
     const projBookIDs = projResults.map(
       (proj) => `${proj.libreLibrary}-${proj.libreCoverID}`
     );
-    const idMatchObj = { bookID: { $in: projBookIDs } };
 
-    const pipeline: PipelineStage[] = [
+    searchQueries.push(Book.aggregate([
       {
-        $match: idMatchObj,
+        $match: {
+          $and: [
+            { bookID: { $in: projBookIDs } },
+            { bookID: { $nin: excludeIds } }
+          ]
+        }
       },
       { $project: BOOK_PROJECTION },
-    ];
-
-    if (Object.keys(sortObj).length > 0) {
-      pipeline.push({ $sort: sortObj });
-    }
-
-    searchQueries.push(Book.aggregate(pipeline));
+      ...(Object.keys(sortObj).length > 0 ? [{ $sort: sortObj }] : [])
+    ]));
 
     // Find books in org's custom catalog
     if (orgID !== "libretexts") {
@@ -924,14 +921,25 @@ async function getCommonsCatalog(
 
           searchQueries.push(
             Book.aggregate([
-              { $match: searchAreaObj },
+              {
+                $match: {
+                  $and: [searchAreaObj, { bookID: { $nin: excludeIds } }],
+                }
+              },
               { $project: BOOK_PROJECTION },
             ])
           );
         } else {
           searchQueries.push(
             Book.aggregate([
-              { $match: { $or: institutionOptions } },
+              {
+                $match: {
+                  $and: [
+                    { $or: institutionOptions },
+                    { bookID: { $nin: excludeIds } }
+                  ]
+                }
+              },
               { $project: BOOK_PROJECTION },
             ])
           );
@@ -2170,109 +2178,109 @@ async function getPageDetail(
 }
 
 async function updatePageDetails(
-    req: ZodReqWithUser<z.infer<typeof updatePageDetailsSchema>>,
-    res: Response
+  req: ZodReqWithUser<z.infer<typeof updatePageDetailsSchema>>,
+  res: Response
 ) {
-    try {
-        const { pageID } = req.params;
-        const { coverPageID } = req.query;
-        const { summary, tags } = req.body;
+  try {
+    const { pageID } = req.params;
+    const { coverPageID } = req.query;
+    const { summary, tags } = req.body;
 
-        const bookService = new BookService({ bookID: coverPageID });
-        const canAccess = await bookService.canAccessPage(req.user.decoded.uuid);
-        if (!canAccess) {
-            return res.status(403).send({
-                err: true,
-                errMsg: conductorErrors.err8,
-            });
-        }
+    const bookService = new BookService({ bookID: coverPageID });
+    const canAccess = await bookService.canAccessPage(req.user.decoded.uuid);
+    if (!canAccess) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
 
-        const [error, success] = await bookService.updatePageDetails(
-            pageID,
-            summary,
-            tags
-        );
+    const [error, success] = await bookService.updatePageDetails(
+      pageID,
+      summary,
+      tags
+    );
 
-        if (error) {
-            switch (error) {
-                case "location":
-                    return res.status(404).send({
-                        err: true,
-                        errMsg: conductorErrors.err2,
-                    });
-                case "internal":
-                    return res.status(500).send({
-                        err: true,
-                        errMsg: conductorErrors.err6,
-                    });
-            }
-        }
-
-        if (!success) {
-            return res.status(500).send({
-                err: true,
-                errMsg: conductorErrors.err6,
-            });
-        }
-
-        return res.send({
-            err: false,
-            msg: "Page details updated successfully.",
-        });
-    } catch (err) {
-        debugError(err);
-        return res.status(500).send({
+    if (error) {
+      switch (error) {
+        case "location":
+          return res.status(404).send({
+            err: true,
+            errMsg: conductorErrors.err2,
+          });
+        case "internal":
+          return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
-        });
+          });
+      }
     }
+
+    if (!success) {
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err6,
+      });
+    }
+
+    return res.send({
+      err: false,
+      msg: "Page details updated successfully.",
+    });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
 }
 
 async function bulkUpdatePageTags(
-    req: ZodReqWithUser<z.infer<typeof bulkUpdatePageTagsSchema>>,
-    res: Response
+  req: ZodReqWithUser<z.infer<typeof bulkUpdatePageTagsSchema>>,
+  res: Response
 ) {
-    try {
-        const { bookID } = req.params;
-        const { pages } = req.body;
+  try {
+    const { bookID } = req.params;
+    const { pages } = req.body;
 
-        const bookService = new BookService({ bookID });
+    const bookService = new BookService({ bookID });
 
-        const updatePromises = [];
-        for (let i = 0; i < pages.length; i++) {
-            const promise = new Promise((resolve, reject) => {
-                setTimeout(async () => {
-                    const page = pages[i];
-                    const [error, success] = await bookService.updatePageDetails(
-                        page.id,
-                        undefined,
-                        page.tags
-                    );
-                    if (error) {
-                        reject(error);
-                    }
-                    resolve({ error, success });
-                }, 1000);
-            });
-            updatePromises.push(promise);
-        }
-
-        const results = await Promise.allSettled(updatePromises);
-        const failed = results.filter((r) => r.status === "rejected").length;
-        const processed = results.filter((r) => r.status === "fulfilled").length;
-
-        return res.send({
-            err: false,
-            failed,
-            processed,
-        });
-    } catch (err) {
-        debugError(err);
-        return res.status(500).send({
-            err: true,
-            errMsg: conductorErrors.err6,
-        });
+    const updatePromises = [];
+    for (let i = 0; i < pages.length; i++) {
+      const promise = new Promise((resolve, reject) => {
+        setTimeout(async () => {
+          const page = pages[i];
+          const [error, success] = await bookService.updatePageDetails(
+            page.id,
+            undefined,
+            page.tags
+          );
+          if (error) {
+            reject(error);
+          }
+          resolve({ error, success });
+        }, 1000);
+      });
+      updatePromises.push(promise);
     }
+
+    const results = await Promise.allSettled(updatePromises);
+    const failed = results.filter((r) => r.status === "rejected").length;
+    const processed = results.filter((r) => r.status === "fulfilled").length;
+
+    return res.send({
+      err: false,
+      failed,
+      processed,
+    });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
 }
 
 /**
