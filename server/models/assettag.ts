@@ -1,7 +1,7 @@
 import { Document, Schema, Types, model } from "mongoose";
 import { AssetTagKeyInterface } from "./assettagkey";
 
-export interface AssetTagInterface extends Document {
+export interface AssetTagInterface extends Document<Types.ObjectId> {
   uuid: string;
   key: Types.ObjectId | AssetTagKeyInterface | string;
   value?: string | number | boolean | Date | string[];

@@ -63,6 +63,7 @@ import {
   updateProjectFileCaptionsSchema,
   getProjectFileCaptionsSchema,
   getProjectFileEmbedHTMLSchema,
+  bulkUpdateProjectFilesSchema,
 } from "./validators/projectfiles.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import { ZodReqWithFiles } from "../types/Express";
@@ -255,7 +256,7 @@ export async function addProjectFile(
 
         // Prefer mime type from "mime" package, or fall back to multer's detected type, or finally default
         const contentType = mime.getType(file.originalname) || file.mimetype || "application/octet-stream";
-        
+
         uploadCommands.push(
           new PutObjectCommand({
             Bucket: process.env.AWS_PROJECTFILES_BUCKET,
@@ -871,7 +872,7 @@ async function updateProjectFile(
 
     // update tags
     if (tags) {
-      await upsertAssetTags(file, tags);
+      await upsertAssetTags(file, tags, "replace");
     }
 
     const updateObj = {} as RawProjectFileInterface;
@@ -1006,6 +1007,54 @@ async function updateProjectFile(
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function bulkUpdateProjectFiles(
+  req: ZodReqWithUser<z.infer<typeof bulkUpdateProjectFilesSchema>>,
+  res: Response
+) {
+  try {
+    const { projectID } = req.params;
+    const { fileIDs, tags, tagMode } = req.body;
+
+    const files = await getProjectFiles(
+      projectID,
+      fileIDs,
+      false,
+      req.user.decoded.uuid
+    );
+
+    if (!files || files.length === 0) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err63,
+      });
+    }
+
+    if (!tags || tags.length === 0) {
+      return res.send({
+        err: false,
+        msg: "No tags provided, nothing to update.",
+        files
+      });
+    }
+
+    for (const file of files) {
+      await upsertAssetTags(file, tags, tagMode);
+    }
+
+    return res.send({
+      err: false,
+      msg: "Successfully updated files!",
+      files
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6
     });
   }
 }
@@ -1830,6 +1879,7 @@ export default {
   getProjectFolderContents,
   getProjectFile,
   updateProjectFile,
+  bulkUpdateProjectFiles,
   updateProjectFileAccess,
   moveProjectFile,
   removeProjectFilesInternal,

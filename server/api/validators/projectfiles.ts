@@ -99,6 +99,17 @@ export const updateProjectFileSchema = z.object({
   ),
 });
 
+export const bulkUpdateProjectFilesSchema = z.object({
+  params: z.object({
+    projectID: _projectIDSchema,
+  }),
+  body: z.object({
+    fileIDs: z.array(z.string().uuid()).min(1).max(50),
+    tags: z.array(assetTagSchema).optional(),
+    tagMode: z.enum(["replace", "append"]),
+  })
+})
+
 export const updateProjectFileAccessSchema = z.object({
   params: _projectFileParams,
   body: z.object({

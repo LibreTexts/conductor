@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { ModalContext } from "../context/ModalContext";
 
 export interface ModalsProviderProps {
@@ -6,43 +6,53 @@ export interface ModalsProviderProps {
 }
 
 const ModalsProvider: React.FC<ModalsProviderProps> = ({ children }) => {
-  const [modalContent, setModalContent] = useState<React.ReactNode | null>(
-    null
-  );
-  const [preventCloseOnOverlayClick, setPreventCloseOnOverlayClick] =
-    useState<boolean>(false);
+  const [modals, setModals] = useState<Record<string, React.ReactNode>>({});
+  const [, setPreventCloseOnOverlayClick] = useState<boolean>(false);
 
-  const openModal = (content: React.ReactNode, preventClose = false) => {
-    setModalContent(content);
+  const openModal = (
+    content: React.ReactNode,
+    id?: string,
+    preventClose = false
+  ) => {
+    const modalId = id || crypto.randomUUID();
+    setModals((prev) => ({
+      ...prev,
+      [modalId]: content,
+    }));
     setPreventCloseOnOverlayClick(preventClose);
   };
 
+  const closeModal = (id: string) => {
+    setModals((prev) => {
+      const newModals = { ...prev };
+      delete newModals[id];
+      return newModals;
+    });
+    if (Object.keys(modals).length === 1) {
+      setPreventCloseOnOverlayClick(false); // reset if last modal is closed
+    }
+  };
+
   const closeAllModals = () => {
-    setModalContent(null);
+    setModals({});
     setPreventCloseOnOverlayClick(false); // reset
   };
 
-  const _getCurrentContent = () => {
-    return modalContent;
+  const _getCurrentModals = () => {
+    return modals;
   };
 
   return (
     <ModalContext.Provider
-      value={{ openModal, closeAllModals, _getCurrentContent, modalContent }}
+      value={{ openModal, closeModal, closeAllModals, _getCurrentModals }}
     >
       {children}
-      {modalContent && (
-        <div
-          className="!fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50"
-          onClick={() => !preventCloseOnOverlayClick && closeAllModals()}
-        >
-          <div
-            className="bg-white p-6 rounded-lg shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {modalContent}
-          </div>
-        </div>
+      {Object.keys(modals).length === 0 ? null : (
+        <>
+          {Object.entries(modals).map(([key, node]) => (
+            <Fragment key={key}>{node}</Fragment>
+          ))}
+        </>
       )}
     </ModalContext.Provider>
   );

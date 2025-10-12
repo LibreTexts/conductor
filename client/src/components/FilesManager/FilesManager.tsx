@@ -23,7 +23,6 @@ const MoveFiles = React.lazy(() => import("./MoveFiles"));
 const EditFile = React.lazy(() => import("./EditFile"));
 const LargeDownloadModal = React.lazy(() => import("./LargeDownloadModal"));
 import {
-  checkProjectMemberPermission,
   getFilesLicenseText,
   getFilesAccessText,
 } from "../util/ProjectHelpers";
@@ -45,6 +44,8 @@ import { base64ToBlob, copyToClipboard } from "../../utils/misc";
 import { useMediaQuery } from "react-responsive";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import PermanentLinkModal from "./PermanentLinkModal";
+import { useModals } from "../../context/ModalContext";
+import BulkTagModal from "./BulkTagModal";
 
 interface FilesManagerProps extends SegmentProps {
   projectID: string;
@@ -72,6 +73,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
   const isTailwindLg = useMediaQuery({ minWidth: 1024 }, undefined);
+  const { openModal, closeAllModals } = useModals();
 
   const [showUploader, setShowUploader] = useState(false);
   const [showAddFolder, setShowAddFolder] = useState(false);
@@ -96,8 +98,9 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   const [accessFiles, setAccessFiles] = useState<FileEntry[]>([]);
   const [deleteFiles, setDeleteFiles] = useState<FileEntry[]>([]);
 
+  const FILES_QUERY_KEY = ["project-files", projectID, currDirectory];
   const { data: files, isFetching: filesLoading } = useQuery<FileEntry[]>({
-    queryKey: ["project-files", projectID, currDirectory],
+    queryKey: FILES_QUERY_KEY,
     queryFn: () => getFiles(),
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false,
@@ -105,9 +108,9 @@ const FilesManager: React.FC<FilesManagerProps> = ({
 
   const hasAnyTags = useMemo(() => {
     if (!files || files.length === 0) return false;
-    return files.some(file => file.tags && file.tags.length > 0);
+    return files.some((file) => file.tags && file.tags.length > 0);
   }, [files]);
-  
+
   const TABLE_COLS: {
     key: string;
     text: string;
@@ -115,9 +118,22 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     collapsing?: boolean;
   }[] = useMemo(() => {
     const baseCols = [
-      { key: "name", text: "Name", width: hasAnyTags ? 5 : 7 as SemanticWIDTHS },
-      { key: "access", text: "Access", width: hasAnyTags ? 3 : 5 as SemanticWIDTHS },
-      { key: "actions", text: "", width: hasAnyTags ? 1 : 4 as SemanticWIDTHS, collapsing: true },
+      {
+        key: "name",
+        text: "Name",
+        width: hasAnyTags ? 5 : (7 as SemanticWIDTHS),
+      },
+      {
+        key: "access",
+        text: "Access",
+        width: hasAnyTags ? 3 : (5 as SemanticWIDTHS),
+      },
+      {
+        key: "actions",
+        text: "",
+        width: hasAnyTags ? 1 : (4 as SemanticWIDTHS),
+        collapsing: true,
+      },
     ];
 
     if (hasAnyTags) {
@@ -127,7 +143,6 @@ const FilesManager: React.FC<FilesManagerProps> = ({
 
     return baseCols;
   }, [hasAnyTags]);
-
 
   async function getFiles() {
     try {
@@ -166,14 +181,18 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     return files.length > 0 && files.every((item) => item.checked);
   }, [files]);
 
+  const canBulkTag = useMemo(() => {
+    if (!files) return false;
+    if (files.filter((item) => item.checked).length < 1) return false;
+    // If any of the checked files are not of storageType 'file', disable bulk tag
+    return !files.some((item) => item.checked && item.storageType !== "file");
+  }, [files]);
+
   const handleEntryCheckedMutation = useMutation({
     mutationFn: ({ id }: { id: string }) => _handleEntryChecked(id),
     onSuccess(data, variables, context) {
       if (!data) return;
-      queryClient.setQueryData(
-        ["project-files", projectID, currDirectory],
-        data
-      );
+      queryClient.setQueryData(FILES_QUERY_KEY, data);
     },
   });
 
@@ -181,10 +200,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     mutationFn: _handleToggleAllChecked,
     onSuccess(data, variables, context) {
       if (!data) return;
-      queryClient.setQueryData(
-        ["project-files", projectID, currDirectory],
-        data
-      );
+      queryClient.setQueryData(FILES_QUERY_KEY, data);
     },
   });
 
@@ -244,7 +260,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    */
   function handleUploadFinished() {
     setShowUploader(false);
-    queryClient.invalidateQueries(["project-files", projectID, currDirectory]);
+    queryClient.invalidateQueries(FILES_QUERY_KEY);
   }
 
   /**
@@ -252,7 +268,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    */
   function handleAddFolderFinished() {
     setShowAddFolder(false);
-    queryClient.invalidateQueries(["project-files", projectID, currDirectory]);
+    queryClient.invalidateQueries(FILES_QUERY_KEY);
   }
 
   /**
@@ -280,7 +296,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    */
   function handleEditFinished() {
     handleEditClose();
-    queryClient.invalidateQueries(["project-files", projectID, currDirectory]);
+    queryClient.invalidateQueries(FILES_QUERY_KEY);
   }
 
   /**
@@ -336,7 +352,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    */
   function handleAccessFinished() {
     handleAccessClose();
-    queryClient.invalidateQueries(["project-files", projectID, currDirectory]);
+    queryClient.invalidateQueries(FILES_QUERY_KEY);
   }
 
   /**
@@ -363,7 +379,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    */
   function handleDeleteFinished() {
     handleDeleteClose();
-    queryClient.invalidateQueries(["project-files", projectID, currDirectory]);
+    queryClient.invalidateQueries(FILES_QUERY_KEY);
   }
 
   function handleDownloadRequest() {
@@ -379,20 +395,23 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     }
   }
 
-  const handlePermanentLinkClick = useCallback(async (projectID: string, fileID: string) => {
-    try {
-      const response = await api.getPermanentLink(projectID, fileID);
-      if (!response.data.err) {
-        const permanentUrl = response.data.url;
-        setPermanentLink(permanentUrl);
-        setShowPermanentLinkModal(true);
-      } else {
-        handleGlobalError(response.data.errMsg);
+  const handlePermanentLinkClick = useCallback(
+    async (projectID: string, fileID: string) => {
+      try {
+        const response = await api.getPermanentLink(projectID, fileID);
+        if (!response.data.err) {
+          const permanentUrl = response.data.url;
+          setPermanentLink(permanentUrl);
+          setShowPermanentLinkModal(true);
+        } else {
+          handleGlobalError(response.data.errMsg);
+        }
+      } catch (error) {
+        handleGlobalError(error);
       }
-    } catch (error) {
-      handleGlobalError(error);
-    }
-  }, []);
+    },
+    []
+  );
 
   const closePermanentLinkModal = useCallback(() => {
     setShowPermanentLinkModal(false);
@@ -488,6 +507,28 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     setCurrDirectory(directoryID);
   }
 
+  function handleBulkTagFiles() {
+    if (!files || files.length === 0) return;
+    const toTag = files.filter(
+      (obj) => obj.checked && obj.storageType === "file"
+    );
+    if (toTag.length === 0) return;
+
+    openModal(
+      <BulkTagModal
+        projectID={projectID}
+        fileIds={toTag.map((f) => f.fileID)}
+        onCancel={() => closeAllModals()}
+        onSave={() => {
+          queryClient.invalidateQueries({
+            queryKey: FILES_QUERY_KEY,
+          });
+          closeAllModals();
+        }}
+      />
+    );
+  }
+
   /**
    * Generates path breadcrumbs based on the current directory in view.
    *
@@ -562,13 +603,15 @@ const FilesManager: React.FC<FilesManagerProps> = ({
               }
             />
           )}
-          {item.storageType === "file" && !item.isURL && item.access === "public" && (
-            <Dropdown.Item
-              icon="share"
-              text="Permanent Link"
-              onClick={() => handlePermanentLinkClick(projectID, item.fileID)}
-            />
-          )}
+          {item.storageType === "file" &&
+            !item.isURL &&
+            item.access === "public" && (
+              <Dropdown.Item
+                icon="share"
+                text="Permanent Link"
+                onClick={() => handlePermanentLinkClick(projectID, item.fileID)}
+              />
+            )}
           {item.storageType === "file" &&
             item.isVideo &&
             item.videoStorageID &&
@@ -653,13 +696,11 @@ const FilesManager: React.FC<FilesManagerProps> = ({
         </Button>
       </Header>
       {projectVisibility === "private" && files && files.length > 0 && (
-        <Message 
-          size="small" 
-          color="blue" 
-          style={{ backgroundColor: "#fff" }}
-        >
+        <Message size="small" color="blue" style={{ backgroundColor: "#fff" }}>
           <Message.Content>
-            Heads up! Your project's visibility is set to 'Private', so assets shown here won't be visible in Commons even if their access is set to 'Public'.
+            Heads up! Your project's visibility is set to 'Private', so assets
+            shown here won't be visible in Commons even if their access is set
+            to 'Public'.
           </Message.Content>
         </Message>
       )}
@@ -672,7 +713,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
             </p>
             <Button.Group
               fluid
-              widths="6"
+              widths="7"
               className={
                 itemsChecked === 0
                   ? "max-w-[34rem]"
@@ -697,7 +738,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                 <Button
                   color="blue"
                   onClick={handleDownloadRequest}
-                  disabled={!checkProjectMemberPermission || downloadLoading}
+                  disabled={downloadLoading}
                 >
                   {!downloadLoading && (
                     <>
@@ -728,7 +769,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
               {itemsChecked > 0 && (
                 <Button
                   color="yellow"
-                  disabled={itemsChecked < 1 || !checkProjectMemberPermission}
+                  disabled={itemsChecked < 1}
                   onClick={() => {
                     handleChangeAccess(
                       files?.filter((obj) => obj.checked) || []
@@ -737,6 +778,18 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                 >
                   <Icon name="lock" />
                   Change Access
+                </Button>
+              )}
+              {canBulkTag && (
+                <Button
+                  color="purple"
+                  disabled={itemsChecked < 1}
+                  onClick={() => {
+                    handleBulkTagFiles();
+                  }}
+                >
+                  <Icon name="tags" />
+                  Bulk Tag
                 </Button>
               )}
               {itemsChecked > 1 && (
@@ -802,9 +855,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                     ))
                   ) : (
                     // Mobile: Just show a single "Files" header
-                    <Table.HeaderCell>
-                      Files
-                    </Table.HeaderCell>
+                    <Table.HeaderCell>Files</Table.HeaderCell>
                   )}
                 </Table.Row>
               </Table.Header>
@@ -917,9 +968,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                           <button
                             className="hover:underline text-blue-600 text-left"
                             onClick={() => handleChangeAccess([item])}
-                            disabled={
-                              !checkProjectMemberPermission || !canViewDetails
-                            }
+                            disabled={!canViewDetails}
                           >
                             {getFilesAccessText(item.access)}
                           </button>

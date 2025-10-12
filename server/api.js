@@ -2144,7 +2144,13 @@ router
       ProjectFileValidators.bulkDownloadProjectFilesSchema
     ),
     projectfilesAPI.bulkDownloadProjectFiles
-  );
+  )
+  .patch(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(ProjectFileValidators.bulkUpdateProjectFilesSchema),
+    projectfilesAPI.bulkUpdateProjectFiles
+  )
 
 router
   .route("/project/:projectID/files/:fileID/access")
