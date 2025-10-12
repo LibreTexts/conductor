@@ -56,7 +56,8 @@ import {
   StoreOrderWithStripeSession,
   OrderCharge,
   OrderSession,
-  CentralIdentityOrgAdminResult
+  CentralIdentityOrgAdminResult,
+  AssetTag
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -1398,6 +1399,16 @@ class API {
       }
     );
     return res;
+  }
+
+  async bulkUpdateProjectFiles(projectID: string, fileIDs: string[], data: {
+    tags: AssetTag[];
+    tagMode: "replace" | "append"
+  }) {
+    return await axios.patch<{ files: ProjectFile[] } & ConductorBaseResponse>(`/project/${projectID}/files/bulk`, {
+      fileIDs,
+      ...data
+    });
   }
 
   async getPublicProjectFiles(params?: { page?: number; limit?: number }) {

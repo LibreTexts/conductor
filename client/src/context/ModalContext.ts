@@ -1,11 +1,11 @@
 import { createContext, useContext, ReactNode } from "react";
 
 interface ModalContextProps {
-  openModal: (content: ReactNode, preventClose?: boolean) => void;
+  openModal: (content: ReactNode, id?: string, preventClose?: boolean) => void;
+  closeModal: (id: string) => void;
   closeAllModals: () => void;
-  _getCurrentContent: () => ReactNode | null;
+  _getCurrentModals: () => Record<string, ReactNode>;
   preventCloseOnOverlayClick?: boolean;
-  modalContent: ReactNode | null;
 }
 
 export const ModalContext = createContext<ModalContextProps | undefined>(

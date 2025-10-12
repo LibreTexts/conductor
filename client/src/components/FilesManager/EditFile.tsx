@@ -6,48 +6,29 @@ import {
   Button,
   Icon,
   ModalProps,
-  Table,
   Dropdown,
   Accordion,
 } from "semantic-ui-react";
 import useGlobalError from "../error/ErrorHooks";
-import { Controller, get, useFieldArray, useForm } from "react-hook-form";
-import {
-  AssetTag,
-  AssetTagFramework,
-  Author,
-  CentralIdentityLicense,
-  License,
-  ProjectFile,
-} from "../../types";
+import { Controller, useForm } from "react-hook-form";
+import { AssetTag, AssetTagFramework, License, ProjectFile } from "../../types";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 import CtlTextArea from "../ControlledInputs/CtlTextArea";
-import SelectFramework from "./SelectFramework";
 import api from "../../api";
-import {
-  cleanTagsForRequest,
-  getInitValueFromTemplate,
-} from "../../utils/assetHelpers";
-import { RenderTagInput } from "./RenderTagInput";
-import {
-  AssetTagTemplate,
-  AssetTagValue,
-  AssetTagWithKey,
-} from "../../types/AssetTagging";
+import { cleanTagsForRequest } from "../../utils/assetHelpers";
+import { AssetTagWithKey } from "../../types/AssetTagging";
 import { isAssetTagKeyObject } from "../../utils/typeHelpers";
 import CtlCheckbox from "../ControlledInputs/CtlCheckbox";
-import URLFileHyperlink from "./URLFileHyperlink";
 import { useTypedSelector } from "../../state/hooks";
 import LoadingSpinner from "../LoadingSpinner";
-import useDebounce from "../../hooks/useDebounce";
 import AuthorsForm from "./AuthorsForm";
 import FilePreview from "./FilePreview";
 import ManageCaptionsModal from "./ManageCaptionsModal";
 import { useQuery } from "@tanstack/react-query";
 import useCentralIdentityLicenses from "../../hooks/useCentralIdentityLicenses";
+import RenderTagFields from "./RenderTagFields";
 const FilesUploader = React.lazy(() => import("./FilesUploader"));
-const FileRenderer = React.lazy(() => import("./FileRenderer"));
 
 interface EditFileProps extends ModalProps {
   show: boolean;
@@ -69,9 +50,9 @@ const EditFile: React.FC<EditFileProps> = ({
 
   // Global State & Hooks
   const { handleGlobalError } = useGlobalError();
-  const { debounce } = useDebounce();
   const org = useTypedSelector((state) => state.org);
   const authorsFormRef = useRef<React.ElementRef<typeof AuthorsForm>>(null);
+  const tagFieldsRef = useRef<React.ElementRef<typeof RenderTagFields>>(null);
   const {
     control,
     getValues,
@@ -102,18 +83,6 @@ const EditFile: React.FC<EditFileProps> = ({
     mode: "onChange",
     reValidateMode: "onChange",
   });
-  const {
-    fields: tagFields,
-    append: tagAppend,
-    prepend: tagPrepend,
-    remove: tagRemove,
-    move: tagMove,
-    insert: tagInsert,
-    update: tagUpdate,
-  } = useFieldArray({
-    control,
-    name: "tags",
-  });
 
   // Data & UI
   const [loading, setLoading] = useState(false);
@@ -122,17 +91,13 @@ const EditFile: React.FC<EditFileProps> = ({
   const [showLicenseInfo, setShowLicenseInfo] = useState(true);
   const [showAuthorInfo, setShowAuthorInfo] = useState(true);
   const [showTags, setShowTags] = useState(true);
-  const [showSelectFramework, setShowSelectFramework] = useState(false);
   const [showCaptionsModal, setShowCaptionsModal] = useState(false);
   const [videoStreamURL, setVideoStreamURL] = useState<string | undefined>(
     undefined
   ); // Video stream URL for video files
 
-  // Frameworks
-  const [selectedFramework, setSelectedFramework] =
-    useState<AssetTagFramework | null>(null);
-    
-  const { licenseOptions, isFetching: licensesLoading } = useCentralIdentityLicenses();
+  const { licenseOptions, isFetching: licensesLoading } =
+    useCentralIdentityLicenses();
 
   const {
     data: projectLicenseSettings,
@@ -160,14 +125,8 @@ const EditFile: React.FC<EditFileProps> = ({
   }, [show]);
 
   useEffect(() => {
-    if (selectedFramework) {
-      genTagsFromFramework();
-    }
-  }, [selectedFramework]);
-
-  useEffect(() => {
     if (!campusDefaultFramework) return;
-    setSelectedFramework(campusDefaultFramework);
+    tagFieldsRef.current?.changeSelectedFramework(campusDefaultFramework);
   }, [watch("fileID"), campusDefaultFramework]);
 
   useEffect(() => {
@@ -261,7 +220,7 @@ const EditFile: React.FC<EditFileProps> = ({
         res.data.project.defaultFileLicense &&
         typeof res.data.project.defaultFileLicense === "object"
       ) {
-        return res.data.project.defaultFileLicense as License
+        return res.data.project.defaultFileLicense as License;
       }
       return null;
     } catch (err) {
@@ -341,111 +300,11 @@ const EditFile: React.FC<EditFileProps> = ({
     }
   }
 
-  async function loadFramework(id: string) {
-    try {
-      if (!id) return;
-      if (isFolder) return; // No asset tags for folders
-      setLoading(true);
-
-      const res = await api.getFramework(id);
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-
-      if (!res.data.framework) {
-        throw new Error("Failed to load framework");
-      }
-
-      const parsed: AssetTagTemplate[] = res.data.framework.templates.map(
-        (t) => {
-          return {
-            ...t,
-            key: isAssetTagKeyObject(t.key) ? t.key.title : t.key,
-          };
-        }
-      );
-
-      setSelectedFramework({
-        ...res.data.framework,
-        templates: parsed,
-      });
-      genTagsFromFramework();
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function genTagsFromFramework() {
-    if (isFolder) return; // No asset tags for folders
-    if (!selectedFramework || !selectedFramework.templates) return;
-
-    // Don't duplicate tags when adding from framework
-    const existingTags = getValues().tags;
-    let filtered: AssetTagTemplate[] = [];
-
-    if (existingTags && existingTags.length > 0) {
-      const valsToCheck = existingTags.map((t) =>
-        isAssetTagKeyObject(t.key) ? t.key.title : t.key
-      );
-      filtered = selectedFramework.templates.filter(
-        (t) =>
-          !valsToCheck.includes(
-            isAssetTagKeyObject(t.key) ? t.key.title : t.key
-          )
-      );
-    } else {
-      filtered = selectedFramework.templates;
-    }
-
-    filtered.forEach((t) => {
-      addTag({
-        key: isAssetTagKeyObject(t.key) ? t.key.title : t.key,
-        value: getInitValueFromTemplate(t),
-        framework: selectedFramework,
-      });
-    });
-  }
-
-  function addTag({
-    key,
-    value,
-    framework,
-  }: {
-    key?: string;
-    value?: AssetTagValue;
-    framework?: AssetTagFramework;
-  }) {
-    if (isFolder) return; // No asset tags for folders
-    tagAppend(
-      {
-        uuid: crypto.randomUUID(), // Random UUID for new tags, will be replaced with real UUID server-side on save
-        key: key ?? "",
-        value: value ?? "",
-        framework: framework ?? undefined,
-      },
-      { shouldFocus: false }
-    );
-  }
-
   function handleToggleAll() {
     const currVal = showLicenseInfo && showAuthorInfo && showTags;
     setShowLicenseInfo(!currVal);
     setShowAuthorInfo(!currVal);
     setShowTags(!currVal);
-  }
-
-  function handleMoveUp(index: number) {
-    if (index === 0) return; // Don't move if already at top
-    // Check index - 1 exists
-    if (!tagFields[index - 1]) return;
-    tagMove(index, index - 1);
-  }
-
-  function handleMoveDown(index: number) {
-    if (index === tagFields.length - 1) return; // Don't move if already at bottom
-    tagMove(index, index + 1);
   }
 
   function handleUploadFinished() {
@@ -475,8 +334,9 @@ const EditFile: React.FC<EditFileProps> = ({
           >
             <div className="flex flex-row -mt-1">
               <div
-                className={`flex flex-col pr-8 mt-1 ${isFolder ? "w-full" : "basis-1/2"
-                  }`}
+                className={`flex flex-col pr-8 mt-1 ${
+                  isFolder ? "w-full" : "basis-1/2"
+                }`}
               >
                 <CtlTextInput
                   name="name"
@@ -638,20 +498,24 @@ const EditFile: React.FC<EditFileProps> = ({
                           placeholder="https://example.com"
                           className="mt-2"
                           helpText="URL where the file was sourced from"
-                          disabled={watch('license.sourceURL') === 'local'}
+                          disabled={watch("license.sourceURL") === "local"}
                         />
-                        {
-                          watch("license.sourceURL") !== "local" && (
-                            <p className="text-sky-500 ml-1 mt-1 cursor-pointer hover:underline" onClick={handleNoExternalSource}>
-                              This file doesn't have an external source.
-                            </p>
-                          )}
-                        {
-                          watch("license.sourceURL") === "local" && (
-                            <p className="text-sky-500 ml-1 mt-1 cursor-pointer hover:underline" onClick={handleResetExternalSource}>
-                              Add an external source URL
-                            </p>
-                          )}
+                        {watch("license.sourceURL") !== "local" && (
+                          <p
+                            className="text-sky-500 ml-1 mt-1 cursor-pointer hover:underline"
+                            onClick={handleNoExternalSource}
+                          >
+                            This file doesn't have an external source.
+                          </p>
+                        )}
+                        {watch("license.sourceURL") === "local" && (
+                          <p
+                            className="text-sky-500 ml-1 mt-1 cursor-pointer hover:underline"
+                            onClick={handleResetExternalSource}
+                          >
+                            Add an external source URL
+                          </p>
+                        )}
                         <div className="flex items-start mt-3">
                           <CtlCheckbox
                             name="license.modifiedFromSource"
@@ -723,96 +587,11 @@ const EditFile: React.FC<EditFileProps> = ({
                           <span className="font-semibold">Tags</span>
                         </Accordion.Title>
                         <Accordion.Content active={showTags}>
-                          <Table celled>
-                            <Table.Header fullWidth>
-                              <Table.Row key="header">
-                                <Table.HeaderCell>Tag Title</Table.HeaderCell>
-                                <Table.HeaderCell>Value</Table.HeaderCell>
-                                <Table.HeaderCell width={1}>
-                                  Actions
-                                </Table.HeaderCell>
-                              </Table.Row>
-                            </Table.Header>
-                            <Table.Body>
-                              {tagFields && tagFields.length > 0 ? (
-                                tagFields.map((tag, index) => (
-                                  <Table.Row key={tag.id}>
-                                    <Table.Cell>
-                                      {tag.framework ? (
-                                        <div className="flex flex-col">
-                                          <p>
-                                            {isAssetTagKeyObject(tag.key)
-                                              ? tag.key.title
-                                              : tag.key}
-                                          </p>
-                                        </div>
-                                      ) : (
-                                        <CtlTextInput
-                                          name={`tags.${index}.key`}
-                                          control={control}
-                                          fluid
-                                        />
-                                      )}
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                      <RenderTagInput
-                                        tag={tag}
-                                        index={index}
-                                        control={control}
-                                        formState={formState}
-                                      />
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                      {/* <Button
-                                      icon="arrow up"
-                                      onClick={() => handleMoveUp(index)}
-                                    />
-                                    <Button
-                                      icon="arrow down"
-                                      onClick={() => handleMoveDown(index)}
-                                      className="!ml-1"
-                                    /> */}
-                                      <Button
-                                        color="red"
-                                        icon="trash"
-                                        onClick={() => tagRemove(index)}
-                                        className="!ml-1"
-                                      ></Button>
-                                    </Table.Cell>
-                                  </Table.Row>
-                                ))
-                              ) : (
-                                <Table.Row>
-                                  <Table.Cell
-                                    colSpan={3}
-                                    className="text-center"
-                                  >
-                                    No tags have been added to this file.
-                                  </Table.Cell>
-                                </Table.Row>
-                              )}
-                            </Table.Body>
-                          </Table>
-                          <div className="flex flex-row">
-                            <Button color="blue" onClick={() => addTag({})}>
-                              <Icon name="plus" />
-                              Add Tag
-                            </Button>
-                            <Button
-                              color="blue"
-                              onClick={() => setShowSelectFramework(true)}
-                            >
-                              <Icon name="plus" />
-                              Add From Framework
-                            </Button>
-                          </div>
-                          {formState.errors.tags && (
-                            <p className="text-red-500 text-center mt-4 italic">
-                              {formState.errors.tags
-                                ? "One or more tags are missing values. If you do not wish to provide a value for an input, delete the tag before saving."
-                                : ""}
-                            </p>
-                          )}
+                          <RenderTagFields
+                            ref={tagFieldsRef}
+                            control={control}
+                            formState={formState}
+                          />
                         </Accordion.Content>
                       </Accordion>
                     </div>
@@ -830,14 +609,6 @@ const EditFile: React.FC<EditFileProps> = ({
           Save
         </Button>
       </Modal.Actions>
-      <SelectFramework
-        show={showSelectFramework}
-        onClose={() => setShowSelectFramework(false)}
-        onSelected={(id: string) => {
-          loadFramework(id);
-          setShowSelectFramework(false);
-        }}
-      />
       <ManageCaptionsModal
         show={showCaptionsModal}
         onClose={() => setShowCaptionsModal(false)}

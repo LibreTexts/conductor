@@ -1,6 +1,6 @@
-import { Document, Schema, model } from "mongoose";
+import { Document, Schema, Types, model } from "mongoose";
 
-export interface AssetTagKeyInterface extends Document {
+export interface AssetTagKeyInterface extends Document<Types.ObjectId> {
   orgID: string;
   title: string;
   hex: string;
