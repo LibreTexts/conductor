@@ -1,10 +1,70 @@
 import { Document, model } from "mongoose";
-import {
-  SanitizedUserSelectProjection,
-  SanitizedUserSelectQuery,
-  UserInterface,
-} from "./user.js";
+import { SanitizedUserSelectProjection } from "./user.js";
 import { Schema } from "mongoose";
+import { GenericKeyTextValueObj } from "../types/Misc.js";
+import { SupportQueueInterface } from "./supportqueue.js";
+
+export const SupportTicketPriorityOptions = [
+  "low",
+  "medium",
+  "high",
+  "severe",
+];
+
+export type SupportTicketPriorityEnum = "low" | "medium" | "high" | "severe";
+
+export const SupportTicketCategoryOptions: GenericKeyTextValueObj<string>[] = [
+  {
+    key: "general",
+    text: "General Inquiry",
+    value: "general",
+  },
+  {
+    key: "adaptcode",
+    text: "ADAPT Access Code Request",
+    value: "adaptcode",
+  },
+  {
+    key: "technical",
+    text: "Technical Issue (Bug, Error, etc.)",
+    value: "technical",
+  },
+  {
+    key: "feature",
+    text: "Feature Request",
+    value: "feature",
+  },
+  {
+    key: "account",
+    text: "Account Issue",
+    value: "account",
+  },
+  {
+    key: "bookstore",
+    text: "Bookstore",
+    value: "bookstore",
+  },
+  {
+    key: "bulk",
+    text: "Bulk Textbook Orders",
+    value: "bulk",
+  },
+  {
+    key: "integrate",
+    text: "Integrating LibreTexts Content/Platform",
+    value: "integrate",
+  },
+  {
+    key: "delete-account",
+    text: "Delete Account (ADAPT and all other applications)",
+    value: "delete-account",
+  },
+  {
+    key: "other",
+    text: "Other",
+    value: "other",
+  },
+];
 
 export interface SupportTicketGuestInterface {
   firstName: string;
@@ -35,13 +95,14 @@ export interface SupportTicketDeviceInfoInterface {
 
 export interface SupportTicketInterface extends Document {
   uuid: string;
+  queue_id: string;
   title: string;
-  description: string;
+  description?: string;
   apps?: number[]; // Central Identity app IDs
   attachments?: SupportTicketAttachmentInterface[];
-  priority: "low" | "medium" | "high" | "severe";
+  priority?: SupportTicketPriorityEnum;
   status: "open" | "in_progress" | "closed";
-  category: string;
+  category?: string;
   guestAccessKey: string;
   capturedURL?: string;
   assignedUUIDs?: string[]; // User uuids
@@ -58,6 +119,8 @@ export interface SupportTicketInterface extends Document {
   autoCloseTriggered?: boolean;
   autoCloseDate?: string;
   autoCloseSilenced?: boolean;
+  metadata?: Record<string, any>;
+  queue?: SupportQueueInterface; // Populated
 }
 
 const SupportTicketSchema = new Schema<SupportTicketInterface>({
@@ -66,13 +129,16 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
     required: true,
     unique: true,
   },
+  queue_id: {
+    type: String,
+    required: true,
+  },
   title: {
     type: String,
     required: true,
   },
   description: {
     type: String,
-    required: true,
   },
   apps: {
     type: [Number],
@@ -101,8 +167,8 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
   },
   priority: {
     type: String,
-    enum: ["low", "medium", "high", "severe"],
-    default: "low",
+    enum: SupportTicketPriorityOptions,
+    required: false,
   },
   status: {
     type: String,
@@ -111,7 +177,7 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
   },
   category: {
     type: String,
-    required: true,
+    required: false,
   },
   guestAccessKey: {
     type: String,
@@ -202,6 +268,9 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
   autoCloseSilenced: {
     type: Boolean,
   },
+  metadata: {
+    type: Schema.Types.Mixed,
+  },
 });
 
 SupportTicketSchema.virtual("assignedUsers", {
@@ -227,6 +296,13 @@ SupportTicketSchema.virtual("messages", {
   ref: "SupportTicketMessage",
   localField: "uuid",
   foreignField: "ticket",
+});
+
+SupportTicketSchema.virtual("queue", {
+  ref: "SupportQueue",
+  localField: "queue_id",
+  foreignField: "id",
+  justOne: true,
 });
 
 SupportTicketSchema.set("toObject", { virtuals: true });

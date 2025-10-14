@@ -13,6 +13,7 @@ import {
   GetUserTicketsValidator,
   RemoveTicketCCValidator,
   SendTicketMessageValidator,
+  TicketUUIDParams,
   UpdateTicketValidator,
 } from "./validators/support";
 import { NextFunction, Request, Response } from "express";
@@ -25,13 +26,16 @@ import User, {
 import { v4 } from "uuid";
 import SupportTicket, {
   SupportTicketAttachmentInterface,
+  SupportTicketCategoryOptions,
   SupportTicketFeedEntryInterface,
   SupportTicketInterface,
+  SupportTicketPriorityOptions,
 } from "../models/supporticket.js";
 import SupportTicketMessage, {
   SupportTicketMessageInterface,
 } from "../models/supporticketmessage.js";
 import mailAPI from "../api/mail.js";
+import projectsAPI from "../api/projects.js";
 import multer from "multer";
 import async from "async";
 import conductorErrors from "../conductor-errors.js";
@@ -53,6 +57,7 @@ import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
 import base64 from "base-64";
 import Organization from "../models/organization.js";
 import authAPI from "../api/auth.js";
+import SupportQueueService from "./services/support-queue-service";
 
 export const SUPPORT_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
   credentials: {
@@ -71,6 +76,7 @@ async function getTicket(
     const ticket = await SupportTicket.findOne({ uuid })
       .populate("user")
       .populate("assignedUsers")
+      .populate("queue")
       .orFail();
 
     return res.send({
@@ -109,6 +115,7 @@ async function getUserTickets(
       page,
       limit,
       offset,
+      queue: req.query.queue,
     });
 
     if (!results) {
@@ -179,6 +186,7 @@ async function _getUserTickets({
   limit = 25,
   offset = 0,
   populateAssignedUsers = false,
+  queue
 }: {
   uuid?: string;
   email?: string;
@@ -187,8 +195,11 @@ async function _getUserTickets({
   limit?: number;
   offset?: number;
   populateAssignedUsers?: boolean;
+  queue?: string;
 }): Promise<{ tickets: SupportTicketInterface[]; total: number } | undefined> {
   try {
+    let queueId: string | undefined = undefined;
+
     if (!uuid && !email) return undefined;
 
     const getSortObj = () => {
@@ -201,16 +212,29 @@ async function _getUserTickets({
       return { timeOpened: -1 };
     };
 
-    const sortObj = getSortObj();
-    const searchObj = uuid ? { userUUID: uuid } : { "guest.email": email };
+    if (queue) {
+      const queueService = new SupportQueueService();
+      const foundQueue = await queueService.getQueueBySlug(queue);
+      if (!foundQueue) {
+        throw new Error("Invalid queue");
+      }
+      queueId = foundQueue.id;
+    }
 
-    const query =  SupportTicket.find(searchObj)
+    const sortObj = getSortObj();
+    const searchObj: Record<string, string | undefined> = uuid ? { userUUID: uuid } : { "guest.email": email };
+    if (queueId) {
+      searchObj["queue_id"] = queueId;
+    }
+
+    const query = SupportTicket.find(searchObj)
       .skip(offset)
       .limit(limit)
       .sort(sortObj as any)
       .populate("user")
+      .populate("queue");
 
-    if(populateAssignedUsers) {
+    if (populateAssignedUsers) {
       query.populate("assignedUsers")
     }
 
@@ -243,7 +267,7 @@ async function getOpenInProgressTickets(
     if (req.query.limit) limit = parseInt(req.query.limit.toString());
     const offset = getPaginationOffset(page, limit);
 
-    const { query, assignee, category, priority } = req.query;
+    const { queue, query, assignee, category, priority } = req.query;
 
     const getSortObj = () => {
       if (req.query.sort === "status") {
@@ -257,6 +281,16 @@ async function getOpenInProgressTickets(
 
     const tickets = [];
     const sortObj = getSortObj();
+
+    const queueService = new SupportQueueService();
+    const foundQueue = await queueService.getQueueBySlug(req.query.queue);
+
+    if (!foundQueue) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "Invalid queue",
+      });
+    }
 
     const lookupUserDataStages = (localField: "assignedUUIDs" | "userUUID") => {
       return [
@@ -277,32 +311,87 @@ async function getOpenInProgressTickets(
         },
         ...(localField === "userUUID"
           ? [
-              {
-                $set: {
-                  user: {
-                    $arrayElemAt: ["$user", 0],
-                  },
+            {
+              $set: {
+                user: {
+                  $arrayElemAt: ["$user", 0],
                 },
               },
-            ]
+            },
+          ]
           : []),
       ];
     };
 
+    const lookupLastMessageStages = [
+      {
+        $lookup: {
+          from: "supportticketmessages",
+          localField: "uuid",
+          foreignField: "ticket",
+          as: "messages",
+          pipeline: [
+            {
+              $match: {
+                type: "general"
+              }
+            }
+          ]
+        },
+      },
+      {
+        $addFields: {
+          lastMessage: {
+            $arrayElemAt: ["$messages", 0],
+          },
+        },
+      },
+      {
+        $addFields: {
+          lastReplyAt: {
+            $cond: {
+              if: {
+                $and: [
+                  { $ne: ["$lastMessage", undefined] },
+                  { $ne: ["$lastMessage", null] },
+                  { $ne: ["$lastMessage.timeSent", null] },
+                  { $ne: ["$lastMessage.timeSent", false] },
+                  { $ne: ["$lastMessage.timeSent", ""] },
+                  { $ne: ["$lastMessage.timeSent", 0] }
+                ]
+              },
+              then: "$lastMessage.timeSent",
+              else: "never"
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          messages: 0,
+          lastMessage: 0,
+        },
+      }
+    ];
+
     if (!query) {
-      const foundTickets = await SupportTicket.find({
-        status: { $in: ["open", "in_progress"] },
-        ...(assignee ? { assignedUUIDs: assignee } : {}),
-        ...(category ? { category } : {}),
-        ...(priority ? { priority } : {}),
-      })
-        .sort(sortObj as any)
-        .populate("assignedUsers")
-        .populate("user")
-        .exec();
+      const foundTickets = await SupportTicket.aggregate([
+        {
+          $match: {
+            queue_id: foundQueue.id,
+            status: { $in: ["open", "in_progress"] },
+            ...(assignee ? { assignedUUIDs: assignee } : {}),
+            ...(category ? { category } : {}),
+            ...(priority ? { priority } : {}),
+          },
+        },
+        ...lookupUserDataStages("assignedUUIDs"),
+        ...lookupUserDataStages("userUUID"),
+        ...lookupLastMessageStages,
+      ])
       tickets.push(...foundTickets);
     } else {
-      const fromTicketResults = await SupportTicket.aggregate([
+      const fromTicketQuery = await SupportTicket.aggregate([
         {
           $search: {
             text: {
@@ -326,11 +415,17 @@ async function getOpenInProgressTickets(
             score: { $meta: "searchScore" },
           },
         },
+        {
+          $match: {
+            queue_id: foundQueue.id,
+          }
+        },
         ...lookupUserDataStages("assignedUUIDs"),
         ...lookupUserDataStages("userUUID"),
+        ...lookupLastMessageStages,
       ]);
 
-      const fromUserResults = await User.aggregate([
+      const fromUserQuery = User.aggregate([
         {
           $search: {
             text: {
@@ -361,11 +456,22 @@ async function getOpenInProgressTickets(
         {
           $replaceRoot: { newRoot: "$tickets" },
         },
+        {
+          $match: {
+            queue_id: foundQueue.id,
+          }
+        },
         ...lookupUserDataStages("assignedUUIDs"),
         ...lookupUserDataStages("userUUID"),
+        ...lookupLastMessageStages,
       ]);
 
-      const allResults = [...fromTicketResults, ...fromUserResults];
+      const queryResults = await Promise.all([
+        fromTicketQuery,
+        fromUserQuery,
+      ]);
+
+      const allResults = [...queryResults[0], ...queryResults[1]];
 
       const filteredAllResults = allResults.filter((t) => {
         if (assignee && !t.assignedUUIDs?.includes(assignee)) return false;
@@ -398,78 +504,6 @@ async function getOpenInProgressTickets(
       });
     }
 
-    const unfiltered = (await SupportTicket.find({
-      status: { $in: ["open", "in_progress"] },
-    })
-      .populate("assignedUsers")
-      .populate("user")
-      .exec()) as (SupportTicketInterface & {
-      assignedUsers?: UserInterface[];
-      user?: UserInterface;
-    })[];
-
-    const assigneeOptions = unfiltered?.reduce((acc, ticket) => {
-      if (!ticket.assignedUsers) return acc;
-      if (ticket.assignedUsers) {
-        ticket.assignedUsers.forEach((u) => {
-          if (!acc.find((a) => a.key === u.uuid)) {
-            acc.push({ key: u.uuid, text: u.firstName, value: u.uuid });
-          }
-        });
-      }
-      return acc;
-    }, [] as GenericKeyTextValueObj<string>[]);
-
-    const priorityOptions = unfiltered?.reduce((acc, ticket) => {
-      if (!ticket.priority) return acc;
-      if (!acc.find((p) => p.key === ticket.priority)) {
-        acc.push({
-          key: ticket.priority,
-          text: ticket.priority,
-          value: ticket.priority,
-        });
-      }
-      return acc;
-    }, [] as GenericKeyTextValueObj<string>[]);
-
-    const categoryOptions = unfiltered?.reduce((acc, ticket) => {
-      if (!ticket.category) return acc;
-      if (!acc.find((c) => c.key === ticket.category)) {
-        acc.push({
-          key: ticket.category,
-          text: ticket.category,
-          value: ticket.category,
-        });
-      }
-      return acc;
-    }, [] as GenericKeyTextValueObj<string>[]);
-
-    assigneeOptions?.sort((a, b) => a.text.localeCompare(b.text, "en"));
-    priorityOptions?.sort((a, b) => a.text.localeCompare(b.text, "en"));
-    categoryOptions?.sort((a, b) => a.text.localeCompare(b.text, "en"));
-
-    const assigneePretty = assigneeOptions?.map((a) => {
-      return {
-        key: a.key,
-        text: capitalizeFirstLetter(a.text),
-        value: a.value,
-      };
-    });
-    const priorityPretty = priorityOptions?.map((p) => {
-      return {
-        key: p.key,
-        text: capitalizeFirstLetter(p.text),
-        value: p.value,
-      };
-    });
-    const categoryPretty = categoryOptions?.map((c) => {
-      return {
-        key: c.key,
-        text: capitalizeFirstLetter(c.text),
-        value: c.value,
-      };
-    });
-
     const paginated = uniqueTickets.slice(offset, offset + limit);
     paginated.forEach((t) => {
       return _removeAccessKeysFromResponse(t);
@@ -479,11 +513,6 @@ async function getOpenInProgressTickets(
       err: false,
       tickets: paginated,
       total: uniqueTickets.length || 0,
-      filters: {
-        assignee: assigneePretty,
-        priority: priorityPretty,
-        category: categoryPretty,
-      },
     });
   } catch (err) {
     debugError(err);
@@ -543,41 +572,16 @@ async function getClosedTickets(
   }
 }
 
-async function getSupportMetrics(req: Request, res: Response) {
+async function getAssignableUsers(req: Request, res: Response) {
   try {
-    const totalOpenTickets = await SupportTicket.countDocuments({
-      status: { $in: ["open", "in_progress"] },
-    });
-
-    // Get average time between ticket open date and ticket close date
-    const closedTickets = await SupportTicket.find({ status: "closed" });
-    const totalClosedTickets = closedTickets.length;
-    let totalClosedTicketMins = 0;
-    closedTickets
-      .filter((t) => t.timeOpened && t.timeClosed)
-      .forEach((ticket) => {
-        const timeOpened = new Date(ticket.timeOpened);
-        const timeClosed = new Date(ticket.timeClosed as string);
-
-        totalClosedTicketMins += differenceInMinutes(timeClosed, timeOpened);
-      });
-    const avgMinsToClose = Math.ceil(
-      totalClosedTicketMins / totalClosedTickets,
-    );
-
-    const sevenDaysAgo = subDays(new Date(), 7);
-
-    const lastSevenTicketCount = await SupportTicket.countDocuments({
-      timeOpened: { $gte: sevenDaysAgo.toISOString() },
-    });
+    const users = await _getAssignableUsersInternal();
+    if (!users) {
+      return conductor500Err(res);
+    }
 
     return res.send({
       err: false,
-      metrics: {
-        totalOpenTickets,
-        avgMinsToClose,
-        lastSevenTicketCount,
-      },
+      users,
     });
   } catch (err) {
     debugError(err);
@@ -585,7 +589,7 @@ async function getSupportMetrics(req: Request, res: Response) {
   }
 }
 
-async function getAssignableUsers(req: Request, res: Response) {
+async function _getAssignableUsersInternal(): Promise<Pick<UserInterface, "uuid" | "firstName" | "lastName" | "email" | "avatar">[] | undefined> {
   try {
     const users = await User.find({
       $and: [
@@ -602,13 +606,10 @@ async function getAssignableUsers(req: Request, res: Response) {
       .select("uuid firstName lastName email avatar")
       .sort({ firstName: 1 });
 
-    return res.send({
-      err: false,
-      users,
-    });
+    return users;
   } catch (err) {
     debugError(err);
-    return conductor500Err(res);
+    return undefined;
   }
 }
 
@@ -625,7 +626,7 @@ async function assignTicket(
       .select("firstName lastName")
       .orFail();
 
-    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+    const ticket = await SupportTicket.findOne({ uuid }).populate("queue").orFail();
 
     if (!assigned || assigned.length === 0) {
       // If no assignees, remove all assignees and set status to open
@@ -700,14 +701,15 @@ async function assignTicket(
 
     // Notify the new assignees
     await mailAPI.sendSupportTicketAssignedNotification(
+      ticket.queue?.ticket_descriptor || "Unknown Request Type",
       newAssigneeEmails,
       ticket.uuid,
       ticket.title,
       assigner.firstName,
       authorString,
-      capitalizeFirstLetter(ticket.category),
-      capitalizeFirstLetter(ticket.priority),
-      ticket.description,
+      capitalizeFirstLetter(ticket.category || ""),
+      capitalizeFirstLetter(ticket.priority || ""),
+      ticket.description || "",
     );
 
     return res.send({
@@ -869,6 +871,8 @@ async function createTicket(
   res: Response,
 ) {
   try {
+    const supportQueueService = new SupportQueueService();
+
     const {
       title,
       description,
@@ -879,8 +883,12 @@ async function createTicket(
       guest,
       capturedURL,
       deviceInfo,
+      metadata
     } = req.body;
+    let { queue_id } = req.body;
     const userUUID = req.user?.decoded.uuid;
+
+    console.log("GOT HERE", guest, userUUID);
 
     // If no guest or user, fail
     if (!guest && !userUUID)
@@ -900,10 +908,32 @@ async function createTicket(
         : `${guest?.firstName} ${guest?.lastName}`,
     );
 
+    const determineSupportQueue = () => {
+      if (queue_id) {
+        return supportQueueService.getQueueById(queue_id);
+      }
+      else {
+        return supportQueueService.getDefaultQueue();
+      }
+    }
+
+    const supportQueue = await determineSupportQueue();
+    if (!supportQueue) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "Invalid support queue",
+      });
+    }
+
+    if (!queue_id) {
+      queue_id = supportQueue.id; // Default queue was returned so set the queue_id
+    }
+
     const guestAccessKey = _createGuestAccessKey();
 
     const ticket = await SupportTicket.create({
       uuid: v4(),
+      queue_id,
       title,
       description,
       apps,
@@ -917,6 +947,7 @@ async function createTicket(
       feed: [feedEntry],
       guestAccessKey,
       deviceInfo,
+      metadata
     });
 
     const emailToNotify = await _getTicketAuthorEmail(ticket);
@@ -934,6 +965,7 @@ async function createTicket(
 
     const emailPromises = [];
     const submitterPromise = mailAPI.sendSupportTicketCreateConfirmation(
+      supportQueue.ticket_descriptor,
       emailToNotify,
       ticket.uuid,
       addParams ? params.toString() : "",
@@ -942,14 +974,16 @@ async function createTicket(
 
     const teamToNotify = await _getSupportTeamEmails();
     const teamPromise = mailAPI.sendSupportTicketCreateInternalNotification(
+      supportQueue.ticket_descriptor,
       teamToNotify,
       ticket.uuid,
       ticket.title,
-      ticket.description,
+      ticket.description || "",
       authorString,
-      capitalizeFirstLetter(ticket.category),
-      capitalizeFirstLetter(ticket.priority),
+      capitalizeFirstLetter(ticket.category || ""),
+      capitalizeFirstLetter(ticket.priority || ""),
       ticket.capturedURL ?? undefined,
+      metadata as object ?? {},
     );
 
     if (teamToNotify.length > 0) emailPromises.push(teamPromise);
@@ -1151,7 +1185,7 @@ async function updateTicket(
     if (ticket.priority !== priority) {
       const feedEntry = _createFeedEntryPriorityChanged(
         `${user.firstName} ${user.lastName}`,
-        capitalizeFirstLetter(priority),
+        capitalizeFirstLetter(priority || "unknown"),
       );
       updatedFeed.push(feedEntry);
     }
@@ -1224,7 +1258,7 @@ async function createGeneralMessage(
         autoCloseTriggered: false,
         autoCloseDate: null,
       },
-    ).orFail(); // reset auto-close trigger
+    ).populate("queue").orFail(); // reset auto-close trigger
 
     let foundSenderName = "Unknown";
     let foundSenderUUID: string | undefined;
@@ -1287,7 +1321,7 @@ async function createGeneralMessage(
         ...previousCommenters,
         ticket.userUUID,
       ]),
-    ];
+    ].filter((u) => !!u) as string[]; // filter out undefined/null UUIDs
 
     const emailsToNotify = await _getEmails(allUUIDs);
 
@@ -1305,6 +1339,7 @@ async function createGeneralMessage(
       params.append("accessKey", ticket.guestAccessKey);
       emailPromises.push(
         mailAPI.sendNewTicketMessageNotification(
+          ticket.queue?.ticket_descriptor || "Unknown Request Type",
           [ticket.guest?.email],
           ticket.uuid,
           ticket.title,
@@ -1325,6 +1360,7 @@ async function createGeneralMessage(
         params.append("accessKey", accessKey);
         emailPromises.push(
           mailAPI.sendNewTicketMessageNotification(
+            ticket.queue?.ticket_descriptor || "Unknown Request Type",
             [ccedUser.email],
             ticket.uuid,
             ticket.title,
@@ -1346,6 +1382,7 @@ async function createGeneralMessage(
 
     emailPromises.push(
       mailAPI.sendNewTicketMessageNotification(
+        ticket.queue?.ticket_descriptor || "Unknown Request Type",
         filteredEmails,
         ticket.uuid,
         ticket.title,
@@ -1407,7 +1444,7 @@ async function createInternalMessage(
         autoCloseTriggered: false,
         autoCloseDate: null,
       },
-    ).orFail();
+    ).populate("queue").orFail();
     const foundUser = await User.findOne({ uuid: userUUID }).orFail();
 
     const ticketMessage = await SupportTicketMessage.create({
@@ -1430,19 +1467,20 @@ async function createInternalMessage(
         ...previousCommenters,
         ticket.userUUID,
       ]),
-    ];
+    ].filter((u) => !!u) as string[]; // filter out undefined/null UUIDs
 
     const emailsToNotify = await _getEmails(allUUIDs, true); // only notify staff
     const teamToNotify = emailsToNotify.filter((e) => e !== foundUser.email); // remove the sender from the list of emails to notify
     if (teamToNotify.length > 0) {
       await mailAPI.sendNewInternalTicketMessageAssignedStaffNotification(
+        ticket.queue?.ticket_descriptor || "Unknown Request Type",
         teamToNotify,
         ticket.uuid,
         message,
         foundUser
           ? `${foundUser.firstName} ${foundUser.lastName}`
           : "Unknown Commenter",
-        capitalizeFirstLetter(ticket.priority),
+        capitalizeFirstLetter(ticket.priority || ""),
         ticket.title,
       );
     }
@@ -1472,6 +1510,81 @@ async function deleteTicket(
     return conductor500Err(res);
   }
 }
+
+async function getTicketFilters(req: ZodReqWithOptionalUser<{}>, res: Response) {
+  try {
+
+    // Only support staff/admins can see assignee options
+    let assigneeOptions: GenericKeyTextValueObj<string>[] | undefined = undefined;
+    if (req.user) {
+      const hasSupportRole = authAPI.checkHasRole(req.user, "libretexts", ["superadmin", "support"]);
+      if (hasSupportRole) {
+        const assignableUsers = await _getAssignableUsersInternal();
+        assigneeOptions = assignableUsers?.map((u) => {
+          return {
+            key: u.uuid,
+            text: capitalizeFirstLetter(`${u.firstName} ${u.lastName}`),
+            value: u.uuid,
+          };
+        }) ?? [];
+
+      }
+    }
+
+    const priorityOptions: GenericKeyTextValueObj<string>[] = SupportTicketPriorityOptions.map((p) => {
+      return {
+        key: p,
+        text: capitalizeFirstLetter(p),
+        value: p,
+      };
+    });
+
+    const categoryOptions: GenericKeyTextValueObj<string>[] = SupportTicketCategoryOptions.map((c) => {
+      return {
+        key: c.value,
+        text: c.text,
+        value: c.value,
+      };
+    });
+
+    assigneeOptions?.sort((a, b) => a.text.localeCompare(b.text, "en"));
+    priorityOptions?.sort((a, b) => a.text.localeCompare(b.text, "en"));
+    categoryOptions?.sort((a, b) => a.text.localeCompare(b.text, "en"));
+
+    return res.send({
+      err: false,
+      filters: {
+        ...(assigneeOptions ? { assignee: assigneeOptions } : {}),
+        category: categoryOptions,
+        priority: priorityOptions,
+      }
+    })
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function createAndAttachProjectFromHarvestingRequest(
+  req: ZodReqWithUser<z.infer<typeof TicketUUIDParams>>,
+  res: Response){
+    try {
+      const { uuid } = req.params;
+      const userUUID = req.user.decoded.uuid;
+
+      const ticket = await SupportTicket.findOne({ uuid });
+      if (!ticket) {
+        return conductor404Err(res);
+      }
+
+
+
+
+    } catch (err) {
+      debugError(err);
+      return conductor500Err(res);
+    }
+  }
 
 async function findTicketsToInitAutoClose(req: Request, res: Response) {
   try {
@@ -1825,7 +1938,6 @@ export default {
   getRequestorOtherTickets,
   getOpenInProgressTickets,
   getClosedTickets,
-  getSupportMetrics,
   getAssignableUsers,
   assignTicket,
   createTicket,
@@ -1837,6 +1949,7 @@ export default {
   createInternalMessage,
   getInternalMessages,
   deleteTicket,
+  getTicketFilters,
   findTicketsToInitAutoClose,
   autoCloseTickets,
   ticketAttachmentUploadHandler,

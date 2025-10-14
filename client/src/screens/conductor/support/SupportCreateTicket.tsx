@@ -46,7 +46,7 @@ const SupportCreateTicket = () => {
           <div className="flex flex-col w-full items-center mt-12">
             <h1 className="text-4xl font-semibold">Contact Support</h1>
             <p className="mt-2">
-              Submit a support ticket to get help from our team.
+              Submit a request to get help from our team.
             </p>
             <>
               {!isLoggedIn && !guestMode && (

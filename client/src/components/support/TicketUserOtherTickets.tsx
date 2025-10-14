@@ -1,4 +1,3 @@
-import { Button, Icon, Label } from "semantic-ui-react";
 import { SupportTicket } from "../../types";
 import { format, parseISO } from "date-fns";
 import { getPrettySupportTicketCategory } from "../../utils/supportHelpers";
@@ -9,8 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import SupportCenterTable from "./SupportCenterTable";
 import { PaginationWithItemsSelect } from "../util/PaginationWithItemsSelect";
-import TicketStatusLabel from "./TicketStatusLabel";
-import { Link } from "react-router-dom";
+import { TicketStatusPill } from "./TicketInfoPill";
 
 interface TicketUserOtherTicketsProps {
   ticket: SupportTicket;
@@ -115,6 +113,13 @@ const TicketUserOtherTickets: React.FC<TicketUserOtherTicketsProps> = ({
         }}
         columns={[
           {
+            accessor: "queue",
+            title: "Queue",
+            render(record) {
+              return record.queue ? record.queue.name : "--";
+            }
+          },
+          {
             accessor: "timeOpened",
             title: "Date Opened",
             render(record) {
@@ -133,7 +138,7 @@ const TicketUserOtherTickets: React.FC<TicketUserOtherTicketsProps> = ({
             accessor: "category",
             title: "Category",
             render(record) {
-              return getPrettySupportTicketCategory(record.category);
+              return getPrettySupportTicketCategory(record.category || "");
             },
           },
           {
@@ -154,13 +159,13 @@ const TicketUserOtherTickets: React.FC<TicketUserOtherTicketsProps> = ({
           {
             accessor: "priority",
             render(record) {
-              return capitalizeFirstLetter(record.priority);
+              return capitalizeFirstLetter(record.priority || "");
             },
           },
           {
             accessor: "status",
             render(record) {
-              return <TicketStatusLabel status={record.status} />;
+              return <TicketStatusPill status={record.status} />;
             },
           },
         ]}

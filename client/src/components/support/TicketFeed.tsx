@@ -1,29 +1,12 @@
-import { useState, useEffect } from "react";
-import {
-  Button,
-  Comment,
-  Feed,
-  Icon,
-  TextArea,
-} from "semantic-ui-react";
-import {
-  SupportTicket,
-  SupportTicketFeedEntry,
-  SupportTicketMessage,
-} from "../../types";
+import { Feed, Icon } from "semantic-ui-react";
+import { SupportTicket, SupportTicketFeedEntry } from "../../types";
 import { format, parseISO } from "date-fns";
-import useGlobalError from "../error/ErrorHooks";
-import axios from "axios";
-import { useForm } from "react-hook-form";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface TicketFeedProps {
   ticket: SupportTicket;
 }
 
 const TicketFeed: React.FC<TicketFeedProps> = ({ ticket }) => {
-  const { handleGlobalError } = useGlobalError();
-
   const getEntryTimestamp = (entry: SupportTicketFeedEntry) => {
     return format(parseISO(entry.date), "MM/dd/yyyy hh:mm aa");
   }

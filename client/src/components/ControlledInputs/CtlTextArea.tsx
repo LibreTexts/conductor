@@ -1,10 +1,11 @@
 import { FieldValues, FieldPath, Controller } from "react-hook-form";
-import { Form, FormTextAreaProps } from "semantic-ui-react";
 import { ControlledInputProps } from "../../types";
 import "../../styles/global.css";
+import classNames from "classnames";
 
 interface CtlTextAreaProps extends React.HTMLProps<HTMLTextAreaElement> {
   label?: string;
+  labelClassName?: string;
   required?: boolean;
   maxLength?: number;
   showRemaining?: boolean;
@@ -25,6 +26,7 @@ export default function CtlTextArea<
   control,
   rules,
   label,
+  labelClassName,
   required = false,
   maxLength,
   showRemaining = false,
@@ -53,7 +55,11 @@ export default function CtlTextArea<
         <div className={`flex flex-col ${restClassName ?? ""}`}>
           {label && (
             <label
-              className={`form-field-label !font-semibold mb-1.5 ${required ? "form-required" : ""}`}
+              className={classNames(
+                "form-field-label mb-1",
+                required ? "form-required" : "",
+                labelClassName
+              )}
             >
               {label}
             </label>
@@ -64,9 +70,7 @@ export default function CtlTextArea<
             onBlur={onBlur}
             error={error?.message}
             className={`!m-0 ${fluid ? "!w-full" : ""} ${
-              bordered
-                ? "border border-slate-400 rounded-md p-[0.5em]"
-                : ""
+              bordered ? "border border-slate-400 rounded-md p-[0.5em]" : ""
             } ${
               bordered &&
               showRemaining &&

@@ -57,7 +57,9 @@ import {
   OrderCharge,
   OrderSession,
   CentralIdentityOrgAdminResult,
-  AssetTag
+  AssetTag,
+  SupportQueue,
+  SupportQueueMetrics
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -827,6 +829,12 @@ class API {
     return res;
   }
 
+  async getCentralIdentityPublicApps() {
+    return await axios.get<{ applications: CentralIdentityApp[] }>(
+      "/central-identity/public/apps"
+    );
+  }
+
   async getCentralIdentityLicenses() {
     const res = await axios.get<
       {
@@ -1442,6 +1450,41 @@ class API {
   }
 
   // Support
+  async getSupportQueues({ withCount }: { withCount?: boolean } = {}) {
+    const res = await axios.get<
+      {
+        queues: SupportQueue[];
+      } & ConductorBaseResponse
+    >("/support-queues", {
+      params: {
+        with_count: withCount,
+      },
+    });
+    return res;
+  }
+
+  async getSupportQueueBySlug(slug: string, { withCount }: { withCount?: boolean } = {}) {
+    const res = await axios.get<
+      {
+        queue: SupportQueue;
+      } & ConductorBaseResponse
+    >(`/support-queues/${slug}`, {
+      params: {
+        with_count: withCount,
+      },
+    });
+    return res;
+  }
+
+  async getSupportQueueMetrics(slug: string) {
+    const res = await axios.get<
+      {
+        metrics: SupportQueueMetrics;
+      } & ConductorBaseResponse
+    >(`/support-queues/${slug}/metrics`);
+    return res;
+  }
+
   async deleteTicket(ticketID: string) {
     const res = await axios.delete<ConductorBaseResponse>(
       `/support/ticket/${ticketID}`
@@ -1589,8 +1632,9 @@ class API {
     >(`/support/ticket/${ticketID}`);
   }
 
-  async getUserSupportTickets({ uuid, page, limit, sort }: {
+  async getUserSupportTickets({ uuid, queue, page, limit, sort }: {
     uuid: string;
+    queue?: string;
     page?: number;
     limit?: number;
     sort?: string;
@@ -1602,6 +1646,7 @@ class API {
       } & ConductorBaseResponse
     >(`/support/user/${uuid}/tickets`, {
       params: {
+        queue,
         page,
         limit,
         sort,

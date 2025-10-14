@@ -19,7 +19,6 @@ import usersAPI from "./api/users.js";
 import orgsAPI from "./api/organizations.js";
 import alertsAPI from "./api/alerts.js";
 import adoptionReportAPI from "./api/adoptionreports.js";
-import harvestingRequestsAPI from "./api/harvestingrequests.js";
 import collectionsAPI from "./api/collections.js";
 import booksAPI from "./api/books.js";
 import homeworkAPI from "./api/homework.js";
@@ -40,6 +39,7 @@ import orgEventsAPI from "./api/orgevents.js";
 import paymentsAPI from "./api/payments.js";
 import kbAPI from "./api/kb.js";
 import supportAPI from "./api/support.js";
+import supportQueuesAPI from "./api/supportqueues.js";
 import projectInvitationsAPI from "./api/projectinvitations.js";
 
 import * as storeValidators from "./api/validators/store.js";
@@ -48,6 +48,7 @@ import * as collectionValidators from "./api/validators/collections.js";
 import * as kbValidators from "./api/validators/kb.js";
 import * as LibraryValidators from "./api/validators/libraries.js";
 import * as supportValidators from "./api/validators/support.js";
+import * as supportQueueValidators from "./api/validators/supportqueues.js";
 import * as ProjectValidators from "./api/validators/projects.js";
 import * as ProjectFileValidators from "./api/validators/projectfiles.js";
 import * as SearchValidators from "./api/validators/search.js";
@@ -895,63 +896,6 @@ router
     transFeedbackAPI.validate("exportFeedback"),
     middleware.checkValidationErrors,
     transFeedbackAPI.exportFeedback
-  );
-
-/* OER/Harvesting Requests */
-// (submission route can be anonymous)
-router
-  .route("/harvestingrequest")
-  .post(
-    middleware.checkLibreCommons,
-    authAPI.optionalVerifyRequest,
-    harvestingRequestsAPI.validate("addRequest"),
-    middleware.checkValidationErrors,
-    harvestingRequestsAPI.addRequest
-  )
-  .delete(
-    middleware.checkLibreCommons,
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-    harvestingRequestsAPI.validate("deleteRequest"),
-    middleware.checkValidationErrors,
-    harvestingRequestsAPI.deleteRequest
-  );
-
-router
-  .route("/harvestingrequest/decline")
-  .patch(
-    middleware.checkLibreCommons,
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-    harvestingRequestsAPI.validate("declineRequest"),
-    middleware.checkValidationErrors,
-    harvestingRequestsAPI.declineRequest
-  );
-
-router
-  .route("/harvestingrequest/convert")
-  .post(
-    middleware.checkLibreCommons,
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", ["superadmin", "support"]),
-    harvestingRequestsAPI.validate("convertRequest"),
-    middleware.checkValidationErrors,
-    harvestingRequestsAPI.convertRequest
-  );
-
-router
-  .route("/harvestingrequests")
-  .get(
-    middleware.checkLibreCommons,
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "support"),
-    harvestingRequestsAPI.validate("getRequests"),
-    middleware.checkValidationErrors,
-    harvestingRequestsAPI.getRequests
   );
 
 /* Commons Collections */
@@ -2582,12 +2526,32 @@ router
   );
 
 router
-  .route("/support/metrics")
+  .route("/support-queues")
+  .get(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
+    middleware.validateZod(supportQueueValidators.getSupportQueuesSchema),
+    supportQueuesAPI.getSupportQueues
+  );
+
+router
+  .route("/support-queues/:slug")
   .get(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", "support"),
-    supportAPI.getSupportMetrics
+    middleware.validateZod(supportQueueValidators.getSupportQueueSchema),
+    supportQueuesAPI.getSupportQueue
+  );
+
+router
+  .route("/support-queues/:slug/metrics")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "support"),
+    middleware.validateZod(supportQueueValidators.getMetricsSchema),
+    supportQueuesAPI.getSupportQueueMetrics
   );
 
 router
@@ -2625,6 +2589,15 @@ router.route("/support/ticket/requestor-other-tickets").get(
   middleware.validateZod(supportValidators.GetRequestorOtherTicketsValidator),
   supportAPI.getRequestorOtherTickets
 )
+
+
+router
+  .route("/support/ticket/filters")
+  .get(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
+    supportAPI.getTicketFilters
+  );
 
 router
   .route("/support/assignable-users")
@@ -2738,6 +2711,7 @@ router
   .route("/support/ticket")
   .post(
     authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
     middleware.validateZod(supportValidators.CreateTicketValidator),
     supportAPI.createTicket
   );

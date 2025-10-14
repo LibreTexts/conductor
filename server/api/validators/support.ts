@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-const TicketUUIDParams = z.object({
+export const TicketUUIDParams = z.object({
   params: z.object({
     uuid: z.string().uuid(),
   }),
 });
 
-const TicketPriority = z.enum(["low", "medium", "high", "severe"]);
+const TicketPriority = z.enum(["low", "medium", "high", "severe"]).optional();
 
 export const GetTicketValidator = TicketUUIDParams;
 export const DeleteTicketValidator = TicketUUIDParams;
@@ -18,6 +18,7 @@ export const GetUserTicketsValidator = z.object({
     page: z.coerce.number().min(1).optional(),
     limit: z.coerce.number().min(1).optional(),
     sort: z.enum(["opened", "priority", "status"]).optional(),
+    queue: z.string().min(1).optional(),
   }),
 });
 
@@ -41,19 +42,24 @@ export const GetRequestorOtherTicketsValidator = z.object({
 
 export const CreateTicketValidator = z.object({
   body: z.object({
-    title: z.string().trim().min(1).max(200),
-    description: z.string().trim().max(1000),
+    title: z.string({
+      message: "Title is required and must be between 1 and 200 characters",
+    }).trim().min(1).max(200),
+    queue_id: z.string().uuid().optional(), // will default to technical support queue if not provided
+    description: z.string().trim().max(1000).or(z.literal("")),
     apps: z.array(z.number()).optional(),
     priority: TicketPriority,
-    category: z.string(),
+    category: z.string().optional().or(z.literal("")),
     capturedURL: z.string().url().optional(),
-    attachments: z.array(z.string()).optional(),
+    attachments: z.array(z.string({ message: "Invalid attachment URL" })).optional(),
     guest: z
       .object({
         firstName: z.string().trim().min(1).max(255),
         lastName: z.string().trim().min(1).max(255),
         email: z.string().trim().email(),
         organization: z.string().trim().min(1).max(255),
+      }, {
+        message: "Guest information is required if no authenticated user",
       })
       .optional(),
     deviceInfo: z
@@ -62,9 +68,12 @@ export const CreateTicketValidator = z.object({
         language: z.string().optional(),
         screenResolution: z.string().optional(),
         timeZone: z.string().optional(),
+      }, {
+        message: "Device information is malformed",
       })
       .optional(),
-  }),
+    metadata: z.record(z.any()).optional(),
+  })
 });
 
 export const AddTicketAttachementsValidator = z
@@ -87,18 +96,20 @@ export const UpdateTicketValidator = z
 
 export const GetOpenTicketsValidator = z.object({
   query: z.object({
+    queue: z.string().min(1),
     query: z.string().min(3).or(z.literal("")).optional(),
     page: z.coerce.number().min(1).optional(),
     limit: z.coerce.number().min(1).optional(),
     sort: z.enum(["opened", "priority", "status", "category"]).optional(),
-    assignee: z.string().uuid().or(z.literal("")).optional(),
-    category: z.string().or(z.literal("")).optional(),
-    priority: TicketPriority.or(z.literal("")).optional(),
+    assignee: z.array(z.string().uuid()).optional(),
+    category: z.array(z.string()).optional(),
+    priority: z.array(TicketPriority).optional(),
   }),
 });
 
 export const GetClosedTicketsValidator = z.object({
   query: z.object({
+    queue: z.string().min(1),
     page: z.coerce.number().min(1).optional(),
     limit: z.coerce.number().min(1).optional(),
     sort: z.enum(["opened", "closed", "priority"]).optional(),

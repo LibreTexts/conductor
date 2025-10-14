@@ -27,6 +27,8 @@ import TicketAutoCloseWarning from "../../../components/support/TicketAutoCloseW
 import { SupportTicketPriority } from "../../../types/support";
 import { useMediaQuery } from "react-responsive";
 import TicketUserOtherTickets from "../../../components/support/TicketUserOtherTickets";
+import TicketMetadata from "../../../components/support/TicketMetadata";
+import { TicketStatusPill } from "../../../components/support/TicketInfoPill";
 
 const AssignTicketModal = lazy(
   () => import("../../../components/support/AssignTicketModal")
@@ -320,9 +322,9 @@ const SupportTicketView = () => {
             <div className="flex flex-col lg:flex-row w-full justify-between">
               <div className="flex flex-row items-center">
                 <p className="text-3xl font-semibold">
-                  Support Ticket: #{ticket?.uuid.slice(-7)}
+                  {ticket.queue?.ticket_descriptor || "Support Ticket"}: #{ticket?.uuid.slice(-7)}
                 </p>
-                <TicketStatusLabel status={ticket.status} className="!ml-4" />
+                <TicketStatusPill status={ticket.status} className="ml-4 mt-1 border border-gray-300 shadow-sm" />
               </div>
               {isSupportStaff(user) && <AdminOptions />}
             </div>
@@ -337,6 +339,9 @@ const SupportTicketView = () => {
                   />
                 )}
                 <TicketDetails ticket={ticket} />
+                <div className="mt-4">
+                  <TicketMetadata ticket={ticket} />
+                </div>
                 <div className="mt-4">
                   <TicketFeed ticket={ticket} />
                 </div>

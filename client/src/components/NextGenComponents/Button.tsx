@@ -1,5 +1,6 @@
 import classNames from "classnames";
 import * as TablerIcons from "@tabler/icons-react";
+import DynamicIcon from "./DynamicIcon";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "tertiary";
@@ -35,20 +36,6 @@ const Button: React.FC<ButtonProps> = ({
     large: "px-8 py-3 text-lg",
   };
 
-  const IconComponent = () => {
-    if (!icon) return null;
-
-    const Icon = TablerIcons[icon];
-
-    if (!Icon) {
-      console.warn(`Icon "${icon}" not found in TablerIcons.`);
-      return <TablerIcons.IconQuestionMark className="h-5 w-5" stroke={2} />;
-    }
-
-    // @ts-ignore
-    return <Icon className="h-5 w-5" stroke={2} />;
-  };
-
   return (
     <button
       {...props}
@@ -68,9 +55,9 @@ const Button: React.FC<ButtonProps> = ({
         </span>
       ) : (
         <>
-          {IconComponent && (
+          {icon && (
             <span className="mr-2">
-              <IconComponent />
+              <DynamicIcon icon={icon} />
             </span>
           )}
           {children}

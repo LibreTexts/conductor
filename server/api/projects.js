@@ -97,14 +97,35 @@ function isValidISBN(isbn) {
 async function createProject(req, res) {
   try {
     const { title, visibility } = req.body;
-    const newProjData = {
+    
+    const newProject = await _createProjectInternal({
       title,
       visibility,
+      leads: [req.user.decoded.uuid],
+    })
+
+    return res.send({
+      err: false,
+      msg: 'New project created!',
+      projectID: newProject.projectID,
+    });
+  } catch (e) {
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function _createProjectInternal(projectData) {
+  try {
+    const newProjData = {
+      ...projectData,
       orgID: process.env.ORG_ID,
       projectID: b62(10),
       status: 'open',
-      leads: [req.user.decoded.uuid],
     };
+
     const newProject = await new Project(newProjData).save();
 
     // Create default Threads
@@ -139,16 +160,10 @@ async function createProject(req, res) {
     }];
     await Message.insertMany(defaultMessages);
 
-    return res.send({
-      err: false,
-      msg: 'New project created!',
-      projectID: newProject.projectID,
-    });
-  } catch (e) {
-    return res.status(500).send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
+    return newProject;
+  } catch (err) {
+    debugError(err);
+    return null;
   }
 }
 

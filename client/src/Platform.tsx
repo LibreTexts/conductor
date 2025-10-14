@@ -17,6 +17,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import ModalsProvider from "./providers/ModalsProvider.js";
 import NotificationsProvider from "./providers/NotificationsProvider.js";
 import { BrowserRouter, Route, Switch } from "react-router-dom";
+import SupportCenterProvider from "./providers/SupportCenterProvider.js";
 
 /**
  * Exposes the applications and global configuration.
@@ -83,6 +84,7 @@ const Platform = () => {
       <ErrorBoundary FallbackComponent={ErrorScreen}>
         <div className="App">
           <NotificationsProvider>
+            <SupportCenterProvider>
             <ModalsProvider>
               <Switch>
                 {/* Commons Render Tree */}
@@ -94,6 +96,7 @@ const Platform = () => {
                 <Route component={Conductor} />
               </Switch>
             </ModalsProvider>
+            </SupportCenterProvider>
           </NotificationsProvider>
           <ErrorModal />
         </div>
