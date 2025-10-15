@@ -736,8 +736,9 @@ const buildOrganizationNamesList = (orgData: OrganizationInterface): string[] =>
 };
 
 /**
- * Returns the Commons Catalog results according to request filters, search parameters,
- * and sort options.
+ * Returns a randomized, paginated selection of books from the Commons Catalog,
+ * scoped to the current Organization. Generates a random seed if one is not provided
+ * that can be used for subsequent queries.
  *
  * @param {z.infer<typeof getCommonsCatalogSchema>} req - Incoming request object.
  * @param {express.Response} res - Outgoing resposne object.
@@ -754,65 +755,23 @@ async function getCommonsCatalog(
       return conductor400Err(res);
     }
 
-    const searchQueries = [];
+    const orgProjects = orgID !== 'libretexts' ? await Project.find({
+      orgID,
+    }).lean() : [];
 
-    searchQueries.push(Book.aggregate([
+    const orgProjectBookIds = orgID !== 'libretexts' ? orgProjects.map((proj) => {
+      if (!proj.libreLibrary || !proj.libreCoverID) return null;
+      return `${proj.libreLibrary}-${proj.libreCoverID}`;
+    }).filter((id) => !!id) as string[] : [];
+
+    /* Note: while fetching all books may seem less performant on the surface, it allows for much better readability and explicit
+    *  logic in filtering (particularly matching campus books) than previously implemented.
+    *  Additionally, we avoid having to make two aggregations for books as was previously done, as well as
+    *  a more straightforward random seed implementation.
+    */
+    const allBooks = await Book.aggregate([
       {
-        $lookup: {
-          from: "projects",
-          let: {
-            lib: "$library",
-            coverID: {
-              $arrayElemAt: [
-                {
-                  $split: ["$bookID", "-"]
-                },
-                1
-              ]
-            }
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    {
-                      $eq: ["$$lib", "$libreLibrary"]
-                    },
-                    {
-                      $eq: [
-                        "$$coverID",
-                        "$libreCoverID"
-                      ]
-                    }
-                  ]
-                }
-              }
-            }
-          ],
-          as: "project"
-        }
-      },
-      {
-        $addFields: {
-          project: {
-            $arrayElemAt: ["$project", 0]
-          }
-        }
-      },
-      {
-        $match:
-        {
-          $expr: {
-            $eq: ["$project.orgID", orgID]
-          }
-        }
-      },
-      {
-        $project: {
-          ...BOOK_PROJECTION,
-          project: 0
-        }
+        $project: BOOK_PROJECTION
       },
       {
         $addFields: {
@@ -822,10 +781,11 @@ async function getCommonsCatalog(
         }
       },
       { $sort: { randomSort: 1 } }
-    ]));
+    ]);
 
-    // Find books in org's custom catalog
-    if (orgID !== "libretexts") {
+    const orgBooks: Array<BookInterface & { randomSort: number }> = [];
+
+    if (orgID !== 'libretexts') {
       const orgData = await Organization.findOne(
         { orgID },
         {
@@ -838,6 +798,9 @@ async function getCommonsCatalog(
           catalogMatchingTags: 1,
         }
       ).lean();
+      if (!orgData || Object.keys(orgData).length === 0) {
+        throw new Error('Failed to retrieve Organization data');
+      }
 
       const customCatalog = await CustomCatalog.findOne(
         { orgID },
@@ -848,98 +811,42 @@ async function getCommonsCatalog(
         }
       ).lean();
 
-      if (orgData && Object.keys(orgData).length > 0) {
-        const institutionOptions = [];
-        const campusNames = buildOrganizationNamesList(orgData);
-        if (campusNames.length > 0) {
-          const lowerCampusNames = campusNames.map((name) => name.toLowerCase());
-
-          const campusMatchObj = (fieldName: string) => ({
-            $expr: {
-              $anyElementTrue: {
-                $map: {
-                  input: lowerCampusNames,
-                  as: "value",
-                  in: {
-                    $regexMatch: {
-                      input: { $toLower: `$${fieldName}` },
-                      regex: "$$value",
-                    }
-                  }
-                }
-              }
-            }
-          });
-
-          institutionOptions.push(campusMatchObj("publisher"));
-          institutionOptions.push(campusMatchObj("course"));
-          institutionOptions.push(campusMatchObj("program"));
-          institutionOptions.push(campusMatchObj("affiliation"));
+      const campusNames = buildOrganizationNamesList(orgData);
+      for (const book of allBooks) {
+        if (orgProjectBookIds.includes(book.bookID)) {
+          orgBooks.push(book);
+          continue;
         }
 
-        const hasCustomEntries =
-          !!customCatalog &&
-          Array.isArray(customCatalog.resources) &&
-          customCatalog.resources.length > 0;
-        const hasCatalogMatchingTags =
-          Array.isArray(orgData?.catalogMatchingTags) &&
-          orgData?.catalogMatchingTags.length > 0;
-
-        if (hasCustomEntries || hasCatalogMatchingTags) {
-          const searchObj = _buildCustomCatalogSearchQuery({
-            hasCustomEntries,
-            hasCatalogMatchingTags,
-            campusNames,
-            customCatalogResources: customCatalog?.resources || [],
-            catalogMatchingTags: orgData?.catalogMatchingTags || [],
-            institutionOptions,
-          });
-
-          searchQueries.push(
-            Book.aggregate([
-              {
-                $match: { ...searchObj }
-              },
-              { $project: BOOK_PROJECTION },
-              {
-                $addFields: {
-                  randomSort: {
-                    $mod: [{ $add: [{ $toLong: "$_id" }, seed] }, 1000000]
-                  }
-                }
-              },
-              { $sort: { randomSort: 1 } }
-            ])
-          );
-        } else {
-          searchQueries.push(
-            Book.aggregate([
-              {
-                $match: {
-                  $or: institutionOptions,
-                }
-              },
-              { $project: BOOK_PROJECTION },
-              {
-                $addFields: {
-                  randomSort: {
-                    $mod: [{ $add: [{ $toLong: "$_id" }, seed] }, 1000000]
-                  }
-                }
-              },
-              { $sort: { randomSort: 1 } }
-            ])
-          );
+        // Check if book's libraryTags matches any of the org's catalogMatchingTags
+        if (Array.isArray(orgData?.catalogMatchingTags) && book.libraryTags) {
+          if (orgData.catalogMatchingTags.some(tag => book.libraryTags?.includes(tag))) {
+            orgBooks.push(book);
+            continue;
+          }
         }
+
+        // Check if book is in the org's custom catalog
+        if (Array.isArray(customCatalog?.resources) && customCatalog?.resources.includes(book.bookID)) {
+          orgBooks.push(book);
+          continue;
+        }
+
+        // Check if the book matches any of the org's known names in key fields
+        if (!campusNames || campusNames.length === 0) {
+          continue;
+        }
+        if (checkIsCampusBook(book, campusNames))
+          orgBooks.push(book);
       }
+    } else {
+      // LibreTexts org gets all books
+      orgBooks.push(...allBooks);
     }
-
-    const results = await Promise.all(searchQueries);
-    const aggResults = results.flatMap((r) => (Array.isArray(r) ? r : []));
 
     // Ensure no duplicates
     const resultBookIDs = new Set<string>();
-    const resultBooks = aggResults.filter((book) => {
+    const resultBooks = orgBooks.filter((book) => {
       if (!resultBookIDs.has(book.bookID)) {
         resultBookIDs.add(book.bookID);
         return true;
@@ -959,7 +866,9 @@ async function getCommonsCatalog(
     paginated.forEach((book) => {
       const bookID = book.bookID;
       const found = publicOrInstructorSearch.find((b) => b.bookID === bookID);
+      // @ts-ignore
       book.publicAssets = found?.publicAssets || 0;
+      // @ts-ignore
       book.instructorAssets = found?.instructorAssets || 0;
     });
 
@@ -977,109 +886,6 @@ async function getCommonsCatalog(
     });
   }
 }
-
-const _buildCustomCatalogSearchQuery = ({
-  hasCustomEntries,
-  hasCatalogMatchingTags,
-  campusNames,
-  customCatalogResources,
-  catalogMatchingTags,
-  institutionOptions,
-}: {
-  hasCustomEntries: boolean;
-  hasCatalogMatchingTags: boolean;
-  campusNames: string[];
-  customCatalogResources: string[];
-  catalogMatchingTags: string[];
-  institutionOptions: any[];
-}): Record<string, any> => {
-  const idMatchObj = { bookID: { $in: customCatalogResources } };
-  const tagMatchObj = {
-    libraryTags: { $in: catalogMatchingTags },
-  };
-
-  if (
-    hasCustomEntries &&
-    hasCatalogMatchingTags &&
-    campusNames.length > 0
-  ) {
-    return {
-      $or: [idMatchObj, tagMatchObj, ...institutionOptions],
-    };
-  } else if (
-    hasCustomEntries &&
-    !hasCatalogMatchingTags &&
-    campusNames.length > 0
-  ) {
-    return {
-      $or: [idMatchObj, ...institutionOptions],
-    };
-  } else if (
-    !hasCustomEntries &&
-    hasCatalogMatchingTags &&
-    campusNames.length > 0
-  ) {
-    return {
-      $or: [tagMatchObj, ...institutionOptions],
-    };
-  } else if (
-    hasCustomEntries &&
-    hasCatalogMatchingTags &&
-    campusNames.length === 0
-  ) {
-    return {
-      $or: [idMatchObj, tagMatchObj],
-    };
-  } else if (
-    hasCustomEntries &&
-    !hasCatalogMatchingTags &&
-    campusNames.length === 0
-  ) {
-    return idMatchObj;
-  }
-
-  return tagMatchObj;
-}
-
-const _buildSearchQueryFromProjectResults = async (
-  matchObj: object,
-  optionsArr: any[]
-): Promise<any[]> => {
-  const projResults = await Project.aggregate([
-    {
-      $match: matchObj,
-    },
-    {
-      $project: {
-        _id: 0,
-        libreLibrary: 1,
-        libreCoverID: 1,
-      },
-    },
-  ]);
-
-  if (!Array.isArray(projResults) || projResults.length === 0) {
-    return [];
-  }
-
-  const projBookIDs = projResults.map(
-    (proj) => `${proj.libreLibrary}-${proj.libreCoverID}`
-  );
-
-  const idMatchObj = { bookID: { $in: projBookIDs } };
-  let projBookMatch = {};
-  if (optionsArr.length > 0) {
-    projBookMatch = {
-      $and: [...optionsArr, idMatchObj],
-    };
-  } else {
-    projBookMatch = idMatchObj;
-  }
-
-  return [
-    Book.aggregate([{ $match: projBookMatch }, { $project: BOOK_PROJECTION }]),
-  ];
-};
 
 /**
  * Returns the master list of Commons Catalog

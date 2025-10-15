@@ -11,6 +11,7 @@ import Book from '../models/book.js';
 import { getProductionURL, isEmptyString, removeTrailingSlash, assembleUrl } from './helpers.js';
 import { CXOneFetch } from './librariesclient.js';
 import MindTouch from "../util/CXOne/index.js"
+import Fuse from 'fuse.js';
 
 const licenses = [
     'arr',
@@ -306,11 +307,11 @@ export const deleteBookFromAPI = async (bookID) => {
 }
 
 /**
- * Checks if a book has any fields that match any of the provided campus names.
- * Comparison is case-insensitive and checks for both exact matches and substring matches.
+ * Uses fuzzy searching to determine if a book is associated with any of the provided campus names
+ * based on its `course`, `program`, or `affiliation` fields.
  * @param {object} book - The book object to check.
  * @param {string[]} campusNames - Array of campus names to check against.
- * @returns {boolean} True if the book matches any campus names, false otherwise.
+ * @returns {boolean} True if the book matches closely with any campus name, false otherwise.
  */
 export const checkIsCampusBook = (book, campusNames) => {
     const fields = ['course', 'program', 'affiliation'];
@@ -323,15 +324,18 @@ export const checkIsCampusBook = (book, campusNames) => {
         return false;
     }
 
-    const isCampusBook = fields.some((field) => {
-        const value = book[field];
-        if (!value) return false;
+    const valsToCheck = fields.map(field => book[field]).filter(value => typeof(value) === 'string' && value.trim() !== '');
+    if (valsToCheck.length === 0) {
+        return false;
+    }
 
-        const valueStr = String(value).toLowerCase();
-        return campusNames.some((item) => {
-            const itemStr = String(item).toLowerCase();
-            return valueStr.includes(itemStr);
-        });
+    const loweredBookVals = valsToCheck.map(value => value.toLowerCase());
+    const loweredCampusNames = campusNames.map(name => name.toLowerCase());
+
+    const fuse = new Fuse(loweredCampusNames, { includeScore: true, threshold: 0.2, minMatchCharLength: 3 });
+
+    const isCampusBook = loweredBookVals.some(bookVal => {
+        return fuse.search(bookVal).length > 0;
     });
 
     return isCampusBook;
