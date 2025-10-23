@@ -1,9 +1,11 @@
 import { differenceInMinutes, subDays } from "date-fns";
-import SupportTicket, { SupportTicketInterface } from "../../models/supporticket";
+import SupportTicket, { SupportTicketInterface, SupportTicketStatusEnum } from "../../models/supporticket";
 import SupportQueue, { SupportQueueInterface } from "../../models/supportqueue";
 import { TypedReqUser } from "../../types";
 
 export default class SupportQueueService {
+    private OPEN_IN_PROGRESS_STATUSES: SupportTicketStatusEnum[] = ["open", "in_progress", "assigned", "awaiting_requester"];
+
     async getQueues({ withCount = false } = {}) {
         const results = await SupportQueue.aggregate([
             { $match: { active: true } },
@@ -19,7 +21,16 @@ export default class SupportQueueService {
                 },
                 {
                     $addFields: {
-                        ticket_count: { $size: "$tickets" }
+                        ticket_count:
+                        {
+                            $size: {
+                                $filter: {
+                                    input: "$tickets",
+                                    as: "ticket",
+                                    cond: { $in: ["$$ticket.status", this.OPEN_IN_PROGRESS_STATUSES] }
+                                }
+                            }
+                        }
                     }
                 },
                 {
@@ -45,7 +56,15 @@ export default class SupportQueueService {
                 },
                 {
                     $addFields: {
-                        ticket_count: { $size: "$tickets" }
+                        ticket_count: {
+                            $size: {
+                                $filter: {
+                                    input: "$tickets",
+                                    as: "ticket",
+                                    cond: { $in: ["$$ticket.status", this.OPEN_IN_PROGRESS_STATUSES] }
+                                }
+                            }
+                        }
                     }
                 },
                 {
@@ -76,7 +95,7 @@ export default class SupportQueueService {
 
         const totalOpenTickets = await SupportTicket.countDocuments({
             queue_id: queue.id,
-            status: { $in: ["open", "in_progress"] },
+            status: { $in: this.OPEN_IN_PROGRESS_STATUSES },
         });
 
         // Get average time between ticket open date and ticket close date

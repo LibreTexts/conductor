@@ -4,6 +4,7 @@ import {
   IconClock,
   IconMessage,
   IconUserQuestion,
+  IconUserShare,
 } from "@tabler/icons-react";
 import classNames from "classnames";
 import { getPrettySupportTicketStatus } from "../../utils/supportHelpers";
@@ -84,6 +85,8 @@ export const TicketStatusPill: React.FC<{
     switch (status) {
       case "open":
         return <IconUserQuestion className={iconClasses} />;
+      case "assigned":
+        return <IconUserShare className={iconClasses} />;
       case "in_progress":
         return <IconClock className={iconClasses} />;
       case "awaiting_requester":
@@ -99,6 +102,8 @@ export const TicketStatusPill: React.FC<{
     switch (status) {
       case "open":
         return ["bg-yellow-200", "text-yellow-800"];
+      case "assigned":
+        return ["bg-purple-100", "text-purple-800"];
       case "in_progress":
         return ["bg-blue-100", "text-blue-800"];
       case "awaiting_requester":

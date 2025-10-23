@@ -231,7 +231,7 @@ const SupportTicketView = () => {
           Delete Ticket
         </Button>
       )}
-      {["open", "in_progress", "awaiting_requester"].includes(
+      {["open", "assigned", "in_progress", "awaiting_requester"].includes(
         ticket?.status ?? ""
       ) && (
         <>
