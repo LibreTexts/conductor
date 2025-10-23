@@ -6,7 +6,8 @@ export const TicketUUIDParams = z.object({
   }),
 });
 
-const TicketPriority = z.enum(["low", "medium", "high", "severe"]).optional();
+const _TicketPriorityLevels = ["low", "medium", "high", "severe"] as const;
+const TicketPriority = z.enum(_TicketPriorityLevels).optional();
 const TicketStatus = z.enum(["open", "assigned", "in_progress", "awaiting_requester", "closed"]).optional();
 
 export const GetTicketValidator = TicketUUIDParams;
@@ -104,7 +105,7 @@ export const GetOpenTicketsValidator = z.object({
     sort: z.enum(["opened", "priority", "status", "category"]).optional(),
     assignee: z.array(z.string().uuid()).optional(),
     category: z.array(z.string()).optional(),
-    priority: z.array(TicketPriority).optional(),
+    priority: z.array(z.enum(_TicketPriorityLevels)).optional(),
   }),
 });
 

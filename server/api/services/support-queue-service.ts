@@ -59,7 +59,11 @@ export default class SupportQueueService {
     }
 
     async getQueueById(id: string) {
-        return await SupportQueue.findOne({ id, active: true }).lean();
+        return await SupportQueue.findOne({
+            id: {
+                $eq: id
+            }, active: true
+        }).lean();
     }
 
     async getDefaultQueue() {

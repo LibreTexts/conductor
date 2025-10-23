@@ -99,7 +99,7 @@ const HarvestRequestForm: React.FC<HarvestRequestFormProps> = () => {
                 control={control}
                 label="License Version"
                 placeholder="Select license version"
-                rules={{ required: selectedLicenseVersions().length > 0 ? true: false }}
+                rules={{ required: selectedLicenseVersions().length > 0 ? true : false }}
                 options={selectedLicenseVersions().map((v) => ({
                   value: v,
                   label: v,

@@ -31,12 +31,12 @@ import SupportTicket, {
   SupportTicketFeedEntryInterface,
   SupportTicketInterface,
   SupportTicketPriorityOptions,
+  SupportTicketStatusEnum,
 } from "../models/supporticket.js";
 import SupportTicketMessage, {
   SupportTicketMessageInterface,
 } from "../models/supporticketmessage.js";
 import mailAPI from "../api/mail.js";
-import projectsAPI from "../api/projects.js";
 import multer from "multer";
 import async from "async";
 import conductorErrors from "../conductor-errors.js";
@@ -51,7 +51,7 @@ import {
   capitalizeFirstLetter,
   getPaginationOffset,
 } from "../util/helpers.js";
-import { addDays, addMonths, differenceInMinutes, subDays } from "date-fns";
+import { addDays, subDays } from "date-fns";
 import { randomBytes } from "crypto";
 import { ZodReqWithFiles } from "../types/Express";
 import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
@@ -239,9 +239,9 @@ async function _getUserTickets({
     }
 
     const sortObj = getSortObj();
-    const searchObj: Record<string, string | undefined> = uuid ? { userUUID: uuid } : { "guest.email": email };
+    const searchObj: Record<string, any> = uuid ? { userUUID: { $eq: uuid } } : { "guest.email": { $eq: email } };
     if (queueId) {
-      searchObj["queue_id"] = queueId;
+      searchObj["queue_id"] = { $eq: queueId };
     }
 
     const query = SupportTicket.find(searchObj)
@@ -297,7 +297,7 @@ async function getOpenInProgressTickets(
     };
 
     const tickets = [];
-    const validStatuses = ["open", "in_progress", "awaiting_requester"];
+    const validStatuses: SupportTicketStatusEnum[] = ["open", "assigned", "in_progress", "awaiting_requester"];
     const sortObj = getSortObj();
 
     const isHarvester = authAPI.checkHasRole(
@@ -890,7 +890,7 @@ async function createTicket(
         });
       }
 
-      const project = await Project.findOne({ projectID });
+      const project = await Project.findOne({ projectID: { $eq: projectID } });
       if (!project) {
         return res.status(400).send({
           err: true,
@@ -972,7 +972,7 @@ async function createTicket(
 
     if (supportQueue.slug === "publishing") {
       await Project.updateOne({
-        projectID
+        projectID: { $eq: projectID }
       }, {
         $set: {
           didRequestPublish: true
@@ -1699,6 +1699,8 @@ async function createAndAttachProjectFromHarvestingRequest(
 
 async function findTicketsToInitAutoClose(req: Request, res: Response) {
   try {
+    const ticketService = new SupportTicketService();
+
     const tickets = await SupportTicket.find({
       status: "awaiting_requester",
       autoCloseSilenced: { $ne: true },
@@ -1708,10 +1710,7 @@ async function findTicketsToInitAutoClose(req: Request, res: Response) {
 
     // Check if the ticket has had any messages in the last 14 days
     for (const ticket of tickets) {
-      const messages = await SupportTicketMessage.find({
-        ticket: ticket.uuid,
-      });
-
+      const messages = await ticketService.getTicketMessages(ticket.uuid, "general");
       if (!messages || messages.length === 0) {
         continue;
       }

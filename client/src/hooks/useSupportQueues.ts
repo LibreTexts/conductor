@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { SupportQueue } from "../types"
 import api from "../api"
-import { useCallback, useMemo } from "react"
+import { useCallback } from "react"
 
-const useSupportQueues = ({ withCount, currentQueueId }: { withCount: boolean, currentQueueId?: string | null }) => {
+const useSupportQueues = ({ withCount }: { withCount: boolean }) => {
     const QUERY_KEY = ['supportQueues', { withCount }];
     const queryClient = useQueryClient();
 
@@ -32,17 +32,11 @@ const useSupportQueues = ({ withCount, currentQueueId }: { withCount: boolean, c
         return queue ? queue.id : null;
     }, [queryObj.data]);
 
-    const currentQueue = useMemo((): SupportQueue | null => {
-        if (!currentQueueId || !queryObj.data) return null;
-        const queue = queryObj.data.find((q) => q.id === currentQueueId);
-        return queue || null;
-    }, [currentQueueId, queryObj.data]);
-
     const invalidate = () => {
         return queryClient.invalidateQueries({ queryKey: QUERY_KEY });
     }
 
-    return { ...queryObj, isValidQueue, getQueueIDBySlug, currentQueue, QUERY_KEY, invalidate };
+    return { ...queryObj, isValidQueue, getQueueIDBySlug, QUERY_KEY, invalidate };
 }
 
 export default useSupportQueues

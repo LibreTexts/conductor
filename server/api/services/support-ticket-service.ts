@@ -42,8 +42,10 @@ export default class SupportTicketService {
                 assignees.map(a => `${a.firstName} ${a.lastName}`),
             );
 
+            const messages = await this.getTicketMessages(ticket.uuid, "general");
+
             ticket.assignedUUIDs = assigned;
-            ticket.status = "in_progress";
+            ticket.status = messages.length > 0 ? "in_progress" : "assigned";
             ticket.feed = [...(ticket.feed || []), feedEntry];
             await ticket.save();
 

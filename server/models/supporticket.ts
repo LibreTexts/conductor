@@ -93,6 +93,20 @@ export interface SupportTicketDeviceInfoInterface {
   timeZone?: string;
 }
 
+export type SupportTicketStatusEnum =
+  | "open"
+  | "assigned"
+  | "in_progress"
+  | "awaiting_requester"
+  | "closed";
+export const SupportTicketStatuses = [
+  "open",
+  "assigned",
+  "in_progress",
+  "awaiting_requester",
+  "closed",
+];
+
 export interface SupportTicketInterface extends Document {
   uuid: string;
   uuidShort: string; // Last 7 characters of uuid
@@ -102,7 +116,7 @@ export interface SupportTicketInterface extends Document {
   apps?: number[]; // Central Identity app IDs
   attachments?: SupportTicketAttachmentInterface[];
   priority?: SupportTicketPriorityEnum;
-  status: "open" | "assigned" | "in_progress" | "awaiting_requester" | "closed";
+  status: SupportTicketStatusEnum;
   category?: string;
   guestAccessKey: string;
   capturedURL?: string;
@@ -177,7 +191,7 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
   },
   status: {
     type: String,
-    enum: ["open", "assigned", "in_progress", "awaiting_requester", "closed"],
+    enum: SupportTicketStatuses,
     default: "open",
   },
   category: {

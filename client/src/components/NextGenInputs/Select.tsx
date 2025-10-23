@@ -36,7 +36,7 @@ const Select: React.FC<SelectProps> = ({
     return (
       <>
         {placeholder && (
-          <option key="placeholder" value="" disabled selected hidden>
+          <option key="placeholder" value="" disabled hidden>
             {placeholder}
           </option>
         )}
