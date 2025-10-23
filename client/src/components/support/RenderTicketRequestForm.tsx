@@ -15,20 +15,18 @@ import { useNotifications } from "../../context/NotificationContext";
 import { useSupportCenterContext } from "../../context/SupportCenterContext";
 
 interface RenderTicketRequestFormProps {
-  queue: string;
   autoCapturedURL?: boolean;
   onSubmitSuccess: () => void;
 }
 
 const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
-  queue,
   autoCapturedURL,
   onSubmitSuccess,
 }) => {
   const { handleGlobalError } = useGlobalError();
   const { selectedQueue } = useSupportCenterContext();
   const { addNotification } = useNotifications();
-  const { trigger, getValues, formState } = useFormContext<SupportTicket>();
+  const { trigger, getValues } = useFormContext<SupportTicket>();
   const user = useTypedSelector((state) => state.user);
   const { invalidate: invalidateSupportQueues } = useSupportQueues({
     withCount: false,
@@ -50,6 +48,7 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
         vals.guest = undefined;
       }
 
+      // Publishing specific validations
       if (selectedQueue === "publishing") {
         if (
           !vals.metadata?.prePublishingChecks?.thumbnails ||
@@ -63,18 +62,18 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
           });
           return;
         }
-      }
 
-      if (
-        (selectedQueue === "publishing" && !vals.metadata?.authors) ||
-        !Array.isArray(vals.metadata?.authors) ||
-        vals.metadata?.authors.length === 0
-      ) {
-        addNotification({
-          type: "error",
-          message: "At least one author is required for publishing requests.",
-        });
-        return;
+        if (
+          !vals.metadata?.authors ||
+          !Array.isArray(vals.metadata?.authors) ||
+          vals.metadata?.authors.length === 0
+        ) {
+          addNotification({
+            type: "error",
+            message: "At least one author is required for publishing requests.",
+          });
+          return;
+        }
       }
 
       vals.deviceInfo = getDeviceInfo();
@@ -160,7 +159,7 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
   }
 
   const RenderedForm = () => {
-    switch (queue) {
+    switch (selectedQueue) {
       case "harvesting":
         return <HarvestRequestForm />;
       case "publishing":
