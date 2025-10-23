@@ -21,7 +21,6 @@ import Tag from '../models/tag.js';
 import Task from '../models/task.js';
 import Thread from '../models/thread.js';
 import Message from '../models/message.js';
-import HarvestingRequest from '../models/harvestingrequest.js';
 import Organization from '../models/organization.js';
 import CIDDescriptor from '../models/ciddescriptor.js';
 import conductorErrors from '../conductor-errors.js';
@@ -97,14 +96,35 @@ function isValidISBN(isbn) {
 async function createProject(req, res) {
   try {
     const { title, visibility } = req.body;
-    const newProjData = {
+    
+    const newProject = await _createProjectInternal({
       title,
       visibility,
+      leads: [req.user.decoded.uuid],
+    })
+
+    return res.send({
+      err: false,
+      msg: 'New project created!',
+      projectID: newProject.projectID,
+    });
+  } catch (e) {
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function _createProjectInternal(projectData) {
+  try {
+    const newProjData = {
+      ...projectData,
       orgID: process.env.ORG_ID,
       projectID: b62(10),
       status: 'open',
-      leads: [req.user.decoded.uuid],
     };
+
     const newProject = await new Project(newProjData).save();
 
     // Create default Threads
@@ -139,16 +159,10 @@ async function createProject(req, res) {
     }];
     await Message.insertMany(defaultMessages);
 
-    return res.send({
-      err: false,
-      msg: 'New project created!',
-      projectID: newProject.projectID,
-    });
-  } catch (e) {
-    return res.status(500).send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
+    return newProject;
+  } catch (err) {
+    debugError(err);
+    return null;
   }
 }
 
@@ -2479,19 +2493,7 @@ const notifyProjectCompleted = (projectID) => {
         return Project.findOne({
             projectID: projectID
         }).lean().then((project) => {
-            projectData = project;
-            if (project.harvestReqID && !isEmptyString(project.harvestReqID)) {
-                return HarvestingRequest.findOne({
-                    _id: project.harvestReqID
-                }).lean();
-            } else {
-                return {};
-            }
-        }).then((harvestReq) => {
             const projTeam = constructProjectTeam(projectData);
-            if (Object.keys(harvestReq).length > 0 && harvestReq.email && !isEmptyString(harvestReq.email)) {
-                notifRecipients.push(harvestReq.email);
-            }
             if (Array.isArray(projTeam) && projTeam.length > 0) {
                 return usersAPI.getUserEmails(projTeam);
             } else {

@@ -28,10 +28,7 @@ import classNames from "classnames";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { useNotifications } from "../../../../context/NotificationContext";
 import useURLSyncedState from "../../../../hooks/useURLSyncedState";
-
-const createDateString = (date: Date): string => {
-  return date.toISOString().split("T")[0]; // YYYY-MM-DD only
-};
+import { toISODateOnly } from "../../../../utils/misc";
 
 const isValidDateString = (value: string | null): value is string => {
   if (!value) return false;
@@ -58,14 +55,14 @@ const ProjectAnalytics = () => {
 
   const [fromDateString, setFromDateString] = useURLSyncedState<string>(
     "fromDate",
-    createDateString(DEFAULT_FROM_DATE),
+    toISODateOnly(DEFAULT_FROM_DATE),
     undefined, // no validValues array
     isValidDateString // custom validator
   );
 
   const [toDateString, setToDateString] = useURLSyncedState<string>(
     "toDate",
-    createDateString(new Date()),
+    toISODateOnly(new Date()),
     undefined, // no validValues array
     isValidDateString // custom validator
   );
@@ -392,7 +389,7 @@ const ProjectAnalytics = () => {
                       }
                       onChange={(e) =>
                         setFromDateString(
-                          createDateString(new Date(e.target.value))
+                          toISODateOnly(new Date(e.target.value))
                         )
                       }
                       className="border border-gray-300 rounded px-4 py-3"
@@ -409,7 +406,7 @@ const ProjectAnalytics = () => {
                       }
                       onChange={(e) =>
                         setToDateString(
-                          createDateString(new Date(e.target.value))
+                          toISODateOnly(new Date(e.target.value))
                         )
                       }
                       className="border border-gray-300 rounded px-4 py-3"

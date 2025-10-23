@@ -148,114 +148,6 @@ const sendPublishingRequestedNotification = (requesterName, projectID, projectNa
     });
 };
 
-
-/**
- * Sends a standard OER Integration Request Confirmation notification to the requester via the Mailgun API.
- * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
- *  only after proper verification via other internal methods.
- * @param {String} requesterName     - the requesting user's name (null, or 'firstName' or 'firstName lastName')
- * @param {String} recipientAddress  - the requesting user's email
- * @param {String} resourceTitle     - the resource's title/name
- * @returns {Promise<Object|Error>} a Mailgun API Promise
- */
-const sendOERIntRequestConfirmation = (requesterName, recipientAddress, resourceTitle) => {
-    let textToSend = `Hi ${requesterName}, LibreTexts has received your OER Integration Request for "${resourceTitle}". You should receive an email when we have reviewed your request. If you have any questions, please contact us at info@libretexts.org. Sincerely, The LibreTexts team` + autoGenNoticeText;
-    let htmlToSend = `<p>Hi ${requesterName},</p><p>LibreTexts has received your OER Integration Request for "${resourceTitle}". You should receive an email when we have reviewed your request. If you have any questions, please contact us at <a href='mailto:info@libretexts.org?subject=OER Integration Request Questions' target='_blank' rel='noopener noreferrer'>info@libretexts.org</a>.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
-    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
-        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
-        to: [recipientAddress],
-        subject: 'LibreTexts OER Integration Request Received',
-        text: textToSend,
-        html: htmlToSend
-    });
-};
-
-
-/**
- * Sends a standard New OER Integration Request notification to the LibreTexts team via the Mailgun API.
- * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
- *  only after proper verification via other internal methods.
- * @param {String} requesterName     - the requesting user's name ('firstName' or 'firstName lastName')
- * @param {String} requesterEmail    - the requesting user's email
- * @param {String} resourceTitle     - the resource's title/name
- * @returns {Promise<Object|Error>} a Mailgun API Promise
- */
-const sendOERIntRequestAdminNotif = (requesterName, requesterEmail, resourceTitle) => {
-    let textToSend = `Attention: ${requesterName ? requesterName : requesterEmail} has submitted a new OER Integration Request for "${resourceTitle}". This request is available in Conductor.` + autoGenNoticeText;
-    let htmlToSend = `<p>Attention:</p><p>${requesterName ? `${requesterName} (${requesterEmail})` : requesterEmail} has submitted a new OER Integration Request for "${resourceTitle}".</p><p>This request is available in Conductor.</p>` + autoGenNoticeHTML;
-    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
-        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
-        to: ['info@libretexts.org'],
-        subject: 'New OER Integration Request',
-        text: textToSend,
-        html: htmlToSend
-    });
-};
-
-
-/**
- * Sends a standard OER Integration Request Approval notification to the requester via the Mailgun API.
- * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
- *  only after proper verification via other internal methods.
- * @param {String} requesterName     - the requesting user's name (null, or 'firstName' or 'firstName lastName')
- * @param {String} recipientAddress  - the requesting user's email
- * @param {String} resourceTitle     - the resource's title/name
- * @returns {Promise<Object|Error>} a Mailgun API Promise
- */
-const sendOERIntRequestApproval = (requesterName, recipientAddress, resourceTitle) => {
-    let textToSend = `Hi`;
-    let htmlToSend = `<p>Hi`;
-    if (requesterName !== null) {
-        textToSend += ` ${requesterName}, `;
-        htmlToSend += ` ${requesterName},</p>`;
-    } else {
-        textToSend += ', ';
-        htmlToSend += ',</p>';
-    }
-    textToSend += `LibreTexts has approved your OER Integration Request for "${resourceTitle}" and has converted it to a project on our Conductor platform. If you indicated on the request form, you should have been automatically added to the project which can be found in the "Projects" tab. Otherwise, contact LibreTexts at info@libretexts.org for help accessing Conductor if you'd like to track the progress as it changes. Sincerely, The LibreTexts team` + autoGenNoticeText;
-    htmlToSend += `<p>LibreTexts has approved your OER Integration Request for "${resourceTitle}" and has converted it to a project on our Conductor platform.</p><p>If you indicated on the request form, you should have been automatically added to the project which can be found in the <em>Projects</em> tab. Otherwise, contact LibreTexts at <a href='mailto:info@libretexts.org?subject=Conductor Access' target='_blank' rel='noopener noreferrer'>info@libretexts.org</a> for help accessing Conductor if you'd like to track the progress as it changes.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
-    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
-        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
-        to: [recipientAddress],
-        subject: `LibreTexts OER Integration Request Approved`,
-        text: textToSend,
-        html: htmlToSend
-    });
-};
-
-/**
- * Sends a standard OER Integration Request Declined notification to the requester via the Mailgun API.
- * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
- *  only after proper verification via other internal methods.
- * @param {String} requesterName     - the requesting user's name (null, or 'firstName' or 'firstName lastName')
- * @param {String} recipientAddress  - the requesting user's email
- * @param {String} resourceTitle     - the resource's title/name
- * @param {String} declineReason     - the reason for the request being declined
- * @returns {Promise<Object|Error>} a Mailgun API Promise
- */
-const sendOERIntRequestDecline = (requesterName, recipientAddress, resourceTitle, declineReason) => {
-    let textToSend = `Hi`;
-    let htmlToSend = `<p>Hi`;
-    if (requesterName !== null) {
-        textToSend += ` ${requesterName}, `;
-        htmlToSend += ` ${requesterName},</p>`;
-    } else {
-        textToSend += ', ';
-        htmlToSend += ',</p>';
-    }
-    textToSend += `LibreTexts has declined your OER Integration Request for "${resourceTitle}" for the following reason(s): ${declineReason}. If you believe this was in error or would like to discuss your request further, please contact LibreTexts at support@libretexts.org and reference the title of your resource. Sincerely, The LibreTexts team` + autoGenNoticeText;
-    htmlToSend += `<p>LibreTexts has declined your OER Integration Request for "${resourceTitle}" for the following reasons(s)</p><p><em>${declineReason}<em></p><p>If you believe this was in error or would like to discuss your request further, please contact LibreTexts at <a href='mailto:support@libretexts.org?subject=${resourceTitle}' target='_blank' rel='noopener noreferrer'>support@libretexts.org</a> and reference the title of your resource.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
-    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
-        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
-        to: [recipientAddress],
-        subject: `LibreTexts OER Integration Request Declined`,
-        text: textToSend,
-        html: htmlToSend
-    });
-};
-
-
-
 /**
  * Sends a standard Project Flagged notification to the respective group via the Mailgun API.
  * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
@@ -835,17 +727,18 @@ const sendBatchBookUpdateFinished = (recipientAddresses, projectID, jobID, updat
 
 /**
  * Sends a confirmation email to the user who submitted a support ticket.
+ * @param {string} ticketType - the type of ticket submitted
  * @param {string} recipientAddress - the user's email address
  * @param {string} ticketID - the ticket's uuid
  */
-const sendSupportTicketCreateConfirmation = (recipientAddress, ticketID, params) => {
+const sendSupportTicketCreateConfirmation = (ticketType, recipientAddress, ticketID, params) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: [recipientAddress],
-        subject: 'Support Ticket Created',
+        subject: `${ticketType} Created`,
         html: `
             <p>Hi,</p>
-            <p>We're just writing to let you know that your support ticket has been created. You can view your ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}</a>.</p>
+            <p>We're just writing to let you know that your ${ticketType.toLowerCase()} has been created. You can view your ${ticketType.toLowerCase()} at <a href="https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}</a>.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
             ${autoGenNoticeHTML}
@@ -855,6 +748,7 @@ const sendSupportTicketCreateConfirmation = (recipientAddress, ticketID, params)
 
 /**
  * Sends a notification to the LibreTexts team that a new support ticket has been created.
+ * @param {string} ticketType - the type of ticket submitted
  * @param {string[]} recipientAddresses - the email addresses to send the notification to
  * @param {string} ticketID - the ticket's uuid 
  * @param {string} ticketTitle - the ticket's title/subject
@@ -863,20 +757,29 @@ const sendSupportTicketCreateConfirmation = (recipientAddress, ticketID, params)
  * @param {string} ticketCategory - the ticket's category
  * @param {string} ticketPriority - the ticket's priority
  * @param {string | undefined} capturedURL - the URL of the page where the ticket was created or provided by the user
+ * @param {object} metadata - any additional metadata associated with the ticket
  */
-const sendSupportTicketCreateInternalNotification = (recipientAddresses, ticketID, ticketTitle, ticketBody, ticketAuthor, ticketCategory, ticketPriority, capturedURL) => {
+const sendSupportTicketCreateInternalNotification = (ticketType, recipientAddresses, ticketID, ticketTitle, ticketBody, ticketAuthor, ticketCategory, ticketPriority, capturedURL, metadata) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `New Support Ticket Created (ID #${ticketID.slice(-7)})`,
+        subject: `New ${ticketType} Created (ID #${ticketID.slice(-7)})`,
         html: `
             <p>Hi,</p>
-            <p>A new support ticket has been created.</p>
+            <p>A new ${ticketType} has been created.</p>
             <p><strong>Title:</strong> ${ticketTitle}</p>
-            <p><strong>Author:</strong> ${ticketAuthor}</p>
-            <p><strong>Category:</strong> ${ticketCategory}</p>
+            <p><strong>Requester:</strong> ${ticketAuthor}</p>
+            ${ticketCategory ? `<p><strong>Category:</strong> ${ticketCategory}</p>` : ''}
             <p><strong>Priority:</strong> ${ticketPriority}</p>
             ${capturedURL ? `<p><strong>Related URL:</strong> ${capturedURL}</p>` : ''}
+            ${metadata && typeof metadata === 'object' && Object.keys(metadata).length > 0 ? `
+                <p><strong>Additional Metadata:</strong></p>
+                <ul>
+                    ${Object.entries(metadata).map(([key, value]) => `
+                        <li><strong>${key}:</strong> ${value}</li>
+                    `).join('')}
+                </ul>
+            ` : ''}
             <br />
             <p><strong>Description:</strong> ${ticketBody}</p>
             <br />
@@ -890,6 +793,7 @@ const sendSupportTicketCreateInternalNotification = (recipientAddresses, ticketI
 
 /**
  * Sends a notification to the specified email addresses that a new message has been posted to a support ticket.
+ * @param {string} ticketType - the type of ticket submitted
  * @param {string[]} recipientAddresses - the email addresses to send the notification to
  * @param {string} ticketID - the ticket's uuid
  * @param {string} ticketSubject - the ticket's subject
@@ -897,15 +801,15 @@ const sendSupportTicketCreateInternalNotification = (recipientAddresses, ticketI
  * @param {string} messageSender - the message's author
  * @param {string} params - any URL parameters to append to the ticket URL
  */
-const sendNewTicketMessageNotification = (recipientAddresses, ticketID, ticketSubject, message, messageSender, params) => {
+const sendNewTicketMessageNotification = (ticketType, recipientAddresses, ticketID, ticketSubject, message, messageSender, params) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: DEFAULT_MAIL_FROM,
         to: DEFAULT_MAIL_TO,
         bcc: recipientAddresses,
-        subject: `New Message on Support Ticket: ${truncateString(ticketSubject, 30)}`,
+        subject: `New Message on ${ticketType}: ${truncateString(ticketSubject, 30)}`,
         html: `
             <p>Hi,</p>
-            <p>A new message has been posted a support ticket you have subscribed to.</p>
+            <p>A new message has been posted a ${ticketType.toLowerCase()} you have subscribed to.</p>
             <p><strong>${messageSender}</strong> said:</p>
             <p>${message}</p>
             <p>You can respond to this message at <a href="https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}</a>.</p>
@@ -919,38 +823,8 @@ const sendNewTicketMessageNotification = (recipientAddresses, ticketID, ticketSu
 };
 
 /**
- * Sends a notification to the specified email addresses (of assigned staff) that a new message has been posted to a support ticket.
- * @param {string[]} recipientAddresses - the email addresses to send the notification to
- * @param {string} ticketID - the ticket's uuid
- * @param {string} message - the message's body
- * @param {string} messageSender - the message's author
- * @param {string} priority - the ticket's priority
- * @param {string} subject - the ticket's subject
- */
-const sendNewTicketMessageAssignedStaffNotification = (recipientAddresses, ticketID, message, messageSender, priority, subject) => {
-    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
-        from: DEFAULT_MAIL_FROM,
-        to: recipientAddresses,
-        subject: `New Message on Support Ticket: ${truncateString(subject, 30)} (P: ${priority})`,
-        html: `
-            <p>Hi,</p>
-            <p>A new message has been posted to a support ticket you are assigned to: "${subject}"</p>
-            <br />
-            <p><strong>${messageSender}</strong> said:</p>
-            <p>${message}</p>
-            <br />
-            <p>You can respond to this message at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
-            <p>Sincerely,</p>
-            <p>The LibreTexts team</p>
-            <br />
-            <p>Ticket ID: ${ticketID}</p>
-            ${autoGenNoticeHTML}
-        `,
-    });
-};
-
-/**
  * Sends a notification to the specified email addresses (of assigned staff) that a new internal message has been posted to a support ticket.
+ * @param {string} ticketType - the type of ticket submitted
  * @param {string[]} recipientAddresses - the email addresses to send the notification to
  * @param {string} ticketID - the ticket's uuid
  * @param {string} message - the message's body
@@ -958,14 +832,14 @@ const sendNewTicketMessageAssignedStaffNotification = (recipientAddresses, ticke
  * @param {string} priority - the ticket's priority
  * @param {string} subject - the ticket's subject
  */
-const sendNewInternalTicketMessageAssignedStaffNotification = (recipientAddresses, ticketID, message, messageSender, priority, subject) => {
+const sendNewInternalTicketMessageAssignedStaffNotification = (ticketType, recipientAddresses, ticketID, message, messageSender, priority, subject) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `New Internal Message on Support Ticket: ${truncateString(subject, 30)} (P: ${priority})`,
+        subject: `New Internal Message on ${ticketType}: ${truncateString(subject, 30)} (P: ${priority})`,
         html: `
             <p>Hi,</p>
-            <p>A new internal message has been posted to a support ticket you have subscribed to: "${subject}"</p>
+            <p>A new internal message has been posted to a ${ticketType.toLowerCase()} you have subscribed to: "${subject}"</p>
             <br />
             <p><strong>${messageSender}</strong> said:</p>
             <p>${message}</p>
@@ -1115,6 +989,7 @@ const sendZIPFileReadyNotification = (url, recipientAddress) => {
 
 /**
  * Sends a notification to the specified email addresses that a support ticket has been assigned to them.
+ * @param {string} ticketType
  * @param {string[]} recipientAddresses 
  * @param {string} ticketID 
  * @param {string} ticketTitle 
@@ -1125,18 +1000,18 @@ const sendZIPFileReadyNotification = (url, recipientAddress) => {
  * @param {string} ticketBody 
  * @returns 
  */
-const sendSupportTicketAssignedNotification = (recipientAddresses, ticketID, ticketTitle, assignerName, ticketAuthor, ticketCategory, ticketPriority, ticketBody) => {
+const sendSupportTicketAssignedNotification = (ticketType, recipientAddresses, ticketID, ticketTitle, assignerName, ticketAuthor, ticketCategory, ticketPriority, ticketBody) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `Support Ticket Assigned: ${truncateString(ticketTitle, 30)} (P: ${ticketPriority})`,
+        subject: `${ticketType} Assigned: ${truncateString(ticketTitle, 30)} (P: ${ticketPriority})`,
         html: `
             <p>Hi,</p>
-            <p>${assignerName} has assigned you to the following support ticket:</p>
+            <p>${assignerName} has assigned you to the following ${ticketType}:</p>
             <br />
             <p><strong>Title:</strong> ${ticketTitle}</p>
             <p><strong>Author:</strong> ${ticketAuthor}</p>
-            <p><strong>Category:</strong> ${ticketCategory}</p>
+            ${ticketCategory ? `<p><strong>Category:</strong> ${ticketCategory}</p>` : ''}
             <p><strong>Priority:</strong> ${ticketPriority}</p>
             <p><strong>Body:</strong> ${ticketBody}</p>
             <br />
@@ -1216,10 +1091,6 @@ export default {
     sendPasswordChangeNotification,
     sendAddedAsMemberNotification,
     sendPublishingRequestedNotification,
-    sendOERIntRequestConfirmation,
-    sendOERIntRequestAdminNotif,
-    sendOERIntRequestApproval,
-    sendOERIntRequestDecline,
     sendProjectFlaggedNotification,
     sendNewProjectMessagesNotification,
     sendProjectSupportRequest,
@@ -1243,7 +1114,6 @@ export default {
     sendSupportTicketCreateConfirmation,
     sendSupportTicketCreateInternalNotification,
     sendNewTicketMessageNotification,
-    sendNewTicketMessageAssignedStaffNotification,
     sendNewInternalTicketMessageAssignedStaffNotification,
     sendSupportTicketAssignedNotification,
     sendSupportTicketAutoCloseWarning,

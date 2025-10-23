@@ -26,7 +26,6 @@ const ControlPanel = lazy(() => import('./components/controlpanel/ControlPanel')
 import EventsManager from './screens/conductor/controlpanel/EventsManager';
 import EventRegistration from './screens/conductor/OrgEvents/EventRegistration';
 const FallbackAuth = lazy(() => import('./screens/conductor/FallbackAuth'));
-import HarvestingRequests from './components/controlpanel/HarvestingRequests';
 import HarvestRequest from './components/harvestrequest/HarvestRequest';
 import Home from './screens/conductor/Home';
 import HomeworkManager from './components/controlpanel/HomeworkManager';
@@ -149,7 +148,6 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/qr-code-generator' component={QRCodeGenerator} />
           <PrivateRoute exact path='/controlpanel/eventsmanager' component={EventsManager} />
           <PrivateRoute exact path='/controlpanel/eventsmanager/:mode/:eventID?' component={ManageEvent} />
-          <PrivateRoute exact path='/controlpanel/harvestingrequests' component={HarvestingRequests} />
           <PrivateRoute exact path='/controlpanel/homeworkmanager' component={HomeworkManager} />
           <PrivateRoute exact path='/controlpanel/libreone' component={CentralIdentity} />
           <PrivateRoute exact path='/controlpanel/libreone/app-licenses' component={CentralIdentityAppLicenses} />

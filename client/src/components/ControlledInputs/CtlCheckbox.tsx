@@ -6,10 +6,12 @@ import {
   FormInputProps,
 } from "semantic-ui-react";
 import { ControlledInputProps } from "../../types";
+import classNames from "classnames";
 
 interface CtlCheckboxProps extends CheckboxProps {
   label?: string;
   labelDirection?: "col" | "row" | "col-reverse" | "row-reverse";
+  labelClassName?: string;
   required?: boolean;
   negated?: boolean;
 }
@@ -27,11 +29,11 @@ export default function CtlCheckbox<
   rules,
   label,
   labelDirection = "row",
+  labelClassName,
   required = false,
   negated = false,
   ...rest
 }: ControlledInputProps<TFieldValues, TName> & CtlCheckboxProps) {
-
   // Helper function to convert checkbox value to boolean
   // Negated checkboxes appear as the opposite of their value (ie unchecked if true, checked if false)
   const getCheckboxValue = (value: boolean | undefined) => {
@@ -50,12 +52,15 @@ export default function CtlCheckbox<
         field: { value, onChange, onBlur },
         fieldState: { error },
       }) => (
-        <div
-          className={`flex flex-${labelDirection} items-center`}
-        >
+        <div className={`flex flex-${labelDirection} items-center`}>
           {label && (
             <label
-              className={`form-field-label ${required ? "form-required" : ""} ${labelDirection === "row-reverse" ? "ml-2" : ""}`}
+              className={classNames(
+                "form-field-label",
+                required ? "form-required" : "",
+                labelDirection === "row-reverse" ? "ml-2" : "",
+                labelClassName
+              )}
             >
               {label}
             </label>

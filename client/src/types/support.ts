@@ -1,3 +1,4 @@
+import { SupportQueue } from "./supportqueues";
 import { User, UserWCentralID } from "./User";
 
 export type SupportTicketGuest = {
@@ -11,13 +12,14 @@ export type SupportTicketPriority = "low" | "medium" | "high" | "severe";
 
 export type SupportTicket = {
   uuid: string;
+  queue_id: string;
   title: string;
   description: string;
   apps?: number[]; // Central Identity app IDs
   attachments?: SupportTicketAttachment[];
-  priority: SupportTicketPriority;
+  priority?: SupportTicketPriority;
   status: "open" | "in_progress" | "closed";
-  category: string;
+  category?: string;
   capturedURL?: string;
   assignedUUIDs?: string[]; // User uuids
   assignedUsers?: UserWCentralID[];
@@ -33,6 +35,9 @@ export type SupportTicket = {
   autoCloseTriggered?: boolean;
   autoCloseDate?: string;
   autoCloseSilenced?: boolean;
+  lastReplyAt?: string;
+  metadata?: Record<string, any>;
+  queue?: SupportQueue;
 };
 
 export type SupportTicketMessage = {

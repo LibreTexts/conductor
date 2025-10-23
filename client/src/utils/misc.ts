@@ -285,3 +285,16 @@ export function fromISODateOnly(dateString: string): Date | null {
   if (!dateString) return null;
   return parse(dateString, 'yyyy-MM-dd', new Date());
 }
+
+export const camelCaseToSpaces = (str: string) => {
+  if (!str) return str;
+  
+  return str
+    // Insert space before uppercase letters that are followed by lowercase letters
+    // or before a lowercase letter that follows an uppercase letter
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/([a-z\d])([A-Z])/g, '$1 $2')
+    // Uppercase the first character
+    .replace(/^./, function (s) { return s.toUpperCase(); })
+    .trim();
+}

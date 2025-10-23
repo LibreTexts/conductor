@@ -68,14 +68,6 @@ const ControlPanel = () => {
       roles: ["superAdmin"],
     },
     {
-      url: "/controlpanel/harvestingrequests",
-      icon: "clipboard",
-      title: "Harvesting Requests",
-      description:
-        "View and manage OER Integration Requests submitted to the Conductor platform",
-      roles: ["superAdmin", "support"],
-    },
-    {
       url: "/controlpanel/homeworkmanager",
       icon: "tasks",
       title: "Homework Manager",

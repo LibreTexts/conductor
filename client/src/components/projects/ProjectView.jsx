@@ -1845,9 +1845,11 @@ const ProjectView = (props) => {
                                   <Button
                                     color='blue'
                                     compact
-                                    onClick={handleOpenRequestToPublishModal}
                                     className='!w-64'
                                     disabled={project.didRequestPublish}
+                                    as={'a'}
+                                    href={`https://commons.libretexts.org/support/contact?queue=publishing&projectID=${project.projectID}&capturedURL=${encodeURIComponent(window.location.href)}`}
+                                    target='_blank'
                                   >
                                     {project.didRequestPublish ? 'Publishing Requested' : 'Request to Publish'}
                                   </Button>

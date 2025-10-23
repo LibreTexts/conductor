@@ -130,8 +130,8 @@ const ChangeUserEmailModal: React.FC<ChangeUserEmailModalProps> = ({
               name="confirm-change"
               required
               checked={watch("confirmChange") || false}
-              onChange={(e) => {
-                setValue("confirmChange", e.target.checked);
+              onChange={(checked) => {
+                setValue("confirmChange", checked);
               }}
               className="mt-2"
             />

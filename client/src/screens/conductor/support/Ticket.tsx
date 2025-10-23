@@ -1,22 +1,14 @@
-import { useState, useEffect, lazy, useMemo } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import DefaultLayout from "../../../components/navigation/AlternateLayout";
 import { SupportTicket } from "../../../types";
 import axios from "axios";
-import TicketStatusLabel from "../../../components/support/TicketStatusLabel";
 import TicketMessaging from "../../../components/support/TicketMessaging";
 import { useTypedSelector } from "../../../state/hooks";
-import {
-  Button,
-  Dropdown,
-  Icon,
-  Label,
-  SemanticICONS,
-} from "semantic-ui-react";
+import { Button, Dropdown, Icon, SemanticICONS } from "semantic-ui-react";
 import TicketDetails from "../../../components/support/TicketDetails";
 import TicketFeed from "../../../components/support/TicketFeed";
-import { isSupportStaff } from "../../../utils/supportHelpers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import TicketInternalMessaging from "../../../components/support/TicketInternalMessaging";
 import TicketAttachments from "../../../components/support/TicketAttachments";
@@ -27,10 +19,11 @@ import TicketAutoCloseWarning from "../../../components/support/TicketAutoCloseW
 import { SupportTicketPriority } from "../../../types/support";
 import { useMediaQuery } from "react-responsive";
 import TicketUserOtherTickets from "../../../components/support/TicketUserOtherTickets";
-
-const AssignTicketModal = lazy(
-  () => import("../../../components/support/AssignTicketModal")
-);
+import TicketMetadata from "../../../components/support/TicketMetadata";
+import { TicketStatusPill } from "../../../components/support/TicketInfoPill";
+import { useDocumentTitle } from "usehooks-ts";
+import { useModals } from "../../../context/ModalContext";
+import AssignTicketModal from "../../../components/support/AssignTicketModal";
 
 const getIdFromURL = (url: string) => {
   if (!url) return "";
@@ -40,21 +33,18 @@ const getIdFromURL = (url: string) => {
 };
 
 const SupportTicketView = () => {
+  useDocumentTitle("LibreTexts | Support Ticket");
   const queryClient = useQueryClient();
   const location = useLocation();
   const { handleGlobalError } = useGlobalError();
+  const { openModal, closeAllModals } = useModals();
   const user = useTypedSelector((state) => state.user);
   const isTailwindLg = useMediaQuery({ minWidth: "1024px" });
 
   const [id, setId] = useState<string>("");
   const [accessKey, setAccessKey] = useState("");
-  const [showAssignModal, setShowAssignModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    document.title = "LibreTexts | Support Ticket";
-  }, []);
 
   useEffect(() => {
     const id = getIdFromURL(location.pathname);
@@ -187,9 +177,15 @@ const SupportTicketView = () => {
     }
   }
 
-  function handleCloseAssignModal() {
-    setShowAssignModal(false);
-    queryClient.invalidateQueries(["ticket", id]);
+  function handleOpenAssignModal() {
+    openModal(
+      <AssignTicketModal
+        ticketId={id}
+        open={true}
+        onCancel={() => closeAllModals()}
+        onSave={() => closeAllModals()}
+      />
+    );
   }
 
   function handleOnDeleteTicket() {
@@ -225,7 +221,7 @@ const SupportTicketView = () => {
 
   const AdminOptions = () => (
     <div className="flex flex-row mt-4 lg:mt-0">
-      {ticket?.status === "open" && (
+      {ticket?.status === "open" && user.isSupport && (
         <Button
           color="red"
           onClick={() => setShowDeleteModal(true)}
@@ -235,7 +231,9 @@ const SupportTicketView = () => {
           Delete Ticket
         </Button>
       )}
-      {["open", "in_progress"].includes(ticket?.status ?? "") && (
+      {["open", "in_progress", "awaiting_requester"].includes(
+        ticket?.status ?? ""
+      ) && (
         <>
           <Button
             onClick={() =>
@@ -277,7 +275,7 @@ const SupportTicketView = () => {
           </Dropdown>
           <Button
             color="blue"
-            onClick={() => setShowAssignModal(true)}
+            onClick={() => handleOpenAssignModal()}
             loading={loading || isFetching}
             size={isTailwindLg ? undefined : "mini"}
           >
@@ -320,11 +318,15 @@ const SupportTicketView = () => {
             <div className="flex flex-col lg:flex-row w-full justify-between">
               <div className="flex flex-row items-center">
                 <p className="text-3xl font-semibold">
-                  Support Ticket: #{ticket?.uuid.slice(-7)}
+                  {ticket.queue?.ticket_descriptor || "Support Ticket"}: #
+                  {ticket?.uuid.slice(-7)}
                 </p>
-                <TicketStatusLabel status={ticket.status} className="!ml-4" />
+                <TicketStatusPill
+                  status={ticket.status}
+                  className="ml-4 mt-1 border border-gray-300 shadow-sm"
+                />
               </div>
-              {isSupportStaff(user) && <AdminOptions />}
+              {(user.isSupport || user.isHarvester) && <AdminOptions />}
             </div>
             <div className="flex flex-col xl:flex-row-reverse w-full mt-4">
               <div className="flex flex-col xl:basis-2/5 xl:pl-4">
@@ -338,9 +340,12 @@ const SupportTicketView = () => {
                 )}
                 <TicketDetails ticket={ticket} />
                 <div className="mt-4">
+                  <TicketMetadata ticket={ticket} />
+                </div>
+                <div className="mt-4">
                   <TicketFeed ticket={ticket} />
                 </div>
-                {isSupportStaff(user) && (
+                {(user.isSupport || user.isHarvester) && (
                   <div className="my-4">
                     <TicketInternalMessaging id={id} />
                   </div>
@@ -358,7 +363,7 @@ const SupportTicketView = () => {
                     guestAccessKey={accessKey}
                   />
                 </div>
-                {isSupportStaff(user) && (
+                {(user.isSupport || user.isHarvester) && (
                   <div className="mt-4">
                     <TicketUserOtherTickets ticket={ticket} />
                   </div>
@@ -368,13 +373,8 @@ const SupportTicketView = () => {
           </>
         )}
       </div>
-      {user && user.uuid && isSupportStaff(user) && (
+      {user && user.uuid && user.isSupport && (
         <>
-          <AssignTicketModal
-            open={showAssignModal}
-            onClose={handleCloseAssignModal}
-            ticketId={id}
-          />
           <ConfirmDeleteTicketModal
             open={showDeleteModal}
             onClose={() => setShowDeleteModal(false)}

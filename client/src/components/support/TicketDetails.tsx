@@ -25,6 +25,7 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
 
   return (
     <div className="flex flex-col border rounded-md p-4 shadow-md bg-white h-fit space-y-1.5">
+      <p className="text-2xl font-semibold text-center mb-0">Ticket Details</p>
       <p className="2xl:text-xl break-all">
         <span className="font-semibold">Subject:</span> {ticket?.title}
       </p>
@@ -89,14 +90,20 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
           </Button>
         )}
       </div>
-      <p className="2xl:text-xl">
-        <span className="font-semibold">Category:</span>{" "}
-        {getPrettySupportTicketCategory(ticket?.category)}
-      </p>
-      <p className="2xl:text-xl">
-        <span className="font-semibold">Priority:</span>{" "}
-        {capitalizeFirstLetter(ticket?.priority) ?? "Unknown"}
-      </p>
+      {
+        ticket?.category && (
+          <p className="2xl:text-xl">
+            <span className="font-semibold">Category:</span>{" "}
+            {getPrettySupportTicketCategory(ticket?.category)}
+          </p>
+        )}
+      {
+        ticket?.priority && (
+          <p className="2xl:text-xl">
+            <span className="font-semibold">Priority:</span>{" "}
+            {capitalizeFirstLetter(ticket?.priority) ?? "Unknown"}
+          </p>
+        )}
       <p className="2xl:text-xl break-all">
         <span className="font-semibold">Captured URL:</span>
         {ticket?.capturedURL ? (

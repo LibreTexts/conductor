@@ -2,7 +2,7 @@ import userReducer from './userReducer';
 import orgReducer from './orgReducer';
 import filterReducer from './filterReducer.js';
 import errorReducer from './errorReducer';
-import { checkCampusAdmin, checkSuperAdmin, checkSupportRole } from '../components/util/HelperFunctions.js';
+import { checkCampusAdmin, checkSuperAdmin, checkSupportRole, checkHarvesterRole } from '../components/util/HelperFunctions.js';
 
 const rootReducer = (state = {}, action) => {
   let actionDerived = action;
@@ -13,6 +13,7 @@ const rootReducer = (state = {}, action) => {
       isCampusAdmin: checkCampusAdmin(action.payload?.roles, state.org?.orgID),
       isSuperAdmin: checkSuperAdmin(action.payload?.roles),
       isSupport: checkSupportRole(action.payload?.roles),
+      isHarvester: checkHarvesterRole(action.payload?.roles),
     };
   }
   return {

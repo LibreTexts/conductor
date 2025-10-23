@@ -27,14 +27,21 @@ const ManageUserRolesModal: React.FC<ManageUserRolesModalProps> = ({
   ...props
 }) => {
   const { handleGlobalError } = useGlobalError();
-  const allRoleOpts = UserRoleOptions;
-  const roleOpts = UserRoleOptions.filter((o) => o.value !== "superadmin");
-
   const [allOrganizations, setAllOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(false);
   const [userRoles, setUserRoles] = useState<
     { org: Organization; role: string; roleInternal: string }[]
   >([]);
+
+  const filteredRoles = (selectedOrgID: string) => {
+    return UserRoleOptions.filter((o) => {
+      if (o.value === "superadmin") return false; // no one can assign superadmin role
+      if (!isSuperAdmin && o.value === "harvester") return false; // only superadmins can assign harvester role
+      if (selectedOrgID !== "libretexts" && o.value === "harvester") return false; // only libretexts org can have harvester role
+      if (selectedOrgID === "libretexts" && o.value === "campusadmin") return false; // libretexts org cannot have campusadmin role
+      return true;
+    });
+  };
 
   async function getAllOrganizations() {
     try {
@@ -158,22 +165,20 @@ const ManageUserRolesModal: React.FC<ManageUserRolesModalProps> = ({
                         if (value === current) return;
                         updateUserRole(value, org.orgID);
                       }}
-                      options={
-                        org.orgID === "libretexts" ? allRoleOpts : roleOpts
-                      }
+                      options={filteredRoles(org.orgID)}
                       placeholder="No role set"
                       selection
                       value={currentRole || ""}
                     />
-                      <Button 
-                        icon 
-                        size="mini" 
-                        onClick={() => deleteUserRole(org.orgID)}
-                        style={{ marginLeft: "5px" }}
-                        disabled={!hasRole}
-                      >
-                        <Icon name="x" />
-                      </Button>
+                    <Button
+                      icon
+                      size="mini"
+                      onClick={() => deleteUserRole(org.orgID)}
+                      style={{ marginLeft: "5px" }}
+                      disabled={!hasRole}
+                    >
+                      <Icon name="x" />
+                    </Button>
                   </div>
                 </div>
               </List.Item>

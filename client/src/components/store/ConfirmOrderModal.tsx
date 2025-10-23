@@ -28,7 +28,7 @@ const ConfirmOrderModal: React.FC<ConfirmOrderModalProps> = ({
           label="I understand that books are printed on demand and may take 3-5 days to process IN ADDITION to shipping time. 'Expedited' shipping does not expedite production time, only shipping time. LibreTexts is not responsible for delays in production or shipping."
           required
           checked={productionTimeConfirmation}
-          onChange={(e) => setProductionTimeConfirmation(e.target.checked)}
+          onChange={(checked) => setProductionTimeConfirmation(checked)}
           className="mb-8"
           labelClassName="text-lg font-normal"
         />
@@ -37,7 +37,7 @@ const ConfirmOrderModal: React.FC<ConfirmOrderModalProps> = ({
           label="I have confirmed my email address and shipping details are correct. I understand that if my information is incorrect, LibreTexts may not be able to contact me or ship my order."
           required
           checked={shippingConfirmation}
-          onChange={(e) => setShippingConfirmation(e.target.checked)}
+          onChange={(checked) => setShippingConfirmation(checked)}
           className="mb-8"
           labelClassName="text-lg font-normal"
         />
@@ -46,7 +46,7 @@ const ConfirmOrderModal: React.FC<ConfirmOrderModalProps> = ({
           label="I have confirmed my order details and understand that ALL ORDERS ARE FINAL. I understand that I cannot cancel, modify, or return my order after it has been placed."
           required
           checked={finalConfirmation}
-          onChange={(e) => setFinalConfirmation(e.target.checked)}
+          onChange={(checked) => setFinalConfirmation(checked)}
           className="mb-2"
           labelClassName="text-lg font-normal"
         />

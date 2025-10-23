@@ -57,7 +57,10 @@ import {
   OrderCharge,
   OrderSession,
   CentralIdentityOrgAdminResult,
-  AssetTag
+  AssetTag,
+  SupportQueue,
+  SupportQueueMetrics,
+  SupportTicketPriority
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -827,6 +830,12 @@ class API {
     return res;
   }
 
+  async getCentralIdentityPublicApps() {
+    return await axios.get<{ applications: CentralIdentityApp[] }>(
+      "/central-identity/public/apps"
+    );
+  }
+
   async getCentralIdentityLicenses() {
     const res = await axios.get<
       {
@@ -1442,11 +1451,58 @@ class API {
   }
 
   // Support
+  async getSupportQueues({ withCount }: { withCount?: boolean } = {}) {
+    const res = await axios.get<
+      {
+        queues: SupportQueue[];
+      } & ConductorBaseResponse
+    >("/support-queues", {
+      params: {
+        with_count: withCount,
+      },
+    });
+    return res;
+  }
+
+  async getSupportQueueMetrics(slug: string) {
+    const res = await axios.get<
+      {
+        metrics: SupportQueueMetrics;
+      } & ConductorBaseResponse
+    >(`/support-queues/${slug}/metrics`);
+    return res;
+  }
+
   async deleteTicket(ticketID: string) {
     const res = await axios.delete<ConductorBaseResponse>(
       `/support/ticket/${ticketID}`
     );
     return res;
+  }
+
+  async bulkUpdateTickets({
+    tickets,
+    assignee,
+    priority,
+    status,
+    queue
+  }: {
+    tickets: string[];
+    assignee?: string[];
+    priority?: string;
+    status?: string;
+    queue?: string;
+  }) {
+    return await axios.patch<{ updated_count: number } & ConductorBaseResponse>(
+      `/support/ticket/bulk-update`,
+      {
+        tickets,
+        assignee,
+        priority,
+        status,
+        queue
+      }
+    );
   }
 
   async getTicketAttachmentURL(
@@ -1464,6 +1520,14 @@ class API {
       },
     });
     return res;
+  }
+
+  async createProjectFromHarvestingRequest(ticketID: string) {
+    return await axios.post<{
+      project: Project
+    } & ConductorBaseResponse>(
+      `/support/ticket/${ticketID}/create-project-from-harvesting-request`
+    );
   }
 
   // Commons Collections
@@ -1589,8 +1653,9 @@ class API {
     >(`/support/ticket/${ticketID}`);
   }
 
-  async getUserSupportTickets({ uuid, page, limit, sort }: {
+  async getUserSupportTickets({ uuid, queue, page, limit, sort }: {
     uuid: string;
+    queue?: string;
     page?: number;
     limit?: number;
     sort?: string;
@@ -1602,6 +1667,7 @@ class API {
       } & ConductorBaseResponse
     >(`/support/user/${uuid}/tickets`, {
       params: {
+        queue,
         page,
         limit,
         sort,

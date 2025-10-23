@@ -112,34 +112,6 @@ const DateInput = ({
           disabled={disabled}
         />
       </div>
-      {isPopperOpen && (
-        <FocusTrap
-          active
-          focusTrapOptions={{
-            initialFocus: false,
-            allowOutsideClick: true,
-            clickOutsideDeactivates: true,
-            onDeactivate: () => setIsPopperOpen(false),
-          }}
-        >
-          <div
-            style={popper.styles.popper}
-            className="dialog-sheet rdp-dialog"
-            {...popper.attributes.popper}
-            ref={setPopperElement}
-            role="dialog"
-          >
-            <DayPicker
-              initialFocus={isPopperOpen}
-              mode="single"
-              defaultMonth={selected}
-              selected={selected}
-              onSelect={handleDaySelect}
-              disabled={disabled}
-            />
-          </div>
-        </FocusTrap>
-      )}
     </>
   );
 };

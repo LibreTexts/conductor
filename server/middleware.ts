@@ -266,7 +266,7 @@ const canAccessSupportTicket = async (
       const hasSupportRole = authAPI.checkHasRole(
         user,
         "libretexts",
-        "support",
+        ["support", "harvester"],
         true
       );
 
@@ -382,16 +382,17 @@ const validateZod = (schema: AnyZodObject) => {
         params: req.params,
       });
 
+
       if (!validationRes.success) {
         validationErrors = extractZodErrorMessages(validationRes.error);
+        if (process.env.NODE_ENV === "development") {
+          console.error(validationRes.error);
+        }
         throw new Error("Validation failed");
       }
 
       next();
     } catch (err) {
-      if (process.env.NODE_ENV === "development") {
-        debugError(err + ": " + validationErrors.join(", "));
-      }
       return res.status(400).send({
         err: true,
         errMsg: conductorErrors.err2 + ": " + validationErrors.join(", "),

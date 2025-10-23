@@ -11,7 +11,7 @@ function ErrorModal() {
   };
 
   return (
-    <Modal open={!isEmptyString(error.message)} onClose={handleClose}>
+    <Modal open={!isEmptyString(error.message)} onClose={handleClose} className="!z-50">
       <Modal.Header>
         LibreTexts Conductor: Error
         {error && error.status && (

@@ -4,7 +4,6 @@ import Launchpad from "../Launchpad";
 import { Link } from "react-router-dom";
 import SwitchAppWithUser from "../SwitchAppWithUser";
 import { User } from "../../../types";
-import { isSupportStaff } from "../../../utils/supportHelpers";
 
 interface SupportCenterNavbarMobileProps {
   search: string;
@@ -75,7 +74,7 @@ const SupportCenterNavbarMobile: React.FC<SupportCenterNavbarMobileProps> = ({
             <Menu.Item
               name={
                 user && user.uuid
-                  ? isSupportStaff(user)
+                  ? (user.isSupport || user.isHarvester)
                     ? "staff-dashboard"
                     : "my-tickets"
                   : "contact-support"

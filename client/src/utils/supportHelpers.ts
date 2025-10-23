@@ -31,12 +31,12 @@ export const SupportTicketCategoryOptions: GenericKeyTextValueObj<string>[] = [
   },
   {
     key: "adaptcode",
-    text: "ADAPT Access Code Request",
+    text: "ADAPT Access Code",
     value: "adaptcode",
   },
   {
     key: "technical",
-    text: "Technical Issue (Bug, Error, etc.)",
+    text: "Technical Issue",
     value: "technical",
   },
   {
@@ -66,7 +66,7 @@ export const SupportTicketCategoryOptions: GenericKeyTextValueObj<string>[] = [
   },
   {
     key: "delete-account",
-    text: "Delete Account (ADAPT and all other applications)",
+    text: "Delete Account",
     value: "delete-account",
   },
   {
@@ -83,15 +83,35 @@ export const getPrettySupportTicketCategory = (category: string): string => {
   return foundCategory ? foundCategory.text : "Unknown";
 }
 
-export const isSupportStaff = (user?: User): boolean => {
-  if (!user || !user.uuid) return false;
-  if (user.isSuperAdmin) return true;
-  const foundRole = user.roles.find(
-    (r) => r.org === "libretexts" && r.role === "support"
-  );
-  return !!foundRole;
-};
+export const SupportTicketStatusOptions: GenericKeyTextValueObj<string>[] = [
+  {
+    key: "open",
+    text: "Needs Triage",
+    value: "open",
+  },
+  {
+    key: "in_progress",
+    text: "In Progress",
+    value: "in_progress",
+  },
+  {
+    key: "awaiting_requester",
+    text: "Awaiting Requester",
+    value: "awaiting_requester",
+  },
+  {
+    key: "closed",
+    text: "Closed",
+    value: "closed",
+  },
+];
 
+export const getPrettySupportTicketStatus = (status: string): string => {
+  const foundStatus = SupportTicketStatusOptions.find(
+    (s) => s.value === status
+  );
+  return foundStatus ? foundStatus.text : "Unknown";
+};
 
 export const supportTicketAttachmentAllowedTypes = [
   "application/msword", // .doc
