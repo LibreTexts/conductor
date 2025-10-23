@@ -15,6 +15,7 @@ import useSupportQueues from "../../hooks/useSupportQueues";
 import DynamicIcon, { DynamicIconName } from "../NextGenComponents/DynamicIcon";
 import LoadingSpinner from "../LoadingSpinner";
 import Alert from "../NextGenComponents/Alert";
+import { useSupportCenterContext } from "../../context/SupportCenterContext";
 
 interface CreateTicketFlowProps {
   isLoggedIn: boolean;
@@ -22,6 +23,7 @@ interface CreateTicketFlowProps {
 
 const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   const location = useLocation();
+  const { setSelectedQueue } = useSupportCenterContext();
   const {
     data: queues,
     isLoading: isLoadingQueues,
@@ -30,10 +32,6 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   } = useSupportQueues({
     withCount: false,
   });
-  const [selectedQueue, setSelectedQueue] = useURLSyncedState<string>(
-    "queue",
-    ""
-  );
 
   const methods = useForm<SupportTicket>({
     defaultValues: {
@@ -100,7 +98,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     if (searchParams.has("queue")) {
       const queueValue = searchParams.get("queue") || "";
       if (queues && queueValue) {
-        handleQueueSelect(queueValue);
+        handleQueueSelect(queueValue, false);
       }
     }
 
@@ -113,7 +111,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     }
   }
 
-  function handleQueueSelect(queueName: string) {
+  function handleQueueSelect(queueName: string, setInUrl?: boolean) {
     if (!isValidQueue(queueName)) {
       return;
     }
@@ -123,6 +121,11 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
       methods.setValue("queue_id", queueID);
       setSelectedQueue(queueName);
       setStep(2);
+      if (setInUrl) {
+        const url = new URL(window.location.toString());
+        url.searchParams.set("queue", queueName);
+        window.history.pushState({}, "", url);
+      }
     }
   }
 
@@ -139,7 +142,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
             <li
               key={queue.slug}
               className="relative flex justify-between gap-x-6 px-4 py-5 hover:bg-gray-50 sm:px-6 cursor-pointer"
-              onClick={() => handleQueueSelect(queue.slug)}
+              onClick={() => handleQueueSelect(queue.slug, true)}
             >
               <div className="flex min-w-0 gap-x-4 items-center">
                 <DynamicIcon
@@ -171,7 +174,6 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
         {step === 1 && <QueueSelector />}
         {step === 2 && (
           <RenderTicketRequestForm
-            queue={selectedQueue}
             autoCapturedURL={autoCapturedURL}
             onSubmitSuccess={() => setStep(3)}
           />
