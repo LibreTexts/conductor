@@ -1,20 +1,13 @@
-import { useEffect, useState } from "react";
 import { CentralIdentityLicense } from "../types";
 import api from "../api";
-import useGlobalError from "../components/error/ErrorHooks";
+import { useQuery } from "@tanstack/react-query";
+
+export const CENTRAL_IDENTITY_LICENSES_QUERY_KEY = "centralIdentityLicenses";
 
 const useCentralIdentityLicenses = () => {
-    const { handleGlobalError } = useGlobalError();
-    const [licenseOptions, setLicenseOptions] = useState<CentralIdentityLicense[]>([]);
-    const [isFetching, setIsFetching] = useState<boolean>(false);
-
-    useEffect(() => {
-        loadLicenseOptions();
-    }, []);
-
-    async function loadLicenseOptions() {
-        try {
-            setIsFetching(true);
+    const { data: licenseOptions, isFetching, refetch, ...restQueryObj } = useQuery<CentralIdentityLicense[]>({
+        queryKey: [CENTRAL_IDENTITY_LICENSES_QUERY_KEY],
+        queryFn: async () => {
             const res = await api.getCentralIdentityLicenses();
             if (res.data.err) {
                 throw new Error(res.data.errMsg);
@@ -22,7 +15,6 @@ const useCentralIdentityLicenses = () => {
             if (!res.data.licenses) {
                 throw new Error("Failed to load license options");
             }
-
             const versionsSorted = res.data.licenses.map((l) => {
                 return {
                     ...l,
@@ -34,23 +26,14 @@ const useCentralIdentityLicenses = () => {
                     }),
                 };
             });
-
-            setLicenseOptions(versionsSorted);
-        } catch (err) {
-            handleGlobalError(err);
-            setLicenseOptions([]);
-        } finally {
-            setIsFetching(false);
+            return versionsSorted;
+        },
+        meta: {
+            errorMessage: "Failed to load license options",
         }
-    }
+    });
 
-    async function refetch() {
-        setIsFetching(true);
-        await loadLicenseOptions();
-        setIsFetching(false);
-    }
-
-    return { licenseOptions, isFetching, refetch };
+    return { licenseOptions: licenseOptions || [], isFetching, refetch, ...restQueryObj };
 }
 
 export default useCentralIdentityLicenses;

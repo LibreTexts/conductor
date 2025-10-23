@@ -55,7 +55,7 @@ const AuthorsTable: React.FC<{
                   className="w-full"
                 />
               </Table.Cell>
-              <Table.Cell style={{ minWidth: 120 }}>
+              <Table.Cell>
                 <CtlTextInput
                   control={control}
                   name={`metadata.authors.${idx}.institution`}
@@ -217,7 +217,7 @@ const PublishingRequestForm: React.FC<PublishingRequestFormProps> = () => {
               control={control}
               label="License Name"
               placeholder="Select a license..."
-              // rules={required}
+              rules={required}
               options={licenseOptions?.map((l) => ({
                 value: l.name,
                 label: l.name,

@@ -18,6 +18,9 @@ const useSupportQueues = ({ withCount, currentQueueId }: { withCount: boolean, c
         },
         staleTime: 5 * 60 * 1000, // 5 minutes
         refetchOnWindowFocus: false,
+        meta: {
+            errorMessage: "Failed to fetch support queues.",
+        }
     })
 
     const isValidQueue = useCallback((slug: string): boolean => {

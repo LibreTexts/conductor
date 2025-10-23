@@ -1,6 +1,6 @@
 import { differenceInMinutes, subDays } from "date-fns";
 import SupportTicket, { SupportTicketInterface } from "../../models/supporticket";
-import SupportQueue from "../../models/supportqueue";
+import SupportQueue, { SupportQueueInterface } from "../../models/supportqueue";
 import { TypedReqUser } from "../../types";
 
 export default class SupportQueueService {
@@ -31,7 +31,7 @@ export default class SupportQueueService {
         return results;
     }
 
-    async getQueueBySlug(slug: string, { withCount = false } = {}): Promise<SupportTicketInterface | null> {
+    async getQueueBySlug(slug: string, { withCount = false } = {}): Promise<SupportQueueInterface | null> {
         const results = await SupportQueue.aggregate([
             { $match: { slug: slug.toLowerCase(), active: true } },
             ...(withCount ? [

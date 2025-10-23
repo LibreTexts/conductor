@@ -27,6 +27,7 @@ export type User = {
   isCampusAdmin: boolean;
   isSuperAdmin: boolean;
   isSupport: boolean;
+  isHarvester: boolean;
   createdAt?: string;
 };
 

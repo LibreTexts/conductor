@@ -148,114 +148,6 @@ const sendPublishingRequestedNotification = (requesterName, projectID, projectNa
     });
 };
 
-
-/**
- * Sends a standard OER Integration Request Confirmation notification to the requester via the Mailgun API.
- * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
- *  only after proper verification via other internal methods.
- * @param {String} requesterName     - the requesting user's name (null, or 'firstName' or 'firstName lastName')
- * @param {String} recipientAddress  - the requesting user's email
- * @param {String} resourceTitle     - the resource's title/name
- * @returns {Promise<Object|Error>} a Mailgun API Promise
- */
-const sendOERIntRequestConfirmation = (requesterName, recipientAddress, resourceTitle) => {
-    let textToSend = `Hi ${requesterName}, LibreTexts has received your OER Integration Request for "${resourceTitle}". You should receive an email when we have reviewed your request. If you have any questions, please contact us at info@libretexts.org. Sincerely, The LibreTexts team` + autoGenNoticeText;
-    let htmlToSend = `<p>Hi ${requesterName},</p><p>LibreTexts has received your OER Integration Request for "${resourceTitle}". You should receive an email when we have reviewed your request. If you have any questions, please contact us at <a href='mailto:info@libretexts.org?subject=OER Integration Request Questions' target='_blank' rel='noopener noreferrer'>info@libretexts.org</a>.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
-    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
-        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
-        to: [recipientAddress],
-        subject: 'LibreTexts OER Integration Request Received',
-        text: textToSend,
-        html: htmlToSend
-    });
-};
-
-
-/**
- * Sends a standard New OER Integration Request notification to the LibreTexts team via the Mailgun API.
- * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
- *  only after proper verification via other internal methods.
- * @param {String} requesterName     - the requesting user's name ('firstName' or 'firstName lastName')
- * @param {String} requesterEmail    - the requesting user's email
- * @param {String} resourceTitle     - the resource's title/name
- * @returns {Promise<Object|Error>} a Mailgun API Promise
- */
-const sendOERIntRequestAdminNotif = (requesterName, requesterEmail, resourceTitle) => {
-    let textToSend = `Attention: ${requesterName ? requesterName : requesterEmail} has submitted a new OER Integration Request for "${resourceTitle}". This request is available in Conductor.` + autoGenNoticeText;
-    let htmlToSend = `<p>Attention:</p><p>${requesterName ? `${requesterName} (${requesterEmail})` : requesterEmail} has submitted a new OER Integration Request for "${resourceTitle}".</p><p>This request is available in Conductor.</p>` + autoGenNoticeHTML;
-    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
-        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
-        to: ['info@libretexts.org'],
-        subject: 'New OER Integration Request',
-        text: textToSend,
-        html: htmlToSend
-    });
-};
-
-
-/**
- * Sends a standard OER Integration Request Approval notification to the requester via the Mailgun API.
- * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
- *  only after proper verification via other internal methods.
- * @param {String} requesterName     - the requesting user's name (null, or 'firstName' or 'firstName lastName')
- * @param {String} recipientAddress  - the requesting user's email
- * @param {String} resourceTitle     - the resource's title/name
- * @returns {Promise<Object|Error>} a Mailgun API Promise
- */
-const sendOERIntRequestApproval = (requesterName, recipientAddress, resourceTitle) => {
-    let textToSend = `Hi`;
-    let htmlToSend = `<p>Hi`;
-    if (requesterName !== null) {
-        textToSend += ` ${requesterName}, `;
-        htmlToSend += ` ${requesterName},</p>`;
-    } else {
-        textToSend += ', ';
-        htmlToSend += ',</p>';
-    }
-    textToSend += `LibreTexts has approved your OER Integration Request for "${resourceTitle}" and has converted it to a project on our Conductor platform. If you indicated on the request form, you should have been automatically added to the project which can be found in the "Projects" tab. Otherwise, contact LibreTexts at info@libretexts.org for help accessing Conductor if you'd like to track the progress as it changes. Sincerely, The LibreTexts team` + autoGenNoticeText;
-    htmlToSend += `<p>LibreTexts has approved your OER Integration Request for "${resourceTitle}" and has converted it to a project on our Conductor platform.</p><p>If you indicated on the request form, you should have been automatically added to the project which can be found in the <em>Projects</em> tab. Otherwise, contact LibreTexts at <a href='mailto:info@libretexts.org?subject=Conductor Access' target='_blank' rel='noopener noreferrer'>info@libretexts.org</a> for help accessing Conductor if you'd like to track the progress as it changes.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
-    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
-        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
-        to: [recipientAddress],
-        subject: `LibreTexts OER Integration Request Approved`,
-        text: textToSend,
-        html: htmlToSend
-    });
-};
-
-/**
- * Sends a standard OER Integration Request Declined notification to the requester via the Mailgun API.
- * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
- *  only after proper verification via other internal methods.
- * @param {String} requesterName     - the requesting user's name (null, or 'firstName' or 'firstName lastName')
- * @param {String} recipientAddress  - the requesting user's email
- * @param {String} resourceTitle     - the resource's title/name
- * @param {String} declineReason     - the reason for the request being declined
- * @returns {Promise<Object|Error>} a Mailgun API Promise
- */
-const sendOERIntRequestDecline = (requesterName, recipientAddress, resourceTitle, declineReason) => {
-    let textToSend = `Hi`;
-    let htmlToSend = `<p>Hi`;
-    if (requesterName !== null) {
-        textToSend += ` ${requesterName}, `;
-        htmlToSend += ` ${requesterName},</p>`;
-    } else {
-        textToSend += ', ';
-        htmlToSend += ',</p>';
-    }
-    textToSend += `LibreTexts has declined your OER Integration Request for "${resourceTitle}" for the following reason(s): ${declineReason}. If you believe this was in error or would like to discuss your request further, please contact LibreTexts at support@libretexts.org and reference the title of your resource. Sincerely, The LibreTexts team` + autoGenNoticeText;
-    htmlToSend += `<p>LibreTexts has declined your OER Integration Request for "${resourceTitle}" for the following reasons(s)</p><p><em>${declineReason}<em></p><p>If you believe this was in error or would like to discuss your request further, please contact LibreTexts at <a href='mailto:support@libretexts.org?subject=${resourceTitle}' target='_blank' rel='noopener noreferrer'>support@libretexts.org</a> and reference the title of your resource.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
-    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
-        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
-        to: [recipientAddress],
-        subject: `LibreTexts OER Integration Request Declined`,
-        text: textToSend,
-        html: htmlToSend
-    });
-};
-
-
-
 /**
  * Sends a standard Project Flagged notification to the respective group via the Mailgun API.
  * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
@@ -1199,10 +1091,6 @@ export default {
     sendPasswordChangeNotification,
     sendAddedAsMemberNotification,
     sendPublishingRequestedNotification,
-    sendOERIntRequestConfirmation,
-    sendOERIntRequestAdminNotif,
-    sendOERIntRequestApproval,
-    sendOERIntRequestDecline,
     sendProjectFlaggedNotification,
     sendNewProjectMessagesNotification,
     sendProjectSupportRequest,

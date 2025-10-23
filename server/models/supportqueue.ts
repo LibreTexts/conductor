@@ -10,7 +10,9 @@ export interface SupportQueueInterface {
     color: string;
     icon: string;
     order: number;
-    is_default: boolean
+    is_default: boolean;
+    has_categories: boolean;
+    has_priorities: boolean;
     form_fields: Array<{
         id: string;
         field_type: string;
@@ -66,6 +68,16 @@ const SupportQueueSchema = new Schema<SupportQueueInterface>({
         required: true,
     },
     is_default: {
+        type: Boolean,
+        required: true,
+        default: false,
+    },
+    has_categories: {
+        type: Boolean,
+        required: true,
+        default: false,
+    },
+    has_priorities: {
         type: Boolean,
         required: true,
         default: false,

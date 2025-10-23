@@ -187,12 +187,15 @@ const checkSuperAdmin = (roles) => {
 
 /**
  * Checks if a user has the Support role in Conductor.
- * This is a separate check from Super Admin.
  * @param {object[]} roles - Array of user roles in associated Organizations.
- * @returns {boolean} True if Support role is present, false otherwise.
+ * @returns {boolean} True if Support role is present or user is Super Administrator, false otherwise.
  */
 const checkSupportRole = (roles) => {
   if (Array.isArray(roles)) {
+    if (checkSuperAdmin(roles)) {
+      return true;
+    }
+    
     const foundSupport = roles.find((item) => (
       item.org === 'libretexts' && item.role === 'support'
     ));
@@ -203,6 +206,24 @@ const checkSupportRole = (roles) => {
   return false;
 };
 
+/**
+ * Checks if a user has the Harvester role in Conductor.
+ * NOTE: Unlike other role checks, Super Admins are not considered to be harvesters by default due to
+ * the more limited nature of harvester permissions.
+ * @param {object[]} roles - Array of user roles in associated Organizations.
+ * @returns {boolean} True if Harvester role is present, false otherwise.
+ */
+const checkHarvesterRole = (roles) => {
+  if (Array.isArray(roles)) {    
+    const foundHarvester = roles.find((item) => (
+      item.org === 'libretexts' && item.role === 'harvester'
+    ));
+    if (foundHarvester) {
+      return true;
+    }
+  }
+  return false;
+};
 
 
 /**
@@ -232,5 +253,6 @@ export {
     checkCampusAdmin,
     checkSuperAdmin,
     checkSupportRole,
+    checkHarvesterRole,
     setsEqual,
 };

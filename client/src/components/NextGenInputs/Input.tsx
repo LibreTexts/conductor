@@ -46,7 +46,7 @@ const Input: React.FC<InputProps> = ({
               inputClassName,
               "block w-full rounded-md bg-white px-3 py-2 text-base text-gray-900 border border-gray-400 placeholder:text-gray-400 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6",
               leftIcon ? "pl-10" : "pl-3",
-              error ? "border-red-500 focus:outline-red-500" : ""
+              error ? "!border-red-500 focus:outline-red-500 !bg-red-100" : ""
             )}
             {...props}
           />

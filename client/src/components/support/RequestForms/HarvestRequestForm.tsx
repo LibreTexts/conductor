@@ -85,7 +85,7 @@ const HarvestRequestForm: React.FC<HarvestRequestFormProps> = () => {
               control={control}
               label="License Name"
               placeholder="Select a license..."
-              // rules={required}
+              rules={required}
               options={licenseOptions?.map((l) => ({
                 value: l.name,
                 label: l.name,

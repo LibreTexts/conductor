@@ -6,10 +6,10 @@ import { format, parseISO } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../../api";
 import { PaginationWithItemsSelect } from "../../util/PaginationWithItemsSelect";
-import TicketStatusLabel from "../../support/TicketStatusLabel";
 import { capitalizeFirstLetter } from "../../util/HelperFunctions";
 import { getPrettySupportTicketCategory } from "../../../utils/supportHelpers";
 import { Header } from "semantic-ui-react";
+import { TicketStatusPill } from "../../support/TicketInfoPill";
 
 interface UserSupportTicketsProps {
   uuid: string;
@@ -84,6 +84,13 @@ const UserSupportTickets: React.FC<UserSupportTicketsProps> = ({ uuid }) => {
         }}
         columns={[
           {
+            accessor: "queue.name",
+            title: "Queue",
+            render(record) {
+              return record.queue?.name || "N/A";
+            }
+          },
+          {
             accessor: "timeOpened",
             title: "Date Opened",
             render(record) {
@@ -102,7 +109,7 @@ const UserSupportTickets: React.FC<UserSupportTicketsProps> = ({ uuid }) => {
             accessor: "category",
             title: "Category",
             render(record) {
-              return getPrettySupportTicketCategory(record.category);
+              return getPrettySupportTicketCategory(record.category || "");
             },
           },
           {
@@ -123,13 +130,13 @@ const UserSupportTickets: React.FC<UserSupportTicketsProps> = ({ uuid }) => {
           {
             accessor: "priority",
             render(record) {
-              return capitalizeFirstLetter(record.priority);
+              return capitalizeFirstLetter(record.priority || "");
             },
           },
           {
             accessor: "status",
             render(record) {
-              return <TicketStatusLabel status={record.status} />;
+              return <TicketStatusPill status={record.status} />;
             },
           },
         ]}

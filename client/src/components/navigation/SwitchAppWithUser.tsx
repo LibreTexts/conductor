@@ -4,7 +4,6 @@ import { User } from "../../types";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import UserDropdown from "./UserDropdown";
-import { isSupportStaff } from "../../utils/supportHelpers";
 
 interface SwitchAppWithUserProps {
   parent: "commons" | "conductor";
@@ -23,11 +22,11 @@ const SwitchAppWithUser: React.FC<SwitchAppWithUserProps> = ({
     // Always nav to main commons in production, otherwise use the current origin (e.g. development)
     if (window.location.origin.endsWith("libretexts.org")) {
       return `https://commons.libretexts.org/support${
-        isSupportStaff(user) ? "/dashboard" : ""
+        user.isSupport || user.isHarvester ? "/dashboard" : ""
       }`;
     }
     return `${window.location.origin}/support${
-      isSupportStaff(user) ? "/dashboard" : ""
+      user.isSupport || user.isHarvester ? "/dashboard" : ""
     }`;
   };
 

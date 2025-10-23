@@ -1,9 +1,6 @@
 import AlternateLayout from "../../../components/navigation/AlternateLayout";
-import { useState, useEffect, lazy, useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState, lazy } from "react";
 import { IconSearch } from "@tabler/icons-react";
-import useGlobalError from "../../../components/error/ErrorHooks";
-import { useNotifications } from "../../../context/NotificationContext";
 import { useTypedSelector } from "../../../state/hooks";
 import useDebounce from "../../../hooks/useDebounce";
 import useSupportTicketFilters from "../../../hooks/useSupportTicketFilters";
@@ -19,32 +16,23 @@ import { useSupportCenterContext } from "../../../context/SupportCenterContext";
 import { useModals } from "../../../context/ModalContext";
 import BulkChangeModal from "../../../components/support/BulkChangeModal";
 import { useDocumentTitle } from "usehooks-ts";
-const AssignTicketModal = lazy(
-  () => import("../../../components/support/AssignTicketModal")
-);
 const SupportCenterSettingsModal = lazy(
   () => import("../../../components/support/SupportCenterSettingsModal")
 );
 
 const SupportDashboard = () => {
   useDocumentTitle("LibreTexts | Support Dashboard");
-  const { handleGlobalError } = useGlobalError();
-  const { addNotification } = useNotifications();
   const { openModal, closeAllModals } = useModals();
-  const queryClient = useQueryClient();
   const user = useTypedSelector((state) => state.user);
   const { debounce } = useDebounce();
-  const { selectedQueue, selectedTickets } = useSupportCenterContext();
+  const { selectedQueue, selectedTickets, selectedQueueObject } =
+    useSupportCenterContext();
 
   const itemsPerPage = 25;
   const [queryInputString, setQueryInputString] = useState<string>("");
   const [query, setQuery] = useState<string>("");
   const [activePage, setActivePage] = useState<number>(1);
-  const [activeSort, setActiveSort] = useState<string>("opened");
-  const [totalPages, setTotalPages] = useState<number>(1);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
-  const [showAssignModal, setShowAssignModal] = useState<boolean>(false);
-  const [selectedTicketId, setSelectedTicketId] = useState<string>("");
   const [assigneeFilters, setAssigneeFilters] = useState<string[]>([]);
   const [priorityFilters, setPriorityFilters] = useState<string[]>([]);
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
@@ -56,11 +44,11 @@ const SupportDashboard = () => {
     query: query,
     page: activePage,
     items: itemsPerPage,
-    sort: activeSort,
+    sort: "opened",
     assigneeFilters,
     priorityFilters,
     categoryFilters,
-    enabled: user.isSupport || user.isSuperAdmin,
+    enabled: user.isSupport || (user.isHarvester && selectedQueue === "harvesting"),
   });
 
   const { data: userTickets, isFetching: isFetchingUserTickets } =
@@ -68,7 +56,7 @@ const SupportDashboard = () => {
       activePage,
       itemsPerPage,
       queue: selectedQueue,
-      enabled: !user.isSupport && !user.isSuperAdmin,
+      enabled: !user.isSupport && !user.isHarvester,
     });
 
   const debouncedQueryUpdate = debounce(
@@ -76,41 +64,19 @@ const SupportDashboard = () => {
     300
   );
 
-  function openAssignModal(ticketId: string) {
-    setSelectedTicketId(ticketId);
-    setShowAssignModal(true);
-  }
-
-  function onCloseAssignModal() {
-    setShowAssignModal(false);
-    setSelectedTicketId("");
-    queryClient.invalidateQueries(["openTickets"]);
-  }
-
-  function getAssigneeName(uuid: string) {
-    const user = openTickets?.tickets.find((t) =>
-      t.assignedUsers?.find((u) => u.uuid === uuid)
-    );
-    if (user) {
-      return user.assignedUsers?.find((u) => u.uuid === uuid)?.firstName;
-    } else {
-      return "";
-    }
-  }
-
   return (
     <AlternateLayout>
       <div className="flex flex-row">
         <SupportQueuesSidebar
-          showCounts={user.isSupport || user.isSuperAdmin}
-          showMetrics={user.isSupport || user.isSuperAdmin}
+          showCounts={user.isSupport}
+          showMetrics={user.isSupport}
         />
         <div className="flex flex-col w-full p-8 bg-gray-100/50">
           <div className="w-full overflow-x-auto !pr-12">
             <div className="flex justify-between">
               <div className="flex flex-col mb-4">
                 <p className="text-3xl font-semibold mb-2 capitalize">
-                  {selectedQueue} - Open Tickets
+                  {selectedQueue}
                 </p>
                 <div className="flex flex-row items-end space-x-3">
                   <Input
@@ -125,30 +91,39 @@ const SupportDashboard = () => {
                     className="w-80"
                     leftIcon={<IconSearch className="size-5 text-gray-400" />}
                   />
-                  <Combobox
-                    name="assignee-filter"
-                    label="Assignee"
-                    items={ticketFilters?.filters.assignee || []}
-                    multiple={true}
-                    onChange={(values) => setAssigneeFilters(values)}
-                    loading={isFetchingFilters}
-                  />
-                  <Combobox
-                    name="priority-filter"
-                    label="Priority"
-                    items={ticketFilters?.filters.priority || []}
-                    multiple={true}
-                    onChange={(values) => setPriorityFilters(values)}
-                    loading={isFetchingFilters}
-                  />
-                  <Combobox
-                    name="category-filter"
-                    label="Category"
-                    items={ticketFilters?.filters.category || []}
-                    multiple={true}
-                    onChange={(values) => setCategoryFilters(values)}
-                    loading={isFetchingFilters}
-                  />
+                  {user.isSupport && (
+                    <Combobox
+                      name="assignee-filter"
+                      label="Assignee"
+                      items={ticketFilters?.filters.assignee || []}
+                      multiple={true}
+                      value={assigneeFilters}
+                      onChange={(values) => setAssigneeFilters(values)}
+                      loading={isFetchingFilters}
+                    />
+                  )}
+                  {selectedQueueObject?.has_priorities && (
+                    <Combobox
+                      name="priority-filter"
+                      label="Priority"
+                      items={ticketFilters?.filters.priority || []}
+                      multiple={true}
+                      value={priorityFilters}
+                      onChange={(values) => setPriorityFilters(values)}
+                      loading={isFetchingFilters}
+                    />
+                  )}
+                  {selectedQueueObject?.has_categories && (
+                    <Combobox
+                      name="category-filter"
+                      label="Category"
+                      items={ticketFilters?.filters.category || []}
+                      multiple={true}
+                      value={categoryFilters}
+                      onChange={(values) => setCategoryFilters(values)}
+                      loading={isFetchingFilters}
+                    />
+                  )}
                   {selectedTickets.length > 0 && (
                     <Button
                       color="blue"
@@ -168,7 +143,7 @@ const SupportDashboard = () => {
                       className="h-10"
                       icon="IconPencilBolt"
                     >
-                      <span className="pb-0.5">Bulk Change</span>
+                      <span className="">Change</span>
                     </Button>
                   )}
                 </div>
@@ -179,20 +154,31 @@ const SupportDashboard = () => {
                   className="mt-2"
                 />
               </div>
-              <Button
-                color="blue"
-                onClick={() =>
-                  (window.location.href = `/support/contact?queue=${selectedQueue}`)
-                }
-                className="h-10 self-start"
-                icon="IconPlus"
-              >
-                <span className="pb-0.5">Create New Ticket</span>
-              </Button>
+              <div className="flex flex-row space-x-3">
+                <Button
+                  color="blue"
+                  variant="secondary"
+                  onClick={() => (window.location.href = `/support/closed`)}
+                  className="h-10 self-start"
+                  icon="IconBellZ"
+                >
+                  <span className="pb-0.5">View Closed Tickets</span>
+                </Button>
+                <Button
+                  color="blue"
+                  onClick={() =>
+                    (window.location.href = `/support/contact?queue=${selectedQueue}`)
+                  }
+                  className="h-10 self-start"
+                  icon="IconPlus"
+                >
+                  <span className="pb-0.5">Create New Ticket</span>
+                </Button>
+              </div>
             </div>
             <TicketTable
               data={
-                user.isSupport || user.isSuperAdmin
+                (user.isSupport || user.isHarvester)
                   ? openTickets?.tickets || []
                   : userTickets?.tickets || []
               }
@@ -205,13 +191,6 @@ const SupportDashboard = () => {
           open={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
         />
-        {selectedTicketId && (
-          <AssignTicketModal
-            open={showAssignModal}
-            onClose={onCloseAssignModal}
-            ticketId={selectedTicketId}
-          />
-        )}
       </div>
     </AlternateLayout>
   );

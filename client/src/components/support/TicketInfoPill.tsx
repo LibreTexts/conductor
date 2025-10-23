@@ -18,7 +18,7 @@ const Pill = (props: {
   return (
     <div
       className={classNames(
-        "flex flex-row items-center capitalize px-4 py-1 rounded-full text-xs font-semibold w-fit max-w-[140px]",
+        "flex flex-row items-center capitalize px-4 py-1 rounded-full text-xs font-semibold w-fit max-w-[160px]",
         props.backgroundColor,
         props.textColor,
         props.className
@@ -30,10 +30,10 @@ const Pill = (props: {
   );
 };
 
-export const TicketPriorityPill: React.FC<{ priority: string, className?: string }> = ({
-  priority,
-  className
-}) => {
+export const TicketPriorityPill: React.FC<{
+  priority: string;
+  className?: string;
+}> = ({ priority, className }) => {
   const iconColor = () => {
     switch (priority) {
       case "low":
@@ -75,7 +75,10 @@ export const TicketPriorityPill: React.FC<{ priority: string, className?: string
   );
 };
 
-export const TicketStatusPill: React.FC<{ status: string, className?: string }> = ({ status, className }) => {
+export const TicketStatusPill: React.FC<{
+  status: string;
+  className?: string;
+}> = ({ status, className }) => {
   const StatusIcon = () => {
     const iconClasses = "w-4 h-4 inline-block mr-1";
     switch (status) {
@@ -85,7 +88,7 @@ export const TicketStatusPill: React.FC<{ status: string, className?: string }> 
         return <IconClock className={iconClasses} />;
       case "awaiting_requester":
         return <IconClock className={iconClasses} />;
-      case "resolved":
+      case "closed":
         return <IconCircleCheck className={iconClasses} />;
       default:
         return <IconMessage className={iconClasses} />;
@@ -100,7 +103,7 @@ export const TicketStatusPill: React.FC<{ status: string, className?: string }> 
         return ["bg-blue-100", "text-blue-800"];
       case "awaiting_requester":
         return ["bg-orange-100", "text-orange-800"];
-      case "resolved":
+      case "closed":
         return ["bg-green-100", "text-green-800"];
       default:
         return ["bg-gray-100", "text-gray-800"];

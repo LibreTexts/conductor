@@ -5,10 +5,9 @@ import {
   ComboboxOption,
   ComboboxOptions,
   Label,
-  ComboboxProps as HeadlessComboboxProps,
 } from "@headlessui/react";
 import { IconChevronDown, IconLoader2 } from "@tabler/icons-react";
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { GenericKeyTextValueObj } from "../../types";
 import classNames from "classnames";
 
@@ -20,6 +19,7 @@ export type ComboboxProps = {
   items: GenericKeyTextValueObj<string>[];
   loading?: boolean;
   placeholder?: string;
+  value?: string | string[];
 } & (
   | {
       multiple?: true;
@@ -37,23 +37,25 @@ const Combobox: React.FC<ComboboxProps> = ({
   items,
   multiple = false,
   loading = false,
+  value,
   placeholder = "Select...",
   ...props
 }) => {
   const [query, setQuery] = useState("");
-  const [selectedItems, setSelectedItems] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
 
-  useEffect(() => {
-    if (multiple) {
-      const onChange = props.onChange as (value: string[]) => void;
-      onChange(selectedItems.map((i) => i.value));
-    } else {
-      const onChange = props.onChange as (value: string) => void;
-      onChange(selectedItems.length > 0 ? selectedItems[0].value : "");
+  const selectedItems = useMemo(() => {
+    if (value === undefined || value === "") {
+      return [];
     }
-  }, [selectedItems]);
+
+    if (multiple && Array.isArray(value)) {
+      return items.filter((item) => value.includes(item.value));
+    } else if (!multiple && typeof value === "string") {
+      const selectedItem = items.find((item) => item.value === value);
+      return selectedItem ? [selectedItem] : [];
+    }
+    return [];
+  }, [value, items, multiple]);
 
   const filteredItems =
     query === ""
@@ -79,7 +81,37 @@ const Combobox: React.FC<ComboboxProps> = ({
       {...props}
       value={(multiple ? selectedItems : selectedItems[0]) as any}
       multiple={multiple}
-      onChange={(item) => setSelectedItems(item as any)}
+      onChange={(item) => {
+        if (multiple) {
+          // if item is an empty array, clear all selections
+          if (Array.isArray(item) && item.length === 0) {
+            (props.onChange as (value: string[]) => void)([]);
+            return;
+          }
+
+          const lastAddedItem = item[item.length - 1];
+          const alreadyExists = selectedItems.some(
+            (i) => i.value === lastAddedItem.value
+          );
+
+          const newValues = alreadyExists
+            ? selectedItems
+                .filter((i) => i.value !== lastAddedItem.value)
+                .map((i) => i.value)
+            : [...selectedItems, lastAddedItem].map((i) => i.value);
+
+          (props.onChange as (value: string[]) => void)(newValues);
+        } else {
+          // if item is the same as the currently selected item, deselect it
+          const newValue =
+            selectedItems.length > 0 &&
+            selectedItems[0].value ===
+              (item as GenericKeyTextValueObj<string>).value
+              ? ""
+              : (item as GenericKeyTextValueObj<string>).value;
+          (props.onChange as (value: string) => void)(newValue);
+        }
+      }}
       immediate
     >
       {label && (
@@ -127,7 +159,7 @@ const Combobox: React.FC<ComboboxProps> = ({
 
         <ComboboxOptions
           transition
-          className="absolute z-20 mt-1 max-h-60 w-full cursor-pointer overflow-auto rounded-md bg-white py-1 text-base shadow-lg outline outline-black/5 data-leave:transition data-leave:duration-100 data-leave:ease-in data-closed:data-leave:opacity-0 sm:text-sm"
+          className="absolute !z-30 mt-1 max-h-60 w-full cursor-pointer overflow-auto rounded-md bg-white py-1 text-base shadow-lg outline outline-black/5 data-leave:transition data-leave:duration-100 data-leave:ease-in data-closed:data-leave:opacity-0 sm:text-sm"
         >
           {filteredItems.map((item) => (
             <ComboboxOption

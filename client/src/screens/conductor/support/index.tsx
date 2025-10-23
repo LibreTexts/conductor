@@ -3,7 +3,6 @@ import DefaultLayout from "../../../components/navigation/AlternateLayout";
 import SupportCenterJumbotron from "../../../components/support/Jumbotron";
 import { Icon, SemanticICONS } from "semantic-ui-react";
 import { useTypedSelector } from "../../../state/hooks";
-import { isSupportStaff } from "../../../utils/supportHelpers";
 import { useMediaQuery } from "react-responsive";
 
 const SupportCenter = () => {
@@ -78,9 +77,9 @@ const SupportCenter = () => {
         />
         {user?.uuid && (
           <HomeItem
-            title={isSupportStaff(user) ? "Staff Dashboard" : "My Tickets"}
+            title={user.isSupport || user.isHarvester ? "Staff Dashboard" : "My Tickets"}
             text="View and manage support tickets."
-            icon={isSupportStaff(user) ? "user doctor" : "ticket"}
+            icon={user.isSupport || user.isHarvester ? "user doctor" : "ticket"}
             link="/support/dashboard"
           />
         )}

@@ -1,7 +1,7 @@
 import { Modal } from "semantic-ui-react";
 import { useSupportCenterContext } from "../../context/SupportCenterContext";
 import useSupportQueues from "../../hooks/useSupportQueues";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { User } from "../../types";
 import api from "../../api";
 import { useForm } from "react-hook-form";
@@ -13,6 +13,7 @@ import { capitalizeFirstLetter } from "../util/HelperFunctions";
 import Button from "../NextGenComponents/Button";
 import { useEffect, useMemo } from "react";
 import CtlNextGenCombobox from "../ControlledInputs/CtlNextGenCombobox";
+import { useNotifications } from "../../context/NotificationContext";
 
 type BulkChangeFormData = {
   queue: string;
@@ -24,7 +25,7 @@ type BulkChangeFormData = {
 interface BulkChangeModalProps {
   open: boolean;
   onCancel: () => void;
-  onSave: (data: any) => void;
+  onSave: () => void;
 }
 
 const BulkChangeModal: React.FC<BulkChangeModalProps> = ({
@@ -41,6 +42,8 @@ const BulkChangeModal: React.FC<BulkChangeModalProps> = ({
     },
   });
 
+  const queryClient = useQueryClient();
+  const { addNotification } = useNotifications();
   const { selectedTickets } = useSupportCenterContext();
   const { data: queues } = useSupportQueues({
     withCount: false,
@@ -63,7 +66,6 @@ const BulkChangeModal: React.FC<BulkChangeModalProps> = ({
   }, [open]);
 
   const saveDisabled = useMemo(() => {
-    console.log("getValues", getValues());
     if (
       !getValues("queue") &&
       getValues("assignees").length === 0 &&
@@ -74,6 +76,35 @@ const BulkChangeModal: React.FC<BulkChangeModalProps> = ({
     }
     return false;
   }, [watch("queue"), watch("assignees"), watch("priority"), watch("status")]);
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async (data: BulkChangeFormData) => {
+      await api.bulkUpdateTickets({
+        tickets: selectedTickets,
+        queue: data.queue || undefined,
+        assignee: data.assignees.length > 0 ? data.assignees : undefined,
+        priority: data.priority || undefined,
+        status: data.status || undefined,
+      });
+    },
+    onSuccess: async () => {
+      addNotification({
+        type: "success",
+        message: `Successfully updated ${selectedTickets.length} tickets.`,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["supportTickets"] });
+      onSave();
+    },
+    onError: (error: any) => {
+      console.error("Error bulk updating tickets:", error);
+      addNotification({
+        type: "error",
+        message:
+          error?.response?.data?.errMsg ||
+          `An error occurred while updating tickets.`,
+      });
+    },
+  });
 
   return (
     <Modal open={open} onClose={onCancel} size="small">
@@ -120,6 +151,7 @@ const BulkChangeModal: React.FC<BulkChangeModalProps> = ({
           label="Change Assignees"
           placeholder="No Change..."
           multiple={true}
+          loading={isFetchingUsers}
           items={
             assignableUsers?.map((user) => ({
               key: user.uuid,
@@ -130,14 +162,20 @@ const BulkChangeModal: React.FC<BulkChangeModalProps> = ({
         />
       </Modal.Content>
       <Modal.Actions className="flex justify-end space-x-2">
-        <Button variant="secondary" onClick={() => onCancel()} icon="IconX">
+        <Button
+          variant="secondary"
+          onClick={() => onCancel()}
+          icon="IconX"
+          loading={bulkUpdateMutation.isLoading}
+        >
           Cancel
         </Button>
         <Button
           color="blue"
-          onClick={() => onSave({})}
+          onClick={() => bulkUpdateMutation.mutate(getValues())}
           icon="IconCheck"
           disabled={saveDisabled}
+          loading={bulkUpdateMutation.isLoading}
         >
           Save Changes
         </Button>

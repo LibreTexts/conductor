@@ -59,8 +59,6 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   }, [queues]);
 
   useEffect(() => {
-    document.title = "LibreTexts | Create Support Ticket";
-
     //Check url for capturedURL query param
     const urlParams = new URLSearchParams(window.location.search);
     const capturedURL = urlParams.get("capturedURL");
@@ -169,7 +167,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
 
   return (
     <FormProvider {...methods}>
-      <div className="flex flex-col border rounded-lg m-4 p-4 w-full lg:w-1/2 shadow-lg bg-white">
+      <div className="flex flex-col border rounded-lg m-4 p-4 w-full md:w-3/4 lg:w-1/2 shadow-lg bg-white">
         {step === 1 && <QueueSelector />}
         {step === 2 && (
           <RenderTicketRequestForm

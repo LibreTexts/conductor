@@ -52,7 +52,7 @@ const Checkbox: React.FC<CheckboxProps> = ({
               "col-start-1 row-start-1 appearance-none rounded border border-gray-300 bg-white checked:border-primary checked:bg-primary indeterminate:border-primary indeterminate:bg-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:border-gray-300 disabled:bg-gray-100 disabled:checked:bg-gray-100 forced-colors:appearance-auto",
               large ? "size-7" : "size-3.5",
               inputClassName,
-              error ? "border-red-500 focus-visible:outline-red-500" : ""
+              error ? "!border-red-500 focus-visible:outline-red-500 !bg-red-100" : ""
             )}
             {...props}
           />
@@ -61,7 +61,8 @@ const Checkbox: React.FC<CheckboxProps> = ({
             viewBox="0 0 14 14"
             className={classNames(
               "pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-[:disabled]:stroke-gray-950/25",
-              large ? "size-7" : "size-3.5"
+              large ? "size-7" : "size-3.5",
+              error ? "!stroke-red-500 !bg-red-100" : ""
             )}
           >
             <path
@@ -85,10 +86,9 @@ const Checkbox: React.FC<CheckboxProps> = ({
         <div className="text-sm/6">
           <label
             htmlFor={name}
-            className={classNames("font-medium text-gray-700", labelClassName)}
+            className={classNames("font-medium text-gray-700", labelClassName, error ? "text-red-600" : "")}
           >
-            {label}
-            {required ? "*" : ""}
+            {label}{required ? "*" : ""}
           </label>
         </div>
       )}

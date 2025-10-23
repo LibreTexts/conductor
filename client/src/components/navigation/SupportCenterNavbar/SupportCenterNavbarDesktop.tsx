@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button, Form, Icon, Image } from "semantic-ui-react";
 import Launchpad from "../Launchpad.js";
-import { isSupportStaff } from "../../../utils/supportHelpers.js";
 import AuthHelper from "../../util/AuthHelper.js";
 import UserDropdown from "../UserDropdown.js";
 import { User } from "../../../types/User.js";
@@ -68,7 +67,7 @@ const SupportCenterNavbarDesktop: React.FC<SupportCenterNavbarDesktopProps> = ({
         >
           Back to {user && user.uuid ? "Conductor" : "Commons"}
         </Button>
-        {isSupportStaff(user) ? (
+        {(user.isSupport || user.isHarvester) ? (
           <Button
             className="h-10"
             color="blue"

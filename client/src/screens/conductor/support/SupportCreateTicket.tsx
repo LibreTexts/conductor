@@ -5,8 +5,10 @@ import AuthHelper from "../../../components/util/AuthHelper";
 import CreateTicketFlow from "../../../components/support/CreateTicketFlow";
 import useSystemAnnouncement from "../../../hooks/useSystemAnnouncement";
 import SystemAnnouncement from "../../../components/util/SystemAnnouncement";
+import { useDocumentTitle } from "usehooks-ts";
 
 const SupportCreateTicket = () => {
+  useDocumentTitle("LibreTexts | Contact Support");
   const user = useTypedSelector((state) => state.user);
   const [guestMode, setGuestMode] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -19,10 +21,6 @@ const SupportCreateTicket = () => {
     }
     setIsLoggedIn(false);
   };
-
-  useEffect(() => {
-    document.title = "LibreTexts | Contact Support";
-  }, []);
 
   useEffect(() => {
     checkIsLoggedIn();

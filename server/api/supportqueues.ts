@@ -32,31 +32,6 @@ async function getSupportQueues(req: ZodReqWithOptionalUser<z.infer<typeof getSu
     }
 }
 
-async function getSupportQueue(req: ZodReqWithOptionalUser<z.infer<typeof getSupportQueueSchema>>, res: Response) {
-    try {
-        const { slug } = req.params;
-
-        // @ts-expect-error
-        const withCount = req.query?.with_count === true || req.query?.with_count === "true";
-
-        // User must have support role to view ticket counts
-        if (withCount && (!req.user || !authAPI.checkHasRole(req.user, "libretexts", "support"))) {
-            return res.status(403).json({ err: true, errMsg: "Forbidden" });
-        }
-
-        const service = new SupportQueueService();
-        const queue = await service.getQueueBySlug(slug, { withCount });
-        if (!queue) {
-            return conductor404Err(res);
-        }
-
-        return res.status(200).json({ err: false, queue });
-    } catch (error) {
-        debugError(error);
-        return conductor500Err(res);
-    }
-}
-
 async function getSupportQueueMetrics(req: ZodReqWithUser<z.infer<typeof getMetricsSchema>>, res: Response) {
     try {
         const { slug } = req.params;
@@ -73,6 +48,5 @@ async function getSupportQueueMetrics(req: ZodReqWithUser<z.infer<typeof getMetr
 
 export default {
     getSupportQueues,
-    getSupportQueue,
     getSupportQueueMetrics
 };

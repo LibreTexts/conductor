@@ -100,9 +100,9 @@ export const SupportTicketStatusOptions: GenericKeyTextValueObj<string>[] = [
     value: "awaiting_requester",
   },
   {
-    key: "resolved",
-    text: "Resolved",
-    value: "resolved",
+    key: "closed",
+    text: "Closed",
+    value: "closed",
   },
 ];
 
@@ -111,17 +111,7 @@ export const getPrettySupportTicketStatus = (status: string): string => {
     (s) => s.value === status
   );
   return foundStatus ? foundStatus.text : "Unknown";
-}
-
-export const isSupportStaff = (user?: User): boolean => {
-  if (!user || !user.uuid) return false;
-  if (user.isSuperAdmin) return true;
-  const foundRole = user.roles.find(
-    (r) => r.org === "libretexts" && r.role === "support"
-  );
-  return !!foundRole;
 };
-
 
 export const supportTicketAttachmentAllowedTypes = [
   "application/msword", // .doc

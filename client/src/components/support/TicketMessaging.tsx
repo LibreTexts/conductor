@@ -1,4 +1,3 @@
-import { format, parseISO } from "date-fns";
 import { useEffect, useRef } from "react";
 import { Button, Form, Icon, TextArea } from "semantic-ui-react";
 import { SupportTicket, SupportTicketMessage } from "../../types";
@@ -7,7 +6,6 @@ import axios from "axios";
 import { Controller, useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTypedSelector } from "../../state/hooks";
-import { isSupportStaff } from "../../utils/supportHelpers";
 import TicketCommentsContainer from "./TicketCommentsContainer";
 
 interface TicketMessagingProps {
@@ -107,8 +105,9 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
 
   const sendMessageMutation = useMutation({
     mutationFn: sendMessage,
-    onSuccess: () => {
-      queryClient.invalidateQueries(["ticketMessages", id]);
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["ticket", id] });
+      await queryClient.invalidateQueries({ queryKey: ["ticketMessages", id] });
     },
   });
 
@@ -117,7 +116,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
       <div className="flex flex-col w-full bg-white rounded-md">
         <div className="flex flex-col border shadow-md rounded-md p-4">
           <p className="text-xl font-semibold text-center">Ticket Comments</p>
-          {!isSupportStaff(user) && (
+          {(!user.isSupport && !user.isHarvester) && (
             <div className="px-4 mt-2 mb-4">
               <p className="text-center italic">
                 Feel free to leave this page at any time. We'll send you an

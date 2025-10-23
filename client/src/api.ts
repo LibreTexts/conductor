@@ -59,7 +59,8 @@ import {
   CentralIdentityOrgAdminResult,
   AssetTag,
   SupportQueue,
-  SupportQueueMetrics
+  SupportQueueMetrics,
+  SupportTicketPriority
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -1463,19 +1464,6 @@ class API {
     return res;
   }
 
-  async getSupportQueueBySlug(slug: string, { withCount }: { withCount?: boolean } = {}) {
-    const res = await axios.get<
-      {
-        queue: SupportQueue;
-      } & ConductorBaseResponse
-    >(`/support-queues/${slug}`, {
-      params: {
-        with_count: withCount,
-      },
-    });
-    return res;
-  }
-
   async getSupportQueueMetrics(slug: string) {
     const res = await axios.get<
       {
@@ -1490,6 +1478,31 @@ class API {
       `/support/ticket/${ticketID}`
     );
     return res;
+  }
+
+  async bulkUpdateTickets({
+    tickets,
+    assignee,
+    priority,
+    status,
+    queue
+  }: {
+    tickets: string[];
+    assignee?: string[];
+    priority?: string;
+    status?: string;
+    queue?: string;
+  }) {
+    return await axios.patch<{ updated_count: number } & ConductorBaseResponse>(
+      `/support/ticket/bulk-update`,
+      {
+        tickets,
+        assignee,
+        priority,
+        status,
+        queue
+      }
+    );
   }
 
   async getTicketAttachmentURL(
@@ -1507,6 +1520,14 @@ class API {
       },
     });
     return res;
+  }
+
+  async createProjectFromHarvestingRequest(ticketID: string) {
+    return await axios.post<{
+      project: Project
+    } & ConductorBaseResponse>(
+      `/support/ticket/${ticketID}/create-project-from-harvesting-request`
+    );
   }
 
   // Commons Collections

@@ -9,6 +9,8 @@ export type SupportQueue = {
     icon: string;
     order: number;
     is_default: boolean;
+    has_categories: boolean;
+    has_priorities: boolean;
     form_fields: Array<{
         id: string;
         field_type: string;

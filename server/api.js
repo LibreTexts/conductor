@@ -2535,21 +2535,11 @@ router
   );
 
 router
-  .route("/support-queues/:slug")
-  .get(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "support"),
-    middleware.validateZod(supportQueueValidators.getSupportQueueSchema),
-    supportQueuesAPI.getSupportQueue
-  );
-
-router
   .route("/support-queues/:slug/metrics")
   .get(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "support"),
+    authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     middleware.validateZod(supportQueueValidators.getMetricsSchema),
     supportQueuesAPI.getSupportQueueMetrics
   );
@@ -2559,7 +2549,7 @@ router
   .get(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "support"),
+    authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     middleware.validateZod(supportValidators.GetOpenTicketsValidator),
     supportAPI.getOpenInProgressTickets
   );
@@ -2569,7 +2559,7 @@ router
   .get(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "support"),
+    authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     middleware.validateZod(supportValidators.GetClosedTicketsValidator),
     supportAPI.getClosedTickets
   );
@@ -2585,7 +2575,7 @@ router.route("/support/user/:uuid/tickets").get(
 router.route("/support/ticket/requestor-other-tickets").get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware("libretexts", "support"),
+  authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
   middleware.validateZod(supportValidators.GetRequestorOtherTicketsValidator),
   supportAPI.getRequestorOtherTickets
 )
@@ -2604,16 +2594,26 @@ router
   .get(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "support"),
+    authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     supportAPI.getAssignableUsers
   );
+
+router
+.route("/support/ticket/bulk-update")
+.patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
+  middleware.validateZod(supportValidators.BulkUpdateTicketsValidator),
+  supportAPI.bulkUpdateTickets
+);
 
 router
   .route("/support/ticket/:uuid/assign")
   .patch(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "support"),
+    authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     middleware.validateZod(supportValidators.AssignTicketValidator),
     supportAPI.assignTicket
   );
@@ -2632,6 +2632,16 @@ router
     middleware.validateZod(supportValidators.RemoveTicketCCValidator),
     supportAPI.removeTicketCC
   );
+
+router
+.route("/support/ticket/:uuid/create-project-from-harvesting-request")
+.post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
+  middleware.validateZod(supportValidators.TicketUUIDParams),
+  supportAPI.createAndAttachProjectFromHarvestingRequest
+);
 
 router
   .route("/support/ticket/:uuid/msg")
@@ -2653,14 +2663,14 @@ router
   .get(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "support"),
+    authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     middleware.validateZod(supportValidators.GetTicketValidator),
     supportAPI.getInternalMessages
   )
   .post(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "support"),
+    authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     middleware.validateZod(supportValidators.SendTicketMessageValidator),
     supportAPI.createInternalMessage
   );
@@ -2695,14 +2705,14 @@ router
   .patch(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "support"),
+    authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     middleware.validateZod(supportValidators.UpdateTicketValidator),
     supportAPI.updateTicket
   )
   .delete(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "support"),
+    authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     middleware.validateZod(supportValidators.DeleteTicketValidator),
     supportAPI.deleteTicket
   );

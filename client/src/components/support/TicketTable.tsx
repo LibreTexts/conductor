@@ -14,14 +14,18 @@ interface TicketTableProps {
   showSelect?: boolean;
   showAssigned?: boolean;
   showQueue?: boolean;
+  forceCategoryColumn?: boolean;
+  forcePriorityColumn?: boolean;
 }
 
 const TicketTable: React.FC<TicketTableProps> = ({
   data,
   showSelect,
   showAssigned,
+  forceCategoryColumn,
+  forcePriorityColumn,
 }) => {
-  const { setSelectedTickets } = useSupportCenterContext();
+  const { setSelectedTickets, selectedQueueObject } = useSupportCenterContext();
   const [allSelected, setAllSelected] = useState(false);
   const [withChecked, setWithChecked] = useState<
     (SupportTicket & {
@@ -58,9 +62,6 @@ const TicketTable: React.FC<TicketTableProps> = ({
     }
   };
 
-  const anyHasCategory = data.some((ticket) => ticket.category);
-  const anyHasPriority = data.some((ticket) => ticket.priority);
-
   return (
     <div className="w-full h-screen overflow-auto border border-gray-200 rounded-lg !bg-white">
       <table className="w-full text-left whitespace-nowrap !bg-white">
@@ -81,7 +82,7 @@ const TicketTable: React.FC<TicketTableProps> = ({
             <th scope="col" className={`py-2 lg:w-5/12`}>
               Title
             </th>
-            {anyHasCategory && (
+            {(selectedQueueObject?.has_categories || forceCategoryColumn) && (
               <th scope="col" className="py-2">
                 Category
               </th>
@@ -89,7 +90,7 @@ const TicketTable: React.FC<TicketTableProps> = ({
             <th scope="col" className="py-2">
               Requester
             </th>
-            {anyHasPriority && (
+            {(selectedQueueObject?.has_priorities || forcePriorityColumn) && (
               <th scope="col" className="py-2">
                 Priority
               </th>
@@ -147,7 +148,8 @@ const TicketTable: React.FC<TicketTableProps> = ({
                       </p>
                     </div>
                   </td>
-                  {anyHasCategory && (
+                  {(selectedQueueObject?.has_categories ||
+                    forceCategoryColumn) && (
                     <td className="text-sm">
                       {getPrettySupportTicketCategory(ticket.category || "")}
                     </td>
@@ -158,7 +160,8 @@ const TicketTable: React.FC<TicketTableProps> = ({
                       <p className="truncate">{getRequesterText(ticket)}</p>
                     </div>
                   </td>
-                  {anyHasPriority && (
+                  {(selectedQueueObject?.has_priorities ||
+                    forcePriorityColumn) && (
                     <td className="pr-10">
                       <TicketPriorityPill priority={ticket.priority || ""} />
                     </td>

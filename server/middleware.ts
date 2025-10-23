@@ -266,7 +266,7 @@ const canAccessSupportTicket = async (
       const hasSupportRole = authAPI.checkHasRole(
         user,
         "libretexts",
-        "support",
+        ["support", "harvester"],
         true
       );
 

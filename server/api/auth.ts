@@ -846,18 +846,21 @@ function optionalGetUserAttributes(
 
 /**
  * Checks that the user has at least one of the provided roles within the specified Organization.
- * Users with the "superadmin" role in the "libretexts" organization will always return true.
+ * Users with the "superadmin" role in the "libretexts" organization will always return true, unless the "explicit" param is set to true.
  * NOTE: This method should NOT be used as middleware.
  * @param {Object} user - The user data object.
  * @param {String} org - The Organization identifier.
  * @param {String | String[]} role - The role identifier.
+ * @param {Boolean} [silent=false] - If true, suppresses error logging.
+ * @param {Boolean} [explicit=false] - If true, does not apply superadmin/campusadmin overrides.
  * @returns {Boolean} True if valid roles are provided and the user has at least one of them, false otherwise.
  */
 const checkHasRole = (
   user: Record<string, any>,
   org: string,
   role: string | string[],
-  silent = false
+  silent = false,
+  explicit = false
 ) => {
   const rawMatchRoles = Array.isArray(role) ? role : [role]; // Always convert to an array for simplicity in checks
   
@@ -888,13 +891,15 @@ const checkHasRole = (
           return element;
         } else if (
           element.org === "libretexts" &&
-          element.role === "superadmin"
+          element.role === "superadmin" &&
+          !explicit
         ) {
           // OVERRIDE: SuperAdmins always have permission
           return element;
         } else if (
           element.org === process.env.ORG_ID &&
-          element.role === "campusadmin"
+          element.role === "campusadmin" &&
+          !explicit
         ) {
           // OVERRIDE: CampusAdmins always have permission in their own instance
           return element;

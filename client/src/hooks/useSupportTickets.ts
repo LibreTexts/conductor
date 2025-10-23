@@ -46,6 +46,9 @@ const useSupportTickets = (queue: string, params: UseSupportTicketsParams) => {
         staleTime: 5 * 60 * 1000, // 5 minutes
         refetchOnWindowFocus: false,
         enabled: !!queue && params.enabled, // Only run the query if queue is provided
+        meta: {
+            errorMessage: "Failed to fetch tickets.",
+        }
     })
 
     const totalPages = useMemo(() => {

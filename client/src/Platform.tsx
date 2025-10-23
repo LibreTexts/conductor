@@ -12,12 +12,17 @@ import withOrgStateDependency from "./enhancers/withOrgStateDependency.jsx";
 import "./styles/global.css";
 import { ErrorBoundary } from "react-error-boundary";
 import ErrorScreen from "./screens/ErrorScreen.js";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryCache,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import ModalsProvider from "./providers/ModalsProvider.js";
 import NotificationsProvider from "./providers/NotificationsProvider.js";
 import { BrowserRouter, Route, Switch } from "react-router-dom";
 import SupportCenterProvider from "./providers/SupportCenterProvider.js";
+import { useNotifications } from "./context/NotificationContext.js";
 
 /**
  * Exposes the applications and global configuration.
@@ -80,26 +85,43 @@ const Platform = () => {
   }, []);
 
   const ApplicationTree = () => {
+    const queryClient = new QueryClient({
+      queryCache: new QueryCache({
+        onError(error, query) {
+          const errMsg =
+            query?.meta && "errorMessage" in query.meta
+              ? (query.meta.errorMessage as string)
+              : "An error occurred";
+          addNotification({
+            type: "error",
+            message: errMsg,
+          });
+        },
+      }),
+    });
+    const { addNotification } = useNotifications();
+
     return (
       <ErrorBoundary FallbackComponent={ErrorScreen}>
-        <div className="App">
-          <NotificationsProvider>
+        <QueryClientProvider client={queryClient}>
+          <div className="App">
             <SupportCenterProvider>
-            <ModalsProvider>
-              <Switch>
-                {/* Commons Render Tree */}
-                {/* @ts-expect-error */}
-                <Route exact path={commonsPaths} component={Commons} />
-                {/* Standalone Pages */}
-                <Route exact path={standalonePaths} component={Standalone} />
-                {/* Conductor and fallback Render Tree */}
-                <Route component={Conductor} />
-              </Switch>
-            </ModalsProvider>
+              <ModalsProvider>
+                <Switch>
+                  {/* Commons Render Tree */}
+                  {/* @ts-expect-error */}
+                  <Route exact path={commonsPaths} component={Commons} />
+                  {/* Standalone Pages */}
+                  <Route exact path={standalonePaths} component={Standalone} />
+                  {/* Conductor and fallback Render Tree */}
+                  <Route component={Conductor} />
+                </Switch>
+              </ModalsProvider>
             </SupportCenterProvider>
-          </NotificationsProvider>
-          <ErrorModal />
-        </div>
+            <ErrorModal />
+            <ReactQueryDevtools initialIsOpen={false} />
+          </div>
+        </QueryClientProvider>
       </ErrorBoundary>
     );
   };
@@ -107,19 +129,16 @@ const Platform = () => {
   // @ts-expect-error
   const Application = withOrgStateDependency(ApplicationTree);
 
-  const queryClient = new QueryClient();
-
   return (
     <BrowserRouter>
       <CompatRouter>
-        <QueryClientProvider client={queryClient}>
+        <NotificationsProvider>
           <Provider store={store}>
             {/* @ts-expect-error */}
             <Application />
           </Provider>
-          <ReactQueryDevtools initialIsOpen={false} />
           <div id="support-widget-container" className="support-widget" />
-        </QueryClientProvider>
+        </NotificationsProvider>
       </CompatRouter>
     </BrowserRouter>
   );

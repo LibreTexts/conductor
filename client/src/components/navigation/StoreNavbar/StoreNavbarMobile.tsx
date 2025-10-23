@@ -4,7 +4,6 @@ import Launchpad from "../Launchpad";
 import { Link } from "react-router-dom";
 import SwitchAppWithUser from "../SwitchAppWithUser";
 import { User } from "../../../types";
-import { isSupportStaff } from "../../../utils/supportHelpers";
 import { useCart } from "../../../context/CartContext";
 
 interface StoreNavbarMobileProps {

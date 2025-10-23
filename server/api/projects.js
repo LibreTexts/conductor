@@ -21,7 +21,6 @@ import Tag from '../models/tag.js';
 import Task from '../models/task.js';
 import Thread from '../models/thread.js';
 import Message from '../models/message.js';
-import HarvestingRequest from '../models/harvestingrequest.js';
 import Organization from '../models/organization.js';
 import CIDDescriptor from '../models/ciddescriptor.js';
 import conductorErrors from '../conductor-errors.js';
@@ -2494,19 +2493,7 @@ const notifyProjectCompleted = (projectID) => {
         return Project.findOne({
             projectID: projectID
         }).lean().then((project) => {
-            projectData = project;
-            if (project.harvestReqID && !isEmptyString(project.harvestReqID)) {
-                return HarvestingRequest.findOne({
-                    _id: project.harvestReqID
-                }).lean();
-            } else {
-                return {};
-            }
-        }).then((harvestReq) => {
             const projTeam = constructProjectTeam(projectData);
-            if (Object.keys(harvestReq).length > 0 && harvestReq.email && !isEmptyString(harvestReq.email)) {
-                notifRecipients.push(harvestReq.email);
-            }
             if (Array.isArray(projTeam) && projTeam.length > 0) {
                 return usersAPI.getUserEmails(projTeam);
             } else {

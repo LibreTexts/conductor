@@ -95,13 +95,14 @@ export interface SupportTicketDeviceInfoInterface {
 
 export interface SupportTicketInterface extends Document {
   uuid: string;
+  uuidShort: string; // Last 7 characters of uuid
   queue_id: string;
   title: string;
   description?: string;
   apps?: number[]; // Central Identity app IDs
   attachments?: SupportTicketAttachmentInterface[];
   priority?: SupportTicketPriorityEnum;
-  status: "open" | "in_progress" | "closed";
+  status: "open" | "assigned" | "in_progress" | "awaiting_requester" | "closed";
   category?: string;
   guestAccessKey: string;
   capturedURL?: string;
@@ -128,6 +129,10 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
     type: String,
     required: true,
     unique: true,
+  },
+  uuidShort: {
+    type: String,
+    required: true, // This is technically not a unique field
   },
   queue_id: {
     type: String,
@@ -172,7 +177,7 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
   },
   status: {
     type: String,
-    enum: ["open", "in_progress", "closed"],
+    enum: ["open", "assigned", "in_progress", "awaiting_requester", "closed"],
     default: "open",
   },
   category: {

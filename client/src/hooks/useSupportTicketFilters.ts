@@ -22,6 +22,9 @@ const useSupportTicketFilters = () => {
         },
         staleTime: 5 * 60 * 1000, // 5 minutes
         refetchOnWindowFocus: false,
+        meta: {
+            errorMessage: "Failed to fetch ticket filters.",
+        }
     })
 
     return queryObj

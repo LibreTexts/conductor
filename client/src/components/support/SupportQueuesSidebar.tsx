@@ -2,6 +2,8 @@ import useSupportQueues from "../../hooks/useSupportQueues";
 import useSupportQueueMetrics from "../../hooks/useSupportQueueMetrics";
 import { IconChevronRight } from "@tabler/icons-react";
 import { useSupportCenterContext } from "../../context/SupportCenterContext";
+import { useTypedSelector } from "../../state/hooks";
+import { useMemo } from "react";
 
 interface SupportQueuesSidebarProps {
   showMetrics?: boolean;
@@ -12,6 +14,7 @@ const SupportQueuesSidebar: React.FC<SupportQueuesSidebarProps> = ({
   showMetrics = false,
   showCounts = false,
 }) => {
+  const user = useTypedSelector((state) => state.user);
   const { selectedQueue, setSelectedQueue } = useSupportCenterContext();
   const { data: queues, isFetching: queuesFetching } = useSupportQueues({
     withCount: showCounts,
@@ -23,10 +26,17 @@ const SupportQueuesSidebar: React.FC<SupportQueuesSidebarProps> = ({
       enabled: showMetrics,
     });
 
+  const availableQueues = useMemo(() => {
+    if (user.isHarvester) {
+      return queues?.filter((queue) => queue.slug === "harvesting") || [];
+    }
+    return queues || [];
+  }, [queues, user]);
+
   return (
     <div className="flex flex-col mb-1 p-8 h-fill min-w-[15%] border-r border-slate-300">
       <h2 className="text-2xl font-semibold mb-4">Queues</h2>
-      {queues?.map((queue) => (
+      {availableQueues.map((queue) => (
         <button
           key={queue.id}
           onClick={() => setSelectedQueue(queue.slug)}

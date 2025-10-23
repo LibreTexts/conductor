@@ -1,6 +1,7 @@
 import { ControlledInputProps } from "../../types";
 import { Controller, FieldPath, FieldValues } from "react-hook-form";
 import Combobox, { ComboboxProps } from "../NextGenInputs/Combobox";
+import { useEffect } from "react";
 
 /**
  * Next-gen select component wrapped in react-hook-form controller

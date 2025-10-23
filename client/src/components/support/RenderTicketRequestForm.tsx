@@ -1,6 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
-import api from "../../api";
-import { CentralIdentityApp, SupportTicket } from "../../types";
+import { SupportTicket } from "../../types";
 import FileUploader from "../FileUploader";
 import { supportTicketAttachmentAllowedTypes } from "../../utils/supportHelpers";
 import React, { useState } from "react";
@@ -13,6 +11,8 @@ import TechnicalSupportForm from "./RequestForms/TechnicalSupportForm";
 import HarvestRequestForm from "./RequestForms/HarvestRequestForm";
 import PublishingRequestForm from "./RequestForms/PublishingRequestForm";
 import useSupportQueues from "../../hooks/useSupportQueues";
+import { useNotifications } from "../../context/NotificationContext";
+import { useSupportCenterContext } from "../../context/SupportCenterContext";
 
 interface RenderTicketRequestFormProps {
   queue: string;
@@ -26,27 +26,22 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
   onSubmitSuccess,
 }) => {
   const { handleGlobalError } = useGlobalError();
+  const { selectedQueue } = useSupportCenterContext();
+  const { addNotification } = useNotifications();
   const { trigger, getValues, formState } = useFormContext<SupportTicket>();
   const user = useTypedSelector((state) => state.user);
-  const { invalidate: invalidateSupportQueues } = useSupportQueues({ withCount: false });
+  const { invalidate: invalidateSupportQueues } = useSupportQueues({
+    withCount: false,
+  });
 
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
-
-  const { data: apps } = useQuery<CentralIdentityApp[]>({
-    queryKey: ["central-identity-apps"],
-    queryFn: async () => {
-      const res = await api.getCentralIdentityPublicApps();
-      return res.data.applications;
-    },
-  });
 
   async function handleSubmit() {
     try {
       setLoading(true);
       const formValid = await trigger();
       if (!formValid) {
-        console.log(formState.errors);
         return;
       }
 
@@ -55,10 +50,39 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
         vals.guest = undefined;
       }
 
+      if (selectedQueue === "publishing") {
+        if (
+          !vals.metadata?.prePublishingChecks?.thumbnails ||
+          !vals.metadata?.prePublishingChecks?.spellingGrammar ||
+          !vals.metadata?.prePublishingChecks?.summaries ||
+          !vals.metadata?.prePublishingChecks?.accessibility
+        ) {
+          addNotification({
+            type: "error",
+            message: "All pre-publishing checks must be confirmed.",
+          });
+          return;
+        }
+      }
+
+      if (
+        (selectedQueue === "publishing" && !vals.metadata?.authors) ||
+        !Array.isArray(vals.metadata?.authors) ||
+        vals.metadata?.authors.length === 0
+      ) {
+        addNotification({
+          type: "error",
+          message: "At least one author is required for publishing requests.",
+        });
+        return;
+      }
+
       vals.deviceInfo = getDeviceInfo();
 
+      const { apps, ...restVals } = vals;
       const res = await axios.post("/support/ticket", {
-        ...vals,
+        ...restVals,
+        apps: apps && Array.isArray(apps) ? apps.filter((app) => app) : [apps],
       });
 
       if (res.data.err) {
@@ -101,7 +125,8 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
 
     try {
       const uploadRes = await axios.post(
-        `/support/ticket/${ticketID}/attachments${guestAccessKey ? `?accessKey=${guestAccessKey}` : ""
+        `/support/ticket/${ticketID}/attachments${
+          guestAccessKey ? `?accessKey=${guestAccessKey}` : ""
         }`,
         formData,
         {
@@ -142,12 +167,7 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
         return <PublishingRequestForm />;
       case "support":
       default:
-        return (
-          <TechnicalSupportForm
-            apps={apps || []}
-            autoCapturedURL={autoCapturedURL}
-          />
-        );
+        return <TechnicalSupportForm autoCapturedURL={autoCapturedURL} />;
     }
   };
 
@@ -168,11 +188,7 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
         />
       </div>
       <div className="flex flex-row justify-end mt-4">
-        <Button
-          color="blue"
-          loading={loading}
-          onClick={handleSubmit}
-        >
+        <Button color="blue" loading={loading} onClick={handleSubmit}>
           <Icon name="paper plane" />
           Submit
         </Button>

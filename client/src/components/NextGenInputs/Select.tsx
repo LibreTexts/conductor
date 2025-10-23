@@ -32,21 +32,21 @@ const Select: React.FC<SelectProps> = ({
   disabled = false,
   ...props
 }) => {
-  const ResolvedOptions = () => {
-    const elements = [];
-    if (placeholder) {
-      elements.push(
-        <option key="placeholder" value="" disabled selected hidden>
-          {placeholder}
-        </option>
-      );
-    }
-    const mapped = options.map((option) => (
-      <option key={option.value} value={option.value}>
-        {option.label}
-      </option>
-    ));
-    return [...elements, ...mapped];
+  const ResolvedOptions = (): JSX.Element => {
+    return (
+      <>
+        {placeholder && (
+          <option key="placeholder" value="" disabled selected hidden>
+            {placeholder}
+          </option>
+        )}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </>
+    );
   };
 
   return (
@@ -60,7 +60,7 @@ const Select: React.FC<SelectProps> = ({
         className={classNames(
           selectClassName,
           "col-start-1 row-start-1 w-full appearance-none rounded-md bg-white py-2 pl-3 pr-8 text-base text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6",
-          error ? "outline-red-500 focus:outline-red-500" : "",
+          error ? "!outline-red-500 focus:outline-red-500 !bg-red-100" : "",
           props.value ? "" : "text-gray-400"
         )}
         {...props}

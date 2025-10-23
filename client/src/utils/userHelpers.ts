@@ -12,6 +12,11 @@ export const UserRoleOptions: GenericKeyTextValueObj<string>[] = [
     value: "campusadmin",
   },
   {
+    key: "harvester",
+    text: "Harvester",
+    value: "harvester",
+  },
+  {
     key: "superadmin",
     text: "Super Admin",
     value: "superadmin",
