@@ -1874,6 +1874,14 @@ class API {
     return res.data;
   }
 
+  async sendChatbotQuery(query: string, sessionId: string) {
+    const res = await axios.post<any>(`/agent/query-with-tools`, {
+      query,
+      sessionId,
+    });
+
+    return res.data;
+  }
 }
 
 export default new API();
