@@ -1,17 +1,14 @@
-import { useEffect } from "react";
 import DefaultLayout from "../../../components/navigation/AlternateLayout";
 import SupportCenterJumbotron from "../../../components/support/Jumbotron";
 import { Icon, SemanticICONS } from "semantic-ui-react";
 import { useTypedSelector } from "../../../state/hooks";
 import { useMediaQuery } from "react-responsive";
+import { useDocumentTitle } from "usehooks-ts";
 
 const SupportCenter = () => {
+  useDocumentTitle("LibreTexts | Support Center");
   const user = useTypedSelector((state) => state.user);
   const isTailwindLg = useMediaQuery({ minWidth: 1024 });
-
-  useEffect(() => {
-    document.title = "LibreTexts | Support Center";
-  }, []);
 
   const HomeItem = ({
     title,

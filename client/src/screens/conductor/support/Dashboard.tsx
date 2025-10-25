@@ -1,5 +1,5 @@
 import AlternateLayout from "../../../components/navigation/AlternateLayout";
-import { useState, lazy } from "react";
+import { useState, lazy, useEffect } from "react";
 import { IconSearch } from "@tabler/icons-react";
 import { useTypedSelector } from "../../../state/hooks";
 import useDebounce from "../../../hooks/useDebounce";
@@ -40,7 +40,11 @@ const SupportDashboard = () => {
   const { data: ticketFilters, isFetching: isFetchingFilters } =
     useSupportTicketFilters();
 
-  const { data: openTickets, isFetching } = useSupportTickets(selectedQueue, {
+  const {
+    data: openTickets,
+    isFetching,
+    refetch: refetchOpenTickets,
+  } = useSupportTickets(selectedQueue, {
     query: query,
     page: activePage,
     items: itemsPerPage,
@@ -48,16 +52,20 @@ const SupportDashboard = () => {
     assigneeFilters,
     priorityFilters,
     categoryFilters,
-    enabled: user.isSupport || (user.isHarvester && selectedQueue === "harvesting"),
+    enabled:
+      user.isSupport || (user.isHarvester && selectedQueue === "harvesting"),
   });
 
-  const { data: userTickets, isFetching: isFetchingUserTickets } =
-    useUserSupportTickets({
-      activePage,
-      itemsPerPage,
-      queue: selectedQueue,
-      enabled: !user.isSupport && !user.isHarvester,
-    });
+  const {
+    data: userTickets,
+    isFetching: isFetchingUserTickets,
+    refetch: refetchUserTickets,
+  } = useUserSupportTickets({
+    activePage,
+    itemsPerPage,
+    queue: selectedQueue,
+    enabled: !user.isSupport && !user.isHarvester,
+  });
 
   const debouncedQueryUpdate = debounce(
     (searchString: string) => setQuery(searchString),
@@ -72,12 +80,35 @@ const SupportDashboard = () => {
           showMetrics={user.isSupport}
         />
         <div className="flex flex-col w-full p-8 bg-gray-100/50">
-          <div className="w-full overflow-x-auto !pr-12">
-            <div className="flex justify-between">
-              <div className="flex flex-col mb-4">
+          <div className="w-full overflow-x-auto pr-2">
+            <div className="flex flex-col w-full">
+              <div className="flex justify-between w-full items-center pt-1">
                 <p className="text-3xl font-semibold mb-2 capitalize">
                   {selectedQueue}
                 </p>
+                <div className="flex space-x-3">
+                  <Button
+                    color="blue"
+                    variant="secondary"
+                    onClick={() => (window.location.href = `/support/closed`)}
+                    className="h-10 self-start"
+                    icon="IconBellZ"
+                  >
+                    <span className="pb-0.5">View Closed Tickets</span>
+                  </Button>
+                  <Button
+                    color="blue"
+                    onClick={() =>
+                      (window.location.href = `/support/contact?queue=${selectedQueue}`)
+                    }
+                    className="h-10 self-start"
+                    icon="IconPlus"
+                  >
+                    <span className="pb-0.5">Create New Ticket</span>
+                  </Button>
+                </div>
+              </div>
+              <div className="flex flex-col w-full">
                 <div className="flex flex-row items-end space-x-3">
                   <Input
                     name="search-tickets"
@@ -147,43 +178,38 @@ const SupportDashboard = () => {
                     </Button>
                   )}
                 </div>
-                <TicketPagination
-                  itemsPerPage={itemsPerPage}
-                  totalItems={openTickets?.total || 0}
-                  onPageChange={(page) => setActivePage(page)}
-                  className="mt-2"
-                />
-              </div>
-              <div className="flex flex-row space-x-3">
-                <Button
-                  color="blue"
-                  variant="secondary"
-                  onClick={() => (window.location.href = `/support/closed`)}
-                  className="h-10 self-start"
-                  icon="IconBellZ"
-                >
-                  <span className="pb-0.5">View Closed Tickets</span>
-                </Button>
-                <Button
-                  color="blue"
-                  onClick={() =>
-                    (window.location.href = `/support/contact?queue=${selectedQueue}`)
-                  }
-                  className="h-10 self-start"
-                  icon="IconPlus"
-                >
-                  <span className="pb-0.5">Create New Ticket</span>
-                </Button>
+                <div className="flex justify-between mt-2 w-full">
+                  <TicketPagination
+                    itemsPerPage={itemsPerPage}
+                    totalItems={openTickets?.total || 0}
+                    onPageChange={(page) => setActivePage(page)}
+                  />
+                  <Button
+                    variant="primary"
+                    icon="IconRefresh"
+                    className="h-10"
+                    size="small"
+                    loading={isFetching || isFetchingUserTickets}
+                    onClick={() => {
+                      if (user.isSupport || user.isHarvester) {
+                        refetchOpenTickets();
+                      } else {
+                        refetchUserTickets();
+                      }
+                    }}
+                  />
+                </div>
               </div>
             </div>
             <TicketTable
               data={
-                (user.isSupport || user.isHarvester)
+                user.isSupport || user.isHarvester
                   ? openTickets?.tickets || []
                   : userTickets?.tickets || []
               }
               showSelect={true}
               showAssigned={true}
+              loading={isFetching || isFetchingUserTickets}
             />
           </div>
         </div>

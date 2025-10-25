@@ -16,6 +16,8 @@ interface TicketTableProps {
   showQueue?: boolean;
   forceCategoryColumn?: boolean;
   forcePriorityColumn?: boolean;
+  loading?: boolean;
+  placeholderRows?: number;
 }
 
 const TicketTable: React.FC<TicketTableProps> = ({
@@ -24,6 +26,8 @@ const TicketTable: React.FC<TicketTableProps> = ({
   showAssigned,
   forceCategoryColumn,
   forcePriorityColumn,
+  loading,
+  placeholderRows = 10,
 }) => {
   const { setSelectedTickets, selectedQueueObject } = useSupportCenterContext();
   const [allSelected, setAllSelected] = useState(false);
@@ -62,24 +66,66 @@ const TicketTable: React.FC<TicketTableProps> = ({
     }
   };
 
+  const TableContentPlaceholder = ({ rows }: { rows: number }) => {
+    return (
+      <>
+        {Array.from({ length: rows }).map((_, idx) => (
+          <tr
+            key={idx}
+            className="border-b border-b-gray-200 align-middle animate-pulse"
+          >
+            <td className="pl-5 pr-2 py-3">
+              <div className="w-5 h-5 bg-gray-200 rounded"></div>
+            </td>
+            <td className="">
+              <div className="flex flex-col py-3 space-y-2">
+                <div className="h-5 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+              </div>
+            </td>
+            {(selectedQueueObject?.has_categories || forceCategoryColumn) && (
+              <td className="pr-3">
+                <div className="h-4 bg-gray-200 rounded w-24"></div>
+              </td>
+            )}
+            <td className="pr-3">
+              <div className="h-4 bg-gray-200 rounded w-32"></div>
+            </td>
+            {(selectedQueueObject?.has_priorities || forcePriorityColumn) && (
+              <td className="pr-10">
+                <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+              </td>
+            )}
+            <td className="pr-10">
+              <div className="h-6 bg-gray-200 rounded-full w-24"></div>
+            </td>
+            {showAssigned && (
+              <td className="pr-5">
+                <div className="h-4 bg-gray-200 rounded w-28"></div>
+              </td>
+            )}
+          </tr>
+        ))}
+      </>
+    );
+  };
+
   return (
     <div className="w-full h-screen overflow-auto border border-gray-200 rounded-lg !bg-white">
       <table className="w-full text-left whitespace-nowrap !bg-white">
         <thead className="sticky top-0 z-10 border-b border-r border-slate-200 text-sm/6  text-gray-900 bg-gray-100 font-semibold shadow-sm">
           <tr className="">
-            <th scope="col" className="py-2 pl-5">
-              {showSelect ? (
+            {showSelect && (
+              <th scope="col" className="py-2 pl-5">
                 <Checkbox
                   checked={allSelected}
                   onChange={(checked) => setAllSelected(checked)}
                   name="select-all-tickets"
                   large
                 />
-              ) : (
-                "ID"
-              )}
-            </th>
-            <th scope="col" className={`py-2 lg:w-5/12`}>
+              </th>
+            )}
+            <th scope="col" className={`py-2 ${showSelect ? "lg:w-5/12" : "pl-5 lg:w-6/12"}`}>
               Title
             </th>
             {(selectedQueueObject?.has_categories || forceCategoryColumn) && (
@@ -106,7 +152,9 @@ const TicketTable: React.FC<TicketTableProps> = ({
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 !bg-white">
-          {withChecked.length > 0 &&
+          {loading && <TableContentPlaceholder rows={placeholderRows} />}
+          {!loading &&
+            withChecked.length > 0 &&
             withChecked.map((ticket, idx) => (
               <a
                 key={ticket.uuid}
@@ -118,44 +166,40 @@ const TicketTable: React.FC<TicketTableProps> = ({
                 <tr
                   className={`hover:bg-gray-50 cursor-pointer transition-colors border-b border-b-gray-200 align-middle`}
                 >
-                  <td className="pl-5">
-                    <div className="flex space-x-3 items-center">
-                      {showSelect && (
-                        <Checkbox
-                          name={`select-ticket-${ticket.uuid}`}
-                          large
-                          checked={ticket.checked}
-                          onChange={(checked) => {
-                            updateChecked(ticket.uuid, checked);
-                          }}
-                        />
-                      )}
-                      <p className="text-sm font-mono text-gray-500">
-                        #{ticket.uuid.slice(-7)}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="">
+                  {showSelect && (
+                    <td className="pl-5 pr-2">
+                      <Checkbox
+                        name={`select-ticket-${ticket.uuid}`}
+                        large
+                        checked={ticket.checked}
+                        onChange={(checked) => {
+                          updateChecked(ticket.uuid, checked);
+                        }}
+                      />
+                    </td>
+                  )}
+                  <td className={`${showSelect ? "" : "pl-5"}`}>
                     <div className="flex flex-col py-3">
-                      <p className="font-semibold text-gray-900 group-hover:text-blue-600 text-lg truncate max-w-lg">
+                      <p className="font-semibold text-gray-900 group-hover:text-blue-600 text-lg truncate max-w-2xl">
                         {truncateString(ticket.title, 80)}{" "}
                       </p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-600 font-mono pl-0.5">
                         {format(
                           parseISO(ticket.timeOpened),
                           "MM/dd/yyyy hh:mm aa"
-                        )}
+                        )}{" "}
+                        &middot; #{ticket.uuid.slice(-7)}
                       </p>
                     </div>
                   </td>
                   {(selectedQueueObject?.has_categories ||
                     forceCategoryColumn) && (
-                    <td className="text-sm">
+                    <td className="text-sm truncate max-w-[10rem] pr-3">
                       {getPrettySupportTicketCategory(ticket.category || "")}
                     </td>
                   )}
                   <td className="max-w-[15rem]">
-                    <div className="flex items-center space-x-1 text-sm pr-2">
+                    <div className="flex items-center space-x-1 text-sm pr-3">
                       <IconUser className="w-4 h-4" />
                       <p className="truncate">{getRequesterText(ticket)}</p>
                     </div>

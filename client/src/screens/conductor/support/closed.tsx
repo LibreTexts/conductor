@@ -48,8 +48,8 @@ const SupportDashboard = () => {
   return (
     <AlternateLayout>
       <div className="flex flex-col w-full p-8 bg-gray-100/50">
-        <div className="w-full overflow-x-auto !pr-12">
-          <div className="flex justify-between">
+        <div className="w-full overflow-x-auto !pr-2">
+          <div className="flex justify-between pt-1">
             <div className="flex flex-col mb-4">
               <p className="text-3xl font-semibold mb-2 capitalize">
                 Closed Tickets
@@ -92,6 +92,7 @@ const SupportDashboard = () => {
             showAssigned={false}
             forceCategoryColumn={true}
             forcePriorityColumn={false}
+            loading={isFetching}
           />
         </div>
       </div>

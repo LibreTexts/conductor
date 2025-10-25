@@ -1,7 +1,7 @@
 import { z } from "zod";
-import SupportTicket, { SupportTicketFeedEntryInterface, SupportTicketInterface } from "../../models/supporticket";
+import SupportTicket, { SupportTicketFeedEntryInterface, SupportTicketInterface, SupportTicketStatusEnum } from "../../models/supporticket";
 import User, { UserInterface } from "../../models/user";
-import { AssignSupportTicketParams } from "../../types/SupportTicket";
+import { AssignSupportTicketParams, ChangeTicketStatusParams } from "../../types/SupportTicket";
 import { capitalizeFirstLetter } from "../../util/helpers";
 import mailAPI from "../mail";
 import authAPI from "../auth";
@@ -45,7 +45,7 @@ export default class SupportTicketService {
             const messages = await this.getTicketMessages(ticket.uuid, "general");
 
             ticket.assignedUUIDs = assigned;
-            ticket.status = messages.length > 0 ? "in_progress" : "assigned";
+            ticket.status = ticket.status === "awaiting_requester" ? "awaiting_requester" : messages.length > 0 ? "in_progress" : "assigned";
             ticket.feed = [...(ticket.feed || []), feedEntry];
             await ticket.save();
 
@@ -105,10 +105,12 @@ export default class SupportTicketService {
             }
 
             if (status) {
-                const statusUpdatePromises = ticketsToUpdate.map(ticket => this.changeTicketStatus(
-                    ticket.uuid,
+                // @ts-ignore
+                const statusUpdatePromises = ticketsToUpdate.map(ticket => this.changeTicketStatus({
+                    uuid: ticket.uuid,
                     status,
-                ));
+                    ...(status === "closed" && { callingUserName: `${callingUser.firstName} ${callingUser.lastName}` }),
+                }));
                 promiseArray.push(...statusUpdatePromises);
             }
 
@@ -185,15 +187,22 @@ export default class SupportTicketService {
         }
     }
 
-    async changeTicketStatus(
-        uuid: string,
-        status: string,
-    ) {
+    async changeTicketStatus<T extends SupportTicketStatusEnum>(params: ChangeTicketStatusParams<T>) {
         try {
+            const { uuid, status, callingUserName } = params;
+
+            let feedEntry: SupportTicketFeedEntryInterface | null = null;
+            if (status === "closed" && callingUserName) {
+                feedEntry = this._createFeedEntry_Closed(
+                    callingUserName
+                );
+            }
+
             await SupportTicket.updateOne(
                 { uuid },
                 {
                     $set: { status },
+                    ...(feedEntry ? { $push: { feed: feedEntry } } : {}),
                 }
             ).orFail();
         } catch (err) {
@@ -250,6 +259,16 @@ export default class SupportTicketService {
             date: new Date().toISOString(),
         };
     };
+
+    _createFeedEntry_Closed(
+        closer: string,
+    ): SupportTicketFeedEntryInterface {
+        return {
+            action: `Ticket was closed`,
+            blame: closer,
+            date: new Date().toISOString(),
+        };
+    }
 
     async _getTicketAuthor(ticket: SupportTicketInterface): Promise<UserInterface | undefined> {
         const hasUser = !!ticket.userUUID;

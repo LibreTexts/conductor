@@ -56,7 +56,7 @@ const Button: React.FC<ButtonProps> = ({
       ) : (
         <>
           {icon && (
-            <span className="mr-2">
+            <span className={classNames(children ? "mr-2" : "", "flex")}>
               <DynamicIcon icon={icon} />
             </span>
           )}

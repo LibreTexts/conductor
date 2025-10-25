@@ -44,7 +44,7 @@ const useSupportTickets = (queue: string, params: UseSupportTicketsParams) => {
             return res.data;
         },
         staleTime: 5 * 60 * 1000, // 5 minutes
-        refetchOnWindowFocus: false,
+        refetchOnWindowFocus: true,
         enabled: !!queue && params.enabled, // Only run the query if queue is provided
         meta: {
             errorMessage: "Failed to fetch tickets.",

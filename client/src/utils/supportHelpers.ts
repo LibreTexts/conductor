@@ -90,6 +90,11 @@ export const SupportTicketStatusOptions: GenericKeyTextValueObj<string>[] = [
     value: "open",
   },
   {
+    key: "assigned",
+    text: "Assigned",
+    value: "assigned",
+  },
+  {
     key: "in_progress",
     text: "In Progress",
     value: "in_progress",
