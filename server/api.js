@@ -2493,6 +2493,12 @@ router
     kbAPI.getKBPage
   );
 
+  router
+  .route("/kb/page/slug/:slug/embeddings")
+  .post(
+    kbAPI.generateKBPageEmbeddings
+  );
+
 router
   .route("/kb/page/:uuid")
   .get(middleware.validateZod(kbValidators.GetKBPageValidator), kbAPI.getKBPage)
@@ -2852,6 +2858,63 @@ router
       ProjectInvitationValidators.updateProjectInvitationSchema
     ),
     projectInvitationsAPI.updateProjectInvitation
+  );
+
+  router
+  .route("/kb/migrate-to-qdrant")
+  .post(
+    // authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    kbAPI.migrateKBPagesToQdrant
+  );
+
+router
+  .route("/kb/qdrant-status")
+  .get(
+    // authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    kbAPI.getQdrantStatus
+  );
+
+router
+  .route("/kb/test-vector-search")
+  .get(
+    kbAPI.testVectorSearch
+  );
+
+router
+  .route("/kb/clear-qdrant")
+  .delete(
+    // authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    kbAPI.clearQdrantCollection
+  );
+
+router
+  .route("/kb/create-single-page-embedding/:uuid")
+  .post(
+    kbAPI.createSinglePageEmbedding
+  );
+
+router
+  .route("/kb/create-two-page-embeddings")
+  .post(
+    kbAPI.createTwoPageEmbeddings
+  );
+
+router
+  .route("/kb/agent-query")
+  .post(
+    kbAPI.agentQuery
+  );
+
+router
+  .route("/agent/create-session")
+  .post(
+    kbAPI.createSessionHandler 
+  );
+
+router
+  .route("/agent/query-with-tools")
+  .post(
+    kbAPI.queryWithToolsHandler
   );
 
 export default router;
