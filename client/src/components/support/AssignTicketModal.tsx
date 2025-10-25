@@ -91,7 +91,7 @@ const AssignTicketModal: React.FC<AssignTicketModalProps> = ({
   return (
     <Modal {...rest} open={open} onClose={onCancel}>
       <Modal.Header>Assign Ticket to User(s)</Modal.Header>
-      <Modal.Content className="!mb-48">
+      <Modal.Content className="!mb-64">
         <CtlNextGenCombobox
           control={control}
           name="assignees"

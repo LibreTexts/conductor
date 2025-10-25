@@ -1147,10 +1147,10 @@ async function updateTicket(
     if (ticket.status !== status) {
       // Check if status is changing to closed, if so, add a feed entry
       if (
-        ["open", "in_progress"].includes(ticket.status) &&
+        ["open", "assigned", "in_progress", "awaiting_requester"].includes(ticket.status) &&
         status === "closed"
       ) {
-        const feedEntry = _createFeedEntry_Closed(
+        const feedEntry = ticketService._createFeedEntry_Closed(
           `${user.firstName} ${user.lastName}`,
         );
         updatedFeed.push(feedEntry);
@@ -1371,9 +1371,9 @@ async function createGeneralMessage(
     // If sender is staff, change ticket status to awaiting_requester
     // otherwise, if ticket is currently "awaiting_requester" and has assigned users, change to "in_progress"
     if (senderIsStaff) {
-      await ticketService.changeTicketStatus(ticket.uuid, "awaiting_requester");
+      await ticketService.changeTicketStatus({ uuid: ticket.uuid, status: "awaiting_requester" });
     } else if (ticket.status === "awaiting_requester" && ticket.assignedUUIDs && ticket.assignedUUIDs.length > 0) {
-      await ticketService.changeTicketStatus(ticket.uuid, "in_progress");
+      await ticketService.changeTicketStatus({ uuid: ticket.uuid, status: "in_progress" });
     }
 
     const emailPromises = [];
@@ -1932,16 +1932,6 @@ const _createFeedEntry_Created = (
   return {
     action: `Ticket was created`,
     blame: creator,
-    date: new Date().toISOString(),
-  };
-};
-
-const _createFeedEntry_Closed = (
-  closer: string,
-): SupportTicketFeedEntryInterface => {
-  return {
-    action: `Ticket was closed`,
-    blame: closer,
     date: new Date().toISOString(),
   };
 };
