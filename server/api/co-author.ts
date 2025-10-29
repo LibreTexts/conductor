@@ -187,6 +187,7 @@ async function batchGenerateAIMetadata(
     req: ZodReqWithUser<z.infer<typeof batchGenerateAIMetadataSchema>>,
     res: Response
 ) {
+    let session: Session | undefined = undefined;
     try {
         const [coverPageLibrary, coverPageID] = getLibraryAndPageFromBookID(
             req.params.bookID
@@ -242,7 +243,10 @@ async function batchGenerateAIMetadata(
             ranBy: req.user.decoded.uuid,
         });
 
-        const session = await createSession(req as unknown as IncomingMessage, res);
+        session = await createSession(req as unknown as IncomingMessage, res);
+        session.on('disconnected', () => {
+            console.warn(`SSE client disconnected for batch AI metadata job ${job.jobID}. This is not necessarily an error.`);
+        });
 
         await _runBulkUpdateJob(
             session,
@@ -259,10 +263,24 @@ async function batchGenerateAIMetadata(
             [user.email]
         );
 
+        if (!session.isConnected) {
+            console.warn(`SSE client disconnected before completion of batch AI metadata job ${job.jobID}. This is not necessarily an error.`);
+            return;
+        }
+
         session.push('END');
     } catch (e) {
         debugError(e);
-        return conductor500Err(res);
+        if (!res.headersSent) {
+            return conductor500Err(res);
+        }
+        if (session && session.isConnected) {
+            try {
+                session.push('ERROR');
+            } catch (err) {
+                debugError(err);
+            }
+        }
     }
 }
 
@@ -270,6 +288,7 @@ async function batchUpdateBookMetadata(
     req: ZodReqWithUser<z.infer<typeof batchUpdateBookMetadataSchema>>,
     res: Response
 ) {
+    let session: Session | undefined = undefined;
     try {
         const newPageData = req.body.pages;
         if (!newPageData || !Array.isArray(newPageData) || newPageData.length < 1) {
@@ -330,7 +349,10 @@ async function batchUpdateBookMetadata(
             ranBy: req.user.decoded.uuid,
         });
 
-        const session = await createSession(req as unknown as IncomingMessage, res);
+        session = await createSession(req as unknown as IncomingMessage, res);
+        session.on('disconnected', () => {
+            console.warn(`SSE client disconnected for batch book metadata update job ${job.jobID}. This is not necessarily an error.`);
+        });
 
         await _runBulkUpdateJob(
             session,
@@ -344,13 +366,24 @@ async function batchUpdateBookMetadata(
             newPageData
         );
 
-        session.push('END');
+        if (session && session.isConnected) {
+            session.push('END');
+        }
     } catch (e) {
         debugError(e);
-        return res.status(500).send({
-            err: true,
-            errMsg: conductorErrors.err6,
-        });
+        if (!res.headersSent) {
+            return res.status(500).send({
+                err: true,
+                errMsg: conductorErrors.err6,
+            });
+        }
+        if (session && session.isConnected) {
+            try {
+                session.push('ERROR');
+            } catch (err) {
+                debugError(err);
+            }
+        }
     }
 }
 
@@ -900,7 +933,7 @@ async function _generateAndApplyPageImagesAltText(
             const completion = await aiService.generateImageAltText(
                 fileType,
                 content,
-                1000
+                500
             );
 
             if (["empty", "error", "unsupported"].includes(completion)) {
@@ -1194,14 +1227,23 @@ class BatchJobLogStream {
     }
 
     async batchSend(messages: string[]) {
-        if (messages.length === 0) return;
+        try {
+            if (messages.length === 0) return;
 
-        const buffer = createEventBuffer();
-        messages.forEach((msg) => {
-            buffer.push(msg);
-        });
+            const buffer = createEventBuffer();
+            messages.forEach((msg) => {
+                buffer.push(msg);
+            });
 
-        await this.session.batch(buffer);
+            if (!this.session.isConnected) {
+                console.warn("Session disconnected, cannot send batch log messages. This is not necessarily an error.");
+                return;
+            }
+
+            await this.session.batch(buffer);
+        } catch (e) {
+            debugError(`Error sending batch log messages: ${e}`);
+        }
     }
 
     async close() {
