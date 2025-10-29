@@ -1370,7 +1370,7 @@ async function createGeneralMessage(
 
     // If sender is staff, change ticket status to awaiting_requester
     // otherwise, if ticket is currently "awaiting_requester" and has assigned users, change to "in_progress"
-    if (senderIsStaff) {
+    if (senderIsStaff && ticket.status !== "closed") {
       await ticketService.changeTicketStatus({ uuid: ticket.uuid, status: "awaiting_requester" });
     } else if (ticket.status === "awaiting_requester" && ticket.assignedUUIDs && ticket.assignedUUIDs.length > 0) {
       await ticketService.changeTicketStatus({ uuid: ticket.uuid, status: "in_progress" });
@@ -1655,6 +1655,38 @@ async function createAndAttachProjectFromHarvestingRequest(
 
     const leadsSet = new Set<string>([userUUID, ...ticket.assignedUUIDs || []]);
 
+    const prepLicenseObject = () => {
+      if (typeof ticket.metadata?.license?.name === "string") {
+        return {
+          name: ticket.metadata?.license?.name,
+          version: ticket.metadata?.license?.version || "",
+          sourceURL: ticket.capturedURL || "",
+          modifiedFromSource:
+            ticket.metadata?.license?.modifiedFromSource || false,
+        };
+      }
+
+      // Fix for legacy conversions where license data was nested under the "license.name" key
+      if (typeof ticket.metadata?.license?.name === "object") {
+        const licenseObject = ticket.metadata.license.name;
+        return {
+          name: licenseObject.name || "",
+          version: licenseObject.version || "",
+          sourceURL: ticket.capturedURL || "",
+          modifiedFromSource: licenseObject.modifiedFromSource || false,
+        };
+      }
+
+      // Default to empty license object
+      return {
+        name: "",
+        version: "",
+        sourceURL: ticket.capturedURL || "",
+        modifiedFromSource: false,
+      };
+
+    }
+
     const projectData: Partial<ProjectInterface> = {
       orgID: process.env.ORG_ID || "libretexts",
       projectID: base62(10),
@@ -1669,12 +1701,7 @@ async function createAndAttachProjectFromHarvestingRequest(
       leads: Array.from(leadsSet),
       liaisons: [],
       auditors: [],
-      license: {
-        name: ticket.metadata?.license?.name || "",
-        version: ticket.metadata?.license?.version || "",
-        sourceURL: ticket.capturedURL || "",
-        modifiedFromSource: ticket.metadata?.license?.modifiedFromSource || false,
-      },
+      license: prepLicenseObject(),
       harvestReqID: ticket.uuid,
     };
 
