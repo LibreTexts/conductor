@@ -24,7 +24,7 @@ const useProjectBatchUpdateJobs = (id: string) => {
 
     useEffect(() => {
         if (isError) {
-            handleGlobalError(new Error(`Failed to load project data: ${(error as any)?.message || "Unknown error"}`));
+            handleGlobalError(new Error(`Failed to load batch update jobs: ${(error as any)?.message || "Unknown error"}`));
         }
     }, [isError, error])
 
