@@ -129,14 +129,14 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
                   />
                 )}
               />
-              <div className="flex flex-row w-full justify-between mt-2">
+              <div className="flex flex-col md:flex-row w-full justify-between mt-2">
                 <div>
                   <p className="text-xs text-gray-500 ml-1">
                     {watch("message")?.length ?? 0}/3000. Enter for new line.
                     Ctrl + Enter to send.
                   </p>
                 </div>
-                <div className="flex flex-row">
+                <div className="flex flex-col w-full justify-end space-y-2 mt-2 md:flex-row md:w-auto md:space-y-0 md:mt-0">
                   <Button onClick={() => setValue("message", "")}>
                     <Icon name="trash" />
                     Clear

@@ -16,6 +16,20 @@ const SupportCenterProvider = ({ children }: { children: React.ReactNode }) => {
       },
     }
   );
+
+  const [queueDrawerOpen, setQueueDrawerOpen] = useLocalStorage<boolean>(
+    "support_queue_drawer_open",
+    true,
+    {
+      serializer(value) {
+        return JSON.stringify(value);
+      },
+      deserializer(value) {
+        return value ? JSON.parse(value) : true;
+      },
+    }
+  );
+
   const [selectedTickets, setSelectedTickets] = useState<string[]>([]);
 
   const { data, isFetching } = useSupportQueues({ withCount: false });
@@ -32,6 +46,8 @@ const SupportCenterProvider = ({ children }: { children: React.ReactNode }) => {
         selectedTickets,
         setSelectedTickets,
         selectedQueueObject,
+        queueDrawerOpen,
+        setQueueDrawerOpen,
       }}
     >
       {children}

@@ -220,12 +220,13 @@ const SupportTicketView = () => {
   }, [ticket]);
 
   const AdminOptions = () => (
-    <div className="flex flex-row mt-4 lg:mt-0">
+    <div className="flex flex-col space-y-2 mt-8 md:space-y-0 md:flex-row lg:mt-0">
       {ticket?.status === "open" && user.isSupport && (
         <Button
           color="red"
           onClick={() => setShowDeleteModal(true)}
           loading={loading || isFetching}
+          size={isTailwindLg ? undefined : "mini"}
         >
           <Icon name="trash" />
           Delete Ticket

@@ -67,6 +67,16 @@ const SupportDashboard = () => {
     enabled: !user.isSupport && !user.isHarvester,
   });
 
+  useEffect(() => {
+    // Reset filters and query when queue is changed
+    setActivePage(1);
+    setQuery("");
+    setQueryInputString("");
+    setAssigneeFilters([]);
+    setPriorityFilters([]);
+    setCategoryFilters([]);
+  }, [selectedQueue]);
+
   const debouncedQueryUpdate = debounce(
     (searchString: string) => setQuery(searchString),
     300
