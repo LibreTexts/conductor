@@ -42,8 +42,8 @@ const useProjectBatchUpdateJobs = (id: string) => {
 
     const refreshActiveJobStatusMutation = useMutation({
         mutationFn: async () => {
-            queryClient.invalidateQueries(useProjectBatchUpdateJobsQueryKey);
-            queryClient.invalidateQueries(["textbook-structure-detailed", id]);
+            queryClient.invalidateQueries({ queryKey: useProjectBatchUpdateJobsQueryKey });
+            queryClient.invalidateQueries({ queryKey: ["textbook-structure-detailed", id] });
         },
         onError: (error) => {
             handleGlobalError(error);
