@@ -7,6 +7,7 @@ interface DynamicIconProps {
   icon?: DynamicIconName;
   className?: string;
   stroke?: number;
+  onClick?: () => void;
 }
 
 /**
@@ -20,6 +21,7 @@ const DynamicIcon: React.FC<DynamicIconProps> = ({
   icon,
   className,
   stroke,
+  onClick,
 }) => {
   if (!icon) return null;
 
@@ -32,7 +34,7 @@ const DynamicIcon: React.FC<DynamicIconProps> = ({
 
   return (
     // @ts-ignore
-    <Icon className={classNames("h-5 w-5", className)} stroke={stroke || 2} />
+    <Icon className={classNames("h-5 w-5", className)} stroke={stroke || 2} onClick={onClick} />
   );
 };
 

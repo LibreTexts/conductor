@@ -31,7 +31,11 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
       },
     });
 
-  const { data: messages, isFetching } = useQuery<SupportTicketMessage[]>({
+  const {
+    data: messages,
+    isFetching,
+    refetch,
+  } = useQuery<SupportTicketMessage[]>({
     queryKey: ["ticketMessages", id],
     queryFn: () => getMessages(),
     keepPreviousData: true,
@@ -106,8 +110,8 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
   const sendMessageMutation = useMutation({
     mutationFn: sendMessage,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["ticket", id] });
-      await queryClient.invalidateQueries({ queryKey: ["ticketMessages", id] });
+      await refetch();
+      await queryClient.invalidateQueries({ queryKey: ["ticket", id ] });
     },
   });
 
@@ -116,7 +120,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
       <div className="flex flex-col w-full bg-white rounded-md">
         <div className="flex flex-col border shadow-md rounded-md p-4">
           <p className="text-xl font-semibold text-center">Ticket Comments</p>
-          {(!user.isSupport && !user.isHarvester) && (
+          {!user.isSupport && !user.isHarvester && (
             <div className="px-4 mt-2 mb-4">
               <p className="text-center italic">
                 Feel free to leave this page at any time. We'll send you an
@@ -152,7 +156,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
                   />
                 )}
               />
-              <div className="flex flex-row w-full justify-between mt-2">
+              <div className="flex flex-col md:flex-row w-full justify-between mt-2">
                 <div>
                   <p className="text-xs text-gray-500 ml-1">
                     {watch("message")?.length ?? 0}/3000. Enter for new line.
@@ -164,7 +168,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
                     confidential.
                   </p>
                 </div>
-                <div className="flex flex-row">
+                <div className="flex flex-col w-full justify-end space-y-2 mt-2 md:flex-row md:w-auto md:space-y-0 md:mt-0">
                   <Button onClick={() => setValue("message", "")}>
                     <Icon name="trash" />
                     Clear

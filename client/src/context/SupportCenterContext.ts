@@ -7,6 +7,8 @@ export interface SupportCenterContextType {
   selectedTickets: string[];
   setSelectedTickets: Dispatch<SetStateAction<string[]>>;
   selectedQueueObject: SupportQueue | null;
+  queueDrawerOpen: boolean;
+  setQueueDrawerOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 export const SupportCenterContext = createContext<
