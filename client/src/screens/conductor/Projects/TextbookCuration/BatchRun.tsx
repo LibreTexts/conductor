@@ -131,7 +131,10 @@ const BatchRun = () => {
       openModal(
         <ConfirmModal
           text="You have selected one or more overwrite options. This will replace any existing metadata and cannot be undone. Are you sure you want to continue?"
-          onConfirm={runBatchJob}
+          onConfirm={() => {
+            closeAllModals();
+            runBatchJob();
+          }}
           onCancel={closeAllModals}
           confirmColor="red"
           confirmText="Yes, Overwrite"

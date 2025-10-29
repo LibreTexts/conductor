@@ -2,20 +2,11 @@ import OpenAI from "openai";
 import { ChatCompletionMessageParam } from "openai/resources";
 import { encodeGenerator, decodeGenerator } from "gpt-tokenizer";
 import { APIPromise } from "openai/core";
-import axios from "axios";
-import { AltTextAICreateImage200Response } from "../../types";
-import { convertBase64SVGToBase64PNG } from "../../util/imageutils";
+import { convertBase64SVGToBase64PNG, resizeImageBase64 } from "../../util/imageutils";
 
 export default class AIService {
   private OpenAIClient: OpenAI = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY || "",
-  });
-
-  private AltTextAIClient = axios.create({
-    baseURL: "https://alttext.ai/api/v1",
-    headers: {
-      "x-api-key": process.env.ALTTEXT_API_KEY || "",
-    },
   });
 
   private _pageOverviewMessages = (
@@ -274,7 +265,6 @@ export default class AIService {
     "image/png",
     "image/gif",
     "image/webp",
-    "image/bmp",
     "image/svg+xml",
   ];
 
@@ -284,7 +274,6 @@ export default class AIService {
     "png",
     "gif",
     "webp",
-    "bmp",
     "svg",
   ];
 
@@ -302,27 +291,62 @@ export default class AIService {
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
 
+      let processedImageBase64: string | null = imageBase64;
+      let processedFileType = fileType;
+
       // If image is SVG, convert to PNG
       if (fileType === "image/svg+xml") {
-        imageBase64 = await convertBase64SVGToBase64PNG(imageBase64);
+        processedImageBase64 = await convertBase64SVGToBase64PNG(imageBase64);
+        processedFileType = "image/png";
       }
 
-      const response =
-        await this.AltTextAIClient.post<AltTextAICreateImage200Response>(
-          "/images",
-          {
-            image: {
-              raw: imageBase64,
-            },
-          }
-        );
+      if (!processedImageBase64) {
+        throw new Error("Failed to process image");
+      }
 
-      const output = response.data.alt_text;
+      processedImageBase64 = await resizeImageBase64(
+        processedImageBase64,
+        1024
+      );
+
+      if (!processedImageBase64) {
+        throw new Error("Failed to resize image");
+      }
+
+      const imageUrl = `data:${processedFileType};base64,${processedImageBase64}`;
+
+      const response = await this.OpenAIClient.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an AI that generates accurate and concise alt text descriptions for images. Given an image, provide a brief description that captures the essential content and context of the image in a way that is useful for visually impaired users. The alt text should be no longer than 125 characters.",
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Generate alt text for the following image:",
+              },
+              {
+                type: "image_url",
+                image_url: { url: imageUrl }
+              }
+            ]
+          }
+        ],
+        max_tokens: 300,
+      });
+
+
+      const output = response.choices[0]?.message?.content;
       if (!output) {
         return "error";
       }
 
-      return output;
+      return output.trim();
     } catch (error) {
       console.error(error);
       return "error";
