@@ -2080,6 +2080,16 @@ router
   );
 
 router
+  .route("/project/:projectID/batch-update-jobs")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate("getProjectBatchUpdateJobs"),
+    middleware.checkValidationErrors,
+    projectsAPI.getProjectBatchUpdateJobs
+  );
+
+router
   .route("/project/:projectID/files/bulk")
   .get(
     authAPI.verifyRequest,

@@ -1,15 +1,16 @@
 import { Button, Modal, Table } from "semantic-ui-react";
-import { Project } from "../../../types";
+import useProjectBatchUpdateJobs from "../../../hooks/useProjectBatchUpdateJobs";
 
 interface ViewBulkUpdateHistoryModalProps {
-  project: Project;
+  projectID: string;
   onClose: () => void;
 }
 
 const ViewBulkUpdateHistoryModal: React.FC<ViewBulkUpdateHistoryModalProps> = ({
-  project,
+  projectID,
   onClose,
 }) => {
+  const { batchUpdateJobs } = useProjectBatchUpdateJobs(projectID);
   return (
     <Modal open={true} onClose={() => onClose()} size="large">
       <Modal.Header>View Bulk Update History</Modal.Header>
@@ -36,7 +37,7 @@ const ViewBulkUpdateHistoryModal: React.FC<ViewBulkUpdateHistoryModalProps> = ({
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {project.batchUpdateJobs?.map((job, index) => {
+              {batchUpdateJobs?.map((job, index) => {
                 const parsedMetaResults: Record<string, any> = Object.entries(
                   job.metaResults || {}
                 ).filter(([_, value]) => value !== 0);
