@@ -470,7 +470,8 @@ async function getProject(req, res) {
       ...LOOKUP_PROJECT_PI_STAGES(true),
       {
         $project: {
-          _id: 0
+          _id: 0,
+          batchUpdateJobs: 0
         }
       }
     ]);
@@ -525,6 +526,52 @@ async function getProject(req, res) {
     });
   }
 };
+
+async function getProjectBatchUpdateJobs(req, res) {
+  try {
+    if (!req.user?.decoded?.uuid) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const foundUser = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+    if (!foundUser) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const project = await Project.findOne({ projectID: req.params.projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!checkProjectGeneralPermission(project, foundUser)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    return res.send({
+      err: false,
+      project_id: project.projectID,
+      batch_update_jobs: project.batchUpdateJobs || [],
+    });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 async function findByBook(req, res) {
   try {
@@ -3742,6 +3789,10 @@ const validate = (method) => {
           query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
           query('include', conductorErrors.err1).optional({ checkFalsy: true }).isArray()
       ]
+    case 'getProjectBatchUpdateJobs':
+      return [
+        param('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+      ]
     case 'getUserProjectsAdmin':
       return [
           query('uuid', conductorErrors.err1).exists().isString().isUUID(),
@@ -3827,6 +3878,7 @@ export default {
     deleteProjectInternal,
     deleteProject,
     getProject,
+    getProjectBatchUpdateJobs,
     findByBook,
     thumbnailUploadHandler,
     uploadProjectThumbnail,

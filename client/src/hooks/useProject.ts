@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { Project, ProjectClassification } from "../types"
 import api from "../api";
 import useGlobalError from "../components/error/ErrorHooks";
@@ -6,8 +6,6 @@ import { useEffect, useMemo } from "react";
 
 const useProject = (id: string) => {
     const { handleGlobalError } = useGlobalError();
-    const queryClient = useQueryClient();
-
     const useProjectQueryKey = ['project', id];
 
     const { data, error, isLoading, isError } = useQuery<Project>({
@@ -36,28 +34,6 @@ const useProject = (id: string) => {
         return `${data.libreLibrary}-${data.libreCoverID}`;
     }, [data?.libreLibrary, data?.libreCoverID])
 
-    const activeBatchJob = useMemo(() => {
-        if (!data || !data.batchUpdateJobs) {
-            return null;
-        }
-
-        const active = data.batchUpdateJobs.find((job) =>
-            ["pending", "running"].includes(job.status)
-        );
-
-        return active || null;
-    }, [data]);
-
-    const refreshActiveJobStatusMutation = useMutation({
-        mutationFn: async () => {
-            queryClient.invalidateQueries(useProjectQueryKey);
-            queryClient.invalidateQueries(["textbook-structure-detailed", id]);
-        },
-        onError: (error) => {
-            handleGlobalError(error);
-        },
-    });
-
     return {
         project: data,
         error,
@@ -66,10 +42,7 @@ const useProject = (id: string) => {
         isMiniRepo,
         useProjectQueryKey,
         bookID,
-        activeBatchJob,
-        mutations: {
-            refreshActiveJobStatus: refreshActiveJobStatusMutation
-        }
+        mutations: {}
     }
 };
 

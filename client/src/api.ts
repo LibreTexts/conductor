@@ -65,6 +65,7 @@ import {
 import {
   AddableProjectTeamMember,
   CIDDescriptor,
+  ProjectBookBatchUpdateJob,
   ProjectFileAuthor,
   ProjectTag,
 } from "./types/Project";
@@ -1317,6 +1318,13 @@ class API {
   async deleteProject(projectID: string) {
     const res = await axios.delete(`/project/${projectID}`);
     return res;
+  }
+
+  async getProjectBatchUpdateJobs(projectID: string) {
+    return await axios.get<{
+      project_id: string;
+      batch_update_jobs: ProjectBookBatchUpdateJob[];
+    } & ConductorBaseResponse>(`/project/${projectID}/batch-update-jobs`);
   }
 
   async uploadProjectThumbnail(projectID: string, formData: FormData) {

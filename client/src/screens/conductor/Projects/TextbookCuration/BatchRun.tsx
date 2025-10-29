@@ -19,6 +19,7 @@ import { useNotifications } from "../../../../context/NotificationContext";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import Tooltip from "../../../../components/util/Tooltip";
 import ActiveJobAlert from "../../../../components/projects/TextbookCuration/ActiveJobAlert";
+import useProjectBatchUpdateJobs from "../../../../hooks/useProjectBatchUpdateJobs";
 
 const BatchRun = () => {
   const { handleGlobalError } = useGlobalError();
@@ -26,7 +27,8 @@ const BatchRun = () => {
   const { addNotification } = useNotifications();
 
   const { id: projectID } = useParams<{ id: string }>();
-  const { project, bookID, activeBatchJob, mutations } = useProject(projectID);
+  const { project, bookID } = useProject(projectID);
+  const { activeBatchJob, mutations } = useProjectBatchUpdateJobs(projectID);
 
   const [messages, setMessages] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);

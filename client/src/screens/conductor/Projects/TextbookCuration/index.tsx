@@ -48,6 +48,7 @@ import GeneratePageImagesAltTextModal from "../../../../components/projects/Text
 import ActiveJobAlert from "../../../../components/projects/TextbookCuration/ActiveJobAlert";
 import useProject from "../../../../hooks/useProject";
 import BatchUpdateModal from "../../../../components/projects/TextbookCuration/BatchUpdateModal";
+import useProjectBatchUpdateJobs from "../../../../hooks/useProjectBatchUpdateJobs";
 
 type WithUIState = Prettify<
   Omit<TableOfContentsDetailed, "children"> & {
@@ -223,9 +224,11 @@ const TextbookCuration = () => {
   const {
     project: projectData,
     bookID,
+  } = useProject(projectID);
+  const {
     activeBatchJob,
     mutations,
-  } = useProject(projectID);
+  } = useProjectBatchUpdateJobs(projectID);
 
   const [bulkActionsOpen, setBulkActionsOpen] = useState<boolean>(false);
   const [showSystemTags, setShowSystemTags] = useState<boolean>(false);
@@ -532,10 +535,10 @@ const TextbookCuration = () => {
   };
 
   const handleOpenBulkUpdateHistoryModal = () => {
-    if (!projectData) return;
+    if (!projectID) return;
     openModal(
       <ViewBulkUpdateHistoryModal
-        project={projectData}
+        projectID={projectID}
         onClose={closeAllModals}
       />
     );

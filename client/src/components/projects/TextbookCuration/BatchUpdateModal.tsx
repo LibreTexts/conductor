@@ -5,6 +5,7 @@ import api from "../../../api";
 import React, { useState } from "react";
 import { useNotifications } from "../../../context/NotificationContext";
 import useGlobalError from "../../error/ErrorHooks";
+import useProjectBatchUpdateJobs from "../../../hooks/useProjectBatchUpdateJobs";
 
 interface BatchUpdateModalProps {
   projectID: string;
@@ -16,7 +17,8 @@ interface BatchUpdateModalProps {
 const BatchUpdateModal: React.FC<BatchUpdateModalProps> = (props) => {
   const { addNotification } = useNotifications();
   const { handleGlobalError } = useGlobalError();
-  const { mutations, bookID } = useProject(props.projectID);
+  const { bookID } = useProject(props.projectID);
+  const { mutations } = useProjectBatchUpdateJobs(props.projectID);
 
   const [messages, setMessages] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
