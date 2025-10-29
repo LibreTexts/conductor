@@ -366,7 +366,9 @@ async function batchUpdateBookMetadata(
             newPageData
         );
 
-        session.push('END');
+        if (session && session.isConnected) {
+            session.push('END');
+        }
     } catch (e) {
         debugError(e);
         if (!res.headersSent) {
