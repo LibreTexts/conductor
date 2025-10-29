@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Project, ProjectBookBatchUpdateJob, ProjectClassification } from "../types"
+import { ProjectBookBatchUpdateJob } from "../types"
 import api from "../api";
 import useGlobalError from "../components/error/ErrorHooks";
 import { useEffect, useMemo } from "react";
