@@ -1,4 +1,5 @@
 import { Prettify } from "./Misc";
+import { Project } from "./Project";
 
 export type Book = {
   coverID: string;
@@ -31,7 +32,7 @@ export type Book = {
 };
 
 export type BookWithSourceData = Book & {
-  isbn?: string;
+  isbns?: Project["isbns"]
   doi?: string;
   sourceOriginalPublicationDate?: Date;
   sourceHarvestDate?: Date;

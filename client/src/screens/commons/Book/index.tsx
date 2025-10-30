@@ -871,14 +871,14 @@ const CommonsBook = () => {
                     <Icon name="sitemap" /> {book.course}
                   </p>
                 )}
-                {book.isbn && (
+                {book.isbns && book.isbns.length > 0 && book.isbns.map((isbnObj) => (
                   <p className={styles.book_detail}>
-                    <Icon name="bookmark" /> <strong>ISBN:</strong> {book.isbn}
+                    <Icon name="bookmark" /> <strong>ISBN:</strong> {isbnObj.isbn} ({isbnObj.medium}, {isbnObj.format})
                   </p>
-                )}
+                ))}
                 {book.doi && (
                   <p className={styles.book_detail}>
-                    <Icon name="archive" /> <strong>DOI:</strong> {book.isbn}
+                    <Icon name="archive" /> <strong>DOI:</strong> {book.doi}
                   </p>
                 )}
                 {book.sourceOriginalPublicationDate && (

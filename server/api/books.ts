@@ -1503,16 +1503,16 @@ async function getBookDetail(
               "$adaptCourseID", // undefined
             ],
           },
-          isbn: {
+          isbns: {
             $cond: [
               {
                 $and: [
-                  { $ifNull: ["$isbn", false] },
-                  { $gt: [{ $strLenBytes: "$isbn" }, 0] },
+                  { $ifNull: ["$project.isbns", false] },
+                  { $gt: [{ $size: "$project.isbns" }, 0] },
                 ],
               },
-              "$isbn",
-              "$project.isbn", // undefined
+              "$project.isbns",
+              [],
             ],
           },
           doi: {
