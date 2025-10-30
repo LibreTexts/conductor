@@ -221,6 +221,20 @@ export default class SupportTicketService {
         returnAccessKeys = false,
     }: SearchTicketsParams): Promise<SupportTicketInterface[]> {
         try {
+            // Normalize possibly user-controlled parameters: convert string to array, allow only strings/arrays
+            function normalizeToStringArray(val: unknown): string[] | undefined {
+                if (typeof val === "string") {
+                    return [val];
+                } else if (Array.isArray(val) && val.every(v => typeof v === "string")) {
+                    return val;
+                }
+                return undefined;
+            }
+
+            const normAssignee = normalizeToStringArray(assignee);
+            const normPriority = normalizeToStringArray(priority);
+            const normCategory = normalizeToStringArray(category);
+
             const tickets: SupportTicketInterface[] = [];
             const getSortObj = () => {
                 if (sort === "status") {
@@ -399,9 +413,9 @@ export default class SupportTicketService {
             // We could do this in the individual queries, but requires duplicating code and complicating queries
             // so we do it here in memory. Less performant, but more maintainable.
             const filteredAllResults = tickets.filter((t) => {
-                if (assignee && assignee.length > 0 && !t.assignedUUIDs?.some((a: string) => assignee.includes(a))) return false;
-                if (category && category.length > 0 && (!t.category || !category.includes(t.category))) return false;
-                if (priority && priority.length > 0 && (!t.priority || !priority.includes(t.priority))) return false;
+                if (normAssignee && normAssignee.length > 0 && !t.assignedUUIDs?.some((a: string) => normAssignee.includes(a))) return false;
+                if (normCategory && normCategory.length > 0 && (!t.category || !normCategory.includes(t.category))) return false;
+                if (normPriority && normPriority.length > 0 && (!t.priority || !normPriority.includes(t.priority))) return false;
                 return true;
             });
 
