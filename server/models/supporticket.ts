@@ -99,6 +99,35 @@ export type SupportTicketStatusEnum =
   | "in_progress"
   | "awaiting_requester"
   | "closed";
+
+export const SupportTicketStatusOptions: GenericKeyTextValueObj<string>[] = [
+  {
+    key: "open",
+    text: "Needs Triage",
+    value: "open",
+  },
+  {
+    key: "assigned",
+    text: "Assigned",
+    value: "assigned",
+  },
+  {
+    key: "in_progress",
+    text: "In Progress",
+    value: "in_progress",
+  },
+  {
+    key: "awaiting_requester",
+    text: "Awaiting Requester",
+    value: "awaiting_requester",
+  },
+  {
+    key: "closed",
+    text: "Closed",
+    value: "closed",
+  },
+];
+
 export const SupportTicketStatuses = [
   "open",
   "assigned",

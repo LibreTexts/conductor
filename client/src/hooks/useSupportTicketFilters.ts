@@ -7,6 +7,7 @@ export type SupportTicketFiltersResponse = {
         assignee?: GenericKeyTextValueObj<string>[];
         priority: GenericKeyTextValueObj<string>[];
         category: GenericKeyTextValueObj<string>[];
+        status: GenericKeyTextValueObj<string>[];
     }
 } & ConductorBaseResponse
 

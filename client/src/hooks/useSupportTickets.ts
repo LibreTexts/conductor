@@ -16,6 +16,7 @@ type UseSupportTicketsParams = {
     assigneeFilters?: string[];
     priorityFilters?: string[];
     categoryFilters?: string[];
+    statusFilters?: string[];
     enabled?: boolean;
 }
 
@@ -36,6 +37,7 @@ const useSupportTickets = (queue: string, params: UseSupportTicketsParams) => {
                     ...(params.assigneeFilters && { assignee: params.assigneeFilters }),
                     ...(params.priorityFilters && { priority: params.priorityFilters }),
                     ...(params.categoryFilters && { category: params.categoryFilters }),
+                    ...(params.statusFilters && { status: params.statusFilters }),
                 },
             });
             if (res.data.err) {

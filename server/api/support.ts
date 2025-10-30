@@ -32,6 +32,7 @@ import SupportTicket, {
   SupportTicketInterface,
   SupportTicketPriorityOptions,
   SupportTicketStatusEnum,
+  SupportTicketStatusOptions,
 } from "../models/supporticket.js";
 import SupportTicketMessage, {
   SupportTicketMessageInterface,
@@ -98,7 +99,7 @@ async function getTicket(
 
     return res.send({
       err: false,
-      ticket: _removeAccessKeysFromResponse(ticket),
+      ticket: ticketService._removeAccessKeysFromResponse(ticket),
     });
   } catch (err: any) {
     if (err.name === "DocumentNotFoundError") {
@@ -215,6 +216,7 @@ async function _getUserTickets({
   queue?: string;
 }): Promise<{ tickets: SupportTicketInterface[]; total: number } | undefined> {
   try {
+    const ticketService = new SupportTicketService();
     let queueId: string | undefined = undefined;
 
     if (!uuid && !email) return undefined;
@@ -258,7 +260,7 @@ async function _getUserTickets({
     const tickets = await query.exec();
 
     tickets.forEach((t) => {
-      return _removeAccessKeysFromResponse(t);
+      return ticketService._removeAccessKeysFromResponse(t);
     });
 
     const total = await SupportTicket.countDocuments(searchObj);
@@ -284,21 +286,9 @@ async function getOpenInProgressTickets(
     if (req.query.limit) limit = parseInt(req.query.limit.toString());
     const offset = getPaginationOffset(page, limit);
 
-    const { query, assignee, category, priority } = req.query;
-
-    const getSortObj = () => {
-      if (req.query.sort === "status") {
-        return { status: -1 };
-      }
-      if (req.query.sort === "category") {
-        return { category: 1 };
-      }
-      return { timeOpened: -1 };
-    };
-
-    const tickets = [];
-    const validStatuses: SupportTicketStatusEnum[] = ["open", "assigned", "in_progress", "awaiting_requester"];
-    const sortObj = getSortObj();
+    const { query, assignee, category, priority, status } = req.query;
+    const defaultStatuses: SupportTicketStatusEnum[] = ["open", "assigned", "in_progress", "awaiting_requester"];
+    const searchStatuses = status && status.length > 0 ? status : defaultStatuses;
 
     const isHarvester = authAPI.checkHasRole(
       req.user,
@@ -325,211 +315,23 @@ async function getOpenInProgressTickets(
       });
     }
 
-    const lookupUserDataStages = (localField: "assignedUUIDs" | "userUUID") => {
-      return [
-        {
-          $lookup: {
-            from: "users",
-            localField: localField,
-            foreignField: "uuid",
-            as: localField === "assignedUUIDs" ? "assignedUsers" : "user",
-            pipeline: [
-              {
-                $project: {
-                  ...SanitizedUserSelectProjection,
-                },
-              },
-            ],
-          },
-        },
-        ...(localField === "userUUID"
-          ? [
-            {
-              $set: {
-                user: {
-                  $arrayElemAt: ["$user", 0],
-                },
-              },
-            },
-          ]
-          : []),
-      ];
-    };
-
-    if (!query) {
-      const foundTickets = await SupportTicket.aggregate([
-        {
-          $match: {
-            queue_id: foundQueue.id,
-            status: { $in: validStatuses },
-            ...(assignee ? { assignedUUIDs: assignee } : {}),
-            ...(category ? { category } : {}),
-            ...(priority ? { priority } : {}),
-          },
-        },
-        ...lookupUserDataStages("assignedUUIDs"),
-        ...lookupUserDataStages("userUUID"),
-        { $sort: sortObj } as any,
-      ]);
-      tickets.push(...foundTickets);
-    } else if (z.string().uuid().safeParse(query).success) {
-      const foundTicket = await SupportTicket.aggregate([
-        {
-          $match: {
-            uuid: query,
-            queue_id: foundQueue.id,
-            status: { $in: validStatuses },
-            ...(assignee ? { assignedUUIDs: assignee } : {}),
-            ...(category ? { category } : {}),
-            ...(priority ? { priority } : {}),
-          },
-        },
-        ...lookupUserDataStages("assignedUUIDs"),
-        ...lookupUserDataStages("userUUID"),
-      ]);
-
-      tickets.push(...foundTicket);
-    } else {
-      const fromTicketQuery = await SupportTicket.aggregate([
-        {
-          $search: {
-            compound: {
-              should: [
-                {
-                  text: {
-                    query,
-                    path: [
-                      "title",
-                      "description",
-                      "guest.email",
-                      "guest.firstName",
-                      "guest.lastName",
-                    ],
-                    fuzzy: {
-                      maxEdits: 2,
-                    },
-                  }
-                }, {
-                  autocomplete: {
-                    query,
-                    path: "uuid"
-                  }
-                },
-                {
-                  text: {
-                    query,
-                    path: "uuidShort"
-                  }
-                }
-              ],
-              minimumShouldMatch: 1,
-            }
-          },
-        },
-        {
-          $addFields: {
-            score: { $meta: "searchScore" },
-          },
-        },
-        {
-          $match: {
-            queue_id: foundQueue.id,
-            status: { $in: validStatuses },
-          }
-        },
-        ...lookupUserDataStages("assignedUUIDs"),
-        ...lookupUserDataStages("userUUID"),
-        { $sort: sortObj } as any,
-      ]);
-
-      const fromUserQuery = User.aggregate([
-        {
-          $search: {
-            text: {
-              query,
-              path: ["firstName", "lastName", "email"],
-              fuzzy: {
-                maxEdits: 1,
-              },
-            },
-          },
-        },
-        {
-          $addFields: {
-            score: { $meta: "searchScore" },
-          },
-        },
-        {
-          $lookup: {
-            from: "supporttickets",
-            localField: "uuid",
-            foreignField: "userUUID",
-            as: "tickets",
-          },
-        },
-        {
-          $unwind: "$tickets",
-        },
-        {
-          $replaceRoot: { newRoot: "$tickets" },
-        },
-        {
-          $match: {
-            queue_id: foundQueue.id,
-            status: { $in: validStatuses },
-          }
-        },
-        ...lookupUserDataStages("assignedUUIDs"),
-        ...lookupUserDataStages("userUUID"),
-      ]);
-
-      const queryResults = await Promise.all([
-        fromTicketQuery,
-        fromUserQuery,
-      ]);
-
-      const allResults = [...queryResults[0], ...queryResults[1]];
-
-      const filteredAllResults = allResults.filter((t) => {
-        if (assignee && !t.assignedUUIDs?.includes(assignee)) return false;
-        if (category && t.category !== category) return false;
-        if (priority && t.priority !== priority) return false;
-        return true;
-      });
-
-      tickets.push(...filteredAllResults);
-    }
-
-    const uniqueTickets = tickets.filter((t, index, self) => {
-      // Return only unique results
-      return (
-        index ===
-        self.findIndex((t2) => {
-          return t.uuid === t2.uuid;
-        })
-      );
+    const ticketService = new SupportTicketService();
+    const tickets = await ticketService.searchTickets({
+      queue_id: foundQueue.id,
+      statuses: searchStatuses,
+      query,
+      assignee,
+      priority,
+      category,
+      sort: req.query.sort,
     });
 
-    // We have to sort the tickets in memory because we can only alphabetically sort by priority in query
-    if (req.query.sort === "priority") {
-      uniqueTickets.sort((a, b) => {
-        if (a.priority === "high" && b.priority !== "high") return -1;
-        if (a.priority !== "high" && b.priority === "high") return 1;
-        if (a.priority === "medium" && b.priority === "low") return -1;
-        if (a.priority === "low" && b.priority === "medium") return 1;
-        return 0;
-      });
-    }
-
-    const paginated = uniqueTickets.slice(offset, offset + limit);
-    paginated.forEach((t) => {
-      return _removeAccessKeysFromResponse(t);
-    });
+    const paginated = tickets.slice(offset, offset + limit);
 
     return res.send({
       err: false,
       tickets: paginated,
-      total: uniqueTickets.length || 0,
+      total: tickets.length || 0,
     });
   } catch (err) {
     debugError(err);
@@ -547,6 +349,7 @@ async function getClosedTickets(
     if (req.query.page) page = req.query.page;
     if (req.query.limit) limit = parseInt(req.query.limit.toString());
     const offset = getPaginationOffset(page, limit);
+    const { query, assignee, category, priority } = req.query;
 
     const isHarvester = authAPI.checkHasRole(
       req.user,
@@ -565,41 +368,23 @@ async function getClosedTickets(
       });
     }
 
-    const getSortObj = () => {
-      if (req.query.sort === "priority") {
-        return { priority: -1 };
-      }
-      if (req.query.sort === "closed") {
-        return { timeClosed: -1 };
-      }
-      return { timeOpened: -1 }; // default to opened
-    };
-
-    const sortObj = getSortObj();
-
-    const tickets = await SupportTicket.find({
-      status: "closed",
+    const ticketService = new SupportTicketService();
+    const tickets = await ticketService.searchTickets({
+      statuses: ["closed"],
+      query,
+      assignee,
+      priority,
+      category,
+      sort: req.query.sort,
       ...(isHarvester && { queue_id: harvestingQueue.id }) // harvesters can only see closed tickets in harvesting queue
-    })
-      .skip(offset)
-      .limit(limit)
-      .sort(sortObj as any)
-      .populate("assignedUsers")
-      .populate("user")
-      .exec();
-
-    const total = await SupportTicket.countDocuments({
-      status: "closed",
     });
 
-    tickets.forEach((t) => {
-      return _removeAccessKeysFromResponse(t);
-    });
+    const paginated = tickets.slice(offset, offset + limit);
 
     return res.send({
       err: false,
-      tickets,
-      total,
+      tickets: paginated,
+      total: tickets.length || 0,
     });
   } catch (err) {
     debugError(err);
@@ -666,7 +451,7 @@ async function assignTicket(
 
     return res.send({
       err: false,
-      ticket: _removeAccessKeysFromResponse(ticket),
+      ticket: ticketService._removeAccessKeysFromResponse(ticket),
     });
   } catch (err) {
     debugError(err);
@@ -681,6 +466,7 @@ async function addTicketCC(
   try {
     const { uuid } = req.params;
     const { email } = req.body;
+    const ticketService = new SupportTicketService();
 
     const ticket = await SupportTicket.findOne({ uuid })
       .orFail()
@@ -704,7 +490,7 @@ async function addTicketCC(
     ) {
       return res.send({
         err: false,
-        ticket: _removeAccessKeysFromResponse(ticket),
+        ticket: ticketService._removeAccessKeysFromResponse(ticket),
       });
     }
 
@@ -740,7 +526,7 @@ async function addTicketCC(
 
     return res.send({
       err: false,
-      ticket: _removeAccessKeysFromResponse(ticket),
+      ticket: ticketService._removeAccessKeysFromResponse(ticket),
     });
   } catch (err) {
     debugError(err);
@@ -755,6 +541,7 @@ async function removeTicketCC(
   try {
     const { uuid } = req.params;
     const { email } = req.body;
+    const ticketService = new SupportTicketService();
 
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
 
@@ -765,7 +552,7 @@ async function removeTicketCC(
     ) {
       return res.send({
         err: false,
-        ticket: _removeAccessKeysFromResponse(ticket),
+        ticket: ticketService._removeAccessKeysFromResponse(ticket),
       });
     }
 
@@ -774,7 +561,7 @@ async function removeTicketCC(
 
     return res.send({
       err: false,
-      ticket: _removeAccessKeysFromResponse(ticket),
+      ticket: ticketService._removeAccessKeysFromResponse(ticket),
     });
   } catch (err) {
     debugError(err);
@@ -982,7 +769,7 @@ async function createTicket(
 
     return res.send({
       err: false,
-      ticket: _removeAccessKeysFromResponse(ticket, true), // Allow guest access key to be returned here for attachments to be immediately uploaded
+      ticket: ticketService._removeAccessKeysFromResponse(ticket, true), // Allow guest access key to be returned here for attachments to be immediately uploaded
     });
   } catch (err) {
     debugError(err);
@@ -1000,6 +787,7 @@ async function addTicketAttachments(
     const { uuid } = req.params;
     const { accessKey } = req.query;
     const userUUID = req.user?.decoded.uuid;
+    const ticketService = new SupportTicketService();
 
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
 
@@ -1026,7 +814,7 @@ async function addTicketAttachments(
     if (!req.files || req.files.length === 0) {
       return res.send({
         err: false,
-        ticket: _removeAccessKeysFromResponse(ticket),
+        ticket: ticketService._removeAccessKeysFromResponse(ticket),
       });
     }
 
@@ -1049,7 +837,7 @@ async function addTicketAttachments(
 
     return res.send({
       err: false,
-      ticket: _removeAccessKeysFromResponse(ticket),
+      ticket: ticketService._removeAccessKeysFromResponse(ticket),
     });
   } catch (err) {
     debugError(err);
@@ -1138,7 +926,7 @@ async function updateTicket(
     ) {
       return res.send({
         err: false,
-        ticket: _removeAccessKeysFromResponse(ticket),
+        ticket: ticketService._removeAccessKeysFromResponse(ticket),
       });
     }
 
@@ -1201,7 +989,7 @@ async function updateTicket(
 
     return res.send({
       err: false,
-      ticket: _removeAccessKeysFromResponse(ticket),
+      ticket: ticketService._removeAccessKeysFromResponse(ticket),
     });
   } catch (err) {
     debugError(err);
@@ -1600,17 +1388,13 @@ async function getTicketFilters(req: ZodReqWithOptionalUser<{}>, res: Response) 
       };
     });
 
-    const categoryOptions: GenericKeyTextValueObj<string>[] = SupportTicketCategoryOptions.map((c) => {
-      return {
-        key: c.value,
-        text: c.text,
-        value: c.value,
-      };
-    });
+    const categoryOptions = [...SupportTicketCategoryOptions];
+    const statusOptions = [...SupportTicketStatusOptions].filter((s) => s.key !== "closed")
 
     assigneeOptions?.sort((a, b) => a.text.localeCompare(b.text, "en"));
     priorityOptions?.sort((a, b) => a.text.localeCompare(b.text, "en"));
     categoryOptions?.sort((a, b) => a.text.localeCompare(b.text, "en"));
+    statusOptions?.sort((a, b) => a.text.localeCompare(b.text, "en"));
 
     return res.send({
       err: false,
@@ -1618,6 +1402,7 @@ async function getTicketFilters(req: ZodReqWithOptionalUser<{}>, res: Response) 
         ...(assigneeOptions ? { assignee: assigneeOptions } : {}),
         category: categoryOptions,
         priority: priorityOptions,
+        status: statusOptions,
       }
     })
   } catch (err) {
@@ -2001,19 +1786,6 @@ const _createFeedEntry_AutoClosed = (): SupportTicketFeedEntryInterface => {
     blame: "Conductor System",
     date: new Date().toISOString(),
   };
-};
-
-const _removeAccessKeysFromResponse = (
-  ticket: SupportTicketInterface,
-  allowGuestAccessKey = false,
-) => {
-  if (!allowGuestAccessKey) ticket.guestAccessKey = "REDACTED";
-  if (ticket.ccedEmails && Array.isArray(ticket.ccedEmails)) {
-    ticket.ccedEmails.forEach((c) => {
-      c.accessKey = "REDACTED";
-    });
-  }
-  return ticket;
 };
 
 export default {

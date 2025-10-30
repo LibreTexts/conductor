@@ -1,7 +1,7 @@
 import { z } from "zod";
 import SupportTicket, { SupportTicketFeedEntryInterface, SupportTicketInterface, SupportTicketStatusEnum } from "../../models/supporticket";
-import User, { UserInterface } from "../../models/user";
-import { AssignSupportTicketParams, ChangeTicketStatusParams } from "../../types/SupportTicket";
+import User, { SanitizedUserSelectProjection, UserInterface } from "../../models/user";
+import { AssignSupportTicketParams, ChangeTicketStatusParams, SearchTicketsParams } from "../../types/SupportTicket";
 import { capitalizeFirstLetter } from "../../util/helpers";
 import mailAPI from "../mail";
 import authAPI from "../auth";
@@ -209,6 +209,262 @@ export default class SupportTicketService {
             throw err;
         }
     }
+
+    async searchTickets({
+        queue_id,
+        statuses,
+        query,
+        assignee,
+        priority,
+        category,
+        sort,
+        returnAccessKeys = false,
+    }: SearchTicketsParams): Promise<SupportTicketInterface[]> {
+        try {
+            // Normalize possibly user-controlled parameters: convert string to array, allow only strings/arrays
+            function normalizeToStringArray(val: unknown): string[] | undefined {
+                if (typeof val === "string") {
+                    return [val];
+                } else if (Array.isArray(val) && val.every(v => typeof v === "string")) {
+                    return val;
+                }
+                return undefined;
+            }
+
+            const normAssignee = normalizeToStringArray(assignee);
+            const normPriority = normalizeToStringArray(priority);
+            const normCategory = normalizeToStringArray(category);
+
+            const tickets: SupportTicketInterface[] = [];
+            const getSortObj = () => {
+                if (sort === "status") {
+                    return { status: -1 };
+                }
+                if (sort === "category") {
+                    return { category: 1 };
+                }
+                return { timeOpened: -1 };
+            };
+
+            const sortObj = getSortObj();
+
+            const lookupUserDataStages = (localField: "assignedUUIDs" | "userUUID") => {
+                return [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: localField,
+                            foreignField: "uuid",
+                            as: localField === "assignedUUIDs" ? "assignedUsers" : "user",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        ...SanitizedUserSelectProjection,
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    ...(localField === "userUUID"
+                        ? [
+                            {
+                                $set: {
+                                    user: {
+                                        $arrayElemAt: ["$user", 0],
+                                    },
+                                },
+                            },
+                        ]
+                        : []),
+                ];
+            };
+
+            if (!query) {
+                const foundTickets = await SupportTicket.aggregate([
+                    {
+                        $match: {
+                            status: { $in: statuses },
+                            ...(queue_id ? { queue_id: { $eq: queue_id } } : {}),
+                        },
+                    },
+                    ...lookupUserDataStages("assignedUUIDs"),
+                    ...lookupUserDataStages("userUUID"),
+                    { $sort: sortObj } as any,
+                ]);
+                tickets.push(...foundTickets);
+            } else if (z.string().uuid().safeParse(query).success) {
+                const foundTicket = await SupportTicket.aggregate([
+                    {
+                        $match: {
+                            uuid: query,
+                            status: { $in: statuses },
+                            ...(queue_id ? { queue_id: { $eq: queue_id } } : {}),
+                        },
+                    },
+                    ...lookupUserDataStages("assignedUUIDs"),
+                    ...lookupUserDataStages("userUUID"),
+                ]);
+
+                tickets.push(...foundTicket);
+            } else {
+                const fromTicketQuery = await SupportTicket.aggregate([
+                    {
+                        $search: {
+                            compound: {
+                                should: [
+                                    {
+                                        text: {
+                                            query,
+                                            path: [
+                                                "title",
+                                                "description",
+                                                "guest.email",
+                                                "guest.firstName",
+                                                "guest.lastName",
+                                            ],
+                                            fuzzy: {
+                                                maxEdits: 2,
+                                            },
+                                        }
+                                    }, {
+                                        autocomplete: {
+                                            query,
+                                            path: "uuid"
+                                        }
+                                    },
+                                    {
+                                        text: {
+                                            query,
+                                            path: "uuidShort"
+                                        }
+                                    }
+                                ],
+                                minimumShouldMatch: 1,
+                            }
+                        },
+                    },
+                    {
+                        $addFields: {
+                            score: { $meta: "searchScore" },
+                        },
+                    },
+                    {
+                        $match: {
+                            status: { $in: statuses },
+                            ...(queue_id ? { queue_id: { $eq: queue_id } } : {}),
+                        }
+                    },
+                    ...lookupUserDataStages("assignedUUIDs"),
+                    ...lookupUserDataStages("userUUID"),
+                    { $sort: sortObj } as any,
+                ]);
+
+                const fromUserQuery = User.aggregate([
+                    {
+                        $search: {
+                            text: {
+                                query,
+                                path: ["firstName", "lastName", "email"],
+                                fuzzy: {
+                                    maxEdits: 1,
+                                },
+                            },
+                        },
+                    },
+                    {
+                        $addFields: {
+                            score: { $meta: "searchScore" },
+                        },
+                    },
+                    {
+                        $lookup: {
+                            from: "supporttickets",
+                            localField: "uuid",
+                            foreignField: "userUUID",
+                            as: "tickets",
+                        },
+                    },
+                    {
+                        $unwind: "$tickets",
+                    },
+                    {
+                        $replaceRoot: { newRoot: "$tickets" },
+                    },
+                    {
+                        $match: {
+                            status: { $in: statuses },
+                            ...(queue_id ? { queue_id: { $eq: queue_id } } : {}),
+
+                        }
+                    },
+                    ...lookupUserDataStages("assignedUUIDs"),
+                    ...lookupUserDataStages("userUUID"),
+                ]);
+
+                const queryResults = await Promise.all([
+                    fromTicketQuery,
+                    fromUserQuery,
+                ]);
+
+                const allResults = [...queryResults[0], ...queryResults[1]];
+                tickets.push(...allResults);
+            }
+
+            // We could do this in the individual queries, but requires duplicating code and complicating queries
+            // so we do it here in memory. Less performant, but more maintainable.
+            const filteredAllResults = tickets.filter((t) => {
+                if (normAssignee && normAssignee.length > 0 && !t.assignedUUIDs?.some((a: string) => normAssignee.includes(a))) return false;
+                if (normCategory && normCategory.length > 0 && (!t.category || !normCategory.includes(t.category))) return false;
+                if (normPriority && normPriority.length > 0 && (!t.priority || !normPriority.includes(t.priority))) return false;
+                return true;
+            });
+
+            const uniqueTickets = filteredAllResults.filter((t, index, self) => {
+                // Return only unique results
+                return (
+                    index ===
+                    self.findIndex((t2) => {
+                        return t.uuid === t2.uuid;
+                    })
+                );
+            });
+
+            // We have to sort the tickets in memory because we can only alphabetically sort by priority in query
+            if (sort === "priority") {
+                uniqueTickets.sort((a, b) => {
+                    if (a.priority === "high" && b.priority !== "high") return -1;
+                    if (a.priority !== "high" && b.priority === "high") return 1;
+                    if (a.priority === "medium" && b.priority === "low") return -1;
+                    if (a.priority === "low" && b.priority === "medium") return 1;
+                    return 0;
+                });
+            }
+
+            if (!returnAccessKeys) {
+                uniqueTickets.forEach(t => {
+                    return this._removeAccessKeysFromResponse(t);
+                });
+            }
+
+            return uniqueTickets;
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    _removeAccessKeysFromResponse(
+        ticket: SupportTicketInterface,
+        allowGuestAccessKey = false,
+    ): SupportTicketInterface {
+        if (!allowGuestAccessKey) ticket.guestAccessKey = "REDACTED";
+        if (ticket.ccedEmails && Array.isArray(ticket.ccedEmails)) {
+            ticket.ccedEmails.forEach((c) => {
+                c.accessKey = "REDACTED";
+            });
+        }
+        return ticket;
+    };
+
 
     private _createFeedEntry_Assigned(
         assigner: string,

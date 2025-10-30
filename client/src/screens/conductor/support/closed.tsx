@@ -10,27 +10,38 @@ import { TicketPagination } from "../../../components/support/TicketPagination";
 import Input from "../../../components/NextGenInputs/Input";
 import { IconSearch } from "@tabler/icons-react";
 import useDebounce from "../../../hooks/useDebounce";
+import Combobox from "../../../components/NextGenInputs/Combobox";
+import useSupportTicketFilters from "../../../hooks/useSupportTicketFilters";
 
 const SupportDashboard = () => {
   useDocumentTitle("LibreTexts | Closed Tickets");
   const { debounce } = useDebounce();
 
+  const itemsPerPage = 25;
   const [queryInputString, setQueryInputString] = useState<string>("");
   const [query, setQuery] = useState<string>("");
   const [activePage, setActivePage] = useState<number>(1);
-  const itemsPerPage = 25;
+  const [assigneeFilters, setAssigneeFilters] = useState<string[]>([]);
+  const [priorityFilters, setPriorityFilters] = useState<string[]>([]);
+  const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
+
+  const { data: ticketFilters, isFetching: isFetchingFilters } =
+    useSupportTicketFilters();
 
   const { data, isFetching } = useQuery<{
     tickets: SupportTicket[];
     total: number;
   }>({
-    queryKey: ["closedSupportTickets", activePage, itemsPerPage],
+    queryKey: ["closedSupportTickets", activePage, query, assigneeFilters, priorityFilters, categoryFilters],
     queryFn: async () => {
       const res = await axios.get("/support/ticket/closed", {
         params: {
           page: activePage,
           limit: itemsPerPage,
           query,
+          ...(assigneeFilters.length > 0 && { assignee: assigneeFilters }),
+          ...(priorityFilters.length > 0 && { priority: priorityFilters }),
+          ...(categoryFilters.length > 0 && { category: categoryFilters }),
         },
       });
       return res.data;
@@ -66,6 +77,33 @@ const SupportDashboard = () => {
                   }}
                   className="w-80"
                   leftIcon={<IconSearch className="size-5 text-gray-400" />}
+                />
+                <Combobox
+                  name="assignee-filter"
+                  label="Assignee"
+                  items={ticketFilters?.filters.assignee || []}
+                  multiple={true}
+                  value={assigneeFilters}
+                  onChange={(values) => setAssigneeFilters(values)}
+                  loading={isFetchingFilters}
+                />
+                <Combobox
+                  name="priority-filter"
+                  label="Priority"
+                  items={ticketFilters?.filters.priority || []}
+                  multiple={true}
+                  value={priorityFilters}
+                  onChange={(values) => setPriorityFilters(values)}
+                  loading={isFetchingFilters}
+                />
+                <Combobox
+                  name="category-filter"
+                  label="Category"
+                  items={ticketFilters?.filters.category || []}
+                  multiple={true}
+                  value={categoryFilters}
+                  onChange={(values) => setCategoryFilters(values)}
+                  loading={isFetchingFilters}
                 />
               </div>
               <TicketPagination

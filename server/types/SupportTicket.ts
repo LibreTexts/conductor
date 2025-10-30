@@ -16,3 +16,14 @@ export type ChangeTicketStatusParams<T extends SupportTicketStatusEnum> = T exte
     status: T;
     callingUserName?: undefined;
 }
+
+export type SearchTicketsParams = {
+    statuses: SupportTicketStatusEnum[];
+    queue_id?: string;
+    query?: string;
+    assignee?: string[];
+    priority?: string[];
+    category?: string[];
+    sort?: string;
+    returnAccessKeys?: boolean;
+}
