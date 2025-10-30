@@ -872,7 +872,7 @@ const CommonsBook = () => {
                   </p>
                 )}
                 {book.isbns && book.isbns.length > 0 && book.isbns.map((isbnObj) => (
-                  <p className={styles.book_detail}>
+                  <p className={styles.book_detail} key={isbnObj.isbn}>
                     <Icon name="bookmark" /> <strong>ISBN:</strong> {isbnObj.isbn} ({isbnObj.medium}, {isbnObj.format})
                   </p>
                 ))}
