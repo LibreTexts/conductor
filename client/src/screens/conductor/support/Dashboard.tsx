@@ -36,6 +36,7 @@ const SupportDashboard = () => {
   const [assigneeFilters, setAssigneeFilters] = useState<string[]>([]);
   const [priorityFilters, setPriorityFilters] = useState<string[]>([]);
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
 
   const { data: ticketFilters, isFetching: isFetchingFilters } =
     useSupportTicketFilters();
@@ -52,6 +53,7 @@ const SupportDashboard = () => {
     assigneeFilters,
     priorityFilters,
     categoryFilters,
+    statusFilters,
     enabled:
       user.isSupport || (user.isHarvester && selectedQueue === "harvesting"),
   });
@@ -75,6 +77,7 @@ const SupportDashboard = () => {
     setAssigneeFilters([]);
     setPriorityFilters([]);
     setCategoryFilters([]);
+    setStatusFilters([]);
   }, [selectedQueue]);
 
   const debouncedQueryUpdate = debounce(
@@ -154,6 +157,15 @@ const SupportDashboard = () => {
                       loading={isFetchingFilters}
                     />
                   )}
+                  <Combobox
+                    name="status-filter"
+                    label="Status"
+                    items={ticketFilters?.filters.status || []}
+                    multiple={true}
+                    value={statusFilters}
+                    onChange={(values) => setStatusFilters(values)}
+                    loading={isFetchingFilters}
+                  />
                   {selectedQueueObject?.has_categories && (
                     <Combobox
                       name="category-filter"

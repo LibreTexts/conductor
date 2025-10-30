@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SupportTicketStatusEnum } from "../../models/supporticket";
 
 export const TicketUUIDParams = z.object({
   params: z.object({
@@ -106,14 +107,19 @@ export const GetOpenTicketsValidator = z.object({
     assignee: z.array(z.string().uuid()).optional(),
     category: z.array(z.string()).optional(),
     priority: z.array(z.enum(_TicketPriorityLevels)).optional(),
+    status: z.array(z.enum(["open", "assigned", "in_progress", "awaiting_requester"])).optional(),
   }),
 });
 
 export const GetClosedTicketsValidator = z.object({
   query: z.object({
+    query: z.string().min(3).or(z.literal("")).optional(),
     page: z.coerce.number().min(1).optional(),
     limit: z.coerce.number().min(1).optional(),
-    sort: z.enum(["opened", "closed", "priority"]).optional(),
+    sort: z.enum(["opened", "priority", "status", "category"]).optional(),
+    assignee: z.array(z.string().uuid()).optional(),
+    category: z.array(z.string()).optional(),
+    priority: z.array(z.enum(_TicketPriorityLevels)).optional(),
   }),
 });
 
