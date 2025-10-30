@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { SupportTicketStatusEnum } from "../../models/supporticket";
 
 export const TicketUUIDParams = z.object({
   params: z.object({
