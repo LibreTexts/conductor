@@ -36,6 +36,20 @@ const Platform = () => {
   axios.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest";
   axios.defaults.headers.post["Content-Type"] = "application/json";
   axios.defaults.withCredentials = true;
+
+  const commonsPaths = [
+    "/",
+    "/catalog",
+    "/collections",
+    "/commons-project",
+    "/author",
+    "/book",
+    "/homework",
+    "/libraries",
+    "/search-results",
+    "/file",
+  ];
+
   axios.interceptors.response.use(
     (res) => {
       return res;
@@ -55,19 +69,6 @@ const Platform = () => {
       return Promise.reject(err);
     }
   );
-
-  const commonsPaths = [
-    "/",
-    "/catalog",
-    "/collections",
-    "/commons-project",
-    "/author",
-    "/book",
-    "/homework",
-    "/libraries",
-    "/search-results",
-    "/file",
-  ];
 
   const commonsRouterPaths = [
     "/",
