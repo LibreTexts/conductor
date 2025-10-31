@@ -9,7 +9,7 @@ const conductorErrors = {
   err2: "Invalid fields supplied.",
   err3: "An error occured saving information to the database.",
   err4: "This tool is not available to this organization.",
-  err5: "Invalid authorization token. Try signing out and in again.",
+  err5: "Invalid authorization token. Please log in again.",
   err6: "Sorry, we seem to have encountered an internal error.",
   err7: "Couldn't find a user with that identifier.",
   err8: "Sorry, you aren't authorized to perform that action.",

@@ -1,3 +1,4 @@
+import axios from "axios";
 import Cookies from "js-cookie";
 
 /**
@@ -52,8 +53,16 @@ const AuthHelper = {
    *
    * @param {boolean} [authExpired=false] - If the logout is the result of expired authentication.
    * @param {object} [location=null] - An object containing the document's current location (URL).
+   * @param {boolean} [silent=false] - If true, suppresses any user-facing notifications about the logout.
    */
-  logout: (authExpired: boolean = false, location: Location | null = null) => {
+  logout: (authExpired: boolean = false, location: Location | null = null, silent: boolean = false) => {
+    if (silent) {
+      axios.post("/auth/logout").catch(() => {
+        console.error("Silent logout request failed.");
+      });
+      return;
+    }
+
     if (authExpired) {
       const url = AuthHelper.generateLoginURL(location ? location.href : null);
       window.location.assign(url);
