@@ -458,7 +458,15 @@ async function logout(_req: Request, res: Response) {
       httpOnly: true,
       ...(process.env.NODE_ENV === "production" && prodCookieConfig),
     });
-    return res.redirect(oidcLogout);
+
+    if (_req.method === "GET") {
+      return res.redirect(oidcLogout);
+    } else {
+      return res.send({
+        err: false,
+        msg: "Successfully logged out",
+      });
+    }
   } catch (e) {
     debugError(e);
     return res.status(500).send({
@@ -735,6 +743,7 @@ async function verifyRequest(req: Request, res: Response, next: NextFunction) {
     const session = await Session.findOne({
       sessionId,
       valid: true,
+      expiresAt: { $gt: new Date() },
     });
 
     if (!session) {

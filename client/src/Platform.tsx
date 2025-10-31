@@ -36,6 +36,20 @@ const Platform = () => {
   axios.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest";
   axios.defaults.headers.post["Content-Type"] = "application/json";
   axios.defaults.withCredentials = true;
+
+  const commonsPaths = [
+    "/",
+    "/catalog",
+    "/collections",
+    "/commons-project",
+    "/author",
+    "/book",
+    "/homework",
+    "/libraries",
+    "/search-results",
+    "/file",
+  ];
+
   axios.interceptors.response.use(
     (res) => {
       return res;
@@ -46,13 +60,17 @@ const Platform = () => {
         (err.response?.data?.tokenExpired === true ||
           err.response?.data?.sessionInvalid === true)
       ) {
-        AuthHelper.logout(true, window.location);
+        const silent = commonsPaths.some((path) =>
+          window.location.pathname.startsWith(path)
+        );
+
+        AuthHelper.logout(true, window.location, silent);
       }
       return Promise.reject(err);
     }
   );
-  /* Set up render trees */
-  const commonsPaths = [
+
+  const commonsRouterPaths = [
     "/",
     "/catalog",
     "/catalog/:entryType",
@@ -67,6 +85,7 @@ const Platform = () => {
     "/search-results",
     "/file/:projectID/:fileID",
   ];
+
   const standalonePaths = [
     "/adopt",
     "/accessibility",
@@ -110,7 +129,7 @@ const Platform = () => {
                 <Switch>
                   {/* Commons Render Tree */}
                   {/* @ts-expect-error */}
-                  <Route exact path={commonsPaths} component={Commons} />
+                  <Route exact path={commonsRouterPaths} component={Commons} />
                   {/* Standalone Pages */}
                   <Route exact path={standalonePaths} component={Standalone} />
                   {/* Conductor and fallback Render Tree */}
