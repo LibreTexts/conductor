@@ -11,6 +11,8 @@ export interface KBPageInterface extends Document {
   parent?: string;
   imgURLs?: string[];
   lastEditedByUUID: string; // User uuid
+  embeddings?: number[];
+  embeddingsUpdatedAt?: Date;
 }
 
 const KBPageSchema = new Schema<KBPageInterface>(
@@ -49,6 +51,12 @@ const KBPageSchema = new Schema<KBPageInterface>(
     lastEditedByUUID: {
       type: String,
       required: true,
+    },
+    embeddings: {
+      type: [Number],
+    },
+    embeddingsUpdatedAt: {
+      type: Date,
     },
   },
   {
