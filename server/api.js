@@ -2882,4 +2882,16 @@ router
     kbAPI.queryWithToolsHandler
   );
 
+router
+  .route("/agent/query-langgraph")
+  .post(
+    kbAPI.agentQueryLangGraph
+  );
+
+router
+  .route("/agent/visualize-graph")
+  .get(
+    kbAPI.visualizeGraph
+  );
+
 export default router;

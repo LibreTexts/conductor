@@ -1176,6 +1176,62 @@ async function createSessionHandler(req: Request, res: Response) {
   }
 }
 
+async function agentQueryLangGraph(req: Request, res: Response) {
+  try {
+    const { query, sessionId } = req.body;
+    console.log('agentQueryLangGraph line 1182');
+    console.log('req.body', req.body);
+
+    if (!query || typeof query !== 'string') {
+      return res.status(400).send({
+        err: true,
+        msg: "Query is required and must be a string"
+      });
+    }
+
+    if (!sessionId || typeof sessionId !== 'string') {
+      return res.status(400).send({
+        err: true,
+        msg: "SessionId is required and must be a string"
+      });
+    }
+
+    console.log(`🤖 LangGraph Agent Query Request: "${query}" (Session: ${sessionId})`);
+
+    const response = await agentService.queryWithLangGraph(
+      query,
+      sessionId
+    );
+
+    return res.send({
+      err: false,
+      ...response,
+    });
+
+  } catch (error) {
+    console.error('LangGraph agent query error:', error);
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
+
+async function visualizeGraph(req: Request, res: Response) {
+  try {
+    const mermaidString = await agentService.exportGraphToFile();
+    
+    return res.send({
+      err: false,
+      mermaid: mermaidString,
+      viewUrl: 'https://mermaid.live/',
+      message: 'Copy the mermaid string and paste it at https://mermaid.live/ to visualize'
+    });
+  } catch (error) {
+    console.error('Error visualizing graph:', error);
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
+
 export default {
   getKBPage,
   getKBTree,
@@ -1201,4 +1257,6 @@ export default {
   agentQuery,
   queryWithToolsHandler,
   createSessionHandler,
+  agentQueryLangGraph,
+  visualizeGraph,
 };
