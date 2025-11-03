@@ -28,7 +28,6 @@ async function testQdrantConnection() {
       // Test connection by listing collections
       const collections = await qdrantClient.getCollections();
       console.log('✅ Qdrant connection OK');
-      console.log('📚 Available collections:', collections.collections.map(c => c.name));
     } catch (error: any) {
       console.error('❌ Failed to connect to Qdrant');
       console.error('Error message:', error.message);

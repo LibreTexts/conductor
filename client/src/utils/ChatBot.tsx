@@ -1,78 +1,203 @@
-import React, { useState } from "react";
-import "./ChatBot.css"; // Add styles for the chatbot
+import React, { useState, useEffect } from "react";
+import "./ChatBot.css";
 import api from "../api";
+
+interface AgentSource {
+  number: number;
+  title: string;
+  url: string;
+  source: 'kb' | 'web';
+}
+
+interface Message {
+  role: 'user' | 'agent';
+  content: string;
+  sources?: AgentSource[];
+}
 
 const ChatBot: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [sessionId, setSessionId] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [creatingSession, setCreatingSession] = useState(false);
+
+  // Create a new session when component mounts
+  useEffect(() => {
+    createNewSession();
+  }, []);
+
+  const createNewSession = async () => {
+    setCreatingSession(true);
+    try {
+      const response = await api.createAgentSession();
+      if (!response.err && response.sessionId) {
+        setSessionId(response.sessionId);
+        console.log("✅ New session created:", response.sessionId);
+      } else {
+        throw new Error("Failed to create session");
+      }
+    } catch (error) {
+      console.error("❌ Failed to create session:", error);
+    }
+    setCreatingSession(false);
+  };
 
   const toggleChat = () => {
     setIsOpen(!isOpen);
   };
 
   const handleSendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !sessionId || loading) return;
 
-    // Add user message to the chat
-    const userMessage = { role: "user", content: input };
+    const userMessage: Message = { 
+      role: "user", 
+      content: input 
+    };
     setMessages((prev) => [...prev, userMessage]);
 
-    // Clear input field
+    const currentInput = input;
     setInput("");
+    setLoading(true);
 
-    // Call the backend API to get the chatbot response
     try {
-      console.log("Chatbot user message:", userMessage);
-      const response = await api.sendChatbotQuery(userMessage.content, "session_1761167818745_bb41dcvrd");
+      console.log("🤖 Sending to LangGraph agent:", currentInput);
+      
+      // 🎯 NEW: Call the LangGraph agent endpoint
+      const response = await api.queryLangGraphAgent(currentInput, sessionId);
 
-      const data = await response;
-      console.log("Chatbot response data:", data);
-      if (data.err) {
-        throw new Error(data.msg || "Error fetching chatbot response");
+      console.log("✅ Agent response:", response);
+
+      if (!response.err) {
+        const botMessage: Message = { 
+          role: "agent", 
+          content: response.response,
+          sources: response.sources
+        };
+        setMessages((prev) => [...prev, botMessage]);
+      } else {
+        throw new Error("Error fetching chatbot response");
       }
-
-      // Add chatbot response to the chat
-      const botMessage = { role: "agent", content: data.response };
-      setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
-      console.error("Error sending message:", error);
-      const errorMessage = { role: "agent", content: "Sorry, something went wrong. Please try again." };
+      console.error("❌ Error sending message:", error);
+      const errorMessage: Message = { 
+        role: "agent", 
+        content: "Sorry, something went wrong. Please try again." 
+      };
       setMessages((prev) => [...prev, errorMessage]);
     }
+
+    setLoading(false);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const handleNewSession = () => {
+    setMessages([]);
+    createNewSession();
   };
 
   return (
     <div className="chatbot-container">
-    <button className="chatbot-toggle" onClick={toggleChat}>
-      {isOpen ? "Close Chat" : "Chat with Us"}
-    </button>
-
-    {isOpen && (
-      <div className="chatbot-window">
-        <div className="chatbot-header">
-          <h4>Chatbot</h4>
-          <button onClick={toggleChat}>X</button>
-        </div>
-        <div className="chatbot-messages">
-          {messages.map((msg, index) => (
-            <div key={index} className={`chatbot-message ${msg.role}`}>
-              {msg.content}
+      {!isOpen && (
+        <button className="chatbot-toggle" onClick={toggleChat}>
+          💬 AI Assistant
+        </button>
+      )}
+      {isOpen && (
+        <div className="chatbot-window">
+          <div className="chatbot-header">
+            <div className="header-content">
+              <h4>LibreTexts AI Assistant</h4>
             </div>
-          ))}
+            <div className="header-actions">
+              <button 
+                className="new-session-btn" 
+                onClick={handleNewSession}
+                title="Start new session"
+                disabled={creatingSession}
+              >
+                🔄
+              </button>
+              <button className="close-btn" onClick={toggleChat}>✕</button>
+            </div>
+          </div>
+
+          <div className="chatbot-messages">
+            {messages.length === 0 && (
+              <div className="welcome-message">
+                <p>👋 Hi! I'm your AI assistant.</p>
+                <p>I can search the LibreTexts Knowledge Base and the web to help you!</p>
+              </div>
+            )}
+
+            {messages.map((msg, index) => (
+              <div key={index} className={`chatbot-message ${msg.role}`}>
+                <div className="message-content">
+                  <strong>{msg.role === "user" ? "You" : "AI"}:</strong>
+                  <div className="message-text">{msg.content}</div>
+                </div>
+
+                {/* Show sources if available */}
+                {msg.sources && msg.sources.length > 0 && (
+                  <div className="message-sources">
+                    <div className="sources-header">
+                      📚 Sources ({msg.sources.length}):
+                    </div>
+                    <div className="sources-list">
+                      {msg.sources.map((source) => (
+                        <a
+                          key={source.number}
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`source-link ${source.source}`}
+                          title={source.title}
+                        >
+                          {source.source === 'kb' ? '📖' : '🌐'} [{source.number}] {source.title}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {loading && (
+              <div className="chatbot-loading">
+                <div className="loading-dots">
+                  <span>.</span><span>.</span><span>.</span>
+                </div>
+                <span>AI is thinking</span>
+              </div>
+            )}
+          </div>
+
+          <div className="chatbot-input">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder={sessionId ? "Ask me anything..." : "Creating session..."}
+              disabled={!sessionId || loading}
+            />
+            <button 
+              onClick={handleSendMessage} 
+              disabled={!sessionId || loading || !input.trim()}
+            >
+              {loading ? "..." : "Send"}
+            </button>
+          </div>
         </div>
-        <div className="chatbot-input">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your message..."
-          />
-          <button onClick={handleSendMessage}>Send</button>
-        </div>
-      </div>
-    )}
-  </div>
+      )}
+    </div>
   );
 };
 

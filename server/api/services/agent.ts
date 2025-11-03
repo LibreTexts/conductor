@@ -1,333 +1,412 @@
-// // server/api/services/agent.ts
-// import OpenAI from 'openai';
-// import { qdrantService } from './qdrant.js';
-
-// const openai = new OpenAI({
-//   apiKey: process.env.OPENAI_API_KEY!,
-// });
-
-// export interface AgentSource {
-//   number: number;
-//   title: string;
-//   description: string;
-//   slug: string;
-//   url: string;
-//   relevanceScore?: number;
-// }
-
-// export interface AgentResponse {
-//   response: string;
-//   sources: AgentSource[];
-//   query: string;
-//   timestamp: string;
-// }
-
-// export class AgentService {
-  
-//   /**
-//    * Generic RAG agent that works with any Qdrant collection
-//    * @param query - User's question
-//    * @param collectionName - Qdrant collection to search (e.g., 'kb_pages', 'projects', 'books')
-//    * @param systemPrompt - Custom system prompt for the agent
-//    * @param limit - Number of results to retrieve (default: 3)
-//    */
-//   async query(
-//     query: string,
-//     collectionName: string = 'kb_pages',
-//     systemPrompt: string = 'You are a helpful AI agent. Answer questions based on the provided context.',
-//     limit: number = 3
-//   ): Promise<AgentResponse> {
-    
-//     console.log(`🤖 Agent Query: "${query}" [Collection: ${collectionName}]`);
-
-//     // Step 1: Vector search in Qdrant
-//     console.log('🔍 Step 1: Searching for similar content...');
-//     const similarPages = await qdrantService.searchSimilar(query, limit);
-    
-//     if (similarPages.length === 0) {
-//       return {
-//         response: "I couldn't find any relevant information to answer your question. Please try rephrasing or contact support for assistance.",
-//         sources: [],
-//         query: query,
-//         timestamp: new Date().toISOString()
-//       };
-//     }
-
-//     console.log(`✅ Found ${similarPages.length} relevant items`);
-//     similarPages.forEach((page, i) => {
-//       console.log(`  ${i + 1}. ${page.title} (score: ${page.score?.toFixed(3)})`);
-//     });
-
-//     // Step 2: Build context from retrieved content
-//     console.log('📝 Step 2: Building context...');
-//     const context = this.buildContext(similarPages);
-
-//     // Step 3: Generate prompt
-//     const prompt = this.buildPrompt(context, query);
-
-//     // Step 4: Call LLM
-//     console.log('🤖 Step 3: Generating response with LLM...');
-//     const aiResponse = await this.generateResponse(prompt, systemPrompt);
-    
-//     console.log('✅ Response generated successfully');
-
-//     // Step 5: Format sources
-//     const sources = this.formatSources(similarPages);
-
-//     return {
-//       response: aiResponse,
-//       sources,
-//       query,
-//       timestamp: new Date().toISOString()
-//     };
-//   }
-
-//   /**
-//    * Build context string from retrieved documents
-//    */
-//   private buildContext(documents: any[]): string {
-//     return documents
-//       .map((doc, idx) => {
-//         const cleanText = doc.cleanText || doc.body?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '';
-//         return `[Source ${idx + 1}: ${doc.title}]\n${cleanText.substring(0, 1500)}`;
-//       })
-//       .join('\n\n---\n\n');
-//   }
-
-//   /**
-//    * Build prompt for LLM
-//    */
-//   private buildPrompt(context: string, query: string): string {
-//     return `Context from Knowledge Base:
-// ${context}
-
-// User Question: ${query}
-
-// Instructions:
-// - Provide a clear, accurate answer based on the context above
-// - If the context contains the answer, explain it in a helpful way
-// - If the context doesn't fully answer the question, say what information is available
-// - Include specific steps or instructions when relevant
-// - Be concise but thorough
-// - Reference which source(s) you're using if helpful
-
-// Answer:`;
-//   }
-
-//   /**
-//    * Generate response using OpenAI
-//    */
-//   private async generateResponse(prompt: string, systemPrompt: string): Promise<string> {
-//     const completion = await openai.chat.completions.create({
-//       model: "gpt-3.5-turbo",
-//       messages: [
-//         {
-//           role: "system",
-//           content: systemPrompt
-//         },
-//         {
-//           role: "user",
-//           content: prompt
-//         }
-//       ],
-//       temperature: 0.7,
-//       max_tokens: 500,
-//     });
-
-//     return completion.choices[0].message.content || "I apologize, but I couldn't generate a response. Please try again.";
-//   }
-
-//   /**
-//    * Format sources for response
-//    */
-//   private formatSources(documents: any[]): AgentSource[] {
-//     return documents.map((doc, idx) => ({
-//       number: idx + 1,
-//       title: doc.title,
-//       description: doc.description || '',
-//       slug: doc.slug,
-//       url: `/insight/${doc.slug}`,
-//       relevanceScore: doc.score
-//     }));
-//   }
-
-//   /**
-//    * Streaming agent responses (for future real-time responses)
-//    */
-//   async queryStream(
-//     query: string,
-//     collectionName: string = 'kb_pages',
-//     systemPrompt: string = 'You are a helpful AI agent.',
-//     limit: number = 3
-//   ) {
-//     // Placeholder for streaming implementation
-//     // You can implement SSE (Server-Sent Events) here later
-//     throw new Error('Streaming not yet implemented');
-//   }
-// }
-
-// export const agentService = new AgentService();
-
-
-
-
-
-
-
+// server/api/services/agent.ts
 import { ChatOpenAI } from '@langchain/openai';
-import { ConversationChain } from 'langchain/chains';
-import { BufferMemory } from 'langchain/memory';
-import { MongoDBChatMessageHistory } from "@langchain/mongodb";
-import { PromptTemplate } from '@langchain/core/prompts';
+import { HumanMessage, AIMessage, BaseMessage } from '@langchain/core/messages';
+import { DynamicStructuredTool } from '@langchain/core/tools';
+import { StateGraph, END, START, MessagesAnnotation } from '@langchain/langgraph';
+import { ToolNode } from '@langchain/langgraph/prebuilt';
+import { z } from 'zod';
 import { qdrantService } from './qdrant.js';
 import AgentHistory from '../../models/agenthistory.js';
-import mongoose from 'mongoose';
-import { MongoClient } from 'mongodb';
-import { ChatMessageHistory } from "langchain/memory";
-import { Runnable } from "langchain/schema/runnable";
+import {
+  SYSTEM_PROMPTS,
+  TOOL_PROMPTS,
+  ERROR_MESSAGES,
+  buildSystemPrompt,
+} from './prompts.js';
+import axios from 'axios';
 
+export interface AgentSource {
+  number: number;
+  title: string;
+  description: string;
+  slug?: string;
+  url: string;
+  relevanceScore?: number;
+  source: 'kb' | 'web';
+}
+
+export interface AgentResponse {
+  response: string;
+  sources: AgentSource[];
+  query: string;
+  timestamp: string;
+}
 
 export class AgentService {
-    private llm: ChatOpenAI;
-    private readonly CONFIDENCE_THRESHOLD = 0.5;
-  
-    constructor () {
-      this.llm = new ChatOpenAI({
-        modelName: 'gpt-4.1',
-        temperature: 0.7,
-        openAIApiKey: process.env.OPENAI_API_KEY,
-      });
-    }
-  
-    /**
-     * Create a new session
-     */
-    async createSession(userId?: string): Promise<string> {
-      const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      await AgentHistory.create({
-        sessionId,
-        userId,
-        messages: [],
-        metadata: {
-          collectionName: 'kb_pages',
-          totalQueries: 0,
-          lastActivity: new Date(),
-        },
-      });
-  
-      console.log(`✅ Created session: ${sessionId}`);
-      return sessionId;
-    }
+  private llm: ChatOpenAI;
+  private readonly CONFIDENCE_THRESHOLD = 0.5;
 
-    /**
-   * Get LangChain memory with MongoDB chat history
-   */
-  private async getMemoryWithMongoDB(sessionId: string): Promise<BufferMemory> {
-
-    const chatHistory = new ChatMessageHistory();
-     
-    const memory = new BufferMemory({
-      chatHistory,
-      returnMessages: true,
-      memoryKey: 'chat_history',
+  constructor() {
+    this.llm = new ChatOpenAI({
+      modelName: 'gpt-4-turbo-preview',
+      temperature: 0.7,
+      openAIApiKey: process.env.OPENAI_API_KEY,
     });
-    
-    // Load existing messages from AgentHistory
-    const session = await AgentHistory.findOne({ sessionId });
-    
-    if (session && session.messages && session.messages.length > 0) {
-        // Manually restore chat history
-        for (const msg of session.messages) {
-        if (msg.role === 'user') {
-            await memory.chatHistory.addUserMessage(msg.content);
-        } else if (msg.role === 'agent') {
-            await memory.chatHistory.addAIChatMessage(msg.content);
-        }
-        }
-    }
-    return memory;
   }
 
-  async queryWithTools(
-  query: string,
-  sessionId: string,
-  collectionName: string = 'kb_pages',
-  systemPrompt: string = 'You are a helpful AI assistant for LibreTexts Knowledge Base. Answer questions based on the provided context.',
-  limit: number = 3
-): Promise<string> {
-  console.log(`🤖 Agent Query: "${query}" [Session: ${sessionId}]`);
+  /**
+   * Create a new session
+   */
+  async createSession(userId?: string): Promise<string> {
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-  // Step 1: Retrieve memory
-  const memory = await this.getMemoryWithMongoDB(sessionId);
-  console.log('Retrieved chat memory:', memory);
-  const memoryVariables = await memory.loadMemoryVariables({});
-  const chatHistory = memoryVariables.chat_history.map((msg: any) => {
-    return msg.role === 'user' ? `User: ${msg.content}` : `Agent: ${msg.content}`;
-  }).join('\n');
-
-//   // Step 2: Combine prior context with the current query
-  
-  const enhancedQuery = `Conversation so far:\n${chatHistory}\n\nUser's current question: ${query}`;
-  console.log(`Enhanced Query for Vector Search:\n${enhancedQuery}`);
-
-//   // Step 3: Search the vector database for relevant context
-  console.log('Searching vector database for relevant context...');
-  const similarPages = await qdrantService.searchSimilar(enhancedQuery, limit);
-
-  if (similarPages.length === 0) {
-    return "I couldn't find any relevant information to answer your question. Please try rephrasing or contact support for assistance.";
-  }
-
-  console.log(`Found ${similarPages.length} relevant items`);
-  const context = similarPages
-    .map((doc, idx) => `[Source ${idx + 1}: ${doc.title}]\n${doc.body}`)
-    .join('\n\n---\n\n');
-
-  console.log("context:", context);
-//   // Step 4: Build the prompt
-  const prompt = new PromptTemplate({
-    template: `Context from Knowledge Base:
-        {context}
-
-        // User Question: {query}
-
-        // Instructions:
-        // - Provide a clear, accurate answer based on the context above
-        // - If the context contains the answer, explain it in a helpful way
-        // - If the context doesn't fully answer the question, say what information is available
-        // - Include specific steps or instructions when relevant
-        - Use plain text formatting. Avoid bold text, special characters, or unnecessary indentation.
-        - Write the response in simple, numbered points if applicable.
-
-
-        // Answer:`,
-    inputVariables: ['context', 'query'],
-  });
-
-  const formattedPrompt = await prompt.format({ context, query });
-
-//   // Step 5: Use the LLM to generate a response
-  console.log('Generating response with LLM...');
-  const response = await this.llm.invoke(formattedPrompt);
-  // console.log("LLM Response:", response);
-
-//   // Step 6: Save the interaction to memory
-  await AgentHistory.updateOne(
-    { sessionId },
-    {
-      $push: {
-        messages: [
-          { role: 'user', content: query },
-          { role: 'agent', content: response.content },
-        ],
+    await AgentHistory.create({
+      sessionId,
+      userId,
+      messages: [],
+      metadata: {
+        collectionName: 'kb_pages',
+        totalQueries: 0,
+        lastActivity: new Date(),
       },
-      $set: { 'metadata.lastActivity': new Date() },
-    }
-  );
+    });
 
-  return response.content as string;
+    return sessionId;
+  }
+
+  /**
+   * Load chat history from database
+   */
+  private async loadChatHistory(sessionId: string): Promise<BaseMessage[]> {
+    const session = await AgentHistory.findOne({ sessionId });
+
+    if (!session || !session.messages || session.messages.length === 0) {
+      return [];
+    }
+
+    return session.messages.map((msg: any) => {
+      if (msg.role === 'user') {
+        return new HumanMessage(msg.content);
+      } else {
+        return new AIMessage(msg.content);
+      }
+    });
+  }
+
+  /**
+   * Save messages to database
+   */
+  private async saveMessages(sessionId: string, userMessage: string, aiMessage: string) {
+    await AgentHistory.updateOne(
+      { sessionId },
+      {
+        $push: {
+          messages: [
+            { role: 'user', content: userMessage },
+            { role: 'agent', content: aiMessage },
+          ],
+        },
+        $set: { 'metadata.lastActivity': new Date() },
+        $inc: { 'metadata.totalQueries': 1 },
+      }
+    );
+  }
+
+  /**
+   * Google Search Tool using Serper API
+   */
+  private createGoogleSearchTool() {
+    return new DynamicStructuredTool({
+      name: TOOL_PROMPTS.googleSearch.name,
+      description: TOOL_PROMPTS.googleSearch.description,
+      schema: z.object({
+        query: z.string().describe('The search query to send to Google'),
+      }),
+      func: async ({ query }) => {
+        try {
+          console.log(`🔍 Google Search: "${query}"`);
+
+          if (!process.env.SERPER_API_KEY) {
+            return 'Google Search is not available (API key not configured)';
+          }
+
+          const response = await axios.post(
+            'https://google.serper.dev/search',
+            {
+              q: query,
+              num: 5, // Get top 5 results
+            },
+            {
+              headers: {
+                'X-API-KEY': process.env.SERPER_API_KEY,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          const results = response.data.organic || [];
+          
+          if (results.length === 0) {
+            return 'No results found on Google for this query.';
+          }
+
+          const formattedResults = results
+            .map((result: any, idx: number) => {
+              return `[${idx + 1}] ${result.title}\n${result.snippet}\nURL: ${result.link}`;
+            })
+            .join('\n\n');
+
+          const output = `Google Search Results:\n\n${formattedResults}`;
+      
+          // 👇 ADD THIS - Log the tool output
+          console.log('📤 Google Search Output:');
+          console.log(output);
+          console.log('─'.repeat(80));
+
+          return `Google Search Results:\n\n${formattedResults}`;
+        } catch (error: any) {
+          console.error('Google Search error:', error.message);
+          return `Error searching Google: ${error.message}`;
+        }
+      },
+    });
+  }
+
+  /**
+   * Vector Search Tool using Qdrant
+   */
+  private createVectorSearchTool() {
+    return new DynamicStructuredTool({
+      name: TOOL_PROMPTS.knowledgeBase.name,
+      description: TOOL_PROMPTS.knowledgeBase.description,
+      schema: z.object({
+        query: z.string().describe('The search query to find relevant KB articles'),
+        limit: z.number().optional().default(3).describe('Number of results to return (default: 3)'),
+      }),
+      func: async ({ query, limit = 3 }) => {
+        try {
+          console.log(`📚 KB Search: "${query}" (limit: ${limit})`);
+
+          const results = await qdrantService.searchSimilar(query, limit);
+
+          if (results.length === 0) {
+            return 'No relevant articles found in the LibreTexts Knowledge Base.';
+          }
+
+          const formattedResults = results
+            .map((result, idx) => {
+              const cleanText = result.cleanText || (result.body as string)?.replace(/<[^>]*>/g, ' ').substring(0, 500);
+              return `[${idx + 1}] ${result.title}\n${result.description || ''}\nContent: ${cleanText}...\nURL: /insight/${result.slug}\nRelevance Score: ${result.score?.toFixed(3)}`;
+            })
+            .join('\n\n');
+
+            const output = `Knowledge Base Results:\n\n${formattedResults}`;
+        
+            // 👇 ADD THIS - Log the tool output
+            console.log('📤 KB Search Output:');
+            console.log(output);
+            console.log('─'.repeat(80));
+
+          return `Knowledge Base Results:\n\n${formattedResults}`;
+        } catch (error: any) {
+          console.error('KB Search error:', error.message);
+          return `Error searching Knowledge Base: ${error.message}`;
+        }
+      },
+    });
+  }
+
+  /**
+   * Determine if the agent should continue or end
+   */
+  private shouldContinue(state: typeof MessagesAnnotation.State) {
+    const messages = state.messages;
+    const lastMessage = messages[messages.length - 1];
+
+    // If the last message has tool calls, continue to execute tools
+    if (lastMessage._getType() === 'ai' && (lastMessage as any).tool_calls?.length) {
+      return 'tools';
+    }
+
+    // Otherwise, end the conversation
+    return END;
+  }
+
+  /**
+   * Call the LLM with tools
+   */
+  private async callModel(state: typeof MessagesAnnotation.State) {
+    const messages = state.messages;
+    const response = await this.llm.invoke(messages);
+    return { messages: [response] };
+  }
+
+  /**
+   * Query with LangGraph Agent
+   */
+  async queryWithLangGraph(
+    query: string,
+    sessionId: string,
+    systemPrompt: string = buildSystemPrompt({ tone: 'default', includeHistory: true })
+  ): Promise<AgentResponse> {
+    try {
+      console.log(`🤖 LangGraph Agent Query: "${query}" [Session: ${sessionId}]`);
+
+      // Load chat history
+      const chatHistory = await this.loadChatHistory(sessionId);
+
+      // Create tools
+      const tools = [this.createVectorSearchTool(), this.createGoogleSearchTool()];
+
+      // Bind tools to LLM
+      const modelWithTools = this.llm.bindTools(tools);
+
+      // Create tool node
+      const toolNode = new ToolNode(tools);
+
+      // Create the graph
+      const workflow = new StateGraph(MessagesAnnotation)
+        .addNode('agent', async (state) => {
+          const messages = state.messages;
+          const response = await modelWithTools.invoke(messages);
+          return { messages: [response] };
+        })
+        .addNode('tools', toolNode)
+        .addEdge(START, 'agent')
+        .addConditionalEdges('agent', this.shouldContinue)
+        .addEdge('tools', 'agent');
+
+      const app = workflow.compile();
+
+      // Prepare initial messages
+      const initialMessages: BaseMessage[] = [
+        new HumanMessage(systemPrompt),
+        ...chatHistory,
+        new HumanMessage(query),
+      ];
+
+      // Execute the graph
+      const finalState = await app.invoke({
+        messages: initialMessages,
+      });
+
+      // Extract the final response
+      const messages = finalState.messages;
+      const lastMessage = messages[messages.length - 1];
+      const aiResponse = lastMessage.content as string;
+
+      // Extract sources from tool calls
+      const sources = this.extractSources(messages);
+
+      // Save to database
+      await this.saveMessages(sessionId, query, aiResponse);
+
+      console.log('✅ Agent response generated');
+
+      return {
+        response: aiResponse,
+        sources,
+        query,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      console.error('❌ LangGraph Agent error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Extract sources from tool calls in messages
+   */
+  private extractSources(messages: BaseMessage[]): AgentSource[] {
+    const sources: AgentSource[] = [];
+    let sourceNumber = 1;
+
+    for (const message of messages) {
+      if (message._getType() === 'tool') {
+        const toolMessage = message as any;
+        const content = toolMessage.content;
+
+        // Parse KB sources
+        if (content.includes('Knowledge Base Results:')) {
+          const kbMatches = content.matchAll(/\[(\d+)\] (.+?)\n.*?URL: (.+?)\n/g);
+          for (const match of kbMatches) {
+            sources.push({
+              number: sourceNumber++,
+              title: match[2],
+              description: '',
+              url: match[3],
+              source: 'kb',
+            });
+          }
+        }
+
+        // Parse Google sources
+        if (content.includes('Google Search Results:')) {
+          const googleMatches = content.matchAll(/\[(\d+)\] (.+?)\n.*?URL: (.+?)(?:\n|$)/g);
+          for (const match of googleMatches) {
+            sources.push({
+              number: sourceNumber++,
+              title: match[2],
+              description: '',
+              url: match[3],
+              source: 'web',
+            });
+          }
+        }
+      }
+    }
+
+    return sources;
+  }
+
+  /**
+   * Backward compatibility: queryWithTools method
+   */
+  async queryWithTools(
+    query: string,
+    sessionId: string,
+    collectionName: string = 'kb_pages',
+    systemPrompt: string = 'You are a helpful AI assistant for LibreTexts Knowledge Base.',
+    limit: number = 3
+  ): Promise<string> {
+    const response = await this.queryWithLangGraph(query, sessionId, systemPrompt);
+    return response.response;
+  }
+
+  async getGraphVisualization(): Promise<string> {
+    try {
+      // Create tools
+      const tools = [this.createVectorSearchTool(), this.createGoogleSearchTool()];
+      
+      // Bind tools to LLM
+      const modelWithTools = this.llm.bindTools(tools);
+      
+      // Create tool node
+      const toolNode = new ToolNode(tools);
+      
+      // Create the graph (same as in queryWithLangGraph)
+      const workflow = new StateGraph(MessagesAnnotation)
+        .addNode('agent', async (state) => {
+          const messages = state.messages;
+          const response = await modelWithTools.invoke(messages);
+          return { messages: [response] };
+        })
+        .addNode('tools', toolNode)
+        .addEdge(START, 'agent')
+        .addConditionalEdges('agent', this.shouldContinue)
+        .addEdge('tools', 'agent');
+      
+      const app = workflow.compile();
+      
+      // Get the graph structure as Mermaid
+      const graph = app.getGraph();
+      const mermaidString = graph.drawMermaid();
+      
+      return mermaidString;
+    } catch (error: any) {
+      console.error('Error generating graph visualization:', error);
+      throw error;
+    }
+  }
+
+  async exportGraphToFile(filename: string = 'agent-graph.mmd'): Promise<void> {
+    const mermaid = await this.getGraphVisualization();
+    const fs = await import('fs/promises');
+    await fs.writeFile(filename, mermaid, 'utf-8');
+    console.log(`✅ Graph exported to ${filename}`);
+    console.log('View it at: https://mermaid.live/');
+  }
 }
-}
-  
+
 export const agentService = new AgentService();
