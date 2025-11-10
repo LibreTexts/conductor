@@ -357,19 +357,6 @@ class ConductorOAuthServer {
           },
         });
         apiClients.updateAPIClientLastUsed(code.client.id);
-
-        if (code.user.isNewAuth) { // set redirect to consent screen
-          const scopes_changed = code.user.scopesUpdatedSinceAuth; // show change message on screen
-          const proto = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-          const domain = process.env.CONDUCTOR_DOMAIN;
-          const searchParams = new URLSearchParams({
-            redirect_uri: response.headers.location,
-            client_id: code.client.id,
-            scopes_changed,
-          });
-          const consentRedir = `${proto}://${domain}/oauthconsent?${searchParams.toString()}`;
-          response.headers.location = consentRedir;
-        }
         return serverScope.handleOAuthResponse(res, response);
       } catch (e) {
         return serverScope.handleOAuthError(res, e);

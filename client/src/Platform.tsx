@@ -90,7 +90,6 @@ const Platform = () => {
     "/adopt",
     "/accessibility",
     "/translationfeedbackexport",
-    "/oauthconsent",
   ];
 
   useEffect(() => {
