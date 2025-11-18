@@ -1,5 +1,5 @@
 import "./ControlPanel.css";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Breadcrumb,
@@ -15,6 +15,16 @@ import { useTypedSelector } from "../../state/hooks";
 const CampusSettings = () => {
   //Global state
   const org = useTypedSelector((state) => state.org);
+  const user = useTypedSelector((state) => state.user);
+
+  useEffect(() => {
+    if (!user || !user.uuid) { // Ensure user is loaded before checking roles
+      return;
+    }
+    if (!user.isCampusAdmin && !user.isSuperAdmin && !user.isSupport) {
+      window.location.href = "/home";
+    }
+  }, [user]);
 
   const settingsFormRef =
     useRef<React.ElementRef<typeof CampusSettingsForm>>(null);
