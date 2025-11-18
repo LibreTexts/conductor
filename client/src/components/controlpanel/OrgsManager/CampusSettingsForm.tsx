@@ -28,7 +28,7 @@ import { useForm } from "react-hook-form";
 import useGlobalError from "../../error/ErrorHooks";
 import { useDispatch } from "react-redux";
 import { CampusSettingsOpts } from "../../../types";
-import isHexColor from "validator/es/lib/isHexColor";
+import { z } from "zod";
 import { required } from "../../../utils/formRules";
 import { useTypedSelector } from "../../../state/hooks";
 import axios from "axios";
@@ -215,9 +215,11 @@ const CampusSettingsForm = forwardRef(
         let primaryColorErr = false;
         let footerColorErr = false;
 
+        const hexColorSchema = z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/);
+
         if (
           getFormValue("primaryColor") &&
-          !isHexColor(getFormValue("primaryColor")!)
+          !hexColorSchema.safeParse(getFormValue("primaryColor")!).success
         ) {
           setFormError("primaryColor", {
             message: "Not a valid hex color.",
@@ -227,7 +229,7 @@ const CampusSettingsForm = forwardRef(
 
         if (
           getFormValue("footerColor") &&
-          !isHexColor(getFormValue("footerColor")!)
+          !hexColorSchema.safeParse(getFormValue("footerColor")!).success
         ) {
           setFormError("footerColor", {
             message: "Not a valid hex color.",
