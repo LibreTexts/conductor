@@ -4,7 +4,7 @@
 //
 import { validate as uuidValidate } from 'uuid';
 import { format as formatDate, parseISO } from "date-fns";
-import validator from 'validator';
+import { z } from "zod";
 import { debugError } from "../debug.js";
 import conductorErrors from "../conductor-errors.js";
 
@@ -280,6 +280,8 @@ export function isFullURL(input) {
   }
 }
 
+const hexColorSchema = z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/);
+
 /**
  * @description Ensures a given string is a safe hex code for use in styling
  * @param {string} hexString - unsafe string to check
@@ -294,7 +296,9 @@ export function sanitizeCustomColor(hexString) {
     hexString = `#${hexString}`;
   }
 
-  if (validator.isHexColor(hexString)) {
+  // Use zod to validate hex color
+  const result = hexColorSchema.safeParse(hexString);
+  if (result.success) {
     return hexString;
   }
 

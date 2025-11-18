@@ -1,5 +1,10 @@
-import isHexColor from "validator/es/lib/isHexColor";
+import { z } from "zod";
 import { Organization } from "../types";
+
+// Zod schema for hex color validation
+const hexColorSchema = z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, {
+  message: "Invalid hex color format"
+});
 
 /**
  * @description Ensures a given string is a safe hex code for use in styling
@@ -15,7 +20,9 @@ export function sanitizeCustomColor(hexString: string): string {
     hexString = `#${hexString}`;
   }
 
-  if (isHexColor(hexString)) {
+  // Use zod to validate hex color
+  const result = hexColorSchema.safeParse(hexString);
+  if (result.success) {
     return hexString;
   }
 
