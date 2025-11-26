@@ -1,3 +1,4 @@
+import { BookInterface } from "../models/book";
 import { Prettify } from "./Misc";
 
 export type BookSortOption = "random" | "author" | "title";
@@ -6,6 +7,20 @@ export type TableOfContents = {
   title: string;
   url: string;
   children: TableOfContents[];
+};
+
+export type MasterCatalogV2Response = {
+  libraries: {
+    library: string;
+    courses: {
+      course: string;
+      books: BookInterface[];
+    }[];
+    subjects: {
+      subject: string;
+      books: BookInterface[];
+    }[];
+  }[];
 };
 
 export type PageTag = {

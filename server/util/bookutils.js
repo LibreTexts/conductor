@@ -10,8 +10,8 @@ import { getLibraryNameKeys } from '../api/libraries.js';
 import Book from '../models/book.js';
 import { getProductionURL, isEmptyString, removeTrailingSlash, assembleUrl } from './helpers.js';
 import { CXOneFetch } from './librariesclient.js';
-import MindTouch from "../util/CXOne/index.js"
-import Fuse from 'fuse.js';
+import MindTouch from "../util/CXOne/index.js";
+import crypto from 'crypto';
 
 const licenses = [
     'arr',
@@ -307,15 +307,13 @@ export const deleteBookFromAPI = async (bookID) => {
 }
 
 /**
- * Uses fuzzy searching to determine if a book is associated with any of the provided campus names
- * based on its `course`, `program`, or `affiliation` fields.
+ * Determines if a book is associated with any of the provided campus names
+ * based on its `course` field.
  * @param {object} book - The book object to check.
  * @param {string[]} campusNames - Array of campus names to check against.
  * @returns {boolean} True if the book matches closely with any campus name, false otherwise.
  */
 export const checkIsCampusBook = (book, campusNames) => {
-    const fields = ['course', 'program', 'affiliation'];
-
     if (!book || typeof(book) !== 'object') {
         return false;
     }
@@ -324,19 +322,22 @@ export const checkIsCampusBook = (book, campusNames) => {
         return false;
     }
 
-    const valsToCheck = fields.map(field => book[field]).filter(value => typeof(value) === 'string' && value.trim() !== '');
-    if (valsToCheck.length === 0) {
-        return false;
-    }
-
-    const loweredBookVals = valsToCheck.map(value => value.toLowerCase());
     const loweredCampusNames = campusNames.map(name => name.toLowerCase());
 
-    const fuse = new Fuse(loweredCampusNames, { includeScore: true, threshold: 0.2, minMatchCharLength: 3 });
-
-    const isCampusBook = loweredBookVals.some(bookVal => {
-        return fuse.search(bookVal).length > 0;
+    return loweredCampusNames.some(bookVal => {
+        return book.course && typeof(book.course) === 'string' && book.course.toLowerCase() === bookVal;
     });
+}
 
-    return isCampusBook;
+/**
+ * Hashes a string to a float in the range [0, 1).
+ * @param {*} str - The input string to hash.
+ * @returns {number} A float in the range [0, 1).
+ */
+export function hashStringToFloat(str) {
+    const hash = crypto.createHash('md5').update(str).digest('hex');
+    // Take first 8 hex chars and convert to integer
+    const intHash = parseInt(hash.substring(0, 8), 16);
+    // Normalize to [0, 1)
+    return intHash / 0xffffffff;
 }

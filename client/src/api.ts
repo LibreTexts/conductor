@@ -60,7 +60,10 @@ import {
   AssetTag,
   SupportQueue,
   SupportQueueMetrics,
-  SupportTicketPriority
+  SupportTicketPriority,
+  MasterCatalogV2Response,
+  BookWithAutoMatched,
+  Organization,
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -93,9 +96,10 @@ import { EventSource } from "extended-eventsource";
  */
 
 class API {
-  private readonly BASE_URL: string = import.meta.env.MODE === "development"
-    ? `${import.meta.env.VITE_DEV_BASE_URL}/api/v1`
-    : "/api/v1";
+  private readonly BASE_URL: string =
+    import.meta.env.MODE === "development"
+      ? `${import.meta.env.VITE_DEV_BASE_URL}/api/v1`
+      : "/api/v1";
 
   // ANNOUNCEMENTS
   async getSystemAnnouncement() {
@@ -271,10 +275,11 @@ class API {
     return res;
   }
 
-  public cloudflareStreamUploadURL: string = `${import.meta.env.MODE === "development"
-    ? import.meta.env.VITE_DEV_BASE_URL
-    : ""
-    }/api/v1/cloudflare/stream-url`;
+  public cloudflareStreamUploadURL: string = `${
+    import.meta.env.MODE === "development"
+      ? import.meta.env.VITE_DEV_BASE_URL
+      : ""
+  }/api/v1/cloudflare/stream-url`;
 
   async getPermanentLink(projectID: string, fileID: string) {
     const res = await axios.get<
@@ -452,9 +457,9 @@ class API {
   batchGenerateAIMetadata(
     bookID: string,
     config: {
-      summaries: { generate: boolean; overwrite: boolean },
-      tags: { generate: boolean; overwrite: boolean },
-      alttext: { generate: boolean; overwrite: boolean }
+      summaries: { generate: boolean; overwrite: boolean };
+      tags: { generate: boolean; overwrite: boolean };
+      alttext: { generate: boolean; overwrite: boolean };
     }
   ) {
     return new EventSource(
@@ -465,7 +470,7 @@ class API {
         },
         withCredentials: true,
         method: "POST",
-        body: JSON.stringify(config)
+        body: JSON.stringify(config),
       }
     );
   }
@@ -524,7 +529,7 @@ class API {
     limit = 100,
     starting_after,
     category,
-    query
+    query,
   }: {
     limit?: number;
     starting_after?: string;
@@ -533,19 +538,19 @@ class API {
   } = {}) {
     const res = await axios.get<
       {
-        products: StoreProduct[]
+        products: StoreProduct[];
         meta: {
           has_more: boolean;
           total_count: number;
           cursor?: string;
-        }
+        };
       } & ConductorBaseResponse
     >("/store/products", {
       params: {
         limit,
         starting_after,
         category,
-        query
+        query,
       },
     });
     return res;
@@ -578,8 +583,14 @@ class API {
     shipping_option_id,
     shipping_address,
     digital_delivery_option,
-    digital_delivery_account
-  }: { items: StoreCheckoutSessionItem[], shipping_option_id: number | "digital_delivery_only", shipping_address: StoreCheckoutForm, digital_delivery_option?: StoreDigitalDeliveryOption | null, digital_delivery_account?: string | null }) {
+    digital_delivery_account,
+  }: {
+    items: StoreCheckoutSessionItem[];
+    shipping_option_id: number | "digital_delivery_only";
+    shipping_address: StoreCheckoutForm;
+    digital_delivery_option?: StoreDigitalDeliveryOption | null;
+    digital_delivery_account?: string | null;
+  }) {
     const res = await axios.post<
       {
         session_id: string;
@@ -590,7 +601,7 @@ class API {
       shipping_option_id,
       shipping_address,
       ...(digital_delivery_option && { digital_delivery_option }),
-      ...(digital_delivery_account && { digital_delivery_account })
+      ...(digital_delivery_account && { digital_delivery_account }),
     });
     return res;
   }
@@ -600,7 +611,10 @@ class API {
     shipping_address,
   }: {
     items: StoreCheckoutSessionItem[];
-    shipping_address: Pick<StoreCheckoutForm, 'address_line_1' | 'state' | 'postal_code' | 'country' | 'city'>;
+    shipping_address: Pick<
+      StoreCheckoutForm,
+      "address_line_1" | "state" | "postal_code" | "country" | "city"
+    >;
   }) {
     const res = await axios.post<
       { options: StoreGetShippingOptionsRes } & ConductorBaseResponse
@@ -618,9 +632,12 @@ class API {
     lulu_status?: string;
     query?: string;
   }) {
-    const res = await axios.get<GetStoreOrdersResponse & ConductorBaseResponse>("/store/admin/orders", {
-      params,
-    });
+    const res = await axios.get<GetStoreOrdersResponse & ConductorBaseResponse>(
+      "/store/admin/orders",
+      {
+        params,
+      }
+    );
     return res;
   }
 
@@ -663,11 +680,7 @@ class API {
     return res;
   }
 
-  async getCentralIdentityOrg({
-    orgId
-  }: {
-    orgId: string
-  }) {
+  async getCentralIdentityOrg({ orgId }: { orgId: string }) {
     const res = await axios.get<
       {
         org: CentralIdentityOrg;
@@ -679,13 +692,12 @@ class API {
   async postCentralIdentityOrg({
     name,
     logo,
-    systemId
+    systemId,
   }: {
-    name: string,
-    logo?: string,
-    systemId?: number
+    name: string;
+    logo?: string;
+    systemId?: number;
   }) {
-
     const res = await axios.post<
       {
         org: CentralIdentityOrg;
@@ -693,7 +705,7 @@ class API {
     >("/central-identity/orgs", {
       name,
       logo,
-      systemId
+      systemId,
     });
     return res;
   }
@@ -702,15 +714,15 @@ class API {
     orgId,
     name,
   }: {
-    orgId: number,
-    name?: string
+    orgId: number;
+    name?: string;
   }) {
     const res = await axios.patch<
       {
         org: CentralIdentityOrg;
       } & ConductorBaseResponse
     >(`/central-identity/orgs/${orgId}`, {
-      name
+      name,
     });
     return res;
   }
@@ -747,28 +759,23 @@ class API {
 
   async postCentralIdentitySystem({
     name,
-    logo
+    logo,
   }: {
-    name: string,
-    logo?: string,
-  }
-  ) {
+    name: string;
+    logo?: string;
+  }) {
     const res = await axios.post<
       {
         system: CentralIdentitySystem;
       } & ConductorBaseResponse
     >("/central-identity/systems", {
       name,
-      logo
+      logo,
     });
     return res;
   }
 
-  async getCentralIdentitySystem({
-    systemId
-  }: {
-    systemId: string
-  }) {
+  async getCentralIdentitySystem({ systemId }: { systemId: string }) {
     const res = await axios.get<
       {
         system: CentralIdentitySystem;
@@ -780,20 +787,19 @@ class API {
   async putCentralIdentitySystem({
     systemId,
     name,
-    logo
+    logo,
   }: {
-    systemId: string,
-    name?: string,
-    logo?: string,
-  }
-  ) {
+    systemId: string;
+    name?: string;
+    logo?: string;
+  }) {
     const res = await axios.put<
       {
         system: CentralIdentitySystem[];
       } & ConductorBaseResponse
     >(`/central-identity/systems/${systemId}`, {
       name,
-      logo
+      logo,
     });
     return res;
   }
@@ -910,7 +916,7 @@ class API {
     const res = await axios.put<ConductorBaseResponse>(
       `/central-identity/services/${id}`,
       body
-    )
+    );
 
     return res;
   }
@@ -932,30 +938,41 @@ class API {
   }
 
   async getCentralIdentityUser(uuid: string) {
-    const res = await axios.get<{
-      user: CentralIdentityUser;
-    } & ConductorBaseResponse>(`/central-identity/users/${uuid}`);
+    const res = await axios.get<
+      {
+        user: CentralIdentityUser;
+      } & ConductorBaseResponse
+    >(`/central-identity/users/${uuid}`);
     return res;
   }
 
   async getCentralIdentityUserApplications(uuid: string) {
-    const res = await axios.get<{
-      applications: CentralIdentityApp[];
-    } & ConductorBaseResponse>(`/central-identity/users/${uuid}/applications`);
+    const res = await axios.get<
+      {
+        applications: CentralIdentityApp[];
+      } & ConductorBaseResponse
+    >(`/central-identity/users/${uuid}/applications`);
     return res;
   }
 
-  async updateCentralIdentityUser(uuid: string, data: Partial<CentralIdentityUser>) {
-    const res = await axios.patch<{
-      user: CentralIdentityUser;
-    } & ConductorBaseResponse>(`/central-identity/users/${uuid}`, data);
+  async updateCentralIdentityUser(
+    uuid: string,
+    data: Partial<CentralIdentityUser>
+  ) {
+    const res = await axios.patch<
+      {
+        user: CentralIdentityUser;
+      } & ConductorBaseResponse
+    >(`/central-identity/users/${uuid}`, data);
     return res;
   }
 
   async changeCentralIdentityUserEmail(uuid: string, email: string) {
-    const res = await axios.put<{
-      user: CentralIdentityUser;
-    } & ConductorBaseResponse>(`/central-identity/users/${uuid}/email`, { email });
+    const res = await axios.put<
+      {
+        user: CentralIdentityUser;
+      } & ConductorBaseResponse
+    >(`/central-identity/users/${uuid}/email`, { email });
     return res;
   }
 
@@ -981,7 +998,10 @@ class API {
     return res;
   }
 
-  async updateCentralIdentityUserOrgs(uuid: string, orgs: Array<string | number>) {
+  async updateCentralIdentityUserOrgs(
+    uuid: string,
+    orgs: Array<string | number>
+  ) {
     const res = await axios.post<ConductorBaseResponse>(
       `/central-identity/users/${uuid}/orgs`,
       { orgs }
@@ -989,7 +1009,11 @@ class API {
     return res;
   }
 
-  async updateCentralIdentityUserOrgAdminRole(uuid: string, orgId: string | number, admin_role: string) {
+  async updateCentralIdentityUserOrgAdminRole(
+    uuid: string,
+    orgId: string | number,
+    admin_role: string
+  ) {
     const res = await axios.patch<ConductorBaseResponse>(
       `/central-identity/users/${uuid}/orgs/${orgId}/admin-role`,
       { admin_role }
@@ -997,21 +1021,32 @@ class API {
     return res;
   }
 
-  async updateCentralIdentityUserAcademyOnlineAccess(uuid: string, data: EditAcademyOnlineAccessFormValues) {
-    const res = await axios.patch<{
-      user: CentralIdentityUser;
-    } & ConductorBaseResponse>(`/central-identity/users/${uuid}/academy-online`, data);
+  async updateCentralIdentityUserAcademyOnlineAccess(
+    uuid: string,
+    data: EditAcademyOnlineAccessFormValues
+  ) {
+    const res = await axios.patch<
+      {
+        user: CentralIdentityUser;
+      } & ConductorBaseResponse
+    >(`/central-identity/users/${uuid}/academy-online`, data);
     return res;
   }
 
   async getCentralIdentityUserAppLicenses(uuid: string) {
-    const res = await axios.get<{
-      licenses: CentralIdentityUserLicenseResult[];
-    } & ConductorBaseResponse>(`/central-identity/users/${uuid}/app-licenses`);
+    const res = await axios.get<
+      {
+        licenses: CentralIdentityUserLicenseResult[];
+      } & ConductorBaseResponse
+    >(`/central-identity/users/${uuid}/app-licenses`);
     return res;
   }
 
-  async grantCentralIdentityAppLicense(data: { user_id?: string; org_id?: string; application_license_id: string }) {
+  async grantCentralIdentityAppLicense(data: {
+    user_id?: string;
+    org_id?: string;
+    application_license_id: string;
+  }) {
     const res = await axios.post<
       {
         entity_id: string;
@@ -1034,14 +1069,16 @@ class API {
     return res;
   }
 
-
   async bulkGenerateCentralIdentityAppLicenseAccessCodes(
     application_license_id: string,
     quantity: number
   ) {
-    const res = await axios.post(`/central-identity/app-licenses/${application_license_id}/bulk-generate`, {
-      quantity
-    });
+    const res = await axios.post(
+      `/central-identity/app-licenses/${application_license_id}/bulk-generate`,
+      {
+        quantity,
+      }
+    );
     return res;
   }
 
@@ -1056,20 +1093,69 @@ class API {
 
   // Client Config
   async getClientConfig() {
-    return await axios.get<{ data: ClientConfig } & ConductorBaseResponse>("/config");
+    return await axios.get<{ data: ClientConfig } & ConductorBaseResponse>(
+      "/config"
+    );
   }
 
   // Commons
-  async getCommonsCatalog(params?: { activePage?: number; limit?: number, seed?: number }) {
+  async getCommonsCatalog(params?: {
+    activePage?: number;
+    limit?: number;
+    seed?: number;
+  }) {
     return await axios.get<
       {
-        books: Book[];
+        books: BookWithAutoMatched[];
         numTotal: number;
         hasMore: boolean;
         seed: number;
       } & ConductorBaseResponse
     >("/commons/catalog", { params });
   }
+
+  async getMasterCatalog(params?: { search?: string; sort?: string }) {
+    return await axios.get<
+      {
+        books: Book[];
+      } & ConductorBaseResponse
+    >("/commons/mastercatalog", { params });
+  }
+
+  async getMasterCatalogV2() {
+    return await axios.get<MasterCatalogV2Response & ConductorBaseResponse>(
+      "/commons/mastercatalog/v2"
+    );
+  }
+
+  async syncWithLibraries() {
+    return await axios.post<{ msg: string } & ConductorBaseResponse>(
+      "/commons/syncwithlibs"
+    );
+  }
+
+  async enableBookOnCommons(bookID: string) {
+    return await axios.put<ConductorBaseResponse>(
+      `/commons/catalogs/addresource`,
+      {
+        bookID,
+      }
+    );
+  }
+
+  async disableBookOnCommons(bookID: string) {
+    return await axios.put<ConductorBaseResponse>(
+      `/commons/catalogs/removeresource`,
+      { bookID }
+    );
+  };
+
+  async excludeBookFromAutoCatalogMatching(bookID: string) {
+    return await axios.put<ConductorBaseResponse>(
+      `/commons/catalogs/exclude-auto-match`,
+      { bookID }
+    );
+  };
 
   // Harvest Requests
   async createHarvestRequest(data: HarvestRequest) {
@@ -1224,6 +1310,27 @@ class API {
     return res;
   }
 
+  // Organization
+  async updateOrganization(orgID: string, data: Partial<Organization>) {
+    const res = await axios.put<
+      { updatedOrg: Organization } & ConductorBaseResponse
+    >(`/org/${orgID}`, data);
+    return res;
+  }
+
+  async updateAutomaticCatalogMatchingSettings(
+    orgID: string,
+    params: {
+      autoCatalogMatchingEnabled: boolean;
+    }
+  ) {
+    const res = await axios.patch<ConductorBaseResponse>(
+      `/org/${orgID}/automatic-catalog-matching`,
+      params
+    );
+    return res;
+  }
+
   //Projects
   async getAddableTeamMembers(params: {
     projectID: string;
@@ -1273,18 +1380,18 @@ class API {
   async updateUserPinnedProjects(
     data:
       | {
-        action: "add-project" | "move-project";
-        folder: string;
-        projectID: string;
-      }
+          action: "add-project" | "move-project";
+          folder: string;
+          projectID: string;
+        }
       | {
-        action: "remove-project";
-        projectID: string;
-      }
+          action: "remove-project";
+          projectID: string;
+        }
       | {
-        action: "add-folder" | "remove-folder";
-        folder: string;
-      }
+          action: "add-folder" | "remove-folder";
+          folder: string;
+        }
   ) {
     const res = await axios.patch<ConductorBaseResponse>(
       "/user/projects/pinned",
@@ -1328,10 +1435,12 @@ class API {
   }
 
   async getProjectBatchUpdateJobs(projectID: string) {
-    return await axios.get<{
-      project_id: string;
-      batch_update_jobs: ProjectBookBatchUpdateJob[];
-    } & ConductorBaseResponse>(`/project/${projectID}/batch-update-jobs`);
+    return await axios.get<
+      {
+        project_id: string;
+        batch_update_jobs: ProjectBookBatchUpdateJob[];
+      } & ConductorBaseResponse
+    >(`/project/${projectID}/batch-update-jobs`);
   }
 
   async uploadProjectThumbnail(projectID: string, formData: FormData) {
@@ -1425,14 +1534,21 @@ class API {
     return res;
   }
 
-  async bulkUpdateProjectFiles(projectID: string, fileIDs: string[], data: {
-    tags: AssetTag[];
-    tagMode: "replace" | "append"
-  }) {
-    return await axios.patch<{ files: ProjectFile[] } & ConductorBaseResponse>(`/project/${projectID}/files/bulk`, {
-      fileIDs,
-      ...data
-    });
+  async bulkUpdateProjectFiles(
+    projectID: string,
+    fileIDs: string[],
+    data: {
+      tags: AssetTag[];
+      tagMode: "replace" | "append";
+    }
+  ) {
+    return await axios.patch<{ files: ProjectFile[] } & ConductorBaseResponse>(
+      `/project/${projectID}/files/bulk`,
+      {
+        fileIDs,
+        ...data,
+      }
+    );
   }
 
   async getPublicProjectFiles(params?: { page?: number; limit?: number }) {
@@ -1500,7 +1616,7 @@ class API {
     assignee,
     priority,
     status,
-    queue
+    queue,
   }: {
     tickets: string[];
     assignee?: string[];
@@ -1515,7 +1631,7 @@ class API {
         assignee,
         priority,
         status,
-        queue
+        queue,
       }
     );
   }
@@ -1538,11 +1654,11 @@ class API {
   }
 
   async createProjectFromHarvestingRequest(ticketID: string) {
-    return await axios.post<{
-      project: Project
-    } & ConductorBaseResponse>(
-      `/support/ticket/${ticketID}/create-project-from-harvesting-request`
-    );
+    return await axios.post<
+      {
+        project: Project;
+      } & ConductorBaseResponse
+    >(`/support/ticket/${ticketID}/create-project-from-harvesting-request`);
   }
 
   // Commons Collections
@@ -1668,7 +1784,13 @@ class API {
     >(`/support/ticket/${ticketID}`);
   }
 
-  async getUserSupportTickets({ uuid, queue, page, limit, sort }: {
+  async getUserSupportTickets({
+    uuid,
+    queue,
+    page,
+    limit,
+    sort,
+  }: {
     uuid: string;
     queue?: string;
     page?: number;
@@ -1880,7 +2002,7 @@ class API {
     >(`/central-identity/users/${userID}/notes`, {
       params: {
         page,
-        limit
+        limit,
       },
     });
     return res;
@@ -1914,57 +2036,80 @@ class API {
   }
 
   // Project Traffic Analytics
-  async getProjectTrafficAnalyticsAggregatedMetricsByPage(params: TrafficAnalyticsBaseRequestParams, signal?: AbortSignal) {
+  async getProjectTrafficAnalyticsAggregatedMetricsByPage(
+    params: TrafficAnalyticsBaseRequestParams,
+    signal?: AbortSignal
+  ) {
     const { projectID, ...rest } = params;
-    return await axios.get<{
-      data: TrafficAnalyticsAggregatedMetricsByPageDataPoint[]
-    } & ConductorBaseResponse>(`/project/${projectID}/book/traffic-analytics/aggregated-metrics-by-page`, {
+    return await axios.get<
+      {
+        data: TrafficAnalyticsAggregatedMetricsByPageDataPoint[];
+      } & ConductorBaseResponse
+    >(
+      `/project/${projectID}/book/traffic-analytics/aggregated-metrics-by-page`,
+      {
+        params: rest,
+        signal,
+      }
+    );
+  }
+
+  async getProjectTrafficAnalyticsPageViews(
+    params: TrafficAnalyticsBaseRequestParams,
+    signal?: AbortSignal
+  ) {
+    const { projectID, ...rest } = params;
+    return await axios.get<
+      {
+        data: TrafficAnalyticsPageViewsDataPoint[];
+      } & ConductorBaseResponse
+    >(`/project/${projectID}/book/traffic-analytics/page-views`, {
       params: rest,
       signal,
     });
   }
 
-  async getProjectTrafficAnalyticsPageViews(params: TrafficAnalyticsBaseRequestParams, signal?: AbortSignal) {
+  async getProjectTrafficAnalyticsUniqueVisitors(
+    params: TrafficAnalyticsBaseRequestParams,
+    signal?: AbortSignal
+  ) {
     const { projectID, ...rest } = params;
-    return await axios.get<{
-      data: TrafficAnalyticsPageViewsDataPoint[]
-    } & ConductorBaseResponse>(`/project/${projectID}/book/traffic-analytics/page-views`, {
+    return await axios.get<
+      {
+        data: TrafficAnalyticsUniqueVisitorsDataPoint[];
+      } & ConductorBaseResponse
+    >(`/project/${projectID}/book/traffic-analytics/unique-visitors`, {
       params: rest,
       signal,
     });
   }
 
-  async getProjectTrafficAnalyticsUniqueVisitors(params: TrafficAnalyticsBaseRequestParams, signal?: AbortSignal) {
+  async getProjectTrafficAnalyticsVisitorCountries(
+    params: TrafficAnalyticsBaseRequestParams,
+    signal?: AbortSignal
+  ) {
     const { projectID, ...rest } = params;
-    return await axios.get<{
-      data: TrafficAnalyticsUniqueVisitorsDataPoint[]
-    } & ConductorBaseResponse>(`/project/${projectID}/book/traffic-analytics/unique-visitors`, {
-      params: rest,
-      signal,
-    });
-  }
-
-  async getProjectTrafficAnalyticsVisitorCountries(params: TrafficAnalyticsBaseRequestParams, signal?: AbortSignal) {
-    const { projectID, ...rest } = params;
-    return await axios.get<{
-      data: TrafficAnalyticsVisitorCountriesDataPoint[]
-    } & ConductorBaseResponse>(`/project/${projectID}/book/traffic-analytics/visitor-countries`, {
+    return await axios.get<
+      {
+        data: TrafficAnalyticsVisitorCountriesDataPoint[];
+      } & ConductorBaseResponse
+    >(`/project/${projectID}/book/traffic-analytics/visitor-countries`, {
       params: rest,
       signal,
     });
   }
 
   async getCheckoutSession(order_id: string) {
-    const res = await axios.get<{
-      data: {
-        charge: OrderCharge;
-        session: OrderSession;
-      }
-    } & ConductorBaseResponse>(`/store/checkout/session/${order_id}`);
+    const res = await axios.get<
+      {
+        data: {
+          charge: OrderCharge;
+          session: OrderSession;
+        };
+      } & ConductorBaseResponse
+    >(`/store/checkout/session/${order_id}`);
     return res.data;
   }
-
 }
 
 export default new API();
-

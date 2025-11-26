@@ -33,7 +33,9 @@ import SearchQuery, {
   SearchQueryInterface_Raw,
 } from "../models/searchquery.js";
 import Tag from "../models/tag.js";
-import { _getBookPublicOrInstructorAssetsCount } from "./books.js";
+import { _getBookPublicOrInstructorAssetsCount, buildOrganizationNamesList } from "./books.js";
+import CustomCatalog, { CustomCatalogInterface } from "../models/customcatalog.js";
+import { normalizedSort } from "../util/searchutils.js";
 
 const searchQueryCache: SearchQueryInterface_Raw[] = []; // in-memory cache for search queries
 
@@ -496,33 +498,54 @@ async function booksSearch(
     }
 
     const [booksResults, projectsResults] = await Promise.all(promises);
+    const rawResults = [...booksResults, ...(projectsResults ?? [])];
 
-    let results = [...booksResults, ...(projectsResults ?? [])];
+    // It is certainly not optimal to do sorting and filtering in JS after fetching all results,
+    // but gets very convoluted to do this in aggregation pipeline. This will work for now until
+    // we have a more robust search solution in place.
+    let results: any[] = [];
+    if (process.env.ORG_ID !== "libretexts") {
+      const orgDataPromise = process.env.ORG_ID !== "libretexts" ? Organization.findOne({ orgID: process.env.ORG_ID }) : Promise.resolve(null);
+      const customCatalogPromise = process.env.ORG_ID !== "libretexts" ? CustomCatalog.findOne({ orgID: process.env.ORG_ID }) : Promise.resolve(null);
+
+      const [orgData, customCatalog] = await Promise.all([orgDataPromise, customCatalogPromise]);
+      const campusNames = orgData ? buildOrganizationNamesList(orgData).map((name) => name.toLowerCase()) : [];
+
+      results = rawResults.filter((book) => {
+        // If specifically included in custom catalog, include it
+        if (customCatalog && customCatalog.resources && customCatalog.resources.includes(book.bookID)) {
+          return true;
+        }
+
+        // If automatic catalog matching is disabled, there's no further checks
+        if (orgData?.autoCatalogMatchingDisabled) {
+          return false;
+        }
+
+        // Automatic matching: include if book course matches org campus names and not excluded
+        if (book.course && campusNames.includes(book.course?.toLowerCase())) {
+          if (!customCatalog?.automaticMatchingExclusions?.includes(book.bookID)) {
+            return true;
+          }
+        }
+
+        return false;
+      });
+    } else {
+      results = rawResults;
+    }
 
     results.sort((a, b) => {
-      let aData = null;
-      let bData = null;
-      if (req.query.sort === "title") {
-        aData = _transformToCompare(a.title);
-        bData = _transformToCompare(b.title);
-      } else if (req.query.sort === "author") {
-        aData = _transformToCompare(a.author);
-        bData = _transformToCompare(b.author);
+      if (req.query.sort === "author") {
+        return normalizedSort(a.author, b.author);
       } else if (req.query.sort === "subject") {
-        aData = _transformToCompare(a.course);
-        bData = _transformToCompare(b.course);
+        return normalizedSort(a.course, b.course);
       } else if (req.query.sort === "library") {
-        aData = _transformToCompare(a.library);
-        bData = _transformToCompare(b.library);
+        return normalizedSort(a.library, b.library);
       } else if (req.query.sort === "affiliation") {
-        aData = _transformToCompare(a.affiliation);
-        bData = _transformToCompare(b.affiliation);
+        return normalizedSort(a.affiliation, b.affiliation);
       }
-      if (aData !== null && bData !== null) {
-        if (aData < bData) return -1;
-        if (aData > bData) return 1;
-      }
-      return 0;
+      return normalizedSort(a.title, b.title); // default to title sort
     });
 
     const publicOrInstructorAssets = await _getBookPublicOrInstructorAssetsCount(

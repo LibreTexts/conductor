@@ -20,6 +20,7 @@ import {
   Project,
   Author,
   CommonsModule,
+  MasterCatalogV2Response,
 } from "../types";
 import { COMMONS_MODULES } from "./constants";
 
@@ -263,3 +264,7 @@ export const isProjectFile = (obj: any): obj is ProjectFile => {
 export const isCommonsModuleType = (string: any): string is CommonsModule => {
   return COMMONS_MODULES.includes(string);
 };
+
+export const isMasterCatalogV2Response = (obj: any): obj is MasterCatalogV2Response => {
+  return obj && 'libraries' in obj && Array.isArray(obj.libraries);
+}

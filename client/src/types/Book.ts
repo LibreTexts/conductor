@@ -32,7 +32,7 @@ export type Book = {
 };
 
 export type BookWithSourceData = Book & {
-  isbns?: Project["isbns"]
+  isbns?: Project["isbns"];
   doi?: string;
   sourceOriginalPublicationDate?: Date;
   sourceHarvestDate?: Date;
@@ -47,6 +47,10 @@ export type BookLinks = {
   zip: string;
   files: string;
   lms: string;
+};
+
+export type BookWithAutoMatched = Book & {
+  autoMatched?: boolean;
 };
 
 export type ReaderResource = {
@@ -100,3 +104,27 @@ export type TableOfContentsDetailed = Prettify<
     children: TableOfContentsDetailed[];
   }
 >;
+
+export type MasterCatalogV2Response = {
+  libraries: {
+    library: string;
+    courses: {
+      course: string;
+      books: Book[];
+    }[];
+    subjects: {
+      subject: string;
+      books: Book[];
+    }[];
+  }[];
+};
+
+export type BooksManagerSortOptions =
+  | "title_asc"
+  | "title_desc"
+  | "author_asc"
+  | "author_desc"
+  | "book_id_asc"
+  | "book_id_desc"
+  | "library_asc"
+  | "library_desc";

@@ -3,6 +3,7 @@ import { model, Schema, Document } from "mongoose";
 export interface CustomCatalogInterface extends Document {
   orgID: string;
   resources: string[];
+  automaticMatchingExclusions: string[];
 }
 
 const CustomCatalogSchema = new Schema<CustomCatalogInterface>(
@@ -14,6 +15,7 @@ const CustomCatalogSchema = new Schema<CustomCatalogInterface>(
       unique: true,
     },
     resources: [String], // the array of resource IDs included in the custom catalog
+    automaticMatchingExclusions: [String], // the array of resource IDs excluded from automatic matching (if enabled)
   },
   {
     timestamps: true,

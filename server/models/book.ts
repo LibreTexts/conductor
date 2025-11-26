@@ -27,6 +27,7 @@ export interface BookInterface extends Document {
   libraryTags?: string[];
   readerResources: ReaderResource[];
   trafficAnalyticsConfigured?: boolean;
+  randomIndex?: number;
 }
 
 const BookSchema = new Schema<BookInterface>(
@@ -151,6 +152,10 @@ const BookSchema = new Schema<BookInterface>(
      * Indicates traffic analytics have been configured for this Book.
      */
     trafficAnalyticsConfigured: Boolean,
+    /**
+     * A random index number between 0 and 1 for use in random sorting from a deterministic hash of the bookID.
+     */
+    randomIndex: Number,
   },
   {
     timestamps: true,
@@ -186,6 +191,10 @@ BookSchema.index({
 BookSchema.index({
   libraryTags: 1,
 });
+BookSchema.index({
+  randomIndex: 1,
+});
+
 const Book = model<BookInterface>("Book", BookSchema);
 
 export default Book;

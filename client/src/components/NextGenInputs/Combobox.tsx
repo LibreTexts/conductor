@@ -20,6 +20,7 @@ export type ComboboxProps = {
   loading?: boolean;
   placeholder?: string;
   value?: string | string[];
+  className?: string;
 } & (
   | {
       multiple?: true;
@@ -39,6 +40,7 @@ const Combobox: React.FC<ComboboxProps> = ({
   loading = false,
   value,
   placeholder = "Select...",
+  className,
   ...props
 }) => {
   const [query, setQuery] = useState("");
@@ -113,6 +115,7 @@ const Combobox: React.FC<ComboboxProps> = ({
         }
       }}
       immediate
+      className={classNames(className)}
     >
       {label && (
         <Label className="block text-sm/6 font-medium text-gray-900">
@@ -120,7 +123,7 @@ const Combobox: React.FC<ComboboxProps> = ({
           {required ? "*" : ""}
         </Label>
       )}
-      <div className="relative mt-2">
+      <div className={classNames("relative", label ? "mt-2": "")}>
         <ComboboxInput
           disabled={loading}
           className={classNames(

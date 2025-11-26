@@ -9,6 +9,7 @@ import {
 import { FieldNamesMarkedBoolean } from "react-hook-form";
 import { SemanticCOLORS } from "semantic-ui-react";
 import { AxiosResponse } from "axios";
+import { z } from "zod";
 
 /**
  *
@@ -298,3 +299,7 @@ export const camelCaseToSpaces = (str: string) => {
     .replace(/^./, function (s) { return s.toUpperCase(); })
     .trim();
 }
+
+export const bookIDSchema = z.string().regex(/^[a-zA-Z]{2,12}-\d{1,12}$/, {
+  message: "Book ID must be in the format 'library-pageid' (e.g. 'chem-123')",
+});

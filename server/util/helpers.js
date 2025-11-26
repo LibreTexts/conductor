@@ -375,6 +375,16 @@ export function extractEmailDomain(email) {
 }
 
 /**
+ * Removes all control characters (e.g. "\n", "\r") from a given string.
+ * @param {*} str - The string to sanitize.
+ * @returns {*} The sanitized string (or the original value if not a string).
+ */
+export function sanitizeControlCharacters(str) {
+  if (typeof str !== 'string') return str;
+  return str.replace(/\p{C}/gu, '');
+}
+
+/**
  * Wraps an async API function in order to catch internal errors and return an HTTP
  * response appropriate for end-users.
  *

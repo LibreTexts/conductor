@@ -18,6 +18,7 @@ import {
   getRandomOffset,
   truncateString,
   getPaginationOffset,
+  sanitizeControlCharacters,
 } from "../util/helpers.js";
 import {
   deleteBookFromAPI,
@@ -31,6 +32,7 @@ import {
   genLMSFileLink,
   genPermalink,
   checkIsCampusBook,
+  hashStringToFloat,
 } from "../util/bookutils.js";
 import {
   downloadProjectFiles,
@@ -46,6 +48,7 @@ import axios, { AxiosResponse } from "axios";
 import {
   _generatePageImagesAltTextResObj,
   BookSortOption,
+  MasterCatalogV2Response,
   PageFile,
   TableOfContents,
   TableOfContentsDetailed,
@@ -79,12 +82,15 @@ import {
   bulkUpdatePageTagsSchema,
 } from "./validators/book.js";
 import BookService from "./services/book-service.js";
+import { normalizedSort } from "../util/searchutils.js";
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   _id: 0,
   __v: 0,
   createdAt: 0,
   updatedAt: 0,
+  randomIndex: 0,
+  randomSort: 0,
 };
 
 /**
@@ -109,28 +115,6 @@ const generateBookshelvesURL = (lib: string) => {
  */
 const generateCoursesURL = (lib: string) => {
   return `https://api.libretexts.org/DownloadsCenter/${lib}/Courses.json`;
-};
-
-/**
- * Sorts two strings after normalizing them to contain only letters.
- * @param {String} a
- * @param {String} b
- * @returns {Number} the sort order of the two strings
- */
-const normalizedSort = (a: string, b: string) => {
-  var normalizedA = String(a)
-    .toLowerCase()
-    .replace(/[^a-zA-Z]/gm, "");
-  var normalizedB = String(b)
-    .toLowerCase()
-    .replace(/[^a-zA-Z]/gm, "");
-  if (normalizedA < normalizedB) {
-    return -1;
-  }
-  if (normalizedA > normalizedB) {
-    return 1;
-  }
-  return 0;
 };
 
 /**
@@ -430,10 +414,12 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
               if (splitURL.length > 0) {
                 let courseRaw = splitURL[0];
                 course = courseRaw.replace(/_/g, " ");
+                // url decode in case of special characters
+                course = decodeURIComponent(course);
               }
             }
           }
-          if (book.author) author = book.author;
+          if (book.author) author = book.author.trim();
           if (typeof book.summary === "string") summary = book.summary;
           if (book.institution) affiliation = book.institution; // Affiliation is referred to as "Institution" in LT API
           if (typeof book.lastModified === "string")
@@ -443,14 +429,14 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
           processedBooks.push({
             author,
             affiliation,
-            subject, // TODO: Improve algorithm
+            subject,
             location,
-            course, // TODO: Improve algorithm
+            course,
             program,
             license,
             summary,
             bookID: book.zipFilename,
-            title: book.title,
+            title: sanitizeControlCharacters(book.title),
             library: extractLibFromID(book.zipFilename),
             thumbnail: genThumbnailLink(
               extractLibFromID(book.zipFilename),
@@ -558,6 +544,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
                 links: book.links,
                 lastUpdated: book.lastUpdated,
                 libraryTags: book.libraryTags,
+                randomIndex: hashStringToFloat(book.bookID)
               },
             },
             upsert: true,
@@ -705,7 +692,7 @@ const runAutomatedSyncWithLibraries = (req: Request, res: Response) => {
  * @param {Object} orgData - An Organization information object.
  * @returns {String[]} An array of known Organization names.
  */
-const buildOrganizationNamesList = (orgData: OrganizationInterface): string[] => {
+export const buildOrganizationNamesList = (orgData: OrganizationInterface): string[] => {
   if (!orgData) return [];
 
   const names = new Set<string>();
@@ -750,120 +737,166 @@ async function getCommonsCatalog(
   try {
     const orgID = process.env.ORG_ID;
     const limit = req.query.limit ? parseInt(req.query.limit.toString()) : 10;
-    const seed = req.query.seed ? parseInt(req.query.seed.toString()) : Math.floor(Math.random() * 1000000);
+    const seed = req.query.seed
+      ? parseInt(req.query.seed.toString())
+      : Math.floor(Math.random() * 1000000);
+    
+    const paginationOffset = getPaginationOffset(
+      (req.query.activePage as number) || 1,
+      limit
+    );
+
     if (isNaN(seed) || seed < 1) {
       return conductor400Err(res);
     }
 
-    const orgProjects = orgID !== 'libretexts' ? await Project.find({
-      orgID,
-    }).lean() : [];
+    const books: Array<BookInterface & { randomSort: number }> = [];
+    let numTotal = 0;
 
-    const orgProjectBookIds = orgID !== 'libretexts' ? orgProjects.map((proj) => {
-      if (!proj.libreLibrary || !proj.libreCoverID) return null;
-      return `${proj.libreLibrary}-${proj.libreCoverID}`;
-    }).filter((id) => !!id) as string[] : [];
-
-    /* Note: while fetching all books may seem less performant on the surface, it allows for much better readability and explicit
-    *  logic in filtering (particularly matching campus books) than previously implemented.
-    *  Additionally, we avoid having to make two aggregations for books as was previously done, as well as
-    *  a more straightforward random seed implementation.
-    */
-    const allBooks = await Book.aggregate([
-      {
-        $project: BOOK_PROJECTION
-      },
-      {
-        $addFields: {
-          randomSort: {
-            $mod: [{ $add: [{ $toLong: "$_id" }, seed] }, 1000000]
+    if (orgID !== "libretexts") {
+      const [orgData, customCatalog] = await Promise.all([
+        Organization.findOne(
+          { orgID },
+          {
+            _id: 0,
+            orgID: 1,
+            name: 1,
+            shortName: 1,
+            abbreviation: 1,
+            aliases: 1,
+            autoCatalogMatchingDisabled: 1,
           }
-        }
-      },
-      { $sort: { randomSort: 1 } }
-    ]);
-
-    const orgBooks: Array<BookInterface & { randomSort: number }> = [];
-
-    if (orgID !== 'libretexts') {
-      const orgData = await Organization.findOne(
-        { orgID },
-        {
-          _id: 0,
-          orgID: 1,
-          name: 1,
-          shortName: 1,
-          abbreviation: 1,
-          aliases: 1,
-          catalogMatchingTags: 1,
-        }
-      ).lean();
+        ).lean(),
+        CustomCatalog.findOne(
+          { orgID },
+          { _id: 0, orgID: 1, resources: 1, automaticMatchingExclusions: 1 }
+        ).lean(),
+      ]);
       if (!orgData || Object.keys(orgData).length === 0) {
-        throw new Error('Failed to retrieve Organization data');
+        throw new Error("Failed to retrieve Organization data");
       }
 
-      const customCatalog = await CustomCatalog.findOne(
-        { orgID },
+      const campusNames = buildOrganizationNamesList(orgData).map((name) =>
+        name.toLowerCase()
+      );
+      const matchObject = {
+        $and: [
+          {
+            $or: [
+              { bookID: { $in: customCatalog?.resources || [] } },
+              ...(orgData.autoCatalogMatchingDisabled
+                ? []
+                : [
+                    {
+                      $expr: {
+                        $in: [{ $toLower: "$course" }, campusNames],
+                      },
+                    },
+                  ]),
+            ],
+          },
+          // automatic matching exclusions only applied if autoCatalogMatchingDisabled is false
+          ...(orgData.autoCatalogMatchingDisabled
+            ? []
+            : [
+                {
+                  bookID: {
+                    $nin: customCatalog?.automaticMatchingExclusions || [],
+                  },
+                },
+              ]),
+          { randomIndex: { $ne: null } },
+        ],
+      };
+
+      const campusBookPromise = await Book.aggregate([
         {
-          _id: 0,
-          orgID: 1,
-          resources: 1,
-        }
-      ).lean();
+          $match: matchObject,
+        },
+        {
+          $addFields: {
+            randomSort: {
+              $mod: [
+                {
+                  $multiply: [
+                    { $add: ["$randomIndex", seed / 1000000] },
+                    1000000,
+                  ],
+                },
+                1000000,
+              ],
+            },
+            autoMatched: {
+              $cond: [
+                { $in: ["$bookID", customCatalog?.resources || []] },
+                false,
+                true,
+              ],
+            },
+          },
+        },
+        { $sort: { randomSort: 1 } },
+        { $skip: paginationOffset },
+        { $limit: limit },
+        {
+          $project: BOOK_PROJECTION,
+        },
+      ]);
 
-      const campusNames = buildOrganizationNamesList(orgData);
-      for (const book of allBooks) {
-        if (orgProjectBookIds.includes(book.bookID)) {
-          orgBooks.push(book);
-          continue;
-        }
+      const totalCountPromise = Book.countDocuments(matchObject);
+      const [campusBooks, totalCount] = await Promise.all([
+        campusBookPromise,
+        totalCountPromise,
+      ]);
 
-        // Check if book's libraryTags matches any of the org's catalogMatchingTags
-        if (Array.isArray(orgData?.catalogMatchingTags) && book.libraryTags) {
-          if (orgData.catalogMatchingTags.some(tag => book.libraryTags?.includes(tag))) {
-            orgBooks.push(book);
-            continue;
-          }
-        }
-
-        // Check if book is in the org's custom catalog
-        if (Array.isArray(customCatalog?.resources) && customCatalog?.resources.includes(book.bookID)) {
-          orgBooks.push(book);
-          continue;
-        }
-
-        // Check if the book matches any of the org's known names in key fields
-        if (!campusNames || campusNames.length === 0) {
-          continue;
-        }
-        if (checkIsCampusBook(book, campusNames))
-          orgBooks.push(book);
-      }
+      books.push(...campusBooks);
+      numTotal = totalCount;
     } else {
-      // LibreTexts org gets all books
-      orgBooks.push(...allBooks);
+      const allBookPromise = Book.aggregate([
+        {
+          $match: { randomIndex: { $ne: null } },
+        },
+        {
+          $addFields: {
+            randomSort: {
+              $mod: [
+                {
+                  $multiply: [
+                    { $add: ["$randomIndex", seed / 1000000] }, // Normalize seed
+                    1000000,
+                  ],
+                },
+                1000000,
+              ],
+            },
+          },
+        },
+        { $sort: { randomSort: 1 } },
+        { $skip: paginationOffset },
+        { $limit: limit },
+        {
+          $project: BOOK_PROJECTION,
+        },
+      ]);
+
+      const totalCountPromise = Book.countDocuments({ randomIndex: { $ne: null } });
+      const [allBooks, totalCount] = await Promise.all([
+        allBookPromise,
+        totalCountPromise,
+      ]);
+
+      books.push(...allBooks);
+      numTotal = totalCount;
     }
 
-    // Ensure no duplicates
-    const resultBookIDs = new Set<string>();
-    const resultBooks = orgBooks.filter((book) => {
-      if (!resultBookIDs.has(book.bookID)) {
-        resultBookIDs.add(book.bookID);
-        return true;
-      }
-      return false;
-    });
-
-    resultBooks.sort((a, b) => a.randomSort - b.randomSort);
-
-    const paginationOffset = getPaginationOffset(req.query.activePage || 1, limit);
-    const paginated = resultBooks.slice(paginationOffset, paginationOffset + limit);
-
     // Check if the associated project has any public or instructor only files
-    const publicOrInstructorSearch = await _getBookPublicOrInstructorAssetsCount(paginated.map((r) => r.bookID) || []);
+    const publicOrInstructorSearch =
+      await _getBookPublicOrInstructorAssetsCount(
+        books.map((r) => r.bookID) || []
+      );
 
     // Add the publicOrInstructorAssets field to each book
-    paginated.forEach((book) => {
+    books.forEach((book) => {
       const bookID = book.bookID;
       const found = publicOrInstructorSearch.find((b) => b.bookID === bookID);
       // @ts-ignore
@@ -874,9 +907,9 @@ async function getCommonsCatalog(
 
     return res.send({
       err: false,
-      numTotal: resultBooks.length,
-      books: paginated,
-      seed
+      numTotal,
+      books,
+      seed,
     });
   } catch (e) {
     debugError(e);
@@ -994,6 +1027,114 @@ const getMasterCatalog = (
       });
     });
 };
+
+async function getMasterCatalogV2(_req: Request, res: Response) {
+  try {
+    const libraries = await Book.aggregate([
+      {
+        $group: {
+          _id: {
+            library: "$library",
+            groupBy: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: ["$course", null] },
+                    { $ne: ["$course", ""] }
+                  ]
+                },
+                "$course",
+                "$subject"
+              ]
+            },
+            type: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: ["$course", null] },
+                    { $ne: ["$course", ""] }
+                  ]
+                },
+                "course",
+                "subject"
+              ]
+            }
+          },
+          books: { $push: "$$ROOT" }
+        }
+      },
+      {
+        $group: {
+          _id: "$_id.library",
+          courses: {
+            $push: {
+              $cond: [
+                { $eq: ["$_id.type", "course"] },
+                {
+                  course: "$_id.groupBy",
+                  books: "$books"
+                },
+                "$$REMOVE"
+              ]
+            }
+          },
+          subjects: {
+            $push: {
+              $cond: [
+                { $eq: ["$_id.type", "subject"] },
+                {
+                  subject: "$_id.groupBy",
+                  books: "$books"
+                },
+                "$$REMOVE"
+              ]
+            }
+          }
+        }
+      },
+      {
+        $sort: {
+          "_id": 1
+        }
+      },
+      {
+        $project: {
+          "_id": 0,
+          "library": "$_id",
+          "courses": 1,
+          "subjects": 1
+        }
+      } 
+    ]);
+
+    // We can't sort by parallel arrays in the aggregation, so we need to do it here
+    (libraries as MasterCatalogV2Response['libraries']).forEach((lib) => {
+      // First sort the course and subject groups
+      lib.courses = lib.courses.sort((a, b) => normalizedSort(a.course, b.course));
+      lib.subjects = lib.subjects.sort((a, b) => normalizedSort(a.subject, b.subject));
+      
+      // Then sort the books within each group
+      lib.courses.forEach((courseGroup) => {
+        courseGroup.books = courseGroup.books.sort((a, b) => normalizedSort(a.title, b.title));
+      });
+
+      lib.subjects.forEach((subjectGroup) => {
+        subjectGroup.books = subjectGroup.books.sort((a, b) => normalizedSort(a.title, b.title));
+      });
+    });
+
+    return res.send({
+      err: false,
+      libraries
+    });
+  } catch (error) {
+    debugError(error);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 /**
  * Returns the current options for dynamic filters in Commons Catalog(s).
@@ -1686,50 +1827,40 @@ async function getBookPeerReviews(
  *  the validation chain.
  * VALIDATION: 'addBookToCustomCatalog'
  */
-const addBookToCustomCatalog = (
+const addBookToCustomCatalog = async (
   req: z.infer<typeof getWithBookIDBodySchema>,
   res: Response
 ) => {
-  CustomCatalog.updateOne(
-    { orgID: process.env.ORG_ID },
-    {
-      $setOnInsert: {
-        orgID: process.env.ORG_ID,
+  try {
+    await CustomCatalog.updateOne(
+      { orgID: process.env.ORG_ID },
+      {
+        $setOnInsert: {
+          orgID: process.env.ORG_ID,
+        },
+        $addToSet: {
+          resources: req.body.bookID,
+        },
+        $pull: {
+          automaticMatchingExclusions: req.body.bookID, // ensure not in excluded list
+        }
       },
-      $addToSet: {
-        resources: req.body.bookID,
-      },
-    },
-    {
-      upsert: true,
-    }
-  )
-    .then((catalogRes) => {
-      if (catalogRes.matchedCount === 1 && catalogRes.modifiedCount === 1) {
-        return res.send({
-          err: false,
-          msg: "Resource successfully added to Catalog.",
-        });
-      } else if (catalogRes.n === 0) {
-        throw new Error("notfound");
-      } else {
-        throw new Error("updatefailed");
+      {
+        upsert: true,
       }
-    })
-    .catch((err) => {
-      if (err.message === "notfound") {
-        return res.status(400).send({
-          err: true,
-          errMsg: conductorErrors.err11,
-        });
-      } else {
-        debugError(err);
-        return res.status(500).send({
-          err: true,
-          errMsg: conductorErrors.err6,
-        });
-      }
+    );
+
+    return res.send({
+      err: false,
+      msg: "Resource successfully added to Catalog.",
     });
+  } catch (err: any) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
 };
 
 /**
@@ -1743,44 +1874,73 @@ const addBookToCustomCatalog = (
  *  the validation chain.
  * VALIDATION: 'removeBookFromCustomCatalog'
  */
-const removeBookFromCustomCatalog = (
+const removeBookFromCustomCatalog = async (
   req: z.infer<typeof getWithBookIDBodySchema>,
   res: Response
 ) => {
-  CustomCatalog.updateOne(
-    { orgID: process.env.ORG_ID },
-    {
-      $pullAll: {
-        resources: [req.body.bookID],
-      },
-    }
-  )
-    .then((catalogRes) => {
-      if (catalogRes.matchedCount === 1 && catalogRes.modifiedCount === 1) {
-        return res.send({
-          err: false,
-          msg: "Resource successfully removed from Catalog.",
-        });
-      } else if (catalogRes.n === 0) {
-        throw new Error("notfound");
-      } else {
-        throw new Error("updatefailed");
+  try {
+    await CustomCatalog.updateOne(
+      { orgID: process.env.ORG_ID },
+      {
+        $pullAll: {
+          resources: [req.body.bookID],
+        }
       }
-    })
-    .catch((err) => {
-      if (err.message === "notfound") {
-        return res.status(400).send({
-          err: true,
-          errMsg: conductorErrors.err11,
-        });
-      } else {
-        debugError(err);
-        return res.status(500).send({
-          err: true,
-          errMsg: conductorErrors.err6,
-        });
-      }
+    );
+
+    return res.send({
+      err: false,
+      msg: "Resource successfully removed from Catalog.",
     });
+  } catch (err: any) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+};
+
+const excludeBookFromAutoMatch = async (
+  req: z.infer<typeof getWithBookIDBodySchema>,
+  res: Response
+) => {
+  try {
+    const orgData = await Organization.findOne(
+      { orgID: process.env.ORG_ID },
+      { _id: 0, autoCatalogMatchingDisabled: 1 }
+    ).lean().orFail();
+
+    if (orgData?.autoCatalogMatchingDisabled) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "Automatic Catalog Matching is not enabled for this organization. Exclusion not necessary.",
+      });
+    }
+
+    await CustomCatalog.updateOne(
+      { orgID: process.env.ORG_ID },
+      {
+        $pullAll: {
+          resources: [req.body.bookID],
+        },
+        $addToSet: {
+          automaticMatchingExclusions: req.body.bookID
+        },
+      }
+    );
+
+    return res.send({
+      err: false,
+      msg: "Resource successfully excluded from Automatic Catalog Matching.",
+    });
+  } catch (err: any) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
 };
 
 /**
@@ -2465,6 +2625,7 @@ export default {
   runAutomatedSyncWithLibraries,
   getCommonsCatalog,
   getMasterCatalog,
+  getMasterCatalogV2,
   createBook,
   deleteBook,
   getBookDetail,
@@ -2472,6 +2633,7 @@ export default {
   getCatalogFilterOptions,
   addBookToCustomCatalog,
   removeBookFromCustomCatalog,
+  excludeBookFromAutoMatch,
   downloadBookFile,
   getBookTOC,
   getLicenseReport,

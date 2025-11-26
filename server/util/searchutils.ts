@@ -20,3 +20,20 @@ export function levenshteinDistance(a: string, b: string) {
   }
   return dp[a.length][b.length];
 }
+
+/**
+ * Sorts two values without considering case or punctuation. Null/undefined values are sorted to the beginning.
+ * Casts inputs to strings for comparison.
+ * @param a
+ * @param b
+ * @returns {Number} the sort order of the two strings
+ */
+export const normalizedSort = (a: any, b: any): number => {
+  if (!a && !b) return 0;
+  if (!a) return -1;
+  if (!b) return 1;
+  return String(a).localeCompare(String(b), undefined, {
+    sensitivity: "base",
+    ignorePunctuation: true,
+  });
+};
