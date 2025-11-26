@@ -678,6 +678,17 @@ router
     orgsAPI.updateBrandingImageAsset
   );
 
+router
+  .route("/org/:orgID/automatic-catalog-matching")
+  .patch(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+    orgsAPI.validate("updateAutomaticCatalogMatchingSettings"),
+    middleware.checkValidationErrors,
+    orgsAPI.updateAutomaticCatalogMatchingSettings
+  );
+
 /* Asset Tag Frameworks */
 router
   .route("/assettagframeworks")
@@ -1034,6 +1045,11 @@ router
     booksAPI.getMasterCatalog
   );
 
+router.route("/commons/mastercatalog/v2").get(
+  middleware.validateZod(BookValidators.getMasterCatalogSchema),
+  booksAPI.getMasterCatalogV2
+);
+
 router
   .route("/commons/book")
   .post(
@@ -1146,6 +1162,16 @@ router
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
     middleware.validateZod(BookValidators.getWithBookIDBodySchema),
     booksAPI.removeBookFromCustomCatalog
+  );
+
+router
+  .route("/commons/catalogs/exclude-auto-match")
+  .put(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+    middleware.validateZod(BookValidators.getWithBookIDBodySchema),
+    booksAPI.excludeBookFromAutoMatch
   );
 
 /* Homework */

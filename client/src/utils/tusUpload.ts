@@ -49,7 +49,7 @@ export default async function tusUpload(
       onAfterResponse: (req, res) => {
         const mediaIdHeader = res.getHeader("Stream-Media-Id");
         if (!mediaIdHeader) reject("No media id found in response header");
-        mediaId = mediaIdHeader;
+        mediaId = mediaIdHeader ?? null;
       },
       // This happens after the upload is actually finished
       onSuccess: () => {

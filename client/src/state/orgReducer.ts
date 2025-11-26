@@ -37,7 +37,8 @@ const orgInitialState = <Organization>{
       }
     } as CommonsModuleSettings,
     showCollections: true,
-    assetFilterExclusions: [] as string[]
+    assetFilterExclusions: [] as string[],
+    autoCatalogMatchingDisabled: false,
 };
 
 export default function orgReducer(

@@ -34,7 +34,6 @@ export type Organization = {
   videoLengthLimit: number;
   defaultProjectLead: string;
   addToLibreGridList: boolean;
-  catalogMatchingTags?: string[];
   supportTicketNotifiers?: string[];
   FEAT_AssetTagsManager?: boolean;
   FEAT_PedagogyProjectTags?: boolean;
@@ -42,6 +41,7 @@ export type Organization = {
   commonsModules?: CommonsModuleSettings;
   showCollections?: boolean;
   assetFilterExclusions?: string[];
+  autoCatalogMatchingDisabled?: boolean;
 };
 
 export type CampusSettingsOpts = Pick<
@@ -59,7 +59,6 @@ export type CampusSettingsOpts = Pick<
   | "footerColor"
   | "aliases"
   | "addToLibreGridList"
-  | "catalogMatchingTags"
   | "customOrgList"
   | "commonsModules"
   | "showCollections"

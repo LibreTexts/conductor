@@ -17,6 +17,7 @@ const AnalyticsRequestAccess = lazy(() => import('./screens/conductor/analytics/
 const AnalyticsRequests = lazy(() => import('./screens/conductor/controlpanel/AnalyticsRequests'));
 const AssetTagsManager = lazy(() => import('./screens/conductor/controlpanel/AssetTagsManager'));
 const BooksManager = lazy(() => import('./screens/conductor/controlpanel/BooksManager'));
+const MasterCatalogPlainView = lazy(() => import('./screens/conductor/controlpanel/BooksManager/MasterCatalogPlainView'));
 const CampusSettings = lazy(() => import('./components/controlpanel/CampusSettings'));
 const CollectionsManager = lazy(() => import('./screens/conductor/controlpanel/CollectionsManager'));
 const QRCodeGenerator = lazy(() => import('./screens/conductor/controlpanel/QRCodeGenerator'));
@@ -143,6 +144,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/assettagsmanager' component={AssetTagsManager} />
           <PrivateRoute exact path='/controlpanel/peoplemanager' component={PeopleManager} />
           <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
+          <PrivateRoute exact path='/controlpanel/booksmanager/mastercatalog' component={MasterCatalogPlainView} />
           <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
           <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />
           <PrivateRoute exact path='/controlpanel/qr-code-generator' component={QRCodeGenerator} />

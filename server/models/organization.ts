@@ -44,13 +44,13 @@ export interface OrganizationInterface extends Document {
   videoLengthLimit: number; // in minutes
   defaultProjectLead?: string;
   addToLibreGridList?: boolean;
-  catalogMatchingTags?: string[];
   supportTicketNotifiers?: string[];
   defaultAssetTagFrameworkUUID?: string;
   customOrgList?: string[];
   commonsModules?: CommonsModuleSettings;
   showCollections?: boolean;
   assetFilterExclusions?: string[];
+  autoCatalogMatchingDisabled?: boolean;
   listenerPriority: number;
   cpuUnitsOverride: number;
   memoryValueOverride: number;
@@ -171,10 +171,6 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
      */
     addToLibreGridList: Boolean,
     /**
-     * Tags on LibreTexts books used to associate them with the organization.
-     */
-    catalogMatchingTags: [String],
-    /**
      * Emails to notify when a support ticket is created.
      */
     supportTicketNotifiers: [String],
@@ -231,6 +227,13 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
      * Inherent asset filters that should not be displayed in the Commons.
      */
     assetFilterExclusions: [String],
+    /**
+     * Whether automatically attributed books should be added to the organization's catalog.
+     */
+    autoCatalogMatchingDisabled: {
+      type: Boolean,
+      default: false,
+    },
     /**
      * Used for deterministic routing in a load-balanced Conductor deployment.
      */

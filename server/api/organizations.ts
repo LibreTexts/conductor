@@ -14,6 +14,7 @@ import { ensureUniqueStringArray, isEmptyString, sanitizeCustomColor } from '../
 import conductorErrors from '../conductor-errors.js';
 import { debugError } from '../debug.js';
 import authAPI from './auth.js';
+import CustomCatalog from '../models/customcatalog.js';
 
 const assetStorage = multer.memoryStorage();
 
@@ -210,9 +211,9 @@ async function getLibreGridOrganizations(_req: Request, res: Response) {
  */
 async function updateOrganizationInfo(req: Request, res: Response) {
   try {
-    req.body.aliases = req.body.aliases.filter(
+    req.body.aliases = req.body.aliases ? req.body.aliases.filter(
       (alias: String) => alias.length >= 1 && alias.length <= 100
-    );
+    ) : [];
 
     const { orgID } = req.params;
 
@@ -238,7 +239,6 @@ async function updateOrganizationInfo(req: Request, res: Response) {
     addToUpdateIfPresent('commonsMessage');
     addToUpdateIfPresent('collectionsDisplayLabel');
     addToUpdateIfPresent('collectionsMessage');
-    addToUpdateIfPresent('catalogMatchingTags');
     addToUpdateIfPresent('supportTicketNotifiers');
     addToUpdateIfPresent('defaultAssetTagFrameworkUUID');
     addToUpdateIfPresent('customOrgList');
@@ -388,6 +388,58 @@ async function updateBrandingImageAsset(req: Request, res: Response) {
   }
 }
 
+async function updateAutomaticCatalogMatchingSettings(
+  req: Request,
+  res: Response
+) {
+  try {
+    const { orgID } = req.params;
+    const { autoCatalogMatchingDisabled } = req.body;
+    if (typeof autoCatalogMatchingDisabled !== 'boolean') {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err1,
+      });
+    }
+
+    const orgData = await Organization.findOne({ orgID: { $eq: orgID } })
+      .lean()
+      .orFail();
+
+    if (orgData.autoCatalogMatchingDisabled === autoCatalogMatchingDisabled) {
+      return res.send({
+        err: false,
+        msg: "No changes made; automatic catalog matching status is already set to the specified value.",
+      });
+    }
+
+    await Organization.updateOne(
+      { orgID: { $eq: orgID } },
+      {
+        autoCatalogMatchingDisabled,
+      }
+    );
+
+    await CustomCatalog.updateOne(
+      { orgID: { $eq: orgID } },
+      {
+        automaticMatchingExclusions: [],
+      }
+    );
+
+    return res.send({
+      err: false,
+      msg: "Successfully updated automatic catalog matching status. Existing automatic matching exclusions have been cleared.",
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
 /**
  * Validates the provided branding asset image name against the list of allowed image fields.
  *
@@ -451,18 +503,23 @@ function validate(method: string) {
         body('primaryColor', conductorErrors.err1).optional({ checkFalsy: true }).isLength({min: 7, max: 7}).isHexColor(),
         body('footerColor', conductorErrors.err1).optional({ checkFalsy: true }).isLength({min: 7, max: 7}).isHexColor(),
         body('addToLibreGridList', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
-        body('catalogMatchingTags', conductorErrors.err1).optional({ checkFalsy: true }).isArray().customSanitizer(ensureUniqueStringArray),
         body('supportTicketNotifiers', conductorErrors.err1).optional({ checkFalsy: true }).isArray().isEmail(),
         body('defaultAssetTagFrameworkUUID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
         body('customOrgList', conductorErrors.err1).optional({ checkFalsy: true }).isArray().customSanitizer(ensureUniqueStringArray),
         body('commonsModules', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateCommonsModules),
         body('showCollections', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
-        body('assetFilterExclusions', conductorErrors.err1).optional({ checkFalsy: true }).isArray().customSanitizer(ensureUniqueStringArray)
+        body('assetFilterExclusions', conductorErrors.err1).optional({ checkFalsy: true }).isArray().customSanitizer(ensureUniqueStringArray),
+        body('autoCatalogMatchingDisabled', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean()
       ];
     case 'updateBrandingImageAsset':
       return [
         param('orgID', conductorErrors.err1).exists().isLength({ min: 2, max: 50 }),
         param('assetName', conductorErrors.err1).exists().isString().custom(validateBrandingAssetName),
+      ];
+    case 'updateAutomaticCatalogMatchingSettings':
+      return [
+        param('orgID', conductorErrors.err1).exists().isLength({ min: 2, max: 50 }),
+        body('autoCatalogMatchingDisabled', conductorErrors.err1).exists().isBoolean().toBoolean(),
       ];
   }
 }
@@ -475,5 +532,6 @@ export default {
   getLibreGridOrganizations,
   updateOrganizationInfo,
   updateBrandingImageAsset,
+  updateAutomaticCatalogMatchingSettings,
   validate
 }

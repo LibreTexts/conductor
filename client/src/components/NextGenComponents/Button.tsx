@@ -2,10 +2,11 @@ import classNames from "classnames";
 import * as TablerIcons from "@tabler/icons-react";
 import DynamicIcon from "./DynamicIcon";
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "tertiary";
   size?: "small" | "medium" | "large";
   icon?: keyof typeof TablerIcons;
+  iconClassName?: string;
   loading?: boolean;
   fluid?: boolean;
   className?: string;
@@ -17,6 +18,7 @@ const Button: React.FC<ButtonProps> = ({
   className,
   children,
   icon,
+  iconClassName,
   fluid = false,
   ...props
 }) => {
@@ -57,7 +59,7 @@ const Button: React.FC<ButtonProps> = ({
         <>
           {icon && (
             <span className={classNames(children ? "mr-2" : "", "flex")}>
-              <DynamicIcon icon={icon} />
+              <DynamicIcon icon={icon} className={iconClassName} />
             </span>
           )}
           {children}

@@ -84,7 +84,6 @@ const CampusSettingsForm = forwardRef(
         primaryColor: "",
         footerColor: "",
         addToLibreGridList: false,
-        catalogMatchingTags: [],
         customOrgList: [],
         commonsModules: {
           books: { enabled: true, order: 1 },
@@ -141,17 +140,6 @@ const CampusSettingsForm = forwardRef(
       }
     }, [loadedData, savedData]);
 
-    // Update form values when matching tags change
-    useEffect(() => {
-      setFormValue(
-        "catalogMatchingTags",
-        matchingTags.map((item) => item.value),
-        {
-          shouldDirty: true,
-        }
-      );
-    }, [matchingTags]);
-
     /**
      * Retrieves Organization info via GET request from the server, then updates state.
      */
@@ -168,13 +156,6 @@ const CampusSettingsForm = forwardRef(
           commonsModules: res.data.commonsModules ?? DEFAULT_COMMONS_MODULES,
         });
         setAliases(res.data.aliases ?? []);
-        // Make local copies of matching tags with unique keys
-        setMatchingTags(
-          res.data.catalogMatchingTags?.map((item: string) => ({
-            key: crypto.randomUUID(),
-            value: item,
-          })) ?? []
-        );
 
         setLoadedData(true);
       } catch (err) {
@@ -481,94 +462,6 @@ const CampusSettingsForm = forwardRef(
     return (
       <>
         <Form noValidate>
-          {props.showCatalogSettings && (
-            <>
-              <h4>LibreGrid Settings</h4>
-              <Form.Field>
-                <Form.Checkbox
-                  toggle
-                  disabled={props.orgID === "libretexts"}
-                  label="Add to global Campus Commons list"
-                  onChange={() =>
-                    setFormValue(
-                      "addToLibreGridList",
-                      !getFormValue("addToLibreGridList"),
-                      { shouldDirty: true }
-                    )
-                  }
-                  checked={watch("addToLibreGridList")}
-                />
-              </Form.Field>
-              <Divider />
-              <h4>Commons Catalog Settings</h4>
-              <label
-                htmlFor="bookMatchingTagsTable"
-                className="form-field-label mt-1r"
-              >
-                Catalog Matching Tags
-              </label>
-              <p>
-                {`Use Catalog Matching Tags to customize the Book results that appear in the Campus Commons catalog: 
-              if a tag entered here is present in a Book's tags, the Book will automatically be included in the potential catalog search results.`}
-              </p>
-              <Table id="catalogMatchingTagsTable" className="mb-2r">
-                <Table.Header>
-                  <Table.Row>
-                    <Table.HeaderCell scope="col">Tag</Table.HeaderCell>
-                    <Table.HeaderCell scope="col" collapsing>
-                      Actions
-                    </Table.HeaderCell>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {matchingTags.map((item, idx) => (
-                    <Table.Row key={idx}>
-                      <Table.Cell>
-                        <Input
-                          key={item.key}
-                          type="text"
-                          id={`value.${item.key}`}
-                          value={item.value}
-                          onChange={handleCatalogMatchTagEdit}
-                          fluid
-                        />
-                      </Table.Cell>
-                      <Table.Cell>
-                        <Button
-                          icon="remove circle"
-                          color="red"
-                          onClick={() => handleCatalogMatchTagDelete(item.key)}
-                        />
-                      </Table.Cell>
-                    </Table.Row>
-                  ))}
-                  {(!matchingTags || matchingTags.length === 0) && (
-                    <Table.Row>
-                      <Table.Cell colSpan={2}>
-                        <p className="muted-text text-center">No entries yet</p>
-                      </Table.Cell>
-                    </Table.Row>
-                  )}
-                </Table.Body>
-                <Table.Footer fullWidth>
-                  <Table.Row>
-                    <Table.HeaderCell colSpan={2}>
-                      <Button
-                        onClick={handleCatalogMatchTagAdd}
-                        color="blue"
-                        icon
-                        labelPosition="left"
-                      >
-                        <Icon name="add circle" />
-                        Add Tag
-                      </Button>
-                    </Table.HeaderCell>
-                  </Table.Row>
-                </Table.Footer>
-              </Table>
-              <Divider />
-            </>
-          )}
           <Segment raised>
             <p className="text-lg font-bold">Branding Images</p>
 
