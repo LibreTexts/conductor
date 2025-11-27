@@ -10,7 +10,9 @@ import { getLicenseText } from "../../../../components/util/LicenseOptions";
 import { getLibraryName } from "../../../../components/util/LibraryOptions";
 import { useTypedSelector } from "../../../../state/hooks";
 import useMasterCatalogV2 from "../../../../hooks/useMasterCatalogV2";
-import useCommonsCatalogBooks from "../../../../hooks/useCommonsCatalogBooks";
+import useCommonsCatalogBooks, {
+  COMMONS_CATALOG_QUERY_KEY,
+} from "../../../../hooks/useCommonsCatalogBooks";
 import { useMemo, useState } from "react";
 import Combobox from "../../../../components/NextGenInputs/Combobox";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -25,7 +27,6 @@ import {
   filterBooksBySearchTerm,
   sortBooks,
 } from "../../../../utils/booksManagerHelpers";
-import Tooltip from "../../../../components/util/Tooltip";
 
 type BookWithEnabled = BookWithAutoMatched & { enabled: boolean };
 
@@ -35,10 +36,6 @@ const MasterCatalogPlainView = () => {
   const { debounce } = useDebounce();
   const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
-
-  const user = useTypedSelector((state) => state.user);
-  const queriesEnabled =
-    user.isSuperAdmin || user.isCampusAdmin || user.isSupport;
 
   const [sortOption, setSortOption] =
     useState<BooksManagerSortOptions>("title_asc");
@@ -53,35 +50,19 @@ const MasterCatalogPlainView = () => {
     [debounce]
   );
 
-  const {
-    data: commonsData,
-    invalidate,
-    useCommonsCatalogQueryKey,
-  } = useCommonsCatalogBooks({
-    enabled: queriesEnabled,
-  });
-  const { data, isLoading } = useMasterCatalogV2({
-    enabled: queriesEnabled,
-  });
-
-  const enabledBookIDs = useMemo(() => {
-    return new Set<string>(commonsData?.map((b) => b.bookID) || []);
-  }, [commonsData]);
-
-  const autoMatchedBookIDs = useMemo(() => {
-    return new Set<string>(
-      commonsData?.filter((b) => b.autoMatched).map((b) => b.bookID) || []
-    );
-  }, [commonsData]);
+  const { data: commonsData } = useCommonsCatalogBooks({ limit: 10000 });
+  const { data, isLoading } = useMasterCatalogV2();
 
   const onMutateCallback = async (book: BookWithEnabled) => {
-    await queryClient.cancelQueries({ queryKey: useCommonsCatalogQueryKey });
-    const previousData = queryClient.getQueryData(useCommonsCatalogQueryKey);
+    const previousData = queryClient.getQueryData(COMMONS_CATALOG_QUERY_KEY);
 
-    queryClient.setQueryData(useCommonsCatalogQueryKey, (old: any) => {
-      if (!old) return old;
+    queryClient.setQueryData(COMMONS_CATALOG_QUERY_KEY, (old: any) => {
+      if (!old || !Array.isArray(old)) return old;
 
-      if (book.enabled) {
+      // Check current state in cache, not the passed book.enabled value
+      const isCurrentlyEnabled = old.some((b: any) => b.bookID === book.bookID);
+
+      if (isCurrentlyEnabled) {
         return old.filter((b: any) => b.bookID !== book.bookID);
       } else {
         return [...old, { ...book, enabled: true }];
@@ -93,12 +74,11 @@ const MasterCatalogPlainView = () => {
 
   const onErrorCallback = (err: any, variables: any, context: any) => {
     if (context?.previousData) {
-      queryClient.setQueryData(useCommonsCatalogQueryKey, context.previousData);
+      queryClient.setQueryData(COMMONS_CATALOG_QUERY_KEY, context.previousData);
     }
   };
 
   const onSettledCallback = () => {
-    invalidate();
     addNotification({
       type: "success",
       message: "Changes saved successfully.",
@@ -107,7 +87,14 @@ const MasterCatalogPlainView = () => {
 
   const affectBook = useMutation({
     mutationFn: async (book: BookWithEnabled) => {
-      const apiEndpoint = book.enabled
+      const currentCommonsData = queryClient.getQueryData(
+        COMMONS_CATALOG_QUERY_KEY
+      ) as BookWithEnabled[] | undefined;
+      const isCurrentlyEnabled = currentCommonsData?.some(
+        (b) => b.bookID === book.bookID
+      );
+
+      const apiEndpoint = isCurrentlyEnabled
         ? api.disableBookOnCommons
         : api.enableBookOnCommons;
       const res = await apiEndpoint(book.bookID);
@@ -128,11 +115,15 @@ const MasterCatalogPlainView = () => {
     onSettled: onSettledCallback,
   });
 
-  const masterCatalogBooks = useMemo(() => {
+  const mappedData = useMemo(() => {
     if (!data) return [];
 
-    const currentBookIDsSet = new Set<string>(
+    const enabledBookIDsSet = new Set<string>(
       commonsData?.map((b) => b.bookID) || []
+    );
+
+    const autoMatchedBookIDs = new Set<string>(
+      commonsData?.filter((b) => b.autoMatched).map((b) => b.bookID) || []
     );
 
     const bookMap = new Map<string, BookWithEnabled>();
@@ -143,7 +134,8 @@ const MasterCatalogPlainView = () => {
           if (!bookMap.has(book.bookID)) {
             bookMap.set(book.bookID, {
               ...book,
-              enabled: currentBookIDsSet.has(book.bookID),
+              enabled: enabledBookIDsSet.has(book.bookID),
+              autoMatched: autoMatchedBookIDs.has(book.bookID),
             });
           }
         });
@@ -154,35 +146,21 @@ const MasterCatalogPlainView = () => {
           if (!bookMap.has(book.bookID)) {
             bookMap.set(book.bookID, {
               ...book,
-              enabled: currentBookIDsSet.has(book.bookID),
+              enabled: enabledBookIDsSet.has(book.bookID),
+              autoMatched: autoMatchedBookIDs.has(book.bookID),
             });
           }
         });
       });
     });
 
-    return sortBooks(Array.from(bookMap.values()), sortOption);
-  }, [data]);
-
-  const mappedData = useMemo(() => {
-    const booksWithEnabled: BookWithEnabled[] = masterCatalogBooks.map(
-      (book) => ({
-        ...book,
-        enabled: enabledBookIDs.has(book.bookID),
-        autoMatched: autoMatchedBookIDs.has(book.bookID),
-      })
+    const filteredBooks = filterBooksBySearchTerm(
+      Array.from(bookMap.values()),
+      searchTerm
     );
 
-    const filteredBooks = filterBooksBySearchTerm(booksWithEnabled, searchTerm);
-
     return sortBooks(filteredBooks, sortOption);
-  }, [
-    masterCatalogBooks,
-    enabledBookIDs,
-    autoMatchedBookIDs,
-    sortOption,
-    searchTerm,
-  ]);
+  }, [data, commonsData, sortOption, searchTerm]);
 
   return (
     <Grid className="controlpanel-container" divided="vertically">

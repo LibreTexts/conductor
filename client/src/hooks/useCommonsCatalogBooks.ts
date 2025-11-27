@@ -3,32 +3,31 @@ import api from "../api";
 
 export type UseCommonsCatalogBooksParams = {
   limit?: number;
-  enabled?: boolean;
 };
+
+export const COMMONS_CATALOG_QUERY_KEY = ["commonsCatalogBooks"] as const;
 
 const useCommonsCatalogBooks = ({
   limit = 10000,
-  enabled = true,
 }: UseCommonsCatalogBooksParams) => {
   const queryClient = useQueryClient();
-  const useCommonsCatalogQueryKey = ["commonsCatalogBooks"];
 
   const queryData = useQuery({
-    queryKey: useCommonsCatalogQueryKey,
+    queryKey: COMMONS_CATALOG_QUERY_KEY,
     queryFn: async () => {
       const res = await api.getCommonsCatalog({ limit });
       return res.data.books;
     },
     staleTime: Infinity, // Don't refetch unless manually invalidated
     refetchOnWindowFocus: false,
-    enabled: enabled,
+    cacheTime: Infinity,
   });
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: useCommonsCatalogQueryKey });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: COMMONS_CATALOG_QUERY_KEY });
+  };
 
   return {
-    useCommonsCatalogQueryKey,
     invalidate,
     ...queryData,
   };

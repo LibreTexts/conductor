@@ -24,6 +24,26 @@ import { BrowserRouter, Route, Switch } from "react-router-dom";
 import SupportCenterProvider from "./providers/SupportCenterProvider.js";
 import { useNotifications } from "./context/NotificationContext.js";
 
+const notificationRef: { current: ((n: any) => void) | null } = {
+  current: null,
+};
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError(error, query) {
+      const errMsg =
+        query?.meta && "errorMessage" in query.meta
+          ? (query.meta.errorMessage as string)
+          : "An error occurred";
+
+      // Use a ref here since we can't use hooks outside of the component tree
+      notificationRef.current?.({
+        type: "error",
+        message: errMsg,
+      });
+    },
+  }),
+});
+
 /**
  * Exposes the applications and global configuration.
  */
@@ -103,21 +123,15 @@ const Platform = () => {
   }, []);
 
   const ApplicationTree = () => {
-    const queryClient = new QueryClient({
-      queryCache: new QueryCache({
-        onError(error, query) {
-          const errMsg =
-            query?.meta && "errorMessage" in query.meta
-              ? (query.meta.errorMessage as string)
-              : "An error occurred";
-          addNotification({
-            type: "error",
-            message: errMsg,
-          });
-        },
-      }),
-    });
     const { addNotification } = useNotifications();
+
+    // Keep the ref updated with the latest addNotification function
+    useEffect(() => {
+      notificationRef.current = addNotification;
+      return () => {
+        notificationRef.current = null;
+      };
+    }, [addNotification]);
 
     return (
       <ErrorBoundary FallbackComponent={ErrorScreen}>
