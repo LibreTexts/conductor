@@ -12,7 +12,7 @@ const CommonsSyncModal: React.FC<CommonsSyncModalProps> = ({
   open,
   onClose,
 }) => {
-  const { invalidate } = useMasterCatalogV2({ enabled: false }); // Don't need to load data, just want invalidate
+  const { invalidate } = useMasterCatalogV2();
 
   const syncWithLibsMutation = useMutation({
     mutationFn: api.syncWithLibraries,

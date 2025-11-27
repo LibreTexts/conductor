@@ -9,12 +9,7 @@ import { Book, BookWithAutoMatched } from "../../../../types";
 import { useTypedSelector } from "../../../../state/hooks";
 import api from "../../../../api";
 import CatalogTransferList from "../../../../components/NextGenComponents/CatalogTransferList";
-import {
-  IconEraser,
-  IconExternalLink,
-  IconLink,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconEraser, IconLink, IconTrash } from "@tabler/icons-react";
 import { getLicenseText } from "../../../../components/util/LicenseOptions";
 import { useNotifications } from "../../../../context/NotificationContext";
 import useCommonsCatalogBooks from "../../../../hooks/useCommonsCatalogBooks";
@@ -34,18 +29,12 @@ const BooksManager = () => {
   const { closeAllModals, openModal } = useModals();
   const { addNotification } = useNotifications();
 
-  const queriesEnabled =
-    user.isCampusAdmin || user.isSuperAdmin || user.isSupport;
   const didInitializeCurrentCatalog = useRef<boolean>(false);
   const [selectedBooks, setSelectedBooks] = useState<BookWithAutoMatched[]>([]);
 
-  const { data, isLoading, invalidate } = useMasterCatalogV2({
-    enabled: queriesEnabled,
-  });
+  const { data, isLoading, invalidate } = useMasterCatalogV2();
   const { data: commonsData, invalidate: invalidateCommonsData } =
-    useCommonsCatalogBooks({
-      enabled: queriesEnabled,
-    });
+    useCommonsCatalogBooks({});
 
   // Initialize the selected books from the current Commons catalog
   useEffect(() => {
@@ -150,7 +139,7 @@ const BooksManager = () => {
                   !didInitializeCurrentCatalog.current ||
                   org.orgID === "libretexts"
                 } // Ensure current catalog is loaded before allowing interactions
-                selectedTitle={`${org.shortName} Commons Catalog`}
+                selectedTitle={`${org.shortName} Custom Catalog`}
                 renderBook={(item) => (
                   <div className="flex flex-col gap-y-1">
                     <div className="flex flex-row gap-2">

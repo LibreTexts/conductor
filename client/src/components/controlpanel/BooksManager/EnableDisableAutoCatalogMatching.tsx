@@ -17,7 +17,7 @@ const EnableDisableAutoCatalogMatching: React.FC<
 > = ({ open, mode, onClose }) => {
   const org = useTypedSelector((state) => state.org);
   const { addNotification } = useNotifications();
-  const { invalidate } = useMasterCatalogV2({});
+  const { invalidate } = useMasterCatalogV2();
 
   const updateAutoMatchingMutation = useMutation({
     mutationFn: async (data: { enable: boolean }) => {
@@ -26,8 +26,8 @@ const EnableDisableAutoCatalogMatching: React.FC<
       });
       return res.data;
     },
-    async onSuccess(data, variables, context) {
-      await invalidate();
+    onSuccess(data, variables, context) {
+      invalidate();
       addNotification({
         type: "success",
         message: `Automatic catalog matching ${
