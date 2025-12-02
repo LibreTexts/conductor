@@ -1,5 +1,6 @@
 import useClientConfig from "../../../hooks/useClientConfig";
 import { Organization, User } from "../../../types";
+import DonationCompaignBanner from "../../navigation/DonationCampaignBanner";
 import EnvironmentBanner from "../../navigation/EnvironmentBanner";
 import CommonsNavbarDesktop from "./CommonsNavbarDesktop";
 import CommonsNavbarMobile from "./CommonsNavbarMobile";
@@ -33,6 +34,7 @@ const CommonsNavbar: React.FC<CommonsNavbarProps> = ({ org, user }) => {
         height: isProduction ? "60px" : "100px",
       }}
     >
+      {org.orgID === "libretexts" && <DonationCompaignBanner />}
       <EnvironmentBanner />
       {isTailwindXl ? (
         <CommonsNavbarDesktop
