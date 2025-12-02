@@ -385,6 +385,22 @@ export function sanitizeControlCharacters(str) {
 }
 
 /**
+ * Decodes a percent-encoded string if applicable, otherwise returns the original string.
+ * @param {*} str - The string to decode.
+ * @returns {*} The decoded string, or the original value if not a string.
+ */
+export function maybeDecodeURIComponent(str) {
+  if (typeof str !== 'string') return str;
+  try {
+    // Only attempt decode if we see percent-encoding
+    if (/%[0-9A-F]{2}/i.test(str)) return decodeURIComponent(str);
+  } catch (err) {
+    debugError(err);
+  }
+  return str;
+}
+
+/**
  * Wraps an async API function in order to catch internal errors and return an HTTP
  * response appropriate for end-users.
  *

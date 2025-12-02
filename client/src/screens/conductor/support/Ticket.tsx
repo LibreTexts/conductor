@@ -24,6 +24,7 @@ import { TicketStatusPill } from "../../../components/support/TicketInfoPill";
 import { useDocumentTitle } from "usehooks-ts";
 import { useModals } from "../../../context/ModalContext";
 import AssignTicketModal from "../../../components/support/AssignTicketModal";
+import AuthHelper from "../../../components/util/AuthHelper";
 
 const getIdFromURL = (url: string) => {
   if (!url) return "";
@@ -121,8 +122,10 @@ const SupportTicketView = () => {
         const redirectURI = encodeURIComponent(
           window.location.pathname + window.location.search
         );
-        const params = new URLSearchParams({ redirectURI });
-        window.location.href = `/login?${params.toString()}`;
+
+        const loginURL = AuthHelper.generateLoginURL(redirectURI);
+
+        window.location.assign(loginURL);
         return;
       }
       handleGlobalError(err);
