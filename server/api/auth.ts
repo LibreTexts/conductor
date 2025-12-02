@@ -11,7 +11,7 @@ import User from "../models/user.js";
 import OAuth from "./oauth.js";
 import conductorErrors from "../conductor-errors.js";
 import { debugError } from "../debug.js";
-import { assembleUrl, isEmptyString, isFullURL } from "../util/helpers.js";
+import { assembleUrl, isEmptyString, isFullURL, maybeDecodeURIComponent } from "../util/helpers.js";
 import FormData from "form-data";
 import Session from "../models/session.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
@@ -131,11 +131,13 @@ async function initLogin(req: Request, res: Response) {
     });
   }
 
+  const redirectURI = req.query.redirect_uri;
+
   const state = JSON.stringify({
     state: randomBytes(10).toString("hex"),
     orgID: process.env.ORG_ID,
-    ...(req.query.redirectURI && {
-      redirectURI: req.query.redirectURI,
+    ...(redirectURI && {
+      redirectURI: redirectURI.toString(),
     }),
   });
 
@@ -209,16 +211,20 @@ async function completeLogin(req: Request, res: Response) {
     const { oidc_state } = req.cookies;
     const { state: stateQuery } = req.query;
 
-    let state = null;
-    let stateCookie = null;
-    try {
-      state = stateQuery?.toString() ? JSON.parse(stateQuery.toString()) : null; // Decode query state
-      stateCookie = JSON.parse(Buffer.from(oidc_state, "base64").toString()); // Decode base64 state
-    } catch (e) {
-      debugError(`State query: ${stateQuery}`);
-      debugError(`State cookie: ${oidc_state}`);
-      debugError(e);
-    }
+    const safeParseState = (stateStr: string) => {
+      if (!stateStr || typeof stateStr !== "string") {
+        return null;
+      }
+      try {
+        return JSON.parse(stateStr);
+      } catch (e) {
+        debugError(`Failed to parse state: ${stateStr}`);
+        return null;
+      }
+    };
+
+    const state = safeParseState(stateQuery?.toString() || "");
+    const stateCookie = safeParseState(Buffer.from(oidc_state || "", "base64").toString());
     if (!state || !stateCookie || state.nonce !== stateCookie.nonce) {
       return res.status(400).send({
         err: true,
@@ -363,23 +369,24 @@ async function completeLogin(req: Request, res: Response) {
     await createAndAttachLocalSession(res, authUser.uuid, ticketID);
 
     // Determine base of redirect URL
-    let finalRedirectURL = `${req.protocol}://${req.get("host")}`; // Default to current host
+    let finalRedirectURL = `${oidcCallbackProto}://${oidcCallbackHost}`; // Default to callback host
     if(req.cookies.conductor_auth_redirect){
       finalRedirectURL = req.cookies.conductor_auth_redirect; // Use auth redirect cookie if available
     }
 
-    // Check if redirectURI is a full URL
-    if (state.redirectURI && isFullURL(state.redirectURI)) {
-      finalRedirectURL = state.redirectURI;
-    } else if (state.redirectURI && !isFullURL(state.redirectURI)) {
-      // redirectURI is only a path or not provided
-      finalRedirectURL = assembleUrl([finalRedirectURL, state.redirectURI]);
+    // Check if redirectURI is a full URL and decode if needed
+    const safeDecoded = maybeDecodeURIComponent(state.redirectURI);
+    if (safeDecoded && isFullURL(safeDecoded)) {
+      finalRedirectURL = safeDecoded;
+    } else if (safeDecoded && !isFullURL(safeDecoded)) {
+      // redirectURI is only a path
+      finalRedirectURL = assembleUrl([finalRedirectURL, safeDecoded]);
     } else {
       // Default to home if no redirectURI is provided
       finalRedirectURL = assembleUrl([finalRedirectURL, "home"]);
     }
 
-    if (!state.redirectURI && isNewMember) {
+    if (!safeDecoded && isNewMember) {
       const _final = new URL(finalRedirectURL);
       const _params = new URLSearchParams(_final.search);
       _params.set("newmember", "true");

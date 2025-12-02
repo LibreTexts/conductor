@@ -41,7 +41,7 @@ const AuthHelper = {
             import.meta.env.VITE_SERVER_PORT || "5000"
           }${loginEndpoint}`;
     if (redirectURI) {
-      const redirParams = new URLSearchParams({ redirectURI });
+      const redirParams = new URLSearchParams({ redirect_uri: redirectURI });
       redirURL = `${redirURL}?${redirParams.toString()}`;
     }
     return redirURL;
