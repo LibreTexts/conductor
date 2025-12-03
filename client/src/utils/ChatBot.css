@@ -10,18 +10,49 @@
   color: white;
   border: none;
   border-radius: 50px;
-  padding: 12px 24px;
+  padding: 12px 24px 12px 56px; /* Extra left padding for Benny image */
   cursor: pointer;
   font-size: 16px;
   font-weight: 600;
   box-shadow: 0 4px 12px rgba(33, 133, 208, 0.4);
   transition: all 0.3s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  overflow: hidden;
+}
+
+.chatbot-toggle::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  background-image: url('https://cdn.libretexts.net/Images/benny-mascot-white.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.7; /* Translucent Benny mascot */
+  z-index: 0;
+  pointer-events: none;
+}
+
+.chatbot-toggle-text {
+  position: relative;
+  z-index: 1; /* Text appears above the image */
 }
 
 .chatbot-toggle:hover {
   background-color: #1678c2;
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(33, 133, 208, 0.5);
+}
+
+.chatbot-toggle:hover::before {
+  opacity: 0.9; /* Slightly more visible on hover */
 }
 
 .chatbot-window {
@@ -95,6 +126,15 @@
   padding: 16px;
   overflow-y: auto;
   background: #f8f9fa;
+  background-image: 
+  linear-gradient(rgba(248, 249, 250, 0.85), rgba(248, 249, 250, 0.85)),
+    url('https://cdn.libretexts.net/Images/benny-mascot-white.png');
+  background-size: 200px 200px; 
+  background-position: center center;
+  background-repeat: no-repeat;
+  /* background-blend-mode: overlay; */
+  opacity: 1;
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -133,6 +173,22 @@
   flex-direction: column;
   gap: 8px;
   animation: fadeIn 0.3s ease-in;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+
+.header-title-with-mascot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-mascot-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  opacity: 0.95;
 }
 
 @keyframes fadeIn {
@@ -146,25 +202,55 @@
   }
 }
 
-.message-content {
-  padding: 12px;
+.message-text {
+  padding: 12px 16px;
   border-radius: 8px;
-  max-width: 85%;
+  max-width: 75%;
+  line-height: 1.5;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
-.chatbot-message.user .message-content {
+.message-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  opacity: 0.9;
+  font-weight: 600;
+}
+
+.message-body {
+  margin-top: 4px;
+}
+
+.chatbot-message.user {
+  align-items: flex-end; /* User messages align to RIGHT */
+}
+
+.chatbot-message.user .message-text {
   background: #2185d0;
   color: white;
-  align-self: flex-end;
   border-bottom-right-radius: 4px;
 }
 
-.chatbot-message.agent .message-content {
+.chatbot-message.agent {
+  align-items: flex-start; /* Agent messages align to LEFT */
+}
+
+.chatbot-message.agent .message-text {
   background: white;
   color: #333;
-  align-self: flex-start;
   border: 1px solid #e0e0e0;
   border-bottom-left-radius: 4px;
+}
+
+.chatbot-message.agent .message-label {
+  color: #333;
+}
+
+.chatbot-message.user .message-label {
+  color: white;
 }
 
 .message-content strong {
@@ -179,6 +265,106 @@
   font-size: 14px;
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+.message-text :global(p) {
+  margin: 0.75em 0;
+  line-height: 1.6;
+}
+
+.message-text :global(p:first-child) {
+  margin-top: 0;
+}
+
+.message-text :global(p:last-child) {
+  margin-bottom: 0;
+}
+
+.message-text :global(ul),
+.message-text :global(ol) {
+  margin: 0.75em 0;
+  padding-left: 1.75em;
+  line-height: 1.6;
+}
+
+.message-text :global(li) {
+  margin: 0.5em 0;
+  line-height: 1.6;
+}
+
+/* Better nested list styling */
+.message-text :global(ul ul),
+.message-text :global(ol ul),
+.message-text :global(ul ol),
+.message-text :global(ol ol) {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+/* Style for bold text within list items */
+.message-text :global(li strong) {
+  font-weight: 600;
+  color: #333;
+}
+
+/* Remove extra spacing for empty list items */
+.message-text :global(li:empty) {
+  display: none;
+}
+
+.message-text :global(strong) {
+  font-weight: 600;
+  color: #333;
+}
+
+.message-text :global(em) {
+  font-style: italic;
+}
+
+.message-text :global(code) {
+  background: #f4f4f4;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.message-text :global(pre) {
+  background: #f4f4f4;
+  padding: 10px;
+  border-radius: 5px;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+
+.message-text :global(pre code) {
+  background: none;
+  padding: 0;
+}
+
+.message-text :global(h1),
+.message-text :global(h2),
+.message-text :global(h3),
+.message-text :global(h4),
+.message-text :global(h5),
+.message-text :global(h6) {
+  margin: 1em 0 0.5em 0;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #333;
+}
+
+.message-text :global(h1) { font-size: 1.5em; }
+.message-text :global(h2) { font-size: 1.3em; margin-top: 1.25em; }
+.message-text :global(h3) { font-size: 1.1em; }
+
+.message-text :global(a) {
+  color: #2185d0;
+  text-decoration: none;
+}
+
+.message-text :global(a:hover) {
+  text-decoration: underline;
 }
 
 .message-sources {

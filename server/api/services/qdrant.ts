@@ -8,13 +8,10 @@ const qdrantUrl =
   'http://localhost:6333';
 
 const qdrantClient = new QdrantClient({
-  url: 'https://qdrant-dev-duqf9.ondigitalocean.app',               // keep https, no :6333 for DO
-  apiKey: 'd7efef04-2336-425f-aae7-f32c5a267594',
-  port: 443,
+  url: qdrantUrl,
+  apiKey: process.env.QDRANT_API_KEY,
+  port: Number(process.env.QDRANT_PORT) || 443,
 });
-
-console.log('qdrantUrl', qdrantUrl);
-console.log('qdrantClient', qdrantClient);
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,

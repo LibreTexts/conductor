@@ -2496,6 +2496,10 @@ router
   router
   .route("/kb/page/slug/:slug/embeddings")
   .post(
+    authAPI.verifyRequest,                                   
+    authAPI.getUserAttributes,                               
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"), 
+    middleware.validateZod(kbValidators.GetKBPageValidator),
     kbAPI.generateKBPageEmbeddings
   );
 
@@ -2863,70 +2867,40 @@ router
   router
   .route("/kb/migrate-to-qdrant")
   .post(
-    // authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"), 
+    middleware.validateZod(kbValidators.MigrateToQdrantValidator), 
     kbAPI.migrateKBPagesToQdrant
   );
 
-router
-  .route("/kb/qdrant-status")
-  .get(
-    // authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-    kbAPI.getQdrantStatus
-  );
+  router
+    .route("/kb/create-single-page-embedding/:uuid")
+    .post(
+      authAPI.verifyRequest,
+      authAPI.getUserAttributes,
+      authAPI.checkHasRoleMiddleware("libretexts", "superadmin"), 
+      middleware.validateZod(kbValidators.KBUUIDParams),
+      kbAPI.createSinglePageEmbedding
+    );
 
-router
-  .route("/kb/test-vector-search")
-  .get(
-    kbAPI.testVectorSearch
-  );
+  router
+    .route("/agent/create-session")
+    .post(
+      authAPI.verifyRequest,
+      authAPI.getUserAttributes,
+      middleware.validateZod(kbValidators.CreateAgentSessionValidator), 
+      kbAPI.createSessionHandler 
+    );
 
-router
-  .route("/kb/clear-qdrant")
-  .delete(
-    // authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-    kbAPI.clearQdrantCollection
-  );
+  router
+    .route("/agent/query-langgraph")
+    .post(
+      authAPI.verifyRequest,
+      authAPI.getUserAttributes,
+      middleware.validateZod(kbValidators.AgentQueryLangGraphValidator),
+      kbAPI.agentQueryLangGraph
+    );
 
-router
-  .route("/kb/create-single-page-embedding/:uuid")
-  .post(
-    kbAPI.createSinglePageEmbedding
-  );
-
-router
-  .route("/kb/create-two-page-embeddings")
-  .post(
-    kbAPI.createTwoPageEmbeddings
-  );
-
-router
-  .route("/kb/agent-query")
-  .post(
-    kbAPI.agentQuery
-  );
-
-router
-  .route("/agent/create-session")
-  .post(
-    kbAPI.createSessionHandler 
-  );
-
-router
-  .route("/agent/query-with-tools")
-  .post(
-    kbAPI.queryWithToolsHandler
-  );
-
-router
-  .route("/agent/query-langgraph")
-  .post(
-    kbAPI.agentQueryLangGraph
-  );
-
-router
-  .route("/agent/visualize-graph")
-  .get(
-    kbAPI.visualizeGraph
-  );
 
 export default router;

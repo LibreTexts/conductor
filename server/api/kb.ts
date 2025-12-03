@@ -757,7 +757,6 @@ async function migrateKBPagesToQdrant(req: Request, res: Response) {
       });
     }
 
-    // Show sample of pages to be migrated
     console.log('📋 Pages to migrate:');
     kbPages.slice(0, 3).forEach((page, idx) => {
       console.log(`  ${start + idx}. ${page.title} (${page.uuid})`);
@@ -823,61 +822,6 @@ async function getQdrantStatus(req: Request, res: Response) {
   }
 }
 
-// Test vector search
-async function testVectorSearch(req: Request, res: Response) {
-  try {
-    const { query, limit = 3 } = req.query;
-
-    if (!query || typeof query !== 'string') {
-      return res.status(400).send({
-        err: true,
-        msg: "Query is required and must be a string"
-      });
-    }
-
-    console.log('🔍 Testing vector search:', query);
-
-    // Search similar pages using Qdrant
-    const similarPages = await qdrantService.searchSimilar(query, parseInt(limit as string));
-    
-    return res.send({
-      err: false,
-      query: query,
-      results: similarPages.map(page => ({
-        title: page.title,
-        description: page.description,
-        slug: page.slug,
-        score: page.score,
-        // wordCount: page.wordCount,
-        url: `/insight/${page.slug}`
-      })),
-      count: similarPages.length,
-    });
-
-  } catch (error) {
-    console.error('Vector search test error:', error);
-    debugError(error);
-    return conductor500Err(res);
-  }
-}
-
-// Clear Qdrant collection
-async function clearQdrantCollection(req: Request, res: Response) {
-  try {
-    const result = await qdrantService.deleteCollection(qdrantService.collectionName);
-    
-    return res.send({
-      err: false,
-      message: 'Qdrant collection cleared successfully',
-      result
-    });
-  } catch (error) {
-    console.error('Clear collection error:', error);
-    debugError(error);
-    return conductor500Err(res);
-  }
-}
-
 async function createSinglePageEmbedding(req: Request, res: Response) {
   try {
     const { uuid } = req.params;
@@ -921,107 +865,6 @@ async function createSinglePageEmbedding(req: Request, res: Response) {
     }
   } catch (error) {
     console.error('Error creating single page embedding:', error);
-    debugError(error);
-    return conductor500Err(res);
-  }
-}
-
-async function createTwoPageEmbeddings(req: Request, res: Response) {
-  try {
-    console.log('📚 Creating embeddings for first 2 published pages...');
-
-    // Initialize Qdrant collection
-    await qdrantService.initializeCollection();
-
-    // Get first 2 published KB pages from MongoDB
-    const kbPages = await KBPage.find({
-      status: 'published',
-      body: { $exists: true, $ne: '' },
-    })
-      .limit(2)
-      .lean();
-
-    if (kbPages.length === 0) {
-      return res.send({
-        err: false,
-        message: 'No published KB pages found',
-        created: 0,
-      });
-    }
-
-    console.log(`Found ${kbPages.length} pages to process`);
-    kbPages.forEach((page, i) => {
-      console.log(`  ${i + 1}. ${page.title} (${page.uuid})`);
-    });
-
-    // Create embeddings for both pages
-    const results = [];
-    for (const page of kbPages) {
-      const result = await qdrantService.upsertKBPage(page);
-      results.push(result);
-      
-      // Small delay between requests
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-
-    const successful = results.filter(r => r.success);
-    const failed = results.filter(r => !r.success);
-
-    console.log(`✅ Created ${successful.length} embeddings`);
-    if (failed.length > 0) {
-      console.log(`❌ Failed: ${failed.length}`);
-    }
-
-    return res.send({
-      err: false,
-      message: `Created embeddings for ${successful.length} pages`,
-      total: kbPages.length,
-      created: successful.length,
-      failed: failed.length,
-      pages: successful.map(s => ({
-        uuid: s.uuid,
-        title: s.title,
-      })),
-      errors: failed.map(f => ({
-        uuid: f.uuid,
-        title: f.title,
-        error: f.error,
-      })),
-    });
-  } catch (error) {
-    console.error('Error creating two page embeddings:', error);
-    debugError(error);
-    return conductor500Err(res);
-  }
-}
-
-async function agentQuery(req: Request, res: Response) {
-  try {
-    const { query, limit = 3 } = req.body;
-
-    if (!query || typeof query !== 'string') {
-      return res.status(400).send({
-        err: true,
-        msg: "Query is required and must be a string"
-      });
-    }
-
-    console.log(`🤖 Agent Query Request: "${query}"`);
-
-    const response = await agentService.query(
-      query,
-      'kb_pages',
-      'You are a helpful AI assistant for LibreTexts Knowledge Base. Answer questions based on the provided context.',
-      parseInt(limit as string)
-    );
-
-    return res.send({
-      err: false,
-      ...response,
-    });
-
-  } catch (error) {
-    console.error('Agent query error:', error);
     debugError(error);
     return conductor500Err(res);
   }
@@ -1122,39 +965,39 @@ function _generatePageSlug(title: string, userInput?: string) {
   return encodeURIComponent(urlFriendly.toLowerCase()); // encode the slug
 }
 
-async function queryWithToolsHandler(req: Request, res: Response) {
-  try {
-    const { query, sessionId, collectionName, systemPrompt, limit } = req.body;
+// async function queryWithToolsHandler(req: Request, res: Response) {
+//   try {
+//     const { query, sessionId, collectionName, systemPrompt, limit } = req.body;
 
-    console.log(`🤖 Query With Tools Request: "${query}" (Session: ${sessionId})`);
-    if (!query || !sessionId) {
-      return res.status(400).send({
-        err: true,
-        msg: "Both 'query' and 'sessionId' are required.",
-      });
-    }
+//     console.log(`🤖 Query With Tools Request: "${query}" (Session: ${sessionId})`);
+//     if (!query || !sessionId) {
+//       return res.status(400).send({
+//         err: true,
+//         msg: "Both 'query' and 'sessionId' are required.",
+//       });
+//     }
 
-    // Call the queryWithTools function from AgentService
-    const response = await agentService.queryWithTools(
-      query,
-      sessionId,
-      collectionName || "kb_pages",
-      systemPrompt || "You are a helpful AI assistant for LibreTexts Knowledge Base. Answer questions based on the provided context.",
-      limit || 3
-    );
+//     // Call the queryWithTools function from AgentService
+//     const response = await agentService.queryWithTools(
+//       query,
+//       sessionId,
+//       collectionName || "kb_pages",
+//       systemPrompt || "You are a helpful AI assistant for LibreTexts Knowledge Base. Answer questions based on the provided context.",
+//       limit || 3
+//     );
 
-    return res.send({
-      err: false,
-      response,
-    });
-  } catch (err) {
-    console.error("Error in queryWithToolsHandler:", err);
-    return res.status(500).send({
-      err: true,
-      msg: "An error occurred while processing the query.",
-    });
-  }
-}
+//     return res.send({
+//       err: false,
+//       response,
+//     });
+//   } catch (err) {
+//     console.error("Error in queryWithToolsHandler:", err);
+//     return res.status(500).send({
+//       err: true,
+//       msg: "An error occurred while processing the query.",
+//     });
+//   }
+// }
 
 async function createSessionHandler(req: Request, res: Response) {
   try {
@@ -1179,8 +1022,6 @@ async function createSessionHandler(req: Request, res: Response) {
 async function agentQueryLangGraph(req: Request, res: Response) {
   try {
     const { query, sessionId } = req.body;
-    console.log('agentQueryLangGraph line 1182');
-    console.log('req.body', req.body);
 
     if (!query || typeof query !== 'string') {
       return res.status(400).send({
@@ -1196,8 +1037,6 @@ async function agentQueryLangGraph(req: Request, res: Response) {
       });
     }
 
-    console.log(`🤖 LangGraph Agent Query Request: "${query}" (Session: ${sessionId})`);
-
     const response = await agentService.queryWithLangGraph(
       query,
       sessionId
@@ -1210,23 +1049,6 @@ async function agentQueryLangGraph(req: Request, res: Response) {
 
   } catch (error) {
     console.error('LangGraph agent query error:', error);
-    debugError(error);
-    return conductor500Err(res);
-  }
-}
-
-async function visualizeGraph(req: Request, res: Response) {
-  try {
-    const mermaidString = await agentService.exportGraphToFile();
-    
-    return res.send({
-      err: false,
-      mermaid: mermaidString,
-      viewUrl: 'https://mermaid.live/',
-      message: 'Copy the mermaid string and paste it at https://mermaid.live/ to visualize'
-    });
-  } catch (error) {
-    console.error('Error visualizing graph:', error);
     debugError(error);
     return conductor500Err(res);
   }
@@ -1250,13 +1072,8 @@ export default {
   generateKBPageEmbeddings,
   migrateKBPagesToQdrant,
   getQdrantStatus,
-  testVectorSearch,
-  clearQdrantCollection,
   createSinglePageEmbedding,
-  createTwoPageEmbeddings,
-  agentQuery,
-  queryWithToolsHandler,
+  // queryWithToolsHandler,
   createSessionHandler,
   agentQueryLangGraph,
-  visualizeGraph,
 };
