@@ -7,7 +7,7 @@
 import express, { NextFunction, Request, Response } from "express";
 import { validationResult } from "express-validator";
 import conductorErrors from "./conductor-errors.js";
-import { AnyZodObject } from "zod";
+import { ZodObject } from "zod";
 import { debugError } from "./debug.js";
 import authAPI from "./api/auth.js";
 import {
@@ -372,7 +372,7 @@ const isSelfOrSupport = async (
   }
 };
 
-const validateZod = (schema: AnyZodObject) => {
+const validateZod = (schema: ZodObject<any>) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     let validationErrors: string[] = [];
     try {
@@ -390,6 +390,11 @@ const validateZod = (schema: AnyZodObject) => {
         }
         throw new Error("Validation failed");
       }
+
+      // Assign the validated/transformed data back to req
+      req.body = validationRes.data.body;
+      req.query = validationRes.data.query as typeof req.query;
+      req.params = validationRes.data.params as typeof req.params;
 
       next();
     } catch (err) {
