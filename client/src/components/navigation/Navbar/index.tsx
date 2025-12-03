@@ -71,7 +71,7 @@ const Navbar: React.FC = () => {
   return (
     <div
       className="nav-menu"
-      style={{ height: org.orgID === "libretexts" ? "100px" : "60px" }}
+      style={{ height: isProduction ? "60px" : "100px" }}
     >
       <EnvironmentBanner />
       {isTailwindXl ? (

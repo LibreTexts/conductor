@@ -27,15 +27,37 @@ const CommonsNavbar: React.FC<CommonsNavbarProps> = ({ org, user }) => {
   const getCommonsTitle = () =>
     org.orgID === "libretexts" ? "LibreCommons" : "Campus Commons";
 
+  const calculateNavbarHeight = () => {
+    let height = 60; // Base height for mobile
+    if (isTailwindXl) {
+      if (!isProduction) {
+        height += 40; // Desktop height + environment banner
+      }
+      if (org.orgID === "libretexts") {
+        height += 40; // Add space for donation campaign banner
+      }
+      return height;
+    }
+
+    if (!isProduction) {
+      height += 40; // Mobile height + environment banner
+    }
+    if (org.orgID === "libretexts") {
+      height += 45; // Add space for the donation campaign banner
+    }
+
+    return height;
+  };
+
   return (
     <div
       className="nav-menu"
       style={{
-        height: isProduction ? "60px" : "100px",
+        height: calculateNavbarHeight(),
       }}
     >
-      {org.orgID === "libretexts" && <DonationCompaignBanner />}
       <EnvironmentBanner />
+      {org.orgID === "libretexts" && <DonationCompaignBanner />}
       {isTailwindXl ? (
         <CommonsNavbarDesktop
           org={org}
