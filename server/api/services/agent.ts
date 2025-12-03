@@ -147,11 +147,6 @@ export class AgentService {
             .join('\n\n');
 
           const output = `Google Search Results:\n\n${formattedResults}`;
-      
-          // 👇 ADD THIS - Log the tool output
-          console.log('📤 Google Search Output:');
-          console.log(output);
-          console.log('─'.repeat(80));
 
           return `Google Search Results:\n\n${formattedResults}`;
         } catch (error: any) {
@@ -191,11 +186,6 @@ export class AgentService {
             .join('\n\n');
 
             const output = `Knowledge Base Results:\n\n${formattedResults}`;
-        
-            // 👇 ADD THIS - Log the tool output
-            console.log('📤 KB Search Output:');
-            console.log(output);
-            console.log('─'.repeat(80));
 
           return `Knowledge Base Results:\n\n${formattedResults}`;
         } catch (error: any) {
@@ -290,8 +280,6 @@ export class AgentService {
 
       // Save to database
       await this.saveMessages(sessionId, query, aiResponse);
-
-      console.log('✅ Agent response generated');
 
       return {
         response: aiResponse,
