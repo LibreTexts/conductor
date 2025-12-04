@@ -51,6 +51,7 @@ import fse from "fs-extra";
 import { ZodReqWithUser } from "../types/Express.js";
 import CentralIdentityService from "./services/central-identity-service.js";
 import { createStandardWorkBook, generateWorkSheetColumnDefinitions } from "../util/exports.js";
+import { GetUserNotesSchema } from "./validators/user.js";
 
 const centralIdentityService = new CentralIdentityService();
 
@@ -1477,7 +1478,7 @@ async function updateVerificationRequest(
 }
 
 async function getUserNotes(
-  req: TypedReqParamsAndQuery<{ userId: string }, { page?: number; limit?: number }>,
+  req: z.infer<typeof GetUserNotesSchema>,
   res: Response<{
     err: boolean;
     notes: Note[];
@@ -1485,9 +1486,10 @@ async function getUserNotes(
     has_more: boolean;
   }>
 ) {
-  const page = req.query.page || 1;
-  const limit = req.query.limit || 25;
   try {
+    const page = req.query?.page || 1;
+    const limit = req.query?.limit || 25;
+
     const userId = req.params.userId;
     if (!userId) {
       return conductor400Err(res);

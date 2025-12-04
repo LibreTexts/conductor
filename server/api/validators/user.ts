@@ -47,7 +47,8 @@ export const UpdateUserPinnedProjectsSchema = z.object({
 export const GetUserNotesSchema = z.object({
     params: z.object({
       userId: z.string().uuid()
-    })
+    }),
+    query: PaginationSchema.optional()
 });
   
 export const CreateUserNoteSchema = z.object({
