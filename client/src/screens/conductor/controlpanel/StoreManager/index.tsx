@@ -172,12 +172,7 @@ const StoreManager = () => {
                     title: "Customer Email",
                     copyButton: true,
                     render(record) {
-                      return (
-                        <span>
-                          {record.stripe_session?.customer_details?.email ||
-                            "Unknown"}
-                        </span>
-                      );
+                      return record.stripe_session?.customer_email || "Unknown";
                     },
                   },
                   {
