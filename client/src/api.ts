@@ -1589,7 +1589,7 @@ class API {
       } & ConductorBaseResponse
     >("/support-queues", {
       params: {
-        with_count: withCount,
+        ...(withCount ? { with_count: withCount } : {}),
       },
     });
     return res;

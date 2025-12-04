@@ -90,6 +90,7 @@ import LibreTextsRoute from './components/util/LibreTextsRoute';
 import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
 import StoreNavbar from './components/navigation/StoreNavbar';
 import CartProvider from './providers/CartProvider';
+import SupportCenterProvider from './providers/SupportCenterProvider';
 
 const RenderNavbar = () => {
   if(window.location.pathname.includes('/insight') || window.location.pathname.includes('/support')){
@@ -172,10 +173,6 @@ const Conductor = () => {
           <Route exact path='/peerreview/:id' component={PeerReviewPage} />
           {/* LibreTexts org public routes */}
           <LibreTextsRoute exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} org={org}/>
-          <LibreTextsRoute exact path='/insight' key='insight' component={KnowledgeBase} org={org}/>
-          <LibreTextsRoute exact path='/insight/search' key='insightsearchresults' component={KBSearchResults} org={org}/>
-          <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
-          <LibreTextsRoute exact path='/insight/:slug' key='insightpageview' org={org} component={KBPage} />
           <LibreTextsRoute exact path='/store' key='store' org={org} component={Store} />
           <LibreTextsRoute exact path='/store/cart' key='storecart' org={org} component={StoreCart} />
           <LibreTextsRoute exact path='/store/catalog' key='storecatalog' org={org} component={StoreCatalog} />
@@ -184,12 +181,18 @@ const Conductor = () => {
           <LibreTextsRoute exact path='/store/checkout/success' key='storesuccess' org={org} component={StoreSuccess} />
           <LibreTextsRoute exact path='/store/order/:order_id' key='storeorder' org={org} component={StoreOrder} />
           <LibreTextsRoute exact path='/store/product/:product_id' key='storeproduct' org={org} component={StoreProduct} />
-          <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
-          <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
-          <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} />
-          {/*LibreTexts org private routes */}
-          <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
-          <LibreTextsPrivateRoute exact path='/support/closed' key='supportclosedtickets' org={org} component={SupportClosedTickets} />
+          <SupportCenterProvider>
+            <LibreTextsRoute exact path='/insight' key='insight' component={KnowledgeBase} org={org}/>
+            <LibreTextsRoute exact path='/insight/search' key='insightsearchresults' component={KBSearchResults} org={org}/>
+            <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
+            <LibreTextsRoute exact path='/insight/:slug' key='insightpageview' org={org} component={KBPage} />
+            <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
+            <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
+            <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} />
+            {/*LibreTexts org private routes */}
+            <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
+            <LibreTextsPrivateRoute exact path='/support/closed' key='supportclosedtickets' org={org} component={SupportClosedTickets} />
+          </SupportCenterProvider>
           {/* 404 */}
           <Route component={PageNotFound} />
           </Switch>

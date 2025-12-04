@@ -1,8 +1,8 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { z } from "zod";
-import { getMetricsSchema, getSupportQueueSchema, getSupportQueuesSchema } from "./validators/supportqueues";
+import { getMetricsSchema, getSupportQueuesSchema } from "./validators/supportqueues";
 import { debugError } from "../debug";
-import { conductor404Err, conductor500Err } from "../util/errorutils";
+import { conductor500Err } from "../util/errorutils";
 import SupportQueueService from "./services/support-queue-service";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import authAPI from "./auth";
@@ -11,9 +11,7 @@ import authAPI from "./auth";
 async function getSupportQueues(req: ZodReqWithOptionalUser<z.infer<typeof getSupportQueuesSchema>>, res: Response) {
     try {
         const service = new SupportQueueService();
-
-        // @ts-expect-error
-        const withCount = req.query?.with_count === true || req.query?.with_count === "true";
+        const withCount = req.query?.with_count || false;
 
         // User must have support role to view ticket counts
         if (withCount && (!req.user || !authAPI.checkHasRole(req.user, "libretexts", "support"))) {
