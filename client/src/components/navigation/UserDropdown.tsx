@@ -3,6 +3,7 @@ import { Dropdown, Icon, Image, Menu, MenuItemProps } from "semantic-ui-react";
 import AuthHelper from "../util/AuthHelper";
 import { useTypedSelector } from "../../state/hooks";
 import classNames from "classnames";
+import useClientConfig from "../../hooks/useClientConfig";
 
 interface UserDropdownProps extends MenuItemProps {
   showAvatar?: boolean;
@@ -17,12 +18,15 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
   ...props
 }) => {
   const user = useTypedSelector((state) => state.user);
+  const { clientConfig } = useClientConfig();
   /**
    * Ends the user's session.
    */
   const logOut = () => {
     AuthHelper.logout();
   };
+
+  const centralIdentityBaseUrl = clientConfig?.central_identity_base_url || "";
 
   if (dropdown) {
     return (
@@ -40,9 +44,23 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
           }
         >
           <Dropdown.Menu direction="left" className="!z-[1000]">
-            <Dropdown.Item as={Link} to="/account/overview">
-              <Icon name="settings" />
-              Settings
+            <Dropdown.Item 
+              as="a" 
+              href={`${centralIdentityBaseUrl}/profile`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Icon name="user" />
+              Profile
+            </Dropdown.Item>
+            <Dropdown.Item 
+              as="a" 
+              href={`${centralIdentityBaseUrl}/security`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Icon name="lock" />
+              Security
             </Dropdown.Item>
             <Dropdown.Item onClick={logOut}>
               <Icon name="log out" />
@@ -56,9 +74,23 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
 
   return (
     <Menu.Menu className={classNames("!mt-2 !pl-0", className)}>
-      <Menu.Item as={Link} to="/account/overview">
-        <Icon name="settings" />
-        Settings
+      <Menu.Item 
+        as="a" 
+        href={`${centralIdentityBaseUrl}/profile`}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <Icon name="user" />
+        Profile
+      </Menu.Item>
+      <Menu.Item 
+        as="a" 
+        href={`${centralIdentityBaseUrl}/security`}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <Icon name="lock" />
+        Security
       </Menu.Item>
       <Menu.Item onClick={logOut}>
         <Icon name="log out" />
