@@ -47,18 +47,18 @@ export const CreateTicketValidator = z.object({
     title: z.string({
       message: "Title is required and must be between 1 and 200 characters",
     }).trim().min(1).max(200),
-    queue_id: z.string().uuid().optional(), // will default to technical support queue if not provided
+    queue_id: z.uuid().optional(), // will default to technical support queue if not provided
     description: z.string().trim().max(1000).or(z.literal("")),
     apps: z.array(z.coerce.number()).optional(),
     priority: TicketPriority,
     category: z.string().optional().or(z.literal("")),
-    capturedURL: z.string().url().optional(),
+    capturedURL: z.url().optional(),
     attachments: z.array(z.string({ message: "Invalid attachment URL" })).optional(),
     guest: z
       .object({
         firstName: z.string().trim().min(1).max(255),
         lastName: z.string().trim().min(1).max(255),
-        email: z.string().trim().email(),
+        email: z.email().trim(),
         organization: z.string().trim().min(1).max(255),
       }, {
         message: "Guest information is required if no authenticated user",
@@ -74,7 +74,7 @@ export const CreateTicketValidator = z.object({
         message: "Device information is malformed",
       })
       .optional(),
-    metadata: z.record(z.any()).optional(),
+    metadata: z.record(z.string(), z.any()).optional(),
   })
 });
 
