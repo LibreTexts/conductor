@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import axios from "axios";
 import { Button, Form, Icon, Label, Loader, Modal, Table } from "semantic-ui-react";
-import isURL from "validator/lib/isURL";
+import { z } from "zod";
 import useGlobalError from "../error/ErrorHooks";
 
 /**
@@ -69,7 +69,8 @@ const ReaderResourcesManager = ({ projectID, show, onClose, ...props }) => {
         valid = false;
         item.nameErr = true;
       }
-      if (!item.url || !isURL(item.url.trim())) {
+      const urlSchema = z.string().url();
+      if (!item.url || !urlSchema.safeParse(item.url.trim()).success) {
         valid = false;
         item.urlErr = true;
       }
