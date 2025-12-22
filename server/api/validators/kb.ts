@@ -88,3 +88,29 @@ export const GetOEmbedValidator = z.object({
     url: z.string().url(),
   }),
 });
+
+// Qdrant Migration
+export const MigrateToQdrantValidator = z.object({
+  query: z.object({
+    start: z.coerce.number().int().min(0).optional().default(0),
+    stop: z.union([
+      z.literal("all"),
+      z.coerce.number().int().min(0),
+    ]).optional(),
+  }),
+});
+
+// Agent Session
+export const CreateAgentSessionValidator = z.object({
+  body: z.object({
+    userId: z.string().uuid().optional(),
+  }).optional(),
+});
+
+// Agent Query
+export const AgentQueryLangGraphValidator = z.object({
+  body: z.object({
+    query: z.string().min(1, "Query is required and must be a non-empty string"),
+    sessionId: z.string().min(1, "SessionId is required and must be a non-empty string"),
+  }),
+});
