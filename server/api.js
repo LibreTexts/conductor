@@ -2493,6 +2493,16 @@ router
     kbAPI.getKBPage
   );
 
+  router
+  .route("/kb/page/slug/:slug/embeddings")
+  .post(
+    authAPI.verifyRequest,                                   
+    authAPI.getUserAttributes,                               
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"), 
+    middleware.validateZod(kbValidators.GetKBPageValidator),
+    kbAPI.generateKBPageEmbeddings
+  );
+
 router
   .route("/kb/page/:uuid")
   .get(middleware.validateZod(kbValidators.GetKBPageValidator), kbAPI.getKBPage)
@@ -2853,5 +2863,44 @@ router
     ),
     projectInvitationsAPI.updateProjectInvitation
   );
+
+  router
+  .route("/kb/migrate-to-qdrant")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"), 
+    middleware.validateZod(kbValidators.MigrateToQdrantValidator), 
+    kbAPI.migrateKBPagesToQdrant
+  );
+
+  router
+    .route("/kb/create-single-page-embedding/:uuid")
+    .post(
+      authAPI.verifyRequest,
+      authAPI.getUserAttributes,
+      authAPI.checkHasRoleMiddleware("libretexts", "superadmin"), 
+      middleware.validateZod(kbValidators.KBUUIDParams),
+      kbAPI.createSinglePageEmbedding
+    );
+
+  router
+    .route("/agent/create-session")
+    .post(
+      authAPI.verifyRequest,
+      authAPI.getUserAttributes,
+      middleware.validateZod(kbValidators.CreateAgentSessionValidator), 
+      kbAPI.createSessionHandler 
+    );
+
+  router
+    .route("/agent/query-langgraph")
+    .post(
+      authAPI.verifyRequest,
+      authAPI.getUserAttributes,
+      middleware.validateZod(kbValidators.AgentQueryLangGraphValidator),
+      kbAPI.agentQueryLangGraph
+    );
+
 
 export default router;

@@ -5,6 +5,7 @@ import { useSelector } from 'react-redux';
 import AnonRoute from './components/util/AnonRoute';
 import PrivateRoute from './components/util/PrivateRoute';
 import Footer from "./components/navigation/Footer";
+import ChatBot from "./utils/ChatBot";
 
 import "./Conductor.css";
 
@@ -197,6 +198,7 @@ const Conductor = () => {
           <Route component={PageNotFound} />
           </Switch>
         </Suspense>
+        <ChatBot />
       </div>
       <Footer />
       </CartProvider>

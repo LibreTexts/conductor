@@ -35,6 +35,14 @@ import {
 import { assembleUrl } from "../util/helpers.js";
 import axios from "axios";
 import projectFilesAPI from "./projectfiles.js";
+import OpenAI from 'openai';
+import { qdrantService } from './services/qdrant.js';
+import { agentService } from "./services/agent.js";
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY, 
+});
 
 export const KB_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
   credentials: {
@@ -636,6 +644,232 @@ async function getOEmbed(
   }
 }
 
+// Function to generate embeddings from text
+async function _generateEmbeddings(text: string): Promise<number[]> {
+  try {
+    // Clean the HTML content to plain text
+    const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    
+    const response = await openai.embeddings.create({
+      model: "text-embedding-3-small", // or "text-embedding-3-large" for better quality
+      input: cleanText,
+    });
+
+    return response.data[0].embedding;
+  } catch (error) {
+    console.error('Error generating embeddings:', error);
+    throw new Error('Failed to generate embeddings');
+  }
+}
+
+// New API function to generate and store embeddings
+async function generateKBPageEmbeddings(
+  req: z.infer<typeof GetKBPageValidator>,
+  res: Response
+) {
+  try {
+    const { uuid, slug } = req.params;
+
+    let matchObj = {};
+    if (uuid) {
+      matchObj = { uuid };
+    } else if (slug) {
+      matchObj = { slug: slug.toLowerCase() };
+    }
+
+    // Find the KB page
+    const kbPage = await KBPage.findOne(matchObj).orFail();
+
+    // Generate embeddings from the body content
+    const embeddings = await _generateEmbeddings(kbPage.body);
+
+    // Update the page with embeddings
+    const updatedPage = await KBPage.findOneAndUpdate(
+      matchObj,
+      {
+        embeddings: embeddings,
+        embeddingsUpdatedAt: new Date(),
+      },
+      { new: true }
+    )
+    .populate({
+      path: "lastEditedBy",
+      select: "uuid firstName lastName avatar",
+    })
+    .lean();
+
+    return res.send({
+      err: false,
+      page: updatedPage,
+      message: "Embeddings generated and stored successfully",
+      embeddingsLength: embeddings.length,
+    });
+  } catch (err: any) {
+    debugError(err);
+    if (err.name === "DocumentNotFoundError") {
+      return res.status(404).send({
+        err: true,
+        msg: "Page not found",
+      });
+    }
+    return conductor500Err(res);
+  }
+}
+
+async function migrateKBPagesToQdrant(req: Request, res: Response) {
+  try {
+    const start = parseInt(req.query.start as string) || 0;
+    const stopParam = req.query.stop as string;
+    
+    // If stop is not provided or is "all", migrate everything
+    const stop = stopParam === 'all' || !stopParam ? Number.MAX_SAFE_INTEGER : parseInt(stopParam);
+    const limit = stop === Number.MAX_SAFE_INTEGER ? 0 : stop - start;
+
+    console.log(`🚀 Starting KB pages migration to Qdrant (${start} to ${stop === Number.MAX_SAFE_INTEGER ? 'end' : stop})...`);
+
+    // Initialize Qdrant collection
+    await qdrantService.initializeCollection();
+
+    // Get KB pages with skip and limit
+    const query = KBPage.find({
+      status: 'published',
+      body: { $exists: true, $ne: '' } // Only pages with content
+    })
+    .skip(start);
+  
+    // Only apply limit if it's not unlimited
+    if (limit > 0) {
+      query.limit(limit);
+    }
+    
+    const kbPages = await query.lean();
+
+    console.log(`📊 Found ${kbPages.length} KB pages to migrate (requested ${start}-${stop})`);
+
+    if (kbPages.length === 0) {
+      return res.send({
+        err: false,
+        message: 'No KB pages found to migrate',
+        start,
+        stop,
+        migrated: 0,
+        errors: 0,
+      });
+    }
+
+    console.log('📋 Pages to migrate:');
+    kbPages.slice(0, 3).forEach((page, idx) => {
+      console.log(`  ${start + idx}. ${page.title} (${page.uuid})`);
+    });
+    if (kbPages.length > 3) {
+      console.log(`  ... and ${kbPages.length - 3} more`);
+    }
+
+    // Batch migrate to Qdrant (smaller batches to avoid rate limits)
+    const results = await qdrantService.batchUpsertKBPages(kbPages, 2);
+
+    const successful = results.filter(r => r.success);
+    const failed = results.filter(r => !r.success);
+
+    console.log(`\n✅ Migration completed!`);
+    console.log(`   Range: ${start}-${stop}`);
+    console.log(`   Successful: ${successful.length}`);
+    console.log(`   Failed: ${failed.length}`);
+
+    if (failed.length > 0) {
+      console.log('\n❌ Failed pages:');
+      failed.forEach(f => console.log(`   - ${f.title} (${f.uuid}): ${f.error}`));
+    }
+
+    return res.send({
+      err: false,
+      message: 'Migration completed',
+      start,
+      stop,
+      total: kbPages.length,
+      migrated: successful.length,
+      errors: failed.length,
+      successfulPages: successful.map(s => ({ uuid: s.uuid, title: s.title })),
+      failedPages: failed.map(f => ({ uuid: f.uuid, title: f.title, error: f.error })),
+    });
+
+  } catch (error) {
+    console.error('💥 Migration error:', error);
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
+
+// Get Qdrant collection status
+async function getQdrantStatus(req: Request, res: Response) {
+  try {
+    const info = await qdrantService.getCollectionInfo();
+    
+    return res.send({
+      err: false,
+      collection: info,
+      status: 'connected',
+      pointsCount: info.points_count,
+      vectorsCount: info.vectors_count,
+    });
+  } catch (error) {
+    console.error('Qdrant status error:', error);
+    return res.send({
+      err: true,
+      message: 'Failed to connect to Qdrant',
+      error: (error as Error).message,
+    });
+  }
+}
+
+async function createSinglePageEmbedding(req: Request, res: Response) {
+  try {
+    const { uuid } = req.params;
+
+    // Get the KB page from MongoDB
+    const kbPage = await KBPage.findOne({ uuid }).lean();
+
+    console.log('kbPage', kbPage);
+    
+    if (!kbPage) {
+      return res.status(404).send({
+        err: true,
+        message: 'KB page not found',
+      });
+    }
+
+    console.log(`📄 Creating embedding for: ${kbPage.title}`);
+
+    // Initialize Qdrant collection if needed
+    await qdrantService.initializeCollection();
+
+    // Create and store the embedding
+    const result = await qdrantService.upsertKBPage(kbPage);
+
+    if (result.success) {
+      return res.send({
+        err: false,
+        message: 'Embedding created successfully',
+        page: {
+          uuid: kbPage.uuid,
+          title: kbPage.title,
+          slug: kbPage.slug,
+        },
+      });
+    } else {
+      return res.status(500).send({
+        err: true,
+        message: 'Failed to create embedding',
+        error: result.error,
+      });
+    }
+  } catch (error) {
+    console.error('Error creating single page embedding:', error);
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
+
 function _checkForDeletedImages(newBody: string, oldURLs?: string[]) {
   try {
     if (!oldURLs || oldURLs.length === 0) {
@@ -731,6 +965,95 @@ function _generatePageSlug(title: string, userInput?: string) {
   return encodeURIComponent(urlFriendly.toLowerCase()); // encode the slug
 }
 
+// async function queryWithToolsHandler(req: Request, res: Response) {
+//   try {
+//     const { query, sessionId, collectionName, systemPrompt, limit } = req.body;
+
+//     console.log(`🤖 Query With Tools Request: "${query}" (Session: ${sessionId})`);
+//     if (!query || !sessionId) {
+//       return res.status(400).send({
+//         err: true,
+//         msg: "Both 'query' and 'sessionId' are required.",
+//       });
+//     }
+
+//     // Call the queryWithTools function from AgentService
+//     const response = await agentService.queryWithTools(
+//       query,
+//       sessionId,
+//       collectionName || "kb_pages",
+//       systemPrompt || "You are a helpful AI assistant for LibreTexts Knowledge Base. Answer questions based on the provided context.",
+//       limit || 3
+//     );
+
+//     return res.send({
+//       err: false,
+//       response,
+//     });
+//   } catch (err) {
+//     console.error("Error in queryWithToolsHandler:", err);
+//     return res.status(500).send({
+//       err: true,
+//       msg: "An error occurred while processing the query.",
+//     });
+//   }
+// }
+
+async function createSessionHandler(req: Request, res: Response) {
+  try {
+    const { userId } = req.body; // Optional userId for session tracking
+
+    // Call the AgentService to create a session
+    const sessionId = await agentService.createSession(userId);
+
+    return res.send({
+      err: false,
+      sessionId,
+    });
+  } catch (err) {
+    console.error("Error in createSessionHandler:", err);
+    return res.status(500).send({
+      err: true,
+      msg: "An error occurred while creating the session.",
+    });
+  }
+}
+
+async function agentQueryLangGraph(req: Request, res: Response) {
+  try {
+    const { query, sessionId } = req.body;
+
+    if (!query || typeof query !== 'string') {
+      return res.status(400).send({
+        err: true,
+        msg: "Query is required and must be a string"
+      });
+    }
+
+    if (!sessionId || typeof sessionId !== 'string') {
+      return res.status(400).send({
+        err: true,
+        msg: "SessionId is required and must be a string"
+      });
+    }
+
+    const response = await agentService.queryWithLangGraph(
+      query,
+      sessionId
+    );
+
+    return res.send({
+      err: false,
+      ...response,
+    });
+
+  } catch (error) {
+    console.error('LangGraph agent query error:', error);
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
+
 export default {
   getKBPage,
   getKBTree,
@@ -746,4 +1069,11 @@ export default {
   deleteKBFeaturedPage,
   createKBFeaturedVideo,
   deleteKBFeaturedVideo,
+  generateKBPageEmbeddings,
+  migrateKBPagesToQdrant,
+  getQdrantStatus,
+  createSinglePageEmbedding,
+  // queryWithToolsHandler,
+  createSessionHandler,
+  agentQueryLangGraph,
 };

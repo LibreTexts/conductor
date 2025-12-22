@@ -2110,6 +2110,44 @@ class API {
     >(`/store/checkout/session/${order_id}`);
     return res.data;
   }
+
+  /**
+   * Create a new agent session for LangGraph
+   */
+  async createAgentSession() {
+    const res = await axios.post<
+      {
+        sessionId: string;
+      } & ConductorBaseResponse
+    >("/agent/create-session");
+
+    return res.data;
+  }
+
+  async queryLangGraphAgent(query: string, sessionId: string) {
+    const res = await axios.post<
+      {
+        response: string;
+        sources: Array<{
+          number: number;
+          title: string;
+          description: string;
+          slug?: string;
+          url: string;
+          relevanceScore?: number;
+          source: 'kb' | 'web';
+        }>;
+        query: string;
+        timestamp: string;
+      } & ConductorBaseResponse
+    >("/agent/query-langgraph", {
+      query,
+      sessionId,
+    });
+
+    return res.data;
+  }
+
 }
 
 export default new API();
