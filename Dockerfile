@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM node:22-alpine3.22
 LABEL org.opencontainers.image.source="https://github.com/LibreTexts/conductor"
 
 WORKDIR /usr/src/conductor
