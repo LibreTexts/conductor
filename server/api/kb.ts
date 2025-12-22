@@ -44,6 +44,14 @@ import { agentService } from "./services/agent.js";
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, 
 });
+import OpenAI from 'openai';
+import { qdrantService } from './services/qdrant.js';
+import { agentService } from "./services/agent.js";
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY, 
+});
 
 export const KB_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
   credentials: {
