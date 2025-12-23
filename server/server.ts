@@ -23,8 +23,8 @@ if (!process.env.ORG_ID) {
 }
 
 const apiLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 minutes
-  limit: 400, // limit each IP to 400 requests per windowMs
+  windowMs: 1 * 60 * 1000, // 1 minute
+  limit: 300, // limit requests/IP address/windowMs
   keyGenerator: (req) => {
     const forwardFor = req.headers['x-forwarded-for'];
     if (forwardFor && typeof forwardFor === 'string') {
