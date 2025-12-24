@@ -2127,8 +2127,8 @@ router
 router
   .route("/project/:projectID/files/bulk")
   .get(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
     middleware.validateZod(
       ProjectFileValidators.bulkDownloadProjectFilesSchema
     ),

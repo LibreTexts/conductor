@@ -51,6 +51,7 @@ interface FilesManagerProps extends SegmentProps {
   projectID: string;
   toggleFilesManager: () => void;
   canViewDetails: boolean;
+  allowBulkDownload?: boolean; 
   projectHasDefaultLicense?: boolean;
   projectVisibility?: string;
 }
@@ -66,6 +67,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   projectID,
   toggleFilesManager,
   canViewDetails = false,
+  allowBulkDownload = false,
   projectHasDefaultLicense = false,
   projectVisibility = "private",
 }) => {
@@ -438,7 +440,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   async function handleBulkDownload(ids: string[]) {
     try {
       setDownloadLoading(true);
-      const res = await api.bulkDownloadFiles(projectID, ids, user.email);
+      const res = await api.bulkDownloadFiles(projectID, ids);
 
       if (!res.data || res.data.err) {
         throw new Error("Unable to download files. Please try again later.");
@@ -705,12 +707,14 @@ const FilesManager: React.FC<FilesManagerProps> = ({
         </Message>
       )}
       <Segment.Group size="large" raised className="mb-4">
-        {canViewDetails && (
+        {(canViewDetails || allowBulkDownload) && (
           <Segment>
-            <p style={{ fontSize: "0.9em" }} className="mb-4">
-              If your project has supporting files, use this tool to upload and
-              organize them.
-            </p>
+            {canViewDetails && (
+              <p style={{ fontSize: "0.9em" }} className="mb-4">
+                If your project has supporting files, use this tool to upload and
+                organize them.
+              </p>
+            )}
             <Button.Group
               fluid
               widths="7"
@@ -722,18 +726,22 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                   : ""
               }
             >
-              <Button color="green" onClick={() => setShowUploader(true)}>
-                <Icon name="upload" />
-                Upload
-              </Button>
-              <Button
-                color="green"
-                className="!bg-green-600"
-                onClick={() => setShowAddFolder(true)}
-              >
-                <Icon name="add" />
-                New Folder
-              </Button>
+              {canViewDetails && (
+                <>
+                  <Button color="green" onClick={() => setShowUploader(true)}>
+                    <Icon name="upload" />
+                    Upload
+                  </Button>
+                  <Button
+                    color="green"
+                    className="!bg-green-600"
+                    onClick={() => setShowAddFolder(true)}
+                  >
+                    <Icon name="add" />
+                    New Folder
+                  </Button>
+                </>
+              )}
               {itemsChecked > 1 && (
                 <Button
                   color="blue"
@@ -754,7 +762,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                   )}
                 </Button>
               )}
-              {itemsChecked > 1 && (
+              {canViewDetails && itemsChecked > 1 && (
                 <Button
                   color="teal"
                   disabled={itemsChecked < 1}
@@ -766,7 +774,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                   Move
                 </Button>
               )}
-              {itemsChecked > 0 && (
+              {canViewDetails && itemsChecked > 0 && (
                 <Button
                   color="yellow"
                   disabled={itemsChecked < 1}
@@ -780,7 +788,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                   Change Access
                 </Button>
               )}
-              {canBulkTag && (
+              {canViewDetails && canBulkTag && (
                 <Button
                   color="purple"
                   disabled={itemsChecked < 1}
@@ -792,7 +800,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                   Bulk Tag
                 </Button>
               )}
-              {itemsChecked > 1 && (
+              {canViewDetails && itemsChecked > 1 && (
                 <Button
                   color="red"
                   disabled={itemsChecked < 1}
@@ -819,7 +827,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
             <Table basic attached="bottom">
               <Table.Header>
                 <Table.Row>
-                  {canViewDetails && (
+                  {(canViewDetails || allowBulkDownload) && (
                     <Table.HeaderCell key="check" collapsing={true}>
                       <input
                         type="checkbox"
@@ -864,7 +872,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                   if (!isTailwindLg) return MobileTableRow(item);
                   return (
                     <Table.Row className="h-[60px]" key={item.fileID}>
-                      {canViewDetails && (
+                      {(canViewDetails || allowBulkDownload) && (
                         <Table.Cell>
                           <input
                             type="checkbox"
