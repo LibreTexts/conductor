@@ -11,7 +11,6 @@ import Organization from "../models/organization.js";
 import {
   PROJECT_FILES_S3_CLIENT_CONFIG,
   computeStructureAccessSettings,
-  createZIPAndNotify,
   downloadProjectFiles,
   getFolderContents,
   getProjectFiles,
@@ -575,9 +574,9 @@ async function bulkDownloadProjectFiles(
   res: Response
 ) {
   try {
-    // 50mb limit
-    const MAX_COMBINED_SIZE = 52428800;
-    const { emailToNotify } = req.query;
+    // 150mb limit 
+    const MAX_COMBINED_SIZE = 157286400; // 150 * 1024 * 1024
+    
     // @ts-ignore
     const rawIds = req.query.fileIDs as string;
     const projectID = req.params.projectID;
@@ -618,52 +617,43 @@ async function bulkDownloadProjectFiles(
     foundFiles.forEach((file) => {
       totalSize += file.size;
     });
-    const isOverLimit = totalSize > MAX_COMBINED_SIZE;
-
-    if (!isOverLimit) {
-      // create zip file
-      foundFiles.forEach(async (file) => {
-        const fileKey = assembleUrl([projectID, file.fileID]);
-        downloadCommands.push(
-          new GetObjectCommand({
-            Bucket: process.env.AWS_PROJECTFILES_BUCKET,
-            Key: fileKey,
-          })
-        );
-      });
-
-      const downloadRes = await Promise.all(
-        downloadCommands.map((command) => storageClient.send(command))
-      );
-
-      const zipBuff = await parseAndZipS3Objects(downloadRes, foundFiles);
-      if (!zipBuff) {
-        throw new Error("ziperror");
-      }
-
-      //TODO: update download count
-      const base64File = zipBuff.toString("base64");
-
-      return res.send({
-        err: false,
-        msg: "Successfully requested download!",
-        file: base64File,
-      });
-    } else {
-      const fileKeys: string[] = [];
-      foundFiles.forEach((file) => {
-        const fileKey = assembleUrl([projectID, file.fileID]);
-        fileKeys.push(fileKey);
-      });
-
-      createZIPAndNotify(fileKeys, foundFiles, emailToNotify); // Don't await, just run in background and return success
-
-      res.setHeader("content-type", "application/json");
-      return res.send({
-        err: false,
-        msg: "Successfully requested download!",
+    
+    // If over limit, return error instead of email notification
+    if (totalSize > MAX_COMBINED_SIZE) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "Too many files were requested. Please select fewer files.",
       });
     }
+
+    // create zip file
+    foundFiles.forEach(async (file) => {
+      const fileKey = assembleUrl([projectID, file.fileID]);
+      downloadCommands.push(
+        new GetObjectCommand({
+          Bucket: process.env.AWS_PROJECTFILES_BUCKET,
+          Key: fileKey,
+        })
+      );
+    });
+
+    const downloadRes = await Promise.all(
+      downloadCommands.map((command) => storageClient.send(command))
+    );
+
+    const zipBuff = await parseAndZipS3Objects(downloadRes, foundFiles);
+    if (!zipBuff) {
+      throw new Error("ziperror");
+    }
+
+    //TODO: update download count
+    const base64File = zipBuff.toString("base64");
+
+    return res.send({
+      err: false,
+      msg: "Successfully requested download!",
+      file: base64File,
+    });
   } catch (e) {
     debugError(e);
     return res.status(500).send({

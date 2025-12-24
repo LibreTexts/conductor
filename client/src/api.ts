@@ -1529,8 +1529,7 @@ class API {
 
   async bulkDownloadFiles(
     projectID: string,
-    fileIDs: string[],
-    emailToNotify: string
+    fileIDs: string[]
   ) {
     const arrQuery = fileIDs.map((id) => `fileID=${id}`).join(`&`);
     const res = await axios.get<{ file?: string } & ConductorBaseResponse>(
@@ -1538,7 +1537,6 @@ class API {
       {
         params: {
           fileIDs: arrQuery,
-          emailToNotify,
         },
       }
     );
