@@ -185,6 +185,7 @@ const CommonsProject = () => {
                   <FilesManager
                     projectID={projectID}
                     canViewDetails={false}
+                    allowBulkDownload={true}
                     toggleFilesManager={() => setShowAssets(!showAssets)}
                     projectVisibility="public"
                   />
