@@ -1,119 +1,118 @@
-import { ChangeEventHandler, memo, useEffect, useRef, useState } from "react";
-import FocusTrap from "focus-trap-react";
-import { DayPicker } from "react-day-picker";
-import { usePopper } from "react-popper";
-import { format, parse, isValid, parseISO } from "date-fns";
 import "./DateInput.css";
-import "react-day-picker/dist/style.css";
 import "../../styles/global.css";
+import classNames from "classnames";
+import { toISODateOnly } from "../../utils/misc";
 
-export interface DateInputProps {
-  value: Date | string;
-  onChange: (date: Date | string) => void;
+export interface DateInputProps
+  extends Omit<
+    React.InputHTMLAttributes<HTMLInputElement>,
+    "value" | "onChange" | "type"
+  > {
+  type?: "date" | "datetime-local";
+  value?: Date | string;
   label: string | undefined;
-  inlineLabel?: boolean;
-  required?: boolean;
   className?: string;
-  error: boolean;
+  labelClassName?: string;
+  inputClassName?: string;
+  inlineLabel?: boolean;
+  error?: boolean;
+  required?: boolean;
   disabled?: boolean;
-  popupPlacement?: 'bottom-start' | 'bottom-end' | 'top-start' | 'top-end';
+  onChange: (date: Date | string) => void;
 }
 
-const DateInput = ({
-  value = "",
-  onChange = (date) => {},
-  label = undefined,
-  inlineLabel = false,
-  required = false,
-  className = "",
-  error = false,
-  disabled = false,
-  popupPlacement = 'bottom-start',
-}: DateInputProps) => {
-  const [selected, setSelected] = useState<Date>();
-  const [inputValue, setInputValue] = useState<string>("");
-  const [isPopperOpen, setIsPopperOpen] = useState(false);
+export default function DateInput({
+  type = "date",
+  className,
+  label,
+  labelClassName,
+  inputClassName,
+  inlineLabel,
+  error,
+  required,
+  ...props
+}: DateInputProps) {
+  const calculatedValue = () => {
+    if (!props.value) return "";
 
-  const popperRef = useRef<HTMLInputElement>(null);
-  const [popperElement, setPopperElement] = useState<HTMLDivElement | null>(
-    null
-  );
-  const popper = usePopper(popperRef.current, popperElement, {
-    placement: popupPlacement,
-  });
-
-  useEffect(() => {
-    if (value) {
-      const initValue = typeof value === "string" ? value : value.toISOString();
-      const date = parseISO(initValue);
-      if (isValid(date)) {
-        formatAndSetInputValue(date);
-        setSelected(date);
-      }
+    if (type === "date") {
+      const date =
+        props.value instanceof Date ? props.value : new Date(props.value);
+      // Check if date is valid before calling toISOString()
+      if (isNaN(date.getTime())) return "";
+      return date.toISOString().split("T")[0];
+    } else if (type === "datetime-local") {
+      const dt =
+        props.value instanceof Date ? props.value : new Date(props.value);
+      // Check if date is valid before processing
+      if (isNaN(dt.getTime())) return "";
+      const offset = dt.getTimezoneOffset();
+      const localDt = new Date(dt.getTime() - offset * 60 * 1000);
+      return localDt.toISOString().slice(0, 16);
     }
-  }, [value, setSelected, setInputValue]);
 
-  const handleInputChange: ChangeEventHandler<HTMLInputElement> = (e) => {
-    if (disabled) return;
-    const date = parse(e.currentTarget.value, "MM/dd/yyyy", new Date());
-    if (isValid(date)) {
-      formatAndSetInputValue(date);
-      setSelected(date);
-    } else {
-      setSelected(undefined);
-    }
+    return "";
   };
 
-  const handleOpenDialog = () => {
-    if (disabled) return;
-    setIsPopperOpen(true);
-  };
+  const onChangeHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!props.onChange) return;
 
-  const handleDaySelect = (date: Date | undefined) => {
-    if (disabled) return;
-    if (!date) return;
-    setSelected(date);
-    formatAndSetInputValue(date);
-    onChange(date);
-    setIsPopperOpen(false);
-  };
-
-  const formatAndSetInputValue = (date: Date | undefined) => {
-    if (!date) {
-      setInputValue("");
+    // Handle empty input
+    if (!e.target.value) {
+      props.onChange("");
       return;
     }
-    setInputValue(format(date, "MM/dd/yyyy"));
+
+    if (type === "date") {
+      const date = new Date(e.target.value);
+      // Validate date before calling toISODateOnly
+      if (isNaN(date.getTime())) {
+        props.onChange("");
+        return;
+      }
+      props.onChange(toISODateOnly(date));
+    } else if (type === "datetime-local") {
+      const dt = new Date(e.target.value);
+      // Validate date before passing it along
+      if (isNaN(dt.getTime())) {
+        props.onChange("");
+        return;
+      }
+      props.onChange(dt);
+    }
   };
 
   return (
-    <>
-      <div
-        ref={popperRef}
-        onClick={handleOpenDialog}
-        className={`conductor-date-input${
-          inlineLabel ? " inline" : ""
-        } ${className} ${disabled ? "disabled-input" : ""}`}
-      >
-        {label !== null && (
-          <label
-            className={`cdi-label${inlineLabel ? " inline" : ""}${
-              required ? " form-required" : ""
-            }${error ? " form-error-label" : ""}`}
-          >
-            {label}
-          </label>
-        )}
-        <input
-          type="text"
-          placeholder={"mm/dd/yyyy"}
-          value={inputValue}
-          onChange={handleInputChange}
-          disabled={disabled}
-        />
-      </div>
-    </>
+    <div
+      className={classNames(
+        "conductor-date-input",
+        inlineLabel ? "inline" : "",
+        className,
+        props.disabled ? "disabled-input" : ""
+      )}
+    >
+      {label !== null && (
+        <label
+          className={classNames(
+            `cdi-label${inlineLabel ? " inline" : ""}`,
+            required ? " form-required" : "",
+            error ? " form-error-label" : "",
+            labelClassName
+          )}
+        >
+          {label}
+          {required ? "*" : ""}
+        </label>
+      )}
+      <input
+        {...props}
+        type={type}
+        placeholder={"mm/dd/yyyy"}
+        value={calculatedValue()}
+        onChange={onChangeHandler}
+        disabled={props.disabled}
+        className={classNames(inputClassName, error ? "form-error-input" : "")}
+      />
+    </div>
   );
-};
-
-export default memo(DateInput);
+}

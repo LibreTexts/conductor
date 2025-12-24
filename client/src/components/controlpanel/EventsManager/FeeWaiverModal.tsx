@@ -6,7 +6,6 @@ import { useForm } from "react-hook-form";
 import { OrgEvent, OrgEventFeeWaiver } from "../../../types/OrgEvent";
 import { required } from "../../../utils/formRules";
 import CtlDateInput from "../../ControlledInputs/CtlDateInput";
-import CtlTimeInput from "../../ControlledInputs/CtlTimeInput";
 import CtlTimeZoneInput from "../../ControlledInputs/CtlTimeZoneInput";
 import { PTDefaultTimeZone } from "../../TimeZoneInput";
 import axios from "axios";
@@ -153,6 +152,7 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
           />
           <div className="flex-row-div left-flex">
             <CtlDateInput
+              type="datetime-local"
               name="expirationDate"
               control={control}
               rules={required}
@@ -160,13 +160,6 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
               value={getValues("expirationDate")}
               error={false}
               className="my-2p"
-            />
-            <CtlTimeInput
-              label="Expiration Time"
-              value={getValues("expirationDate")}
-              name="expirationDate"
-              control={control}
-              className="my-2p ml-2p"
             />
             <CtlTimeZoneInput
               name="timeZone"
