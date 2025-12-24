@@ -277,8 +277,12 @@ export function getNestedProperty<T, K extends NestedKeyOf<T>>(
 }
 
 export function toISODateOnly(date: Date): string {
-  if (date == null || isNaN(new Date(date).getTime())) return '';
-  const _date = new Date(date);
+  if (!date) return '';
+
+  const _date = date instanceof Date ? date : new Date(date);
+
+  if (isNaN(_date.getTime())) return '';
+
   return _date.toISOString().split('T')[0];
 }
 

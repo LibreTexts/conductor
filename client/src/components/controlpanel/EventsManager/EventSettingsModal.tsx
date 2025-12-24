@@ -4,7 +4,6 @@ import { OrgEvent } from "../../../types";
 import { useForm } from "react-hook-form";
 import CtlTextInput from "../../ControlledInputs/CtlTextInput";
 import CtlDateInput from "../../ControlledInputs/CtlDateInput";
-import CtlTimeInput from "../../ControlledInputs/CtlTimeInput";
 import CtlTimeZoneInput from "../../ControlledInputs/CtlTimeZoneInput";
 import { useTypedSelector } from "../../../state/hooks";
 import { required } from "../../../utils/formRules";
@@ -88,7 +87,7 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
       currEvent.title = "Copy of " + currEvent.title;
 
       // Remove projectSyncID from the object (we don't want to copy this over)
-      const {projectSyncID, ...withoutProjectSyncID} = currEvent;
+      const { projectSyncID, ...withoutProjectSyncID } = currEvent;
 
       resetForm(initOrgEventDates(withoutProjectSyncID));
     } catch (err) {
@@ -127,6 +126,7 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
           />
           <div className="flex-row-div left-flex">
             <CtlDateInput
+              type="datetime-local"
               name="regOpenDate"
               control={control}
               rules={required}
@@ -134,13 +134,6 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               value={getValues("regOpenDate")}
               error={false}
               className="my-2p"
-            />
-            <CtlTimeInput
-              label="Registration Open Time"
-              value={getValues("regOpenDate")}
-              name="regOpenDate"
-              control={control}
-              className="my-2p ml-2p"
             />
             <CtlTimeZoneInput
               name="timeZone"
@@ -152,6 +145,7 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
           </div>
           <div className="flex-row-div left-flex">
             <CtlDateInput
+              type="datetime-local"
               name="regCloseDate"
               control={control}
               rules={required}
@@ -160,16 +154,10 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               error={false}
               className="my-2p"
             />
-            <CtlTimeInput
-              label="Registration Close Time"
-              value={getValues("regCloseDate")}
-              name="regCloseDate"
-              control={control}
-              className="my-2p ml-2p"
-            />
           </div>
           <div className="flex-row-div left-flex">
             <CtlDateInput
+              type="datetime-local"
               name="startDate"
               control={control}
               rules={required}
@@ -178,17 +166,11 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               error={false}
               className="my-2p"
             />
-            <CtlTimeInput
-              label="Event Start Time"
-              value={getValues("startDate")}
-              name="startDate"
-              control={control}
-              className="my-2p ml-2p"
-            />
           </div>
 
           <div className="flex-row-div left-flex">
             <CtlDateInput
+              type="datetime-local"
               name="endDate"
               control={control}
               rules={required}
@@ -196,13 +178,6 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               value={getValues("endDate")}
               error={false}
               className="my-2p"
-            />
-            <CtlTimeInput
-              label="Event End Time"
-              value={getValues("endDate")}
-              name="endDate"
-              control={control}
-              className="my-2p ml-2p"
             />
           </div>
           {org.orgID === "libretexts" && (
