@@ -150,12 +150,12 @@ const ChatBot: React.FC = () => {
                   {msg.role === "agent" ? (
                     <ReactMarkdown
                       components={{
-                        p: ({node, ...props}) => <p style={{margin: '0.5em 0'}} {...props} />,
-                        ul: ({node, ...props}) => <ul style={{margin: '0.5em 0', paddingLeft: '1.5em'}} {...props} />,
-                        ol: ({node, ...props}) => <ol style={{margin: '0.5em 0', paddingLeft: '1.5em'}} {...props} />,
-                        li: ({node, ...props}) => <li style={{margin: '0.25em 0', lineHeight: '1.6'}} {...props} />,
-                        h2: ({node, ...props}) => <h2 style={{margin: '1em 0 0.5em 0', fontSize: '1.2em', fontWeight: 600}} {...props} />,
-                        h3: ({node, ...props}) => <h3 style={{margin: '0.75em 0 0.5em 0', fontSize: '1.1em', fontWeight: 600}} {...props} />,
+                        p: ({node, ...props}) => <p style={{margin: '0.25em 0'}} {...props} />,
+                        ul: ({node, ...props}) => <ul style={{margin: '0.25em 0', paddingLeft: '1.2em'}} {...props} />,
+                        ol: ({node, ...props}) => <ol style={{margin: '0.25em 0', paddingLeft: '1.2em'}} {...props} />,
+                        li: ({node, ...props}) => <li style={{margin: '0.15em 0', lineHeight: '1.4'}} {...props} />,
+                        h2: ({node, ...props}) => <h2 style={{margin: '0.5em 0 0.25em 0', fontSize: '1.1em', fontWeight: 600}} {...props} />,
+                        h3: ({node, ...props}) => <h3 style={{margin: '0.4em 0 0.25em 0', fontSize: '1.05em', fontWeight: 600}} {...props} />,
                       }}
                     >
                       {msg.content}
