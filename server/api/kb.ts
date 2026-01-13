@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   AddKbImageValidator,
+  AgentQueryLangGraphValidator,
   CreateKBFeaturedPageValidator,
   CreateKBFeaturedVideoValidator,
   CreateKBPageValidator,
@@ -810,7 +811,6 @@ async function getQdrantStatus(req: Request, res: Response) {
       collection: info,
       status: 'connected',
       pointsCount: info.points_count,
-      vectorsCount: info.vectors_count,
     });
   } catch (error) {
     console.error('Qdrant status error:', error);
@@ -999,9 +999,9 @@ function _generatePageSlug(title: string, userInput?: string) {
 //   }
 // }
 
-async function createSessionHandler(req: Request, res: Response) {
+async function createSessionHandler(req: ZodReqWithOptionalUser<{}>, res: Response) {
   try {
-    const { userId } = req.body; // Optional userId for session tracking
+    const userId = req.user?.decoded?.uuid;
 
     // Call the AgentService to create a session
     const sessionId = await agentService.createSession(userId);
@@ -1019,7 +1019,7 @@ async function createSessionHandler(req: Request, res: Response) {
   }
 }
 
-async function agentQueryLangGraph(req: Request, res: Response) {
+async function agentQueryLangGraph(req: z.infer<typeof AgentQueryLangGraphValidator>, res: Response) {
   try {
     const { query, sessionId } = req.body;
 
