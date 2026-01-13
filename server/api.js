@@ -2891,17 +2891,16 @@ router
   router
     .route("/agent/create-session")
     .post(
-      authAPI.verifyRequest,
-      authAPI.getUserAttributes,
-      middleware.validateZod(kbValidators.CreateAgentSessionValidator), 
+      authAPI.optionalVerifyRequest,
+      authAPI.optionalGetUserAttributes,
       kbAPI.createSessionHandler 
     );
 
   router
     .route("/agent/query-langgraph")
     .post(
-      authAPI.verifyRequest,
-      authAPI.getUserAttributes,
+      authAPI.optionalVerifyRequest,
+      authAPI.optionalGetUserAttributes,
       middleware.validateZod(kbValidators.AgentQueryLangGraphValidator),
       kbAPI.agentQueryLangGraph
     );

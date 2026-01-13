@@ -100,13 +100,6 @@ export const MigrateToQdrantValidator = z.object({
   }),
 });
 
-// Agent Session
-export const CreateAgentSessionValidator = z.object({
-  body: z.object({
-    userId: z.string().uuid().optional(),
-  }).optional(),
-});
-
 // Agent Query
 export const AgentQueryLangGraphValidator = z.object({
   body: z.object({

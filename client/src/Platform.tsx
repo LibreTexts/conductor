@@ -118,6 +118,10 @@ const Platform = () => {
       script.src =
         "https://cdn.libretexts.net/libretexts-support-widget.min.js";
       body.appendChild(script);
+
+      return () => {
+        body.removeChild(script);
+      };
     }
   }, []);
 
