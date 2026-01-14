@@ -71,7 +71,14 @@ export type StoreShippingOption = {
     id: number;
     total_days_min: number;
     total_days_max: number;
+    lulu_shipping_level: string;
     cost_excl_tax: number;
+    production_start_date_estimate: string;
+    production_end_date_estimate: string;
+    ship_date_start_estimate: string;
+    ship_date_end_estimate: string;
+    delivery_date_start_estimate: string;
+    delivery_date_end_estimate: string;
 }
 
 export type StoreDigitalDeliveryOption = "apply_to_account" | "email_access_codes";

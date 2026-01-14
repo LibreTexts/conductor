@@ -20,6 +20,7 @@ import LoadingSpinner from "../../../components/LoadingSpinner";
 import { useTypedSelector } from "../../../state/hooks";
 import { useModals } from "../../../context/ModalContext";
 import ConfirmOrderModal from "../../../components/store/ConfirmOrderModal";
+import ShippingTimeline from "../../../components/store/ShippingTimeline";
 
 const STATE_CODES = [
   {
@@ -897,6 +898,9 @@ export default function ShippingPage() {
                     </p>
                   </div>
                 </div>
+              )}
+              {hasPhysicalProducts && selectedShippingOption && (
+                <ShippingTimeline shippingOption={selectedShippingOption} />
               )}
               <div className="border-t border-gray-200 px-4 py-6 sm:px-6">
                 <button
