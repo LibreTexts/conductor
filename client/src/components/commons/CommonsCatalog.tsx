@@ -394,7 +394,7 @@ const CommonsCatalog = () => {
   ) {
     try {
       setBooksLoading(true);
-      const res = await api.booksSearch({
+      const res = await api.booksSearchV2({
         ...(query && { searchQuery: query }),
         page: page,
         limit: ITEMS_PER_PAGE,
