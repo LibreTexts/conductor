@@ -83,6 +83,7 @@ import {
 } from "./validators/book.js";
 import BookService from "./services/book-service.js";
 import { normalizedSort } from "../util/searchutils.js";
+import SearchService from "./services/search-service.js";
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   _id: 0,
@@ -2620,6 +2621,103 @@ export async function _getBookPublicOrInstructorAssetsCount(ids: string[]): Prom
   }]);
 }
 
+export async function syncWithSearchIndex(
+  req: Request,
+  res: Response
+) {
+  try {
+    debugServer("Initiating Commons Books search index synchronization...");
+    const searchService = await SearchService.create();
+
+    /**
+     * Book data for search index should be in format:
+     * {
+     * bookID: string,
+     *  ...other Book fields,
+     *  projectTags: string[] // array of tag titles associated with the Book's Project
+     * }
+     */
+    const books = await Book.aggregate([
+      {
+        // Add project data to each book (if any)
+        $lookup: {
+          from: "projects",
+          let: {
+            lib: "$library",
+            coverID: { $arrayElemAt: [{ $split: ["$bookID", "-"] }, 1] },
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$$lib", "$libreLibrary"] },
+                    { $eq: ["$$coverID", "$libreCoverID"] },
+                    { $eq: ["$visibility", "public"] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: "project",
+        }
+      },
+      {
+        $addFields: {
+          project: {
+            $arrayElemAt: ["$project", 0],
+          },
+        },
+      },
+      // project.tags is a string array of tagID's; we need to load the actual tag.title values
+      {
+        $lookup: {
+          from: "tags",
+          localField: "project.tags",
+          foreignField: "tagID",
+          as: "projectTags",
+        },
+      },
+      {
+        $addFields: {
+          projectTags: {
+            $map: {
+              input: "$projectTags",
+              as: "tag",
+              in: "$$tag.title",
+            },
+          },
+        },
+      },
+      {
+        // Exclude fields that add no value to search index
+        $project: {
+          _id: 0,
+          __v: 0,
+          createdAt: 0,
+          updatedAt: 0,
+          randomIndex: 0,
+          project: 0
+        }
+      }
+    ])
+
+    const syncResult = await searchService.addDocuments("books", books);
+
+    return res.send({
+      err: false,
+      msg: "Commons Books search index synchronization completed.",
+      details: syncResult,
+    });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
 export default {
   syncWithLibraries,
   runAutomatedSyncWithLibraries,
@@ -2642,5 +2740,6 @@ export default {
   updatePageDetails,
   bulkUpdatePageTags,
   retrieveKBExport,
+  syncWithSearchIndex,
   _getBookPublicOrInstructorAssetsCount
 };
