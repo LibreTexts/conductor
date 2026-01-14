@@ -85,6 +85,7 @@
     "tus-js-client": "^4.1.0",
     "typescript": "^4.9.5",
     "usehooks-ts": "^3.1.1",
+    "vfile": "5.3.7",
     "web-vitals": "^0.2.4",
     "world-countries": "^5.1.0",
     "zod": "^3.22.4"
@@ -133,7 +134,7 @@
     "vite": "^6.4.1",
     "vite-tsconfig-paths": "^4.0.5"
   },
-  "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.43.0"
+  "overrides": {
+    "vfile": "5.3.7"
   }
 }
