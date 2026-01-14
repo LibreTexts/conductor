@@ -1030,6 +1030,10 @@ router
   .route("/commons/syncwithlibs/automated")
   .put(middleware.checkLibreAPIKey, booksAPI.runAutomatedSyncWithLibraries);
 
+router.route("/commons/syncwithsearch").post(
+  middleware.checkLibreAPIKey,
+  booksAPI.syncWithSearchIndex,
+) 
 /* Commons Books/Catalogs */
 router
   .route("/commons/catalog")
@@ -1264,6 +1268,13 @@ router
     authAPI.optionalVerifyRequest,
     middleware.validateZod(SearchValidators.bookSearchSchema),
     searchAPI.booksSearch
+  );
+router
+  .route("/search/books-v2")
+  .get(
+    authAPI.optionalVerifyRequest,
+    middleware.validateZod(SearchValidators.bookSearchSchema),
+    searchAPI.bookSearchV2
   );
 router
   .route("/search/homework")
@@ -1852,6 +1863,11 @@ router
     middleware.checkValidationErrors,
     projectsAPI.removeMemberFromProject
   );
+
+router.route("/project/sync-with-search-index").post(
+  middleware.checkLibreAPIKey,
+  projectsAPI.syncWithSearchIndex
+);
 
 router
   .route("/project/threads")

@@ -1,4 +1,3 @@
-import Promise from "bluebird";
 import User from "../models/user.js";
 import Project from "../models/project.js";
 import Book from "../models/book.js";
@@ -36,8 +35,39 @@ import Tag from "../models/tag.js";
 import { _getBookPublicOrInstructorAssetsCount, buildOrganizationNamesList } from "./books.js";
 import CustomCatalog, { CustomCatalogInterface } from "../models/customcatalog.js";
 import { normalizedSort } from "../util/searchutils.js";
+import SearchService from "./services/search-service.js";
 
 const searchQueryCache: SearchQueryInterface_Raw[] = []; // in-memory cache for search queries
+
+// Singleton SearchService instance
+let searchServiceInstance: SearchService | null = null;
+let searchServiceInitPromise: Promise<SearchService | null> | null = null;
+
+/**
+ * Gets or creates the singleton SearchService instance and handle errors gracefully.
+ */
+async function getSearchService(): Promise<SearchService | null> {
+  if (searchServiceInstance) {
+    return searchServiceInstance;
+  }
+
+  if (searchServiceInitPromise) {
+    return searchServiceInitPromise;
+  }
+
+  searchServiceInitPromise = SearchService.create()
+    .then((service) => {
+      searchServiceInstance = service;
+      return service;
+    })
+    .catch((error) => {
+      debugError(`[SearchService] Failed to initialize SearchService: ${error}`);
+      searchServiceInitPromise = null; // Allow retry on next request
+      return null;
+    });
+
+  return searchServiceInitPromise;
+}
 
 /**
  * Performs a global search across multiple Conductor resource types (e.g. Projects, Books, etc.)
@@ -2368,6 +2398,76 @@ async function getProjectFilterOptions(req: Request, res: Response) {
   }
 }
 
+async function bookSearchV2(
+  req: z.infer<typeof bookSearchSchema>,
+  res: Response){
+  try {
+    if (!req.query.searchQuery) {
+      return res.send({
+        err: false,
+        numResults: 0,
+        results: [],
+      });
+    }
+
+    const searchService = await getSearchService();
+    if (!searchService) {
+      return res.status(503).send({
+        err: true,
+        errMsg: "Search service is currently unavailable. Please try again later.",
+      });
+    }
+
+    const filterMap = _getNonNullFieldMap({
+      library: req.query.library,
+      subject: req.query.subject,
+      location: req.query.location,
+      license: req.query.license,
+      author: req.query.author,
+      course: req.query.course,
+      publisher: req.query.publisher,
+      affiliation: req.query.affiliation,
+    })
+
+    const filterString = searchService.buildFilterString(filterMap);
+    const results = await searchService.search("books", req.query.searchQuery, {
+      limit: req.query.limit || 25,
+      ...(filterString ? { filter: filterString } : {}),
+    })
+
+    return res.send({
+      err: false,
+      numResults: results.estimatedTotalHits,
+      results: results.hits,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+/**
+ * Takes an arbitrary object and returns only the fields whose values are non-null/undefined.
+ * Attempts to split comma-separated strings into arrays. Values are always returned as arrays even if single.
+ * Values that are not strings are stringified.
+ * @param obj - The input object to process.
+ * @returns A new object containing only non-null fields with their values as arrays.
+ */
+function _getNonNullFieldMap(obj: Record<string, any>): Record<string, string[]> {
+  const fieldMap: Record<string, string[]> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== null && value !== undefined) {
+      if (typeof value === "string" && value.includes(",")) {
+        fieldMap[key] = value.split(",").map((v) => v.trim());
+      } else {
+        const stringified = String(value).trim();
+        fieldMap[key] = [stringified];
+      }
+    }
+  }
+  return fieldMap;
+}
+
 function _checkIsExactMatchQuery(query: string): [boolean, string] {
   let isExactMatchSearch = false;
   let strippedQuery = "";
@@ -2549,4 +2649,5 @@ export default {
   getAssetFilterOptions,
   getAuthorFilterOptions,
   getProjectFilterOptions,
+  bookSearchV2,
 };

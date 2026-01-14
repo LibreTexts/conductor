@@ -1252,6 +1252,17 @@ class API {
     return res;
   }
 
+  async booksSearchV2(params: BookSearchParams) {
+    const res = await axios.get<
+      ConductorSearchResponse<"books"> & ConductorBaseResponse
+    >("/search/books-v2", {
+      params: {
+        ...params,
+      },
+    });
+    return res;
+  }
+
   async homeworkSearch(params: HomeworkSearchParams) {
     const res = await axios.get<
       ConductorSearchResponse<"homework"> & ConductorBaseResponse

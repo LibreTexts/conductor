@@ -24,7 +24,7 @@ import Message from '../models/message.js';
 import Organization from '../models/organization.js';
 import CIDDescriptor from '../models/ciddescriptor.js';
 import conductorErrors from '../conductor-errors.js';
-import { debugError, debugCommonsSync } from '../debug.js';
+import { debugError, debugCommonsSync, debugServer } from '../debug.js';
 import {
     validateProjectClassification,
     validateRoadmapStep,
@@ -54,6 +54,7 @@ import ProjectFile from "../models/projectfile.js";
 import { getLibraryNameKeys } from './libraries.js';
 import TrafficAnalyticsService from "./services/traffic-analytics-service.js";
 import ProjectInvitation from '../models/projectinvitation.js';
+import SearchService from './services/search-service.js';
 
 const projectListingProjection = {
     _id: 0,
@@ -3252,6 +3253,174 @@ async function getTrafficAnalyticsData(req, res, func) {
   }
 }
 
+async function syncWithSearchIndex(req, res) {
+  try {
+    debugServer("Initiating Projects search index sync...");
+    const searchService = await SearchService.create();
+
+    const projects = await Project.aggregate([
+      {
+        $lookup: {
+          from: "users",
+          let: {
+            leads: { $ifNull: ["$leads", []] },
+            liaisons: { $ifNull: ["$liaisons", []] },
+            members: { $ifNull: ["$members", []] },
+            auditors: { $ifNull: ["$auditors", []] },
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    { $in: ["$uuid", "$$leads"] },
+                    { $in: ["$uuid", "$$liaisons"] },
+                    { $in: ["$uuid", "$$members"] },
+                    { $in: ["$uuid", "$$auditors"] },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                uuid: 1,
+                firstName: 1,
+                lastName: 1,
+                avatar: 1,
+              },
+            },
+          ],
+          as: "allProjectUsers",
+        },
+      },
+      {
+        $addFields: {
+          leads: {
+            $filter: {
+              input: "$allProjectUsers",
+              as: "user",
+              cond: { $in: ["$$user.uuid", { $ifNull: ["$leads", []] }] },
+            },
+          },
+          liaisons: {
+            $filter: {
+              input: "$allProjectUsers",
+              as: "user",
+              cond: { $in: ["$$user.uuid", { $ifNull: ["$liaisons", []] }] },
+            },
+          },
+          members: {
+            $filter: {
+              input: "$allProjectUsers",
+              as: "user",
+              cond: { $in: ["$$user.uuid", { $ifNull: ["$members", []] }] },
+            },
+          },
+          auditors: {
+            $filter: {
+              input: "$allProjectUsers",
+              as: "user",
+              cond: { $in: ["$$user.uuid", { $ifNull: ["$auditors", []] }] },
+            },
+          },
+        },
+      },
+      {
+        $unset: "allProjectUsers",
+      },
+      {
+        $lookup: {
+          from: "projectfiles",
+          localField: "projectID",
+          foreignField: "projectID",
+          as: "files",
+        },
+      },
+      {
+        $addFields: {
+          publicAssets: {
+            $size: {
+              $filter: {
+                input: "$files",
+                cond: { $eq: ["$$this.access", "public"] },
+              },
+            },
+          },
+          instructorAssets: {
+            $size: {
+              $filter: {
+                input: "$files",
+                cond: { $eq: ["$$this.access", "instructor"] },
+              },
+            },
+          },
+        },
+      },
+      // project.tags is a string array of tagID's; we need to load the actual tag.title values
+      {
+        $lookup: {
+          from: "tags",
+          localField: "tags",
+          foreignField: "tagID",
+          as: "projectTags",
+        },
+      },
+      {
+        $addFields: {
+          tags: {
+            $map: {
+              input: "$projectTags",
+              as: "tag",
+              in: "$$tag.title",
+            },
+          },
+        },
+      },
+      {
+        // Only include fields relevant to search
+        $project: {
+          _id: 0,
+          projectID: 1,
+          orgID: 1,
+          title: 1,
+          status: 1,
+          visibility: 1,
+          classification: 1,
+          projectURL: 1,
+          author: 1,
+          libreLibrary: 1,
+          libreShelf: 1,
+          libreCampus: 1,
+          libreCoverID: 1,
+          leads: 1,
+          liaisons: 1,
+          members: 1,
+          auditors: 1,
+          tags: 1,
+          publicAssets: 1,
+          instructorAssets: 1,
+        },
+      },
+    ]);
+
+    const syncResult = await searchService.addDocuments("projects", projects);
+    debugServer("Projects search index sync completed.");
+
+    return res.send({
+      err: false,
+      msg: "Projects search index sync completed.",
+      syncResult,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
 /**
  * Retrieves the LibreTexts standard identifier of the resource linked to a Project.
  *
@@ -3916,5 +4085,6 @@ export default {
     constructProjectTeam,
     constructProjectTeamMemberQuery,
     LOOKUP_PROJECT_PI_STAGES,
+    syncWithSearchIndex,
     validate
 }
