@@ -532,6 +532,39 @@ class StoreService {
                 throw new Error("No shipping options found for the provided items");
             }
 
+            const shippingLevelDeliveryDays: Record<string, { min: number; max: number }> = {
+                'MAIL': { min: 13, max: 15 },
+                'PRIORITY_MAIL': { min: 11, max: 13 },
+                'GROUND_HD': { min: 12, max: 14 },
+                'GROUND_BUS': { min: 12, max: 14 },
+                'GROUND': { min: 12, max: 14 },
+                'EXPEDITED': { min: 8, max: 9 },
+                'EXPRESS': { min: 9, max: 10 },
+            };
+
+            // Get today's date (order date)
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+             // Helper function to add business days (excluding weekends)
+            const addBusinessDays = (date: Date, days: number): Date => {
+                const result = new Date(date);
+                let added = 0;
+                while (added < days) {
+                    result.setDate(result.getDate() + 1);
+                    // Skip weekends (Saturday = 6, Sunday = 0)
+                    if (result.getDay() !== 0 && result.getDay() !== 6) {
+                        added++;
+                    }
+                }
+                return result;
+            };
+
+            // Helper function to format date as ISO string
+            const formatDate = (date: Date): string => {
+                return date.toISOString().split('T')[0];
+            };
+
             const mapped = filtered_shipping_options.map((opt) => {
                 // ensure cost_excl_tax is a number and convert it to cents
                 if (!opt.cost_excl_tax || isNaN(parseFloat(opt.cost_excl_tax))) {
@@ -540,6 +573,17 @@ class StoreService {
                 }
                 const costInCents = Math.round(parseFloat(opt.cost_excl_tax) * 100);
 
+                // Get delivery days for this shipping level (fallback to MAIL if not found)
+                const deliveryDays = shippingLevelDeliveryDays[opt.level] || shippingLevelDeliveryDays['MAIL'];
+
+                // Calculate date estimates
+                const productionStartDate = addBusinessDays(today, 2);
+                const productionEndDate = addBusinessDays(today, 4);
+                const shipDateStart = addBusinessDays(today, 6);
+                const shipDateEnd = addBusinessDays(today, 10);
+                const deliveryDateStart = addBusinessDays(today, deliveryDays.min);
+                const deliveryDateEnd = addBusinessDays(today, deliveryDays.max);
+
                 return {
                     id: opt.id,
                     title: `${opt.level}${opt.carrier_service_name ? ` (${opt.carrier_service_name})` : ''}`,
@@ -547,6 +591,12 @@ class StoreService {
                     total_days_max: opt.total_days_max,
                     lulu_shipping_level: opt.level,
                     cost_excl_tax: costInCents,
+                    production_start_date_estimate: formatDate(productionStartDate),
+                    production_end_date_estimate: formatDate(productionEndDate),
+                    ship_date_start_estimate: formatDate(shipDateStart),
+                    ship_date_end_estimate: formatDate(shipDateEnd),
+                    delivery_date_start_estimate: formatDate(deliveryDateStart),
+                    delivery_date_end_estimate: formatDate(deliveryDateEnd),
                 }
             });
 
