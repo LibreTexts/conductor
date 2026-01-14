@@ -21,96 +21,86 @@ const _commonItems = z.object({
 });
 
 export const assetSearchSchema = z.object({
-  query: z
-    .object({
-      license: z.string().optional(),
-      licenseVersion: z.string().optional(),
-      org: z.string().optional(),
-      fileType: z.string().optional(),
-      person: z.string().optional(),
-      customFilters: z.array(z.object({ key: z.string(), value: z.string() })).optional(),
-    })
-    .merge(_commonItems),
+  query: z.object({
+    license: z.string().optional(),
+    licenseVersion: z.string().optional(),
+    org: z.string().optional(),
+    fileType: z.string().optional(),
+    person: z.string().optional(),
+    customFilters: z
+      .array(z.object({ key: z.string(), value: z.string() }))
+      .optional(),
+    ..._commonItems.shape,
+  }),
 });
 
 export const bookSearchSchema = z.object({
-  query: z
-    .object({
-      library: z.string().optional(),
-      subject: z.string().optional(),
-      location: z.enum(["campus", "central"]).optional(),
-      license: z.string().optional(),
-      author: z.string().optional(),
-      course: z.string().optional(),
-      publisher: z.string().optional(),
-      affiliation: z.string().optional(),
-      //CID: z.string().optional(),
-      assets: z.enum(["public", "instructors"]).optional(),
-      sort: z
-        .enum(["title", "author", "library", "subject", "affiliation"])
-        .default("title"),
-    })
-    .merge(_commonItems),
+  query: z.object({
+    library: z.string().optional(),
+    subject: z.string().optional(),
+    location: z.enum(["campus", "central"]).optional(),
+    license: z.string().optional(),
+    author: z.string().optional(),
+    course: z.string().optional(),
+    publisher: z.string().optional(),
+    affiliation: z.string().optional(),
+    //CID: z.string().optional(),
+    assets: z.enum(["public", "instructors"]).optional(),
+    sort: z
+      .enum(["title", "author", "library", "subject", "affiliation"])
+      .default("title"),
+    ..._commonItems.shape,
+  }),
 });
 
 export const homeworkSearchSchema = z.object({
-  query: z
-    .object({
-      sort: z.enum(["name", "description"]).default("name"),
-    })
-    .merge(_commonItems),
+  query: z.object({
+    sort: z.enum(["name", "description"]).default("name"),
+    ..._commonItems.shape,
+  }),
 });
 
 export const miniReposSearchSchema = z.object({
-  query: z
-    .object({
-      status: z.string().default("any"),
-      sort: z
-        .enum([
-          "relevance",
-          "title",
-        ])
-        .default("relevance"),
-    })
-    .merge(_commonItems),
+  query: z.object({
+    status: z.string().default("any"),
+    sort: z.enum(["relevance", "title"]).default("relevance"),
+    ..._commonItems.shape,
+  }),
 });
 
 export const projectSearchSchema = z.object({
-  query: z
-    .object({
-      location: z.enum(["local", "global"]).default("global"),
-      status: z.string().default("any"),
-      classification: z.string().default("any"),
-      leads: z.coerce.boolean().optional(),
-      principalInvestigators: z.coerce.boolean().optional(),
-      sort: z
-        .enum([
-          "relevance",
-          "title",
-          "progress",
-          "classification",
-          "visibility",
-          "lead",
-          "updated",
-        ])
-        .default("relevance"),
-    })
-    .merge(_commonItems),
+  query: z.object({
+    location: z.enum(["local", "global"]).default("global"),
+    status: z.string().default("any"),
+    classification: z.string().default("any"),
+    leads: z.coerce.boolean().optional(),
+    principalInvestigators: z.coerce.boolean().optional(),
+    sort: z
+      .enum([
+        "relevance",
+        "title",
+        "progress",
+        "classification",
+        "visibility",
+        "lead",
+        "updated",
+      ])
+      .default("relevance"),
+    ..._commonItems.shape,
+  }),
 });
 
 export const authorsSearchSchema = z.object({
-  query: z
-    .object({
-      primaryInstitution: z.string().optional(),
-      sort: z.enum(["first", "last"]).default("first"),
-    })
-    .merge(_commonItems),
+  query: z.object({
+    primaryInstitution: z.string().optional(),
+    sort: z.enum(["first", "last"]).default("first"),
+    ..._commonItems.shape,
+  }),
 });
 
 export const userSearchSchema = z.object({
-  query: z
-    .object({
-      sort: z.enum(["first", "last"]).default("first"),
-    })
-    .merge(_commonItems),
+  query: z.object({
+    sort: z.enum(["first", "last"]).default("first"),
+    ..._commonItems.shape,
+  }),
 });
