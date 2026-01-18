@@ -574,7 +574,8 @@ class StoreService {
                 const costInCents = Math.round(parseFloat(opt.cost_excl_tax) * 100);
 
                 // Get delivery days for this shipping level (fallback to MAIL if not found)
-                const deliveryDays = shippingLevelDeliveryDays[opt.level] || shippingLevelDeliveryDays['MAIL'];
+                const shippingLevel = opt.level || 'MAIL';
+                const deliveryDays = shippingLevelDeliveryDays[shippingLevel] || shippingLevelDeliveryDays['MAIL'];
 
                 // Calculate date estimates
                 const productionStartDate = addBusinessDays(today, 2);
