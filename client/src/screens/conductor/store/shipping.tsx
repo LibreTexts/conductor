@@ -416,6 +416,20 @@ export default function ShippingPage() {
       setShippingOptions(response.data.options);
       shippingCalculated.current = true;
 
+      console.log("=== Shipping Options Response ===");
+      console.log("Full response:", response.data);
+      if (Array.isArray(response.data.options) && response.data.options.length > 0) {
+        console.log("First shipping option:", response.data.options[0]);
+        console.log("Has date fields?", {
+          production_start: !!response.data.options[0].production_start_date_estimate,
+          delivery_end: !!response.data.options[0].delivery_date_end_estimate,
+        });
+      }
+
+      if (Array.isArray(response.data.options) && response.data.options.length > 0) {
+        console.log("Shipping option with dates:", response.data.options[0]);
+      }
+
       if (response.data.options === "digital_delivery_only") {
         setSelectedShippingOption(null);
       } else if (response.data.options.length > 0) {
@@ -899,25 +913,23 @@ export default function ShippingPage() {
                   </div>
                 </div>
               )}
-              {hasPhysicalProducts && selectedShippingOption && (
-                <ShippingTimeline shippingOption={selectedShippingOption} />
-              )}
-              <div className="border-t border-gray-200 px-4 py-6 sm:px-6">
-                <button
-                  type="submit"
-                  className="w-full rounded-md border border-transparent bg-primary px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-50 disabled:bg-opacity-55 disabled:cursor-not-allowed"
-                  onClick={handleProceedToPayment}
-                  disabled={proceedDisabled || loading || shippingLoading}
-                >
-                  {loading || shippingLoading ? (
-                    <LoadingSpinner iconOnly />
-                  ) : (
-                    <Icon name="arrow right" className="!mb-1 !mr-2" />
-                  )}
-                  Proceed to Payment
-                </button>
-              </div>
             </div>
+            {hasPhysicalProducts && selectedShippingOption && (
+              <ShippingTimeline shippingOption={selectedShippingOption} />
+            )}
+            <button
+              type="submit"
+              className="mt-6 w-full rounded-md border border-transparent bg-primary px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-50 disabled:bg-opacity-55 disabled:cursor-not-allowed"
+              onClick={handleProceedToPayment}
+              disabled={proceedDisabled || loading || shippingLoading}
+            >
+              {loading || shippingLoading ? (
+                <LoadingSpinner iconOnly />
+              ) : (
+                <Icon name="arrow right" className="!mb-1 !mr-2" />
+              )}
+              Proceed to Payment
+            </button>
             <p className="mt-4 text-sm text-gray-500 text-center">
               If you have any questions or concerns, please contact our{" "}
               <a
