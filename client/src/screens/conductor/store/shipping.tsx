@@ -522,7 +522,7 @@ export default function ShippingPage() {
     <AlternateLayout>
       <div className="mx-auto max-w-2xl px-4 pb-24 pt-16 sm:px-6 lg:max-w-7xl lg:px-8">
         <form
-          className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16 min-w-[90vw] lg:min-w-[1200px] lg:items-start"
+          className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16"
           onSubmit={(e) => {
             e.preventDefault();
           }}
