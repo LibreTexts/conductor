@@ -390,6 +390,59 @@ const getSystemAnnouncement = (req, res) => {
     });
 };
 
+const getSupportAnnouncement = async (req, res) => {
+  try {
+    const today = new Date();
+    const results = await Announcement.aggregate([
+      {
+        $match: {
+          $and: [
+            { org: "support" },
+            {
+              expires: {
+                $gt: today,
+              },
+            },
+          ],
+        },
+      },
+      {
+        $sort: {
+          createdAt: -1,
+        },
+      },
+      {
+        $limit: 1,
+      },
+      {
+        $project: {
+          _id: 0,
+          __v: 0,
+          updatedAt: 0,
+        },
+      },
+    ]);
+
+    let announcement = null;
+    if (
+      Array.isArray(results) &&
+      results.length > 0
+    ) {
+      announcement = results[0];
+    }
+    return res.send({
+      err: false,
+      announcement
+    });
+  } catch (err) {
+    debugError(err);
+    return res.send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+};
+
 
 /**
  * Sets up the validation chain(s) for methods in this file.
@@ -416,5 +469,6 @@ export default {
     getAllAnnouncements,
     getRecentAnnouncement,
     getSystemAnnouncement,
+    getSupportAnnouncement,
     validate
 }

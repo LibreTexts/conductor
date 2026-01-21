@@ -6,6 +6,7 @@ import CreateTicketFlow from "../../../components/support/CreateTicketFlow";
 import useSystemAnnouncement from "../../../hooks/useSystemAnnouncement";
 import SystemAnnouncement from "../../../components/util/SystemAnnouncement";
 import { useDocumentTitle } from "usehooks-ts";
+import useSupportAnnouncement from "../../../hooks/useSupportAnnouncement";
 
 const SupportCreateTicket = () => {
   useDocumentTitle("LibreTexts | Contact Support");
@@ -13,6 +14,7 @@ const SupportCreateTicket = () => {
   const [guestMode, setGuestMode] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { sysAnnouncement } = useSystemAnnouncement();
+  const { supportAnnouncement } = useSupportAnnouncement();
 
   const checkIsLoggedIn = () => {
     if (user && user.uuid) {
@@ -34,18 +36,24 @@ const SupportCreateTicket = () => {
   return (
     <DefaultLayout altBackground h="screen" className="!mb-[2%]">
       <>
-        {sysAnnouncement && (
-          <SystemAnnouncement
-            title={sysAnnouncement.title}
-            message={sysAnnouncement.message}
-          />
-        )}
+        <div className="w-1/2 mx-auto mt-4">
+          {sysAnnouncement && (
+            <SystemAnnouncement
+              title={sysAnnouncement.title}
+              message={sysAnnouncement.message}
+            />
+          )}
+          {supportAnnouncement && (
+            <SystemAnnouncement
+              title={supportAnnouncement.title}
+              message={supportAnnouncement.message}
+            />
+          )}
+        </div>
         <div className="flex flex-col w-full h-full overflow-y-auto items-center justify-center">
           <div className="flex flex-col w-full items-center mt-12">
             <h1 className="text-4xl font-semibold">Contact Support</h1>
-            <p className="mt-2">
-              Submit a request to get help from our team.
-            </p>
+            <p className="mt-2">Submit a request to get help from our team.</p>
             <>
               {!isLoggedIn && !guestMode && (
                 <div className="flex flex-col w-1/2 lg:w-2/5 mt-8 items-center">

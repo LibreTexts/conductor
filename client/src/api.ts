@@ -112,6 +112,15 @@ class API {
     return res;
   }
 
+  async getSupportAnnouncement() {
+    const res = await axios.get<
+      {
+        announcement: Announcement | null;
+      } & ConductorBaseResponse
+    >("/announcements/support");
+    return res;
+  }
+
   // ASSET TAGS FRAMEWORKS
   async getFrameworks({
     page,

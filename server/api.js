@@ -1463,6 +1463,10 @@ router
   .get(authAPI.verifyRequest, announcementAPI.getRecentAnnouncement);
 
 router
+  .route("/announcements/support")
+  .get(announcementAPI.getSupportAnnouncement);
+
+router
   .route("/announcements/system")
   .get(announcementAPI.getSystemAnnouncement);
 
