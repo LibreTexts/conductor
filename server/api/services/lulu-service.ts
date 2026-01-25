@@ -138,9 +138,18 @@ export default class LuluService {
                 throw new Error("BOOKSTORE_CONTACT_EMAIL environment variable is not set");
             }
 
+            // Truncate name to 30 characters to meet Lulu's limit
+            const truncatedParams = {
+                ...params,
+                shipping_address: {
+                    ...params.shipping_address,
+                    name: params.shipping_address.name.substring(0, 30)
+                }
+            };
+
             const axiosInstance = await this.getAuthenticatedInstance();
             const response = await axiosInstance.post('/print-jobs', {
-                ...params,
+                ...truncatedParams,
                 contact_email: process.env.BOOKSTORE_CONTACT_EMAIL,
                 production_delay: 120
             }).catch((error) => {
