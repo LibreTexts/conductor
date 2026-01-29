@@ -137,7 +137,7 @@ const ChatBot: React.FC = () => {
             {messages.length === 0 && (
               <div className="welcome-message">
                 <p>👋 Hi! I'm Benny, your AI assistant.</p>
-                <p>I can search the LibreTexts Knowledge Base and the web to help you!</p>
+                <p>I am here to search the LibreTexts Knowledge Base to help you!</p>
               </div>
             )}
 
