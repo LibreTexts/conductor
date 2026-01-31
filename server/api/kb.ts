@@ -223,6 +223,15 @@ async function createKBPage(
       lastEditedByUUID: editor.uuid,
     });
 
+    if (kbPage.status === "published" && kbPage.body) {
+      try {
+        await qdrantService.initializeCollection();
+        await qdrantService.upsertKBPage(kbPage.toObject());
+      } catch (err) {
+        debugError(err);
+      }
+    }
+
     return res.send({
       err: false,
       page: kbPage,
@@ -366,6 +375,20 @@ async function updateKBPage(
 
     await kbPage.save();
 
+    try {
+      await qdrantService.initializeCollection();
+    
+      if (kbPage.status === "published" && kbPage.body) {
+        // Upsert replaces old embedding with new content
+        await qdrantService.upsertKBPage(kbPage.toObject());
+      } else {
+        // Remove from vector DB if it's no longer published
+        await qdrantService.deleteKBPage(kbPage.uuid);
+      }
+    } catch (err) {
+      debugError(err);
+    }
+
     return res.send({
       err: false,
       page: kbPage,
@@ -392,6 +415,13 @@ async function deleteKBPage(
     }
 
     await KBPage.findOneAndDelete({ uuid }).orFail();
+
+    try {
+      await qdrantService.initializeCollection();
+      await qdrantService.deleteKBPage(uuid);
+    } catch (err) {
+      debugError(err);
+    }
 
     return res.send({
       err: false,
