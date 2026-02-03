@@ -2883,9 +2883,7 @@ router
   router
   .route("/kb/migrate-to-qdrant")
   .post(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"), 
+    middleware.checkLibreAPIKey,
     middleware.validateZod(kbValidators.MigrateToQdrantValidator), 
     kbAPI.migrateKBPagesToQdrant
   );

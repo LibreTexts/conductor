@@ -11,8 +11,8 @@ export const INDEX_FILTERABLE_ATTRIBUTES = {
 
 export default class SearchService {
   private client = new MeiliSearch({
-    host: process.env.MEILI_HOST || "http://localhost:7700",
-    apiKey: process.env.MEILI_API_KEY || "",
+    host: process.env.MEILISEARCH_URL || "http://localhost:7700",
+    apiKey: process.env.MEILISEARCH_API_KEY || "",
   });
   private indexes = new Map<string, Index>();
 
