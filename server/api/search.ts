@@ -19,6 +19,7 @@ import {
   homeworkSearchSchema,
   miniReposSearchSchema,
   projectSearchSchema,
+  projectSearchV2Schema,
   userSearchSchema,
 } from "./validators/search.js";
 import ProjectFile from "../models/projectfile.js";
@@ -2446,6 +2447,59 @@ async function bookSearchV2(
   }
 }
 
+async function projectSearchV2(
+  req: z.infer<typeof projectSearchV2Schema>,
+  res: Response
+) {
+  try {
+    if (!req.query.searchQuery) {
+      return res.send({
+        err: false,
+        numResults: 0,
+        results: [],
+      });
+    }
+
+    const searchService = await getSearchService();
+    if (!searchService) {
+      return res.status(503).send({
+        err: true,
+        errMsg:
+          "Search service is currently unavailable. Please try again later.",
+      });
+    }
+
+    // if org is libretexts, don't filter by orgID since that includes all public projects across orgs
+    const resolvedOrgID = req.query.orgID || process.env.ORG_ID === 'libretexts' ? undefined : process.env.ORG_ID;
+
+    const filterMap = _getNonNullFieldMap({
+      status: req.query.status,
+      classification: req.query.classification,
+      visibility: "public", // TODO: enable private project search for auth'd users
+      orgID: resolvedOrgID,
+    });
+
+    const filterString = searchService.buildFilterString(filterMap);
+    const results = await searchService.search(
+      "projects",
+      req.query.searchQuery,
+      {
+        limit: req.query.limit || 25,
+        ...(filterString ? { filter: filterString } : {}),
+      }
+    );
+
+    return res.send({
+      err: false,
+      numResults: results.estimatedTotalHits,
+      results: results.hits,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 /**
  * Takes an arbitrary object and returns only the fields whose values are non-null/undefined.
  * Attempts to split comma-separated strings into arrays. Values are always returned as arrays even if single.
@@ -2650,4 +2704,5 @@ export default {
   getAuthorFilterOptions,
   getProjectFilterOptions,
   bookSearchV2,
+  projectSearchV2,
 };

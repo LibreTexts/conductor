@@ -7,6 +7,7 @@ const INDEX_NOT_FOUND_ERROR =
 
 export const INDEX_FILTERABLE_ATTRIBUTES = {
   books: ["bookID", "library", "license", "author", "course", "affiliation"],
+  projects: ["status", "classification", "visibility", "orgID"],
 };
 
 export default class SearchService {
@@ -43,6 +44,11 @@ export default class SearchService {
       const indexes = await this.client.getIndexes();
       const foundIndex = indexes.results.find((idx) => idx.uid === indexName);
       if (foundIndex) {
+        // Ensure filterable attributes are updated
+        const attrs = INDEX_FILTERABLE_ATTRIBUTES[indexName];
+        if (attrs) {
+          await foundIndex.updateFilterableAttributes(attrs);
+        }
         return foundIndex;
       }
 
@@ -57,6 +63,9 @@ export default class SearchService {
       if (indexName === "projects") {
         await this.client.createIndex(indexName, { primaryKey: "projectID" });
         const index = this.client.index(indexName);
+        await index.updateFilterableAttributes(
+          INDEX_FILTERABLE_ATTRIBUTES.projects
+        );
         return index;
       }
     } catch (error: any) {
