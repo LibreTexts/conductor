@@ -416,20 +416,6 @@ export default function ShippingPage() {
       setShippingOptions(response.data.options);
       shippingCalculated.current = true;
 
-      console.log("=== Shipping Options Response ===");
-      console.log("Full response:", response.data);
-      if (Array.isArray(response.data.options) && response.data.options.length > 0) {
-        console.log("First shipping option:", response.data.options[0]);
-        console.log("Has date fields?", {
-          production_start: !!response.data.options[0].production_start_date_estimate,
-          delivery_end: !!response.data.options[0].delivery_date_end_estimate,
-        });
-      }
-
-      if (Array.isArray(response.data.options) && response.data.options.length > 0) {
-        console.log("Shipping option with dates:", response.data.options[0]);
-      }
-
       if (response.data.options === "digital_delivery_only") {
         setSelectedShippingOption(null);
       } else if (response.data.options.length > 0) {

@@ -64,8 +64,6 @@ const StoreOrder = lazy(() => import('./screens/conductor/store/order'));
 const StoreProduct = lazy(() => import('./screens/conductor/store/product'));
 const StoreShipping = lazy(() => import('./screens/conductor/store/shipping'));
 const StoreSuccess = lazy(() => import('./screens/conductor/store/success'));
-import UserDetails from './components/controlpanel/UserDetails';
-const UsersManager = lazy(() => import('./screens/conductor/controlpanel/UsersManager'));
 import LoadingSpinner from './components/LoadingSpinner';
 const CentralIdentity = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity'));
 const CentralIdentityAppLicenses = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityAppLicenses'));
@@ -167,8 +165,6 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/peerreviewrubrics/:mode/:rubricID?' component={PeerReviewRubricManage} />
           <PrivateRoute exact path='/controlpanel/store' component={StoreManager} />
           <PrivateRoute exact path='/controlpanel/store/orders/:order_id' component={StoreManagerOrderView} />
-          <PrivateRoute exact path='/controlpanel/usersmanager' component={UsersManager} />
-          <PrivateRoute exact path='/controlpanel/usersmanager/:uuid' component={UserDetails} />
           <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
           <Route exact path="/download/:projectID/:fileID" component={PermanentLinkDownload} />
           <Route exact path='/peerreview/:id' component={PeerReviewPage} />
