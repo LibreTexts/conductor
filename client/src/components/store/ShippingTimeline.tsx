@@ -1,3 +1,4 @@
+import React from "react";
 import { StoreShippingOption } from "../../types";
 import { IconCheck, IconSettings, IconTruck, IconHome } from "@tabler/icons-react";
 
@@ -40,7 +41,7 @@ export default function ShippingTimeline({ shippingOption }: ShippingTimelinePro
       name: "Order Placed",
       icon: IconCheck,
       date: `Today (${todayFormatted})`,
-      completed: true,
+      completed: false,
     },
     {
       name: "Printing (On-Demand)",
@@ -80,12 +81,12 @@ export default function ShippingTimeline({ shippingOption }: ShippingTimelinePro
       
       {/* Content box with same styling as order summary */}
       <div className="mt-4 rounded-lg border border-gray-200 bg-white shadow-sm px-4 py-6 sm:px-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start">
           {timelineSteps.map((step, stepIdx) => (
-            <div key={step.name} className="flex flex-col items-center flex-1">
-              <div className="relative flex items-center">
+            <React.Fragment key={step.name}>
+              <div className="flex flex-col items-center" style={{ width: 80 }}>
                 <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 ${
                     step.completed
                       ? "border-primary bg-primary"
                       : "border-gray-300 bg-white"
@@ -98,32 +99,33 @@ export default function ShippingTimeline({ shippingOption }: ShippingTimelinePro
                     aria-hidden="true"
                   />
                 </div>
-                {stepIdx < timelineSteps.length - 1 && (
+                <div className="mt-3 text-center">
+                  <p
+                    className={`text-sm font-medium ${
+                      step.completed ? "text-primary" : "text-gray-500"
+                    }`}
+                  >
+                    {step.name}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500 !text-center">{step.date}</p>
+                </div>
+              </div>
+              {stepIdx < timelineSteps.length - 1 && (
+                <div className="flex flex-1 items-center" style={{ height: 40 }}>
                   <div
-                    className={`absolute left-1/2 top-5 h-0.5 w-full ${
+                    className={`h-0.5 w-full ${
                       step.completed ? "bg-primary" : "bg-gray-300"
                     }`}
-                    style={{ transform: "translateX(50%)" }}
                     aria-hidden="true"
                   />
-                )}
-              </div>
-              <div className="mt-4 text-center">
-                <p
-                  className={`text-sm font-medium ${
-                    step.completed ? "text-primary" : "text-gray-500"
-                  }`}
-                >
-                  {step.name}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">{step.date}</p>
-              </div>
-            </div>
+                </div>
+              )}
+            </React.Fragment>
           ))}
         </div>
         
         <p className="mt-6 text-sm text-gray-500 text-center">
-          *Please note: Because your book is printed specially for you upon ordering,
+          *Please note: Because your book is printed on demand and just for you,
           production times can vary before shipping begins.
         </p>
       </div>
