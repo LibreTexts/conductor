@@ -778,6 +778,14 @@ class StoreService {
                 storeOrder.status = 'completed';
             }
 
+            if (data.status?.name === 'REJECTED') {
+                if (process.env.BOOKSTORE_CONTACT_EMAIL) {
+                    await mailAPI.sendStoreOrderRejectedInternalNotification(process.env.BOOKSTORE_CONTACT_EMAIL, storeOrder.id, data.status.message || '').catch((err) => {
+                        debug("Failed to send store order rejected internal notification email:", err);
+                    });
+                }
+            }
+
             storeOrder.luluJobID = data.id.toString(); // Update the Lulu job ID (e.g. on resubmits)
             storeOrder.luluJobStatus = data.status?.name || "unknown";
             storeOrder.luluJobStatusMessage = data.status?.message || "";
@@ -1482,6 +1490,12 @@ class StoreService {
      * @param error - The error message to set on the store order.
      */
     private async _failStoreOrder(storeOrder: RawStoreOrder, error: string) {
+        if (process.env.BOOKSTORE_CONTACT_EMAIL) {
+            await mailAPI.sendStoreOrderFailedInternalNotification(process.env.BOOKSTORE_CONTACT_EMAIL, storeOrder.id, error).catch((err) => {
+                debug("Failed to send internal notification email for failed store order:", err);
+            });
+        }
+
         return await StoreOrder.updateOne({
             id: storeOrder.id,
         }, {

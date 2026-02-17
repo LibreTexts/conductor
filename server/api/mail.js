@@ -971,6 +971,44 @@ const sendStoreOrderShippedUpdate = (recipientAddress, orderID, trackingURLs) =>
     });
 }
 
+const sendStoreOrderRejectedInternalNotification = (recipientAddresses, orderID, reason) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: DEFAULT_MAIL_FROM,
+        to: recipientAddresses,
+        subject: `[Action Required] LibreTexts Store Order Rejected: ${orderID.slice(-6)}`,
+        html: `
+            <p>A store order has been rejected for the following reason: ${reason}.</p>
+            <br />
+            <p>Please review it in the <a href="https://commons.libretexts.org/controlpanel/store/orders/${orderID}" target="_blank" rel="noopener noreferrer">Control Panel</a> for more details and resubmission.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            <br />
+            <p>Order ID: ${orderID}</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+}
+
+const sendStoreOrderFailedInternalNotification = (recipientAddresses, orderID, error) => {
+    const stringifiedError = typeof error === 'string' ? error : JSON.stringify(error);
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: DEFAULT_MAIL_FROM,
+        to: recipientAddresses,
+        subject: `[Action Required] LibreTexts Store Order Failed: ${orderID.slice(-6)}`,
+        html: `
+            <p>A store order has failed with the following error: ${stringifiedError.substring(0, 100)}.</p>
+            <p>An error of this nature typically indicates an issue outside of the book itself and may require assistance from Engineering to resolve.</p>
+            <br />
+            <p>Please review it in the <a href="https://commons.libretexts.org/controlpanel/store/orders/${orderID}" target="_blank" rel="noopener noreferrer">Control Panel</a> for more details.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            <br />
+            <p>Order ID: ${orderID}</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+}
+
 const sendZIPFileReadyNotification = (url, recipientAddress) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
@@ -1120,6 +1158,8 @@ export default {
     sendStoreOrderConfirmation,
     sendStoreOrderInProductionUpdate,
     sendStoreOrderShippedUpdate,
+    sendStoreOrderRejectedInternalNotification,
+    sendStoreOrderFailedInternalNotification,
     sendZIPFileReadyNotification,
     sendProjectInvitation,
     sendSupportTicketCCedNotification
