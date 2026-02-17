@@ -1033,7 +1033,13 @@ router
 router.route("/commons/syncwithsearch").post(
   middleware.checkLibreAPIKey,
   booksAPI.syncWithSearchIndex,
-) 
+)
+
+router.route("/projects/syncwithsearch").post(
+  middleware.checkLibreAPIKey,
+  projectsAPI.syncWithSearchIndex,
+)
+
 /* Commons Books/Catalogs */
 router
   .route("/commons/catalog")
@@ -1296,6 +1302,13 @@ router
     authAPI.optionalVerifyRequest,
     middleware.validateZod(SearchValidators.projectSearchSchema),
     searchAPI.projectsSearch
+  );
+router
+  .route("/search/projects-v2")
+  .get(
+    authAPI.optionalVerifyRequest,
+    middleware.validateZod(SearchValidators.projectSearchV2Schema),
+    searchAPI.projectSearchV2
   );
 router
   .route("/search/users")

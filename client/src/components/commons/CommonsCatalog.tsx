@@ -611,7 +611,7 @@ const CommonsCatalog = () => {
   ) {
     try {
       setProjectsLoading(true);
-      const res = await api.projectsSearch({
+      const res = await api.projectsSearchV2({
         searchQuery: query,
         page,
         limit: ITEMS_PER_PAGE,

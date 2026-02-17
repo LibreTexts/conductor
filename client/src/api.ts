@@ -1296,6 +1296,17 @@ class API {
     return res;
   }
 
+  async projectsSearchV2(params: ProjectSearchParams) {
+    const res = await axios.get<
+      ConductorSearchResponse<"projects"> & ConductorBaseResponse
+    >("/search/projects-v2", {
+      params: {
+        ...params,
+      },
+    });
+    return res;
+  }
+
   async usersSearch(params: UserSearchParams) {
     const res = await axios.get<
       ConductorSearchResponse<"users"> & ConductorBaseResponse

@@ -90,6 +90,18 @@ export const projectSearchSchema = z.object({
   }),
 });
 
+export const projectSearchV2Schema = z.object({
+  query: z.object({
+    searchQuery: z.string().optional(),
+    status: z.string().optional(),
+    classification: z.string().optional(),
+    visibility: z.string().optional(),
+    orgID: z.string().optional(),
+    limit: z.coerce.number().min(1).default(25),
+    page: z.coerce.number().min(1).default(1),
+  }),
+});
+
 export const authorsSearchSchema = z.object({
   query: z.object({
     primaryInstitution: z.string().optional(),
