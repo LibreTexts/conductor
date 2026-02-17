@@ -194,7 +194,7 @@ const Conductor = () => {
           <Route component={PageNotFound} />
           </Switch>
         </Suspense>
-        <ChatBot />
+        {/* <ChatBot /> */}
       </div>
       <Footer />
       </CartProvider>
