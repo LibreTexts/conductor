@@ -99,9 +99,6 @@ const CampusSettingsForm = forwardRef(
     // UI
     const [loadedData, setLoadedData] = useState(false);
     const [savedData, setSavedData] = useState(false);
-    const [matchingTags, setMatchingTags] = useState<
-      { key: string; value: string }[]
-    >([]);
     const [showCustomOrgListModal, setShowCustomOrgListModal] = useState(false);
     const watchedPrimaryColor = watch("primaryColor");
     const watchedFooterColor = watch("footerColor");
@@ -131,14 +128,6 @@ const CampusSettingsForm = forwardRef(
       if (props.onUpdateSavedData) props.onUpdateSavedData(savedData);
     }, [loadedData, savedData]);
 
-    useEffect(() => {
-      setFormValue(
-        "catalogMatchingTags",
-        matchingTags.map((item) => item.value),
-        { shouldDirty: true }
-      );
-    }, [matchingTags]);
-
     const getOrganization = useCallback(async () => {
       try {
         setLoadedData(false);
@@ -150,12 +139,6 @@ const CampusSettingsForm = forwardRef(
           commonsModules: res.data.commonsModules ?? DEFAULT_COMMONS_MODULES,
         });
         setAliases(res.data.aliases ?? []);
-        setMatchingTags(
-          res.data.catalogMatchingTags?.map((item: string) => ({
-            key: crypto.randomUUID(),
-            value: item,
-          })) ?? []
-        );
         setLoadedData(true);
       } catch (err) {
         handleGlobalError(err);
@@ -319,27 +302,6 @@ const CampusSettingsForm = forwardRef(
         handleGlobalError(e);
       }
       uploadingStateUpdater(false);
-    }
-
-    function handleCatalogMatchTagAdd() {
-      setMatchingTags((prev) => [
-        ...prev,
-        { key: crypto.randomUUID(), value: "" },
-      ]);
-    }
-    function handleCatalogMatchTagEdit(e: React.ChangeEvent<HTMLInputElement>) {
-      const rowID = e.target.id.split(".")[1];
-      setMatchingTags((prev) =>
-        prev.map((item) => {
-          if (rowID === item.key) {
-            return { ...item, value: e.target.value };
-          }
-          return item;
-        })
-      );
-    }
-    function handleCatalogMatchTagDelete(key: string) {
-      setMatchingTags((prev) => prev.filter((item) => item.key !== key));
     }
 
     function handleToggleAssetFilterExclusion(filter: string) {
