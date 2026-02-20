@@ -6,7 +6,7 @@ const INDEX_NOT_FOUND_ERROR =
   "Index was not found. Are you using the correct index name?";
 
 export const INDEX_FILTERABLE_ATTRIBUTES = {
-  books: ["bookID", "library", "license", "author", "course", "affiliation"],
+  books: ["bookID", "library", "license", "author", "course", "affiliation", "location", "license"],
   projects: ["status", "classification", "visibility", "orgID"],
 };
 

@@ -2403,14 +2403,6 @@ async function bookSearchV2(
   req: z.infer<typeof bookSearchSchema>,
   res: Response){
   try {
-    if (!req.query.searchQuery) {
-      return res.send({
-        err: false,
-        numResults: 0,
-        results: [],
-      });
-    }
-
     const searchService = await getSearchService();
     if (!searchService) {
       return res.status(503).send({
@@ -2431,8 +2423,8 @@ async function bookSearchV2(
     })
 
     const filterString = searchService.buildFilterString(filterMap);
-    const results = await searchService.search("books", req.query.searchQuery, {
-      limit: req.query.limit || 25,
+    const results = await searchService.search("books", req.query?.searchQuery || "", {
+      limit: req.query?.limit || 25,
       ...(filterString ? { filter: filterString } : {}),
     })
 
@@ -2452,14 +2444,6 @@ async function projectSearchV2(
   res: Response
 ) {
   try {
-    if (!req.query.searchQuery) {
-      return res.send({
-        err: false,
-        numResults: 0,
-        results: [],
-      });
-    }
-
     const searchService = await getSearchService();
     if (!searchService) {
       return res.status(503).send({
@@ -2482,9 +2466,9 @@ async function projectSearchV2(
     const filterString = searchService.buildFilterString(filterMap);
     const results = await searchService.search(
       "projects",
-      req.query.searchQuery,
+      req.query?.searchQuery || "",
       {
-        limit: req.query.limit || 25,
+        limit: req.query?.limit || 25,
         ...(filterString ? { filter: filterString } : {}),
       }
     );

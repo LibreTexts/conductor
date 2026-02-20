@@ -81,6 +81,12 @@ function booksReducer(
       return { ...state, author: action.payload };
     case "library":
       return { ...state, library: action.payload };
+    case "location":
+      return { ...state, location: action.payload };
+    case "course":
+      return { ...state, course: action.payload };
+    case "license":
+      return { ...state, license: action.payload };
     case "subject":
       return { ...state, subject: action.payload };
     case "affiliation":
