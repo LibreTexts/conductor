@@ -3255,10 +3255,44 @@ async function getTrafficAnalyticsData(req, res, func) {
 
 async function syncWithSearchIndex(req, res) {
   try {
+    // Return response immediately to avoid timeout
+    res.send({
+      err: false,
+      msg: "Projects search index sync initiated. This process will run in the background.",
+    });
+
+    // Run the actual sync in the background (don't await)
+    syncProjectsInBackground().catch((e) => {
+      debugError("Background projects sync error:", e);
+    });
+  } catch (e) {
+    debugError(e);
+    // Only send error if response hasn't been sent yet
+    if (!res.headersSent) {
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err6,
+      });
+    }
+  }
+}
+
+/**
+ * Syncs all projects to the search index in batches to avoid memory issues
+ * and timeouts with large datasets. Runs in the background.
+ * INTERNAL USE ONLY.
+ */
+async function syncProjectsInBackground() {
+  try {
     debugServer("Initiating Projects search index sync...");
     const searchService = await SearchService.create();
+    
+    const batchSize = 500; // Process 500 projects at a time
+    let skip = 0;
+    let hasMore = true;
+    let totalSynced = 0;
 
-    const projects = await Project.aggregate([
+    const aggregationPipeline = [
       {
         $lookup: {
           from: "users",
@@ -3402,22 +3436,36 @@ async function syncWithSearchIndex(req, res) {
           instructorAssets: 1,
         },
       },
-    ]);
+    ];
 
-    const syncResult = await searchService.addDocuments("projects", projects);
-    debugServer("Projects search index sync completed.");
+    while (hasMore) {
+      const projects = await Project.aggregate([
+        ...aggregationPipeline,
+        { $skip: skip },
+        { $limit: batchSize },
+      ]);
 
-    return res.send({
-      err: false,
-      msg: "Projects search index sync completed.",
-      syncResult,
-    });
+      if (projects.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      await searchService.addDocuments("projects", projects);
+      totalSynced += projects.length;
+      debugServer(`Synced batch of ${projects.length} projects (${totalSynced} total)...`);
+
+      skip += batchSize;
+
+      // If we got fewer results than batchSize, we're done
+      if (projects.length < batchSize) {
+        hasMore = false;
+      }
+    }
+
+    debugServer(`Projects search index sync completed. Total synced: ${totalSynced}`);
   } catch (e) {
-    debugError(e);
-    return res.status(500).send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
+    debugError("Error in syncProjectsInBackground:", e);
+    throw e;
   }
 }
 
