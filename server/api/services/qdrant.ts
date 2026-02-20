@@ -1,11 +1,9 @@
 // server/services/qdrant.ts
-import { QdrantClient } from '@qdrant/js-client-rest';
-import OpenAI from 'openai';
+import { QdrantClient } from "@qdrant/js-client-rest";
+import OpenAI from "openai";
 
 const qdrantUrl =
-  process.env.QDRANT_URL ||
-  process.env.QDRANT_HOST ||
-  'http://localhost:6333';
+  process.env.QDRANT_URL || process.env.QDRANT_HOST || "http://localhost:6333";
 
 const qdrantClient = new QdrantClient({
   url: qdrantUrl,
@@ -17,47 +15,42 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-console.log('Testing Qdrant connection...');
-
 async function testQdrantConnection() {
-    try {
-        console.log('Testing Qdrant connection Again...');
-      // Test connection by listing collections
-      const collections = await qdrantClient.getCollections();
-      console.log('✅ Qdrant connection OK');
-    } catch (error: any) {
-      console.error('❌ Failed to connect to Qdrant');
-      console.error('Error message:', error.message);
-      if (error.cause) console.error('Cause:', error.cause);
-    }
+  try {
+    console.log("Testing Qdrant connection Again...");
+    // Test connection by listing collections
+    const collections = await qdrantClient.getCollections();
+    console.log("✅ Qdrant connection OK");
+  } catch (error: any) {
+    console.error("❌ Failed to connect to Qdrant");
+    console.error("Error message:", error.message);
+    if (error.cause) console.error("Cause:", error.cause);
   }
-  
-  // Run connection test
-  await testQdrantConnection();
+}
 
 export class QdrantService {
-  private collectionName = 'kb_pages';
+  private collectionName = "kb_pages";
   private vectorSize = 1536; // OpenAI text-embedding-3-small dimension
 
   // Initialize Qdrant collection
   async initializeCollection() {
     try {
       // Check if collection exists
-      console.log('Checking if collection exists ...');
+      console.log("Checking if collection exists ...");
       const collections = await qdrantClient.getCollections();
-      console.log('collections', collections);
+      console.log("collections", collections);
       const collectionExists = collections.collections.some(
-        col => col.name === this.collectionName
+        (col) => col.name === this.collectionName,
       );
-      console.log('collectionExists', collectionExists);
+      console.log("collectionExists", collectionExists);
 
       if (!collectionExists) {
         console.log(`Creating Qdrant collection: ${this.collectionName}`);
-        
+
         await qdrantClient.createCollection(this.collectionName, {
           vectors: {
             size: this.vectorSize,
-            distance: 'Cosine', // Use cosine similarity
+            distance: "Cosine", // Use cosine similarity
           },
           optimizers_config: {
             default_segment_number: 2,
@@ -65,14 +58,14 @@ export class QdrantService {
           replication_factor: 1,
         });
 
-        console.log('Collection created successfully');
+        console.log("Collection created successfully");
       } else {
-        console.log('Collection already exists');
+        console.log("Collection already exists");
       }
 
       return true;
     } catch (error) {
-      console.error('Error initializing Qdrant collection:', error);
+      console.error("Error initializing Qdrant collection:", error);
       throw error;
     }
   }
@@ -82,18 +75,18 @@ export class QdrantService {
     try {
       // Clean HTML content to plain text
       const cleanText = text
-        .replace(/<[^>]*>/g, ' ')
-        .replace(/\s+/g, ' ')
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\s+/g, " ")
         .trim();
 
       const response = await openai.embeddings.create({
-        model: 'text-embedding-3-small',
+        model: "text-embedding-3-small",
         input: cleanText,
       });
 
       return response.data[0].embedding;
     } catch (error) {
-      console.error('Error generating embeddings:', error);
+      console.error("Error generating embeddings:", error);
       throw error;
     }
   }
@@ -118,7 +111,10 @@ export class QdrantService {
           createdAt: kbPage.createdAt,
           updatedAt: kbPage.updatedAt,
           // Store clean text for better search
-          cleanText: kbPage.body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
+          cleanText: kbPage.body
+            .replace(/<[^>]*>/g, " ")
+            .replace(/\s+/g, " ")
+            .trim(),
         },
       };
 
@@ -130,36 +126,42 @@ export class QdrantService {
       return { success: true, uuid: kbPage.uuid };
     } catch (error) {
       console.error(`Error upserting KB page ${kbPage.uuid}:`, error);
-      return { success: false, uuid: kbPage.uuid, error: (error as Error).message };
+      return {
+        success: false,
+        uuid: kbPage.uuid,
+        error: (error as Error).message,
+      };
     }
   }
 
   // Batch upsert multiple KB pages
   async batchUpsertKBPages(kbPages: any[], batchSize: number = 10) {
     const results: any[] = [];
-    
+
     for (let i = 0; i < kbPages.length; i += batchSize) {
       const batch = kbPages.slice(i, i + batchSize);
-      console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(kbPages.length/batchSize)}`);
+      console.log(
+        `Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(kbPages.length / batchSize)}`,
+      );
 
-      const batchPromises = batch.map(page => this.upsertKBPage(page));
+      const batchPromises = batch.map((page) => this.upsertKBPage(page));
       const batchResults = await Promise.allSettled(batchPromises);
-      
+
       batchResults.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
+        if (result.status === "fulfilled") {
           results.push(result.value);
         } else {
           results.push({
             success: false,
             uuid: batch[index].uuid,
-            error: result.reason?.message || 'Unknown error'
+            error: result.reason?.message || "Unknown error",
           });
         }
       });
 
       // Add delay to avoid rate limiting
       if (i + batchSize < kbPages.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }
 
@@ -178,14 +180,14 @@ export class QdrantService {
         filter: filter || {
           must: [
             {
-              key: 'status',
-              match: { value: 'published' }
-            }
-          ]
+              key: "status",
+              match: { value: "published" },
+            },
+          ],
         },
       });
 
-      return searchResult.map(point => ({
+      return searchResult.map((point) => ({
         uuid: point.payload?.uuid,
         title: point.payload?.title,
         description: point.payload?.description,
@@ -195,7 +197,7 @@ export class QdrantService {
         cleanText: point.payload?.cleanText,
       }));
     } catch (error) {
-      console.error('Error searching Qdrant:', error);
+      console.error("Error searching Qdrant:", error);
       throw error;
     }
   }
@@ -206,7 +208,7 @@ export class QdrantService {
       const info = await qdrantClient.getCollection(this.collectionName);
       return info;
     } catch (error) {
-      console.error('Error getting collection info:', error);
+      console.error("Error getting collection info:", error);
       throw error;
     }
   }
