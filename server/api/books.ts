@@ -2626,8 +2626,42 @@ export async function syncWithSearchIndex(
   res: Response
 ) {
   try {
+    // Return response immediately to avoid timeout
+    res.send({
+      err: false,
+      msg: "Commons Books search index sync initiated. This process will run in the background.",
+    });
+
+    // Run the actual sync in the background (don't await)
+    syncBooksInBackground().catch((e) => {
+      debugError("Background books sync error:", e);
+    });
+  } catch (e) {
+    debugError(e);
+    // Only send error if response hasn't been sent yet
+    if (!res.headersSent) {
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err6,
+      });
+    }
+  }
+}
+
+/**
+ * Syncs all books to the search index in batches to avoid memory issues
+ * and timeouts with large datasets. Runs in the background.
+ * INTERNAL USE ONLY.
+ */
+async function syncBooksInBackground() {
+  try {
     debugServer("Initiating Commons Books search index synchronization...");
     const searchService = await SearchService.create();
+    
+    const batchSize = 500; // Process 500 books at a time
+    let skip = 0;
+    let hasMore = true;
+    let totalSynced = 0;
 
     /**
      * Book data for search index should be in format:
@@ -2637,7 +2671,7 @@ export async function syncWithSearchIndex(
      *  projectTags: string[] // array of tag titles associated with the Book's Project
      * }
      */
-    const books = await Book.aggregate([
+    const aggregationPipeline = [
       {
         // Add project data to each book (if any)
         $lookup: {
@@ -2700,21 +2734,36 @@ export async function syncWithSearchIndex(
           project: 0
         }
       }
-    ])
+    ];
 
-    const syncResult = await searchService.addDocuments("books", books);
+    while (hasMore) {
+      const books = await Book.aggregate([
+        ...aggregationPipeline,
+        { $skip: skip },
+        { $limit: batchSize },
+      ]);
 
-    return res.send({
-      err: false,
-      msg: "Commons Books search index synchronization completed.",
-      details: syncResult,
-    });
-  } catch (err) {
-    debugError(err);
-    return res.status(500).send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
+      if (books.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      await searchService.addDocuments("books", books);
+      totalSynced += books.length;
+      debugServer(`Synced batch of ${books.length} books (${totalSynced} total)...`);
+
+      skip += batchSize;
+
+      // If we got fewer results than batchSize, we're done
+      if (books.length < batchSize) {
+        hasMore = false;
+      }
+    }
+
+    debugServer(`Commons Books search index sync completed. Total synced: ${totalSynced}`);
+  } catch (e) {
+    debugError("Error in syncBooksInBackground:", e);
+    throw e;
   }
 }
 
