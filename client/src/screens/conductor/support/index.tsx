@@ -22,7 +22,7 @@ const SupportCenter = () => {
     const july = new Date(now.getFullYear(), 6, 1);
     const stdOffset = Math.max(
       january.getTimezoneOffset(),
-      july.getTimezoneOffset()
+      july.getTimezoneOffset(),
     );
     const isDST = now.getTimezoneOffset() < stdOffset;
 
@@ -61,7 +61,9 @@ const SupportCenter = () => {
           if (!disabled) openLink(link);
         }}
         className={`flex flex-col h-80 w-96 p-4 mx-auto my-4 lg:m-4 border rounded-xl shadow-md items-center cursor-pointer ${
-          disabled ? "opacity-70 !cursor-not-allowed" : "opacity-100 hover:shadow-xl"
+          disabled
+            ? "opacity-70 !cursor-not-allowed"
+            : "opacity-100 hover:shadow-xl"
         }`}
         aria-disabled={disabled}
       >
@@ -87,6 +89,12 @@ const SupportCenter = () => {
           text="Contact the LibreTexts Support Team for help"
           icon="text telephone"
           link="/support/contact"
+        />
+        <HomeItem
+          title="Connections"
+          text="Connect and converse with fellow instructors and OER authors (Verified Instructors only)."
+          icon="comments"
+          link="/support/connections"
         />
         <HomeItem
           title="Insight"
