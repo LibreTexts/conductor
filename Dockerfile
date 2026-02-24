@@ -5,18 +5,6 @@ WORKDIR /usr/src/conductor
 
 COPY . .
 
-# Install system dependencies (primarily for canvas)
-RUN apk add --update --no-cache \
-  make \
-  g++ \
-  jpeg-dev \
-  cairo-dev \
-  giflib-dev \
-  pango-dev \
-  libtool \
-  autoconf \
-  automake
-
 # Install client dependencies and build frontend
 WORKDIR /usr/src/conductor/client
 RUN npm ci && npm run build
