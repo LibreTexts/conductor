@@ -760,7 +760,7 @@ async function getApplicationsPriveledged(
 ) {
   try {
     let page = 1;
-    let limit = 25;
+    let limit = 100;
     if (
       req.query.activePage &&
       Number.isInteger(parseInt(req.query.activePage.toString()))
