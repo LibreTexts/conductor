@@ -2825,6 +2825,11 @@ router
   .route("/support/run-autoclose")
   .post(middleware.checkEventBridgeAPIKey, supportAPI.autoCloseTickets);
 
+router.route("/support/sync-with-search-index").post(
+  middleware.checkLibreAPIKey,
+  supportAPI.syncWithSearchIndex
+)
+
 router.route("/cloudflare/stream-url").post(
   // authAPI.verifyRequest,
   // authAPI.getUserAttributes,

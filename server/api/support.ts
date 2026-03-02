@@ -284,7 +284,6 @@ async function getOpenInProgressTickets(
     let limit = 25;
     if (req.query.page) page = req.query.page;
     if (req.query.limit) limit = parseInt(req.query.limit.toString());
-    const offset = getPaginationOffset(page, limit);
 
     const { query, assignee, category, priority, status } = req.query;
     const defaultStatuses: SupportTicketStatusEnum[] = ["open", "assigned", "in_progress", "awaiting_requester"];
@@ -316,7 +315,7 @@ async function getOpenInProgressTickets(
     }
 
     const ticketService = new SupportTicketService();
-    const tickets = await ticketService.searchTickets({
+    const { tickets, total } = await ticketService.searchTickets({
       queue_id: foundQueue.id,
       statuses: searchStatuses,
       query,
@@ -324,14 +323,14 @@ async function getOpenInProgressTickets(
       priority,
       category,
       sort: req.query.sort,
+      page: page,
+      limit: limit,
     });
-
-    const paginated = tickets.slice(offset, offset + limit);
 
     return res.send({
       err: false,
-      tickets: paginated,
-      total: tickets.length || 0,
+      tickets,
+      total,
     });
   } catch (err) {
     debugError(err);
@@ -348,7 +347,6 @@ async function getClosedTickets(
     let limit = 25;
     if (req.query.page) page = req.query.page;
     if (req.query.limit) limit = parseInt(req.query.limit.toString());
-    const offset = getPaginationOffset(page, limit);
     const { query, assignee, category, priority } = req.query;
 
     const isHarvester = authAPI.checkHasRole(
@@ -369,22 +367,22 @@ async function getClosedTickets(
     }
 
     const ticketService = new SupportTicketService();
-    const tickets = await ticketService.searchTickets({
+    const { tickets, total } = await ticketService.searchTickets({
       statuses: ["closed"],
       query,
       assignee,
       priority,
       category,
       sort: req.query.sort,
-      ...(isHarvester && { queue_id: harvestingQueue.id }) // harvesters can only see closed tickets in harvesting queue
+      ...(isHarvester && { queue_id: harvestingQueue.id }), // harvesters can only see closed tickets in harvesting queue
+      page,
+      limit,
     });
-
-    const paginated = tickets.slice(offset, offset + limit);
 
     return res.send({
       err: false,
-      tickets: paginated,
-      total: tickets.length || 0,
+      tickets,
+      total,
     });
   } catch (err) {
     debugError(err);
@@ -1611,6 +1609,28 @@ async function autoCloseTickets(req: Request, res: Response) {
   }
 }
 
+async function syncWithSearchIndex(req: Request, res: Response) {
+  try {
+    // Return response immediately and do the sync in the background since this can be a long-running process
+    res.send({
+      err: false,
+      msg: "Support ticket search index sync initiated. This process will run in the background.",
+    });
+
+    const ticketService = new SupportTicketService();
+    ticketService.syncWithSearchIndex().catch((err) => {
+      debugError(`Background ticket sync error: ${err}`);
+    });
+
+  } catch (err) {
+    debugError(err);
+    if (!res.headersSent) {
+      // Don't send an error response if the initial response has already been sent.
+      return conductor500Err(res);
+    }
+  }
+}
+
 async function _sendAutoCloseWarning(
   ticket: SupportTicketInterface & {
     messages: SupportTicketMessageInterface[];
@@ -1810,6 +1830,7 @@ export default {
   createAndAttachProjectFromHarvestingRequest,
   findTicketsToInitAutoClose,
   autoCloseTickets,
+  syncWithSearchIndex,
   ticketAttachmentUploadHandler,
   addTicketCC,
   removeTicketCC,

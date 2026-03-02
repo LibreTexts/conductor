@@ -2,12 +2,14 @@ import { z } from "zod";
 import SupportTicket, { SupportTicketFeedEntryInterface, SupportTicketInterface, SupportTicketStatusEnum } from "../../models/supporticket";
 import User, { SanitizedUserSelectProjection, UserInterface } from "../../models/user";
 import { AssignSupportTicketParams, ChangeTicketStatusParams, SearchTicketsParams } from "../../types/SupportTicket";
-import { capitalizeFirstLetter } from "../../util/helpers";
+import { capitalizeFirstLetter, getPaginationOffset } from "../../util/helpers";
 import mailAPI from "../mail";
 import authAPI from "../auth";
 import { BulkUpdateTicketsValidator } from "../validators/support";
 import SupportQueueService from "./support-queue-service";
 import SupportTicketMessage, { SupportTicketMessageInterface } from "../../models/supporticketmessage";
+import { debugError, debugServer } from "../../debug";
+import SearchService from "./search-service";
 
 export default class SupportTicketService {
     async getTicket(uuid: string): Promise<SupportTicketInterface | null> {
@@ -219,235 +221,84 @@ export default class SupportTicketService {
         category,
         sort,
         returnAccessKeys = false,
-    }: SearchTicketsParams): Promise<SupportTicketInterface[]> {
+        limit,
+        page
+    }: SearchTicketsParams): Promise<{ tickets: SupportTicketInterface[]; total: number }> {
         try {
-            // Normalize possibly user-controlled parameters: convert string to array, allow only strings/arrays
-            function normalizeToStringArray(val: unknown): string[] | undefined {
-                if (typeof val === "string") {
-                    return [val];
-                } else if (Array.isArray(val) && val.every(v => typeof v === "string")) {
-                    return val;
-                }
-                return undefined;
-            }
+            const searchService = await SearchService.create();
 
-            const normAssignee = normalizeToStringArray(assignee);
-            const normPriority = normalizeToStringArray(priority);
-            const normCategory = normalizeToStringArray(category);
+            const isExactUUIDQuery = z.uuid().safeParse(query).success;
 
-            const tickets: SupportTicketInterface[] = [];
-            const getSortObj = () => {
-                if (sort === "status") {
-                    return { status: -1 };
-                }
-                if (sort === "category") {
-                    return { category: 1 };
-                }
-                return { timeOpened: -1 };
-            };
-
-            const sortObj = getSortObj();
-
-            const lookupUserDataStages = (localField: "assignedUUIDs" | "userUUID") => {
-                return [
-                    {
-                        $lookup: {
-                            from: "users",
-                            localField: localField,
-                            foreignField: "uuid",
-                            as: localField === "assignedUUIDs" ? "assignedUsers" : "user",
-                            pipeline: [
-                                {
-                                    $project: {
-                                        ...SanitizedUserSelectProjection,
-                                    },
-                                },
-                            ],
-                        },
-                    },
-                    ...(localField === "userUUID"
-                        ? [
-                            {
-                                $set: {
-                                    user: {
-                                        $arrayElemAt: ["$user", 0],
-                                    },
-                                },
-                            },
-                        ]
-                        : []),
-                ];
-            };
-
-            if (!query) {
-                const foundTickets = await SupportTicket.aggregate([
-                    {
-                        $match: {
-                            status: { $in: statuses },
-                            ...(queue_id ? { queue_id: { $eq: queue_id } } : {}),
-                        },
-                    },
-                    ...lookupUserDataStages("assignedUUIDs"),
-                    ...lookupUserDataStages("userUUID"),
-                    { $sort: sortObj } as any,
-                ]);
-                tickets.push(...foundTickets);
-            } else if (z.string().uuid().safeParse(query).success) {
-                const foundTicket = await SupportTicket.aggregate([
-                    {
-                        $match: {
-                            uuid: query,
-                            status: { $in: statuses },
-                            ...(queue_id ? { queue_id: { $eq: queue_id } } : {}),
-                        },
-                    },
-                    ...lookupUserDataStages("assignedUUIDs"),
-                    ...lookupUserDataStages("userUUID"),
-                ]);
-
-                tickets.push(...foundTicket);
-            } else {
-                const fromTicketQuery = await SupportTicket.aggregate([
-                    {
-                        $search: {
-                            compound: {
-                                should: [
-                                    {
-                                        text: {
-                                            query,
-                                            path: [
-                                                "title",
-                                                "description",
-                                                "guest.email",
-                                                "guest.firstName",
-                                                "guest.lastName",
-                                            ],
-                                            fuzzy: {
-                                                maxEdits: 2,
-                                            },
-                                        }
-                                    }, {
-                                        autocomplete: {
-                                            query,
-                                            path: "uuid"
-                                        }
-                                    },
-                                    {
-                                        text: {
-                                            query,
-                                            path: "uuidShort"
-                                        }
-                                    }
-                                ],
-                                minimumShouldMatch: 1,
-                            }
-                        },
-                    },
-                    {
-                        $addFields: {
-                            score: { $meta: "searchScore" },
-                        },
-                    },
-                    {
-                        $match: {
-                            status: { $in: statuses },
-                            ...(queue_id ? { queue_id: { $eq: queue_id } } : {}),
-                        }
-                    },
-                    ...lookupUserDataStages("assignedUUIDs"),
-                    ...lookupUserDataStages("userUUID"),
-                    { $sort: sortObj } as any,
-                ]);
-
-                const fromUserQuery = User.aggregate([
-                    {
-                        $search: {
-                            text: {
-                                query,
-                                path: ["firstName", "lastName", "email"],
-                                fuzzy: {
-                                    maxEdits: 1,
-                                },
-                            },
-                        },
-                    },
-                    {
-                        $addFields: {
-                            score: { $meta: "searchScore" },
-                        },
-                    },
-                    {
-                        $lookup: {
-                            from: "supporttickets",
-                            localField: "uuid",
-                            foreignField: "userUUID",
-                            as: "tickets",
-                        },
-                    },
-                    {
-                        $unwind: "$tickets",
-                    },
-                    {
-                        $replaceRoot: { newRoot: "$tickets" },
-                    },
-                    {
-                        $match: {
-                            status: { $in: statuses },
-                            ...(queue_id ? { queue_id: { $eq: queue_id } } : {}),
-
-                        }
-                    },
-                    ...lookupUserDataStages("assignedUUIDs"),
-                    ...lookupUserDataStages("userUUID"),
-                ]);
-
-                const queryResults = await Promise.all([
-                    fromTicketQuery,
-                    fromUserQuery,
-                ]);
-
-                const allResults = [...queryResults[0], ...queryResults[1]];
-                tickets.push(...allResults);
-            }
-
-            // We could do this in the individual queries, but requires duplicating code and complicating queries
-            // so we do it here in memory. Less performant, but more maintainable.
-            const filteredAllResults = tickets.filter((t) => {
-                if (normAssignee && normAssignee.length > 0 && !t.assignedUUIDs?.some((a: string) => normAssignee.includes(a))) return false;
-                if (normCategory && normCategory.length > 0 && (!t.category || !normCategory.includes(t.category))) return false;
-                if (normPriority && normPriority.length > 0 && (!t.priority || !normPriority.includes(t.priority))) return false;
-                return true;
+            const results = await searchService.search("supportTickets", query || "", {
+                ...(isExactUUIDQuery ? { uuid: [query as string] } : {}),
+                ...(statuses ? { status: statuses } : {}),
+                ...(queue_id ? { queue_id: [queue_id] } : {}),
+                ...(assignee ? { "assignedUUIDs": assignee } : {}),
+                ...(priority ? { priority: priority } : {}),
+                ...(category ? { category: category } : {}),
+            }, [{
+                field: sort || "timeOpened",
+                order: sort === "category" ? "asc" : "desc",
+            }], {
+                limit: limit || 25,
+                offset: getPaginationOffset(page || 1, limit || 25),
             });
 
-            const uniqueTickets = filteredAllResults.filter((t, index, self) => {
-                // Return only unique results
-                return (
-                    index ===
-                    self.findIndex((t2) => {
-                        return t.uuid === t2.uuid;
-                    })
-                );
-            });
-
-            // We have to sort the tickets in memory because we can only alphabetically sort by priority in query
-            if (sort === "priority") {
-                uniqueTickets.sort((a, b) => {
-                    if (a.priority === "high" && b.priority !== "high") return -1;
-                    if (a.priority !== "high" && b.priority === "high") return 1;
-                    if (a.priority === "medium" && b.priority === "low") return -1;
-                    if (a.priority === "low" && b.priority === "medium") return 1;
-                    return 0;
-                });
-            }
+            const tickets = results.hits as SupportTicketInterface[];
 
             if (!returnAccessKeys) {
-                uniqueTickets.forEach(t => {
+                tickets.forEach(t => {
                     return this._removeAccessKeysFromResponse(t);
                 });
             }
 
-            return uniqueTickets;
+            return { tickets, total: results.totalHits || tickets.length };
         } catch (err) {
+            throw err;
+        }
+    }
+
+    async syncWithSearchIndex() {
+        try {
+            debugServer(`[SupportTicketService] Starting sync with search index...`);
+            const searchService = await SearchService.create();
+
+            const batchSize = 100;
+            let skip = 0;
+            let hasMore = true;
+            let totalSynced = 0;
+
+            const aggregationPipeline = [
+                ...this.lookupUserDataStages("assignedUUIDs"),
+                ...this.lookupUserDataStages("userUUID"),
+            ];
+
+            while (hasMore) {
+                const batch = await SupportTicket.aggregate([
+                    ...aggregationPipeline,
+                    { $skip: skip },
+                    { $limit: batchSize },
+                ]);
+
+                if (batch.length === 0) {
+                    hasMore = false;
+                    break;
+                }
+
+                await searchService.addDocuments("supportTickets", batch);
+                totalSynced += batch.length;
+                debugServer(`[SupportTicketService] Synced batch of ${batch.length} tickets. Total synced so far: ${totalSynced}`);
+                skip += batchSize;
+
+                // If we received less than the batch size, we know we've reached the end
+                if (batch.length < batchSize) {
+                    hasMore = false;
+                }
+            }
+
+            debugServer(`[SupportTicketService] Completed sync with search index. Total synced: ${totalSynced}`);
+        } catch (err) {
+            debugError(`[SupportTicketService] Error syncing with search index: ${err}`);
             throw err;
         }
     }
@@ -559,5 +410,36 @@ export default class SupportTicketService {
                 : "Unknown";
         const authorString = `${ticketAuthor} (${requesterEmail || "Unknown Email"})`;
         return authorString;
+    };
+
+    private lookupUserDataStages = (localField: "assignedUUIDs" | "userUUID") => {
+        return [
+            {
+                $lookup: {
+                    from: "users",
+                    localField: localField,
+                    foreignField: "uuid",
+                    as: localField === "assignedUUIDs" ? "assignedUsers" : "user",
+                    pipeline: [
+                        {
+                            $project: {
+                                ...SanitizedUserSelectProjection,
+                            },
+                        },
+                    ],
+                },
+            },
+            ...(localField === "userUUID"
+                ? [
+                    {
+                        $set: {
+                            user: {
+                                $arrayElemAt: ["$user", 0],
+                            },
+                        },
+                    },
+                ]
+                : []),
+        ];
     };
 }

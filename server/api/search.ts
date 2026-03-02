@@ -2401,7 +2401,7 @@ async function getProjectFilterOptions(req: Request, res: Response) {
 
 async function bookSearchV2(
   req: z.infer<typeof bookSearchSchema>,
-  res: Response){
+  res: Response) {
   try {
     const searchService = await getSearchService();
     if (!searchService) {
@@ -2422,11 +2422,9 @@ async function bookSearchV2(
       affiliation: req.query.affiliation,
     })
 
-    const filterString = searchService.buildFilterString(filterMap);
-    const results = await searchService.search("books", req.query?.searchQuery || "", {
+    const results = await searchService.search("books", req.query?.searchQuery || "", filterMap, undefined, {
       limit: req.query?.limit || 25,
-      ...(filterString ? { filter: filterString } : {}),
-    })
+    });
 
     return res.send({
       err: false,
@@ -2463,13 +2461,13 @@ async function projectSearchV2(
       orgID: resolvedOrgID,
     });
 
-    const filterString = searchService.buildFilterString(filterMap);
     const results = await searchService.search(
       "projects",
       req.query?.searchQuery || "",
+      filterMap,
+      undefined,
       {
         limit: req.query?.limit || 25,
-        ...(filterString ? { filter: filterString } : {}),
       }
     );
 
