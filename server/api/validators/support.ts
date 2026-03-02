@@ -102,7 +102,7 @@ export const GetOpenTicketsValidator = z.object({
     query: z.string().min(3).or(z.literal("")).optional(),
     page: z.coerce.number().min(1).optional(),
     limit: z.coerce.number().min(1).optional(),
-    sort: z.enum(["opened", "priority", "status", "category"]).optional(),
+    sort: z.enum(["timeOpened", "priority", "status", "category"]).optional(),
     assignee: z.array(z.string().uuid()).optional(),
     category: z.array(z.string()).optional(),
     priority: z.array(z.enum(_TicketPriorityLevels)).optional(),

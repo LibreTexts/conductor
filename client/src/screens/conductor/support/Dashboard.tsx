@@ -49,7 +49,7 @@ const SupportDashboard = () => {
     query: query,
     page: activePage,
     items: itemsPerPage,
-    sort: "opened",
+    sort: "timeOpened",
     assigneeFilters,
     priorityFilters,
     categoryFilters,

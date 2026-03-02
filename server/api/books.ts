@@ -2634,7 +2634,7 @@ export async function syncWithSearchIndex(
 
     // Run the actual sync in the background (don't await)
     syncBooksInBackground().catch((e) => {
-      debugError("Background books sync error:", e);
+      debugError(`Error in background sync: ${e}`);
     });
   } catch (e) {
     debugError(e);

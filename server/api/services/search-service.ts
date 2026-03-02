@@ -1,13 +1,21 @@
 import { Index, MeiliSearch } from "meilisearch";
 import { debugServer } from "../../debug";
+import { FilterInput, FilterValue } from "../../types";
 
-export const INDEXES = ["books", "projects"] as const;
+export const INDEXES = ["books", "projects", "supportTickets"] as const;
 const INDEX_NOT_FOUND_ERROR =
   "Index was not found. Are you using the correct index name?";
 
 export const INDEX_FILTERABLE_ATTRIBUTES = {
   books: ["bookID", "library", "license", "author", "course", "affiliation", "location", "license"],
   projects: ["status", "classification", "visibility", "orgID"],
+  supportTickets: ["queue_id", "status", "priority", "category", "assignedUUIDs"],
+};
+
+export const INDEX_SORTABLE_ATTRIBUTES = {
+  books: ["bookID", "library", "author", "course", "affiliation", "location"],
+  projects: ["status", "classification", "visibility", "orgID"],
+  supportTickets: ["status", "category", "timeOpened"],
 };
 
 export default class SearchService {
@@ -17,7 +25,7 @@ export default class SearchService {
   });
   private indexes = new Map<string, Index>();
 
-  private constructor() {}
+  private constructor() { }
 
   static async create(): Promise<SearchService> {
     const instance = new SearchService();
@@ -45,10 +53,17 @@ export default class SearchService {
       const foundIndex = indexes.results.find((idx) => idx.uid === indexName);
       if (foundIndex) {
         // Ensure filterable attributes are updated
-        const attrs = INDEX_FILTERABLE_ATTRIBUTES[indexName];
-        if (attrs) {
-          await foundIndex.updateFilterableAttributes(attrs);
+        const filterAttrs = INDEX_FILTERABLE_ATTRIBUTES[indexName];
+        if (filterAttrs) {
+          await foundIndex.updateFilterableAttributes(filterAttrs);
         }
+
+        // Ensure sortable attributes are updated
+        const sortAttrs = INDEX_SORTABLE_ATTRIBUTES[indexName];
+        if (sortAttrs) {
+          await foundIndex.updateSortableAttributes(sortAttrs);
+        }
+
         return foundIndex;
       }
 
@@ -58,6 +73,9 @@ export default class SearchService {
         await index.updateFilterableAttributes(
           INDEX_FILTERABLE_ATTRIBUTES.books
         );
+        await index.updateSortableAttributes(
+          INDEX_SORTABLE_ATTRIBUTES.books
+        );
         return index;
       }
       if (indexName === "projects") {
@@ -65,6 +83,20 @@ export default class SearchService {
         const index = this.client.index(indexName);
         await index.updateFilterableAttributes(
           INDEX_FILTERABLE_ATTRIBUTES.projects
+        );
+        await index.updateSortableAttributes(
+          INDEX_SORTABLE_ATTRIBUTES.projects
+        );
+        return index;
+      }
+      if (indexName === "supportTickets") {
+        await this.client.createIndex(indexName, { primaryKey: "uuid" });
+        const index = this.client.index(indexName);
+        await index.updateFilterableAttributes(
+          INDEX_FILTERABLE_ATTRIBUTES.supportTickets
+        );
+        await index.updateSortableAttributes(
+          INDEX_SORTABLE_ATTRIBUTES.supportTickets
         );
         return index;
       }
@@ -95,6 +127,8 @@ export default class SearchService {
   async search(
     indexName: (typeof INDEXES)[number],
     query: string,
+    filters?: FilterInput,
+    sort?: { field: string; order: "asc" | "desc" }[],
     options = {}
   ) {
     try {
@@ -102,7 +136,16 @@ export default class SearchService {
       if (!index) {
         throw new Error(INDEX_NOT_FOUND_ERROR);
       }
-      return index.search(query, options);
+
+      const searchOptions: any = { ...options };
+      if (filters) {
+        searchOptions.filter = this.buildFilterString(filters);
+      }
+      if (sort) {
+        searchOptions.sort = sort.map(({ field, order }) => `${field}:${order}`);
+      }
+
+      return index.search(query, searchOptions);
     } catch (error: any) {
       debugServer(
         `[SearchService] Error searching index ${indexName}: ${error}`
@@ -111,17 +154,160 @@ export default class SearchService {
     }
   }
 
-  buildFilterString(fieldMap: Record<string, string[]>): string {
+  /**
+   * Builds a Meilisearch filter string from various input formats.
+   * Supports:
+   * - Simple object: { field: value } or { field: [val1, val2] }
+   * - Operator-based: { field: { $eq: value, $ne: value, $gt: value, $gte: value, $lt: value, $lte: value, $in: [...], $exists: true, $null: true } }
+   * - Complex logic: { $and: [...], $or: [...], $not: {...} }
+   * - Raw filter strings
+   */
+  buildFilterString(input: FilterInput): string {
+    if (!input) return "";
+
+    // If it's already a string, return it directly
+    if (typeof input === "string") {
+      return input;
+    }
+
+    // If it's an array, treat as implicit AND
+    if (Array.isArray(input)) {
+      const parts = input.map(item => this.buildFilterString(item)).filter(Boolean);
+      return parts.length > 1 ? `(${parts.join(" AND ")})` : parts[0] || "";
+    }
+
+    // Handle logical operators
+    if ("$and" in input) {
+      const parts = input.$and!.map(item => this.buildFilterString(item)).filter(Boolean);
+      return parts.length > 1 ? `(${parts.join(" AND ")})` : parts[0] || "";
+    }
+
+    if ("$or" in input) {
+      const parts = input.$or!.map(item => this.buildFilterString(item)).filter(Boolean);
+      return parts.length > 1 ? `(${parts.join(" OR ")})` : parts[0] || "";
+    }
+
+    if ("$not" in input) {
+      const inner = this.buildFilterString(input.$not!);
+      return inner ? `NOT (${inner})` : "";
+    }
+
+    // Handle field-based filters
     const filterParts: string[] = [];
-    for (const [field, values] of Object.entries(fieldMap)) {
-      if (values.length === 1) {
-        filterParts.push(`${field} = "${this.escapeFilterValue(values[0])}"`);
-      } else if (values.length > 1) {
-        const orParts = values.map((value) => `${field} = "${this.escapeFilterValue(value)}"`);
-        filterParts.push(`(${orParts.join(" OR ")})`);
+
+    for (const [field, value] of Object.entries(input)) {
+      // Skip logical operators already handled
+      if (field.startsWith("$")) continue;
+
+      const filterPart = this.buildFieldFilter(field, value);
+      if (filterPart) {
+        filterParts.push(filterPart);
       }
     }
-    return filterParts.join(" AND ");
+
+    return filterParts.length > 1 ? filterParts.join(" AND ") : filterParts[0] || "";
+  }
+
+  private buildFieldFilter(field: string, value: FilterValue | FilterInput[] | FilterInput | undefined): string {
+    // Handle null/undefined
+    if (value === null || value === undefined) {
+      return `${field} IS NULL`;
+    }
+
+    // Handle nested FilterInput (objects with logical operators like $and, $or, $not)
+    if (typeof value === "object" && !Array.isArray(value) && ("$and" in value || "$or" in value || "$not" in value)) {
+      // This is a nested filter object, recursively build it
+      const nested = this.buildFilterString(value as FilterInput);
+      return nested;
+    }
+
+    // Handle operator objects
+    if (typeof value === "object" && !Array.isArray(value)) {
+      const operatorParts: string[] = [];
+
+      for (const [op, opValue] of Object.entries(value)) {
+        switch (op) {
+          case "$eq":
+            operatorParts.push(this.buildComparison(field, "=", opValue));
+            break;
+          case "$ne":
+            operatorParts.push(`NOT ${this.buildComparison(field, "=", opValue)}`);
+            break;
+          case "$gt":
+            operatorParts.push(this.buildComparison(field, ">", opValue));
+            break;
+          case "$gte":
+            operatorParts.push(this.buildComparison(field, ">=", opValue));
+            break;
+          case "$lt":
+            operatorParts.push(this.buildComparison(field, "<", opValue));
+            break;
+          case "$lte":
+            operatorParts.push(this.buildComparison(field, "<=", opValue));
+            break;
+          case "$in":
+            if (Array.isArray(opValue) && opValue.length > 0) {
+              const inParts = opValue.map(v => this.buildComparison(field, "=", v));
+              operatorParts.push(`(${inParts.join(" OR ")})`);
+            }
+            break;
+          case "$exists":
+            operatorParts.push(opValue ? `${field} EXISTS` : `NOT ${field} EXISTS`);
+            break;
+          case "$null":
+            operatorParts.push(opValue ? `${field} IS NULL` : `${field} IS NOT NULL`);
+            break;
+          case "$empty":
+            operatorParts.push(opValue ? `${field} IS EMPTY` : `${field} IS NOT EMPTY`);
+            break;
+        }
+      }
+
+      return operatorParts.length > 1 ? `(${operatorParts.join(" AND ")})` : operatorParts[0] || "";
+    }
+
+    // Handle arrays
+    if (Array.isArray(value)) {
+      if (value.length === 0) return "";
+
+      // Check if array contains FilterInput objects or primitives
+      const firstElement = value[0];
+      if (typeof firstElement === "object" && firstElement !== null && !Array.isArray(firstElement)) {
+        // Array of FilterInput objects - treat as implicit AND
+        const parts = value.map(item => this.buildFilterString(item as FilterInput)).filter(Boolean);
+        return parts.length > 1 ? `(${parts.join(" AND ")})` : parts[0] || "";
+      }
+
+      // Array of primitives - implicit OR for multiple values of same field
+      if (value.length === 1) {
+        return this.buildComparison(field, "=", value[0]);
+      }
+      const orParts = value.map(v => this.buildComparison(field, "=", v));
+      return `(${orParts.join(" OR ")})`;
+    }
+
+    // Handle simple value (implicit equality)
+    return this.buildComparison(field, "=", value);
+  }
+
+  private buildComparison(field: string, operator: string, value: any): string {
+    // Handle null/undefined
+    if (value === null || value === undefined) {
+      return `${field} IS NULL`;
+    }
+
+    // Handle boolean
+    if (typeof value === "boolean") {
+      return `${field} ${operator} ${value}`;
+    }
+
+    // Handle number
+    if (typeof value === "number") {
+      return `${field} ${operator} ${value}`;
+    }
+
+    // Handle string (needs quotes and escaping)
+    return `${field} ${operator} "${this.escapeFilterValue(String(value))}"`;
   }
 
   private escapeFilterValue(value: string): string {
