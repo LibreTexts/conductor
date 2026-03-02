@@ -1030,12 +1030,12 @@ router
   .route("/commons/syncwithlibs/automated")
   .put(middleware.checkLibreAPIKey, booksAPI.runAutomatedSyncWithLibraries);
 
-router.route("/commons/syncwithsearch").post(
+router.route("/commons/sync-with-search-index").post(
   middleware.checkLibreAPIKey,
   booksAPI.syncWithSearchIndex,
 )
 
-router.route("/projects/syncwithsearch").post(
+router.route("/projects/sync-with-search-index").post(
   middleware.checkLibreAPIKey,
   projectsAPI.syncWithSearchIndex,
 )
@@ -1876,11 +1876,6 @@ router
     middleware.checkValidationErrors,
     projectsAPI.removeMemberFromProject
   );
-
-router.route("/project/sync-with-search-index").post(
-  middleware.checkLibreAPIKey,
-  projectsAPI.syncWithSearchIndex
-);
 
 router
   .route("/project/threads")
