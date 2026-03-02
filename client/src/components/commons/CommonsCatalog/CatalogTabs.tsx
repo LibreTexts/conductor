@@ -1,20 +1,6 @@
 import React, { useState } from "react";
-import { TabProps, Icon, Popup } from "semantic-ui-react";
-import {
-  AssetFilters,
-  AuthorFilters,
-  AuthorFiltersAction,
-  Book,
-  BookFilters,
-  BookFiltersAction,
-  CommonsModule,
-  ConductorSearchResponseAuthor,
-  ConductorSearchResponseFile,
-  MiniRepoFiltersAction,
-  Project,
-  ProjectFilters,
-  ProjectFiltersAction,
-} from "../../../types";
+import { Icon, Popup } from "semantic-ui-react";
+import { CommonsModule } from "../../../types";
 import CatalogTab from "./CatalogTab";
 import BooksTable from "./BooksTable";
 import VisualMode from "./VisualMode";
@@ -28,85 +14,17 @@ import AuthorsTable from "./AuthorsTable";
 import CatalogAuthorFilters from "./CatalogAuthorFilters";
 import CatalogProjectFilters from "./CatalogProjectFilters";
 import CatalogMiniRepoFilters from "./CatalogMiniRepoFilters";
+import { useCatalog } from "../../../context/CatalogContext";
 
-interface CatalogTabsProps extends TabProps {
-  activeTab: CommonsModule;
-  assetFilters: AssetFilters;
-  assetFiltersDispatch: React.Dispatch<{ type: string; payload: string }>;
-  bookFilters: BookFilters;
-  bookFiltersDispatch: React.Dispatch<BookFiltersAction>;
-  authorFilters: AuthorFilters;
-  authorFiltersDispatch: React.Dispatch<AuthorFiltersAction>;
-  onActiveTabChange: (newTab: CommonsModule) => void;
-  books: Book[];
-  booksCount: number;
-  booksLoading: boolean;
-  assets: ConductorSearchResponseFile[];
-  assetsCount: number;
-  assetsLoading: boolean;
-  miniRepoFilters: ProjectFilters;
-  miniRepoFiltersDispatch: React.Dispatch<MiniRepoFiltersAction>;
-  miniRepos: Project[];
-  miniReposCount: number;
-  miniReposLoading: boolean;
-  projectFilters: ProjectFilters;
-  projectFiltersDispatch: React.Dispatch<ProjectFiltersAction>;
-  projects: Project[];
-  projectsCount: number;
-  projectsLoading: boolean;
-  authors: ConductorSearchResponseAuthor[];
-  authorsCount: number;
-  authorsLoading: boolean;
-  onLoadMoreBooks: () => void;
-  onLoadMoreAssets: () => void;
-  onLoadMoreMiniRepos: () => void;
-  onLoadMoreProjects: () => void;
-  onLoadMoreAuthors: () => void;
-  onTriggerStopLoading: () => void;
-}
-
-const CatalogTabs: React.FC<CatalogTabsProps> = ({
-  activeTab,
-  assetFilters,
-  assetFiltersDispatch,
-  authorFilters,
-  authorFiltersDispatch,
-  bookFilters,
-  bookFiltersDispatch,
-  onActiveTabChange,
-  books,
-  booksCount,
-  booksLoading,
-  assets,
-  assetsCount,
-  assetsLoading,
-  miniRepos,
-  miniRepoFilters,
-  miniRepoFiltersDispatch,
-  miniReposCount,
-  miniReposLoading,
-  projectFilters,
-  projectFiltersDispatch,
-  projects,
-  projectsCount,
-  projectsLoading,
-  authors,
-  authorsCount,
-  authorsLoading,
-  onLoadMoreBooks,
-  onLoadMoreAssets,
-  onLoadMoreMiniRepos,
-  onLoadMoreProjects,
-  onLoadMoreAuthors,
-  onTriggerStopLoading,
-  ...rest
-}) => {
+const CatalogTabs: React.FC = () => {
+  // Access all catalog data from context instead of props
+  const catalog = useCatalog();
   const org = useTypedSelector((state) => state.org);
   const [itemizedMode, setItemizedMode] = useState(false);
   const [jumpToBottomClicked, setJumpToBottomClicked] = useState(false);
 
   const jumpToBottom = () => {
-    onTriggerStopLoading();
+    catalog.triggerStopLoading();
     setJumpToBottomClicked(true);
     window.scrollTo(0, document.body.scrollHeight);
   };
@@ -121,10 +39,10 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
         <TabLabel
           title="Books"
           index="books"
-          itemsCount={booksCount}
-          loading={booksLoading}
-          isActive={activeTab === "books"}
-          onClick={() => onActiveTabChange("books")}
+          itemsCount={catalog.books.total}
+          loading={catalog.books.loading}
+          isActive={catalog.activeTab === "books"}
+          onClick={() => catalog.setActiveTab("books")}
           key={"books-tab-label"}
         />
       );
@@ -135,10 +53,10 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
         <TabLabel
           title="Assets"
           index="assets"
-          itemsCount={assetsCount}
-          loading={assetsLoading}
-          isActive={activeTab === "assets"}
-          onClick={() => onActiveTabChange("assets")}
+          itemsCount={catalog.assets.total}
+          loading={catalog.assets.loading}
+          isActive={catalog.activeTab === "assets"}
+          onClick={() => catalog.setActiveTab("assets")}
           key={"assets-tab-label"}
         />
       );
@@ -149,10 +67,10 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
         <TabLabel
           title="Mini-Repos"
           index="minirepos"
-          itemsCount={miniReposCount}
-          loading={miniReposLoading}
-          isActive={activeTab === "minirepos"}
-          onClick={() => onActiveTabChange("minirepos")}
+          itemsCount={catalog.miniRepos.total}
+          loading={catalog.miniRepos.loading}
+          isActive={catalog.activeTab === "minirepos"}
+          onClick={() => catalog.setActiveTab("minirepos")}
           key={"minirepos-tab-label"}
         />
       );
@@ -163,10 +81,10 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
         <TabLabel
           title="Projects"
           index="projects"
-          itemsCount={projectsCount}
-          loading={projectsLoading}
-          isActive={activeTab === "projects"}
-          onClick={() => onActiveTabChange("projects")}
+          itemsCount={catalog.projects.total}
+          loading={catalog.projects.loading}
+          isActive={catalog.activeTab === "projects"}
+          onClick={() => catalog.setActiveTab("projects")}
           key={"projects-tab-label"}
         />
       );
@@ -177,10 +95,10 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
         <TabLabel
           title="Authors"
           index="authors"
-          itemsCount={authorsCount}
-          loading={authorsLoading}
-          isActive={activeTab === "authors"}
-          onClick={() => onActiveTabChange("authors")}
+          itemsCount={catalog.authors.total}
+          loading={catalog.authors.loading}
+          isActive={catalog.activeTab === "authors"}
+          onClick={() => catalog.setActiveTab("authors")}
           key={"authors-tab-label"}
         />
       );
@@ -263,109 +181,99 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
         </div>
       </div>
       <div className="tab-content">
-        {activeTab === "books" && (
+        {catalog.activeTab === "books" && (
           <CatalogBookFilters
-            filters={bookFilters}
-            onFilterChange={(type, value) =>
-              bookFiltersDispatch({ type, payload: value })
-            }
+            filters={catalog.books.filters}
+            onFilterChange={(type, value) => catalog.books.setFilter(type, value)}
           />
         )}
-        {activeTab === "assets" && (
+        {catalog.activeTab === "assets" && (
           <CatalogAssetFilters
-            filters={assetFilters}
-            onFilterChange={(type, value) =>
-              assetFiltersDispatch({ type, payload: value })
-            }
+            filters={catalog.assets.filters}
+            onFilterChange={(type, value) => catalog.assets.setFilter(type, value)}
           />
         )}
-        {activeTab === "authors" && (
+        {catalog.activeTab === "authors" && (
           <CatalogAuthorFilters
-            filters={authorFilters}
-            onFilterChange={(type, value) =>
-              authorFiltersDispatch({ type, payload: value })
-            }
+            filters={catalog.authors.filters}
+            onFilterChange={(type, value) => catalog.authors.setFilter(type, value)}
           />
         )}
-        {activeTab === "minirepos" && (
+        {catalog.activeTab === "minirepos" && (
           <CatalogMiniRepoFilters
-            filters={miniRepoFilters}
-            onFilterChange={(type, value) =>
-              miniRepoFiltersDispatch({ type, payload: value })
-            }
+            filters={catalog.miniRepos.filters}
+            onFilterChange={(type, value) => catalog.miniRepos.setFilter(type, value)}
           />
         )}
-        {activeTab === "projects" && (
+        {catalog.activeTab === "projects" && (
           <CatalogProjectFilters
-            filters={projectFilters}
-            onFilterChange={(type, value) =>
-              projectFiltersDispatch({ type, payload: value })
-            }
+            filters={catalog.projects.filters}
+            onFilterChange={(type, value) => catalog.projects.setFilter(type, value)}
           />
         )}
-        {activeTab === "books" && (
+        {catalog.activeTab === "books" && (
           <CatalogTab
             key={"books-tab"}
             itemizedMode={itemizedMode}
-            dataLength={books.length}
-            totalLength={booksCount}
-            getNextPage={onLoadMoreBooks}
-            loading={booksLoading}
-            itemizedRender={<BooksTable items={books} />}
-            visualRender={<VisualMode items={books} loading={booksLoading} />}
+            dataLength={catalog.books.data.length}
+            totalLength={catalog.books.total}
+            getNextPage={catalog.books.loadMore}
+            loading={catalog.books.loading}
+            itemizedRender={<BooksTable items={catalog.books.data} />}
+            visualRender={<VisualMode items={catalog.books.data} loading={catalog.books.loading} />}
           />
         )}
-        {activeTab === "assets" && (
+        {catalog.activeTab === "assets" && (
           <CatalogTab
             key={"assets-tab"}
             itemizedMode={itemizedMode}
-            dataLength={assets.length}
-            totalLength={assetsCount}
-            getNextPage={onLoadMoreAssets}
-            loading={assetsLoading}
-            itemizedRender={<AssetsTable items={assets} />}
-            visualRender={<VisualMode items={assets} loading={assetsLoading} />}
+            dataLength={catalog.assets.data.length}
+            totalLength={catalog.assets.total}
+            getNextPage={catalog.assets.loadMore}
+            loading={catalog.assets.loading}
+            itemizedRender={<AssetsTable items={catalog.assets.data} />}
+            visualRender={<VisualMode items={catalog.assets.data} loading={catalog.assets.loading} />}
           />
         )}
-        {activeTab === "minirepos" && (
+        {catalog.activeTab === "minirepos" && (
           <CatalogTab
             key={"minirepos-tab"}
             itemizedMode={itemizedMode}
-            dataLength={miniRepos.length}
-            totalLength={miniReposCount}
-            getNextPage={onLoadMoreMiniRepos}
-            loading={miniReposLoading}
-            itemizedRender={<ProjectsTable items={miniRepos} />}
+            dataLength={catalog.miniRepos.data.length}
+            totalLength={catalog.miniRepos.total}
+            getNextPage={catalog.miniRepos.loadMore}
+            loading={catalog.miniRepos.loading}
+            itemizedRender={<ProjectsTable items={catalog.miniRepos.data} />}
             visualRender={
-              <VisualMode items={miniRepos} loading={miniReposLoading} />
+              <VisualMode items={catalog.miniRepos.data} loading={catalog.miniRepos.loading} />
             }
           />
         )}
-        {activeTab === "projects" && (
+        {catalog.activeTab === "projects" && (
           <CatalogTab
             key={"projects-tab"}
             itemizedMode={itemizedMode}
-            dataLength={projects.length}
-            totalLength={projectsCount}
-            getNextPage={onLoadMoreProjects}
-            loading={projectsLoading}
-            itemizedRender={<ProjectsTable items={projects} />}
+            dataLength={catalog.projects.data.length}
+            totalLength={catalog.projects.total}
+            getNextPage={catalog.projects.loadMore}
+            loading={catalog.projects.loading}
+            itemizedRender={<ProjectsTable items={catalog.projects.data} />}
             visualRender={
-              <VisualMode items={projects} loading={projectsLoading} />
+              <VisualMode items={catalog.projects.data} loading={catalog.projects.loading} />
             }
           />
         )}
-        {activeTab === "authors" && (
+        {catalog.activeTab === "authors" && (
           <CatalogTab
             key={"authors-tab"}
             itemizedMode={itemizedMode}
-            dataLength={authors.length}
-            totalLength={authorsCount}
-            getNextPage={onLoadMoreAuthors}
-            loading={authorsLoading}
-            itemizedRender={<AuthorsTable items={authors} />}
+            dataLength={catalog.authors.data.length}
+            totalLength={catalog.authors.total}
+            getNextPage={catalog.authors.loadMore}
+            loading={catalog.authors.loading}
+            itemizedRender={<AuthorsTable items={catalog.authors.data} />}
             visualRender={
-              <VisualMode items={authors} loading={authorsLoading} />
+              <VisualMode items={catalog.authors.data} loading={catalog.authors.loading} />
             }
           />
         )}

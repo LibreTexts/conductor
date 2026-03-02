@@ -10,7 +10,6 @@ import api from "../../../api";
 import VisualMode from "../../../components/commons/CommonsCatalog/VisualMode";
 import AssetsTable from "../../../components/commons/CommonsCatalog/AssetsTable";
 import { useTypedSelector } from "../../../state/hooks";
-import useInfiniteScroll from "../../../hooks/useInfiniteScroll";
 
 /**
  * Displays an Author's page in the Commons catalog, showing information about an author and their works.
@@ -121,11 +120,10 @@ const CommonsAuthor = () => {
     }
   }, [author]);
 
-  const { lastElementRef } = useInfiniteScroll({
-    next: onLoadMoreAssets,
-    isLoading: loadedAssets,
-    hasMore: assets.length < totalAssets,
-  });
+  // Inline useInfiniteScroll - it was just a pass-through wrapper
+  const loadMore = onLoadMoreAssets;
+  const hasMore = assets.length < totalAssets;
+  const isLoading = !loadedAssets;
 
   const authorFullName = useMemo(() => {
     if (!author || !author.firstName || !author.lastName)
@@ -262,7 +260,6 @@ const CommonsAuthor = () => {
                   <AssetsTable
                     items={assets}
                     loading={!loadedAssets}
-                    lastElementRef={lastElementRef}
                   />
                 ) : (
                   <VisualMode
@@ -271,8 +268,23 @@ const CommonsAuthor = () => {
                     noResultsMessage="No assets found for this author."
                   />
                 )}
-                <div ref={lastElementRef}></div>
-                {assets.length >= totalAssets && (
+
+                {/* Load More Button */}
+                {hasMore && (
+                  <div className="w-full mt-6 flex justify-center">
+                    <button
+                      onClick={loadMore}
+                      disabled={isLoading}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-wait transition-colors font-semibold"
+                      aria-label="Load more assets"
+                    >
+                      {isLoading ? "Loading..." : "Load More"}
+                    </button>
+                  </div>
+                )}
+
+                {/* End of results message */}
+                {!hasMore && assets.length > 0 && (
                   <div className="w-full mt-4">
                     <p className="text-center font-semibold">End of results</p>
                   </div>

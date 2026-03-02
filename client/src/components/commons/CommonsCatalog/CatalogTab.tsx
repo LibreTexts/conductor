@@ -1,5 +1,5 @@
 import { TabPane, TabPaneProps } from "semantic-ui-react";
-import useInfiniteScroll from "../../../hooks/useInfiniteScroll";
+import Button from "../../NextGenComponents/Button";
 
 interface CatalogTabProps extends TabPaneProps {
   itemizedMode: boolean;
@@ -21,11 +21,10 @@ const CatalogTab: React.FC<CatalogTabProps> = ({
   loading,
   ...rest
 }) => {
-  const { lastElementRef } = useInfiniteScroll({
-    next: getNextPage,
-    hasMore: dataLength < totalLength,
-    isLoading: loading,
-  });
+  // Inline useInfiniteScroll - it was just a pass-through wrapper
+  const loadMore = getNextPage;
+  const hasMore = dataLength < totalLength;
+  const isLoading = loading;
 
   return (
     <TabPane
@@ -34,8 +33,23 @@ const CatalogTab: React.FC<CatalogTabProps> = ({
       {...rest}
     >
       {itemizedMode ? itemizedRender : visualRender}
-      <div ref={lastElementRef}></div>
-      {dataLength >= totalLength && (
+
+      {/* Load More Button - replaces automatic scroll detection */}
+      {hasMore && (
+        <div className="w-full mt-6 flex justify-center">
+          <Button
+            icon="IconDownload"
+            onClick={loadMore}
+            disabled={isLoading}
+            aria-label="Load more results"
+          >
+            {isLoading ? "Loading..." : "Load More"}
+          </Button>
+        </div>
+      )}
+
+      {/* End of results message */}
+      {!hasMore && dataLength > 0 && (
         <div className="w-full mt-4">
           <p className="text-center font-semibold">End of results</p>
         </div>
