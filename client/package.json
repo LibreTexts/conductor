@@ -73,7 +73,7 @@
     "react-redux": "^7.2.4",
     "react-responsive": "^9.0.0-beta.3",
     "react-router-dom": "^5.3.4",
-    "react-router-dom-v5-compat": "^6.26.0",
+    "react-router-dom-v5-compat": "^6.30.3",
     "react-simple-maps": "^3.0.0",
     "react-timezone-select": "^2.1.1",
     "react-tooltip": "^5.28.1",
