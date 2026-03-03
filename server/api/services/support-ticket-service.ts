@@ -242,7 +242,7 @@ export default class SupportTicketService {
                 ...(category ? { category: category } : {}),
             }, [{
                 field: sort || "timeOpened",
-                order: sort === "category" ? "asc" : "desc",
+                order: sort === "category" ? "asc" : "desc", // timeOpened sorts newest first
             }], {
                 limit: limit || 25,
                 offset: getPaginationOffset(page || 1, limit || 25),
@@ -256,7 +256,7 @@ export default class SupportTicketService {
                 });
             }
 
-            return { tickets, total: results.totalHits || tickets.length };
+            return { tickets, total: results.estimatedTotalHits ?? tickets.length };
         } catch (err) {
             throw err;
         }
