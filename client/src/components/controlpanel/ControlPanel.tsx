@@ -76,6 +76,14 @@ const ControlPanel = () => {
       roles: ["superAdmin"],
     },
     {
+      url: "/controlpanel/indexmanager",
+      icon: "database",
+      title: "Index Manager",
+      description:
+        "Manage Meilisearch indexes including status checks, re-syncing, and settings",
+      roles: ["superAdmin"],
+    },
+    {
       url: "/controlpanel/libreone",
       icon: "key",
       title: "LibreOne Admin Consoles",

@@ -2653,7 +2653,7 @@ export async function syncWithSearchIndex(
  * and timeouts with large datasets. Runs in the background.
  * INTERNAL USE ONLY.
  */
-async function syncBooksInBackground() {
+export async function syncBooksInBackground() {
   try {
     debugServer("Initiating Commons Books search index synchronization...");
     const searchService = await SearchService.getInstance();
@@ -2790,5 +2790,6 @@ export default {
   bulkUpdatePageTags,
   retrieveKBExport,
   syncWithSearchIndex,
+  syncBooksInBackground,
   _getBookPublicOrInstructorAssetsCount
 };
