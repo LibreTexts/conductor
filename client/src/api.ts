@@ -2177,6 +2177,46 @@ class API {
     return res.data;
   }
 
+  // SEARCH INDEX MANAGEMENT
+  async getSearchIndexStatus() {
+    const res = await axios.get<
+      {
+        indexes: Array<{
+          name: string;
+          numberOfDocuments?: number;
+          isIndexing?: boolean;
+          fieldDistribution?: Record<string, number>;
+          filterableAttributes?: string[];
+          sortableAttributes?: string[];
+          error?: string;
+        }>;
+      } & ConductorBaseResponse
+    >("/search-index/status");
+    return res.data;
+  }
+
+  async resyncSearchIndex(indexName: string) {
+    const res = await axios.post<
+      {
+        msg: string;
+      } & ConductorBaseResponse
+    >("/search-index/resync", {
+      indexName,
+    });
+    return res.data;
+  }
+
+  async reinitializeSearchIndexSettings(indexName: string) {
+    const res = await axios.post<
+      {
+        message: string;
+      } & ConductorBaseResponse
+    >("/search-index/reinitialize-settings", {
+      indexName,
+    });
+    return res.data;
+  }
+
 }
 
 export default new API();

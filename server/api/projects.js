@@ -3282,7 +3282,7 @@ async function syncWithSearchIndex(req, res) {
  * and timeouts with large datasets. Runs in the background.
  * INTERNAL USE ONLY.
  */
-async function syncProjectsInBackground() {
+export async function syncProjectsInBackground() {
   try {
     debugServer("Initiating Projects search index sync...");
     const searchService = await SearchService.getInstance();
@@ -4134,5 +4134,6 @@ export default {
     constructProjectTeamMemberQuery,
     LOOKUP_PROJECT_PI_STAGES,
     syncWithSearchIndex,
+    syncProjectsInBackground,
     validate
 }
