@@ -46,13 +46,6 @@ const __dirname = path.dirname(__filename);
 mongoose.Promise = Promise;
 mongoose.set("debug", process.env.NODE_ENV === "development");
 
-await mongoose
-  .connect(process.env.MONGOOSEURI ?? "", {
-    maxPoolSize: process.env.ORG_ID === "libretexts" ? 100 : 25,
-  })
-  .catch((err) => debugDB(err));
-debugDB("Connected to MongoDB Atlas.");
-
 app.set("trust proxy", 1); // Trust first proxy (i.e. ALB)
 app.use(cookieParser());
 app.use(helmet.hidePoweredBy());
@@ -107,9 +100,28 @@ app.use(
 app.use("/api/v1", apiLimiter, api);
 app.use("/permalink", permalinkRouter);
 
-app.use("/health", (_req, res) =>
-  res.send({ healthy: true, msg: "Server appears healthy." })
-);
+// Health endpoint that checks actual MongoDB connection status
+app.use("/health", (_req, res) => {
+  const mongoState = mongoose.connection.readyState;
+  const stateMap: Record<number, string> = {
+    0: "disconnected",
+    1: "connected",
+    2: "connecting",
+    3: "disconnecting"
+  };
+
+  const isHealthy = mongoState === 1;
+  const status = isHealthy ? 200 : 503;
+
+  res.status(status).json({
+    healthy: isHealthy,
+    msg: isHealthy ? "Server appears healthy." : "MongoDB connection not ready",
+    mongodb: {
+      state: stateMap[mongoState] || "unknown",
+      readyState: mongoState
+    }
+  });
+});
 
 // Serve frontend assets. Use directories relative to server/dist
 app.use(express.static(path.join(__dirname, "../../client/dist")));
@@ -119,7 +131,7 @@ cliRouter.route("*").get((_req, res) => {
 });
 app.use("/", cliRouter);
 
-// Start the server
+// Start the server BEFORE MongoDB connection to allow healthchecks to pass immediately
 const server = app.listen(port, () => {
   let startupMsg = "";
   if (process.env.ORG_ID === "libretexts") {
@@ -128,10 +140,59 @@ const server = app.listen(port, () => {
     startupMsg = `Conductor (${process.env.ORG_ID}) is listening on ${port}`;
   }
   debugServer(startupMsg);
+
+  // Initiate MongoDB connection after server is listening
+  connectToMongoDB();
 });
 
 server.on("error", (err: Error) => {
   debugServer(err);
+});
+
+/**
+ * Connects to MongoDB with retry logic and error handling
+ */
+async function connectToMongoDB(retryCount = 0) {
+  const maxRetries = 5;
+  const retryDelay = 5000; // 5 seconds
+
+  try {
+    debugDB(`Attempting to connect to MongoDB (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+
+    await mongoose.connect(process.env.MONGOOSEURI ?? "", {
+      maxPoolSize: process.env.ORG_ID === "libretexts" ? 100 : 25,
+    });
+
+    debugDB("✓ Connected to MongoDB Atlas.");
+  } catch (err) {
+    debugDB(`✗ Failed to connect to MongoDB (attempt ${retryCount + 1}/${maxRetries + 1}):`);
+    debugDB(err);
+
+    if (retryCount < maxRetries) {
+      debugDB(`Retrying in ${retryDelay / 1000} seconds...`);
+      setTimeout(() => connectToMongoDB(retryCount + 1), retryDelay);
+    } else {
+      debugDB("[FATAL ERROR]: Unable to connect to MongoDB after maximum retries.");
+      debugDB("Please check MongoDB connection string and network connectivity.");
+      debugDB("Exiting process.");
+      // Exit the process if we can't connect to MongoDB after all retries
+      exit(1);
+    }
+  }
+}
+
+// Handle MongoDB connection events
+mongoose.connection.on("connected", () => {
+  debugDB("MongoDB connection established");
+});
+
+mongoose.connection.on("error", (err) => {
+  debugDB("MongoDB connection error:");
+  debugDB(err);
+});
+
+mongoose.connection.on("disconnected", () => {
+  debugDB("MongoDB connection lost. Attempting to reconnect...");
 });
 
 /**
