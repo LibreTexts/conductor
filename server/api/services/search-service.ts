@@ -19,7 +19,7 @@ export const INDEX_SORTABLE_ATTRIBUTES = {
 };
 
 export default class SearchService {
-  private client = new MeiliSearch({
+  public _client = new MeiliSearch({
     host: process.env.MEILISEARCH_URL || "http://localhost:7700",
     apiKey: process.env.MEILISEARCH_API_KEY || "",
   });
@@ -49,7 +49,7 @@ export default class SearchService {
 
   async ensureIndex(indexName: (typeof INDEXES)[number]) {
     try {
-      const indexes = await this.client.getIndexes();
+      const indexes = await this._client.getIndexes();
       const foundIndex = indexes.results.find((idx) => idx.uid === indexName);
       if (foundIndex) {
         // Ensure filterable attributes are updated
@@ -68,8 +68,8 @@ export default class SearchService {
       }
 
       if (indexName === "books") {
-        await this.client.createIndex(indexName, { primaryKey: "bookID" });
-        const index = this.client.index(indexName);
+        await this._client.createIndex(indexName, { primaryKey: "bookID" });
+        const index = this._client.index(indexName);
         await index.updateFilterableAttributes(
           INDEX_FILTERABLE_ATTRIBUTES.books
         );
@@ -79,8 +79,8 @@ export default class SearchService {
         return index;
       }
       if (indexName === "projects") {
-        await this.client.createIndex(indexName, { primaryKey: "projectID" });
-        const index = this.client.index(indexName);
+        await this._client.createIndex(indexName, { primaryKey: "projectID" });
+        const index = this._client.index(indexName);
         await index.updateFilterableAttributes(
           INDEX_FILTERABLE_ATTRIBUTES.projects
         );
@@ -90,8 +90,8 @@ export default class SearchService {
         return index;
       }
       if (indexName === "supportTickets") {
-        await this.client.createIndex(indexName, { primaryKey: "uuid" });
-        const index = this.client.index(indexName);
+        await this._client.createIndex(indexName, { primaryKey: "uuid" });
+        const index = this._client.index(indexName);
         await index.updateFilterableAttributes(
           INDEX_FILTERABLE_ATTRIBUTES.supportTickets
         );

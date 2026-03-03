@@ -24,6 +24,7 @@ import booksAPI from "./api/books.js";
 import homeworkAPI from "./api/homework.js";
 import librariesAPI from "./api/libraries.js";
 import searchAPI from "./api/search.js";
+import searchIndexManagementAPI from "./api/search-index-management.js";
 import announcementAPI from "./api/announcements.js";
 import peerReviewAPI from "./api/peerreview.js";
 import projectsAPI from "./api/projects.js";
@@ -1039,6 +1040,28 @@ router.route("/projects/sync-with-search-index").post(
   middleware.checkLibreAPIKey,
   projectsAPI.syncWithSearchIndex,
 )
+
+/* Search Index Management */
+router.route("/search-index/status").get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  searchIndexManagementAPI.getIndexStatus
+);
+
+router.route("/search-index/resync").post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  searchIndexManagementAPI.resyncIndex
+);
+
+router.route("/search-index/reinitialize-settings").post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  searchIndexManagementAPI.reinitializeIndexSettings
+);
 
 /* Commons Books/Catalogs */
 router
