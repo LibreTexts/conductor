@@ -447,6 +447,8 @@ async function assignTicket(
       assigner,
     });
 
+    await ticketService.upsertToSearchIndex(ticket.uuid);
+
     return res.send({
       err: false,
       ticket: ticketService._removeAccessKeysFromResponse(ticket),
@@ -765,6 +767,8 @@ async function createTicket(
       });
     }
 
+    await ticketService.upsertToSearchIndex(ticket.uuid);
+
     return res.send({
       err: false,
       ticket: ticketService._removeAccessKeysFromResponse(ticket, true), // Allow guest access key to be returned here for attachments to be immediately uploaded
@@ -984,6 +988,8 @@ async function updateTicket(
         }),
       },
     ).orFail();
+
+    await ticketService.upsertToSearchIndex(uuid);
 
     return res.send({
       err: false,

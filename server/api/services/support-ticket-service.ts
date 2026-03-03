@@ -303,6 +303,40 @@ export default class SupportTicketService {
         }
     }
 
+    /**
+     * This method can be called after any update to a ticket to ensure the search index has the most up-to-date information.
+     * This way, we don't have to wait for the next full sync to have accurate search results after a ticket is updated.
+     * Essentially does the same thing as syncWithSearchIndex but for a single ticket, and is optimized to only reindex that one ticket instead of all tickets.
+     * Will swallow and log any errors instead of throwing, since this is meant to be a best-effort method to keep the search index up-to-date.
+     * @param ticketID the ID of the ticket to upsert to the search index
+     */
+    async upsertToSearchIndex(ticketID: string): Promise<void> {
+        try {
+            const searchService = await SearchService.create();
+
+            const results = await SupportTicket.aggregate([
+                { $match: { uuid: ticketID } },
+                ...this.lookupUserDataStages("assignedUUIDs"),
+                ...this.lookupUserDataStages("userUUID"),
+            ]);
+
+            if (!results || results.length === 0) {
+                debugError(`[SupportTicketService] No ticket found with ID ${ticketID} for upsert to search index.`);
+                return;
+            }
+
+            const ticket = results[0] as SupportTicketInterface;
+            if (!ticket) {
+                debugError(`[SupportTicketService] No ticket found with ID ${ticketID} for upsert to search index.`);
+                return;
+            }
+
+            await searchService.addDocuments("supportTickets", [ticket]);
+        } catch (err) {
+            debugError(`[SupportTicketService] Error upserting ticket ${ticketID} to search index: ${err}`);
+        }
+    }
+
     _removeAccessKeysFromResponse(
         ticket: SupportTicketInterface,
         allowGuestAccessKey = false,
