@@ -2422,8 +2422,13 @@ async function bookSearchV2(
       affiliation: req.query.affiliation,
     })
 
+    const page = parseInt(req.query.page?.toString()) || 1;
+    const limit = parseInt(req.query.limit?.toString()) || 25;
+    const offset = getPaginationOffset(page, limit);
+
     const results = await searchService.search("books", req.query?.searchQuery || "", filterMap, undefined, {
-      limit: req.query?.limit || 25,
+      limit,
+      offset,
     });
 
     return res.send({
@@ -2461,13 +2466,18 @@ async function projectSearchV2(
       orgID: resolvedOrgID,
     });
 
+    const page = parseInt(req.query.page?.toString()) || 1;
+    const limit = parseInt(req.query.limit?.toString()) || 25;
+    const offset = getPaginationOffset(page, limit);
+
     const results = await searchService.search(
       "projects",
       req.query?.searchQuery || "",
       filterMap,
       undefined,
       {
-        limit: req.query?.limit || 25,
+        limit,
+        offset,
       }
     );
 
