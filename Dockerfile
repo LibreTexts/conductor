@@ -18,7 +18,7 @@ RUN npm run build
 
 EXPOSE 5000
 
-HEALTHCHECK --timeout=5s --start-period=30s \
+HEALTHCHECK --interval=10s --timeout=5s --start-period=45s --retries=3 \
   CMD wget -nv -t1 --spider http://localhost:5000/health || exit 1
 
 ENTRYPOINT [ "node", "dist/server.js" ]
