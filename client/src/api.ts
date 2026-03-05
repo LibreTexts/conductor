@@ -389,6 +389,13 @@ class API {
   }
 
   // Books
+  async getBookDetail(bookID: string) {
+    const res = await axios.get<
+      { book: { license?: string; [key: string]: unknown } } & ConductorBaseResponse
+    >(`/commons/book/${bookID}`);
+    return res;
+  }
+
   async getBookPeerReviews(bookID: string) {
     const res = await axios.get<
       {

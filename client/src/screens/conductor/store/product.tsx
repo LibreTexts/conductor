@@ -16,7 +16,7 @@ import ConfirmModal from "../../../components/ConfirmModal";
 import { useNotifications } from "../../../context/NotificationContext";
 import { buildLibraryPageGoURL } from "../../../utils/projectHelpers";
 import Button from "../../../components/NextGenComponents/Button";
-import { IconWindowMaximize } from "@tabler/icons-react";
+import { IconInfoCircle, IconWindowMaximize } from "@tabler/icons-react";
 
 const BOOK_PAGE_LIMIT = 799;
 export default function ProductPage() {
@@ -113,6 +113,29 @@ export default function ProductPage() {
     const num_pages = parseInt(product.metadata["num_pages"], 10);
     return num_pages > BOOK_PAGE_LIMIT;
   }, [product, isBook]);
+
+  const [bookDetail, setBookDetail] = useState<{ license?: string; [key: string]: unknown } | null>(null);
+
+  useEffect(() => {
+    if (!product || !isBook) return;
+    const bookId = product.metadata["book_id"];
+    if (!bookId) return;
+
+    api.getBookDetail(bookId)
+      .then((res) => {
+        const book = res.data.book;
+        setBookDetail(book);
+      })
+      .catch(() => {
+        setBookDetail(null);
+      });
+  }, [product, isBook]);
+
+  const hasNCLicense = useMemo(() => {
+    if (!bookDetail) return false;
+    const license = (bookDetail.license || "").toLowerCase();
+    return license.includes("cc-by-nc") || license.includes("ccbync");
+  }, [bookDetail]);
 
   function handleAddToCart() {
     if (!product) return;
@@ -280,6 +303,18 @@ export default function ProductPage() {
                   : undefined
               }
             />
+            {hasNCLicense && (
+              <div className="mt-6 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <IconInfoCircle
+                  className="mt-0.5 size-5 shrink-0 text-amber-700"
+                  aria-hidden="true"
+                />
+                <p>
+                  This book has a NonCommercial clause in its license and cannot
+                  be resold for profit.
+                </p>
+              </div>
+            )}
             <div className="mt-6 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
               <Button
                 onClick={handleAddToCart}
