@@ -1069,6 +1069,14 @@ router
   );
 
 router
+  .route("/commons/import-pressbooks")
+  .post(
+    authAPI.verifyRequest,
+    middleware.validateZod(BookValidators.importPressBooksBookSchema),
+    booksAPI.importPressBooksBook
+  );
+
+router
   .route("/commons/book/:bookID")
   .get(
     middleware.validateZod(BookValidators.getWithBookIDParamSchema),

@@ -175,6 +175,7 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
       if (!canAccessLibrary) return;
       setLoading(true);
       if (!(await trigger())) return;
+      
       const res = await axios.post("/commons/import-pressbooks", {
         ...getValues(),
         projectID,
@@ -204,8 +205,6 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
       } else {
         // Everyone has access, proceed with creating the workbench
         await createWorkbench();
-
-        console.log(getValues());
       }
     } catch (err) {
       handleGlobalError(err);

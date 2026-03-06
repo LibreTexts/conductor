@@ -7,6 +7,7 @@ import {
 } from "../../utils/projectHelpers";
 import { lazy, useState } from "react";
 import { ProjectClassification } from "../../types";
+import ImportWorkbenchModal from "./ImportWorkbenchModal";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 
 interface ProjectLinkButtonsProps {
@@ -38,6 +39,8 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
 }) => {
   const [showCreateWorkbenchModal, setShowCreateWorkbenchModal] =
     useState(false);
+  const [showImportWorkbenchModal, setShowImportWorkbenchModal] =
+    useState(false);
   const validWorkbench = didCreateWorkbench && libreCoverID && libreLibrary;
 
   return (
@@ -47,7 +50,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
       </Header>
       {projectClassification === ProjectClassification.MINI_REPO ? null : (
         <div className="flex flex-row flex-wrap gap-2">
-          {!projectLink && !didCreateWorkbench && isProjectMemberOrAdmin && (
+          {!projectLink && !didCreateWorkbench && isProjectMemberOrAdmin && (<>
             <Button
               color="green"
               onClick={() => setShowCreateWorkbenchModal(true)}
@@ -55,6 +58,14 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
               <Icon name="plus" />
               Create Book
             </Button>
+            <Button
+              color="green"
+              onClick={() => setShowImportWorkbenchModal(true)}
+            >
+              <Icon name="plus" />
+              Import Book
+            </Button>
+            </>
           )}
           {(projectLink || validWorkbench) && (
             <Popup
@@ -167,6 +178,17 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
               projectID={projectID}
               projectTitle={projectTitle}
               onClose={() => setShowCreateWorkbenchModal(false)}
+              onSuccess={() => window.location.reload()}
+              project={project}
+            />
+          )}
+
+          {projectID && projectTitle && (
+            <ImportWorkbenchModal
+              show={showImportWorkbenchModal}
+              projectID={projectID}
+              projectTitle={projectTitle}
+              onClose={() => setShowImportWorkbenchModal(false)}
               onSuccess={() => window.location.reload()}
               project={project}
             />
