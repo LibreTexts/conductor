@@ -138,6 +138,54 @@ export default class SearchService {
     }
   }
 
+  async getIndexStats(indexName: (typeof INDEXES)[number]) {
+    try {
+      const index = this.indexes.get(indexName);
+      if (!index) {
+        throw new Error(INDEX_NOT_FOUND_ERROR);
+      }
+
+      return index.getStats();
+    } catch (error: any) {
+      debugServer(
+        `[SearchService] Error getting stats for index ${indexName}: ${error}`
+      );
+      throw error;
+    }
+  }
+
+  async getFilterableAttributes(indexName: (typeof INDEXES)[number]) {
+    try {
+      const index = this.indexes.get(indexName);
+      if (!index) {
+        throw new Error(INDEX_NOT_FOUND_ERROR);
+      }
+
+      return index.getFilterableAttributes();
+    } catch (error: any) {
+      debugServer(
+        `[SearchService] Error getting filterable attributes for index ${indexName}: ${error}`
+      );
+      throw error;
+    }
+  }
+
+  async getSortableAttributes(indexName: (typeof INDEXES)[number]) {
+    try {
+      const index = this.indexes.get(indexName);
+      if (!index) {
+        throw new Error(INDEX_NOT_FOUND_ERROR);
+      }
+
+      return index.getSortableAttributes();
+    } catch (error: any) {
+      debugServer(
+        `[SearchService] Error getting sortable attributes for index ${indexName}: ${error}`
+      );
+      throw error;
+    }
+  }
+
   async addDocuments(indexName: (typeof INDEXES)[number], documents: any[]) {
     try {
       const index = this.indexes.get(indexName);
