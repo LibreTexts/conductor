@@ -53,7 +53,7 @@
     "js-cookie": "^2.2.1",
     "linkify-react": "^4.3.2",
     "linkifyjs": "^4.3.2",
-    "marked": "^4.0.10",
+    "marked": "^17.0.4",
     "node-cache": "^5.1.2",
     "papaparse": "^5.4.1",
     "prop-types": "^15.7.2",
