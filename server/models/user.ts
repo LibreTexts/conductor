@@ -176,6 +176,10 @@ UserSchema.index({
 });
 
 UserSchema.index({
+  uuid: 1,
+})
+
+UserSchema.index({
   centralID: 1,
   firstName: 1,
   lastName: 1,

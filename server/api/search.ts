@@ -40,34 +40,16 @@ import SearchService from "./services/search-service.js";
 
 const searchQueryCache: SearchQueryInterface_Raw[] = []; // in-memory cache for search queries
 
-// Singleton SearchService instance
-let searchServiceInstance: SearchService | null = null;
-let searchServiceInitPromise: Promise<SearchService | null> | null = null;
-
 /**
- * Gets or creates the singleton SearchService instance and handle errors gracefully.
+ * Gets the singleton SearchService instance, returning null on failure.
  */
 async function getSearchService(): Promise<SearchService | null> {
-  if (searchServiceInstance) {
-    return searchServiceInstance;
+  try {
+    return await SearchService.getInstance();
+  } catch (error) {
+    debugError(`[SearchService] Failed to initialize SearchService: ${error}`);
+    return null;
   }
-
-  if (searchServiceInitPromise) {
-    return searchServiceInitPromise;
-  }
-
-  searchServiceInitPromise = SearchService.create()
-    .then((service) => {
-      searchServiceInstance = service;
-      return service;
-    })
-    .catch((error) => {
-      debugError(`[SearchService] Failed to initialize SearchService: ${error}`);
-      searchServiceInitPromise = null; // Allow retry on next request
-      return null;
-    });
-
-  return searchServiceInitPromise;
 }
 
 /**

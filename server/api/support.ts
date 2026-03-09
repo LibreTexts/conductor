@@ -447,8 +447,6 @@ async function assignTicket(
       assigner,
     });
 
-    await ticketService.upsertToSearchIndex(ticket.uuid);
-
     return res.send({
       err: false,
       ticket: ticketService._removeAccessKeysFromResponse(ticket),
@@ -514,7 +512,7 @@ async function addTicketCC(
       email,
       accessKey,
     });
-    await ticket.save();
+    await ticketService.saveTicket(ticket);
 
     // Notify the new CCed user with guest access key
     await mailAPI.sendSupportTicketCCedNotification(
@@ -557,7 +555,7 @@ async function removeTicketCC(
     }
 
     ticket.ccedEmails = ticket.ccedEmails.filter((e) => e.email !== email);
-    await ticket.save();
+    await ticketService.saveTicket(ticket);
 
     return res.send({
       err: false,
@@ -696,7 +694,7 @@ async function createTicket(
     const guestAccessKey = _createGuestAccessKey();
 
     const uuid = v4();
-    const ticket = await SupportTicket.create({
+    const ticket = await ticketService.createTicket({
       uuid,
       uuidShort: uuid.slice(-7),
       queue_id,
@@ -767,8 +765,6 @@ async function createTicket(
       });
     }
 
-    await ticketService.upsertToSearchIndex(ticket.uuid);
-
     return res.send({
       err: false,
       ticket: ticketService._removeAccessKeysFromResponse(ticket, true), // Allow guest access key to be returned here for attachments to be immediately uploaded
@@ -835,7 +831,7 @@ async function addTicketAttachments(
       ticket.feed.push(feedEntry);
     }
 
-    await ticket.save();
+    await ticketService.saveTicket(ticket);
 
     return res.send({
       err: false,
@@ -974,22 +970,17 @@ async function updateTicket(
     const autoCloseStatusChanged =
       autoCloseSilenced !== ticket.autoCloseSilenced;
 
-    await SupportTicket.updateOne(
-      { uuid },
-      {
-        priority,
-        status,
-        feed: updatedFeed,
-        timeClosed: status === "closed" ? new Date().toISOString() : undefined, // if status is closed, set timeClosed to now
-        autoCloseSilenced: autoCloseSilenced,
-        ...(autoCloseStatusChanged && {
-          autoCloseTriggered: false,
-          autoCloseDate: null,
-        }),
-      },
-    ).orFail();
-
-    await ticketService.upsertToSearchIndex(uuid);
+    await ticketService.updateTicket(uuid, {
+      priority,
+      status,
+      feed: updatedFeed,
+      timeClosed: status === "closed" ? new Date().toISOString() : undefined, // if status is closed, set timeClosed to now
+      autoCloseSilenced: autoCloseSilenced,
+      ...(autoCloseStatusChanged && {
+        autoCloseTriggered: false,
+        autoCloseDate: null,
+      }),
+    });
 
     return res.send({
       err: false,
@@ -1075,13 +1066,7 @@ async function createGeneralMessage(
     const userUUID = req.user?.decoded.uuid;
     const ticketService = new SupportTicketService();
 
-    const ticket = await SupportTicket.findOneAndUpdate(
-      { uuid },
-      {
-        autoCloseTriggered: false,
-        autoCloseDate: null,
-      },
-    ).populate("queue").orFail(); // reset auto-close trigger
+    const ticket = await ticketService.resetAutoClose(uuid); // reset auto-close trigger
 
     let foundSenderName = "Unknown";
     let foundSenderUUID: string | undefined;
@@ -1291,13 +1276,8 @@ async function createInternalMessage(
     const { message, attachments } = req.body;
     const userUUID = req.user?.decoded.uuid;
 
-    const ticket = await SupportTicket.findOneAndUpdate(
-      { uuid },
-      {
-        autoCloseTriggered: false,
-        autoCloseDate: null,
-      },
-    ).populate("queue").orFail();
+    const ticketService = new SupportTicketService();
+    const ticket = await ticketService.resetAutoClose(uuid);
     const foundUser = await User.findOne({ uuid: userUUID }).orFail();
 
     const ticketMessage = await SupportTicketMessage.create({
@@ -1354,7 +1334,8 @@ async function deleteTicket(
 ) {
   try {
     const { uuid } = req.params;
-    await SupportTicket.deleteOne({ uuid });
+    const ticketService = new SupportTicketService();
+    await ticketService.deleteTicket(uuid);
     return res.send({
       err: false,
     });
@@ -1501,7 +1482,7 @@ async function createAndAttachProjectFromHarvestingRequest(
       ...ticket.metadata,
       projectID: newProject.projectID,
     };
-    await ticket.save();
+    await ticketService.saveTicket(ticket);
 
     return res.send({
       err: false,
@@ -1556,16 +1537,9 @@ async function findTicketsToInitAutoClose(req: Request, res: Response) {
       });
     }
 
-    await SupportTicket.updateMany(
-      {
-        uuid: {
-          $in: toSet.map((t) => t.uuid),
-        },
-      },
-      {
-        autoCloseTriggered: true,
-        autoCloseDate: addDays(new Date(), 3).toISOString(), // 3 days from now
-      },
+    await ticketService.initAutoClose(
+      toSet.map((t) => t.uuid),
+      addDays(new Date(), 3).toISOString(), // 3 days from now
     );
 
     for (const ticket of toSet) {
@@ -1585,6 +1559,7 @@ async function findTicketsToInitAutoClose(req: Request, res: Response) {
 
 async function autoCloseTickets(req: Request, res: Response) {
   try {
+    const ticketService = new SupportTicketService();
     const tickets = await SupportTicket.find({
       autoCloseTriggered: true,
       autoCloseDate: { $lte: new Date().toISOString() },
@@ -1594,16 +1569,7 @@ async function autoCloseTickets(req: Request, res: Response) {
     const feedEntry = _createFeedEntry_AutoClosed();
 
     for (const ticket of tickets) {
-      await SupportTicket.updateOne(
-        { uuid: ticket.uuid },
-        {
-          status: "closed",
-          autoCloseTriggered: false,
-          autoCloseDate: null,
-          timeClosed: new Date().toISOString(),
-          feed: [...ticket.feed, feedEntry],
-        },
-      );
+      await ticketService.autoCloseTicket(ticket, feedEntry);
     }
 
     return res.send({
