@@ -18,7 +18,7 @@
     "@langchain/mongodb": "^1.0.0",
     "@langchain/openai": "^1.0.0",
     "@node-oauth/oauth2-server": "^4.2.0",
-    "@qdrant/js-client-rest": "^1.15.1",
+    "@qdrant/js-client-rest": "^1.17.0",
     "@types/adm-zip": "^0.5.3",
     "adm-zip": "^0.5.10",
     "async": "^3.2.0",
