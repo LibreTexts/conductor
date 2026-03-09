@@ -9,6 +9,8 @@ export interface SupportCenterContextType {
   selectedQueueObject: SupportQueue | null;
   queueDrawerOpen: boolean;
   setQueueDrawerOpen: Dispatch<SetStateAction<boolean>>;
+  queues: SupportQueue[] | null;
+  setQueues: Dispatch<SetStateAction<SupportQueue[] | null>>;
 }
 
 export const SupportCenterContext = createContext<

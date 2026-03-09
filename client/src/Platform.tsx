@@ -20,6 +20,7 @@ import {
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import ModalsProvider from "./providers/ModalsProvider.js";
 import NotificationsProvider from "./providers/NotificationsProvider.js";
+import SupportCenterProvider from "./providers/SupportCenterProvider.js";
 import { BrowserRouter, Route, Switch } from "react-router-dom";
 import { useNotifications } from "./context/NotificationContext.js";
 
@@ -140,17 +141,19 @@ const Platform = () => {
       <ErrorBoundary FallbackComponent={ErrorScreen}>
         <QueryClientProvider client={queryClient}>
           <div className="App">
-            <ModalsProvider>
-              <Switch>
-                {/* Commons Render Tree */}
-                {/* @ts-expect-error */}
-                <Route exact path={commonsRouterPaths} component={Commons} />
-                {/* Standalone Pages */}
-                <Route exact path={standalonePaths} component={Standalone} />
-                {/* Conductor and fallback Render Tree */}
-                <Route component={Conductor} />
-              </Switch>
-            </ModalsProvider>
+            <SupportCenterProvider>
+              <ModalsProvider>
+                <Switch>
+                  {/* Commons Render Tree */}
+                  {/* @ts-expect-error */}
+                  <Route exact path={commonsRouterPaths} component={Commons} />
+                  {/* Standalone Pages */}
+                  <Route exact path={standalonePaths} component={Standalone} />
+                  {/* Conductor and fallback Render Tree */}
+                  <Route component={Conductor} />
+                </Switch>
+              </ModalsProvider>
+            </SupportCenterProvider>
             <ErrorModal />
             <ReactQueryDevtools initialIsOpen={false} />
           </div>

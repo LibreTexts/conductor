@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { SupportCenterContext } from "../context/SupportCenterContext";
 import { useLocalStorage } from "usehooks-ts";
-import useSupportQueues from "../hooks/useSupportQueues";
+import { SupportQueue } from "../types";
 
 const SupportCenterProvider = ({ children }: { children: React.ReactNode }) => {
   const [selectedQueue, setSelectedQueue] = useLocalStorage<string>(
@@ -31,12 +31,11 @@ const SupportCenterProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const [selectedTickets, setSelectedTickets] = useState<string[]>([]);
-
-  const { data, isFetching } = useSupportQueues({ withCount: false });
+  const [queues, setQueues] = useState<SupportQueue[] | null>(null);
 
   const selectedQueueObject = useMemo(() => {
-    return data?.find((queue) => queue.slug === selectedQueue) || null;
-  }, [data, selectedQueue]);
+    return queues?.find((queue) => queue.slug === selectedQueue) || null;
+  }, [queues, selectedQueue]);
 
   return (
     <SupportCenterContext.Provider
@@ -48,6 +47,8 @@ const SupportCenterProvider = ({ children }: { children: React.ReactNode }) => {
         selectedQueueObject,
         queueDrawerOpen,
         setQueueDrawerOpen,
+        queues,
+        setQueues,
       }}
     >
       {children}
