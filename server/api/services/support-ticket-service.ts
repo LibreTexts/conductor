@@ -50,6 +50,7 @@ export default class SupportTicketService {
             ticket.status = ticket.status === "awaiting_requester" ? "awaiting_requester" : messages.length > 0 ? "in_progress" : "assigned";
             ticket.feed = [...(ticket.feed || []), feedEntry];
             await ticket.save();
+            await this.upsertToSearchIndex(uuid);
 
             if (newAssigneeEmails.length === 0) {
                 return ticket; // No need to send emails
@@ -171,6 +172,7 @@ export default class SupportTicketService {
                     $push: { feed: feedEntry },
                 }
             ).orFail();
+            await this.upsertToSearchIndex(uuid);
         } catch (err) {
             throw err;
         }
@@ -184,6 +186,7 @@ export default class SupportTicketService {
                     $set: { queue_id: queueId },
                 }
             ).orFail();
+            await this.upsertToSearchIndex(uuid);
         } catch (err) {
             throw err;
         }
@@ -207,6 +210,7 @@ export default class SupportTicketService {
                     ...(feedEntry ? { $push: { feed: feedEntry } } : {}),
                 }
             ).orFail();
+            await this.upsertToSearchIndex(uuid);
         } catch (err) {
             throw err;
         }
@@ -225,7 +229,7 @@ export default class SupportTicketService {
         page
     }: SearchTicketsParams): Promise<{ tickets: SupportTicketInterface[]; total: number }> {
         try {
-            const searchService = await SearchService.create();
+            const searchService = await SearchService.getInstance();
 
             const isExactUUIDQuery = z.uuid().safeParse(query).success;
 
@@ -261,7 +265,7 @@ export default class SupportTicketService {
     async syncWithSearchIndex() {
         try {
             debugServer(`[SupportTicketService] Starting sync with search index...`);
-            const searchService = await SearchService.create();
+            const searchService = await SearchService.getInstance();
 
             const batchSize = 100;
             let skip = 0;
@@ -312,7 +316,7 @@ export default class SupportTicketService {
      */
     async upsertToSearchIndex(ticketID: string): Promise<void> {
         try {
-            const searchService = await SearchService.create();
+            const searchService = await SearchService.getInstance();
 
             const results = await SupportTicket.aggregate([
                 { $match: { uuid: ticketID } },
@@ -334,6 +338,126 @@ export default class SupportTicketService {
             await searchService.addDocuments("supportTickets", [ticket]);
         } catch (err) {
             debugError(`[SupportTicketService] Error upserting ticket ${ticketID} to search index: ${err}`);
+        }
+    }
+
+    /**
+     * Batch version of upsertToSearchIndex — fetches and syncs multiple tickets in a single
+     * aggregate query + single addDocuments call, instead of N separate round-trips.
+     */
+    async bulkUpsertToSearchIndex(ticketIDs: string[]): Promise<void> {
+        try {
+            if (ticketIDs.length === 0) return;
+
+            const searchService = await SearchService.getInstance();
+
+            const results = await SupportTicket.aggregate([
+                { $match: { uuid: { $in: ticketIDs } } },
+                ...this.lookupUserDataStages("assignedUUIDs"),
+                ...this.lookupUserDataStages("userUUID"),
+            ]);
+
+            if (!results || results.length === 0) return;
+
+            await searchService.addDocuments("supportTickets", results);
+        } catch (err) {
+            debugError(`[SupportTicketService] Error bulk upserting tickets to search index: ${err}`);
+        }
+    }
+
+    async removeFromSearchIndex(uuid: string): Promise<void> {
+        try {
+            const searchService = await SearchService.getInstance();
+            await searchService.deleteDocuments("supportTickets", [uuid]);
+        } catch (err) {
+            debugError(`[SupportTicketService] Error removing ticket ${uuid} from search index: ${err}`);
+        }
+    }
+
+    async createTicket(data: Partial<SupportTicketInterface> | Partial<Omit<SupportTicketInterface, "attachments"> & { attachments?: string[] }>): Promise<SupportTicketInterface> {
+        try {
+            const ticket = await SupportTicket.create(data);
+            await this.upsertToSearchIndex(ticket.uuid);
+            return ticket;
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    async saveTicket(ticket: SupportTicketInterface): Promise<SupportTicketInterface> {
+        try {
+            await ticket.save();
+            await this.upsertToSearchIndex(ticket.uuid);
+            return ticket;
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    async updateTicket(uuid: string, update: Record<string, any>): Promise<void> {
+        try {
+            await SupportTicket.updateOne({ uuid }, update).orFail();
+            await this.upsertToSearchIndex(uuid);
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    async deleteTicket(uuid: string): Promise<void> {
+        try {
+            await SupportTicket.deleteOne({ uuid });
+            await this.removeFromSearchIndex(uuid);
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    async resetAutoClose(uuid: string): Promise<SupportTicketInterface> {
+        try {
+            const ticket = await SupportTicket.findOneAndUpdate(
+                { uuid },
+                {
+                    autoCloseTriggered: false,
+                    autoCloseDate: null,
+                },
+            ).populate("queue").orFail();
+            await this.upsertToSearchIndex(uuid);
+            return ticket;
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    async initAutoClose(uuids: string[], autoCloseDate: string): Promise<void> {
+        try {
+            await SupportTicket.updateMany(
+                { uuid: { $in: uuids } },
+                {
+                    autoCloseTriggered: true,
+                    autoCloseDate,
+                },
+            );
+            await this.bulkUpsertToSearchIndex(uuids);
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    async autoCloseTicket(ticket: SupportTicketInterface, feedEntry: SupportTicketFeedEntryInterface): Promise<void> {
+        try {
+            await SupportTicket.updateOne(
+                { uuid: ticket.uuid },
+                {
+                    status: "closed",
+                    autoCloseTriggered: false,
+                    autoCloseDate: null,
+                    timeClosed: new Date().toISOString(),
+                    feed: [...ticket.feed, feedEntry],
+                },
+            );
+            await this.upsertToSearchIndex(ticket.uuid);
+        } catch (err) {
+            throw err;
         }
     }
 

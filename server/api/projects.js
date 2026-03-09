@@ -3285,8 +3285,8 @@ async function syncWithSearchIndex(req, res) {
 export async function syncProjectsInBackground() {
   try {
     debugServer("Initiating Projects search index sync...");
-    const searchService = await SearchService.create();
-    
+    const searchService = await SearchService.getInstance();
+
     const batchSize = 500; // Process 500 projects at a time
     let skip = 0;
     let hasMore = true;
