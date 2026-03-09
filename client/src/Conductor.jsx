@@ -90,7 +90,7 @@ import LibreTextsRoute from './components/util/LibreTextsRoute';
 import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
 import StoreNavbar from './components/navigation/StoreNavbar';
 import CartProvider from './providers/CartProvider';
-import SupportCenterProvider from './providers/SupportCenterProvider';
+import SupportCenterDataLoader from './providers/SupportCenterDataLoader';
 
 const RenderNavbar = () => {
   if(window.location.pathname.includes('/insight') || window.location.pathname.includes('/support')){
@@ -180,7 +180,7 @@ const Conductor = () => {
           <LibreTextsRoute exact path='/store/checkout/success' key='storesuccess' org={org} component={StoreSuccess} />
           <LibreTextsRoute exact path='/store/order/:order_id' key='storeorder' org={org} component={StoreOrder} />
           <LibreTextsRoute exact path='/store/product/:product_id' key='storeproduct' org={org} component={StoreProduct} />
-          <SupportCenterProvider>
+          <SupportCenterDataLoader>
             <LibreTextsRoute exact path='/insight' key='insight' component={KnowledgeBase} org={org}/>
             <LibreTextsRoute exact path='/insight/search' key='insightsearchresults' component={KBSearchResults} org={org}/>
             <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
@@ -191,7 +191,7 @@ const Conductor = () => {
             {/*LibreTexts org private routes */}
             <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
             <LibreTextsPrivateRoute exact path='/support/closed' key='supportclosedtickets' org={org} component={SupportClosedTickets} />
-          </SupportCenterProvider>
+          </SupportCenterDataLoader>
           {/* 404 */}
           <Route component={PageNotFound} />
           </Switch>
