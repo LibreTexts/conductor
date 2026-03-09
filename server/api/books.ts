@@ -2656,8 +2656,8 @@ export async function syncWithSearchIndex(
 async function syncBooksInBackground() {
   try {
     debugServer("Initiating Commons Books search index synchronization...");
-    const searchService = await SearchService.create();
-    
+    const searchService = await SearchService.getInstance();
+
     const batchSize = 500; // Process 500 books at a time
     let skip = 0;
     let hasMore = true;

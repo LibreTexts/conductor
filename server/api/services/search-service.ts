@@ -19,6 +19,9 @@ export const INDEX_SORTABLE_ATTRIBUTES = {
 };
 
 export default class SearchService {
+  private static instance: SearchService | null = null;
+  private static initPromise: Promise<SearchService> | null = null;
+
   private client = new MeiliSearch({
     host: process.env.MEILISEARCH_URL || "http://localhost:7700",
     apiKey: process.env.MEILISEARCH_API_KEY || "",
@@ -26,6 +29,33 @@ export default class SearchService {
   private indexes = new Map<string, Index>();
 
   private constructor() { }
+
+  /**
+   * Returns a cached singleton instance of SearchService.
+   * The first call initializes the instance; subsequent calls return the same one.
+   * If initialization fails, the next call will retry.
+   */
+  static async getInstance(): Promise<SearchService> {
+    if (this.instance) {
+      return this.instance;
+    }
+
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
+    this.initPromise = SearchService.create()
+      .then((service) => {
+        this.instance = service;
+        return service;
+      })
+      .catch((error) => {
+        this.initPromise = null; // Allow retry on next call
+        throw error;
+      });
+
+    return this.initPromise;
+  }
 
   static async create(): Promise<SearchService> {
     const instance = new SearchService();
@@ -119,6 +149,21 @@ export default class SearchService {
     } catch (error: any) {
       debugServer(
         `[SearchService] Error adding documents to index ${indexName}: ${error}`
+      );
+      throw error;
+    }
+  }
+
+  async deleteDocuments(indexName: (typeof INDEXES)[number], ids: string[]) {
+    try {
+      const index = this.indexes.get(indexName);
+      if (!index) {
+        throw new Error(INDEX_NOT_FOUND_ERROR);
+      }
+      return index.deleteDocuments(ids);
+    } catch (error: any) {
+      debugServer(
+        `[SearchService] Error deleting documents from index ${indexName}: ${error}`
       );
       throw error;
     }
