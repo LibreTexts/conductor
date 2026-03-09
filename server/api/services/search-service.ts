@@ -22,7 +22,7 @@ export default class SearchService {
   private static instance: SearchService | null = null;
   private static initPromise: Promise<SearchService> | null = null;
 
-  private client = new MeiliSearch({
+  private _client = new MeiliSearch({
     host: process.env.MEILISEARCH_URL || "http://localhost:7700",
     apiKey: process.env.MEILISEARCH_API_KEY || "",
   });
@@ -133,6 +133,54 @@ export default class SearchService {
     } catch (error: any) {
       debugServer(
         `[SearchService] Error ensuring index ${indexName} exists: ${error}`
+      );
+      throw error;
+    }
+  }
+
+  async getIndexStats(indexName: (typeof INDEXES)[number]) {
+    try {
+      const index = this.indexes.get(indexName);
+      if (!index) {
+        throw new Error(INDEX_NOT_FOUND_ERROR);
+      }
+
+      return index.getStats();
+    } catch (error: any) {
+      debugServer(
+        `[SearchService] Error getting stats for index ${indexName}: ${error}`
+      );
+      throw error;
+    }
+  }
+
+  async getFilterableAttributes(indexName: (typeof INDEXES)[number]) {
+    try {
+      const index = this.indexes.get(indexName);
+      if (!index) {
+        throw new Error(INDEX_NOT_FOUND_ERROR);
+      }
+
+      return index.getFilterableAttributes();
+    } catch (error: any) {
+      debugServer(
+        `[SearchService] Error getting filterable attributes for index ${indexName}: ${error}`
+      );
+      throw error;
+    }
+  }
+
+  async getSortableAttributes(indexName: (typeof INDEXES)[number]) {
+    try {
+      const index = this.indexes.get(indexName);
+      if (!index) {
+        throw new Error(INDEX_NOT_FOUND_ERROR);
+      }
+
+      return index.getSortableAttributes();
+    } catch (error: any) {
+      debugServer(
+        `[SearchService] Error getting sortable attributes for index ${indexName}: ${error}`
       );
       throw error;
     }

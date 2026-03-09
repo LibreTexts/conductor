@@ -11,18 +11,16 @@ import projectsAPI from "./projects.js";
  */
 export async function getIndexStatus(req: Request, res: Response) {
   try {
-    const searchService = await SearchService.create();
+    const searchService = await SearchService.getInstance();
     const indexStatuses = [];
 
     for (const indexName of INDEXES) {
       try {
-        const index = searchService._client.index(indexName);
-
-        const stats = await index.getStats();
+        const stats = await searchService.getIndexStats(indexName);
 
         const [filterableAttrs, sortableAttrs] = await Promise.all([
-          index.getFilterableAttributes(),
-          index.getSortableAttributes(),
+          searchService.getFilterableAttributes(indexName),
+          searchService.getSortableAttributes(indexName),
         ]);
 
         indexStatuses.push({
