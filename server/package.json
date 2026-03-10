@@ -71,7 +71,7 @@
     "uuid": "^8.3.1",
     "world-countries": "^5.1.0",
     "zod": "^4.1.13",
-    "zod-form-data": "^2.0.2"
+    "zod-form-data": "^3.0.1"
   },
   "author": "LibreTexts <info@libretexts.org>",
   "devDependencies": {
