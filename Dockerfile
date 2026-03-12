@@ -53,6 +53,8 @@ RUN npm install --no-audit --omit=dev && \
 
 # Copy built artifacts from previous stages
 COPY --from=server-builder /usr/src/conductor/server/dist ./dist
+COPY --from=server-builder /usr/src/conductor/server/util ./util
+COPY --from=server-builder /usr/src/conductor/server/public ./public
 COPY --from=client-builder /usr/src/conductor/client/dist ../client/dist
 
 EXPOSE 5000
