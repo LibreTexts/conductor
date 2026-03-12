@@ -23,6 +23,8 @@ RUN npm install --no-audit
 
 # Copy source and build
 COPY server/ ./
+# Ensure public directory exists (even if not in source)
+RUN mkdir -p ./public
 RUN npm run build
 
 # Stage 3: Production runtime
