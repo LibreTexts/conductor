@@ -11,6 +11,7 @@ import {
   Dropdown,
   Image,
   Popup,
+  Message,
 } from "semantic-ui-react";
 import {
   CentralIdentityUser,
@@ -136,6 +137,8 @@ const CentralIdentityUserView = () => {
         first_name: "",
         last_name: "",
         disabled: false,
+        disabled_reason: "",
+        disabled_date: "",
         bio_url: "",
         user_type: "student",
         student_id: "",
@@ -434,6 +437,36 @@ const CentralIdentityUserView = () => {
               </span>
             </div> */}
           </Segment>
+          {getValues("disabled") && (
+            <Message warning icon>
+              <Icon name="warning sign" />
+              <Message.Content>
+                <Message.Header>Account Disabled</Message.Header>
+                <p>
+                  This user's account has been disabled.
+                  {getValues("disabled_reason") && (
+                    <>
+                      {" "}
+                      <strong>Reason:</strong> {getValues("disabled_reason")}
+                    </>
+                  )}
+                  {getValues("disabled_date") && (
+                    <>
+                      {" "}
+                      <strong>Date:</strong>{" "}
+                      {format(
+                        utcToZonedTime(
+                          parseISO(getValues("disabled_date")!),
+                          Intl.DateTimeFormat().resolvedOptions().timeZone
+                        ),
+                        "MM/dd/yyyy"
+                      )}
+                    </>
+                  )}
+                </p>
+              </Message.Content>
+            </Message>
+          )}
           <div className="flex flex-row justify-between pb-4">
             <div className="flex flex-col basis-1/2">
               <Segment>
