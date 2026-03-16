@@ -165,7 +165,7 @@ export const isAssetTagFramework = (value: any): value is AssetTagFramework => {
 
 export const isAuthor = (value: any): value is Author => {
   if (!value || typeof value !== "object") return false;
-  return "firstName" in value && "lastName" in value;
+  return "nameKey" in value && "name" in value;
 };
 
 // Asset Tag TEMPLATES
