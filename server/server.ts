@@ -126,11 +126,16 @@ app.use("/health", (_req, res) => {
 
 // Serve frontend assets. Use directories relative to server/dist
 app.use(express.static(path.join(__dirname, "../../client/dist")));
-// Inject APP_ENV into index.html for frontend use (Vite env variables are not accessible in server code, so we inject at runtime)
+// Serve runtime env config for frontend use. Loaded via <script src="/env.js"> in index.html to avoid CSP issues with inline scripts.
 const appEnv = process.env.APP_ENV ?? "production";
-const envScript = `<script>window.__APP_ENV__ = ${JSON.stringify(appEnv)};</script>`;
+const envJs = `window.__APP_ENV__ = ${JSON.stringify(appEnv)};`;
+app.get("/env.js", (_req, res) => {
+  res.setHeader("Content-Type", "application/javascript")
+    .setHeader("Cache-Control", "public, max-age=31536000, immutable") // Caching to improve performance since this doesn't change after initial load
+    .send(envJs);
+});
 const indexHtmlPath = path.resolve(__dirname, "../../client/dist/index.html");
-const indexHtml = fs.readFileSync(indexHtmlPath, "utf-8").replace("</head>", `${envScript}</head>`);
+const indexHtml = fs.readFileSync(indexHtmlPath, "utf-8");
 let cliRouter = express.Router();
 cliRouter.route("*").get((_req, res) => {
   res.setHeader("Content-Type", "text/html").send(indexHtml);
