@@ -124,8 +124,10 @@ app.use("/health", (_req, res) => {
   });
 });
 
-// Serve frontend assets. Use directories relative to server/dist
-app.use(express.static(path.join(__dirname, "../../client/dist")));
+// Serve frontend assets. Resolve relative to the server package root (one level up from dist/ in prod, same dir in dev).
+const serverRoot = __dirname.endsWith("dist") ? path.join(__dirname, "..") : __dirname;
+const clientDist = path.join(serverRoot, "../client/dist");
+app.use(express.static(clientDist));
 // Serve runtime env config for frontend use. Loaded via <script src="/env.js"> in index.html to avoid CSP issues with inline scripts.
 const appEnv = process.env.APP_ENV ?? "production";
 const envJs = `window.__APP_ENV__ = ${JSON.stringify(appEnv)};`;
@@ -134,7 +136,7 @@ app.get("/env.js", (_req, res) => {
     .setHeader("Cache-Control", "public, max-age=31536000, immutable") // Caching to improve performance since this doesn't change after initial load
     .send(envJs);
 });
-const indexHtmlPath = path.resolve(__dirname, "../../client/dist/index.html");
+const indexHtmlPath = path.resolve(clientDist, "index.html");
 const indexHtml = fs.readFileSync(indexHtmlPath, "utf-8");
 let cliRouter = express.Router();
 cliRouter.route("*").get((_req, res) => {
