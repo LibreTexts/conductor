@@ -389,6 +389,16 @@ export function sanitizeControlCharacters(str) {
 }
 
 /**
+ * Escapes special characters in a string for use in a regular expression.
+ * @param {*} input - The string to escape.
+ * @returns {*} The escaped string, or the original value if not a string.
+ */
+export function escapeRegEx(input) {
+  if (typeof input !== 'string') return input;
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Decodes a percent-encoded string if applicable, otherwise returns the original string.
  * @param {*} str - The string to decode.
  * @returns {*} The decoded string, or the original value if not a string.

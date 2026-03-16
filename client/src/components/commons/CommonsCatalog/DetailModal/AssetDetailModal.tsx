@@ -17,17 +17,16 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
   const { handleGlobalError } = useGlobalError();
   const [downloadLoading, setDownloadLoading] = useState(false);
 
-  const getAuthorsElement = () => {
+  const getAuthorsText = () => {
     const corresponding = file.correspondingAuthor
-      ? `${file.correspondingAuthor?.firstName} ${file.correspondingAuthor?.lastName}* (<a href="mailto:${file.correspondingAuthor.email}">${file.correspondingAuthor?.email}</a>)`
+      ? `${file.correspondingAuthor?.name}* (corresponding)`
       : "";
     const allOthersMapped = file.authors
-      ?.filter((a) => a && !!a.firstName && !!a.lastName)
-      .map((a) => `${a?.firstName} ${a?.lastName}`);
+      ?.map((a) => a?.name);
 
     const allTogether = [
       file.primaryAuthor
-        ? `${file.primaryAuthor?.firstName} ${file.primaryAuthor?.lastName}`
+        ? file.primaryAuthor?.name
         : "",
       corresponding,
       ...(allOthersMapped ?? []),
@@ -35,11 +34,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
       .filter((a) => a)
       .join(", ");
 
-    return (
-      <span
-        dangerouslySetInnerHTML={{ __html: allTogether || "Unknown Author" }}
-      />
-    );
+    return allTogether || "Unknown";
   };
 
   async function handleFileDownload(file: ConductorSearchResponseFile) {
@@ -108,7 +103,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
         <div>
           <Icon name="user" className="text-blue-500" />
         </div>
-        <p className="text-slate-600 ml-1.5">{getAuthorsElement()}</p>
+        <p className="text-slate-600 ml-1.5">{getAuthorsText()}</p>
       </div>
       {file.storageType === "file" && (
         <CatalogDetailMeta
@@ -123,9 +118,8 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
       )}
       <CatalogDetailMeta
         icon="legal"
-        text={`${file.license?.name ? file.license.name : "Unknown License"} ${
-          file.license?.version ? file.license.version : ""
-        }`}
+        text={`${file.license?.name ? file.license.name : "Unknown License"} ${file.license?.version ? file.license.version : ""
+          }`}
       />
       <div className="flex my-4">
         <div>
@@ -168,8 +162,8 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
               {file.isURL
                 ? "Open External Link"
                 : file.isVideo
-                ? "Watch Video"
-                : "Download File"}
+                  ? "Watch Video"
+                  : "Download File"}
             </div>
           </Button>
         </div>

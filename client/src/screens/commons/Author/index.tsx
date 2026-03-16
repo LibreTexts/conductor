@@ -1,15 +1,14 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Icon, Segment, Header, Breadcrumb, Popup } from "semantic-ui-react";
 import useGlobalError from "../../../components/error/ErrorHooks";
-import {
-  ConductorSearchResponseAuthor,
-  ConductorSearchResponseFile,
-} from "../../../types";
 import api from "../../../api";
 import VisualMode from "../../../components/commons/CommonsCatalog/VisualMode";
 import AssetsTable from "../../../components/commons/CommonsCatalog/AssetsTable";
 import { useTypedSelector } from "../../../state/hooks";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
+
+const ASSETS_LIMIT = 10;
 
 /**
  * Displays an Author's page in the Commons catalog, showing information about an author and their works.
@@ -19,123 +18,88 @@ const CommonsAuthor = () => {
   const { handleGlobalError } = useGlobalError();
   const org = useTypedSelector((state) => state.org);
 
+  const [itemizedMode, setItemizedMode] = useState(false);
+  const [jumpToBottomClicked, setJumpToBottomClicked] = useState(false);
+  const [loadingDisabled, setLoadingDisabled] = useState(false);
+
   // Author data
-  const [loadedData, setLoadedData] = useState<boolean>(false);
-  const [author, setAuthor] = useState<ConductorSearchResponseAuthor>({
-    firstName: "",
-    lastName: "",
-    email: "",
-    primaryInstitution: "",
-    url: "",
-    projects: [],
+  const {
+    data: author,
+    isLoading: authorLoading,
+    error: authorError,
+  } = useQuery({
+    queryKey: ["author", authorID],
+    queryFn: async () => {
+      if (!authorID) throw new Error("No author ID provided.");
+      const res = await api.getAuthor(authorID);
+      if (res.data.err) throw new Error(res.data.errMsg);
+      if (!res.data.author) throw new Error("Error processing server data.");
+      return res.data.author;
+    },
+    enabled: !!authorID,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 
-  // Asset data
-  const [itemizedMode, setItemizedMode] = useState<boolean>(false);
-  const [loadingDisabled, setLoadingDisabled] = useState<boolean>(false);
-  const [loadedAssets, setLoadedAssets] = useState<boolean>(false);
-  const [assets, setAssets] = useState<ConductorSearchResponseFile[]>([]);
-  const [activePage, setActivePage] = useState<number>(1);
-  const [totalAssets, setTotalAssets] = useState<number>(0);
-  const [jumpToBottomClicked, setJumpToBottomClicked] =
-    useState<boolean>(false);
-
-  useEffect(() => {
-    getAuthor();
-  }, [authorID]);
-
-  const getAuthor = async () => {
-    try {
-      if (!authorID) {
-        throw new Error("No author ID provided.");
-      }
-
-      setLoadedData(false);
-      const res = await api.getAuthor(authorID);
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      if (!res.data.author) {
-        throw new Error("Error processing server data.");
-      }
-
-      setAuthor(res.data.author);
-      getAuthorAssets();
-    } catch (e) {
-      handleGlobalError(e);
-    } finally {
-      setLoadedData(true);
-    }
-  };
-
-  const getAuthorAssets = async (page: number = 1) => {
-    try {
-      if (!authorID) {
-        throw new Error("No author ID provided.");
-      }
-
-      if (loadingDisabled) return;
-      setLoadedAssets(false);
-
+  // Assets data
+  const {
+    data: assetsData,
+    isFetching: assetsFetching,
+    fetchNextPage,
+    hasNextPage,
+    error: assetsError,
+  } = useInfiniteQuery({
+    queryKey: ["author-assets", authorID],
+    queryFn: async ({ pageParam = 1 }) => {
+      if (!authorID) throw new Error("No author ID provided.");
       const res = await api.getAuthorAssets(authorID, {
-        page,
-        limit: 10,
+        page: pageParam as number,
+        limit: ASSETS_LIMIT,
       });
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      if (!res.data.assets) {
-        throw new Error("Error processing server data.");
-      }
+      if (res.data.err) throw new Error(res.data.errMsg);
+      if (!res.data.assets) throw new Error("Error processing server data.");
+      return res.data;
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.flatMap((p) => p.assets).length;
+      return loaded < lastPage.total ? allPages.length + 1 : undefined;
+    },
+    enabled: !!authorID && !loadingDisabled,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+  });
 
-      setAssets([...assets, ...res.data.assets]);
-      setTotalAssets(res.data.total);
-    } catch (e) {
-      handleGlobalError(e);
-    } finally {
-      setLoadedAssets(true);
-    }
-  };
-
-  const onLoadMoreAssets = () => {
-    const newPage = activePage + 1;
-    setActivePage(newPage);
-    getAuthorAssets(newPage);
-  };
-
-  /**
-   * Update page title when data is available.
-   */
   useEffect(() => {
-    if (author.firstName && author.lastName) {
+    if (authorError) handleGlobalError(authorError);
+  }, [authorError]);
+
+  useEffect(() => {
+    if (assetsError) handleGlobalError(assetsError);
+  }, [assetsError]);
+
+  useEffect(() => {
+    if (author?.name) {
       document.title =
-        `${
-          org.shortName !== "LibreTexts"
-            ? `${org.shortName} Commons`
-            : "LibreCommons"
-        } | ` +
-        author.firstName +
-        " " +
-        author.lastName;
+        `${org.shortName !== "LibreTexts" ? `${org.shortName} Commons` : "LibreCommons"} | ${author.name}`;
     }
-  }, [author]);
+  }, [author?.name, org.shortName]);
 
-  // Inline useInfiniteScroll - it was just a pass-through wrapper
-  const loadMore = onLoadMoreAssets;
-  const hasMore = assets.length < totalAssets;
-  const isLoading = !loadedAssets;
-
-  const authorFullName = useMemo(() => {
-    if (!author || !author.firstName || !author.lastName)
-      return "Unknown Author";
-    return author.firstName + " " + author.lastName;
-  }, [author]);
+  const assets = assetsData?.pages.flatMap((p) => p.assets) ?? [];
+  const totalAssets = assetsData?.pages[0]?.total ?? 0;
+  const hasMore = (hasNextPage ?? false) && assets.length < totalAssets;
 
   const jumpToBottom = () => {
     setLoadingDisabled(true);
     setJumpToBottomClicked(true);
     window.scrollTo(0, document.body.scrollHeight);
   };
+
+  const renderNameURL = (url: string) => (
+    <p>
+      <Icon name="linkify" />
+      <a href={url} target="_blank" rel="noreferrer">{url}</a>
+    </p>
+  );
 
   return (
     <div className="commons-page-container">
@@ -149,47 +113,72 @@ const CommonsAuthor = () => {
               </span>
             </Breadcrumb.Section>
             <Breadcrumb.Divider icon="right chevron" />
-            <Breadcrumb.Section active>{authorFullName}</Breadcrumb.Section>
+            <Breadcrumb.Section active>{author?.name ?? "Author"}</Breadcrumb.Section>
           </Breadcrumb>
         </Segment>
-        <Segment loading={!loadedData} className="">
+        <Segment loading={authorLoading}>
           <div className="flex flex-col lg:flex-row px-1">
             <div className="flex flex-col w-full lg:w-1/4 min-h-48 h-fit border shadow-md p-4 rounded-md mr-16">
+              {author?.pictureURL && (
+                <img
+                  src={author.pictureURL}
+                  alt={author.name}
+                  className={`w-24 h-24 object-cover mb-3 ${author.pictureCircle === "no" ? "rounded-md" : "rounded-full"}`}
+                />
+              )}
               <Header as="h1" className="!mb-2 !ml-0.5">
-                {authorFullName}
+                {author?.name ?? ""}
               </Header>
-              {author.primaryInstitution && (
+              {author?.nameTitle && (
+                <p className="text-gray-600 text-sm mb-2">{author.nameTitle}</p>
+              )}
+              {author?.nameURL && renderNameURL(author.nameURL)}
+              {author?.companyName && (
                 <p>
                   <Icon name="university" />
-                  {author.primaryInstitution}
+                  {author.companyURL ? (
+                    <a href={author.companyURL} target="_blank" rel="noreferrer">
+                      {author.companyName}
+                    </a>
+                  ) : (
+                    author.companyName
+                  )}
                 </p>
               )}
-              {author.url && (
+              {author?.programName && (
                 <p>
-                  <Icon name="linkify" />
-                  <a href={author.url} target="_blank" rel="noreferrer">
-                    {author.url}
-                  </a>
+                  <Icon name="graduation cap" />
+                  {author.programURL ? (
+                    <a href={author.programURL} target="_blank" rel="noreferrer">
+                      {author.programName}
+                    </a>
+                  ) : (
+                    author.programName
+                  )}
                 </p>
               )}
-              {author.email && (
+              {author?.note && (
                 <p>
-                  <Icon name="mail" className="mr-1" />
-                  <a href={`mailto:${author.email}`} className="!text-blue-500">
-                    {author.email}
-                  </a>
+                  <Icon name="info circle" />
+                  {author.noteURL ? (
+                    <a href={author.noteURL} target="_blank" rel="noreferrer">
+                      {author.note}
+                    </a>
+                  ) : (
+                    author.note
+                  )}
                 </p>
               )}
-              {author.projects?.length > 0 && (
+              {author?.projects && author.projects.length > 0 && (
                 <p>
                   <Icon name="wrench" className="mr-1" />
-                  {author.projects.map((p) => (
+                  {author.projects.map((p, i) => (
                     <a
                       href={`/commons-project/${p.projectID}`}
                       key={p.projectID}
-                      className="hover:underline cursor-pointer !text-blue-500 !hover:text-blue-500"
+                      className="hover:underline cursor-pointer !text-blue-500"
                     >
-                      {`${p.title}${author.projects.length > 1 ? ", " : ""}`}
+                      {p.title}{i < author.projects.length - 1 ? ", " : ""}
                     </a>
                   ))}
                 </p>
@@ -230,9 +219,7 @@ const CommonsAuthor = () => {
                   <Popup
                     trigger={
                       <button
-                        onClick={() => {
-                          setItemizedMode(!itemizedMode);
-                        }}
+                        onClick={() => setItemizedMode(!itemizedMode)}
                         className="bg-slate-100 text-black border border-slate-300 rounded-md !pl-1.5 p-1 shadow-sm hover:shadow-md"
                         aria-label={
                           itemizedMode
@@ -257,33 +244,26 @@ const CommonsAuthor = () => {
               </div>
               <div>
                 {itemizedMode ? (
-                  <AssetsTable
-                    items={assets}
-                    loading={!loadedAssets}
-                  />
+                  <AssetsTable items={assets} loading={assetsFetching} />
                 ) : (
                   <VisualMode
                     items={assets}
-                    loading={!loadedAssets}
+                    loading={assetsFetching}
                     noResultsMessage="No assets found for this author."
                   />
                 )}
-
-                {/* Load More Button */}
                 {hasMore && (
                   <div className="w-full mt-6 flex justify-center">
                     <button
-                      onClick={loadMore}
-                      disabled={isLoading}
+                      onClick={() => fetchNextPage()}
+                      disabled={assetsFetching}
                       className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-wait transition-colors font-semibold"
                       aria-label="Load more assets"
                     >
-                      {isLoading ? "Loading..." : "Load More"}
+                      {assetsFetching ? "Loading..." : "Load More"}
                     </button>
                   </div>
                 )}
-
-                {/* End of results message */}
                 {!hasMore && assets.length > 0 && (
                   <div className="w-full mt-4">
                     <p className="text-center font-semibold">End of results</p>

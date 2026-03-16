@@ -117,7 +117,7 @@ function SupportCenterTable<T>({
                   key={idx}
                   onClick={() => onRowClick?.(record)}
                   className={
-                    onRowClick ? "cursor-pointer hover:bg-gray-100" : ""
+                    onRowClick ? "cursor-pointer hover:!bg-gray-200" : ""
                   }
                 >
                   {columns.map((column, index) => (
@@ -212,7 +212,7 @@ function SupportCenterTable<T>({
                   className={classNames(
                     "absolute top-0 left-0 w-full flex border-b border-gray-200",
                     onRowClick &&
-                      "cursor-pointer hover:bg-gray-100 transition-colors",
+                      "cursor-pointer hover:bg-gray-200 transition-colors",
                     isEven ? "bg-white" : "bg-gray-50"
                   )}
                   style={{

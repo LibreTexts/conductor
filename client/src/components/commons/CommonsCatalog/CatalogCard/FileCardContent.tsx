@@ -27,8 +27,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
 
   const allAuthors =
     [file.primaryAuthor, ...(file.authors ?? [])]
-      .filter((a) => a && !!a.firstName && !!a.lastName)
-      .map((a) => `${a?.firstName} ${a?.lastName}`)
+      .map((a) => a?.name)
       .join(", ") || "Unknown";
 
   async function handleFileDownload(file: ConductorSearchResponseFile) {

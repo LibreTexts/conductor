@@ -17,6 +17,28 @@ export type License = {
   additionalTerms?: string;
 };
 
+export type ConductorInfiniteScrollResponse<T> = ({
+  err: false;
+} & BaseConductorInfiniteScrollResponse<T>) | {
+  err: true;
+  errMsg: string;
+};
+
+/**
+ * The base data structure for responses from the Conductor server when fetching items with infinite scroll pagination.
+ * The controller method should return data in the `ConductorInfiniteScrollResponse` format which wraps this base structure and adds an `err` field to indicate success or failure of the request.
+ * This type is used to ensure consistent response formats across different API endpoints that implement infinite scroll pagination.
+ */
+export type BaseConductorInfiniteScrollResponse<T> = {
+  items: T[];
+  meta: {
+    total_count: number;
+    has_more: boolean;
+    next_page: string | number | null;
+  }
+}
+
+
 /**
  * A TypeScript type alias called `Prettify`.
  * It takes a type as its argument and returns a new type that has the same properties as the original type,

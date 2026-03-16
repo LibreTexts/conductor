@@ -24,6 +24,19 @@ export type ConductorBaseResponse =
   | { err: false }
   | { err: true; errMsg: string };
 
+export type ConductorInfiniteScrollResponse<T> = {
+  err: false;
+  items: T[];
+  meta: {
+    total_count: number;
+    has_more: boolean;
+    next_page: string | number | null;
+  }
+} | {
+  err: true;
+  errMsg: string;
+};
+
 export type _MoveFile = Pick<
   ProjectFile,
   "fileID" | "name" | "storageType" | "description"

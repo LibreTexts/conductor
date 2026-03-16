@@ -61,6 +61,13 @@ const ControlPanel = () => {
       roles: ["superAdmin"],
     },
     {
+      url: "/controlpanel/authorsmanager",
+      icon: "address book outline",
+      title: "Authors Manager",
+      description:
+        "Manage the master list of Authors that can be associated with Conductor projects and LibreTexts textbooks",
+    },
+    {
       url: "/controlpanel/eventsmanager",
       icon: "calendar alternate outline",
       title: "Events Manager",
@@ -135,13 +142,6 @@ const ControlPanel = () => {
       title: "Peer Review Rubrics",
       description:
         "Manage Peer Review rubrics available for use in Conductor projects",
-    },
-    {
-      url: "/controlpanel/peoplemanager",
-      icon: "address book outline",
-      title: "People Manager",
-      description:
-        "Manage known individuals and their contact information for use in Conductor projects",
     },
     {
       url: "/controlpanel/campussettings",
