@@ -5,8 +5,8 @@ import {
   getPageID,
 } from "./librariesclient";
 import conductorErrors from "../conductor-errors";
-import { parse as parseHTML } from "node-html-parser";
 import MindTouch from "./CXOne/index.js";
+import { License } from "../types";
 
 const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
 
@@ -40,6 +40,11 @@ export interface MindTouchConfig {
 
 export interface PublishOptions {
   auth?: { username: string; password: string };
+  /**
+   * Optional logging callback used to stream progress messages.
+   * Intended for background jobs (e.g., Pressbooks imports).
+   */
+  log?: (message: string) => void | Promise<void>;
 }
 
 export interface PublishResult {
@@ -48,6 +53,12 @@ export interface PublishResult {
   url: string;
   bookID: string;
   errMsg?: string;
+  authorsName?: string;
+  resourceURL?: string;
+  sourcePublicationDate?: Date;
+  license?: License;
+  thumbnail?: string;
+  isbn?: string;
 }
 
 export interface Author {
@@ -136,11 +147,52 @@ export class PressBookScraper {
   private convertLatexShortcodes(html: string): string {
     return html.replace(/\[latex](.*?)\[\/latex]/g, "\\($1\\)");
   }
+  private getAuthorsName(metadata: any): string {
+    return metadata.authors.map((author: any) => author.name).join(", ");
+  }
 
   async publishBook(options: PublishOptions): Promise<PublishResult> {
     const encodePbURL = this.pbBookURL.replace(/\/+$/, "");
     const auth = options.auth;
-    const result: PublishResult = { err: false, path: "", url: "", bookID: "" };
+    const result: PublishResult = {
+      err: false,
+      path: "",
+      url: "",
+      bookID: "",
+      authorsName: undefined,
+      resourceURL: undefined,
+      sourcePublicationDate: undefined,
+      license: undefined,
+    };
+    const log = (message: string) => {
+      // Always log to server console
+      // eslint-disable-next-line no-console
+      console.log(message);
+      // Optionally forward to external logger (e.g., job status)
+      if (typeof options.log === "function") {
+        try {
+          const maybePromise = options.log(message);
+          if (
+            maybePromise &&
+            typeof (maybePromise as any).then === "function"
+          ) {
+            (maybePromise as Promise<void>).catch((e) => {
+              // eslint-disable-next-line no-console
+              console.error(
+                "[PressBookScraper] Error in external log callback:",
+                e,
+              );
+            });
+          }
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.error(
+            "[PressBookScraper] Error invoking external log callback:",
+            e,
+          );
+        }
+      }
+    };
 
     // ── 1. Metadata ──────────────────────────────────────────────────────────
     let metadata: any = {};
@@ -158,7 +210,7 @@ export class PressBookScraper {
     }
 
     // ── 2. TOC — single source of truth for structure AND order ──────────────
-    console.log("[*] Fetching TOC...");
+    log("[*] Fetching TOC...");
     let toc: TocShape;
     try {
       toc = (await this.getJson(
@@ -180,8 +232,40 @@ export class PressBookScraper {
     const [bookPath, bookURL] = generateBookPathAndURL(this.subdomain, title);
     result.path = bookPath;
     result.url = bookURL;
-    console.log("[*] bookPath:", bookPath);
-    console.log("[*] bookURL:", bookURL);
+    log(`[*] bookPath: ${bookPath}`);
+    log(`[*] bookURL: ${bookURL}`);
+    // ── 3.1 Authors Name ──────────────────────────────────────────────────────
+    try {
+      result.authorsName = this.getAuthorsName(metadata);
+    } catch {
+      result.authorsName = undefined;
+    }
+    // ── 3.2 Source Publication Date ────────────────────────────────────────────
+    try {
+      // "datePublished": "2024-01-18",
+      result.sourcePublicationDate = new Date(metadata.datePublished);
+      log(`[*] result.sourcePublicationDate: ${result.sourcePublicationDate}`);
+    } catch {
+      result.sourcePublicationDate = undefined;
+    }
+    // ── 3.3 License ────────────────────────────────────────────────────────────
+    try {
+      const license: License = {
+        name: metadata.license.name,
+        url: metadata.license.url,
+      };
+      result.license = license;
+    } catch {
+      result.license = undefined;
+    }
+    // ── 3.4 Resource URL ───────────────────────────────────────────────────────
+    result.resourceURL = this.pbBookURL;
+    // ── 3.5 Thumbnail ────────────────────────────────────────────────────────────
+    try {
+      result.thumbnail = metadata.image;
+    } catch {
+      result.thumbnail = `${defaultImagesURL}/default.png`;
+    }
 
     // ── 4. Create the CXOne book root ─────────────────────────────────────────
     const createBookRes = await CXOneFetch({
@@ -206,7 +290,9 @@ export class PressBookScraper {
       addPageProperty(this.subdomain, bookPath, "SubPageListing", "simple"),
     ]);
 
-    const imageRes = await fetch(`${defaultImagesURL}/default.png`);
+    const imageRes = await fetch(
+      result.thumbnail || `${defaultImagesURL}/default.png`,
+    );
     await CXOneFetch({
       scope: "page",
       path: bookPath,
@@ -216,8 +302,8 @@ export class PressBookScraper {
     });
 
     // ── 5. Front Matter container + items ─────────────────────────────────────
-    console.log(`\n[*] Front Matter: ${toc["front-matter"].length} items`);
-    const frontMatterContainerPath = `${bookPath}/Front_Matter`;
+    log(`\n[*] Front Matter: ${toc["front-matter"].length} items`);
+    const frontMatterContainerPath = `${bookPath}/00:_Front_Matter`;
 
     // isContainer: true — Front_Matter holds child pages
     await this.upsertCXOnePage(
@@ -235,7 +321,7 @@ export class PressBookScraper {
       const node = sortedFrontMatter[i];
       const seq = String(i + 1).padStart(2, "0");
       const pagePath = `${frontMatterContainerPath}/${seq}:_${this.slugifyNode(node)}`;
-      console.log(`  [FM ${seq}] ${node.title}`);
+      log(`  [FM ${seq}] ${node.title}`);
 
       const content = node.has_post_content
         ? await this.fetchNodeContent(
@@ -250,8 +336,24 @@ export class PressBookScraper {
       await this.upsertCXOnePage(pagePath, node.title, content, false);
     }
 
+    await Promise.all([
+      addPageProperty(
+        this.subdomain,
+        frontMatterContainerPath,
+        "SubPageListing",
+        "simple",
+      ),
+      addPageProperty(
+        this.subdomain,
+        frontMatterContainerPath,
+        "WelcomeHidden",
+        true,
+      ),
+      
+    ]);
+
     // ── 6. Parts → Chapters ───────────────────────────────────────────────────
-    console.log(`\n[*] Parts: ${toc.parts.length}`);
+    log(`\n[*] Parts: ${toc.parts.length}`);
     const sortedParts = [...toc.parts].sort(
       (a, b) => a.menu_order - b.menu_order,
     );
@@ -260,7 +362,7 @@ export class PressBookScraper {
       const part = sortedParts[pi];
       const partSeq = String(pi + 1).padStart(2, "0");
       const partPath = `${bookPath}/${partSeq}:${this.slugifyNode(part)}`;
-      console.log(
+      log(
         `\n  [Part ${partSeq}] ${part.title} (${part.chapters.length} chapters)`,
       );
 
@@ -271,7 +373,7 @@ export class PressBookScraper {
       // isContainer: true — Parts hold chapters under them
       await this.upsertCXOnePage(
         partPath,
-        `${partSeq}:_${part.title}`,
+        `${partSeq}: ${part.title}`,
         partContent,
         true,
       );
@@ -284,7 +386,7 @@ export class PressBookScraper {
         const chapter = sortedChapters[ci];
         const chapterSeq = String(ci + 1).padStart(2, "0");
         const chapterPath = `${partPath}/${chapterSeq}:_${this.slugifyNode(chapter)}`;
-        console.log(`    [Ch ${chapterSeq}] ${chapter.title}`);
+        log(`    [Ch ${chapterSeq}] ${chapter.title}`);
 
         const content = chapter.has_post_content
           ? await this.fetchNodeContent(
@@ -298,12 +400,20 @@ export class PressBookScraper {
         // isContainer: false — Chapters are leaf content pages
         await this.upsertCXOnePage(chapterPath, chapter.title, content, false);
       }
+
+      await Promise.all([
+        addPageProperty(this.subdomain, partPath, "SubPageListing", "simple"),
+        addPageProperty(this.subdomain, partPath, "WelcomeHidden", true),
+        // addPageProperty(this.subdomain, partPath, "ArticleType", "Guide"),
+        // addPageProperty(this.subdomain, partPath, "GuideTabs", MindTouch.Templates.PROP_GuideTabs),
+        // addPageProperty(this.subdomain, partPath, "GuideDisplay", "single"),
+      ]);
     }
 
     // ── 7. Back Matter container + items ──────────────────────────────────────
-    console.log(`\n[*] Back Matter: ${toc["back-matter"].length} items`);
-    const backMatterContainerPath = `${bookPath}/Back_Matter`;
-
+    log(`\n[*] Back Matter: ${toc["back-matter"].length} items`);
+    const backMatterSeq = String(sortedParts.length + 1).padStart(2, "0");
+    const backMatterContainerPath = `${bookPath}/${backMatterSeq}:_Back_Matter`;
     // isContainer: true — Back_Matter holds child pages
     await this.upsertCXOnePage(
       backMatterContainerPath,
@@ -320,27 +430,46 @@ export class PressBookScraper {
       const node = sortedBackMatter[i];
       const seq = String(i + 1).padStart(2, "0");
       const pagePath = `${backMatterContainerPath}/${seq}:_${this.slugifyNode(node)}`;
-      console.log(`  [BM ${seq}] ${node.title}`);
-
-      const content = node.has_post_content
-        ? await this.fetchNodeContent(encodePbURL, "back-matter", node.id, auth)
-        : "";
+      log(
+        `  [BM ${seq}] ${node.title}, ${node.has_post_content}, id: ${node.id}`,
+      );
+      const content =
+        (await this.fetchNodeContent(
+          encodePbURL,
+          "back-matter",
+          node.id,
+          auth,
+        )) || "";
 
       // isContainer: false — Back Matter items are leaf content pages
       await this.upsertCXOnePage(pagePath, node.title, content, false);
     }
+    await Promise.all([
+      addPageProperty(
+        this.subdomain,
+        backMatterContainerPath,
+        "SubPageListing",
+        "simple",
+      ),
+      addPageProperty(
+        this.subdomain,
+        backMatterContainerPath,
+        "WelcomeHidden",
+        true,
+      ),
+    ]);
 
     // ── 8. Trigger MindMap TOC update ─────────────────────────────────────────
-    console.log("[*] Triggering MindMap TOC update...");
-    fetch(`https://batch.libretexts.org/print/Libretext=${bookURL}`, {
-      headers: { origin: "commons.libretexts.org" },
-    }).catch((e) => {
-      console.warn(
-        "[PressBookScraper] MindMap trigger failed (non-fatal):",
-        (e as Error).message,
-      );
-    });
-    await sleep(1500);
+    // log("[*] Triggering MindMap TOC update...");
+    // fetch(`https://batch.libretexts.org/print/Libretext=${bookURL}`, {
+    //   headers: { origin: "commons.libretexts.org" },
+    // }).catch((e) => {
+    //   console.warn(
+    //     "[PressBookScraper] MindMap trigger failed (non-fatal):",
+    //     (e as Error).message,
+    //   );
+    // });
+    // await sleep(1500);
 
     // ── 9. Verify book ID ─────────────────────────────────────────────────────
     const newBookID = await getPageID(bookPath, this.subdomain);
@@ -349,6 +478,18 @@ export class PressBookScraper {
         `Error locating Workbench book ID after import: "${title}"`,
       );
     }
+
+    // const res = await CXOneFetch({
+    //   scope: "users",
+    //   subdomain: this.subdomain,
+    //   query: {
+    //     verbose: "false",
+    //     seatfilter: "seated",
+    //     limit: "all",
+    //   },
+    // });
+    // const raw = await res.json();
+    // console.log(raw);
     result.bookID = newBookID;
     return result;
   }
@@ -366,6 +507,7 @@ export class PressBookScraper {
     auth?: { username: string; password: string },
   ): Promise<string> {
     try {
+      console.log(`[*] id: ${id}`);
       const url = `${this.pbApi(bookUrl)}/${postType}/${id}?_embed=1`;
       const item = await this.getJson(url, auth);
       const html: string = item.content?.rendered ?? "";
@@ -434,7 +576,7 @@ export class PressBookScraper {
       query: { edittime: "now", comment: "Imported from Pressbooks" },
       options: {
         method: "POST",
-        body: contentHtml || `<p>${title || pagePath}</p>`,
+        body: `${!isContainer ? MindTouch.Templates.POST_CreateBookChapter : MindTouch.Templates.POST_CreateBookSection}\n${contentHtml || ""}`,
         headers: { "Content-Type": "text/plain; charset=utf-8" },
       },
     });
@@ -445,22 +587,21 @@ export class PressBookScraper {
       );
     }
 
-    // Set page properties — all pages get these three
-    const pageProps: Promise<any>[] = [
-      addPageProperty(this.subdomain, pagePath, "WelcomeHidden", true),
-      addPageProperty(this.subdomain, pagePath, "GuideDisplay", "single"),
-      addPageProperty(
-        this.subdomain,
-        pagePath,
-        "GuideTabs",
-        MindTouch.Templates.PROP_GuideTabs,
-      ),
-    ];
+    // Set page properties — all pages get these three+
+    const pageProps: Promise<any>[] = [];
 
     // Container pages additionally need SubPageListing to show child pages
-    if (isContainer) {
+    if (!isContainer) {
       pageProps.push(
-        addPageProperty(this.subdomain, pagePath, "SubPageListing", "simple"),
+        addPageProperty(this.subdomain, pagePath, "WelcomeHidden", true),
+        addPageProperty(this.subdomain, pagePath, "ArticleType", "Topic"),
+        addPageProperty(this.subdomain, pagePath, "GuideDisplay", "single"),
+        addPageProperty(
+          this.subdomain,
+          pagePath,
+          "GuideTabs",
+          MindTouch.Templates.PROP_GuideTabs,
+        ),
       );
     }
 

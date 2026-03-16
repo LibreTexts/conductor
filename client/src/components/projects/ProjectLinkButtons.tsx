@@ -5,9 +5,11 @@ import {
   buildLibraryPageGoURL,
   buildRemixerURL,
 } from "../../utils/projectHelpers";
-import { lazy, useState } from "react";
+import { lazy, useEffect, useState } from "react";
+import axios from "axios";
 import { ProjectClassification } from "../../types";
 import ImportWorkbenchModal from "./ImportWorkbenchModal";
+import { useTypedSelector } from "../../state/hooks";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 
 interface ProjectLinkButtonsProps {
@@ -41,7 +43,37 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
     useState(false);
   const [showImportWorkbenchModal, setShowImportWorkbenchModal] =
     useState(false);
+  const [initialImportJob, setInitialImportJob] = useState<{
+    jobID: string;
+    status: "pending" | "running" | "success" | "error";
+    messages: string[];
+  } | null>(null);
+  const user = useTypedSelector((state) => state.user);
   const validWorkbench = didCreateWorkbench && libreCoverID && libreLibrary;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!projectID) return;
+
+    axios
+      .get("/commons/import-pressbooks/active", {
+        params: { projectID },
+      })
+      .then((res) => {
+        if (cancelled) return;
+        if (!res.data.err && res.data.job) {
+          setInitialImportJob(res.data.job);
+          setShowImportWorkbenchModal(true);
+        }
+      })
+      .catch(() => {
+        // Silently ignore; absence of job is non-fatal
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectID]);
 
   return (
     <div>
@@ -58,13 +90,16 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
               <Icon name="plus" />
               Create Book
             </Button>
-            <Button
-              color="green"
-              onClick={() => setShowImportWorkbenchModal(true)}
-            >
-              <Icon name="plus" />
-              Import Book
-            </Button>
+            {user.isSuperAdmin && (
+              <Button
+                color="green"
+                onClick={() => setShowImportWorkbenchModal(true)}
+              >
+                <Icon name="plus" />
+                Import Book
+              </Button>
+            )}
+            
             </>
           )}
           {(projectLink || validWorkbench) && (
@@ -183,7 +218,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             />
           )}
 
-          {projectID && projectTitle && (
+          {projectID && projectTitle && user.isSuperAdmin && (
             <ImportWorkbenchModal
               show={showImportWorkbenchModal}
               projectID={projectID}
@@ -191,6 +226,9 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
               onClose={() => setShowImportWorkbenchModal(false)}
               onSuccess={() => window.location.reload()}
               project={project}
+              initialJobID={initialImportJob?.jobID ?? null}
+              initialJobStatus={initialImportJob?.status}
+              initialJobMessages={initialImportJob?.messages}
             />
           )}
         </div>

@@ -7,6 +7,12 @@ const CXOneTemplates = {
     <p>{{template.ShowOrg()}}</p>
     <p class="template:tag-insert"><a href="#">article:topic-guide</a></p>
   `,
+  POST_CreateBookSection: `
+  <p>{{template.ShowOrg()}}</p>
+  <p class="template:tag-insert">
+    <a href="#">article:topic-category</a><a href="#"></a>
+  </p>
+`,
   POST_GrantContributorRole: (userID: string) => `<security>
     <permissions.page>
       <restriction>Semi-Private</restriction>
@@ -22,7 +28,7 @@ const CXOneTemplates = {
     visibility: string,
     editorIDs: string[],
     viewerIDs: string[],
-    libreBotID: string
+    libreBotID: string,
   ) =>
     `<security>
     <permissions.page>
@@ -48,7 +54,7 @@ const CXOneTemplates = {
     </grants>
   </security>`,
   PUT_FileProperties: (
-    properties: { name: string; value: string; etag?: string }[]
+    properties: { name: string; value: string; etag?: string }[],
   ) => `
   <properties>
     ${properties.map((prop) => {

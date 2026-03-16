@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Button,
   Dropdown,
@@ -26,6 +26,9 @@ interface ImportWorkbenchModalProps extends ModalProps {
   project: any;
   onClose: () => void;
   onSuccess: () => void;
+  initialJobID?: string | null;
+  initialJobStatus?: "pending" | "running" | "success" | "error";
+  initialJobMessages?: string[];
 }
 interface ImportWorkbenchForm {
   library: number | string;
@@ -49,6 +52,9 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
     project,
     onClose,
     onSuccess,
+    initialJobID,
+    initialJobStatus,
+    initialJobMessages,
     ...rest
   } = props;
   const teamMembers = [
@@ -85,6 +91,18 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
   >([]);
   const [selectedLibraryName, setSelectedLibraryName] = useState("");
   const [canAccessLibrary, setCanAccessLibrary] = useState(true);
+  const [jobID, setJobID] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<
+    "idle" | "pending" | "running" | "success" | "error"
+  >("idle");
+  const [jobMessages, setJobMessages] = useState<string[]>([]);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!messagesContainerRef.current) return;
+    messagesContainerRef.current.scrollTop =
+      messagesContainerRef.current.scrollHeight;
+  }, [jobMessages]);
 
   const selectedLibrary = watch("library");
 
@@ -95,6 +113,22 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
       setValue("pbBookURL", projectTitle);
     }
   }, [show]);
+
+  useEffect(() => {
+    if (!show) return;
+    if (!initialJobID) return;
+
+    setJobID(initialJobID);
+    if (initialJobStatus) {
+      setJobStatus(initialJobStatus);
+    } else {
+      setJobStatus("pending");
+    }
+    if (Array.isArray(initialJobMessages)) {
+      setJobMessages(initialJobMessages);
+    }
+    setLoading(true);
+  }, [show, initialJobID, initialJobStatus, initialJobMessages]);
 
   async function loadLibraries() {
     try {
@@ -174,8 +208,11 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
     try {
       if (!canAccessLibrary) return;
       setLoading(true);
-      if (!(await trigger())) return;
-      
+      if (!(await trigger())) {
+        setLoading(false);
+        return;
+      }
+
       const res = await axios.post("/commons/import-pressbooks", {
         ...getValues(),
         projectID,
@@ -183,13 +220,60 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
-      onSuccess();
+
+      if (!res.data.jobID) {
+        throw new Error("Failed to start import job.");
+      }
+
+      setJobID(res.data.jobID);
+      setJobStatus("pending");
+      setJobMessages([]);
     } catch (err) {
       handleGlobalError(err);
-    } finally {
-      setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!jobID) return;
+
+    setJobStatus((current) =>
+      current === "idle" || current === "pending" ? "running" : current,
+    );
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await axios.get(`/commons/import-pressbooks/${jobID}`);
+        if (res.data.err) {
+          throw new Error(res.data.errMsg);
+        }
+
+        const job = res.data.job;
+        setJobStatus(job.status);
+        if (Array.isArray(job.messages)) {
+          setJobMessages(job.messages);
+        }
+
+        if (job.status === "success") {
+          clearInterval(interval);
+          setLoading(false);
+          setJobID(null);
+          onSuccess();
+        } else if (job.status === "error") {
+          clearInterval(interval);
+          setLoading(false);
+          setJobID(null);
+          handleGlobalError(new Error(job.errorMessage || "Import failed."));
+        }
+      } catch (err) {
+        clearInterval(interval);
+        setLoading(false);
+        setJobID(null);
+        handleGlobalError(err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [jobID]);
 
   async function handleCreateClick() {
     try {
@@ -298,6 +382,28 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
               imported! Leaving this blank will use the title from the book Metadata.
             </p></div>
           </Form>
+          {(jobStatus === "pending" || jobStatus === "running") && (
+            <Message info className="mt-4">
+              <Message.Header>Import in progress</Message.Header>
+              {jobMessages.length > 0 ? (
+                <div
+                  style={{ maxHeight: 200, overflowY: "auto" }}
+                  ref={messagesContainerRef}
+                >
+                  <ul>
+                    {jobMessages.map((msg, idx) => (
+                      <li key={idx}>{msg}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p>
+                  The book is being imported from Pressbooks. This may take a
+                  few minutes. Please keep this window open.
+                </p>
+              )}
+            </Message>
+          )}
           {!canAccessLibrary && (
             <Message warning>
               <Message.Header>Cannot Access Library</Message.Header>

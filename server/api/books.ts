@@ -81,11 +81,15 @@ import {
   updatePageDetailsSchema,
   bulkUpdatePageTagsSchema,
   importPressBooksBookSchema,
+  getPressbooksImportJobStatusSchema,
+  getActivePressbooksImportJobSchema,
 } from "./validators/book.js";
 import BookService from "./services/book-service.js";
 import { normalizedSort } from "../util/searchutils.js";
 import SearchService from "./services/search-service.js";
 import { PressBookScraper } from "../util/pressbookutils.js";
+import PressbooksImportJob from "../models/pressbooksimportjob.js";
+import base62 from "base62-random";
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   _id: 0,
@@ -1471,6 +1475,80 @@ async function importPressBooksBook(
     const { library, title, projectID, pbBookURL } = req.body;
     const { uuid: userID } = req.user.decoded;
 
+    const jobID = base62(10);
+
+    await PressbooksImportJob.create({
+      jobID,
+      projectID,
+      userID,
+      library,
+      pbBookURL,
+      title,
+      status: "pending",
+      messages: ["Pressbooks import job created."],
+    });
+
+    res.send({
+      err: false,
+      jobID,
+    });
+
+    void runPressbooksImportJob({
+      jobID,
+      library,
+      title,
+      projectID,
+      pbBookURL,
+      userID,
+    });
+  } catch (err: any) {
+    return res.status(500).send({
+      err: true,
+      errMsg: err.message,
+    });
+  }
+}
+
+type PressbooksImportJobParams = {
+  jobID: string;
+  library: number;
+  title?: string;
+  projectID: string;
+  pbBookURL: string;
+  userID: string;
+};
+
+async function appendPressbooksJobMessages(jobID: string, messages: string[]) {
+  if (!messages.length) return;
+  await PressbooksImportJob.updateOne(
+    { jobID },
+    {
+      $push: {
+        messages: {
+          $each: messages,
+        },
+      },
+    },
+  );
+}
+
+async function runPressbooksImportJob(params: PressbooksImportJobParams) {
+  const { jobID, library, title, projectID, pbBookURL, userID } = params;
+
+  try {
+    await PressbooksImportJob.updateOne(
+      { jobID },
+      {
+        $set: {
+          status: "running",
+        },
+      },
+    );
+
+    await appendPressbooksJobMessages(jobID, [
+      "Validating user, project, and library access...",
+    ]);
+
     const user = await User.findOne({ uuid: userID }).orFail();
     const project = await Project.findOne({ projectID }).orFail();
 
@@ -1495,28 +1573,142 @@ async function importPressBooksBook(
         user.centralID,
         libraryApp.id,
       );
-    
-    
+
     if (!hasLibAccess) {
       throw new Error(conductorErrors.err8);
     }
-    const scraper = new PressBookScraper(pbBookURL,  subdomain, title);
+
+    const scraper = new PressBookScraper(pbBookURL, subdomain, title);
     const result = await scraper.publishBook({
+      log: (message: string) => {
+        void appendPressbooksJobMessages(jobID, [message]);
+      },
     });
+
+    await appendPressbooksJobMessages(jobID, [
+      "Updating associated project with new Workbench information...",
+    ]);
+
     project.libreLibrary = subdomain;
     project.libreCoverID = result.bookID;
     project.didCreateWorkbench = true;
+    result.authorsName && (project.author = result.authorsName);
+    result.license && (project.license = result.license);
+    result.sourcePublicationDate && (project.sourceOriginalPublicationDate = result.sourcePublicationDate);
+    result.thumbnail && (project.thumbnail = result.thumbnail);
+    result.resourceURL && (project.projectURL = result.resourceURL);
     await project.save();
+
+    await PressbooksImportJob.updateOne(
+      { jobID },
+      {
+        $set: {
+          status: "success",
+          resultPath: result.path,
+          resultURL: result.url,
+        },
+      },
+    );
+
+    await appendPressbooksJobMessages(jobID, [
+      "Pressbooks import completed successfully.",
+    ]);
+  } catch (err: any) {
+    debugError(err);
+    await PressbooksImportJob.updateOne(
+      { jobID },
+      {
+        $set: {
+          status: "error",
+          errorMessage: err?.message || conductorErrors.err6,
+        },
+      },
+    );
+    await appendPressbooksJobMessages(jobID, [
+      `Pressbooks import failed: ${err?.message || conductorErrors.err6}`,
+    ]);
+  }
+}
+
+async function getPressBooksImportJobStatus(
+  req: ZodReqWithUser<z.infer<typeof getPressbooksImportJobStatusSchema>>,
+  res: Response,
+) {
+  try {
+    const { jobID } = req.params;
+    const requesterID = req.user.decoded.uuid;
+
+    const job = await PressbooksImportJob.findOne({ jobID }).lean();
+    if (!job) {
+      return res.status(404).send({
+        err: true,
+        errMsg: "Import job not found.",
+      });
+    }
+
+    if (job.userID !== requesterID) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
     return res.send({
       err: false,
-      path: result.path,
-      url: result.url,
+      job: {
+        jobID: job.jobID,
+        status: job.status,
+        messages: job.messages || [],
+        errorMessage: job.errorMessage,
+        resultPath: job.resultPath,
+        resultURL: job.resultURL,
+      },
     });
-
-  } catch (err: any) {
+  } catch (e) {
+    debugError(e);
     return res.status(500).send({
       err: true,
-      errMsg: err.message,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function getActivePressBooksImportJob(
+  req: ZodReqWithUser<z.infer<typeof getActivePressbooksImportJobSchema>>,
+  res: Response,
+) {
+  try {
+    const { projectID } = req.query;
+    const requesterID = req.user.decoded.uuid;
+
+    const job = await PressbooksImportJob.findOne({
+      projectID,
+      userID: requesterID,
+      status: { $in: ["pending", "running"] },
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!job) {
+      return res.send({
+        err: false,
+        job: null,
+      });
+    }
+
+    return res.send({
+      err: false,
+      job: {
+        jobID: job.jobID,
+        status: job.status,
+        messages: job.messages || [],
+      },
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
     });
   }
 }
@@ -2845,6 +3037,8 @@ export default {
   getMasterCatalogV2,
   createBook,
   importPressBooksBook,
+  getPressBooksImportJobStatus,
+   getActivePressBooksImportJob,
   deleteBook,
   getBookDetail,
   getBookPeerReviews,
