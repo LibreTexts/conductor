@@ -46,7 +46,7 @@
     "dompurify": "^3.3.2",
     "extended-eventsource": "^2.1.0",
     "file-saver": "^2.0.5",
-    "focus-trap-react": "^10.1.1",
+    "focus-trap-react": "^12.0.0",
     "frappe-gantt": "^0.5.0",
     "fuse.js": "^7.0.0",
     "html-react-parser": "^1.2.7",
