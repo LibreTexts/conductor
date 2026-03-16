@@ -1,6 +1,13 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 
+const APP_ENV = window.__APP_ENV__ ?? "production";
+const COOKIE_PREFIX = APP_ENV === "production" ? "conductor" : `conductor_${APP_ENV}`;
+export const COOKIE_NAMES = {
+  ACCESS: `${COOKIE_PREFIX}_access_v2`,
+  SIGNED: `${COOKIE_PREFIX}_signed_v2`,
+};
+
 /**
  * Global-use object with helper functions for authentication and session management.
  */
@@ -11,12 +18,12 @@ const AuthHelper = {
    * @returns {boolean} True if the token is found, false otherwise
    */
   isAuthenticated: () => {
-    return Cookies.get("conductor_access_v2") !== undefined;
+    return Cookies.get(COOKIE_NAMES.ACCESS) !== undefined;
   },
 
   getAuthToken: () => {
-    const access = Cookies.get("conductor_access_v2");
-    const signed = Cookies.get("conductor_signed_v2");
+    const access = Cookies.get(COOKIE_NAMES.ACCESS);
+    const signed = Cookies.get(COOKIE_NAMES.SIGNED);
     if (!access || !signed) return null;
     return `${access}.${signed}`;
   },

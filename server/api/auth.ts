@@ -21,6 +21,16 @@ const SALT_ROUNDS = 10;
 const JWT_SECRET = new TextEncoder().encode(process.env.SECRETKEY);
 const JWT_COOKIE_DOMAIN = (process.env.PRODUCTIONURLS || "").split(",")[0];
 const SESSION_DEFAULT_EXPIRY_MINUTES = 60 * 24 * 7; // 7 days
+
+const APP_ENV = process.env.APP_ENV ?? "production";
+const COOKIE_PREFIX = APP_ENV === "production" ? "conductor" : `conductor_${APP_ENV}`;
+export const COOKIE_NAMES = {
+  ACCESS: `${COOKIE_PREFIX}_access_v2`,
+  SIGNED: `${COOKIE_PREFIX}_signed_v2`,
+  OIDC_STATE: `${COOKIE_PREFIX}_oidc_state`,
+  OIDC_NONCE: `${COOKIE_PREFIX}_oidc_nonce`,
+  AUTH_REDIRECT: `${COOKIE_PREFIX}_auth_redirect`,
+};
 const SESSION_DEFAULT_EXPIRY_MILLISECONDS =
   SESSION_DEFAULT_EXPIRY_MINUTES * 60 * 1000;
 
@@ -106,11 +116,11 @@ async function createAndAttachLocalSession(
     domain: JWT_COOKIE_DOMAIN,
     maxAge: SESSION_DEFAULT_EXPIRY_MILLISECONDS,
   };
-  res.cookie("conductor_access_v2", access, {
+  res.cookie(COOKIE_NAMES.ACCESS, access, {
     path: "/",
     ...(process.env.NODE_ENV === "production" && prodCookieConfig),
   });
-  res.cookie("conductor_signed_v2", signed, {
+  res.cookie(COOKIE_NAMES.SIGNED, signed, {
     path: "/",
     httpOnly: true,
     ...(process.env.NODE_ENV === "production" && prodCookieConfig),
@@ -169,19 +179,19 @@ async function initLogin(req: Request, res: Response) {
     process.env.CONDUCTOR_DOMAIN !== "commons.libretexts.org"
   ) {
     const authRedirectURL = `${oidcCallbackProto}://${process.env.CONDUCTOR_DOMAIN}`;
-    res.cookie("conductor_auth_redirect", authRedirectURL, {
+    res.cookie(COOKIE_NAMES.AUTH_REDIRECT, authRedirectURL, {
       encode: String,
       httpOnly: true,
       ...(process.env.NODE_ENV === "production" && prodCookieConfig),
     });
   }
 
-  res.cookie("oidc_state", base64State, {
+  res.cookie(COOKIE_NAMES.OIDC_STATE, base64State, {
     encode: String,
     httpOnly: true,
     ...(process.env.NODE_ENV === "production" && prodCookieConfig),
   });
-  res.cookie("oidc_nonce", nonce, {
+  res.cookie(COOKIE_NAMES.OIDC_NONCE, nonce, {
     encode: String,
     httpOnly: true,
     ...(process.env.NODE_ENV === "production" && prodCookieConfig),
@@ -208,7 +218,7 @@ async function completeLogin(req: Request, res: Response) {
       encodeURIComponent(value).replace(/%20/g, "+");
 
     // Compare state nonce
-    const { oidc_state } = req.cookies;
+    const oidc_state = req.cookies[COOKIE_NAMES.OIDC_STATE];
     const { state: stateQuery } = req.query;
 
     const safeParseState = (stateStr: string) => {
@@ -262,7 +272,7 @@ async function completeLogin(req: Request, res: Response) {
     });
 
     // Compare nonce hash
-    const { oidc_nonce } = req.cookies;
+    const oidc_nonce = req.cookies[COOKIE_NAMES.OIDC_NONCE];
     const { nonce } = payload;
     const nonceString = nonce?.toString();
     if (!nonce || !oidc_nonce || !nonceString) {
@@ -370,8 +380,8 @@ async function completeLogin(req: Request, res: Response) {
 
     // Determine base of redirect URL
     let finalRedirectURL = `${oidcCallbackProto}://${oidcCallbackHost}`; // Default to callback host
-    if(req.cookies.conductor_auth_redirect){
-      finalRedirectURL = req.cookies.conductor_auth_redirect; // Use auth redirect cookie if available
+    if(req.cookies[COOKIE_NAMES.AUTH_REDIRECT]){
+      finalRedirectURL = req.cookies[COOKIE_NAMES.AUTH_REDIRECT]; // Use auth redirect cookie if available
     }
 
     // Check if redirectURI is a full URL and decode if needed
@@ -414,8 +424,8 @@ async function completeLogin(req: Request, res: Response) {
 async function logout(_req: Request, res: Response) {
   try {
     // Attempt to invalidate the user's session
-    const accessCookie = _req.cookies.conductor_access_v2;
-    const signedCookie = _req.cookies.conductor_signed_v2;
+    const accessCookie = _req.cookies[COOKIE_NAMES.ACCESS];
+    const signedCookie = _req.cookies[COOKIE_NAMES.SIGNED];
     const sessionJWT = `${accessCookie}.${signedCookie}`;
     if (accessCookie && signedCookie && sessionJWT) {
       try {
@@ -445,11 +455,11 @@ async function logout(_req: Request, res: Response) {
       secure: true,
       domain: JWT_COOKIE_DOMAIN,
     };
-    res.clearCookie("conductor_access_v2", {
+    res.clearCookie(COOKIE_NAMES.ACCESS, {
       path: "/",
       ...(process.env.NODE_ENV === "production" && prodCookieConfig),
     });
-    res.clearCookie("conductor_signed_v2", {
+    res.clearCookie(COOKIE_NAMES.SIGNED, {
       path: "/",
       httpOnly: true,
       ...(process.env.NODE_ENV === "production" && prodCookieConfig),
