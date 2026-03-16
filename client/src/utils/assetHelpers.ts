@@ -113,14 +113,14 @@ export function getPrettyAuthorsList(
 
   const authorList =
     authors
-      .filter((a) => !!a.firstName && !!a.lastName)
-      .map((a) => `${a.firstName} ${a.lastName}`)
+      .filter((a) => a?.name)
+      .map((a) => a.name)
       .join(", ") || "Unknown";
 
   return primaryAuthor
-    ? `${primaryAuthor.firstName} ${primaryAuthor.lastName} et al.`
+    ? `${primaryAuthor.name} et al.`
     : correspondingAuthor
-    ? `${correspondingAuthor.firstName} ${correspondingAuthor.lastName}, ${authorList}`
+    ? `${correspondingAuthor.name}, ${authorList}`
     : authorList;
 }
 

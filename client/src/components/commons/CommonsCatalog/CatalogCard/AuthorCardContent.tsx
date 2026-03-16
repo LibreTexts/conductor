@@ -12,11 +12,6 @@ const AuthorCardContent: React.FC<AuthorCardContentProps> = ({
   author,
   ...rest
 }) => {
-  const authorNameTruncated = useMemo(() => {
-    const fullName = `${author.firstName ?? ""} ${author.lastName ?? ""}`;
-    return truncateString(fullName, 50);
-  }, [author.firstName, author.lastName]);
-
   return (
     <Card.Content
       className="commons-content-card-inner-content overflow-hidden"
@@ -27,11 +22,11 @@ const AuthorCardContent: React.FC<AuthorCardContentProps> = ({
         className="commons-content-card-header !mt-1 !mb-1 text-left hover:underline cursor-pointer !hover:text-blue-500"
         href={`/author/${author._id}`}
       >
-        {authorNameTruncated}
+        {truncateString(author.name, 100)}
       </CardHeader>
-      {author.primaryInstitution && (
+      {(author.companyName || author.programName) && (
         <CardMetaWIcon icon="university">
-          <div className="line-clamp-1">{author.primaryInstitution ?? ""}</div>
+          <div className="line-clamp-1">{truncateString(author.companyName || author.programName || "", 50)}</div>
         </CardMetaWIcon>
       )}
       {author.projects?.length > 0 && (
@@ -54,16 +49,16 @@ const AuthorCardContent: React.FC<AuthorCardContentProps> = ({
           </div>
         </CardMetaWIcon>
       )}
-      {author.url && (
+      {author.nameURL && (
         <CardMetaWIcon icon="linkify">
           <div className="line-clamp-2">
             <a
-              href={author.url}
+              href={author.nameURL}
               target="_blank"
               rel="noreferrer"
               className="break-all !text-blue-500 !hover:text-blue-500"
             >
-              {author.url}
+              {author.nameURL}
             </a>
           </div>
         </CardMetaWIcon>

@@ -37,6 +37,7 @@ import { _getBookPublicOrInstructorAssetsCount, buildOrganizationNamesList } fro
 import CustomCatalog, { CustomCatalogInterface } from "../models/customcatalog.js";
 import { normalizedSort } from "../util/searchutils.js";
 import SearchService from "./services/search-service.js";
+import AuthorService from "./services/author-service.js";
 
 const searchQueryCache: SearchQueryInterface_Raw[] = []; // in-memory cache for search queries
 
@@ -1890,7 +1891,7 @@ async function authorsSearch(
           orgID: process.env.ORG_ID,
         },
       },
-      authorsAPI.LOOKUP_AUTHOR_PROJECTS,
+      AuthorService.LOOKUP_AUTHOR_PROJECTS_STAGE,
       {
         $project: {
           _id: 1,

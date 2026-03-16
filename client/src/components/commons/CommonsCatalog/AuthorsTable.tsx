@@ -20,7 +20,7 @@ const AuthorsTable: React.FC<AuthorsTableProps> = ({
             <Header sub>Name</Header>
           </Table.HeaderCell>
           <Table.HeaderCell scope="col">
-            <Header sub>Primary Institution</Header>
+            <Header sub>Institution/Program</Header>
           </Table.HeaderCell>
           <Table.HeaderCell scope="col">
             <Header sub>URL</Header>
@@ -35,21 +35,21 @@ const AuthorsTable: React.FC<AuthorsTableProps> = ({
                 <Table.Cell>
                   <a href={`/authors/${item._id}`} className="cursor-pointer">
                     {truncateString(
-                      `${item.firstName ?? ""} ${item.lastName ?? ""}`,
+                      `${item.name}`,
                       50
                     )}
                   </a>
                 </Table.Cell>
                 <Table.Cell>
                   <p>
-                    {item.primaryInstitution &&
-                      truncateString(item.primaryInstitution, 50)}
+                    {
+                      truncateString(item.companyName || item.programName || "", 50)}
                   </p>
                 </Table.Cell>
                 <Table.Cell>
-                  {item.url && (
-                    <a href={item.url} target="_blank" rel="noreferrer">
-                      {item.url}
+                  {item.nameURL && (
+                    <a href={item.nameURL} target="_blank" rel="noreferrer">
+                      {truncateString(item.nameURL, 50)}
                     </a>
                   )}
                 </Table.Cell>

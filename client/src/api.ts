@@ -52,7 +52,6 @@ import {
   CentralIdentityAppLicense,
   StoreDigitalDeliveryOption,
   StoreOrder,
-  GetStoreOrdersResponse,
   StoreOrderWithStripeSession,
   OrderCharge,
   OrderSession,
@@ -79,7 +78,7 @@ import {
   CustomFilter,
   MiniRepoSearchParams,
 } from "./types/Search";
-import { CloudflareCaptionData, SortDirection } from "./types/Misc";
+import { CloudflareCaptionData, ConductorInfiniteScrollResponse, SortDirection } from "./types/Misc";
 import {
   TrafficAnalyticsAggregatedMetricsByPageDataPoint,
   TrafficAnalyticsBaseRequestParams,
@@ -284,11 +283,10 @@ class API {
     return res;
   }
 
-  public cloudflareStreamUploadURL: string = `${
-    import.meta.env.MODE === "development"
+  public cloudflareStreamUploadURL: string = `${import.meta.env.MODE === "development"
       ? import.meta.env.VITE_DEV_BASE_URL
       : ""
-  }/api/v1/cloudflare/stream-url`;
+    }/api/v1/cloudflare/stream-url`;
 
   async getPermanentLink(projectID: string, fileID: string) {
     const res = await axios.get<
@@ -303,25 +301,20 @@ class API {
   async getAuthors({
     page,
     limit,
-    sort,
     query,
+    sort,
   }: {
     page?: number;
     limit?: number;
-    sort?: string;
     query?: string;
+    sort?: string;
   }) {
-    const res = await axios.get<
-      {
-        authors: Author[];
-        totalCount: number;
-      } & ConductorBaseResponse
-    >("/authors", {
+    const res = await axios.get<ConductorInfiniteScrollResponse<Author>>("/authors", {
       params: {
         page,
         limit,
-        sort,
         query,
+        sort,
       },
     });
     return res;
@@ -357,15 +350,6 @@ class API {
         author: Author;
       } & ConductorBaseResponse
     >("/authors", author);
-    return res;
-  }
-
-  async bulkCreateAuthors(authors: Omit<Author, "_id">[]) {
-    const res = await axios.post<
-      {
-        authors: Author[];
-      } & ConductorBaseResponse
-    >("/authors/bulk", { authors });
     return res;
   }
 
@@ -648,7 +632,7 @@ class API {
     lulu_status?: string;
     query?: string;
   }) {
-    const res = await axios.get<GetStoreOrdersResponse & ConductorBaseResponse>(
+    const res = await axios.get<ConductorInfiniteScrollResponse<StoreOrderWithStripeSession>>(
       "/store/admin/orders",
       {
         params,
@@ -1418,18 +1402,18 @@ class API {
   async updateUserPinnedProjects(
     data:
       | {
-          action: "add-project" | "move-project";
-          folder: string;
-          projectID: string;
-        }
+        action: "add-project" | "move-project";
+        folder: string;
+        projectID: string;
+      }
       | {
-          action: "remove-project";
-          projectID: string;
-        }
+        action: "remove-project";
+        projectID: string;
+      }
       | {
-          action: "add-folder" | "remove-folder";
-          folder: string;
-        }
+        action: "add-folder" | "remove-folder";
+        folder: string;
+      }
   ) {
     const res = await axios.patch<ConductorBaseResponse>(
       "/user/projects/pinned",
