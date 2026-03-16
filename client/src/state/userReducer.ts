@@ -5,6 +5,7 @@
 
 /* Utils */
 import Cookies from "js-cookie";
+import { COOKIE_NAMES } from "../components/util/AuthHelper";
 import { User } from "../types";
 import { AnyAction } from "redux";
 /* User */
@@ -43,7 +44,7 @@ export default function userReducer(
         isAuthenticated: true,
       };
     case "CHECK_AUTH":
-      if (Cookies.get("conductor_access_v2") !== undefined) {
+      if (Cookies.get(COOKIE_NAMES.ACCESS) !== undefined) {
         return {
           ...state,
           isAuthenticated: true,

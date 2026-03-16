@@ -9,7 +9,7 @@ import { validationResult } from "express-validator";
 import conductorErrors from "./conductor-errors.js";
 import { ZodObject } from "zod";
 import { debugError } from "./debug.js";
-import authAPI from "./api/auth.js";
+import authAPI, { COOKIE_NAMES } from "./api/auth.js";
 import {
   TypedReqBodyWithUser,
   TypedReqParamsAndBodyWithUser,
@@ -118,10 +118,10 @@ function authSanitizer(req: Request, _res: Response, next: NextFunction) {
     const { cookies } = req;
     if (
       !req.header("authorization") &&
-      cookies.conductor_access_v2 &&
-      cookies.conductor_signed_v2
+      cookies[COOKIE_NAMES.ACCESS] &&
+      cookies[COOKIE_NAMES.SIGNED]
     ) {
-      req.headers.authorization = `${cookies.conductor_access_v2}.${cookies.conductor_signed_v2}`;
+      req.headers.authorization = `${cookies[COOKIE_NAMES.ACCESS]}.${cookies[COOKIE_NAMES.SIGNED]}`;
     }
   }
   return next();

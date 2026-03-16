@@ -7,6 +7,7 @@ import "dotenv/config";
 import path from "path";
 import { exit } from "process";
 import { fileURLToPath } from "url";
+import fs from "fs";
 import express from "express";
 import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
@@ -125,9 +126,14 @@ app.use("/health", (_req, res) => {
 
 // Serve frontend assets. Use directories relative to server/dist
 app.use(express.static(path.join(__dirname, "../../client/dist")));
+// Inject APP_ENV into index.html for frontend use (Vite env variables are not accessible in server code, so we inject at runtime)
+const appEnv = process.env.APP_ENV ?? "production";
+const envScript = `<script>window.__APP_ENV__ = ${JSON.stringify(appEnv)};</script>`;
+const indexHtmlPath = path.resolve(__dirname, "../../client/dist/index.html");
+const indexHtml = fs.readFileSync(indexHtmlPath, "utf-8").replace("</head>", `${envScript}</head>`);
 let cliRouter = express.Router();
 cliRouter.route("*").get((_req, res) => {
-  res.sendFile(path.resolve(__dirname, "../../client/dist/index.html"));
+  res.setHeader("Content-Type", "text/html").send(indexHtml);
 });
 app.use("/", cliRouter);
 
