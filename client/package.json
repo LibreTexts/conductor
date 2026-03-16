@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@ckeditor/ckeditor5-build-multi-root": "^41.0.0",
-    "@ckeditor/ckeditor5-react": "^6.2.0",
+    "@ckeditor/ckeditor5-react": "^11.0.1",
     "@cloudflare/stream-react": "^1.9.1",
     "@fortawesome/fontawesome-free": "^5.15.4",
     "@headlessui/react": "^2.2.4",
