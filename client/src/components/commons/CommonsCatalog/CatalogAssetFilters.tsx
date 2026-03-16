@@ -88,8 +88,8 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
         allFilters.peopleOptions = res.data.people.map((p) => {
           return {
             key: crypto.randomUUID(),
-            text: `${p.firstName} ${p.lastName}`,
-            value: `${p.firstName} ${p.lastName}`,
+            text: p.name,
+            value: p.name,
           };
         });
       }

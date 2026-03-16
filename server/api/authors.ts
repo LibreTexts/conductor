@@ -2,63 +2,30 @@ import { z } from "zod";
 import { debugError } from "../debug.js";
 import Author from "../models/author.js";
 import {
-  BulkCreateAuthorsValidator,
   CreateAuthorValidator,
   DeleteAuthorValidator,
-  GetAllAuthorsValidator,
+  GetAuthorsValidator,
   GetAuthorAssetsValidator,
   GetAuthorValidator,
   UpdateAuthorValidator,
 } from "./validators/authors.js";
 import { Response } from "express";
-import { conductor500Err } from "../util/errorutils.js";
+import { conductor404Err, conductor500Err } from "../util/errorutils.js";
 import { getPaginationOffset } from "../util/helpers.js";
 import ProjectFile from "../models/projectfile.js";
-import { Types } from "mongoose";
+import AuthorService from "./services/author-service.js";
 
 async function getAuthors(
-  req: z.infer<typeof GetAllAuthorsValidator>,
+  req: z.infer<typeof GetAuthorsValidator>,
   res: Response
 ) {
   try {
-    const limit = req.query.limit || 10;
-    const offset = getPaginationOffset(req.query.page, limit);
-
-    const queryObj: Record<any, any> = {
-      $and: [{ orgID: process.env.ORG_ID }],
-    };
-
-    if (req.query.query) {
-      queryObj.$and.push({
-        $or: [
-          { firstName: { $regex: req.query.query, $options: "i" } },
-          { lastName: { $regex: req.query.query, $options: "i" } },
-          { email: { $regex: req.query.query, $options: "i" } },
-        ],
-      });
-    }
-
-    const authorsPromise = Author.find(queryObj)
-      .skip(offset)
-      .limit(limit)
-      .sort(req.query.sort || "lastName")
-      .lean();
-
-    const totalPromise = Author.countDocuments(queryObj);
-
-    const [authors, total] = await Promise.allSettled([
-      authorsPromise,
-      totalPromise,
-    ]);
-
-    if (authors.status === "rejected" || total.status === "rejected") {
-      return conductor500Err(res);
-    }
+    const authorService = new AuthorService();
+    const data = await authorService.getAuthors(req.query);
 
     res.send({
       err: false,
-      authors: authors.value,
-      totalCount: total.value,
+      ...data,
     });
   } catch (error) {
     debugError(error);
@@ -71,18 +38,8 @@ async function getAuthor(
   res: Response
 ) {
   try {
-    const convertedID = new Types.ObjectId(req.params.id);
-    const aggRes = await Author.aggregate([
-      {
-        $match: {
-          _id: convertedID,
-          orgID: process.env.ORG_ID,
-        },
-      },
-      LOOKUP_AUTHOR_PROJECTS,
-    ]);
-
-    const author = aggRes[0];
+    const authorService = new AuthorService();
+    const author = await authorService.getAuthorByID(req.params.id);
 
     if (!author) {
       return res.status(404).send({
@@ -96,12 +53,6 @@ async function getAuthor(
       author,
     });
   } catch (err: any) {
-    if (err.name === "DocumentNotFoundError") {
-      return res.status(404).send({
-        err: true,
-        message: "Author not found",
-      });
-    }
     debugError(err);
     return conductor500Err(res);
   }
@@ -267,10 +218,7 @@ async function getAuthorAssets(
     });
   } catch (err: any) {
     if (err.name === "DocumentNotFoundError") {
-      return res.status(404).send({
-        err: true,
-        message: "Author not found",
-      });
+      return conductor404Err(res);
     }
     debugError(err);
     return conductor500Err(res);
@@ -282,52 +230,8 @@ async function createAuthor(
   res: Response
 ) {
   try {
-    const {
-      firstName,
-      lastName,
-      email,
-      primaryInstitution,
-      url,
-      isAdminEntry,
-    } = req.body;
-
-    // If an author was already created with the same email (and was not admin entry), we should "merge" the two, preferring the admin's data
-    if (email) {
-      const existingAuthor = await Author.findOne({
-        email,
-        isAdminEntry: false,
-        orgID: process.env.ORG_ID,
-      });
-
-      if (existingAuthor) {
-        await Author.updateOne(
-          { _id: existingAuthor._id },
-          {
-            $set: {
-              isAdminEntry: true,
-              firstName,
-              lastName,
-              primaryInstitution,
-              ...(url && { url }),
-            },
-          }
-        );
-        return res.send({
-          err: false,
-          author: existingAuthor,
-        });
-      }
-    }
-
-    const author = await Author.create({
-      firstName,
-      lastName,
-      primaryInstitution,
-      ...(email && { email }),
-      ...(url && { url }),
-      isAdminEntry: true, // only Campus Admins use this endpoint so set to true
-      orgID: process.env.ORG_ID,
-    });
+    const authorService = new AuthorService();
+    const author = await authorService.createAuthor(req.body);
 
     res.send({
       err: false,
@@ -337,45 +241,7 @@ async function createAuthor(
     if (err.name === "MongoServerError" && err.code === 11000) {
       return res.status(409).send({
         err: true,
-        message: "Author with that email already exists",
-      });
-    }
-    debugError(err);
-    return conductor500Err(res);
-  }
-}
-
-async function bulkCreateAuthors(
-  req: z.infer<typeof BulkCreateAuthorsValidator>,
-  res: Response
-) {
-  try {
-    const existingAuthorEmails = (await Author.find().lean()).map(
-      (author) => author.email
-    );
-
-    // Ignore duplicates (email)
-    const noDuplicates = req.body.authors.filter(
-      (author) => !existingAuthorEmails.includes(author.email)
-    );
-
-    const withAdminFlag = noDuplicates.map((author) => ({
-      ...author,
-      isAdminEntry: true,
-      orgID: process.env.ORG_ID,
-    }));
-
-    const insertRes = await Author.insertMany(withAdminFlag);
-
-    return res.send({
-      err: false,
-      authors: insertRes,
-    });
-  } catch (err: any) {
-    if (err.name === "MongoServerError" && err.code === 11000) {
-      return res.status(409).send({
-        err: true,
-        message: "Author with that email already exists",
+        errMsg: "An author with that nameKey already exists.",
       });
     }
     debugError(err);
@@ -388,37 +254,22 @@ async function updateAuthor(
   res: Response
 ) {
   try {
-    const { firstName, lastName, email, primaryInstitution, url } = req.body;
-    await Author.updateOne(
-      { _id: req.params.id, orgID: process.env.ORG_ID },
-      {
-        firstName,
-        lastName,
-        primaryInstitution,
-        ...(email && { email }),
-        ...(url && { url }),
-        orgID: process.env.ORG_ID,
-      }
-    ).orFail();
-
-    const updated = await Author.findById(req.params.id).orFail().lean();
+    const authorService = new AuthorService();
+    const author = await authorService.updateAuthor(req.params.id, req.body);
 
     return res.send({
       err: false,
-      author: updated,
+      author,
     });
   } catch (err: any) {
     if (err.name === "MongoServerError" && err.code === 11000) {
       return res.status(409).send({
         err: true,
-        message: "Author with that email already exists",
+        errMsg: "An author with that nameKey already exists.",
       });
     }
     if (err.name === "DocumentNotFoundError") {
-      return res.status(404).send({
-        err: true,
-        message: "Author not found",
-      });
+      return conductor404Err(res);
     }
     debugError(err);
     return conductor500Err(res);
@@ -430,10 +281,8 @@ async function deleteAuthor(
   res: Response
 ) {
   try {
-    await Author.deleteOne({
-      _id: req.params.id,
-      orgID: process.env.ORG_ID,
-    }).orFail();
+    const authorService = new AuthorService();
+    await authorService.deleteAuthor(req.params.id);
 
     return res.send({
       err: false,
@@ -441,104 +290,20 @@ async function deleteAuthor(
     });
   } catch (err: any) {
     if (err.name === "DocumentNotFoundError") {
-      return res.status(404).send({
-        err: true,
-        message: "Author not found",
-      });
+      return conductor404Err(res);
     }
     debugError(err);
     return conductor500Err(res);
   }
 }
 
-const LOOKUP_AUTHOR_PROJECTS = {
-  $lookup: {
-    from: "projects",
-    let: {
-      authorID: "$_id",
-    },
-    pipeline: [
-      {
-        $match: {
-          orgID: process.env.ORG_ID,
-          visibility: "public",
-        },
-      },
-      {
-        $match: {
-          $expr: {
-            $or: [
-              {
-                $eq: ["$defaultPrimaryAuthorID", "$$authorID"],
-              },
-              {
-                $eq: ["$defaultCorrespondingAuthorID", "$$authorID"],
-              },
-              {
-                $in: [
-                  "$$authorID",
-                  {
-                    $cond: {
-                      if: {
-                        $isArray: "$defaultSecondaryAuthorIDs",
-                      },
-                      then: "$defaultSecondaryAuthorIDs",
-                      else: [],
-                    },
-                  },
-                ],
-              },
-              {
-                $in: [
-                  "$$authorID",
-                  {
-                    $cond: {
-                      if: {
-                        $isArray: "$principalInvestigatorIDs",
-                      },
-                      then: "$principalInvestigatorIDs",
-                      else: [],
-                    },
-                  },
-                ],
-              },
-              {
-                $in: [
-                  "$$authorID",
-                  {
-                    $cond: {
-                      if: {
-                        $isArray: "$coPrincipalInvestigatorIDs",
-                      },
-                      then: "$coPrincipalInvestigatorIDs",
-                      else: [],
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          projectID: 1,
-          title: 1,
-        },
-      },
-    ],
-    as: "projects",
-  },
-};
+
 
 export default {
   getAuthors,
   getAuthor,
   getAuthorAssets,
   createAuthor,
-  bulkCreateAuthors,
   updateAuthor,
   deleteAuthor,
-  LOOKUP_AUTHOR_PROJECTS,
 };

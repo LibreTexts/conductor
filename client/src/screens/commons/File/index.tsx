@@ -81,7 +81,7 @@ const CommonsFile: React.FC<CommonsFileProps> = () => {
                 {file?.authors && file?.authors.length > 0 ? (
                   <span>
                     {file.authors
-                      .map((a) => `${a.firstName} ${a.lastName}`)
+                      .map((a) => a.name)
                       .join(", ")}
                   </span>
                 ) : (

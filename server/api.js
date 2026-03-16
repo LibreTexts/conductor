@@ -742,25 +742,15 @@ router
 router
   .route("/authors")
   .get(
-    middleware.validateZod(AuthorsValidators.GetAllAuthorsValidator),
+    middleware.validateZod(AuthorsValidators.GetAuthorsValidator),
     authorsAPI.getAuthors
   )
   .post(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
     middleware.validateZod(AuthorsValidators.CreateAuthorValidator),
     authorsAPI.createAuthor
-  );
-
-router
-  .route("/authors/bulk")
-  .post(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
-    middleware.validateZod(AuthorsValidators.BulkCreateAuthorsValidator),
-    authorsAPI.bulkCreateAuthors
   );
 
 router
@@ -772,14 +762,14 @@ router
   .patch(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
     middleware.validateZod(AuthorsValidators.UpdateAuthorValidator),
     authorsAPI.updateAuthor
   )
   .delete(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
     middleware.validateZod(AuthorsValidators.DeleteAuthorValidator),
     authorsAPI.deleteAuthor
   );

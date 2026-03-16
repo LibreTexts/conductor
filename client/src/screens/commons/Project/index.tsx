@@ -98,7 +98,7 @@ const CommonsProject = () => {
                 {project?.principalInvestigators &&
                 project?.principalInvestigators.length > 0 ? (
                   project?.principalInvestigators
-                    ?.map((p) => `${p.firstName} ${p.lastName}`)
+                    ?.map((p) => p.name)
                     .join(", ")
                 ) : (
                   <span className="muted-text">No principal investigators</span>
@@ -109,7 +109,7 @@ const CommonsProject = () => {
                 {project?.coPrincipalInvestigators &&
                 project?.coPrincipalInvestigators.length > 0 ? (
                   project?.coPrincipalInvestigators
-                    ?.map((p) => `${p.firstName} ${p.lastName}`)
+                    ?.map((p) => p.name)
                     .join(", ")
                 ) : (
                   <span className="muted-text">
