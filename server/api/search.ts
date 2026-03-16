@@ -1889,18 +1889,13 @@ async function authorsSearch(
       {
         $match: {
           orgID: process.env.ORG_ID,
+          nameKey: { $exists: true, $ne: null },
         },
       },
       AuthorService.LOOKUP_AUTHOR_PROJECTS_STAGE,
       {
         $project: {
-          _id: 1,
-          firstName: 1,
-          lastName: 1,
-          url: 1,
-          primaryInstitution: 1,
-          projects: 1,
-          email: 1,
+          userUUID: 0,
         },
       },
     ]);
@@ -1931,7 +1926,7 @@ async function authorsSearch(
     let filtered = paginated;
     if (req.query.primaryInstitution) {
       filtered = paginated.filter(
-        (author) => author.primaryInstitution === req.query.primaryInstitution
+        (author) => author.companyName === req.query.primaryInstitution || author.programName === req.query.primaryInstitution
       );
     }
 
@@ -2342,27 +2337,29 @@ async function getAssetFilterOptions(req: Request, res: Response) {
 
 async function getAuthorFilterOptions(req: Request, res: Response) {
   try {
-    const primaryInstitutions = await Author.aggregate([
-      {
-        $match: {
-          primaryInstitution: { $exists: true, $ne: "" },
-          orgID: process.env.ORG_ID,
-        },
-      },
-      { $group: { _id: "$primaryInstitution" } },
+    const [companyResults, programResults] = await Promise.all([
+      Author.aggregate([
+        { $match: { companyName: { $exists: true, $ne: "" }, orgID: process.env.ORG_ID } },
+        { $group: { _id: "$companyName" } },
+      ]),
+      Author.aggregate([
+        { $match: { programName: { $exists: true, $ne: "" }, orgID: process.env.ORG_ID } },
+        { $group: { _id: "$programName" } },
+      ]),
     ]);
 
-    // Filter & sort results
-    const mapped = primaryInstitutions.map((inst) => inst._id);
-    const filtered = mapped.filter((inst) => !!inst);
+    const combined = new Set([
+      ...companyResults.map((r) => r._id),
+      ...programResults.map((r) => r._id),
+    ]);
 
-    filtered.sort((a: string, b: string) =>
-      a.toLowerCase().localeCompare(b.toLowerCase())
-    );
+    const primaryInstitutions = [...combined]
+      .filter(Boolean)
+      .sort((a: string, b: string) => a.toLowerCase().localeCompare(b.toLowerCase()));
 
     return res.send({
       err: false,
-      primaryInstitutions: filtered ?? [],
+      primaryInstitutions,
     });
   } catch (err) {
     debugError(err);
