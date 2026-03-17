@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Card, CardProps } from "semantic-ui-react";
 import {
   Book,
-  ConductorSearchResponseAuthor,
+  Author,
   ConductorSearchResponseFile,
   Project,
 } from "../../../../types";
@@ -18,7 +18,7 @@ interface CatalogCardProps extends CardProps {
     | Book
     | ConductorSearchResponseFile
     | Project
-    | ConductorSearchResponseAuthor;
+    | Author;
   onDetailClick?: () => void;
 }
 
