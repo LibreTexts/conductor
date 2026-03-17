@@ -1,6 +1,6 @@
 import Author from "../models/author.js";
 import mongoose from "mongoose";
-// import dotenv from 'dotenv';
+// import dotenv from "dotenv";
 // dotenv.config();
 
 /**
@@ -33,7 +33,7 @@ export async function runMigration() {
     // (they still have firstName field, which indicates they need migration)
     const authorsToMigrate = await Author.find({
       firstName: { $exists: true },
-    }).lean();
+    }).limit(100).lean();
 
     console.log(`Found ${authorsToMigrate.length} authors to migrate.`);
 
@@ -80,6 +80,15 @@ export async function runMigration() {
         updateObj.$set.nameURL = author.url;
       }
 
+      if (author.primaryInstitution) {
+        updateObj.$set.companyName = author.primaryInstitution;
+      }
+
+      // Default to "libretexts" if orgID is missing
+      if (!author.orgID) {
+        updateObj.$set.orgID = "libretexts";
+      }
+
       // Remove old fields
       updateObj.$unset.firstName = "";
       updateObj.$unset.lastName = "";
@@ -114,15 +123,24 @@ function generateNameKey(firstName, lastName) {
   const first = firstName ? firstName.trim() : "";
   const last = lastName ? lastName.trim() : "";
 
-  return `${first.toLowerCase()}-${last.toLowerCase()}`.trim();
+  let nameKey = "";
+  if (first && last) {
+    nameKey = `${first.toLowerCase()}-${last.toLowerCase()}`;
+  } else if (first) {
+    nameKey = first.toLowerCase();
+  } else if (last) {
+    nameKey = last.toLowerCase();
+  }
+
+  return nameKey.trim();
 }
 
 // runMigration()
-// .then(() => {
-//   console.log('Migration completed successfully.');
-//   process.exit(0);
-// })
-// .catch((e) => {
-//   console.error(`Migration failed: ${e.toString()}`);
-//   process.exit(1);
-// });
+//   .then(() => {
+//     console.log("Migration completed successfully.");
+//     process.exit(0);
+//   })
+//   .catch((e) => {
+//     console.error(`Migration failed: ${e.toString()}`);
+//     process.exit(1);
+//   });

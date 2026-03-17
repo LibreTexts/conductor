@@ -3,6 +3,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 import Author from "../models/author.js";
+// import dotenv from "dotenv";
+// dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -266,7 +268,7 @@ export async function runMigration() {
   }
 }
 
-// Uncomment to run standalone:
+//Uncomment to run standalone:
 // runMigration()
 //   .then(() => process.exit(0))
 //   .catch((e) => {
