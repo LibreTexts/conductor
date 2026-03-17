@@ -1,6 +1,6 @@
 import {
   Book,
-  ConductorSearchResponseAuthor,
+  Author,
   ConductorSearchResponseFile,
   Project,
 } from "../../../types";
@@ -19,7 +19,7 @@ const VisualMode = ({
     | Book
     | ConductorSearchResponseFile
     | Project
-    | ConductorSearchResponseAuthor
+    | Author
   )[];
   loading?: boolean;
   noResultsMessage?: string;
@@ -29,7 +29,7 @@ const VisualMode = ({
     | Book
     | ConductorSearchResponseFile
     | Project
-    | ConductorSearchResponseAuthor
+    | Author
     | undefined
   >(undefined);
 

@@ -1,11 +1,11 @@
 import { Card, CardContentProps, CardHeader } from "semantic-ui-react";
-import { ConductorSearchResponseAuthor } from "../../../../types";
+import { Author } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import { useMemo } from "react";
 import CardMetaWIcon from "../../../util/CardMetaWIcon";
 
 interface AuthorCardContentProps extends CardContentProps {
-  author: ConductorSearchResponseAuthor;
+  author: Author;
 }
 
 const AuthorCardContent: React.FC<AuthorCardContentProps> = ({
@@ -27,26 +27,6 @@ const AuthorCardContent: React.FC<AuthorCardContentProps> = ({
       {(author.companyName || author.programName) && (
         <CardMetaWIcon icon="university">
           <div className="line-clamp-1">{truncateString(author.companyName || author.programName || "", 50)}</div>
-        </CardMetaWIcon>
-      )}
-      {author.projects?.length > 0 && (
-        <CardMetaWIcon icon="wrench">
-          <div className="line-clamp-2">
-            {author.projects.map((p, idx) => (
-              <a
-                href={`/commons-project/${p.projectID}`}
-                key={p.projectID}
-                className="hover:underline cursor-pointer !text-blue-500 !hover:text-blue-500"
-              >
-                {`${p.title}${
-                  author.projects.length > 1 &&
-                  idx !== author.projects.length - 1
-                    ? ", "
-                    : ""
-                }`}
-              </a>
-            ))}
-          </div>
         </CardMetaWIcon>
       )}
       {author.nameURL && (
