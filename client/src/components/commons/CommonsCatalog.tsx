@@ -486,6 +486,16 @@ const CommonsCatalog = () => {
       return;
     }
 
+    // Authors and minirepos always use React Query (no browse endpoints)
+    if (activeTab === "authors") {
+      authorsSearch.fetchNextPage();
+      return;
+    }
+    if (activeTab === "minirepos") {
+      miniReposSearch.fetchNextPage();
+      return;
+    }
+
     // In search mode, use React Query's fetchNextPage
     if (isSearchMode) {
       switch (activeTab) {
@@ -497,12 +507,6 @@ const CommonsCatalog = () => {
           break;
         case "projects":
           if (isProjectsSearchMode) projectsSearch.fetchNextPage();
-          break;
-        case "authors":
-          authorsSearch.fetchNextPage();
-          break;
-        case "minirepos":
-          miniReposSearch.fetchNextPage();
           break;
       }
     } else {

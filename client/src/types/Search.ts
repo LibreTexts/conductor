@@ -88,9 +88,6 @@ export type UserSearchParams = {
   sort?: "first" | "last";
 } & _commonSearchParams;
 
-export type ConductorSearchResponseAuthor = Author & {
-  projects: Pick<Project, "projectID" | "title">[];
-};
 export type ConductorSearchResponseFile = ProjectFileWProjectData<
   "title" | "thumbnail" | "description" | "projectURL"
 >;
@@ -112,7 +109,7 @@ export type ConductorSearchResponse<
     : T extends "users"
     ? User[]
     : T extends "authors"
-    ? ConductorSearchResponseAuthor[]
+    ? Author[]
     : T extends "minirepos"
     ? Project[]
     : never;

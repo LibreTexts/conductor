@@ -28,7 +28,6 @@ import Author from "../models/author.js";
 import Fuse from "fuse.js";
 import Organization from "../models/organization.js";
 import AssetTagFramework from "../models/assettagframework.js";
-import authorsAPI from "./authors.js";
 import SearchQuery, {
   SearchQueryInterface_Raw,
 } from "../models/searchquery.js";
@@ -37,7 +36,6 @@ import { _getBookPublicOrInstructorAssetsCount, buildOrganizationNamesList } fro
 import CustomCatalog, { CustomCatalogInterface } from "../models/customcatalog.js";
 import { normalizedSort } from "../util/searchutils.js";
 import SearchService from "./services/search-service.js";
-import AuthorService from "./services/author-service.js";
 
 const searchQueryCache: SearchQueryInterface_Raw[] = []; // in-memory cache for search queries
 
@@ -1892,7 +1890,6 @@ async function authorsSearch(
           nameKey: { $exists: true, $ne: null },
         },
       },
-      AuthorService.LOOKUP_AUTHOR_PROJECTS_STAGE,
       {
         $project: {
           userUUID: 0,

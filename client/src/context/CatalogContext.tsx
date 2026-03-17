@@ -5,7 +5,7 @@ import type {
   Book,
   BookFilters,
   CommonsModule,
-  ConductorSearchResponseAuthor,
+  Author,
   ConductorSearchResponseFile,
   Project,
   ProjectFilters,
@@ -51,7 +51,7 @@ export interface CatalogContextValue {
   miniRepos: CatalogEntityData<Project, ProjectFilters>;
 
   // Authors entity
-  authors: CatalogEntityData<ConductorSearchResponseAuthor, AuthorFilters>;
+  authors: CatalogEntityData<Author, AuthorFilters>;
 
   // Stop loading trigger (for infinite scroll)
   triggerStopLoading: () => void;
