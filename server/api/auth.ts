@@ -637,48 +637,39 @@ const getLibreTextsAdmins = (superAdmins = false) => {
  * @param {String} campus  - the orgID to retrieve admins for
  * @returns {Object[]} an array of the administrators and their information
  */
-const getCampusAdmins = (campus: string) => {
-  return new Promise((resolve, reject) => {
-    if (campus && !isEmptyString(campus)) {
-      resolve(
-        User.aggregate([
-          {
-            $match: {
-              roles: {
-                $elemMatch: {
-                  $and: [
-                    {
-                      org: campus,
-                    },
-                    {
-                      role: "campusadmin",
-                    },
-                  ],
-                },
+const getCampusAdmins = async (campus: string) => {
+  if (!campus || isEmptyString(campus)) {
+    throw new Error("missingcampus");
+  }
+
+  return await User.aggregate([
+    {
+      $match: {
+        roles: {
+          $elemMatch: {
+            $and: [
+              {
+                org: campus,
               },
-            },
+              {
+                role: "campusadmin",
+              },
+            ],
           },
-          {
-            $project: {
-              _id: 0,
-              uuid: 1,
-              email: 1,
-              firstName: 1,
-              lastName: 1,
-            },
-          },
-        ])
-      );
-    } else {
-      reject("missingcampus");
-    }
-  })
-    .then((admins) => {
-      return admins;
-    })
-    .catch((err) => {
-      throw err;
-    });
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        uuid: 1,
+        email: 1,
+        firstName: 1,
+        lastName: 1,
+        avatar: 1
+      },
+    },
+  ]);
 };
 
 /**
@@ -1010,6 +1001,53 @@ const checkHasRoleMiddleware = (org: string, role: string | string[]) => {
   };
 };
 
+/**
+ * Middleware that ensures the requesting user has campus admin access for the
+ * organization specified in the `orgID` route parameter.
+ *
+ * - LibreTexts superadmins always proceed.
+ * - A campus admin proceeds only if their campusadmin role matches the requested orgID.
+ * - All other cases result in a 403 Forbidden response.
+ *
+ * Must be called AFTER `verifyRequest` and `getUserAttributes` in the middleware chain.
+ */
+const assertCampusAdminForOrgParam = (
+  req: ZodReqWithUser<Request>,
+  res: Response,
+  next: NextFunction
+) => {
+  const { orgID } = (req as any).params ?? {};
+  if (!orgID) {
+    return res.status(400).send({
+      err: true,
+      errMsg: conductorErrors.err1,
+    });
+  }
+
+  if (!req.user?.roles || !Array.isArray(req.user.roles)) {
+    debugError(conductorErrors.err9);
+    return res.status(403).send({
+      err: true,
+      errMsg: conductorErrors.err8,
+    });
+  }
+
+  const isSuperAdmin = req.user.roles.some(
+    (r) => r.org === "libretexts" && r.role === "superadmin"
+  );
+  if (isSuperAdmin) return next();
+
+  const isCampusAdminForOrg = req.user.roles.some(
+    (r) => r.org === orgID && r.role === "campusadmin"
+  );
+  if (isCampusAdminForOrg) return next();
+
+  return res.status(403).send({
+    err: true,
+    errMsg: conductorErrors.err8,
+  });
+};
+
 async function cloudflareSiteVerify(req: Request, res: Response) {
   try {
     if (!req.query.token) {
@@ -1084,6 +1122,7 @@ export default {
   optionalGetUserAttributes,
   checkHasRole,
   checkHasRoleMiddleware,
+  assertCampusAdminForOrgParam,
   cloudflareSiteVerify,
   validate,
 };

@@ -63,6 +63,7 @@ import {
   MasterCatalogV2Response,
   BookWithAutoMatched,
   Organization,
+  GetCampusAdminResponse,
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -284,8 +285,8 @@ class API {
   }
 
   public cloudflareStreamUploadURL: string = `${import.meta.env.MODE === "development"
-      ? import.meta.env.VITE_DEV_BASE_URL
-      : ""
+    ? import.meta.env.VITE_DEV_BASE_URL
+    : ""
     }/api/v1/cloudflare/stream-url`;
 
   async getPermanentLink(projectID: string, fileID: string) {
@@ -375,7 +376,7 @@ class API {
   // Books
   async getBookDetail(bookID: string) {
     const res = await axios.get<
-      { book: { license?: string; [key: string]: unknown } } & ConductorBaseResponse
+      { book: { license?: string;[key: string]: unknown } } & ConductorBaseResponse
     >(`/commons/book/${bookID}`);
     return res;
   }
@@ -1333,6 +1334,10 @@ class API {
   }
 
   // Organization
+  async getCampusAdmins(orgID: string) {
+    return await axios.get<GetCampusAdminResponse>(`/org/${orgID}/campus-admins`);
+  }
+
   async updateOrganization(orgID: string, data: Partial<Organization>) {
     const res = await axios.put<
       { updatedOrg: Organization } & ConductorBaseResponse

@@ -662,6 +662,7 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+    authAPI.assertCampusAdminForOrgParam,
     orgsAPI.validate("updateinfo"),
     middleware.checkValidationErrors,
     orgsAPI.updateOrganizationInfo
@@ -673,6 +674,7 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+    authAPI.assertCampusAdminForOrgParam,
     orgsAPI.validate("updateBrandingImageAsset"),
     middleware.checkValidationErrors,
     orgsAPI.assetUploadHandler,
@@ -685,9 +687,22 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+    authAPI.assertCampusAdminForOrgParam,
     orgsAPI.validate("updateAutomaticCatalogMatchingSettings"),
     middleware.checkValidationErrors,
     orgsAPI.updateAutomaticCatalogMatchingSettings
+  );
+
+router
+  .route("/org/:orgID/campus-admins")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+    authAPI.assertCampusAdminForOrgParam,
+    orgsAPI.validate("getCampusAdmins"),
+    middleware.checkValidationErrors,
+    orgsAPI.getCampusAdmins
   );
 
 /* Asset Tag Frameworks */

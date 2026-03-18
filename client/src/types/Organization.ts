@@ -1,3 +1,6 @@
+import { ConductorBaseResponse } from "./Misc";
+import { User } from "./User";
+
 export type CommonsModule = "books" | "assets" | "projects" | "authors" | "minirepos"; // see utils/constants.ts
 
 export type CommonsModuleConfig = {
@@ -64,3 +67,7 @@ export type CampusSettingsOpts = Pick<
   | "showCollections"
   | "assetFilterExclusions"
 >;
+
+export type GetCampusAdminResponse = ConductorBaseResponse & {
+  campusAdmins: Pick<User, "uuid" | "email" | "firstName" | "lastName" | "avatar">[];
+}
