@@ -149,6 +149,11 @@ async function getAllOrganizations(_req: Request, res: Response) {
           updatedAt: 0,
         },
       },
+      {
+        $sort: {
+          name: 1,
+        },
+      }
     ]);
     return res.send({
       orgs,

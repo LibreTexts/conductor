@@ -891,12 +891,16 @@ const updateUserRole = (req, res) => {
         let isSuperAdmin = authAPI.checkHasRole(req.user, 'libretexts', 'superadmin');
         if (!isSuperAdmin && (req.body.orgID !== process.env.ORG_ID)) {
             // Halt execution if Campus Admin is trying to assign a role for a different Organization
-            reject(new Error('unauth'));
+            // TODO: this is effectively now a dead branch since only superadmins can assign roles, but we'll keep here for now
+            return reject(new Error('unauth'));
         }
-        if (req.body.role === 'superadmin' && (req.body.orgID !== 'libretexts' || !isSuperAdmin)) {
-            // Halt execution if user is trying to elevate non-LibreTexts role to Super Admin,
-            // or if the requesting is not a Super Admin themselves
-            reject(new Error('invalid'));
+        if (req.body.role === 'superadmin') {
+            // Halt execution if user is trying to assign a Super Admin role (this must be done manually due to its elevated privileges)
+            return reject(new Error('invalid'));
+        }
+        if (req.body.role === 'campusadmin' && (req.body.orgID === 'libretexts')) {
+            // Halt execution if user is trying to assign Campus Admin role for the LibreTexts organization
+            return reject(new Error('invalid'));
         }
         resolve(User.findOne({ uuid: req.body.uuid }).lean())
     }).then((user) => {

@@ -63,6 +63,7 @@ const UserSupportTickets = lazy(
 
 import api from "../../../../api";
 import UserConductorData from "../../../../components/controlpanel/CentralIdentity/UserConductorData";
+import CampusAdminRolesSection from "../../../../components/controlpanel/CentralIdentity/CampusAdminRolesSection";
 import EditUserAcademyOnlineModal from "../../../../components/controlpanel/CentralIdentity/EditUserAcademyOnlineModal";
 import { useModals } from "../../../../context/ModalContext";
 import ConfirmModal from "../../../../components/ConfirmModal";
@@ -78,6 +79,7 @@ const CentralIdentityUserView = () => {
     "https://cdn.libretexts.net/DefaultImages/avatar.png";
 
   const [loading, setLoading] = useState<boolean>(false);
+  const [userLoading, setUserLoading] = useState<boolean>(true);
   const [showAddAppModal, setShowAddAppModal] = useState<boolean>(false);
   const [showDisableUserModal, setShowDisableUserModal] =
     useState<boolean>(false);
@@ -111,7 +113,7 @@ const CentralIdentityUserView = () => {
     try {
       setDeleteLoading(true);
       const res = await api.deleteCentralIdentityUser(uuid!);
-      
+
       if (res.data.err) {
         throw new Error("Failed to delete user");
       }
@@ -167,7 +169,7 @@ const CentralIdentityUserView = () => {
   async function loadUser() {
     try {
       if (!uuid) return;
-      setLoading(true);
+      setUserLoading(true);
 
       const res = await api.getCentralIdentityUser(uuid);
       if (res.data.err) {
@@ -179,14 +181,13 @@ const CentralIdentityUserView = () => {
     } catch (err) {
       handleGlobalError(err);
     } finally {
-      setLoading(false);
+      setUserLoading(false);
     }
   }
 
   async function loadUserLocalID() {
     try {
       if (!uuid) return;
-      setLoading(true);
 
       const res = await api.getUserFromCentralID(uuid);
       if (res.err) {
@@ -200,15 +201,12 @@ const CentralIdentityUserView = () => {
       // handleGlobalError(
       //   "User does not have a local Conductor record. This may or may not be expected."
       // );
-    } finally {
-      setLoading(false);
     }
   }
 
   async function loadUserApps() {
     try {
       if (!uuid) return;
-      setLoading(true);
 
       const res = await api.getCentralIdentityUserApplications(uuid);
       if (res.data.err) {
@@ -219,15 +217,12 @@ const CentralIdentityUserView = () => {
       setUserApps([...(res.data.applications as CentralIdentityApp[])]);
     } catch (err) {
       handleGlobalError(err);
-    } finally {
-      setLoading(false);
     }
   }
 
   async function loadUserAppLicenses() {
     try {
       if (!uuid) return;
-      setLoading(true);
 
       const res = await api.getCentralIdentityUserAppLicenses(uuid);
       if (res.data.err) {
@@ -238,8 +233,6 @@ const CentralIdentityUserView = () => {
       setUserAppLicenses(res.data.licenses);
     } catch (err) {
       handleGlobalError(err);
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -469,7 +462,7 @@ const CentralIdentityUserView = () => {
           )}
           <div className="flex flex-row justify-between pb-4">
             <div className="flex flex-col basis-1/2">
-              <Segment>
+              <Segment loading={userLoading}>
                 <div
                   style={{
                     display: "flex",
@@ -507,6 +500,7 @@ const CentralIdentityUserView = () => {
                       <Button
                         color="blue"
                         size="small"
+                        loading={loading}
                         onClick={() => {
                           openModal(
                             <ChangeUserEmailModal
@@ -528,6 +522,7 @@ const CentralIdentityUserView = () => {
                       <Button
                         color="yellow"
                         size="small"
+                        loading={loading}
                         onClick={handleReEnableUser}
                       >
                         <Icon name="refresh" /> Re-Enable User
@@ -535,6 +530,7 @@ const CentralIdentityUserView = () => {
                     ) : (
                       <Button
                         color="red"
+                        loading={loading}
                         onClick={handleOpenDisableUserModal}
                         size="small"
                       >
@@ -545,6 +541,7 @@ const CentralIdentityUserView = () => {
                       <Button
                         color="red"
                         size="small"
+                        loading={deleteLoading}
                         onClick={() => setShowDeleteUserModal(true)}
                         style={{ backgroundColor: "#d32f2f" }}
                       >
@@ -591,6 +588,7 @@ const CentralIdentityUserView = () => {
                     rules={{ required: true }}
                     fluid
                     style={{ width: "100%" }}
+                    loading={loading}
                   />
                 </div>
                 <div style={{ marginBottom: "1.25rem", width: "100%" }}>
@@ -601,6 +599,7 @@ const CentralIdentityUserView = () => {
                     rules={{ required: true }}
                     fluid
                     style={{ width: "100%" }}
+                    loading={loading}
                   />
                 </div>
                 <div style={{ marginBottom: "1.25rem", width: "100%" }}>
@@ -617,6 +616,7 @@ const CentralIdentityUserView = () => {
                         }}
                         selection
                         fluid
+                        loading={loading}
                       />
                     )}
                   />
@@ -629,6 +629,7 @@ const CentralIdentityUserView = () => {
                       control={control}
                       fluid
                       style={{ width: "100%" }}
+                      loading={loading}
                     />
                   </div>
                 )}
@@ -647,6 +648,7 @@ const CentralIdentityUserView = () => {
                           }}
                           selection
                           fluid
+                          loading={loading}
                         />
                       )}
                     />
@@ -661,6 +663,7 @@ const CentralIdentityUserView = () => {
                       placeholder="Bio URL..."
                       fluid
                       style={{ width: "100%" }}
+                      loading={loading}
                     />
                   </div>
                 )}
@@ -673,7 +676,7 @@ const CentralIdentityUserView = () => {
                     alignItems: "center",
                   }}
                 >
-                  <Button onClick={loadUser}>Cancel</Button>
+                  <Button onClick={loadUser} loading={userLoading} disabled={userLoading}>Cancel</Button>
                   {formState.isDirty && (
                     <Button
                       color="green"
@@ -726,12 +729,12 @@ const CentralIdentityUserView = () => {
                   <span>
                     {getValues("created_at")
                       ? format(
-                          utcToZonedTime(
-                            parseISO(getValues("created_at") as string),
-                            getValues("time_zone") as string
-                          ),
-                          "MM/dd/yyyy hh:mm aa"
-                        )
+                        utcToZonedTime(
+                          parseISO(getValues("created_at") as string),
+                          getValues("time_zone") as string
+                        ),
+                        "MM/dd/yyyy hh:mm aa"
+                      )
                       : ""}
                   </span>
                 </div>
@@ -740,9 +743,9 @@ const CentralIdentityUserView = () => {
                   <span>
                     {getValues("last_access")
                       ? format(
-                          parseISO(getValues("last_access") as string),
-                          "MM/dd/yyyy hh:mm aa"
-                        )
+                        parseISO(getValues("last_access") as string),
+                        "MM/dd/yyyy hh:mm aa"
+                      )
                       : "Unknown"}
                   </span>
                 </div>
@@ -751,17 +754,17 @@ const CentralIdentityUserView = () => {
                   <span>
                     {getValues("last_password_change")
                       ? format(
-                          parseISO(getValues("last_password_change") as string),
-                          "MM/dd/yyyy hh:mm aa"
-                        )
+                        parseISO(getValues("last_password_change") as string),
+                        "MM/dd/yyyy hh:mm aa"
+                      )
                       : "Unknown"}
                   </span>
                 </div>
               </Segment>
               {userLocalID && <UserConductorData uuid={userLocalID} />}
             </div>
-            <div className="flex flex-col basis-1/2 ml-8">
-              <Segment>
+            <div className="flex flex-col basis-1/2 ml-8 gap-y-6">
+              <Segment className="!my-0">
                 <div className="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
                   <Header as="h3" style={{ margin: 0 }}>
                     Organizations
@@ -786,7 +789,7 @@ const CentralIdentityUserView = () => {
                     </Table.Header>
                     <Table.Body>
                       {getValues("organizations") &&
-                      getValues("organizations")?.length > 0 ? (
+                        getValues("organizations")?.length > 0 ? (
                         getValues("organizations").map((org) => (
                           <Table.Row key={org.id}>
                             <Table.Cell>{org.name}</Table.Cell>
@@ -821,7 +824,8 @@ const CentralIdentityUserView = () => {
                   </Table>
                 </div>
               </Segment>
-              <Segment>
+              {userLocalID && isSuperAdmin && <CampusAdminRolesSection uuid={userLocalID} />}
+              <Segment className="!my-0">
                 <div className="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
                   <Header as="h3" style={{ margin: 0 }}>
                     Application Licenses
@@ -875,17 +879,16 @@ const CentralIdentityUserView = () => {
                               <Table.Cell>
                                 {app.application_license.perpetual
                                   ? "Perpetual"
-                                  : `${
-                                      isExpired ? "Expired " : ""
-                                    }${new Intl.DateTimeFormat("en-US", {
-                                      dateStyle: "short",
-                                    }).format(new Date(app.expires_at))}`}
+                                  : `${isExpired ? "Expired " : ""
+                                  }${new Intl.DateTimeFormat("en-US", {
+                                    dateStyle: "short",
+                                  }).format(new Date(app.expires_at))}`}
                               </Table.Cell>
                               <Table.Cell>
                                 {app.revoked && app.revoked_at
                                   ? new Intl.DateTimeFormat("en-US", {
-                                      dateStyle: "short",
-                                    }).format(new Date(app.revoked_at))
+                                    dateStyle: "short",
+                                  }).format(new Date(app.revoked_at))
                                   : "No"}
                               </Table.Cell>
                               <Table.Cell>{app.granted_by}</Table.Cell>
@@ -918,7 +921,7 @@ const CentralIdentityUserView = () => {
                   </Table>
                 </div>
               </Segment>
-              <Segment>
+              <Segment className="!my-0">
                 <div className="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
                   <Header as="h3" style={{ margin: 0 }}>
                     Application Security Access
@@ -973,7 +976,7 @@ const CentralIdentityUserView = () => {
                   </Table>
                 </div>
               </Segment>
-              <Segment>
+              <Segment className="!my-0">
                 <div className="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
                   <Header as="h3" style={{ margin: 0 }}>
                     Academy Online
@@ -1003,7 +1006,7 @@ const CentralIdentityUserView = () => {
                 </div>
               </Segment>
               {userLocalID && <UserSupportTickets uuid={userLocalID} />}
-              <Segment>
+              <Segment className="!my-0">
                 <InternalNotesSection userId={uuid} />
               </Segment>
             </div>

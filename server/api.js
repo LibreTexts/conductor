@@ -1412,7 +1412,7 @@ router
   .put(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"), // Only superadmins can update roles
     usersAPI.validate("updateUserRole"),
     middleware.checkValidationErrors,
     usersAPI.updateUserRole
@@ -1423,7 +1423,7 @@ router
   .delete(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"), // Only superadmins can delete roles
     usersAPI.validate("deleteUserRole"),
     middleware.checkValidationErrors,
     usersAPI.deleteUserRole
