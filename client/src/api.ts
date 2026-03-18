@@ -2001,6 +2001,32 @@ class API {
   }
 
   // user manager
+  async getUserRoles(uuid: string) {
+    const res = await axios.get<
+      {
+        user: {
+          uuid: string;
+          roles: { org: Pick<Organization, "orgID" | "name" | "shortName">; role: string; roleInternal: string }[];
+        };
+      } & ConductorBaseResponse
+    >("/user/roles", { params: { uuid } });
+    return res;
+  }
+
+  async updateUserRole(uuid: string, orgID: string, role: string) {
+    const res = await axios.put<ConductorBaseResponse>("/user/role/update", {
+      uuid,
+      orgID,
+      role,
+    });
+    return res;
+  }
+
+  async getAllOrganizations() {
+    const res = await axios.get<{ orgs: Organization[] } & ConductorBaseResponse>("/orgs");
+    return res;
+  }
+
   async deleteUserRole(orgID: string, uuid: string) {
     const res = await axios.delete<ConductorBaseResponse>(`/user/role/delete`, {
       data: {
