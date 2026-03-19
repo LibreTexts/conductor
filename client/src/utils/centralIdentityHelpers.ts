@@ -156,11 +156,3 @@ export const getPrettyAcademyOnlineAccessLevel = (level: number) => {
   );
   return accessLevel ? `${level} - ${accessLevel.text}` : "Unknown";
 }
-
-export const getCentralAuthProfileEditURL = () => {
-  return "https://one.libretexts.org/profile";
-};
-
-export const getCentralAuthInstructorURL = () => {
-  return "https://one.libretexts.org/instructor";
-};

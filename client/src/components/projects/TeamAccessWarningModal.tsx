@@ -1,6 +1,6 @@
 import React from "react";
 import { Modal, Button, Table, Image } from "semantic-ui-react";
-import { getCentralAuthInstructorURL } from "../../utils/centralIdentityHelpers";
+import useClientConfig from "../../hooks/useClientConfig";
 
 interface TeamMemberWithoutAccess {
   uuid: string;
@@ -24,6 +24,7 @@ const TeamAccessWarningModal: React.FC<TeamAccessWarningModalProps> = ({
   onCreateWithWarning,
   onClose,
 }) => {
+  const { clientConfig } = useClientConfig();
   return (
     <Modal open={open} size="small">
       <Modal.Header>Library Access Warning</Modal.Header>
@@ -31,10 +32,16 @@ const TeamAccessWarningModal: React.FC<TeamAccessWarningModalProps> = ({
         <p>
           The following team members do not have instructor/editor-level access
           to the <b>{selectedLibraryName}</b> library. They will need to submit
-          an{" "}
-          <a href={getCentralAuthInstructorURL()} target="_blank">
-            Instructor Verification Request
-          </a>{" "}
+          an{" "}{
+            clientConfig?.instructor_verification_url ? (
+              <a href={clientConfig?.instructor_verification_url} target="_blank" rel="noopener noreferrer">
+                Instructor Verification Request
+              </a>
+            ) :
+              <span>
+                Instructor Verification Request
+              </span>
+          }{" "}
           to get access. You can proceed with the creation of the book, but they
           will not be able to edit it until they have access.
         </p>
