@@ -71,6 +71,9 @@ const CampusSettingsForm = forwardRef(
         return res.data.campusAdmins;
       },
       enabled: !!props.orgID,
+      onError: (error) => {
+        handleGlobalError(error);
+      },
     })
 
     const {
