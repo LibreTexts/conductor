@@ -9,7 +9,6 @@ import ChatBot from "./utils/ChatBot";
 
 import "./Conductor.css";
 
-const AccountSettings = lazy(() => import('./screens/conductor/AccountSettings'));
 const AdoptionReports = lazy(() => import('./screens/conductor/controlpanel/AdoptionReports'));
 const AnalyticsCourseView = lazy(() => import('./screens/conductor/analytics/AnalyticsCourseView'));
 const AnalyticsInvites = lazy(() => import('./screens/conductor/analytics/AnalyticsInvites'));
@@ -138,7 +137,6 @@ const Conductor = () => {
           <PrivateRoute exact path='/analytics/invites' component={AnalyticsInvites} />
           <PrivateRoute exact path='/analytics/requestaccess' component={AnalyticsRequestAccess} />
           <PrivateRoute exact path='/analytics/:courseID/:pane?/:settingsPane?' component={AnalyticsCourseView} /> */}
-          <PrivateRoute exact path='/account/:activePane?' component={AccountSettings} />
           <PrivateRoute exact path='/controlpanel' component={ControlPanel} />
           <PrivateRoute exact path='/controlpanel/adoptionreports' component={AdoptionReports} />
           <PrivateRoute exact path='/controlpanel/analyticsrequests' component={AnalyticsRequests} />
