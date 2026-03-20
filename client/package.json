@@ -15,6 +15,8 @@
     "@fortawesome/fontawesome-free": "^5.15.4",
     "@headlessui/react": "^2.2.4",
     "@hookform/resolvers": "^5.2.2",
+    "@libretexts/davis-core": "file:../../davis/packages/core",
+    "@libretexts/davis-react": "file:../../davis/packages/react",
     "@libretexts/insight-ckeditor5-build": "^1.0.0",
     "@marsidev/react-turnstile": "^0.5.3",
     "@stripe/react-stripe-js": "^3.7.0",

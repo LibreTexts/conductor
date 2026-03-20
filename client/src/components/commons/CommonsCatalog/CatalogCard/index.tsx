@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
-import { Card, CardProps } from "semantic-ui-react";
+import { useHistory } from "react-router-dom";
+import { Card } from "@libretexts/davis-react";
 import {
   Book,
   Author,
@@ -13,25 +13,19 @@ import "../../Commons.css";
 import ProjectCardContent from "./ProjectCardContent";
 import AuthorCardContent from "./AuthorCardContent";
 
-interface CatalogCardProps extends CardProps {
-  item:
-    | Book
-    | ConductorSearchResponseFile
-    | Project
-    | Author;
+interface CatalogCardProps {
+  item: Book | ConductorSearchResponseFile | Project | Author;
   onDetailClick?: () => void;
 }
 
-const CatalogCard: React.FC<CatalogCardProps> = ({
-  item,
-  onDetailClick,
-  ...props
-}) => {
+const CatalogCard: React.FC<CatalogCardProps> = ({ item, onDetailClick }) => {
+  const history = useHistory();
+
   if (isAuthor(item)) {
     return (
       <Card
+        padding="none"
         className="commons-author-card shadow-md transform transition-transform duration-300 hover:-translate-y-1"
-        {...props}
       >
         <AuthorCardContent author={item} />
       </Card>
@@ -41,10 +35,9 @@ const CatalogCard: React.FC<CatalogCardProps> = ({
   if (isBook(item)) {
     return (
       <Card
-        as={Link}
-        to={`/book/${item.bookID}`}
+        padding="none"
         className="commons-content-card"
-        {...props}
+        onClick={() => history.push(`/book/${item.bookID}`)}
       >
         <BookCardContent book={item} />
       </Card>
@@ -54,10 +47,9 @@ const CatalogCard: React.FC<CatalogCardProps> = ({
   if (isProject(item)) {
     return (
       <Card
-        as={Link}
-        to={`/commons-project/${item.projectID}`}
+        padding="none"
         className="commons-project-card shadow-md transform transition-transform duration-300 hover:-translate-y-1"
-        {...props}
+        onClick={() => history.push(`/commons-project/${item.projectID}`)}
       >
         <ProjectCardContent project={item} />
       </Card>
@@ -66,8 +58,8 @@ const CatalogCard: React.FC<CatalogCardProps> = ({
 
   return (
     <Card
-      className="commons-asset-card shadow-md transform transition-transform duration-300 hover:-translate-y-1"
-      {...props}
+      padding="none"
+      className="commons-asset-card shadow-md transform transition-transform duration-300 hover:-translate-y-1 relative"
     >
       <FileCardContent file={item} onDetailClick={onDetailClick} />
     </Card>

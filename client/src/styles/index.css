@@ -1,7 +1,11 @@
 @import "tailwindcss";
+@import "@libretexts/davis-core/theme.css";
 
 /* Scan Tremor components for class usage (replaces content[] in tailwind.config.js) */
 @source "../../node_modules/@tremor/**/*.{js,ts,jsx,tsx}";
+/* Scan Davis React components for class usage */
+@source "../../node_modules/@libretexts/davis-react/dist/**/*.mjs";
+@source "../../node_modules/@libretexts/davis-core/dist/variants.js";
 
 /* Plugins (replaces plugins[] in tailwind.config.js) */
 @plugin "@tailwindcss/typography";
