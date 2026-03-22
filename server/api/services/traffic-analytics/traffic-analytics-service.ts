@@ -13,6 +13,7 @@ import {
 import Book, { BookInterface } from "../../../models/book";
 import {extractSubdomain, sleep} from "../../../util/helpers";
 import {TrafficAnalyticsSSMClient} from "./traffic-analytics-ssm-client";
+import {bookIDSchema} from "../../validators/book";
 
 export default class TrafficAnalyticsService {
   private readonly authToken: string;
@@ -443,6 +444,7 @@ export default class TrafficAnalyticsService {
   }
 
   public async syncSingleBookSegment(bookID: string) {
+    bookIDSchema.parse(bookID);
     const [subdomain, pageID] = bookID.split('-');
     const subdomainToSiteIDMap = await this.getSubdomainToSiteIDMap();
     const getAllAPIParams = new URLSearchParams({
