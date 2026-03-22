@@ -434,3 +434,16 @@ export function catchInternal(fn) {
     }
   };
 }
+
+export function extractSubdomain(url) {
+  try {
+    const { hostname } = new URL(url);
+    const parts = hostname.split('.').filter(Boolean);
+    if (parts.length > 2) {
+      return parts.slice(0, -2).join('.');
+    }
+    return null; // no subdomain present
+  } catch (_err) {
+    return null; // invalid URL
+  }
+}

@@ -52,7 +52,7 @@ import { getSubdomainFromLibrary } from '../util/librariesclient.js';
 import projectFilesAPI from './projectfiles.js';
 import ProjectFile from "../models/projectfile.js";
 import { getLibraryNameKeys } from './libraries.js';
-import TrafficAnalyticsService from "./services/traffic-analytics-service.js";
+import TrafficAnalyticsService from "./services/traffic-analytics/traffic-analytics-service.ts";
 import ProjectInvitation from '../models/projectinvitation.js';
 import SearchService from './services/search-service.js';
 
