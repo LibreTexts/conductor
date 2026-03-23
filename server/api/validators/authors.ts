@@ -52,3 +52,9 @@ export const UpdateAuthorValidator = z.object({
 });
 
 export const DeleteAuthorValidator = AuthorIDParams;
+
+export const GetCXOnePageContentTemplateValidator = z.object({
+  params: z.object({
+    type: z.enum(["header", "footer"]),
+  }),
+});

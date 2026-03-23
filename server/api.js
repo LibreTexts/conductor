@@ -796,6 +796,16 @@ router
     authorsAPI.getAuthorAssets
   );
 
+router
+  .route("/authors/template/:type")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(AuthorsValidators.GetCXOnePageContentTemplateValidator),
+    authorsAPI.getCXOnePageContentTemplate
+  );
+
 /* Adoption Reports */
 // (submission route can be anonymous)
 router
