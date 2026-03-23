@@ -1,0 +1,408 @@
+<p class="mt-script-comment">!!!STOP - DO NOT REVERT TO CHANGES PRIOR TO 10/30/2025 - MATHJAX WILL BREAK!!!</p>
+
+<pre class="script-css">
+.MathJax {
+  font-size: .85em; /* Increases the base font size of all MathJax output */
+}
+
+mjx-help-background {
+      z-index: 1000;	
+    }</pre>
+
+<pre class="script">
+var CurrentURL = site.homepage.uri .. page.path;
+
+if ( map.contains(page.tags,"showtoc:no") ){
+ &lt;style&gt; '#mt-toc-container {display: none !important;}'  &lt;/style&gt;
+}
+
+if ( map.contains(page.tags,"autonumheader:yes1") ){
+    template('Template:AutoNumHeadings',{"Suffix":" "})
+}
+if ( map.contains(page.tags,"autonumheader:yes2") ){
+    template('Template:AutoNumHeadings',{"Suffix":": "})
+}
+if ( map.contains(page.tags,"autonumheader:yes3") ){
+    template('Template:AutoNumHeadings',{"Suffix":" - "})
+}
+
+if ( map.contains(page.tags,"article:topic") ){
+    template('AutoDefinitionList');    
+}
+
+if ( map.contains(page.tags,"columns:two") ){
+    &lt;script&gt;"$('.mt-content-container').addClass('twocolumn')"&lt;/script&gt;  
+}
+
+if ( map.contains(page.tags,"columns:three") ){
+    &lt;script&gt;"$('.mt-content-container').addClass('threecolumn')"&lt;/script&gt;    
+}
+
+if ( map.contains(page.tags,"printoptions:no-title") ||  map.contains(page.tags,"printoptions:no-header-title")){
+    &lt;style&gt;"@media print {#title {display: none;}}"&lt;/style&gt;    
+}
+
+//&lt;!-- Cloudflare Web Analytics --&gt;
+&lt;script defer="true" src='https://static.cloudflareinsights.com/beacon.min.js' ('data-cf-beacon')='{"token": "483ec2414e274209a7e93c253192df0b"}'&gt;&lt;/script&gt;
+//&lt;!-- End Cloudflare Web Analytics --&gt;
+
+
+&lt;script src=(DOFiles.."/LibreTextsMain/Miscellaneous/h5p-resizer.js")/&gt;
+
+&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/iframe-resizer/4.2.11/iframeResizer.contentWindow.min.js" integrity="sha512-FOf4suFgz7OrWmBiyyWW48u/+6GaaAFSDHagh2EBu/GH/1+OQSYc0NFGeGeZK0gZ3vuU1ovmzVzD6bxmT4vayg==" crossorigin="anonymous"&gt;&lt;/script&gt;
+&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/iframe-resizer/4.2.11/iframeResizer.min.js" integrity="sha512-HY1lApSG7xxx8mYzs/lxRs+c5AaDThRaa3pvQB6puiswvf2lWqMJVf+8qSGiL4ZXfHQoPIqbd1TlpqfycPo3cQ==" crossorigin="anonymous"&gt;&lt;/script&gt;
+  
+&lt;script&gt;"window.addEventListener('load', function(){$('iframe').iFrameResize({warningTimeout:0, scrolling: 'omit'});})"&lt;/script&gt;
+
+//&lt;!-- MathJax Config --&gt;
+var PageNum = $PageNum ?? 'auto';
+var InitialOffset = $InitialOffset?? 'false';
+var PageName = page.title;
+
+&lt;script&gt;
+'
+window.PageNum = "'..PageNum..'";
+window.InitialOffset = "'..InitialOffset..'";
+window.PageName = "'..PageName..'";
+'
+&lt;/script&gt;</pre>
+
+<pre class="script-jem">
+//&lt;!-- MathJax Config --&gt;
+var front = window.PageNum.trim();
+if(front=="auto"){
+    front = window.PageName.replace('\"', '\\\"').trim();
+    //front = "'..string.matchreplace(PageName,'\"','\\\"')..'".trim();
+     if(front.includes(":")){
+         front = front.split(":")[0].trim();
+         if(front.includes(".")){
+             front = front.split(".");
+             front = front.map((int)=&gt;int.includes("0")?parseInt(int,10):int).join(".");
+         }
+         front+=".";
+     }
+     else {
+     front = "";
+ }
+}
+front = front.trim();
+
+function loadMathJaxScript() {
+    try {
+    	const script = document.createElement('script');
+      script.id = "mathjax-script";
+    	script.src = "https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-svg.js";
+    	script.type = "text/javascript";
+      script.defer = true;
+
+    	document.head.appendChild(script);
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', (e) =&gt; {
+	loadMathJaxScript();
+});
+
+if (window.PageName !== 'Realtime MathJax'){
+MathJax = {
+  options: {
+    ignoreHtmlClass: "tex2jax_ignore",
+    processHtmlClass: "tex2jax_process",
+    menuOptions: {
+      settings: {
+        zscale: "150%",
+        zoom: "Double-Click",
+
+        assistiveMml: true, // true to enable assitive MathML
+        collapsible: false, // true to enable collapsible math
+      },
+    },
+  },
+  output: {
+    scale: 0.85,
+    mtextInheritFont: false,
+    displayOverflow: "linebreak",
+    linebreaks: {
+      width: "100%",
+    },
+  },
+  startup: {
+    pageReady: () =&gt; {
+      if (window.activateBeeLine) {
+        window.activateBeeLine();
+      }
+      return MathJax.startup.defaultPageReady();
+    },
+  },
+  chtml: {
+    matchFontHeight: true,
+  },
+  tex: {
+    tags: "all",
+    tagformat: {
+      number: (n) =&gt; {
+        if (window.InitialOffset) {
+          const offset = Number(window.InitialOffset);
+         	if(!offset) {
+          	return front + n; // If offset is falsy (nan, undefined, etc.)
+          }
+          const added = Number(n) + offset;
+          return front + added;
+        } else {
+          return front + n;
+       	}
+      },
+    },
+    macros: {
+      eatSpaces: ['#1', 2, ['', ' ', '\\endSpaces']],
+      PageIndex: ['{' + front.replace(/\./g, '{.}') + '\\eatSpaces#1 \\endSpaces}', 1],
+      test: ["{" + front + "#1}", 1],
+      mhchemrightleftharpoons: "{\\unicode{x21CC}\\,}",
+      xrightleftharpoons: ['\\mhchemxrightleftharpoons[#1]{#2}', 2, '']
+    },
+    packages: {
+      "[+]": [
+        "mhchem",
+        "color",
+        "cancel",
+        "ams",
+        "tagformat"
+      ],
+    },
+  },
+  loader: {
+    '[tex]/mhchem': {
+      ready() {
+        const {MapHandler} = MathJax._.input.tex.MapHandler;
+        const mhchem = MapHandler.getMap('mhchem-chars');
+        mhchem.lookup('mhchemrightarrow')._char = '\uE42D';
+        mhchem.lookup('mhchemleftarrow')._char = '\uE42C';
+      }
+    },
+    load: [
+      "[tex]/mhchem",
+      "[tex]/color",
+      "[tex]/cancel",
+      "[tex]/tagformat",
+    ],
+  },
+};
+};
+//&lt;!-- End MathJax Config --&gt;</pre>
+
+<pre class="script">
+var tagList = map.keyvalues(page.tags);
+var authorName = '';
+var sectionauthortitle = ''; 
+var sectionsource = ''; 
+var sectionauthorLong = '';
+var sectionlicense= '';
+var sectionlicensenumber= '';
+var sectionlicenseURL= '';
+var sectionauthorURL= '';
+var footerAuthorship= '';
+var footerAuthorshipURL= '';
+
+// Add author information in this object. Replace the existing names and information with your own.
+var authors = REPLACE_WITH_AUTHORS_JSON;
+// End author information
+
+// Look through the page's tag list, find the one for local 'author@' metatags, display the bar with the correct information
+foreach(var tag in tagList where string.contains(tag.key, 'author@')) {
+    var sectionauthorName = string.replace(tag.key, 'author@', '', true);
+    
+    if (sectionauthorTitle==''){
+        sectionauthorTitle = sectionauthorName;
+    } else {
+        if (sectionauthorLong =='') {
+            sectionauthorLong  = ""..sectionauthorTitle..", "..sectionauthorName.."";
+            sectionauthorTitle = ""..sectionauthorTitle.." &amp; "..sectionauthorName.."";
+        } else {
+            sectionauthorLong  = ""..sectionauthorLong..", "..sectionauthorName.."";
+            sectionauthorTitle = ""..sectionauthorLong..", &amp; "..sectionauthorName.."";
+        }
+    }
+}
+
+foreach(var tag in tagList where string.contains(tag.key, 'authorURL@')) {
+        var sectionauthorURL = string.replace(tag.key, 'authorURL@', '', true);
+}
+
+foreach(var tag in tagList where string.contains(tag.key, 'licenseversion:')) {
+    var sectionlicensenumber = string.replace(tag.value.name, 'licenseversion:', '', true);
+}
+
+switch (sectionlicensenumber)
+{
+    case 10:
+        sectionlicensenumber="1.0";
+    case 13:
+        sectionlicensenumber="1.3";
+    case 25:
+        sectionlicensenumber="2.5";
+    case 20:
+        sectionlicensenumber="2.0";
+    case 30:
+        sectionlicensenumber="3.0";
+    case 40:
+        sectionlicensenumber="4.0";
+}
+
+foreach(var tag in tagList where string.contains(tag.key, 'license:')) {
+    var sectionlicense = string.replace(tag.value.name, 'license:', '', true);
+}
+
+switch (sectionlicense)
+{
+    case 'ccby':
+        sectionlicense="CC BY";
+        sectionlicenseURL = "https://creativecommons.org/licenses/by/"..sectionlicensenumber.."";
+    case 'ccbysa':
+        sectionlicense='CC BY-SA';
+        sectionlicenseURL = "https://creativecommons.org/licenses/by-sa/"..sectionlicensenumber.."";
+    case 'ccbyncsa':
+        sectionlicense="CC BY-NC-SA";
+        sectionlicenseURL = "https://creativecommons.org/licenses/by-nc-sa/"..sectionlicensenumber.."";
+    case 'ccbynd':
+        sectionlicense="CC BY-ND";
+        sectionlicenseURL = "https://creativecommons.org/licenses/by-nd/"..sectionlicensenumber.."";
+    case 'ccbyncnd':
+        sectionlicense="CC BY-NC-ND";
+        sectionlicenseURL = "https://creativecommons.org/licenses/by-nc-nd/"..sectionlicensenumber.."";
+    case 'ccbync':
+        sectionlicense="CC BY-NC";
+        sectionlicenseURL = "https://creativecommons.org/licenses/by-nc/"..sectionlicensenumber.."";
+    case 'gnu':
+        sectionlicensenumber="3.0";
+        sectionlicense="GNU General Public License";
+        sectionlicenseURL = "https://www.gnu.org/licenses/gpl-"..sectionlicensenumber..".en.html/";
+    case 'gnufdl':
+        sectionlicensenumber="1.3";
+        sectionlicense="GNU Free Documentation License";
+        sectionlicenseURL = "https://www.gnu.org/licenses/fdl-"..sectionlicensenumber..".en.html";
+    case 'publicdomain':
+        sectionlicense="Public Domain";
+        sectionlicensenumber='';
+    case 'arr':
+        sectionlicense="All Rights Reserved (used with permission)";
+        sectionlicensenumber='';
+    case '':
+        sectionlicense="not declared";
+        sectionlicensenumber='';
+    case 'ck12':
+        sectionlicensenumber="";
+        sectionlicense="CK-12";
+        sectionlicenseURL = "https://www.ck12info.org/curriculum-materials-license";
+}
+
+foreach(var tag in tagList where string.contains(tag.key, 'source@')) {
+    var sectionsource = string.replace(tag.key, 'source@', '', true);
+}
+
+if (!string.contains(page.path,"Front_Matter", true) &amp;&amp; !string.contains(page.path,"Back_Matter", true)){
+
+  // Look through the page's tag list, find the one for 'authorname'
+  foreach(var tag in tagList where string.contains(tag.key, 'authorname:')) {
+    var authorName = string.replace(tag.value.name, 'authorname:', '', true);
+    if(authorName) {
+
+        &lt;hr class="autoattribution-divider" /&gt;;
+        &lt;div class="autoattribution"&gt;;     
+        &lt;p&gt;'This page titled ';  &lt;a href=(site.uri; page.path) target='_blank'&gt; page.title; &lt;/a&gt; ' is shared under a ' ; &lt;a rel="nofollow" href=(sectionlicenseURL) target='_blank'&gt; ""..sectionlicense.."  "..sectionlicensenumber.."" &lt;/a&gt; ' ';
+             ' license and was authored, remixed, and/or curated by ';        
+        
+        if(authors[authorName].name) {
+           footerAuthorship=authors[authorName].name;   
+        }                      
+        if(sectionauthorTitle!=''){
+           footerAuthorship=sectionauthorTitle;
+        }       
+        if(authors[authorName].nameurl) {
+           footerAuthorshipURL=authors[authorName].nameurl;   
+        }                      
+        if(sectionauthorURL!='') {
+           footerAuthorshipURL=sectionauthorURL;   
+        }
+        
+        if(footerAuthorship!='' &amp; footerAuthorshipURL!='') {
+                &lt;a rel="nofollow" target="_blank" href=(footerAuthorshipURL)&gt; footerAuthorship &lt;/a&gt;;
+        }
+        if(footerAuthorship!='' &amp; footerAuthorshipURL=='') {
+                footerAuthorship;
+        }
+        
+        
+        if (footerAuthorship != authors[authorName].programname){   
+            //If the programename is the same as the author, then do not show the Publisher tag
+            if(authors[authorName].programname &amp; authors[authorName].programurl) {
+                ' (';
+                &lt;a rel="nofollow" target="_blank" href=(authors[authorName].programurl)&gt; authors[authorName].programname &lt;/a&gt;;
+                ') ';
+            }       
+            if(authors[authorName].programname &amp; authors[authorName].programurl =='') {
+                ' (';
+                authors[authorName].programname;  
+                ') ';
+            }
+        }
+        
+    
+        if ( sectionsource != ''){
+            if ( sectionsource != 'native'){              
+               ' via '; &lt;a rel="nofollow" href=(sectionsource) target='_blank'&gt; 'source content' &lt;/a&gt;' that was edited to the style and standards of the LibreTexts platform.';            }         
+            if ( sectionsource == 'native'){              
+                 ' directly on the LibreTexts platform. ';
+            }               
+         } else {
+             '. ';
+         }
+         &lt;/p&gt;
+         &lt;/div&gt;
+    } 
+  }
+  if ( authorName == ''){
+         &lt;hr class="autoattribution-divider" /&gt;;
+      
+        &lt;div class="autoattribution"&gt;  
+ //       &lt;h2 class="NoAuto" &gt;'Contributions and Attributions'&lt;/h2&gt;
+       
+        &lt;p&gt;&lt;a href=(site.uri; page.path) target='_blank'&gt; page.title; &lt;/a&gt; ' is shared under a ' ; &lt;a rel="nofollow" href=(sectionlicenseURL) target='_blank'&gt; ""..sectionlicense.."  "..sectionlicensenumber.."" &lt;/a&gt; ' ';
+             ' license and was authored, remixed, and/or curated by ';        
+        
+        if(sectionauthorTitle!='') {
+            sectionauthorTitle; '. ';       
+        } else {   
+            'LibreTexts.';
+        }  
+        &lt;/p&gt;
+        &lt;/div&gt;
+  }
+}
+
+if ( map.contains(page.tags,"license:ck12") ){
+    template('CK-12_Footer');
+}</pre>
+
+<p class="mt-script-comment">Hide Transcluded AutoAttribution</p>
+
+<pre class="script-jem">
+try {
+  const pageTagsHolder = document.getElementById('pageTagsHolder');
+  if (pageTagsHolder) {
+    const pageTagsRaw = pageTagsHolder.innerText;
+    if (pageTagsRaw.includes('transcluded:yes')) {
+      const attrSections = document.querySelectorAll('.autoattribution');
+      const attrDividers = document.querySelectorAll('.autoattribution-divider');
+      if (attrSections.length &gt; 1 &amp;&amp; attrDividers.length &gt; 1) {
+        /* Hide first AutoAttribution from transcluded page */
+        attrSections[0].style.display = 'none';
+        attrDividers[0].style.display = 'none';
+      }
+    }
+  }
+} catch (e) {
+  console.error('[AutoAttribution Transclusion Removal] Error encountered!');
+  console.error(e);
+}</pre>

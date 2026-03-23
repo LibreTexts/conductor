@@ -8,12 +8,15 @@ import {
   GetAuthorAssetsValidator,
   GetAuthorValidator,
   UpdateAuthorValidator,
+  GetCXOnePageContentTemplateValidator,
 } from "./validators/authors.js";
 import { Response } from "express";
 import { conductor404Err, conductor500Err } from "../util/errorutils.js";
 import { getPaginationOffset } from "../util/helpers.js";
 import ProjectFile from "../models/projectfile.js";
 import AuthorService from "./services/author-service.js";
+import { readFile } from "fs/promises";
+import { join } from "path";
 
 async function getAuthors(
   req: z.infer<typeof GetAuthorsValidator>,
@@ -297,6 +300,46 @@ async function deleteAuthor(
   }
 }
 
+async function getCXOnePageContentTemplate(
+  req: z.infer<typeof GetCXOnePageContentTemplateValidator>,
+  res: Response
+) {
+  try {
+    const { type } = req.params;
+
+    const authorService = new AuthorService();
+    const authors = await authorService.getAllAuthors();
+
+    const formattedAuthorsString = authorService.formatAuthorsForTemplate(authors);
+    if (!formattedAuthorsString) {
+      throw new Error("Failed to format authors for template.");
+    }
+
+    let templateFilePath: string;
+    if (type === "header") {
+      templateFilePath = "util/cxone-page-content-header.html";
+    } else if (type === "footer") {
+      templateFilePath = "util/cxone-page-content-footer.html";
+    } else {
+      return res.status(400).send({
+        err: true,
+        errMsg: "Invalid template type requested. Must be 'header' or 'footer'.",
+      });
+    }
+
+    const templateContent = await readFile(join(process.cwd(), templateFilePath), "utf-8");
+    const finalContent = templateContent.replace("REPLACE_WITH_AUTHORS_JSON", formattedAuthorsString);
+
+    res.send({
+      err: false,
+      template: finalContent,
+    });
+  } catch (err: any) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 
 
 export default {
@@ -306,4 +349,5 @@ export default {
   createAuthor,
   updateAuthor,
   deleteAuthor,
+  getCXOnePageContentTemplate,
 };
