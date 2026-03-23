@@ -32,6 +32,11 @@ export default class AuthorService {
         };
     }
 
+    public async getAllAuthors(): Promise<AuthorInterface[]> {
+        const authors = await Author.find({ orgID: process.env.ORG_ID }).lean();
+        return authors as unknown as AuthorInterface[];
+    }
+
     public async getAuthorByID(id: string): Promise<AuthorInterface | null> {
         const convertedID = new Types.ObjectId(id);
 
@@ -88,6 +93,53 @@ export default class AuthorService {
         await Author.deleteOne({ _id: id, orgID: process.env.ORG_ID }).orFail();
     }
 
+    public formatAuthorsForTemplate(authors: AuthorInterface[]): string {
+        const seen = new Set<string>();
+        const result: Record<string, unknown> = {};
+
+        for (const author of authors) {
+            if (!author.nameKey || seen.has(author.nameKey)) continue;
+            seen.add(author.nameKey);
+
+            const filtered = Object.fromEntries(
+                AuthorService.KEYS_TO_INCLUDE_FOR_TEMPLATE
+                    .filter((key) => {
+                        if (key === "nameKey") return false; // nameKey is used as the root key and should not be nested within the author object
+                        if (!(key in author) || author[key] === undefined || author[key] === "") return false; // exlude keys that are not present or have empty values
+                        if (key === "pictureCircle") return author[key] === "no"; // only include pictureCircle if it's "no" to indicate non-circular pictures, since "yes" is the default assumption in the template
+                        return true;
+                    })
+                    .map((key) => [key, this.sanitizeValue(author[key])])
+            );
+
+            result[author.nameKey.toLowerCase()] = this.toLowercaseKeys(filtered as Record<string, unknown>);
+        }
+
+        return JSON.stringify(result, null, 2);
+    }
+
+    /**
+    * Only these keys from the Author data should be included in the template.
+    * If the key isn't present in the Author's data, simply omit it from the output JSON.
+    * The 'nameKey' serves as the key for each author object in the JSON, and it is required.
+    * The rest of the keys are optional and can be included if the data is available for that author.
+    */
+    private static readonly KEYS_TO_INCLUDE_FOR_TEMPLATE: (keyof AuthorInterface)[] = [
+        "nameKey",
+        "name",
+        "nameTitle",
+        "nameURL",
+        "note",
+        "noteURL",
+        "companyName",
+        "companyURL",
+        "pictureCircle",
+        "pictureURL",
+        "programName",
+        "programURL",
+        "attributionPrefix",
+    ]
+
     private sanitizeAuthorData(data: Partial<z.infer<typeof CreateAuthorValidator>['body']>): Record<string, unknown> {
         const result: Record<string, unknown> = {};
 
@@ -98,6 +150,28 @@ export default class AuthorService {
         }
 
         return result;
+    }
+
+    /**
+    * Remove invalid escape sequences from string values before they enter the JSON output.
+    * Collapses one or more backslashes immediately before an apostrophe into just the apostrophe,
+    * mirroring the fix applied during the author import migration.
+    * All other escaping is handled correctly by JSON.stringify.
+    */
+    private sanitizeValue(value: unknown): unknown {
+        if (typeof value !== "string") return value;
+        return value.replace(/\\+'(?!')/g, "'");
+    }
+
+    private toLowercaseKeys(obj: Record<string, unknown>): Record<string, unknown> {
+        return Object.fromEntries(
+            Object.entries(obj).map(([key, value]) => [
+                key.toLowerCase(),
+                value !== null && typeof value === "object" && !Array.isArray(value)
+                    ? this.toLowercaseKeys(value as Record<string, unknown>)
+                    : value,
+            ])
+        );
     }
 
     static readonly LOOKUP_AUTHOR_PROJECTS_STAGE = {

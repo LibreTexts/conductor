@@ -373,6 +373,13 @@ class API {
     return res;
   }
 
+  async getCXOnePageContentTemplate(type: string) {
+    const response = await axios.get<
+      { template: string } & ConductorBaseResponse
+    >("/authors/template/" + type);
+    return response;
+  }
+
   // Books
   async getBookDetail(bookID: string) {
     const res = await axios.get<
