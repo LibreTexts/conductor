@@ -1,18 +1,16 @@
-import { Icon, Menu } from "semantic-ui-react";
 import useClientConfig from "../../../hooks/useClientConfig";
+import { Link } from "@libretexts/davis-react";
 
 const StoreLink = ({ isMobile = false }) => {
   const { clientConfig } = useClientConfig();
   return (
-    <Menu.Item
-      as="a"
+    <Link
       href={`${clientConfig?.main_commons_url || "https://commons.libretexts.org"}/store`}
       target="_blank"
-      className="commons-nav-link"
+      rel="noopener noreferrer"
     >
       Store
-      {isMobile && <Icon name="shopping cart" className="float-right" />}
-    </Menu.Item>
+    </Link>
   );
 };
 

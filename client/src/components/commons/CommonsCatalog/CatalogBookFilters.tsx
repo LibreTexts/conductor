@@ -11,6 +11,7 @@ import api from "../../../api";
 import { libraryOptions } from "../../util/LibraryOptions";
 import CatalogFilterDropdown from "./CatalogFilterDropdown";
 import { useQuery } from "@tanstack/react-query";
+import { Stack } from "@libretexts/davis-react";
 
 type BookFilterData = {
   subjectOptions: GenericKeyTextValueObj<string>[];
@@ -194,7 +195,8 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
       aria-busy={loading}
       className="flex flex-row w-full justify-between items-center ml-1"
     >
-      <div className="flex flex-row mt-2 mb-4 flex-wrap items-center gap-y-2 ">
+      {/* flex flex-row mt-2 mb-4 flex-wrap items-center gap-y-2 */}
+      <Stack direction="horizontal" gap="sm" className="mb-4">
         <CatalogFilterDropdown
           text={filters.library ? `Library - ${filters.library}` : "Library"}
           icon="university"
@@ -285,7 +287,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
           }
           loading={loading}
         />
-      </div>
+      </Stack>
     </div>
   );
 };

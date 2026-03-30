@@ -33,9 +33,9 @@ const CommonsNavbar: React.FC<CommonsNavbarProps> = ({ org, user }) => {
       if (!isProduction) {
         height += 40; // Desktop height + environment banner
       }
-      if (org.orgID === "libretexts") {
-        height += 40; // Add space for donation campaign banner
-      }
+      // if (org.orgID === "libretexts") {
+      //   height += 40; // Add space for donation campaign banner
+      // }
       return height;
     }
 
@@ -57,7 +57,7 @@ const CommonsNavbar: React.FC<CommonsNavbarProps> = ({ org, user }) => {
       }}
     >
       <EnvironmentBanner />
-      {org.orgID === "libretexts" && <DonationCompaignBanner />}
+      {/* {org.orgID === "libretexts" && <DonationCompaignBanner />} */}
       {isTailwindXl ? (
         <CommonsNavbarDesktop
           org={org}

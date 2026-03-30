@@ -24,8 +24,7 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, onDetailClick }) => {
   if (isAuthor(item)) {
     return (
       <Card
-        padding="none"
-        className="commons-author-card shadow-md transform transition-transform duration-300 hover:-translate-y-1"
+        variant="elevated"
       >
         <AuthorCardContent author={item} />
       </Card>
@@ -35,8 +34,8 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, onDetailClick }) => {
   if (isBook(item)) {
     return (
       <Card
-        padding="none"
-        className="commons-content-card"
+        variant="elevated"
+        className=" hover:border-secondary hover:border-2"
         onClick={() => history.push(`/book/${item.bookID}`)}
       >
         <BookCardContent book={item} />
@@ -47,8 +46,7 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, onDetailClick }) => {
   if (isProject(item)) {
     return (
       <Card
-        padding="none"
-        className="commons-project-card shadow-md transform transition-transform duration-300 hover:-translate-y-1"
+        variant="elevated"
         onClick={() => history.push(`/commons-project/${item.projectID}`)}
       >
         <ProjectCardContent project={item} />
@@ -58,8 +56,7 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, onDetailClick }) => {
 
   return (
     <Card
-      padding="none"
-      className="commons-asset-card shadow-md transform transition-transform duration-300 hover:-translate-y-1 relative"
+      variant="elevated"
     >
       <FileCardContent file={item} onDetailClick={onDetailClick} />
     </Card>

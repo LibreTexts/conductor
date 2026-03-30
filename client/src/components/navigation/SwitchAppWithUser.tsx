@@ -1,9 +1,9 @@
-import { Icon, Menu } from "semantic-ui-react";
 import AuthHelper from "../util/AuthHelper";
 import { User } from "../../types";
-import { Link } from "react-router-dom";
 import { useState } from "react";
 import UserDropdown from "./UserDropdown";
+import { Button } from "@libretexts/davis-react";
+import { IconLogin2, IconSwitchHorizontal } from "@tabler/icons-react";
 
 interface SwitchAppWithUserProps {
   parent: "commons" | "conductor";
@@ -21,13 +21,11 @@ const SwitchAppWithUser: React.FC<SwitchAppWithUserProps> = ({
   const getSupportCenterHref = () => {
     // Always nav to main commons in production, otherwise use the current origin (e.g. development)
     if (window.location.origin.endsWith("libretexts.org")) {
-      return `https://commons.libretexts.org/support${
-        user.isSupport || user.isHarvester ? "/dashboard" : ""
-      }`;
+      return `https://commons.libretexts.org/support${user.isSupport || user.isHarvester ? "/dashboard" : ""
+        }`;
     }
-    return `${window.location.origin}/support${
-      user.isSupport || user.isHarvester ? "/dashboard" : ""
-    }`;
+    return `${window.location.origin}/support${user.isSupport || user.isHarvester ? "/dashboard" : ""
+      }`;
   };
 
   const getStoreHref = () => {
@@ -41,7 +39,8 @@ const SwitchAppWithUser: React.FC<SwitchAppWithUserProps> = ({
   if (user.isAuthenticated) {
     return (
       <>
-        {parent === "conductor" && (
+        {/* We'll need to make these Link elements instead of Menu items for Davis */}
+        {/* {parent === "conductor" && (
           <>
             <Menu.Item
               as="a"
@@ -62,45 +61,35 @@ const SwitchAppWithUser: React.FC<SwitchAppWithUserProps> = ({
               Support Center
             </Menu.Item>
           </>
-        )}
-        <Menu.Item
-          as={Link}
-          to={parent === "commons" ? "/home" : "/"}
-          className="commons-nav-link"
-          aria-label={`Back to ${
-            parent === "commons" ? "Conductor" : "Commons"
-          }`}
+        )} */}
+        <Button
+          onClick={() => {
+            if (parent === "conductor") {
+              window.location.href = "/home";
+            } else {
+              window.location.href = "/";
+            }
+          }}
+          aria-label={`Back to ${parent === "commons" ? "Conductor" : "Commons"
+            }`}
+          icon={<IconSwitchHorizontal className="pb-1!" />}
+          iconPosition="left"
         >
-          <Icon name="exchange" className="float-right" />
-          {parent === "commons" ? "Conductor" : "Commons"}
-        </Menu.Item>
-
-        {isMobile && (
-          <>
-            <Menu.Item onClick={() => setUserOpen(!userOpen)}>
-              <span className="font-bold">
-                {`${user.firstName} ${user.lastName} (${user.email})`}
-              </span>
-              <Icon
-                name={userOpen ? "angle up" : "angle down"}
-                className="float-right"
-              />
-            </Menu.Item>
-            {userOpen && <UserDropdown dropdown={false} />}
-          </>
-        )}
-        {!isMobile && <UserDropdown />}
+          {parent === "conductor" ? "Commons" : "Conductor"}
+        </Button>
+        <UserDropdown />
       </>
     );
   }
   return (
-    <Menu.Item
-      as="a"
-      href={AuthHelper.generateLoginURL()}
-      className="commons-nav-link"
+    <Button
+      onClick={() => {
+        window.open(AuthHelper.generateLoginURL(), "_blank", "noopener noreferrer");
+      }}
+      icon={<IconLogin2 />}
     >
-      Login with LibreOne <Icon name="lightning" className="float-right pl-2" />
-    </Menu.Item>
+      Login with LibreOne
+    </Button>
   );
 };
 

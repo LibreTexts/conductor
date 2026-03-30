@@ -1,7 +1,8 @@
 import { Icon, Menu, MenuItemProps } from "semantic-ui-react";
 import { Organization } from "../../../types";
+import { Link } from "@libretexts/davis-react";
 
-interface AboutOrgLinkProps extends MenuItemProps {
+interface AboutOrgLinkProps {
   org: Organization;
   isMobile?: boolean;
 }
@@ -9,20 +10,15 @@ interface AboutOrgLinkProps extends MenuItemProps {
 const AboutOrgLink: React.FC<AboutOrgLinkProps> = ({
   org,
   isMobile = false,
-  ...rest
 }) => {
   return (
-    <Menu.Item
-      as="a"
+    <Link
       href={org.aboutLink}
       target="_blank"
-      rel="noopener"
-      className="commons-nav-link"
-      {...rest}
+      rel="noopener noreferrer"
     >
       About {org.shortName}
-      {isMobile && <Icon name="external" className="float-right" />}
-    </Menu.Item>
+    </Link>
   );
 };
 

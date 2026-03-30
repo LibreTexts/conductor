@@ -1,4 +1,5 @@
-import { Button } from "@libretexts/davis-react";
+import { Button, Text } from "@libretexts/davis-react";
+import { IconDownload } from "@tabler/icons-react";
 
 interface CatalogTabProps {
   itemizedMode: boolean;
@@ -32,6 +33,7 @@ const CatalogTab: React.FC<CatalogTabProps> = ({
             onClick={getNextPage}
             disabled={loading}
             aria-label="Load more results"
+            icon={<IconDownload />}
           >
             {loading ? "Loading..." : "Load More"}
           </Button>
@@ -40,7 +42,7 @@ const CatalogTab: React.FC<CatalogTabProps> = ({
 
       {!hasMore && dataLength > 0 && (
         <div className="w-full mt-4">
-          <p className="text-center font-semibold">End of results</p>
+          <Text weight="semibold">End of results</Text>
         </div>
       )}
     </div>

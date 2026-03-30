@@ -1,11 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
-@import "@libretexts/davis-core/theme.css";
+@import "@libretexts/davis-react/styles.css";
 
 /* Scan Tremor components for class usage (replaces content[] in tailwind.config.js) */
 @source "../../node_modules/@tremor/**/*.{js,ts,jsx,tsx}";
-/* Scan Davis React components for class usage */
-@source "../../node_modules/@libretexts/davis-react/dist/**/*.mjs";
-@source "../../node_modules/@libretexts/davis-core/dist/variants.js";
 
 /* Plugins (replaces plugins[] in tailwind.config.js) */
 @plugin "@tailwindcss/typography";
@@ -16,10 +14,6 @@
   --height-screen-content: calc(100vh - 4.25rem);
 
   /* Brand colors */
-  --color-primary: #127BC4;
-  --color-primary-hover: #0F6FA2;
-  --color-primary-dark: #0b4a76;
-  --color-secondary: #8553FE;
   --color-accent: #5F65F5;
   --color-neutral: #18181B;
   --color-base-100: #2A303C;
@@ -81,20 +75,15 @@
 */
 @source inline("data-[selected]:{bg,text,border}-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
 
-:root {
-  --link-color: #4B58E6;
-}
-
 * {
   box-sizing: border-box;
 }
 
 body {
-  background-color: white; /* v4 Preflight no longer sets this; v3 did */
+  background-color: white;
+  /* v4 Preflight no longer sets this; v3 did */
   color: black;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Atkinson Hyperlegible', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

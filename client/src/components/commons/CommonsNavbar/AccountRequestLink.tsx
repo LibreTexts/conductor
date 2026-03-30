@@ -1,5 +1,5 @@
-import { Icon, Menu } from "semantic-ui-react";
 import useClientConfig from "../../../hooks/useClientConfig";
+import { Link } from "@libretexts/davis-react";
 
 const AccountRequestLink = ({ isMobile = false }) => {
   const { clientConfig } = useClientConfig();
@@ -8,16 +8,13 @@ const AccountRequestLink = ({ isMobile = false }) => {
   }
 
   return (
-    <Menu.Item
-      as="a"
+    <Link
       href={clientConfig?.instructor_verification_url}
       target="_blank"
-      className="commons-nav-link"
       rel="noopener noreferrer"
     >
       Instructor Verification Request
-      {isMobile && <Icon name="share alternate" className="float-right" />}
-    </Menu.Item>
+    </Link>
   );
 };
 

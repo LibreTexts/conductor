@@ -2,6 +2,7 @@ import { Icon } from "semantic-ui-react";
 import { Book } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import { getLibGlyphURL, getLibraryName } from "../../../util/LibraryOptions";
+import { Heading, Card, Text, Stack } from "@libretexts/davis-react";
 
 interface BookCardContentProps {
   book: Book;
@@ -22,33 +23,37 @@ const BookCardContent: React.FC<BookCardContentProps> = ({ book }) => {
   const assetString = buildAssetString();
 
   return (
-    <div className="h-full">
-      <div
-        className="commons-card-img-container !bg-cover"
-        style={{ backgroundImage: `url(${book.thumbnail})` }}
+    <>
+      <Card.Header
+        image={{
+          src: book.thumbnail,
+          alt: `${book.title} thumbnail`,
+        }}
       />
-      <div className="px-4 pt-3 pb-2">
-        <h3 className="commons-content-card-header">
-          {truncateString(book.title, 50)}
-        </h3>
-        <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
-          <img src={getLibGlyphURL(book.library)} className="library-glyph" alt="" />
-          {getLibraryName(book.library)}
-        </div>
-        <p className="commons-content-card-author">
-          {truncateString(book.author, 50)}
-        </p>
-        <p className="commons-content-card-affiliation">
-          <em>{truncateString(book.affiliation, 30)}</em>
-        </p>
-        {assetString ? (
-          <p className="commons-content-card-affiliation !mt-3">
-            <Icon name="file alternate outline" />
-            {assetString}
-          </p>
-        ) : null}
-      </div>
-    </div>
+      <Card.Body>
+        <Stack direction="vertical" gap="sm">
+          <Heading level={6} className="line-clamp-2">
+            {book.title}
+          </Heading>
+          <div className="flex items-center gap-1">
+            <img src={getLibGlyphURL(book.library)} className="library-glyph" alt="" />
+            <Text>{getLibraryName(book.library)}</Text>
+          </div>
+          <Text size="base" className="line-clamp-2">
+            {book.author}
+          </Text>
+          <Text >
+            <em>{truncateString(book.affiliation, 30)}</em>
+          </Text>
+          {assetString ? (
+            <Text className="commons-content-card-affiliation !mt-3">
+              <Icon name="file alternate outline" />
+              {assetString}
+            </Text>
+          ) : null}
+        </Stack>
+      </Card.Body>
+    </>
   );
 };
 

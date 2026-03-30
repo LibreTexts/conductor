@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Image, Menu, MenuProps } from "semantic-ui-react";
+import { Image } from "semantic-ui-react";
 import AccountRequestLink from "./AccountRequestLink";
 import AboutOrgLink from "./AboutOrgLink";
 import { Organization, User } from "../../../types";
@@ -9,8 +9,9 @@ import DonateLink from "./DonateLink";
 import Launchpad from "../../navigation/Launchpad";
 import SupportDropdown from "./SupportDropdown";
 import StoreLink from "./StoreLink";
+import { Stack } from "@libretexts/davis-react";
 
-interface CommonsNavbarDesktopProps extends MenuProps {
+interface CommonsNavbarDesktopProps {
   org: Organization;
   user: User;
   commonsTitle: string;
@@ -23,19 +24,19 @@ const CommonsNavbarDesktop: React.FC<CommonsNavbarDesktopProps> = ({
   ...rest
 }) => {
   return (
-    <Menu className="flex w-full h-full !mt-0" secondary>
+    <div className="flex w-full h-full !mt-0">
       <div className="flex flex-row px-4 justify-between w-full items-center shadow-md">
-        <div className="flex flex-row items-center">
+        <div className="flex flex-row items-center gap-x-4">
           <h1 className="sr-only">{commonsTitle}</h1>
           <div>
             <Launchpad />
           </div>
-          <Menu.Item as={Link} to="/">
+          <div>
             <Image src={org.mediumLogo} className="nav-logo" alt="" />
             <span className="sr-only">{commonsTitle} Catalog Home</span>
-          </Menu.Item>
+          </div>
         </div>
-        <Menu.Menu position="right">
+        <Stack direction="horizontal" gap="md" align="center">
           <AboutOrgLink org={org} />
           {org.orgID === "libretexts" && (
             <>
@@ -51,9 +52,9 @@ const CommonsNavbarDesktop: React.FC<CommonsNavbarDesktopProps> = ({
             )
           }
           <SwitchAppWithUser user={user} parent="commons" />
-        </Menu.Menu>
+        </Stack>
       </div>
-    </Menu>
+    </div>
   );
 };
 

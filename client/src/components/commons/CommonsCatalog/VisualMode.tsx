@@ -9,6 +9,7 @@ import "../Commons.css";
 import PlaceholderCard from "./PlaceholderCard";
 import { useState } from "react";
 import DetailModal from "./DetailModal";
+import { Grid } from "@libretexts/davis-react";
 
 const VisualMode = ({
   items,
@@ -36,7 +37,7 @@ const VisualMode = ({
   if (items.length > 0) {
     return (
       <>
-        <div className="commons-content-card-grid ">
+        <Grid cols={6} gap="lg">
           {items.map((item) => (
             <CatalogCard
               item={item}
@@ -54,7 +55,7 @@ const VisualMode = ({
               ))}
             </>
           )}
-        </div>
+        </Grid>
         <DetailModal
           item={selectedItem}
           open={detailModalOpen}
@@ -69,11 +70,11 @@ const VisualMode = ({
 
   if (items.length === 0 && loading) {
     return (
-      <div className="commons-content-card-grid">
+      <Grid cols={6}>
         {[...Array(10)].map((_, index) => (
           <PlaceholderCard key={index} />
         ))}
-      </div>
+      </Grid>
     );
   }
 
