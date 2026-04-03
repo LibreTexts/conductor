@@ -35,9 +35,14 @@ export class TrafficAnalyticsSSMClient {
     }
 
     if (process.env.NODE_ENV === 'development' && process.env.TRAFFIC_ANALYTICS_SUBDOMAIN_MAP) {
-      const parsed = JSON.parse(process.env.TRAFFIC_ANALYTICS_SUBDOMAIN_MAP);
-      this.subdomainToSiteIDMap = parsed;
-      return parsed;
+      try {
+        const parsed = JSON.parse(process.env.TRAFFIC_ANALYTICS_SUBDOMAIN_MAP);
+        this.subdomainToSiteIDMap = parsed;
+        return parsed;
+      } catch (err) {
+        debugError(err);
+        throw new Error('Error parsing TRAFFIC_ANALYTICS_SUBDOMAIN_MAP environment variable.');
+      }
     }
 
     const paramRes = await this.ssm.send(
