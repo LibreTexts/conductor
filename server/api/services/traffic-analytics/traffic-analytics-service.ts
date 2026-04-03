@@ -29,9 +29,6 @@ export default class TrafficAnalyticsService {
     if (!process.env.TRAFFIC_ANALYTICS_SERVICE_HOST) {
       throw new Error('Missing Traffic Analytics Service Host');
     }
-    if (!process.env.TRAFFIC_ANALYTICS_SITE_ID) {
-      throw new Error('Missing Traffic Analytics Site ID');
-    }
     this.authToken = process.env.TRAFFIC_ANALYTICS_AUTH_TOKEN;
     this.serviceHost = process.env.TRAFFIC_ANALYTICS_SERVICE_HOST;
 
