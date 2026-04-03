@@ -68,6 +68,7 @@ export default class TrafficAnalyticsService {
       console.warn(`[${this.logName}] No valid segments returned from service.`);
     }
 
+    const bookIDsToSyncConfigurationState: string[] = [];
     const segmentsToCreate: { bookID: string; bookTitle: string; bookURL: string }[] = [];
     const booksToCreate = (await Book.aggregate([
       {
@@ -84,6 +85,8 @@ export default class TrafficAnalyticsService {
       const existSegment = segmentsMap.get(book.links.online);
       if (existSegment) {
         console.debug(`[${this.logName}] Book with existing segment found during sync (bookID: ${book.bookID}, segmentID: ${existSegment.idsegment}).`);
+        // book has existing segment but was not marked configured, update
+        bookIDsToSyncConfigurationState.push(book.bookID);
         return;
       }
       segmentsToCreate.push({
@@ -130,7 +133,7 @@ export default class TrafficAnalyticsService {
     const numSucceeded = succeeded.length;
     const numFailed = createResults.length - numSucceeded;
     await Book.updateMany({
-      bookID: { $in: succeeded.map((r) => r.bookID) }
+      bookID: { $in: succeeded.map((r) => r.bookID).concat(bookIDsToSyncConfigurationState) }
     }, {
       trafficAnalyticsConfigured: true
     });
