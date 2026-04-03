@@ -50,13 +50,9 @@ export class TrafficAnalyticsSSMClient {
         Name: '/traffic-analytics/subdomains-to-site-ids',
       })
     );
-    if (paramRes.$metadata.httpStatusCode !== 200) {
-      debugError(paramRes.$metadata);
-      throw new Error('Error retrieving SubdomainToSiteId parameter.');
-    }
-    if (!paramRes.Parameter) {
-      debugError('No data returned from SubdomainToSiteId parameter retrieval');
-      throw new Error('Error retrieving SubdomainToSiteId parameter.');
+    if (paramRes?.$metadata.httpStatusCode !== 200 || !paramRes?.Parameter) {
+      debugError(paramRes?.$metadata);
+      throw new Error('Error retrieving SubdomainToSiteId parameter: response was unsuccessful or missing a value.');
     }
 
     let parsed: Record<string, number>;
