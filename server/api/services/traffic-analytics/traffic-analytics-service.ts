@@ -168,11 +168,16 @@ export default class TrafficAnalyticsService {
 
   public async cleanDuplicateSegments(subdomain: string) {
     const subdomainToSiteIDMap = await this.getSubdomainToSiteIDMap();
+    const siteID = subdomainToSiteIDMap[subdomain];
+    if (!siteID) {
+      console.warn(`[${this.logName}] Site ID not found for subdomain ${subdomain}.`);
+      return;
+    }
     const getAllAPIParams = new URLSearchParams({
       module: 'API',
       method: 'SegmentEditor.getAll',
       format: 'json',
-      idSite: `${subdomainToSiteIDMap[subdomain] ?? 'unknown'}`,
+      idSite: `${siteID}`,
       filter_limit: '-1',
     });
     const trafficRes = await axios.post(`https://${this.serviceHost}?${getAllAPIParams.toString()}`, new URLSearchParams({ token_auth: this.authToken }));
@@ -224,11 +229,16 @@ export default class TrafficAnalyticsService {
     const subdomain = extractSubdomain(bookURL);
     if (!subdomain) return [];
     const subdomainToSiteIDMap = await this.getSubdomainToSiteIDMap();
+    const siteID = subdomainToSiteIDMap[subdomain];
+    if (!siteID) {
+      console.warn(`[${this.logName}] Site ID not found for subdomain ${subdomain}.`);
+      return [];
+    }
     const apiParams = new URLSearchParams({
       module: 'API',
       method: 'Actions.getPageTitles',
       format: 'json',
-      idSite: `${subdomainToSiteIDMap[subdomain] ?? 'unknown'}`,
+      idSite: `${siteID}`,
       period: params.period,
       date: `${params.fromDate},${params.toDate}`,
       segment: this.formatSegmentParam(bookURL),
@@ -273,11 +283,16 @@ export default class TrafficAnalyticsService {
     const subdomain = extractSubdomain(bookURL);
     if (!subdomain) return [];
     const subdomainToSiteIDMap = await this.getSubdomainToSiteIDMap();
+    const siteID = subdomainToSiteIDMap[subdomain];
+    if (!siteID) {
+      console.warn(`[${this.logName}] Site ID not found for subdomain ${subdomain}.`);
+      return [];
+    }
     const apiParams = new URLSearchParams({
       module: 'API',
       method: 'Actions.get',
       format: 'json',
-      idSite: `${subdomainToSiteIDMap[subdomain] ?? 'unknown'}`,
+      idSite: `${siteID}`,
       period: params.period,
       date: `${params.fromDate},${params.toDate}`,
       segment: this.formatSegmentParam(bookURL),
@@ -361,11 +376,16 @@ export default class TrafficAnalyticsService {
     const subdomain = extractSubdomain(bookURL);
     if (!subdomain) return [];
     const subdomainToSiteIDMap = await this.getSubdomainToSiteIDMap();
+    const siteID = subdomainToSiteIDMap[subdomain];
+    if (!siteID) {
+      console.warn(`[${this.logName}] Site ID not found for subdomain ${subdomain}.`);
+      return [];
+    }
     const apiParams = new URLSearchParams({
       module: 'API',
       method: 'VisitsSummary.getUniqueVisitors',
       format: 'json',
-      idSite: `${subdomainToSiteIDMap[subdomain] ?? 'unknown'}`,
+      idSite: `${siteID}`,
       period: params.period,
       date: `${params.fromDate},${params.toDate}`,
       segment: this.formatSegmentParam(bookURL),
@@ -391,11 +411,16 @@ export default class TrafficAnalyticsService {
     const subdomain = extractSubdomain(bookURL);
     if (!subdomain) return [];
     const subdomainToSiteIDMap = await this.getSubdomainToSiteIDMap();
+    const siteID = subdomainToSiteIDMap[subdomain];
+    if (!siteID) {
+      console.warn(`[${this.logName}] Site ID not found for subdomain ${subdomain}.`);
+      return [];
+    }
     const apiParams = new URLSearchParams({
       module: 'API',
       method: 'UserCountry.getCountry',
       format: 'json',
-      idSite: `${subdomainToSiteIDMap[subdomain] ?? ''}`,
+      idSite: `${siteID}`,
       period: params.period,
       date: `${params.fromDate},${params.toDate}`,
       segment: this.formatSegmentParam(bookURL),
@@ -447,11 +472,16 @@ export default class TrafficAnalyticsService {
     bookIDSchema.parse(bookID);
     const [subdomain, pageID] = bookID.split('-');
     const subdomainToSiteIDMap = await this.getSubdomainToSiteIDMap();
+    const siteID = subdomainToSiteIDMap[subdomain];
+    if (!siteID) {
+      console.warn(`[${this.logName}] Site ID not found for subdomain ${subdomain}.`);
+      return;
+    }
     const getAllAPIParams = new URLSearchParams({
       module: 'API',
       method: 'SegmentEditor.getAll',
       format: 'json',
-      idSite: `${subdomainToSiteIDMap[subdomain] ?? 'unknown'}`,
+      idSite: `${siteID}`,
     });
     const trafficRes = await axios.post(`https://${this.serviceHost}?${getAllAPIParams.toString()}`, new URLSearchParams({ token_auth: this.authToken }));
     const data = trafficRes.data as TrafficAnalyticsSegmentEntry[];
@@ -479,7 +509,7 @@ export default class TrafficAnalyticsService {
     const createSegmentAPIBaseParams = {
       module: 'API',
       method: 'SegmentEditor.add',
-      idSite: `${subdomainToSiteIDMap[subdomain] ?? 'unknown'}`,
+      idSite: `${siteID}`,
       format: 'json',
     };
     const createSegmentAPIParams = new URLSearchParams({
