@@ -35,6 +35,13 @@ export const GetAuthorsValidator = z.object({
 });
 
 export const GetAuthorValidator = AuthorIDParams;
+
+export const GetAuthorByNameKeyValidator = z.object({
+  params: z.object({
+    key: z.string().trim().min(1).max(100),
+  }),
+});
+
 export const GetAuthorAssetsValidator = z.object({
   params: z.object({
     id: z.string().refine((val: string) => isMongoIDValidator(val)),

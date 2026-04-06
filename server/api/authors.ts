@@ -9,6 +9,7 @@ import {
   GetAuthorValidator,
   UpdateAuthorValidator,
   GetCXOnePageContentTemplateValidator,
+  GetAuthorByNameKeyValidator,
 } from "./validators/authors.js";
 import { Response } from "express";
 import { conductor404Err, conductor500Err } from "../util/errorutils.js";
@@ -44,6 +45,31 @@ async function getAuthor(
     const authorService = new AuthorService();
     const author = await authorService.getAuthorByID(req.params.id);
 
+    if (!author) {
+      return res.status(404).send({
+        err: true,
+        message: "Author not found",
+      });
+    }
+
+    res.send({
+      err: false,
+      author,
+    });
+  } catch (err: any) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function getAuthorByNameKey(
+  req: z.infer<typeof GetAuthorByNameKeyValidator>,
+  res: Response
+) {
+  try {
+    const authorService = new AuthorService();
+
+    const author = await authorService.getAuthorByNameKey(req.params.key);
     if (!author) {
       return res.status(404).send({
         err: true,
@@ -345,6 +371,7 @@ async function getCXOnePageContentTemplate(
 export default {
   getAuthors,
   getAuthor,
+  getAuthorByNameKey,
   getAuthorAssets,
   createAuthor,
   updateAuthor,
