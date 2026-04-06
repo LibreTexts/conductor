@@ -53,6 +53,20 @@ export default class AuthorService {
         return aggRes.length > 0 ? aggRes[0] : null;
     }
 
+    public async getAuthorByNameKey(nameKey: string): Promise<AuthorInterface | null> {
+        const aggRes = await Author.aggregate([
+            {
+                $match: {
+                    nameKey: nameKey,
+                    orgID: process.env.ORG_ID,
+                },
+            },
+            AuthorService.LOOKUP_AUTHOR_PROJECTS_STAGE,
+        ]);
+        
+        return aggRes.length > 0 ? aggRes[0] : null;
+    }
+
     public async createAuthor(data: z.infer<typeof CreateAuthorValidator>['body']): Promise<AuthorInterface> {
         const author = await Author.create({
             ...this.sanitizeAuthorData(data),

@@ -790,6 +790,13 @@ router
   );
 
 router
+  .route("/authors/key/:key")
+  .get(
+    middleware.validateZod(AuthorsValidators.GetAuthorByNameKeyValidator),
+    authorsAPI.getAuthorByNameKey
+  );
+
+router
   .route("/authors/:id/assets")
   .get(
     middleware.validateZod(AuthorsValidators.GetAuthorAssetsValidator),
