@@ -193,11 +193,27 @@ export default class SearchService {
         throw new Error(INDEX_NOT_FOUND_ERROR);
       }
 
-      return index.addDocuments(documents);
+      const task = await index.addDocuments(documents);
+      return task;
     } catch (error: any) {
       debugServer(
-        `[SearchService] Error adding documents to index ${indexName}: ${error}`
+        `[SearchService] Error adding ${documents.length} documents to index ${indexName}: ${error.message || error}`
       );
+      if (error.message && typeof error.message === 'string') {
+        debugServer(`[SearchService] Error details: ${error.message}`);
+      }
+      if (error.code) {
+        debugServer(`[SearchService] Error code: ${error.code}`);
+      }
+      throw error;
+    }
+  }
+
+  async getTask(taskUid: number): Promise<any> {
+    try {
+      return await this._client.tasks.getTask(taskUid);
+    } catch (error: any) {
+      debugServer(`[SearchService] Error getting task ${taskUid}: ${error.message || error}`);
       throw error;
     }
   }
