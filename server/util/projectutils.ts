@@ -484,7 +484,7 @@ export async function getFolderContents(
           $match: {
             projectID,
             parent: folderID,
-            ...(publicOnly ? { access: "public" } : {}),
+            ...(publicOnly ? { access: { $in: ["public", "mixed"] } } : {}),
           }
         },
         ...RETRIEVE_PROJECT_FILES_AGGREGATION

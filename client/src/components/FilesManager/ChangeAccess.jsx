@@ -12,6 +12,7 @@ import useGlobalError from '../error/ErrorHooks';
 const ChangeAccess = ({ show, onClose, projectID, files, onFinishedChange }) => {
 
   const DEFAULT_ACCESS_SETTING = 'public';
+  const VALID_ACCESS_VALUES = PROJECT_FILES_ACCESS_SETTINGS.map((s) => s.value);
 
   // Global Error Handling
   const { handleGlobalError } = useGlobalError();
@@ -21,11 +22,20 @@ const ChangeAccess = ({ show, onClose, projectID, files, onFinishedChange }) => 
   const [settingError, setSettingError] = useState(false);
 
   /**
-   * Reset the setting selection on open/close.
+   * Initialize the setting selection to the file's current access on open,
+   * falling back to the default if the current value is not a selectable option
+   * (e.g. "mixed") or if multiple selected files have differing access levels.
    */
   useEffect(() => {
-    setNewAccess(DEFAULT_ACCESS_SETTING);
-  }, [show, setNewAccess]);
+    if (!show) return;
+    const accesses = [...new Set(files.map((f) => f.access))];
+    const currentAccess = accesses.length === 1 ? accesses[0] : null;
+    setNewAccess(
+      currentAccess && VALID_ACCESS_VALUES.includes(currentAccess)
+        ? currentAccess
+        : DEFAULT_ACCESS_SETTING
+    );
+  }, [show]);
 
   /**
    * Prevents default actions if the modal form is submitted.
