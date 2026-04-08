@@ -44,6 +44,7 @@ export const SanitizedUserSelectQuery =
   "-password -customAvatar -authType -roles -isSystem -salt -hash -pinnedProjects -authorizedApps -lastResetAttempt -resetToken -tokenExpiry";
 
 export const SanitizedUserSelectProjection = {
+  _id: 0,
   password: 0,
   customAvatar: 0,
   authType: 0,

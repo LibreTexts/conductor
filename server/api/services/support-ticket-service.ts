@@ -275,6 +275,8 @@ export default class SupportTicketService {
             const aggregationPipeline = [
                 ...this.lookupUserDataStages("assignedUUIDs"),
                 ...this.lookupUserDataStages("userUUID"),
+                // Exclude MongoDB internal fields that don't serialize well for Meilisearch
+                { $project: { _id: 0, __v: 0 } },
             ];
 
             while (hasMore) {
@@ -289,7 +291,14 @@ export default class SupportTicketService {
                     break;
                 }
 
-                await searchService.addDocuments("supportTickets", batch);
+                try {
+                    const task = await searchService.addDocuments("supportTickets", batch);
+                    debugServer(`[SupportTicketService] Batch ${Math.floor(skip / batchSize) + 1} enqueued. Task UID: ${task.taskUid}`);
+                } catch (batchError: any) {
+                    debugError(`[SupportTicketService] Error adding batch starting at ${skip}: ${batchError.message}`);
+                    debugError(`[SupportTicketService] Sample ticket from failed batch: ${JSON.stringify(batch[0]?.uuid || 'unknown')}`);
+                    throw batchError;
+                }
                 totalSynced += batch.length;
                 debugServer(`[SupportTicketService] Synced batch of ${batch.length} tickets. Total synced so far: ${totalSynced}`);
                 skip += batchSize;
@@ -322,6 +331,7 @@ export default class SupportTicketService {
                 { $match: { uuid: ticketID } },
                 ...this.lookupUserDataStages("assignedUUIDs"),
                 ...this.lookupUserDataStages("userUUID"),
+                { $project: { _id: 0, __v: 0 } },
             ]);
 
             if (!results || results.length === 0) {
@@ -355,6 +365,7 @@ export default class SupportTicketService {
                 { $match: { uuid: { $in: ticketIDs } } },
                 ...this.lookupUserDataStages("assignedUUIDs"),
                 ...this.lookupUserDataStages("userUUID"),
+                { $project: { _id: 0, __v: 0 } },
             ]);
 
             if (!results || results.length === 0) return;
