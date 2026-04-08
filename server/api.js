@@ -42,6 +42,7 @@ import kbAPI from "./api/kb.js";
 import supportAPI from "./api/support.js";
 import supportQueuesAPI from "./api/supportqueues.js";
 import projectInvitationsAPI from "./api/projectinvitations.js";
+import * as trafficAnalyticsAPI from "./api/traffic-analytics.js";
 
 import * as storeValidators from "./api/validators/store.js";
 import * as centralIdentityValidators from "./api/validators/central-identity.js";
@@ -2977,5 +2978,9 @@ router
       kbAPI.agentQueryLangGraph
     );
 
+router.route("/traffic-analytics/sync-segments").post(
+  middleware.checkLibreAPIKey,
+  trafficAnalyticsAPI.bulkSyncSegmentsForAllLibraries,
+);
 
 export default router;

@@ -31,7 +31,7 @@ const apiLimiter = rateLimit({
     if (forwardFor && typeof forwardFor === 'string') {
       const ips = forwardFor.split(',').map(ip => ip.trim());
       if (ips.length > 0) {
-        return ipKeyGenerator(ips[0]); // Use the first IP in the list        
+        return ipKeyGenerator(ips[0]); // Use the first IP in the list
       }
     }
 
@@ -220,7 +220,10 @@ function shutdown() {
         console.error(e);
       });
       console.log("Conductor shutdown successfully.\n");
+      process.exit(0);
     });
+  } else {
+    process.exit(0);
   }
 }
 

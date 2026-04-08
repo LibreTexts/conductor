@@ -314,6 +314,28 @@ const ProjectAnalytics = () => {
     },
   });
 
+  const hasNoData = useMemo(
+    () =>
+      !pageViewsLoading &&
+      !aggMetricsByPageLoading &&
+      !uniqueVisitorsLoading &&
+      !visitorCountriesLoading &&
+      !(pageViewsData ?? []).length &&
+      !(aggMetricsByPageData ?? []).length &&
+      !(uniqueVisitorsData ?? []).length &&
+      !(visitorCountriesData ?? []).length,
+    [
+      pageViewsLoading,
+      aggMetricsByPageLoading,
+      uniqueVisitorsLoading,
+      visitorCountriesLoading,
+      pageViewsData,
+      aggMetricsByPageData,
+      uniqueVisitorsData,
+      visitorCountriesData,
+    ]
+  );
+
   return (
     <Grid className="component-container">
       <Grid.Column>
@@ -371,7 +393,19 @@ const ProjectAnalytics = () => {
                 </p>
               </SegmentInline>
             </Segment>
-          ) : (
+          ) : hasNoData ? (
+            <Segment placeholder>
+              <Header icon>
+                <Icon name="exclamation circle" />
+                No traffic analytics data found.
+              </Header>
+              <SegmentInline>
+                <p>
+                  We may not have data available for this textbook yet or our systems may still be initializing data collection. Please check back soon or contact support.
+                </p>
+              </SegmentInline>
+            </Segment>
+            ) : (
             <Segment>
               <Segment className="flex flex-col justify-center">
                 <div
