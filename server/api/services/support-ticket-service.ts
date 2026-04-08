@@ -272,16 +272,9 @@ export default class SupportTicketService {
             let hasMore = true;
             let totalSynced = 0;
 
-            const aggregationPipeline = [
-                ...this.lookupUserDataStages("assignedUUIDs"),
-                ...this.lookupUserDataStages("userUUID"),
-                // Exclude MongoDB internal fields that don't serialize well for Meilisearch
-                { $project: { _id: 0, __v: 0 } },
-            ];
-
             while (hasMore) {
                 const batch = await SupportTicket.aggregate([
-                    ...aggregationPipeline,
+                    ...this.searchIndexAggregationStages,
                     { $skip: skip },
                     { $limit: batchSize },
                 ]);
@@ -292,7 +285,8 @@ export default class SupportTicketService {
                 }
 
                 try {
-                    const task = await searchService.addDocuments("supportTickets", batch);
+                    const sanitizedBatch = JSON.parse(JSON.stringify(batch));
+                    const task = await searchService.addDocuments("supportTickets", sanitizedBatch);
                     debugServer(`[SupportTicketService] Batch ${Math.floor(skip / batchSize) + 1} enqueued. Task UID: ${task.taskUid}`);
                 } catch (batchError: any) {
                     debugError(`[SupportTicketService] Error adding batch starting at ${skip}: ${batchError.message}`);
@@ -329,9 +323,7 @@ export default class SupportTicketService {
 
             const results = await SupportTicket.aggregate([
                 { $match: { uuid: ticketID } },
-                ...this.lookupUserDataStages("assignedUUIDs"),
-                ...this.lookupUserDataStages("userUUID"),
-                { $project: { _id: 0, __v: 0 } },
+                ...this.searchIndexAggregationStages,
             ]);
 
             if (!results || results.length === 0) {
@@ -345,7 +337,8 @@ export default class SupportTicketService {
                 return;
             }
 
-            await searchService.addDocuments("supportTickets", [ticket]);
+            const sanitizedTicket = JSON.parse(JSON.stringify(ticket));
+            await searchService.addDocuments("supportTickets", [sanitizedTicket]);
         } catch (err) {
             debugError(`[SupportTicketService] Error upserting ticket ${ticketID} to search index: ${err}`);
         }
@@ -363,14 +356,13 @@ export default class SupportTicketService {
 
             const results = await SupportTicket.aggregate([
                 { $match: { uuid: { $in: ticketIDs } } },
-                ...this.lookupUserDataStages("assignedUUIDs"),
-                ...this.lookupUserDataStages("userUUID"),
-                { $project: { _id: 0, __v: 0 } },
+                ...this.searchIndexAggregationStages,
             ]);
 
             if (!results || results.length === 0) return;
 
-            await searchService.addDocuments("supportTickets", results);
+            const sanitizedResults = JSON.parse(JSON.stringify(results));
+            await searchService.addDocuments("supportTickets", sanitizedResults);
         } catch (err) {
             debugError(`[SupportTicketService] Error bulk upserting tickets to search index: ${err}`);
         }
@@ -580,6 +572,38 @@ export default class SupportTicketService {
         const authorString = `${ticketAuthor} (${requesterEmail || "Unknown Email"})`;
         return authorString;
     };
+
+    private get searchIndexAggregationStages() {
+        return [
+            ...this.lookupUserDataStages("assignedUUIDs"),
+            ...this.lookupUserDataStages("userUUID"),
+            {
+                $project: {
+                    _id: 0,
+                    uuid: 1,
+                    uuidShort: 1,
+                    queue_id: 1,
+                    title: 1,
+                    description: 1,
+                    status: 1,
+                    priority: 1,
+                    category: 1,
+                    assignedUUIDs: 1,
+                    userUUID: 1,
+                    timeOpened: 1,
+                    timeClosed: 1,
+                    capturedURL: 1,
+                    apps: 1,
+                    guest: 1,
+                    deviceInfo: 1,
+                    autoCloseTriggered: 1,
+                    autoCloseSilenced: 1,
+                    assignedUsers: 1,
+                    user: 1,
+                },
+            },
+        ];
+    }
 
     private lookupUserDataStages = (localField: "assignedUUIDs" | "userUUID") => {
         return [
