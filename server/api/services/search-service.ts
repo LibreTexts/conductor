@@ -186,15 +186,37 @@ export default class SearchService {
     }
   }
 
-  async addDocuments(indexName: (typeof INDEXES)[number], documents: any[]) {
+  async addDocuments(
+    indexName: (typeof INDEXES)[number],
+    documents: any[],
+    { waitForCompletion = false, timeOutMs = 60_000 }: { waitForCompletion?: boolean; timeOutMs?: number } = {}
+  ) {
     try {
       const index = this.indexes.get(indexName);
       if (!index) {
         throw new Error(INDEX_NOT_FOUND_ERROR);
       }
 
-      const task = await index.addDocuments(documents);
-      return task;
+      const enqueued = await index.addDocuments(documents);
+
+      if (!waitForCompletion) return enqueued;
+
+      // POST /indexes/{uid}/documents is asynchronous — the HTTP call only enqueues a task.
+      // Document-level validation errors (missing_document_id, invalid_document_id,
+      // invalid_document_fields, document_fields_limit_reached, type-inference collisions, etc.)
+      // are reported via task status, not the HTTP response. Wait for the task and throw on failure.
+      const finished: any = await this._client.tasks.waitForTask(enqueued.taskUid, { timeout: timeOutMs });
+      if (finished.status === "failed" || finished.status === "canceled") {
+        const err: any = new Error(
+          `[Meilisearch] Task ${finished.uid} for index ${indexName} finished with status '${finished.status}': ` +
+          `${finished.error?.code ?? "unknown_code"} — ${finished.error?.message ?? "no message"} ` +
+          `(type=${finished.error?.type ?? "?"}, link=${finished.error?.link ?? "?"})`
+        );
+        err.meilisearchError = finished.error;
+        err.meilisearchTask = finished;
+        throw err;
+      }
+      return finished;
     } catch (error: any) {
       debugServer(
         `[SearchService] Error adding ${documents.length} documents to index ${indexName}: ${error.message || error}`
@@ -204,6 +226,9 @@ export default class SearchService {
       }
       if (error.code) {
         debugServer(`[SearchService] Error code: ${error.code}`);
+      }
+      if (error.meilisearchError) {
+        debugServer(`[SearchService] Meilisearch task error: ${JSON.stringify(error.meilisearchError)}`);
       }
       throw error;
     }

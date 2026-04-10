@@ -286,11 +286,17 @@ export default class SupportTicketService {
 
                 try {
                     const sanitizedBatch = JSON.parse(JSON.stringify(batch));
-                    const task = await searchService.addDocuments("supportTickets", sanitizedBatch);
-                    debugServer(`[SupportTicketService] Batch ${Math.floor(skip / batchSize) + 1} enqueued. Task UID: ${task.taskUid}`);
+                    const task: any = await searchService.addDocuments("supportTickets", sanitizedBatch, { waitForCompletion: true });
+                    debugServer(`[SupportTicketService] Batch ${Math.floor(skip / batchSize) + 1} indexed. Task UID: ${task.uid ?? task.taskUid}`);
                 } catch (batchError: any) {
                     debugError(`[SupportTicketService] Error adding batch starting at ${skip}: ${batchError.message}`);
-                    debugError(`[SupportTicketService] Sample ticket from failed batch: ${JSON.stringify(batch[0]?.uuid || 'unknown')}`);
+                    if (batchError.meilisearchError) {
+                        debugError(`[SupportTicketService] Meilisearch error object: ${JSON.stringify(batchError.meilisearchError)}`);
+                    }
+                    const firstFive = batch.slice(0, 5).map((b: any) => b.uuid);
+                    const lastFive = batch.slice(-5).map((b: any) => b.uuid);
+                    debugError(`[SupportTicketService] Batch uuids (first 5): ${firstFive.join(', ')}`);
+                    debugError(`[SupportTicketService] Batch uuids (last 5): ${lastFive.join(', ')}`);
                     throw batchError;
                 }
                 totalSynced += batch.length;
@@ -338,7 +344,7 @@ export default class SupportTicketService {
             }
 
             const sanitizedTicket = JSON.parse(JSON.stringify(ticket));
-            await searchService.addDocuments("supportTickets", [sanitizedTicket]);
+            await searchService.addDocuments("supportTickets", [sanitizedTicket], { waitForCompletion: true });
         } catch (err) {
             debugError(`[SupportTicketService] Error upserting ticket ${ticketID} to search index: ${err}`);
         }
@@ -362,7 +368,7 @@ export default class SupportTicketService {
             if (!results || results.length === 0) return;
 
             const sanitizedResults = JSON.parse(JSON.stringify(results));
-            await searchService.addDocuments("supportTickets", sanitizedResults);
+            await searchService.addDocuments("supportTickets", sanitizedResults, { waitForCompletion: true });
         } catch (err) {
             debugError(`[SupportTicketService] Error bulk upserting tickets to search index: ${err}`);
         }
