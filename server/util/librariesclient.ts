@@ -18,13 +18,7 @@ import { getLibraryNameKeys } from "../api/libraries";
 class LibrariesSSMClient {
   public apiUsername: string = "LibreBot";
   public libTokenPairPath: string = "/libkeys/production";
-  public ssm: SSMClient = new SSMClient({
-    credentials: {
-      accessKeyId: process.env.AWS_SSM_ACCESS_KEY_ID || "unknown",
-      secretAccessKey: process.env.AWS_SSM_SECRET_KEY || "unknown",
-    },
-    region: process.env.AWS_SSM_REGION || "unknown",
-  });
+  public ssm: SSMClient = new SSMClient({ region: process.env.AWS_REGION });
 
   public credentialsCache: Record<
     string,

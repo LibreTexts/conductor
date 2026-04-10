@@ -113,21 +113,7 @@ async function updateCollectionImageAsset(
       }
     }
 
-    const accessKeyId = process.env.AWS_COLLECTIONDATA_ACCESS_KEY;
-    const secretAccessKey = process.env.AWS_COLLECTIONDATA_SECRET_KEY;
-    const region = process.env.AWS_COLLECTIONDATA_REGION;
-
-    if (!accessKeyId || !secretAccessKey || !region) {
-      throw new Error("Missing S3 configuration for asset upload.");
-    }
-
-    const storageClient = new S3Client({
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-      },
-      region,
-    });
+    const storageClient = new S3Client({ region: process.env.AWS_REGION });
 
     const uploadCommand = new PutObjectCommand({
       Bucket: process.env.AWS_COLLECTIONDATA_BUCKET,
