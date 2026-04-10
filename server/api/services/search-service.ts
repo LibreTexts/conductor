@@ -6,6 +6,12 @@ export const INDEXES = ["books", "projects", "supportTickets"] as const;
 const INDEX_NOT_FOUND_ERROR =
   "Index was not found. Are you using the correct index name?";
 
+export const INDEX_PRIMARY_KEYS: Record<(typeof INDEXES)[number], string> = {
+  books: "bookID",
+  projects: "projectID",
+  supportTickets: "uuid",
+};
+
 export const INDEX_FILTERABLE_ATTRIBUTES = {
   books: ["bookID", "library", "license", "author", "course", "affiliation", "location", "license", "subject"],
   projects: ["status", "classification", "visibility", "orgID"],
@@ -79,9 +85,29 @@ export default class SearchService {
 
   async ensureIndex(indexName: (typeof INDEXES)[number]) {
     try {
+      const expectedPrimaryKey = INDEX_PRIMARY_KEYS[indexName];
       const indexes = await this._client.getIndexes();
       const foundIndex = indexes.results.find((idx) => idx.uid === indexName);
       if (foundIndex) {
+        // Verify the existing index has the expected primary key. If it doesn't,
+        // the index was likely auto-created by an earlier addDocuments call that
+        // couldn't infer a primary key — which is the exact failure mode behind
+        // index_primary_key_multiple_candidates_found. Try to correct it.
+        const currentPrimaryKey = (foundIndex as any).primaryKey;
+        if (currentPrimaryKey !== expectedPrimaryKey) {
+          debugServer(
+            `[SearchService] Index ${indexName} has primaryKey='${currentPrimaryKey ?? "none"}', expected '${expectedPrimaryKey}'. Attempting to correct.`
+          );
+          try {
+            await foundIndex.update({ primaryKey: expectedPrimaryKey });
+          } catch (updateErr: any) {
+            debugServer(
+              `[SearchService] Could not update primaryKey for index ${indexName} (this requires the index to be empty): ${updateErr.message || updateErr}. ` +
+              `addDocuments calls will still pass primaryKey='${expectedPrimaryKey}' as a fallback.`
+            );
+          }
+        }
+
         // Ensure filterable attributes are updated
         const filterAttrs = INDEX_FILTERABLE_ATTRIBUTES[indexName];
         if (filterAttrs) {
@@ -97,39 +123,15 @@ export default class SearchService {
         return foundIndex;
       }
 
-      if (indexName === "books") {
-        await this._client.createIndex(indexName, { primaryKey: "bookID" });
-        const index = this._client.index(indexName);
-        await index.updateFilterableAttributes(
-          INDEX_FILTERABLE_ATTRIBUTES.books
-        );
-        await index.updateSortableAttributes(
-          INDEX_SORTABLE_ATTRIBUTES.books
-        );
-        return index;
-      }
-      if (indexName === "projects") {
-        await this._client.createIndex(indexName, { primaryKey: "projectID" });
-        const index = this._client.index(indexName);
-        await index.updateFilterableAttributes(
-          INDEX_FILTERABLE_ATTRIBUTES.projects
-        );
-        await index.updateSortableAttributes(
-          INDEX_SORTABLE_ATTRIBUTES.projects
-        );
-        return index;
-      }
-      if (indexName === "supportTickets") {
-        await this._client.createIndex(indexName, { primaryKey: "uuid" });
-        const index = this._client.index(indexName);
-        await index.updateFilterableAttributes(
-          INDEX_FILTERABLE_ATTRIBUTES.supportTickets
-        );
-        await index.updateSortableAttributes(
-          INDEX_SORTABLE_ATTRIBUTES.supportTickets
-        );
-        return index;
-      }
+      await this._client.createIndex(indexName, { primaryKey: expectedPrimaryKey });
+      const index = this._client.index(indexName);
+      await index.updateFilterableAttributes(
+        INDEX_FILTERABLE_ATTRIBUTES[indexName]
+      );
+      await index.updateSortableAttributes(
+        INDEX_SORTABLE_ATTRIBUTES[indexName]
+      );
+      return index;
     } catch (error: any) {
       debugServer(
         `[SearchService] Error ensuring index ${indexName} exists: ${error}`
@@ -197,7 +199,12 @@ export default class SearchService {
         throw new Error(INDEX_NOT_FOUND_ERROR);
       }
 
-      const enqueued = await index.addDocuments(documents);
+      // Always pass the registered primary key explicitly. If the index has no primary key
+      // yet (e.g. it was auto-created by a previous addDocuments call without one), this
+      // both sets it and avoids Meilisearch's primary-key inference — which fails when
+      // multiple fields end in "id" (e.g. uuid + queue_id + userUUID for supportTickets).
+      const primaryKey = INDEX_PRIMARY_KEYS[indexName];
+      const enqueued = await index.addDocuments(documents, { primaryKey });
 
       if (!waitForCompletion) return enqueued;
 
