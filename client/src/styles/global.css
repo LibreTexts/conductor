@@ -60,6 +60,19 @@ body {
     display: inline-block !important;
 }
 
+.library-glyph-header {
+    position: absolute;
+    top: 4px;
+    right: 5px;
+    background-color: white;
+    padding: 10px 10px;
+    border-radius: 5px;
+    border-top-right-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .fullheight-menu {
     height: 100% !important;
 }

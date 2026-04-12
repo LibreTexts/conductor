@@ -24,21 +24,22 @@ const BookCardContent: React.FC<BookCardContentProps> = ({ book }) => {
 
   return (
     <>
-      <Card.Header
-        image={{
-          src: book.thumbnail,
-          alt: "", // The thumbnails are purely decorative, so leave alt text as empty string to be ignored by screen readers
-        }}
-      />
+      <div className="relative">
+        <Card.Header
+          image={{
+            src: book.thumbnail,
+            alt: "", // The thumbnails are purely decorative, so leave alt text as empty string to be ignored by screen readers
+          }}
+        />
+        <div className="library-glyph-header">
+          <img src={getLibGlyphURL(book.library)} className="library-glyph !w-6 !h-6 !mr-0" alt="" />
+        </div>
+      </div>
       <Card.Body>
         <Stack direction="vertical" gap="sm">
           <Heading level={6} className="line-clamp-2">
             {book.title}
           </Heading>
-          <div className="flex items-center gap-1">
-            <img src={getLibGlyphURL(book.library)} className="library-glyph" alt="" />
-            <Text>{getLibraryName(book.library)}</Text>
-          </div>
           <Text size="base" className="line-clamp-2">
             {book.author}
           </Text>
