@@ -85,7 +85,7 @@ const BooksTable: React.FC<BooksTableProps> = ({
         {items.length === 0 && (
           <Table.Row>
             <Table.Cell colSpan={5}>
-              <p className="text-center">
+              <p className="text-center" role="alert">
                 <em>No results found.</em>
               </p>
             </Table.Cell>

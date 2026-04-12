@@ -9,7 +9,7 @@ import "../Commons.css";
 import PlaceholderCard from "./PlaceholderCard";
 import { useState } from "react";
 import DetailModal from "./DetailModal";
-import { Grid } from "@libretexts/davis-react";
+import { Grid, Text } from "@libretexts/davis-react";
 
 const VisualMode = ({
   items,
@@ -80,10 +80,10 @@ const VisualMode = ({
 
   return (
     <div>
-      <p className="text-center italic">
+      <Text className="text-center italic" role="alert">
         {noResultsMessage ??
           "No results found - Try adjusting your search or filters."}
-      </p>
+      </Text>
     </div>
   );
 };

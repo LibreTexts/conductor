@@ -136,7 +136,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({
         {items.length === 0 && (
           <Table.Row>
             <Table.Cell colSpan={5}>
-              <p className="text-center">
+              <p className="text-center" role="alert">
                 <em>No results found.</em>
               </p>
             </Table.Cell>

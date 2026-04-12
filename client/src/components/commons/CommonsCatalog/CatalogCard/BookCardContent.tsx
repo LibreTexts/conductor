@@ -27,7 +27,7 @@ const BookCardContent: React.FC<BookCardContentProps> = ({ book }) => {
       <Card.Header
         image={{
           src: book.thumbnail,
-          alt: `${book.title} thumbnail`,
+          alt: "", // The thumbnails are purely decorative, so leave alt text as empty string to be ignored by screen readers
         }}
       />
       <Card.Body>

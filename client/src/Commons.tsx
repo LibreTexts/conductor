@@ -19,6 +19,7 @@ import LoadingSpinner from "./components/LoadingSpinner";
 import useSystemAnnouncement from "./hooks/useSystemAnnouncement";
 import { CompatRoute } from "react-router-dom-v5-compat";
 import { COMMONS_MODULES } from "./utils/constants";
+import { SkipLink } from "@libretexts/davis-react";
 
 /**
  * The public-facing catalog and showcase application.
@@ -77,6 +78,7 @@ const Commons = () => {
 
   return (
     <div className="commons">
+      <SkipLink />
       <CommonsNavbar org={org} user={user} />
       <CommonsJumbotron backgroundURL={org.coverPhoto ?? ""} />
       <CommonsMenu activeItem={activeItem} />

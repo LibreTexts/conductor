@@ -671,7 +671,7 @@ const CommonsCatalog = () => {
 
   return (
     <CatalogContext.Provider value={contextValue}>
-      <div className="bg-white">
+      <div id="main-content" className="bg-white">
         {((org.commonsHeader && org.commonsHeader !== "") ||
           (org.commonsMessage && org.commonsMessage !== "")) && (
             <Stack direction="vertical" gap="md" className="p-6 text-center">
