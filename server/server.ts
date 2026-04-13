@@ -43,6 +43,8 @@ const app = express();
 const port = process.env.PORT || 5000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const matomoDomain = process.env.MATOMO_DOMAIN;
+const matomoSiteID = process.env.MATOMO_SITE_ID;
 
 mongoose.Promise = Promise;
 mongoose.set("debug", process.env.NODE_ENV === "development");
@@ -128,6 +130,7 @@ app.use("/health", (_req, res) => {
 const serverRoot = __dirname.endsWith("dist") ? path.join(__dirname, "..") : __dirname;
 const clientDist = path.join(serverRoot, "../client/dist");
 app.use(express.static(clientDist));
+
 // Serve runtime env config for frontend use. Loaded via <script src="/env.js"> in index.html to avoid CSP issues with inline scripts.
 const appEnv = process.env.APP_ENV ?? "production";
 const envJs = `window.__APP_ENV__ = ${JSON.stringify(appEnv)};`;
@@ -136,6 +139,30 @@ app.get("/env.js", (_req, res) => {
     .setHeader("Cache-Control", "public, max-age=31536000, immutable") // Caching to improve performance since this doesn't change after initial load
     .send(envJs);
 });
+
+// Matomo tracking
+const matomoJS = matomoDomain && matomoSiteID ? `
+  var _paq = window._paq = window._paq || [];
+  /* tracker methods like "setCustomDimension" should be called before "trackPageView" */
+  _paq.push(["setDocumentTitle", document.domain + "/" + document.title]);
+  _paq.push(["setCookieDomain", "*.libretexts.org"]);
+  _paq.push(["setDoNotTrack", true]);
+  _paq.push(['trackPageView']);
+  _paq.push(['enableLinkTracking']);
+  (function() {
+    var u="//${matomoDomain}/";
+    _paq.push(['setTrackerUrl', u+'matomo.php']);
+    _paq.push(['setSiteId', '${matomoSiteID}']);
+    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+    g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
+  })();
+` : '/* Matomo not configured */';
+app.get("/matomo-init.js", (_req, res) => {
+  res.setHeader("Content-Type", "application/javascript")
+    .setHeader("Cache-Control", "public, max-age=31536000, immutable") // Caching to improve performance since this doesn't change after initial load
+    .send(matomoJS);
+});
+
 const indexHtmlPath = path.resolve(clientDist, "index.html");
 const indexHtml = fs.readFileSync(indexHtmlPath, "utf-8");
 let cliRouter = express.Router();
