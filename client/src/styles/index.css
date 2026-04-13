@@ -11,6 +11,8 @@
 
 /* Theme extensions (replaces theme.extend in tailwind.config.js) */
 @theme {
+  --font-sans: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
   --height-screen-content: calc(100vh - 4.25rem);
 
   /* Brand colors */
@@ -77,6 +79,16 @@
 
 * {
   box-sizing: border-box;
+}
+
+/*
+  Override Semantic UI's unlayered normalize reset.
+  Tailwind v4 Preflight is inside @layer base, which loses to Semantic UI's
+  unlayered `button, input, ... { font-family: sans-serif }` regardless of
+  source order. This unlayered rule restores inheritance for form elements.
+*/
+button, input, optgroup, select, textarea {
+  font-family: inherit;
 }
 
 body {
