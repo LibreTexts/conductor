@@ -74,7 +74,7 @@ const CatalogAuthorFilters: React.FC<CatalogAuthorFilters> = ({
           text={`Primary Institution ${
             filters.primaryInstitution ? ` - ${filters.primaryInstitution}` : ""
           }`}
-          icon="university"
+          icon="school"
           options={data?.orgOptions ?? []}
           filterKey="primaryInstitution"
           onFilterSelect={(key, val) =>

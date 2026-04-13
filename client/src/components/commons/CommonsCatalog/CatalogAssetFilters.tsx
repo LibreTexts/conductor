@@ -155,7 +155,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
             text={
               filters.fileType ? `File Type - ${filters.fileType}` : "File Type"
             }
-            icon="file alternate outline"
+            icon="file"
             options={data?.fileTypeOptions ?? []}
             filterKey="fileType"
             onFilterSelect={(key, val) => onFilterChange(key, val)}
@@ -167,7 +167,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
             text={`Organization ${filters.org ? " - " : ""}${
               filters.org ?? ""
             }`}
-            icon="university"
+            icon="school"
             options={data?.orgOptions ?? []}
             filterKey="org"
             onFilterSelect={(key, val) => onFilterChange(key, val)}

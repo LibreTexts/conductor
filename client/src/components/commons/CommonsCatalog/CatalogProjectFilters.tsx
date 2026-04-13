@@ -24,7 +24,7 @@ const CatalogProjectFilters: React.FC<CatalogProjectFiltersProps> = ({
           text={`Status ${
             filters.status ? ` - ${upperFirst(filters.status)}` : ""
           }`}
-          icon="dashboard"
+          icon="status"
           options={data?.statusOptions ?? []}
           filterKey="status"
           onFilterSelect={(key, val) =>

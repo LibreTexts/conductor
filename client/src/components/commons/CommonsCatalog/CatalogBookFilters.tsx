@@ -199,7 +199,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
       <Stack direction="horizontal" gap="sm" className="mb-4">
         <CatalogFilterDropdown
           text={filters.library ? `Library - ${filters.library}` : "Library"}
-          icon="university"
+          icon="school"
           options={libraryOptions}
           filterKey="library"
           onFilterSelect={(key, val) =>
@@ -279,7 +279,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
               ? `Available Assets - ${filters.assets}`
               : "Available Assets"
           }
-          icon="file alternate outline"
+          icon="file"
           options={data?.assetOptions ?? []}
           filterKey="assets"
           onFilterSelect={(key, val) =>

@@ -28,7 +28,7 @@ const CatalogMiniRepoFilters: React.FC<CatalogMiniRepoFiltersProps> = ({
           text={`Status ${
             filters.status ? ` - ${upperFirst(filters.status)}` : ""
           }`}
-          icon="dashboard"
+          icon="status"
           options={data?.statusOptions ?? []}
           filterKey="status"
           onFilterSelect={(key, val) =>
