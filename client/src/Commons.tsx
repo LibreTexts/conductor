@@ -88,7 +88,7 @@ const Commons = () => {
           message={sysAnnouncement.message}
         />
       )}
-      <main id="main-content">
+      <main id="main-content" className="bg-white pb-8">
       <Suspense fallback={<LoadingSpinner />}>
         <Switch>
           <Route exact path="/" component={CommonsCatalog} />

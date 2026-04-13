@@ -671,96 +671,94 @@ const CommonsCatalog = () => {
 
   return (
     <CatalogContext.Provider value={contextValue}>
-      <div id="main-content" className="bg-white">
-        {((org.commonsHeader && org.commonsHeader !== "") ||
-          (org.commonsMessage && org.commonsMessage !== "")) && (
-            <Stack direction="vertical" gap="md" className="p-6 text-center">
-              {org.commonsHeader && org.commonsHeader !== "" && (
-                <Heading
-                  level={3}
-                >
-                  {org.commonsHeader}
-                </Heading>
-              )}
-              <Text>
-                {org.commonsMessage}
-              </Text>
-            </Stack>
-          )}
-        <Divider />
-        <div className="p-6">
-          <div className="mt-4 mb-8 flex flex-col">
-            <div className="flex flex-row items-end justify-center w-full gap-2">
-              <form
-                onSubmit={(e) => e.preventDefault()}
-                className="w-72 lg:w-[64rem]"
+      {((org.commonsHeader && org.commonsHeader !== "") ||
+        (org.commonsMessage && org.commonsMessage !== "")) && (
+          <Stack direction="vertical" gap="md" className="p-6 text-center">
+            {org.commonsHeader && org.commonsHeader !== "" && (
+              <Heading
+                level={3}
               >
-                <div className="relative">
-                  <Input
-                    name="commons-search-input"
-                    label="Search the Catalog"
-                    placeholder="Search..."
-                    value={searchStringUI}
-                    leftIcon={<IconSearch />}
-                    onChange={(e) => {
-                      setSearchStringUI(e.target.value);
-                      setSearchStringDebounced(e.target.value);
-                      getSuggestionsDebounced(e.target.value);
-                      setShowSuggestions(e.target.value.length > 0);
-                    }}
-                    onBlur={() => {
-                      setTimeout(() => setShowSuggestions(false), 200);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        updateSearchParam(searchStringUI);
-                      }
-                    }}
-                  />
-                  {showSuggestions && searchSuggestions.length > 0 && (
-                    <div className="absolute z-50 w-full py-2 border rounded-md shadow-md bg-white mt-1">
-                      {searchSuggestions.map((suggestion) => (
-                        <p
-                          className="px-2 hover:bg-slate-50 rounded-md cursor-pointer font-semibold"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            updateSearchParam(suggestion);
-                            setShowSuggestions(false);
-                          }}
-                          key={crypto.randomUUID()}
-                        >
-                          {truncateString(suggestion, 100)}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </form>
+                {org.commonsHeader}
+              </Heading>
+            )}
+            <Text>
+              {org.commonsMessage}
+            </Text>
+          </Stack>
+        )}
+      <Divider />
+      <div className="p-6">
+        <div className="mt-4 mb-8 flex flex-col">
+          <div className="flex flex-row items-end justify-center w-full gap-2">
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              className="w-72 lg:w-[64rem]"
+            >
+              <div className="relative">
+                <Input
+                  name="commons-search-input"
+                  label="Search the Catalog"
+                  placeholder="Search..."
+                  value={searchStringUI}
+                  leftIcon={<IconSearch />}
+                  onChange={(e) => {
+                    setSearchStringUI(e.target.value);
+                    setSearchStringDebounced(e.target.value);
+                    getSuggestionsDebounced(e.target.value);
+                    setShowSuggestions(e.target.value.length > 0);
+                  }}
+                  onBlur={() => {
+                    setTimeout(() => setShowSuggestions(false), 200);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      updateSearchParam(searchStringUI);
+                    }
+                  }}
+                />
+                {showSuggestions && searchSuggestions.length > 0 && (
+                  <div className="absolute z-50 w-full py-2 border rounded-md shadow-md bg-white mt-1">
+                    {searchSuggestions.map((suggestion) => (
+                      <p
+                        className="px-2 hover:bg-slate-50 rounded-md cursor-pointer font-semibold"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          updateSearchParam(suggestion);
+                          setShowSuggestions(false);
+                        }}
+                        key={crypto.randomUUID()}
+                      >
+                        {truncateString(suggestion, 100)}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </form>
+            <Button
+              variant="primary"
+              onClick={() => updateSearchParam(searchStringUI)}
+              icon={<IconSearch />}
+              iconPosition="left"
+            >
+              {isTailwindLg ? "Search Catalog" : ""}
+            </Button>
+          </div>
+          {(searchString || isSearchMode) && (
+            <div className="flex justify-center items-center w-full mt-6">
               <Button
-                variant="primary"
-                onClick={() => updateSearchParam(searchStringUI)}
-                icon={<IconSearch />}
+                variant="secondary"
+                onClick={handleResetSearch}
+                icon={<IconRefresh />}
                 iconPosition="left"
               >
-                {isTailwindLg ? "Search Catalog" : ""}
+                Reset Search
               </Button>
             </div>
-            {(searchString || isSearchMode) && (
-              <div className="flex justify-center items-center w-full mt-6">
-                <Button
-                  variant="secondary"
-                  onClick={handleResetSearch}
-                  icon={<IconRefresh />}
-                  iconPosition="left"
-                >
-                  Reset Search
-                </Button>
-              </div>
-            )}
-          </div>
-          <CatalogTabs />
+          )}
         </div>
+        <CatalogTabs />
       </div>
     </CatalogContext.Provider >
   );

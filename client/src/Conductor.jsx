@@ -113,7 +113,7 @@ const Conductor = () => {
     <div className='conductor'>
       <CartProvider>
       <RenderNavbar />
-      <div id="main-content" className='conductor-content'>
+      <div id="main-content" className='conductor-content pb-8'>
         <Suspense fallback={<LoadingSpinner />}>
           <Switch>
           <AnonRoute exact path='/login' component={Login} />
