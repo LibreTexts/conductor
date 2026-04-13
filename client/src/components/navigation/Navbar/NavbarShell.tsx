@@ -8,6 +8,7 @@ import Launchpad from "../Launchpad";
 import ConstantMenuItems from "./ConstantMenuItems";
 import SearchForm from "./SearchForm";
 import SwitchAppWithUser from "../SwitchAppWithUser";
+import SupportDropdown from "../../commons/CommonsNavbar/SupportDropdown";
 
 interface NavbarShellProps {
   org: Organization;
@@ -58,9 +59,12 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
         </div>
 
         {/* Right: Search (desktop only) + SwitchApp/User + Hamburger (mobile only) */}
-        <div className="flex flex-row items-center gap-2">
+        <div className="flex flex-row items-center gap-4">
           <div className="hidden xl:flex mr-4">
             <SearchForm />
+          </div>
+          <div className="hidden xl:flex">
+            <SupportDropdown />
           </div>
           <div className="hidden xl:flex">
             <SwitchAppWithUser user={user} parent="conductor" />
