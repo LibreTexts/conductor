@@ -19,10 +19,10 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
 
   return (
     <Menu>
-      <Menu.Button>
-        {showAvatar && <Avatar src={`${user.avatar}`} name={`${user.firstName} ${user.lastName}`} size="sm" />}
-        <Text size="sm" weight="semibold">
-          {user.firstName} {user.lastName} ({user.email})
+      <Menu.Button className="!max-h-[36px] !w-full xl:!w-auto">
+        {showAvatar && <Avatar src={`${user.avatar}`} name={`${user.firstName} ${user.lastName}`} size="xs" />}
+        <Text size="sm" className="text-white">
+          {user.firstName} {user.lastName}
         </Text>
       </Menu.Button>
       <Menu.Items>
@@ -36,7 +36,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
             <Stack direction="horizontal" gap="sm" align="center">
               <IconUser />
               <Text>
-                Profile
+                Profile ({user.email})
               </Text>
             </Stack>
           )}

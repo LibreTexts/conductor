@@ -1,11 +1,9 @@
 import useClientConfig from "../../../hooks/useClientConfig";
 import { Menu, MenuItemProps } from "@libretexts/davis-react";
 
-interface SupportDropdownProps {
-    isMobile?: boolean;
-}
+interface SupportDropdownProps { }
 
-const SupportDropdown: React.FC<SupportDropdownProps> = ({ isMobile = false }) => {
+const SupportDropdown: React.FC<SupportDropdownProps> = () => {
     const { clientConfig } = useClientConfig();
 
     const itemsArr: MenuItemProps[] = [
@@ -31,7 +29,7 @@ const SupportDropdown: React.FC<SupportDropdownProps> = ({ isMobile = false }) =
 
     return (
         <Menu>
-            <Menu.Button>
+            <Menu.Button className="!w-full !xl:w-auto">
                 Support
             </Menu.Button>
             <Menu.Items>

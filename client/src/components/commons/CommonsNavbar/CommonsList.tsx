@@ -1,22 +1,15 @@
-import { useRef, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
-import { Link, Menu, MenuItemProps } from "@libretexts/davis-react";
-import { IconSchool } from "@tabler/icons-react";
+import { Menu, MenuItemProps } from "@libretexts/davis-react";
 
 
-interface CommonsListProps {
-  isMobile?: boolean;
-}
+interface CommonsListProps { }
 
-const CommonsList: React.FC<CommonsListProps> = ({ isMobile = false }) => {
+const CommonsList: React.FC<CommonsListProps> = () => {
   // Data
   const [campusCommons, setCampusCommons] = useState<
     { key: string; name: string; link: string }[]
   >([]);
-
-  const [mouseIndex, setMouseIndex] = useState(0);
-
-  const selectRef = useRef(null);
 
   /**
    * Retrieves a list of LibreGrid/Campus Commons instances from the server and saves it to state.
@@ -63,7 +56,7 @@ const CommonsList: React.FC<CommonsListProps> = ({ isMobile = false }) => {
 
   return (
     <Menu>
-      <Menu.Button>
+      <Menu.Button className="!w-full !xl:w-auto">
         Campus Commons
       </Menu.Button>
       <Menu.Items className="!w-72">

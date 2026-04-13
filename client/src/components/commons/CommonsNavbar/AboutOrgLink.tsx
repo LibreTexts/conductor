@@ -1,4 +1,3 @@
-import { Icon, Menu, MenuItemProps } from "semantic-ui-react";
 import { Organization } from "../../../types";
 import { Link } from "@libretexts/davis-react";
 

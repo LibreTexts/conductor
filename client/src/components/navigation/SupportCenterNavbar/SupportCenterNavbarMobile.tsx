@@ -82,7 +82,7 @@ const SupportCenterNavbarMobile: React.FC<SupportCenterNavbarMobileProps> = ({
               as={Link}
               to={user && user.uuid ? "/support/dashboard" : "/support/contact"}
             />
-            <SwitchAppWithUser user={user} parent="commons" isMobile />
+            <SwitchAppWithUser user={user} parent="commons" />
           </Menu>
         </div>
       )}

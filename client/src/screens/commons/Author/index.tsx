@@ -243,15 +243,11 @@ const CommonsAuthor = () => {
                 </div>
               </div>
               <div>
-                {itemizedMode ? (
-                  <AssetsTable items={assets} loading={assetsFetching} />
-                ) : (
-                  <VisualMode
-                    items={assets}
-                    loading={assetsFetching}
-                    noResultsMessage="No assets found for this author."
-                  />
-                )}
+                <VisualMode
+                  items={assets}
+                  loading={assetsFetching}
+                  noResultsMessage="No assets found for this author."
+                />
                 {hasMore && (
                   <div className="w-full mt-6 flex justify-center">
                     <button

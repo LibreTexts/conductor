@@ -88,6 +88,7 @@ const Commons = () => {
           message={sysAnnouncement.message}
         />
       )}
+      <main id="main-content">
       <Suspense fallback={<LoadingSpinner />}>
         <Switch>
           <Route exact path="/" component={CommonsCatalog} />
@@ -108,6 +109,7 @@ const Commons = () => {
           <Route exact path="/file/:projectID/:fileID" component={CommonsFile} />
         </Switch>
       </Suspense>
+      </main>
       <Footer />
     </div>
   );
