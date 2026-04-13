@@ -126,9 +126,18 @@ const CatalogTabs: React.FC = () => {
       variant="line"
       size="sm"
     >
-      {/* Tabs.List base class is `flex border-b`. justify-between keeps toolbar flush-right on the same border line. */}
-      <Tabs.List className="justify-between items-center pr-1">
-        <div className="flex items-center">
+      {/*
+        Outer wrapper owns the full-width border-b line and keeps the toolbar
+        flush-right. The toolbar lives here (outside Tabs.List) so that:
+          1. role="tablist" only contains role="tab" elements (ARIA conformance).
+          2. Tabs.List can be flex-1 + overflow-x-auto so tabs scroll on narrow
+             viewports while the toolbar stays pinned to the right edge.
+      */}
+      <div className="flex w-full items-center border-b border-gray-200 pr-1">
+        {/* flex-1 + min-w-0 lets the list grow/shrink; overflow-x-auto enables
+            horizontal scroll when tabs can't fit; !border-b-0 removes Davis's
+            own border since the outer wrapper provides it. */}
+        <Tabs.List className="flex-1 min-w-0 overflow-x-auto !border-b-0">
           {moduleEntries.map(({ def, data }) => (
             <Tabs.Tab key={def.key}>
               <span className="flex items-center gap-1.5">
@@ -142,8 +151,8 @@ const CatalogTabs: React.FC = () => {
               </span>
             </Tabs.Tab>
           ))}
-        </div>
-        <div className="flex items-center gap-1 pb-1">
+        </Tabs.List>
+        <div className="flex items-center gap-1 pb-1 flex-shrink-0 ml-2">
           <IconButton
             variant="outline"
             size="sm"
@@ -163,12 +172,11 @@ const CatalogTabs: React.FC = () => {
                 <IconGrid3x3 size={16} />
               ) : (
                 <IconList size={16} />
-
               )
             }
           />
         </div>
-      </Tabs.List>
+      </div>
 
       <Tabs.Panels>
         {moduleEntries.map(({ def, data }) => (

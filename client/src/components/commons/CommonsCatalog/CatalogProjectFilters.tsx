@@ -1,5 +1,6 @@
 import CatalogFilterDropdown from "./CatalogFilterDropdown";
 import { ProjectFilters, ProjectFiltersAction } from "../../../types";
+import { Stack } from "@libretexts/davis-react";
 import { upperFirst } from "../../../utils/misc";
 import useProjectFilterOptions from "../../../hooks/useProjectFilterOptions";
 
@@ -15,11 +16,8 @@ const CatalogProjectFilters: React.FC<CatalogProjectFiltersProps> = ({
   const { data, isLoading } = useProjectFilterOptions();
 
   return (
-    <div
-      aria-busy={isLoading}
-      className="flex flex-row w-full justify-between items-center ml-1"
-    >
-      <div className="flex flex-row my-4 flex-wrap items-center gap-2">
+    <div aria-busy={isLoading} className="w-full ml-1">
+      <Stack direction="horizontal" gap="sm" wrap={true} className="my-4">
         <CatalogFilterDropdown
           text={`Status ${
             filters.status ? ` - ${upperFirst(filters.status)}` : ""
@@ -31,7 +29,7 @@ const CatalogProjectFilters: React.FC<CatalogProjectFiltersProps> = ({
             onFilterChange(key as keyof ProjectFilters, val)
           }
         />
-      </div>
+      </Stack>
     </div>
   );
 };

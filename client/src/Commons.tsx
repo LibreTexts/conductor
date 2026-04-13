@@ -46,7 +46,7 @@ const Commons = () => {
   const getCommonsTabRedirect = (): string | null => {
     const splitPath = location.pathname.split("/");
     const path = splitPath[2]; // Get the third segment of the path (e.g., for "/catalog/assets", this is "assets")
-    if (!COMMONS_MODULES.includes(path) || splitPath.length > 3) return null; 
+    if (!COMMONS_MODULES.includes(path) || splitPath.length > 3) return null;
 
     const search = new URLSearchParams(location.search); // Pass-through any existing query parameters
     search.set("active_tab", path);
@@ -82,33 +82,33 @@ const Commons = () => {
       <CommonsNavbar org={org} user={user} />
       <CommonsJumbotron backgroundURL={org.coverPhoto ?? ""} />
       <CommonsMenu activeItem={activeItem} />
-      {sysAnnouncement && (
-        <SystemAnnouncement
-          title={sysAnnouncement.title}
-          message={sysAnnouncement.message}
-        />
-      )}
       <main id="main-content" className="bg-white pb-8">
-      <Suspense fallback={<LoadingSpinner />}>
-        <Switch>
-          <Route exact path="/" component={CommonsCatalog} />
-          <Route exact path="/catalog" component={CommonsCatalog} />
-          <CompatRoute exact path="/collections" component={CommonsCollection} />
-          <CompatRoute path="/collections/:path" component={CommonsCollection} />
-          {org.orgID === "libretexts" && [
-            <Route
-              exact
-              path="/homework"
-              key="homework"
-              component={CommonsHomework}
-            />,
-          ]}
-          <Route exact path="/author/:id" component={CommonsAuthor} />
-          <Route exact path="/book/:id" component={CommonsBook} />
-          <Route exact path="/commons-project/:id" component={CommonsProject} />
-          <Route exact path="/file/:projectID/:fileID" component={CommonsFile} />
-        </Switch>
-      </Suspense>
+        {sysAnnouncement && (
+          <SystemAnnouncement
+            title={sysAnnouncement.title}
+            message={sysAnnouncement.message}
+          />
+        )}
+        <Suspense fallback={<LoadingSpinner />}>
+          <Switch>
+            <Route exact path="/" component={CommonsCatalog} />
+            <Route exact path="/catalog" component={CommonsCatalog} />
+            <CompatRoute exact path="/collections" component={CommonsCollection} />
+            <CompatRoute path="/collections/:path" component={CommonsCollection} />
+            {org.orgID === "libretexts" && [
+              <Route
+                exact
+                path="/homework"
+                key="homework"
+                component={CommonsHomework}
+              />,
+            ]}
+            <Route exact path="/author/:id" component={CommonsAuthor} />
+            <Route exact path="/book/:id" component={CommonsBook} />
+            <Route exact path="/commons-project/:id" component={CommonsProject} />
+            <Route exact path="/file/:projectID/:fileID" component={CommonsFile} />
+          </Switch>
+        </Suspense>
       </main>
       <Footer />
     </div>

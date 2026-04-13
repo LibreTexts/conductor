@@ -196,7 +196,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
       className="flex flex-row w-full justify-between items-center ml-1"
     >
       {/* flex flex-row mt-2 mb-4 flex-wrap items-center gap-y-2 */}
-      <Stack direction="horizontal" gap="sm" className="mb-4">
+      <Stack direction="horizontal" gap="sm" wrap={true} className="mb-4">
         <CatalogFilterDropdown
           text={filters.library ? `Library - ${filters.library}` : "Library"}
           icon="school"

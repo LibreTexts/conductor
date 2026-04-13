@@ -37,7 +37,7 @@ const VisualMode = ({
   if (items.length > 0) {
     return (
       <>
-        <Grid cols={6} gap="lg">
+        <Grid gap="lg" className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
           {items.map((item) => (
             <CatalogCard
               item={item}
@@ -70,7 +70,7 @@ const VisualMode = ({
 
   if (items.length === 0 && loading) {
     return (
-      <Grid cols={6}>
+      <Grid className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
         {[...Array(10)].map((_, index) => (
           <PlaceholderCard key={index} />
         ))}
