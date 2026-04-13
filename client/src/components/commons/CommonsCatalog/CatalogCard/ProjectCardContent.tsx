@@ -1,11 +1,12 @@
 import { Project } from "../../../../types";
 import {
   capitalizeFirstLetter,
+  truncateString,
 } from "../../../util/HelperFunctions";
 import { getLibGlyphURL, getLibraryName } from "../../../util/LibraryOptions";
 import { useTypedSelector } from "../../../../state/hooks";
 import CardMetaWIcon from "../../../util/CardMetaWIcon";
-import { Card, Heading, Stack } from "@libretexts/davis-react";
+import { Card, Heading, Link, Stack } from "@libretexts/davis-react";
 import { Icon } from "semantic-ui-react";
 
 interface ProjectCardContentProps {
@@ -33,9 +34,9 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({ project }) => {
   return (
     <>
       <Card.Header
-        className={!project.thumbnail ? "p-6" : ""}
+        className={!project.thumbnail ? "" : ""}
         image={{
-          src: project.thumbnail || '/project_icon.svg',
+          src: project.thumbnail || '/public/project_icon_2.svg',
           alt: "", // The thumbnails are purely decorative, so leave alt text as empty string to be ignored by screen readers
         }}
       />
@@ -58,14 +59,16 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({ project }) => {
             <CardMetaWIcon icon="linkify">
               <div className="line-clamp-2">
                 {project.projectURL ? (
-                  <a
+                  <Link
                     href={project.projectURL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="!text-blue-500 break-all"
+                    className="break-all"
+                    external
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    {project.projectURL}
-                  </a>
+                    {truncateString(project.projectURL, 35)}
+                  </Link>
                 ) : (
                   "No URL Specified"
                 )}

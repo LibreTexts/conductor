@@ -25,6 +25,8 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, onDetailClick }) => {
     return (
       <Card
         variant="elevated"
+        className=" hover:border-secondary hover:border-2"
+        onClick={() => history.push(`/author/${item._id}`)}
       >
         <AuthorCardContent author={item} />
       </Card>
@@ -47,6 +49,7 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, onDetailClick }) => {
     return (
       <Card
         variant="elevated"
+        className=" hover:border-secondary hover:border-2"
         onClick={() => history.push(`/commons-project/${item.projectID}`)}
       >
         <ProjectCardContent project={item} />
@@ -57,6 +60,8 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, onDetailClick }) => {
   return (
     <Card
       variant="elevated"
+      className=" hover:border-secondary hover:border-2"
+      onClick={() => onDetailClick && onDetailClick()}
     >
       <FileCardContent file={item} onDetailClick={onDetailClick} />
     </Card>

@@ -10,6 +10,7 @@ import {
 import { useState } from "react";
 import CardMetaWIcon from "../../../util/CardMetaWIcon";
 import { getPrettyNameFromMimeType } from "../../../../utils/common-mime-types";
+import { Card, Heading, Stack } from "@libretexts/davis-react";
 
 interface FileCardContentProps {
   file: ConductorSearchResponseFile;
@@ -44,68 +45,49 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
   }
 
   return (
-    <div className="h-full relative overflow-hidden">
-      {file.projectInfo.thumbnail ? (
-        <div
-          onClick={() => window.open(`/commons-project/${file.projectID}`)}
-          className="commons-card-img-container !bg-contain !cursor-pointer"
-          style={{
-            backgroundImage: `url(${file.projectInfo.thumbnail})`,
-          }}
-        />
-      ) : (
-        <div className="commons-asset-card-img-wrapper flex justify-center items-center">
-          <Icon name={getFileTypeIcon(file)} size="massive" color="black" />
-        </div>
-      )}
-      <div className="px-4 pt-2">
-      <button
-        className="overflow-ellipsis !my-2 text-left hover:underline cursor-pointer !text-blue-500 break-words hyphens-auto w-full"
-        onClick={() => onDetailClick && onDetailClick()}
-      >
-        <p className="max-h-14 line-clamp-2 break-all overflow-hidden">{file.name}</p>
-      </button>
-      <div className="overflow-hidden !my-1">
-        <div className="line-clamp-3">
-          <p className="commons-content-card-author !mb-0">
-            {file.description ? file.description : "No description provided"}
-          </p>
-        </div>
-      </div>
-      <CardMetaWIcon icon="user">
-        <Popup
-          disabled={!prettyAuthors || prettyAuthors === "Unknown"}
-          trigger={<div>{truncateString(prettyAuthors, 50)}</div>}
-          content={
-            <div className="line-clamp-2">
-              <p>{allAuthors}</p>
+    <>
+      <Card.Header
+        image={{
+          src: file.projectInfo.thumbnail || '/project_icon.svg',
+          alt: "" // Decorative only - leave blank alt-text
+        }}
+      />
+      <Card.Body>
+        <Heading level={6} className="line-clamp-2">
+          {file.name}
+        </Heading>
+        <Stack direction="vertical" gap="sm">
+          <div className="overflow-hidden !my-1">
+            <div className="line-clamp-3">
+              <p className="commons-content-card-author !mb-0">
+                {file.description ? file.description : "No description provided"}
+              </p>
             </div>
-          }
-          position="top center"
-        />
-      </CardMetaWIcon>
-      {file.storageType === "file" && (
-        <CardMetaWIcon icon={getFileTypeIcon(file)}>
-          <div className="line-clamp-1">
-            {file.isURL
-              ? "External Link"
-              : getPrettyNameFromMimeType(file.mimeType) ?? ""}
           </div>
-        </CardMetaWIcon>
-      )}
-      </div>
-      <div className="w-full absolute bottom-4 left-0 text-center">
-        <a
-          className="text-lg font-semibold text-blue-500 text-center"
-          onClick={() => onDetailClick && onDetailClick()}
-        >
-          DETAILS
-        </a>
-      </div>
-      <div className="absolute bottom-0 right-0 pb-3 pr-2">
-        {loading && <Icon loading name="spinner" size="large" />}
-      </div>
-    </div>
+          <CardMetaWIcon icon="user">
+            <Popup
+              disabled={!prettyAuthors || prettyAuthors === "Unknown"}
+              trigger={<div>{truncateString(prettyAuthors, 50)}</div>}
+              content={
+                <div className="line-clamp-2">
+                  <p>{allAuthors}</p>
+                </div>
+              }
+              position="top center"
+            />
+          </CardMetaWIcon>
+          {file.storageType === "file" && (
+            <CardMetaWIcon icon={getFileTypeIcon(file)}>
+              <div className="line-clamp-1">
+                {file.isURL
+                  ? "External Link"
+                  : getPrettyNameFromMimeType(file.mimeType) ?? ""}
+              </div>
+            </CardMetaWIcon>
+          )}
+        </Stack>
+      </Card.Body >
+    </>
   );
 };
 

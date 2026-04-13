@@ -1,6 +1,7 @@
 import { Author } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import CardMetaWIcon from "../../../util/CardMetaWIcon";
+import { Card, Heading, Link, Stack } from "@libretexts/davis-react";
 
 interface AuthorCardContentProps {
   author: Author;
@@ -8,35 +9,36 @@ interface AuthorCardContentProps {
 
 const AuthorCardContent: React.FC<AuthorCardContentProps> = ({ author }) => {
   return (
-    <div className="h-full overflow-hidden p-4">
-      <a
-        href={`/author/${author._id}`}
-        className="commons-content-card-header !mt-1 !mb-1 block font-bold hover:underline cursor-pointer"
-      >
-        {truncateString(author.name, 100)}
-      </a>
-      {(author.companyName || author.programName) && (
-        <CardMetaWIcon icon="university">
-          <div className="line-clamp-1">
-            {truncateString(author.companyName || author.programName || "", 50)}
-          </div>
-        </CardMetaWIcon>
-      )}
-      {author.nameURL && (
-        <CardMetaWIcon icon="linkify">
-          <div className="line-clamp-2">
-            <a
-              href={author.nameURL}
-              target="_blank"
-              rel="noreferrer"
-              className="break-all !text-blue-500"
-            >
-              {author.nameURL}
-            </a>
-          </div>
-        </CardMetaWIcon>
-      )}
-    </div>
+    <Card.Body>
+      <Stack direction="vertical" gap="sm">
+        <Heading level={6}>
+          {truncateString(author.name, 100)}
+        </Heading>
+        {(author.companyName || author.programName) && (
+          <CardMetaWIcon icon="university">
+            <div className="line-clamp-1">
+              {truncateString(author.companyName || author.programName || "", 50)}
+            </div>
+          </CardMetaWIcon>
+        )}
+        {author.nameURL && (
+          <CardMetaWIcon icon="linkify">
+            <div className="line-clamp-2">
+              <Link
+                href={author.nameURL}
+                target="_blank"
+                rel="noreferrer"
+                external
+                className="break-all"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {truncateString(author.nameURL, 35)}
+              </Link>
+            </div>
+          </CardMetaWIcon>
+        )}
+      </Stack>
+    </Card.Body>
   );
 };
 
