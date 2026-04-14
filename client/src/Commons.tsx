@@ -8,7 +8,7 @@ import Footer from "./components/navigation/Footer";
 import CommonsHomework from "./components/commons/CommonsHomework";
 import CommonsJumbotron from "./components/commons/CommonsJumbotron";
 import CommonsMenu from "./components/commons/CommonsMenu";
-import CommonsNavbar from "./components/commons/CommonsNavbar";
+import Navbar from "./components/navigation/Navbar";
 import CommonsProject from "./screens/commons/Project";
 import CommonsFile from "./screens/commons/File";
 import SystemAnnouncement from "./components/util/SystemAnnouncement";
@@ -29,7 +29,6 @@ const Commons = () => {
   const location = useLocation();
   const history = useHistory();
   const org = useTypedSelector((state) => state.org);
-  const user = useTypedSelector((state) => state.user);
   const { sysAnnouncement } = useSystemAnnouncement();
   const LAUNCHPAD_URL = "https://one.libretexts.org/launchpad";
 
@@ -79,7 +78,7 @@ const Commons = () => {
   return (
     <div className="commons">
       <SkipLink />
-      <CommonsNavbar org={org} user={user} />
+      <Navbar />
       <CommonsJumbotron backgroundURL={org.coverPhoto ?? ""} />
       <CommonsMenu activeItem={activeItem} />
       <main id="main-content" className="bg-white pb-8">

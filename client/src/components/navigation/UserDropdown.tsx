@@ -2,7 +2,7 @@ import AuthHelper from "../util/AuthHelper";
 import { useTypedSelector } from "../../state/hooks";
 import useClientConfig from "../../hooks/useClientConfig";
 import { Avatar, Menu, Stack, Text } from "@libretexts/davis-react";
-import { IconLock, IconLogout, IconUser } from "@tabler/icons-react";
+import { IconLock, IconLogout, IconTicket, IconUser } from "@tabler/icons-react";
 
 interface UserDropdownProps {
   showAvatar?: boolean;
@@ -16,6 +16,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
   const user = useTypedSelector((state) => state.user);
   const { clientConfig } = useClientConfig();
   const centralIdentityBaseUrl = clientConfig?.central_identity_base_url || "";
+  const mainCommonsUrl = clientConfig?.main_commons_url || "https://commons.libretexts.org";
 
   return (
     <Menu>
@@ -54,6 +55,23 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
               <IconLock />
               <Text>
                 Security
+              </Text>
+            </Stack>
+          )}
+        />
+        <Menu.Item
+          onClick={
+            () => window.open(
+              `${mainCommonsUrl}/support/dashboard`,
+              "_blank",
+              "noopener noreferrer"
+            )
+          }
+          children={(
+            <Stack direction="horizontal" gap="sm" align="center">
+              <IconTicket />
+              <Text>
+                My Support Tickets
               </Text>
             </Stack>
           )}

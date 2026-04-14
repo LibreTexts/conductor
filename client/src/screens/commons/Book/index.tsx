@@ -997,9 +997,7 @@ const CommonsBook = () => {
               </Stack>
 
               {typeof book.rating === "number" && book.rating > 0 && (
-                <div className="my-6">
-                  <StarRating value={book.rating} displayMode={true} />
-                </div>
+                <StarRating value={book.rating} displayMode={true} />
               )}
 
               <Stack direction="vertical" gap="xs">
@@ -1015,7 +1013,7 @@ const CommonsBook = () => {
                 {user?.isAuthenticated && book.projectID && (
                   <Button
                     as={Link}
-                    variant="outline"
+                    variant="primary"
                     icon={<IconFileText size={16} />}
                     fullWidth
                     to={`/projects/${book.projectID}`}
@@ -1047,11 +1045,12 @@ const CommonsBook = () => {
                     variant="outline"
                     icon={item.icon}
                     fullWidth
-                    as={Link}
-                    to={item.href}
+                    as={DavisLink}
+                    href={item.href}
                     target="_blank"
                     rel="noreferrer"
                     className="justify-start"
+                    external
                   >
                     {item.text}
                   </Button>

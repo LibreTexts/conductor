@@ -1,7 +1,7 @@
-import useClientConfig from "../../../hooks/useClientConfig";
+import useClientConfig from "../../hooks/useClientConfig";
 import { Link } from "@libretexts/davis-react";
 
-const AccountRequestLink = ({ isMobile = false }) => {
+const AccountRequestLink = () => {
   const { clientConfig } = useClientConfig();
   if (!clientConfig?.instructor_verification_url) {
     return null;
@@ -12,6 +12,7 @@ const AccountRequestLink = ({ isMobile = false }) => {
       href={clientConfig?.instructor_verification_url}
       target="_blank"
       rel="noopener noreferrer"
+      external
     >
       Instructor Verification Request
     </Link>

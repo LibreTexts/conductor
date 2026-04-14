@@ -62,6 +62,8 @@ export type License = {
   additionalTerms?: string;
 };
 
+export type NavbarContext = "conductor" | "commons" | "store" | "support";
+
 /**
  * A TypeScript type alias called `Prettify`.
  * It takes a type as its argument and returns a new type that has the same properties as the original type,

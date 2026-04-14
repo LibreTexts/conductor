@@ -12,7 +12,7 @@ interface SystemAnnouncementProps {
  */
 const SystemAnnouncement: React.FC<SystemAnnouncementProps> = ({ title, message }) => {
   return (
-    <div className='px-36 py-6'>
+    <div className='px-6 xl:px-36 py-6'>
       <Alert variant='info' title={title} message={message} />
     </div>
   )
