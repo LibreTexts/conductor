@@ -872,7 +872,7 @@ const CommonsBook = () => {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-6 p-6">
           {/* Left Column — Book Meta */}
-          <Card className="p-4">{/* The padding prop for Card is not being applied (bug), so using utility class for now */}
+          <Card padding="sm">
             <Stack direction="vertical" gap="md">
               <img
                 src={book.thumbnail}
@@ -880,7 +880,7 @@ const CommonsBook = () => {
                 alt=""
                 className="w-full rounded-md"
               />
-              <Heading level={2} className="text-center">
+              <Heading level={1} className="text-center">
                 {book.title}
               </Heading>
               <Stack direction="vertical" gap="sm">
@@ -1062,7 +1062,7 @@ const CommonsBook = () => {
           {/* Right Column — Book Info */}
           <Stack direction="vertical" gap="md">
             {!isEmptyString(book.summary) && (
-              <Card className="p-4">
+              <Card padding="sm">
                 <Stack direction="vertical" gap="sm">
                   <Heading level={3}>Summary</Heading>
                   <Text as="p" className={styles.meta_largefont}>
@@ -1074,7 +1074,7 @@ const CommonsBook = () => {
 
             {/* Assets */}
             {projFiles && (projFiles.length > 0 || currDirectory !== "") && (
-              <Card className="p-4">
+              <Card padding="sm">
                 <Stack direction="horizontal" gap="sm" align="center" justify="between">
                   <Heading level={3}>Assets</Heading>
                   <Button
@@ -1248,7 +1248,7 @@ const CommonsBook = () => {
             )}
 
             {/* Table of Contents */}
-            <Card className="p-4">
+            <Card padding="sm">
               <Stack direction="horizontal" gap="sm" align="center" justify="between">
                 <Heading level={3}>Table of Contents</Heading>
                 <Button variant="tertiary" onClick={handleChangeTOCVis}>
@@ -1275,7 +1275,7 @@ const CommonsBook = () => {
 
             {/* Licensing */}
             {foundCLR && (
-              <Card className="p-4">
+              <Card padding="sm">
                 <Stack direction="horizontal" gap="sm" align="center" justify="between">
                   <Heading level={3}>Licensing</Heading>
                   <Button variant="tertiary" onClick={handleChangeLicensingVis}>

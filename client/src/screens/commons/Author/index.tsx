@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { Icon, Segment, Header, Breadcrumb, Popup } from "semantic-ui-react";
+import { useParams } from "react-router-dom";
+import { Icon, Popup } from "semantic-ui-react";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import api from "../../../api";
 import VisualMode from "../../../components/commons/CommonsCatalog/VisualMode";
 import AssetsTable from "../../../components/commons/CommonsCatalog/AssetsTable";
 import { useTypedSelector } from "../../../state/hooks";
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
+import { Breadcrumb, Card, Heading, Spinner, Stack, Link } from "@libretexts/davis-react";
+import { truncateString } from "../../../components/util/HelperFunctions";
+import { IconLink } from "@tabler/icons-react";
 
 const ASSETS_LIMIT = 10;
 
@@ -94,31 +97,26 @@ const CommonsAuthor = () => {
     window.scrollTo(0, document.body.scrollHeight);
   };
 
-  const renderNameURL = (url: string) => (
-    <p>
-      <Icon name="linkify" />
-      <a href={url} target="_blank" rel="noreferrer">{url}</a>
-    </p>
-  );
-
   return (
-    <div className="commons-page-container">
-      <Segment.Group raised>
-        <Segment>
-          <Breadcrumb>
-            <Breadcrumb.Section as={Link} to="/catalog">
-              <span>
-                <span className="muted-text">You are on: </span>
-                Catalog
-              </span>
-            </Breadcrumb.Section>
-            <Breadcrumb.Divider icon="right chevron" />
-            <Breadcrumb.Section active>{author?.name ?? "Author"}</Breadcrumb.Section>
-          </Breadcrumb>
-        </Segment>
-        <Segment loading={authorLoading}>
-          <div className="flex flex-col lg:flex-row px-1">
-            <div className="flex flex-col w-full lg:w-1/4 min-h-48 h-fit border shadow-md p-4 rounded-md mr-16">
+    <>
+      <div className="px-6 py-3 border-b border-neutral-200">
+        <Breadcrumb aria-label="Page navigation">
+          <Breadcrumb.Item href="/catalog">
+            Catalog
+          </Breadcrumb.Item>
+          <Breadcrumb.Item isCurrent>{author?.name}</Breadcrumb.Item>
+        </Breadcrumb>
+      </div>
+
+      {/* Main Content */}
+      {authorLoading ? (
+        <div className="flex justify-center items-center p-16">
+          <Spinner />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-6 p-6">
+          <Card padding="sm">
+            <Stack direction="vertical" gap="md">
               {author?.pictureURL && (
                 <img
                   src={author.pictureURL}
@@ -126,13 +124,23 @@ const CommonsAuthor = () => {
                   className={`w-24 h-24 object-cover mb-3 ${author.pictureCircle === "no" ? "rounded-md" : "rounded-full"}`}
                 />
               )}
-              <Header as="h1" className="!mb-2 !ml-0.5">
+              <Heading level={1} className="!mb-2 !ml-0.5">
                 {author?.name ?? ""}
-              </Header>
+              </Heading>
               {author?.nameTitle && (
                 <p className="text-gray-600 text-sm mb-2">{author.nameTitle}</p>
               )}
-              {author?.nameURL && renderNameURL(author.nameURL)}
+              {author?.nameURL && (
+                <Link
+                  href={author.nameURL}
+                  target="_blank"
+                  rel="noreferrer"
+                  external
+                >
+                  <IconLink className="inline mr-1" size={16}/>
+                  {truncateString(author.nameURL || "", 35)}
+                </Link>
+              )}
               {author?.companyName && (
                 <p>
                   <Icon name="university" />
@@ -183,94 +191,95 @@ const CommonsAuthor = () => {
                   ))}
                 </p>
               )}
-            </div>
-            <div className="flex flex-col w-full lg:w-3/4 mt-8 lg:mt-0">
-              <div className="flex flex-row justify-between items-start">
-                <Header as="h2">Assets</Header>
-                <div>
-                  <Popup
-                    trigger={
-                      <button
-                        onClick={() => {
-                          jumpToBottomClicked
-                            ? window.location.reload()
-                            : jumpToBottom();
-                        }}
-                        className="bg-slate-100 text-black border border-slate-300 rounded-md mr-2 !pl-1.5 p-1 shadow-sm hover:shadow-md"
-                        aria-label={
-                          jumpToBottomClicked
-                            ? "Refresh to continue browsing"
-                            : "Jump to bottom"
-                        }
-                      >
-                        {jumpToBottomClicked ? (
-                          <Icon name="refresh" />
-                        ) : (
-                          <Icon name="arrow down" />
-                        )}
-                      </button>
-                    }
-                    content={
-                      jumpToBottomClicked
-                        ? "Refresh to continue browsing"
-                        : "Jump to bottom"
-                    }
-                  />
-                  <Popup
-                    trigger={
-                      <button
-                        onClick={() => setItemizedMode(!itemizedMode)}
-                        className="bg-slate-100 text-black border border-slate-300 rounded-md !pl-1.5 p-1 shadow-sm hover:shadow-md"
-                        aria-label={
-                          itemizedMode
-                            ? "Switch to visual mode"
-                            : "Switch to itemized mode"
-                        }
-                      >
-                        {itemizedMode ? (
-                          <Icon name="grid layout" />
-                        ) : (
-                          <Icon name="list layout" />
-                        )}
-                      </button>
-                    }
-                    content={
-                      itemizedMode
-                        ? "Switch to visual mode"
-                        : "Switch to itemized mode"
-                    }
-                  />
-                </div>
-              </div>
+            </Stack>
+          </Card>
+          <Stack direction="vertical" gap="md">
+            <div className="flex flex-row justify-between items-start">
+              <Heading level={2}>Assets</Heading>
               <div>
-                <VisualMode
-                  items={assets}
-                  loading={assetsFetching}
-                  noResultsMessage="No assets found for this author."
-                />
-                {hasMore && (
-                  <div className="w-full mt-6 flex justify-center">
+                <Popup
+                  trigger={
                     <button
-                      onClick={() => fetchNextPage()}
-                      disabled={assetsFetching}
-                      className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-wait transition-colors font-semibold"
-                      aria-label="Load more assets"
+                      onClick={() => {
+                        jumpToBottomClicked
+                          ? window.location.reload()
+                          : jumpToBottom();
+                      }}
+                      className="bg-slate-100 text-black border border-slate-300 rounded-md mr-2 !pl-1.5 p-1 shadow-sm hover:shadow-md"
+                      aria-label={
+                        jumpToBottomClicked
+                          ? "Refresh to continue browsing"
+                          : "Jump to bottom"
+                      }
                     >
-                      {assetsFetching ? "Loading..." : "Load More"}
+                      {jumpToBottomClicked ? (
+                        <Icon name="refresh" />
+                      ) : (
+                        <Icon name="arrow down" />
+                      )}
                     </button>
-                  </div>
-                )}
-                {!hasMore && assets.length > 0 && (
-                  <div className="w-full mt-4">
-                    <p className="text-center font-semibold">End of results</p>
-                  </div>
-                )}
+                  }
+                  content={
+                    jumpToBottomClicked
+                      ? "Refresh to continue browsing"
+                      : "Jump to bottom"
+                  }
+                />
+                <Popup
+                  trigger={
+                    <button
+                      onClick={() => setItemizedMode(!itemizedMode)}
+                      className="bg-slate-100 text-black border border-slate-300 rounded-md !pl-1.5 p-1 shadow-sm hover:shadow-md"
+                      aria-label={
+                        itemizedMode
+                          ? "Switch to visual mode"
+                          : "Switch to itemized mode"
+                      }
+                    >
+                      {itemizedMode ? (
+                        <Icon name="grid layout" />
+                      ) : (
+                        <Icon name="list layout" />
+                      )}
+                    </button>
+                  }
+                  content={
+                    itemizedMode
+                      ? "Switch to visual mode"
+                      : "Switch to itemized mode"
+                  }
+                />
               </div>
             </div>
-          </div>
-        </Segment>
-      </Segment.Group>
-    </div>
+            <div>
+              <VisualMode
+                items={assets}
+                loading={assetsFetching}
+                noResultsMessage="No assets found for this author."
+              />
+              {hasMore && (
+                <div className="w-full mt-6 flex justify-center">
+                  <button
+                    onClick={() => fetchNextPage()}
+                    disabled={assetsFetching}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-wait transition-colors font-semibold"
+                    aria-label="Load more assets"
+                  >
+                    {assetsFetching ? "Loading..." : "Load More"}
+                  </button>
+                </div>
+              )}
+              {!hasMore && assets.length > 0 && (
+                <div className="w-full mt-4">
+                  <p className="text-center font-semibold">End of results</p>
+                </div>
+              )}
+            </div>
+          </Stack >
+        </div >
+
+      )}
+    </>
   );
 };
 

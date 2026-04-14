@@ -53,10 +53,10 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
         }}
       />
       <Card.Body>
-        <Heading level={6} className="line-clamp-2">
-          {file.name}
-        </Heading>
-        <Stack direction="vertical" gap="sm">
+        <Stack direction="vertical" gap="sm" className="py-4">
+          <Heading level={6} className="line-clamp-2">
+            {file.name}
+          </Heading>
           <div className="overflow-hidden !my-1">
             <div className="line-clamp-3">
               <p className="commons-content-card-author !mb-0">

@@ -36,7 +36,7 @@ const BookCardContent: React.FC<BookCardContentProps> = ({ book }) => {
         </div>
       </div>
       <Card.Body>
-        <Stack direction="vertical" gap="sm">
+        <Stack direction="vertical" gap="sm" className="py-4">
           <Heading level={6} className="line-clamp-2">
             {book.title}
           </Heading>

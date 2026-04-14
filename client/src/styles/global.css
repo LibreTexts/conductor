@@ -1402,3 +1402,32 @@ code {
     width: 100% !important;
     overflow-x: auto !important;
 }
+
+/* ==========================================================================
+   MIGRATION-TEMP: Davis Design System conflict overrides
+   Scoped to .lt-legacy to isolate from migrated Davis components.
+   Remove this entire block once support screens are migrated to Davis.
+   See: client/src/screens/conductor/support/
+   ========================================================================== */
+
+/* FIX 1 — Border color
+ * Tailwind v4's `border` utility no longer sets a default gray color (unlike v3).
+ * Davis's unlayered base styles push a dark currentColor into bare `border` classes.
+ * Restore zinc-200 (#e4e4e7 = Davis's own --color-border-subtle token). */
+.lt-legacy .border {
+  border-color: #e4e4e7;
+}
+
+/* FIX 2 — Shadow intensity
+ * Davis's theme.css redefines --shadow-* with lower opacity (0.07 vs Tailwind 0.1).
+ * Because it is loaded after Tailwind, it wins the :root cascade.
+ * Restore Tailwind-standard shadow values for legacy card elements. */
+.lt-legacy .shadow-sm {
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+.lt-legacy .shadow-md {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+.lt-legacy .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+}

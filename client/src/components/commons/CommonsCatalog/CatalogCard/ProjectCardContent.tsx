@@ -41,7 +41,7 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({ project }) => {
         }}
       />
       <Card.Body>
-        <Stack direction="vertical" gap="sm">
+        <Stack direction="vertical" gap="sm" className="py-4">
           <Heading level={6} className="line-clamp-2">
             {project.title}
           </Heading>

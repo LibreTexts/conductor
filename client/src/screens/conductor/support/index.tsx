@@ -83,7 +83,7 @@ const SupportCenter = () => {
   return (
     <DefaultLayout h={isTailwindLg ? "screen-content" : "screen"}>
       <SupportCenterJumbotron />
-      <div className="flex flex-col lg:flex-row w-full justify-center my-0 lg:my-12 flex-grow !h-auto">
+      <div className="lt-legacy flex flex-col lg:flex-row w-full justify-center my-0 lg:my-12 flex-grow !h-auto">
         <HomeItem
           title="Contact Support"
           text="Contact the LibreTexts Support Team for help"

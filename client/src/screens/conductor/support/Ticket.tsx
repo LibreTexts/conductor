@@ -316,7 +316,7 @@ const SupportTicketView = () => {
 
   return (
     <DefaultLayout altBackground>
-      <div aria-busy={isFetching} className="px-8 pt-8">
+      <div aria-busy={isFetching} className="lt-legacy px-8 pt-8">
         {ticket && (
           <>
             <div className="flex flex-col lg:flex-row w-full justify-between">
