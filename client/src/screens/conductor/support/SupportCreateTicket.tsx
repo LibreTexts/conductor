@@ -59,7 +59,7 @@ const SupportCreateTicket = () => {
               Submit a request to get help from our team.
             </p>
             <div className="flex flex-col mt-4 w-full lg:w-1/3 bg-white">
-              <Alert variant="info" title="Important" message="Please do not submit a support ticket for account creation. You canb visit https://register.libretexts.org to create an account and complete instructor verification (if applicable)." />
+              <Alert variant="info" title="Important" message="Please do not submit a support ticket for account creation. You can visit https://register.libretexts.org to create an account and complete instructor verification (if applicable)." />
             </div>
             <>
               {!isLoggedIn && !guestMode && (

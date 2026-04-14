@@ -1,22 +1,49 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useHistory } from "react-router-dom";
-import { IconButton } from "@libretexts/davis-react";
-import { IconSearch, IconX } from "@tabler/icons-react";
+import { Input } from "@libretexts/davis-react";
+import { IconSearch } from "@tabler/icons-react";
+import { NavbarContext } from "../../../types";
 
 interface SearchFormProps {
+  context: NavbarContext;
   className?: string;
 }
 
-const SearchForm: React.FC<SearchFormProps> = ({ className }) => {
+const SearchForm: React.FC<SearchFormProps> = ({ context, className }) => {
   const history = useHistory();
   const [searchInput, setSearchInput] = useState("");
 
-  /**
-   * Process the search string and, if non-empty, navigate to the Search Results page.
-   */
+
+  // Store: hydrate search input from the ?query= URL param on mount.
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search).get("query");
+    setSearchInput(query ?? "");
+  }, []);
+
   const handlePerformSearch = () => {
-    if (searchInput.trim() !== "") {
+    if (searchInput.trim() === "") return; // don't perform search if input is empty or just whitespace
+
+    if (context === "conductor") {
       history.push(`/search?query=${encodeURIComponent(searchInput.trim())}`);
+    }
+    if (context === "support") {
+      history.push(`/insight/search?query=${encodeURIComponent(searchInput.trim())}`);
+    }
+    if (context === "store") {
+      history.push(`/store/search?query=${encodeURIComponent(searchInput.trim())}`);
+    }
+  };
+
+  const getPlaceholder = () => {
+    switch (context) {
+      case "conductor":
+        return "Search Commons & Conductor";
+      case "support":
+        return "Search Insight Knowledge Base...";
+      case "store":
+        return "Search LibreTexts Store...";
+      default:
+        return "Search...";
     }
   };
 
@@ -28,39 +55,16 @@ const SearchForm: React.FC<SearchFormProps> = ({ className }) => {
         e.preventDefault();
         handlePerformSearch();
       }}
-      className={`flex items-center gap-2 ${className ?? ""}`}
+      className={className}
     >
-      <label htmlFor="navbar-search" className="sr-only">
-        Search
-      </label>
-      <input
-        id="navbar-search"
-        type="search"
+      <Input
+        name="search-input"
+        label=""
+        placeholder={getPlaceholder()}
         value={searchInput}
-        placeholder="Search..."
         onChange={(e) => setSearchInput(e.target.value)}
-        className="h-[36px] rounded-md border border-neutral-300 bg-white px-3 text-sm text-text
-                   placeholder:text-neutral-400 focus:outline-2 focus:outline-primary focus:outline-offset-0
-                   !w-full !xl:w-[160px]"
-      />
-      {searchInput.length > 0 && (
-        <IconButton
-          icon={<IconX size={16} />}
-          aria-label="Clear search"
-          variant="ghost"
-          size="sm"
-          type="button"
-          onClick={() => setSearchInput("")}
-          className="h-[36px]"
-        />
-      )}
-      <IconButton
-        icon={<IconSearch />}
-        aria-label="Perform search"
-        variant="primary"
-        size="md"
-        type="submit"
-        className="h-[36px]"
+        rightIcon={<IconSearch />}
+        className="w-full! lg:w-96!"
       />
     </form>
   );

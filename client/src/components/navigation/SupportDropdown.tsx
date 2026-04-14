@@ -1,4 +1,4 @@
-import useClientConfig from "../../../hooks/useClientConfig";
+import useClientConfig from "../../hooks/useClientConfig";
 import { Menu, MenuItemProps } from "@libretexts/davis-react";
 
 interface SupportDropdownProps { }

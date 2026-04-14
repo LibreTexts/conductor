@@ -72,7 +72,6 @@ const CentralIdentityOrgs = lazy(() => import('./screens/conductor/controlpanel/
 const CentralIdentityServices = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityServices'));
 const CentralIdentityUsers = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUsers'));
 const CentralIdentityUserView = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUserView'));
-import SupportCenterNavbar from './components/navigation/SupportCenterNavbar';
 const SupportCenter = lazy(() => import('./screens/conductor/support'));
 const SupportCenterCreateTicket = lazy(() => import('./screens/conductor/support/SupportCreateTicket'));
 const SupportDashboard = lazy(() => import('./screens/conductor/support/Dashboard'));
@@ -87,19 +86,7 @@ const PermanentLinkDownload = lazy(() => import('./components/FilesManager/Perma
 import PageNotFound from './components/util/PageNotFound';
 import LibreTextsRoute from './components/util/LibreTextsRoute';
 import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
-import StoreNavbar from './components/navigation/StoreNavbar';
-import CartProvider from './providers/CartProvider';
 import SupportCenterDataLoader from './providers/SupportCenterDataLoader';
-
-const RenderNavbar = () => {
-  if(window.location.pathname.includes('/insight') || window.location.pathname.includes('/support')){
-    return <SupportCenterNavbar />;
-  }
-  if(window.location.pathname.startsWith('/store')){
-    return <StoreNavbar />;
-  }
-  return <Navbar />
-}
 
 /**
  * The project planning and internal tools system. Requires authentication to access most pages.
@@ -111,8 +98,7 @@ const Conductor = () => {
 
   return (
     <div className='conductor'>
-      <CartProvider>
-      <RenderNavbar />
+      <Navbar />
       <div id="main-content" className='conductor-content pb-8'>
         <Suspense fallback={<LoadingSpinner />}>
           <Switch>
@@ -197,7 +183,6 @@ const Conductor = () => {
         {/* <ChatBot /> */}
       </div>
       <Footer />
-      </CartProvider>
     </div>
   )
 };

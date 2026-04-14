@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { Routes, CompatRoute, CompatRouter } from "react-router-dom-v5-compat";
+import { useEffect } from "react";
+import { CompatRouter } from "react-router-dom-v5-compat";
 import { Provider } from "react-redux";
 import axios from "axios";
 import store from "./state/store.js";
@@ -23,6 +23,7 @@ import NotificationsProvider from "./providers/NotificationsProvider.js";
 import SupportCenterProvider from "./providers/SupportCenterProvider.js";
 import { BrowserRouter, Route, Switch } from "react-router-dom";
 import { useNotifications } from "./context/NotificationContext.js";
+import CartProvider from "./providers/CartProvider.js";
 
 const notificationRef: { current: ((n: any) => void) | null } = {
   current: null,
@@ -141,19 +142,20 @@ const Platform = () => {
       <ErrorBoundary FallbackComponent={ErrorScreen}>
         <QueryClientProvider client={queryClient}>
           <div className="App">
-            <SupportCenterProvider>
-              <ModalsProvider>
-                <Switch>
-                  {/* Commons Render Tree */}
-                  {/* @ts-expect-error */}
-                  <Route exact path={commonsRouterPaths} component={Commons} />
-                  {/* Standalone Pages */}
-                  <Route exact path={standalonePaths} component={Standalone} />
-                  {/* Conductor and fallback Render Tree */}
-                  <Route component={Conductor} />
-                </Switch>
-              </ModalsProvider>
-            </SupportCenterProvider>
+            <CartProvider>
+              <SupportCenterProvider>
+                <ModalsProvider>
+                  <Switch>
+                    {/* Commons Render Tree */}
+                    <Route exact path={commonsRouterPaths} component={Commons} />
+                    {/* Standalone Pages */}
+                    <Route exact path={standalonePaths} component={Standalone} />
+                    {/* Conductor and fallback Render Tree */}
+                    <Route component={Conductor} />
+                  </Switch>
+                </ModalsProvider>
+              </SupportCenterProvider>
+            </CartProvider>
             <ErrorModal />
             <ReactQueryDevtools initialIsOpen={false} />
           </div>

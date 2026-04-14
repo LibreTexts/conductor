@@ -56,10 +56,10 @@ const CommonsList: React.FC<CommonsListProps> = () => {
 
   return (
     <Menu>
-      <Menu.Button className="!w-full !xl:w-auto">
+      <Menu.Button className="w-full! !xl:w-auto">
         Campus Commons
       </Menu.Button>
-      <Menu.Items className="!w-72">
+      <Menu.Items className="w-72! z-[250]!">
         {itemsArr.map((item) => (
           <Menu.Item {...item} />
         ))}
