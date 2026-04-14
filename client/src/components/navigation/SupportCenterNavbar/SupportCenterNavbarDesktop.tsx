@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
-import { Button, Form, Icon, Image } from "semantic-ui-react";
+import { Form, Icon, Image } from "semantic-ui-react";
 import Launchpad from "../Launchpad.js";
 import AuthHelper from "../../util/AuthHelper.js";
 import UserDropdown from "../UserDropdown.js";
 import { User } from "../../../types/User.js";
+import { Button, Input } from "@libretexts/davis-react";
+import { IconLifebuoy, IconLogin2, IconSearch, IconTicket } from "@tabler/icons-react";
 
 interface SupportCenterNavbarDesktopProps {
   search: string;
@@ -21,7 +23,7 @@ const SupportCenterNavbarDesktop: React.FC<SupportCenterNavbarDesktopProps> = ({
   onSubmitSearch,
 }) => {
   return (
-    <div className="flex flex-row bg-white h-fit py-2 px-4 shadow-md border-b items-center justify-between">
+    <div className="flex flex-row bg-white h-fit py-2 px-4 shadow-md border-b border-b-gray-400 items-center justify-between">
       <div className="flex flex-row items-center flex-shrink-0">
         <div className="flex ml-2 mt-0.5">
           <Launchpad />
@@ -39,41 +41,42 @@ const SupportCenterNavbarDesktop: React.FC<SupportCenterNavbarDesktopProps> = ({
           </span>
         </div>
       </div>
-      <div className="flex flex-1 justify-center px-4">
-        <Form
-          className="ml-8 w-full mt-1"
+      <div className="flex flex-1 justify-center px-4 items-center pb-1">
+        <form
+          className="ml-8 w-full"
           onSubmit={(e) => {
             e.preventDefault();
             onSubmitSearch();
           }}
         >
           {showSearch && (
-            <Form.Input
+            <Input
+              name="search-input"
+              label=""
               placeholder="Search LibreTexts Insight..."
-              icon="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              rightIcon={<IconSearch />}
             />
           )}
-        </Form>
+        </form>
       </div>
-      <div className="flex flex-row items-center flex-shrink-0">
+      <div className="flex flex-row items-center flex-shrink-0 gap-4">
         {/* Redirect to Conductor if logged in, else to Commons */}
         <Button
-          className="h-10 !w-48 !mr-4"
+          className=""
           as={Link}
           to={user && user.uuid ? "/home" : "/"}
-          size="small"
+          variant="outline"
         >
           Back to {user && user.uuid ? "Conductor" : "Commons"}
         </Button>
         {(user.isSupport || user.isHarvester) ? (
           <Button
-            className="h-10"
-            color="blue"
             as={Link}
             to="/support/dashboard"
-            size="small"
+            variant="outline"
+            icon={<IconTicket />}
           >
             Staff Dashboard
           </Button>
@@ -81,41 +84,35 @@ const SupportCenterNavbarDesktop: React.FC<SupportCenterNavbarDesktopProps> = ({
           <>
             {user && user.uuid ? (
               <Button
-                className="h-10 !w-44"
-                color="blue"
+                className=""
                 as={Link}
                 to="/support/dashboard"
-                size="small"
+                variant="secondary"
+                icon={<IconTicket />}
               >
-                <Icon name="ticket" />
                 My Tickets
               </Button>
             ) : (
               <Button
-                className="h-10 !w-52"
-                color="blue"
+                variant="outline"
                 as="a"
                 href={AuthHelper.generateLoginURL("/support")}
-                size="small"
-                basic
+                icon={<IconLogin2 />}
               >
-                <Icon name="sign in" />
                 Login with LibreOne
               </Button>
             )}
             <Button
-              className="h-10 !w-44 !ml-2"
-              color="blue"
               as={Link}
               to="/support/contact"
-              size="small"
+              variant="outline"
+              icon={<IconLifebuoy />}
             >
-              <Icon name="text telephone" />
               Contact Support
             </Button>
           </>
         )}
-        <div className="ml-4">{user && user.uuid && <UserDropdown />}</div>
+        {user && user.uuid && <UserDropdown />}
       </div>
     </div>
   );

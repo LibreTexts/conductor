@@ -8,6 +8,7 @@ import SystemAnnouncement from "../../../components/util/SystemAnnouncement";
 import { useDocumentTitle } from "usehooks-ts";
 import useSupportAnnouncement from "../../../hooks/useSupportAnnouncement";
 import { Message } from 'semantic-ui-react';
+import { Alert } from "@libretexts/davis-react";
 
 const SupportCreateTicket = () => {
   useDocumentTitle("LibreTexts | Contact Support");
@@ -57,26 +58,8 @@ const SupportCreateTicket = () => {
             <p className="mt-2">
               Submit a request to get help from our team.
             </p>
-            <div className="flex flex-col border rounded-lg mt-4 w-full lg:w-2/3 bg-white">
-              <Message info>
-                <Message.Content>
-                  <div>
-                    <strong>Important:</strong>
-                    <p>
-                      Please do not submit a support ticket for account creation. You can visit {' '} 
-                      <a 
-                        href="https://register.libretexts.org" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-[#276f86] hover:underline"
-                      >
-                        https://register.libretexts.org
-                      </a>
-                      {' '} to create an account and complete instructor verification (if applicable).
-                    </p>
-                  </div>
-                </Message.Content>
-              </Message>
+            <div className="flex flex-col mt-4 w-full lg:w-1/3 bg-white">
+              <Alert variant="info" title="Important" message="Please do not submit a support ticket for account creation. You canb visit https://register.libretexts.org to create an account and complete instructor verification (if applicable)." />
             </div>
             <>
               {!isLoggedIn && !guestMode && (
@@ -104,7 +87,7 @@ const SupportCreateTicket = () => {
           </div>
         </div>
       </>
-    </DefaultLayout>
+    </DefaultLayout >
   );
 };
 
