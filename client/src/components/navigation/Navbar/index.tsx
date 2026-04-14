@@ -5,11 +5,10 @@ import { useTypedSelector } from "../../../state/hooks.js";
 import NavbarShell from "./NavbarShell.js";
 import EnvironmentBanner from "../EnvironmentBanner.js";
 import useClientConfig from "../../../hooks/useClientConfig.js";
-import { Button, Input, SkipLink } from "@libretexts/davis-react";
-import { NavbarContext, User } from "../../../types/index.js";
+import { Button, SkipLink } from "@libretexts/davis-react";
+import { NavbarContext } from "../../../types/index.js";
 import {
   IconLifebuoy,
-  IconSearch,
   IconShoppingCart,
   IconTicket,
 } from "@tabler/icons-react";
@@ -24,7 +23,7 @@ import UserAuthButton from "../UserAuthButton.js";
 import SearchForm from "./SearchForm.js";
 import { useCart } from "../../../context/CartContext.js";
 import SwitchApp from "../SwitchApp.jsx";
-import { COMMONS_MODULES } from "../../../utils/constants.js";
+import { COMMONS_PATHS } from "../../../Platform.js";
 
 // ─── Conductor nav items ──────────────────────────────────────────────────────
 const menuItemBase =
@@ -62,13 +61,6 @@ const ConductorNavItems: React.FC<ConductorNavItemsProps> = ({
   </>
 );
 
-const commonsModulesWithSingularForm = COMMONS_MODULES.map((module) => {
-  if (module.endsWith("s")) {
-    return module.slice(0, -1);
-  }
-  return module;
-});
-
 /**
  * Single navbar orchestrator for all app contexts (conductor, commons, store, support).
  * Resolves logo props, owns per-context state, composes named slot content, and
@@ -97,7 +89,8 @@ const Navbar: React.FC<{}> = () => {
     else if (pathname.startsWith("/support")) {
       setContext("support");
     }
-    else if (commonsModulesWithSingularForm.some((module) => pathname.startsWith(`/${module}`)) || pathname.startsWith("/catalog") || pathname.startsWith("/collection") || pathname.startsWith("/homework") || pathname === "/") {
+    else if (pathname === "/" || COMMONS_PATHS.some((path) => pathname.startsWith(path))) {
+      console.log("Matched commons path, setting context to 'commons'");
       setContext("commons");
     } else {
       setContext("conductor");
