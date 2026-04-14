@@ -1,17 +1,50 @@
 import { useEffect, useState, useCallback, ReactElement } from "react";
 import { Link, useParams, useLocation } from "react-router-dom";
 import {
-  Image,
   Icon,
   Segment,
   Header,
-  Button,
+  Button as SUIButton,
   Breadcrumb,
   List,
   Search,
   Popup,
-  SemanticCOLORS,
 } from "semantic-ui-react";
+import {
+  Button,
+  Heading,
+  Text,
+  Stack,
+  Card,
+  Avatar,
+  Link as DavisLink,
+  Spinner,
+  Breadcrumb as DavisBreadcrumb,
+} from "@libretexts/davis-react";
+import {
+  IconUser,
+  IconShield,
+  IconBuildingBank,
+  IconSitemap,
+  IconBookmark,
+  IconArchive,
+  IconCalendar,
+  IconCalendarPlus,
+  IconCalendarCheck,
+  IconLanguage,
+  IconPhoto,
+  IconExternalLink,
+  IconClipboardList,
+  IconList,
+  IconLink,
+  IconFileText,
+  IconShoppingCart,
+  IconDownload,
+  IconBook,
+  IconSchool,
+  IconHandStop,
+  IconFileZip,
+} from "@tabler/icons-react";
 import { PieChart, PieChartProps } from "react-minimal-pie-chart";
 import axios from "axios";
 import useGlobalError from "../../../components/error/ErrorHooks";
@@ -160,37 +193,37 @@ const CommonsBook = () => {
       key: "online",
       text: "Read Online",
       href: book.links?.online,
-      icon: "linkify",
+      icon: <IconBook size={16} />,
     },
     {
       key: "pdf",
       text: "Download PDF",
       href: book.links?.pdf,
-      icon: "file pdf",
+      icon: <IconFileText size={16} />,
     },
     {
       key: "print",
       text: "Buy Print Copy",
       href: `https://commons.libretexts.org/store/product/${book.bookID}`,
-      icon: "shopping cart",
+      icon: <IconShoppingCart size={16} />,
     },
     {
       key: "zip",
       text: "Download Pages ZIP",
       href: book.links?.zip,
-      icon: "zip",
+      icon: <IconFileZip size={16} />,
     },
     {
       key: "files",
       text: "Download Print Files",
       href: book.links?.files,
-      icon: "book",
+      icon: <IconDownload size={16} />,
     },
     {
       key: "lms",
       text: "Download LMS File",
       href: book.links?.lms,
-      icon: "graduation cap",
+      icon: <IconDownload size={16} />,
     },
   ];
 
@@ -218,9 +251,8 @@ const CommonsBook = () => {
           if (item.license?.link && item.license.link !== "#") {
             processedItem.metaLink = {
               url: item.license.link,
-              text: `${item.license.label} ${
-                item.license.version ? item.license.version : ""
-              }`,
+              text: `${item.license.label} ${item.license.version ? item.license.version : ""
+                }`,
             };
           } else {
             processedItem.meta = { text: item.license.label };
@@ -595,39 +627,51 @@ const CommonsBook = () => {
    * @returns {React.ReactElement} The rendered Button or Button.Group.
    */
   function PeerReviewButtons() {
-    const buttonProps = {
-      icon: "clipboard list",
-      color: "orange" as SemanticCOLORS,
-      fluid: true,
-    };
-    const submitButtonProps = {
-      ...buttonProps,
-      icon: "clipboard list",
-      content: "Submit a Peer Review",
-      onClick: handleOpenPeerReviewForm,
-    };
-    const viewButtonProps = {
-      ...buttonProps,
-      icon: "ul list",
-      content: "View Peer Reviews",
-      onClick: () => setPRReviewsShow(true),
-    };
     if (prAllow && book.hasPeerReviews) {
-      // allows reviews and has existing reviews
       return (
-        <Button.Group vertical labeled icon fluid className="mt-05r">
-          <Button {...submitButtonProps} />
-          <Button {...viewButtonProps} />
-        </Button.Group>
+        <Stack direction="vertical" gap="xs">
+          <Button
+            variant="secondary"
+            icon={<IconClipboardList size={16} />}
+            fullWidth
+            onClick={handleOpenPeerReviewForm}
+          >
+            Submit a Peer Review
+          </Button>
+          <Button
+            variant="secondary"
+            icon={<IconList size={16} />}
+            fullWidth
+            onClick={() => setPRReviewsShow(true)}
+          >
+            View Peer Reviews
+          </Button>
+        </Stack>
       );
     }
     if (prAllow) {
-      // allows reviews, none yet
-      return <Button className="mt-05r" {...submitButtonProps} />;
+      return (
+        <Button
+          variant="secondary"
+          icon={<IconClipboardList size={16} />}
+          fullWidth
+          onClick={handleOpenPeerReviewForm}
+        >
+          Submit a Peer Review
+        </Button>
+      );
     }
     if (book.hasPeerReviews) {
-      // doesn't allow reviews, but existing are visible
-      return <Button className="mt-05r" {...viewButtonProps} />;
+      return (
+        <Button
+          variant="secondary"
+          icon={<IconList size={16} />}
+          fullWidth
+          onClick={() => setPRReviewsShow(true)}
+        >
+          View Peer Reviews
+        </Button>
+      );
     }
     return null;
   }
@@ -809,386 +853,410 @@ const CommonsBook = () => {
   }
 
   return (
-    <div className="commons-page-container">
-      <Segment.Group raised>
-        <Segment>
-          <Breadcrumb>
-            <Breadcrumb.Section as={Link} to="/catalog">
-              <span>
-                <span className="muted-text">You are on: </span>
-                Catalog
-              </span>
-            </Breadcrumb.Section>
-            <Breadcrumb.Divider icon="right chevron" />
-            <Breadcrumb.Section active>{book.title}</Breadcrumb.Section>
-          </Breadcrumb>
-        </Segment>
-        <Segment loading={!loadedData} className="pt-1p">
-          <div className={styles.grid}>
-            <div className={styles.book_meta}>
+    <>
+      {/* Breadcrumb Navigation */}
+      <div className="px-6 py-3 border-b border-neutral-200">
+        <DavisBreadcrumb aria-label="Page navigation">
+          <DavisBreadcrumb.Item href="/catalog">
+            Catalog
+          </DavisBreadcrumb.Item>
+          <DavisBreadcrumb.Item isCurrent>{book.title}</DavisBreadcrumb.Item>
+        </DavisBreadcrumb>
+      </div>
+
+      {/* Main Content */}
+      {!loadedData ? (
+        <div className="flex justify-center items-center p-16">
+          <Spinner />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-6 p-6">
+          {/* Left Column — Book Meta */}
+          <Card padding="sm">
+            <Stack direction="vertical" gap="md">
               <img
-                id={styles.thumbnail}
                 src={book.thumbnail}
                 aria-hidden={true}
                 alt=""
+                className="w-full rounded-md"
               />
-              <h2 id={styles.title} className="text-center">
+              <Heading level={1} className="text-center">
                 {book.title}
-              </h2>
-              <div className={styles.attributes}>
-                {!isEmptyString(book.author) && (
-                  <p className={styles.book_detail}>
-                    <Icon name="user" /> {book.author}
-                  </p>
-                )}
+              </Heading>
+              <Stack direction="vertical" gap="sm">
                 {!isEmptyString(book.library) && (
-                  <p className={styles.book_detail}>
-                    <Image
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <Avatar
                       src={getLibGlyphURL(book.library)}
-                      className="library-glyph"
-                      inline
-                      aria-hidden="true"
+                      alt=""
+                      size="xs"
                     />
-                    {getLibraryName(book.library)}
-                  </p>
+                    <Text as="p" className="flex items-center gap-1">
+                      {getLibraryName(book.library)}
+                    </Text>
+                  </Stack>
+                )}
+                {!isEmptyString(book.author) && (
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconUser size={16} className="inline mr-1 shrink-0" aria-hidden="true" />
+                    <Text as="p">
+                      {book.author}
+                    </Text>
+                  </Stack>
                 )}
                 {!isEmptyString(book.license) && (
-                  <p className={styles.book_detail}>
-                    <Icon name="shield" />{" "}
-                    {getLicenseText(
-                      book.license,
-                      clrData.meta.mostRestrictiveLicense.version
-                    )}
-                  </p>
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconShield size={16} className="inline mr-1 shrink-0" aria-hidden="true" />
+                    <Text as="p">
+                      {getLicenseText(
+                        book.license,
+                        clrData.meta?.mostRestrictiveLicense?.version
+                      )}
+                    </Text>
+                  </Stack>
                 )}
                 {!isEmptyString(book.affiliation) && (
-                  <p className={styles.book_detail}>
-                    <Icon name="university" /> {book.affiliation}
-                  </p>
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconBuildingBank size={16} className="inline mr-1 shrink-0" aria-hidden="true" />
+                    <Text as="p">
+                      {book.affiliation}
+                    </Text>
+                  </Stack>
                 )}
                 {!isEmptyString(book.course) && (
-                  <p className={styles.book_detail}>
-                    <Icon name="sitemap" /> {book.course}
-                  </p>
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconSitemap size={16} className="inline mr-1 shrink-0" aria-hidden="true" />
+                    <Text as="p">
+                      {book.course}
+                    </Text>
+                  </Stack>
                 )}
                 {book.isbns && book.isbns.length > 0 && book.isbns.map((isbnObj) => (
-                  <p className={styles.book_detail} key={isbnObj.isbn}>
-                    <Icon name="bookmark" /> <strong>ISBN:</strong> {isbnObj.isbn} ({isbnObj.medium}, {isbnObj.format})
-                  </p>
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconBookmark size={16} className="inline mr-1 shrink-0" aria-hidden="true" />
+
+                    <Text as="p" key={isbnObj.isbn}>
+                      <strong>ISBN:</strong> {isbnObj.isbn} ({isbnObj.medium}, {isbnObj.format})
+                    </Text>
+                  </Stack>
                 ))}
                 {book.doi && (
-                  <p className={styles.book_detail}>
-                    <Icon name="archive" /> <strong>DOI:</strong> {book.doi}
-                  </p>
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconArchive size={16} className="inline mr-1 shrink-0" aria-hidden="true" />
+                    <Text as="p">
+                      <strong>DOI:</strong> {book.doi}
+                    </Text>
+                  </Stack>
                 )}
                 {book.sourceOriginalPublicationDate && (
-                  <p className={styles.book_detail}>
-                    <Icon name="calendar" /> <strong>Original Publication Date:</strong> {format(parseISO(book.sourceOriginalPublicationDate.toString()), "MM/dd/yyyy")}
-                  </p>
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconCalendar size={16} className="inline mr-1 shrink-0" aria-hidden="true" />
+                    <Text as="p">
+                      <strong>Original Publication Date:</strong>{" "}
+                      {format(parseISO(book.sourceOriginalPublicationDate.toString()), "MM/dd/yyyy")}
+                    </Text>
+                  </Stack>
                 )}
                 {book.sourceHarvestDate && (
-                  <p className={styles.book_detail}>
-                    <Icon name="calendar plus" /> <strong>Harvest/Import Date:</strong> {format(parseISO(book.sourceHarvestDate.toString()), "MM/dd/yyyy")}
-                  </p>
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconCalendarPlus size={16} className="inline mr-1 shrink-0" aria-hidden="true" />
+
+                    <Text as="p">
+                      <strong>Harvest/Import Date:</strong>{" "}
+                      {format(parseISO(book.sourceHarvestDate.toString()), "MM/dd/yyyy")}
+                    </Text>
+                  </Stack>
                 )}
                 {book.sourceLastModifiedDate && (
-                  <p className={styles.book_detail}>
-                    <Icon name="calendar check" /> <strong>Last Modified Date:</strong> {format(parseISO(book.sourceLastModifiedDate.toString()), "MM/dd/yyyy")}
-                  </p>
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconCalendarCheck size={16} className="inline mr-1 shrink-0" aria-hidden="true" />
+
+                    <Text as="p">
+                      <strong>Last Modified Date:</strong>{" "}
+                      {format(parseISO(book.sourceLastModifiedDate.toString()), "MM/dd/yyyy")}
+                    </Text>
+                  </Stack>
                 )}
                 {book.sourceLanguage && (
-                  <p className={styles.book_detail}>
-                    <Icon name="language" /> <strong>Language:</strong> {getLanguageName(book.sourceLanguage)}
-                  </p>
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconLanguage size={16} className="inline mr-1 shrink-0" aria-hidden="true" />
+
+                    <Text as="p">
+                      <strong>Language:</strong> {getLanguageName(book.sourceLanguage)}
+                    </Text>
+                  </Stack>
                 )}
                 {!isEmptyString(book.thumbnail) && (
-                  <p className={styles.book_detail}>
-                    <Icon name="file image" />
-                    <a href={book.thumbnail} target="_blank">
-                      {" "}
-                      Thumbnail Source{" "}
-                    </a>
-                    <Icon name="external" />
-                  </p>
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconPhoto size={16} className="inline mr-1 shrink-0" aria-hidden="true" />
+                    <DavisLink href={book.thumbnail} external target="_blank" rel="noopener noreferrer">
+                      View Thumbnail
+                    </DavisLink>
+                  </Stack>
                 )}
-              </div>
+              </Stack>
+
               {typeof book.rating === "number" && book.rating > 0 && (
-                <div id={styles.rating_wrapper}>
+                <div className="my-6">
                   <StarRating value={book.rating} displayMode={true} />
                 </div>
               )}
-              {user?.isAuthenticated && book.projectID && (
+
+              <Stack direction="vertical" gap="xs">
                 <Button
-                  as="a"
-                  icon="file alternate outline"
-                  content="View Conductor Project"
-                  color="blue"
-                  fluid
-                  className="mt-2e"
-                  href={`/projects/${book.projectID}`}
-                  target="_blank"
-                  rel="noreferrer"
-                />
-              )}
-              <Button
-                icon="hand paper"
-                content="Submit an Adoption Report"
-                color="green"
-                fluid
-                onClick={handleOpenAdoptionReport}
-                className="mt-05r"
-              />
-              <PeerReviewButtons />
-              {book.hasAdaptCourse && book.adaptCourseID !== "" && (
-                <Button
-                  color="teal"
-                  fluid
-                  as="a"
-                  href={`https://adapt.libretexts.org/courses/${book.adaptCourseID}/anonymous`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={`mt-05r ${styles.adapt_button}`}
+                  variant="secondary"
+                  icon={<IconHandStop size={16} />}
+                  fullWidth
+                  onClick={handleOpenAdoptionReport}
                 >
-                  <img src="/adapt_icon_white.png" aria-hidden="true" alt="" />
-                  <span>View Homework on ADAPT</span>
+                  Submit an Adoption Report
                 </Button>
-              )}
-              <Button.Group
-                fluid
-                vertical
-                labeled
-                icon
-                color="blue"
-                className="mt-2r"
-              >
+                <PeerReviewButtons />
+                {user?.isAuthenticated && book.projectID && (
+                  <Button
+                    as={Link}
+                    variant="outline"
+                    icon={<IconFileText size={16} />}
+                    fullWidth
+                    to={`/projects/${book.projectID}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    View Conductor Project
+                  </Button>
+                )}
+                {book.hasAdaptCourse && book.adaptCourseID !== "" && (
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    as="a"
+                    href={`https://adapt.libretexts.org/courses/${book.adaptCourseID}/anonymous`}
+                    target="_blank"
+                    rel="noreferrer"
+                    icon={<img src="/adapt_icon_white.png" aria-hidden="true" alt="" className="h-[1.1em]" />}
+                  >
+                    View Homework on ADAPT
+                  </Button>
+                )}
+              </Stack>
+
+              <Stack direction="vertical" gap="xs" className="mt-6">
                 {accessLinks.map((item) => (
                   <Button
                     key={item.key}
+                    variant="outline"
                     icon={item.icon}
-                    content={item.text}
-                    as="a"
-                    href={item.href}
+                    fullWidth
+                    as={Link}
+                    to={item.href}
                     target="_blank"
                     rel="noreferrer"
-                    tabIndex={0}
-                  />
+                    className="justify-start"
+                  >
+                    {item.text}
+                  </Button>
                 ))}
-              </Button.Group>
-            </div>
-            <div className={styles.book_info}>
-              {!isEmptyString(book.summary) && (
-                <Segment>
-                  <Header as="h3" dividing>
-                    Summary
-                  </Header>
-                  <p className={styles.meta_largefont}>{book.summary}</p>
-                </Segment>
-              )}
-              {showFiles && projFiles && (projFiles.length > 0 || currDirectory !== '')  && (
-                <Segment.Group size="large">
-                  <Segment>
-                    <div className="ui dividing header">
-                      <div className="hideablesection">
-                        <h3 className="header">Assets</h3>
-                        <div className="button-container">
-                          <Button
-                            compact
-                            floated="right"
-                            onClick={() => {
-                              setFileSearchQuery("");
-                              handleChangeFilesVis();
+              </Stack>
+            </Stack>
+          </Card>
+          {/* Right Column — Book Info */}
+          <Stack direction="vertical" gap="md">
+            {!isEmptyString(book.summary) && (
+              <Card padding="sm">
+                <Stack direction="vertical" gap="sm">
+                  <Heading level={3}>Summary</Heading>
+                  <Text as="p" className={styles.meta_largefont}>
+                    {book.summary}
+                  </Text>
+                </Stack>
+              </Card>
+            )}
+
+            {/* Assets */}
+            {projFiles && (projFiles.length > 0 || currDirectory !== "") && (
+              <Card padding="sm">
+                <Stack direction="horizontal" gap="sm" align="center" justify="between">
+                  <Heading level={3}>Assets</Heading>
+                  <Button
+                    variant="tertiary"
+                    onClick={() => {
+                      setFileSearchQuery("");
+                      handleChangeFilesVis();
+                    }}
+                  >
+                    {showFiles ? "Hide" : "Show"}
+                  </Button>
+                </Stack>
+                {showFiles && (
+                  <>
+                    <div className="px-4 py-2 border-b border-neutral-200">
+                      <div className="flex-row-div">
+                        <div className="left-flex ml-05e">
+                          <DirectoryBreadcrumbs />
+                        </div>
+                        <div className="right-flex">
+                          <Search
+                            input={{
+                              icon: "search",
+                              iconPosition: "left",
+                              placeholder: "Search assets...",
                             }}
-                          >
-                            Hide
-                          </Button>
+                            loading={fileSearchLoading}
+                            onResultSelect={(_e, { result }) =>
+                              handleFileSearchSelect(result.id)
+                            }
+                            onSearchChange={(_e, { value }) =>
+                              handleFileSearch(_e, { value: value ?? "" })
+                            }
+                            results={fileSearchResults}
+                            value={fileSearchQuery}
+                            size="mini"
+                          />
                         </div>
                       </div>
                     </div>
-                    <div className="flex-row-div">
-                      <div className="left-flex ml-05e">
-                        <DirectoryBreadcrumbs />
-                      </div>
-                      <div className="right-flex">
-                        <Search
-                          input={{
-                            icon: "search",
-                            iconPosition: "left",
-                            placeholder: "Search assets...",
-                          }}
-                          loading={fileSearchLoading}
-                          onResultSelect={(_e, { result }) =>
-                            handleFileSearchSelect(result.id)
-                          }
-                          onSearchChange={(_e, { value }) =>
-                            handleFileSearch(_e, { value: value ?? "" })
-                          }
-                          results={fileSearchResults}
-                          value={fileSearchQuery}
-                          size="mini"
-                        />
-                      </div>
-                    </div>
-                  </Segment>
-                  <Segment
-                    loading={loadingFiles}
-                    className={projFiles.length === 0 ? "muted-segment" : ""}
-                  >
-                    {projFiles.length > 0 ? (
-                      <List divided verticalAlign="middle">
-                        {projFiles.map((file, idx) => {
-                          return (
-                            <List.Item key={file.fileID}>
-                              <div className="flex-col-div">
-                                <div className="flex-row-div">
-                                  <div className="left-flex">
-                                    <div className="project-file-title-column">
-                                      <div
-                                        className={
-                                          file.description ? "mb-01e" : ""
-                                        }
-                                      >
-                                        {file.storageType === "folder" ? (
-                                          <Icon name="folder outline" />
-                                        ) : (
-                                          <FileIcon filename={file.name} />
-                                        )}
-                                        {file.storageType === "folder" ? (
-                                          <span
-                                            className={`text-link ${styles.project_file_title}`}
-                                            onClick={() =>
-                                              handleDirectoryClick(file.fileID)
-                                            }
-                                          >
-                                            {file.name}
-                                          </span>
-                                        ) : (
-                                          <a
-                                            onClick={() =>
-                                              handleDownloadFile(file.fileID)
-                                            }
-                                            className={
-                                              styles.project_file_title +
-                                              " cursor-pointer"
-                                            }
-                                          >
-                                            {file.name}
-                                          </a>
-                                        )}
-                                        {
-                                          file.access === 'instructors' && user?.isAuthenticated && user?.verifiedInstructor && (
-                                            <Popup
-                                              content="This asset is restricted to verified instructors. You're good to go!"
-                                              trigger={
-                                                <Icon
-                                                  name="graduation cap"
-                                                  color="blue"
-                                                  
-                                                  className="!ml-2 !mt-0.5"
-                                                />
+                    <Segment
+                      loading={loadingFiles}
+                      className={projFiles.length === 0 ? "muted-segment" : ""}
+                    >
+                      {projFiles.length > 0 ? (
+                        <List divided verticalAlign="middle">
+                          {projFiles.map((file, idx) => {
+                            return (
+                              <List.Item key={file.fileID}>
+                                <div className="flex-col-div">
+                                  <div className="flex-row-div">
+                                    <div className="left-flex">
+                                      <div className="project-file-title-column">
+                                        <div
+                                          className={
+                                            file.description ? "mb-01e" : ""
+                                          }
+                                        >
+                                          {file.storageType === "folder" ? (
+                                            <Icon name="folder outline" />
+                                          ) : (
+                                            <FileIcon filename={file.name} />
+                                          )}
+                                          {file.storageType === "folder" ? (
+                                            <span
+                                              className={`text-link ${styles.project_file_title}`}
+                                              onClick={() =>
+                                                handleDirectoryClick(file.fileID)
                                               }
-                                              position="top center"
-                                            />
-                                          )
-                                        }
-                                      </div>
-                                      <div>
-                                        {file.description && (
-                                          <span
-                                            className={`muted-text ml-2e ${styles.project_file_descrip}`}
-                                          >
-                                            {truncateString(
-                                              file.description,
-                                              100
-                                            )}
-                                          </span>
-                                        )}
+                                            >
+                                              {file.name}
+                                            </span>
+                                          ) : (
+                                            <a
+                                              onClick={() =>
+                                                handleDownloadFile(file.fileID)
+                                              }
+                                              className={
+                                                styles.project_file_title +
+                                                " cursor-pointer"
+                                              }
+                                            >
+                                              {file.name}
+                                            </a>
+                                          )}
+                                          {
+                                            file.access === 'instructors' && user?.isAuthenticated && user?.verifiedInstructor && (
+                                              <Popup
+                                                content="This asset is restricted to verified instructors. You're good to go!"
+                                                trigger={
+                                                  <Icon
+                                                    name="graduation cap"
+                                                    color="blue"
+                                                    className="!ml-2 !mt-0.5"
+                                                  />
+                                                }
+                                                position="top center"
+                                              />
+                                            )
+                                          }
+                                        </div>
+                                        <div>
+                                          {file.description && (
+                                            <span
+                                              className={`muted-text ml-2e ${styles.project_file_descrip}`}
+                                            >
+                                              {truncateString(
+                                                file.description,
+                                                100
+                                              )}
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                  <div className="right-flex">
-                                    <Popup
-                                      content="Download Asset"
-                                      trigger={
-                                        file.storageType === "file" && (
-                                          <Button
-                                            icon
-                                            size="small"
-                                            title="Download asset (opens in new tab)"
-                                            onClick={() =>
-                                              handleDownloadFile(file.fileID)
-                                            }
-                                          >
-                                            <Icon name="download" />
-                                          </Button>
-                                        )
-                                      }
-                                      position="top center"
-                                    />
-                                    <Popup
-                                      content="Open Folder"
-                                      trigger={
-                                        file.storageType === "folder" && (
-                                          <Button
-                                            icon
-                                            size="small"
-                                            title="Open Folder"
-                                            onClick={() =>
-                                              handleDirectoryClick(file.fileID)
-                                            }
-                                          >
-                                            <Icon name="folder open outline" />
-                                          </Button>
-                                        )
-                                      }
-                                      position="top center"
-                                    />
+                                    <div className="right-flex">
+                                      <Popup
+                                        content="Download Asset"
+                                        trigger={
+                                          file.storageType === "file" && (
+                                            <SUIButton
+                                              icon
+                                              size="small"
+                                              title="Download asset (opens in new tab)"
+                                              onClick={() =>
+                                                handleDownloadFile(file.fileID)
+                                              }
+                                            >
+                                              <Icon name="download" />
+                                            </SUIButton>
+                                          )
+                                        }
+                                        position="top center"
+                                      />
+                                      <Popup
+                                        content="Open Folder"
+                                        trigger={
+                                          file.storageType === "folder" && (
+                                            <SUIButton
+                                              icon
+                                              size="small"
+                                              title="Open Folder"
+                                              onClick={() =>
+                                                handleDirectoryClick(file.fileID)
+                                              }
+                                            >
+                                              <Icon name="folder open outline" />
+                                            </SUIButton>
+                                          )
+                                        }
+                                        position="top center"
+                                      />
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </List.Item>
-                          );
-                        })}
-                      </List>
-                    ) : (
-                      <div>
-                        <p className="text-center muted-text">
-                          <em>No assets yet.</em>
-                        </p>
-                      </div>
-                    )}
-                  </Segment>
-                </Segment.Group>
-              )}
-              {!showFiles && projFiles && projFiles.length > 0 && (
-                <Segment>
-                  <div className="hiddensection">
-                    <div className="header-container">
-                      <Header as="h3">Assets</Header>
-                    </div>
-                    <div className="button-container">
-                      <Button floated="right" onClick={handleChangeFilesVis}>
-                        Show
-                      </Button>
-                    </div>
-                  </div>
-                </Segment>
-              )}
-              {showTOC ? (
-                <Segment loading={loadingTOC}>
-                  <div className="ui dividing header">
-                    <div className="hideablesection">
-                      <h3 className="header">Table of Contents</h3>
-                      <div className="button-container">
-                        <Button
-                          compact
-                          floated="right"
-                          onClick={handleChangeTOCVis}
-                        >
-                          Hide
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                              </List.Item>
+                            );
+                          })}
+                        </List>
+                      ) : (
+                        <div>
+                          <p className="text-center muted-text">
+                            <em>No assets yet.</em>
+                          </p>
+                        </div>
+                      )}
+                    </Segment>
+                  </>
+                )}
+              </Card>
+            )}
+
+            {/* Table of Contents */}
+            <Card padding="sm">
+              <Stack direction="horizontal" gap="sm" align="center" justify="between">
+                <Heading level={3}>Table of Contents</Heading>
+                <Button variant="tertiary" onClick={handleChangeTOCVis}>
+                  {showTOC ? "Hide" : "Show"}
+                </Button>
+              </Stack>
+              {showTOC && (
+                <>
                   {bookTOC && bookTOC.length > 0 ? (
                     <TreeView
                       items={bookTOC}
@@ -1201,61 +1269,25 @@ const CommonsBook = () => {
                       <em>Table of contents unavailable.</em>
                     </p>
                   )}
-                </Segment>
-              ) : (
-                <Segment>
-                  <div className="hiddensection">
-                    <div className="header-container">
-                      <Header as="h3">Table of Contents</Header>
-                    </div>
-                    <div className="button-container">
-                      <Button floated="right" onClick={handleChangeTOCVis}>
-                        Show
-                      </Button>
-                    </div>
-                  </div>
-                </Segment>
+                </>
               )}
-              {foundCLR &&
-                (showLicensing ? (
-                  <Segment>
-                    <div className="ui dividing header">
-                      <div className="hideablesection">
-                        <h3 className="header">Licensing</h3>
-                        <div className="button-container">
-                          <Button
-                            compact
-                            floated="right"
-                            onClick={handleChangeLicensingVis}
-                          >
-                            Hide
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                    <LicensingReport />
-                  </Segment>
-                ) : (
-                  <Segment>
-                    <div className="hiddensection">
-                      <div className="header-container">
-                        <Header as="h3">Licensing</Header>
-                      </div>
-                      <div className="button-container">
-                        <Button
-                          floated="right"
-                          onClick={handleChangeLicensingVis}
-                        >
-                          Show
-                        </Button>
-                      </div>
-                    </div>
-                  </Segment>
-                ))}
-            </div>
-          </div>
-        </Segment>
-      </Segment.Group>
+            </Card>
+
+            {/* Licensing */}
+            {foundCLR && (
+              <Card padding="sm">
+                <Stack direction="horizontal" gap="sm" align="center" justify="between">
+                  <Heading level={3}>Licensing</Heading>
+                  <Button variant="tertiary" onClick={handleChangeLicensingVis}>
+                    {showLicensing ? "Hide" : "Show"}
+                  </Button>
+                </Stack>
+                {showLicensing && <LicensingReport />}
+              </Card>
+            )}
+          </Stack>
+        </div>
+      )}
       <BookPeerReviewsModal
         open={prReviewsShow}
         onClose={() => setPRReviewsShow(false)}
@@ -1276,7 +1308,7 @@ const CommonsBook = () => {
         onClose={() => setPRShow(false)}
         projectID={prProjectID}
       />
-    </div>
+    </>
   );
 };
 

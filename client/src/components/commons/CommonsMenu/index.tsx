@@ -1,95 +1,67 @@
 import { Link } from "react-router-dom";
 import { useTypedSelector } from "../../../state/hooks";
-import { Menu, SemanticCOLORS, SemanticWIDTHS } from "semantic-ui-react";
-import Breakpoint from "../../util/Breakpoints";
-import "./CommonsMenu.css";
 import { sanitizeCustomColor } from "../../../utils/campusSettingsHelpers";
 
 /**
- * A menu providing navigation around the Commons interfaces.
+ * A navigation bar providing route-level navigation around the Commons interfaces.
+ *
+ * Renders as a <nav> landmark with <ul>/<li> link structure so screen readers
+ * correctly identify it as site navigation (not a tablist). Active page is
+ * communicated via aria-current="page" rather than a CSS class, and every item
+ * carries an explicit focus-visible ring that works against any org brand color.
  */
 const CommonsMenu = ({ activeItem = "catalog" }: { activeItem?: string }) => {
-  // Global State
   const org = useTypedSelector((state) => state.org);
 
-  const menuProps = {
-    secondary: true,
-    pointing: true,
-    fluid: true,
-    widths:
-      org.orgID === "libretexts"
-        ? (5 as SemanticWIDTHS)
-        : (2 as SemanticWIDTHS),
-    id: "commons-menu",
-    stackable: true,
-    style: {backgroundColor: `${org.primaryColor ? sanitizeCustomColor(org.primaryColor) : '#127BC4'}`}
-  };
-  const mobileMenuProps = {
-    ...menuProps,
-    pointing: false,
-  };
+  const generateMenuOptions = (): { key: string; text: string }[] => {
+    const opts: { key: string; text: string }[] = [{ key: "catalog", text: "Catalog" }];
 
-  /**
-   * Generates the menu options to present based on the instance's configured Organization.
-   *
-   * @returns {object[]} An array of objects containing identifier keys and corresponding UI text.
-   */
-  const generateMenuOptions = () => {
-    const opts: { key: string; text: string }[] = [];
-
-    let collectionsText = org.collectionsDisplayLabel ?? 'Collections';
-    const catalog = { key: "catalog", text: "Catalog" };
-    opts.push(catalog);
-
-    const collections = { key: "collections", text: `${collectionsText}` };
-    if(org.showCollections === undefined || org.showCollections) { // Show by default if option not explicitly set to false
-      opts.push(collections);
+    if (org.showCollections === undefined || org.showCollections) {
+      opts.push({ key: "collections", text: org.collectionsDisplayLabel ?? "Collections" });
     }
 
     if (org.orgID === "libretexts") {
-      opts.push(...[
-        { key: "homework", text: "Homework" },
-      ]);
+      opts.push({ key: "homework", text: "Homework" });
     }
 
     return opts;
   };
 
   const options = generateMenuOptions();
-  if(options.length <= 1) return <></>; // Don't render if there's only one option
+  if (options.length <= 1) return <></>;
 
-  const MenuOptions = (): JSX.Element => {
-    return (
-      <>
-        {options.map((item) => (
-          <Menu.Item
-            key={item.key}
-            name={item.key}
-            active={activeItem === item.key}
-            className="commons-menu-item"
-            as={Link}
-            to={`/${item.key}`}
-          >
-            {item.text}
-          </Menu.Item>
-        ))}
-      </>
-    );
-  };
+  const bgColor = sanitizeCustomColor(org.primaryColor ?? "#127BC4");
 
   return (
-    <>
-      <Breakpoint name="tabletOrDesktop">
-        <Menu {...menuProps}>
-          <MenuOptions />
-        </Menu>
-      </Breakpoint>
-      <Breakpoint name="mobile">
-        <Menu {...mobileMenuProps}>
-          <MenuOptions />
-        </Menu>
-      </Breakpoint>
-    </>
+    <nav
+      aria-label="Commons navigation"
+      className="w-full shadow-md"
+      style={{ backgroundColor: bgColor }}
+    >
+      <ul role="list" className="flex flex-wrap justify-center m-0 p-0 list-none">
+        {options.map((item) => {
+          const isActive = activeItem === item.key;
+          return (
+            <li key={item.key}>
+              <Link
+                to={`/${item.key}`}
+                aria-current={isActive ? "page" : undefined}
+                className={[
+                  "inline-flex items-center px-6 py-3",
+                  "!text-white text-xl font-medium no-underline",
+                  "border-b-2 transition-colors duration-150",
+                  "focus-visible:outline-none focus-visible:ring-2",
+                  "focus-visible:ring-white focus-visible:ring-inset focus-visible:rounded-sm",
+                  isActive ? "border-white" : "border-transparent hover:border-white/50",
+                ].join(" ")}
+              >
+                {item.text}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
   );
 };
 

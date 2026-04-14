@@ -1,284 +1,203 @@
-import React, { useState } from "react";
-import { Icon, Popup } from "semantic-ui-react";
+import { useMemo, useState } from "react";
+import { Badge, IconButton, Spinner, Tabs } from "@libretexts/davis-react";
 import { CommonsModule } from "../../../types";
+import { CatalogContextValue, CatalogEntityData, useCatalog } from "../../../context/CatalogContext";
+import { useTypedSelector } from "../../../state/hooks";
 import CatalogTab from "./CatalogTab";
 import BooksTable from "./BooksTable";
-import VisualMode from "./VisualMode";
 import AssetsTable from "./AssetsTable";
+import AuthorsTable from "./AuthorsTable";
 import ProjectsTable from "./ProjectsTable";
-import TabLabel from "./CatalogTabLabel";
+import VisualMode from "./VisualMode";
 import CatalogBookFilters from "./CatalogBookFilters";
 import CatalogAssetFilters from "./CatalogAssetFilters";
-import { useTypedSelector } from "../../../state/hooks";
-import AuthorsTable from "./AuthorsTable";
 import CatalogAuthorFilters from "./CatalogAuthorFilters";
 import CatalogProjectFilters from "./CatalogProjectFilters";
 import CatalogMiniRepoFilters from "./CatalogMiniRepoFilters";
-import { useCatalog } from "../../../context/CatalogContext";
+import { IconArrowDown, IconBook, IconFile, IconFolder, IconGrid3x3, IconList, IconTools, IconUser } from "@tabler/icons-react";
+
+// Icons extracted from the former CatalogTabLabel component
+const ICONS: Record<CommonsModule, React.ReactNode> = {
+  books: (
+    <IconBook size={16} />
+  ),
+  assets: (
+    <IconFile size={16} />
+  ),
+  minirepos: (
+    <IconFolder size={16} />
+  ),
+  projects: (
+    <IconTools size={16} />
+  ),
+  authors: (
+    <IconUser size={16} />
+  ),
+};
+
+type ModuleDef = {
+  key: CommonsModule;
+  title: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  FilterComponent: React.ComponentType<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  TableComponent: React.ComponentType<any>;
+  getData: (catalog: CatalogContextValue) => CatalogEntityData<any, any>;
+};
+
+// Static config — one entry per module. Add new modules here only.
+const MODULE_DEFS: ModuleDef[] = [
+  {
+    key: "books",
+    title: "Books",
+    FilterComponent: CatalogBookFilters,
+    TableComponent: BooksTable,
+    getData: (c) => c.books,
+  },
+  {
+    key: "assets",
+    title: "Assets",
+    FilterComponent: CatalogAssetFilters,
+    TableComponent: AssetsTable,
+    getData: (c) => c.assets,
+  },
+  {
+    key: "minirepos",
+    title: "Mini-Repos",
+    FilterComponent: CatalogMiniRepoFilters,
+    TableComponent: ProjectsTable,
+    getData: (c) => c.miniRepos,
+  },
+  {
+    key: "projects",
+    title: "Projects",
+    FilterComponent: CatalogProjectFilters,
+    TableComponent: ProjectsTable,
+    getData: (c) => c.projects,
+  },
+  {
+    key: "authors",
+    title: "Authors",
+    FilterComponent: CatalogAuthorFilters,
+    TableComponent: AuthorsTable,
+    getData: (c) => c.authors,
+  },
+];
 
 const CatalogTabs: React.FC = () => {
-  // Access all catalog data from context instead of props
   const catalog = useCatalog();
   const org = useTypedSelector((state) => state.org);
   const [itemizedMode, setItemizedMode] = useState(false);
-  const [jumpToBottomClicked, setJumpToBottomClicked] = useState(false);
 
   const jumpToBottom = () => {
     catalog.triggerStopLoading();
-    setJumpToBottomClicked(true);
     window.scrollTo(0, document.body.scrollHeight);
   };
 
-  const RenderTabLabels = () => {
-    const moduleSettings = org.commonsModules;
-    const labels = [];
+  // Derive the ordered, enabled list of modules from org settings
+  const visibleModules = useMemo(() => {
+    const ms = org.commonsModules;
+    if (!ms) return MODULE_DEFS;
+    return MODULE_DEFS
+      .filter((d) => ms[d.key]?.enabled)
+      .sort((a, b) => ms[a.key].order - ms[b.key].order);
+  }, [org.commonsModules]);
 
-    // If module settings are not available, show all tabs
-    if (!moduleSettings || moduleSettings.books.enabled) {
-      labels.push(
-        <TabLabel
-          title="Books"
-          index="books"
-          itemsCount={catalog.books.total}
-          loading={catalog.books.loading}
-          isActive={catalog.activeTab === "books"}
-          onClick={() => catalog.setActiveTab("books")}
-          key={"books-tab-label"}
-        />
-      );
-    }
+  // Pre-join module defs with their live catalog data to avoid double calls
+  const moduleEntries = useMemo(
+    () => visibleModules.map((def) => ({ def, data: def.getData(catalog) })),
+    [visibleModules, catalog]
+  );
 
-    if (!moduleSettings || moduleSettings.assets?.enabled) {
-      labels.push(
-        <TabLabel
-          title="Assets"
-          index="assets"
-          itemsCount={catalog.assets.total}
-          loading={catalog.assets.loading}
-          isActive={catalog.activeTab === "assets"}
-          onClick={() => catalog.setActiveTab("assets")}
-          key={"assets-tab-label"}
-        />
-      );
-    }
-
-    if (!moduleSettings || moduleSettings.minirepos?.enabled) {
-      labels.push(
-        <TabLabel
-          title="Mini-Repos"
-          index="minirepos"
-          itemsCount={catalog.miniRepos.total}
-          loading={catalog.miniRepos.loading}
-          isActive={catalog.activeTab === "minirepos"}
-          onClick={() => catalog.setActiveTab("minirepos")}
-          key={"minirepos-tab-label"}
-        />
-      );
-    }
-
-    if (!moduleSettings || moduleSettings.projects?.enabled) {
-      labels.push(
-        <TabLabel
-          title="Projects"
-          index="projects"
-          itemsCount={catalog.projects.total}
-          loading={catalog.projects.loading}
-          isActive={catalog.activeTab === "projects"}
-          onClick={() => catalog.setActiveTab("projects")}
-          key={"projects-tab-label"}
-        />
-      );
-    }
-
-    if (!moduleSettings || moduleSettings.authors?.enabled) {
-      labels.push(
-        <TabLabel
-          title="Authors"
-          index="authors"
-          itemsCount={catalog.authors.total}
-          loading={catalog.authors.loading}
-          isActive={catalog.activeTab === "authors"}
-          onClick={() => catalog.setActiveTab("authors")}
-          key={"authors-tab-label"}
-        />
-      );
-    }
-
-    labels.sort((a, b) => {
-      const aIndex = a.props.index;
-      const bIndex = b.props.index;
-      if (moduleSettings) {
-        return (
-          moduleSettings[aIndex as CommonsModule].order -
-          moduleSettings[bIndex as CommonsModule].order
-        );
-      }
-      return 0;
-    });
-
-    return <>{labels}</>;
-  };
+  // Map CommonsModule string ↔ numeric index for Davis Tabs controlled mode.
+  // Guard against -1 (e.g. activeTab disabled by org after page load).
+  const selectedIndex = Math.max(
+    0,
+    moduleEntries.findIndex(({ def }) => def.key === catalog.activeTab)
+  );
 
   return (
-    <div className="custom-tabs">
-      <div className="flex flex-row justify-between border-b border-gray-300 mb-2 mx-1">
-        <div className="flex flex-row px-0.5 items-center">
-          <RenderTabLabels />
-        </div>
-        <div className="flex flex-row items-center mb-1">
-          <Popup
-            trigger={
-              <button
-                onClick={() => {
-                  jumpToBottomClicked
-                    ? window.location.reload()
-                    : jumpToBottom();
-                }}
-                className="bg-slate-100 text-black border border-slate-300 rounded-md mr-2 !pl-1.5 p-1 shadow-sm hover:shadow-md"
-                aria-label={
-                  jumpToBottomClicked
-                    ? "Refresh to continue browsing"
-                    : "Jump to bottom"
-                }
-              >
-                {jumpToBottomClicked ? (
-                  <Icon name="refresh" />
+    <Tabs
+      selectedIndex={selectedIndex}
+      onChange={(index) => {
+        const entry = moduleEntries[index];
+        if (entry) catalog.setActiveTab(entry.def.key);
+      }}
+      variant="line"
+      size="sm"
+    >
+      {/*
+        Outer wrapper owns the full-width border-b line and keeps the toolbar
+        flush-right. The toolbar lives here (outside Tabs.List) so that:
+          1. role="tablist" only contains role="tab" elements (ARIA conformance).
+          2. Tabs.List can be flex-1 + overflow-x-auto so tabs scroll on narrow
+             viewports while the toolbar stays pinned to the right edge.
+      */}
+      <div className="flex w-full items-center border-b border-gray-200 pr-1">
+        {/* flex-1 + min-w-0 lets the list grow/shrink; overflow-x-auto enables
+            horizontal scroll when tabs can't fit; !border-b-0 removes Davis's
+            own border since the outer wrapper provides it. */}
+        <Tabs.List className="flex-1 min-w-0 overflow-x-auto !border-b-0">
+          {moduleEntries.map(({ def, data }) => (
+            <Tabs.Tab key={def.key}>
+              <span className="flex items-center gap-1.5">
+                {ICONS[def.key]}
+                {def.title}
+                {data.loading ? (
+                  <Spinner size="sm" color="secondary" />
                 ) : (
-                  <Icon name="arrow down" />
+                  <Badge label={String(data.total ?? 0)} size="sm" />
                 )}
-              </button>
-            }
-            content={
-              jumpToBottomClicked
-                ? "Refresh to continue browsing"
-                : "Jump to bottom"
-            }
+              </span>
+            </Tabs.Tab>
+          ))}
+        </Tabs.List>
+        <div className="flex items-center gap-1 pb-1 flex-shrink-0 ml-2">
+          <IconButton
+            variant="outline"
+            size="sm"
+            tooltip="Jump to bottom"
+            aria-label="Jump to bottom"
+            onClick={jumpToBottom}
+            icon={<IconArrowDown size={16} />}
           />
-          <Popup
-            trigger={
-              <button
-                onClick={() => {
-                  setItemizedMode(!itemizedMode);
-                }}
-                className="bg-slate-100 text-black border border-slate-300 rounded-md !pl-1.5 p-1 shadow-sm hover:shadow-md"
-                aria-label={
-                  itemizedMode
-                    ? "Switch to visual mode"
-                    : "Switch to itemized mode"
-                }
-              >
-                {itemizedMode ? (
-                  <Icon name="grid layout" />
-                ) : (
-                  <Icon name="list layout" />
-                )}
-              </button>
-            }
-            content={
-              itemizedMode ? "Switch to visual mode" : "Switch to itemized mode"
+          <IconButton
+            variant="outline"
+            size="sm"
+            tooltip={itemizedMode ? "Switch to visual mode" : "Switch to itemized mode"}
+            aria-label={itemizedMode ? "Switch to visual mode" : "Switch to itemized mode"}
+            onClick={() => setItemizedMode((m) => !m)}
+            icon={
+              itemizedMode ? (
+                <IconGrid3x3 size={16} />
+              ) : (
+                <IconList size={16} />
+              )
             }
           />
         </div>
       </div>
-      <div className="tab-content">
-        {catalog.activeTab === "books" && (
-          <CatalogBookFilters
-            filters={catalog.books.filters}
-            onFilterChange={(type, value) => catalog.books.setFilter(type, value)}
-          />
-        )}
-        {catalog.activeTab === "assets" && (
-          <CatalogAssetFilters
-            filters={catalog.assets.filters}
-            onFilterChange={(type, value) => catalog.assets.setFilter(type, value)}
-          />
-        )}
-        {catalog.activeTab === "authors" && (
-          <CatalogAuthorFilters
-            filters={catalog.authors.filters}
-            onFilterChange={(type, value) => catalog.authors.setFilter(type, value)}
-          />
-        )}
-        {catalog.activeTab === "minirepos" && (
-          <CatalogMiniRepoFilters
-            filters={catalog.miniRepos.filters}
-            onFilterChange={(type, value) => catalog.miniRepos.setFilter(type, value)}
-          />
-        )}
-        {catalog.activeTab === "projects" && (
-          <CatalogProjectFilters
-            filters={catalog.projects.filters}
-            onFilterChange={(type, value) => catalog.projects.setFilter(type, value)}
-          />
-        )}
-        {catalog.activeTab === "books" && (
-          <CatalogTab
-            key={"books-tab"}
-            itemizedMode={itemizedMode}
-            dataLength={catalog.books.data.length}
-            totalLength={catalog.books.total}
-            getNextPage={catalog.books.loadMore}
-            loading={catalog.books.loading}
-            itemizedRender={<BooksTable items={catalog.books.data} />}
-            visualRender={<VisualMode items={catalog.books.data} loading={catalog.books.loading} />}
-          />
-        )}
-        {catalog.activeTab === "assets" && (
-          <CatalogTab
-            key={"assets-tab"}
-            itemizedMode={itemizedMode}
-            dataLength={catalog.assets.data.length}
-            totalLength={catalog.assets.total}
-            getNextPage={catalog.assets.loadMore}
-            loading={catalog.assets.loading}
-            itemizedRender={<AssetsTable items={catalog.assets.data} />}
-            visualRender={<VisualMode items={catalog.assets.data} loading={catalog.assets.loading} />}
-          />
-        )}
-        {catalog.activeTab === "minirepos" && (
-          <CatalogTab
-            key={"minirepos-tab"}
-            itemizedMode={itemizedMode}
-            dataLength={catalog.miniRepos.data.length}
-            totalLength={catalog.miniRepos.total}
-            getNextPage={catalog.miniRepos.loadMore}
-            loading={catalog.miniRepos.loading}
-            itemizedRender={<ProjectsTable items={catalog.miniRepos.data} />}
-            visualRender={
-              <VisualMode items={catalog.miniRepos.data} loading={catalog.miniRepos.loading} />
-            }
-          />
-        )}
-        {catalog.activeTab === "projects" && (
-          <CatalogTab
-            key={"projects-tab"}
-            itemizedMode={itemizedMode}
-            dataLength={catalog.projects.data.length}
-            totalLength={catalog.projects.total}
-            getNextPage={catalog.projects.loadMore}
-            loading={catalog.projects.loading}
-            itemizedRender={<ProjectsTable items={catalog.projects.data} />}
-            visualRender={
-              <VisualMode items={catalog.projects.data} loading={catalog.projects.loading} />
-            }
-          />
-        )}
-        {catalog.activeTab === "authors" && (
-          <CatalogTab
-            key={"authors-tab"}
-            itemizedMode={itemizedMode}
-            dataLength={catalog.authors.data.length}
-            totalLength={catalog.authors.total}
-            getNextPage={catalog.authors.loadMore}
-            loading={catalog.authors.loading}
-            itemizedRender={<AuthorsTable items={catalog.authors.data} />}
-            visualRender={
-              <VisualMode items={catalog.authors.data} loading={catalog.authors.loading} />
-            }
-          />
-        )}
-      </div>
-    </div>
+
+      <Tabs.Panels>
+        {moduleEntries.map(({ def, data }) => (
+          <Tabs.Panel key={def.key}>
+            <def.FilterComponent
+              filters={data.filters}
+              onFilterChange={(type: string, value: string) => data.setFilter(type, value)}
+            />
+            <CatalogTab
+              itemizedMode={itemizedMode}
+              dataLength={data.data.length}
+              totalLength={data.total}
+              getNextPage={data.loadMore}
+              loading={data.loading}
+              itemizedRender={<def.TableComponent items={data.data} />}
+              visualRender={<VisualMode items={data.data} loading={data.loading} />}
+            />
+          </Tabs.Panel>
+        ))}
+      </Tabs.Panels>
+    </Tabs>
   );
 };
 

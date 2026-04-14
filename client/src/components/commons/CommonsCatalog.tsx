@@ -1,5 +1,5 @@
 import "./Commons.css";
-import { Grid, Segment, Header, Form, Icon, Button } from "semantic-ui-react";
+import { Button, Container, Divider, Heading, Input, Stack, Text } from "@libretexts/davis-react";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useTypedSelector } from "../../state/hooks";
 import CatalogTabs from "./CommonsCatalog/CatalogTabs";
@@ -26,6 +26,7 @@ import { useCatalogFilters } from "../../hooks/search/useCatalogFilters";
 import { useInfiniteSearchQuery } from "../../hooks/search/useInfiniteSearchQuery";
 import { CatalogContext } from "../../context/CatalogContext";
 import { useQueryClient } from "@tanstack/react-query";
+import { IconRefresh, IconSearch } from "@tabler/icons-react";
 
 const CommonsCatalog = () => {
   // Global State and Location/History
@@ -670,124 +671,96 @@ const CommonsCatalog = () => {
 
   return (
     <CatalogContext.Provider value={contextValue}>
-      <Grid className="commons-container">
-        <Grid.Row>
-          <Grid.Column width={16}>
-            <Segment.Group raised>
-              {((org.commonsHeader && org.commonsHeader !== "") ||
-                (org.commonsMessage && org.commonsMessage !== "")) && (
-                  <Segment padded>
-                    {org.commonsHeader && org.commonsHeader !== "" && (
-                      <Header
-                        id="commons-intro-header"
-                        as="h2"
-                        className="text-center lg:text-left"
+      {((org.commonsHeader && org.commonsHeader !== "") ||
+        (org.commonsMessage && org.commonsMessage !== "")) && (
+          <Stack direction="vertical" gap="md" className="p-6 text-center">
+            {org.commonsHeader && org.commonsHeader !== "" && (
+              <Heading
+                level={3}
+              >
+                {org.commonsHeader}
+              </Heading>
+            )}
+            <Text>
+              {org.commonsMessage}
+            </Text>
+          </Stack>
+        )}
+      <Divider />
+      <div className="p-6">
+        <div className="mt-4 mb-8 flex flex-col">
+          <div className="flex flex-row items-end justify-center w-full gap-2">
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              className="w-72 lg:w-[64rem]"
+            >
+              <div className="relative">
+                <Input
+                  name="commons-search-input"
+                  label="Search the Catalog"
+                  placeholder="Search..."
+                  value={searchStringUI}
+                  leftIcon={<IconSearch />}
+                  onChange={(e) => {
+                    setSearchStringUI(e.target.value);
+                    setSearchStringDebounced(e.target.value);
+                    getSuggestionsDebounced(e.target.value);
+                    setShowSuggestions(e.target.value.length > 0);
+                  }}
+                  onBlur={() => {
+                    setTimeout(() => setShowSuggestions(false), 200);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      updateSearchParam(searchStringUI);
+                    }
+                  }}
+                />
+                {showSuggestions && searchSuggestions.length > 0 && (
+                  <div className="absolute z-50 w-full py-2 border rounded-md shadow-md bg-white mt-1">
+                    {searchSuggestions.map((suggestion) => (
+                      <p
+                        className="px-2 hover:bg-slate-50 rounded-md cursor-pointer font-semibold"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          updateSearchParam(suggestion);
+                          setShowSuggestions(false);
+                        }}
+                        key={crypto.randomUUID()}
                       >
-                        {org.commonsHeader}
-                      </Header>
-                    )}
-                    <p
-                      id="commons-intro-message"
-                      className="text-center lg:text-left"
-                    >
-                      {org.commonsMessage}
-                    </p>
-                  </Segment>
-                )}
-              <Segment>
-                <div className="my-8 flex flex-col">
-                  <div className="flex flex-row items-center justify-center w-full">
-                    <Form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                      }}
-                    >
-                      <div className="w-72 lg:w-[68rem]">
-                        <Form.Input
-                          placeholder="Search..."
-                          className="!mb-0 !border-r-none"
-                          id="commons-search-input"
-                          iconPosition="left"
-                          action
-                          fluid
-                          aria-label="Search query"
-                          value={searchStringUI}
-                          onChange={(e) => {
-                            setSearchStringUI(e.target.value); // Update the UI value immediately
-                            setSearchStringDebounced(e.target.value); // Debounce the actual search string update
-                            getSuggestionsDebounced(e.target.value);
-                            if (e.target.value.length === 0) {
-                              setShowSuggestions(false);
-                            } else {
-                              setShowSuggestions(true);
-                            }
-                          }}
-                          onBlur={() => {
-                            setTimeout(() => {
-                              setShowSuggestions(false); // Delay to allow suggestion click event to fully run
-                            }, 200);
-                          }}
-                          onKeyDown={(e: any) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault(); // Prevent form submission on Enter key press
-                              updateSearchParam(searchStringUI); // Trigger search on Enter key press
-                            }
-                          }}
-                        >
-                          <Icon name="search" />
-                          <input />
-                          <Button
-                            color="blue"
-                            onClick={() => updateSearchParam(searchStringUI)}
-                            className="!m-0 w-10 !p-4 lg:w-auto"
-                          >
-                            <Icon name="search" />
-                            {isTailwindLg && "Search Catalog"}
-                          </Button>
-                        </Form.Input>
-                        {showSuggestions && searchSuggestions.length > 0 && (
-                          <div className="py-2 border rounded-md shadow-md">
-                            {searchSuggestions.map((suggestion) => {
-                              return (
-                                <p
-                                  className="px-2 hover:bg-slate-50 rounded-md cursor-pointer font-semibold"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    updateSearchParam(suggestion);
-                                    setShowSuggestions(false);
-                                  }}
-                                  key={crypto.randomUUID()}
-                                >
-                                  {truncateString(suggestion, 100)}
-                                </p>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </Form>
+                        {truncateString(suggestion, 100)}
+                      </p>
+                    ))}
                   </div>
-                  {(searchString || isSearchMode) && (
-                    <div className="flex justify-center items-center w-full mt-8">
-                      <Button
-                        icon
-                        labelPosition="left"
-                        onClick={handleResetSearch}
-                        className="mt-2"
-                      >
-                        <Icon name="redo" />
-                        Reset Search
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                <CatalogTabs />
-              </Segment>
-            </Segment.Group>
-          </Grid.Column>
-        </Grid.Row>
-      </Grid>
-    </CatalogContext.Provider>
+                )}
+              </div>
+            </form>
+            <Button
+              variant="primary"
+              onClick={() => updateSearchParam(searchStringUI)}
+              icon={<IconSearch />}
+              iconPosition="left"
+            >
+              {isTailwindLg ? "Search Catalog" : ""}
+            </Button>
+          </div>
+          {(searchString || isSearchMode) && (
+            <div className="flex justify-center items-center w-full mt-6">
+              <Button
+                variant="secondary"
+                onClick={handleResetSearch}
+                icon={<IconRefresh />}
+                iconPosition="left"
+              >
+                Reset Search
+              </Button>
+            </div>
+          )}
+        </div>
+        <CatalogTabs />
+      </div>
+    </CatalogContext.Provider >
   );
 };
 

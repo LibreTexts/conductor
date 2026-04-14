@@ -24,7 +24,7 @@ const EnvironmentBanner: React.FC<EnvironmentBannerProps> = ({ className }) => {
         the{" "}
         <a
           href="https://commons.libretexts.org"
-          className="underline text-white hover:text-white"
+          className="underline! text-white! hover:text-white!"
         >
           production site
         </a>

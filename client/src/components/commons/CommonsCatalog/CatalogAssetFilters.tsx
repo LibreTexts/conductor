@@ -6,6 +6,7 @@ import CatalogFilterDropdown from "./CatalogFilterDropdown";
 import { CustomFilter } from "../../../types/Search";
 import { useTypedSelector } from "../../../state/hooks";
 import { useQuery } from "@tanstack/react-query";
+import { Stack } from "@libretexts/davis-react";
 
 type AssetFilterData = {
   licenseOptions: GenericKeyTextValueObj<string>[];
@@ -112,11 +113,8 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
   }
 
   return (
-    <div
-      aria-busy={loading}
-      className="flex flex-row w-full justify-between items-center ml-1"
-    >
-      <div className="flex flex-row my-4 flex-wrap items-center gap-2">
+    <div aria-busy={loading} className="w-full ml-1">
+      <Stack direction="horizontal" gap="sm" wrap={true} className="my-4">
         {/* <CatalogFilterDropdown
           text={`License ${filters.license ? " - " : ""}${
             filters.license ?? ""
@@ -155,7 +153,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
             text={
               filters.fileType ? `File Type - ${filters.fileType}` : "File Type"
             }
-            icon="file alternate outline"
+            icon="file"
             options={data?.fileTypeOptions ?? []}
             filterKey="fileType"
             onFilterSelect={(key, val) => onFilterChange(key, val)}
@@ -167,7 +165,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
             text={`Organization ${filters.org ? " - " : ""}${
               filters.org ?? ""
             }`}
-            icon="university"
+            icon="school"
             options={data?.orgOptions ?? []}
             filterKey="org"
             onFilterSelect={(key, val) => onFilterChange(key, val)}
@@ -184,7 +182,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
             onFilterSelect={(key, val) => onFilterChange(key, val)}
           />
         )}
-      </div>
+      </Stack>
     </div>
   );
 };

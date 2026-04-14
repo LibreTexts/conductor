@@ -1,38 +1,40 @@
 import { Link } from "react-router-dom";
-import { Menu } from "semantic-ui-react";
-
-/**
- * Menu items that are always present in the Navbar.
- */
 
 interface ConstantMenuItemsProps {
   activeItem: string;
   setActiveItem: React.Dispatch<React.SetStateAction<string>>;
 }
 
+const base =
+  "flex items-center px-3 py-2 text-base font-medium rounded-md transition-colors min-h-[44px] " +
+  "hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+const active = "text-primary font-semibold border-b-2 border-primary";
+const inactive = "text-text hover:text-primary";
+
+/**
+ * Menu items that are always present in the Navbar.
+ */
 const ConstantMenuItems: React.FC<ConstantMenuItemsProps> = ({
   activeItem,
   setActiveItem,
 }) => (
   <>
-    <Menu.Item
-      name="home"
-      as={Link}
+    <Link
       to="/home"
-      active={activeItem === "home"}
-      onClick={(_e, data) => {
-        setActiveItem(data.name ?? "");
-      }}
-    />
-    <Menu.Item
-      name="my-projects"
-      as={Link}
+      className={`${base} ${activeItem === "home" ? active : inactive}`}
+      aria-current={activeItem === "home" ? "page" : undefined}
+      onClick={() => setActiveItem("home")}
+    >
+      Home
+    </Link>
+    <Link
       to="/projects"
-      active={activeItem === "projects"}
-      onClick={(_e, data) => {
-        setActiveItem(data.name ?? "");
-      }}
-    />
+      className={`${base} ${activeItem === "projects" ? active : inactive}`}
+      aria-current={activeItem === "projects" ? "page" : undefined}
+      onClick={() => setActiveItem("projects")}
+    >
+      My Projects
+    </Link>
   </>
 );
 

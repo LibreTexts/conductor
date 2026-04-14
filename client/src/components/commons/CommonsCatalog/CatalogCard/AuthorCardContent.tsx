@@ -1,49 +1,44 @@
-import { Card, CardContentProps, CardHeader } from "semantic-ui-react";
 import { Author } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
-import { useMemo } from "react";
 import CardMetaWIcon from "../../../util/CardMetaWIcon";
+import { Card, Heading, Link, Stack } from "@libretexts/davis-react";
 
-interface AuthorCardContentProps extends CardContentProps {
+interface AuthorCardContentProps {
   author: Author;
 }
 
-const AuthorCardContent: React.FC<AuthorCardContentProps> = ({
-  author,
-  ...rest
-}) => {
+const AuthorCardContent: React.FC<AuthorCardContentProps> = ({ author }) => {
   return (
-    <Card.Content
-      className="commons-content-card-inner-content overflow-hidden"
-      {...rest}
-    >
-      <CardHeader
-        as="a"
-        className="commons-content-card-header !mt-1 !mb-1 text-left hover:underline cursor-pointer !hover:text-blue-500"
-        href={`/author/${author._id}`}
-      >
-        {truncateString(author.name, 100)}
-      </CardHeader>
-      {(author.companyName || author.programName) && (
-        <CardMetaWIcon icon="university">
-          <div className="line-clamp-1">{truncateString(author.companyName || author.programName || "", 50)}</div>
-        </CardMetaWIcon>
-      )}
-      {author.nameURL && (
-        <CardMetaWIcon icon="linkify">
-          <div className="line-clamp-2">
-            <a
-              href={author.nameURL}
-              target="_blank"
-              rel="noreferrer"
-              className="break-all !text-blue-500 !hover:text-blue-500"
-            >
-              {author.nameURL}
-            </a>
-          </div>
-        </CardMetaWIcon>
-      )}
-    </Card.Content>
+    <Card.Body>
+      <Stack direction="vertical" gap="sm" className="py-4">
+        <Heading level={6}>
+          {truncateString(author.name, 100)}
+        </Heading>
+        {(author.companyName || author.programName) && (
+          <CardMetaWIcon icon="university">
+            <div className="line-clamp-1">
+              {truncateString(author.companyName || author.programName || "", 50)}
+            </div>
+          </CardMetaWIcon>
+        )}
+        {author.nameURL && (
+          <CardMetaWIcon icon="linkify">
+            <div className="line-clamp-2">
+              <Link
+                href={author.nameURL}
+                target="_blank"
+                rel="noreferrer"
+                external
+                className="break-all"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {truncateString(author.nameURL, 35)}
+              </Link>
+            </div>
+          </CardMetaWIcon>
+        )}
+      </Stack>
+    </Card.Body>
   );
 };
 

@@ -1,11 +1,51 @@
-import { Header, Table, TableProps } from "semantic-ui-react";
 import { Author } from "../../../types";
 import { truncateString } from "../../util/HelperFunctions";
+import { DataTable } from "@libretexts/davis-react-table";
+import type { ColumnDef, DataTableProps } from "@libretexts/davis-react-table";
 
-interface AuthorsTableProps extends TableProps {
+interface AuthorsTableProps extends DataTableProps<Author> {
   items: Author[];
   loading?: boolean;
 }
+
+const columns: ColumnDef<Author>[] = [
+  {
+    accessorKey: "name",
+    header: "Name",
+    cell: ({ getValue, row }) => (
+      <a href={`/authors/${row.original._id}`} className="cursor-pointer">
+        {truncateString(getValue<string>(), 50)}
+      </a>
+    ),
+  },
+  {
+    accessorKey: "companyName",
+    header: "Institution/Program",
+    cell: ({ row }) => {
+      const companyName = row.original.companyName;
+      const programName = row.original.programName;
+      const displayText = companyName || programName || "";
+      return <p>{truncateString(displayText, 50)}</p>;
+    },
+  },
+  {
+    accessorKey: "nameURL",
+    header: "URL",
+    cell: ({ getValue }) =>
+      getValue<string>() ? (
+        <a
+          href={getValue<string>()}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {truncateString(getValue<string>() || "", 50)}
+        </a>
+      ) : (
+        <p></p>
+      ),
+  },
+];
+
 
 const AuthorsTable: React.FC<AuthorsTableProps> = ({
   items,
@@ -13,70 +53,7 @@ const AuthorsTable: React.FC<AuthorsTableProps> = ({
   ...rest
 }) => {
   return (
-    <Table celled title="Search Results" {...rest}>
-      <Table.Header>
-        <Table.Row>
-          <Table.HeaderCell scope="col">
-            <Header sub>Name</Header>
-          </Table.HeaderCell>
-          <Table.HeaderCell scope="col">
-            <Header sub>Institution/Program</Header>
-          </Table.HeaderCell>
-          <Table.HeaderCell scope="col">
-            <Header sub>URL</Header>
-          </Table.HeaderCell>
-        </Table.Row>
-      </Table.Header>
-      <Table.Body>
-        {items.length > 0 &&
-          items.map((item, index) => {
-            return (
-              <Table.Row key={index}>
-                <Table.Cell>
-                  <a href={`/authors/${item._id}`} className="cursor-pointer">
-                    {truncateString(
-                      `${item.name}`,
-                      50
-                    )}
-                  </a>
-                </Table.Cell>
-                <Table.Cell>
-                  <p>
-                    {
-                      truncateString(item.companyName || item.programName || "", 50)}
-                  </p>
-                </Table.Cell>
-                <Table.Cell>
-                  {item.nameURL && (
-                    <a href={item.nameURL} target="_blank" rel="noreferrer">
-                      {truncateString(item.nameURL, 50)}
-                    </a>
-                  )}
-                </Table.Cell>
-              </Table.Row>
-            );
-          })}
-        {loading && (
-          <Table.Row>
-            <Table.Cell colSpan={5}>
-              <p className="text-center">
-                <em>Loading...</em>
-              </p>
-            </Table.Cell>
-          </Table.Row>
-        )}
-        {items.length === 0 && (
-          <Table.Row>
-            <Table.Cell colSpan={5}>
-              <p className="text-center">
-                <em>No results found.</em>
-              </p>
-            </Table.Cell>
-          </Table.Row>
-        )}
-      </Table.Body>
-    </Table>
-  );
+    <DataTable<Author> data={items} columns={columns} loading={loading} density="compact" />);
 };
 
 export default AuthorsTable;

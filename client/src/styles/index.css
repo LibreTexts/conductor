@@ -1,19 +1,101 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+@import "@libretexts/davis-react/styles.css";
 
-:root {
-  --link-color: #4B58E6;
+/* Scan Tremor components for class usage (replaces content[] in tailwind.config.js) */
+@source "../../node_modules/@tremor/**/*.{js,ts,jsx,tsx}";
+
+/* Plugins (replaces plugins[] in tailwind.config.js) */
+@plugin "@tailwindcss/typography";
+@plugin "@tailwindcss/forms";
+
+/* Theme extensions (replaces theme.extend in tailwind.config.js) */
+@theme {
+  --font-sans: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --height-screen-content: calc(100vh - 4.25rem);
+
+  /* Brand colors */
+  --color-accent: #5F65F5;
+  --color-neutral: #18181B;
+  --color-base-100: #2A303C;
+  --color-info: #38BDF8;
+  --color-save: #22c55e;
+  --color-success: #338650;
+  --color-warning: #BB5C21;
+  --color-error: #DC3838;
+  --color-blue-750: #0B34D9;
+  --color-sky-550: #179AEB;
+  --color-muted: #F9FAFB;
+
+  /* Custom transition property */
+  --transition-property-width: width;
+
+  /* Tremor shadows */
+  --shadow-tremor-input: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-tremor-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-tremor-dropdown: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-dark-tremor-input: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-dark-tremor-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-dark-tremor-dropdown: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+
+  /* Tremor border radius */
+  --radius-tremor-small: 0.375rem;
+  --radius-tremor-default: 0.5rem;
+  --radius-tremor-full: 9999px;
+
+  /* Tremor font sizes */
+  --text-tremor-label: 0.75rem;
+  --text-tremor-label--line-height: 1rem;
+  --text-tremor-default: 0.875rem;
+  --text-tremor-default--line-height: 1.25rem;
+  --text-tremor-title: 1.125rem;
+  --text-tremor-title--line-height: 1.75rem;
+  --text-tremor-metric: 1.875rem;
+  --text-tremor-metric--line-height: 2.25rem;
 }
 
+/*
+  Safelist: ensure dynamic color classes are always generated for Tremor/dynamic UIs.
+  Replaces the safelist[] array in tailwind.config.js.
+  v4 uses @source inline() instead of JS regex patterns.
+*/
+@source inline("bg-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
+@source inline("hover:bg-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
+@source inline("text-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
+@source inline("hover:text-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
+@source inline("border-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
+@source inline("hover:border-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
+@source inline("ring-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
+@source inline("stroke-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
+@source inline("fill-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
+
+/*
+  data-[selected] variants for HeadlessUI v2.
+  Replaces the ui-selected: variant from @headlessui/tailwindcss (not compatible with v4).
+  HeadlessUI v2 sets data-selected on active items; v4 supports data-* variants natively.
+*/
+@source inline("data-[selected]:{bg,text,border}-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900,950}");
+
 * {
-  box-sizing:border-box
+  box-sizing: border-box;
+}
+
+/*
+  Override Semantic UI's unlayered normalize reset.
+  Tailwind v4 Preflight is inside @layer base, which loses to Semantic UI's
+  unlayered `button, input, ... { font-family: sans-serif }` regardless of
+  source order. This unlayered rule restores inheritance for form elements.
+*/
+button, input, optgroup, select, textarea {
+  font-family: inherit;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  background-color: white;
+  /* v4 Preflight no longer sets this; v3 did */
+  color: black;
+  font-family: 'Atkinson Hyperlegible', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

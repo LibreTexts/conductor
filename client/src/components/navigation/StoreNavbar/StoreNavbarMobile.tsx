@@ -73,7 +73,7 @@ const StoreNavbarMobile: React.FC<StoreNavbarMobileProps> = ({
               as={Link}
               to="/store/cart"
             />
-            <SwitchAppWithUser user={user} parent="commons" isMobile />
+            <SwitchAppWithUser user={user} parent="commons" />
           </Menu>
         </div>
       )}

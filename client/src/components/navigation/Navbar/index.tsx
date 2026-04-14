@@ -2,38 +2,23 @@ import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import withUserStateDependency from "../../../enhancers/withUserStateDependency.jsx";
 import { useTypedSelector } from "../../../state/hooks.js";
-import { useMediaQuery } from "react-responsive";
-import NavbarDesktop from "./NavbarDesktop.js";
-import NavbarMobile from "./NavbarMobile.js";
+import NavbarShell from "./NavbarShell.js";
 import EnvironmentBanner from "../EnvironmentBanner.js";
 import useClientConfig from "../../../hooks/useClientConfig.js";
 import CommonsNavbar from "../../commons/CommonsNavbar/index.js";
+import { SkipLink } from "@libretexts/davis-react";
 
 const Navbar: React.FC = () => {
-  // Global State, Location, and Error Handling
   const location = useLocation();
 
   const user = useTypedSelector((state) => state.user);
   const org = useTypedSelector((state) => state.org);
   const { isProduction } = useClientConfig();
 
-  // UI
   const [activeItem, setActiveItem] = useState("");
 
   /**
-   * Close the mobile menu when the Tailwind XL breakpoint is reached.
-   * @link https://www.npmjs.com/package/react-responsive
-   * Must be defined up here to avoid a React Hook error (above return statements).
-   */
-  const isTailwindXl = useMediaQuery(
-    { minWidth: 1280 }, // Tailwind XL breakpoint
-    undefined
-  );
-
-  /**
-   * Subscribe to changes to location
-   * and update the Navbar with the
-   * active page.
+   * Subscribe to route changes and update the active nav item.
    */
   useEffect(() => {
     const currentPath = location.pathname;
@@ -43,51 +28,36 @@ const Navbar: React.FC = () => {
       setActiveItem("projects");
     } else if (currentPath.includes("analytics")) {
       setActiveItem("analytics");
-      // } else if (currentPath.includes("/search")) {
-      //   // Set the search query in the UI if the URL was visited directly
-      //   if (searchInput === "") {
-      //     const urlParams = new URLSearchParams(location.search);
-      //     const urlQuery = urlParams.get("query");
-      //     if (typeof urlQuery === "string" && urlQuery.length > 0) {
-      //       setSearchInput(urlQuery);
-      //     }
-      //   }
-      // } else {
+    } else {
       setActiveItem("");
     }
-  }, [
-    location,
-    setActiveItem,
-    //setSearchInput
-  ]);
+  }, [location]);
 
-  // If anonymous user is access project analytics, render CommonsNavbar instead for aesthetic purposes
-  if (location.pathname.endsWith('/analytics') && !user.isAuthenticated) {
+  // If an anonymous user is accessing project analytics, render CommonsNavbar for aesthetic purposes
+  if (location.pathname.endsWith("/analytics") && !user.isAuthenticated) {
     return <CommonsNavbar org={org} user={user} />;
   } else if (!user.isAuthenticated) {
     return null;
   }
 
   return (
-    <div
-      className="nav-menu"
+    <header
+      className="fixed top-0 left-0 w-full z-[100] bg-white flex flex-col"
       style={{ height: isProduction ? "60px" : "100px" }}
     >
+      <SkipLink targetId="main-content" />
       <EnvironmentBanner />
-      {isTailwindXl ? (
-        <NavbarDesktop
+      <nav
+        aria-label="Main navigation"
+        className="w-full flex-1 flex flex-col justify-center"
+      >
+        <NavbarShell
           org={org}
           activeItem={activeItem}
           setActiveItem={setActiveItem}
         />
-      ) : (
-        <NavbarMobile
-          org={org}
-          activeItem={activeItem}
-          setActiveItem={setActiveItem}
-        />
-      )}
-    </div>
+      </nav>
+    </header>
   );
 };
 

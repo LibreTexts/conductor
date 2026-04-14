@@ -1,16 +1,16 @@
-import { Icon, Menu } from "semantic-ui-react";
+import { Link } from "@libretexts/davis-react";
+import { IconHeart } from "@tabler/icons-react";
 
 const DonateLink = ({ isMobile = false }) => {
   return (
-    <Menu.Item
-      as="a"
+    <Link
       href="https://donate.libretexts.org"
       target="_blank"
-      className="commons-nav-link"
+      rel="noopener noreferrer"
     >
       Donate
-      {isMobile && <Icon name="heart" className="float-right" />}
-    </Menu.Item>
+      {isMobile && <IconHeart className="float-right" />}
+    </Link>
   );
 };
 

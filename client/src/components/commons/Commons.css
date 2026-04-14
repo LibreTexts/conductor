@@ -247,21 +247,6 @@
     background-repeat: no-repeat;
 }
 
-.commons-author-card {
-    height: 175px;
-    width: 250px;
-    margin: 0 !important;
-    text-overflow: ellipsis;
-}
-
-.commons-project-card {
-    height: 550px;
-    width: 250px;
-    margin: 0 !important;
-    text-overflow: ellipsis;
-    overflow: hidden;
-}
-
 .commons-content-card-inner-content {
     border-top: none !important;
     height: 175px;

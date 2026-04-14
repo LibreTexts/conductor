@@ -1,101 +1,43 @@
-import { Dropdown, Icon, Menu, } from "semantic-ui-react";
-import { useState } from "react";
 import useClientConfig from "../../../hooks/useClientConfig";
+import { Menu, MenuItemProps } from "@libretexts/davis-react";
 
+interface SupportDropdownProps { }
 
-interface SupportDropdownProps {
-    isMobile?: boolean;
-}
-
-const SupportDropdown: React.FC<SupportDropdownProps> = ({ isMobile = false }) => {
-    const [mouseIndex, setMouseIndex] = useState(0);
+const SupportDropdown: React.FC<SupportDropdownProps> = () => {
     const { clientConfig } = useClientConfig();
 
-    const itemsArr = [
+    const itemsArr: MenuItemProps[] = [
         {
-            name: "Insight - Knowledge Base",
-            props: {
-                key: "libretexts",
-                as: "a",
-                href: `${clientConfig?.main_commons_url || "https://commons.libretexts.org"}/insight`,
-                target: "_blank",
-                rel: "noopener noreferrer",
+            children: "Insight - Knowledge Base",
+            onClick() {
+                window.open(`${clientConfig?.main_commons_url || "https://commons.libretexts.org"}/insight`, "_blank", "noopener,noreferrer");
             },
         },
         {
-            name: 'System Status',
-            props: {
-                key: "status",
-                as: "a",
-                href: "https://status.libretexts.org",
-                target: "_blank",
-                rel: "noopener noreferrer",
+            children: "System Status",
+            onClick() {
+                window.open("https://status.libretexts.org", "_blank", "noopener,noreferrer");
             },
         },
         {
-            name: "Contact Support",
-            props: {
-                key: "contact",
-                as: "a",
-                href: `${clientConfig?.main_commons_url || "https://commons.libretexts.org"}/support/contact`,
-                target: "_blank",
-                rel: "noopener noreferrer",
+            children: "Contact Support",
+            onClick() {
+                window.open(`${clientConfig?.main_commons_url || "https://commons.libretexts.org"}/support/contact`, "_blank", "noopener,noreferrer");
             },
         },
     ]
 
-    if (isMobile) {
-        return (
-            <Menu.Menu className="commons-mobilenav-commonslist">
-                {itemsArr.map((item) => (
-                    <Menu.Item {...item.props}>
-                        {/* <Icon name="university" /> */}
-                        {item.name}
-                    </Menu.Item>
-                ))}
-            </Menu.Menu>
-        );
-    }
-
-    const handleKeyPress = (e: React.KeyboardEvent<HTMLDivElement>) => {
-        if (e.key === 'ArrowDown') {
-            setMouseIndex((prevIndex) => Math.min(prevIndex + 1, itemsArr.length - 1));
-            const element = document.getElementById("active");
-            if (element) {
-                element?.scrollIntoView({
-                    behavior: "auto",
-                    block: "start"
-                });
-            }
-        } else if (e.key === 'ArrowUp') {
-            setMouseIndex((prevIndex) => Math.max(prevIndex - 1, 0));
-            const element = document.getElementById("active");
-            if (element) {
-                element?.scrollIntoView({
-                    behavior: "auto",
-                    block: "start"
-                });
-            }
-        } else if (e.key == "Enter") {
-            window.location.href = itemsArr[mouseIndex].props.href;
-        }
-    };
-
-
-
     return (
-        <div onKeyDown={handleKeyPress} className="flex flex-row items-center" >
-            <Dropdown item text="Support">
-                <Dropdown.Menu direction="left" className="commons-desktopnav-commonslist"  >
-                    {itemsArr.map((item, index) => (
-                        <Dropdown.Item {...item.props} selected={index == mouseIndex} id={index == mouseIndex ? "active" : "inactive"}  >
-                            {/* <Icon name="university" /> */}
-                            {item.name}
-                        </Dropdown.Item>
-                    ))}
-                </Dropdown.Menu>
-            </Dropdown>
-        </div>
+        <Menu>
+            <Menu.Button className="!w-full !xl:w-auto">
+                Support
+            </Menu.Button>
+            <Menu.Items>
+                {itemsArr.map((item) => (
+                    <Menu.Item {...item} />
+                ))}
+            </Menu.Items>
+        </Menu>
     );
 };
 

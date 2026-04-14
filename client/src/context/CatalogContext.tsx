@@ -14,7 +14,7 @@ import type {
 /**
  * Entity data structure for each catalog type
  */
-interface CatalogEntityData<TData, TFilters> {
+export interface CatalogEntityData<TData, TFilters> {
   data: TData[];
   total: number;
   loading: boolean;
