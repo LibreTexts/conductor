@@ -7,8 +7,6 @@ import PrivateRoute from './components/util/PrivateRoute';
 import Footer from "./components/navigation/Footer";
 import ChatBot from "./utils/ChatBot";
 
-import "./Conductor.css";
-
 const AdoptionReports = lazy(() => import('./screens/conductor/controlpanel/AdoptionReports'));
 const AnalyticsCourseView = lazy(() => import('./screens/conductor/analytics/AnalyticsCourseView'));
 const AnalyticsInvites = lazy(() => import('./screens/conductor/analytics/AnalyticsInvites'));
@@ -97,9 +95,9 @@ const Conductor = () => {
   const org = useSelector((state) => state.org);
 
   return (
-    <div className='conductor'>
+    <div className='flex flex-col min-h-screen'>
       <Navbar />
-      <div id="main-content" className='conductor-content pb-8'>
+      <div id="main-content" className='pb-8'>
         <Suspense fallback={<LoadingSpinner />}>
           <Switch>
           <AnonRoute exact path='/login' component={Login} />
