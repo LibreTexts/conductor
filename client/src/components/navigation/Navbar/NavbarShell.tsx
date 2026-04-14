@@ -49,8 +49,6 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
     if (!menuOpen) hamburgerRef.current?.focus();
   }, [menuOpen]);
 
-  console.log("Desktop or mobile nav items?", { desktopNavItems, mobileDrawerItems });
-
   return (
     <>
       {/* Top bar — always visible */}

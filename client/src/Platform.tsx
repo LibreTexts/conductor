@@ -45,6 +45,18 @@ const queryClient = new QueryClient({
   }),
 });
 
+export const COMMONS_PATHS = [
+  "/catalog",
+  "/collections",
+  "/commons-project",
+  "/author",
+  "/book",
+  "/homework",
+  "/libraries",
+  "/search-results",
+  "/file",
+];
+
 /**
  * Exposes the applications and global configuration.
  */
@@ -58,19 +70,6 @@ const Platform = () => {
   axios.defaults.headers.post["Content-Type"] = "application/json";
   axios.defaults.withCredentials = true;
 
-  const commonsPaths = [
-    "/",
-    "/catalog",
-    "/collections",
-    "/commons-project",
-    "/author",
-    "/book",
-    "/homework",
-    "/libraries",
-    "/search-results",
-    "/file",
-  ];
-
   axios.interceptors.response.use(
     (res) => {
       return res;
@@ -81,10 +80,7 @@ const Platform = () => {
         (err.response?.data?.tokenExpired === true ||
           err.response?.data?.sessionInvalid === true)
       ) {
-        const silent = commonsPaths.some((path) =>
-          window.location.pathname.startsWith(path)
-        );
-
+        const silent = window.location.pathname === "/" || COMMONS_PATHS.some((path) => window.location.pathname.startsWith(path));
         AuthHelper.logout(true, window.location, silent);
       }
       return Promise.reject(err);
