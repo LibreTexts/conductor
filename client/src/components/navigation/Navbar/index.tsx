@@ -81,8 +81,6 @@ const Navbar: React.FC<{}> = () => {
   // Determine context
   useEffect(() => {
     const pathname = location.pathname;
-    console.log("Current pathname:", pathname); // Debugging log
-
     if (pathname.startsWith("/store")) {
       setContext("store");
     }
@@ -90,7 +88,6 @@ const Navbar: React.FC<{}> = () => {
       setContext("support");
     }
     else if (pathname === "/" || COMMONS_PATHS.some((path) => pathname.startsWith(path))) {
-      console.log("Matched commons path, setting context to 'commons'");
       setContext("commons");
     } else {
       setContext("conductor");

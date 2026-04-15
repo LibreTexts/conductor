@@ -282,11 +282,11 @@ const Home = () => {
               />
             )}
             <div className="announcements-list">
-              <Loader
+              {/* <Loader
                 active={!loadedAllAnnouncements}
                 inline="centered"
                 className="mt-4p"
-              />
+              /> */}
               {announcements.map((item, index) => {
                 return (
                   <Annnouncement

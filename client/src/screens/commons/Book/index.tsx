@@ -139,7 +139,6 @@ const CommonsBook = () => {
   const [loadedData, setLoadedData] = useState<boolean>(false);
   const [loadedLicensing, setLoadedLicensing] = useState<boolean>(false);
   const [showFiles, setShowFiles] = useState<boolean>(true); // show files by default
-  const [showTOC, setShowTOC] = useState<boolean>(false);
   const [showLicensing, setShowLicensing] = useState<boolean>(false);
 
   // Project Files
@@ -412,13 +411,10 @@ const CommonsBook = () => {
    */
   useEffect(() => {
     getBook();
-    if (localStorage.getItem("commons_show_toc") === "true") {
-      setShowTOC(true);
-    }
     if (localStorage.getItem("commons_show_licensing") === "true") {
       setShowLicensing(true);
     }
-  }, [getBook, setShowTOC, setShowLicensing]);
+  }, [getBook, setShowLicensing]);
 
   /**
    * Update page title when data is available.
@@ -454,14 +450,6 @@ const CommonsBook = () => {
       setShowFiles(true);
     }
   }, [location, prAllow, setShowAdoptionReport, setPRShow, setShowFiles]);
-
-  /**
-   * Updates state and localStorage with the user's preference to display a Book's Table of Contents.
-   */
-  function handleChangeTOCVis() {
-    setShowTOC(!showTOC);
-    localStorage.setItem("commons_show_toc", JSON.stringify(!showTOC));
-  }
 
   /**
    * Updates state and localStorage with the user's preference to display Book Licensing.
@@ -1250,25 +1238,18 @@ const CommonsBook = () => {
             <Card padding="sm">
               <Stack direction="horizontal" gap="sm" align="center" justify="between">
                 <Heading level={3}>Table of Contents</Heading>
-                <Button variant="tertiary" onClick={handleChangeTOCVis}>
-                  {showTOC ? "Hide" : "Show"}
-                </Button>
               </Stack>
-              {showTOC && (
-                <>
-                  {bookTOC && bookTOC.length > 0 ? (
-                    <TreeView
-                      items={bookTOC}
-                      asLinks={true}
-                      hrefKey="url"
-                      textKey="title"
-                    />
-                  ) : (
-                    <p className={styles.meta_largefont}>
-                      <em>Table of contents unavailable.</em>
-                    </p>
-                  )}
-                </>
+              {bookTOC && bookTOC.length > 0 ? (
+                <TreeView
+                  items={bookTOC}
+                  asLinks={true}
+                  hrefKey="url"
+                  textKey="title"
+                />
+              ) : (
+                <p className={styles.meta_largefont}>
+                  <em>Table of contents unavailable.</em>
+                </p>
               )}
             </Card>
 
