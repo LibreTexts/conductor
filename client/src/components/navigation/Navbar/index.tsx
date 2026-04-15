@@ -84,7 +84,7 @@ const Navbar: React.FC<{}> = () => {
     if (pathname.startsWith("/store")) {
       setContext("store");
     }
-    else if (pathname.startsWith("/support")) {
+    else if (pathname.startsWith("/support") || pathname.startsWith("/insight")) {
       setContext("support");
     }
     else if (pathname === "/" || COMMONS_PATHS.some((path) => pathname.startsWith(path))) {
