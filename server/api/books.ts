@@ -2721,6 +2721,15 @@ export async function syncBooksInBackground() {
               in: "$$tag.title",
             },
           },
+          courseNormalized: {
+            $toLower: {
+              $trim: {
+                input: {
+                  $ifNull: ["$course", ""],
+                },
+              },
+            },
+          },
         },
       },
       {
