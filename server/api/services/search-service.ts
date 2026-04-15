@@ -13,13 +13,13 @@ export const INDEX_PRIMARY_KEYS: Record<(typeof INDEXES)[number], string> = {
 };
 
 export const INDEX_FILTERABLE_ATTRIBUTES = {
-  books: ["bookID", "library", "license", "author", "course", "affiliation", "location", "license", "subject"],
+  books: ["bookID", "library", "license", "author", "course", "courseNormalized", "affiliation", "location", "license", "subject"],
   projects: ["status", "classification", "visibility", "orgID"],
   supportTickets: ["queue_id", "status", "priority", "category", "assignedUUIDs"],
 };
 
 export const INDEX_SORTABLE_ATTRIBUTES = {
-  books: ["bookID", "library", "author", "course", "affiliation", "location"],
+  books: ["bookID", "library", "author", "course", "courseNormalized", "affiliation", "location"],
   projects: ["status", "classification", "visibility", "orgID"],
   supportTickets: ["status", "category", "timeOpened"],
 };

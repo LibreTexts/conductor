@@ -36,6 +36,7 @@ import { _getBookPublicOrInstructorAssetsCount, buildOrganizationNamesList } fro
 import CustomCatalog, { CustomCatalogInterface } from "../models/customcatalog.js";
 import { normalizedSort } from "../util/searchutils.js";
 import SearchService from "./services/search-service.js";
+import { FilterInput, FilterObject } from "../types/Search.js";
 
 const searchQueryCache: SearchQueryInterface_Raw[] = []; // in-memory cache for search queries
 
@@ -2397,13 +2398,37 @@ async function bookSearchV2(
       course: req.query.course,
       publisher: req.query.publisher,
       affiliation: req.query.affiliation,
-    })
+    });
+
+    let combinedFilter: FilterObject = filterMap;
+    if (process.env.ORG_ID !== "libretexts") {
+      const [orgData, customCatalog] = await Promise.all([
+        Organization.findOne({ orgID: process.env.ORG_ID }),
+        CustomCatalog.findOne({ orgID: process.env.ORG_ID }),
+      ]);
+
+      const campusNames = orgData
+        ? buildOrganizationNamesList(orgData)
+          .map((name) => String(name).trim().toLowerCase())
+          .filter(Boolean)
+        : [];
+
+      const catalogAccessFilter = _buildBookCatalogAccessFilter({
+        orgData,
+        customCatalog,
+        campusNames,
+      });
+
+      combinedFilter = {
+        $and: [filterMap, catalogAccessFilter],
+      };
+    }
 
     const page = parseInt(req.query.page?.toString()) || 1;
     const limit = parseInt(req.query.limit?.toString()) || 25;
     const offset = getPaginationOffset(page, limit);
 
-    const results = await searchService.search("books", req.query?.searchQuery || "", filterMap, undefined, {
+    const results = await searchService.search("books", req.query?.searchQuery || "", combinedFilter, undefined, {
       limit,
       offset,
     });
@@ -2489,6 +2514,55 @@ function _getNonNullFieldMap(obj: Record<string, any>): Record<string, string[]>
     }
   }
   return fieldMap;
+}
+
+function _buildBookCatalogAccessFilter({
+  orgData,
+  customCatalog,
+  campusNames,
+}: {
+  orgData: any;
+  customCatalog: CustomCatalogInterface | null;
+  campusNames: string[];
+}): FilterObject {
+  const includedBookIDs = customCatalog?.resources ?? [];
+  const autoMatchExclusions = customCatalog?.automaticMatchingExclusions ?? [];
+
+  const explicitIncludeFilter: FilterObject | null =
+    includedBookIDs.length > 0
+      ? { bookID: { $in: includedBookIDs } }
+      : null;
+
+  // If automatic matching is disabled, only explicitly included books are allowed.
+  if (orgData?.autoCatalogMatchingDisabled) {
+    return explicitIncludeFilter ?? { bookID: "__no_catalog_matches__" };
+  }
+
+  const autoMatchClauses: FilterInput[] = [];
+  if (campusNames.length > 0) {
+    autoMatchClauses.push({ courseNormalized: { $in: campusNames } });
+  }
+  if (autoMatchExclusions.length > 0) {
+    autoMatchClauses.push({ $not: { bookID: { $in: autoMatchExclusions } } });
+  }
+
+  const automaticMatchFilter: FilterObject | null =
+    autoMatchClauses.length > 0 ? { $and: autoMatchClauses } : null;
+
+  if (explicitIncludeFilter && automaticMatchFilter) {
+    return { $or: [explicitIncludeFilter, automaticMatchFilter] };
+  }
+
+  if (explicitIncludeFilter) {
+    return explicitIncludeFilter;
+  }
+
+  if (automaticMatchFilter) {
+    return automaticMatchFilter;
+  }
+
+  // No explicit includes and no automatic matching criteria means no access.
+  return { bookID: "__no_catalog_matches__" };
 }
 
 function _checkIsExactMatchQuery(query: string): [boolean, string] {
