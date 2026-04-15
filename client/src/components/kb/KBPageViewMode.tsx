@@ -35,7 +35,7 @@ const KBPageViewMode = ({
   });
 
   useEffect(() => {
-    if (slug) {
+    if (slug && slug !== "welcome") {
       loadPage();
     }
   }, []);
