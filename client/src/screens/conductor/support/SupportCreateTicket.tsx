@@ -38,7 +38,7 @@ const SupportCreateTicket = () => {
   return (
     <DefaultLayout altBackground h="screen" className="!mb-[2%]">
       <>
-        <div className="w-1/2 mx-auto mt-4">
+        <div className="w-1/2 mx-auto mt-36">
           {sysAnnouncement && (
             <SystemAnnouncement
               title={sysAnnouncement.title}
