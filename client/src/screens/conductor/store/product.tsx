@@ -5,8 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { StoreProduct, StoreProductPrice } from "../../../types";
 import { useParams } from "react-router-dom";
 import api from "../../../api";
-import StyledRadioSelect from "../../../components/util/StyledRadioSelect";
-import StyledQuantitySelect from "../../../components/util/StyledQuantitySelect";
 import { APP_LICENSE_FAQS, BOOK_FAQS } from "../../../components/store/FAQS";
 import Linkify from "linkify-react";
 import { findBookPrice, formatPrice } from "../../../utils/storeHelpers";
@@ -15,10 +13,12 @@ import { useModals } from "../../../context/ModalContext";
 import ConfirmModal from "../../../components/ConfirmModal";
 import { useNotifications } from "../../../context/NotificationContext";
 import { buildLibraryPageGoURL } from "../../../utils/projectHelpers";
-import Button from "../../../components/NextGenComponents/Button";
-import { IconInfoCircle, IconWindowMaximize } from "@tabler/icons-react";
+import { Alert, Button, Divider, Heading, Link, NumberInput, Radio, RadioGroup, Stack, Text } from "@libretexts/davis-react";
+import { IconBook2, IconShoppingCartPlus } from "@tabler/icons-react";
 
 const BOOK_PAGE_LIMIT = 799;
+const MAX_QUANTITY = 150;
+
 export default function ProductPage() {
   const { openModal, closeAllModals } = useModals();
   const { addNotification } = useNotifications();
@@ -104,7 +104,10 @@ export default function ProductPage() {
   const disabled = useMemo(() => {
     if (!product) return true;
     if (!price) return true;
-  }, [product, price]);
+    if (quantity < 1) return true;
+    if (quantity > MAX_QUANTITY) return true;
+    return false;
+  }, [product, price, quantity]);
 
   const tooManyPages = useMemo(() => {
     if (!product) return false;
@@ -114,7 +117,7 @@ export default function ProductPage() {
     return num_pages > BOOK_PAGE_LIMIT;
   }, [product, isBook]);
 
-  const [bookDetail, setBookDetail] = useState<{ license?: string; [key: string]: unknown } | null>(null);
+  const [bookDetail, setBookDetail] = useState<{ license?: string;[key: string]: unknown } | null>(null);
 
   useEffect(() => {
     if (!product || !isBook) return;
@@ -141,6 +144,16 @@ export default function ProductPage() {
     if (!product) return;
     if (!price || !price.unit_amount) {
       console.error("Invalid price for product", product.id);
+      return;
+    }
+
+    if (quantity < 1) {
+      console.error("Quantity must be at least 1");
+      return;
+    }
+
+    if (quantity > MAX_QUANTITY) {
+      console.error(`Quantity cannot exceed ${MAX_QUANTITY}`);
       return;
     }
 
@@ -201,199 +214,165 @@ export default function ProductPage() {
 
           {/* Product details */}
           <div className="mx-auto mt-14 max-w-2xl sm:mt-16 lg:col-span-3 lg:row-span-2 lg:row-end-2 lg:mt-0 lg:min-w-full">
-            <div className="flex flex-col">
-              <div className="mt-4">
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
-                  {product?.name}
-                </h1>
+            <Stack gap="md">
+              <Heading as="h1">
+                {product?.name}
+              </Heading>
 
-                <h2 id="information-heading" className="sr-only">
-                  Product information
-                </h2>
-                {product?.metadata["store_category"] === "books" && (
-                  <div className="flex flex-col">
-                    <p className="!mt-3 text-lg text-gray-700">
-                      {product?.metadata["book_author"]}
-                    </p>
-                    <p className="mt-2 text-sm text-gray-600">
-                      Book ID: {product?.metadata["book_id"]} | Pages:{" "}
-                      {product?.metadata["num_pages"]}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
+              <h2 id="information-heading" className="sr-only">
+                Product information
+              </h2>
+              {product?.metadata["store_category"] === "books" && (
+                <Stack gap="xs">
+                  <Text size="lg">
+                    {product?.metadata["book_author"]}
+                  </Text>
+                  <Text size="lg">
+                    Book ID: {product?.metadata["book_id"]} | Pages:{" "}
+                    {product?.metadata["num_pages"]}
 
-            <p className="mt-6 text-gray-600">{product?.description}</p>
-            {!isBook && (
-              <>
-                <p className="font-semibold mb-2">Select Option:</p>
-                <StyledRadioSelect
-                  fieldName="variant"
-                  fieldLabel="Select Option"
-                  options={
-                    product?.prices.map((p) => ({
-                      title: p.nickname || p.id,
-                      value: p.id,
-                    })) || []
-                  }
-                  selectedValue={selectedPriceId || ""}
-                  onChange={(value) => setSelectedPriceId(value)}
-                />
-              </>
-            )}
-            {isBook && (
-              <>
-                <p className="mt-6 font-semibold">Select Binding:</p>
-                <StyledRadioSelect
-                  fieldName="book_binding"
-                  fieldLabel="Select Book Binding"
-                  options={[
-                    { title: "Paperback", value: "paperback" },
-                    { title: "Hardcover", value: "hardcover" },
-                  ]}
-                  defaultValue="paperback"
-                  selectedValue={hardcover ? "hardcover" : "paperback"}
-                  onChange={(value) => setHardcover(value === "hardcover")}
-                />
-                <p className="mt-6 font-semibold">Select Color Option:</p>
-                <StyledRadioSelect
-                  fieldName="book_color"
-                  fieldLabel="Select Color Options"
-                  options={[
-                    { title: "B & W", value: "bw" },
-                    { title: "color", value: "color" },
-                  ]}
-                  defaultValue="bw"
-                  selectedValue={color ? "color" : "bw"}
-                  onChange={(value) => setColor(value === "color")}
-                />
-              </>
-            )}
-            {!isBook && (
-              <p className="mt-6 text-xs  text-slate-500">
-                Only one active subscription per user is allowed at a time. You
-                can purchase access codes on behalf of other users, but you will
-                not be able to apply multiple access codes for the same app to
-                your account at the same time to stack discounts/extend access.
-              </p>
-            )}
-            {product?.metadata["learn_more_about_academy"] && (
-              <div className="mt-6 flex flex-row items-center">
-                <a
+                  </Text>
+                </Stack>
+              )}
+              <Text >{product?.description}</Text>
+
+              {!isBook && (
+                <>
+                  <RadioGroup
+                    name="variant"
+                    label="Select Option"
+                    value={selectedPriceId || ""}
+                    onChange={(value) => setSelectedPriceId(value)}
+                  >
+                    {product?.prices.map((p) => (
+                      <Radio
+                        key={p.id}
+                        label={p.nickname || p.id}
+                        value={p.id}
+                      />
+                    ))}
+                  </RadioGroup>
+                </>
+              )}
+              {isBook && (
+                <Stack gap="md">
+                  <RadioGroup
+                    name="book_binding"
+                    label="Select Binding"
+                    value={hardcover ? "hardcover" : "paperback"}
+                    onChange={(value) => setHardcover(value === "hardcover")}
+                    orientation="horizontal"
+                  >
+                    <Radio label="Paperback" value="paperback" />
+                    <Radio label="Hardcover" value="hardcover" />
+                  </RadioGroup>
+                  <RadioGroup
+                    name="book_color"
+                    label="Select Color Option"
+                    value={color ? "color" : "bw"}
+                    onChange={(value) => setColor(value === "color")}
+                    orientation="horizontal"
+                  >
+                    <Radio label="B & W" value="bw" />
+                    <Radio label="Color" value="color" />
+                  </RadioGroup>
+                </Stack>
+              )}
+              {!isBook && (
+                <Alert variant="info" message={"Only one active subscription per user is allowed at a time. You can purchase access codes on behalf of other users, but you will not be able to apply multiple access codes for the same app to your account at the same time to stack discounts/extend access."} />
+              )}
+              {product?.metadata["learn_more_about_academy"] && (
+                <Link
                   href={product.metadata["learn_more_about_academy"]}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block text-primary hover:text-primary-hover font-medium"
+                  external
                 >
-                  <IconWindowMaximize className="inline-block mr-2 size-5 text-primary pb-1" />
                   Learn more about Academy Online
-                </a>
-              </div>
-            )}
-            <StyledQuantitySelect
-              className="mt-6"
-              value={quantity}
-              onChange={setQuantity}
-              min={1}
-              disabled={cartLoading || tooManyPages}
-              aria-label={
-                tooManyPages
-                  ? "Quantity selection is disabled because the book exceeds the page limit."
-                  : undefined
-              }
-            />
-            {hasNCLicense && (
-              <div className="mt-6 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                <IconInfoCircle
-                  className="mt-0.5 size-5 shrink-0 text-amber-700"
-                  aria-hidden="true"
-                />
-                <p>
-                  This book has a NonCommercial clause in its license and cannot
-                  be resold for profit.
-                </p>
-              </div>
-            )}
-            <div className="mt-6 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-              <Button
-                onClick={handleAddToCart}
-                disabled={disabled || cartLoading || tooManyPages}
-                icon="IconShoppingCartPlus"
-              >
-                Add to Cart -{" "}
-                {formatPrice((price?.unit_amount || 0) * quantity, true)}
-              </Button>
-              {isBook && (
-                <a
-                  href={buildLibraryPageGoURL(
-                    product?.metadata["book_id"].split("-")[0] || "unknown",
-                    product?.metadata["book_id"].split("-")[1] || "unknown"
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Button icon="IconBook2" variant="secondary" fluid>
-                    Read Online - Free
-                  </Button>
-                </a>
+                </Link>
               )}
-            </div>
-            {tooManyPages && (
-              <p className="mt-4 text-slate-600 font-semibold">
-                This book has more than {BOOK_PAGE_LIMIT} pages and can't be
-                printed at this time. Please contact our{" "}
-                <a
-                  href="https://support.libretexts.org"
-                  target="_blank"
-                  className="text-primary hover:text-primary-hover font-medium"
+              <NumberInput
+                name="quantity"
+                label="Quantity"
+                value={quantity}
+                onChange={setQuantity}
+                disabled={cartLoading || tooManyPages}
+                min={1}
+                max={MAX_QUANTITY}
+                aria-label={
+                  tooManyPages
+                    ? "Quantity selection is disabled because the book exceeds the page limit."
+                    : undefined
+                }
+              />
+              {hasNCLicense && (
+                <Alert variant="warning" message={"This book has a NonCommercial clause in its license and cannot be resold for profit."} />
+              )}
+              <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                <Button
+                  onClick={handleAddToCart}
+                  disabled={disabled || cartLoading || tooManyPages}
+                  icon={<IconShoppingCartPlus size={18} />}
+                  fullWidth
                 >
-                  Support Center
-                </a>{" "}
-                if you need help with alternative options.
-              </p>
-            )}
-            {/* <div className="mt-10 border-t border-gray-200 pt-10">
-              <h3 className="text-sm font-medium text-gray-900">Highlights</h3>
-              <div className="mt-4">
-                <ul
-                  role="list"
-                  className="list-disc space-y-1 pl-5 text-sm/6 text-gray-500 marker:text-gray-300"
-                >
-                  {product.highlights.map((highlight) => (
-                    <li key={highlight} className="pl-2">
-                      {highlight}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div> */}
-
-            {isBook ? (
-              <div className="mt-10 border-t border-gray-200 pt-10">
-                <h3 className="font-medium text-gray-900">
-                  License Information
-                </h3>
-                <p className="mt-4 text-gray-500">
+                  Add to Cart -{" "}
+                  {formatPrice((price?.unit_amount || 0) * quantity, true)}
+                </Button>
+                {isBook && (
                   <a
-                    href={`https://commons.libretexts.org/book/${product?.metadata["book_id"]}`}
+                    href={buildLibraryPageGoURL(
+                      product?.metadata["book_id"].split("-")[0] || "unknown",
+                      product?.metadata["book_id"].split("-")[1] || "unknown"
+                    )}
                     target="_blank"
-                    className="font-medium text-primary hover:text-primary-hover"
+                    rel="noopener noreferrer"
                   >
-                    Please view full licensing details for this book here.
+                    <Button icon={<IconBook2 size={18} />} variant="secondary" fullWidth>
+                      Read Online - Free
+                    </Button>
                   </a>
-                </p>
+                )}
               </div>
+              {tooManyPages && (
+                <p className="mt-4 text-slate-600 font-semibold">
+                  This book has more than {BOOK_PAGE_LIMIT} pages and can't be
+                  printed at this time. Please contact our{" "}
+                  <a
+                    href="https://support.libretexts.org"
+                    target="_blank"
+                    className="text-primary hover:text-primary-hover font-medium"
+                  >
+                    Support Center
+                  </a>{" "}
+                  if you need help with alternative options.
+                </p>
+              )}
+            </Stack>
+            <Divider className="my-8" />
+            {isBook ? (
+              <Stack gap="xs">
+                <Heading level={3}>
+                  License Information
+                </Heading>
+                <Link
+                  href={`https://commons.libretexts.org/book/${product?.metadata["book_id"]}`}
+                  target="_blank"
+                  className="font-medium text-primary hover:text-primary-hover"
+                  external
+                >
+                  Please view full licensing details for this book here.
+                </Link>
+              </Stack>
             ) : (
-              <div className="mt-10 border-t border-gray-200 pt-10">
-                <h3 className="font-medium text-gray-900">
+              <Stack gap="xs">
+                <Heading level={3}>
                   Delivery Information
-                </h3>
-                <p className="mt-4 text-gray-500">
+                </Heading>
+                <Text>
                   Since this is a digital product, you have two convenient
                   delivery options at checkout:
-                </p>
-                <ul className="mt-4 list-disc space-y-2 pl-5 text-sm/6 text-gray-500 marker:text-gray-300">
+                </Text>
+                <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-gray-900 marker:text-gray-300">
                   <li>
                     <strong>Automatic Account Application:</strong> Have the
                     product automatically applied to your account.
@@ -406,7 +385,7 @@ export default function ProductPage() {
                     immediately after your purchase is complete.
                   </li>
                 </ul>
-              </div>
+              </Stack>
             )}
           </div>
 
@@ -414,27 +393,21 @@ export default function ProductPage() {
             <TabGroup>
               <div className="border-b border-gray-200">
                 <TabList className="-mb-px flex space-x-8">
-                  {/* <Tab className="whitespace-nowrap border-b-2 border-transparent py-6 text-sm font-medium text-gray-700 hover:border-gray-300 hover:text-gray-800 data-[selected]:border-indigo-600 data-[selected]:text-indigo-600">
-                    Customer Reviews
-                  </Tab> */}
                   <Tab className="whitespace-nowrap border-b-2 border-transparent py-6 text-sm font-medium text-gray-700 hover:border-gray-300 hover:text-gray-800 data-[selected]:border-indigo-600 data-[selected]:text-indigo-600">
                     FAQ
                   </Tab>
                 </TabList>
               </div>
               <TabPanels as={Fragment}>
-                {/* d */}
-
                 <TabPanel className="text-sm text-gray-500">
                   <h3 className="sr-only">Frequently Asked Questions</h3>
-
                   <dl>
                     {(isBook ? BOOK_FAQS : APP_LICENSE_FAQS).map((faq) => (
                       <Fragment key={faq.question}>
-                        <dt className="mt-10 font-medium text-gray-900">
+                        <dt className="mt-8 font-semibold text-gray-900">
                           {faq.question}
                         </dt>
-                        <dd className="mt-2 text-sm/2 text-gray-600">
+                        <dd className="mt-2 text-gray-900">
                           <Linkify>{faq.answer}</Linkify>
                         </dd>
                       </Fragment>
