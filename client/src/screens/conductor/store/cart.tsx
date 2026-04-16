@@ -5,6 +5,7 @@ import { useCart } from "../../../context/CartContext";
 import { formatPrice } from "../../../utils/storeHelpers";
 import StyledQuantitySelect from "../../../components/util/StyledQuantitySelect";
 import { Link } from "react-router-dom";
+import { Button, Heading } from "@libretexts/davis-react";
 
 export default function CartPage() {
   const { cart, loading, removeFromCart, updateQuantity } = useCart();
@@ -12,9 +13,9 @@ export default function CartPage() {
     <AlternateLayout>
       <div className="mx-auto max-w-2xl px-4 pb-24 pt-16 sm:px-6 lg:max-w-7xl lg:px-8">
         <div className="flex flex-col items-center">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+          <Heading level={1}>
             Shopping Cart
-          </h1>
+          </Heading>
           {cart?.items.length === 0 && (
             <div className="mt-8 text-center">
               <p className="!text-2xl text-gray-600">Your cart is empty!</p>
@@ -120,12 +121,9 @@ export default function CartPage() {
               aria-labelledby="summary-heading"
               className="mt-16 rounded-lg bg-gray-50 px-4 py-6 sm:p-6 lg:col-span-5 lg:mt-0 lg:p-8"
             >
-              <h2
-                id="summary-heading"
-                className="text-lg font-medium text-gray-900"
-              >
+              <Heading level={2} id="summary-heading">
                 Order summary
-              </h2>
+              </Heading>
 
               <dl className="mt-6 space-y-4">
                 <div className="flex items-center justify-between">
@@ -186,12 +184,12 @@ export default function CartPage() {
 
               <div className="mt-6">
                 <Link to="/store/checkout/auth-check">
-                  <button
-                    type="submit"
-                    className="w-full rounded-md border border-transparent bg-primary px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-50"
+                  <Button
+                    variant="primary"
+                    fullWidth
                   >
                     Checkout
-                  </button>
+                  </Button>
                 </Link>
               </div>
             </section>

@@ -21,6 +21,8 @@ import { useTypedSelector } from "../../../state/hooks";
 import { useModals } from "../../../context/ModalContext";
 import ConfirmOrderModal from "../../../components/store/ConfirmOrderModal";
 import ShippingTimeline from "../../../components/store/ShippingTimeline";
+import { Button } from "@libretexts/davis-react";
+import { IconArrowRight } from "@tabler/icons-react";
 
 const STATE_CODES = [
   {
@@ -428,7 +430,7 @@ export default function ShippingPage() {
       console.error("Error updating shipping options:", error);
       setError(
         "Failed to update shipping options. Please check your address and try again: " +
-          error.message
+        error.message
       );
     } finally {
       setShippingLoading(false);
@@ -801,8 +803,8 @@ export default function ShippingPage() {
                       ? formatPrice(selectedShippingOption.cost_excl_tax, true)
                       : shippingCalculated.current &&
                         shippingOptions === "digital_delivery_only"
-                      ? "Free (Digital Delivery)"
-                      : "TBD"}
+                        ? "Free (Digital Delivery)"
+                        : "TBD"}
                   </dd>
                 </div>
                 <div className="flex items-center justify-between">
@@ -816,9 +818,9 @@ export default function ShippingPage() {
                   <dd className="text-base font-medium text-gray-900">
                     {formatPrice(
                       (cart?.subtotal || 0) +
-                        (shippingCalculated.current && selectedShippingOption
-                          ? selectedShippingOption.cost_excl_tax
-                          : 0),
+                      (shippingCalculated.current && selectedShippingOption
+                        ? selectedShippingOption.cost_excl_tax
+                        : 0),
                       true
                     )}
                   </dd>
@@ -903,20 +905,19 @@ export default function ShippingPage() {
             {hasPhysicalProducts && selectedShippingOption && (
               <ShippingTimeline shippingOption={selectedShippingOption} />
             )}
-            <button
+            <Button
               type="submit"
-              className="mt-6 w-full rounded-md border border-transparent bg-primary px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-50 disabled:bg-opacity-55 disabled:cursor-not-allowed"
+              variant="primary"
               onClick={handleProceedToPayment}
               disabled={proceedDisabled || loading || shippingLoading}
+              className="!mt-4"
+              fullWidth
+              loading={loading || shippingLoading}
+              icon={<IconArrowRight size={18} />}
             >
-              {loading || shippingLoading ? (
-                <LoadingSpinner iconOnly />
-              ) : (
-                <Icon name="arrow right" className="!mb-1 !mr-2" />
-              )}
               Proceed to Payment
-            </button>
-            <p className="mt-4 text-sm text-gray-500 text-center">
+            </Button>
+            <p className="!mt-4 text-sm text-gray-500 text-center">
               If you have any questions or concerns, please contact our{" "}
               <a
                 href="https://support.libretexts.org"
