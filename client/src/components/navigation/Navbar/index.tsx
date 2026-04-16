@@ -272,8 +272,8 @@ const Navbar: React.FC<{}> = () => {
 
   return (
     <header
-      className="fixed top-0 left-0 w-full z-[100] bg-white flex flex-col"
-      style={{ height: isProduction ? "60px" : "100px" }}
+      className="w-full bg-white flex flex-col"
+      style={{ height: isProduction ? "60px" : "100px" }} // Account for extra height of EnvironmentBanner in non-production envs
     >
       <SkipLink targetId="main-content" />
       <EnvironmentBanner />
