@@ -41,7 +41,7 @@ body {
 }
 
 .component-container {
-    margin: calc(60px + 2%) 2% 0 2% !important;
+    margin: 20px 2% 0 2% !important;
     width: calc(100% - 4%) !important;
     z-index: 50;
 }
