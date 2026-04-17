@@ -27,7 +27,7 @@ const SupportCreateTicket = () => {
   }
 
   return (
-    <AlternateLayout>
+    <AlternateLayout altBackground>
       <Stack gap="xs" className='max-w-5xl mx-auto px-6'>
         <Stack gap="sm" align="center">
           <div>
@@ -54,7 +54,7 @@ const SupportCreateTicket = () => {
 
         <Stack gap="md" align="center">
           {!isLoggedIn && !guestMode && (
-            <Card variant="outline" className="w-full">
+            <Card variant="outline" className="w-full !bg-white">
               <Card.Header>
                 <Heading level={2} align="center">How would you like to continue?</Heading>
               </Card.Header>
