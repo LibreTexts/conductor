@@ -21,7 +21,7 @@ const AlternateLayout = ({
       className={classNames(
         "flex flex-col",
         h === "screen" ? "min-h-screen" : "h-screen-content",
-        altBackground ? "" : "bg-white",
+        altBackground ? "bg-surface-muted" : "bg-white",
         noPadding ? "" : "pt-5",
         className
       )}
