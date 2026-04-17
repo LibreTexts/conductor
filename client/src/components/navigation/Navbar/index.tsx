@@ -122,7 +122,7 @@ const Navbar: React.FC<{}> = () => {
     }
 
     if (context === "commons") {
-      if (org.mediumLogo && org.orgID === "libretexts") {
+      if (org.mediumLogo && org.orgID !== "libretexts") {
         return org.mediumLogo;
       }
       return "https://cdn.libretexts.net/Logos/commons_full.png";
