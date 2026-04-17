@@ -86,7 +86,7 @@ const SupportDashboard = () => {
   );
 
   return (
-    <AlternateLayout>
+    <AlternateLayout noPadding>
       <div className="flex flex-row">
         <SupportQueuesSidebar
           showCounts={user.isSupport}

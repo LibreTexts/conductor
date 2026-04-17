@@ -52,12 +52,12 @@ const TicketCommentsContainer = forwardRef(
 
     return (
       <div
-        className="flex flex-col mt-1 border rounded-md min-h-44 max-h-screen xl:max-h-96 2xl:max-h-[42rem] overflow-y-auto"
+        className="flex flex-col mt-1 border border-gray-300 rounded-md min-h-44 max-h-screen xl:max-h-96 2xl:max-h-[42rem] overflow-y-auto"
         ref={commentsContainer}
         {...props}
       >
         {scope === "general" && (
-          <Comment className="flex flex-row w-full border-b items-center py-4 px-2">
+          <Comment className="flex flex-row w-full border-b border-gray-300 items-center py-4 px-2">
             <CommentContent className="ml-4">
               <div className="flex flex-row items-center">
                 <CommentAuthor className="font-bold">

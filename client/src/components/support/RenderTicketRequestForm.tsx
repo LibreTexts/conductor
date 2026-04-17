@@ -2,7 +2,6 @@ import { SupportTicket } from "../../types";
 import FileUploader from "../FileUploader";
 import { supportTicketAttachmentAllowedTypes } from "../../utils/supportHelpers";
 import React, { useState } from "react";
-import { Icon, Button } from "semantic-ui-react";
 import { useFormContext } from "react-hook-form";
 import { useTypedSelector } from "../../state/hooks";
 import axios from "axios";
@@ -13,6 +12,8 @@ import PublishingRequestForm from "./RequestForms/PublishingRequestForm";
 import useSupportQueues from "../../hooks/useSupportQueues";
 import { useNotifications } from "../../context/NotificationContext";
 import { useSupportCenterContext } from "../../context/SupportCenterContext";
+import { FormSection, Stack, Button } from "@libretexts/davis-react";
+import { IconSend } from "@tabler/icons-react";
 
 interface RenderTicketRequestFormProps {
   autoCapturedURL?: boolean;
@@ -26,7 +27,7 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
   const { handleGlobalError } = useGlobalError();
   const { selectedQueue } = useSupportCenterContext();
   const { addNotification } = useNotifications();
-  const { trigger, getValues } = useFormContext<SupportTicket>();
+  const { trigger, getValues, register } = useFormContext<SupportTicket>();
   const user = useTypedSelector((state) => state.user);
   const { invalidate: invalidateSupportQueues } = useSupportQueues({
     withCount: false,
@@ -78,9 +79,10 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
 
       vals.deviceInfo = getDeviceInfo();
 
-      const { apps, ...restVals } = vals;
+      const { apps, capturedURL, ...restVals } = vals;
       const res = await axios.post("/support/ticket", {
         ...restVals,
+        ...(capturedURL ? { capturedURL } : {}),
         apps: apps && Array.isArray(apps) ? apps.filter((app) => app) : [apps],
       });
 
@@ -124,8 +126,7 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
 
     try {
       const uploadRes = await axios.post(
-        `/support/ticket/${ticketID}/attachments${
-          guestAccessKey ? `?accessKey=${guestAccessKey}` : ""
+        `/support/ticket/${ticketID}/attachments${guestAccessKey ? `?accessKey=${guestAccessKey}` : ""
         }`,
         formData,
         {
@@ -171,28 +172,26 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
   };
 
   return (
-    <div className="p-2">
-      <RenderedForm />
-      <div className="mt-6">
-        <label className="text-gray-700 font-semibold">
-          Attachments (optional) (max 4 files, 100 MB each)
-        </label>
-        <FileUploader
-          fileTypes={supportTicketAttachmentAllowedTypes}
-          maxFiles={4}
-          maxFileSize={100 * 1024 * 1024} // 100 MB
-          onUpload={saveFilesToState}
-          className="mt-1"
-          allowScreenCast
-        />
-      </div>
-      <div className="flex flex-row justify-end mt-4">
-        <Button color="blue" loading={loading} onClick={handleSubmit}>
-          <Icon name="paper plane" />
-          Submit
-        </Button>
-      </div>
-    </div>
+    <form className="" onSubmit={(e) => { e.preventDefault() }}>
+      <Stack gap="xl">
+        <RenderedForm />
+        <FormSection title="Attachments (optional) (max 4 files, 100 MB each)" className="mt-6">
+          <FileUploader
+            fileTypes={supportTicketAttachmentAllowedTypes}
+            maxFiles={4}
+            maxFileSize={100 * 1024 * 1024} // 100 MB
+            onUpload={saveFilesToState}
+            className="mt-1"
+            allowScreenCast
+          />
+        </FormSection>
+        <div className="flex flex-row justify-end">
+          <Button variant="primary" loading={loading} onClick={handleSubmit} icon={<IconSend />}>
+            Submit
+          </Button>
+        </div>
+      </Stack>
+    </form>
   );
 };
 export default RenderTicketRequestForm;

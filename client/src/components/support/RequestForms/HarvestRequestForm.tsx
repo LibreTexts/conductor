@@ -11,12 +11,13 @@ import CtlNextGenSelect from "../../ControlledInputs/CtlNextGenSelect";
 import CtlNextGenCheckbox from "../../ControlledInputs/CtlNextGenCheckbox";
 import CtlNextGenTextarea from "../../ControlledInputs/CtlNextGenTextarea";
 import CtlNextGenDateInput from "../../ControlledInputs/CtlNextGenDateInput";
+import { Input } from "@libretexts/davis-react";
 const DESCRIP_MAX_CHARS = 500;
 
 interface HarvestRequestFormProps { }
 
 const HarvestRequestForm: React.FC<HarvestRequestFormProps> = () => {
-  const { control, watch, getValues } = useFormContext<SupportTicket>();
+  const { control, watch, getValues, register } = useFormContext<SupportTicket>();
   const { licenseOptions } = useCentralIdentityLicenses();
 
   // Return new license version options when license name changes
@@ -38,6 +39,13 @@ const HarvestRequestForm: React.FC<HarvestRequestFormProps> = () => {
             resources, please submit a separate request for each.
           </p>
           <div className="!mt-4">
+            <Input
+              label="Resource Title"
+              placeholder="Enter the title of the resource to be harvested"
+              required={true}
+              aria-required="true"
+              {...register("title")}
+            />
             <CtlNextGenInput
               name="title"
               control={control}

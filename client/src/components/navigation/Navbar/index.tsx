@@ -27,7 +27,7 @@ import { COMMONS_PATHS } from "../../../Platform.js";
 
 // ─── Conductor nav items ──────────────────────────────────────────────────────
 const menuItemBase =
-  "flex items-center px-3 py-2 text-base font-medium rounded-md transition-colors min-h-[44px] " +
+  "flex items-center px-3 py-2 text-base font-medium transition-colors min-h-[44px] " +
   "hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
 const menuItemActive = "text-primary font-semibold border-b-2 border-primary";
 const menuItemInactive = "text-text hover:text-primary";

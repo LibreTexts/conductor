@@ -1,4 +1,3 @@
-import { Button, Icon } from "semantic-ui-react";
 import { useEffect, useState } from "react";
 import { SupportTicket } from "../../types";
 import { FormProvider, useForm } from "react-hook-form";
@@ -8,14 +7,14 @@ import {
 } from "../../utils/supportHelpers";
 import { Link, useLocation } from "react-router-dom";
 import { SupportTicketPriority } from "../../types/support";
-import { IconChevronRight } from "@tabler/icons-react";
+import { IconBook2, IconChevronRight, IconLifebuoy, IconTicket } from "@tabler/icons-react";
 import useURLSyncedState from "../../hooks/useURLSyncedState";
 import RenderTicketRequestForm from "./RenderTicketRequestForm";
 import useSupportQueues from "../../hooks/useSupportQueues";
 import DynamicIcon, { DynamicIconName } from "../NextGenComponents/DynamicIcon";
 import LoadingSpinner from "../LoadingSpinner";
-import Alert from "../NextGenComponents/Alert";
 import { useSupportCenterContext } from "../../context/SupportCenterContext";
+import { Alert, Button, Stack } from "@libretexts/davis-react";
 
 interface CreateTicketFlowProps {
   isLoggedIn: boolean;
@@ -49,7 +48,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     },
   });
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(3);
   const [autoCapturedURL, setAutoCapturedURL] = useState<boolean>(false);
 
   useEffect(() => {
@@ -133,7 +132,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     return (
       <ul
         role="list"
-        className="divide-y divide-gray-200 overflow-hidden bg-white shadow-xs outline-1 outline-gray-900/5 sm:rounded-xl"
+        className="divide-y divide-gray-200 overflow-hidden bg-white  outline-gray-900/5 sm:rounded-xl"
         aria-label="Support Queues"
       >
         {isLoadingQueues && <LoadingSpinner iconOnly={true} className="m-4" />}
@@ -170,7 +169,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
 
   return (
     <FormProvider {...methods}>
-      <div className="flex flex-col border rounded-lg m-4 p-4 w-full md:w-3/4 lg:w-1/2 shadow-lg bg-white">
+      <div className="flex flex-col border border-gray-300 rounded-lg m-4 p-4 w-full lg:w-3/4">
         {step === 1 && <QueueSelector />}
         {step === 2 && (
           <RenderTicketRequestForm
@@ -179,42 +178,46 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
           />
         )}
         {step === 3 && (
-          <div className="flex flex-col w-full">
+          <Stack gap="md" align="center">
             <Alert
               variant="success"
-              large={true}
               message="Your request has been submitted. You will receive an email
                 confirmation shortly. When we have updates for you, you will
                 receive email notifications."
             />
-            <div className="flex flex-col lg:flex-row items-center justify-center mt-4">
+            <Stack direction="horizontal" gap="md" className="w-full">
               {isLoggedIn ? (
                 <Button
-                  className="!w-44"
-                  color="blue"
                   as={Link}
                   to="/support/dashboard"
+                  fullWidth
+                  variant="outline"
+                  icon={<IconTicket />}
                 >
-                  <Icon name="ticket" />
                   My Tickets
                 </Button>
               ) : (
-                <Button color="blue" as={Link} to="/support">
-                  <Icon name="text telephone" />
+                <Button
+                  as={Link}
+                  to="/support"
+                  fullWidth
+                  variant="outline"
+                  icon={<IconLifebuoy />}
+                >
                   Back to Support
                 </Button>
               )}
               <Button
-                color="blue"
                 as={Link}
                 to="/"
-                className="!mt-4 lg:!ml-2 lg:!mt-0"
+                fullWidth
+                variant="outline"
+                icon={<IconBook2 />}
               >
-                <Icon name="book" />
                 Back to Commons
               </Button>
-            </div>
-          </div>
+            </Stack>
+          </Stack>
         )}
       </div>
     </FormProvider>

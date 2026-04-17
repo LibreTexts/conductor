@@ -1,4 +1,4 @@
-import DefaultLayout from "../../../components/navigation/AlternateLayout";
+import AlternateLayout from "../../../components/navigation/AlternateLayout";
 import { useEffect, useState } from "react";
 import { useTypedSelector } from "../../../state/hooks";
 import AuthHelper from "../../../components/util/AuthHelper";
@@ -7,8 +7,7 @@ import useSystemAnnouncement from "../../../hooks/useSystemAnnouncement";
 import SystemAnnouncement from "../../../components/util/SystemAnnouncement";
 import { useDocumentTitle } from "usehooks-ts";
 import useSupportAnnouncement from "../../../hooks/useSupportAnnouncement";
-import { Message } from 'semantic-ui-react';
-import { Alert } from "@libretexts/davis-react";
+import { Button, Card, Heading, Stack, Text } from "@libretexts/davis-react";
 
 const SupportCreateTicket = () => {
   useDocumentTitle("LibreTexts | Contact Support");
@@ -18,16 +17,8 @@ const SupportCreateTicket = () => {
   const { sysAnnouncement } = useSystemAnnouncement();
   const { supportAnnouncement } = useSupportAnnouncement();
 
-  const checkIsLoggedIn = () => {
-    if (user && user.uuid) {
-      setIsLoggedIn(true);
-      return;
-    }
-    setIsLoggedIn(false);
-  };
-
   useEffect(() => {
-    checkIsLoggedIn();
+    setIsLoggedIn(!!(user && user.uuid));
   }, [user]);
 
   function redirectToLogin() {
@@ -36,9 +27,17 @@ const SupportCreateTicket = () => {
   }
 
   return (
-    <DefaultLayout altBackground h="screen" className="!mb-[2%]">
-      <>
-        <div className="w-1/2 mx-auto mt-36">
+    <AlternateLayout>
+      <Stack gap="xs" className='max-w-5xl mx-auto px-6'>
+        <Stack gap="sm" align="center">
+          <div>
+            <Heading level={1} className="text-4xl font-semibold">
+              Contact Support
+            </Heading>
+            <Text className="mt-2 text-gray-600">
+              Submit a request to get help from our team.
+            </Text>
+          </div>
           {sysAnnouncement && (
             <SystemAnnouncement
               title={sysAnnouncement.title}
@@ -51,43 +50,41 @@ const SupportCreateTicket = () => {
               message={supportAnnouncement.message}
             />
           )}
-        </div>
-        <div className="flex flex-col w-full h-full overflow-y-auto items-center justify-center">
-          <div className="flex flex-col w-full items-center mt-12">
-            <h1 className="text-4xl font-semibold">Contact Support</h1>
-            <p className="mt-2">
-              Submit a request to get help from our team.
-            </p>
-            <div className="flex flex-col mt-4 w-full lg:w-1/3 bg-white">
-              <Alert variant="info" title="Important" message="Please do not submit a support ticket for account creation. You can visit https://register.libretexts.org to create an account and complete instructor verification (if applicable)." />
-            </div>
-            <>
-              {!isLoggedIn && !guestMode && (
-                <div className="flex flex-col w-1/2 lg:w-2/5 mt-8 items-center">
-                  <button
-                    onClick={() => redirectToLogin()}
-                    className="w-full h-auto p-3 lg:w-3/4 lg:h-12 flex bg-primary rounded-md text-white text-lg my-2 items-center justify-center shadow-sm hover:shadow-md"
+        </Stack>
+
+        <Stack gap="md" align="center">
+          {!isLoggedIn && !guestMode && (
+            <Card variant="outline" className="w-full">
+              <Card.Header>
+                <Heading level={2} align="center">How would you like to continue?</Heading>
+              </Card.Header>
+              <Card.Body>
+                <Stack gap="md">
+                  <Button
+                    variant="primary"
+                    className="w-full justify-center"
+                    onClick={redirectToLogin}
                   >
                     Log In with LibreOne (Recommended)
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="w-full justify-center"
                     onClick={() => setGuestMode(true)}
-                    className="w-full h-auto p-3 lg:w-3/4 lg:h-12 flex bg-primary rounded-md text-white text-lg my-2 items-center justify-center shadow-sm hover:shadow-md"
                   >
                     Continue as Guest
-                  </button>
-                </div>
-              )}
-              {(isLoggedIn || guestMode) && (
-                <div className="mt-4 flex w-full justify-center">
-                  <CreateTicketFlow isLoggedIn={isLoggedIn} />
-                </div>
-              )}
-            </>
-          </div>
-        </div>
-      </>
-    </DefaultLayout >
+                  </Button>
+                </Stack>
+              </Card.Body>
+            </Card>
+          )}
+
+          {(isLoggedIn || guestMode) && (
+            <CreateTicketFlow isLoggedIn={isLoggedIn} />
+          )}
+        </Stack>
+      </Stack>
+    </AlternateLayout>
   );
 };
 
