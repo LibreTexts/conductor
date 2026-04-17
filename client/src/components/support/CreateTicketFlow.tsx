@@ -48,7 +48,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     },
   });
 
-  const [step, setStep] = useState(3);
+  const [step, setStep] = useState(1);
   const [autoCapturedURL, setAutoCapturedURL] = useState<boolean>(false);
 
   useEffect(() => {
@@ -169,7 +169,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
 
   return (
     <FormProvider {...methods}>
-      <div className="flex flex-col border border-gray-300 rounded-lg m-4 p-4 w-full lg:w-3/4">
+      <div className="flex flex-col border border-gray-300 rounded-lg m-4 p-4 w-full lg:w-3/4 bg-white">
         {step === 1 && <QueueSelector />}
         {step === 2 && (
           <RenderTicketRequestForm
