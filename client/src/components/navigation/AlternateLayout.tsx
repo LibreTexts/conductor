@@ -6,11 +6,13 @@ import classNames from "classnames";
 const AlternateLayout = ({
   children,
   altBackground,
+  noPadding,
   h = "screen",
   className,
 }: {
   children: JSX.Element[] | JSX.Element;
   altBackground?: boolean;
+  noPadding?: boolean;
   h?: "screen" | "screen-content";
   className?: string;
 }) => {
@@ -20,6 +22,7 @@ const AlternateLayout = ({
         "flex flex-col",
         h === "screen" ? "min-h-screen" : "h-screen-content",
         altBackground ? "" : "bg-white",
+        noPadding ? "" : "pt-5",
         className
       )}
     >

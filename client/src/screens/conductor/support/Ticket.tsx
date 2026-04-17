@@ -6,7 +6,7 @@ import { SupportTicket } from "../../../types";
 import axios from "axios";
 import TicketMessaging from "../../../components/support/TicketMessaging";
 import { useTypedSelector } from "../../../state/hooks";
-import { Button, Dropdown, Icon, SemanticICONS } from "semantic-ui-react";
+import { Dropdown, Icon, SemanticICONS } from "semantic-ui-react";
 import TicketDetails from "../../../components/support/TicketDetails";
 import TicketFeed from "../../../components/support/TicketFeed";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +25,8 @@ import { useDocumentTitle } from "usehooks-ts";
 import { useModals } from "../../../context/ModalContext";
 import AssignTicketModal from "../../../components/support/AssignTicketModal";
 import AuthHelper from "../../../components/util/AuthHelper";
+import { Button, Heading, Menu, Stack } from "@libretexts/davis-react";
+import { IconCheck, IconExclamationCircle, IconRefresh, IconShield, IconUsersPlus } from "@tabler/icons-react";
 
 const getIdFromURL = (url: string) => {
   if (!url) return "";
@@ -223,13 +225,12 @@ const SupportTicketView = () => {
   }, [ticket]);
 
   const AdminOptions = () => (
-    <div className="flex flex-col space-y-2 mt-8 md:space-y-0 md:flex-row lg:mt-0">
+    <Stack direction="horizontal" gap="md">
       {ticket?.status === "open" && user.isSupport && (
         <Button
-          color="red"
           onClick={() => setShowDeleteModal(true)}
           loading={loading || isFetching}
-          size={isTailwindLg ? undefined : "mini"}
+          variant="destructive"
         >
           <Icon name="trash" />
           Delete Ticket
@@ -238,98 +239,90 @@ const SupportTicketView = () => {
       {["open", "assigned", "in_progress", "awaiting_requester"].includes(
         ticket?.status ?? ""
       ) && (
-        <>
-          <Button
-            onClick={() =>
-              toggleAutoCloseMutation.mutateAsync(!ticket?.autoCloseSilenced)
-            }
-            loading={loading || isFetching}
-            size={isTailwindLg ? undefined : "mini"}
-          >
-            <Icon name="shield alternate" />
-            {ticket?.autoCloseSilenced ? "Enable" : "Disable"} Auto-Close
-          </Button>
-          <Dropdown
-            text={`Priority: ${capitalizeFirstLetter(
-              ticket?.priority ?? "medium"
-            )}`}
-            icon="exclamation triangle"
-            floating
-            labeled
-            button
-            className="icon"
-            loading={loading || isFetching}
-            size={isTailwindLg ? undefined : "mini"}
-          >
-            <Dropdown.Menu>
-              {changePriorityOptions.map((opt) => (
-                <Dropdown.Item
-                  key={opt.value}
-                  onClick={() =>
-                    updateTicketPriorityMutation.mutateAsync(
-                      opt.value as "high" | "medium" | "low"
-                    )
-                  }
-                >
-                  <Icon name={opt.icon as SemanticICONS} />
-                  {opt.value}
-                </Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </Dropdown>
-          <Button
-            color="blue"
-            onClick={() => handleOpenAssignModal()}
-            loading={loading || isFetching}
-            size={isTailwindLg ? undefined : "mini"}
-          >
-            <Icon name="user plus" />
-            {ticket?.assignedUUIDs && ticket?.assignedUUIDs?.length > 0
-              ? "Re-Assign"
-              : "Assign"}{" "}
-            Ticket
-          </Button>
-          <Button
-            color="green"
-            onClick={() => updateTicketStatusMutation.mutateAsync("closed")}
-            loading={loading || isFetching}
-            size={isTailwindLg ? undefined : "mini"}
-          >
-            <Icon name="check" />
-            Mark as Resolved
-          </Button>
-        </>
-      )}
+          <Stack direction={isTailwindLg ? "horizontal" : "vertical"} gap="md" align="start">
+            <Button
+              variant="outline"
+              onClick={() =>
+                toggleAutoCloseMutation.mutateAsync(!ticket?.autoCloseSilenced)
+              }
+              loading={loading || isFetching}
+              icon={<IconShield size={16} />}
+            >
+              {ticket?.autoCloseSilenced ? "Enable" : "Disable"} Auto-Close
+            </Button>
+            <Menu
+            >
+              <Menu.Button disabled={loading || isFetching}>
+                <IconExclamationCircle size={16} className="mr-1" />
+                {`Priority: ${capitalizeFirstLetter(
+                  ticket?.priority ?? "medium"
+                )}`}
+              </Menu.Button>
+              <Menu.Items>
+                {changePriorityOptions.map((opt) => (
+                  <Menu.Item
+                    key={opt.value}
+                    onClick={() =>
+                      updateTicketPriorityMutation.mutateAsync(
+                        opt.value as "high" | "medium" | "low"
+                      )
+                    }
+                  >
+                    <Icon name={opt.icon as SemanticICONS} />
+                    {opt.value}
+                  </Menu.Item>
+                ))}
+              </Menu.Items>
+            </Menu>
+            <Button
+              variant="tertiary"
+              onClick={() => handleOpenAssignModal()}
+              loading={loading || isFetching}
+              icon={<IconUsersPlus size={16} />}
+            >
+              {ticket?.assignedUUIDs && ticket?.assignedUUIDs?.length > 0
+                ? "Re-Assign"
+                : "Assign"}{" "}
+              Ticket
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => updateTicketStatusMutation.mutateAsync("closed")}
+              loading={loading || isFetching}
+              icon={<IconCheck size={16} />}
+            >
+              Mark as Resolved
+            </Button>
+          </Stack>
+        )}
       {ticket?.status === "closed" && (
         <Button
-          color="orange"
+          variant="destructive"
           onClick={() => updateTicketStatusMutation.mutateAsync("in_progress")}
           loading={loading || isFetching}
-          size={isTailwindLg ? undefined : "mini"}
+          icon={<IconRefresh size={16} />}
         >
-          <Icon name="undo" />
           Re-Open Ticket
         </Button>
       )}
-    </div>
+    </Stack>
   );
 
   return (
-    <DefaultLayout altBackground>
-      <div aria-busy={isFetching} className="lt-legacy px-8 pt-8">
+    <DefaultLayout altBackground noPadding>
+      <div aria-busy={isFetching} className="px-8 pt-8">
         {ticket && (
           <>
             <div className="flex flex-col lg:flex-row w-full justify-between">
-              <div className="flex flex-row items-center">
-                <p className="text-3xl font-semibold">
+              <Stack direction="horizontal" gap="md" align="center">
+                <Heading level={1} className="!text-3xl !m-0">
                   {ticket.queue?.ticket_descriptor || "Support Ticket"}: #
                   {ticket?.uuid.slice(-7)}
-                </p>
+                </Heading>
                 <TicketStatusPill
                   status={ticket.status}
-                  className="ml-4 mt-1 border border-gray-300 shadow-sm"
                 />
-              </div>
+              </Stack>
               {(user.isSupport || user.isHarvester) && <AdminOptions />}
             </div>
             <div className="flex flex-col xl:flex-row-reverse w-full mt-4">

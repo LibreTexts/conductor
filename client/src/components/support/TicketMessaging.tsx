@@ -1,12 +1,13 @@
 import { useEffect, useRef } from "react";
-import { Button, Form, Icon, TextArea } from "semantic-ui-react";
 import { SupportTicket, SupportTicketMessage } from "../../types";
 import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
-import { Controller, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTypedSelector } from "../../state/hooks";
 import TicketCommentsContainer from "./TicketCommentsContainer";
+import { Button, Card, Heading, Stack, Text, Textarea } from "@libretexts/davis-react";
+import { IconSend, IconTrash } from "@tabler/icons-react";
 
 interface TicketMessagingProps {
   id: string;
@@ -24,7 +25,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
     useRef<React.ElementRef<typeof TicketCommentsContainer>>(null);
   const { handleGlobalError } = useGlobalError();
   const queryClient = useQueryClient();
-  const { control, getValues, setValue, watch, trigger, reset } =
+  const { control, getValues, setValue, watch, trigger, register, reset } =
     useForm<SupportTicketMessage>({
       defaultValues: {
         message: "",
@@ -111,87 +112,83 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
     mutationFn: sendMessage,
     onSuccess: async () => {
       await refetch();
-      await queryClient.invalidateQueries({ queryKey: ["ticket", id ] });
+      await queryClient.invalidateQueries({ queryKey: ["ticket", id] });
     },
   });
 
   return (
-    <div>
-      <div className="flex flex-col w-full bg-white rounded-md">
-        <div className="flex flex-col border shadow-md rounded-md p-4">
-          <p className="text-xl font-semibold text-center">Ticket Comments</p>
-          {!user.isSupport && !user.isHarvester && (
-            <div className="px-4 mt-2 mb-4">
-              <p className="text-center italic">
-                Feel free to leave this page at any time. We'll send you an
-                email when new comments are added.
-              </p>
-            </div>
-          )}
-          <TicketCommentsContainer
-            ref={containerRef}
-            scope="general"
-            messages={messages}
-            ticket={ticket}
-          />
-          <div className="mt-2">
-            <p className="font-semibold mb-1 ml-1">Send Message:</p>
-            <Form onSubmit={(e) => e.preventDefault()}>
-              <Controller
-                control={control}
-                name="message"
-                render={() => (
-                  <TextArea
-                    value={watch("message")}
-                    onChange={(e) => setValue("message", e.target.value)}
-                    placeholder="Enter your message here..."
-                    maxLength={3000}
-                    onKeyDown={(e: any) => {
-                      if (e.key === "Enter" && e.ctrlKey) {
-                        if (!getValues("message")) return;
-                        if (sendMessageMutation.isLoading) return;
-                        sendMessageMutation.mutateAsync();
-                      }
-                    }}
-                  />
-                )}
-              />
-              <div className="flex flex-col md:flex-row w-full justify-between mt-2">
-                <div>
-                  <p className="text-xs text-gray-500 ml-1">
-                    {watch("message")?.length ?? 0}/3000. Enter for new line.
-                    Ctrl + Enter to send.
-                  </p>
-                  <p className="text-sm text-gray-500 italic mt-1 ml-0.5">
-                    Your ticket comments may be used to improve our support
-                    services. Any sensitive information will remain
-                    confidential.
-                  </p>
-                </div>
-                <div className="flex flex-col w-full justify-end space-y-2 mt-2 md:flex-row md:w-auto md:space-y-0 md:mt-0">
-                  <Button onClick={() => setValue("message", "")}>
-                    <Icon name="trash" />
-                    Clear
-                  </Button>
-                  <Button
-                    color="blue"
-                    onClick={async () => {
-                      if (!getValues("message")) return;
-                      if (sendMessageMutation.isLoading) return;
-                      await sendMessageMutation.mutateAsync();
-                    }}
-                    loading={sendMessageMutation.isLoading}
-                  >
-                    <Icon name="send" />
-                    Send
-                  </Button>
-                </div>
-              </div>
-            </Form>
+    <Card variant="elevated">
+      <Card.Header>
+        <Heading level={4} align="center">
+          Ticket Comments
+        </Heading>
+      </Card.Header>
+      <Card.Body className="py-4">
+        {!user.isSupport && !user.isHarvester && (
+          <div className="px-4 mt-2 mb-4">
+            <p className="text-center italic">
+              Feel free to leave this page at any time. We'll send you an
+              email when new comments are added.
+            </p>
           </div>
+        )}
+        <TicketCommentsContainer
+          ref={containerRef}
+          scope="general"
+          messages={messages}
+          ticket={ticket}
+        />
+        <div className="mt-4">
+          <form onSubmit={(e) => e.preventDefault()}>
+            <Textarea
+              label="Send Message"
+              placeholder="Enter your message here..."
+              maxLength={3000}
+              onKeyDown={(e: any) => {
+                if (e.key === "Enter" && e.ctrlKey) {
+                  if (!getValues("message")) return;
+                  if (sendMessageMutation.isLoading) return;
+                  sendMessageMutation.mutateAsync();
+                }
+              }}
+              {...register("message", { required: "Message cannot be empty" })}
+            />
+            <Stack direction="horizontal" className="w-full mt-2" justify="between">
+              <Stack direction="vertical" gap="xs">
+                <Text size="xs" className="text-gray-600 ml-1">
+                  {watch("message")?.length ?? 0}/3000. Enter for new line.
+                  Ctrl + Enter to send.
+                </Text>
+                <Text size="sm" className=" text-gray-600 italic mt-1 ml-0.5">
+                  Your ticket comments may be used to improve our support
+                  services. Any sensitive information will remain
+                  confidential.
+                </Text>
+              </Stack>
+              <Stack direction="horizontal" gap="sm" className="mt-2 md:mt-0" justify="end" align="end">
+                <Button
+                  icon={<IconTrash size={18} />}
+                  onClick={() => setValue("message", "")}>
+                  Clear
+                </Button>
+                <Button
+                  variant="primary"
+                  icon={<IconSend size={18} />}
+                  onClick={async () => {
+                    if (!getValues("message")) return;
+                    if (sendMessageMutation.isLoading) return;
+                    await sendMessageMutation.mutateAsync();
+                  }}
+                  loading={sendMessageMutation.isLoading}
+                >
+                  Send
+                </Button>
+              </Stack>
+            </Stack>
+          </form>
         </div>
-      </div>
-    </div>
+      </Card.Body>
+    </Card >
   );
 };
 export default TicketMessaging;

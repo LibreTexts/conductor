@@ -179,9 +179,9 @@ const TicketTable: React.FC<TicketTableProps> = ({
                     </td>
                   )}
                   <td className={`${showSelect ? "" : "pl-5"}`}>
-                    <div className="flex flex-col py-3">
-                      <p className="font-semibold text-gray-900 group-hover:text-blue-600 text-lg truncate max-w-2xl">
-                        {truncateString(ticket.title, 80)}{" "}
+                    <div className="flex flex-col py-2 align-middle">
+                      <p className="font-semibold text-gray-900 group-hover:text-blue-600 text-lg truncate max-w-2xl !mb-1">
+                        {truncateString(ticket.title, 70)}{" "}
                       </p>
                       <p className="text-sm text-gray-600 font-mono pl-0.5">
                         {format(

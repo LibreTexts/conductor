@@ -91,7 +91,7 @@ const SupportCenter = () => {
   }
 
   return (
-    <DefaultLayout h="screen">
+    <DefaultLayout h="screen" noPadding>
       <SupportCenterJumbotron />
       <div className="lt-legacy grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl mx-auto px-6 py-12">
         <HomeItem
