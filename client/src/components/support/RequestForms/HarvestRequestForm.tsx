@@ -1,17 +1,12 @@
 import { useFormContext } from "react-hook-form";
 import RequestFormWithAuth from "./RequestFormWithAuth";
 import { SupportTicket } from "../../../types";
-import { required } from "../../../utils/formRules";
 import { libraryOptions } from "../../util/LibraryOptions";
 import { useCallback } from "react";
 import useCentralIdentityLicenses from "../../../hooks/useCentralIdentityLicenses";
 import { textUseOptions } from "../../util/HarvestingMasterOptions";
-import CtlNextGenInput from "../../ControlledInputs/CtlNextGenInput";
-import CtlNextGenSelect from "../../ControlledInputs/CtlNextGenSelect";
+import { FormSection, Input, Select, Stack, Text, Textarea } from "@libretexts/davis-react";
 import CtlNextGenCheckbox from "../../ControlledInputs/CtlNextGenCheckbox";
-import CtlNextGenTextarea from "../../ControlledInputs/CtlNextGenTextarea";
-import CtlNextGenDateInput from "../../ControlledInputs/CtlNextGenDateInput";
-import { Input } from "@libretexts/davis-react";
 const DESCRIP_MAX_CHARS = 500;
 
 interface HarvestRequestFormProps { }
@@ -31,163 +26,121 @@ const HarvestRequestForm: React.FC<HarvestRequestFormProps> = () => {
 
   return (
     <RequestFormWithAuth>
-      <div className="space-y-8">
-        <div className="border-b border-gray-900/10 pb-10">
-          <p className="font-semibold text-2xl mt-12">Harvest Request Info</p>
-          <p className="text-gray-600 text-base/6 !mt-1">
+      <Stack gap="lg">
+        <FormSection title="Harvest Request Info">
+          <Text>
             Please only submit one request per resource. If you have multiple
             resources, please submit a separate request for each.
-          </p>
-          <div className="!mt-4">
-            <Input
-              label="Resource Title"
-              placeholder="Enter the title of the resource to be harvested"
-              required={true}
-              aria-required="true"
-              {...register("title")}
-            />
-            <CtlNextGenInput
-              name="title"
-              control={control}
-              label="Resource Title"
-              placeholder="Enter the title of the resource to be harvested"
-              required={true}
-              rules={required}
-            />
-          </div>
-          <div className="mt-4">
-            <CtlNextGenSelect
-              name="metadata.library"
-              control={control}
-              label="Library"
-              placeholder="Select the library this resource should be added to"
-              rules={required}
-              options={libraryOptions.map((lib) => ({
-                value: lib.value,
-                label: lib.text,
-              }))}
-            />
-          </div>
-        </div>
-        <div className="border-b border-gray-900/10 pb-10">
-          <h3 className="font-semibold text-2xl">Resource Format</h3>
-          <p className="text-gray-600 text-base/6 !mt-1">
+          </Text>
+          <Input
+            label="Resource Title"
+            placeholder="Enter the title of the resource to be harvested"
+            required
+            {...register("title", { required: "Title is required" })}
+          />
+          <Select
+            label="Library"
+            placeholder="Select the library this resource should be added to"
+            required
+            options={libraryOptions.map((lib) => ({
+              value: lib.value,
+              label: lib.text,
+            }))}
+            {...register("metadata.library", { required: "Library is required" })}
+          />
+        </FormSection>
+        <FormSection title="Resource Information">
+          <Text>
             We can harvest OER content from nearly any format, although content
             in some formats requires more effort to integrate than others. If
             the requested resource exists online please enter the URL below. If
             the resource is a file (such as a PDF, ePub, or ZIP archive) please
             attach it at the bottom of this form.
-          </p>
-          <div className="mt-4">
-            <CtlNextGenInput
-              control={control}
-              name="capturedURL"
-              label="URL (if online resource)"
-              placeholder="Enter the URL of the resource to be harvested"
-              type="url"
-            />
-          </div>
-          <div className="mt-4">
-            <CtlNextGenSelect
-              name="metadata.license.name"
-              control={control}
-              label="License Name"
-              placeholder="Select a license..."
-              rules={required}
-              options={licenseOptions?.map((l) => ({
-                value: l.name,
-                label: l.name,
-              }))}
-            />
-          </div>
+          </Text>
+          <Input
+            label="URL (if online resource)"
+            placeholder="Enter the URL of the resource to be harvested"
+            type="url"
+            {...register("capturedURL", { required: false })}
+          />
+          <Select
+            label="License Name"
+            placeholder="Select a license..."
+            required
+            options={licenseOptions?.map((l) => ({
+              value: l.name,
+              label: l.name,
+            }))}
+            {...register("metadata.license.name", { required: "License is required" })}
+          />
           {selectedLicenseVersions().length > 0 && (
-            <div className="mt-4">
-              <CtlNextGenSelect
-                name="metadata.license.version"
-                control={control}
-                label="License Version"
-                placeholder="Select license version"
-                rules={{ required: selectedLicenseVersions().length > 0 ? true : false }}
-                options={selectedLicenseVersions().map((v) => ({
-                  value: v,
-                  label: v,
-                }))}
-              />
-            </div>
-          )}
-          <div className="flex items-start mt-3">
-            <CtlNextGenCheckbox
-              name="metadata.license.modifiedFromSource"
-              control={control}
-              label="File modified from source?"
+            <Select
+              label="License Version"
+              placeholder="Select license version"
+              options={selectedLicenseVersions().map((v) => ({
+                value: v,
+                label: v,
+              }))}
+              {...register("metadata.license.version", { required: selectedLicenseVersions().length > 0 ? "License version is required" : false })}
             />
-          </div>
-          <CtlNextGenTextarea
-            name="metadata.license.additionalTerms"
+          )}
+          {/*TODO: change to Davis Checkbox when RHF integration is fixed */}
+          <CtlNextGenCheckbox
             control={control}
+            name="metadata.license.modifiedFromSource"
+            label="File modified from source?"
+          />
+          <Textarea
             label="Additional License Terms"
             placeholder="Additional terms (if applicable)..."
-            className="mt-4"
             maxLength={DESCRIP_MAX_CHARS}
-            showRemaining
+            {...register("metadata.license.additionalTerms", { required: false })}
           />
-        </div>
-        <div className="border-b border-gray-900/10 pb-10">
-          <h3 className="font-semibold text-2xl">Priority</h3>
-          <p className="text-gray-600 text-base/6 !mt-1">
-
+        </FormSection>
+        <FormSection title="Priority">
+          <Text>
             We try to prioritize harvesting for OER texts that instructors are
             ready to adopt in their classes.
-          </p>
-          <CtlNextGenInput
-            name="metadata.institution"
-            control={control}
+          </Text>
+          <Input
             label="Your School/Institution"
             placeholder="Enter the name of your school or institution"
-            className="mt-4"
+            {...register("metadata.institution", { required: false })}
           />
-          <div className="mt-4">
-            <CtlNextGenSelect
-              name="metadata.resourceUse"
-              control={control}
-              label="I would like to use this resource in my class"
-              placeholder="Select use..."
-              options={textUseOptions.map((option) => ({
-                value: option.value,
-                label: option.text,
-              }))}
-            />
-          </div>
-          <CtlNextGenDateInput
-            name="metadata.dateIntegrate"
-            control={control}
+          <Select
+            label="I would like to use this resource in my class"
+            placeholder="Select use..."
+            options={textUseOptions.map((option) => ({
+              value: option.value,
+              label: option.text,
+            }))}
+            {...register("metadata.resourceUse", { required: false })}
+          />
+          <Input
             label="Date integration has to be completed for adoption to be possible(*)"
-            className="mt-4"
+            placeholder="Enter the date..."
+            type="date"
+            {...register("metadata.dateIntegrate", { required: false })}
           />
-          <p className="mt-1 ml-1 text-sm/6">
+          <Text className="ml-1 text-sm">
             *
             <em>
               We try to integrate projects by the date they are needed but
               cannot guarantee this.
             </em>
-          </p>
-        </div>
-        <div>
-          <h3 className="font-semibold text-2xl mb-2">
-            Additional Information (optional)
-          </h3>
-          <CtlNextGenTextarea
-            control={control}
+          </Text>
+        </FormSection>
+        <FormSection title="Additional Information (optional)">
+          <Textarea
             label=""
-            name="description"
             placeholder="Is there any other information you'd like to provide about this publishing request?"
             maxLength={2000}
-            showRemaining
             rows={4}
+            {...register("description", { required: false })}
           />
-        </div>
-      </div>
-    </RequestFormWithAuth>
+        </FormSection>
+      </Stack>
+    </RequestFormWithAuth >
   );
 };
 
