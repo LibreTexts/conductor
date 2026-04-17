@@ -2163,6 +2163,7 @@ class API {
         data: {
           charge: OrderCharge;
           session: OrderSession;
+          shipping: import("./types/Store").StoreOrderShippingData | null;
         };
       } & ConductorBaseResponse
     >(`/store/checkout/session/${order_id}`);
