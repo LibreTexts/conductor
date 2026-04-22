@@ -1,113 +1,127 @@
+import { Avatar, Button, Heading } from "@libretexts/davis-react";
 import {
-  Button,
-  Header,
-  Icon,
-  Image,
-  Menu,
-  Segment,
-} from "semantic-ui-react";
+  IconBell,
+  IconBriefcase,
+  IconChevronDown,
+  IconChevronUp,
+  IconClipboardCheck,
+  IconDashboard,
+  IconExternalLink,
+  IconPlus,
+  IconTicket,
+} from "@tabler/icons-react";
 import AccountStatus from "../util/AccountStatus";
 import { Link } from "react-router-dom";
 import { useTypedSelector } from "../../state/hooks";
 import { useState } from "react";
 import useClientConfig from "../../hooks/useClientConfig";
 
-const UserMenu: React.FC = () => {
-  const { clientConfig } = useClientConfig();
-  const user = useTypedSelector((state) => state.user);
-  const [menuOpen, setMenuOpen] = useState(false);
+type NavItemProps = {
+  label: string;
+  icon: React.ReactNode;
+} & (
+  | { href: string; to?: never }
+  | { to: string; href?: never }
+);
 
-  const SubMenu = ({ showUserDetail }: { showUserDetail: boolean }) => (
-    <Menu vertical fluid className="w-full">
+const NavItem: React.FC<NavItemProps> = ({ label, icon, href, to }) => {
+  const base =
+    "flex justify-between items-center px-4 py-3 text-gray-800 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0";
+
+  if (to) {
+    return (
+      <Link to={to} className={base}>
+        <span>{label}</span>
+        <span className="text-gray-500">{icon}</span>
+      </Link>
+    );
+  }
+
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={base}>
+      <span>{label}</span>
+      <span className="text-gray-500">{icon}</span>
+    </a>
+  );
+};
+
+const NavList: React.FC<{ showUserDetail: boolean }> = ({ showUserDetail }) => {
+  const user = useTypedSelector((state) => state.user);
+  const { clientConfig } = useClientConfig();
+
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
       {showUserDetail && (
-        <Menu.Item>
-          <Header as="h1">
-            <Image circular src={`${user.avatar}`} className="menu-avatar" />
-            <br />
+        <div className="flex flex-col items-center py-6 px-4 border-b border-gray-200">
+          <Avatar src={user.avatar} alt={user.firstName} size="xl" />
+          <Heading level={3} className="mt-3 text-center">
             Welcome,
             <br />
             {user.firstName}
-          </Header>
-          <div className="flex">
+          </Heading>
+          <div className="mt-2">
             <AccountStatus verifiedInstructor={user.verifiedInstructor} />
           </div>
-        </Menu.Item>
+        </div>
       )}
       {(user.isSuperAdmin || user.isCampusAdmin || user.isSupport) && (
-        <Menu.Item as={Link} to="/controlpanel">
-          Control Panel
-          <Icon name="dashboard" />
-        </Menu.Item>
+        <NavItem label="Control Panel" icon={<IconDashboard size={20} />} to="/controlpanel" />
       )}
-      <Menu.Item as={Link} to="/alerts">
-        <Icon name="alarm" />
-        My Alerts
-      </Menu.Item>
-      <Menu.Item as={Link} to="/support/dashboard">
-        <Icon name="ticket" />
-        My Support Tickets
-      </Menu.Item>
-      <Menu.Item
+      <NavItem label="My Alerts" icon={<IconBell size={20} />} to="/alerts" />
+      <NavItem label="My Support Tickets" icon={<IconTicket size={20} />} to="/support/dashboard" />
+      <NavItem
+        label="Harvesting Request"
+        icon={<IconPlus size={20} />}
         href="https://commons.libretexts.org/harvestrequest"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Harvesting Request
-        <Icon name="plus" />
-      </Menu.Item>
-      <Menu.Item
+      />
+      <NavItem
+        label="Adoption Report"
+        icon={<IconClipboardCheck size={20} />}
         href="https://commons.libretexts.org/adopt"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Adoption Report
-        <Icon name="clipboard check" />
-      </Menu.Item>
-      {
-        clientConfig?.instructor_verification_url && (
-          <Menu.Item
-            href={clientConfig?.instructor_verification_url}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Instructor Verification<br /> Request
-            <Icon name="briefcase" />
-          </Menu.Item>
-        )}
-      <Menu.Item
+      />
+      {clientConfig?.instructor_verification_url && (
+        <NavItem
+          label="Instructor Verification Request"
+          icon={<IconBriefcase size={20} />}
+          href={clientConfig.instructor_verification_url}
+        />
+      )}
+      <NavItem
+        label="LibreTexts.org"
+        icon={<IconExternalLink size={20} />}
         href="https://libretexts.org"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        LibreTexts.org
-        <Icon name="external" />
-      </Menu.Item>
-    </Menu>
+      />
+    </div>
   );
+};
+
+const UserMenu: React.FC = () => {
+  const user = useTypedSelector((state) => state.user);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <div>
-      <div className="hidden xl:flex">
-        <SubMenu showUserDetail />
+      <div className="hidden xl:block">
+        <NavList showUserDetail />
       </div>
-      <div className="xl:hidden">
-        <Segment>
-          <div className="flex justify-between items-center">
-            <div className="flex flex-row">
-              <Image circular src={`${user.avatar}`} className="mb-1 w-16 mr-1" />
-              <div className="flex flex-col">
-                <h1 className="ml-1 text-2xl font-semibold">
-                  Welcome, {user.firstName}
-                </h1>
-                <AccountStatus verifiedInstructor={user.verifiedInstructor} />
-              </div>
-            </div>
-            <Button icon onClick={() => setMenuOpen(!menuOpen)}>
-              <Icon name={menuOpen ? "caret up" : "caret down"} />
-            </Button>
+      <div className="xl:hidden border border-gray-200 rounded-lg bg-white">
+        <div className="flex justify-between items-center p-3">
+          <div className="flex items-center gap-2">
+            <Avatar src={user.avatar} alt={user.firstName} size="md" />
+            <h1 className="text-xl font-semibold">Welcome, {user.firstName}</h1>
           </div>
-          {menuOpen && <SubMenu showUserDetail={false} />}
-        </Segment>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setMenuOpen(!menuOpen)}
+            icon={menuOpen ? <IconChevronUp size={18} /> : <IconChevronDown size={18} />}
+          />
+        </div>
+        {menuOpen && (
+          <div className="border-t border-gray-200">
+            <NavList showUserDetail={false} />
+          </div>
+        )}
       </div>
     </div>
   );

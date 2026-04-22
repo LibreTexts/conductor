@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { useHistory } from "react-router-dom";
 import axios from "axios";
-import { Button, Form, Icon, Modal } from "semantic-ui-react";
+import { Button, Input, Modal, Select } from "@libretexts/davis-react";
+import type { SelectOption } from "@libretexts/davis-react";
+import { IconPlus } from "@tabler/icons-react";
 import { visibilityOptions } from "../util/ProjectHelpers";
 import useGlobalError from "../error/ErrorHooks";
 import { useTypedSelector } from "../../state/hooks";
@@ -11,35 +13,25 @@ interface CreateProjectProps {
   onClose: () => void;
 }
 
-/**
- * Modal tool to create a new Project.
- */
+const visibilitySelectOptions: SelectOption[] = visibilityOptions.map((o) => ({
+  value: o.value,
+  label: o.text,
+}));
+
 const CreateProject: React.FC<CreateProjectProps> = ({ show, onClose }) => {
-  // Global state and error handling
   const { handleGlobalError } = useGlobalError();
   const history = useHistory();
   const org = useTypedSelector((state) => state.org);
 
-  // Form Data
   const [projTitle, setProjTitle] = useState("");
   const [projVis, setProjVis] = useState("private");
-
-  // Form State
   const [loading, setLoading] = useState(false);
   const [titleErr, setTitleErr] = useState(false);
 
-  /**
-   * Resets any active error states in the form.
-   */
   function resetFormErrors() {
     setTitleErr(false);
   }
 
-  /**
-   * Validates the form's inputs and sets error states if necessary.
-   *
-   * @returns {boolean} True if all inputs valid, false otherwise.
-   */
   function validateForm() {
     let valid = true;
     if (!projTitle || projTitle.length < 1) {
@@ -49,72 +41,74 @@ const CreateProject: React.FC<CreateProjectProps> = ({ show, onClose }) => {
     return valid;
   }
 
-  /**
-   * Submits the new Project request the the server (if form is valid), then redirects to the new
-   * Project View if successful.
-   */
   async function createProject() {
     resetFormErrors();
-    if (validateForm()) {
-      try {
-        setLoading(true);
-        const createRes = await axios.post("/project", {
-          title: projTitle,
-          visibility: projVis,
-        });
-        if (createRes.data.err) {
-          throw new Error(createRes.data.errMsg);
-        }
-        if (createRes.data.projectID) {
-          history.push(
-            `/projects/${createRes.data.projectID}?projectCreated=true`
-          );
-        } else {
-          history.push(`/projects?projectCreated=true`);
-        }
-      } catch (e) {
-        setLoading(false);
-        handleGlobalError(e);
+    if (!validateForm()) return;
+    try {
+      setLoading(true);
+      const createRes = await axios.post("/project", {
+        title: projTitle,
+        visibility: projVis,
+      });
+      if (createRes.data.err) {
+        throw new Error(createRes.data.errMsg);
       }
+      if (createRes.data.projectID) {
+        history.push(`/projects/${createRes.data.projectID}?projectCreated=true`);
+      } else {
+        history.push(`/projects?projectCreated=true`);
+      }
+    } catch (e) {
+      setLoading(false);
+      handleGlobalError(e);
     }
   }
 
   return (
-    <Modal size="large" open={show} onClose={onClose}>
-      <Modal.Header>Create Project</Modal.Header>
-      <Modal.Content>
-        <p>
+    <Modal open={show} onClose={() => onClose()} size="lg">
+      <Modal.Header>
+        <Modal.Title>Create Project</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <p className="text-gray-600 mb-4">
           This project will be created within <strong>{org.name}</strong>. You
           can add tags, collaborators, and more after creation.
         </p>
-        <Form noValidate onSubmit={createProject}>
-          <Form.Input
-            fluid
+        <div className="space-y-4">
+          <Input
+            name="project-title"
             label="Project Title"
             placeholder="Enter the project title..."
             required
-            type="text"
             value={projTitle}
             onChange={(e) => setProjTitle(e.target.value)}
             error={titleErr}
+            errorMessage={titleErr ? "Project title is required." : undefined}
           />
-          <Form.Select
-            fluid
+          <Select
+            name="project-visibility"
             label="Project Visibility"
             placeholder="Visibility..."
-            options={visibilityOptions}
-            onChange={(e, { value }) => setProjVis(value as string)}
+            options={visibilitySelectOptions}
             value={projVis}
+            onChange={(e) => setProjVis(e.target.value)}
           />
-        </Form>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button color="green" onClick={createProject} loading={loading}>
-          <Icon name="plus" />
+        </div>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          onClick={createProject}
+          loading={loading}
+          icon={<IconPlus size={16} />}
+          className="!bg-green-600 hover:!bg-green-700 active:!bg-green-800 focus-visible:!ring-green-600"
+        >
           Create Project
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };

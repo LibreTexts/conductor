@@ -206,14 +206,15 @@ const Home = () => {
           <UserMenu />
         </div>
         <div className="flex flex-col mb-8 xl:w-1/2 xl:mr-12 xl:mb-0">
-          <Button
+          <DavisButton
+            variant="primary"
+            fullWidth
             onClick={() => setShowCreateProjectModal(true)}
-            fluid
-            color="green"
-            content="Create Conductor Project"
-            icon="add"
-            labelPosition="left"
-          />
+            icon={<IconPlus size={18} />}
+            className="!bg-green-600 hover:!bg-green-700 active:!bg-green-800 focus-visible:!ring-green-600 mb-2"
+          >
+            Create Conductor Project
+          </DavisButton>
           <PinnedProjects />
           <Segment padded>
             <div className="dividing-header-custom">
