@@ -11,6 +11,8 @@ import {
   Card,
   Popup,
 } from "semantic-ui-react";
+import { Alert, Timeline, Tooltip, Button as DavisButton } from "@libretexts/davis-react";
+import { IconPlus } from "@tabler/icons-react";
 import { useEffect, useState, useCallback, lazy } from "react";
 import { useTypedSelector } from "../../../state/hooks";
 import axios from "axios";
@@ -251,57 +253,45 @@ const Home = () => {
           </Segment>
         </div>
         <div className="flex flex-col mb-8 xl:w-1/3 xl:mb-0">
-          <Segment padded>
-            <div className="dividing-header-custom">
-              <h3>Announcements</h3>
+          <div className="border border-gray-200 rounded-lg p-4 bg-white">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Announcements</h3>
               {(user.isCampusAdmin === true || user.isSuperAdmin === true) && (
-                <div className="right-flex">
-                  <Popup
-                    content="New Announcement"
-                    trigger={
-                      <Button
-                        color="green"
-                        onClick={() => setShowNewAnnounceModal(true)}
-                        icon
-                        circular
-                      >
-                        <Icon name="add" />
-                      </Button>
-                    }
-                    position="top center"
+                <Tooltip content="New Announcement" placement="top">
+                  <DavisButton
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setShowNewAnnounceModal(true)}
+                    icon={<IconPlus size={16} />}
                   />
-                </div>
+                </Tooltip>
               )}
             </div>
             {showNASuccess && (
-              <Message
+              <Alert
+                variant="success"
+                title="Announcement Successfully Posted!"
+                message=""
+                dismissible
+                className="mb-4"
                 onDismiss={() => setShowNASuccess(false)}
-                header="Announcement Successfully Posted!"
-                icon="check circle outline"
-                positive
               />
             )}
-            <div className="announcements-list">
-              {/* <Loader
-                active={!loadedAllAnnouncements}
-                inline="centered"
-                className="mt-4p"
-              /> */}
-              {announcements.map((item, index) => {
-                return (
+            {loadedAllAnnouncements && announcements.length === 0 ? (
+              <p className="text-center text-gray-500 py-4">No recent announcements.</p>
+            ) : (
+              <Timeline>
+                {announcements.map((item, index) => (
                   <Annnouncement
                     announcement={item}
                     index={index}
                     key={index}
                     onClick={(idx) => openViewAnnounceModal(idx)}
                   />
-                );
-              })}
-              {loadedAllAnnouncements && announcements.length === 0 && (
-                <p className="text-center mt-4p">No recent announcements.</p>
-              )}
-            </div>
-          </Segment>
+                ))}
+              </Timeline>
+            )}
+          </div>
         </div>
       </div>
       {/* New Announcement Modal */}

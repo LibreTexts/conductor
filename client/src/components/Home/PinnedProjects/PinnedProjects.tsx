@@ -130,7 +130,7 @@ const PinnedProjects: React.FC = () => {
       ) : (
         <Tabs variant="pills">
           <div className="lg:flex lg:flex-row lg:items-start lg:gap-4">
-            <Tabs.List className="lg:!flex-col lg:!bg-transparent lg:!p-0 lg:!rounded-none lg:!gap-1 lg:border-r lg:border-gray-200 lg:pr-3 lg:min-w-[160px] overflow-x-auto">
+            <Tabs.List className="lg:!flex-col lg:!bg-transparent lg:!px-1 lg:!py-1 lg:!rounded-none lg:!gap-1 lg:border-r lg:border-gray-200 lg:pr-3 lg:min-w-[160px] overflow-x-auto">
               {tabLabels}
             </Tabs.List>
             <Tabs.Panels className="flex-1 min-w-0 mt-3 lg:mt-0 max-h-[500px] overflow-y-auto">

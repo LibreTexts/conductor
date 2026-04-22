@@ -1,21 +1,15 @@
-import {
-  Button,
-  Form,
-  Icon,
-  Modal,
-  ModalProps,
-  TextArea,
-} from "semantic-ui-react";
+import { Button, Checkbox, Input, Modal, Spinner, Textarea } from "@libretexts/davis-react";
+import { IconSpeakerphone } from "@tabler/icons-react";
 import axios from "axios";
 import { useState, useEffect } from "react";
+import { Controller } from "react-hook-form";
 import useGlobalError from "../error/ErrorHooks";
 import { useForm } from "react-hook-form";
 import { Announcement } from "../../types";
 import { useTypedSelector } from "../../state/hooks";
-import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 
-interface NewAnnouncementModalProps extends ModalProps {
+interface NewAnnouncementModalProps {
   show: boolean;
   onDataChange: () => void;
   onClose: () => void;
@@ -25,9 +19,7 @@ const NewAnnouncementModal: React.FC<NewAnnouncementModalProps> = ({
   show,
   onDataChange,
   onClose,
-  ...rest
 }) => {
-  // Global State & Hooks
   const user = useTypedSelector((state) => state.user);
   const org = useTypedSelector((state) => state.org);
   const { handleGlobalError } = useGlobalError();
@@ -40,51 +32,30 @@ const NewAnnouncementModal: React.FC<NewAnnouncementModalProps> = ({
       },
     });
 
-  // Data & UI
   const [loading, setLoading] = useState<boolean>(false);
   const [global, setGlobal] = useState<boolean>(false);
 
-  // Effects
   useEffect(() => {
     if (show) {
       reset();
+      setGlobal(false);
     }
   }, [show]);
 
-  useEffect(() => {
-    if (watch("org") === "global") {
-      setGlobal(true);
-      return;
-    }
-    setGlobal(false);
-  }, [watch("org")]);
-
-  // Methods & Handlers
-  function handleChangeGlobal(checked?: boolean) {
-    if (checked === undefined || checked === null) return;
-    if (checked) {
-      setValue("org", "global");
-      return;
-    }
-    setValue("org", org.orgID);
+  function handleChangeGlobal(checked: boolean) {
+    setGlobal(checked);
+    setValue("org", checked ? "global" : org.orgID);
   }
 
-  /**
-   * Submit data via POST to the server, then
-   * closes the modal on success.
-   */
   async function postNewAnnouncement() {
     try {
       setLoading(true);
       const res = await axios.post("/announcement", {
         title: getValues("title"),
         message: getValues("message"),
-        global: global,
+        global,
       });
-
-      if (res.data.err) {
-        throw res.data.errMsg;
-      }
+      if (res.data.err) throw res.data.errMsg;
       onDataChange();
       onClose();
     } catch (err) {
@@ -95,74 +66,88 @@ const NewAnnouncementModal: React.FC<NewAnnouncementModalProps> = ({
   }
 
   return (
-    <Modal
-      onClose={() => onClose()}
-      open={show}
-      closeOnDimmerClick={false}
-      {...rest}
-    >
-      <Modal.Header>New Announcement</Modal.Header>
-      <Modal.Content scrolling>
-        <Form noValidate loading={loading}>
-          <CtlTextInput
-            control={control}
-            name="title"
-            label="Title"
-            placeholder="Enter title..."
-            rules={required}
-            required
-          />
-          {
-            // TODO: Conver to CtlTextArea after merged in
-          }
-          <Form.Field required error={formState.errors.message}>
-            <label>Message</label>
-            <TextArea
-              placeholder="Enter announcement text..."
-              value={watch("message")}
-              onInput={(e) => setValue("message", e.currentTarget.value)}
+    <Modal open={show} onClose={() => onClose()} size="md">
+      <Modal.Header>
+        <Modal.Title>New Announcement</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {loading ? (
+          <div className="flex justify-center py-6">
+            <Spinner />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <Controller
+              control={control}
+              name="title"
+              rules={required}
+              render={({ field, fieldState: { error } }) => (
+                <Input
+                  {...field}
+                  name="title"
+                  label="Title"
+                  placeholder="Enter title..."
+                  required
+                  error={!!error}
+                  errorMessage={error?.message}
+                />
+              )}
             />
-          </Form.Field>
-          {user.hasOwnProperty("isSuperAdmin") &&
-            user.isSuperAdmin === true && (
-              <div className="mb-2p">
-                <p>
-                  <strong>
-                    <em>Super Administrator Options</em>
-                  </strong>{" "}
-                  <span className="muted-text">(use caution)</span>
+            <Controller
+              control={control}
+              name="message"
+              rules={required}
+              render={({ field, fieldState: { error } }) => (
+                <Textarea
+                  {...field}
+                  name="message"
+                  label="Message"
+                  placeholder="Enter announcement text..."
+                  rows={4}
+                  required
+                  error={!!error}
+                  errorMessage={error?.message}
+                />
+              )}
+            />
+            {user.isSuperAdmin && (
+              <div>
+                <p className="text-sm font-semibold mb-1">
+                  <em>Super Administrator Options</em>{" "}
+                  <span className="text-gray-400 font-normal">(use caution)</span>
                 </p>
-                <Form.Field>
-                  <Form.Checkbox
-                    onChange={(e, d) => handleChangeGlobal(d.checked)}
-                    checked={global}
-                    label="Send globally"
-                  />
-                </Form.Field>
+                <Checkbox
+                  name="send-globally"
+                  label="Send globally"
+                  checked={global}
+                  onChange={handleChangeGlobal}
+                />
               </div>
             )}
-        </Form>
-        <span>
-          <em>
-            This announcement will be available to
-            {global
-              ? " all Conductor users (global)."
-              : ` all members of ${org.shortName}.`}
-          </em>
-        </span>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={() => onClose()}>Cancel</Button>
+            <p className="text-sm text-gray-500 italic">
+              This announcement will be available to{" "}
+              {global
+                ? "all Conductor users (global)."
+                : `all members of ${org.shortName}.`}
+            </p>
+          </div>
+        )}
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={onClose}>
+          Cancel
+        </Button>
         <Button
-          color="green"
+          variant="primary"
           onClick={postNewAnnouncement}
-          icon
-          labelPosition="right"
+          loading={loading}
+          icon={<IconSpeakerphone size={16} />}
+          iconPosition="right"
+          className="!bg-green-600 hover:!bg-green-700 active:!bg-green-800 focus-visible:!ring-green-600"
         >
           Post Announcement
-          <Icon name="announcement" />
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };
