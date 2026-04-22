@@ -110,7 +110,7 @@ const PinnedProjects: React.FC = () => {
   return (
     <div className="border border-gray-200 rounded-lg p-4 pb-10 bg-white">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
+        <h3 className="text-base font-semibold flex items-center gap-2">
           <IconPin size={20} />
           Pinned Projects
         </h3>

@@ -32,7 +32,7 @@ const ProjectCard = ({
   };
 
   return (
-    <Card variant="elevated" padding="sm" className="w-full max-h-[130px]">
+    <Card variant="elevated" padding="sm" className="w-full max-h-[130px] !overflow-visible">
       <Card.Body className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
           <Link
