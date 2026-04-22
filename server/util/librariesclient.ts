@@ -115,6 +115,11 @@ class LibrariesSSMClient {
   }
 }
 
+/** Exposes SSM-backed library credentials (used by admin/debug routes). */
+export async function getLibraryCredentials(lib: string) {
+  return LibrariesSSMClient.getInstance().getLibraryCredentials(lib);
+}
+
 /**
  * Generates the set of request headers required for interacting with a library's API,
  * including the API token.
@@ -219,6 +224,9 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
         query,
         queryIsFirst
       )}`;
+      if(api.includes("properties")){
+        console.log(finalOptions);
+      }
       request = fetch(url, finalOptions);
     }
 
@@ -256,7 +264,8 @@ export async function addPageProperty(
   subdomain: string,
   path: string | number,
   property: keyof typeof CXOne.PageProps,
-  value: string | boolean | number
+  value: string | boolean | number,
+  method: "POST" | "PUT" | "DELETE" | "GET" = "POST"
 ): Promise<boolean> {
   try {
     const addRes = await CXOneFetch({
@@ -265,9 +274,10 @@ export async function addPageProperty(
       api: CXOne.API.Page.POST_Properties,
       subdomain: subdomain,
       options: {
-        method: "POST",
+        method,
         body: value,
         headers: { Slug: CXOne.PageProps[property] },
+        
       },
     });
 

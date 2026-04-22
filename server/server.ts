@@ -44,8 +44,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 mongoose.Promise = Promise;
-mongoose.set("debug", process.env.NODE_ENV === "development");
-
+// mongoose.set("debug", process.env.NODE_ENV === "development");
+mongoose.set("autoIndex", process.env.NODE_ENV !== "development");
 await mongoose
   .connect(process.env.MONGOOSEURI ?? "", {
     maxPoolSize: process.env.ORG_ID === "libretexts" ? 100 : 25,
@@ -112,10 +112,10 @@ app.use("/health", (_req, res) =>
 );
 
 // Serve frontend assets. Use directories relative to server/dist
-app.use(express.static(path.join(__dirname, "../../client/dist")));
+app.use(express.static(path.join(__dirname, "../client/dist")));
 let cliRouter = express.Router();
 cliRouter.route("*").get((_req, res) => {
-  res.sendFile(path.resolve(__dirname, "../../client/dist/index.html"));
+  res.sendFile(path.resolve(__dirname, "../client/dist/index.html"));
 });
 app.use("/", cliRouter);
 

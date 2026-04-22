@@ -90,6 +90,7 @@ import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
 import StoreNavbar from './components/navigation/StoreNavbar';
 import CartProvider from './providers/CartProvider';
 import SupportCenterProvider from './providers/SupportCenterProvider';
+import RemixerDashboard from './components/remixer/RemixerDashboard';
 
 const RenderNavbar = () => {
   if(window.location.pathname.includes('/insight') || window.location.pathname.includes('/support')){
@@ -166,6 +167,8 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/store' component={StoreManager} />
           <PrivateRoute exact path='/controlpanel/store/orders/:order_id' component={StoreManagerOrderView} />
           <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
+          {/* Remixer routes */}
+          <PrivateRoute exact path='/remixer/:id' component={RemixerDashboard} />
           <Route exact path="/download/:projectID/:fileID" component={PermanentLinkDownload} />
           <Route exact path='/peerreview/:id' component={PeerReviewPage} />
           {/* LibreTexts org public routes */}

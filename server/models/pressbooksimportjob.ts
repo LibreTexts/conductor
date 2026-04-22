@@ -74,6 +74,8 @@ const PressbooksImportJobSchema = new Schema<PressbooksImportJobInterface>(
   },
 );
 
+PressbooksImportJobSchema.index({ projectID: 1, userID: 1 }, { unique: false });
+
 const PressbooksImportJob = model<PressbooksImportJobInterface>(
   "PressbooksImportJob",
   PressbooksImportJobSchema,

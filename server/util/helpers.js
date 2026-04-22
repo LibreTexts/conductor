@@ -3,10 +3,10 @@
 // helpers.js
 //
 import { validate as uuidValidate } from 'uuid';
-import { format as formatDate, parseISO } from "date-fns";
-import { z } from "zod";
-import { debugError } from "../debug.js";
-import conductorErrors from "../conductor-errors.js";
+import { format as formatDate, parseISO } from 'date-fns';
+import { z } from 'zod';
+import { debugError } from '../debug.js';
+import conductorErrors from '../conductor-errors.js';
 
 /**
  * Checks that a string has a (trimmed) length greater than 0.
@@ -14,10 +14,9 @@ import conductorErrors from "../conductor-errors.js";
  * @returns {Boolean} True if non-empty or not a string, false otherwise.
  */
 export const isEmptyString = (str) => {
-    if (typeof(str) === 'string') return (!str || str.trim().length === 0);
-    return false;
+  if (typeof (str) === 'string') return (!str || str.trim().length === 0);
+  return false;
 };
-
 
 /**
  * Accepts a string and returns it truncated to the
@@ -29,15 +28,14 @@ export const isEmptyString = (str) => {
  * @returns {string} the truncated (if applicable) string
  */
 export const truncateString = (str, len) => {
-    if (typeof(str) !== 'string' || str.length === 0) {
-        return '';
-    }
-    if (str.length > len) {
-        let subString = str.substring(0, len);
-        return subString + "...";
-    } else {
-        return str;
-    }
+  if (typeof (str) !== 'string' || str.length === 0) {
+    return '';
+  }
+  if (str.length > len) {
+    const subString = str.substring(0, len);
+    return `${subString}...`;
+  }
+  return str;
 };
 
 /**
@@ -46,28 +44,26 @@ export const truncateString = (str, len) => {
  * @returns {String} The modified string.
  */
 export const capitalizeFirstLetter = (str) => {
-  if (typeof(str) !== 'string' || str.length === 0) {
+  if (typeof (str) !== 'string' || str.length === 0) {
     return '';
   }
-  if(str.length === 1) return str[0].toUpperCase();
+  if (str.length === 1) return str[0].toUpperCase();
   return str.charAt(0).toUpperCase() + str.slice(1);
 };
-
 
 /**
  * Constructs a basic array with OrgIDs given
  * an array of Role objects.
  */
 export const buildOrgArray = (roles) => {
-    var orgs = [];
-    roles.forEach((item) => {
-        if (item.org) {
-            orgs.push(item.org);
-        }
-    });
-    return orgs;
+  const orgs = [];
+  roles.forEach((item) => {
+    if (item.org) {
+      orgs.push(item.org);
+    }
+  });
+  return orgs;
 };
-
 
 /**
  * Validates that an array of strings contains only UUIDs.
@@ -75,19 +71,17 @@ export const buildOrgArray = (roles) => {
  * @returns {Boolean} true if valid array, false otherwise.
  */
 export const validateUUIDArray = (arr) => {
-    if (Array.isArray(arr)) {
-        let validArray = true;
-        arr.forEach((item) => {
-            if (typeof(item) !== 'string' || !uuidValidate(item)) {
-                validArray = false;
-            }
-        });
-        return validArray
-    }
-    return false;
+  if (Array.isArray(arr)) {
+    let validArray = true;
+    arr.forEach((item) => {
+      if (typeof (item) !== 'string' || !uuidValidate(item)) {
+        validArray = false;
+      }
+    });
+    return validArray;
+  }
+  return false;
 };
-
-
 
 /**
  * Attempts to convert a given string in the format 'MM-DD-YYYY' to
@@ -96,23 +90,23 @@ export const validateUUIDArray = (arr) => {
  * @returns {(Date|null)} Date if valid, null otherwise
  */
 export const threePartDateStringToDate = (value) => {
-    try {
-        let dateComp = String(value).split('-');
-        let month, day, year;
-        if (dateComp.length == 3) {
-            month = parseInt(dateComp[0]) - 1;
-            day = parseInt(dateComp[1]);
-            year = parseInt(dateComp[2]);
-        }
-        if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
-            return new Date(year, month, day);
-        }
-    } catch (err) {
-        return null;
+  try {
+    const dateComp = String(value).split('-');
+    let month; let day; let
+      year;
+    if (dateComp.length == 3) {
+      month = parseInt(dateComp[0]) - 1;
+      day = parseInt(dateComp[1]);
+      year = parseInt(dateComp[2]);
     }
+    if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
+      return new Date(year, month, day);
+    }
+  } catch (err) {
     return null;
+  }
+  return null;
 };
-
 
 /**
  * Returns an array of strings with duplicates filtered out.
@@ -120,12 +114,11 @@ export const threePartDateStringToDate = (value) => {
  * @returns {String[]} the unique array of strings
  */
 export const ensureUniqueStringArray = (arr) => {
-    if (Array.isArray(arr)) {
-        return Array.from(new Set(arr.filter((item) => item))); // filter empty strings
-    }
-    return [];
+  if (Array.isArray(arr)) {
+    return Array.from(new Set(arr.filter((item) => item))); // filter empty strings
+  }
+  return [];
 };
-
 
 /**
  * Check if a string contains any of the substrings in the provided array.
@@ -135,34 +128,30 @@ export const ensureUniqueStringArray = (arr) => {
  * @returns {Boolean|Object} Boolean of search result, or an object with the result boolean and the first matched substring.
  */
 export const stringContainsOneOfSubstring = (str, arr, returnStr) => {
-    let contains = false;
-    let foundSubstring = '';
-    if (typeof(str) === 'string' && Array.isArray(arr)) {
-        arr.forEach((item) => {
-            if (!contains && typeof(item) === 'string' && str.includes(item)) {
-                contains = true;
-                foundSubstring = item;
-            }
-        });
-    }
-    if (typeof(returnStr) === 'boolean' && returnStr === true) {
-        return {
-            result: contains,
-            substr: foundSubstring
-        };
-    }
-    return contains;
+  let contains = false;
+  let foundSubstring = '';
+  if (typeof (str) === 'string' && Array.isArray(arr)) {
+    arr.forEach((item) => {
+      if (!contains && typeof (item) === 'string' && str.includes(item)) {
+        contains = true;
+        foundSubstring = item;
+      }
+    });
+  }
+  if (typeof (returnStr) === 'boolean' && returnStr === true) {
+    return {
+      result: contains,
+      substr: foundSubstring,
+    };
+  }
+  return contains;
 };
-
 
 /**
  * Checks if a native Date is properly instantiated.
  * @param {Object} date - The Date object to validate.
  */
-export const isValidDateObject = (date) => {
-    return date instanceof Date && !isNaN(date);
-};
-
+export const isValidDateObject = (date) => date instanceof Date && !isNaN(date);
 
 /**
  * Computes the difference (in milliseconds) between two dates.
@@ -171,12 +160,11 @@ export const isValidDateObject = (date) => {
  * @returns {number} The difference in milliseconds.
  */
 export const computeDateDifference = (date1, date2) => {
-    if (isValidDateObject(date1) && isValidDateObject(date2)) {
-        return Math.abs(date2 - date1);
-    }
-    return 0;
+  if (isValidDateObject(date1) && isValidDateObject(date2)) {
+    return Math.abs(date2 - date1);
+  }
+  return 0;
 };
-
 
 /**
  * Creates and validates a new Date from a provided date string.
@@ -184,10 +172,10 @@ export const computeDateDifference = (date1, date2) => {
  * @returns {Date|null} A date object if successfully created, null otherwise.
  */
 export const createAndValidateDateObject = (dateString) => {
-    let newDate = null;
-    const dateObj = new Date(dateString);
-    if (isValidDateObject(dateObj)) newDate = dateObj;
-    return newDate;
+  let newDate = null;
+  const dateObj = new Date(dateString);
+  if (isValidDateObject(dateObj)) newDate = dateObj;
+  return newDate;
 };
 
 /**
@@ -197,26 +185,23 @@ export const createAndValidateDateObject = (dateString) => {
  * @returns Formatted date string.
  */
 export function parseAndFormatDate(date, formatString) {
-    try {
-      if (date instanceof Date) {
-        return formatDate(date, formatString);
-      }
-      return formatDate(parseISO(date), formatString);
-    } catch (e) {
-      console.error(e);
+  try {
+    if (date instanceof Date) {
+      return formatDate(date, formatString);
     }
-    return "Unknown Date";
+    return formatDate(parseISO(date), formatString);
+  } catch (e) {
+    console.error(e);
   }
-
+  return 'Unknown Date';
+}
 
 /**
  * Returns the production URL set in the server's environment variables.
  *
  * @returns {string} The production URL or an empty string if not found.
  */
-export const getProductionURL = () => {
-    return process.env.CONDUCTOR_DOMAIN || '';
-};
+export const getProductionURL = () => process.env.CONDUCTOR_DOMAIN || '';
 
 /**
  * Removes a leading slash, if any, from a string.
@@ -288,11 +273,11 @@ const hexColorSchema = z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/);
  * @returns {string} - sanitized hex code with '#' prepended, empty string if sanitizing failed
  */
 export function sanitizeCustomColor(hexString) {
-  if (typeof hexString !== "string" || hexString.length < 6) {
-    return "";
+  if (typeof hexString !== 'string' || hexString.length < 6) {
+    return '';
   }
 
-  if (hexString.charAt(0) !== "#") {
+  if (hexString.charAt(0) !== '#') {
     hexString = `#${hexString}`;
   }
 
@@ -302,7 +287,7 @@ export function sanitizeCustomColor(hexString) {
     return hexString;
   }
 
-  return "";
+  return '';
 }
 
 /**
@@ -329,7 +314,7 @@ export function getPaginationOffset(page, offsetMultiplier = 25) {
 /**
  * Generates a random number between 0 and a given limit
  * @param {Number} total - The maximum number to generate a random number for
- * @param {Number} limit - The limit for the random number 
+ * @param {Number} limit - The limit for the random number
  * @returns {Number} - A random number between 0 and max
  */
 export function getRandomOffset(total, limit) {
@@ -346,22 +331,21 @@ export function getRandomOffset(total, limit) {
  * @returns {string[]}
  */
 export function parseLibreTextsURL(url) {
-  if (url.includes('?')) //strips any query parameters
-      url = url.split('?')[0];
+  if (url.includes('?')) // strips any query parameters
+  { url = url.split('?')[0]; }
   if (url && url.match(/https?:\/\/.*?\.libretexts\.org/)) {
-      return [url.match(/(?<=https?:\/\/).*?(?=\.)/)[0], url.match(/(?<=https?:\/\/.*?\/).*/)[0]]
+    return [url.match(/(?<=https?:\/\/).*?(?=\.)/)[0], url.match(/(?<=https?:\/\/.*?\/).*/)[0]];
   }
-  else {
-      return [];
-  }
+
+  return [];
 }
 
 export async function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function getSubdomainFromUrl(url){
-  const hostname = new URL(url).hostname;
+export function getSubdomainFromUrl(url) {
+  const { hostname } = new URL(url);
   const parts = hostname.split('.');
   if (parts.length > 2) {
     return parts[0];
@@ -370,10 +354,10 @@ export function getSubdomainFromUrl(url){
 }
 
 export function extractEmailDomain(email) {
-  if(!email) return null;
-  const parts = email.split("@");
+  if (!email) return null;
+  const parts = email.split('@');
   if (parts.length === 2) {
-      return parts[1];
+    return parts[1];
   }
   return null;
 }

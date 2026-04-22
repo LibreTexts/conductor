@@ -11,17 +11,17 @@ import { removeLeadingSlash } from './helpers.js';
  * on a specific resource or type.
  */
 const accessLevelDescriptions = {
-  'read': 'Read',
-  'write': 'Read or modify',
+  read: 'Read',
+  write: 'Read or modify',
 };
 
 /**
  * Descriptions of resource sets, that should contain more specific scopes/resource identifiers.
  */
 const scopeSetDescriptions = {
-  'user': 'Account and Profile',
-  'projects': 'Projects',
-  'analytics': 'Analytics',
+  user: 'Account and Profile',
+  projects: 'Projects',
+  analytics: 'Analytics',
 };
 
 /**
@@ -71,7 +71,7 @@ function getScopeDescriptions(scopes) {
     splitScopes.push({
       access,
       set,
-      resource
+      resource,
     });
   }
 
@@ -87,7 +87,7 @@ function getScopeDescriptions(scopes) {
             access: scope.access,
             description: scopeDescriptions[`${set}:${scope.resource}`] || 'Unknown',
             accessDescription: accessLevelDescriptions[scope.access] || 'Unknown',
-          }
+          };
         }
         return null;
       }).filter((scope) => scope !== null),
@@ -108,7 +108,7 @@ function getEndpointAsScope(endpoint, method) {
   if (!endpoint || !method) {
     return 'unknown';
   }
-  
+
   const paramRegex = /:([a-z]?[A-Z]?)*(\?)?/gi;
   const procEndpoint = removeLeadingSlash(endpoint).replace(paramRegex, '*').replace(/\//g, ':');
   let procMethod = 'unknown';
@@ -124,4 +124,4 @@ function getEndpointAsScope(endpoint, method) {
 export default {
   getScopeDescriptions,
   getEndpointAsScope,
-}
+};

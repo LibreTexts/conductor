@@ -600,7 +600,8 @@ export class PressBookScraper {
           this.subdomain,
           pagePath,
           "GuideTabs",
-          MindTouch.Templates.PROP_GuideTabs,
+          MindTouch.Templates.PROP_GuideTabs, 
+          "PUT"
         ),
       );
     }
