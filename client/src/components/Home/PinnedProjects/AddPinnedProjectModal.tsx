@@ -1,15 +1,4 @@
-import {
-  Button,
-  Icon,
-  List,
-  ListContent,
-  ListHeader,
-  ListIcon,
-  ListItem,
-  Modal,
-  ModalProps,
-} from "semantic-ui-react";
-import LoadingSpinner from "../../LoadingSpinner";
+import { Button, Modal, Spinner } from "@libretexts/davis-react";
 import { useState } from "react";
 import NewFolderModal from "./NewPinnedProjectsFolderModal";
 import {
@@ -17,8 +6,9 @@ import {
   usePinnedProjects,
   usePinProjectMutation,
 } from "./hooks";
+import { IconFolder, IconPlus } from "@tabler/icons-react";
 
-interface AddPinnedProjectModalProps extends ModalProps {
+interface AddPinnedProjectModalProps {
   show: boolean;
   onClose: () => void;
   projectID: string;
@@ -28,7 +18,6 @@ const AddPinnedProjectModal: React.FC<AddPinnedProjectModalProps> = ({
   show,
   onClose,
   projectID,
-  ...rest
 }) => {
   const addFolderMutation = useAddFolderMutation();
   const pinProjectMutation = usePinProjectMutation();
@@ -37,58 +26,55 @@ const AddPinnedProjectModal: React.FC<AddPinnedProjectModalProps> = ({
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
 
   return (
-    <Modal open={show} onClose={() => onClose()} size="small" {...rest}>
-      <Modal.Header className="!flex !justify-between !items-center">
-        <p className="!text-xl !font-semibold">
-          Select a folder to pin this project to
-        </p>
-        <Button
-          color="blue"
-          onClick={() => setShowNewFolderModal(true)}
-          size="small"
-        >
-          <Icon name="plus" />
-          Add Folder
-        </Button>
-      </Modal.Header>
-      <Modal.Content scrolling>
-        {isLoading && <LoadingSpinner />}
-
-        <List verticalAlign="middle">
-          {data?.map((item) => {
-            return (
-              <ListItem
-                key={item.folder}
-                className="!first:pt-0 !pt-2 hover:!bg-gray-200 hover:!cursor-pointer !p-2 !rounded-md text-lg"
-                onClick={() => {
-                  pinProjectMutation.mutate({
-                    folderName: item.folder,
-                    projectID: projectID,
-                  });
-                  onClose();
-                }}
-              >
-                <ListIcon name="folder" />
-                <ListContent>
-                  <ListHeader className="!flex justify-between items-start">
-                    {item.folder}
-                  </ListHeader>
-                </ListContent>
-              </ListItem>
-            );
-          })}
-        </List>
-      </Modal.Content>
+    <>
+      <Modal open={show} onClose={() => onClose()} size="sm">
+        <Modal.Header>
+          <Modal.Title>Select a folder to pin this project to</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="flex justify-end mb-3">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setShowNewFolderModal(true)}
+              icon={<IconPlus size={16} />}
+            >
+              Add Folder
+            </Button>
+          </div>
+          {isLoading ? (
+            <div className="flex justify-center py-4">
+              <Spinner />
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {data?.map((item) => (
+                <button
+                  key={item.folder}
+                  className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-base"
+                  onClick={() => {
+                    pinProjectMutation.mutate({ folderName: item.folder, projectID });
+                    onClose();
+                  }}
+                >
+                  <IconFolder size={16} className="text-gray-500 shrink-0" />
+                  <span>{item.folder}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </Modal.Body>
+      </Modal>
       <NewFolderModal
         open={showNewFolderModal}
         onClose={() => setShowNewFolderModal(false)}
-        onSave={(newVal: string) => {
+        onSave={(newVal) => {
           if (!newVal) return;
           setShowNewFolderModal(false);
           addFolderMutation.mutate(newVal);
         }}
       />
-    </Modal>
+    </>
   );
 };
 
