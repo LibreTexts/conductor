@@ -1,6 +1,6 @@
 import { useCallback, useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Button, Modal } from "@libretexts/davis-react";
+import { Button, Modal, Stack } from "@libretexts/davis-react";
 import { User } from "../../../types";
 import ConfirmModal from "../../ConfirmModal";
 import NewFolderModal from "./NewPinnedProjectsFolderModal";
@@ -130,7 +130,7 @@ const PinProjectsModal: React.FC<PinProjectsModalProps> = ({
                 Add Folder
               </Button>
             </div>
-            <div className="space-y-4">
+            <Stack direction="vertical" gap="md">
               {data?.map((item) => (
                 <div
                   key={item.folder}
@@ -152,7 +152,7 @@ const PinProjectsModal: React.FC<PinProjectsModalProps> = ({
                       />
                     )}
                   </div>
-                  <div className="px-3 py-2 space-y-1">
+                  <Stack direction="vertical" gap="xs" className="px-3 py-2">
                     {item.projects?.length === 0 && (
                       <p className="text-gray-400 text-sm py-2">No projects pinned here</p>
                     )}
@@ -180,10 +180,10 @@ const PinProjectsModal: React.FC<PinProjectsModalProps> = ({
                         </div>
                       );
                     })}
-                  </div>
+                  </Stack>
                 </div>
               ))}
-            </div>
+            </Stack>
           </div>
         </Modal.Body>
         <Modal.Footer>
