@@ -134,7 +134,7 @@ const NewAnnouncementModal: React.FC<NewAnnouncementModalProps> = ({
         )}
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onClose}>
+        <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
         <Button
@@ -143,7 +143,6 @@ const NewAnnouncementModal: React.FC<NewAnnouncementModalProps> = ({
           loading={loading}
           icon={<IconSpeakerphone size={16} />}
           iconPosition="right"
-          className="!bg-green-600 hover:!bg-green-700 active:!bg-green-800 focus-visible:!ring-green-600"
         >
           Post Announcement
         </Button>

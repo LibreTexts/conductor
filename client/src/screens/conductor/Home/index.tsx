@@ -211,7 +211,7 @@ const Home = () => {
             fullWidth
             onClick={() => setShowCreateProjectModal(true)}
             icon={<IconPlus size={18} />}
-            className="!bg-green-600 hover:!bg-green-700 active:!bg-green-800 focus-visible:!ring-green-600 mb-2"
+            className="mb-2"
           >
             Create Conductor Project
           </DavisButton>

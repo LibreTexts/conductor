@@ -96,7 +96,7 @@ const CreateProject: React.FC<CreateProjectProps> = ({ show, onClose }) => {
         </div>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onClose}>
+        <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
         <Button
@@ -104,7 +104,6 @@ const CreateProject: React.FC<CreateProjectProps> = ({ show, onClose }) => {
           onClick={createProject}
           loading={loading}
           icon={<IconPlus size={16} />}
-          className="!bg-green-600 hover:!bg-green-700 active:!bg-green-800 focus-visible:!ring-green-600"
         >
           Create Project
         </Button>
