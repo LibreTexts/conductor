@@ -1,90 +1,86 @@
-import "./ControlPanel.css";
-
-import {
-  Grid,
-  Header,
-  Segment,
-  Icon,
-  List,
-  Breadcrumb,
-  SemanticICONS,
-} from "semantic-ui-react";
 import { useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useTypedSelector } from "../../state/hooks";
+import {
+  IconAddressBook,
+  IconBook,
+  IconCalendar,
+  IconChartLine,
+  IconChevronRight,
+  IconDatabase,
+  IconFolderOpen,
+  IconKey,
+  IconListCheck,
+  IconMessages,
+  IconQrcode,
+  IconSchool,
+  IconShoppingCart,
+  IconSitemap,
+  IconTags,
+} from "@tabler/icons-react";
 
 type ControlPanelListItem = {
   url: string;
-  icon: SemanticICONS;
+  icon: React.ReactNode;
   title: string;
   description: string;
-  roles?: ("campusAdmin" | "superAdmin" | "support")[]; // Roles that can access this item
+  roles?: ("campusAdmin" | "superAdmin" | "support")[];
 };
 
 const ControlPanel = () => {
-  // Global State
   const user = useTypedSelector((state) => state.user);
-  // const isCampusAdmin = useTypedSelector((state) => state.user.isCampusAdmin);
-  // const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
-  // const isSupport = useTypedSelector((state) => state.user.isSupport);
   const org = useTypedSelector((state) => state.org);
 
-  /**
-   * Set page title on initial load.
-   */
   useEffect(() => {
     document.title = "LibreTexts Conductor | Control Panel";
   }, []);
 
   useEffect(() => {
-    if (!user) return; // Ensure user is loaded before checking roles
+    if (!user) return;
     if (!user.isCampusAdmin && !user.isSuperAdmin && !user.isSupport) {
-      // If the user is not a campus admin, super admin, or support, redirect to home
       window.location.href = "/home";
     }
   }, [user]);
 
-  let libretextsMasterTools: ControlPanelListItem[] = [
+  const libretextsMasterTools: ControlPanelListItem[] = [
     {
       url: "/controlpanel/adoptionreports",
-      icon: "chart line",
+      icon: <IconChartLine size={20} />,
       title: "Adoption Reports",
       description: "View Adoption Reports submitted to the Conductor platform",
       roles: ["superAdmin"],
     },
     {
       url: "/controlpanel/analyticsrequests",
-      icon: "database",
+      icon: <IconDatabase size={20} />,
       title: "Analytics Access Requests",
-      description:
-        "View requests to access LibreTexts textbook analytics feeds",
+      description: "View requests to access LibreTexts textbook analytics feeds",
       roles: ["superAdmin"],
     },
     {
       url: "/controlpanel/authorsmanager",
-      icon: "address book outline",
+      icon: <IconAddressBook size={20} />,
       title: "Authors Manager",
       description:
         "Manage the master list of Authors that can be associated with Conductor projects and LibreTexts textbooks",
     },
     {
       url: "/controlpanel/eventsmanager",
-      icon: "calendar alternate outline",
+      icon: <IconCalendar size={20} />,
       title: "Events Manager",
       description: "View and manage Events on the Conductor platform",
       roles: ["superAdmin"],
     },
     {
       url: "/controlpanel/homeworkmanager",
-      icon: "tasks",
+      icon: <IconListCheck size={20} />,
       title: "Homework Manager",
-      description:
-        "View and manage Homework resources listed on the LibreCommons",
+      description: "View and manage Homework resources listed on the LibreCommons",
       roles: ["superAdmin"],
     },
     {
       url: "/controlpanel/indexmanager",
-      icon: "database",
+      icon: <IconDatabase size={20} />,
       title: "Index Manager",
       description:
         "Manage Meilisearch indexes including status checks, re-syncing, and settings",
@@ -92,169 +88,141 @@ const ControlPanel = () => {
     },
     {
       url: "/controlpanel/libreone",
-      icon: "key",
+      icon: <IconKey size={20} />,
       title: "LibreOne Admin Consoles",
-      description:
-        "View and manage users and organizations on the LibreOne platform",
+      description: "View and manage users and organizations on the LibreOne platform",
       roles: ["superAdmin"],
     },
     {
       url: "/controlpanel/orgsmanager",
-      icon: "sitemap",
+      icon: <IconSitemap size={20} />,
       title: "Organizations Manager",
       description: "View and manage Organizations on the Conductor platform",
       roles: ["superAdmin"],
     },
     {
       url: "/controlpanel/qr-code-generator",
-      icon: "qrcode",
+      icon: <IconQrcode size={20} />,
       title: "QR Code Generator",
       description: "Generate branded QR codes for sharing",
       roles: ["superAdmin"],
     },
     {
       url: "/controlpanel/store",
-      icon: "cart",
+      icon: <IconShoppingCart size={20} />,
       title: "Store Manager",
       description: "Manage the LibreTexts Store",
       roles: ["superAdmin"],
     },
   ];
 
-  let campusAdminTools: ControlPanelListItem[] = [
+  const campusAdminTools: ControlPanelListItem[] = [
+    ...(org.FEAT_AssetTagsManager
+      ? [
+          {
+            url: "/controlpanel/assettagsmanager",
+            icon: <IconTags size={20} />,
+            title: "Asset Tags Manager",
+            description:
+              "Manage templates for metadata tags that can be applied to assets in Conductor projects",
+          },
+        ]
+      : []),
     {
       url: "/controlpanel/booksmanager",
-      icon: "book",
+      icon: <IconBook size={20} />,
       title: "Books Manager",
       description:
         "See the master Commons Catalog and manage which texts appear on your Campus Commons",
     },
     {
       url: "/controlpanel/collectionsmanager",
-      icon: "folder open",
+      icon: <IconFolderOpen size={20} />,
       title: "Collections Manager",
       description:
         "Create new Collections for your Campus Commons and manage existing Collections",
     },
     {
       url: "/controlpanel/peerreviewrubrics",
-      icon: "comments outline",
+      icon: <IconMessages size={20} />,
       title: "Peer Review Rubrics",
       description:
         "Manage Peer Review rubrics available for use in Conductor projects",
     },
     {
       url: "/controlpanel/campussettings",
-      icon: "university",
+      icon: <IconSchool size={20} />,
       title: "Campus Settings",
       description:
         "Manage branding settings for your Conductor instance and your Campus Commons",
     },
   ];
 
-  if (org.FEAT_AssetTagsManager) {
-    campusAdminTools.unshift({
-      url: "/controlpanel/assettagsmanager",
-      icon: "tags",
-      title: "Asset Tags Manager",
-      description:
-        "Manage templates for metadata tags that can be applied to assets in Conductor projects",
-    });
-  }
-
   const masterToolsToRender = useMemo(() => {
     return libretextsMasterTools.filter((item) => {
-      // If the user is a super admin, show all items
       if (user.isSuperAdmin) return true;
-      // If the user is support, show only support items
       if (user.isSupport && item.roles?.includes("support")) return true;
-      // Otherwise, filter out items that require super admin or support roles
       return !item.roles || item.roles.length === 0;
     });
   }, [user]);
 
-  const renderListItem = (
-    type: "libretexts" | "campus",
-    item: ControlPanelListItem,
-    idx: number
-  ) => {
-    return (
-      <List.Item as={Link} to={item.url} key={`${type}-${idx}`}>
-        <div className="flex-row-div">
-          <div className="left-flex">
-            <Icon name={item.icon} />
-            <div className="flex-col-div ml-1p">
-              <Header as="span" size="small">
-                {item.title}
-              </Header>
-              <span>{item.description}</span>
-            </div>
-          </div>
-          <div className="right-flex">
-            <Icon name="chevron right" />
-          </div>
+  const renderListItem = (item: ControlPanelListItem, idx: number) => (
+    <Link
+      to={item.url}
+      key={idx}
+      className="flex items-center justify-between px-4 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
+    >
+      <div className="flex items-center gap-3">
+        <span className="text-gray-500 shrink-0">{item.icon}</span>
+        <div className="flex flex-col">
+          <span className="font-semibold text-gray-800 text-sm">{item.title}</span>
+          <span className="text-gray-500 text-sm">{item.description}</span>
         </div>
-      </List.Item>
-    );
-  };
+      </div>
+      <IconChevronRight size={18} className="text-gray-400 shrink-0" />
+    </Link>
+  );
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">Control Panel</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section active>Control Panel</Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment>
-              <p className="mt-1p mb-1p">
-                Welcome to Control Panel. Here, you will find several tools to
-                manage your Campus Conductor instance.
-              </p>
-              <Segment basic>
-                {(user.isSuperAdmin || user.isSupport) &&
-                  org.orgID === "libretexts" && (
-                    <div className="mb-2r">
-                      <Header as="h5" dividing>
-                        LIBRETEXTS MASTER TOOLS
-                      </Header>
-                      <List relaxed="very" divided selection>
-                        {masterToolsToRender.map((item, idx) =>
-                          renderListItem("libretexts", item, idx)
-                        )}
-                      </List>
-                    </div>
-                  )}
-                {(user.isCampusAdmin || user.isSuperAdmin) && (
-                  <div className="mb-2r">
-                    <Header as="h5" dividing>
-                      CAMPUS ADMIN TOOLS
-                    </Header>
-                    <List
-                      relaxed="very"
-                      divided
-                      selection
-                      verticalAlign="middle"
-                    >
-                      {campusAdminTools.map((item, idx) =>
-                        renderListItem("campus", item, idx)
-                      )}
-                    </List>
-                  </div>
-                )}
-              </Segment>
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+    <div className="mx-[1%] mt-5 w-[98%]">
+      <div className="flex flex-col mb-4">
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">Control Panel</h1>
+        <div className="border-b border-gray-200 w-full" />
+      </div>
+      <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-200">
+          <span className="text-sm text-gray-700 font-medium">Control Panel</span>
+        </div>
+        <div className="px-4 py-4">
+          <p className="text-gray-700 mb-4">
+            Welcome to Control Panel. Here, you will find several tools to manage your
+            Campus Conductor instance.
+          </p>
+          <div className="px-2">
+            {(user.isSuperAdmin || user.isSupport) && org.orgID === "libretexts" && (
+              <div className="mb-6">
+                <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 pb-1 border-b border-gray-200">
+                  LibreTexts Master Tools
+                </h5>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  {masterToolsToRender.map((item, idx) => renderListItem(item, idx))}
+                </div>
+              </div>
+            )}
+            {(user.isCampusAdmin || user.isSuperAdmin) && (
+              <div className="mb-6">
+                <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 pb-1 border-b border-gray-200">
+                  Campus Admin Tools
+                </h5>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  {campusAdminTools.map((item, idx) => renderListItem(item, idx))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
