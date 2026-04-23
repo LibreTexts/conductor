@@ -113,6 +113,13 @@ const ControlPanel = () => {
       roles: ["superAdmin"],
     },
     {
+      url: "/controlpanel/shapeshift",
+      icon: "shuffle",
+      title: "Shapeshift Admin Console",
+      description: "View and manage Shapeshift export processing jobs.",
+      roles: ["superAdmin"],
+    },
+    {
       url: "/controlpanel/store",
       icon: "cart",
       title: "Store Manager",
