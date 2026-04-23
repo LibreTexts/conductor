@@ -42,6 +42,7 @@ import kbAPI from "./api/kb.js";
 import supportAPI from "./api/support.js";
 import supportQueuesAPI from "./api/supportqueues.js";
 import projectInvitationsAPI from "./api/projectinvitations.js";
+import * as shapeshiftAPI from "./api/shapeshift.js";
 
 import * as storeValidators from "./api/validators/store.js";
 import * as centralIdentityValidators from "./api/validators/central-identity.js";
@@ -58,6 +59,7 @@ import * as AuthorsValidators from "./api/validators/authors.js";
 import * as BookValidators from "./api/validators/book.js";
 import * as UserValidators from "./api/validators/user.js";
 import * as ProjectInvitationValidators from "./api/validators/project-invitations.js";
+import * as ShapeshiftValidators from "./api/validators/shapeshift.js";
 
 const corsMiddleware = cors({
   origin(origin, callback) {
@@ -2977,5 +2979,20 @@ router
       kbAPI.agentQueryLangGraph
     );
 
+router.route('/shapeshift/jobs').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(ShapeshiftValidators.GetOpenJobsValidator),
+  catchInternal((req, res) => shapeshiftAPI.getOpenJobs(req, res)),
+);
+
+router.route('/shapeshift/job').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(ShapeshiftValidators.CreateJobValidator),
+  catchInternal((req, res) => shapeshiftAPI.createJob(req, res)),
+);
 
 export default router;

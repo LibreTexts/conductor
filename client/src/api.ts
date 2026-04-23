@@ -88,6 +88,7 @@ import {
   TrafficAnalyticsVisitorCountriesDataPoint,
 } from "./types/TrafficAnalytics";
 import { EventSource } from "extended-eventsource";
+import { ShapeshiftJob } from "./types/Shapeshift";
 
 /**
  * @fileoverview
@@ -2246,6 +2247,21 @@ class API {
     return res.data;
   }
 
+  // Shapeshift
+  async createShapeshiftJob({ highPriority, url }: { highPriority?: boolean; url: string }) {
+    const res = await axios.post<{ jobId: string } & ConductorBaseResponse>("/shapeshift/job", {
+      highPriority,
+      url,
+    });
+    return res.data;
+  }
+
+  async getShapeshiftOpenJobs() {
+    const res = await axios.get<
+      { jobs: ShapeshiftJob[] } & ConductorBaseResponse
+    >("/shapeshift/jobs");
+    return res.data;
+  }
 }
 
 export default new API();
