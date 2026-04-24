@@ -2256,10 +2256,15 @@ class API {
     return res.data;
   }
 
-  async getShapeshiftOpenJobs() {
+  async getShapeshiftJobs({ limit, offset }: { limit?: number; offset?: number }) {
     const res = await axios.get<
-      { jobs: ShapeshiftJob[] } & ConductorBaseResponse
-    >("/shapeshift/jobs");
+      { jobs: ShapeshiftJob[]; meta: { offset: number; limit: number; total: number } } & ConductorBaseResponse
+    >("/shapeshift/jobs", {
+      params: {
+        limit: limit ?? 100,
+        offset: offset ?? 0,
+      }
+    });
     return res.data;
   }
 }
