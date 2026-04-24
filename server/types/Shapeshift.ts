@@ -1,9 +1,10 @@
 export type ShapeshiftJobStatus = 'created' | 'failed' | 'finished' | 'inprogress';
 
 export type ShapeshiftJob = {
-  id: string;
-  status: ShapeshiftJobStatus;
-  isHighPriority: boolean;
-  url: string;
+  bookID?: string;
   createdAt: string;
+  id: string;
+  isHighPriority: boolean;
+  status: ShapeshiftJobStatus;
+  url: string;
 };

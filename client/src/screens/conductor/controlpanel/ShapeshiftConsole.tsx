@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import api from '../../../api';
 import useDocumentTitle from "../../../hooks/useDocumentTitle";
+import useClientConfig from "../../../hooks/useClientConfig";
 import { useNotifications } from "../../../context/NotificationContext";
 import {
   Breadcrumb,
@@ -10,49 +11,55 @@ import {
   Divider,
   FormSection,
   Input,
-  Button
+  Button,
 } from "@libretexts/davis-react";
 import { DataTable } from "@libretexts/davis-react-table";
 import type { Table, ColumnDef } from "@libretexts/davis-react-table";
-import { ShapeshiftJob } from "../../../types";
-import { IconSend } from "@tabler/icons-react";
+import { ShapeshiftJob, ShapeshiftJobStatus } from "../../../types";
+import {IconDownload, IconExternalLink, IconRefresh, IconSend} from "@tabler/icons-react";
 import { useForm } from "react-hook-form";
+import DOMPurify from "dompurify";
+import { format as formatDate, parseISO } from "date-fns";
+
+const getPrettyJobStatus = (statusRaw: ShapeshiftJobStatus) => {
+  switch (statusRaw) {
+    case "created":
+      return 'Created';
+    case "failed":
+      return 'Failed';
+    case "finished":
+      return 'Finished';
+    case "inprogress":
+      return 'In Progress';
+    default:
+      return 'Unknown';
+  }
+};
 
 const columns: ColumnDef<ShapeshiftJob>[] = [
   {
     accessorKey: "id",
     header: "ID",
-    cell: ({ getValue, row }) => (
-      <div className="flex items-center">
-        <span>{getValue<string>()} </span>
-      </div>
-    ),
+    size: 80,
+  },
+  {
+    accessorKey: "bookID",
+    header: "Book ID",
+    size: 80,
   },
   {
     accessorKey: "status",
     header: "Status",
-    cell: ({ getValue, row }) => (
-      <div className="flex items-center">
-        <span>{getValue<string>()} </span>
-      </div>
-    )
-  },
-  {
-    accessorKey: "url",
-    header: "URL",
-    cell: ({ getValue, row }) => (
-      <div className="flex items-center">
-        <span>{getValue<string>()} </span>
-      </div>
-    ),
+    size: 100,
+    cell: ({ getValue }) => getPrettyJobStatus(getValue<ShapeshiftJobStatus>()),
   },
   {
     accessorKey: "createdAt",
     header: "Created At",
-    cell: ({ getValue, row }) => (
-      <div className="flex items-center">
-        <span>{getValue<string>()} </span>
-      </div>
+    size: 90,
+    cell: ({ getValue }) => formatDate(
+      parseISO(getValue<string>() ?? ""),
+      "MM/dd/yyyy h:mm aaa"
     ),
   },
 ];
@@ -60,6 +67,49 @@ const columns: ColumnDef<ShapeshiftJob>[] = [
 const ShapeshiftConsole = () => {
   useDocumentTitle("LibreTexts Conductor | Shapeshift Admin Console");
   const { addNotification } = useNotifications();
+  const { isProduction } = useClientConfig();
+
+  const allColumns = useMemo<ColumnDef<ShapeshiftJob>[]>(() => {
+    const downloadsHost = isProduction
+      ? "downloads.libretexts.org"
+      : "staging.downloads.libretexts.org";
+    return [
+      ...columns,
+      {
+        header: "Actions",
+        cell: ({ row }) => {
+          const renderPDFButton = row?.getValue('status') === 'finished' && !!row?.getValue('bookID');
+          const pdfLink = `https://${downloadsHost}/api/v1/download/${row.getValue('bookID')}/pdf`;
+          return (
+            <div className="flex items-center">
+              <Button
+                as="a"
+                href={DOMPurify.sanitize(row.getValue('url'))}
+                variant="primary"
+                icon={<IconExternalLink />}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Link
+              </Button>
+              {renderPDFButton && (
+                <Button
+                  as="a"
+                  href={pdfLink}
+                  variant="primary"
+                  icon={<IconDownload />}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  PDF
+                </Button>
+              )}
+            </div>
+          );
+        },
+      },
+    ];
+  }, [isProduction]);
 
   // UI
   const [activePage, setActivePage] = useState<number>(1);
@@ -73,17 +123,19 @@ const ShapeshiftConsole = () => {
 
   // Data
   const {
-    data: openJobsData,
-    isLoading: openJobsLoading,
-    refetch: refetchOpenJobs,
+    data: jobs,
+    isLoading: jobsLoading,
+    refetch: refetchJobs,
   } = useQuery<ShapeshiftJob[]>({
-    queryKey: ['shapeshiftOpenJobs'],
+    queryKey: ['shapeshiftJobs', activePage, itemsPerPage],
     queryFn: async () => {
-      console.log('fetching');
-      const resp = await api.getShapeshiftOpenJobs();
+      const resp = await api.getShapeshiftJobs({
+        limit: itemsPerPage,
+        offset: itemsPerPage * (activePage - 1),
+      });
+      setTotalItems(resp?.meta?.total ?? 0);
       return resp.jobs;
     },
-    refetchInterval: 60 * 1000,
   });
 
   const { register, handleSubmit, reset } = useForm<{ url: string }>();
@@ -97,7 +149,7 @@ const ShapeshiftConsole = () => {
         message: `Successfully queued job ${data.jobId}`,
       });
       reset();
-      refetchOpenJobs();
+      refetchJobs();
     },
     onError: (error: any) => {
       addNotification({
@@ -129,11 +181,21 @@ const ShapeshiftConsole = () => {
           </FormSection>
         </form>
         <Divider />
-        <Heading level={3}>Open Jobs</Heading>
+        <div className="flex items-center justify-between mt-8">
+          <Heading level={3} className="mb-0!">Jobs</Heading>
+          <Button
+            type="button"
+            variant="primary"
+            icon={<IconRefresh />}
+            loading={jobsLoading}
+          >
+            Refresh
+          </Button>
+        </div>
         <DataTable<ShapeshiftJob>
-          data={openJobsData || []}
-          columns={columns}
-          loading={openJobsLoading}
+          data={jobs || []}
+          columns={allColumns}
+          loading={jobsLoading}
           density="compact"
           enablePagination
           pageSize={itemsPerPage}

@@ -30,19 +30,39 @@ export default class ShapeshiftService {
     }
   }
 
-  public async getOpenJobs({ sort, status }: { sort?: 'asc' | 'desc'; status?: ShapeshiftJobStatus }): Promise<ShapeshiftJob[]> {
+  public async getOpenJobs(params: {
+    limit?: number;
+    offset?: number;
+    sort?: 'asc' | 'desc';
+    status?: ShapeshiftJobStatus[];
+  }): Promise<{ meta: { offset: number; limit: number; total: number }; jobs: ShapeshiftJob[]; }> {
+    const limit = params.limit ?? 100;
+    const offset = params.offset ?? 0;
+    const emptyResponse = {
+      meta: {
+        limit,
+        offset,
+        total: 0,
+      },
+      jobs: [],
+    };
     try {
       const resp = await this.instance.get('/jobs', {
         params: {
-          sort,
-          status,
+          limit,
+          offset,
+          sort: params.sort,
+          status: params.status,
         },
       });
-      if (!resp?.data?.data?.length) return [];
-      return resp.data?.data as ShapeshiftJob[];
+      if (!resp?.data?.meta?.total) return emptyResponse;
+      return {
+        jobs: resp.data.data as ShapeshiftJob[],
+        meta: resp.data.meta,
+      };
     } catch (error) {
       debugError(error);
-      return [];
+      return emptyResponse;
     }
   }
 }

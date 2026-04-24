@@ -2983,8 +2983,8 @@ router.route('/shapeshift/jobs').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-  middleware.validateZod(ShapeshiftValidators.GetOpenJobsValidator),
-  catchInternal((req, res) => shapeshiftAPI.getOpenJobs(req, res)),
+  middleware.validateZod(ShapeshiftValidators.GetJobsValidator),
+  catchInternal((req, res) => shapeshiftAPI.getJobs(req, res)),
 );
 
 router.route('/shapeshift/job').post(
