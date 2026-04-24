@@ -8,23 +8,37 @@ import {
   Grid,
   Icon,
   Loader,
-  Modal,
   Popup,
 } from "semantic-ui-react";
+
+import api from "../../api";
+import { useNotifications } from "../../context/NotificationContext";
+import { useTypedSelector } from "../../state/hooks";
+import { flattenCatalogResponse } from "../../utils/booksManagerHelpers";
+
+import BookImportModal from "./BookImportModal";
+import ContextMenu from "./BookContent/ContextMenu";
+import TreeDnd from "./BookContent/Dashboard";
+import TreeSkeleton from "./BookContent/TreeSkeleton";
+import CatalogList from "./CatalogBook/CatalogList";
+import ControlPanel from "./ControlPanel";
+import EditPanel from "./EditPanel";
+import PathNameFormat from "./PathNameFormat";
+import PublishPanel from "./PublishPanel";
+import RecoveryModal from "./RecoveryModal";
 import {
   CopyMode,
   Library,
   PathLevelFormat,
+  PublishJobStatus,
   RemixerData,
-  RemixerUiState,
   RemixerSubPage,
+  RemixerUiState,
   libraries,
   libraryTitles,
   remixerDataInit,
   remixerUiStateInit,
-  PublishJobStatus,
 } from "./model";
-
 import {
   DropPosition,
   applyBookNodeDeletion,
@@ -32,54 +46,54 @@ import {
   clearLocalDraft,
   cloneBook,
   computeHighestPathLevel,
+  computeLibraryImportInsertion,
+  computeNodeDepth,
   getLocalDraft,
-  insertAtSiblingPosition,
+  getNewNodeTitleForDepth,
+  getNodeTypeLabelForDepth,
+  isBookLevelCatalogNode,
+  isLibrary,
   isMatterBranchNode as isMatterBranchNodePure,
+  isRestrictedLibraryShelfNode,
+  isRootBookNode,
   reorderBookNodes,
   setLocalDraft,
   withDerivedStatusFlags,
 } from "./services";
-import api from "../../api";
-import TreeDnd from "./BookContent/Dashboard";
-import ControlPanel from "./ControlPanel";
-import PublishPanel from "./PublishPanel";
-import EditPanel from "./EditPanel";
-import PathNameFormat from "./PathNameFormat";
-import { useNotifications } from "../../context/NotificationContext";
-import CatalogList from "./CatalogBook/CatalogList";
-import RecoveryModal from "./RecoveryModal";
-import { flattenCatalogResponse } from "../../utils/booksManagerHelpers";
-import { buttonStyle, handleMouseEnter, handleMouseLeave } from "./style";
-import { useTypedSelector } from "../../state/hooks";
-import TreeSkeleton from "./BookContent/TreeSkeleton";
-import ContextMenu from "./BookContent/ContextMenu";
-
-
-const isLibrary = (value: string): value is Library =>
-  libraries.includes(value as Library);
-
+import {
+  STATUS_PALETTE,
+  buttonStyle,
+  handleMouseEnter,
+  handleMouseLeave,
+} from "./style";
 
 const RemixerDashboard: React.FC = () => {
+  // ==========================================================================
+  // State
+  // ==========================================================================
   const user = useTypedSelector((state) => state.user);
   const isAdmin = user?.isSuperAdmin || user?.isCampusAdmin;
+  const { addNotification } = useNotifications();
+  const { id } = useParams<{ id: string }>();
+
+  const [remixerData, setRemixerData] = useState<RemixerData>(remixerDataInit);
+  const [uiState, setUiState] = useState<RemixerUiState>(remixerUiStateInit);
+  const [libraryLoading, setLibraryLoading] = useState<boolean>(false);
+
   const [expandedNodeIdsBook, setExpandedNodeIdsBook] = useState<Set<string>>(
     new Set(),
   );
   const [expandedNodeIdsLibrary, setExpandedNodeIdsLibrary] = useState<
     Set<string>
   >(new Set());
-  const { addNotification } = useNotifications();
-  const [remixerData, setRemixerData] = useState<RemixerData>(remixerDataInit);
-  const [uiState, setUiState] = useState<RemixerUiState>(remixerUiStateInit);
-  const [libraryLoading, setLibraryLoading] = useState<boolean>(false);
+
   const [undoStack, setUndoStack] = useState<RemixerSubPage[][]>([]);
   const [redoStack, setRedoStack] = useState<RemixerSubPage[][]>([]);
+
   const [publishStatus, setPublishStatus] = useState<PublishJobStatus>("idle");
   const [publishMessages, setPublishMessages] = useState<string[]>([]);
   const [publishPolling, setPublishPolling] = useState<boolean>(false);
-  const { id } = useParams<{ id: string }>();
-  /** When true, the selected-library useEffect skips one fetch (catalog-driven load already populated `library`). */
-  const skipLibraryAutoLoadRef = useRef(false);
+
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [loadingRecovery, setLoadingRecovery] = useState(false);
   const [availableSources, setAvailableSources] = useState<{
@@ -88,6 +102,36 @@ const RemixerDashboard: React.FC = () => {
     hasServerDraft: boolean;
     localTimestamp?: number;
   }>({ hasLocal: false, hasServer: false, hasServerDraft: false });
+
+  const [contextMenu, setContextMenu] = useState<{
+    nodeId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const [pendingBookImport, setPendingBookImport] = useState<{
+    node: RemixerSubPage;
+    targetNodeId: string;
+    position: DropPosition;
+    targetParentId: string;
+  } | null>(null);
+  const [bookImportSubtree, setBookImportSubtree] = useState<
+    RemixerSubPage[] | null
+  >(null);
+  const [bookImportSubtreeLoading, setBookImportSubtreeLoading] =
+    useState(false);
+  const [bookImportSelectedIds, setBookImportSelectedIds] = useState<
+    Set<string>
+  >(new Set());
+  const [bookImportExpandedIds, setBookImportExpandedIds] = useState<
+    Set<string>
+  >(new Set());
+  const [isImportingFromLibrary, setIsImportingFromLibrary] =
+    useState<boolean>(false);
+
+  /** When true, the selected-library useEffect skips one fetch (catalog-driven load already populated `library`). */
+  const skipLibraryAutoLoadRef = useRef(false);
+  /** Last known server-persisted book state; used by the recovery modal so we don't refetch. */
   const serverStateRef = useRef<{
     book: RemixerSubPage[];
     settings: {
@@ -96,66 +140,113 @@ const RemixerDashboard: React.FC = () => {
       pathLevelFormats?: unknown;
     };
   } | null>(null);
-  const [contextMenu, setContextMenu] = useState<{
-    nodeId: string;
-    x: number;
-    y: number;
-  } | null>(null);
-  const [pendingBookImport, setPendingBookImport] = useState<{
-    node: RemixerSubPage;
-    targetNodeId: string;
-    position: DropPosition;
-    targetParentId: string;
-  } | null>(null);
-  const [isImportingFromLibrary, setIsImportingFromLibrary] =
-    useState<boolean>(false);
 
+  // ==========================================================================
+  // Derived selectors (recomputed each render)
+  // ==========================================================================
+
+  /** Currently-loaded pages for the selected library (may be undefined until loaded). */
   const selectedLibraryPages = remixerData.selectedLibrary
     ? remixerData.library?.[remixerData.selectedLibrary]
     : undefined;
 
-  const RESTRICTED_LIBRARY_SHELF_TITLES = [
-    "bookshelves",
-    "campus bookshelves",
-  ];
+  /** The book node matching the current selection, if any. */
+  const selectedBookNode = uiState.selectedBookNodeId
+    ? remixerData.currentBook?.find(
+        (node) => node["@id"] === uiState.selectedBookNodeId,
+      )
+    : undefined;
 
-  const getLibraryNodeTitle = (node: RemixerSubPage | undefined): string =>
-    (node?.["@title"] || node?.title || "").trim().toLowerCase();
-
+  /** True when a library node is a restricted shelf (cannot be imported). */
   const isRestrictedShelfNode = useCallback(
-    (nodeId: string): boolean => {
-      const pages = selectedLibraryPages ?? [];
-      if (pages.length === 0) return false;
-      const nodesById = new Map(pages.map((node) => [node["@id"], node]));
-      const node = nodesById.get(nodeId);
-      if (!node) return false;
-      const title = getLibraryNodeTitle(node);
-      if (RESTRICTED_LIBRARY_SHELF_TITLES.includes(title)) return true;
-      const parent = node.parentID ? nodesById.get(node.parentID) : undefined;
-      const parentTitle = getLibraryNodeTitle(parent);
-      return RESTRICTED_LIBRARY_SHELF_TITLES.includes(parentTitle);
-    },
+    (nodeId: string): boolean =>
+      isRestrictedLibraryShelfNode(selectedLibraryPages ?? [], nodeId),
     [selectedLibraryPages],
   );
 
+  /** True when a library node is a catalog-registered book (triggers the extract modal). */
   const isBookLevelLibraryNode = useCallback(
-    (nodeId: string): boolean => {
-      const catalog = remixerData.catalogBook ?? [];
-      if (catalog.length === 0 || !nodeId) return false;
-      const lib = remixerData.selectedLibrary;
-      return catalog.some((book) => {
-        const parts = (book.bookID ?? "").split("-");
-        const bookLib = parts[0];
-        const bookPageId = parts[1];
-        if (!bookPageId) return false;
-        if (bookPageId !== nodeId) return false;
-        if (lib && bookLib && bookLib !== lib) return false;
-        return true;
-      });
-    },
+    (nodeId: string): boolean =>
+      isBookLevelCatalogNode(
+        remixerData.catalogBook,
+        remixerData.selectedLibrary,
+        nodeId,
+      ),
     [remixerData.catalogBook, remixerData.selectedLibrary],
   );
 
+  /** True when a book node lives inside a front/back matter subtree. */
+  const isMatterBranchNode = (nodeId?: string): boolean =>
+    isMatterBranchNodePure(nodeId, remixerData.currentBook ?? []);
+
+  /** Deepest path level present in the current book (drives the path-format modal). */
+  const highestPathLevel = useCallback(
+    (): number => computeHighestPathLevel(remixerData.currentBook ?? []),
+    [remixerData.currentBook],
+  );
+
+  /** True when every folder in the current book is already expanded. */
+  const isExpandedAllCurrentBookNodes = useCallback(() => {
+    const { currentBook } = remixerData;
+    if (!currentBook) return false;
+    const nodesToExpand = currentBook
+      .filter((node) => node["@subpages"])
+      .map((node) => node["@id"]);
+    return nodesToExpand.every((nodeId) => expandedNodeIdsBook.has(nodeId));
+  }, [remixerData.currentBook, expandedNodeIdsBook]);
+
+  /** Depth of `nodeId` from the nearest root (book cover node counts as root). */
+  const getContextNodeDepth = (nodeId: string): number =>
+    computeNodeDepth(remixerData.currentBook ?? [], nodeId, {
+      stopAtParentId: remixerData.liberCoverID,
+    });
+
+  const contextMenuCanAddSibling =
+    contextMenu != null &&
+    !isRootBookNode(remixerData.currentBook ?? [], contextMenu.nodeId);
+
+  const contextMenuCanDuplicate =
+    contextMenu != null &&
+    !(remixerData.currentBook ?? []).some(
+      (n) => n.parentID === contextMenu.nodeId,
+    );
+
+  const contextMenuSiblingTypeLabel = contextMenu
+    ? getNodeTypeLabelForDepth(getContextNodeDepth(contextMenu.nodeId) - 1)
+    : "Item";
+  const contextMenuChildTypeLabel = contextMenu
+    ? getNodeTypeLabelForDepth(getContextNodeDepth(contextMenu.nodeId))
+    : "Item";
+
+  /** Auto-numbered default path prefix for the selected node (edit-panel placeholder). */
+  const selectedBookDefaultFormattedPath = useCallback((): string => {
+    if (remixerData.autoNumbering === false) return "";
+    const selectedId = uiState.selectedBookNodeId;
+    const book = remixerData.currentBook ?? [];
+    if (!selectedId || book.length === 0) return "";
+    const normalizedBook = buildBookPaths(
+      book,
+      uiState.pathLevelFormats ?? [],
+      {
+        ignoreOverrides: true,
+      },
+    );
+    return (
+      normalizedBook.find((node) => node["@id"] === selectedId)
+        ?.formattedPath ?? ""
+    );
+  }, [
+    remixerData.autoNumbering,
+    remixerData.currentBook,
+    uiState.pathLevelFormats,
+    uiState.selectedBookNodeId,
+  ]);
+
+  // ==========================================================================
+  // Book state mutation
+  // ==========================================================================
+
+  /** Rebuild numeric/formatted paths and status flags for a book. Optionally seeds `originalPathNumber`. */
   const normalizeBookState = useCallback(
     (
       book: RemixerSubPage[],
@@ -178,6 +269,220 @@ const RemixerDashboard: React.FC = () => {
     [uiState.pathLevelFormats],
   );
 
+  /** Apply an updater to `currentBook`, re-normalize, and optionally push the previous snapshot to undo. */
+  const updateCurrentBook = (
+    updater: (prevBook: RemixerSubPage[]) => RemixerSubPage[],
+    options: { trackHistory?: boolean } = {},
+  ) => {
+    const { trackHistory = false } = options;
+    setRemixerData((prev) => {
+      const prevBook = prev.currentBook ?? [];
+      const nextBook = normalizeBookState(updater(prevBook));
+      const changed = JSON.stringify(prevBook) !== JSON.stringify(nextBook);
+
+      if (!changed) {
+        return prev;
+      }
+
+      if (trackHistory) {
+        setUndoStack((prevUndo) => [...prevUndo, cloneBook(prevBook)]);
+        setRedoStack([]);
+      }
+
+      return {
+        ...prev,
+        currentBook: nextBook,
+      };
+    });
+  };
+
+  /** Merge persisted draft/project settings (auto-numbering, path formats, copy mode) into state. */
+  const applyDraftSettings = (settings: {
+    autoNumbering?: boolean;
+    copyModeState?: string;
+    pathLevelFormats?: unknown;
+  }) => {
+    if (settings.autoNumbering !== undefined) {
+      setRemixerData((prev) => ({
+        ...prev,
+        autoNumbering: settings.autoNumbering,
+      }));
+    }
+    if (
+      settings.copyModeState !== undefined ||
+      settings.pathLevelFormats !== undefined
+    ) {
+      setUiState((prev) => ({
+        ...prev,
+        ...(settings.copyModeState !== undefined && {
+          copyModeState: settings.copyModeState,
+        }),
+        ...(settings.pathLevelFormats !== undefined && {
+          pathLevelFormats: settings.pathLevelFormats as PathLevelFormat[],
+        }),
+      }));
+    }
+  };
+
+  /** Restore the previous book snapshot from the undo stack (pushing the current one to redo). */
+  const handleUndo = () => {
+    setUndoStack((prevUndo) => {
+      if (prevUndo.length === 0) return prevUndo;
+      const previousBook = prevUndo[prevUndo.length - 1];
+      setRemixerData((prev) => {
+        const currentBook = prev.currentBook ?? [];
+        setRedoStack((prevRedo) => [...prevRedo, cloneBook(currentBook)]);
+        return {
+          ...prev,
+          currentBook: normalizeBookState(cloneBook(previousBook)),
+        };
+      });
+      return prevUndo.slice(0, -1);
+    });
+  };
+
+  /** Re-apply the most recently undone book snapshot. */
+  const handleRedo = () => {
+    setRedoStack((prevRedo) => {
+      if (prevRedo.length === 0) return prevRedo;
+      const nextBook = prevRedo[prevRedo.length - 1];
+      setRemixerData((prev) => {
+        const currentBook = prev.currentBook ?? [];
+        setUndoStack((prevUndo) => [...prevUndo, cloneBook(currentBook)]);
+        return {
+          ...prev,
+          currentBook: normalizeBookState(cloneBook(nextBook)),
+        };
+      });
+      return prevRedo.slice(0, -1);
+    });
+  };
+
+  // ==========================================================================
+  // API loaders & tree expansion
+  // ==========================================================================
+
+  /** BFS-load the entire remote book (cover + every descendant) into a flat node list. */
+  const loadEntireBook = async (
+    projectId: string,
+    coverPageId: string,
+    libreLibrary: string,
+  ): Promise<RemixerSubPage[]> => {
+    const nodesById = new Map<string, RemixerSubPage>();
+    const fetchedParentIds = new Set<string>();
+    const queue: string[] = [];
+
+    const rootDetails = await api.getRemixerPage(
+      projectId,
+      coverPageId,
+      libreLibrary,
+      true,
+      true,
+      { includeMatter: false, linkTitle: true, full: false },
+    );
+    const rootNode: RemixerSubPage = {
+      ...rootDetails.response,
+      addedItem: false,
+    };
+    nodesById.set(rootNode["@id"], rootNode);
+    queue.push(rootNode["@id"]);
+
+    while (queue.length > 0) {
+      const parentId = queue.shift();
+      if (!parentId || fetchedParentIds.has(parentId)) {
+        continue;
+      }
+      fetchedParentIds.add(parentId);
+
+      const response = await api.getRemixerPage(
+        projectId,
+        parentId,
+        libreLibrary,
+        false,
+        true,
+        { includeMatter: false, linkTitle: true, full: false },
+      );
+
+      const children: RemixerSubPage[] = (response.response ?? []).map(
+        (node: RemixerSubPage) => ({
+          ...node,
+          addedItem: false,
+        }),
+      );
+
+      children.forEach((child) => {
+        nodesById.set(child["@id"], child);
+        if (child["@subpages"]) {
+          queue.push(child["@id"]);
+        }
+      });
+    }
+
+    return Array.from(nodesById.values());
+  };
+
+  /** BFS-load a library subtree rooted at `rootNode` (used for catalog-book extract imports). */
+  const loadLibrarySubtree = useCallback(
+    async (
+      projectId: string,
+      rootNode: RemixerSubPage,
+      libreLibrary: string,
+    ): Promise<RemixerSubPage[]> => {
+      const nodesById = new Map<string, RemixerSubPage>();
+      const fetchedParentIds = new Set<string>();
+      const queue: string[] = [];
+
+      nodesById.set(rootNode["@id"], {
+        ...rootNode,
+        addedItem: false,
+      });
+      queue.push(rootNode["@id"]);
+
+      while (queue.length > 0) {
+        const parentId = queue.shift();
+        if (!parentId || fetchedParentIds.has(parentId)) {
+          continue;
+        }
+        fetchedParentIds.add(parentId);
+
+        const parentNode = nodesById.get(parentId);
+        if (!parentNode?.["@subpages"]) {
+          continue;
+        }
+
+        const response = await api.getRemixerPage(
+          projectId,
+          parentId,
+          libreLibrary,
+          false,
+          true,
+          { includeMatter: false, linkTitle: true, full: false },
+        );
+
+        const children: RemixerSubPage[] = (response.response ?? []).map(
+          (node: RemixerSubPage) => ({
+            ...node,
+            addedItem: false,
+          }),
+        );
+
+        children.forEach((child) => {
+          nodesById.set(child["@id"], child);
+          if (child["@subpages"]) {
+            queue.push(child["@id"]);
+          }
+        });
+      }
+
+      return Array.from(nodesById.values());
+    },
+    [],
+  );
+
+  /**
+   * Open a catalog book: fetch its ancestry so the library tree is expanded to the book,
+   * then scroll-reveal the target node with a brief highlight.
+   */
   const loadSelectedBook = async (bookID: string, lib: string) => {
     skipLibraryAutoLoadRef.current = true;
     let expandedNodeIds = new Set<string>();
@@ -291,99 +596,608 @@ const RemixerDashboard: React.FC = () => {
     }, 200);
   };
 
-  const updateCurrentBook = (
-    updater: (prevBook: RemixerSubPage[]) => RemixerSubPage[],
-    options: { trackHistory?: boolean } = {},
-  ) => {
-    const { trackHistory = false } = options;
+  /** Lazy-fetch children for a book folder being expanded (skipped if server-backed children already exist). */
+  const expandBookTree = async (nodeId: string) => {
+    // If this folder has server-backed children, don't refetch.
+    // If it only has locally added items, fetch from server.
+    const currentChildren = (remixerData.currentBook ?? []).filter(
+      (p) => p.parentID === nodeId,
+    );
+    const hasServerBackedChildren = currentChildren.some(
+      (child) => !child.addedItem,
+    );
+    if (hasServerBackedChildren) {
+      return;
+    }
+    const expandedNode = (remixerData.currentBook ?? []).find(
+      (node) => node["@id"] === nodeId,
+    );
+    const inheritAddedItem = expandedNode?.addedItem === true;
+
+    const resPage = await api.getRemixerPage(
+      id,
+      nodeId,
+      remixerData.libreLibrary || "",
+      false,
+      true,
+      { includeMatter: false, linkTitle: true, full: false },
+    );
+
+    updateCurrentBook((existingBook) => {
+      const incomingPages: RemixerSubPage[] = (resPage.response ?? []).map(
+        (page: RemixerSubPage) => ({
+          ...page,
+          addedItem: inheritAddedItem,
+        }),
+      );
+      const incomingIds = new Set(incomingPages.map((page) => page["@id"]));
+      const updatedExisting = existingBook.map((page) =>
+        incomingIds.has(page["@id"])
+          ? { ...page, addedItem: inheritAddedItem }
+          : page,
+      );
+      const newPages = incomingPages.filter(
+        (incomingPage) =>
+          !existingBook.some(
+            (existingPage) => existingPage["@id"] === incomingPage["@id"],
+          ),
+      );
+      return [...updatedExisting, ...newPages];
+    });
+  };
+
+  /** Lazy-fetch children for a library folder on expand (no-op if already loaded). */
+  const expandLibraryTree = async (nodeId: string) => {
+    if (!remixerData.selectedLibrary) return;
+    // If this folder already has loaded children, don't refetch
+    if (selectedLibraryPages?.some((p) => p.parentID === nodeId)) {
+      return;
+    }
+    const node = selectedLibraryPages?.find((p) => p["@id"] === nodeId);
+    const pagePath =
+      node?.title === "Workbench" || node?.["@title"] === "Workbench"
+        ? "Workbench"
+        : nodeId;
+    const resLibrary = await api.getRemixerPage(
+      id,
+      pagePath,
+      remixerData.selectedLibrary,
+      false,
+      true,
+      { includeMatter: false, linkTitle: true, full: false },
+    );
+    setRemixerData((prev) => ({
+      ...prev,
+      library: {
+        ...(prev.library ?? {}),
+        [remixerData.selectedLibrary as Library]: [
+          ...(prev.library?.[remixerData.selectedLibrary as Library] ?? []),
+          ...(resLibrary.response ?? []),
+        ],
+      },
+    }));
+  };
+
+  /** Expand every node in the current book. */
+  const expandAllCurrentBook = async () => {
+    const { currentBook } = remixerData;
+    if (!currentBook) return;
+    const ids = currentBook.map((node) => {
+      return node["@id"];
+    });
+
+    setExpandedNodeIdsBook(new Set(ids));
+  };
+
+  /** Collapse every node in the current book. */
+  const collapseAllCurrentBook = async () => {
+    setExpandedNodeIdsBook(new Set());
+  };
+
+  // ==========================================================================
+  // Tree edit actions (add / delete / move / rename / duplicate)
+  // ==========================================================================
+
+  /** Add a new chapter/page/subpage as a child of the selected node (or the book root). */
+  const handleAddBookItem = () => {
+    const canNestInSelectedNode = !!uiState.selectedBookNodeId;
+    const parentId = canNestInSelectedNode
+      ? uiState.selectedBookNodeId
+      : remixerData.liberCoverID;
+    const newNodeId = `new-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+    let title = "New Chapter";
+    if (canNestInSelectedNode && parentId !== remixerData.liberCoverID) {
+      const depth = computeNodeDepth(
+        remixerData.currentBook ?? [],
+        uiState.selectedBookNodeId!,
+        { stopAtParentId: remixerData.liberCoverID },
+      );
+      title = getNewNodeTitleForDepth(depth);
+    }
+    const newNode: RemixerSubPage = {
+      "@id": newNodeId,
+      "@title": title,
+      "@href": "#",
+      "@subpages": false,
+      article: "article",
+      parentID: parentId,
+      namespace: "main",
+      title,
+      "uri.ui": "#",
+      addedItem: true,
+    };
+
+    updateCurrentBook(
+      (existingBookNodes) => [
+        ...existingBookNodes.map((node) =>
+          node["@id"] === parentId ? { ...node, "@subpages": true } : node,
+        ),
+        newNode,
+      ],
+      { trackHistory: true },
+    );
+    setUiState((prev) => ({ ...prev, selectedBookNodeId: newNodeId }));
+    const folderToExpand = uiState.selectedBookNodeId;
+    if (folderToExpand) {
+      setExpandedNodeIdsBook((prev) => {
+        const next = new Set(prev);
+        next.add(folderToExpand);
+        return next;
+      });
+    }
+  };
+
+  /** Soft-delete the currently selected book node and its descendants (skipped for matter branches). */
+  const handleDeleteSelectedBookNode = () => {
+    const selectedNodeId = uiState.selectedBookNodeId;
+    if (!selectedNodeId) return;
+    if (isMatterBranchNode(selectedNodeId)) return;
+    updateCurrentBook(
+      (existingBookNodes) =>
+        applyBookNodeDeletion(existingBookNodes, selectedNodeId),
+      { trackHistory: true },
+    );
+    setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
+  };
+
+  /** Flag the given nodes as moved (used after a drag-and-drop reorder completes). */
+  const handleMarkMovedNodes = (nodeIds: string[]) => {
+    if (nodeIds.length === 0) return;
     setRemixerData((prev) => {
-      const prevBook = prev.currentBook ?? [];
-      const nextBook = normalizeBookState(updater(prevBook));
-      const changed = JSON.stringify(prevBook) !== JSON.stringify(nextBook);
-
-      if (!changed) {
-        return prev;
-      }
-
-      if (trackHistory) {
-        setUndoStack((prevUndo) => [...prevUndo, cloneBook(prevBook)]);
-        setRedoStack([]);
-      }
-
+      const existingBook = prev.currentBook ?? [];
+      const movedSet = new Set(nodeIds);
       return {
         ...prev,
-        currentBook: nextBook,
+        currentBook: normalizeBookState(
+          existingBook.map((node) =>
+            movedSet.has(node["@id"]) && !node.deletedItem
+              ? { ...node, movedItem: true }
+              : node,
+          ),
+        ),
       };
     });
   };
 
-  const highestPathLevel = useCallback(
-    (): number => computeHighestPathLevel(remixerData.currentBook ?? []),
-    [remixerData.currentBook],
-  );
-
-  const handleUndo = () => {
-    setUndoStack((prevUndo) => {
-      if (prevUndo.length === 0) return prevUndo;
-      const previousBook = prevUndo[prevUndo.length - 1];
-      setRemixerData((prev) => {
-        const currentBook = prev.currentBook ?? [];
-        setRedoStack((prevRedo) => [...prevRedo, cloneBook(currentBook)]);
-        return {
-          ...prev,
-          currentBook: normalizeBookState(cloneBook(previousBook)),
-        };
-      });
-      return prevUndo.slice(0, -1);
-    });
-  };
-
-  const handleRedo = () => {
-    setRedoStack((prevRedo) => {
-      if (prevRedo.length === 0) return prevRedo;
-      const nextBook = prevRedo[prevRedo.length - 1];
-      setRemixerData((prev) => {
-        const currentBook = prev.currentBook ?? [];
-        setUndoStack((prevUndo) => [...prevUndo, cloneBook(currentBook)]);
-        return {
-          ...prev,
-          currentBook: normalizeBookState(cloneBook(nextBook)),
-        };
-      });
-      return prevRedo.slice(0, -1);
-    });
-  };
-
-  const isMatterBranchNode = (nodeId?: string): boolean =>
-    isMatterBranchNodePure(nodeId, remixerData.currentBook ?? []);
-
-  const applyDraftSettings = (settings: {
-    autoNumbering?: boolean;
-    copyModeState?: string;
-    pathLevelFormats?: unknown;
+  /** Move a node before/after/inside another via the shared reorder helper. */
+  const handleReorderBookNode = ({
+    draggedNodeId,
+    targetNodeId,
+    position,
+  }: {
+    draggedNodeId: string;
+    targetNodeId: string;
+    position: DropPosition;
   }) => {
-    if (settings.autoNumbering !== undefined) {
-      setRemixerData((prev) => ({
-        ...prev,
-        autoNumbering: settings.autoNumbering,
-      }));
+    updateCurrentBook(
+      (existingBook) =>
+        reorderBookNodes({
+          existingBook,
+          draggedNodeId,
+          targetNodeId,
+          position,
+        }),
+      { trackHistory: true },
+    );
+  };
+
+  /** Persist edits from the edit panel onto the current book (also toggles `renamedItem`). */
+  const handleSaveEdit = (page: RemixerSubPage) => {
+    if (isMatterBranchNode(page["@id"])) {
+      setUiState((prev) => ({ ...prev, editPanelOpen: false }));
+      return;
     }
-    if (
-      settings.copyModeState !== undefined ||
-      settings.pathLevelFormats !== undefined
-    ) {
+    setUiState((prev) => ({ ...prev, editPanelOpen: false }));
+    updateCurrentBook(
+      (existingBook) => {
+        return existingBook.map((node) => {
+          if (node["@id"] !== page["@id"]) return node;
+          const previousTitle = node.title || node["@title"] || "";
+          const nextTitle = page.title || page["@title"] || "";
+          const renamed = previousTitle !== nextTitle;
+          return {
+            ...node,
+            ...page,
+            title: nextTitle,
+            "@title": nextTitle,
+            formattedPathOverride: page.formattedPathOverride === true,
+            formattedPath:
+              page.formattedPathOverride === true
+                ? page.formattedPath
+                : undefined,
+            renamedItem: node.renamedItem || renamed,
+          };
+        });
+      },
+      { trackHistory: true },
+    );
+  };
+
+  /** Insert a new node above/below `targetNodeId` (as a sibling) or inside it (as a child). */
+  const addNodeRelative = (
+    targetNodeId: string,
+    mode: "above" | "below" | "inside",
+  ) => {
+    const book = remixerData.currentBook ?? [];
+    const nodesById = new Map(book.map((n) => [n["@id"], n]));
+    const targetNode = nodesById.get(targetNodeId);
+    if (!targetNode) return;
+
+    const newNodeId = `new-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+
+    if (mode === "inside") {
+      const depth = getContextNodeDepth(targetNodeId);
+      const title = getNewNodeTitleForDepth(depth);
+      const newNode: RemixerSubPage = {
+        "@id": newNodeId,
+        "@title": title,
+        "@href": "#",
+        "@subpages": false,
+        article: "article",
+        parentID: targetNodeId,
+        namespace: "main",
+        title,
+        "uri.ui": "#",
+        addedItem: true,
+      };
+      updateCurrentBook(
+        (existingBookNodes) => [
+          ...existingBookNodes.map((n) =>
+            n["@id"] === targetNodeId ? { ...n, "@subpages": true } : n,
+          ),
+          newNode,
+        ],
+        { trackHistory: true },
+      );
+      setExpandedNodeIdsBook((prev) => {
+        const next = new Set(prev);
+        next.add(targetNodeId);
+        return next;
+      });
+    } else {
+      const parentId = targetNode.parentID ?? "-1";
+      const depth = getContextNodeDepth(targetNodeId) - 1;
+      const title = getNewNodeTitleForDepth(depth);
+      const newNode: RemixerSubPage = {
+        "@id": newNodeId,
+        "@title": title,
+        "@href": "#",
+        "@subpages": false,
+        article: "article",
+        parentID: parentId,
+        namespace: "main",
+        title,
+        "uri.ui": "#",
+        addedItem: true,
+      };
+      updateCurrentBook(
+        (existingBookNodes) => {
+          const siblings = existingBookNodes.filter(
+            (n) => (n.parentID ?? "-1") === parentId,
+          );
+          const targetIndex = siblings.findIndex(
+            (n) => n["@id"] === targetNodeId,
+          );
+          const insertAfterIndex =
+            mode === "above" ? targetIndex - 1 : targetIndex;
+          const insertAfterId = siblings[insertAfterIndex]?.["@id"];
+
+          const result: RemixerSubPage[] = [];
+          for (const n of existingBookNodes) {
+            result.push(n);
+            if (insertAfterId && n["@id"] === insertAfterId) {
+              result.push(newNode);
+            }
+          }
+          if (!insertAfterId) {
+            const firstSiblingIndex = result.findIndex(
+              (n) => (n.parentID ?? "-1") === parentId,
+            );
+            if (firstSiblingIndex >= 0) {
+              result.splice(firstSiblingIndex, 0, newNode);
+            } else {
+              result.push(newNode);
+            }
+          }
+          return result;
+        },
+        { trackHistory: true },
+      );
+    }
+    setUiState((prev) => ({ ...prev, selectedBookNodeId: newNodeId }));
+  };
+
+  /** Dispatch a context-menu action (add above/to/below, delete, modify, duplicate). */
+  const handleContextMenuAction = (
+    action: "add-above" | "add-to" | "add-below" | "delete" | "modify" | "duplicate",
+  ) => {
+    if (!contextMenu) return;
+    const { nodeId } = contextMenu;
+    setContextMenu(null);
+
+    if (action === "modify") {
       setUiState((prev) => ({
         ...prev,
-        ...(settings.copyModeState !== undefined && {
-          copyModeState: settings.copyModeState,
-        }),
-        ...(settings.pathLevelFormats !== undefined && {
-          pathLevelFormats: settings.pathLevelFormats as PathLevelFormat[],
-        }),
+        selectedBookNodeId: nodeId,
+        editPanelOpen: true,
       }));
+    } else if (action === "delete") {
+      if (isMatterBranchNode(nodeId)) return;
+      updateCurrentBook(
+        (existingBookNodes) =>
+          applyBookNodeDeletion(existingBookNodes, nodeId),
+        { trackHistory: true },
+      );
+      setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
+    } else if (action === "add-above") {
+      addNodeRelative(nodeId, "above");
+    } else if (action === "add-below") {
+      addNodeRelative(nodeId, "below");
+    } else if (action === "add-to") {
+      addNodeRelative(nodeId, "inside");
+    } else if (action === "duplicate") {
+      const book = remixerData.currentBook ?? [];
+      const original = book.find((n) => n["@id"] === nodeId);
+      if (!original) return;
+      const newNodeId = `${nodeId}-dup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const resolvedSourceID = original.sourceID || original["@id"];
+      const duplicate: RemixerSubPage = {
+        ...original,
+        "@id": newNodeId,
+        ...(resolvedSourceID && !resolvedSourceID.startsWith("new-")
+          ? { sourceID: resolvedSourceID }
+          : {}),
+        addedItem: true,
+      };
+      updateCurrentBook(
+        (existingBookNodes) => {
+          const result: RemixerSubPage[] = [];
+          for (const n of existingBookNodes) {
+            result.push(n);
+            if (n["@id"] === nodeId) {
+              result.push(duplicate);
+            }
+          }
+          return result;
+        },
+        { trackHistory: true },
+      );
+      setUiState((prev) => ({ ...prev, selectedBookNodeId: newNodeId }));
     }
   };
 
+  // ==========================================================================
+  // Library → Book import
+  // ==========================================================================
+
+  /**
+   * Import a library node into the current book.
+   *
+   * Behavior:
+   * - Blocks imports from restricted shelves.
+   * - For catalog-registered books, opens the pick-pages modal (unless `bypassPrompt`).
+   * - Otherwise loads the subtree (or uses a preloaded one) and delegates to
+   *   the pure reducer `computeLibraryImportInsertion`.
+   */
+  const importLibraryNodeToBook = async (
+    {
+      sourceTreeId,
+      targetTreeId,
+      node,
+      targetNodeId,
+      position,
+      targetParentId,
+    }: {
+      sourceTreeId: "library" | "book";
+      targetTreeId: "library" | "book";
+      node: RemixerSubPage;
+      targetNodeId: string;
+      position: DropPosition;
+      targetParentId: string;
+    },
+    options: {
+      extractContent?: boolean;
+      bypassPrompt?: boolean;
+      subtreeNodes?: RemixerSubPage[];
+      selectedSourceIds?: Set<string>;
+    } = {},
+  ) => {
+    if (sourceTreeId !== "library" || targetTreeId !== "book") return;
+    if (!remixerData.selectedLibrary) return;
+    if (isRestrictedShelfNode(node["@id"])) {
+      addNotification({
+        message:
+          "Import blocked: Bookshelves and Campus Bookshelves (and their immediate children) cannot be moved to Current Book.",
+        type: "info",
+        duration: 3500,
+      });
+      return;
+    }
+
+    if (!options.bypassPrompt && isBookLevelLibraryNode(node["@id"])) {
+      setPendingBookImport({
+        node,
+        targetNodeId,
+        position,
+        targetParentId,
+      });
+      return;
+    }
+
+    setIsImportingFromLibrary(true);
+    let subtreeNodes: RemixerSubPage[] = [];
+    try {
+      if (options.subtreeNodes && options.subtreeNodes.length > 0) {
+        subtreeNodes = options.subtreeNodes;
+      } else {
+        subtreeNodes = await loadLibrarySubtree(
+          id,
+          node,
+          remixerData.selectedLibrary,
+        );
+      }
+    } catch (error) {
+      setIsImportingFromLibrary(false);
+      addNotification({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to load library content.",
+        type: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    const originalRootId = node["@id"];
+
+    if (options.extractContent && options.selectedSourceIds) {
+      const descendantIds = new Set(
+        subtreeNodes
+          .filter((sn) => sn["@id"] !== originalRootId)
+          .map((sn) => sn["@id"]),
+      );
+      let picked = 0;
+      options.selectedSourceIds.forEach((sid) => {
+        if (sid !== originalRootId && descendantIds.has(sid)) picked += 1;
+      });
+      if (picked === 0) {
+        setIsImportingFromLibrary(false);
+        addNotification({
+          message: "Select at least one page to import.",
+          type: "info",
+          duration: 3000,
+        });
+        return;
+      }
+    }
+
+    updateCurrentBook(
+      (existingBookNodes) =>
+        computeLibraryImportInsertion({
+          existingBookNodes,
+          subtreeNodes,
+          originalRootId,
+          targetNodeId,
+          position,
+          targetParentId,
+          extractContent: options.extractContent === true,
+          selectedSourceIds: options.selectedSourceIds,
+        }),
+      { trackHistory: true },
+    );
+    setIsImportingFromLibrary(false);
+  };
+
+  /** Import by id — looks the node up in the selected library and forwards to `importLibraryNodeToBook`. */
+  const importLibraryNodeToBookById = async ({
+    nodeId,
+    targetTreeId,
+    targetNodeId,
+    position,
+    targetParentId,
+  }: {
+    nodeId: string;
+    targetTreeId: "library" | "book";
+    targetNodeId: string;
+    position: DropPosition;
+    targetParentId: string;
+  }) => {
+    if (targetTreeId !== "book") return;
+    const node = (selectedLibraryPages ?? []).find(
+      (item) => item["@id"] === nodeId,
+    );
+    if (!node) return;
+    if (isRestrictedShelfNode(nodeId)) {
+      addNotification({
+        message:
+          "Import blocked: Bookshelves and Campus Bookshelves (and their immediate children) cannot be moved to Current Book.",
+        type: "info",
+        duration: 3500,
+      });
+      return;
+    }
+    await importLibraryNodeToBook({
+      sourceTreeId: "library",
+      targetTreeId,
+      node,
+      targetNodeId,
+      position,
+      targetParentId,
+    });
+  };
+
+  /** Confirm the pending book-import modal: extract only the user-selected pages. */
+  const resolvePendingBookImport = async () => {
+    if (!pendingBookImport) return;
+    const pending = pendingBookImport;
+    const subtree = bookImportSubtree;
+    const selected = bookImportSelectedIds;
+    if (!subtree || subtree.length === 0) {
+      addNotification({
+        message: "Still loading pages; try again in a moment.",
+        type: "info",
+        duration: 3000,
+      });
+      return;
+    }
+    if (selected.size === 0) {
+      addNotification({
+        message: "Select at least one page to import.",
+        type: "info",
+        duration: 3000,
+      });
+      return;
+    }
+
+    setPendingBookImport(null);
+    await importLibraryNodeToBook(
+      {
+        sourceTreeId: "library",
+        targetTreeId: "book",
+        node: pending.node,
+        targetNodeId: pending.targetNodeId,
+        position: pending.position,
+        targetParentId: pending.targetParentId,
+      },
+      {
+        extractContent: true,
+        bypassPrompt: true,
+        subtreeNodes: subtree,
+        selectedSourceIds: selected,
+      },
+    );
+  };
+
+  // ==========================================================================
+  // Persistence / recovery
+  // ==========================================================================
+
+  /** Load the book from a recovery source: local draft, server, server draft, or a fresh reload. */
   const handleLoadSource = async (
     source: "local" | "server" | "serverDraft" | "fresh",
   ) => {
@@ -481,6 +1295,7 @@ const RemixerDashboard: React.FC = () => {
     }
   };
 
+  /** Gather the set of available recovery sources (local/server) and open the recovery modal. */
   const openRecoveryModal = async () => {
     const localDraft = getLocalDraft(id);
 
@@ -512,230 +1327,190 @@ const RemixerDashboard: React.FC = () => {
     setShowRecoveryModal(true);
   };
 
-  const handleDeleteSelectedBookNode = () => {
-    const selectedNodeId = uiState.selectedBookNodeId;
-    if (!selectedNodeId) return;
-    if (isMatterBranchNode(selectedNodeId)) return;
-    updateCurrentBook(
-      (existingBookNodes) =>
-        applyBookNodeDeletion(existingBookNodes, selectedNodeId),
-      { trackHistory: true },
-    );
-    setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
-  };
-
-  const handleMarkMovedNodes = (nodeIds: string[]) => {
-    if (nodeIds.length === 0) return;
-    setRemixerData((prev) => {
-      const existingBook = prev.currentBook ?? [];
-      const movedSet = new Set(nodeIds);
-      return {
-        ...prev,
-        currentBook: normalizeBookState(
-          existingBook.map((node) =>
-            movedSet.has(node["@id"]) && !node.deletedItem
-              ? { ...node, movedItem: true }
-              : node,
-          ),
-        ),
+  /** Persist the current book + settings to the server and clear any local draft. */
+  const handleSaveDraft = async () => {
+    if (!id) return;
+    try {
+      const response = await api.saveRemixerProjectState(
+        id,
+        remixerData.currentBook ?? [],
+        {
+          autoNumbering: remixerData.autoNumbering,
+          copyModeState: uiState.copyModeState,
+          pathLevelFormats: uiState.pathLevelFormats,
+        },
+      );
+      if (response.err) {
+        throw new Error(response.errMsg ?? "Failed to save draft");
+      }
+      clearLocalDraft(id);
+      serverStateRef.current = {
+        book: remixerData.currentBook ?? [],
+        settings: {
+          autoNumbering: remixerData.autoNumbering,
+          copyModeState: uiState.copyModeState,
+          pathLevelFormats: uiState.pathLevelFormats,
+        },
       };
-    });
-  };
-
-  const handleReorderBookNode = ({
-    draggedNodeId,
-    targetNodeId,
-    position,
-  }: {
-    draggedNodeId: string;
-    targetNodeId: string;
-    position: DropPosition;
-  }) => {
-    updateCurrentBook(
-      (existingBook) =>
-        reorderBookNodes({
-          existingBook,
-          draggedNodeId,
-          targetNodeId,
-          position,
-        }),
-      { trackHistory: true },
-    );
-  };
-
-  const handleAddBookItem = () => {
-    const canNestInSelectedNode = !!uiState.selectedBookNodeId;
-    const parentId = canNestInSelectedNode
-      ? uiState.selectedBookNodeId
-      : remixerData.liberCoverID;
-    const newNodeId = `new-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
-    let title = "New Chapter";
-    if (canNestInSelectedNode && parentId !== remixerData.liberCoverID) {
-      const nodesById = new Map(
-        (remixerData.currentBook ?? []).map((node) => [node["@id"], node]),
-      );
-      let depth = 0;
-      let currentId: string | undefined = uiState.selectedBookNodeId;
-      while (
-        currentId &&
-        currentId !== remixerData.liberCoverID &&
-        currentId !== "-1"
-      ) {
-        const node = nodesById.get(currentId);
-        if (!node) break;
-        depth += 1;
-        currentId = node.parentID;
-      }
-      // New child under chapter => page; any deeper nesting => subpage.
-      title = depth <= 1 ? "New Page" : "New Subpage";
-    }
-    const newNode: RemixerSubPage = {
-      "@id": newNodeId,
-      "@title": title,
-      "@href": "#",
-      "@subpages": false,
-      article: "article",
-      parentID: parentId,
-      namespace: "main",
-      title,
-      "uri.ui": "#",
-      addedItem: true,
-    };
-
-    updateCurrentBook(
-      (existingBookNodes) => [
-        ...existingBookNodes.map((node) =>
-          node["@id"] === parentId ? { ...node, "@subpages": true } : node,
-        ),
-        newNode,
-      ],
-      { trackHistory: true },
-    );
-    setUiState((prev) => ({ ...prev, selectedBookNodeId: newNodeId }));
-    const folderToExpand = uiState.selectedBookNodeId;
-    if (folderToExpand) {
-      setExpandedNodeIdsBook((prev) => {
-        const next = new Set(prev);
-        next.add(folderToExpand);
-        return next;
+      addNotification({
+        message: "Draft saved successfully.",
+        type: "success",
+        duration: 3000,
+      });
+    } catch (error) {
+      addNotification({
+        message:
+          error instanceof Error ? error.message : "Failed to save draft",
+        type: "error",
+        duration: 3000,
       });
     }
   };
 
-  const loadEntireBook = async (
-    projectId: string,
-    coverPageId: string,
-    libreLibrary: string,
-  ): Promise<RemixerSubPage[]> => {
-    const nodesById = new Map<string, RemixerSubPage>();
-    const fetchedParentIds = new Set<string>();
-    const queue: string[] = [];
-
-    const rootDetails = await api.getRemixerPage(
-      projectId,
-      coverPageId,
-      libreLibrary,
-      true,
-      true,
-      { includeMatter: false, linkTitle: true, full: false },
+  /** Discard local/server drafts and reload the book from source. Resets undo/redo and UI panels. */
+  const handleStartOver = async () => {
+    if (!id) return;
+    clearLocalDraft(id);
+    serverStateRef.current = null;
+    await api.deleteRemixerProjectState(id);
+    const res = await api.getRemixerProject(id);
+    const fullBook = await loadEntireBook(
+      id,
+      res.project.libreCoverID,
+      res.project.libreLibrary,
     );
-    const rootNode: RemixerSubPage = {
-      ...rootDetails.response,
-      addedItem: false,
-    };
-    nodesById.set(rootNode["@id"], rootNode);
-    queue.push(rootNode["@id"]);
+    setUndoStack([]);
+    setRedoStack([]);
+    setUiState((prev) => ({
+      ...prev,
+      selectedBookNodeId: undefined,
+      editPanelOpen: false,
+      publishPanelOpen: false,
+    }));
+    setRemixerData((prev) => ({
+      ...prev,
+      projectID: res.project.projectID,
+      title: res.project.title,
+      liberCoverID: res.project.libreCoverID,
+      libreLibrary: res.project.libreLibrary,
+      selectedLibrary: isLibrary(res.project.libreLibrary)
+        ? res.project.libreLibrary
+        : undefined,
+      currentBook: normalizeBookState(fullBook, {
+        initializeOriginalPathNumber: true,
+      }),
+    }));
+  };
 
-    while (queue.length > 0) {
-      const parentId = queue.shift();
-      if (!parentId || fetchedParentIds.has(parentId)) {
-        continue;
+  // ==========================================================================
+  // Publish
+  // ==========================================================================
+
+  /** Kick off a publish job on the server and start polling for status. */
+  const handlePublish = async () => {
+    if (!id) return;
+    try {
+      setPublishStatus("pending");
+      setPublishMessages(["Publish request accepted. Creating backend job..."]);
+      const response = await api.publishRemixerProject(
+        id,
+        remixerData.currentBook ?? [],
+        {
+          autoNumbering: remixerData.autoNumbering,
+          copyModeState: uiState.copyModeState,
+          pathLevelFormats: uiState.pathLevelFormats,
+        },
+      );
+      if (response.err) {
+        throw new Error(response.errMsg ?? "Failed to publish");
       }
-      fetchedParentIds.add(parentId);
+      setPublishPolling(true);
+    } catch (error) {
+      setPublishStatus("error");
+      addNotification({
+        message: error instanceof Error ? error.message : "Failed to publish",
+        type: "error",
+        duration: 3000,
+      });
+    }
+  };
 
-      const response = await api.getRemixerPage(
-        projectId,
-        parentId,
-        libreLibrary,
-        false,
-        true,
-        { includeMatter: false, linkTitle: true, full: false },
-      );
+  // ==========================================================================
+  // Effects
+  // ==========================================================================
 
-      const children: RemixerSubPage[] = (response.response ?? []).map(
-        (node: RemixerSubPage) => ({
-          ...node,
-          addedItem: false,
-        }),
-      );
+  // Load pages for the pending book-import modal whenever a new pending import appears.
+  useEffect(() => {
+    if (!pendingBookImport) {
+      setBookImportSubtree(null);
+      setBookImportSubtreeLoading(false);
+      setBookImportSelectedIds(new Set());
+      setBookImportExpandedIds(new Set());
+      return;
+    }
+    if (!id || !remixerData.selectedLibrary) return;
 
-      children.forEach((child) => {
-        nodesById.set(child["@id"], child);
-        if (child["@subpages"]) {
-          queue.push(child["@id"]);
+    const projectId = id;
+    const libKey = remixerData.selectedLibrary;
+    let cancelled = false;
+    const rootNode = pendingBookImport.node;
+    const rootId = rootNode["@id"];
+
+    (async () => {
+      setBookImportSubtreeLoading(true);
+      setBookImportSubtree(null);
+      setBookImportSelectedIds(new Set());
+      try {
+        const subtree = await loadLibrarySubtree(
+          projectId,
+          rootNode,
+          libKey,
+        );
+        if (cancelled) return;
+        setBookImportSubtree(subtree);
+        const defaultSelectable = subtree
+          .filter(
+            (n) =>
+              n["@id"] !== rootId &&
+              !isMatterBranchNodePure(n["@id"], subtree),
+          )
+          .map((n) => n["@id"]);
+        setBookImportSelectedIds(new Set(defaultSelectable));
+        const expanded = new Set<string>();
+        subtree.forEach((n) => {
+          if (n["@subpages"] && n["@id"] !== rootId) expanded.add(n["@id"]);
+        });
+        setBookImportExpandedIds(expanded);
+      } catch (error) {
+        if (!cancelled) {
+          addNotification({
+            message:
+              error instanceof Error
+                ? error.message
+                : "Failed to load book pages.",
+            type: "error",
+            duration: 4000,
+          });
+          setPendingBookImport(null);
         }
-      });
-    }
-
-    return Array.from(nodesById.values());
-  };
-
-  const loadLibrarySubtree = async (
-    projectId: string,
-    rootNode: RemixerSubPage,
-    libreLibrary: string,
-  ): Promise<RemixerSubPage[]> => {
-    const nodesById = new Map<string, RemixerSubPage>();
-    const fetchedParentIds = new Set<string>();
-    const queue: string[] = [];
-
-    nodesById.set(rootNode["@id"], {
-      ...rootNode,
-      addedItem: false,
-    });
-    queue.push(rootNode["@id"]);
-
-    while (queue.length > 0) {
-      const parentId = queue.shift();
-      if (!parentId || fetchedParentIds.has(parentId)) {
-        continue;
+      } finally {
+        if (!cancelled) setBookImportSubtreeLoading(false);
       }
-      fetchedParentIds.add(parentId);
+    })();
 
-      const parentNode = nodesById.get(parentId);
-      if (!parentNode?.["@subpages"]) {
-        continue;
-      }
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    pendingBookImport?.node["@id"],
+    pendingBookImport?.targetNodeId,
+    id,
+    remixerData.selectedLibrary,
+    loadLibrarySubtree,
+    addNotification,
+  ]);
 
-      const response = await api.getRemixerPage(
-        projectId,
-        parentId,
-        libreLibrary,
-        false,
-        true,
-        { includeMatter: false, linkTitle: true, full: false },
-      );
-
-      const children: RemixerSubPage[] = (response.response ?? []).map(
-        (node: RemixerSubPage) => ({
-          ...node,
-          addedItem: false,
-        }),
-      );
-
-      children.forEach((child) => {
-        nodesById.set(child["@id"], child);
-        if (child["@subpages"]) {
-          queue.push(child["@id"]);
-        }
-      });
-    }
-
-    return Array.from(nodesById.values());
-  };
-
+  // Initial load: project metadata, catalog, and existing book state (with recovery prompt).
   useEffect(() => {
     const getRemixerProject = async () => {
       // get the authen browser details
@@ -868,6 +1643,7 @@ const RemixerDashboard: React.FC = () => {
     loadCatalogBook();
   }, [id]);
 
+  // Auto-load the library tree when the selected library changes (skipped when catalog-driven).
   useEffect(() => {
     const loadSelectedLibrary = async () => {
       if (!id || !remixerData.selectedLibrary || skipLibraryAutoLoadRef.current)
@@ -910,6 +1686,7 @@ const RemixerDashboard: React.FC = () => {
     loadSelectedLibrary();
   }, [id, remixerData.selectedLibrary]);
 
+  // Clear the selected-book-node id when the node no longer exists (e.g. after delete/undo).
   useEffect(() => {
     if (!uiState.selectedBookNodeId) return;
     const stillExists = (remixerData.currentBook ?? []).some(
@@ -920,10 +1697,12 @@ const RemixerDashboard: React.FC = () => {
     }
   }, [remixerData.currentBook, uiState.selectedBookNodeId]);
 
+  // Re-normalize path numbering whenever the user changes path-level formats.
   useEffect(() => {
     updateCurrentBook((existingBook) => existingBook);
   }, [uiState.pathLevelFormats]);
 
+  // Debounced local-draft autosave to survive tab reloads.
   useEffect(() => {
     if (!id || !remixerData.currentBook || remixerData.currentBook.length === 0)
       return;
@@ -945,430 +1724,7 @@ const RemixerDashboard: React.FC = () => {
     uiState.pathLevelFormats,
   ]);
 
-  const isExpandedAllCurrentBookNodes = useCallback(() => {
-    const { currentBook } = remixerData;
-    if (!currentBook) return false;
-    const nodesToExpand = currentBook
-      .filter((node) => node["@subpages"])
-      .map((node) => node["@id"]);
-    return nodesToExpand.every((nodeId) => expandedNodeIdsBook.has(nodeId));
-  }, [remixerData.currentBook, expandedNodeIdsBook]);
-
-  const expandBookTree = async (nodeId: string) => {
-    // If this folder has server-backed children, don't refetch.
-    // If it only has locally added items, fetch from server.
-    const currentChildren = (remixerData.currentBook ?? []).filter(
-      (p) => p.parentID === nodeId,
-    );
-    const hasServerBackedChildren = currentChildren.some(
-      (child) => !child.addedItem,
-    );
-    if (hasServerBackedChildren) {
-      return;
-    }
-    const expandedNode = (remixerData.currentBook ?? []).find(
-      (node) => node["@id"] === nodeId,
-    );
-    const inheritAddedItem = expandedNode?.addedItem === true;
-
-    const resPage = await api.getRemixerPage(
-      id,
-      nodeId,
-      remixerData.libreLibrary || "",
-      false,
-      true,
-      { includeMatter: false, linkTitle: true, full: false },
-    );
-
-    updateCurrentBook((existingBook) => {
-      const incomingPages: RemixerSubPage[] = (resPage.response ?? []).map(
-        (page: RemixerSubPage) => ({
-          ...page,
-          addedItem: inheritAddedItem,
-        }),
-      );
-      const incomingIds = new Set(incomingPages.map((page) => page["@id"]));
-      const updatedExisting = existingBook.map((page) =>
-        incomingIds.has(page["@id"])
-          ? { ...page, addedItem: inheritAddedItem }
-          : page,
-      );
-      const newPages = incomingPages.filter(
-        (incomingPage) =>
-          !existingBook.some(
-            (existingPage) => existingPage["@id"] === incomingPage["@id"],
-          ),
-      );
-      return [...updatedExisting, ...newPages];
-    });
-  };
-  const expandAllCurrentBook = async () => {
-    const { currentBook } = remixerData;
-    if (!currentBook) return;
-    const ids = currentBook.map((node) => {
-      return node["@id"];
-    });
-
-    setExpandedNodeIdsBook(new Set(ids));
-  };
-  const collapseAllCurrentBook = async () => {
-    setExpandedNodeIdsBook(new Set());
-  };
-
-  const expandLibraryTree = async (nodeId: string) => {
-    if (!remixerData.selectedLibrary) return;
-    // If this folder already has loaded children, don't refetch
-    if (selectedLibraryPages?.some((p) => p.parentID === nodeId)) {
-      return;
-    }
-    const node = selectedLibraryPages?.find((p) => p["@id"] === nodeId);
-    const pagePath =
-      node?.title === "Workbench" || node?.["@title"] === "Workbench"
-        ? "Workbench"
-        : nodeId;
-    const resLibrary = await api.getRemixerPage(
-      id,
-      pagePath,
-      remixerData.selectedLibrary,
-      false,
-      true,
-      { includeMatter: false, linkTitle: true, full: false },
-    );
-    setRemixerData((prev) => ({
-      ...prev,
-      library: {
-        ...(prev.library ?? {}),
-        [remixerData.selectedLibrary as Library]: [
-          ...(prev.library?.[remixerData.selectedLibrary as Library] ?? []),
-          ...(resLibrary.response ?? []),
-        ],
-      },
-    }));
-  };
-
-  const importLibraryNodeToBook = async (
-    {
-      sourceTreeId,
-      targetTreeId,
-      node,
-      targetNodeId,
-      position,
-      targetParentId,
-    }: {
-      sourceTreeId: "library" | "book";
-      targetTreeId: "library" | "book";
-      node: RemixerSubPage;
-      targetNodeId: string;
-      position: DropPosition;
-      targetParentId: string;
-    },
-    options: { extractContent?: boolean; bypassPrompt?: boolean } = {},
-  ) => {
-    if (sourceTreeId !== "library" || targetTreeId !== "book") return;
-    if (!remixerData.selectedLibrary) return;
-    if (isRestrictedShelfNode(node["@id"])) {
-      addNotification({
-        message:
-          "Import blocked: Bookshelves and Campus Bookshelves (and their immediate children) cannot be moved to Current Book.",
-        type: "info",
-        duration: 3500,
-      });
-      return;
-    }
-
-    if (!options.bypassPrompt && isBookLevelLibraryNode(node["@id"])) {
-      setPendingBookImport({
-        node,
-        targetNodeId,
-        position,
-        targetParentId,
-      });
-      return;
-    }
-
-    setIsImportingFromLibrary(true);
-    let subtreeNodes: RemixerSubPage[] = [];
-    try {
-      subtreeNodes = await loadLibrarySubtree(
-        id,
-        node,
-        remixerData.selectedLibrary,
-      );
-    } catch (error) {
-      setIsImportingFromLibrary(false);
-      addNotification({
-        message:
-          error instanceof Error
-            ? error.message
-            : "Failed to load library content.",
-        type: "error",
-        duration: 3000,
-      });
-      return;
-    }
-
-    updateCurrentBook(
-      (existingBookNodes) => {
-        const suffix = `-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        const idMap = new Map<string, string>();
-        for (const sn of subtreeNodes) {
-          idMap.set(sn["@id"], `${sn["@id"]}${suffix}`);
-        }
-
-        const originalRootId = node["@id"];
-
-        if (options.extractContent) {
-          const directChildren = subtreeNodes.filter(
-            (sn) => sn.parentID === originalRootId,
-          );
-          const subtreeWithoutRoot = subtreeNodes.filter(
-            (sn) => sn["@id"] !== originalRootId,
-          );
-          const copied = subtreeWithoutRoot.map((sn) => ({
-            ...sn,
-            sourceID: sn["@id"],
-            "@id": idMap.get(sn["@id"])!,
-            addedItem: true,
-            parentID:
-              sn.parentID === originalRootId
-                ? targetParentId
-                : idMap.get(sn.parentID ?? "") ?? sn.parentID,
-          }));
-
-          let nextBook = [...existingBookNodes, ...copied];
-
-          if (position !== "inside") {
-            const childIdsNew = directChildren.map(
-              (child) => idMap.get(child["@id"])!,
-            );
-            childIdsNew.forEach((newId, index) => {
-              const currentTarget =
-                index === 0 ? targetNodeId : childIdsNew[index - 1];
-              const currentPos: DropPosition = index === 0 ? position : "after";
-              nextBook = insertAtSiblingPosition({
-                bookNodes: nextBook,
-                importedRootId: newId,
-                targetNodeId: currentTarget,
-                position: currentPos,
-                targetParentId,
-              });
-            });
-          }
-
-          return nextBook;
-        }
-
-        const importedRootId = idMap.get(originalRootId)!;
-        const copiedSubtreeNodes = subtreeNodes.map((subtreeNode) => ({
-          ...subtreeNode,
-          sourceID: subtreeNode["@id"],
-          "@id": idMap.get(subtreeNode["@id"])!,
-          addedItem: true,
-          parentID:
-            subtreeNode["@id"] === originalRootId
-              ? targetParentId
-              : idMap.get(subtreeNode.parentID ?? "") ?? subtreeNode.parentID,
-        }));
-
-        const nextBookNodes = [
-          ...existingBookNodes,
-          ...copiedSubtreeNodes,
-        ];
-
-        return insertAtSiblingPosition({
-          bookNodes: nextBookNodes,
-          importedRootId,
-          targetNodeId,
-          position,
-          targetParentId,
-        });
-      },
-      { trackHistory: true },
-    );
-    setIsImportingFromLibrary(false);
-  };
-
-  const resolvePendingBookImport = async (extractContent: boolean) => {
-    if (!pendingBookImport) return;
-    const pending = pendingBookImport;
-    setPendingBookImport(null);
-    await importLibraryNodeToBook(
-      {
-        sourceTreeId: "library",
-        targetTreeId: "book",
-        node: pending.node,
-        targetNodeId: pending.targetNodeId,
-        position: pending.position,
-        targetParentId: pending.targetParentId,
-      },
-      { extractContent, bypassPrompt: true },
-    );
-  };
-
-  const importLibraryNodeToBookById = async ({
-    nodeId,
-    targetTreeId,
-    targetNodeId,
-    position,
-    targetParentId,
-  }: {
-    nodeId: string;
-    targetTreeId: "library" | "book";
-    targetNodeId: string;
-    position: DropPosition;
-    targetParentId: string;
-  }) => {
-    if (targetTreeId !== "book") return;
-    const node = (selectedLibraryPages ?? []).find(
-      (item) => item["@id"] === nodeId,
-    );
-    if (!node) return;
-    if (isRestrictedShelfNode(nodeId)) {
-      addNotification({
-        message:
-          "Import blocked: Bookshelves and Campus Bookshelves (and their immediate children) cannot be moved to Current Book.",
-        type: "info",
-        duration: 3500,
-      });
-      return;
-    }
-    await importLibraryNodeToBook({
-      sourceTreeId: "library",
-      targetTreeId,
-      node,
-      targetNodeId,
-      position,
-      targetParentId,
-    });
-  };
-
-  const selectedBookNode = uiState.selectedBookNodeId
-    ? remixerData.currentBook?.find(
-        (node) => node["@id"] === uiState.selectedBookNodeId,
-      )
-    : undefined;
-
-  const selectedBookDefaultFormattedPath = useCallback((): string => {
-    if (remixerData.autoNumbering === false) return "";
-    const selectedId = uiState.selectedBookNodeId;
-    const book = remixerData.currentBook ?? [];
-    if (!selectedId || book.length === 0) return "";
-    const normalizedBook = buildBookPaths(
-      book,
-      uiState.pathLevelFormats ?? [],
-      {
-        ignoreOverrides: true,
-      },
-    );
-    return (
-      normalizedBook.find((node) => node["@id"] === selectedId)
-        ?.formattedPath ?? ""
-    );
-  }, [
-    remixerData.autoNumbering,
-    remixerData.currentBook,
-    uiState.pathLevelFormats,
-    uiState.selectedBookNodeId,
-  ]);
-
-  const handleSaveEdit = (page: RemixerSubPage) => {
-    if (isMatterBranchNode(page["@id"])) {
-      setUiState((prev) => ({ ...prev, editPanelOpen: false }));
-      return;
-    }
-    setUiState((prev) => ({ ...prev, editPanelOpen: false }));
-    updateCurrentBook(
-      (existingBook) => {
-        return existingBook.map((node) => {
-          if (node["@id"] !== page["@id"]) return node;
-          const previousTitle = node.title || node["@title"] || "";
-          const nextTitle = page.title || page["@title"] || "";
-          const renamed = previousTitle !== nextTitle;
-          return {
-            ...node,
-            ...page,
-            title: nextTitle,
-            "@title": nextTitle,
-            formattedPathOverride: page.formattedPathOverride === true,
-            formattedPath:
-              page.formattedPathOverride === true
-                ? page.formattedPath
-                : undefined,
-            renamedItem: node.renamedItem || renamed,
-          };
-        });
-      },
-      { trackHistory: true },
-    );
-  };
-
-  const handleSaveDraft = async () => {
-    if (!id) return;
-    try {
-      const response = await api.saveRemixerProjectState(
-        id,
-        remixerData.currentBook ?? [],
-        {
-          autoNumbering: remixerData.autoNumbering,
-          copyModeState: uiState.copyModeState,
-          pathLevelFormats: uiState.pathLevelFormats,
-        },
-      );
-      if (response.err) {
-        throw new Error(response.errMsg ?? "Failed to save draft");
-      }
-      clearLocalDraft(id);
-      serverStateRef.current = {
-        book: remixerData.currentBook ?? [],
-        settings: {
-          autoNumbering: remixerData.autoNumbering,
-          copyModeState: uiState.copyModeState,
-          pathLevelFormats: uiState.pathLevelFormats,
-        },
-      };
-      addNotification({
-        message: "Draft saved successfully.",
-        type: "success",
-        duration: 3000,
-      });
-    } catch (error) {
-      addNotification({
-        message:
-          error instanceof Error ? error.message : "Failed to save draft",
-        type: "error",
-        duration: 3000,
-      });
-    }
-  };
-
-  const handlePublish = async () => {
-    if (!id) return;
-    try {
-      setPublishStatus("pending");
-      setPublishMessages(["Publish request accepted. Creating backend job..."]);
-      const response = await api.publishRemixerProject(
-        id,
-        remixerData.currentBook ?? [],
-        {
-          autoNumbering: remixerData.autoNumbering,
-          copyModeState: uiState.copyModeState,
-          pathLevelFormats: uiState.pathLevelFormats,
-        },
-      );
-      if (response.err) {
-        throw new Error(response.errMsg ?? "Failed to publish");
-      }
-      setPublishPolling(true);
-    } catch (error) {
-      setPublishStatus("error");
-      addNotification({
-        message: error instanceof Error ? error.message : "Failed to publish",
-        type: "error",
-        duration: 3000,
-      });
-    }
-  };
-
+  // Poll the publish job status; refreshes the page on success, surfaces errors.
   useEffect(() => {
     if (!id || !publishPolling) return;
 
@@ -1426,40 +1782,7 @@ const RemixerDashboard: React.FC = () => {
     };
   }, [id, publishPolling, addNotification]);
 
-  const handleStartOver = async () => {
-    if (!id) return;
-    clearLocalDraft(id);
-    serverStateRef.current = null;
-    await api.deleteRemixerProjectState(id);
-    const res = await api.getRemixerProject(id);
-    const fullBook = await loadEntireBook(
-      id,
-      res.project.libreCoverID,
-      res.project.libreLibrary,
-    );
-    setUndoStack([]);
-    setRedoStack([]);
-    setUiState((prev) => ({
-      ...prev,
-      selectedBookNodeId: undefined,
-      editPanelOpen: false,
-      publishPanelOpen: false,
-    }));
-    setRemixerData((prev) => ({
-      ...prev,
-      projectID: res.project.projectID,
-      title: res.project.title,
-      liberCoverID: res.project.libreCoverID,
-      libreLibrary: res.project.libreLibrary,
-      selectedLibrary: isLibrary(res.project.libreLibrary)
-        ? res.project.libreLibrary
-        : undefined,
-      currentBook: normalizeBookState(fullBook, {
-        initializeOriginalPathNumber: true,
-      }),
-    }));
-  };
-
+  // F2 opens the edit panel for the currently selected book node.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F2" && uiState.selectedBookNodeId) {
@@ -1471,6 +1794,7 @@ const RemixerDashboard: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [uiState.selectedBookNodeId]);
 
+  // Dismiss the context menu on the next click or contextmenu event outside of it.
   useEffect(() => {
     if (!contextMenu) return;
     const dismiss = () => setContextMenu(null);
@@ -1485,209 +1809,9 @@ const RemixerDashboard: React.FC = () => {
     };
   }, [contextMenu]);
 
-  const getContextNodeDepth = (nodeId: string): number => {
-    const nodesById = new Map(
-      (remixerData.currentBook ?? []).map((n) => [n["@id"], n]),
-    );
-    let depth = 0;
-    let currentId: string | undefined = nodeId;
-    while (
-      currentId &&
-      currentId !== remixerData.liberCoverID &&
-      currentId !== "-1"
-    ) {
-      const node = nodesById.get(currentId);
-      if (!node) break;
-      depth += 1;
-      currentId = node.parentID;
-    }
-    return depth;
-  };
-
-  const isContextNodeRoot = (nodeId: string): boolean => {
-    const node = (remixerData.currentBook ?? []).find(
-      (n) => n["@id"] === nodeId,
-    );
-    return !node?.parentID || node.parentID === "-1";
-  };
-
-  const contextMenuCanAddSibling =
-    contextMenu != null && !isContextNodeRoot(contextMenu.nodeId);
-
-  const contextMenuCanDuplicate =
-    contextMenu != null &&
-    !(remixerData.currentBook ?? []).some(
-      (n) => n.parentID === contextMenu.nodeId,
-    );
-
-  const getTitleForDepth = (depth: number): string => {
-    if (depth <= 0) return "New Chapter";
-    if (depth <= 1) return "New Page";
-    return "New Subpage";
-  };
-
-  const getNodeLabelForDepth = (depth: number): string =>
-    getTitleForDepth(depth).replace(/^New\s+/, "");
-
-  const contextMenuSiblingTypeLabel = contextMenu
-    ? getNodeLabelForDepth(getContextNodeDepth(contextMenu.nodeId) - 1)
-    : "Item";
-  const contextMenuChildTypeLabel = contextMenu
-    ? getNodeLabelForDepth(getContextNodeDepth(contextMenu.nodeId))
-    : "Item";
-
-  const addNodeRelative = (
-    targetNodeId: string,
-    mode: "above" | "below" | "inside",
-  ) => {
-    const book = remixerData.currentBook ?? [];
-    const nodesById = new Map(book.map((n) => [n["@id"], n]));
-    const targetNode = nodesById.get(targetNodeId);
-    if (!targetNode) return;
-
-    const newNodeId = `new-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
-
-    if (mode === "inside") {
-      const depth = getContextNodeDepth(targetNodeId);
-      const title = getTitleForDepth(depth);
-      const newNode: RemixerSubPage = {
-        "@id": newNodeId,
-        "@title": title,
-        "@href": "#",
-        "@subpages": false,
-        article: "article",
-        parentID: targetNodeId,
-        namespace: "main",
-        title,
-        "uri.ui": "#",
-        addedItem: true,
-      };
-      updateCurrentBook(
-        (existingBookNodes) => [
-          ...existingBookNodes.map((n) =>
-            n["@id"] === targetNodeId ? { ...n, "@subpages": true } : n,
-          ),
-          newNode,
-        ],
-        { trackHistory: true },
-      );
-      setExpandedNodeIdsBook((prev) => {
-        const next = new Set(prev);
-        next.add(targetNodeId);
-        return next;
-      });
-    } else {
-      const parentId = targetNode.parentID ?? "-1";
-      const depth = getContextNodeDepth(targetNodeId) - 1;
-      const title = getTitleForDepth(depth);
-      const newNode: RemixerSubPage = {
-        "@id": newNodeId,
-        "@title": title,
-        "@href": "#",
-        "@subpages": false,
-        article: "article",
-        parentID: parentId,
-        namespace: "main",
-        title,
-        "uri.ui": "#",
-        addedItem: true,
-      };
-      updateCurrentBook(
-        (existingBookNodes) => {
-          const siblings = existingBookNodes.filter(
-            (n) => (n.parentID ?? "-1") === parentId,
-          );
-          const targetIndex = siblings.findIndex(
-            (n) => n["@id"] === targetNodeId,
-          );
-          const insertAfterIndex =
-            mode === "above" ? targetIndex - 1 : targetIndex;
-          const insertAfterId = siblings[insertAfterIndex]?.["@id"];
-
-          const result: RemixerSubPage[] = [];
-          for (const n of existingBookNodes) {
-            result.push(n);
-            if (insertAfterId && n["@id"] === insertAfterId) {
-              result.push(newNode);
-            }
-          }
-          if (!insertAfterId) {
-            const firstSiblingIndex = result.findIndex(
-              (n) => (n.parentID ?? "-1") === parentId,
-            );
-            if (firstSiblingIndex >= 0) {
-              result.splice(firstSiblingIndex, 0, newNode);
-            } else {
-              result.push(newNode);
-            }
-          }
-          return result;
-        },
-        { trackHistory: true },
-      );
-    }
-    setUiState((prev) => ({ ...prev, selectedBookNodeId: newNodeId }));
-  };
-
-  const handleContextMenuAction = (
-    action: "add-above" | "add-to" | "add-below" | "delete" | "modify" | "duplicate",
-  ) => {
-    if (!contextMenu) return;
-    const { nodeId } = contextMenu;
-    setContextMenu(null);
-
-    if (action === "modify") {
-      setUiState((prev) => ({
-        ...prev,
-        selectedBookNodeId: nodeId,
-        editPanelOpen: true,
-      }));
-    } else if (action === "delete") {
-      if (isMatterBranchNode(nodeId)) return;
-      updateCurrentBook(
-        (existingBookNodes) =>
-          applyBookNodeDeletion(existingBookNodes, nodeId),
-        { trackHistory: true },
-      );
-      setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
-    } else if (action === "add-above") {
-      addNodeRelative(nodeId, "above");
-    } else if (action === "add-below") {
-      addNodeRelative(nodeId, "below");
-    } else if (action === "add-to") {
-      addNodeRelative(nodeId, "inside");
-    } else if (action === "duplicate") {
-      const book = remixerData.currentBook ?? [];
-      const original = book.find((n) => n["@id"] === nodeId);
-      if (!original) return;
-      const newNodeId = `${nodeId}-dup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const resolvedSourceID = original.sourceID || original["@id"];
-      const duplicate: RemixerSubPage = {
-        ...original,
-        "@id": newNodeId,
-        ...(resolvedSourceID && !resolvedSourceID.startsWith("new-")
-          ? { sourceID: resolvedSourceID }
-          : {}),
-        addedItem: true,
-      };
-      updateCurrentBook(
-        (existingBookNodes) => {
-          const result: RemixerSubPage[] = [];
-          for (const n of existingBookNodes) {
-            result.push(n);
-            if (n["@id"] === nodeId) {
-              result.push(duplicate);
-            }
-          }
-          return result;
-        },
-        { trackHistory: true },
-      );
-      setUiState((prev) => ({ ...prev, selectedBookNodeId: newNodeId }));
-    }
-  };
+  // ==========================================================================
+  // Render
+  // ==========================================================================
 
   return (
     <Grid
@@ -1715,6 +1839,7 @@ const RemixerDashboard: React.FC = () => {
           setUiState((prev) => ({ ...prev, copyModeState: value }))
         }
         isAdmin={isAdmin}
+          autoNumbering={remixerData.autoNumbering ?? false}
       />
 
       <Grid.Row>
@@ -1798,11 +1923,21 @@ const RemixerDashboard: React.FC = () => {
               trigger={
                 <Button
                   icon
-                  
                   onClick={handleAddBookItem}
-                  style={buttonStyle}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave}
+                  style={{
+                    backgroundColor: STATUS_PALETTE.successBg,
+                    color: STATUS_PALETTE.success,
+                  }}
+                  onMouseEnter={(event: React.MouseEvent<HTMLButtonElement>) => {
+                    event.currentTarget.style.backgroundColor =
+                      STATUS_PALETTE.success;
+                    event.currentTarget.style.color = "#ffffff";
+                  }}
+                  onMouseLeave={(event: React.MouseEvent<HTMLButtonElement>) => {
+                    event.currentTarget.style.backgroundColor =
+                      STATUS_PALETTE.successBg;
+                    event.currentTarget.style.color = STATUS_PALETTE.success;
+                  }}
                 >
                   <Icon name="add" />
                 </Button>
@@ -1814,11 +1949,21 @@ const RemixerDashboard: React.FC = () => {
               trigger={
                 <Button
                   icon
-                  
                   onClick={handleDeleteSelectedBookNode}
-                  style={buttonStyle}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave}
+                  style={{
+                    backgroundColor: STATUS_PALETTE.errorBg,
+                    color: STATUS_PALETTE.error,
+                  }}
+                  onMouseEnter={(event: React.MouseEvent<HTMLButtonElement>) => {
+                    event.currentTarget.style.backgroundColor =
+                      STATUS_PALETTE.error;
+                    event.currentTarget.style.color = "#ffffff";
+                  }}
+                  onMouseLeave={(event: React.MouseEvent<HTMLButtonElement>) => {
+                    event.currentTarget.style.backgroundColor =
+                      STATUS_PALETTE.errorBg;
+                    event.currentTarget.style.color = STATUS_PALETTE.error;
+                  }}
                 >
                   <Icon name="trash alternate" />
                 </Button>
@@ -1995,38 +2140,24 @@ const RemixerDashboard: React.FC = () => {
         onLoadSource={handleLoadSource}
         onClose={() => setShowRecoveryModal(false)}
       />
-      <Modal
+      <BookImportModal
         open={pendingBookImport !== null}
-        size="small"
-        onClose={() => setPendingBookImport(null)}
-      >
-        <Modal.Header>Import Book</Modal.Header>
-        <Modal.Content>
-          <p>
-            You're importing{" "}
-            <strong>
-              {pendingBookImport?.node?.["@title"] ||
-                pendingBookImport?.node?.title ||
-                "this book"}
-            </strong>
-            .
-          </p>
-          <p>
-            Do you want to <strong>extract its content</strong> (insert only its
-            chapters/pages), or insert the book as-is (keeping the book node
-            itself)?
-          </p>
-        </Modal.Content>
-        <Modal.Actions>
-          <Button onClick={() => setPendingBookImport(null)}>Cancel</Button>
-          <Button onClick={() => resolvePendingBookImport(false)}>
-            Keep as-is
-          </Button>
-          <Button positive onClick={() => resolvePendingBookImport(true)}>
-            Extract Content
-          </Button>
-        </Modal.Actions>
-      </Modal>
+        bookTitle={
+          pendingBookImport?.node?.["@title"] ||
+          pendingBookImport?.node?.title ||
+          "this book"
+        }
+        rootId={pendingBookImport?.node?.["@id"] ?? null}
+        subtree={bookImportSubtree}
+        subtreeLoading={bookImportSubtreeLoading}
+        selectedIds={bookImportSelectedIds}
+        setSelectedIds={setBookImportSelectedIds}
+        expandedIds={bookImportExpandedIds}
+        setExpandedIds={setBookImportExpandedIds}
+        isImporting={isImportingFromLibrary}
+        onCancel={() => setPendingBookImport(null)}
+        onConfirm={() => void resolvePendingBookImport()}
+      />
       <ContextMenu
         contextMenu={contextMenu}
         canAddSibling={contextMenuCanAddSibling}

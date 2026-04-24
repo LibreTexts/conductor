@@ -9,20 +9,12 @@ import {
   stripLeadingNumbering,
 } from "../services";
 import TreeNodeContainer from "./TreeNodeContainer";
+import { STATUS_PALETTE } from "../style";
 
 type DropPosition = "before" | "inside" | "after";
 type TreeId = "library" | "book";
 
-const STATUS_PALETTE = {
-  info: "#0288d1",
-  infoBg: "#bbdefb",
-  error: "#d32f2f",
-  errorBg: "#ffcdd2",
-  success: "#2e7d32",
-  successBg: "#c8e6c9",
-  warning: "#ed6c02",
-  warningBg: "#ffe0b2",
-};
+
 
 interface ExternalDropPayload {
   sourceTreeId: TreeId;

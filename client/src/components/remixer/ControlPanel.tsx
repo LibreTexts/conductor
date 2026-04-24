@@ -5,6 +5,7 @@ import {
   buttonStyle,
   handleMouseEnter,
   handleMouseLeave,
+  STATUS_PALETTE,
 } from "./style";
 import { CopyMode, copyModeStates, defaultCopyModeState } from "./model";
 
@@ -17,6 +18,7 @@ interface ControlPanelProps {
   copyModeState?: CopyMode;
   onCopyModeChange?: (value: CopyMode) => void;
   isAdmin?: boolean;
+  autoNumbering: boolean;
 }
 
 const ControlPanel: React.FC<ControlPanelProps> = ({
@@ -29,6 +31,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   copyModeState,
   onCopyModeChange,
   isAdmin = false,
+  autoNumbering,
 }) => {
   const [confirmStartOverOpen, setConfirmStartOverOpen] = useState(false);
   const [startOverLoading, setStartOverLoading] = useState(false);
@@ -50,7 +53,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   return (
     <Grid.Row
       style={{
-        position: "fixed",
+        position: "absolute",
         top: 100,
         // left: 0,
         // right: 0,
@@ -152,14 +155,36 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               content="Path Name Format"
               position="bottom center"
               trigger={
-                <Button
-                  onClick={onPathNameFormat}
-                  style={buttonStyle}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave}
-                >
-                 Auto number
-                </Button>
+                autoNumbering ? (
+                  <Button
+                    onClick={onPathNameFormat}
+                    style={{
+                      backgroundColor: STATUS_PALETTE.successBg,
+                      color: STATUS_PALETTE.success,
+                    }}
+                    onMouseEnter={(event: React.MouseEvent<HTMLButtonElement>) => {
+                      event.currentTarget.style.backgroundColor =
+                        STATUS_PALETTE.success;
+                      event.currentTarget.style.color = "#ffffff";
+                    }}
+                    onMouseLeave={(event: React.MouseEvent<HTMLButtonElement>) => {
+                      event.currentTarget.style.backgroundColor =
+                        STATUS_PALETTE.successBg;
+                      event.currentTarget.style.color = STATUS_PALETTE.success;
+                    }}
+                  >
+                    Autonumber
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={onPathNameFormat}
+                    style={buttonStyle}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
+                  >
+                    Autonumber
+                  </Button>
+                )
               }
             />
 

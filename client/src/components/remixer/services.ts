@@ -1,4 +1,5 @@
-import { GetRemixerDisplayTitleOptions, NumberingType, PathLevelFormat, RemixerSubPage } from "./model";
+import { Book } from "../../types";
+import { GetRemixerDisplayTitleOptions, libraries, Library, NumberingType, PathLevelFormat, RemixerSubPage } from "./model";
 
 export type DropPosition = "before" | "inside" | "after";
 
@@ -155,36 +156,58 @@ export const getStartToken = (start: number, type: NumberingType): string => {
   return getFormattedTokenByType(Math.max(1, start || 1), type);
 };
 
+/** Join per-level tokens using the delimiter configured for each segment's own level. */
+export const joinLeveledPathParts = (
+  parts: { level: number; token: string }[],
+  pathLevelFormats: PathLevelFormat[],
+): string => {
+  if (parts.length === 0) return "";
+  let s = parts[0].token;
+  for (let i = 1; i < parts.length; i++) {
+    const format = pathLevelFormats.find((item) => item.level === parts[i].level);
+    const delimiter = format?.delimiter ?? ".";
+    s = `${s}${delimiter}${parts[i].token}`;
+  }
+  return s;
+};
+
 /**
- * Formatted display path from ordinal segments — matches `buildBookPaths` `toPaths` rules
- * (delimiters, excludeParent reset, prefix/type per level).
+ * Formatted display path from ordinal segments — matches `buildBookPaths` `toPaths` rules.
+ * `excludeParent` drops only the immediate parent's index from the chain (grandparents stay);
+ * this level's prefix still wraps the joined numeric path.
  */
 export const formatOrdinalSegmentsToFormattedPath = (
   segments: string[],
   pathLevelFormats: PathLevelFormat[],
   startLevel: number,
 ): string => {
-  let numericPath = "";
+  const parts: { level: number; token: string }[] = [];
   let formattedPath = "";
   segments.forEach((segment, index) => {
     const level = startLevel + index;
     const format = pathLevelFormats.find((item) => item.level === level);
-    const delimiter = format?.delimiter ?? ".";
     const start = Math.max(1, format?.start ?? 1);
     const type: NumberingType = format?.type ?? "numeric";
     const value = start + parsePathSegmentOrdinal(segment) - 1;
     const token = getFormattedTokenByType(value, type);
     const tokenExists = token.trim().length > 0;
+    const prefix = format?.prefix ?? "";
 
     if (format?.excludeParent) {
-      numericPath = tokenExists ? token : "";
-      formattedPath = numericPath;
+      if (tokenExists) {
+        if (parts.length > 0) parts.pop();
+        parts.push({ level, token });
+      } else {
+        parts.length = 0;
+      }
+      const numericPath = joinLeveledPathParts(parts, pathLevelFormats);
+      formattedPath = prefix ? `${prefix}${numericPath}` : numericPath;
       return;
     }
 
     if (tokenExists) {
-      numericPath = numericPath ? `${numericPath}${delimiter}${token}` : token;
-      const prefix = format?.prefix ?? "";
+      parts.push({ level, token });
+      const numericPath = joinLeveledPathParts(parts, pathLevelFormats);
       formattedPath = prefix ? `${prefix}${numericPath}` : numericPath;
     }
   });
@@ -436,30 +459,33 @@ export const buildBookPaths = (
   const ordinalPathById = computeRemixerOrdinalPathsMap(book);
 
   const toPaths = (ordinalPath: string[]) => {
-    let numberedPath = "";
     const formattedPath = formatOrdinalSegmentsToFormattedPath(
       ordinalPath,
       pathLevelFormats,
       1,
     );
+    const rawParts: { level: number; token: string }[] = [];
     ordinalPath.forEach((segment, index) => {
       const level = index + 1;
       const format = pathLevelFormats.find((item) => item.level === level);
-      const delimiter = format?.delimiter ?? ".";
       const numericToken = segment;
       const numericTokenExists = numericToken.trim().length > 0;
 
       if (format?.excludeParent) {
-        numberedPath = numericTokenExists ? numericToken : "";
+        if (numericTokenExists) {
+          if (rawParts.length > 0) rawParts.pop();
+          rawParts.push({ level, token: numericToken });
+        } else {
+          rawParts.length = 0;
+        }
         return;
       }
 
       if (numericTokenExists) {
-        numberedPath = numberedPath
-          ? `${numberedPath}${delimiter}${numericToken}`
-          : numericToken;
+        rawParts.push({ level, token: numericToken });
       }
     });
+    const numberedPath = joinLeveledPathParts(rawParts, pathLevelFormats);
     return { numberedPath, formattedPath };
   };
 
@@ -698,6 +724,275 @@ export const reorderBookNodes = ({
   return reordered;
 };
 
+// ---------------------------------------------------------------------------
+// Tree traversal helpers
+// ---------------------------------------------------------------------------
+
+/** Document-order rank for every descendant of `rootId` (root itself not ranked). */
+export const buildPreorderRankMap = (
+  nodes: RemixerSubPage[],
+  rootId: string,
+): Map<string, number> => {
+  const childrenBy = new Map<string, RemixerSubPage[]>();
+  for (const n of nodes) {
+    const pid = n.parentID ?? "";
+    if (!childrenBy.has(pid)) childrenBy.set(pid, []);
+    childrenBy.get(pid)!.push(n);
+  }
+  const rank = new Map<string, number>();
+  let seq = 0;
+  const walk = (nid: string) => {
+    if (nid !== rootId) rank.set(nid, seq++);
+    for (const c of childrenBy.get(nid) ?? []) walk(c["@id"]);
+  };
+  walk(rootId);
+  return rank;
+};
+
+/**
+ * Depth of `nodeId` in `book`, counted from the nearest root (no `parentID`,
+ * parentID "-1", or parent missing from the book). When `stopAtParentId` is
+ * provided, the walk stops there and that node is treated as a root.
+ */
+export const computeNodeDepth = (
+  book: RemixerSubPage[],
+  nodeId: string,
+  options: { stopAtParentId?: string } = {},
+): number => {
+  const { stopAtParentId } = options;
+  const nodesById = new Map(book.map((n) => [n["@id"], n]));
+  let depth = 0;
+  let currentId: string | undefined = nodeId;
+  while (
+    currentId &&
+    currentId !== stopAtParentId &&
+    currentId !== "-1"
+  ) {
+    const node = nodesById.get(currentId);
+    if (!node) break;
+    depth += 1;
+    currentId = node.parentID;
+  }
+  return depth;
+};
+
+/** Whether a book node is a root (no parent, parent "-1", or parent missing). */
+export const isRootBookNode = (
+  book: RemixerSubPage[],
+  nodeId: string,
+): boolean => {
+  const node = book.find((n) => n["@id"] === nodeId);
+  if (!node) return false;
+  return !node.parentID || node.parentID === "-1";
+};
+
+// ---------------------------------------------------------------------------
+// New-node title helpers
+// ---------------------------------------------------------------------------
+
+/** Name for a new node at `depth` below its parent (0 = root-level chapter). */
+export const getNewNodeTitleForDepth = (depth: number): string => {
+  if (depth <= 0) return "New Chapter";
+  if (depth <= 1) return "New Page";
+  return "New Subpage";
+};
+
+/** Label without the "New " prefix — for menu copy like "Add Chapter Above". */
+export const getNodeTypeLabelForDepth = (depth: number): string =>
+  getNewNodeTitleForDepth(depth).replace(/^New\s+/, "");
+
+// ---------------------------------------------------------------------------
+// Library / catalog classification
+// ---------------------------------------------------------------------------
+
+export const RESTRICTED_LIBRARY_SHELF_TITLES = [
+  "bookshelves",
+  "campus bookshelves",
+];
+
+export const getLibraryNodeTitle = (
+  node: RemixerSubPage | undefined,
+): string => (node?.["@title"] || node?.title || "").trim().toLowerCase();
+
+/** Shelves themselves and their immediate children can't be imported into a book. */
+export const isRestrictedLibraryShelfNode = (
+  pages: RemixerSubPage[],
+  nodeId: string,
+): boolean => {
+  if (pages.length === 0) return false;
+  const nodesById = new Map(pages.map((n) => [n["@id"], n]));
+  const node = nodesById.get(nodeId);
+  if (!node) return false;
+  const title = getLibraryNodeTitle(node);
+  if (RESTRICTED_LIBRARY_SHELF_TITLES.includes(title)) return true;
+  const parent = node.parentID ? nodesById.get(node.parentID) : undefined;
+  return RESTRICTED_LIBRARY_SHELF_TITLES.includes(getLibraryNodeTitle(parent));
+};
+
+/** A library node that matches a catalog entry's book page (library/id prefix). */
+export const isBookLevelCatalogNode = (
+  catalog: Book[] | undefined,
+  library: string | undefined,
+  nodeId: string,
+): boolean => {
+  if (!catalog || catalog.length === 0 || !nodeId) return false;
+  return catalog.some((book) => {
+    const parts = (book.bookID ?? "").split("-");
+    const bookLib = parts[0];
+    const bookPageId = parts[1];
+    if (!bookPageId) return false;
+    if (bookPageId !== nodeId) return false;
+    if (library && bookLib && bookLib !== library) return false;
+    return true;
+  });
+};
+
+// ---------------------------------------------------------------------------
+// Library subtree import (pure reducer)
+// ---------------------------------------------------------------------------
+
+export interface ComputeLibraryImportInsertionParams {
+  existingBookNodes: RemixerSubPage[];
+  subtreeNodes: RemixerSubPage[];
+  originalRootId: string;
+  targetNodeId: string;
+  position: DropPosition;
+  targetParentId: string;
+  extractContent: boolean;
+  /** Only used when `extractContent` is true. Defaults to all descendants. */
+  selectedSourceIds?: Set<string>;
+  /** Optional id suffix override — mostly for tests. */
+  idSuffix?: string;
+}
+
+/**
+ * Insert a library subtree into the current book. When `extractContent` is
+ * true, copies only the selected descendants (or all descendants if no
+ * selection), skipping the subtree root and re-parenting orphans to the
+ * nearest selected ancestor (or `targetParentId`).
+ */
+export const computeLibraryImportInsertion = ({
+  existingBookNodes,
+  subtreeNodes,
+  originalRootId,
+  targetNodeId,
+  position,
+  targetParentId,
+  extractContent,
+  selectedSourceIds,
+  idSuffix,
+}: ComputeLibraryImportInsertionParams): RemixerSubPage[] => {
+  const suffix =
+    idSuffix ??
+    `-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  if (extractContent) {
+    const allDescendantIds = new Set(
+      subtreeNodes
+        .filter((sn) => sn["@id"] !== originalRootId)
+        .map((sn) => sn["@id"]),
+    );
+    const subtreeById = new Map(subtreeNodes.map((n) => [n["@id"], n]));
+    const parentById = new Map<string, string | undefined>();
+    subtreeNodes.forEach((n) => parentById.set(n["@id"], n.parentID));
+
+    const idsToCopy = new Set<string>();
+    if (selectedSourceIds && selectedSourceIds.size > 0) {
+      selectedSourceIds.forEach((sid) => {
+        if (sid !== originalRootId && allDescendantIds.has(sid)) {
+          idsToCopy.add(sid);
+        }
+      });
+    } else {
+      allDescendantIds.forEach((id) => idsToCopy.add(id));
+    }
+
+    if (idsToCopy.size === 0) return existingBookNodes;
+
+    const idMap = new Map<string, string>();
+    for (const id of idsToCopy) idMap.set(id, `${id}${suffix}`);
+
+    const resolveNewParentId = (sn: RemixerSubPage): string => {
+      let p: string | undefined = sn.parentID;
+      while (p) {
+        if (p === originalRootId) return targetParentId;
+        if (idsToCopy.has(p)) return idMap.get(p)!;
+        p = parentById.get(p);
+      }
+      return targetParentId;
+    };
+
+    const copied: RemixerSubPage[] = [...idsToCopy].map((id) => {
+      const sn = subtreeById.get(id)!;
+      return {
+        ...sn,
+        sourceID: sn["@id"],
+        "@id": idMap.get(sn["@id"])!,
+        addedItem: true,
+        parentID: resolveNewParentId(sn),
+      };
+    });
+
+    const preorderRank = buildPreorderRankMap(subtreeNodes, originalRootId);
+    const copiedSorted = [...copied].sort(
+      (a, b) =>
+        (preorderRank.get(a.sourceID!) ?? 0) -
+        (preorderRank.get(b.sourceID!) ?? 0),
+    );
+
+    const rootsForReorder = copiedSorted.filter(
+      (cn) => cn.parentID === targetParentId,
+    );
+
+    let nextBook = [...existingBookNodes, ...copiedSorted];
+
+    if (position !== "inside" && rootsForReorder.length > 0) {
+      const childIdsNew = rootsForReorder.map((c) => c["@id"]);
+      childIdsNew.forEach((newId, index) => {
+        const currentTarget =
+          index === 0 ? targetNodeId : childIdsNew[index - 1];
+        const currentPos: DropPosition = index === 0 ? position : "after";
+        nextBook = insertAtSiblingPosition({
+          bookNodes: nextBook,
+          importedRootId: newId,
+          targetNodeId: currentTarget,
+          position: currentPos,
+          targetParentId,
+        });
+      });
+    }
+
+    return nextBook;
+  }
+
+  const idMap = new Map<string, string>();
+  for (const sn of subtreeNodes) {
+    idMap.set(sn["@id"], `${sn["@id"]}${suffix}`);
+  }
+
+  const importedRootId = idMap.get(originalRootId)!;
+  const copiedSubtreeNodes = subtreeNodes.map((subtreeNode) => ({
+    ...subtreeNode,
+    sourceID: subtreeNode["@id"],
+    "@id": idMap.get(subtreeNode["@id"])!,
+    addedItem: true,
+    parentID:
+      subtreeNode["@id"] === originalRootId
+        ? targetParentId
+        : idMap.get(subtreeNode.parentID ?? "") ?? subtreeNode.parentID,
+  }));
+
+  const nextBookNodes = [...existingBookNodes, ...copiedSubtreeNodes];
+
+  return insertAtSiblingPosition({
+    bookNodes: nextBookNodes,
+    importedRootId,
+    targetNodeId,
+    position,
+    targetParentId,
+  });
+};
+
 export const insertAtSiblingPosition = ({
   bookNodes,
   importedRootId,
@@ -754,3 +1049,6 @@ export const insertAtSiblingPosition = ({
   }
   return reordered;
 };
+
+export const isLibrary = (value: string): value is Library =>
+  libraries.includes(value as Library);

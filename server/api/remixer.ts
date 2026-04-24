@@ -10,7 +10,6 @@ import {
   extractPagePath,
   getUserWorkbenchProjects,
 } from "../util/remixerutils.js";
-import { createHmac } from "crypto";
 import { generateAPIRequestHeaders } from "../util/librariesclient.js";
 
 class FetchPageError extends Error {
@@ -255,7 +254,6 @@ const publishRemixerProject = async (req: Request, res: Response) => {
     .runRemixerJob({
       jobID: job.jobID,
       projectID: id,
-      bookURL: bookPath,
       subdomain,
     })
     .catch((error: unknown) => {
@@ -444,7 +442,7 @@ const fetchPage = async (req: Request, res: Response) => {
       JSON.parse(text),
       parentID,
     );
-    console.log(responseData.length);
+    // console.log(responseData.length);
 
     const userId = (req as any).user?.decoded?.uuid as string | undefined;
     const isWorkbenchRoot =

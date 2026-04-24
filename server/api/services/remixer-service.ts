@@ -276,18 +276,15 @@ const applyDefaultRemixerPageProperties = async (
   subdomain: string,
   pageID: string,
 ): Promise<void> => {
-  await addPageProperty(subdomain, pageID, "GuideTabs", "");
-  await addPageProperty(subdomain, pageID, "GuideDisplay", "single", "PUT");
-  await addPageProperty(subdomain, pageID, "SubPageListing", "simple");
   await addPageProperty(
     subdomain,
     pageID,
     "GuideTabs",
-    MindTouch.Templates.PROP_GuideTabs,
+    MindTouch.Templates.PROP_GuideTabs2,
     "PUT",
   );
+  await addPageProperty(subdomain, pageID, "GuideDisplay", "single", "PUT");
   await addPageProperty(subdomain, pageID, "WelcomeHidden", true);
-  await addPageProperty(subdomain, pageID, "ArticleType", "Topic");
 };
 
 const handleNewPage = async (
@@ -538,12 +535,19 @@ const resolveTranscludeSource = async ({
   });
 };
 
+const hasSubpages = (page: RemixerSubPageState, book: RemixerSubPageState[]): boolean => {
+  return book.some(
+    (p) => p.parentID === page["@id"] && p.deletedItem !== true,
+  );
+};
+
 const handleImportedPage = async (
   page: RemixerSubPageState,
   parent: RemixerSubPageState,
   title: string,
   subdomain: string,
   copyModeState: RemixerCopyMode,
+  hasChildren: boolean,
 ): Promise<{ pageID: string; pageURI: string }> => {
   const sourceUri = getRemixerPageUriUi(page);
   const sourceSubdomain = extractLibretextsSubdomain(sourceUri);
@@ -568,7 +572,9 @@ const handleImportedPage = async (
   let contentsBody: string;
   let postComment: string;
   const dekiHeaders = await generateAPIRequestHeaders(subdomain);
-  if (copyModeState === "Transclude") {
+
+  const shouldTransclude = copyModeState === "Transclude" && !hasChildren;
+  if (shouldTransclude) {
     const resolvedSource = await resolveTranscludeSource({
       subdomain: sourceSubdomain,
       pageId: sourceId,
@@ -624,19 +630,98 @@ const handleImportedPage = async (
 interface RunRemixerJobParams {
   jobID: string;
   projectID: string;
-  bookURL: string;
   subdomain: string;
 }
+
+/** Plain snapshot of a remixer page for persistence (avoids spreading Mongoose subdocs). */
+type RemixerSubPagePlain = Record<string, unknown>;
+
+const remixerSubPageToPlain = (page: RemixerSubPageState): RemixerSubPagePlain => {
+  const maybeDoc = page as unknown as {
+    toObject?: (opts?: { getters?: boolean }) => RemixerSubPagePlain;
+  };
+  if (typeof maybeDoc.toObject === "function") {
+    return maybeDoc.toObject({ getters: true });
+  }
+  return { ...(page as unknown as RemixerSubPagePlain) };
+};
+
+const normalizeArticle = (
+  value: unknown,
+): RemixerSubPageState["article"] => {
+  if (
+    value === "article" ||
+    value === "topic-category" ||
+    value === "topic-guide"
+  ) {
+    return value;
+  }
+  return "article";
+};
+
+/**
+ * Build a normalized entry for the post-publish remixer book snapshot.
+ * Assumes `page` has already been mutated with the latest `@id`, `@href`,
+ * and `uri.ui` from MindTouch. Resets all change-tracking flags since the
+ * snapshot represents the newly published steady state.
+ */
+const toFinalBookEntry = (
+  page: RemixerSubPageState,
+  subdomain: string,
+  book: RemixerSubPageState[],
+): RemixerSubPageState => {
+  const plain = remixerSubPageToPlain(page);
+  const rawTitle = plain["@title"] ?? plain.title;
+  const title =
+    typeof rawTitle === "string" && rawTitle.trim().length > 0
+      ? rawTitle.trim()
+      : "Untitled";
+  const uriUi = String(plain["uri.ui"] ?? plain["@href"] ?? "");
+  const href = String(plain["@href"] ?? plain["uri.ui"] ?? "");
+  return {
+    "@id": String(plain["@id"] ?? ""),
+    "@title": title,
+    "@href": href,
+    "@subpages": hasSubpages(page, book),
+    article: normalizeArticle(plain.article),
+    title,
+    parentID:
+      typeof plain.parentID === "string" ? plain.parentID : undefined,
+    namespace: subdomain,
+    "uri.ui": uriUi,
+    originalPathNumber: Array.isArray(plain.pathNumber)
+      ? (plain.pathNumber as string[])
+      : undefined,
+    pathNumber: Array.isArray(plain.pathNumber)
+      ? (plain.pathNumber as string[])
+      : undefined,
+    numberedPath:
+      typeof plain.numberedPath === "string" ? plain.numberedPath : undefined,
+    formattedPath:
+      typeof plain.formattedPath === "string" ? plain.formattedPath : undefined,
+    formattedPathOverride:
+      typeof plain.formattedPathOverride === "boolean"
+        ? plain.formattedPathOverride
+        : undefined,
+    isDeleted: false,
+    isImported: false,
+    isRenamed: false,
+    isPlacementChanged: false,
+    addedItem: false,
+    movedItem: false,
+    renamedItem: false,
+    deletedItem: false,
+  };
+};
 
 const runRemixerJob = async ({
   jobID,
   projectID,
-  bookURL,
   subdomain,
 }: RunRemixerJobParams) => {
   const job = await PrejectRemixerJob.findOne({ jobID }).sort({ _id: -1 });
   const remixerState = await PrejectRemixer.findOne({ projectID });
-
+  let finalBook: RemixerSubPageState[] = [];
   if (!remixerState) {
     throw new Error("Remixer state not found");
   }
@@ -727,6 +812,7 @@ const runRemixerJob = async ({
         inDeletedBranch,
         autoNumbering,
       );
+
       const pathLen = page.pathNumber?.length ?? 0;
       const isBookRoot = pathLen === 0;
       const status = getPageStatus(page);
@@ -773,7 +859,7 @@ const runRemixerJob = async ({
           const oldPageId = page["@id"];
           const { pageID, pageURI } = await withRetryOnTransient(
             () =>
-              handleImportedPage(page, parent, title, subdomain, copyModeState),
+              handleImportedPage(page, parent, title, subdomain, copyModeState, hasSubpages(page, pages)),
             { onRetry: logRetry },
           );
           page["@id"] = pageID;
@@ -815,6 +901,18 @@ const runRemixerJob = async ({
         }
       }
 
+      // Include everything that still exists in the book in the final
+      // snapshot. Deleted pages — by status, propagated deletion branch, or
+      // direct flags — are dropped.
+      const isDeletedPage =
+        status === "deleted" ||
+        inDeletedBranch ||
+        page.isDeleted === true ||
+        page.deletedItem === true;
+      if (!isDeletedPage) {
+        finalBook.push(toFinalBookEntry(page, subdomain, pages));
+      }
+
       await new Promise((resolve) =>
         setTimeout(resolve, shouldSkip ? 100 : 100),
       );
@@ -824,22 +922,25 @@ const runRemixerJob = async ({
 
     // Archive the remixer state that was just published and persist a fresh
     // snapshot as the new active record. The snapshot captures the fully
-    // processed currentbook (with updated page IDs / URIs) plus the settings
-    // that drove this run (autoNumbering, copyModeState, pathLevelFormats).
+    // processed currentbook (with updated page IDs / URIs and reset change
+    // flags) plus the settings that drove this run (autoNumbering,
+    // copyModeState, pathLevelFormats).
     remixerState.archived = true;
-    await remixerState.save();
+    // await remixerState.save();
 
-    // await PrejectRemixer.create({
-    //   projectID: remixerState.projectID,
-    //   createdBy: remixerState.createdBy,
-    //   updatedBy: remixerState.updatedBy,
-    //   remixerID: base62(10),
-    //   remixerCurrentBook: pages,
-    //   autoNumbering: remixerState.autoNumbering,
-    //   copyModeState: remixerState.copyModeState,
-    //   pathLevelFormats: remixerState.pathLevelFormats,
-    //   archived: false,
-    // });
+    await PrejectRemixer.create({
+      projectID: remixerState.projectID,
+      archived: false,
+      createdBy: remixerState.createdBy,
+      updatedBy: remixerState.updatedBy,
+      remixerID: base62(10),
+      remixerCurrentBook: finalBook,
+      autoNumbering: remixerState.autoNumbering,
+      copyModeState: remixerState.copyModeState,
+      pathLevelFormats: remixerState.pathLevelFormats,
+    });
+
+
 
     job.status = "success";
     job.messages.push("Remixer job completed successfully.");

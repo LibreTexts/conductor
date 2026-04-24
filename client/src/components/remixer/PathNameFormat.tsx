@@ -8,7 +8,7 @@ import {
   PathLevelFormat,
   PrefixOption,
 } from "./model";
-import { getStartToken } from "./services";
+import { getStartToken, joinLeveledPathParts } from "./services";
 
 interface PathNameFormatProps {
   open: boolean;
@@ -36,9 +36,12 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
   const [levelFormats, setLevelFormats] = useState<PathLevelFormat[]>([]);
   const [prefixOptions, setPrefixOptions] =
     useState<PrefixOption[]>(DEFAULT_PREFIX_OPTIONS);
+  const [localAutoNumbering, setLocalAutoNumbering] =
+    useState<boolean>(autoNumbering);
 
   useEffect(() => {
     if (!open) return;
+    setLocalAutoNumbering(autoNumbering);
     const savedByLevel = new Map(
       (pathLevelFormats ?? []).map((format) => [format.level, format]),
     );
@@ -65,25 +68,35 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
       });
       return next;
     });
-  }, [open, depth, pathLevelFormats]);
+  }, [open, depth, pathLevelFormats, autoNumbering]);
 
   const previewByLevel = useMemo(() => {
     return levelFormats.map((_, targetIndex) => {
-      let numericPath = "";
+      const parts: { level: number; token: string }[] = [];
       let previewText = "";
       for (let index = 0; index <= targetIndex; index += 1) {
         const format = levelFormats[index];
+        const level = format.level;
         const token = getStartToken(format.start, format.type);
-        const normalizedToken = token.trim();
+        const tokenExists = token.trim().length > 0;
+        const prefix = format.prefix ?? "";
+
         if (format.excludeParent) {
-          numericPath = normalizedToken ? token : "";
-          previewText = numericPath;
+          if (tokenExists) {
+            if (parts.length > 0) parts.pop();
+            parts.push({ level, token });
+          } else {
+            parts.length = 0;
+          }
+          const numericPath = joinLeveledPathParts(parts, levelFormats);
+          previewText = prefix ? `${prefix}${numericPath}` : numericPath;
           continue;
         }
-        if (normalizedToken) {
-          const delimiter = format.delimiter ?? ".";
-          numericPath = numericPath ? `${numericPath}${delimiter}${token}` : token;
-          previewText = format.prefix ? `${format.prefix}${numericPath}` : numericPath;
+
+        if (tokenExists) {
+          parts.push({ level, token });
+          const numericPath = joinLeveledPathParts(parts, levelFormats);
+          previewText = prefix ? `${prefix}${numericPath}` : numericPath;
         }
       }
       return previewText;
@@ -118,6 +131,9 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
   };
 
   const handleSave = () => {
+    if (localAutoNumbering !== autoNumbering) {
+      onAutoNumberingChange?.(localAutoNumbering);
+    }
     setPathLevelFormats(levelFormats);
     onClose();
   };
@@ -135,12 +151,14 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
         >
           <span>Autonumber Options</span>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
-            <span>Auto Numbering</span>
+            <span></span>
             <Checkbox
               toggle
-              checked={autoNumbering}
-              onChange={(_, data) => onAutoNumberingChange?.(!!data.checked)}
+              checked={localAutoNumbering}
+              onChange={(_, data) => setLocalAutoNumbering(!!data.checked)}
+              label={localAutoNumbering ? "Enabled" : "Disabled"}
             />
+      
           </div>
         </div>
       </Modal.Header>

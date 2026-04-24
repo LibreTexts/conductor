@@ -268,16 +268,20 @@ export async function addPageProperty(
   method: "POST" | "PUT" | "DELETE" | "GET" = "POST"
 ): Promise<boolean> {
   try {
+    const propertyName = CXOne.PageProps[property];
+    const isPost = method === "POST";
     const addRes = await CXOneFetch({
       scope: "page",
       path,
-      api: CXOne.API.Page.POST_Properties,
+      api: isPost
+        ? CXOne.API.Page.POST_Properties
+        : CXOne.API.Page.PUT_Page_Property(propertyName),
       subdomain: subdomain,
+      query: { origin: "mt-web", abort: "never" },
       options: {
         method,
         body: value,
-        headers: { Slug: CXOne.PageProps[property] },
-        
+        headers: isPost ? { Slug: propertyName } : {},
       },
     });
 

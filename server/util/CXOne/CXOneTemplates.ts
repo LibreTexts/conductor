@@ -1,3 +1,5 @@
+import { randomUUID } from "crypto";
+
 const CXOneTemplates = {
   POST_CreateBook: `<p>{{template.ShowOrg()}}</p>
     <p class="template:tag-insert">
@@ -71,6 +73,15 @@ const CXOneTemplates = {
     "templatePath": "MindTouch/IDF3/Views/Topic_hierarchy",
     "guid": "fc488b5c-f7e1-1cad-1a9a-343d5c8641f5"
   }]`,
+
+  get PROP_GuideTabs2() {
+    return `[{
+  "templateKey": "Topic_hierarchy",
+  "templateTitle": "Topic hierarchy",
+  "templatePath": "MindTouch/IDF3/Views/Topic_hierarchy",
+  "guid": "${randomUUID()}"
+}]`;
+  },
   PUT_PageTags: (tags: string[]) => `<tags>
     ${tags.map((tag) => `<tag value="${tag}" />`).join("")}
   </tags>`,
