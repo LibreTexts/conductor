@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { z } from "zod";
 import { ZodReqWithUser } from "../types";
-import { CreateJobValidator, GetOpenJobsValidator } from "./validators/shapeshift";
+import { CreateJobValidator, GetJobsValidator } from "./validators/shapeshift";
 import ShapeshiftService from "./services/shapeshift-service";
 
 export async function createJob(
@@ -27,18 +27,16 @@ export async function createJob(
   });
 }
 
-export async function getOpenJobs(
-  req: ZodReqWithUser<z.infer<typeof GetOpenJobsValidator>>,
+export async function getJobs(
+  req: ZodReqWithUser<z.infer<typeof GetJobsValidator>>,
   res: Response
 ) {
   const service = new ShapeshiftService();
-  const jobs = await service.getOpenJobs({
-    sort: req.query.sort,
-    status: req.query.status,
-  });
+  const { jobs, meta } = await service.getOpenJobs(req.query);
   return res.status(200).json({
     err: false,
-    msg: 'Retrieved open jobs.',
+    msg: 'Retrieved jobs.',
+    meta,
     jobs,
   });
 }
