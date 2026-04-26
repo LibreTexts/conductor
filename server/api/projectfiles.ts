@@ -9,7 +9,6 @@ import multer from "multer";
 import Project from "../models/project.js";
 import Organization from "../models/organization.js";
 import {
-  PROJECT_FILES_S3_CLIENT_CONFIG,
   computeStructureAccessSettings,
   downloadProjectFiles,
   getFolderContents,
@@ -182,7 +181,7 @@ export async function addProjectFile(
     }
 
     // Add a file
-    const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
+    const storageClient = new S3Client({ region: process.env.AWS_REGION });
     const providedFiles = Array.isArray(req.files) && req.files.length > 0;
     const filesToCreate: RawProjectFileInterface[] = [];
 
@@ -603,7 +602,7 @@ async function bulkDownloadProjectFiles(
       throw new Error("retrieveerror");
     }
 
-    const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
+    const storageClient = new S3Client({ region: process.env.AWS_REGION });
     const downloadCommands: any[] = [];
 
     if (foundFiles.length === 0) {
@@ -918,14 +917,13 @@ async function updateProjectFile(
       };
     }
 
-    const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
+    const storageClient = new S3Client({ region: process.env.AWS_REGION });
 
     const isPhysicalFile =
       file.storageType === "file" && !file.isURL && !file.url && !file.isVideo;
     if (isPhysicalFile && processedName && processedName !== file.name) {
       // rename file
       const fileKey = `${projectID}/${fileID}`;
-      const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
       const s3File = await storageClient.send(
         new GetObjectCommand({
           Bucket: process.env.AWS_PROJECTFILES_BUCKET,
@@ -1288,7 +1286,7 @@ async function removeProjectFilesInternal(projectID: string, fileIDs: string[]) 
     .filter((obj) => obj !== null);
 
   if (filesToDelete.length > 0) {
-    const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
+    const storageClient = new S3Client({ region: process.env.AWS_REGION });
     const deleteRes = await storageClient.send(
       new DeleteObjectsCommand({
         Bucket: process.env.AWS_PROJECTFILES_BUCKET,

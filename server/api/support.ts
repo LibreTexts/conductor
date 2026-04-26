@@ -64,14 +64,6 @@ import SupportTicketService from "./services/support-ticket-service";
 import Project, { ProjectInterface } from "../models/project";
 import base62 from "base62-random";
 
-export const SUPPORT_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
-  credentials: {
-    accessKeyId: process.env.AWS_SUPPORTFILES_ACCESS_KEY ?? "",
-    secretAccessKey: process.env.AWS_SUPPORTFILES_SECRET_KEY ?? "",
-  },
-  region: process.env.AWS_SUPPORTFILES_REGION ?? "",
-};
-
 async function getTicket(
   req: ZodReqWithOptionalUser<z.infer<typeof GetTicketValidator>>,
   res: Response,
@@ -1644,14 +1636,13 @@ async function _uploadTicketAttachments(
 ): Promise<SupportTicketAttachmentInterface[]> {
   try {
     if (
-      !SUPPORT_FILES_S3_CLIENT_CONFIG ||
       !process.env.AWS_SUPPORTFILES_BUCKET ||
       !process.env.AWS_SUPPORTFILES_DOMAIN
     ) {
       throw new Error("Missing file storage config");
     }
 
-    const storageClient = new S3Client(SUPPORT_FILES_S3_CLIENT_CONFIG);
+    const storageClient = new S3Client({ region: process.env.AWS_REGION });
     const uploadCommands: PutObjectCommand[] = [];
     const savedFiles: SupportTicketAttachmentInterface[] = [];
 

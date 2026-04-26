@@ -45,14 +45,6 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, 
 });
 
-export const KB_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
-  credentials: {
-    accessKeyId: process.env.AWS_KBFILES_ACCESS_KEY ?? "",
-    secretAccessKey: process.env.AWS_KBFILES_SECRET_KEY ?? "",
-  },
-  region: process.env.AWS_KBFILES_REGION ?? "",
-};
-
 async function getKBPage(
   req: z.infer<typeof GetKBPageValidator>,
   res: Response
@@ -287,14 +279,13 @@ async function addKBImage(
     const page = await KBPage.findOne({ uuid: pageID }).orFail();
 
     if (
-      !KB_FILES_S3_CLIENT_CONFIG ||
       !process.env.AWS_KBFILES_BUCKET ||
       !process.env.AWS_KBFILES_DOMAIN
     ) {
       throw new Error("Missing file storage config");
     }
 
-    const storageClient = new S3Client(KB_FILES_S3_CLIENT_CONFIG);
+    const storageClient = new S3Client({ region: process.env.AWS_REGION });
     const imageFile = req.file;
 
     if (!imageFile) {
@@ -921,13 +912,12 @@ function _checkForDeletedImages(newBody: string, oldURLs?: string[]) {
 async function _deleteKBImagesFromStorage(urls: string[]): Promise<boolean> {
   try {
     if (
-      !KB_FILES_S3_CLIENT_CONFIG ||
       !process.env.AWS_KBFILES_BUCKET ||
       !process.env.AWS_KBFILES_DOMAIN
     ) {
       throw new Error("Missing file storage config");
     }
-    const storageClient = new S3Client(KB_FILES_S3_CLIENT_CONFIG);
+    const storageClient = new S3Client({ region: process.env.AWS_REGION });
     const promises = [];
 
     for (const url of urls) {
