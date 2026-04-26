@@ -4,7 +4,6 @@ import { debug, debugError } from '../debug.js';
 import Book from '../models/book.js';
 import Project from '../models/project.js';
 import { getLibraryAndPageFromBookID } from '../util/bookutils.js';
-import { PROJECT_FILES_S3_CLIENT_CONFIG } from '../util/projectutils.js';
 
 /**
  * Transfer Book "Materials" to their related Project, renamed as "Files".
@@ -13,7 +12,7 @@ export async function runMigration() {
   const migrationTitle = 'Book Ancillary Materials to Project Files';
   try {
     debug(`Running migration "${migrationTitle}"...`);
-    const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
+    const storageClient = new S3Client({ region: process.env.AWS_REGION });
     const libraries = new Set();
     const pageIDs = new Set();
     const booksWithMaterials = (await Book.aggregate([

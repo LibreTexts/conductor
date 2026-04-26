@@ -86,23 +86,6 @@ Conductor also promotes collaboration and organization among everyone on your OE
 You can find in-depth guides on using the Commons and the Conductor to curate your resource in the [Construction Guide](https://chem.libretexts.org/Courses/Remixer_University/Construction_Guide_for_LibreTexts_2e/05%3A_Conductor).
 `;
 
-export const PROJECT_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
-  credentials: {
-    accessKeyId: process.env.AWS_PROJECTFILES_ACCESS_KEY ?? "",
-    secretAccessKey: process.env.AWS_PROJECTFILES_SECRET_KEY ?? "",
-  },
-  region: process.env.AWS_PROJECTFILES_REGION,
-};
-
-
-export const PROJECT_THUMBNAILS_S3_CLIENT_CONFIG = {
-  credentials: {
-    accessKeyId: process.env.AWS_PROJECT_THUMBNAILS_ACCESS_KEY ?? "",
-    secretAccessKey: process.env.AWS_PROJECT_THUMBNAILS_SECRET_KEY ?? "",
-  },
-  region: process.env.AWS_PROJECT_THUMBNAILS_REGION ?? "",
-};
-
 export const isProjectFileInterfaceAccess = (
   access: string
 ): access is ProjectFileInterfaceAccess => {
@@ -577,7 +560,7 @@ export async function getFolderContents(
 export async function getProjectFileS3Metadata(projectID: string, fileID: string): Promise<HeadObjectCommandOutput | null> {
   try {
     // @ts-ignore
-    const s3 = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
+    const s3 = new S3Client({ region: process.env.AWS_REGION });
     const fileKey = `${projectID}/${fileID}`;
     const command = new HeadObjectCommand({
       Bucket: process.env.AWS_PROJECTFILES_BUCKET ?? "",
@@ -1026,7 +1009,7 @@ export async function createZIPAndNotify(
 ): Promise<boolean> {
   try {
     // @ts-ignore
-    const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
+    const storageClient = new S3Client({ region: process.env.AWS_REGION });
 
     const downloadCommands: GetObjectCommand[] = [];
     fileKeys.forEach(async (key) => {
