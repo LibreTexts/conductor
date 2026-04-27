@@ -1,7 +1,6 @@
 import type { Request, Response } from "express";
 import Project from "../models/project.js";
 import PrejectRemixer from "../models/projectremixer.js";
-import { authKeys } from "./services/authkey.js";
 import remixerService from "./services/remixer-service.js";
 import PrejectRemixerJob from "../models/projectremixerjob.js";
 import base62 from "base62-random";
