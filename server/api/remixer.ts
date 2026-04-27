@@ -233,8 +233,8 @@ const publishRemixerProject = async (req: Request, res: Response) => {
   const bookAPIURL: string = `https://${subdomain}.libretexts.org/@api/deki/pages/${project.libreCoverID ?? "home"}/${CXOnePageAPIEndpoints.GET_Page_Info}`;
   const bookDetailsResponse = await fetch(bookAPIURL, {
     headers: {
-      "X-Requested-With": "XMLHttpRequest",
-      "x-deki-token": authKeys[subdomain as keyof typeof authKeys],
+      ...((await generateAPIRequestHeaders(subdomain)) ?? {}),
+
     },
   });
   const bookDetails = await bookDetailsResponse.json();
@@ -297,7 +297,7 @@ const getRemixerProjectState = async (req: Request, res: Response) => {
   }
 
   const remixerState = await PrejectRemixer.findOne(
-    { projectID: id},
+    { projectID: id },
     {
       projectID: 1,
       archived: 1,
@@ -372,9 +372,8 @@ const fetchPage = async (req: Request, res: Response) => {
     const isHomePath = String(normalizedPath).toLowerCase() === "home";
     const pathPrefix = isNumber || isHomePath ? "" : "=";
 
-    const url = `https://${subdomain}.libretexts.org/@api/deki/pages/${
-      pathPrefix
-    }${normalizedPath}${pageDetails ? pageDetailsApi : subpageApi}`;
+    const url = `https://${subdomain}.libretexts.org/@api/deki/pages/${pathPrefix
+      }${normalizedPath}${pageDetails ? pageDetailsApi : subpageApi}`;
     const conductorCookieHeader = buildConductorCookieHeader(req);
 
     const options = {
@@ -425,9 +424,8 @@ const fetchPage = async (req: Request, res: Response) => {
     let parentID: string | undefined = isNumber ? path : undefined;
 
     if (!parentID) {
-      const detailsUrl = `https://${subdomain}.libretexts.org/@api/deki/pages/${
-        pathPrefix
-      }${normalizedPath}${pageDetailsApi}`;
+      const detailsUrl = `https://${subdomain}.libretexts.org/@api/deki/pages/${pathPrefix
+        }${normalizedPath}${pageDetailsApi}`;
       const detailsRes = await fetch(detailsUrl, options);
       if (detailsRes.ok) {
         const detailsData = (await detailsRes.json()) as Record<
