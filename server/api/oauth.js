@@ -9,7 +9,7 @@ import bcrypt from 'bcryptjs';
 import OAuth2Server, {
   OAuthError,
   Request,
-  Response
+  Response,
 } from '@node-oauth/oauth2-server';
 import AccessToken from '../models/accesstoken.js';
 import AuthCode from '../models/authcode.js';
@@ -79,7 +79,7 @@ async function saveToken(token, client, user) {
     refresh_expires_in: Math.floor((newRefresh.expiresAt - new Date()) / 1000), // custom attribute
     client: { id: newToken.clientID },
     user: { id: newToken.user },
-  }
+  };
 }
 
 /**
@@ -118,14 +118,14 @@ async function saveAuthorizationCode(code, client, user) {
       isNewAuth: newAuthCode.isNewAuth,
       scopesUpdatedSinceAuth: user.scopesUpdatedSinceAuth,
     },
-  }
+  };
 }
 
 /**
  * Retrieves an existing AccessToken from the database.
  *
  * @param {String} accessToken - Access token value to lookup.
- * @returns {Promise<object>} Information about the found token. 
+ * @returns {Promise<object>} Information about the found token.
  */
 async function getAccessToken(accessToken) {
   const foundToken = await AccessToken.findOne({ token: accessToken }).lean();
@@ -138,7 +138,7 @@ async function getAccessToken(accessToken) {
     scope: foundToken.scope,
     client: { id: foundToken.clientID },
     user: { id: foundToken.user },
-  }
+  };
 }
 
 /**
@@ -163,14 +163,14 @@ async function getAuthorizationCode(authorizationCode) {
       id: foundCode.user,
       isNewAuth: foundCode.isNewAuth,
     },
-  }
+  };
 }
 
 /**
  * Retreives an API Client from the database and verifies the provided secret, if necessary.
  *
  * @param {string} clientID - Identifier of the client to lookup.
- * @param {string} [clientSecret] - Client secret, if required by the grant type. 
+ * @param {string} [clientSecret] - Client secret, if required by the grant type.
  * @returns {Promise<object|boolean>} Information about the client, or false if no match found.
  */
 async function getClient(clientID, clientSecret) {
@@ -203,7 +203,7 @@ async function getClient(clientID, clientSecret) {
     accessTokenLifetime: hasCustomAccessLifetime ? foundClient.accessTokenLifetime : ACCESS_TOKEN_LIFETIME,
     refreshTokenLifetime: hasCustomRefreshLifetime ? foundClient.refreshTokenLifetime : REFRESH_TOKEN_LIFETIME,
     scopesLastUpdated: foundClient.scopesLastUpdated,
-  }
+  };
 }
 
 /**
@@ -223,7 +223,7 @@ async function getRefreshToken(refreshToken) {
     scope: foundRefresh.scope,
     client: { id: foundRefresh.clientID },
     user: { id: foundRefresh.user },
-  }
+  };
 }
 
 /**
@@ -291,7 +291,7 @@ class ConductorOAuthServer {
 
   /**
    * Authenticates a request that uses credentials obtained from an OAuth2 flow
-   * 
+   *
    * @returns {function} An Express-type middleware function.
    */
   async authenticate(req, res, next) {
@@ -330,7 +330,7 @@ class ConductorOAuthServer {
         const response = new Response(res);
         const code = await serverScope.server.authorize(request, response, {
           authenticateHandler: {
-            handle: async function (authReq) {
+            async handle(authReq) {
               const id = authReq.user.decoded.uuid;
               const authorizedApps = await users.getUserAuthorizedApplications(id);
               const clientID = authReq.body.client_id || authReq.query.client_id;
@@ -352,7 +352,7 @@ class ConductorOAuthServer {
                 authorizedApps,
                 isNewAuth,
                 scopesUpdatedSinceAuth,
-              }
+              };
             },
           },
         });
@@ -361,7 +361,7 @@ class ConductorOAuthServer {
       } catch (e) {
         return serverScope.handleOAuthError(res, e);
       }
-    }
+    };
   }
 
   /**
@@ -382,7 +382,7 @@ class ConductorOAuthServer {
       } catch (e) {
         return serverScope.handleOAuthError(res, e);
       }
-    }
+    };
   }
 
   /**
@@ -390,7 +390,7 @@ class ConductorOAuthServer {
    * then closing the request/response pipeline.
    *
    * @param {express.Response} res - The initial HTTP response object.
-   * @param {OAuthError} e - The flow error to process. 
+   * @param {OAuthError} e - The flow error to process.
    * @returns {express.Response} A consumed HTTP response object, with error handled.
    */
   handleOAuthError(res, e) {
@@ -440,14 +440,14 @@ class ConductorOAuthServer {
   /**
    * Handles OAuth2 flow success by setting appropriate response headers and closing the pipeline.
    *
-   * @param {express.Response} res - The initial HTTP response object. 
+   * @param {express.Response} res - The initial HTTP response object.
    * @param {Response} response - The OAuth2 server generated response.
    * @returns {express.Response} A consumed HTTP response object, with necessary
    *  headers and redirects added.
    */
   handleOAuthResponse(res, response) {
     if (response.status === 302) {
-      const location = response.headers.location;
+      const { location } = response.headers;
       delete response.headers.location;
       res.set(response.headers);
       return res.redirect(location);

@@ -12,7 +12,6 @@ import api from "../../../api";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import TruncatedText from "../../../components/util/TruncatedText";
 import { formatPrice } from "../../../utils/storeHelpers";
-import { Button, Heading, Text } from "@libretexts/davis-react";
 
 const CategoryLink = ({
   href,
@@ -23,14 +22,17 @@ const CategoryLink = ({
   children: React.ReactNode;
   target?: "_blank";
 }) => (
-  <Button
-    as="a"
+  <a
     href={href}
     target={target}
-    variant="outline"
+    className="flex items-center justify-center rounded-md border border-transparent bg-primary px-6 py-3 font-medium text-white hover:shadow-sm hover:text-gray-300 min-h-[3rem] text-center"
+    style={{
+      fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
+      lineHeight: "1.2",
+    }}
   >
     {children}
-  </Button>
+  </a>
 );
 
 export default function StoreHome() {
@@ -59,13 +61,13 @@ export default function StoreHome() {
                 <div className="mx-auto max-w-2xl py-24 lg:max-w-none lg:py-64">
                   <div className="lg:pr-16">
                     <h1 className="sr-only">LibreTexts Store</h1>
-                    <Heading level={2}>
+                    <h2 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl xl:text-6xl">
                       Your favorite OER, on your desk
-                    </Heading>
-                    <Text className="mt-4" size="xl">
+                    </h2>
+                    <p className="mt-4 text-xl text-gray-600">
                       Order print copies of textbooks, application access codes,
                       LibreTexts swag, and more.
-                    </Text>
+                    </p>
 
                     <div className="my-6 grid grid-cols-1 gap-y-4 sm:grid-cols-3 sm:gap-x-4">
                       <CategoryLink href="/store/catalog?category=books">
@@ -92,12 +94,12 @@ export default function StoreHome() {
                         All Items
                       </CategoryLink>
                     </div>
-                    <Text className="mt-4" size="sm">
+                    <p className="text-sm text-gray-600">
                       LibreTexts textbooks are{" "}
                       <span className="italic font-semibold">always</span> free
                       to read online. We offer print copies for those who prefer
                       a physical book.
-                    </Text>
+                    </p>
                   </div>
                 </div>
               </div>
@@ -117,12 +119,12 @@ export default function StoreHome() {
         <section aria-labelledby="trending-heading" className="bg-white">
           <div className="py-16 sm:py-24 lg:mx-32 lg:px-8 lg:py-32">
             <div className="flex items-center justify-between px-4 sm:px-6 lg:px-0">
-              <Heading level={2}
+              <h2
                 id="trending-heading"
-                className=""
+                className="text-2xl font-bold tracking-tight text-gray-900"
               >
                 Trending items
-              </Heading>
+              </h2>
               <a
                 href="/store/catalog"
                 className="hidden text-base font-semibold text-primary sm:block"
@@ -144,9 +146,8 @@ export default function StoreHome() {
                     data.map((product) => (
                       <li
                         key={product.id}
-                        className="inline-flex w-64 flex-col text-center lg:w-auto border border-gray-300 rounded-md p-4 shadow-sm"
+                        className="inline-flex w-64 flex-col text-center lg:w-auto border rounded-md p-4 shadow-sm"
                       >
-                        {/* TODO: Switch to Davis Card component */}
                         <div className="group relative">
                           <div className="flex justify-center">
                             <img
@@ -156,23 +157,39 @@ export default function StoreHome() {
                             />
                           </div>
                           <div className="mt-6">
-                            <Heading level={3} className="mt-1">
+                            <h3 className="mt-1 text-xl font-semibold text-gray-900">
                               <a href={`/store/product/${product.id}`}>
                                 <span className="absolute inset-0" />
                                 {product.name}
                               </a>
-                            </Heading>
+                            </h3>
                             <TruncatedText
                               text={product.description}
                               maxLines={3}
                               preciseTruncation={true}
                               className="mt-2 text-sm text-gray-500 h-20"
                             />
-                            <Text className="mt-4 text-lg text-gray-900">
+                            <p className="mt-4 text-lg text-gray-900">
                               {formatPrice(product.prices[0].unit_amount, true)}
-                            </Text>
+                            </p>
                           </div>
                         </div>
+
+                        {/* <h4 className="sr-only">Available colors</h4>
+                      <ul
+                        role="list"
+                        className="mt-auto flex items-center justify-center space-x-3 pt-6"
+                      >
+                        {product.availableColors.map((color) => (
+                          <li
+                            key={color.name}
+                            style={{ backgroundColor: color.colorBg }}
+                            className="size-4 rounded-full border border-black/10"
+                          >
+                            <span className="sr-only">{color.name}</span>
+                          </li>
+                        ))}
+                      </ul> */}
                       </li>
                     ))}
                 </ul>

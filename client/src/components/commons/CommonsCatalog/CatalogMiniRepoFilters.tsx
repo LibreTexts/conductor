@@ -1,6 +1,5 @@
 import CatalogFilterDropdown from "./CatalogFilterDropdown";
 import { MiniRepoFiltersAction, ProjectFilters } from "../../../types";
-import { Stack } from "@libretexts/davis-react";
 import { upperFirst } from "../../../utils/misc";
 import useProjectFilterOptions from "../../../hooks/useProjectFilterOptions";
 
@@ -20,20 +19,23 @@ const CatalogMiniRepoFilters: React.FC<CatalogMiniRepoFiltersProps> = ({
   const { data, isLoading } = useProjectFilterOptions();
 
   return (
-    <div aria-busy={isLoading} className="w-full ml-1">
-      <Stack direction="horizontal" gap="sm" wrap={true} className="my-4">
+    <div
+      aria-busy={isLoading}
+      className="flex flex-row w-full justify-between items-center ml-1"
+    >
+      <div className="flex flex-row my-4 flex-wrap items-center gap-2">
         <CatalogFilterDropdown
           text={`Status ${
             filters.status ? ` - ${upperFirst(filters.status)}` : ""
           }`}
-          icon="status"
+          icon="dashboard"
           options={data?.statusOptions ?? []}
           filterKey="status"
           onFilterSelect={(key, val) =>
             onFilterChange(key as keyof ProjectFilters, val)
           }
         />
-      </Stack>
+      </div>
     </div>
   );
 };

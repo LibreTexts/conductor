@@ -2,14 +2,12 @@ import { z } from "zod";
 import SupportTicket, { SupportTicketFeedEntryInterface, SupportTicketInterface, SupportTicketStatusEnum } from "../../models/supporticket";
 import User, { SanitizedUserSelectProjection, UserInterface } from "../../models/user";
 import { AssignSupportTicketParams, ChangeTicketStatusParams, SearchTicketsParams } from "../../types/SupportTicket";
-import { capitalizeFirstLetter, getPaginationOffset } from "../../util/helpers";
+import { capitalizeFirstLetter } from "../../util/helpers";
 import mailAPI from "../mail";
 import authAPI from "../auth";
 import { BulkUpdateTicketsValidator } from "../validators/support";
 import SupportQueueService from "./support-queue-service";
 import SupportTicketMessage, { SupportTicketMessageInterface } from "../../models/supporticketmessage";
-import { debugError, debugServer } from "../../debug";
-import SearchService from "./search-service";
 
 export default class SupportTicketService {
     async getTicket(uuid: string): Promise<SupportTicketInterface | null> {
@@ -50,7 +48,6 @@ export default class SupportTicketService {
             ticket.status = ticket.status === "awaiting_requester" ? "awaiting_requester" : messages.length > 0 ? "in_progress" : "assigned";
             ticket.feed = [...(ticket.feed || []), feedEntry];
             await ticket.save();
-            await this.upsertToSearchIndex(uuid);
 
             if (newAssigneeEmails.length === 0) {
                 return ticket; // No need to send emails
@@ -172,7 +169,6 @@ export default class SupportTicketService {
                     $push: { feed: feedEntry },
                 }
             ).orFail();
-            await this.upsertToSearchIndex(uuid);
         } catch (err) {
             throw err;
         }
@@ -186,7 +182,6 @@ export default class SupportTicketService {
                     $set: { queue_id: queueId },
                 }
             ).orFail();
-            await this.upsertToSearchIndex(uuid);
         } catch (err) {
             throw err;
         }
@@ -210,7 +205,6 @@ export default class SupportTicketService {
                     ...(feedEntry ? { $push: { feed: feedEntry } } : {}),
                 }
             ).orFail();
-            await this.upsertToSearchIndex(uuid);
         } catch (err) {
             throw err;
         }
@@ -225,246 +219,234 @@ export default class SupportTicketService {
         category,
         sort,
         returnAccessKeys = false,
-        limit,
-        page
-    }: SearchTicketsParams): Promise<{ tickets: SupportTicketInterface[]; total: number }> {
+    }: SearchTicketsParams): Promise<SupportTicketInterface[]> {
         try {
-            const searchService = await SearchService.getInstance();
+            // Normalize possibly user-controlled parameters: convert string to array, allow only strings/arrays
+            function normalizeToStringArray(val: unknown): string[] | undefined {
+                if (typeof val === "string") {
+                    return [val];
+                } else if (Array.isArray(val) && val.every(v => typeof v === "string")) {
+                    return val;
+                }
+                return undefined;
+            }
 
-            const isExactUUIDQuery = z.uuid().safeParse(query).success;
+            const normAssignee = normalizeToStringArray(assignee);
+            const normPriority = normalizeToStringArray(priority);
+            const normCategory = normalizeToStringArray(category);
 
-            const results = await searchService.search("supportTickets", query || "", {
-                ...(isExactUUIDQuery ? { uuid: [query as string] } : {}),
-                ...(statuses ? { status: statuses } : {}),
-                ...(queue_id ? { queue_id: [queue_id] } : {}),
-                ...(assignee ? { "assignedUUIDs": assignee } : {}),
-                ...(priority ? { priority: priority } : {}),
-                ...(category ? { category: category } : {}),
-            }, [{
-                field: sort || "timeOpened",
-                order: sort === "category" ? "asc" : "desc", // timeOpened sorts newest first
-            }], {
-                limit: limit || 25,
-                offset: getPaginationOffset(page || 1, limit || 25),
+            const tickets: SupportTicketInterface[] = [];
+            const getSortObj = () => {
+                if (sort === "status") {
+                    return { status: -1 };
+                }
+                if (sort === "category") {
+                    return { category: 1 };
+                }
+                return { timeOpened: -1 };
+            };
+
+            const sortObj = getSortObj();
+
+            const lookupUserDataStages = (localField: "assignedUUIDs" | "userUUID") => {
+                return [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: localField,
+                            foreignField: "uuid",
+                            as: localField === "assignedUUIDs" ? "assignedUsers" : "user",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        ...SanitizedUserSelectProjection,
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    ...(localField === "userUUID"
+                        ? [
+                            {
+                                $set: {
+                                    user: {
+                                        $arrayElemAt: ["$user", 0],
+                                    },
+                                },
+                            },
+                        ]
+                        : []),
+                ];
+            };
+
+            if (!query) {
+                const foundTickets = await SupportTicket.aggregate([
+                    {
+                        $match: {
+                            status: { $in: statuses },
+                            ...(queue_id ? { queue_id: { $eq: queue_id } } : {}),
+                        },
+                    },
+                    ...lookupUserDataStages("assignedUUIDs"),
+                    ...lookupUserDataStages("userUUID"),
+                    { $sort: sortObj } as any,
+                ]);
+                tickets.push(...foundTickets);
+            } else if (z.string().uuid().safeParse(query).success) {
+                const foundTicket = await SupportTicket.aggregate([
+                    {
+                        $match: {
+                            uuid: query,
+                            status: { $in: statuses },
+                            ...(queue_id ? { queue_id: { $eq: queue_id } } : {}),
+                        },
+                    },
+                    ...lookupUserDataStages("assignedUUIDs"),
+                    ...lookupUserDataStages("userUUID"),
+                ]);
+
+                tickets.push(...foundTicket);
+            } else {
+                const fromTicketQuery = await SupportTicket.aggregate([
+                    {
+                        $search: {
+                            compound: {
+                                should: [
+                                    {
+                                        text: {
+                                            query,
+                                            path: [
+                                                "title",
+                                                "description",
+                                                "guest.email",
+                                                "guest.firstName",
+                                                "guest.lastName",
+                                            ],
+                                            fuzzy: {
+                                                maxEdits: 2,
+                                            },
+                                        }
+                                    }, {
+                                        autocomplete: {
+                                            query,
+                                            path: "uuid"
+                                        }
+                                    },
+                                    {
+                                        text: {
+                                            query,
+                                            path: "uuidShort"
+                                        }
+                                    }
+                                ],
+                                minimumShouldMatch: 1,
+                            }
+                        },
+                    },
+                    {
+                        $addFields: {
+                            score: { $meta: "searchScore" },
+                        },
+                    },
+                    {
+                        $match: {
+                            status: { $in: statuses },
+                            ...(queue_id ? { queue_id: { $eq: queue_id } } : {}),
+                        }
+                    },
+                    ...lookupUserDataStages("assignedUUIDs"),
+                    ...lookupUserDataStages("userUUID"),
+                    { $sort: sortObj } as any,
+                ]);
+
+                const fromUserQuery = User.aggregate([
+                    {
+                        $search: {
+                            text: {
+                                query,
+                                path: ["firstName", "lastName", "email"],
+                                fuzzy: {
+                                    maxEdits: 1,
+                                },
+                            },
+                        },
+                    },
+                    {
+                        $addFields: {
+                            score: { $meta: "searchScore" },
+                        },
+                    },
+                    {
+                        $lookup: {
+                            from: "supporttickets",
+                            localField: "uuid",
+                            foreignField: "userUUID",
+                            as: "tickets",
+                        },
+                    },
+                    {
+                        $unwind: "$tickets",
+                    },
+                    {
+                        $replaceRoot: { newRoot: "$tickets" },
+                    },
+                    {
+                        $match: {
+                            status: { $in: statuses },
+                            ...(queue_id ? { queue_id: { $eq: queue_id } } : {}),
+
+                        }
+                    },
+                    ...lookupUserDataStages("assignedUUIDs"),
+                    ...lookupUserDataStages("userUUID"),
+                ]);
+
+                const queryResults = await Promise.all([
+                    fromTicketQuery,
+                    fromUserQuery,
+                ]);
+
+                const allResults = [...queryResults[0], ...queryResults[1]];
+                tickets.push(...allResults);
+            }
+
+            // We could do this in the individual queries, but requires duplicating code and complicating queries
+            // so we do it here in memory. Less performant, but more maintainable.
+            const filteredAllResults = tickets.filter((t) => {
+                if (normAssignee && normAssignee.length > 0 && !t.assignedUUIDs?.some((a: string) => normAssignee.includes(a))) return false;
+                if (normCategory && normCategory.length > 0 && (!t.category || !normCategory.includes(t.category))) return false;
+                if (normPriority && normPriority.length > 0 && (!t.priority || !normPriority.includes(t.priority))) return false;
+                return true;
             });
 
-            const tickets = results.hits as SupportTicketInterface[];
+            const uniqueTickets = filteredAllResults.filter((t, index, self) => {
+                // Return only unique results
+                return (
+                    index ===
+                    self.findIndex((t2) => {
+                        return t.uuid === t2.uuid;
+                    })
+                );
+            });
+
+            // We have to sort the tickets in memory because we can only alphabetically sort by priority in query
+            if (sort === "priority") {
+                uniqueTickets.sort((a, b) => {
+                    if (a.priority === "high" && b.priority !== "high") return -1;
+                    if (a.priority !== "high" && b.priority === "high") return 1;
+                    if (a.priority === "medium" && b.priority === "low") return -1;
+                    if (a.priority === "low" && b.priority === "medium") return 1;
+                    return 0;
+                });
+            }
 
             if (!returnAccessKeys) {
-                tickets.forEach(t => {
+                uniqueTickets.forEach(t => {
                     return this._removeAccessKeysFromResponse(t);
                 });
             }
 
-            return { tickets, total: results.estimatedTotalHits ?? tickets.length };
-        } catch (err) {
-            throw err;
-        }
-    }
-
-    async syncWithSearchIndex() {
-        try {
-            debugServer(`[SupportTicketService] Starting sync with search index...`);
-            const searchService = await SearchService.getInstance();
-
-            const batchSize = 100;
-            let skip = 0;
-            let hasMore = true;
-            let totalSynced = 0;
-
-            while (hasMore) {
-                const batch = await SupportTicket.aggregate([
-                    ...this.searchIndexAggregationStages,
-                    { $skip: skip },
-                    { $limit: batchSize },
-                ]);
-
-                if (batch.length === 0) {
-                    hasMore = false;
-                    break;
-                }
-
-                try {
-                    const sanitizedBatch = JSON.parse(JSON.stringify(batch));
-                    const task: any = await searchService.addDocuments("supportTickets", sanitizedBatch, { waitForCompletion: true });
-                    debugServer(`[SupportTicketService] Batch ${Math.floor(skip / batchSize) + 1} indexed. Task UID: ${task.uid ?? task.taskUid}`);
-                } catch (batchError: any) {
-                    debugError(`[SupportTicketService] Error adding batch starting at ${skip}: ${batchError.message}`);
-                    if (batchError.meilisearchError) {
-                        debugError(`[SupportTicketService] Meilisearch error object: ${JSON.stringify(batchError.meilisearchError)}`);
-                    }
-                    const firstFive = batch.slice(0, 5).map((b: any) => b.uuid);
-                    const lastFive = batch.slice(-5).map((b: any) => b.uuid);
-                    debugError(`[SupportTicketService] Batch uuids (first 5): ${firstFive.join(', ')}`);
-                    debugError(`[SupportTicketService] Batch uuids (last 5): ${lastFive.join(', ')}`);
-                    throw batchError;
-                }
-                totalSynced += batch.length;
-                debugServer(`[SupportTicketService] Synced batch of ${batch.length} tickets. Total synced so far: ${totalSynced}`);
-                skip += batchSize;
-
-                // If we received less than the batch size, we know we've reached the end
-                if (batch.length < batchSize) {
-                    hasMore = false;
-                }
-            }
-
-            debugServer(`[SupportTicketService] Completed sync with search index. Total synced: ${totalSynced}`);
-        } catch (err) {
-            debugError(`[SupportTicketService] Error syncing with search index: ${err}`);
-            throw err;
-        }
-    }
-
-    /**
-     * This method can be called after any update to a ticket to ensure the search index has the most up-to-date information.
-     * This way, we don't have to wait for the next full sync to have accurate search results after a ticket is updated.
-     * Essentially does the same thing as syncWithSearchIndex but for a single ticket, and is optimized to only reindex that one ticket instead of all tickets.
-     * Will swallow and log any errors instead of throwing, since this is meant to be a best-effort method to keep the search index up-to-date.
-     * @param ticketID the ID of the ticket to upsert to the search index
-     */
-    async upsertToSearchIndex(ticketID: string): Promise<void> {
-        try {
-            const searchService = await SearchService.getInstance();
-
-            const results = await SupportTicket.aggregate([
-                { $match: { uuid: ticketID } },
-                ...this.searchIndexAggregationStages,
-            ]);
-
-            if (!results || results.length === 0) {
-                debugError(`[SupportTicketService] No ticket found with ID ${ticketID} for upsert to search index.`);
-                return;
-            }
-
-            const ticket = results[0] as SupportTicketInterface;
-            if (!ticket) {
-                debugError(`[SupportTicketService] No ticket found with ID ${ticketID} for upsert to search index.`);
-                return;
-            }
-
-            const sanitizedTicket = JSON.parse(JSON.stringify(ticket));
-            await searchService.addDocuments("supportTickets", [sanitizedTicket], { waitForCompletion: true });
-        } catch (err) {
-            debugError(`[SupportTicketService] Error upserting ticket ${ticketID} to search index: ${err}`);
-        }
-    }
-
-    /**
-     * Batch version of upsertToSearchIndex — fetches and syncs multiple tickets in a single
-     * aggregate query + single addDocuments call, instead of N separate round-trips.
-     */
-    async bulkUpsertToSearchIndex(ticketIDs: string[]): Promise<void> {
-        try {
-            if (ticketIDs.length === 0) return;
-
-            const searchService = await SearchService.getInstance();
-
-            const results = await SupportTicket.aggregate([
-                { $match: { uuid: { $in: ticketIDs } } },
-                ...this.searchIndexAggregationStages,
-            ]);
-
-            if (!results || results.length === 0) return;
-
-            const sanitizedResults = JSON.parse(JSON.stringify(results));
-            await searchService.addDocuments("supportTickets", sanitizedResults, { waitForCompletion: true });
-        } catch (err) {
-            debugError(`[SupportTicketService] Error bulk upserting tickets to search index: ${err}`);
-        }
-    }
-
-    async removeFromSearchIndex(uuid: string): Promise<void> {
-        try {
-            const searchService = await SearchService.getInstance();
-            await searchService.deleteDocuments("supportTickets", [uuid]);
-        } catch (err) {
-            debugError(`[SupportTicketService] Error removing ticket ${uuid} from search index: ${err}`);
-        }
-    }
-
-    async createTicket(data: Partial<SupportTicketInterface> | Partial<Omit<SupportTicketInterface, "attachments"> & { attachments?: string[] }>): Promise<SupportTicketInterface> {
-        try {
-            const ticket = await SupportTicket.create(data);
-            await this.upsertToSearchIndex(ticket.uuid);
-            return ticket;
-        } catch (err) {
-            throw err;
-        }
-    }
-
-    async saveTicket(ticket: SupportTicketInterface): Promise<SupportTicketInterface> {
-        try {
-            await ticket.save();
-            await this.upsertToSearchIndex(ticket.uuid);
-            return ticket;
-        } catch (err) {
-            throw err;
-        }
-    }
-
-    async updateTicket(uuid: string, update: Record<string, any>): Promise<void> {
-        try {
-            await SupportTicket.updateOne({ uuid }, update).orFail();
-            await this.upsertToSearchIndex(uuid);
-        } catch (err) {
-            throw err;
-        }
-    }
-
-    async deleteTicket(uuid: string): Promise<void> {
-        try {
-            await SupportTicket.deleteOne({ uuid });
-            await this.removeFromSearchIndex(uuid);
-        } catch (err) {
-            throw err;
-        }
-    }
-
-    async resetAutoClose(uuid: string): Promise<SupportTicketInterface> {
-        try {
-            const ticket = await SupportTicket.findOneAndUpdate(
-                { uuid },
-                {
-                    autoCloseTriggered: false,
-                    autoCloseDate: null,
-                },
-            ).populate("queue").orFail();
-            await this.upsertToSearchIndex(uuid);
-            return ticket;
-        } catch (err) {
-            throw err;
-        }
-    }
-
-    async initAutoClose(uuids: string[], autoCloseDate: string): Promise<void> {
-        try {
-            await SupportTicket.updateMany(
-                { uuid: { $in: uuids } },
-                {
-                    autoCloseTriggered: true,
-                    autoCloseDate,
-                },
-            );
-            await this.bulkUpsertToSearchIndex(uuids);
-        } catch (err) {
-            throw err;
-        }
-    }
-
-    async autoCloseTicket(ticket: SupportTicketInterface, feedEntry: SupportTicketFeedEntryInterface): Promise<void> {
-        try {
-            await SupportTicket.updateOne(
-                { uuid: ticket.uuid },
-                {
-                    status: "closed",
-                    autoCloseTriggered: false,
-                    autoCloseDate: null,
-                    timeClosed: new Date().toISOString(),
-                    feed: [...ticket.feed, feedEntry],
-                },
-            );
-            await this.upsertToSearchIndex(ticket.uuid);
+            return uniqueTickets;
         } catch (err) {
             throw err;
         }
@@ -577,68 +559,5 @@ export default class SupportTicketService {
                 : "Unknown";
         const authorString = `${ticketAuthor} (${requesterEmail || "Unknown Email"})`;
         return authorString;
-    };
-
-    private get searchIndexAggregationStages() {
-        return [
-            ...this.lookupUserDataStages("assignedUUIDs"),
-            ...this.lookupUserDataStages("userUUID"),
-            {
-                $project: {
-                    _id: 0,
-                    uuid: 1,
-                    uuidShort: 1,
-                    queue_id: 1,
-                    title: 1,
-                    description: 1,
-                    status: 1,
-                    priority: 1,
-                    category: 1,
-                    assignedUUIDs: 1,
-                    userUUID: 1,
-                    timeOpened: 1,
-                    timeClosed: 1,
-                    capturedURL: 1,
-                    apps: 1,
-                    guest: 1,
-                    deviceInfo: 1,
-                    autoCloseTriggered: 1,
-                    autoCloseSilenced: 1,
-                    assignedUsers: 1,
-                    user: 1,
-                },
-            },
-        ];
-    }
-
-    private lookupUserDataStages = (localField: "assignedUUIDs" | "userUUID") => {
-        return [
-            {
-                $lookup: {
-                    from: "users",
-                    localField: localField,
-                    foreignField: "uuid",
-                    as: localField === "assignedUUIDs" ? "assignedUsers" : "user",
-                    pipeline: [
-                        {
-                            $project: {
-                                ...SanitizedUserSelectProjection,
-                            },
-                        },
-                    ],
-                },
-            },
-            ...(localField === "userUUID"
-                ? [
-                    {
-                        $set: {
-                            user: {
-                                $arrayElemAt: ["$user", 0],
-                            },
-                        },
-                    },
-                ]
-                : []),
-        ];
     };
 }

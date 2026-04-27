@@ -28,6 +28,7 @@ import Author from "../models/author.js";
 import Fuse from "fuse.js";
 import Organization from "../models/organization.js";
 import AssetTagFramework from "../models/assettagframework.js";
+import authorsAPI from "./authors.js";
 import SearchQuery, {
   SearchQueryInterface_Raw,
 } from "../models/searchquery.js";
@@ -36,20 +37,37 @@ import { _getBookPublicOrInstructorAssetsCount, buildOrganizationNamesList } fro
 import CustomCatalog, { CustomCatalogInterface } from "../models/customcatalog.js";
 import { normalizedSort } from "../util/searchutils.js";
 import SearchService from "./services/search-service.js";
-import { FilterInput, FilterObject } from "../types/Search.js";
 
 const searchQueryCache: SearchQueryInterface_Raw[] = []; // in-memory cache for search queries
 
+// Singleton SearchService instance
+let searchServiceInstance: SearchService | null = null;
+let searchServiceInitPromise: Promise<SearchService | null> | null = null;
+
 /**
- * Gets the singleton SearchService instance, returning null on failure.
+ * Gets or creates the singleton SearchService instance and handle errors gracefully.
  */
 async function getSearchService(): Promise<SearchService | null> {
-  try {
-    return await SearchService.getInstance();
-  } catch (error) {
-    debugError(`[SearchService] Failed to initialize SearchService: ${error}`);
-    return null;
+  if (searchServiceInstance) {
+    return searchServiceInstance;
   }
+
+  if (searchServiceInitPromise) {
+    return searchServiceInitPromise;
+  }
+
+  searchServiceInitPromise = SearchService.create()
+    .then((service) => {
+      searchServiceInstance = service;
+      return service;
+    })
+    .catch((error) => {
+      debugError(`[SearchService] Failed to initialize SearchService: ${error}`);
+      searchServiceInitPromise = null; // Allow retry on next request
+      return null;
+    });
+
+  return searchServiceInitPromise;
 }
 
 /**
@@ -1888,12 +1906,18 @@ async function authorsSearch(
       {
         $match: {
           orgID: process.env.ORG_ID,
-          nameKey: { $exists: true, $ne: null },
         },
       },
+      authorsAPI.LOOKUP_AUTHOR_PROJECTS,
       {
         $project: {
-          userUUID: 0,
+          _id: 1,
+          firstName: 1,
+          lastName: 1,
+          url: 1,
+          primaryInstitution: 1,
+          projects: 1,
+          email: 1,
         },
       },
     ]);
@@ -1924,7 +1948,7 @@ async function authorsSearch(
     let filtered = paginated;
     if (req.query.primaryInstitution) {
       filtered = paginated.filter(
-        (author) => author.companyName === req.query.primaryInstitution || author.programName === req.query.primaryInstitution
+        (author) => author.primaryInstitution === req.query.primaryInstitution
       );
     }
 
@@ -2335,29 +2359,27 @@ async function getAssetFilterOptions(req: Request, res: Response) {
 
 async function getAuthorFilterOptions(req: Request, res: Response) {
   try {
-    const [companyResults, programResults] = await Promise.all([
-      Author.aggregate([
-        { $match: { companyName: { $exists: true, $ne: "" }, orgID: process.env.ORG_ID } },
-        { $group: { _id: "$companyName" } },
-      ]),
-      Author.aggregate([
-        { $match: { programName: { $exists: true, $ne: "" }, orgID: process.env.ORG_ID } },
-        { $group: { _id: "$programName" } },
-      ]),
+    const primaryInstitutions = await Author.aggregate([
+      {
+        $match: {
+          primaryInstitution: { $exists: true, $ne: "" },
+          orgID: process.env.ORG_ID,
+        },
+      },
+      { $group: { _id: "$primaryInstitution" } },
     ]);
 
-    const combined = new Set([
-      ...companyResults.map((r) => r._id),
-      ...programResults.map((r) => r._id),
-    ]);
+    // Filter & sort results
+    const mapped = primaryInstitutions.map((inst) => inst._id);
+    const filtered = mapped.filter((inst) => !!inst);
 
-    const primaryInstitutions = [...combined]
-      .filter(Boolean)
-      .sort((a: string, b: string) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    filtered.sort((a: string, b: string) =>
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    );
 
     return res.send({
       err: false,
-      primaryInstitutions,
+      primaryInstitutions: filtered ?? [],
     });
   } catch (err) {
     debugError(err);
@@ -2379,7 +2401,7 @@ async function getProjectFilterOptions(req: Request, res: Response) {
 
 async function bookSearchV2(
   req: z.infer<typeof bookSearchSchema>,
-  res: Response) {
+  res: Response){
   try {
     const searchService = await getSearchService();
     if (!searchService) {
@@ -2398,40 +2420,13 @@ async function bookSearchV2(
       course: req.query.course,
       publisher: req.query.publisher,
       affiliation: req.query.affiliation,
-    });
+    })
 
-    let combinedFilter: FilterObject = filterMap;
-    if (process.env.ORG_ID !== "libretexts") {
-      const [orgData, customCatalog] = await Promise.all([
-        Organization.findOne({ orgID: process.env.ORG_ID }),
-        CustomCatalog.findOne({ orgID: process.env.ORG_ID }),
-      ]);
-
-      const campusNames = orgData
-        ? buildOrganizationNamesList(orgData)
-          .map((name) => String(name).trim().toLowerCase())
-          .filter(Boolean)
-        : [];
-
-      const catalogAccessFilter = _buildBookCatalogAccessFilter({
-        orgData,
-        customCatalog,
-        campusNames,
-      });
-
-      combinedFilter = {
-        $and: [filterMap, catalogAccessFilter],
-      };
-    }
-
-    const page = parseInt(req.query.page?.toString()) || 1;
-    const limit = parseInt(req.query.limit?.toString()) || 25;
-    const offset = getPaginationOffset(page, limit);
-
-    const results = await searchService.search("books", req.query?.searchQuery || "", combinedFilter, undefined, {
-      limit,
-      offset,
-    });
+    const filterString = searchService.buildFilterString(filterMap);
+    const results = await searchService.search("books", req.query?.searchQuery || "", {
+      limit: req.query?.limit || 25,
+      ...(filterString ? { filter: filterString } : {}),
+    })
 
     return res.send({
       err: false,
@@ -2468,18 +2463,13 @@ async function projectSearchV2(
       orgID: resolvedOrgID,
     });
 
-    const page = parseInt(req.query.page?.toString()) || 1;
-    const limit = parseInt(req.query.limit?.toString()) || 25;
-    const offset = getPaginationOffset(page, limit);
-
+    const filterString = searchService.buildFilterString(filterMap);
     const results = await searchService.search(
       "projects",
       req.query?.searchQuery || "",
-      filterMap,
-      undefined,
       {
-        limit,
-        offset,
+        limit: req.query?.limit || 25,
+        ...(filterString ? { filter: filterString } : {}),
       }
     );
 
@@ -2514,55 +2504,6 @@ function _getNonNullFieldMap(obj: Record<string, any>): Record<string, string[]>
     }
   }
   return fieldMap;
-}
-
-function _buildBookCatalogAccessFilter({
-  orgData,
-  customCatalog,
-  campusNames,
-}: {
-  orgData: any;
-  customCatalog: CustomCatalogInterface | null;
-  campusNames: string[];
-}): FilterObject {
-  const includedBookIDs = customCatalog?.resources ?? [];
-  const autoMatchExclusions = customCatalog?.automaticMatchingExclusions ?? [];
-
-  const explicitIncludeFilter: FilterObject | null =
-    includedBookIDs.length > 0
-      ? { bookID: { $in: includedBookIDs } }
-      : null;
-
-  // If automatic matching is disabled, only explicitly included books are allowed.
-  if (orgData?.autoCatalogMatchingDisabled) {
-    return explicitIncludeFilter ?? { bookID: "__no_catalog_matches__" };
-  }
-
-  const autoMatchClauses: FilterInput[] = [];
-  if (campusNames.length > 0) {
-    autoMatchClauses.push({ courseNormalized: { $in: campusNames } });
-  }
-  if (autoMatchExclusions.length > 0) {
-    autoMatchClauses.push({ $not: { bookID: { $in: autoMatchExclusions } } });
-  }
-
-  const automaticMatchFilter: FilterObject | null =
-    autoMatchClauses.length > 0 ? { $and: autoMatchClauses } : null;
-
-  if (explicitIncludeFilter && automaticMatchFilter) {
-    return { $or: [explicitIncludeFilter, automaticMatchFilter] };
-  }
-
-  if (explicitIncludeFilter) {
-    return explicitIncludeFilter;
-  }
-
-  if (automaticMatchFilter) {
-    return automaticMatchFilter;
-  }
-
-  // No explicit includes and no automatic matching criteria means no access.
-  return { bookID: "__no_catalog_matches__" };
 }
 
 function _checkIsExactMatchQuery(query: string): [boolean, string] {

@@ -1,5 +1,5 @@
 #wrapper {
-  padding-top: 2%;
+  padding-top: calc(60px + 2%);
   margin: 0 2%;
   height: calc(100vh - 1%);
   display: flex;

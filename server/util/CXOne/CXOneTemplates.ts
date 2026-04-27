@@ -1,3 +1,5 @@
+import { randomUUID } from "crypto";
+
 const CXOneTemplates = {
   POST_CreateBook: `<p>{{template.ShowOrg()}}</p>
     <p class="template:tag-insert">
@@ -7,6 +9,12 @@ const CXOneTemplates = {
     <p>{{template.ShowOrg()}}</p>
     <p class="template:tag-insert"><a href="#">article:topic-guide</a></p>
   `,
+  POST_CreateBookSection: `
+  <p>{{template.ShowOrg()}}</p>
+  <p class="template:tag-insert">
+    <a href="#">article:topic-category</a><a href="#"></a>
+  </p>
+`,
   POST_GrantContributorRole: (userID: string) => `<security>
     <permissions.page>
       <restriction>Semi-Private</restriction>
@@ -22,7 +30,7 @@ const CXOneTemplates = {
     visibility: string,
     editorIDs: string[],
     viewerIDs: string[],
-    libreBotID: string
+    libreBotID: string,
   ) =>
     `<security>
     <permissions.page>
@@ -48,7 +56,7 @@ const CXOneTemplates = {
     </grants>
   </security>`,
   PUT_FileProperties: (
-    properties: { name: string; value: string; etag?: string }[]
+    properties: { name: string; value: string; etag?: string }[],
   ) => `
   <properties>
     ${properties.map((prop) => {
@@ -65,6 +73,15 @@ const CXOneTemplates = {
     "templatePath": "MindTouch/IDF3/Views/Topic_hierarchy",
     "guid": "fc488b5c-f7e1-1cad-1a9a-343d5c8641f5"
   }]`,
+
+  get PROP_GuideTabs2() {
+    return `[{
+  "templateKey": "Topic_hierarchy",
+  "templateTitle": "Topic hierarchy",
+  "templatePath": "MindTouch/IDF3/Views/Topic_hierarchy",
+  "guid": "${randomUUID()}"
+}]`;
+  },
   PUT_PageTags: (tags: string[]) => `<tags>
     ${tags.map((tag) => `<tag value="${tag}" />`).join("")}
   </tags>`,

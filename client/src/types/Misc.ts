@@ -24,19 +24,6 @@ export type ConductorBaseResponse =
   | { err: false }
   | { err: true; errMsg: string };
 
-export type ConductorInfiniteScrollResponse<T> = {
-  err: false;
-  items: T[];
-  meta: {
-    total_count: number;
-    has_more: boolean;
-    next_page: string | number | null;
-  }
-} | {
-  err: true;
-  errMsg: string;
-};
-
 export type _MoveFile = Pick<
   ProjectFile,
   "fileID" | "name" | "storageType" | "description"
@@ -61,8 +48,6 @@ export type License = {
   modifiedFromSource?: boolean;
   additionalTerms?: string;
 };
-
-export type NavbarContext = "conductor" | "commons" | "store" | "support";
 
 /**
  * A TypeScript type alias called `Prettify`.

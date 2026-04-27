@@ -1,8 +1,8 @@
-import { useHistory } from "react-router-dom";
-import { Card } from "@libretexts/davis-react";
+import { Link } from "react-router-dom";
+import { Card, CardProps } from "semantic-ui-react";
 import {
   Book,
-  Author,
+  ConductorSearchResponseAuthor,
   ConductorSearchResponseFile,
   Project,
 } from "../../../../types";
@@ -13,20 +13,25 @@ import "../../Commons.css";
 import ProjectCardContent from "./ProjectCardContent";
 import AuthorCardContent from "./AuthorCardContent";
 
-interface CatalogCardProps {
-  item: Book | ConductorSearchResponseFile | Project | Author;
+interface CatalogCardProps extends CardProps {
+  item:
+    | Book
+    | ConductorSearchResponseFile
+    | Project
+    | ConductorSearchResponseAuthor;
   onDetailClick?: () => void;
 }
 
-const CatalogCard: React.FC<CatalogCardProps> = ({ item, onDetailClick }) => {
-  const history = useHistory();
-
+const CatalogCard: React.FC<CatalogCardProps> = ({
+  item,
+  onDetailClick,
+  ...props
+}) => {
   if (isAuthor(item)) {
     return (
       <Card
-        variant="elevated"
-        className=" hover:border-secondary hover:border-2"
-        onClick={() => history.push(`/author/${item._id}`)}
+        className="commons-author-card shadow-md transform transition-transform duration-300 hover:-translate-y-1"
+        {...props}
       >
         <AuthorCardContent author={item} />
       </Card>
@@ -36,9 +41,10 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, onDetailClick }) => {
   if (isBook(item)) {
     return (
       <Card
-        variant="elevated"
-        className=" hover:border-secondary hover:border-2"
-        onClick={() => history.push(`/book/${item.bookID}`)}
+        as={Link}
+        to={`/book/${item.bookID}`}
+        className="commons-content-card"
+        {...props}
       >
         <BookCardContent book={item} />
       </Card>
@@ -48,9 +54,10 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, onDetailClick }) => {
   if (isProject(item)) {
     return (
       <Card
-        variant="elevated"
-        className=" hover:border-secondary hover:border-2"
-        onClick={() => history.push(`/commons-project/${item.projectID}`)}
+        as={Link}
+        to={`/commons-project/${item.projectID}`}
+        className="commons-project-card shadow-md transform transition-transform duration-300 hover:-translate-y-1"
+        {...props}
       >
         <ProjectCardContent project={item} />
       </Card>
@@ -59,9 +66,8 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, onDetailClick }) => {
 
   return (
     <Card
-      variant="elevated"
-      className=" hover:border-secondary hover:border-2"
-      onClick={() => onDetailClick && onDetailClick()}
+      className="commons-asset-card shadow-md transform transition-transform duration-300 hover:-translate-y-1"
+      {...props}
     >
       <FileCardContent file={item} onDetailClick={onDetailClick} />
     </Card>

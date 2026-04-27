@@ -1026,14 +1026,6 @@ class StoreService {
                         let product: Stripe.Product | null = null;
                         const thumbnailUrl = this.getBookThumbnailUrl({ library, id: book.id });
 
-                        let bookLicense = "";
-                        if (Array.isArray(book.tags)) {
-                            const licenseTag = book.tags.find((tag) => tag.includes("license:"));
-                            if (licenseTag) {
-                                bookLicense = licenseTag.replace("license:", "");
-                            }
-                        }
-
                         if (existingProducts.data.length > 0) {
                             // If the product exists, update it
                             product = existingProducts.data[0];
@@ -1048,7 +1040,6 @@ class StoreService {
                                     book_author: book.author || "Anonymous",
                                     book_institution: book.institution || "",
                                     num_pages: book.numPages.toString(),
-                                    license: bookLicense,
                                 }
                             });
                         } else {
@@ -1064,7 +1055,6 @@ class StoreService {
                                     book_author: book.author || "Anonymous",
                                     book_institution: book.institution || "",
                                     num_pages: book.numPages.toString(),
-                                    license: bookLicense,
                                 }
                             });
                         }

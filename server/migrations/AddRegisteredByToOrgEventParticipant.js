@@ -1,5 +1,5 @@
-import { debug, debugError } from '../debug.js';
 import { v4 as uuidv4 } from 'uuid';
+import { debug, debugError } from '../debug.js';
 import OrgEventParticipant from '../models/orgeventparticipant.js';
 
 /**
@@ -12,15 +12,13 @@ export async function runMigration() {
     debug(`Running migration "${migrationTitle}"...`);
 
     const results = await OrgEventParticipant.find({}).lean();
-    const operations = results.map((participant) =>
-      OrgEventParticipant.updateOne(
-        { _id: participant._id },
-        {
-          regID: uuidv4(),
-          registeredBy: participant.user
-        },
-      )
-    );
+    const operations = results.map((participant) => OrgEventParticipant.updateOne(
+      { _id: participant._id },
+      {
+        regID: uuidv4(),
+        registeredBy: participant.user,
+      },
+    ));
     await Promise.all(operations);
 
     debug(`Updated ${operations.length} Participants.`);

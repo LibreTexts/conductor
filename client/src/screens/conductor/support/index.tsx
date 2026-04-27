@@ -1,13 +1,15 @@
 import DefaultLayout from "../../../components/navigation/AlternateLayout";
 import SupportCenterJumbotron from "../../../components/support/Jumbotron";
+import { Icon, SemanticICONS } from "semantic-ui-react";
 import { useTypedSelector } from "../../../state/hooks";
+import { useMediaQuery } from "react-responsive";
 import { useDocumentTitle } from "usehooks-ts";
-import { Card, Heading, Text } from "@libretexts/davis-react";
-import { IconLifebuoy, IconMessages, IconProgressCheck, IconQuestionMark, IconTicket, IconVideoPlus } from "@tabler/icons-react";
 
 const SupportCenter = () => {
   useDocumentTitle("LibreTexts | Support Center");
   const user = useTypedSelector((state) => state.user);
+  const isTailwindLg = useMediaQuery({ minWidth: 1024 });
+
   const officeHoursAvailable = (): boolean => {
     // Office hours are available tuesday and thursday from 9am to 10am Pacific Time (use a 30 minute buffer on either side)
     const now = new Date();
@@ -40,15 +42,6 @@ const SupportCenter = () => {
     return isCorrectDay && isInTimeWindow;
   };
 
-  const ICON_MAP = {
-    contact: <IconLifebuoy size={72} className="text-primary" />,
-    connections: <IconMessages size={72} className="text-primary" />,
-    insight: <IconQuestionMark size={72} className="text-primary" />,
-    officeHours: <IconVideoPlus size={72} className="text-primary" />,
-    status: <IconProgressCheck size={72} className="text-primary" />,
-    dashboard: <IconTicket size={72} className="text-primary" />,
-  }
-
   const HomeItem = ({
     title,
     text,
@@ -58,31 +51,28 @@ const SupportCenter = () => {
   }: {
     title: string;
     text: string;
-    icon: JSX.Element;
+    icon: SemanticICONS;
     link: string;
     disabled?: boolean;
   }) => {
     return (
-      <Card
+      <div
         onClick={() => {
           if (!disabled) openLink(link);
         }}
-        variant="elevated"
-        padding="lg"
-        className={`flex flex-col items-center text-center ${disabled
-          ? "opacity-60 cursor-not-allowed"
-          : "cursor-pointer hover:border-secondary hover:border-2"
-          }`}
+        className={`flex flex-col h-80 w-96 p-4 mx-auto my-4 lg:m-4 border rounded-xl shadow-md items-center cursor-pointer ${
+          disabled
+            ? "opacity-70 !cursor-not-allowed"
+            : "opacity-100 hover:shadow-xl"
+        }`}
         aria-disabled={disabled}
       >
-        <div className="">
-          {icon}
+        <div className="w-16 h-16 my-8">
+          <Icon name={icon} size="huge" className="text-primary" />
         </div>
-        <Heading level={2} className="text-center">
-          {title}
-        </Heading>
-        <Text className="text-center mt-2">{text}</Text>
-      </Card>
+        <h2 className="text-3xl font-bold text-center">{title}</h2>
+        <p className="text-xl text-center mt-2">{text}</p>
+      </div>
     );
   };
 
@@ -91,32 +81,32 @@ const SupportCenter = () => {
   }
 
   return (
-    <DefaultLayout h="screen" noPadding>
+    <DefaultLayout h={isTailwindLg ? "screen-content" : "screen"}>
       <SupportCenterJumbotron />
-      <div className="lt-legacy grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl mx-auto px-6 py-12">
+      <div className="flex flex-col lg:flex-row w-full justify-center my-0 lg:my-12 flex-grow !h-auto">
         <HomeItem
           title="Contact Support"
           text="Contact the LibreTexts Support Team for help"
-          icon={ICON_MAP.contact}
+          icon="text telephone"
           link="/support/contact"
         />
         <HomeItem
           title="Connections"
           text="Connect and converse with fellow instructors and OER authors (Verified Instructors only)."
-          icon={ICON_MAP.connections}
+          icon="comments"
           link="/support/connections"
         />
         <HomeItem
           title="Insight"
           text="Search Insight for help with all of your LibreTexts apps &
           services."
-          icon={ICON_MAP.insight}
+          icon="question circle outline"
           link="/insight"
         />
         <HomeItem
           title="Office Hours"
           text="Join our office hours to get live help from the LibreTexts Team. Tuesdays & Thursdays, 9am-10am Pacific Time"
-          icon={ICON_MAP.officeHours}
+          icon="video"
           link="https://zoom.libretexts.org"
           disabled={!officeHoursAvailable()}
         />
@@ -124,7 +114,7 @@ const SupportCenter = () => {
           title="Systems Status"
           text="
           View systems status for all LibreTexts apps & services and check for known outages."
-          icon={ICON_MAP.status}
+          icon="dashboard"
           link="https://status.libretexts.org"
         />
         {user?.uuid && (
@@ -135,7 +125,7 @@ const SupportCenter = () => {
                 : "My Tickets"
             }
             text="View and manage support tickets."
-            icon={user.isSupport || user.isHarvester ? ICON_MAP.dashboard : ICON_MAP.dashboard}
+            icon={user.isSupport || user.isHarvester ? "user doctor" : "ticket"}
             link="/support/dashboard"
           />
         )}

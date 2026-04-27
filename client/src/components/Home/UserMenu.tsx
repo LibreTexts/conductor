@@ -9,11 +9,10 @@ import {
 import AccountStatus from "../util/AccountStatus";
 import { Link } from "react-router-dom";
 import { useTypedSelector } from "../../state/hooks";
+import { getCentralAuthInstructorURL } from "../../utils/centralIdentityHelpers";
 import { useState } from "react";
-import useClientConfig from "../../hooks/useClientConfig";
 
 const UserMenu: React.FC = () => {
-  const { clientConfig } = useClientConfig();
   const user = useTypedSelector((state) => state.user);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -63,17 +62,14 @@ const UserMenu: React.FC = () => {
         Adoption Report
         <Icon name="clipboard check" />
       </Menu.Item>
-      {
-        clientConfig?.instructor_verification_url && (
-          <Menu.Item
-            href={clientConfig?.instructor_verification_url}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Instructor Verification<br /> Request
-            <Icon name="briefcase" />
-          </Menu.Item>
-        )}
+      <Menu.Item
+        href={getCentralAuthInstructorURL()}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Instructor Verification<br></br> Request
+        <Icon name="share alternate" />
+      </Menu.Item>
       <Menu.Item
         href="https://libretexts.org"
         target="_blank"

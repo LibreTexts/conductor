@@ -6,7 +6,9 @@
 import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
+import { createHmac } from "crypto";
 import { catchInternal } from "./util/helpers.js";
+import { getLibraryCredentials } from "./util/librariesclient.js";
 import middleware from "./middleware.js"; // Route middleware
 import assetTagFrameworkAPI from "./api/assettagframeworks.js";
 import authorsAPI from "./api/authors.js";
@@ -24,7 +26,6 @@ import booksAPI from "./api/books.js";
 import homeworkAPI from "./api/homework.js";
 import librariesAPI from "./api/libraries.js";
 import searchAPI from "./api/search.js";
-import searchIndexManagementAPI from "./api/search-index-management.js";
 import announcementAPI from "./api/announcements.js";
 import peerReviewAPI from "./api/peerreview.js";
 import projectsAPI from "./api/projects.js";
@@ -39,6 +40,7 @@ import analyticsAPI from "./api/analytics.js";
 import orgEventsAPI from "./api/orgevents.js";
 import paymentsAPI from "./api/payments.js";
 import kbAPI from "./api/kb.js";
+import remixerAPI from "./api/remixer.js";
 import supportAPI from "./api/support.js";
 import supportQueuesAPI from "./api/supportqueues.js";
 import projectInvitationsAPI from "./api/projectinvitations.js";
@@ -51,6 +53,7 @@ import * as LibraryValidators from "./api/validators/libraries.js";
 import * as supportValidators from "./api/validators/support.js";
 import * as supportQueueValidators from "./api/validators/supportqueues.js";
 import * as ProjectValidators from "./api/validators/projects.js";
+import * as RemixerValidators from "./api/validators/remixer.js";
 import * as ProjectFileValidators from "./api/validators/projectfiles.js";
 import * as SearchValidators from "./api/validators/search.js";
 import * as AssetTagFrameworkValidators from "./api/validators/assettagframeworks.js";
@@ -89,7 +92,7 @@ const corsMiddleware = cors({
       if (allowed instanceof RegExp) return allowed.test(origin);
       return false;
     });
-    
+
     if (foundOrigin) {
       return callback(null, origin);
     }
@@ -296,15 +299,15 @@ router
   )
 
 router.route("/central-identity/users/:id/app-licenses")
-.get(
-  middleware.checkCentralIdentityConfig,
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-  centralIdentityAPI.validate("getUserAppLicenses"),
-  middleware.checkValidationErrors,
-  centralIdentityAPI.getUserAppLicenses
-)
+  .get(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("getUserAppLicenses"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.getUserAppLicenses
+  )
 
 router
   .route("/central-identity/users/:userId/notes")
@@ -397,37 +400,37 @@ router.route("/central-identity/app-licenses").get(
 );
 
 router.route("/central-identity/app-licenses/grant")
-.post(
-  middleware.checkCentralIdentityConfig,
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-  centralIdentityAPI.validate("grantAppLicense"),
-  middleware.checkValidationErrors,
-  centralIdentityAPI.grantAppLicense
-);
+  .post(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("grantAppLicense"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.grantAppLicense
+  );
 
 router.route("/central-identity/app-licenses/revoke")
-.post(
-  middleware.checkCentralIdentityConfig,
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-  centralIdentityAPI.validate("revokeAppLicense"),
-  middleware.checkValidationErrors,
-  centralIdentityAPI.revokeAppLicense
-);
+  .post(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("revokeAppLicense"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.revokeAppLicense
+  );
 
 router.route("/central-identity/app-licenses/:id/bulk-generate")
-.post(
-  middleware.checkCentralIdentityConfig,
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-  centralIdentityAPI.validate("bulkGenerateAccessCodes"),
-  middleware.checkValidationErrors,
-  centralIdentityAPI.bulkGenerateAccessCodes
-);
+  .post(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    centralIdentityAPI.validate("bulkGenerateAccessCodes"),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.bulkGenerateAccessCodes
+  );
 
 router
   .route("/central-identity/apps")
@@ -448,7 +451,7 @@ router
 
 router
   .route("/central-identity/orgs")
-  .get( 
+  .get(
     middleware.checkCentralIdentityConfig,
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
@@ -462,7 +465,7 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-    centralIdentityAPI.validate("createOrg"), 
+    centralIdentityAPI.validate("createOrg"),
     middleware.checkValidationErrors,
     centralIdentityAPI.createOrg
   );
@@ -483,7 +486,7 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-    centralIdentityAPI.validate("getOrg"), 
+    centralIdentityAPI.validate("getOrg"),
     middleware.checkValidationErrors,
     centralIdentityAPI.getOrg
   )
@@ -492,7 +495,7 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-    centralIdentityAPI.validate("updateOrg"), 
+    centralIdentityAPI.validate("updateOrg"),
     middleware.checkValidationErrors,
     centralIdentityAPI.updateOrg
   );
@@ -662,7 +665,6 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
-    authAPI.assertCampusAdminForOrgParam,
     orgsAPI.validate("updateinfo"),
     middleware.checkValidationErrors,
     orgsAPI.updateOrganizationInfo
@@ -674,7 +676,6 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
-    authAPI.assertCampusAdminForOrgParam,
     orgsAPI.validate("updateBrandingImageAsset"),
     middleware.checkValidationErrors,
     orgsAPI.assetUploadHandler,
@@ -687,22 +688,9 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
-    authAPI.assertCampusAdminForOrgParam,
     orgsAPI.validate("updateAutomaticCatalogMatchingSettings"),
     middleware.checkValidationErrors,
     orgsAPI.updateAutomaticCatalogMatchingSettings
-  );
-
-router
-  .route("/org/:orgID/campus-admins")
-  .get(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
-    authAPI.assertCampusAdminForOrgParam,
-    orgsAPI.validate("getCampusAdmins"),
-    middleware.checkValidationErrors,
-    orgsAPI.getCampusAdmins
   );
 
 /* Asset Tag Frameworks */
@@ -757,15 +745,25 @@ router
 router
   .route("/authors")
   .get(
-    middleware.validateZod(AuthorsValidators.GetAuthorsValidator),
+    middleware.validateZod(AuthorsValidators.GetAllAuthorsValidator),
     authorsAPI.getAuthors
   )
   .post(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
     middleware.validateZod(AuthorsValidators.CreateAuthorValidator),
     authorsAPI.createAuthor
+  );
+
+router
+  .route("/authors/bulk")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+    middleware.validateZod(AuthorsValidators.BulkCreateAuthorsValidator),
+    authorsAPI.bulkCreateAuthors
   );
 
 router
@@ -777,14 +775,14 @@ router
   .patch(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
     middleware.validateZod(AuthorsValidators.UpdateAuthorValidator),
     authorsAPI.updateAuthor
   )
   .delete(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
     middleware.validateZod(AuthorsValidators.DeleteAuthorValidator),
     authorsAPI.deleteAuthor
   );
@@ -794,16 +792,6 @@ router
   .get(
     middleware.validateZod(AuthorsValidators.GetAuthorAssetsValidator),
     authorsAPI.getAuthorAssets
-  );
-
-router
-  .route("/authors/template/:type")
-  .get(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-    middleware.validateZod(AuthorsValidators.GetCXOnePageContentTemplateValidator),
-    authorsAPI.getCXOnePageContentTemplate
   );
 
 /* Adoption Reports */
@@ -905,15 +893,15 @@ router.route("/store/sync").put(
 );
 
 router.route("/store/webhooks/stripe").post(
-    express.raw({ type: "application/json" }),
-    storeAPI.processStripeWebhook
-  );
+  express.raw({ type: "application/json" }),
+  storeAPI.processStripeWebhook
+);
 
 router.route("/store/webhooks/lulu").post(
   express.raw({ type: "application/json" }),
   storeAPI.processLuluWebhook
 )
-  
+
 /* Translation Feedback */
 // (submission route can be anonymous)
 router
@@ -1046,37 +1034,15 @@ router
   .route("/commons/syncwithlibs/automated")
   .put(middleware.checkLibreAPIKey, booksAPI.runAutomatedSyncWithLibraries);
 
-router.route("/commons/sync-with-search-index").post(
+router.route("/commons/syncwithsearch").post(
   middleware.checkLibreAPIKey,
   booksAPI.syncWithSearchIndex,
 )
 
-router.route("/projects/sync-with-search-index").post(
+router.route("/projects/syncwithsearch").post(
   middleware.checkLibreAPIKey,
   projectsAPI.syncWithSearchIndex,
 )
-
-/* Search Index Management */
-router.route("/search-index/status").get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-  searchIndexManagementAPI.getIndexStatus
-);
-
-router.route("/search-index/resync").post(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-  searchIndexManagementAPI.resyncIndex
-);
-
-router.route("/search-index/reinitialize-settings").post(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-  searchIndexManagementAPI.reinitializeIndexSettings
-);
 
 /* Commons Books/Catalogs */
 router
@@ -1104,6 +1070,30 @@ router
     authAPI.verifyRequest,
     middleware.validateZod(BookValidators.createBookSchema),
     booksAPI.createBook
+  );
+
+router
+  .route("/commons/import-pressbooks")
+  .post(
+    authAPI.verifyRequest,
+    middleware.validateZod(BookValidators.importPressBooksBookSchema),
+    booksAPI.importPressBooksBook
+  );
+
+router
+  .route("/commons/import-pressbooks/active")
+  .get(
+    authAPI.verifyRequest,
+    middleware.validateZod(BookValidators.getActivePressbooksImportJobSchema),
+    booksAPI.getActivePressBooksImportJob
+  );
+
+router
+  .route("/commons/import-pressbooks/:jobID")
+  .get(
+    authAPI.verifyRequest,
+    middleware.validateZod(BookValidators.getPressbooksImportJobStatusSchema),
+    booksAPI.getPressBooksImportJobStatus
   );
 
 router
@@ -1437,7 +1427,7 @@ router
   .put(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"), // Only superadmins can update roles
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
     usersAPI.validate("updateUserRole"),
     middleware.checkValidationErrors,
     usersAPI.updateUserRole
@@ -1448,7 +1438,7 @@ router
   .delete(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"), // Only superadmins can delete roles
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
     usersAPI.validate("deleteUserRole"),
     middleware.checkValidationErrors,
     usersAPI.deleteUserRole
@@ -1914,6 +1904,11 @@ router
     middleware.checkValidationErrors,
     projectsAPI.removeMemberFromProject
   );
+
+router.route("/project/sync-with-search-index").post(
+  middleware.checkLibreAPIKey,
+  projectsAPI.syncWithSearchIndex
+);
 
 router
   .route("/project/threads")
@@ -2559,12 +2554,12 @@ router
     kbAPI.getKBPage
   );
 
-  router
+router
   .route("/kb/page/slug/:slug/embeddings")
   .post(
-    authAPI.verifyRequest,                                   
-    authAPI.getUserAttributes,                               
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"), 
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
     middleware.validateZod(kbValidators.GetKBPageValidator),
     kbAPI.generateKBPageEmbeddings
   );
@@ -2720,14 +2715,14 @@ router
   );
 
 router
-.route("/support/ticket/bulk-update")
-.patch(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
-  middleware.validateZod(supportValidators.BulkUpdateTicketsValidator),
-  supportAPI.bulkUpdateTickets
-);
+  .route("/support/ticket/bulk-update")
+  .patch(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
+    middleware.validateZod(supportValidators.BulkUpdateTicketsValidator),
+    supportAPI.bulkUpdateTickets
+  );
 
 router
   .route("/support/ticket/:uuid/assign")
@@ -2755,14 +2750,14 @@ router
   );
 
 router
-.route("/support/ticket/:uuid/create-project-from-harvesting-request")
-.post(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
-  middleware.validateZod(supportValidators.TicketUUIDParams),
-  supportAPI.createAndAttachProjectFromHarvestingRequest
-);
+  .route("/support/ticket/:uuid/create-project-from-harvesting-request")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
+    middleware.validateZod(supportValidators.TicketUUIDParams),
+    supportAPI.createAndAttachProjectFromHarvestingRequest
+  );
 
 router
   .route("/support/ticket/:uuid/msg")
@@ -2858,11 +2853,6 @@ router
   .route("/support/run-autoclose")
   .post(middleware.checkEventBridgeAPIKey, supportAPI.autoCloseTickets);
 
-router.route("/support/sync-with-search-index").post(
-  middleware.checkLibreAPIKey,
-  supportAPI.syncWithSearchIndex
-)
-
 router.route("/cloudflare/stream-url").post(
   // authAPI.verifyRequest,
   // authAPI.getUserAttributes,
@@ -2935,40 +2925,92 @@ router
     projectInvitationsAPI.updateProjectInvitation
   );
 
-  router
+router
   .route("/kb/migrate-to-qdrant")
   .post(
     middleware.checkLibreAPIKey,
-    middleware.validateZod(kbValidators.MigrateToQdrantValidator), 
+    middleware.validateZod(kbValidators.MigrateToQdrantValidator),
     kbAPI.migrateKBPagesToQdrant
   );
 
-  router
-    .route("/kb/create-single-page-embedding/:uuid")
-    .post(
-      authAPI.verifyRequest,
-      authAPI.getUserAttributes,
-      authAPI.checkHasRoleMiddleware("libretexts", "superadmin"), 
-      middleware.validateZod(kbValidators.KBUUIDParams),
-      kbAPI.createSinglePageEmbedding
-    );
+router
+  .route("/kb/create-single-page-embedding/:uuid")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(kbValidators.KBUUIDParams),
+    kbAPI.createSinglePageEmbedding
+  );
 
-  router
-    .route("/agent/create-session")
-    .post(
-      authAPI.optionalVerifyRequest,
-      authAPI.optionalGetUserAttributes,
-      kbAPI.createSessionHandler 
-    );
+router
+  .route("/agent/create-session")
+  .post(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
+    kbAPI.createSessionHandler
+  );
 
-  router
-    .route("/agent/query-langgraph")
-    .post(
-      authAPI.optionalVerifyRequest,
-      authAPI.optionalGetUserAttributes,
-      middleware.validateZod(kbValidators.AgentQueryLangGraphValidator),
-      kbAPI.agentQueryLangGraph
-    );
+router
+  .route("/agent/query-langgraph")
+  .post(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
+    middleware.validateZod(kbValidators.AgentQueryLangGraphValidator),
+    kbAPI.agentQueryLangGraph
+  );
+
+router
+  .route("/remixer/:id/project")
+  .get(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
+    remixerAPI.getRemixerProject
+  )
+  .put(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
+    middleware.validateZod(RemixerValidators.SaveRemixerProjectStateSchema),
+    remixerAPI.saveRemixerProjectState
+  )
+  .post(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
+    middleware.validateZod(RemixerValidators.GetRemixerProjectStateSchema),
+    remixerAPI.getRemixerProjectState
+  )
+  .delete(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
+    middleware.validateZod(RemixerValidators.GetRemixerProjectStateSchema),
+    remixerAPI.deleteRemixerProjectState
+  );
+
+router
+  .route("/remixer/:id/page")
+  .post(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
+    middleware.validateZod(RemixerValidators.GetRemixerPageSchema),
+    remixerAPI.fetchPage
+  );
+
+
+
+router
+  .route("/remixer/:id/publish")
+  .post(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
+    middleware.validateZod(RemixerValidators.SaveRemixerProjectStateSchema),
+    remixerAPI.publishRemixerProject
+  )
+  .get(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
+    remixerAPI.getRemixerJobStatus
+  );
+
 
 
 export default router;

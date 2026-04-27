@@ -112,7 +112,7 @@ const NavTree = () => {
     <div
       ref={navTreeRef}
       aria-busy={loading}
-      className={`h-screen-content overflow-y-auto border-r-1 border-gray-300 p-4 ${
+      className={`h-screen-content overflow-y-auto border-r-2 p-4 ${
         drawerOpen ? "min-w-[15rem]" : "min-w-[4rem]"
       } ${drawerOpen ? "max-w-[20rem]" : "max-w-[4rem]"} overflow-y-auto`}
     >
@@ -169,7 +169,7 @@ const NavTree = () => {
                 <div className="flex flex-row justify-between items-center">
                   <div className="flex flex-row items-center overflow-x-clip align-middle">
                     <a
-                      className={`text-lg break-words hyphens-auto ${
+                      className={`text-lg font-semibold break-words hyphens-auto ${
                         isActive ? "text-blue-600" : "text-black"
                       }`}
                       href={getLink(node.slug)}
@@ -192,7 +192,7 @@ const NavTree = () => {
                           data-active={isChildActive}
                         >
                           <a
-                            className={`text-md break-words hyphens-auto ${
+                            className={`text-md font-semibold break-words hyphens-auto ${
                               isChildActive ? "text-blue-600" : "text-gray-600"
                             }`}
                             href={getLink(child.slug)}

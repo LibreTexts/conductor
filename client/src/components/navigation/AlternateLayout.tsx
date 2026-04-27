@@ -6,23 +6,20 @@ import classNames from "classnames";
 const AlternateLayout = ({
   children,
   altBackground,
-  noPadding,
   h = "screen",
   className,
 }: {
   children: JSX.Element[] | JSX.Element;
   altBackground?: boolean;
-  noPadding?: boolean;
   h?: "screen" | "screen-content";
   className?: string;
 }) => {
   return (
     <div
       className={classNames(
-        "flex flex-col",
+        "flex flex-col -mb-[2%]",
         h === "screen" ? "min-h-screen" : "h-screen-content",
-        altBackground ? "bg-surface-muted" : "bg-white",
-        noPadding ? "" : "pt-5",
+        altBackground ? "" : "bg-white",
         className
       )}
     >

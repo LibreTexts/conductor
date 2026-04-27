@@ -1,3 +1,4 @@
+import { Header, Icon, Table, TableProps } from "semantic-ui-react";
 import { ConductorSearchResponseFile } from "../../../types";
 import { Link } from "react-router-dom";
 import { truncateString } from "../../util/HelperFunctions";
@@ -7,13 +8,10 @@ import {
   getFileTypeIcon,
   getPrettyAuthorsList,
 } from "../../../utils/assetHelpers";
-import { useMemo, useState } from "react";
-import { DataTable } from "@libretexts/davis-react-table";
-import type { ColumnDef, DataTableProps } from "@libretexts/davis-react-table";
-import { IconFile } from "@tabler/icons-react";
+import { useState } from "react";
+import LoadingSpinner from "../../LoadingSpinner";
 
-
-interface AssetsTableProps extends DataTableProps<ConductorSearchResponseFile> {
+interface AssetsTableProps extends TableProps {
   items: ConductorSearchResponseFile[];
   loading?: boolean;
 }
@@ -24,101 +22,6 @@ const AssetsTable: React.FC<AssetsTableProps> = ({
   ...rest
 }) => {
   const [downloadLoading, setDownloadLoading] = useState(false);
-
-  const columns = useMemo(
-    () => [
-      {
-        accessorKey: "type",
-        header: "Type",
-        cell: ({ row }) => {
-          const file = row.original;
-          // TODO: use getFileTypeIcon when it's update to return a Tabler icon component instead of a Semantic UI icon name
-          return (
-            <IconFile size={24} />
-          );
-        },
-      },
-      {
-        accessorKey: "name",
-        header: "Name",
-        cell: ({ row }) => {
-          const file = row.original;
-          return (
-            <a
-              onClick={() => handleFileDownload(file)}
-              className="cursor-pointer"
-            >
-              {truncateString(file.name, 50)}
-            </a>
-          );
-        },
-      },
-      {
-        accessorKey: "description",
-        header: "Description",
-        cell: ({ row }) => {
-          const file = row.original;
-          return <p>{truncateString(file.description, 50)}</p>;
-        },
-      },
-      {
-        accessorKey: "author",
-        header: "Author",
-        cell: ({ row }) => {
-          const file = row.original;
-          return (
-            <p>
-              {getPrettyAuthorsList(file.primaryAuthor, file.authors)}
-            </p>
-          );
-        }
-      },
-      {
-        accessorKey: "project",
-        header: "Project",
-        cell: ({ row }) => {
-          const file = row.original;
-          return (
-            <p>
-              <Link to={`/commons-project/${file.projectID}`} target="_blank">
-                {truncateString(file.projectInfo?.title, 50)}
-              </Link>
-            </p>
-          );
-        }
-      },
-      {
-        accessorKey: "license",
-        header: "License",
-        cell: ({ row }) => {
-          const file = row.original;
-          return (
-            <p>
-              {file.license
-                ? `${file.license.name} ${file.license.version
-                  ? `(${file.license.version})`
-                  : ""
-                }`
-                : "Unknown"}
-            </p>
-          );
-        }
-      },
-      {
-        accessorKey: "size",
-        header: "Size",
-        cell: ({ row }) => {
-          const file = row.original;
-          return (
-            <p>
-              <em>{fileSizePresentable(file.size)}</em>
-            </p>
-          );
-        }
-      },
-    ] as ColumnDef<ConductorSearchResponseFile>[],
-    []
-  );
 
   async function handleFileDownload(file: ConductorSearchResponseFile) {
     let success = false;
@@ -136,12 +39,111 @@ const AssetsTable: React.FC<AssetsTableProps> = ({
   }
 
   return (
-    <DataTable<ConductorSearchResponseFile>
-      columns={columns}
-      data={items}
-      loading={loading || downloadLoading}
-      density="compact"
-    />
+    <Table celled title="Search Results" {...rest}>
+      <Table.Header>
+        <Table.Row>
+          <Table.HeaderCell scope="col">
+            <Header sub>Type</Header>
+          </Table.HeaderCell>
+          <Table.HeaderCell scope="col">
+            <Header sub>Name</Header>
+          </Table.HeaderCell>
+          <Table.HeaderCell scope="col">
+            <Header sub>Description</Header>
+          </Table.HeaderCell>
+          <Table.HeaderCell scope="col">
+            <Header sub>Author</Header>
+          </Table.HeaderCell>
+          <Table.HeaderCell>
+            <Header sub>Project</Header>
+          </Table.HeaderCell>
+          <Table.HeaderCell scope="col">
+            <Header sub>License</Header>
+          </Table.HeaderCell>
+          <Table.HeaderCell scope="col">
+            <Header sub>Size</Header>
+          </Table.HeaderCell>
+        </Table.Row>
+      </Table.Header>
+      <Table.Body>
+        {
+          downloadLoading && (
+            <LoadingSpinner />
+          )
+        }
+        {items.length > 0 &&
+          items.map((item, index) => {
+            return (
+              <Table.Row key={index}>
+                <Table.Cell>
+                  <Icon
+                    name={getFileTypeIcon(item)}
+                    size="large"
+                    color="black"
+                  />
+                </Table.Cell>
+                <Table.Cell>
+                  <a
+                    onClick={() => handleFileDownload(item)}
+                    className="cursor-pointer"
+                  >
+                    {truncateString(item.name, 50)}
+                  </a>
+                </Table.Cell>
+                <Table.Cell>
+                  <p>{truncateString(item.description, 50)}</p>
+                </Table.Cell>
+                <Table.Cell>
+                  <p>
+                    {getPrettyAuthorsList(item.primaryAuthor, item.authors)}
+                  </p>
+                </Table.Cell>
+                <Table.Cell>
+                  <p>
+                    <Link to={`/commons-project/${item.projectID}`} target="_blank">
+                      {truncateString(item.projectInfo?.title, 50)}
+                    </Link>
+                  </p>
+                </Table.Cell>
+                <Table.Cell>
+                  <p>
+                    {item.license
+                      ? `${item.license.name} ${
+                          item.license.version
+                            ? `(${item.license.version})`
+                            : ""
+                        }`
+                      : "Unknown"}
+                  </p>
+                </Table.Cell>
+                <Table.Cell>
+                  <p>
+                    <em>{fileSizePresentable(item.size)}</em>
+                  </p>
+                </Table.Cell>
+              </Table.Row>
+            );
+          })}
+        {loading && (
+          <Table.Row>
+            <Table.Cell colSpan={5}>
+              <p className="text-center">
+                <em>Loading...</em>
+              </p>
+            </Table.Cell>
+          </Table.Row>
+        )}
+        {items.length === 0 && (
+          <Table.Row>
+            <Table.Cell colSpan={5}>
+              <p className="text-center">
+                <em>No results found.</em>
+              </p>
+            </Table.Cell>
+          </Table.Row>
+        )}
+      </Table.Body>
+    </Table>
   );
 };
 

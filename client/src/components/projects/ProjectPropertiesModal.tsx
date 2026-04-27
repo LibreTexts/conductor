@@ -433,12 +433,12 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
-      if (!res.data.items || !Array.isArray(res.data.items)) {
+      if (!res.data.authors || !Array.isArray(res.data.authors)) {
         throw new Error("Failed to load PI options");
       }
 
       const existing = getValues("principalInvestigators") ?? [];
-      const opts = [...res.data.items, ...existing];
+      const opts = [...res.data.authors, ...existing];
 
       setPIOptions(opts);
 
@@ -467,12 +467,12 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
-      if (!res.data.items || !Array.isArray(res.data.items)) {
+      if (!res.data.authors || !Array.isArray(res.data.authors)) {
         throw new Error("Failed to load co-PI options");
       }
 
       const opts = [
-        ...res.data.items,
+        ...res.data.authors,
         ...(watch("coPrincipalInvestigators") ?? []),
       ];
 
@@ -647,7 +647,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       return {
         key: crypto.randomUUID(),
         value: pi._id ?? "",
-        text: pi.name,
+        text: `${pi.firstName} ${pi.lastName}`,
       };
     });
   }, [piOptions]);
@@ -657,7 +657,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       return {
         key: crypto.randomUUID(),
         value: pi?._id ?? "",
-        text: pi?.name ?? "",
+        text: `${pi.firstName} ${pi.lastName}`,
       };
     });
   }, [coPIOptions]);

@@ -9,4 +9,3 @@ export * from "./LibrariesClient";
 export * from "./Lulu";
 export * from "./Misc";
 export * from "./ReaderResource";
-export * from "./Search";

@@ -85,7 +85,7 @@ const CollectionTable: React.FC<CollectionTableProps> = ({ data, loading }) => {
         {!loading && data.length === 0 && (
           <Table.Row>
             <Table.Cell colSpan={4}>
-              <p className="text-center" role="alert">
+              <p className="text-center">
                 <em>No results found.</em>
               </p>
             </Table.Cell>

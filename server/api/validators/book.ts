@@ -15,6 +15,40 @@ export const createBookSchema = z.object({
   }),
 });
 
+export const importPressBooksBookSchema = z.object({
+  body: z.object({
+    library: z.coerce.number().positive().int(),
+    // pressbooks book URL
+    pbBookURL: z.string().superRefine((value, ctx) => {
+      try {
+        // Use the WHATWG URL parser instead of the deprecated validator.js wrapper
+        // to validate that the string is a well-formed absolute URL.
+        // eslint-disable-next-line no-new
+        new URL(value);
+      } catch {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Invalid URL",
+        });
+      }
+    }),
+    title: z.string().min(1).max(255).optional(),
+    projectID: z.string().length(10),
+  }),
+});
+
+export const getPressbooksImportJobStatusSchema = z.object({
+  params: z.object({
+    jobID: z.string().min(1),
+  }),
+});
+
+export const getActivePressbooksImportJobSchema = z.object({
+  query: z.object({
+    projectID: z.string().length(10),
+  }),
+});
+
 export const getCommonsCatalogSchema = z.object({
   query: z.object({
     activePage: z.coerce.number().min(1).default(1),

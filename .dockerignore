@@ -1,57 +1,20 @@
 # Configuration and environment
 **/config/
 server/.env
-.env*
 
 # Dependencies/modules
 **/node_modules/
 
-# Build/distribution files (these are built fresh in Docker)
+# Build/distribution files
 **/build/
 **/dist/
 
 # Version control
 **/.git/
 .gitignore
-.gitattributes
 
 # IDE files
 .vscode
-.idea
-*.swp
-*.swo
-*~
-
-# Testing
-**/__tests__/
-**/*.test.ts
-**/*.test.tsx
-**/*.spec.ts
-**/*.spec.tsx
-**/coverage/
-
-# Documentation
-README.md
-CHANGELOG.md
-LICENSE
-**/*.md
-
-# CI/CD
-.github/
-.gitlab-ci.yml
-.travis.yml
 
 # macOS files
 **/.DS_Store
-.AppleDouble
-.LSOverride
-
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Lockfiles for other package managers
-yarn.lock
-pnpm-lock.yaml

@@ -1,7 +1,7 @@
-import { Button, Text } from "@libretexts/davis-react";
-import { IconDownload } from "@tabler/icons-react";
+import { TabPane, TabPaneProps } from "semantic-ui-react";
+import useInfiniteScroll from "../../../hooks/useInfiniteScroll";
 
-interface CatalogTabProps {
+interface CatalogTabProps extends TabPaneProps {
   itemizedMode: boolean;
   dataLength: number;
   totalLength: number;
@@ -19,33 +19,28 @@ const CatalogTab: React.FC<CatalogTabProps> = ({
   itemizedRender,
   visualRender,
   loading,
+  ...rest
 }) => {
-  const hasMore = dataLength < totalLength;
+  const { lastElementRef } = useInfiniteScroll({
+    next: getNextPage,
+    hasMore: dataLength < totalLength,
+    isLoading: loading,
+  });
 
   return (
-    <div className="flex flex-col min-h-[800px] justify-between pt-0 pb-4">
+    <TabPane
+      attached={false}
+      className="!flex flex-col !border-none !shadow-none !px-0 !pt-0 !rounded-md !mt-0 !pb-4 min-h-[800px] justify-between"
+      {...rest}
+    >
       {itemizedMode ? itemizedRender : visualRender}
-
-      {hasMore && (
-        <div className="w-full mt-6 flex justify-center">
-          <Button
-            variant="secondary"
-            onClick={getNextPage}
-            disabled={loading}
-            aria-label="Load more results"
-            icon={<IconDownload />}
-          >
-            {loading ? "Loading..." : "Load More"}
-          </Button>
-        </div>
-      )}
-
-      {!hasMore && dataLength > 0 && (
+      <div ref={lastElementRef}></div>
+      {dataLength >= totalLength && (
         <div className="w-full mt-4">
-          <Text weight="semibold">End of results</Text>
+          <p className="text-center font-semibold">End of results</p>
         </div>
       )}
-    </div>
+    </TabPane>
   );
 };
 

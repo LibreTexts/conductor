@@ -32,7 +32,7 @@ const TicketComment: React.FC<TicketCommentProps> = ({ msg }) => {
   };
 
   return (
-    <Comment className="flex flex-row w-full border-b border-gray-300 items-center py-4 px-2">
+    <Comment className="flex flex-row w-full border-b items-center py-4 px-2">
       <CommentAvatar
         src={
           msg.sender && msg.sender.avatar

@@ -69,7 +69,7 @@ const UserConductorData: React.FC<UserConductorDataProps> = ({ uuid }) => {
   };
 
   return (
-    <div className="flex flex-col rounded-md p-4 shadow-md bg-white h-fit space-y-1.5 mt-4">
+    <div className="flex flex-col rounded-md p-4 shadow-md bg-white h-fit space-y-1.5 mb-8">
       <div className="flex justify-between items-center mb-4 border-b border-slate-300 py-1.5">
         <Header as="h3" className="!m-0">
           Conductor Projects

@@ -57,7 +57,7 @@ const SupportDashboard = () => {
   );
 
   return (
-    <AlternateLayout noPadding>
+    <AlternateLayout>
       <div className="flex flex-col w-full p-8 bg-gray-100/50">
         <div className="w-full overflow-x-auto !pr-2">
           <div className="flex justify-between pt-1">

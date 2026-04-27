@@ -23,6 +23,7 @@ import api from "../../../api";
 import { Collection, CollectionResource } from "../../../types";
 import CollectionCard from "../../../components/Collections/CollectionCard";
 import CollectionTable from "../../../components/Collections/CollectionTable";
+import useInfiniteScroll from "../../../hooks/useInfiniteScroll";
 import useDebounce from "../../../hooks/useDebounce";
 import { checkIsCollection } from "../../../components/util/TypeHelpers";
 import DOMPurify from "dompurify";
@@ -141,14 +142,15 @@ const CommonsCollection: React.FC<{}> = () => {
     },
   });
 
-  // Inline useInfiniteScroll - it was just a pass-through wrapper
-  const loadMore = async () => {
-    if (hasNextPage) {
-      await fetchNextPage();
-    }
-  };
-  const hasMore = hasNextPage || false;
-  const isLoading = resourcesLoading;
+  const { lastElementRef } = useInfiniteScroll({
+    next: async () => {
+      if (hasNextPage) {
+        await fetchNextPage();
+      }
+    },
+    hasMore: hasNextPage || false,
+    isLoading: resourcesLoading,
+  });
 
   async function getCollection() {
     try {
@@ -448,23 +450,8 @@ const CommonsCollection: React.FC<{}> = () => {
               loading={collectionLoading || resourcesLoading}
             >
               {itemizedMode ? <ItemizedMode /> : <VisualMode />}
-
-              {/* Load More Button */}
-              {hasMore && (
-                <div className="w-full mt-6 flex justify-center">
-                  <button
-                    onClick={loadMore}
-                    disabled={isLoading}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-wait transition-colors font-semibold"
-                    aria-label="Load more resources"
-                  >
-                    {isLoading ? "Loading..." : "Load More"}
-                  </button>
-                </div>
-              )}
-
-              {/* End of results message */}
-              {resources && !hasMore && resources.pages && resources.pages.length > 0 && (
+              <div ref={lastElementRef}></div>
+              {resources && !hasNextPage && (
                 <div className="w-full mt-4">
                   <p className="text-center font-semibold">End of results</p>
                 </div>

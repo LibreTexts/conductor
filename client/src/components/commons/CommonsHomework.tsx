@@ -284,7 +284,7 @@ const CommonsHomework = () => {
           {pageCourses.length === 0 && (
             <Table.Row>
               <Table.Cell colSpan="2">
-                <p className="text-center" role="alert">
+                <p className="text-center">
                   <em>No results found.</em>
                 </p>
               </Table.Cell>

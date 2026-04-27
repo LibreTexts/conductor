@@ -115,6 +115,11 @@ class LibrariesSSMClient {
   }
 }
 
+/** Exposes SSM-backed library credentials (used by admin/debug routes). */
+export async function getLibraryCredentials(lib: string) {
+  return LibrariesSSMClient.getInstance().getLibraryCredentials(lib);
+}
+
 /**
  * Generates the set of request headers required for interacting with a library's API,
  * including the API token.
@@ -219,6 +224,7 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
         query,
         queryIsFirst
       )}`;
+
       request = fetch(url, finalOptions);
     }
 
@@ -256,18 +262,24 @@ export async function addPageProperty(
   subdomain: string,
   path: string | number,
   property: keyof typeof CXOne.PageProps,
-  value: string | boolean | number
+  value: string | boolean | number,
+  method: "POST" | "PUT" | "DELETE" | "GET" = "POST"
 ): Promise<boolean> {
   try {
+    const propertyName = CXOne.PageProps[property];
+    const isPost = method === "POST";
     const addRes = await CXOneFetch({
       scope: "page",
       path,
-      api: CXOne.API.Page.POST_Properties,
+      api: isPost
+        ? CXOne.API.Page.POST_Properties
+        : CXOne.API.Page.PUT_Page_Property(propertyName),
       subdomain: subdomain,
+      query: { origin: "mt-web", abort: "never" },
       options: {
-        method: "POST",
+        method,
         body: value,
-        headers: { Slug: CXOne.PageProps[property] },
+        headers: isPost ? { Slug: propertyName } : {},
       },
     });
 

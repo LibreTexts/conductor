@@ -99,3 +99,12 @@ export type StoreOrderWithStripeSession = StoreOrder & {
     stripe_session: Stripe.Checkout.Session;
     stripe_charge?: Stripe.Charge | null;
 }
+
+export type GetStoreOrdersResponse = {
+    items: StoreOrderWithStripeSession[];
+    meta: {
+        total_count: number;
+        has_more: boolean;
+        next_page: string | null;
+    };
+}

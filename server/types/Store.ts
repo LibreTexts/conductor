@@ -14,7 +14,6 @@ export type DownloadCenterItem = {
     failed: boolean;
     numPages: number;
     lastModified: string;
-    license?: string;
 }
 
 export type BookPriceOption = {

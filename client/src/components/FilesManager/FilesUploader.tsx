@@ -130,24 +130,24 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
       formData.append("parentID", uploadPath);
 
       // If uploader exists in authors collection, add them as an author to the file
-      // if (mode === "add" && user) {
-      //   const authorsRes = await api.getAuthors({ query: user.email });
-      //   if (authorsRes.data.err) {
-      //     console.error(authorsRes.data.errMsg);
-      //   }
-      //   if (!authorsRes.data.authors) {
-      //     console.error("An error occurred while getting authors");
-      //   }
+      if (mode === "add" && user) {
+        const authorsRes = await api.getAuthors({ query: user.email });
+        if (authorsRes.data.err) {
+          console.error(authorsRes.data.errMsg);
+        }
+        if (!authorsRes.data.authors) {
+          console.error("An error occurred while getting authors");
+        }
 
-      //   if (authorsRes.data.authors) {
-      //     const foundAuthor = authorsRes.data.authors.find(
-      //       (author) => author.email === user.email
-      //     );
-      //     if (foundAuthor && foundAuthor._id) {
-      //       formData.append("authors", [foundAuthor._id].toString());
-      //     }
-      //   }
-      // }
+        if (authorsRes.data.authors) {
+          const foundAuthor = authorsRes.data.authors.find(
+            (author) => author.email === user.email
+          );
+          if (foundAuthor && foundAuthor._id) {
+            formData.append("authors", [foundAuthor._id].toString());
+          }
+        }
+      }
 
       if (mode === "replace") {
         formData.append("overwriteName", overwriteName.toString()); // Only used for replace mode

@@ -1,5 +1,5 @@
 .controlpanel-container {
-    margin: 20px 1% 0 1% !important;
+    margin: calc(60px + 2%) 1% 0 1% !important;
     width: calc(100% - 2%) !important;
     z-index: 50;
 }

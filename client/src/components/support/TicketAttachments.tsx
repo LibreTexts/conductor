@@ -1,3 +1,4 @@
+import { Button, Divider, Icon, Label } from "semantic-ui-react";
 import { SupportTicket, SupportTicketAttachment } from "../../types";
 import { format, parseISO, set } from "date-fns";
 import useGlobalError from "../error/ErrorHooks";
@@ -8,8 +9,6 @@ import FileUploader from "../FileUploader";
 import axios from "axios";
 import { useQueryClient } from "@tanstack/react-query";
 import { supportTicketAttachmentAllowedTypes } from "../../utils/supportHelpers";
-import { Button, Card, Divider, Heading, IconButton, Stack, Text } from "@libretexts/davis-react";
-import { IconFile, IconPlus, IconUpload, IconX } from "@tabler/icons-react";
 
 interface TicketAttachmentsProps {
   ticket: SupportTicket;
@@ -104,7 +103,7 @@ const TicketAttachments: React.FC<TicketAttachmentsProps> = ({
     return (
       <div className="flex flex-row items-center mb-2">
         <div className="flex flex-row items-center mb-4">
-          <IconFile size={24} className="text-gray-500 mr-2" />
+          <Icon name="file alternate outline" color="blue" />
         </div>
         <div className="ml-1 mb-2">
           <p
@@ -123,23 +122,24 @@ const TicketAttachments: React.FC<TicketAttachmentsProps> = ({
   };
 
   return (
-    <Card variant="elevated">
-      <Card.Header>
-        <Stack direction="horizontal" gap="md" align="start" justify="center">
-          <Heading level={4} align="center">
-            Attachments
-          </Heading>
-          <IconButton
-            aria-label={showUpload ? "Close attachment uploader" : "Add attachments"}
-            icon={showUpload ? <IconX size={16} /> : <IconPlus size={16} />}
-            variant="primary"
-            onClick={() => {
-              showUpload ? handleCloseUpload() : handleShowUpload();
-            }}
-          />
-        </Stack>
-      </Card.Header>
-      <Card.Body className="py-2">
+    <div className="flex flex-col w-full bg-white">
+      <div className="flex flex-col border shadow-md rounded-md p-4">
+        <div className="flex flex-row items-center">
+          <div className="flex basis-5/6 justify-center">
+            <p className="text-1xl font-semibold text-center mb-0 ml-56">
+              Ticket Attachments
+            </p>
+          </div>
+          <div className="flex basis-1/6 justify-end">
+            <Button
+              icon={showUpload ? "x" : "plus"}
+              color="blue"
+              onClick={() => {
+                showUpload ? handleCloseUpload() : handleShowUpload();
+              }}
+            ></Button>
+          </div>
+        </div>
         {showUpload && (
           <div className="my-2">
             <FileUploader
@@ -152,11 +152,11 @@ const TicketAttachments: React.FC<TicketAttachmentsProps> = ({
             {files.length > 0 && (
               <div className="flex flex-row justify-end mt-4">
                 <Button
-                  variant="primary"
+                  color="blue"
                   onClick={() => handleAttachmentsUpload(ticket.uuid, files)}
                   loading={loading}
-                  icon={<IconUpload size={16} />}
                 >
+                  <Icon name="upload" />
                   Upload
                 </Button>
               </div>
@@ -164,19 +164,19 @@ const TicketAttachments: React.FC<TicketAttachmentsProps> = ({
             <Divider />
           </div>
         )}
-        <Stack className="mt-2">
+        <div className="flex flex-col mt-2">
           {ticket.attachments?.length === 0 && (
-            <Text size="base" align="center">
+            <p className="text-lg text-center text-gray-500 italic">
               No attachments yet...
-            </Text>
+            </p>
           )}
           {ticket.attachments?.map((a) => (
             <AttachmentEntry attachment={a} key={crypto.randomUUID()} />
           ))}
-        </Stack>
+        </div>
         <div>{loading && <LoadingSpinner />}</div>
-      </Card.Body>
-    </Card>
+      </div>
+    </div>
   );
 };
 

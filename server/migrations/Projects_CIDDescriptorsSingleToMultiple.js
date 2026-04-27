@@ -4,7 +4,7 @@ import Project from '../models/project';
 /**
  * Updates the Projects collection to convert the 'cidDescriptor' string field to the
  * 'cidDescriptors' string-array field.
- * If using MongoDB Shell, set the 
+ * If using MongoDB Shell, set the
  */
 async function ProjectsCIDDescriptorSingleToMultiple() {
   try {
@@ -25,7 +25,7 @@ async function ProjectsCIDDescriptorSingleToMultiple() {
           },
         },
       }, {
-        $unset: "cidDescriptor",
+        $unset: 'cidDescriptor',
       },
     ]);
     if (results.acknowledged) {

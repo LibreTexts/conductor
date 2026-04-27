@@ -82,7 +82,7 @@ function validate(method) {
     case 'getAPIClient':
       return [
         param('clientID', conductorErrors.err1).exists().isString({ min: 1 }),
-      ]
+      ];
   }
 }
 
@@ -91,4 +91,4 @@ export default {
   getAPIClient,
   updateAPIClientLastUsed,
   validate,
-}
+};

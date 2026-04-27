@@ -1,26 +1,18 @@
-import { Menu } from "@libretexts/davis-react";
+import { SemanticICONS } from "semantic-ui-react";
 import { GenericKeyTextValueObj } from "../../../types";
-import { IconFile, IconFilter, IconGavel, IconProgressCheck, IconSchool, IconTags, IconUser, IconUsers, IconWorld } from "@tabler/icons-react";
+import { useEffect, useRef, useState } from "react";
 
-const ICON_MAP: Record<string, React.ReactNode> = {
-  school: <IconSchool size={16} />,
-  filter: <IconFilter size={16} />,
-  globe: <IconWorld size={16} />,
-  legal: <IconGavel size={16} />,
-  user: <IconUser size={16} />,
-  users: <IconUsers size={16} />,
-  file: <IconFile size={16} />,
-  status: <IconProgressCheck size={16} />,
-  tags: <IconTags size={16} />,
-};
+const DROPDOWN_CLASSES = "icon !min-w-44 !text-center h-[36px]";
+const MENU_CLASSES = "max-w-sm max-h-52 overflow-y-auto overflow-x-clip";
 
 interface CatalogFilterDropdownProps {
-  icon?: string;
+  icon: SemanticICONS;
   text: string;
   options: GenericKeyTextValueObj<string>[];
   filterKey: string;
   onFilterSelect: (type: string, value: string) => void;
   loading?: boolean;
+  showClear?: boolean;
 }
 
 const CatalogFilterDropdown: React.FC<CatalogFilterDropdownProps> = ({
@@ -31,8 +23,10 @@ const CatalogFilterDropdown: React.FC<CatalogFilterDropdownProps> = ({
   onFilterSelect,
   loading,
 }) => {
-  const isActive = text.includes(" - ");
-
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  // This function is used to intercept the filter select event
+  // and if the value is empty, sends the reset_one action to the parent
   function interceptFilterSelect(type: string, value: string) {
     if (value === "") {
       onFilterSelect("reset_one", type);
@@ -41,42 +35,88 @@ const CatalogFilterDropdown: React.FC<CatalogFilterDropdownProps> = ({
     }
   }
 
+  // This useEffect is used to close the dropdown menu when the user clicks outside of it
+  useEffect(() => {
+    document.addEventListener("click", (e) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    });
+
+    return () => {
+      document.removeEventListener("click", () => {});
+    };
+  });
+
   return (
-    <Menu>
-      <Menu.Button
-        className="!min-w-44 !h-[36px] !text-sm"
-        aria-busy={loading}
-        aria-label={text}
+    <div
+      role="listbox"
+      aria-expanded="false"
+      className={`ui basic button floating labeled dropdown ${DROPDOWN_CLASSES}`}
+      tabIndex={0}
+      onClick={() => setMenuOpen(!menuOpen)}
+      aria-busy={loading}
+      ref={dropdownRef}
+      style={{ position: "relative" }}
+    >
+      <div
+        aria-atomic="true"
+        aria-live="polite"
+        role="alert"
+        className="divider text"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
       >
-        {icon && ICON_MAP[icon]}
-        <span className="truncate">{text}</span>
-        {isActive && (
+        <span>{text}</span>
+        {text.includes(" - ") && (
           <span
-            className="ml-auto pl-1 font-bold text-gray-700 hover:text-black"
+            className="font-bold text-black"
+            style={{
+              cursor: "pointer",
+              marginLeft: "auto", // Push the clear icon to the right
+              zIndex: 1000,
+              paddingLeft: "0.5rem",
+              marginRight: "-10px",
+            }}
             onClick={(e) => {
-              e.stopPropagation();
+              e.stopPropagation(); // Prevent dropdown from toggling when clear icon is clicked
               interceptFilterSelect(filterKey, "");
             }}
-            aria-label="Clear filter"
           >
-            ✕
+            X
           </span>
         )}
-      </Menu.Button>
-      <Menu.Items className="max-h-52 overflow-y-auto overflow-x-clip" width="md">
+      </div>
+      <i aria-hidden="true" className={icon + " icon"}></i>
+      <div
+        className={`menu transition ${MENU_CLASSES}`}
+        style={{ display: menuOpen ? "block" : "none" }}
+        aria-expanded={menuOpen}
+      >
+        {options.length > 0 &&
+          options.map((option) => (
+            <div
+              key={option.key}
+              role="option"
+              className="item"
+              onClick={() => interceptFilterSelect(filterKey, option.value)}
+            >
+              <span className="text">{option.text}</span>
+            </div>
+          ))}
         {options.length === 0 && (
-          <Menu.Item disabled>No options available</Menu.Item>
+          <div role="option" className="item">
+            <span className="text">No options available</span>
+          </div>
         )}
-        {options.map((option) => (
-          <Menu.Item
-            key={option.key}
-            onClick={() => interceptFilterSelect(filterKey, option.value)}
-          >
-            {option.text}
-          </Menu.Item>
-        ))}
-      </Menu.Items>
-    </Menu>
+      </div>
+    </div>
   );
 };
 

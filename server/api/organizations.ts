@@ -105,23 +105,6 @@ async function getOrganizationInfo(req: Request, res: Response) {
   });
 }
 
-async function getCampusAdmins(req: Request, res: Response) {
-  try {
-    const orgID = req.params.orgID;
-    const campusAdminUsers = await authAPI.getCampusAdmins(orgID);
-    return res.send({
-      err: false,
-      campusAdmins: campusAdminUsers,
-    });
-  } catch (e) {
-    debugError(e);
-    return res.status(500).send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
-  }
-}
-
 /**
  * Retrieves information about the Organization the server is currently configured for.
  *
@@ -166,11 +149,6 @@ async function getAllOrganizations(_req: Request, res: Response) {
           updatedAt: 0,
         },
       },
-      {
-        $sort: {
-          name: 1,
-        },
-      }
     ]);
     return res.send({
       orgs,
@@ -514,10 +492,6 @@ function validate(method: string) {
       return [
         query('includeInactive', conductorErrors.err1).optional().isBoolean().toBoolean().default(false),
       ];
-    case 'getCampusAdmins':
-      return [
-        param('orgID', conductorErrors.err1).exists().isLength({ min: 2, max: 50 }),
-      ];
     case 'updateinfo':
       return [
         param('orgID', conductorErrors.err1).exists().isLength({ min: 2, max: 50 }),
@@ -553,7 +527,6 @@ function validate(method: string) {
 export default {
   assetUploadHandler,
   getOrganizationInfo,
-  getCampusAdmins,
   getCurrentOrganization,
   getAllOrganizations,
   getLibreGridOrganizations,

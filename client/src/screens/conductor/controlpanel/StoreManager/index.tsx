@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Header, Segment, Grid, Breadcrumb } from "semantic-ui-react";
 import {
+  GetStoreOrdersResponse,
   StoreOrderWithStripeSession,
 } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
@@ -29,7 +30,7 @@ const StoreManager = () => {
   const [luluStatusFilter, setLuluStatusFilter] = useState("all");
   // const [sortBy, setSortBy] = useState("created");
   const { data, isFetching, isInitialLoading, fetchNextPage } =
-    useInfiniteQuery({
+    useInfiniteQuery<GetStoreOrdersResponse>({
       queryKey: ["store-orders", limit, statusFilter, luluStatusFilter],
       queryFn: async ({ pageParam = null }) => {
         const response = await api.adminGetStoreOrders({
@@ -154,13 +155,13 @@ const StoreManager = () => {
                         <span>
                           {record.createdAt
                             ? new Date(record.createdAt).toLocaleDateString(
-                              "en-US",
-                              {
-                                year: "numeric",
-                                month: "2-digit",
-                                day: "2-digit",
-                              }
-                            )
+                                "en-US",
+                                {
+                                  year: "numeric",
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                }
+                              )
                             : ""}
                         </span>
                       );
@@ -182,9 +183,9 @@ const StoreManager = () => {
                         <span>
                           {record.stripe_session?.amount_total
                             ? formatPrice(
-                              record.stripe_session.amount_total,
-                              true
-                            )
+                                record.stripe_session.amount_total,
+                                true
+                              )
                             : "$0.00"}
                         </span>
                       );
@@ -224,13 +225,14 @@ const StoreManager = () => {
                     render(record) {
                       return (
                         <span
-                          className={`capitalize ${record.luluJobStatus &&
-                              ["REJECTED", "ERROR", "CREATED"].includes(
-                                record.luluJobStatus
-                              )
+                          className={`capitalize ${
+                            record.luluJobStatus &&
+                            ["REJECTED", "ERROR", "CREATED"].includes(
+                              record.luluJobStatus
+                            )
                               ? "text-red-600 font-semibold"
                               : ""
-                            }`}
+                          }`}
                         >
                           {record.luluJobStatus || "--"}
                         </span>
@@ -243,10 +245,11 @@ const StoreManager = () => {
                     render(record) {
                       return (
                         <span
-                          className={`capitalize ${record.status === "failed"
+                          className={`capitalize ${
+                            record.status === "failed"
                               ? "text-red-600 font-semibold"
                               : ""
-                            }`}
+                          }`}
                         >
                           {record.status}
                         </span>

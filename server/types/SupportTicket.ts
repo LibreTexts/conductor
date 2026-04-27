@@ -26,6 +26,4 @@ export type SearchTicketsParams = {
     category?: string[];
     sort?: string;
     returnAccessKeys?: boolean;
-    limit?: number;
-    page?: number;
 }

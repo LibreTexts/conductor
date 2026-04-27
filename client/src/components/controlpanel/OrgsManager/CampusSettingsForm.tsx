@@ -27,7 +27,7 @@ import {
 import { useForm } from "react-hook-form";
 import useGlobalError from "../../error/ErrorHooks";
 import { useDispatch } from "react-redux";
-import { CampusSettingsOpts, GetCampusAdminResponse } from "../../../types";
+import { CampusSettingsOpts } from "../../../types";
 import { z } from "zod";
 import { required } from "../../../utils/formRules";
 import { useTypedSelector } from "../../../state/hooks";
@@ -36,8 +36,6 @@ import CampusAliasesControl from "./CampusAliasesControl";
 import CtlCheckbox from "../../ControlledInputs/CtlCheckbox";
 import axios from "axios";
 import { useMediaQuery } from "react-responsive";
-import { useQuery } from "@tanstack/react-query";
-import api from "../../../api";
 const CustomOrgListModal = lazy(() => import("../CustomOrgListModal"));
 
 type CampusSettingsFormProps = {
@@ -61,20 +59,6 @@ const CampusSettingsForm = forwardRef(
     const { handleGlobalError } = useGlobalError();
     const [aliases, setAliases] = useState<string[]>([]);
     const isTailwindLg = useMediaQuery({ minWidth: 1024 });
-    const { data: campusAdmins, isLoading: loadingCampusAdmins } = useQuery<GetCampusAdminResponse['campusAdmins']>({
-      queryKey: ["campusAdmins", props.orgID],
-      queryFn: async () => {
-        const res = await api.getCampusAdmins(props.orgID);
-        if (res.data.err) {
-          throw new Error(res.data.errMsg);
-        }
-        return res.data.campusAdmins;
-      },
-      enabled: !!props.orgID,
-      onError: (error) => {
-        handleGlobalError(error);
-      },
-    })
 
     const {
       control,
@@ -746,44 +730,11 @@ const CampusSettingsForm = forwardRef(
         menuItem: <Menu.Item key="admins">Campus Admins</Menu.Item>,
         render: () => (
           <Tab.Pane>
-            <div className="flex flex-col h-full min-h-[200px]">
-              <p className="text-lg font-bold mb-4">Campus Admins</p>
-              <p className="mb-4">
-                Campus Admins are users who have elevated permissions to manage the Campus Commons. They can edit Campus Settings, manage Collections, and more. If you need to add or remove Campus Admins, please contact our <a href="https://commons.libretexts.org/support/contact" target="_blank" rel="noopener noreferrer">Support Center</a>.
-              </p>
-              {loadingCampusAdmins ? (
-                <p>Loading campus admins...</p>
-              ) : campusAdmins && campusAdmins.length > 0 ? (
-                <Table celled>
-                  <Table.Header>
-                    <Table.Row>
-                      <Table.HeaderCell>Name</Table.HeaderCell>
-                      <Table.HeaderCell>Email</Table.HeaderCell>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {campusAdmins.map((admin) => (
-                      <Table.Row key={admin.uuid}>
-                        <Table.Cell className="flex flex-row items-center">
-                          {
-                            admin.avatar && (
-                              <img
-                                src={admin.avatar}
-                                alt={`${admin.firstName} ${admin.lastName}'s avatar`}
-                                className="ui avatar image"
-                              />
-                            )}
-                          <span>
-                            {`${admin.firstName} ${admin.lastName}`}
-                          </span></Table.Cell>
-                        <Table.Cell>{admin.email}</Table.Cell>
-                      </Table.Row>
-                    ))}
-                  </Table.Body>
-                </Table>
-              ) : (
-                <p>No campus admins found.</p>
-              )}
+            <div className="flex justify-center items-center h-full min-h-[200px]">
+              <Message info>
+                <Icon name="info circle" />
+                Coming Soon
+              </Message>
             </div>
           </Tab.Pane>
         ),

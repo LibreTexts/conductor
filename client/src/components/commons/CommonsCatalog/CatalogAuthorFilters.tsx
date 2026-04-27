@@ -7,7 +7,6 @@ import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 import CatalogFilterDropdown from "./CatalogFilterDropdown";
 import { useQuery } from "@tanstack/react-query";
-import { Stack } from "@libretexts/davis-react";
 
 type AuthorFilterData = {
   orgOptions: GenericKeyTextValueObj<string>[];
@@ -66,20 +65,23 @@ const CatalogAuthorFilters: React.FC<CatalogAuthorFilters> = ({
   }
 
   return (
-    <div aria-busy={loading} className="w-full ml-1">
-      <Stack direction="horizontal" gap="sm" wrap={true} className="my-4">
+    <div
+      aria-busy={loading}
+      className="flex flex-row w-full justify-between items-center ml-1"
+    >
+      <div className="flex flex-row my-4 flex-wrap items-center gap-2">
         <CatalogFilterDropdown
           text={`Primary Institution ${
             filters.primaryInstitution ? ` - ${filters.primaryInstitution}` : ""
           }`}
-          icon="school"
+          icon="university"
           options={data?.orgOptions ?? []}
           filterKey="primaryInstitution"
           onFilterSelect={(key, val) =>
             onFilterChange(key as keyof AuthorFilters, val)
           }
         />
-      </Stack>
+      </div>
     </div>
   );
 };

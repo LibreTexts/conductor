@@ -1,6 +1,6 @@
 import {
   Book,
-  Author,
+  ConductorSearchResponseAuthor,
   ConductorSearchResponseFile,
   Project,
 } from "../../../types";
@@ -9,7 +9,6 @@ import "../Commons.css";
 import PlaceholderCard from "./PlaceholderCard";
 import { useState } from "react";
 import DetailModal from "./DetailModal";
-import { Grid, Text } from "@libretexts/davis-react";
 
 const VisualMode = ({
   items,
@@ -20,7 +19,7 @@ const VisualMode = ({
     | Book
     | ConductorSearchResponseFile
     | Project
-    | Author
+    | ConductorSearchResponseAuthor
   )[];
   loading?: boolean;
   noResultsMessage?: string;
@@ -30,14 +29,14 @@ const VisualMode = ({
     | Book
     | ConductorSearchResponseFile
     | Project
-    | Author
+    | ConductorSearchResponseAuthor
     | undefined
   >(undefined);
 
   if (items.length > 0) {
     return (
       <>
-        <Grid gap="lg" className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+        <div className="commons-content-card-grid ">
           {items.map((item) => (
             <CatalogCard
               item={item}
@@ -55,7 +54,7 @@ const VisualMode = ({
               ))}
             </>
           )}
-        </Grid>
+        </div>
         <DetailModal
           item={selectedItem}
           open={detailModalOpen}
@@ -70,20 +69,20 @@ const VisualMode = ({
 
   if (items.length === 0 && loading) {
     return (
-      <Grid className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+      <div className="commons-content-card-grid">
         {[...Array(10)].map((_, index) => (
           <PlaceholderCard key={index} />
         ))}
-      </Grid>
+      </div>
     );
   }
 
   return (
     <div>
-      <Text className="text-center italic" role="alert">
+      <p className="text-center italic">
         {noResultsMessage ??
           "No results found - Try adjusting your search or filters."}
-      </Text>
+      </p>
     </div>
   );
 };

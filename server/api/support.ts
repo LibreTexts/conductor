@@ -284,6 +284,7 @@ async function getOpenInProgressTickets(
     let limit = 25;
     if (req.query.page) page = req.query.page;
     if (req.query.limit) limit = parseInt(req.query.limit.toString());
+    const offset = getPaginationOffset(page, limit);
 
     const { query, assignee, category, priority, status } = req.query;
     const defaultStatuses: SupportTicketStatusEnum[] = ["open", "assigned", "in_progress", "awaiting_requester"];
@@ -315,7 +316,7 @@ async function getOpenInProgressTickets(
     }
 
     const ticketService = new SupportTicketService();
-    const { tickets, total } = await ticketService.searchTickets({
+    const tickets = await ticketService.searchTickets({
       queue_id: foundQueue.id,
       statuses: searchStatuses,
       query,
@@ -323,14 +324,14 @@ async function getOpenInProgressTickets(
       priority,
       category,
       sort: req.query.sort,
-      page: page,
-      limit: limit,
     });
+
+    const paginated = tickets.slice(offset, offset + limit);
 
     return res.send({
       err: false,
-      tickets,
-      total,
+      tickets: paginated,
+      total: tickets.length || 0,
     });
   } catch (err) {
     debugError(err);
@@ -347,6 +348,7 @@ async function getClosedTickets(
     let limit = 25;
     if (req.query.page) page = req.query.page;
     if (req.query.limit) limit = parseInt(req.query.limit.toString());
+    const offset = getPaginationOffset(page, limit);
     const { query, assignee, category, priority } = req.query;
 
     const isHarvester = authAPI.checkHasRole(
@@ -367,22 +369,22 @@ async function getClosedTickets(
     }
 
     const ticketService = new SupportTicketService();
-    const { tickets, total } = await ticketService.searchTickets({
+    const tickets = await ticketService.searchTickets({
       statuses: ["closed"],
       query,
       assignee,
       priority,
       category,
       sort: req.query.sort,
-      ...(isHarvester && { queue_id: harvestingQueue.id }), // harvesters can only see closed tickets in harvesting queue
-      page,
-      limit,
+      ...(isHarvester && { queue_id: harvestingQueue.id }) // harvesters can only see closed tickets in harvesting queue
     });
+
+    const paginated = tickets.slice(offset, offset + limit);
 
     return res.send({
       err: false,
-      tickets,
-      total,
+      tickets: paginated,
+      total: tickets.length || 0,
     });
   } catch (err) {
     debugError(err);
@@ -512,7 +514,7 @@ async function addTicketCC(
       email,
       accessKey,
     });
-    await ticketService.saveTicket(ticket);
+    await ticket.save();
 
     // Notify the new CCed user with guest access key
     await mailAPI.sendSupportTicketCCedNotification(
@@ -555,7 +557,7 @@ async function removeTicketCC(
     }
 
     ticket.ccedEmails = ticket.ccedEmails.filter((e) => e.email !== email);
-    await ticketService.saveTicket(ticket);
+    await ticket.save();
 
     return res.send({
       err: false,
@@ -694,7 +696,7 @@ async function createTicket(
     const guestAccessKey = _createGuestAccessKey();
 
     const uuid = v4();
-    const ticket = await ticketService.createTicket({
+    const ticket = await SupportTicket.create({
       uuid,
       uuidShort: uuid.slice(-7),
       queue_id,
@@ -831,7 +833,7 @@ async function addTicketAttachments(
       ticket.feed.push(feedEntry);
     }
 
-    await ticketService.saveTicket(ticket);
+    await ticket.save();
 
     return res.send({
       err: false,
@@ -970,17 +972,20 @@ async function updateTicket(
     const autoCloseStatusChanged =
       autoCloseSilenced !== ticket.autoCloseSilenced;
 
-    await ticketService.updateTicket(uuid, {
-      priority,
-      status,
-      feed: updatedFeed,
-      timeClosed: status === "closed" ? new Date().toISOString() : undefined, // if status is closed, set timeClosed to now
-      autoCloseSilenced: autoCloseSilenced,
-      ...(autoCloseStatusChanged && {
-        autoCloseTriggered: false,
-        autoCloseDate: null,
-      }),
-    });
+    await SupportTicket.updateOne(
+      { uuid },
+      {
+        priority,
+        status,
+        feed: updatedFeed,
+        timeClosed: status === "closed" ? new Date().toISOString() : undefined, // if status is closed, set timeClosed to now
+        autoCloseSilenced: autoCloseSilenced,
+        ...(autoCloseStatusChanged && {
+          autoCloseTriggered: false,
+          autoCloseDate: null,
+        }),
+      },
+    ).orFail();
 
     return res.send({
       err: false,
@@ -1066,7 +1071,13 @@ async function createGeneralMessage(
     const userUUID = req.user?.decoded.uuid;
     const ticketService = new SupportTicketService();
 
-    const ticket = await ticketService.resetAutoClose(uuid); // reset auto-close trigger
+    const ticket = await SupportTicket.findOneAndUpdate(
+      { uuid },
+      {
+        autoCloseTriggered: false,
+        autoCloseDate: null,
+      },
+    ).populate("queue").orFail(); // reset auto-close trigger
 
     let foundSenderName = "Unknown";
     let foundSenderUUID: string | undefined;
@@ -1276,8 +1287,13 @@ async function createInternalMessage(
     const { message, attachments } = req.body;
     const userUUID = req.user?.decoded.uuid;
 
-    const ticketService = new SupportTicketService();
-    const ticket = await ticketService.resetAutoClose(uuid);
+    const ticket = await SupportTicket.findOneAndUpdate(
+      { uuid },
+      {
+        autoCloseTriggered: false,
+        autoCloseDate: null,
+      },
+    ).populate("queue").orFail();
     const foundUser = await User.findOne({ uuid: userUUID }).orFail();
 
     const ticketMessage = await SupportTicketMessage.create({
@@ -1334,8 +1350,7 @@ async function deleteTicket(
 ) {
   try {
     const { uuid } = req.params;
-    const ticketService = new SupportTicketService();
-    await ticketService.deleteTicket(uuid);
+    await SupportTicket.deleteOne({ uuid });
     return res.send({
       err: false,
     });
@@ -1482,7 +1497,7 @@ async function createAndAttachProjectFromHarvestingRequest(
       ...ticket.metadata,
       projectID: newProject.projectID,
     };
-    await ticketService.saveTicket(ticket);
+    await ticket.save();
 
     return res.send({
       err: false,
@@ -1537,9 +1552,16 @@ async function findTicketsToInitAutoClose(req: Request, res: Response) {
       });
     }
 
-    await ticketService.initAutoClose(
-      toSet.map((t) => t.uuid),
-      addDays(new Date(), 3).toISOString(), // 3 days from now
+    await SupportTicket.updateMany(
+      {
+        uuid: {
+          $in: toSet.map((t) => t.uuid),
+        },
+      },
+      {
+        autoCloseTriggered: true,
+        autoCloseDate: addDays(new Date(), 3).toISOString(), // 3 days from now
+      },
     );
 
     for (const ticket of toSet) {
@@ -1559,7 +1581,6 @@ async function findTicketsToInitAutoClose(req: Request, res: Response) {
 
 async function autoCloseTickets(req: Request, res: Response) {
   try {
-    const ticketService = new SupportTicketService();
     const tickets = await SupportTicket.find({
       autoCloseTriggered: true,
       autoCloseDate: { $lte: new Date().toISOString() },
@@ -1569,7 +1590,16 @@ async function autoCloseTickets(req: Request, res: Response) {
     const feedEntry = _createFeedEntry_AutoClosed();
 
     for (const ticket of tickets) {
-      await ticketService.autoCloseTicket(ticket, feedEntry);
+      await SupportTicket.updateOne(
+        { uuid: ticket.uuid },
+        {
+          status: "closed",
+          autoCloseTriggered: false,
+          autoCloseDate: null,
+          timeClosed: new Date().toISOString(),
+          feed: [...ticket.feed, feedEntry],
+        },
+      );
     }
 
     return res.send({
@@ -1578,28 +1608,6 @@ async function autoCloseTickets(req: Request, res: Response) {
   } catch (err) {
     debugError(err);
     return conductor500Err(res);
-  }
-}
-
-async function syncWithSearchIndex(req: Request, res: Response) {
-  try {
-    // Return response immediately and do the sync in the background since this can be a long-running process
-    res.send({
-      err: false,
-      msg: "Support ticket search index sync initiated. This process will run in the background.",
-    });
-
-    const ticketService = new SupportTicketService();
-    ticketService.syncWithSearchIndex().catch((err) => {
-      debugError(`Background ticket sync error: ${err}`);
-    });
-
-  } catch (err) {
-    debugError(err);
-    if (!res.headersSent) {
-      // Don't send an error response if the initial response has already been sent.
-      return conductor500Err(res);
-    }
   }
 }
 
@@ -1802,7 +1810,6 @@ export default {
   createAndAttachProjectFromHarvestingRequest,
   findTicketsToInitAutoClose,
   autoCloseTickets,
-  syncWithSearchIndex,
   ticketAttachmentUploadHandler,
   addTicketCC,
   removeTicketCC,

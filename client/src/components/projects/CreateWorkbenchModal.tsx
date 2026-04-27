@@ -16,9 +16,9 @@ import { required } from "../../utils/formRules";
 import { useEffect, useState } from "react";
 import { useTypedSelector } from "../../state/hooks";
 import { CentralIdentityApp } from "../../types";
+import { getCentralAuthInstructorURL } from "../../utils/centralIdentityHelpers";
 import TeamAccessWarningModal from './TeamAccessWarningModal';
 import api from "../../api";
-import useClientConfig from "../../hooks/useClientConfig";
 
 interface CreateWorkbenchModalProps extends ModalProps {
   show: boolean;
@@ -64,7 +64,6 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
     };
   });
   const { handleGlobalError } = useGlobalError();
-  const { clientConfig } = useClientConfig();
   const user = useTypedSelector((state) => state.user);
   const { control, getValues, setValue, reset, trigger, formState, watch } =
     useForm<CreateWorkbenchForm>({
@@ -207,7 +206,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
       <Modal size="fullscreen" open={show} {...rest}>
         <Modal.Header>Create Book</Modal.Header>
         <Modal.Content>
-          <p id="bookInstructions">This creates an empty book on your chosen library and links it to this Conductor project.</p>
+          <p id = "bookInstructions">This creates an empty book on your chosen library and links it to this Conductor project.</p>
           <Form
             onSubmit={(e) => {
               e.preventDefault();
@@ -252,7 +251,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
                   {/* Super Admins can use the dev library for debugging */}
                   <p
                     className="underline cursor-pointer mt-1"
-                    onClick={() => setValue("library", "dev")}
+                    onClick={() => setValue("library", 21, { shouldDirty: true })}
                   >
                     Use Dev (Super Admins Only)
                   </p>
@@ -279,23 +278,11 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
               <Message.Header>Cannot Access Library</Message.Header>
               <p>
                 Oops, it looks like you do not have access to this library. If you
-                need to request access, please {" "}{
-                  clientConfig?.instructor_verification_url ? (
-                    <>
-                      <span>
-                        submit or update your instructor
-                        verification request here: {" "}
-                      </span>
-                      <a href={clientConfig?.instructor_verification_url} target="_blank" rel="noopener noreferrer">
-                        {clientConfig?.instructor_verification_url}
-                      </a>
-                    </>
-                  ) : (
-                    <a href="https://commons.libretexts.org/support/contact" target="_blank" rel="noopener noreferrer">
-                      contact our Support Center.
-                    </a>
-                  )
-                }
+                need to request access, please submit or update your instructor
+                verification request here:{" "}
+                <a href={getCentralAuthInstructorURL()} target="_blank">
+                  {getCentralAuthInstructorURL()}
+                </a>
               </p>
             </Message>
           )}

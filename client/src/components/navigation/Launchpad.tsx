@@ -6,11 +6,10 @@ const Launchpad = () => {
       role="link"
       className="app-switcher"
       onClick={() => window.open("https://one.libretexts.org/home", "_blank")}
-      aria-label="Open LibreTexts Launchpad in new tab"
     >
       <img
         src="https://cdn.libretexts.net/Icons/launchpad-rocket-icon.svg"
-        alt="" // Decorative image, so alt text is empty to be ignored by screen readers
+        alt="rocket icon"
         className="app-switcher-icon"
       />
     </button>

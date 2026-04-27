@@ -49,7 +49,7 @@ const SupportDashboard = () => {
     query: query,
     page: activePage,
     items: itemsPerPage,
-    sort: "timeOpened",
+    sort: "opened",
     assigneeFilters,
     priorityFilters,
     categoryFilters,
@@ -86,7 +86,7 @@ const SupportDashboard = () => {
   );
 
   return (
-    <AlternateLayout noPadding>
+    <AlternateLayout>
       <div className="flex flex-row">
         <SupportQueuesSidebar
           showCounts={user.isSupport}

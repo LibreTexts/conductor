@@ -44,7 +44,6 @@ export const SanitizedUserSelectQuery =
   "-password -customAvatar -authType -roles -isSystem -salt -hash -pinnedProjects -authorizedApps -lastResetAttempt -resetToken -tokenExpiry";
 
 export const SanitizedUserSelectProjection = {
-  _id: 0,
   password: 0,
   customAvatar: 0,
   authType: 0,
@@ -175,10 +174,6 @@ UserSchema.index({
   firstName: "text",
   lastName: "text",
 });
-
-UserSchema.index({
-  uuid: 1,
-})
 
 UserSchema.index({
   centralID: 1,

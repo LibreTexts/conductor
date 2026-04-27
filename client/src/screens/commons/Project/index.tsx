@@ -4,7 +4,9 @@ import {
   Icon,
   Segment,
   Header,
+  Breadcrumb,
   Image,
+  Button,
 } from "semantic-ui-react";
 import { useTypedSelector } from "../../../state/hooks";
 import FilesManager from "../../../components/FilesManager";
@@ -17,7 +19,6 @@ import {
   getLibraryName,
 } from "../../../components/util/LibraryOptions";
 import useProject from "../../../hooks/useProject";
-import { Breadcrumb, Button, Card, Spinner, Stack } from "@libretexts/davis-react";
 
 /**
  * Displays a public Project's page in the Commons catalog.
@@ -39,33 +40,38 @@ const CommonsProject = () => {
     }
   }, [project]);
 
-  return (
-    <>
-      {/* Breadcrumb Navigation */}
-      <div className="px-6 py-3 border-b border-neutral-200">
-        <Breadcrumb aria-label="Page navigation">
-          <Breadcrumb.Item href="/catalog">
-            Catalog
-          </Breadcrumb.Item>
-          <Breadcrumb.Item isCurrent>{project?.title}</Breadcrumb.Item>
-        </Breadcrumb>
-      </div>
+  const handleOpenInConductor = () => {
+    if (!project?.projectID) return;
 
-      {/* Main Content */}
-      {isLoading ? (
-        <div className="flex justify-center items-center p-16">
-          <Spinner />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-6 p-6">
-          <Card padding="sm">
-            <Stack direction="vertical" gap="md">
+    window.open(`/projects/${project?.projectID}`, "_blank");
+  };
+
+  return (
+    <div className="commons-page-container">
+      <Segment.Group raised>
+        <Segment>
+          <Breadcrumb>
+            <Breadcrumb.Section as={Link} to="/catalog">
+              <span>
+                <span className="muted-text">You are on: </span>
+                Catalog
+              </span>
+            </Breadcrumb.Section>
+            <Breadcrumb.Divider icon="right chevron" />
+            <Breadcrumb.Section active>
+              {project?.title ?? "Unknown"}
+            </Breadcrumb.Section>
+          </Breadcrumb>
+        </Segment>
+        <Segment loading={isLoading} className="">
+          <div className="flex flex-col lg:flex-row px-1 pb-8">
+            <div className="flex flex-col w-full lg:w-1/4 lg:max-w-[400px] min-h-48 h-fit border shadow-md p-4 rounded-md mr-16">
               {project?.thumbnail && (
-                <img
-                  src={project.thumbnail}
-                  aria-hidden={true}
-                  alt=""
-                  className="w-full rounded-md"
+                <div
+                  className="h-48 w-full bg-contain bg-center rounded-md bg-no-repeat"
+                  style={{
+                    backgroundImage: `url(${project.thumbnail})`,
+                  }}
                 />
               )}
               <Header as="h1" className="!mb-4 !ml-0.5">
@@ -90,9 +96,9 @@ const CommonsProject = () => {
               <p className="mt-2">
                 <Icon name="user" color="blue" className="!mr-2" />
                 {project?.principalInvestigators &&
-                  project?.principalInvestigators.length > 0 ? (
+                project?.principalInvestigators.length > 0 ? (
                   project?.principalInvestigators
-                    ?.map((p) => p.name)
+                    ?.map((p) => `${p.firstName} ${p.lastName}`)
                     .join(", ")
                 ) : (
                   <span className="muted-text">No principal investigators</span>
@@ -101,9 +107,9 @@ const CommonsProject = () => {
               <p className="mt-2">
                 <Icon name="user plus" color="blue" className="!mr-2" />
                 {project?.coPrincipalInvestigators &&
-                  project?.coPrincipalInvestigators.length > 0 ? (
+                project?.coPrincipalInvestigators.length > 0 ? (
                   project?.coPrincipalInvestigators
-                    ?.map((p) => p.name)
+                    ?.map((p) => `${p.firstName} ${p.lastName}`)
                     .join(", ")
                 ) : (
                   <span className="muted-text">
@@ -114,7 +120,7 @@ const CommonsProject = () => {
               <p className="mt-2">
                 <Icon name="university" color="blue" className="!mr-2" />
                 {project?.associatedOrgs &&
-                  project?.associatedOrgs.length > 0 ? (
+                project?.associatedOrgs.length > 0 ? (
                   project?.associatedOrgs.join(", ")
                 ) : (
                   <span className="muted-text">
@@ -165,51 +171,49 @@ const CommonsProject = () => {
                 </>
               )}
               <Button
-                as={Link}
-                fullWidth
-                disabled={!project?.projectID}
-                to={`/projects/${project?.projectID}`}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                View in Conductor
-              </Button>
-            </Stack>
-          </Card>
-
-          <Stack direction="vertical" gap="md">
-            {projectID && showAssets && (
-              <div className="flex flex-row ">
-                <FilesManager
-                  projectID={projectID}
-                  canViewDetails={false}
-                  allowBulkDownload={true}
-                  toggleFilesManager={() => setShowAssets(!showAssets)}
-                  projectVisibility="public"
-                />
-              </div>
-            )}
-            {projectID && !showAssets && (
-              <Segment>
-                <div className="hiddensection">
-                  <div className="header-container">
-                    <Header as="h3">Assets</Header>
-                  </div>
-                  <div className="button-container">
-                    <Button
-                      onClick={() => setShowAssets(!showAssets)}
-                    >
-                      Show
-                    </Button>
-                  </div>
+                icon="lightning"
+                content="View in Conductor"
+                color="blue"
+                fluid
+                onClick={handleOpenInConductor}
+                className="!mt-4"
+              />
+            </div>
+            <div className="flex flex-col w-full lg:w-3/4 mt-8 lg:mt-0">
+              {projectID && showAssets && (
+                <div className="flex flex-row ">
+                  <FilesManager
+                    projectID={projectID}
+                    canViewDetails={false}
+                    allowBulkDownload={true}
+                    toggleFilesManager={() => setShowAssets(!showAssets)}
+                    projectVisibility="public"
+                  />
                 </div>
-              </Segment>
-            )}
-          </Stack>
-        </div>
-      )};
-    </>
-  )
+              )}
+              {projectID && !showAssets && (
+                <Segment>
+                  <div className="hiddensection">
+                    <div className="header-container">
+                      <Header as="h3">Assets</Header>
+                    </div>
+                    <div className="button-container">
+                      <Button
+                        floated="right"
+                        onClick={() => setShowAssets(!showAssets)}
+                      >
+                        Show
+                      </Button>
+                    </div>
+                  </div>
+                </Segment>
+              )}
+            </div>
+          </div>
+        </Segment>
+      </Segment.Group>
+    </div>
+  );
 };
 
 export default CommonsProject;

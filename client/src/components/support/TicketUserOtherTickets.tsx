@@ -1,106 +1,35 @@
 import { SupportTicket } from "../../types";
 import { format, parseISO } from "date-fns";
 import { getPrettySupportTicketCategory } from "../../utils/supportHelpers";
-import { capitalizeFirstLetter, truncateString } from "../util/HelperFunctions";
+import { capitalizeFirstLetter } from "../util/HelperFunctions";
 import useGlobalError from "../error/ErrorHooks";
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
+import SupportCenterTable from "./SupportCenterTable";
+import { PaginationWithItemsSelect } from "../util/PaginationWithItemsSelect";
 import { TicketStatusPill } from "./TicketInfoPill";
-import { Card, Heading } from "@libretexts/davis-react";
-import { type Table, type ColumnDef, type ColumnFiltersState, type SortingState, DataTable } from "@libretexts/davis-react-table";
 
 interface TicketUserOtherTicketsProps {
   ticket: SupportTicket;
 }
 
-const columns: ColumnDef<SupportTicket>[] = [
-  {
-    accessorKey: "queue",
-    header: "Queue",
-    cell: ({ getValue }) => {
-      const queue = getValue<{ name: string }>();
-      return queue ? queue.name : "--";
-    }
-  },
-  {
-    accessorKey: "timeOpened",
-    header: "Date Opened",
-    cell: ({ getValue }) => {
-      const timeOpened = getValue<string>();
-      return timeOpened ? format(parseISO(timeOpened), "MM/dd/yyyy") : "--";
-    }
-  },
-  {
-    accessorKey: "title",
-    header: "Subject",
-    cell: ({ getValue }) => {
-      const title = getValue<string>();
-      return (
-        <p className="!w-full !max-w-[40rem] break-words truncate">
-          {truncateString(title, 80)}{" "}
-        </p >
-      )
-    },
-  },
-  {
-    accessorKey: "category",
-    header: "Category",
-    cell: ({ getValue }) => {
-      const category = getValue<string>();
-      return category ? getPrettySupportTicketCategory(category) : "--";
-    }
-  },
-  {
-    accessorKey: "assignedUsers",
-    header: "Assigned To",
-    cell: ({ row }) => {
-      const record = row.original;
-      return record.assignedUsers &&
-        Array.isArray(record.assignedUsers) &&
-        record.assignedUsers.length > 0 ? (
-        <p className="line-clamp-1 truncate">
-          {record.assignedUsers.map((u) => u.firstName).join(", ")}
-        </p>
-      ) : (
-        <p>Unassigned</p>
-      );
-    },
-  },
-  {
-    accessorKey: "priority",
-    header: "Priority",
-    cell: ({ getValue }) => {
-      const priority = getValue<string>();
-      return priority ? capitalizeFirstLetter(priority) : "--";
-    }
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ getValue }) => {
-      return <TicketStatusPill status={getValue<string>()} />;
-    },
-  },
-]
-
 const TicketUserOtherTickets: React.FC<TicketUserOtherTicketsProps> = ({
   ticket,
 }) => {
   const { handleGlobalError } = useGlobalError();
+  const [loading, setLoading] = useState(false);
   const [activePage, setActivePage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [activeSort, setActiveSort] = useState<string>("opened");
   const [itemsPerPage, setItemsPerPage] = useState<number>(5);
   const [totalItems, setTotalItems] = useState<number>(0);
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [sortChoice, setSortChoice] = useState<string>("opened");
-
-  const tableRef = useRef<Table<SupportTicket> | null>(null);
 
   const { data: requesterOtherTickets, isFetching } = useQuery<SupportTicket[]>(
     {
-      queryKey: ["userTickets", activePage, itemsPerPage, sortChoice],
+      queryKey: ["userTickets", activePage, itemsPerPage, activeSort],
       queryFn: () =>
-        getRequesterOtherTickets(activePage, itemsPerPage, sortChoice),
+        getRequesterOtherTickets(activePage, itemsPerPage, activeSort),
       keepPreviousData: true,
       staleTime: 1000 * 60 * 10, // 10 minutes
       refetchOnWindowFocus: false,
@@ -117,6 +46,7 @@ const TicketUserOtherTickets: React.FC<TicketUserOtherTicketsProps> = ({
     sort: string
   ) {
     try {
+      setLoading(true);
       const res = await axios.get("/support/ticket/requestor-other-tickets", {
         params: {
           page,
@@ -126,8 +56,8 @@ const TicketUserOtherTickets: React.FC<TicketUserOtherTicketsProps> = ({
           ...(ticket.user?.uuid
             ? { uuid: ticket.user?.uuid }
             : ticket.guest?.email
-              ? { email: ticket.guest.email }
-              : {}),
+            ? { email: ticket.guest.email }
+            : {}),
         },
       });
       if (res.data.err) {
@@ -140,9 +70,13 @@ const TicketUserOtherTickets: React.FC<TicketUserOtherTicketsProps> = ({
 
       setTotalItems(res.data.total);
 
+      setTotalPages(Math.ceil(res.data.total / itemsPerPage));
+
       return res.data.tickets;
     } catch (err) {
       handleGlobalError(err);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -162,67 +96,89 @@ const TicketUserOtherTickets: React.FC<TicketUserOtherTicketsProps> = ({
     return "Unknown Requestor";
   }, [ticket]);
 
-  const paginationState = {
-    pageIndex: activePage - 1,
-    pageSize: itemsPerPage,
-  };
-
   return (
-    <Card variant="elevated" className="!border-blue-500">
-      <Card.Header>
-        <Heading level={4} align="center">
-          {requestorName}
-          {requestorName.endsWith("s") ? "'" : "'s"} Other Tickets
-        </Heading>
-      </Card.Header>
-      <Card.Body className="py-4">
-        <DataTable<SupportTicket>
-          data={requesterOtherTickets || []}
-          columns={columns}
-          loading={isFetching}
-          density="compact"
-          onRowClick={(record) => {
-            openTicket(record.uuid)
-          }}
-          //enableSorting
-          enablePagination
-          pageSize={itemsPerPage}
-          pageSizeOptions={[5, 10, 25, 50, 100]}
-          onTableReady={(table) => (tableRef.current = table)}
-          tableOptions={{
-            manualPagination: true,
-            manualFiltering: true,
-            manualSorting: true,
-            rowCount: totalItems,
-            state: {
-              pagination: paginationState,
-              sorting,
+    <div className="flex flex-col rounded-md p-4 shadow-md bg-white h-fit space-y-1.5 border-blue-500 border mb-8">
+      <p className="text-xl font-semibold text-center mb-2">
+        {requestorName}
+        {requestorName.endsWith("s") ? "'" : "'s"} Other Tickets
+      </p>
+      <SupportCenterTable<SupportTicket & { actions?: string }>
+        tableProps={{
+          className: "!mb-2",
+        }}
+        loading={isFetching}
+        data={requesterOtherTickets || []}
+        onRowClick={(record) => {
+          openTicket(record.uuid);
+        }}
+        columns={[
+          {
+            accessor: "queue",
+            title: "Queue",
+            render(record) {
+              return record.queue ? record.queue.name : "--";
+            }
+          },
+          {
+            accessor: "timeOpened",
+            title: "Date Opened",
+            render(record) {
+              return format(parseISO(record.timeOpened), "MM/dd/yyyy");
             },
-            onPaginationChange: (updater) => {
-              const nextPagination =
-                typeof updater === "function"
-                  ? updater(paginationState)
-                  : updater;
-
-              setActivePage(nextPagination.pageIndex + 1);
-              setItemsPerPage(nextPagination.pageSize);
+          },
+          {
+            accessor: "title",
+            title: "Subject",
+            className: "!w-full !max-w-[40rem] break-words truncate",
+            render(record) {
+              return record.title;
             },
-            // onSortingChange: (updater) => {
-            //   const nextSorting =
-            //     typeof updater === "function" ? updater(sorting) : updater;
-
-            //   setSorting(nextSorting);
-            //   setActivePage(1);
-
-            //   const [firstSort] = nextSorting;
-            //   setSortChoice(
-            //     firstSort ? (SORT_COLUMN_MAP[firstSort.id] ?? "first") : "first"
-            //   );
-            // },
-          }}
-        />
-      </Card.Body>
-    </Card>
+          },
+          {
+            accessor: "category",
+            title: "Category",
+            render(record) {
+              return getPrettySupportTicketCategory(record.category || "");
+            },
+          },
+          {
+            accessor: "assignedUsers",
+            title: "Assigned To",
+            render(record) {
+              return record.assignedUsers &&
+                Array.isArray(record.assignedUsers) &&
+                record.assignedUsers.length > 0 ? (
+                <p className="line-clamp-1 truncate">
+                  {record.assignedUsers.map((u) => u.firstName).join(", ")}
+                </p>
+              ) : (
+                <p>Unassigned</p>
+              );
+            },
+          },
+          {
+            accessor: "priority",
+            render(record) {
+              return capitalizeFirstLetter(record.priority || "");
+            },
+          },
+          {
+            accessor: "status",
+            render(record) {
+              return <TicketStatusPill status={record.status} />;
+            },
+          },
+        ]}
+      />
+      <PaginationWithItemsSelect
+        activePage={activePage}
+        totalPages={totalPages}
+        itemsPerPage={itemsPerPage}
+        setActivePageFn={setActivePage}
+        setItemsPerPageFn={setItemsPerPage}
+        totalLength={totalItems}
+      />
+    </div>
   );
 };
 

@@ -38,12 +38,7 @@ export const BOOK_FAQS = [
     answer:
       "You don't have to! You can read this book absolutely for free online and/or download it in various formats. However, if you prefer a physical copy of the book, the cost is to cover the printing and shipping expenses along with a minor administrative fee to help maintain the bookstore.",
   },
-  ...COMMON_ITEMS,
-  {
-    question: "Are any restrictions on a bookstore marking up the price of your books (i.e., LibreTexts acting as a wholesaler for bookstores)?",
-    answer:
-      "LibreTexts itself does not impose explicit restrictions on the use of its materials. However, much of the content incorporated into LibreTexts originates from authors and creators whose work is governed by specific intellectual property licenses. These licenses can place limits on how the material may be used, depending on their terms. In particular, texts released under a Creative Commons license with a Non-Commercial (NC) clause prohibit the material from being used for profit, although cost-recovery is generally permitted. As a result, some bookstores opt not to carry these OER texts due to the absence of a traditional profit margin."
-  }
+  ...COMMON_ITEMS
 ];
 
 export const APP_LICENSE_FAQS = [

@@ -1,7 +1,7 @@
 import { Modal } from "semantic-ui-react";
 import {
   Book,
-  Author,
+  ConductorSearchResponseAuthor,
   ConductorSearchResponseFile,
   Project,
 } from "../../../../types";
@@ -12,7 +12,7 @@ interface DetailModalProps {
     | Book
     | ConductorSearchResponseFile
     | Project
-    | Author;
+    | ConductorSearchResponseAuthor;
   open: boolean;
   onClose: () => void;
 }

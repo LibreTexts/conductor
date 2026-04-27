@@ -67,7 +67,6 @@ SupportTicketMessageSchema.virtual("sender", {
 });
 
 SupportTicketMessageSchema.index({ uuid: 1 });
-SupportTicketMessageSchema.index({ ticket: 1, type: 1, createdAt: -1 });
 SupportTicketMessageSchema.set("toObject", { virtuals: true });
 SupportTicketMessageSchema.set("toJSON", { virtuals: true });
 

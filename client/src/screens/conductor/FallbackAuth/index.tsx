@@ -15,7 +15,7 @@ import Cookies from "js-cookie";
 import { isEmptyString } from "../../../components/util/HelperFunctions";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import styles from './FallbackAuth.module.css';
-import AuthHelper, { COOKIE_NAMES } from "../../../components/util/AuthHelper";
+import AuthHelper from "../../../components/util/AuthHelper";
 
 const FallbackAuth = () => {
   const dispatch = useDispatch();
@@ -108,7 +108,7 @@ const FallbackAuth = () => {
       if (authRes.data?.err) {
         handleGlobalError(authRes.data.errMsg);
       }
-      if (Cookies.get(COOKIE_NAMES.ACCESS) !== undefined) {
+      if (Cookies.get("conductor_access_v2") !== undefined) {
         dispatch({ type: "SET_AUTH" });
         if (redirectURI !== "") {
           // redirect to the page the user tried to visit directly

@@ -10,7 +10,6 @@ import { useTypedSelector } from "../../state/hooks";
 import { useMemo } from "react";
 import classNames from "classnames";
 import DynamicIcon, { DynamicIconName } from "../NextGenComponents/DynamicIcon";
-import { Heading } from "@libretexts/davis-react";
 
 interface SupportQueuesSidebarProps {
   showMetrics?: boolean;
@@ -66,10 +65,11 @@ const SupportQueuesSidebar: React.FC<SupportQueuesSidebarProps> = ({
             <button
               key={queue.id}
               onClick={() => setSelectedQueue(queue.slug)}
-              className={`w-full flex items-center justify-between p-4 rounded-lg transition-all duration-200 group hover:bg-gray-50 ${selectedQueue === queue.slug
+              className={`w-full flex items-center justify-between p-4 rounded-lg transition-all duration-200 group hover:bg-gray-50 ${
+                selectedQueue === queue.slug
                   ? "bg-blue-50 border-2 border-blue-200"
                   : "border-2 border-transparent hover:border-gray-200"
-                }`}
+              }`}
             >
               <div className="flex items-center space-x-3">
                 <div className={`w-3 h-3 rounded-full ${queue.color}`}></div>
@@ -84,8 +84,9 @@ const SupportQueuesSidebar: React.FC<SupportQueuesSidebarProps> = ({
               </div>
               <div className="flex items-center space-x-2">
                 <IconChevronRight
-                  className={`w-4 h-4 text-gray-400 transition-transform ${selectedQueue === queue.slug ? "rotate-90" : ""
-                    }`}
+                  className={`w-4 h-4 text-gray-400 transition-transform ${
+                    selectedQueue === queue.slug ? "rotate-90" : ""
+                  }`}
                 />
               </div>
             </button>
@@ -93,9 +94,9 @@ const SupportQueuesSidebar: React.FC<SupportQueuesSidebarProps> = ({
           {showMetrics && (
             <div className="flex flex-col w-full mt-4 space-y-4">
               <div className="mt-8 p-4 bg-gray-100 rounded-lg border border-slate-300">
-                <Heading level={4} className="mb-3 capitalize">
+                <h3 className="font-semibold text-gray-900 mb-3 capitalize">
                   {selectedQueue} Summary
-                </Heading>
+                </h3>
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-sm">Open tickets</span>

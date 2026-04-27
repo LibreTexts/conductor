@@ -1,13 +1,12 @@
 /**
  * LibreTexts Conductor
  * peerreviewutils.js
- * @file Exposes helper functions and objects for Conductor Peer Review features. 
+ * @file Exposes helper functions and objects for Conductor Peer Review features.
  */
 
 export const peerReviewPromptTypes = ['3-likert', '5-likert', '7-likert', 'text', 'dropdown', 'checkbox'];
 
 export const peerReviewAuthorTypes = ['student', 'instructor'];
-
 
 /**
  * Builds a MongoDB Aggregation pipeline for a Project's Peer Reviews.
@@ -16,83 +15,82 @@ export const peerReviewAuthorTypes = ['student', 'instructor'];
  * @returns {Object[]|Error} The compiled aggregation pipeline, or an error if an identifier is unspecified.
  */
 export const buildPeerReviewAggregation = (identifier, review = false) => {
-    let matchObj = {};
-    if (typeof(identifier) === 'string' && identifier.length > 0) {
-        if (review) { // peerReviewID
-            matchObj = {
-                $match: {
-                    peerReviewID: identifier
-                }
-            };
-        } else { // projectID
-            matchObj = {
-                $match: {
-                    projectID: identifier
-                }
-            };
-        }
+  let matchObj = {};
+  if (typeof (identifier) === 'string' && identifier.length > 0) {
+    if (review) { // peerReviewID
+      matchObj = {
+        $match: {
+          peerReviewID: identifier,
+        },
+      };
+    } else { // projectID
+      matchObj = {
+        $match: {
+          projectID: identifier,
+        },
+      };
     }
-    if (Object.keys(matchObj).length > 0) {
-        return [matchObj, {
-                $lookup: {
-                    from: 'users',
-                    let: {
-                        author: '$author',
-                        anonAuthor: '$anonAuthor'
-                    },
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: {
-                                    $and: [{
-                                        $eq: ['$$anonAuthor', false]
-                                    }, {
-                                        $eq: ['$uuid', '$$author']
-                                    }]
-                                }
-                            }
-                        }, {
-                            $project: {
-                                firstName: 1,
-                                lastName: 1
-                            }
-                        }
-                    ],
-                    as: 'authorInfo'
-                }
-            }, {
-                $addFields: {
-                    authorInfo: {
-                        $arrayElemAt: ['$authorInfo', 0]
-                    }
-                }
-            }, {
-                $addFields: {
-                    author: {
-                        $cond: {
-                            if: {
-                                $eq: ['$anonAuthor', false]
-                            },
-                            then: {
-                                $concat: ['$authorInfo.firstName', ' ', '$authorInfo.lastName']
-                            },
-                            else: '$author'
-                        }
-                    }
-                }
-            }, {
-                $project: {
-                    _id: 0,
-                    __v: 0,
-                    authorEmail: 0,
-                    authorInfo: 0
-                }
-            }
-        ];
-    }
-    throw ('reviewidentifier');
+  }
+  if (Object.keys(matchObj).length > 0) {
+    return [matchObj, {
+      $lookup: {
+        from: 'users',
+        let: {
+          author: '$author',
+          anonAuthor: '$anonAuthor',
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [{
+                  $eq: ['$$anonAuthor', false],
+                }, {
+                  $eq: ['$uuid', '$$author'],
+                }],
+              },
+            },
+          }, {
+            $project: {
+              firstName: 1,
+              lastName: 1,
+            },
+          },
+        ],
+        as: 'authorInfo',
+      },
+    }, {
+      $addFields: {
+        authorInfo: {
+          $arrayElemAt: ['$authorInfo', 0],
+        },
+      },
+    }, {
+      $addFields: {
+        author: {
+          $cond: {
+            if: {
+              $eq: ['$anonAuthor', false],
+            },
+            then: {
+              $concat: ['$authorInfo.firstName', ' ', '$authorInfo.lastName'],
+            },
+            else: '$author',
+          },
+        },
+      },
+    }, {
+      $project: {
+        _id: 0,
+        __v: 0,
+        authorEmail: 0,
+        authorInfo: 0,
+      },
+    },
+    ];
+  }
+  throw ('reviewidentifier');
 };
-
 
 /**
  * Calculates an average rating (out of 5) given all applicable Peer Reviews.
@@ -100,25 +98,24 @@ export const buildPeerReviewAggregation = (identifier, review = false) => {
  * @returns {Number|null} The average rating or null if an error was encountered.
  */
 export const calculateAveragePeerReviewRating = (peerReviews) => {
-    if (Array.isArray(peerReviews) && peerReviews.length > 0) {
-        let ratingsCount = 0;
-        let totalRating = 0;
-        let averageRating = 0;
-        peerReviews.forEach((review) => {
-            if (typeof(review.rating) === 'number') {
-                totalRating += review.rating;
-                ratingsCount++;
-            }
-        });
-        if (ratingsCount > 0) {
-            // round to nearest half
-            averageRating = Math.round((totalRating / ratingsCount) * 2) / 2;
-            if (!isNaN(averageRating)) return averageRating;
-        }
+  if (Array.isArray(peerReviews) && peerReviews.length > 0) {
+    let ratingsCount = 0;
+    let totalRating = 0;
+    let averageRating = 0;
+    peerReviews.forEach((review) => {
+      if (typeof (review.rating) === 'number') {
+        totalRating += review.rating;
+        ratingsCount++;
+      }
+    });
+    if (ratingsCount > 0) {
+      // round to nearest half
+      averageRating = Math.round((totalRating / ratingsCount) * 2) / 2;
+      if (!isNaN(averageRating)) return averageRating;
     }
-    return null;
+  }
+  return null;
 };
-
 
 /**
  * Validates that a given Peer Review Prompt type is one of the
@@ -126,10 +123,7 @@ export const calculateAveragePeerReviewRating = (peerReviews) => {
  * @param {String} promptType - The Prompt type identifier to validate.
  * @returns {Boolean} True if valid type, false otherwise.
  */
-export const validatePeerReviewPromptType = (promptType) => {
-    return peerReviewPromptTypes.includes(promptType);
-};
-
+export const validatePeerReviewPromptType = (promptType) => peerReviewPromptTypes.includes(promptType);
 
 /**
  * Validates that a given Peer Review Author type is one of the
@@ -137,6 +131,4 @@ export const validatePeerReviewPromptType = (promptType) => {
  * @param {String} authorType - The author type identifier to validate.
  * @returns {Boolean} True if valid type, false otherwise.
  */
-export const validatePeerReviewAuthorType = (authorType) => {
-    return peerReviewAuthorTypes.includes(authorType);
-};
+export const validatePeerReviewAuthorType = (authorType) => peerReviewAuthorTypes.includes(authorType);

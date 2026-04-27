@@ -7,6 +7,9 @@ import PrivateRoute from './components/util/PrivateRoute';
 import Footer from "./components/navigation/Footer";
 import ChatBot from "./utils/ChatBot";
 
+import "./Conductor.css";
+
+const AccountSettings = lazy(() => import('./screens/conductor/AccountSettings'));
 const AdoptionReports = lazy(() => import('./screens/conductor/controlpanel/AdoptionReports'));
 const AnalyticsCourseView = lazy(() => import('./screens/conductor/analytics/AnalyticsCourseView'));
 const AnalyticsInvites = lazy(() => import('./screens/conductor/analytics/AnalyticsInvites'));
@@ -16,7 +19,6 @@ const AnalyticsRequests = lazy(() => import('./screens/conductor/controlpanel/An
 const AssetTagsManager = lazy(() => import('./screens/conductor/controlpanel/AssetTagsManager'));
 const BooksManager = lazy(() => import('./screens/conductor/controlpanel/BooksManager'));
 const MasterCatalogPlainView = lazy(() => import('./screens/conductor/controlpanel/BooksManager/MasterCatalogPlainView'));
-const IndexManager = lazy(() => import('./screens/conductor/controlpanel/IndexManager'));
 const CampusSettings = lazy(() => import('./components/controlpanel/CampusSettings'));
 const CollectionsManager = lazy(() => import('./screens/conductor/controlpanel/CollectionsManager'));
 const QRCodeGenerator = lazy(() => import('./screens/conductor/controlpanel/QRCodeGenerator'));
@@ -41,7 +43,7 @@ import OrganizationsManager from './components/controlpanel/OrganizationsManager
 import PeerReviewPage from './components/peerreview/PeerReviewPage';
 import PeerReviewRubricManage from './components/controlpanel/PeerReviewRubricManage';
 import PeerReviewRubrics from './components/controlpanel/PeerReviewRubrics';
-const AuthorsManager = lazy(() => import('./screens/conductor/controlpanel/AuthorsManager'));
+const PeopleManager = lazy(() => import('./screens/conductor/controlpanel/PeopleManager'));
 import ProjectAccessibility from './components/projects/ProjectAccessibility';
 import ProjectPeerReview from './components/projects/ProjectPeerReview';
 const MyProjects = lazy(() => import('./screens/conductor/Projects'));
@@ -70,6 +72,7 @@ const CentralIdentityOrgs = lazy(() => import('./screens/conductor/controlpanel/
 const CentralIdentityServices = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityServices'));
 const CentralIdentityUsers = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUsers'));
 const CentralIdentityUserView = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUserView'));
+import SupportCenterNavbar from './components/navigation/SupportCenterNavbar';
 const SupportCenter = lazy(() => import('./screens/conductor/support'));
 const SupportCenterCreateTicket = lazy(() => import('./screens/conductor/support/SupportCreateTicket'));
 const SupportDashboard = lazy(() => import('./screens/conductor/support/Dashboard'));
@@ -84,7 +87,20 @@ const PermanentLinkDownload = lazy(() => import('./components/FilesManager/Perma
 import PageNotFound from './components/util/PageNotFound';
 import LibreTextsRoute from './components/util/LibreTextsRoute';
 import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
-import SupportCenterDataLoader from './providers/SupportCenterDataLoader';
+import StoreNavbar from './components/navigation/StoreNavbar';
+import CartProvider from './providers/CartProvider';
+import SupportCenterProvider from './providers/SupportCenterProvider';
+import RemixerDashboard from './components/remixer/RemixerDashboard';
+
+const RenderNavbar = () => {
+  if(window.location.pathname.includes('/insight') || window.location.pathname.includes('/support')){
+    return <SupportCenterNavbar />;
+  }
+  if(window.location.pathname.startsWith('/store')){
+    return <StoreNavbar />;
+  }
+  return <Navbar />
+}
 
 /**
  * The project planning and internal tools system. Requires authentication to access most pages.
@@ -95,9 +111,10 @@ const Conductor = () => {
   const org = useSelector((state) => state.org);
 
   return (
-    <div className='flex flex-col min-h-screen'>
-      <Navbar />
-      <div id="main-content" className='bg-white pb-8'>
+    <div className='conductor'>
+      <CartProvider>
+      <RenderNavbar />
+      <div className='conductor-content'>
         <Suspense fallback={<LoadingSpinner />}>
           <Switch>
           <AnonRoute exact path='/login' component={Login} />
@@ -121,14 +138,14 @@ const Conductor = () => {
           <PrivateRoute exact path='/analytics/invites' component={AnalyticsInvites} />
           <PrivateRoute exact path='/analytics/requestaccess' component={AnalyticsRequestAccess} />
           <PrivateRoute exact path='/analytics/:courseID/:pane?/:settingsPane?' component={AnalyticsCourseView} /> */}
+          <PrivateRoute exact path='/account/:activePane?' component={AccountSettings} />
           <PrivateRoute exact path='/controlpanel' component={ControlPanel} />
           <PrivateRoute exact path='/controlpanel/adoptionreports' component={AdoptionReports} />
           <PrivateRoute exact path='/controlpanel/analyticsrequests' component={AnalyticsRequests} />
           <PrivateRoute exact path='/controlpanel/assettagsmanager' component={AssetTagsManager} />
-          <PrivateRoute exact path='/controlpanel/authorsmanager' component={AuthorsManager} />
+          <PrivateRoute exact path='/controlpanel/peoplemanager' component={PeopleManager} />
           <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
           <PrivateRoute exact path='/controlpanel/booksmanager/mastercatalog' component={MasterCatalogPlainView} />
-          <PrivateRoute exact path='/controlpanel/indexmanager' component={IndexManager} />
           <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
           <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />
           <PrivateRoute exact path='/controlpanel/qr-code-generator' component={QRCodeGenerator} />
@@ -150,6 +167,8 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/store' component={StoreManager} />
           <PrivateRoute exact path='/controlpanel/store/orders/:order_id' component={StoreManagerOrderView} />
           <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
+          {/* Remixer routes */}
+          <PrivateRoute exact path='/remixer/:id' component={RemixerDashboard} />
           <Route exact path="/download/:projectID/:fileID" component={PermanentLinkDownload} />
           <Route exact path='/peerreview/:id' component={PeerReviewPage} />
           {/* LibreTexts org public routes */}
@@ -162,7 +181,7 @@ const Conductor = () => {
           <LibreTextsRoute exact path='/store/checkout/success' key='storesuccess' org={org} component={StoreSuccess} />
           <LibreTextsRoute exact path='/store/order/:order_id' key='storeorder' org={org} component={StoreOrder} />
           <LibreTextsRoute exact path='/store/product/:product_id' key='storeproduct' org={org} component={StoreProduct} />
-          <SupportCenterDataLoader>
+          <SupportCenterProvider>
             <LibreTextsRoute exact path='/insight' key='insight' component={KnowledgeBase} org={org}/>
             <LibreTextsRoute exact path='/insight/search' key='insightsearchresults' component={KBSearchResults} org={org}/>
             <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
@@ -173,7 +192,7 @@ const Conductor = () => {
             {/*LibreTexts org private routes */}
             <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
             <LibreTextsPrivateRoute exact path='/support/closed' key='supportclosedtickets' org={org} component={SupportClosedTickets} />
-          </SupportCenterDataLoader>
+          </SupportCenterProvider>
           {/* 404 */}
           <Route component={PageNotFound} />
           </Switch>
@@ -181,6 +200,7 @@ const Conductor = () => {
         {/* <ChatBot /> */}
       </div>
       <Footer />
+      </CartProvider>
     </div>
   )
 };

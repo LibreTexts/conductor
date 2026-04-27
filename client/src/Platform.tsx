@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { CompatRouter } from "react-router-dom-v5-compat";
+import React, { useEffect } from "react";
+import { Routes, CompatRoute, CompatRouter } from "react-router-dom-v5-compat";
 import { Provider } from "react-redux";
 import axios from "axios";
 import store from "./state/store.js";
@@ -20,10 +20,8 @@ import {
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import ModalsProvider from "./providers/ModalsProvider.js";
 import NotificationsProvider from "./providers/NotificationsProvider.js";
-import SupportCenterProvider from "./providers/SupportCenterProvider.js";
 import { BrowserRouter, Route, Switch } from "react-router-dom";
 import { useNotifications } from "./context/NotificationContext.js";
-import CartProvider from "./providers/CartProvider.js";
 
 const notificationRef: { current: ((n: any) => void) | null } = {
   current: null,
@@ -45,18 +43,6 @@ const queryClient = new QueryClient({
   }),
 });
 
-export const COMMONS_PATHS = [
-  "/catalog",
-  "/collections",
-  "/commons-project",
-  "/author",
-  "/book",
-  "/homework",
-  "/libraries",
-  "/search-results",
-  "/file",
-];
-
 /**
  * Exposes the applications and global configuration.
  */
@@ -70,6 +56,19 @@ const Platform = () => {
   axios.defaults.headers.post["Content-Type"] = "application/json";
   axios.defaults.withCredentials = true;
 
+  const commonsPaths = [
+    "/",
+    "/catalog",
+    "/collections",
+    "/commons-project",
+    "/author",
+    "/book",
+    "/homework",
+    "/libraries",
+    "/search-results",
+    "/file",
+  ];
+
   axios.interceptors.response.use(
     (res) => {
       return res;
@@ -80,7 +79,10 @@ const Platform = () => {
         (err.response?.data?.tokenExpired === true ||
           err.response?.data?.sessionInvalid === true)
       ) {
-        const silent = window.location.pathname === "/" || COMMONS_PATHS.some((path) => window.location.pathname.startsWith(path));
+        const silent = commonsPaths.some((path) =>
+          window.location.pathname.startsWith(path)
+        );
+
         AuthHelper.logout(true, window.location, silent);
       }
       return Promise.reject(err);
@@ -138,20 +140,17 @@ const Platform = () => {
       <ErrorBoundary FallbackComponent={ErrorScreen}>
         <QueryClientProvider client={queryClient}>
           <div className="App">
-            <CartProvider>
-              <SupportCenterProvider>
-                <ModalsProvider>
-                  <Switch>
-                    {/* Commons Render Tree */}
-                    <Route exact path={commonsRouterPaths} component={Commons} />
-                    {/* Standalone Pages */}
-                    <Route exact path={standalonePaths} component={Standalone} />
-                    {/* Conductor and fallback Render Tree */}
-                    <Route component={Conductor} />
-                  </Switch>
-                </ModalsProvider>
-              </SupportCenterProvider>
-            </CartProvider>
+            <ModalsProvider>
+              <Switch>
+                {/* Commons Render Tree */}
+                {/* @ts-expect-error */}
+                <Route exact path={commonsRouterPaths} component={Commons} />
+                {/* Standalone Pages */}
+                <Route exact path={standalonePaths} component={Standalone} />
+                {/* Conductor and fallback Render Tree */}
+                <Route component={Conductor} />
+              </Switch>
+            </ModalsProvider>
             <ErrorModal />
             <ReactQueryDevtools initialIsOpen={false} />
           </div>

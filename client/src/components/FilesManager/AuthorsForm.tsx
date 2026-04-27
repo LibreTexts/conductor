@@ -5,11 +5,14 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Dropdown, Form } from "semantic-ui-react";
+import { Button, Dropdown, Form, Icon } from "semantic-ui-react";
+import { Author } from "../../types";
 import useGlobalError from "../error/ErrorHooks";
 import useDebounce from "../../hooks/useDebounce";
 import api from "../../api";
 import { ProjectFileAuthor } from "../../types/Project";
+import ManualEntryModal from "../util/ManualEntryModal";
+import { useModals } from "../../context/ModalContext";
 
 interface AuthorsFormProps {
   mode: "project-default" | "file";
@@ -37,6 +40,7 @@ const AuthorsForm = forwardRef(
 
     const { handleGlobalError } = useGlobalError();
     const { debounce } = useDebounce();
+    const { openModal, closeAllModals } = useModals();
 
     const [authorOptions, setAuthorOptions] = useState<ProjectFileAuthor[]>([]);
     const [secondaryAuthorOptions, setSecondaryAuthorOptions] = useState<
@@ -107,12 +111,12 @@ const AuthorsForm = forwardRef(
         if (res.data.err) {
           throw new Error(res.data.errMsg);
         }
-        if (!res.data.items || !Array.isArray(res.data.items)) {
+        if (!res.data.authors || !Array.isArray(res.data.authors)) {
           throw new Error("Failed to load author options");
         }
 
         const opts = [
-          ...res.data.items,
+          ...res.data.authors,
           ...(selectedPrimary ? [selectedPrimary] : []),
           ...(selectedCorresponding ? [selectedCorresponding] : []),
           ...(selectedSecondary ?? []),
@@ -139,11 +143,11 @@ const AuthorsForm = forwardRef(
         if (res.data.err) {
           throw new Error(res.data.errMsg);
         }
-        if (!res.data.items || !Array.isArray(res.data.items)) {
+        if (!res.data.authors || !Array.isArray(res.data.authors)) {
           throw new Error("Failed to load author options");
         }
 
-        const opts = [...res.data.items, ...(selectedSecondary ?? [])];
+        const opts = [...res.data.authors, ...(selectedSecondary ?? [])];
 
         const unique = opts.filter(
           (a, i, self) => self.findIndex((b) => b._id === a._id) === i
@@ -164,12 +168,12 @@ const AuthorsForm = forwardRef(
         if (res.data.err) {
           throw new Error(res.data.errMsg);
         }
-        if (!res.data.items || !Array.isArray(res.data.items)) {
+        if (!res.data.authors || !Array.isArray(res.data.authors)) {
           throw new Error("Failed to load author options");
         }
 
         const opts = [
-          ...res.data.items,
+          ...res.data.authors,
           ...(selectedCorresponding ? [selectedCorresponding] : []),
         ];
 
@@ -196,13 +200,74 @@ const AuthorsForm = forwardRef(
       200
     );
 
+    const handleAddAuthor = (newAuthor: Author, ctx: string) => {
+      if (!["primary", "secondary", "corresponding"].includes(ctx)) return;
+
+      const withID = {
+        ...newAuthor,
+        _id: crypto.randomUUID(),
+      }
+
+      // Set the manually added author as the primary or secondary author
+      // based on where the manual entry was triggered
+      if (ctx === "primary") {
+        setSelectedPrimary(withID);
+        setAuthorOptions([...authorOptions, withID]);
+      }
+
+      if (ctx === "corresponding") {
+        setSelectedCorresponding(withID);
+        setCorrespondingAuthorOptions([...correspondingAuthorOptions, withID]);
+      }
+
+      if (ctx === "secondary") {
+        setSecondaryAuthorOptions([...secondaryAuthorOptions, withID]);
+        if (currentAuthors) {
+          setSelectedSecondary([...currentAuthors, withID]);
+        } else {
+          setSelectedSecondary([withID]);
+        }
+      }
+    };
+
+    const ManualEntryButton = ({
+      from,
+    }: {
+      from: "primary" | "secondary" | "corresponding";
+    }) => (
+      <div className="flex justify-end">
+        <Button
+          onClick={() => {
+            openModal(
+              <ManualEntryModal
+                show={true}
+                onClose={() => closeAllModals()}
+                onSaved={(author, ctx) => {
+                  handleAddAuthor(author, ctx);
+                  closeAllModals();
+                }}
+                ctx={from}
+              />
+            )
+          }}
+          basic
+          size="mini"
+          color="blue"
+          className="!-mt-1"
+        >
+          <Icon name="plus" />
+          Manual Entry
+        </Button>
+      </div>
+    );
+
     const primaryAuthorOpts = useMemo(() => {
       const opts = authorOptions
         .filter((a) => !selectedSecondary?.find((ca) => ca._id === a._id))
         .map((a) => ({
           key: crypto.randomUUID(),
           value: a._id ?? "",
-          text: a.name ?? "Unknown",
+          text: `${a.firstName} ${a.lastName}`,
         }));
 
       opts.unshift({
@@ -220,7 +285,7 @@ const AuthorsForm = forwardRef(
         .map((a) => ({
           key: crypto.randomUUID(),
           value: a._id ?? "",
-          text: a.name ?? "Unknown",
+          text: `${a.firstName} ${a.lastName}`,
         }));
 
       opts.unshift({
@@ -236,7 +301,7 @@ const AuthorsForm = forwardRef(
       const opts = correspondingAuthorOptions.map((a) => ({
         key: crypto.randomUUID(),
         value: a._id ?? "",
-        text: a.name ?? "Unknown",
+        text: `${a.firstName} ${a.lastName}`,
       }));
 
       opts.unshift({
@@ -278,6 +343,7 @@ const AuthorsForm = forwardRef(
               loading={loadingAuthors}
             />
           </Form.Field>
+          <ManualEntryButton from="primary" />
         </div>
         <div className="mt-4">
           <label
@@ -312,6 +378,7 @@ const AuthorsForm = forwardRef(
               loading={loadingCorrespondingAuthors}
             />
           </Form.Field>
+          <ManualEntryButton from="corresponding" />
         </div>
         <div>
           <Form.Field className="flex flex-col">
@@ -350,6 +417,7 @@ const AuthorsForm = forwardRef(
               loading={loadingSecondaryAuthors}
             />
           </Form.Field>
+          <ManualEntryButton from="secondary" />
         </div>
       </>
     );

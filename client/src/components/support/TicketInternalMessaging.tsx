@@ -1,12 +1,11 @@
 import { useEffect, useRef } from "react";
+import { Button, Form, Icon, TextArea } from "semantic-ui-react";
 import { SupportTicketMessage } from "../../types";
 import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import TicketCommentsContainer from "./TicketCommentsContainer";
-import { Button, Card, Heading, Stack, Text, Textarea } from "@libretexts/davis-react";
-import { IconSend, IconTrash } from "@tabler/icons-react";
 
 interface TicketInternalMessagingProps {
   id: string;
@@ -19,7 +18,7 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
     useRef<React.ElementRef<typeof TicketCommentsContainer>>(null);
   const { handleGlobalError } = useGlobalError();
   const queryClient = useQueryClient();
-  const { getValues, setValue, watch, trigger, register, reset } =
+  const { control, getValues, setValue, watch, trigger, reset } =
     useForm<SupportTicketMessage>({
       defaultValues: {
         message: "",
@@ -94,67 +93,71 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
   });
 
   return (
-    <Card variant="elevated" className="!border-blue-500">
-      <Card.Header>
-        <Heading level={4} align="center">
-          Internal Comments
-        </Heading>
-      </Card.Header>
-      <Card.Body className="py-4">
-        <Stack direction="vertical" gap="sm">
-          <Text align="center">
-            Leave internal comments for other support staff to see. These
-            comments are not visible to the ticket submitter.
-          </Text>
+    <div>
+      <div className="flex flex-col w-full bg-white rounded-md border-blue-500 border">
+        <div className="flex flex-col border shadow-md rounded-md p-4">
+          <p className="text-xl font-semibold text-center">Internal Comments</p>
+          <div className="px-4 mt-1 mb-1">
+            <p className="text-center italic">
+              Leave internal comments for other support staff to see. These
+              comments are not visible to the ticket submitter.
+            </p>
+          </div>
           <TicketCommentsContainer
             ref={containerRef}
             messages={messages}
             scope="internal"
           />
           <div className="mt-2">
-            <form onSubmit={(e) => e.preventDefault()}>
-              <Textarea
-                label="Send Message"
-                placeholder="Enter your message here..."
-                maxLength={3000}
-                onKeyDown={(e: any) => {
-                  if (e.key === "Enter" && e.ctrlKey) {
-                    if (!getValues("message")) return;
-                    sendMessageMutation.mutateAsync();
-                  }
-                }}
-                {...register("message", { required: "Message cannot be empty" })}
+            <p className="font-semibold mb-1 ml-1">Send Message:</p>
+            <Form onSubmit={(e) => e.preventDefault()}>
+              <Controller
+                control={control}
+                name="message"
+                render={() => (
+                  <TextArea
+                    value={watch("message")}
+                    onChange={(e) => setValue("message", e.target.value)}
+                    placeholder="Enter your message here..."
+                    maxLength={3000}
+                    onKeyDown={(e: any) => {
+                      if (e.key === "Enter" && e.ctrlKey) {
+                        if (!getValues("message")) return;
+                        sendMessageMutation.mutateAsync();
+                      }
+                    }}
+                  />
+                )}
               />
-              <Stack direction="horizontal" className="w-full mt-2" justify="between">
-                <Text size="xs">
-                  {watch("message")?.length ?? 0}/3000. Enter for new line.
-                  Ctrl + Enter to send.
-                </Text>
-                <Stack direction="horizontal" gap="sm" className="mt-2 md:mt-0" justify="end" align="end">
-                  <Button
-                    variant="outline"
-                    onClick={() => setValue("message", "")}
-                    icon={<IconTrash size={18} />}
-                  >
+              <div className="flex flex-col md:flex-row w-full justify-between mt-2">
+                <div>
+                  <p className="text-xs text-gray-500 ml-1">
+                    {watch("message")?.length ?? 0}/3000. Enter for new line.
+                    Ctrl + Enter to send.
+                  </p>
+                </div>
+                <div className="flex flex-col w-full justify-end space-y-2 mt-2 md:flex-row md:w-auto md:space-y-0 md:mt-0">
+                  <Button onClick={() => setValue("message", "")}>
+                    <Icon name="trash" />
                     Clear
                   </Button>
                   <Button
-                    variant="primary"
+                    color="blue"
                     onClick={async () => {
                       if (!getValues("message")) return;
                       await sendMessageMutation.mutateAsync();
                     }}
-                    icon={<IconSend size={18} />}
                   >
+                    <Icon name="send" />
                     Send
                   </Button>
-                </Stack>
-              </Stack>
-            </form>
+                </div>
+              </div>
+            </Form>
           </div>
-        </Stack>
-      </Card.Body>
-    </Card>
+        </div>
+      </div>
+    </div>
   );
 };
 export default TicketInternalMessaging;

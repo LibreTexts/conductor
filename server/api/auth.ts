@@ -21,16 +21,6 @@ const SALT_ROUNDS = 10;
 const JWT_SECRET = new TextEncoder().encode(process.env.SECRETKEY);
 const JWT_COOKIE_DOMAIN = (process.env.PRODUCTIONURLS || "").split(",")[0];
 const SESSION_DEFAULT_EXPIRY_MINUTES = 60 * 24 * 7; // 7 days
-
-const APP_ENV = process.env.APP_ENV ?? "production";
-const COOKIE_PREFIX = APP_ENV === "production" ? "conductor" : `conductor_${APP_ENV}`;
-export const COOKIE_NAMES = {
-  ACCESS: `${COOKIE_PREFIX}_access_v2`,
-  SIGNED: `${COOKIE_PREFIX}_signed_v2`,
-  OIDC_STATE: `${COOKIE_PREFIX}_oidc_state`,
-  OIDC_NONCE: `${COOKIE_PREFIX}_oidc_nonce`,
-  AUTH_REDIRECT: `${COOKIE_PREFIX}_auth_redirect`,
-};
 const SESSION_DEFAULT_EXPIRY_MILLISECONDS =
   SESSION_DEFAULT_EXPIRY_MINUTES * 60 * 1000;
 
@@ -116,11 +106,11 @@ async function createAndAttachLocalSession(
     domain: JWT_COOKIE_DOMAIN,
     maxAge: SESSION_DEFAULT_EXPIRY_MILLISECONDS,
   };
-  res.cookie(COOKIE_NAMES.ACCESS, access, {
+  res.cookie("conductor_access_v2", access, {
     path: "/",
     ...(process.env.NODE_ENV === "production" && prodCookieConfig),
   });
-  res.cookie(COOKIE_NAMES.SIGNED, signed, {
+  res.cookie("conductor_signed_v2", signed, {
     path: "/",
     httpOnly: true,
     ...(process.env.NODE_ENV === "production" && prodCookieConfig),
@@ -179,19 +169,19 @@ async function initLogin(req: Request, res: Response) {
     process.env.CONDUCTOR_DOMAIN !== "commons.libretexts.org"
   ) {
     const authRedirectURL = `${oidcCallbackProto}://${process.env.CONDUCTOR_DOMAIN}`;
-    res.cookie(COOKIE_NAMES.AUTH_REDIRECT, authRedirectURL, {
+    res.cookie("conductor_auth_redirect", authRedirectURL, {
       encode: String,
       httpOnly: true,
       ...(process.env.NODE_ENV === "production" && prodCookieConfig),
     });
   }
 
-  res.cookie(COOKIE_NAMES.OIDC_STATE, base64State, {
+  res.cookie("oidc_state", base64State, {
     encode: String,
     httpOnly: true,
     ...(process.env.NODE_ENV === "production" && prodCookieConfig),
   });
-  res.cookie(COOKIE_NAMES.OIDC_NONCE, nonce, {
+  res.cookie("oidc_nonce", nonce, {
     encode: String,
     httpOnly: true,
     ...(process.env.NODE_ENV === "production" && prodCookieConfig),
@@ -218,7 +208,7 @@ async function completeLogin(req: Request, res: Response) {
       encodeURIComponent(value).replace(/%20/g, "+");
 
     // Compare state nonce
-    const oidc_state = req.cookies[COOKIE_NAMES.OIDC_STATE];
+    const { oidc_state } = req.cookies;
     const { state: stateQuery } = req.query;
 
     const safeParseState = (stateStr: string) => {
@@ -272,7 +262,7 @@ async function completeLogin(req: Request, res: Response) {
     });
 
     // Compare nonce hash
-    const oidc_nonce = req.cookies[COOKIE_NAMES.OIDC_NONCE];
+    const { oidc_nonce } = req.cookies;
     const { nonce } = payload;
     const nonceString = nonce?.toString();
     if (!nonce || !oidc_nonce || !nonceString) {
@@ -380,8 +370,8 @@ async function completeLogin(req: Request, res: Response) {
 
     // Determine base of redirect URL
     let finalRedirectURL = `${oidcCallbackProto}://${oidcCallbackHost}`; // Default to callback host
-    if(req.cookies[COOKIE_NAMES.AUTH_REDIRECT]){
-      finalRedirectURL = req.cookies[COOKIE_NAMES.AUTH_REDIRECT]; // Use auth redirect cookie if available
+    if(req.cookies.conductor_auth_redirect){
+      finalRedirectURL = req.cookies.conductor_auth_redirect; // Use auth redirect cookie if available
     }
 
     // Check if redirectURI is a full URL and decode if needed
@@ -424,8 +414,8 @@ async function completeLogin(req: Request, res: Response) {
 async function logout(_req: Request, res: Response) {
   try {
     // Attempt to invalidate the user's session
-    const accessCookie = _req.cookies[COOKIE_NAMES.ACCESS];
-    const signedCookie = _req.cookies[COOKIE_NAMES.SIGNED];
+    const accessCookie = _req.cookies.conductor_access_v2;
+    const signedCookie = _req.cookies.conductor_signed_v2;
     const sessionJWT = `${accessCookie}.${signedCookie}`;
     if (accessCookie && signedCookie && sessionJWT) {
       try {
@@ -455,11 +445,11 @@ async function logout(_req: Request, res: Response) {
       secure: true,
       domain: JWT_COOKIE_DOMAIN,
     };
-    res.clearCookie(COOKIE_NAMES.ACCESS, {
+    res.clearCookie("conductor_access_v2", {
       path: "/",
       ...(process.env.NODE_ENV === "production" && prodCookieConfig),
     });
-    res.clearCookie(COOKIE_NAMES.SIGNED, {
+    res.clearCookie("conductor_signed_v2", {
       path: "/",
       httpOnly: true,
       ...(process.env.NODE_ENV === "production" && prodCookieConfig),
@@ -637,39 +627,48 @@ const getLibreTextsAdmins = (superAdmins = false) => {
  * @param {String} campus  - the orgID to retrieve admins for
  * @returns {Object[]} an array of the administrators and their information
  */
-const getCampusAdmins = async (campus: string) => {
-  if (!campus || isEmptyString(campus)) {
-    throw new Error("missingcampus");
-  }
-
-  return await User.aggregate([
-    {
-      $match: {
-        roles: {
-          $elemMatch: {
-            $and: [
-              {
-                org: campus,
+const getCampusAdmins = (campus: string) => {
+  return new Promise((resolve, reject) => {
+    if (campus && !isEmptyString(campus)) {
+      resolve(
+        User.aggregate([
+          {
+            $match: {
+              roles: {
+                $elemMatch: {
+                  $and: [
+                    {
+                      org: campus,
+                    },
+                    {
+                      role: "campusadmin",
+                    },
+                  ],
+                },
               },
-              {
-                role: "campusadmin",
-              },
-            ],
+            },
           },
-        },
-      },
-    },
-    {
-      $project: {
-        _id: 0,
-        uuid: 1,
-        email: 1,
-        firstName: 1,
-        lastName: 1,
-        avatar: 1
-      },
-    },
-  ]);
+          {
+            $project: {
+              _id: 0,
+              uuid: 1,
+              email: 1,
+              firstName: 1,
+              lastName: 1,
+            },
+          },
+        ])
+      );
+    } else {
+      reject("missingcampus");
+    }
+  })
+    .then((admins) => {
+      return admins;
+    })
+    .catch((err) => {
+      throw err;
+    });
 };
 
 /**
@@ -1001,53 +1000,6 @@ const checkHasRoleMiddleware = (org: string, role: string | string[]) => {
   };
 };
 
-/**
- * Middleware that ensures the requesting user has campus admin access for the
- * organization specified in the `orgID` route parameter.
- *
- * - LibreTexts superadmins always proceed.
- * - A campus admin proceeds only if their campusadmin role matches the requested orgID.
- * - All other cases result in a 403 Forbidden response.
- *
- * Must be called AFTER `verifyRequest` and `getUserAttributes` in the middleware chain.
- */
-const assertCampusAdminForOrgParam = (
-  req: ZodReqWithUser<Request>,
-  res: Response,
-  next: NextFunction
-) => {
-  const { orgID } = (req as any).params ?? {};
-  if (!orgID) {
-    return res.status(400).send({
-      err: true,
-      errMsg: conductorErrors.err1,
-    });
-  }
-
-  if (!req.user?.roles || !Array.isArray(req.user.roles)) {
-    debugError(conductorErrors.err9);
-    return res.status(403).send({
-      err: true,
-      errMsg: conductorErrors.err8,
-    });
-  }
-
-  const isSuperAdmin = req.user.roles.some(
-    (r) => r.org === "libretexts" && r.role === "superadmin"
-  );
-  if (isSuperAdmin) return next();
-
-  const isCampusAdminForOrg = req.user.roles.some(
-    (r) => r.org === orgID && r.role === "campusadmin"
-  );
-  if (isCampusAdminForOrg) return next();
-
-  return res.status(403).send({
-    err: true,
-    errMsg: conductorErrors.err8,
-  });
-};
-
 async function cloudflareSiteVerify(req: Request, res: Response) {
   try {
     if (!req.query.token) {
@@ -1122,7 +1074,6 @@ export default {
   optionalGetUserAttributes,
   checkHasRole,
   checkHasRoleMiddleware,
-  assertCampusAdminForOrgParam,
   cloudflareSiteVerify,
   validate,
 };
