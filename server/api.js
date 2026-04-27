@@ -3011,27 +3011,6 @@ router
     remixerAPI.getRemixerJobStatus
   );
 
-router.route("/tt/:lib").get((req, res, next) => {
-  console.log(req.query);
-  const lib = req.params.lib || "dev";
 
-  getLibraryCredentials(lib)
-    .then((creds) => {
-      if (!creds || !creds.keyPair) {
-        return res.status(500).send({
-          err: true,
-          errMsg: "Could not load library credentials",
-        });
-      }
-      const epoch = Math.floor(Date.now() / 1000);
-      const hmac = createHmac("sha256", creds.keyPair.secret);
-      hmac.update(`${creds.keyPair.key}${epoch}=${creds.apiUsername}`);
-      res.send({
-        "X-Deki-Token": `${creds.keyPair.key}_${epoch}_=${creds.apiUsername}_${hmac.digest("hex")}`,
-        "X-Requested-With": "XMLHttpRequest",
-      });
-    })
-    .catch(next);
-});
 
 export default router;
