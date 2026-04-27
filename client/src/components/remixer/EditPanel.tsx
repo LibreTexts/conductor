@@ -80,7 +80,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
           }}
         />
         <Checkbox
-          label="Override Prefix"
+          label="Override Prefix and Index"
           checked={page?.formattedPathOverride ?? false}
           onChange={(_, data) =>
             setPage((prev) => {

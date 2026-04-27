@@ -224,9 +224,7 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
         query,
         queryIsFirst
       )}`;
-      if(api.includes("properties")){
-        console.log(finalOptions);
-      }
+
       request = fetch(url, finalOptions);
     }
 

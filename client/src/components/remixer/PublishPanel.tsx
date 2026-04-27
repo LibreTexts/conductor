@@ -136,7 +136,7 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
 
   return (
     <Modal dimmer={dimmer} open={open} onClose={canClose ? handleClose : undefined} closeOnDimmerClick={canClose} closeOnEscape={canClose}>
-      <ModalHeader>Save on Library</ModalHeader>
+      <ModalHeader>Save to Library</ModalHeader>
       <ModalContent>
         {publishStatus !== "idle" && (
           <div
@@ -232,7 +232,7 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
       <ModalActions>
         <Button onClick={handleClose} disabled={!canClose}>Close</Button>
         <Button positive onClick={publish} loading={publishInProgress} disabled={publishInProgress}>
-          Publish
+          Save 
         </Button>
       </ModalActions>
     </Modal>

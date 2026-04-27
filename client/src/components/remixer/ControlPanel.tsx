@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useMediaQuery } from "react-responsive";
 import { Button, Dropdown, Grid, Header, Icon, Modal, Popup } from "semantic-ui-react";
 import {
   buttonActiveStyle,
@@ -35,6 +36,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 }) => {
   const [confirmStartOverOpen, setConfirmStartOverOpen] = useState(false);
   const [startOverLoading, setStartOverLoading] = useState(false);
+  const isToolbarNarrow = useMediaQuery({ maxWidth: 767 });
 
   const handleStartOverConfirm = async () => {
     if (!onStartOver) {
@@ -124,7 +126,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               <Dropdown
                 options={copyModeStates.map((state) => ({
                   key: state.value,
-                  text: state.title,
+                  text: isToolbarNarrow? state.title.length > 10 ? state.title.substring(0, 10) + "..." : state.title : state.title,
                   value: state.value,
                 }))}
                 value={copyModeState ?? defaultCopyModeState.value}
@@ -151,73 +153,106 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               minWidth: 0,
             }}
           >
-            <Popup
-              content="Path Name Format"
-              position="bottom center"
-              trigger={
-                autoNumbering ? (
+            {isToolbarNarrow ? (
+              <Dropdown
+                direction="left"
+                icon={null}
+                trigger={
                   <Button
-                    onClick={onPathNameFormat}
-                    style={{
-                      backgroundColor: STATUS_PALETTE.successBg,
-                      color: STATUS_PALETTE.success,
-                    }}
-                    onMouseEnter={(event: React.MouseEvent<HTMLButtonElement>) => {
-                      event.currentTarget.style.backgroundColor =
-                        STATUS_PALETTE.success;
-                      event.currentTarget.style.color = "#ffffff";
-                    }}
-                    onMouseLeave={(event: React.MouseEvent<HTMLButtonElement>) => {
-                      event.currentTarget.style.backgroundColor =
-                        STATUS_PALETTE.successBg;
-                      event.currentTarget.style.color = STATUS_PALETTE.success;
-                    }}
-                  >
-                    Autonumber
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={onPathNameFormat}
+                    icon
+                    compact
+                    aria-label="Control panel actions"
                     style={buttonStyle}
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
                   >
-                    Autonumber
+                    <Icon name="ellipsis vertical" />
                   </Button>
-                )
-              }
-            />
+                }
+              >
+                <Dropdown.Menu>
+                  <Dropdown.Item
+                    icon="options"
+                    text="Path Name Format"
+                    onClick={onPathNameFormat}
+                    style={autoNumbering ? { color: STATUS_PALETTE.success } : undefined}
+                  />
+                  <Dropdown.Divider />
+                  <Dropdown.Item icon="save" text="Save as a draft" onClick={onSave} />
+                  <Dropdown.Item icon="upload" text="Save on Library" onClick={onPublish} />
+                </Dropdown.Menu>
+              </Dropdown>
+            ) : (
+              <>
+                <Popup
+                  content="Path Name Format"
+                  position="bottom center"
+                  trigger={
+                    autoNumbering ? (
+                      <Button
+                        onClick={onPathNameFormat}
+                        style={{
+                          backgroundColor: STATUS_PALETTE.successBg,
+                          color: STATUS_PALETTE.success,
+                        }}
+                        onMouseEnter={(event: React.MouseEvent<HTMLButtonElement>) => {
+                          event.currentTarget.style.backgroundColor =
+                            STATUS_PALETTE.success;
+                          event.currentTarget.style.color = "#ffffff";
+                        }}
+                        onMouseLeave={(event: React.MouseEvent<HTMLButtonElement>) => {
+                          event.currentTarget.style.backgroundColor =
+                            STATUS_PALETTE.successBg;
+                          event.currentTarget.style.color = STATUS_PALETTE.success;
+                        }}
+                      >
+                        Autonumber
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={onPathNameFormat}
+                        style={buttonStyle}
+                        onMouseEnter={handleMouseEnter}
+                        onMouseLeave={handleMouseLeave}
+                      >
+                        Autonumber
+                      </Button>
+                    )
+                  }
+                />
 
-            <Popup
-              content="Save as a draft"
-              position="bottom center"
-              trigger={
-                <Button
-                  icon
-                  onClick={onSave}
-                  style={buttonStyle}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave}
-                >
-                  <Icon name="save" />
-                </Button>
-              }
-            />
-            <Popup
-              content="Save on Library"
-              position="bottom center"
-              trigger={
-                <Button
-                  icon
-                  onClick={onPublish}
-                  style={buttonStyle}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave}
-                >
-                  <Icon name="upload" />
-                </Button>
-              }
-            />
+                <Popup
+                  content="Save as a draft"
+                  position="bottom center"
+                  trigger={
+                    <Button
+                      icon
+                      onClick={onSave}
+                      style={buttonStyle}
+                      onMouseEnter={handleMouseEnter}
+                      onMouseLeave={handleMouseLeave}
+                    >
+                      <Icon name="save" />
+                    </Button>
+                  }
+                />
+                <Popup
+                  content="Save on Library"
+                  position="bottom center"
+                  trigger={
+                    <Button
+                      icon
+                      onClick={onPublish}
+                      style={buttonStyle}
+                      onMouseEnter={handleMouseEnter}
+                      onMouseLeave={handleMouseLeave}
+                    >
+                      <Icon name="upload" />
+                    </Button>
+                  }
+                />
+              </>
+            )}
           </div>
         </div>
       </Grid.Column>

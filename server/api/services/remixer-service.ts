@@ -9,6 +9,7 @@ import {
   addPageProperty,
   CXOneFetch,
   generateAPIRequestHeaders,
+  generateBookPathAndURL,
   getPage,
 } from "../../util/librariesclient";
 import MindTouch from "../../util/CXOne/index.js";
@@ -17,6 +18,8 @@ import {
   extractPagePath,
   slugifyNode,
 } from "../../util/remixerutils";
+import * as cheerio from "cheerio";
+import { log } from "debug";
 
 export interface RemixerSubPage {
   "@id": string;
@@ -79,14 +82,14 @@ const mapToRemixerPageDetailsResponse = (
     response?.parent?.["@id"] ??
     "-1";
 
-  if(!currentbook){
+  if (!currentbook) {
     resolvedParentID =
-    response?.["page.parent.@id"] ??
-    response?.["page.parent"]?.["@id"] ??
-    response?.page?.parent?.["@id"] ??
-    response?.parent?.["@id"] ??
-    parentID ??
-    "-1";
+      response?.["page.parent.@id"] ??
+      response?.["page.parent"]?.["@id"] ??
+      response?.page?.parent?.["@id"] ??
+      response?.parent?.["@id"] ??
+      parentID ??
+      "-1";
   }
   return {
     "@id": response["@id"],
@@ -103,6 +106,20 @@ const mapToRemixerPageDetailsResponse = (
 
 const stripLeadingNumbering = (value: string): string =>
   value.replace(/^\s*\d+(?:\.\d+)*\s*[:.\-]\s*/, "").trim();
+
+const stripDefaultTitlePrefixBeforeColon = (value: string): string => {
+  for (
+    let index = value.lastIndexOf(":");
+    index >= 0;
+    index = value.lastIndexOf(":", index - 1)
+  ) {
+    const remainder = value.slice(index + 1);
+    if (remainder.trim().length > 0) {
+      return remainder.trim();
+    }
+  }
+  return value.trim();
+};
 
 /**
  * Thrown when a MindTouch request fails for reasons that are likely temporary
@@ -240,7 +257,9 @@ const getDisplayTitle = (
   autoNumbering: boolean,
 ): string => {
   const rawTitle = page["@title"] || page.title || "Untitled";
-  const cleanTitle = stripLeadingNumbering(rawTitle);
+  const cleanTitle = stripDefaultTitlePrefixBeforeColon(
+    stripLeadingNumbering(rawTitle),
+  );
 
   if (!autoNumbering || inDeletedBranch || inMatterBranch) return cleanTitle;
 
@@ -293,10 +312,11 @@ const handleNewPage = async (
   title: string,
   subdomain: string,
 ): Promise<{ pageID: string; pageURI: string }> => {
-  const content =
-    page["@subpages"] === true
-      ? RemixerTemplates.POST_CreateBlankTopicGuide
-      : RemixerTemplates.POST_CreateBlankPage("topic");
+
+  const content = page["@subpages"] === true
+    ? RemixerTemplates.POST_CreateBlankTopicGuide
+    : RemixerTemplates.POST_CreateBlankPage("topic");
+  ;
 
   const numberedPath = page.pathNumber?.join("_") ?? "";
   // TODO: POST new page to bookURL using title, numberedPath, content
@@ -588,6 +608,7 @@ const handleImportedPage = async (
     );
     postComment = "Remixer transclude";
   } else {
+    const targetLibarayDekiHeaders = await generateAPIRequestHeaders(sourceSubdomain);
     const htmlRes = await CXOneFetch({
       scope: "page",
       path: sourceId,
@@ -595,7 +616,7 @@ const handleImportedPage = async (
       subdomain: sourceSubdomain,
       options: {
         headers: {
-          ...dekiHeaders,
+          ...targetLibarayDekiHeaders,
         },
       },
     });
@@ -603,10 +624,25 @@ const handleImportedPage = async (
       throwForMindTouchResponse(htmlRes, "Error reading source page contents");
     }
     const rawHtml = await htmlRes.text();
-    contentsBody = RemixerTemplates.POST_ForkPage(rawHtml, sourceSubdomain, []);
+    const $ = cheerio.load(rawHtml);
+    $(".mt-guide-content").remove();
+    const cleanedRawHtml = $.html();
+    contentsBody = RemixerTemplates.POST_ForkPage(
+      cleanedRawHtml,
+      sourceSubdomain,
+      [],
+    );
     postComment = "Remixer fork";
   }
-
+  // hasChildren is true if the page has any children
+  if (hasChildren) {
+    contentsBody = RemixerTemplates.POST_CreateBlankTopicGuide
+      + contentsBody;
+  }
+  else {
+    contentsBody = RemixerTemplates.POST_CreateBlankPage("topic")
+      + contentsBody;
+  }
   const postRes = await CXOneFetch({
     scope: "page",
     path: parseInt(pageID, 10),
@@ -623,7 +659,7 @@ const handleImportedPage = async (
   if (!postRes.ok) {
     throwForMindTouchResponse(postRes, "Error posting imported content");
   }
-
+  await applyDefaultRemixerPageProperties(subdomain, pageID);
   return { pageID, pageURI };
 };
 
@@ -669,6 +705,7 @@ const toFinalBookEntry = (
   page: RemixerSubPageState,
   subdomain: string,
   book: RemixerSubPageState[],
+  displayTitle?: string,
 ): RemixerSubPageState => {
   const plain = remixerSubPageToPlain(page);
   const rawTitle = plain["@title"] ?? plain.title;
@@ -680,7 +717,7 @@ const toFinalBookEntry = (
   const href = String(plain["@href"] ?? plain["uri.ui"] ?? "");
   return {
     "@id": String(plain["@id"] ?? ""),
-    "@title": title,
+    "@title": displayTitle ?? title,
     "@href": href,
     "@subpages": hasSubpages(page, book),
     article: normalizeArticle(plain.article),
@@ -720,7 +757,7 @@ const runRemixerJob = async ({
   subdomain,
 }: RunRemixerJobParams) => {
   const job = await PrejectRemixerJob.findOne({ jobID }).sort({ _id: -1 });
-  const remixerState = await PrejectRemixer.findOne({ projectID });
+  const remixerState = await PrejectRemixer.findOne({ projectID }).sort({ _id: -1 });
   let finalBook: RemixerSubPageState[] = [];
   if (!remixerState) {
     throw new Error("Remixer state not found");
@@ -910,7 +947,7 @@ const runRemixerJob = async ({
         page.isDeleted === true ||
         page.deletedItem === true;
       if (!isDeletedPage) {
-        finalBook.push(toFinalBookEntry(page, subdomain, pages));
+        finalBook.push(toFinalBookEntry(page, subdomain, pages, title));
       }
 
       await new Promise((resolve) =>
@@ -919,6 +956,17 @@ const runRemixerJob = async ({
       job.messages.push(message);
       await job.save();
     }
+    const bookURL = remixerState.remixerCurrentBook[0]["@href"] ;
+    // ── Trigger Mindtouch TOC update ─────────────────────────────────────────
+    log("[*] Triggering MindMap TOC update...");
+    await fetch(`https://batch.libretexts.org/print/Libretext=${bookURL}`, {
+      headers: { origin: "commons.libretexts.org" },
+    }).then(()=>console.log("MindMap TOC update done")).catch((e) => {
+      console.warn(
+        "[PressBookScraper] MindMap trigger failed (non-fatal):",
+        (e as Error).message,
+      );
+    });
 
     // Archive the remixer state that was just published and persist a fresh
     // snapshot as the new active record. The snapshot captures the fully

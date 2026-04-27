@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useMediaQuery } from "react-responsive";
 import {
   Button,
   Container,
@@ -42,6 +43,7 @@ import {
 import {
   DropPosition,
   applyBookNodeDeletion,
+  applyDefaultBookArticleTypes,
   buildBookPaths,
   clearLocalDraft,
   cloneBook,
@@ -58,6 +60,7 @@ import {
   isRootBookNode,
   reorderBookNodes,
   setLocalDraft,
+  syncRenamedItemFromAutonumberTitle,
   withDerivedStatusFlags,
 } from "./services";
 import {
@@ -75,6 +78,8 @@ const RemixerDashboard: React.FC = () => {
   const isAdmin = user?.isSuperAdmin || user?.isCampusAdmin;
   const { addNotification } = useNotifications();
   const { id } = useParams<{ id: string }>();
+  /** Below `md` (~768px): book toolbar actions collapse into a dropdown (Tailwind `sm` + `xs`). */
+  const isBookToolbarNarrow = useMediaQuery({ maxWidth: 767 });
 
   const [remixerData, setRemixerData] = useState<RemixerData>(remixerDataInit);
   const [uiState, setUiState] = useState<RemixerUiState>(remixerUiStateInit);
@@ -264,9 +269,18 @@ const RemixerDashboard: React.FC = () => {
             }
           : page,
       );
-      return withDerivedStatusFlags(withPaths);
+      const withRenamed = syncRenamedItemFromAutonumberTitle(
+        withPaths,
+        remixerData.autoNumbering ?? true,
+        uiState.pathLevelFormats ?? [],
+      );
+      const withArticleTypes = applyDefaultBookArticleTypes(
+        withRenamed,
+        remixerData.liberCoverID,
+      );
+      return withDerivedStatusFlags(withArticleTypes);
     },
-    [uiState.pathLevelFormats],
+    [uiState.pathLevelFormats, remixerData.autoNumbering, remixerData.liberCoverID],
   );
 
   /** Apply an updater to `currentBook`, re-normalize, and optionally push the previous snapshot to undo. */
@@ -1843,53 +1857,107 @@ const RemixerDashboard: React.FC = () => {
       />
 
       <Grid.Row>
-        <Grid.Column width={8} style={{ padding: "25px" }}>
+        <Grid.Column width={8} style={{ padding: "25px" , paddingRight : isBookToolbarNarrow ? "0px" : "25px", paddingLeft : isBookToolbarNarrow ? "0px" : "25px" }}>
           <Container fluid>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
               <label style={{ fontWeight: "bold", whiteSpace: "nowrap" }}>Library</label>
 
-              <Dropdown
-                options={remixerData.libraries?.map((library) => ({
-                  key: library,
-                  text: isLibrary(library)
-                    ? libraryTitles[library]
-                    : library,
-                  value: library,
-                }))}
-                value={remixerData.selectedLibrary}
-                onChange={(e, { value }) => {
-                  const nextLibrary =
-                    typeof value === "string" && isLibrary(value)
-                      ? value
-                      : undefined;
-                  setRemixerData((prev) => ({
-                    ...prev,
-                    selectedLibrary: nextLibrary,
-                  }));
-                }}
-                fluid
-                selection
-                placeholder="Library..."
-                style={{ flex: 1 }}
-              />
-
-              <Popup
-                content="Search Catalog Book"
-                position="bottom center"
-                trigger={
-                  <Button
-                    icon
-                    onClick={() =>
-                      setUiState((prev) => ({ ...prev, catalogListOpen: true }))
+              {isBookToolbarNarrow ? (
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", paddingTop : isBookToolbarNarrow ? "1.5em" : "0px" }}>
+                  <Dropdown
+                    direction="left"
+                    icon={null}
+                    trigger={
+                      <Button
+                        icon
+                        compact
+                        aria-label="Library actions"
+                        style={buttonStyle}
+                        onMouseEnter={handleMouseEnter}
+                        onMouseLeave={handleMouseLeave}
+                      >
+                        <Icon name="ellipsis vertical" />
+                      </Button>
                     }
-                    style={buttonStyle}
-                    onMouseEnter={handleMouseEnter}
-                    onMouseLeave={handleMouseLeave}
                   >
-                    <Icon name="search" />
-                  </Button>
-                }
-              />
+                    <Dropdown.Menu>
+                      {(remixerData.libraries ?? []).map((library) => {
+                        const isSelected = remixerData.selectedLibrary === library;
+                        return (
+                          <Dropdown.Item
+                            key={library}
+                            text={
+                              isLibrary(library) ? libraryTitles[library] : library
+                            }
+                            icon={isSelected ? "check" : undefined}
+                            onClick={() =>
+                              setRemixerData((prev) => ({
+                                ...prev,
+                                selectedLibrary: isLibrary(library)
+                                  ? library
+                                  : undefined,
+                              }))
+                            }
+                          />
+                        );
+                      })}
+                      <Dropdown.Divider />
+                      <Dropdown.Item
+                        icon="search"
+                        text="Search Catalog Book"
+                        onClick={() =>
+                          setUiState((prev) => ({ ...prev, catalogListOpen: true }))
+                        }
+                      />
+                    </Dropdown.Menu>
+                  </Dropdown>
+                </div>
+              ) : (
+                <>
+                  <Dropdown
+                    options={remixerData.libraries?.map((library) => ({
+                      key: library,
+                      text: isLibrary(library)
+                        ? libraryTitles[library]
+                        : library,
+                      value: library,
+                    }))}
+                    value={remixerData.selectedLibrary}
+                    onChange={(e, { value }) => {
+                      const nextLibrary =
+                        typeof value === "string" && isLibrary(value)
+                          ? value
+                          : undefined;
+                      setRemixerData((prev) => ({
+                        ...prev,
+                        selectedLibrary: nextLibrary,
+                      }));
+                    }}
+                    fluid
+                    selection
+                    placeholder="Library..."
+                    style={{ flex: 1 }}
+                  />
+
+                  <Popup
+                    content="Search Catalog Book"
+                    position="bottom center"
+                    trigger={
+                      <Button
+                        icon
+                        onClick={() =>
+                          setUiState((prev) => ({ ...prev, catalogListOpen: true }))
+                        }
+                        style={buttonStyle}
+                        onMouseEnter={handleMouseEnter}
+                        onMouseLeave={handleMouseLeave}
+                      >
+                        <Icon name="search" />
+                      </Button>
+                    }
+                  />
+                </>
+              )}
             </div>
 
             {!libraryLoading &&
@@ -1911,125 +1979,193 @@ const RemixerDashboard: React.FC = () => {
         </Grid.Column>
         <Grid.Column
           width={8}
-          style={{ padding: "25px", display: "flex", alignItems: "flex-end" }}
+          style={{ padding: "25px", display: "flex", alignItems: "flex-end" , paddingLeft : isBookToolbarNarrow ? "0px" : "25px" }}
+     
         >
           <Container fluid style={{ width: "100%" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
               <label style={{ fontWeight: "bold", whiteSpace: "nowrap" }}>Text</label>
-              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.2em" }}>
-              <Popup
-              content="Add"
-              position="bottom center"
-              trigger={
-                <Button
-                  icon
-                  onClick={handleAddBookItem}
-                  style={{
-                    backgroundColor: STATUS_PALETTE.successBg,
-                    color: STATUS_PALETTE.success,
-                  }}
-                  onMouseEnter={(event: React.MouseEvent<HTMLButtonElement>) => {
-                    event.currentTarget.style.backgroundColor =
-                      STATUS_PALETTE.success;
-                    event.currentTarget.style.color = "#ffffff";
-                  }}
-                  onMouseLeave={(event: React.MouseEvent<HTMLButtonElement>) => {
-                    event.currentTarget.style.backgroundColor =
-                      STATUS_PALETTE.successBg;
-                    event.currentTarget.style.color = STATUS_PALETTE.success;
-                  }}
-                >
-                  <Icon name="add" />
-                </Button>
-              }
-            />
-            <Popup
-              content="Delete"
-              position="bottom center"
-              trigger={
-                <Button
-                  icon
-                  onClick={handleDeleteSelectedBookNode}
-                  style={{
-                    backgroundColor: STATUS_PALETTE.errorBg,
-                    color: STATUS_PALETTE.error,
-                  }}
-                  onMouseEnter={(event: React.MouseEvent<HTMLButtonElement>) => {
-                    event.currentTarget.style.backgroundColor =
-                      STATUS_PALETTE.error;
-                    event.currentTarget.style.color = "#ffffff";
-                  }}
-                  onMouseLeave={(event: React.MouseEvent<HTMLButtonElement>) => {
-                    event.currentTarget.style.backgroundColor =
-                      STATUS_PALETTE.errorBg;
-                    event.currentTarget.style.color = STATUS_PALETTE.error;
-                  }}
-                >
-                  <Icon name="trash alternate" />
-                </Button>
-              }
-            />
-              <Popup
-                content="Undo"
-                position="bottom center"
-                trigger={
-                  <Button
-                    icon
-                    onClick={handleUndo}
-                    disabled={undoStack.length === 0}
-                    style={buttonStyle}
-                    onMouseEnter={handleMouseEnter}
-                    onMouseLeave={handleMouseLeave}
-                  >
-                    <Icon name="undo" />
-                  </Button>
-                }
-              />
-              <Popup
-                content="Redo"
-                position="bottom center"
-                trigger={
-                  <Button
-                    icon
-                    onClick={handleRedo}
-                    disabled={redoStack.length === 0}
-                    style={buttonStyle}
-                    onMouseEnter={handleMouseEnter}
-                    onMouseLeave={handleMouseLeave}
-                  >
-                    <Icon name="redo" />
-                  </Button>
-                }
-              />
-              <Popup
-                content={
-                  isExpandedAllCurrentBookNodes()
-                    ? "Collapse all (Current Book)"
-                    : "Expand all (Current Book)"
-                }
-                position="bottom center"
-                trigger={
-                  <Button
-                    icon
-                    onClick={
-                      isExpandedAllCurrentBookNodes()
-                        ? collapseAllCurrentBook
-                        : expandAllCurrentBook
+              <div
+                style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.2em"  , paddingTop : isBookToolbarNarrow ? "1.5em" : "0px" }}
+              >
+                {isBookToolbarNarrow ? (
+                  <Dropdown
+                    direction="left"
+                    icon={null}
+                    trigger={
+                      <Button
+                        icon
+                        compact
+                        aria-label="Current book actions"
+                        style={buttonStyle}
+                        onMouseEnter={handleMouseEnter}
+                        onMouseLeave={handleMouseLeave}
+                      >
+                        <Icon name="ellipsis vertical" />
+                      </Button>
                     }
-                    style={buttonStyle}
-                    onMouseEnter={handleMouseEnter}
-                    onMouseLeave={handleMouseLeave}
                   >
-                    <Icon
-                      name={
-                        isExpandedAllCurrentBookNodes()
-                          ? "chevron up"
-                          : "chevron down"
+                    <Dropdown.Menu>
+                      <Dropdown.Item
+                        icon="add"
+                        text="Add"
+                        onClick={() => handleAddBookItem()}
+                        style={{ color: STATUS_PALETTE.success }}
+                      />
+                      <Dropdown.Item
+                        icon="trash"
+                        text="Delete"
+                        onClick={() => handleDeleteSelectedBookNode()}
+                        style={{ color: STATUS_PALETTE.error }}
+                      />
+                      <Dropdown.Divider />
+                      <Dropdown.Item
+                        icon="undo"
+                        text="Undo"
+                        disabled={undoStack.length === 0}
+                        onClick={() => handleUndo()}
+                      />
+                      <Dropdown.Item
+                        icon="redo"
+                        text="Redo"
+                        disabled={redoStack.length === 0}
+                        onClick={() => handleRedo()}
+                      />
+                      <Dropdown.Divider />
+                      <Dropdown.Item
+                        icon={
+                          isExpandedAllCurrentBookNodes() ? "chevron up" : "chevron down"
+                        }
+                        text={
+                          isExpandedAllCurrentBookNodes()
+                            ? "Collapse all (Current Book)"
+                            : "Expand all (Current Book)"
+                        }
+                        onClick={() =>
+                          void (isExpandedAllCurrentBookNodes()
+                            ? collapseAllCurrentBook()
+                            : expandAllCurrentBook())
+                        }
+                      />
+                    </Dropdown.Menu>
+                  </Dropdown>
+                ) : (
+                  <>
+                    <Popup
+                      content="Add"
+                      position="bottom center"
+                      trigger={
+                        <Button
+                          icon
+                          onClick={handleAddBookItem}
+                          style={{
+                            backgroundColor: STATUS_PALETTE.successBg,
+                            color: STATUS_PALETTE.success,
+                          }}
+                          onMouseEnter={(event: React.MouseEvent<HTMLButtonElement>) => {
+                            event.currentTarget.style.backgroundColor =
+                              STATUS_PALETTE.success;
+                            event.currentTarget.style.color = "#ffffff";
+                          }}
+                          onMouseLeave={(event: React.MouseEvent<HTMLButtonElement>) => {
+                            event.currentTarget.style.backgroundColor =
+                              STATUS_PALETTE.successBg;
+                            event.currentTarget.style.color = STATUS_PALETTE.success;
+                          }}
+                        >
+                          <Icon name="add" />
+                        </Button>
                       }
                     />
-                  </Button>
-                }
-              />
+                    <Popup
+                      content="Delete"
+                      position="bottom center"
+                      trigger={
+                        <Button
+                          icon
+                          onClick={handleDeleteSelectedBookNode}
+                          style={{
+                            backgroundColor: STATUS_PALETTE.errorBg,
+                            color: STATUS_PALETTE.error,
+                          }}
+                          onMouseEnter={(event: React.MouseEvent<HTMLButtonElement>) => {
+                            event.currentTarget.style.backgroundColor =
+                              STATUS_PALETTE.error;
+                            event.currentTarget.style.color = "#ffffff";
+                          }}
+                          onMouseLeave={(event: React.MouseEvent<HTMLButtonElement>) => {
+                            event.currentTarget.style.backgroundColor =
+                              STATUS_PALETTE.errorBg;
+                            event.currentTarget.style.color = STATUS_PALETTE.error;
+                          }}
+                        >
+                          <Icon name="trash alternate" />
+                        </Button>
+                      }
+                    />
+                    <Popup
+                      content="Undo"
+                      position="bottom center"
+                      trigger={
+                        <Button
+                          icon
+                          onClick={handleUndo}
+                          disabled={undoStack.length === 0}
+                          style={buttonStyle}
+                          onMouseEnter={handleMouseEnter}
+                          onMouseLeave={handleMouseLeave}
+                        >
+                          <Icon name="undo" />
+                        </Button>
+                      }
+                    />
+                    <Popup
+                      content="Redo"
+                      position="bottom center"
+                      trigger={
+                        <Button
+                          icon
+                          onClick={handleRedo}
+                          disabled={undoStack.length === 0}
+                          style={buttonStyle}
+                          onMouseEnter={handleMouseEnter}
+                          onMouseLeave={handleMouseLeave}
+                        >
+                          <Icon name="redo" />
+                        </Button>
+                      }
+                    />
+                    <Popup
+                      content={
+                        isExpandedAllCurrentBookNodes()
+                          ? "Collapse all (Current Book)"
+                          : "Expand all (Current Book)"
+                      }
+                      position="bottom center"
+                      trigger={
+                        <Button
+                          icon
+                          onClick={
+                            isExpandedAllCurrentBookNodes()
+                              ? collapseAllCurrentBook
+                              : expandAllCurrentBook
+                          }
+                          style={buttonStyle}
+                          onMouseEnter={handleMouseEnter}
+                          onMouseLeave={handleMouseLeave}
+                        >
+                          <Icon
+                            name={
+                              isExpandedAllCurrentBookNodes()
+                                ? "chevron up"
+                                : "chevron down"
+                            }
+                          />
+                        </Button>
+                      }
+                    />
+                  </>
+                )}
               </div>
             </div>
             {remixerData.currentBook ? (

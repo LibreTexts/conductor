@@ -173,6 +173,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             libreCoverID &&
             libreLibrary &&
             isProjectMemberOrAdmin && (
+              <>
               <Popup
                 content="This link will open the book in the LibreTexts OER Remixer."
                 trigger={
@@ -196,6 +197,20 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                   </Button>
                 }
               />
+              <Popup
+                content="This link will open the book in the LibreTexts OER Remixer Version 3."
+                trigger={
+                  <Button
+                    onClick={() => window.open(`/remixer/${projectID}`, "_blank")}
+                    color="blue"
+                    size="small"
+                  >
+                    Open OER Remixer Version 3
+                    <Icon name="external alternate" className="!ml-2" />
+                  </Button>
+                }
+              />
+              </>
             )}
           {projectID && projectTitle && (
             <CreateWorkbenchModal

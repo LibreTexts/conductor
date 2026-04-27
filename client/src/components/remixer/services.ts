@@ -50,16 +50,18 @@ export const stripLeadingNumbering = (value: string): string =>
   value.replace(/^\s*\d+(?:\.\d+)*\s*[:.\-]\s*/, "").trim();
 
 /**
- * Stored titles often duplicate the computed path prefix ("1.2: Title"). With auto-numbering,
- * drop the legacy segment before the first ":" and any further ":" in the remainder.
+ * Stored titles often duplicate the computed path prefix ("1.2: Title").
+ * With auto-numbering, treat everything before the rightmost significant ":"
+ * (one that still has non-whitespace text after it) as replaceable numbering/prefix metadata.
  */
 export const stripDefaultTitlePrefixBeforeColon = (value: string): string => {
-  let s = value;
-  const colonIndex = s.indexOf(":");
-  if (colonIndex !== -1) {
-    s = s.slice(colonIndex + 1);
+  for (let index = value.lastIndexOf(":"); index >= 0; index = value.lastIndexOf(":", index - 1)) {
+    const remainder = value.slice(index + 1);
+    if (remainder.trim().length > 0) {
+      return remainder.trim();
+    }
   }
-  return s.replace(/:/g, "").trim();
+  return value.trim();
 };
 
 const normalizedMatterTitle = (node: RemixerSubPage): string =>
@@ -288,10 +290,7 @@ export const getRemixerDisplayTitle = (
   if (!isBookTree) return rawTitle;
   if (!autoNumbering) return rawTitle;
   let cleanTitle = stripLeadingNumbering(rawTitle);
-  const preserveTitleThroughColon = page.formattedPathOverride === true;
-  if (!preserveTitleThroughColon) {
-    cleanTitle = stripDefaultTitlePrefixBeforeColon(cleanTitle);
-  }
+  cleanTitle = stripDefaultTitlePrefixBeforeColon(cleanTitle);
   if (inDeletedBranch || numberPath.length === 0 || inMatterNoNumberSubtree) {
     return cleanTitle;
   }
@@ -539,6 +538,22 @@ export const withDerivedStatusFlags = (book: RemixerSubPage[]): RemixerSubPage[]
     };
   });
 
+/**
+ * The book cover (project `liberCoverID`) keeps its `article` value from the source;
+ * all other pages in the current book are set to `topic-guide`.
+ */
+export const applyDefaultBookArticleTypes = (
+  book: RemixerSubPage[],
+  coverPageId: string | undefined,
+): RemixerSubPage[] => {
+  if (!coverPageId) return book;
+  return book.map((page) =>
+    page["@id"] === coverPageId
+      ? page
+      : { ...page, article: "topic-guide" },
+  );
+};
+
 // ---------------------------------------------------------------------------
 // Matter node helpers
 // ---------------------------------------------------------------------------
@@ -562,6 +577,96 @@ export const isMatterBranchNode = (
     currentId = node.parentID ?? "-1";
   }
   return false;
+};
+
+const isInMatterNoNumberSubtreeForAutonumber = (
+  page: RemixerSubPage,
+  nodesById: Map<string, RemixerSubPage>,
+): boolean => {
+  let id: string | undefined = page["@id"];
+  const visited = new Set<string>();
+  while (id && id !== "-1" && !visited.has(id)) {
+    visited.add(id);
+    const n = nodesById.get(id);
+    if (!n) break;
+    if (isMatterNode(n)) return true;
+    id = n.parentID ?? "-1";
+  }
+  return false;
+};
+
+const isInDeletedBranchForAutonumber = (
+  page: RemixerSubPage,
+  nodesById: Map<string, RemixerSubPage>,
+): boolean => {
+  if (page.deletedItem === true || page.isDeleted === true) return true;
+  let id: string | undefined = page.parentID ?? "-1";
+  const visited = new Set<string>();
+  while (id && id !== "-1" && !visited.has(id)) {
+    visited.add(id);
+    const n = nodesById.get(id);
+    if (!n) break;
+    if (n.deletedItem === true || n.isDeleted === true) return true;
+    id = n.parentID ?? "-1";
+  }
+  return false;
+};
+
+/**
+ * When autonumbering is on, sets `renamedItem` if the stored title is not the canonical
+ * autonumber display (`getRemixerDisplayTitle`), except: if the user has a custom
+ * `formattedPathOverride` and `renamedItem` is not already true, we leave `renamedItem`
+ * false so custom-prefix pages are not listed as renames. Display still follows override
+ * in `getRemixerDisplayTitle`. When autonumbering is off, `renamedItem` is unchanged.
+ */
+export const syncRenamedItemFromAutonumberTitle = (
+  book: RemixerSubPage[],
+  autoNumbering: boolean,
+  pathLevelFormats: PathLevelFormat[],
+): RemixerSubPage[] => {
+  if (book.length === 0) return book;
+  const nodesById = new Map(book.map((n) => [n["@id"], n]));
+  const ordinalPathById = computeRemixerOrdinalPathsMap(book);
+
+  const displayOptions: GetRemixerDisplayTitleOptions = {
+    isBookTree: true,
+    autoNumbering,
+    pathLevelFormats,
+    remixerPathLookup: { nodesById, ordinalPathById },
+  };
+
+  return book.map((page) => {
+    if (!autoNumbering) {
+      return page;
+    }
+
+    if (page.formattedPathOverride === true && page.renamedItem !== true) {
+      return { ...page, renamedItem: false };
+    }
+
+    const numberPath = ordinalPathById.get(page["@id"]) ?? [];
+    const inDeletedBranch = isInDeletedBranchForAutonumber(page, nodesById);
+    const inMatterNoNumberSubtree = isInMatterNoNumberSubtreeForAutonumber(
+      page,
+      nodesById,
+    );
+
+    const expectedDisplay = getRemixerDisplayTitle(
+      page,
+      numberPath,
+      inMatterNoNumberSubtree,
+      inDeletedBranch,
+      displayOptions,
+    );
+
+    const rawTitle = (page["@title"] || page.title || "").trim();
+    const titleMatches = rawTitle === expectedDisplay.trim();
+
+    return {
+      ...page,
+      renamedItem: !titleMatches,
+    };
+  });
 };
 
 // ---------------------------------------------------------------------------

@@ -297,7 +297,7 @@ const getRemixerProjectState = async (req: Request, res: Response) => {
   }
 
   const remixerState = await PrejectRemixer.findOne(
-    { projectID: id },
+    { projectID: id},
     {
       projectID: 1,
       archived: 1,
