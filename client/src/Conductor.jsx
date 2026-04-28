@@ -91,6 +91,7 @@ import StoreNavbar from './components/navigation/StoreNavbar';
 import CartProvider from './providers/CartProvider';
 import SupportCenterProvider from './providers/SupportCenterProvider';
 import RemixerDashboard from './components/remixer/RemixerDashboard';
+import Restacker from './components/projects/Restacker/index';
 
 const RenderNavbar = () => {
   if(window.location.pathname.includes('/insight') || window.location.pathname.includes('/support')){
@@ -134,6 +135,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/projects/:id/ai-co-author/batch' component={BatchRun} />
           <Route exact path='/projects/:id/analytics' component={ProjectAnalytics} /> {/* Auth handled at page level. Can be private or public*/}
           <PrivateRoute exact path='/projects/accept-invite/:id' component={AcceptProjectInviteScreen} />
+          <PrivateRoute exact path='/projects/:id/restacker' component={Restacker} />
           {/* <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />
           <PrivateRoute exact path='/analytics/invites' component={AnalyticsInvites} />
           <PrivateRoute exact path='/analytics/requestaccess' component={AnalyticsRequestAccess} />
