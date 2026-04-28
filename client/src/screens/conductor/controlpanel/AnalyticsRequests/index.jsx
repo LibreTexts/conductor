@@ -1,31 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
-import {
-  Breadcrumb,
-  Grid,
-  Header,
-  Loader,
-  Segment,
-  Table,
-} from 'semantic-ui-react';
-import date from 'date-and-time';
-import ViewAnalyticsRequest from '../../../../components/analytics/ViewAnalyticsRequest';
-import useGlobalError from '../../../../components/error/ErrorHooks';
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import axios from "axios";
+import date from "date-and-time";
+import { Breadcrumb, Heading, Stack, Text } from "@libretexts/davis-react";
+import { DataTable } from "@libretexts/davis-react-table";
+import ViewAnalyticsRequest from "../../../../components/analytics/ViewAnalyticsRequest";
+import useGlobalError from "../../../../components/error/ErrorHooks";
 
 /**
  * The Analytics Requests interface allows administrators to view Analytics Access Requests
  * submitted via Conductor Analytics.
  */
 const AnalyticsRequests = () => {
-
-  const TABLE_COLS = [
-    { key: 'date', text: 'Date' },
-    { key: 'name', text: 'Name' },
-    { key: 'course', text: 'Course' },
-    { key: 'libretext', text: 'LibreText Identifier' },
-  ];
-
   // Global error handling
   const { handleGlobalError } = useGlobalError();
 
@@ -43,24 +28,24 @@ const AnalyticsRequests = () => {
   const getAnalyticsRequests = useCallback(async () => {
     try {
       setLoading(true);
-      const arRes = await axios.get('/analytics/accessrequests');
+      const arRes = await axios.get("/analytics/accessrequests");
       if (!arRes.data.err) {
         setAnalyticsRequests(arRes.data.requests);
-        setLoading(false);    
       } else {
-        throw (new Error(arRes.data.errMsg));
+        throw new Error(arRes.data.errMsg);
       }
     } catch (e) {
-      setLoading(false);
       handleGlobalError(e);
+    } finally {
+      setLoading(false);
     }
-  }, [setAnalyticsRequests, setLoading, handleGlobalError]);
+  }, [handleGlobalError]);
 
   /**
    * Set the page title and gather data from server on first load.
    */
   useEffect(() => {
-    document.title = 'LibreText Conductor | Analytics Requests';
+    document.title = "LibreText Conductor | Analytics Requests";
     getAnalyticsRequests();
   }, [getAnalyticsRequests]);
 
@@ -68,13 +53,12 @@ const AnalyticsRequests = () => {
    * Accepts a standard ISO 8601 Date or date-string and parses the date and time
    * to a UI-ready, human-readable format.
    *
-   * @param {Date|string} dateInput - Date to parse and format. 
-   * @returns {string} The formatted date. 
+   * @param {Date|string} dateInput - Date to parse and format.
+   * @returns {string} The formatted date.
    */
   function parseDateAndTime(dateInput) {
     const dateInstance = new Date(dateInput);
-    const dateString = date.format(dateInstance, 'MM/DD/YYYY h:mm A');
-    return dateString;
+    return date.format(dateInstance, "MM/DD/YYYY h:mm A");
   }
 
   /**
@@ -103,95 +87,96 @@ const AnalyticsRequests = () => {
     getAnalyticsRequests();
   }
 
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: "createdAt",
+        header: "Date",
+        cell: ({ row }) => (
+          <button
+            type="button"
+            className="button-text-link text-left"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenRequestView(row.original);
+            }}
+          >
+            {Object.prototype.hasOwnProperty.call(row.original, "createdAt")
+              ? parseDateAndTime(row.original.createdAt)
+              : <em>Unknown</em>}
+          </button>
+        ),
+      },
+      {
+        id: "name",
+        header: "Name",
+        cell: ({ row }) => (
+          <span>{row.original.requester?.firstName} {row.original.requester?.lastName}</span>
+        ),
+      },
+      {
+        id: "course",
+        header: "Course",
+        cell: ({ row }) => <span>{row.original.course?.title}</span>,
+      },
+      {
+        id: "libretext",
+        header: "LibreText Identifier",
+        cell: ({ row }) => (
+          row.original.course?.pendingTextbookID ? (
+            <a
+              href={`https://go.libretexts.org/${row.original.course.pendingTextbookID}`}
+              rel="noreferrer"
+              target="_blank"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {row.original.course.pendingTextbookID}
+            </a>
+          ) : (
+            <span>Unknown</span>
+          )
+        ),
+      },
+    ],
+    []
+  );
+
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">Analytics Requests</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">Control Panel</Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>Analytics Requests</Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            {loading && (
-              <Segment>
-                <Loader active inline="centered" />
-              </Segment>
-            )}
-            <Segment>
-              <Table striped celled>
-                <Table.Header>
-                  <Table.Row>
-                    {TABLE_COLS.map((item) => (
-                      <Table.HeaderCell key={item.key}>
-                        <span>{item.text}</span>
-                      </Table.HeaderCell>
-                    ))}
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {(analyticsRequests.length > 0) && (
-                    analyticsRequests.map((item) => {
-                      return (
-                        <Table.Row key={item._id} className="word-break-all">
-                          <Table.Cell>
-                            <span className="text-link" onClick={() => handleOpenRequestView(item)}>
-                              {item.hasOwnProperty('createdAt')
-                                ? parseDateAndTime(item.createdAt)
-                                : <em>Unknown</em>
-                              }
-                            </span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>{item.requester?.firstName} {item.requester?.lastName}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>{item.course?.title}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            {item.course?.pendingTextbookID ? (
-                              <a
-                                href={`https://go.libretexts.org/${item.course.pendingTextbookID}`}
-                                rel="noreferrer"
-                                target="_blank"
-                              >
-                                {item.course.pendingTextbookID}
-                              </a>
-                            ) : (
-                              <span>Unknown</span>
-                            )}
-                          </Table.Cell>
-                        </Table.Row>
-                      );
-                    })
-                  )}
-                  {(analyticsRequests.length === 0) && (
-                    <Table.Row>
-                      <Table.Cell colSpan={TABLE_COLS.length}>
-                        <p className="text-center"><em>No results found.</em></p>
-                      </Table.Cell>
-                    </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
-            </Segment>
-          </Segment.Group>
-          <ViewAnalyticsRequest
-            show={showViewModal}
-            onClose={handleViewModalClose}
-            request={currentRequest}
-            onDataChange={handleDataChangeNotification}
-          />
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+    <div className="!bg-white !h-full !px-8 !pt-8">
+      <Stack direction="vertical" gap="md" className="mb-4">
+        <Heading level={2}>Analytics Requests</Heading>
+        <Breadcrumb>
+          <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+          <Breadcrumb.Item isCurrent>Analytics Requests</Breadcrumb.Item>
+        </Breadcrumb>
+      </Stack>
+
+      <DataTable
+        data={analyticsRequests}
+        columns={columns}
+        loading={loading}
+        density="compact"
+        bordered
+        striped
+        stickyHeader
+        caption="Analytics access requests"
+        emptyState={
+          <div className="py-8 text-center">
+            <Text>
+              <em>No results found.</em>
+            </Text>
+          </div>
+        }
+        onRowClick={(row) => handleOpenRequestView(row)}
+      />
+
+      <ViewAnalyticsRequest
+        show={showViewModal}
+        onClose={handleViewModalClose}
+        request={currentRequest}
+        onDataChange={handleDataChangeNotification}
+      />
+    </div>
   );
 };
 

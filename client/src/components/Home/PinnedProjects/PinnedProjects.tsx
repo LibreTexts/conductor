@@ -1,139 +1,145 @@
 import { useMemo } from "react";
-import {
-  Button,
-  Card,
-  Icon,
-  Label,
-  MenuItem,
-  Popup,
-  Segment,
-  Tab,
-} from "semantic-ui-react";
-import ProjectCard from "../../projects/ProjectCard";
+import { Badge, Button, Spinner, Tabs, Tooltip } from "@libretexts/davis-react";
+import { DataTable } from "@libretexts/davis-react-table";
+import type { ColumnDef } from "@libretexts/davis-react-table";
+import { Link } from "react-router-dom";
+import { IconPencil, IconPin } from "@tabler/icons-react";
+import { format, parseISO } from "date-fns";
 import { useModals } from "../../../context/ModalContext";
 import PinProjectsModal from "./PinProjectsModal";
-import { useMediaQuery } from "react-responsive";
 import { usePinnedProjects } from "./hooks";
+import { truncateString } from "../../util/HelperFunctions";
+import { Project } from "../../../types";
 
-interface PinnedProjectsInterface {}
+type PinnedProjectObj = Pick<Project, "orgID" | "projectID" | "title" | "updatedAt">;
 
-const PinnedProjects: React.FC<PinnedProjectsInterface> = () => {
+const columns: ColumnDef<PinnedProjectObj>[] = [
+  {
+    accessorKey: "title",
+    header: "Title",
+    cell: ({ getValue, row }) => (
+      <Link
+        to={`/projects/${row.original.projectID}`}
+        className="font-semibold text-blue-700 hover:text-blue-900 hover:underline"
+      >
+        {truncateString(getValue<string>(), 75)}
+      </Link>
+    ),
+  },
+  {
+    accessorKey: "updatedAt",
+    header: "Last Updated",
+    cell: ({ getValue }) => {
+      const val = getValue<string>();
+      if (!val) return <span className="text-gray-400">—</span>;
+      const parsed = parseISO(val);
+      return (
+        <span className="text-gray-600 text-sm">
+          {format(parsed, "MM/dd/yy")} at {format(parsed, "h:mm aa")}
+        </span>
+      );
+    },
+  },
+];
+
+const PinnedProjects: React.FC = () => {
   const { openModal, closeAllModals } = useModals();
-  const isTailwindLg = useMediaQuery({ minWidth: 1024 });
-  const isXL = useMediaQuery({ minWidth: 1280 });
   const { data, isLoading } = usePinnedProjects();
 
   const onShowPinnedModal = () => {
     if (!data) return;
-    openModal(
-      <PinProjectsModal show={true} onClose={() => closeAllModals()} />
-    );
+    openModal(<PinProjectsModal show={true} onClose={() => closeAllModals()} />);
   };
 
-  const NoPinnedMessage = () => {
-    return (
-      <div className="flex justify-center items-center h-full">
-        <p className="text-gray-500">No pinned projects here</p>
-      </div>
-    );
-  };
-
-  const panes = useMemo(() => {
+  const allProjects = useMemo<PinnedProjectObj[]>(() => {
     if (!data) return [];
+    return data.flatMap((folder) =>
+      (folder.projects || []).filter((p): p is PinnedProjectObj => typeof p !== "string")
+    );
+  }, [data]);
 
-    const classList = "xl:!ml-24 2xl:!ml-4 3xl:!ml-0 !max-h-[500px] overflow-y-auto xl:!mr-1"
-    const allItemsLength = data
-      ?.map((i) => i.projects?.length)
-      .reduce((acc, curr) => acc + (curr || 0), 0);
+  const tabLabels = useMemo(() => {
+    if (!data) return [];
+    const labels = data.map((folder) => (
+      <Tabs.Tab key={folder.folder}>
+        <span className="flex items-center gap-1.5">
+          {folder.folder}
+          <Badge label={String(folder.projects?.length ?? 0)} size="sm" />
+        </span>
+      </Tabs.Tab>
+    ));
+    labels.push(
+      <Tabs.Tab key="all">
+        <span className="flex items-center gap-1.5">
+          All
+          <Badge label={String(allProjects.length)} size="sm" />
+        </span>
+      </Tabs.Tab>
+    );
+    return labels;
+  }, [data, allProjects.length]);
 
-      // use localeCompare to sort the folders
-    const alphaSorted = data?.sort((a, b) => {
-      if (typeof a.folder === "string" && typeof b.folder === "string") {
-        return a.folder.localeCompare(b.folder);
-      }
-      return 0;
+  const tabPanels = useMemo(() => {
+    if (!data) return [];
+    const panels = data.map((folder) => {
+      const projects = (folder.projects || []).filter(
+        (p): p is PinnedProjectObj => typeof p !== "string"
+      );
+      return (
+        <Tabs.Panel key={folder.folder}>
+          {projects.length === 0 ? (
+            <p className="text-gray-500 text-sm py-4 text-center">No pinned projects here</p>
+          ) : (
+            <DataTable<PinnedProjectObj> data={projects} columns={columns} density="compact" />
+          )}
+        </Tabs.Panel>
+      );
     });
-
-    const items = alphaSorted?.map((i) => ({
-      menuItem: (
-        <MenuItem key={i.folder}>
-          {i.folder} <Label>{i.projects?.length}</Label>
-        </MenuItem>
-      ),
-      render: () => {
-        if (!i.projects || i.projects.length === 0) {
-          return <NoPinnedMessage />;
-        }
-        return (
-          <Card.Group itemsPerRow={isXL ? 1 : 2} className={classList}>
-            {i.projects?.map((item) =>
-              typeof item === "string" ? null : (
-                <ProjectCard project={item} key={item.projectID} />
-              )
-            )}
-          </Card.Group>
-        );
-      },
-    }));
-
-    items.push({
-      menuItem: (
-        <MenuItem key="all">
-          All <Label>{allItemsLength}</Label>
-        </MenuItem>
-      ),
-      render: () => {
-        if (!data || allItemsLength === 0) {
-          return <NoPinnedMessage />;
-        }
-        return (
-          <Card.Group itemsPerRow={isXL ? 1 : 2} className={classList}>
-            {data?.map((i) => {
-              if (typeof i.projects === "string") return null;
-              return i.projects?.map((item) =>
-                typeof item === "string" ? null : (
-                  <ProjectCard project={item} key={item.projectID} />
-                )
-              );
-            })}
-          </Card.Group>
-        );
-      },
-    });
-
-    return items;
-  }, [data, isXL]);
+    panels.push(
+      <Tabs.Panel key="all">
+        {allProjects.length === 0 ? (
+          <p className="text-gray-500 text-sm py-4 text-center">No pinned projects</p>
+        ) : (
+          <DataTable<PinnedProjectObj> data={allProjects} columns={columns} density="compact" />
+        )}
+      </Tabs.Panel>
+    );
+    return panels;
+  }, [data, allProjects]);
 
   return (
-    <Segment padded={Object.entries(data || {}).length > 0} loading={isLoading} className="!pb-10">
-      <div className="header-custom mb-5">
-        <h3>
-          <Icon name="pin" />
+    <div className="border border-gray-200 rounded-lg p-4 pb-10 bg-white">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-base font-semibold flex items-center gap-2">
+          <IconPin size={20} />
           Pinned Projects
         </h3>
-        <div className="right-flex">
-          <Popup
-            content={<span>Edit Pinned Projects</span>}
-            trigger={
-              <Button
-                color="blue"
-                onClick={onShowPinnedModal}
-                icon
-                circular
-                size="tiny"
-              >
-                <Icon name="pencil" />
-              </Button>
-            }
-            position="top center"
+        <Tooltip content="Edit Pinned Projects" placement="top">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onShowPinnedModal}
+            icon={<IconPencil size={16} />}
           />
-        </div>
+        </Tooltip>
       </div>
-      <Tab
-        panes={panes}
-        menu={{ vertical: isTailwindLg, tabular: !isTailwindLg }}
-      ></Tab>
-    </Segment>
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <Spinner />
+        </div>
+      ) : (
+        <Tabs variant="pills">
+          <div className="lg:flex lg:flex-row lg:items-start lg:gap-4">
+            <Tabs.List className="lg:!flex-col lg:!bg-transparent lg:!px-1 lg:!py-1 lg:!rounded-none lg:!gap-1 lg:border-r lg:border-gray-200 lg:pr-3 lg:min-w-[160px] overflow-x-auto">
+              {tabLabels}
+            </Tabs.List>
+            <Tabs.Panels className="flex-1 min-w-0 mt-3 lg:mt-0 max-h-[500px] overflow-y-auto">
+              {tabPanels}
+            </Tabs.Panels>
+          </div>
+        </Tabs>
+      )}
+    </div>
   );
 };
 

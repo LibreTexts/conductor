@@ -1,246 +1,270 @@
-import React from 'react';
-import PropTypes from 'prop-types';
-import { Button, Grid, Header, Image, Modal } from 'semantic-ui-react';
-import date from 'date-and-time';
-import ordinal from 'date-and-time/plugin/ordinal';
+import React from "react";
+import PropTypes from "prop-types";
+import { Avatar, Button, Heading, Modal, Text } from "@libretexts/davis-react";
+import date from "date-and-time";
 import {
   capitalizeFirstLetter,
   isEmptyString,
   normalizeURL,
   truncateString,
-} from '../util/HelperFunctions';
-import { getLibGlyphURL, getLibraryName } from '../util/LibraryOptions';
+} from "../util/HelperFunctions";
+import { getLibGlyphURL, getLibraryName } from "../util/LibraryOptions";
 import {
   buildAccessMethodsList,
   getTermTaughtText,
   getLibreNetConsortiumText,
-} from '../adoptionreport/AdoptionReportOptions';
+} from "../adoptionreport/AdoptionReportOptions";
+
+const Field = ({ label, children }) => (
+  <div>
+    <Heading level={4} className="!mb-2 text-sm font-semibold text-gray-700">
+      {label}
+    </Heading>
+    <div>{children}</div>
+  </div>
+);
+
+Field.propTypes = {
+  label: PropTypes.string.isRequired,
+  children: PropTypes.node.isRequired,
+};
+
+const EmptyValue = ({ children = "N/A" }) => (
+  <Text className="text-gray-500">
+    <em>{children}</em>
+  </Text>
+);
+
+EmptyValue.propTypes = {
+  children: PropTypes.node,
+};
 
 /**
  * Modal tool to view a text Adoption Report submitted to Conductor.
  */
 const AdoptionReportView = ({ show, onClose, report }) => {
-
-  date.plugin(ordinal);
-
   if (!report) {
     return null;
   }
 
-  let formatTime = 'Unknown';
+  let formatTime = "Unknown";
   if (report.createdAt) {
     const createdAt = new Date(report.createdAt);
-    formatTime = date.format(createdAt, 'MM/DD/YYYY h:mm A');
+    formatTime = date.format(createdAt, "MM/DD/YYYY h:mm A");
   }
 
+  const renderLibrary = () => {
+    if (!report.resource?.library) {
+      return <EmptyValue>Not specified, resource may be linked.</EmptyValue>;
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        <Avatar src={getLibGlyphURL(report.resource.library)} alt="" size="xs" />
+        <span>{getLibraryName(report.resource.library)}</span>
+      </div>
+    );
+  };
+
+  const renderResourceTitle = () => {
+    if (!report.resource?.title) {
+      return <EmptyValue>Not specified, resource may be linked.</EmptyValue>;
+    }
+
+    return <p>{report.resource.title}</p>;
+  };
+
+  const renderResourceId = () => {
+    if (!report.resource?.id) {
+      return <EmptyValue>Not specified, resource may be linked.</EmptyValue>;
+    }
+
+    return <p>{report.resource.id}</p>;
+  };
+
   return (
-    <Modal open={show} onClose={onClose}>
-      <Modal.Header as="h3">
-        View Adoption Report - <em>{formatTime}, {capitalizeFirstLetter(report.role)}</em>
+    <Modal open={show} onClose={() => onClose(false)} size="xl">
+      <Modal.Header>
+        <Modal.Title>
+          View Adoption Report
+        </Modal.Title>
+        <Modal.Description>
+          <em>{formatTime}, {capitalizeFirstLetter(report.role)}</em>
+        </Modal.Description>
       </Modal.Header>
-      <Modal.Content scrolling>
-        <Grid divided="vertically">
-          <Grid.Row columns={3}>
-            <Grid.Column>
-              <Header sub as="h4">Email</Header>
+
+      <Modal.Body className="max-h-[80vh] overflow-y-auto">
+        <div className="space-y-8">
+          <div className="grid gap-6 md:grid-cols-3">
+            <Field label="Email">
               <p>{report.email}</p>
-            </Grid.Column>
-            <Grid.Column>
-              <Header sub as="h4">Name</Header>
+            </Field>
+            <Field label="Name">
               <p>{report.name}</p>
-            </Grid.Column>
-            <Grid.Column>
-              <Header sub as="h4">Report Type</Header>
+            </Field>
+            <Field label="Report Type">
               <p>{capitalizeFirstLetter(report.role)}</p>
-            </Grid.Column>
-          </Grid.Row>
-          <Grid.Row columns={3}>
-            <Grid.Column>
-              <Header sub as="h4">Resource Title</Header>
-              {report.resource?.title ? (
-                <p>{report.resource.title}</p>
-              ) : (
-                <p className="muted-text"><em>Not specified, resource may be linked.</em></p>
-              )}
-            </Grid.Column>
-            <Grid.Column>
-              <Header sub as="h4">Resource Library</Header>
-              {report.resource?.library ? (
-                <div>
-                  <Image src={getLibGlyphURL(report.resource.library)} className="library-glyph" />
-                  <span>{getLibraryName(report.resource.library)}</span>
-                </div>
-              ) : (
-                <p className="muted-text"><em>Not specified, resource may be linked.</em></p>
-              )}
-            </Grid.Column>
-            <Grid.Column>
-              <Header sub as="h4">Resource ID</Header>
-              {report.resource?.id ? (
-                <p>{report.resource.id}</p>
-              ) : (
-                <p className="muted-text"><em>Not specified, resource may be linked.</em></p>
-              )}
-            </Grid.Column>
-          </Grid.Row>
+            </Field>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            <Field label="Resource Title">
+              {renderResourceTitle()}
+            </Field>
+            <Field label="Resource Library">
+              {renderLibrary()}
+            </Field>
+            <Field label="Resource ID">
+              {renderResourceId()}
+            </Field>
+          </div>
+
           {report.resource?.link && (
-            <Grid.Row columns={1}>
-              <Grid.Column>
-                <Header sub as="h4">Resource Link</Header>
+            <div className="grid gap-6 md:grid-cols-1">
+              <Field label="Resource Link">
                 <a href={normalizeURL(report.resource.link)} target="_blank" rel="noreferrer">
                   {truncateString(report.resource.link, 75)}
                 </a>
-              </Grid.Column>
-            </Grid.Row>
+              </Field>
+            </div>
           )}
-          <Grid.Row columns={1}>
-            <Grid.Column>
-              {(report.role === 'instructor') ? (
-                <Grid>
-                  <Grid.Row columns={2}>
-                    <Grid.Column>
-                      <Header sub as="h4">LibreNet</Header>
-                      <p>{getLibreNetConsortiumText(report.instructor.isLibreNet)}</p>
-                    </Grid.Column>
-                    <Grid.Column>
-                      <Header sub as="h4">Institution Name</Header>
-                      <p>{capitalizeFirstLetter(report.instructor.institution)}</p>
-                    </Grid.Column>
-                  </Grid.Row>
-                  <Grid.Row columns={3}>
-                    <Grid.Column>
-                      <Header sub as="h4">Class Name</Header>
-                      <p>{report.instructor.class}</p>
-                    </Grid.Column>
-                    <Grid.Column>
-                      <Header sub as="h4">Term Taught</Header>
-                      <p>{getTermTaughtText(report.instructor.term)}</p>
-                    </Grid.Column>
-                    <Grid.Column>
-                      <Header sub as="h4">Number of Students</Header>
-                      <p>{report.instructor.students}</p>
-                    </Grid.Column>
-                  </Grid.Row>
-                  <Grid.Row columns={2}>
-                    <Grid.Column>
-                      <Header sub as="h4">Original Text Cost</Header>
-                      {(report.instructor.replaceCost !== 0) ? (
-                        <p>{report.instructor.replaceCost}</p>
-                      ) : (
-                        <p className="muted-text"><em>N/A</em></p>
-                      )}
-                    </Grid.Column>
-                    <Grid.Column>
-                      <Header sub as="h4">Printed Cost</Header>
-                      {(report.instructor.printCost !== 0) ? (
-                        <p>{report.instructor.printCost}</p>
-                      ) : (
-                        <p className="muted-text"><em>N/A</em></p>
-                      )}
-                    </Grid.Column>
-                  </Grid.Row>
-                  <Grid.Row columns={1}>
-                    <Grid.Column>
-                      <Header sub as="h4">Access Methods</Header>
-                      {!isEmptyString(report.instructor.access) ? (
-                        <p>{buildAccessMethodsList(report.instructor.access)}</p>
-                      ) : (
-                        <p className="muted-text"><em>N/A</em></p>
-                      )}
-                    </Grid.Column>
-                  </Grid.Row>
-                </Grid>
+
+          {report.role === "instructor" ? (
+            <div className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-2">
+                <Field label="LibreNet">
+                  <p>{getLibreNetConsortiumText(report.instructor.isLibreNet)}</p>
+                </Field>
+                <Field label="Institution Name">
+                  <p>{capitalizeFirstLetter(report.instructor.institution)}</p>
+                </Field>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-3">
+                <Field label="Class Name">
+                  <p>{report.instructor.class}</p>
+                </Field>
+                <Field label="Term Taught">
+                  <p>{getTermTaughtText(report.instructor.term)}</p>
+                </Field>
+                <Field label="Number of Students">
+                  <p>{report.instructor.students}</p>
+                </Field>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <Field label="Original Text Cost">
+                  {report.instructor.replaceCost !== 0 ? (
+                    <p>{report.instructor.replaceCost}</p>
+                  ) : (
+                    <EmptyValue />
+                  )}
+                </Field>
+                <Field label="Printed Cost">
+                  {report.instructor.printCost !== 0 ? (
+                    <p>{report.instructor.printCost}</p>
+                  ) : (
+                    <EmptyValue />
+                  )}
+                </Field>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-1">
+                <Field label="Access Methods">
+                  {!isEmptyString(report.instructor.access) ? (
+                    <p>{buildAccessMethodsList(report.instructor.access)}</p>
+                  ) : (
+                    <EmptyValue />
+                  )}
+                </Field>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-3">
+                <Field label="Institution Name">
+                  {!isEmptyString(report.student?.institution) ? (
+                    <p>{report.student.institution}</p>
+                  ) : (
+                    <EmptyValue />
+                  )}
+                </Field>
+                <Field label="Class Name">
+                  {!isEmptyString(report.student?.class) ? (
+                    <p>{report.student.class}</p>
+                  ) : (
+                    <EmptyValue />
+                  )}
+                </Field>
+                <Field label="Instructor Name">
+                  {!isEmptyString(report.student?.instructor) ? (
+                    <p>{report.student.instructor}</p>
+                  ) : (
+                    <EmptyValue />
+                  )}
+                </Field>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-3">
+                <Field label="Resource Use">
+                  {!isEmptyString(report.student?.use) ? (
+                    <p>{report.student.use}</p>
+                  ) : (
+                    <EmptyValue />
+                  )}
+                </Field>
+                <Field label="Access Methods">
+                  {!isEmptyString(report.student?.access) ? (
+                    <p>{buildAccessMethodsList(report.student.access)}</p>
+                  ) : (
+                    <EmptyValue />
+                  )}
+                </Field>
+                <Field label="Printed Cost">
+                  {report.student?.printCost !== 0 ? (
+                    <p>{report.student.printCost}</p>
+                  ) : (
+                    <EmptyValue />
+                  )}
+                </Field>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <Field label="Content Quality Rating">
+                  {report.student?.quality !== 0 ? (
+                    <p>{report.student.quality}</p>
+                  ) : (
+                    <EmptyValue />
+                  )}
+                </Field>
+                <Field label="LibreTexts Navigation Rating">
+                  {report.student?.navigation !== 0 ? (
+                    <p>{report.student.navigation}</p>
+                  ) : (
+                    <EmptyValue />
+                  )}
+                </Field>
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-6 md:grid-cols-1">
+            <Field label="Additional Comments">
+              {!isEmptyString(report.comments) ? (
+                <p>{report.comments}</p>
               ) : (
-                <Grid>
-                  <Grid.Row columns={3}>
-                    <Grid.Column>
-                      <Header sub as="h4">Institution Name</Header>
-                      {!isEmptyString(report.student?.institution) ? (
-                        <p>{report.student.institution}</p>
-                      ) : (
-                        <p className="muted-text"><em>N/A</em></p>
-                      )}
-                    </Grid.Column>
-                    <Grid.Column>
-                      <Header sub as="h4">Class Name</Header>
-                      {!isEmptyString(report.student?.class) ? (
-                        <p>{report.student.class}</p>
-                      ) : (
-                        <p className="muted-text"><em>N/A</em></p>
-                      )}
-                    </Grid.Column>
-                    <Grid.Column>
-                      <Header sub as="h4">Instructor Name</Header>
-                      {!isEmptyString(report.student?.instructor) ? (
-                        <p>{report.student.instructor}</p>
-                      ) : (
-                        <p className="muted-text"><em>N/A</em></p>
-                      )}
-                    </Grid.Column>
-                  </Grid.Row>
-                  <Grid.Row columns={3}>
-                    <Grid.Column>
-                      <Header sub as="h4">Resource Use</Header>
-                      {!isEmptyString(report.student?.use) ? (
-                        <p>{report.student.use}</p>
-                      ) : (
-                        <p className="muted-text"><em>N/A</em></p>
-                      )}
-                    </Grid.Column>
-                    <Grid.Column>
-                      <Header sub as="h4">Access Methods</Header>
-                      {!isEmptyString(report.student?.access) ? (
-                        <p>{buildAccessMethodsList(report.student.access)}</p>
-                      ) : (
-                        <p className="muted-text"><em>N/A</em></p>
-                      )}
-                    </Grid.Column>
-                    <Grid.Column>
-                      <Header sub as="h4">Printed Cost</Header>
-                      {(report.student?.printCost !== 0) ? (
-                        <p>{report.student.printCost}</p>
-                      ) : (
-                        <p className="muted-text"><em>N/A</em></p>
-                      )}
-                    </Grid.Column>
-                  </Grid.Row>
-                  <Grid.Row columns={2}>
-                    <Grid.Column>
-                      <Header sub as="h4">Content Quality Rating</Header>
-                      {(report.student?.quality !== 0) ? (
-                        <p>{report.student.quality}</p>
-                      ) : (
-                        <p className="muted-text"><em>N/A</em></p>
-                      )}
-                    </Grid.Column>
-                    <Grid.Column>
-                      <Header sub as="h4">LibreTexts Navigation Rating</Header>
-                      {(report.student?.navigation !== 0) ? (
-                        <p>{report.student.navigation}</p>
-                      ) : (
-                        <p className="muted-text"><em>N/A</em></p>
-                      )}
-                    </Grid.Column>
-                  </Grid.Row>
-                </Grid>
+                <EmptyValue />
               )}
-            </Grid.Column>
-            <Grid.Row columns={1}>
-              <Grid.Column>
-                <Header sub as="h4">Additional Comments</Header>
-                {!isEmptyString(report.comments) ? (
-                  <p>{report.comments}</p>
-                ) : (
-                  <p className="muted-text"><em>N/A</em></p>
-                )}
-              </Grid.Column>
-            </Grid.Row>
-          </Grid.Row>
-        </Grid>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button color="blue" onClick={onClose}>Done</Button>
-      </Modal.Actions>
+            </Field>
+          </div>
+        </div>
+      </Modal.Body>
+
+      <Modal.Footer>
+        <Button variant="primary" onClick={() => onClose(false)}>
+          Done
+        </Button>
+      </Modal.Footer>
     </Modal>
   );
 };
@@ -292,7 +316,7 @@ AdoptionReportView.propTypes = {
 };
 
 AdoptionReportView.defaultProps = {
-  onClose: () => { },
+  onClose: () => {},
   report: null,
 };
 

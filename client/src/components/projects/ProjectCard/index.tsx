@@ -1,22 +1,20 @@
 import { Link } from "react-router-dom";
-import { Card, Popup, Icon, Button } from "semantic-ui-react";
+import { Button, Card, Tooltip } from "@libretexts/davis-react";
 import { format, parseISO } from "date-fns";
 import { truncateString } from "../../util/HelperFunctions";
 import { Project } from "../../../types";
+import { IconPin } from "@tabler/icons-react";
 
 type ProjectCardProps = {
   project: Pick<Project, "projectID" | "title" | "updatedAt">;
   showPinButton?: boolean;
   onPin?: (projectID: string) => void;
 };
-/**
- * A UI component representing a Project and displaying its basic information and status.
- */
+
 const ProjectCard = ({
   project,
   showPinButton = false,
   onPin = () => {},
-  ...props
 }: ProjectCardProps) => {
   let updateDate;
   let updateTime;
@@ -27,9 +25,6 @@ const ProjectCard = ({
     updateTime = format(parsedDate, "h:mm aa");
   }
 
-  /**
-   * Activates the provided callback (if valid) when the user clicks the "Pin" button.
-   */
   const handlePinClick = () => {
     if (typeof onPin === "function") {
       onPin(project.projectID);
@@ -37,41 +32,30 @@ const ProjectCard = ({
   };
 
   return (
-    <Card raised {...props} className="!max-h-[130px]">
-      <div className="flex flex-col flex-grow p-4 overflow-y-auto overflow-x-auto">
-        <div className="flex">
-          <div className="flex flex-col flex-1">
-            <Link
-              className="text-lg font-semibold opacity-85 text-black"
-              to={`/projects/${project.projectID}`}
-            >
-              {truncateString(project.title, 75)}
-            </Link>
-            <span className="muted-text text-sm my-1">
-              Last updated {updateDate} at {updateTime}
-            </span>
-          </div>
-          <div className="flex flex-col">
-            {showPinButton && (
-              <Popup
-                content={<span>Add to your Pinned Projects</span>}
-                trigger={
-                  <Button
-                    color="blue"
-                    onClick={handlePinClick}
-                    icon
-                    circular
-                    size="small"
-                  >
-                    <Icon name="pin" />
-                  </Button>
-                }
-                position="top center"
-              />
-            )}
-          </div>
+    <Card variant="elevated" padding="sm" className="w-full max-h-[130px] !overflow-visible">
+      <Card.Body className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <Link
+            className="text-lg font-semibold opacity-85 text-black hover:underline"
+            to={`/projects/${project.projectID}`}
+          >
+            {truncateString(project.title, 75)}
+          </Link>
+          <p className="text-sm text-gray-500 mt-1">
+            Last updated {updateDate} at {updateTime}
+          </p>
         </div>
-      </div>
+        {showPinButton && (
+          <Tooltip content="Add to your Pinned Projects" placement="top">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handlePinClick}
+              icon={<IconPin size={16} />}
+            />
+          </Tooltip>
+        )}
+      </Card.Body>
     </Card>
   );
 };

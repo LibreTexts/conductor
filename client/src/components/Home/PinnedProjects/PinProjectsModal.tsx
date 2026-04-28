@@ -1,21 +1,7 @@
 import { useCallback, useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import {
-  Button,
-  Icon,
-  List,
-  ListContent,
-  ListHeader,
-  ListIcon,
-  ListItem,
-  ListList,
-  Modal,
-  ModalProps,
-} from "semantic-ui-react";
-import { GenericKeyTextValueObj, Project, User } from "../../../types";
-import useGlobalError from "../../error/ErrorHooks";
-import { useQuery } from "@tanstack/react-query";
-import api from "../../../api";
+import { Button, Modal, Stack } from "@libretexts/davis-react";
+import { User } from "../../../types";
 import ConfirmModal from "../../ConfirmModal";
 import NewFolderModal from "./NewPinnedProjectsFolderModal";
 import {
@@ -25,16 +11,15 @@ import {
   useRemoveFolderMutation,
   useUnpinProjectMutation,
 } from "./hooks";
+import { IconFolder, IconPinnedOff, IconPlus, IconTrash } from "@tabler/icons-react";
 
-interface PinProjectsModalProps extends ModalProps {
+interface PinProjectsModalProps {
   show: boolean;
   onClose: () => void;
   directAddID?: string;
 }
 
-type PinnedProjectType = NonNullable<
-  User["pinnedProjects"]
->[0]["projects"][number];
+type PinnedProjectType = NonNullable<User["pinnedProjects"]>[0]["projects"][number];
 
 const SCROLL_MARGIN = 50;
 const SCROLL_SPEED = 15;
@@ -42,114 +27,21 @@ const SCROLL_SPEED = 15;
 const PinProjectsModal: React.FC<PinProjectsModalProps> = ({
   show,
   onClose,
-  rest,
   directAddID,
 }) => {
-  const { handleGlobalError } = useGlobalError();
-  const { data, isLoading: loadingPinnedProjects } = usePinnedProjects();
+  const { data } = usePinnedProjects();
   const moveProjectMutation = useMoveProjectMutation();
   const unpinProjectMutation = useUnpinProjectMutation();
   const addFolderMutation = useAddFolderMutation();
   const removeFolderMutation = useRemoveFolderMutation();
-  const containerRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // const { data: userProjects, isLoading } = useQuery<Project[]>({
-  //   queryKey: ["userProjects"],
-  //   queryFn: async () => {
-  //     const res = await api.getUserProjects();
-  //     if (res.data.err) {
-  //       throw new Error(res.data.errMsg);
-  //     }
-  //     return res.data.projects;
-  //   },
-  //   refetchOnMount: false,
-  //   refetchOnWindowFocus: false,
-  //   staleTime: 1000 * 60 * 5, // 5 minutes
-  // });
-
-  // const [loading, setLoading] = useState<boolean>(false);
-  // const [projectsOptions, setProjectsOptions] = useState<
-  //   GenericKeyTextValueObj<string>[]
-  // >([]);
-
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
-  const [showDeleteFolderModal, setShowDeleteFolderModal] =
-    useState<boolean>(false);
-  const [folderToDelete, setFolderToDelete] = useState<string>("");
+  const [showDeleteFolderModal, setShowDeleteFolderModal] = useState(false);
+  const [folderToDelete, setFolderToDelete] = useState("");
 
-  // // Effects & Callbacks
-  // useEffect(() => {
-  //   if (show) {
-  //     getPinnableProjects();
-  //   }
-  // }, [show]);
-
-  /**
-   * Loads the user's projects from the server, then filters already-pinned projects before
-   * saving the list to state.
-   */
-  // const getPinnableProjects = useCallback(async () => {
-  //   try {
-  //     setLoading(true);
-  //     if (!userProjects) return;
-
-  //     const pinnedFlatted =
-  //       data?.reduce((acc, item) => {
-  //         if (item.projects) {
-  //           for (const project of item.projects) {
-  //             if (typeof project === "string") {
-  //               continue;
-  //             }
-
-  //             acc.push(project);
-  //           }
-  //         }
-  //         return acc;
-  //       }, [] as PinnedProjectType[]) || [];
-
-  //     const pinnedFiltered = userProjects
-  //       .filter((item: Project) => {
-  //         const foundMatch = pinnedFlatted.find((pinned) => {
-  //           if (typeof pinned === "string") return false;
-  //           return pinned.projectID === item.projectID;
-  //         });
-  //         if (foundMatch) {
-  //           return false;
-  //         }
-  //         return true;
-  //       })
-  //       .sort((a: Project, b: Project) => {
-  //         let normalA = String(a.title)
-  //           .toLowerCase()
-  //           .replace(/[^A-Za-z]+/g, "");
-  //         let normalB = String(b.title)
-  //           .toLowerCase()
-  //           .replace(/[^A-Za-z]+/g, "");
-  //         if (normalA < normalB) return -1;
-  //         if (normalA > normalB) return 1;
-  //         return 0;
-  //       })
-  //       .map((item: Project) => {
-  //         return {
-  //           key: item.projectID,
-  //           value: item.projectID,
-  //           text: item.title,
-  //         };
-  //       });
-
-  //     setProjectsOptions(pinnedFiltered);
-  //   } catch (err) {
-  //     handleGlobalError(err);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // }, [data, setLoading, setProjectsOptions, handleGlobalError, userProjects]);
-
-  const handleDragStart = (
-    e: React.DragEvent<HTMLDivElement>,
-    projectID: string
-  ) => {
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, projectID: string) => {
     e.dataTransfer.setData("text/plain", projectID);
   };
 
@@ -157,15 +49,11 @@ const PinProjectsModal: React.FC<PinProjectsModalProps> = ({
     e.preventDefault();
   };
 
-  const handleDrop = (
-    e: React.DragEvent<HTMLDivElement>,
-    folderName: string
-  ) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, folderName: string) => {
     e.preventDefault();
     const projectID = e.dataTransfer.getData("text/plain");
     if (!projectID || !folderName) return;
 
-    // if the project is already in the folder, do nothing
     const isCurrentFolder = data?.some(
       (item) =>
         item.folder === folderName &&
@@ -175,10 +63,7 @@ const PinProjectsModal: React.FC<PinProjectsModalProps> = ({
     );
     if (isCurrentFolder) return;
 
-    moveProjectMutation.mutate({
-      folderName: folderName,
-      projectID: projectID,
-    });
+    moveProjectMutation.mutate({ folderName, projectID });
   };
 
   const onInitClickDeleteFolder = (folder: string) => {
@@ -188,24 +73,17 @@ const PinProjectsModal: React.FC<PinProjectsModalProps> = ({
   };
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    const container = containerRef.current;
+    const container = bodyRef.current;
     if (!container) return;
-
     const rect = container.getBoundingClientRect();
     const offsetTop = e.clientY - rect.top;
     const offsetBottom = rect.bottom - e.clientY;
-
-    if (offsetTop < SCROLL_MARGIN) {
-      // Near the top — scroll up
-      container.scrollTop -= SCROLL_SPEED;
-    } else if (offsetBottom < SCROLL_MARGIN) {
-      // Near the bottom — scroll down
-      container.scrollTop += SCROLL_SPEED;
-    }
+    if (offsetTop < SCROLL_MARGIN) container.scrollTop -= SCROLL_SPEED;
+    else if (offsetBottom < SCROLL_MARGIN) container.scrollTop += SCROLL_SPEED;
   }, []);
 
   const startAutoScroll = () => {
-    stopAutoScroll(); // Clear any existing
+    stopAutoScroll();
     intervalRef.current = setInterval(() => {
       document.addEventListener("mousemove", handleMouseMove);
     }, 50);
@@ -222,7 +100,6 @@ const PinProjectsModal: React.FC<PinProjectsModalProps> = ({
   useEffect(() => {
     document.addEventListener("dragstart", startAutoScroll);
     document.addEventListener("dragend", stopAutoScroll);
-
     return () => {
       document.removeEventListener("dragstart", startAutoScroll);
       document.removeEventListener("dragend", stopAutoScroll);
@@ -231,136 +108,94 @@ const PinProjectsModal: React.FC<PinProjectsModalProps> = ({
   }, [handleMouseMove]);
 
   return (
-    <Modal open={show} onClose={() => onClose()} size="large" {...rest}>
-      <Modal.Header>
-        {directAddID ? "Select Folder to Pin To" : "Edit Pinned Projects"}
-      </Modal.Header>
-      <Modal.Content
-        scrolling
-        id="edit-pinned-projects-content"
-        ref={containerRef}
-      >
-        <div className="flex justify-between items-start mb-4">
-          <p className="text-gray-600">
-            Drag and drop projects to move them between folders. You can also
-            unpin projects from here.
-          </p>
-          <div className="flex items-center">
-            <Button color="blue" onClick={() => setShowNewFolderModal(true)}>
-              <Icon name="plus" />
-              Add Folder
-            </Button>
-          </div>
-        </div>
-        {/* <Form noValidate>
-          <Form.Select
-            search
-            label="Select from your Projects"
-            placeholder="Choose or start typing to search..."
-            options={projectsOptions}
-            onChange={(_e, { value }) => setProjectToPin(value as string)}
-            value={projectToPin}
-            loading={loading}
-            disabled={loading}
-          />
-          <Button
-            fluid
-            disabled={!projectToPin}
-            color="blue"
-            loading={loading}
-            onClick={pinProjectInModal}
-          >
-            <Icon name="pin" />
-            Pin Project
-          </Button>
-        </Form>
-        <Divider /> */}
-        <List verticalAlign="middle" className="!px-2 !rounded-md">
-          {data?.map((item) => {
-            return (
-              <ListItem
-                key={item.folder}
-                className="!first:pt-0 !pt-2"
-                onDragOver={handleDragOver}
-                onDrop={(e: React.DragEvent<HTMLDivElement>) =>
-                  handleDrop(e, item.folder)
-                }
+    <>
+      <Modal open={show} onClose={() => onClose()} size="lg">
+        <Modal.Header>
+          <Modal.Title>
+            {directAddID ? "Select Folder to Pin To" : "Edit Pinned Projects"}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div ref={bodyRef} className="overflow-y-auto max-h-[60vh]">
+            <div className="flex justify-between items-center mb-4">
+              <p className="text-gray-600 text-sm">
+                Drag and drop projects to move them between folders. You can also unpin projects from here.
+              </p>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setShowNewFolderModal(true)}
+                icon={<IconPlus size={16} />}
               >
-                <ListIcon name="folder" />
-                <ListContent>
-                  <ListHeader className="!flex justify-between items-start">
-                    {item.folder}
+                Add Folder
+              </Button>
+            </div>
+            <Stack direction="vertical" gap="md">
+              {data?.map((item) => (
+                <div
+                  key={item.folder}
+                  className="rounded-lg border border-gray-200 overflow-hidden"
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, item.folder)}
+                >
+                  <div className="flex justify-between items-center px-3 py-2 bg-gray-50 border-b border-gray-200">
+                    <span className="flex items-center gap-2 font-semibold text-gray-700">
+                      <IconFolder size={16} />
+                      {item.folder}
+                    </span>
                     {item.folder !== "Default" && (
                       <Button
+                        variant="destructive"
+                        size="sm"
                         onClick={() => onInitClickDeleteFolder(item.folder)}
-                        icon
-                        size="mini"
-                        color="red"
-                      >
-                        <Icon name="trash" />
-                      </Button>
+                        icon={<IconTrash size={14} />}
+                      />
                     )}
-                  </ListHeader>
-                </ListContent>
-                <ListList className="!mb-4">
-                  {item.projects?.length === 0 && (
-                    <p className="text-gray-500 !ml-5">No projects pinned here</p>
-                  )}
-                  {item.projects?.length > 0 &&
-                    item.projects?.map((p) => {
-                      if (typeof p === "string") {
-                        return null;
-                      }
-
+                  </div>
+                  <Stack direction="vertical" gap="xs" className="px-3 py-2">
+                    {item.projects?.length === 0 && (
+                      <p className="text-gray-400 text-sm py-2">No projects pinned here</p>
+                    )}
+                    {item.projects?.map((p) => {
+                      if (typeof p === "string") return null;
                       return (
-                        <ListItem
+                        <div
                           key={p.projectID}
-                          className="!border !border-gray-200 ml-5 bg-gray-100 hover:!bg-gray-200 !rounded-md !p-2 !mb-1 hover:!cursor-pointer !shadow-sm"
+                          className="flex justify-between items-center border border-gray-200 bg-gray-100 hover:bg-gray-200 rounded-md p-2 cursor-grab active:cursor-grabbing shadow-sm"
                           draggable
-                          onDragStart={(e: React.DragEvent<HTMLDivElement>) =>
-                            handleDragStart(e, p.projectID)
-                          }
+                          onDragStart={(e) => handleDragStart(e, p.projectID)}
                         >
-                          <ListContent className="!flex justify-between items-center [&.is-dragging]:cursor-grabbing">
-                            <Link
-                              to={`/projects/${p.projectID}`}
-                              className="text-blue-800 hover:text-blue-900 hover:underline font-semibold"
-                            >
-                              {p.title}
-                            </Link>
-                            <Button
-                              onClick={() =>
-                                unpinProjectMutation.mutate(p.projectID)
-                              }
-                              className="!mb-0.5"
-                              icon
-                              size="mini"
-                              color="red"
-                            >
-                              <Icon.Group className="icon">
-                                <Icon name="pin" />
-                                <Icon corner name="x" />
-                              </Icon.Group>
-                            </Button>
-                          </ListContent>
-                        </ListItem>
+                          <Link
+                            to={`/projects/${p.projectID}`}
+                            className="text-blue-800 hover:text-blue-900 hover:underline font-semibold text-sm"
+                          >
+                            {p.title}
+                          </Link>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => unpinProjectMutation.mutate(p.projectID)}
+                            icon={<IconPinnedOff size={14} />}
+                          />
+                        </div>
                       );
                     })}
-                </ListList>
-              </ListItem>
-            );
-          })}
-        </List>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={() => onClose()} color="blue">
-          Done
-        </Button>
-      </Modal.Actions>
+                  </Stack>
+                </div>
+              ))}
+            </Stack>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="primary" onClick={onClose}>
+            Done
+          </Button>
+        </Modal.Footer>
+      </Modal>
       <NewFolderModal
         open={showNewFolderModal}
         onClose={() => setShowNewFolderModal(false)}
-        onSave={(newVal: string) => {
+        onSave={(newVal) => {
           if (!newVal) return;
           setShowNewFolderModal(false);
           addFolderMutation.mutate(newVal);
@@ -383,7 +218,7 @@ const PinProjectsModal: React.FC<PinProjectsModalProps> = ({
           confirmColor="red"
         />
       )}
-    </Modal>
+    </>
   );
 };
 

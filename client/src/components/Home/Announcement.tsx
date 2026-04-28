@@ -1,4 +1,4 @@
-import { Image } from "semantic-ui-react";
+import { Avatar, Timeline } from "@libretexts/davis-react";
 import { Announcement } from "../../types";
 import { format, parseISO } from "date-fns";
 import { truncateString } from "../util/HelperFunctions";
@@ -11,41 +11,51 @@ interface AnnouncementProps {
   onClick: (index: number) => void;
 }
 
-const Annnouncement: React.FC<AnnouncementProps> = ({
+const AnnouncementItem: React.FC<AnnouncementProps> = ({
   announcement,
   index,
   onClick,
 }) => {
+  const authorName = `${announcement.author.firstName} ${announcement.author.lastName}`;
+  const dateStr = `${format(parseISO(announcement.createdAt), "MM/dd/yy")} at ${format(parseISO(announcement.createdAt), "h:mm aa")}`;
+  const bodyHtml = DOMPurify.sanitize(
+    marked(truncateString(announcement.message, 200)) as string
+  );
+
   return (
-    <div
-      className="flex flex-col announcement"
-      onClick={() => onClick(index)}
-    >
-      <div className="flex-row-div">
-        <div className="announcement-avatar-container">
-          <Image src={announcement.author.avatar} size="mini" avatar />
-        </div>
-        <div className="flex-col-div announcement-meta-container">
-          <span className="announcement-meta-title">{announcement.title}</span>
-          <span className="muted-text announcement-meta-date">
-            <em>
-              {announcement.author.firstName} {announcement.author.lastName}
-            </em>{" "}
-            &bull; {format(parseISO(announcement.createdAt), "MM/dd/yy")} at{" "}
-            {format(parseISO(announcement.createdAt), "h:mm aa")}
-          </span>
-        </div>
-      </div>
-      <p
-        className="announcement-text prose prose-code:before:hidden prose-code:after:hidden max-w-full"
-        dangerouslySetInnerHTML={{
-          __html: DOMPurify.sanitize(
-            marked(truncateString(announcement.message, 200))
-          ),
-        }}
-      ></p>
-    </div>
+    <Timeline.Item
+      status="pending"
+      icon={
+        <Avatar
+          src={announcement.author.avatar || "/mini_logo.png"}
+          alt={authorName}
+          size="sm"
+        />
+      }
+      title={
+        <span
+          className="cursor-pointer hover:text-blue-700"
+          onClick={() => onClick(index)}
+        >
+          {announcement.title}
+        </span>
+      }
+      description={
+        <span
+          className="cursor-pointer block"
+          onClick={() => onClick(index)}
+        >
+          <em>{authorName}</em>
+          {" • "}
+          {dateStr}
+          <span
+            className="block mt-1 text-gray-700 prose prose-code:before:hidden prose-code:after:hidden max-w-full"
+            dangerouslySetInnerHTML={{ __html: bodyHtml }}
+          />
+        </span>
+      }
+    />
   );
 };
 
-export default Annnouncement;
+export default AnnouncementItem;

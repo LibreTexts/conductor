@@ -11,6 +11,8 @@ import {
   Card,
   Popup,
 } from "semantic-ui-react";
+import { Alert, Grid as DavisGrid, Spinner, Timeline, Tooltip, Button as DavisButton } from "@libretexts/davis-react";
+import { IconClock, IconInfoCircle, IconPlus } from "@tabler/icons-react";
 import { useEffect, useState, useCallback, lazy } from "react";
 import { useTypedSelector } from "../../../state/hooks";
 import axios from "axios";
@@ -204,104 +206,96 @@ const Home = () => {
           <UserMenu />
         </div>
         <div className="flex flex-col mb-8 xl:w-1/2 xl:mr-12 xl:mb-0">
-          <Button
+          <DavisButton
+            variant="primary"
+            fullWidth
             onClick={() => setShowCreateProjectModal(true)}
-            fluid
-            color="green"
-            content="Create Conductor Project"
-            icon="add"
-            labelPosition="left"
-          />
+            icon={<IconPlus size={18} />}
+            className="mb-2"
+          >
+            Create Conductor Project
+          </DavisButton>
           <PinnedProjects />
-          <Segment padded>
-            <div className="dividing-header-custom">
-              <h3>
-                <Icon name="clock outline" />
+          <div className="border border-gray-200 rounded-lg p-4 bg-white mt-3">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base font-semibold flex items-center gap-2">
+                <IconClock size={20} />
                 Recently Edited Projects
               </h3>
-              <div className="right-flex">
-                <Popup
-                  content={
-                    <span>
-                      To see all of your projects, visit{" "}
-                      <strong>Projects</strong> in the Navbar.
-                    </span>
-                  }
-                  trigger={<Icon name="info circle" />}
-                  position="top center"
-                />
-              </div>
+              <Tooltip
+                content={
+                  <span>
+                    To see all of your projects, visit{" "}
+                    <strong>Projects</strong> in the Navbar.
+                  </span>
+                }
+                placement="top"
+              >
+                <button className="text-gray-400 hover:text-gray-600">
+                  <IconInfoCircle size={20} />
+                </button>
+              </Tooltip>
             </div>
-            <Segment basic loading={!loadedAllRecents}>
-              <Card.Group itemsPerRow={2}>
-                {recentProjects.length > 0 &&
-                  recentProjects.map((item) => (
-                    <ProjectCard
-                      project={item}
-                      key={item.projectID}
-                      showPinButton={true}
-                      onPin={(pid) => handlePinProject(pid)}
-                    />
-                  ))}
-                {recentProjects.length === 0 && (
-                  <p>You don't have any projects right now.</p>
-                )}
-              </Card.Group>
-            </Segment>
-          </Segment>
+            {!loadedAllRecents ? (
+              <div className="flex justify-center py-8">
+                <Spinner />
+              </div>
+            ) : recentProjects.length === 0 ? (
+              <p className="text-gray-500 text-sm">You don't have any projects right now.</p>
+            ) : (
+              <DavisGrid cols={2} gap="sm">
+                {recentProjects.map((item) => (
+                  <ProjectCard
+                    project={item}
+                    key={item.projectID}
+                    showPinButton={true}
+                    onPin={(pid) => handlePinProject(pid)}
+                  />
+                ))}
+              </DavisGrid>
+            )}
+          </div>
         </div>
         <div className="flex flex-col mb-8 xl:w-1/3 xl:mb-0">
-          <Segment padded>
-            <div className="dividing-header-custom">
-              <h3>Announcements</h3>
+          <div className="border border-gray-200 rounded-lg p-4 bg-white">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base font-semibold">Announcements</h3>
               {(user.isCampusAdmin === true || user.isSuperAdmin === true) && (
-                <div className="right-flex">
-                  <Popup
-                    content="New Announcement"
-                    trigger={
-                      <Button
-                        color="green"
-                        onClick={() => setShowNewAnnounceModal(true)}
-                        icon
-                        circular
-                      >
-                        <Icon name="add" />
-                      </Button>
-                    }
-                    position="top center"
+                <Tooltip content="New Announcement" placement="top">
+                  <DavisButton
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setShowNewAnnounceModal(true)}
+                    icon={<IconPlus size={16} />}
                   />
-                </div>
+                </Tooltip>
               )}
             </div>
             {showNASuccess && (
-              <Message
+              <Alert
+                variant="success"
+                title="Announcement Successfully Posted!"
+                message=""
+                dismissible
+                className="mb-4"
                 onDismiss={() => setShowNASuccess(false)}
-                header="Announcement Successfully Posted!"
-                icon="check circle outline"
-                positive
               />
             )}
-            <div className="announcements-list">
-              {/* <Loader
-                active={!loadedAllAnnouncements}
-                inline="centered"
-                className="mt-4p"
-              /> */}
-              {announcements.map((item, index) => {
-                return (
+            {loadedAllAnnouncements && announcements.length === 0 ? (
+              <p className="text-center text-gray-500 py-4">No recent announcements.</p>
+            ) : (
+              <Timeline>
+                {announcements.map((item, index) => (
                   <Annnouncement
                     announcement={item}
                     index={index}
                     key={index}
                     onClick={(idx) => openViewAnnounceModal(idx)}
                   />
-                );
-              })}
-              {loadedAllAnnouncements && announcements.length === 0 && (
-                <p className="text-center mt-4p">No recent announcements.</p>
-              )}
-            </div>
-          </Segment>
+                ))}
+              </Timeline>
+            )}
+          </div>
         </div>
       </div>
       {/* New Announcement Modal */}

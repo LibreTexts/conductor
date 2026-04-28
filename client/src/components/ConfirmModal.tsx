@@ -1,4 +1,4 @@
-import { Button, Modal, SemanticCOLORS } from "semantic-ui-react";
+import { Button, Modal } from "@libretexts/davis-react";
 
 interface ConfirmModalProps {
   text?: string;
@@ -6,8 +6,7 @@ interface ConfirmModalProps {
   onCancel: () => void;
   confirmText?: string;
   cancelText?: string;
-  confirmColor?: SemanticCOLORS;
-  cancelColor?: SemanticCOLORS;
+  confirmColor?: "green" | "red";
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -17,22 +16,33 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmText = "Confirm",
   cancelText = "Cancel",
   confirmColor = "green",
-  cancelColor = undefined,
 }) => {
+  const confirmVariant = confirmColor === "red" ? "destructive" : "primary";
+  const confirmClassName =
+    confirmColor === "green"
+      ? "!bg-green-600 hover:!bg-green-700 active:!bg-green-800 focus-visible:!ring-green-600"
+      : undefined;
+
   return (
-    <Modal size="large" open={true} onClose={onCancel}>
-      <Modal.Header>Confirm</Modal.Header>
-      <Modal.Content>
-        <p>{text}</p>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button color={cancelColor} onClick={onCancel}>
+    <Modal open={true} onClose={() => onCancel()} size="sm">
+      <Modal.Header>
+        <Modal.Title>Confirm</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <p className="text-gray-700">{text}</p>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={onCancel}>
           {cancelText}
         </Button>
-        <Button color={confirmColor} onClick={onConfirm}>
+        <Button
+          variant={confirmVariant}
+          onClick={onConfirm}
+          className={confirmClassName}
+        >
           {confirmText}
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };
