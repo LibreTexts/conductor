@@ -1,80 +1,78 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  Grid,
-  Header,
-  Image,
-  Segment,
-  Form,
-  Table,
-  Dropdown,
-  Breadcrumb
-} from 'semantic-ui-react';
-import axios from 'axios';
-import date from 'date-and-time';
-import ordinal from 'date-and-time/plugin/ordinal';
-import AdoptionReportView from '../../../../components/AdoptionReportView';
-import DateInput from '../../../../components/DateInput/index.tsx';
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import axios from "axios";
+import date from "date-and-time";
+import AdoptionReportView from "../../../../components/AdoptionReportView";
 import {
   isEmptyString,
   truncateString,
   capitalizeFirstLetter,
-} from '../../../../components/util/HelperFunctions';
+} from "../../../../components/util/HelperFunctions";
 import {
   getLibGlyphURL,
-  getLibraryName
-} from '../../../../components/util/LibraryOptions';
-import useGlobalError from '../../../../components/error/ErrorHooks';
+  getLibraryName,
+} from "../../../../components/util/LibraryOptions";
+import useGlobalError from "../../../../components/error/ErrorHooks";
+import {
+  Avatar,
+  Breadcrumb,
+  Heading,
+  Input,
+  Select,
+  Stack,
+  Text,
+} from "@libretexts/davis-react";
+import { DataTable } from "@libretexts/davis-react-table";
+
+const SORT_OPTIONS = [
+  { value: "date", label: "Date" },
+  { value: "type", label: "Report Type" },
+  { value: "resname", label: "Resource Name" },
+  { value: "reslib", label: "Resource Library" },
+  { value: "institution", label: "Institution" },
+];
+
+function formatDateInputValue(value) {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, "0");
+  const day = `${value.getDate()}`.padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatApiDateParam(value) {
+  const [year, month, day] = value.split("-");
+  return `${Number(month)}-${Number(day)}-${year}`;
+}
 
 /**
  * The Adoption Reports interface allows administrators to view LibreText Adoption Reports
  * submitted to Conductor.
  */
 const AdoptionReports = () => {
-
-  const SORT_OPTIONS = [
-    { key: 'date', text: 'Date', value: 'date' },
-    { key: 'type', text: 'Report Type', value: 'type' },
-    { key: 'resname', text: 'Resource Name', value: 'resname' },
-    { key: 'reslib', text: 'Resource Library', value: 'reslib' },
-    { key: 'institution', text: 'Institution', value: 'institution' },
-  ];
-
-  const TABLE_COLS = [
-    { key: 'date', text: 'Date' },
-    { key: 'type', text: 'Report Type' },
-    { key: 'resname', text: 'Resource Name' },
-    { key: 'reslib', text: 'Resource Library' },
-    { key: 'institution', text: 'Institution' },
-    { key: 'comments', text: 'Comments' },
-    { key: 'name', text: 'Name' },
-  ];
-
   const { handleGlobalError } = useGlobalError();
 
-  // Date
+  // Data
   const [adoptionReports, setAdoptionReports] = useState([]);
-  const [sortedReports, setSortedReports] = useState([]);
   const [currentReport, setCurrentReport] = useState(null);
 
   // UI
-  const [fromDate, setFromDate] = useState(null);
-  const [toDate, setToDate] = useState(null);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [showARVModal, setShowARVModal] = useState(false);
-  const [sortChoice, setSortChoice] = useState('date');
+  const [sortChoice, setSortChoice] = useState("date");
+  const [loading, setLoading] = useState(false);
 
   /**
-   * Set page title, initialize plugins, and set defaults on load.
+   * Set page title and initialize default date filters.
    */
   useEffect(() => {
-    document.title = 'LibreTexts Conductor | Adoption Reports';
-    date.plugin(ordinal);
+    document.title = "LibreTexts Conductor | Adoption Reports";
     const now = new Date();
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(now.getFullYear() - 1);
-    setFromDate(oneYearAgo);
-    setToDate(now);
-  }, [setFromDate, setToDate]);
+    setFromDate(formatDateInputValue(oneYearAgo));
+    setToDate(formatDateInputValue(now));
+  }, []);
 
   /**
    * Retrieves Report search results from the server and saves them to state.
@@ -82,122 +80,110 @@ const AdoptionReports = () => {
    * @param {string} fromDateString - The date to start the search from, in format 'MM-DD-YYYY'.
    * @param {string} toDateString - The date to end the search on, in format 'MM-DD-YYYY'.
    */
-  const getAdoptionReports = useCallback(async (fromDateString, toDateString) => {
-    try {
-      const arRes = await axios.get('/adoptionreports', {
-        params: {
-          startDate: fromDateString,
-          endDate: toDateString,
-        },
-      });
-      if (!arRes.data.err) {
-        setAdoptionReports(arRes.data.reports);
-        setSortedReports(arRes.data.reports);
-      } else {
-        throw (new Error(arRes.data.errMsg));
+  const getAdoptionReports = useCallback(
+    async (fromDateString, toDateString) => {
+      setLoading(true);
+      try {
+        const arRes = await axios.get("/adoptionreports", {
+          params: {
+            startDate: fromDateString,
+            endDate: toDateString,
+          },
+        });
+
+        if (!arRes.data.err) {
+          setAdoptionReports(arRes.data.reports);
+        } else {
+          throw new Error(arRes.data.errMsg);
+        }
+      } catch (e) {
+        handleGlobalError(e);
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      handleGlobalError(e);
-    }
-  }, [setAdoptionReports, setSortedReports, handleGlobalError]);
+    },
+    [handleGlobalError]
+  );
 
   /**
-   * Parses newly-selected search dates and triggers the retrieval from the server.
+   * Trigger a new search when either date filter changes.
    */
   useEffect(() => {
-    if (fromDate !== null && toDate !== null) {
-      const fdMonth = fromDate.getMonth() + 1;
-      const fdDate = fromDate.getDate();
-      const fdYear = fromDate.getFullYear();
-      const tdMonth = toDate.getMonth() + 1;
-      const tdDate = toDate.getDate();
-      const tdYear = toDate.getFullYear();
-      const fdString = `${fdMonth}-${fdDate}-${fdYear}`;
-      const tdString = `${tdMonth}-${tdDate}-${tdYear}`;
-      getAdoptionReports(fdString, tdString);
+    if (fromDate && toDate) {
+      getAdoptionReports(formatApiDateParam(fromDate), formatApiDateParam(toDate));
     }
-  }, [fromDate, toDate, getAdoptionReports, handleGlobalError]);
+  }, [fromDate, toDate, getAdoptionReports]);
 
   /**
-   * Sorts the Reports by selected choice and saves them to state.
+   * Sort the currently loaded reports according to the active sort control.
    */
-  useEffect(() => {
-    let sorted = [];
+  const sortedReports = useMemo(() => {
     switch (sortChoice) {
-      case 'type':
-        sorted = [...adoptionReports].sort((a, b) => a.role.localeCompare(b.role));
-        break;
-      case 'institution':
-        sorted = [...adoptionReports].sort((a, b) => {
-          let aInst = '';
-          let bInst = '';
-          if (a.role === 'instructor') {
-            aInst = a.instructor.institution;
-          } else if (a.role === 'student' && !isEmptyString(a.student.institution)) {
+      case "type":
+        return [...adoptionReports].sort((a, b) => a.role.localeCompare(b.role));
+      case "institution":
+        return [...adoptionReports].sort((a, b) => {
+          let aInst = "";
+          let bInst = "";
+
+          if (a.role === "instructor") {
+            aInst = a.instructor?.institution ?? "";
+          } else if (a.role === "student" && !isEmptyString(a.student?.institution)) {
             aInst = a.student.institution;
           }
-          if (b.role === 'instructor') {
-            bInst = b.instructor.institution;
-          } else if (b.role === 'student' && !isEmptyString(b.student.institution)) {
-            bInst = b.student.institution
+
+          if (b.role === "instructor") {
+            bInst = b.instructor?.institution ?? "";
+          } else if (b.role === "student" && !isEmptyString(b.student?.institution)) {
+            bInst = b.student.institution;
           }
+
           return aInst.localeCompare(bInst);
         });
-        break;
-      case 'resname':
-        sorted = [...adoptionReports].sort((a, b) => {
+      case "resname":
+        return [...adoptionReports].sort((a, b) => {
           if (a.resource?.title && b.resource?.title) {
             return a.resource.title.localeCompare(b.resource.title);
           }
           return 0;
         });
-        break;
-      case 'reslib':
-        sorted = [...adoptionReports].sort((a, b) => {
+      case "reslib":
+        return [...adoptionReports].sort((a, b) => {
           if (a.resource?.library && b.resource?.library) {
             return a.resource.library.localeCompare(b.resource.library);
           }
           return 0;
         });
-        break;
-      default: // date
-        sorted = [...adoptionReports].sort((a, b) => {
+      default:
+        return [...adoptionReports].sort((a, b) => {
           const aDate = new Date(a.createdAt);
           const bDate = new Date(b.createdAt);
-          if (aDate < bDate) {
-            return -1;
-          }
-          if (aDate > bDate) {
-            return 1;
-          }
+          if (aDate < bDate) return -1;
+          if (aDate > bDate) return 1;
           return 0;
         });
     }
-    setSortedReports(sorted);
-  }, [sortChoice, adoptionReports, setSortedReports]);
+  }, [adoptionReports, sortChoice]);
 
   /**
    * Parses a date string into UI-ready format.
    *
-   * @param {string} dateInput - ISO date representation. 
+   * @param {string} dateInput - ISO date representation.
    * @returns {string} The parsed and formatted date.
    */
   function parseDateAndTime(dateInput) {
     const dateInstance = new Date(dateInput);
-    return date.format(dateInstance, 'MM/DD/YYYY h:mm A');
+    return date.format(dateInstance, "MM/DD/YYYY h:mm A");
   }
 
   /**
-   * Opens the Adoption Report View modal by bringing the selected Report into state.
+   * Opens the Adoption Report View modal for the selected report.
    *
-   * @param {string} id - The internal Report identifier. 
+   * @param {object} report - The selected report record.
    */
-  function handleOpenARV(id) {
-    const foundReport = adoptionReports.find((ar) => ar._id === id);
-    if (foundReport) {
-      setShowARVModal(true);
-      setCurrentReport(foundReport);
-    }
+  function handleOpenARV(report) {
+    setShowARVModal(true);
+    setCurrentReport(report);
   }
 
   /**
@@ -208,175 +194,144 @@ const AdoptionReports = () => {
     setCurrentReport(null);
   }
 
-  /**
-   * Updates the search From Date in state.
-   *
-   * @param {Date} value - The newly selected date. 
-   */
-  function handleFromDateChange(value) {
-    setFromDate(value);
-  }
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: "createdAt",
+        header: "Date",
+        cell: ({ row }) => (
+          <button
+            type="button"
+            className="button-text-link text-left"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenARV(row.original);
+            }}
+          >
+            {parseDateAndTime(row.original.createdAt)}
+          </button>
+        ),
+      },
+      {
+        accessorKey: "role",
+        header: "Report Type",
+        cell: ({ getValue }) => capitalizeFirstLetter(getValue() ?? ""),
+      },
+      {
+        id: "resourceName",
+        header: "Resource Name",
+        cell: ({ row }) => row.original.resource?.title ?? <em>Unknown</em>,
+      },
+      {
+        id: "resourceLibrary",
+        header: "Resource Library",
+        cell: ({ row }) => {
+          const resourceLib = row.original.resource?.library;
 
-  /**
-   * Updates the search To Date in state.
-   *
-   * @param {Date} value - The newly selected date.
-   */
-  function handleToDateChange(value) {
-    setToDate(value);
-  }
+          if (!resourceLib) {
+            return <em>Unknown</em>;
+          }
 
-  /**
-   * Updates the report sorting choice in state.
-   *
-   * @param {React.ChangeEvent} e - The event that triggered the handler.
-   * @param {object} data - Data passed from the UI element.
-   * @param {string} data.value - The internal sort choice key.
-   */
-  function handleSortChoiceChange(_e, { value }) {
-    setSortChoice(value);
-  }
+          return (
+            <div className="flex items-center gap-2">
+              <Avatar
+                src={getLibGlyphURL(resourceLib)}
+                alt=""
+                size="xs"
+              />
+              <span>{getLibraryName(resourceLib)}</span>
+            </div>
+          );
+        },
+      },
+      {
+        id: "institution",
+        header: "Institution",
+        cell: ({ row }) => {
+          let institution = null;
+
+          if (row.original.role === "instructor") {
+            institution = row.original.instructor?.institution;
+          } else if (row.original.role === "student") {
+            institution = row.original.student?.institution;
+          }
+
+          return institution || <em>Unknown</em>;
+        },
+      },
+      {
+        accessorKey: "comments",
+        header: "Comments",
+        cell: ({ getValue }) => <em>{truncateString(getValue(), 150)}</em>,
+      },
+      {
+        accessorKey: "name",
+        header: "Name",
+      },
+    ],
+    []
+  );
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">Adoption Reports</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">Control Panel</Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>Adoption Reports</Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment>
-              <div className="flex-row-div">
-              <Form>
-                <Form.Group inline>
-                  <Form.Field inline>
-                      <DateInput
-                        value={fromDate}
-                        onChange={(value) => handleFromDateChange(value)}
-                        label="From"
-                        inlineLabel={true}
-                      />
-                    </Form.Field>
-                    <Form.Field inline>
-                      <DateInput
-                        value={toDate}
-                        onChange={(value) => handleToDateChange(value)}
-                        label="To"
-                        inlineLabel={true}
-                      />
-                    </Form.Field>
-                    <Form.Field inline>
-                      <label htmlFor="sort-reports">Sort by</label>
-                      <Dropdown
-                        placeholder="Sort by..."
-                        floating
-                        selection
-                        button
-                        options={SORT_OPTIONS}
-                        onChange={handleSortChoiceChange}
-                        value={sortChoice}
-                      />
-                    </Form.Field>
-                  </Form.Group>
-                </Form>
-              </div>
-            </Segment>
-            <Segment>
-              <Table striped celled fixed>
-                <Table.Header>
-                  <Table.Row>
-                    {TABLE_COLS.map((item) => {
-                      const text = sortChoice === item.key ? <em>{item.text}</em> : item.text;
-                      return (
-                        <Table.HeaderCell key={item.key}>
-                          <span>{text}</span>
-                        </Table.HeaderCell>
-                      );
-                    })}
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {(adoptionReports.length > 0) ? sortedReports.map((item) => {
-                    let resourceTitle = <em>Unknown</em>;
-                    let resourceLib = 'unknown';
-                    let institution = <em>Unknown</em>;
-                    if (item.resource?.title) {
-                      resourceTitle = item.resource.title;
-                    }
-                    if (item.resource?.library) {
-                      resourceLib = item.resource.library;
-                    }
-                    if (item.role === 'instructor') {
-                      if (item.instructor?.institution) {
-                        institution = item.instructor.institution;
-                      }
-                    } else if (item.role === 'student') {
-                      if (item.student?.institution) {
-                        institution = item.student.institution;
-                      }
-                    }
-                    return (
-                      <Table.Row key={item._id}>
-                        <Table.Cell>
-                          <span className="text-link" onClick={() => handleOpenARV(item._id)}>
-                            {parseDateAndTime(item.createdAt)}
-                          </span>
-                        </Table.Cell>
-                        <Table.Cell>
-                          <span>{capitalizeFirstLetter(item.role)}</span>
-                        </Table.Cell>
-                        <Table.Cell>
-                          <span>{resourceTitle}</span>
-                        </Table.Cell>
-                        <Table.Cell>
-                          {resourceLib !== 'unknown' ? (
-                            <div>
-                              <Image src={getLibGlyphURL(resourceLib)} className="library-glyph" />
-                              <span>{getLibraryName(resourceLib)}</span>
-                            </div>
-                          ) : (
-                            <span><em>Unknown</em></span>
-                          )}
-                        </Table.Cell>
-                        <Table.Cell>
-                          <span>{institution}</span>
-                        </Table.Cell>
-                        <Table.Cell>
-                          <span><em>{truncateString(item.comments, 150)}</em></span>
-                        </Table.Cell>
-                        <Table.Cell>
-                          <span>{item.name}</span>
-                        </Table.Cell>
-                      </Table.Row>
-                    )
-                  }) : (
-                    <Table.Row>
-                      <Table.Cell colSpan={TABLE_COLS.length}>
-                        <p className="text-center"><em>No results found.</em></p>
-                      </Table.Cell>
-                    </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
-            </Segment>
-          </Segment.Group>
-          <AdoptionReportView
-            show={showARVModal}
-            onClose={handleCloseARV}
-            report={currentReport}
-          />
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+    <div className="!bg-white !h-full !px-8 !pt-8">
+      <Stack direction="vertical" gap="md" className="mb-4">
+        <Heading level={2}>Adoption Reports</Heading>
+        <Breadcrumb aria-label="Page navigation">
+          <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+          <Breadcrumb.Item isCurrent>Adoption Reports</Breadcrumb.Item>
+        </Breadcrumb>
+      </Stack>
+
+      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3 xl:max-w-6xl">
+        <Input
+          name="adoption-reports-from-date"
+          label="From"
+          type="date"
+          value={fromDate}
+          onChange={(e) => setFromDate(e.target.value)}
+        />
+        <Input
+          name="adoption-reports-to-date"
+          label="To"
+          type="date"
+          value={toDate}
+          onChange={(e) => setToDate(e.target.value)}
+        />
+        <Select
+          name="adoption-reports-sort"
+          label="Sort by"
+          placeholder="Sort reports"
+          options={SORT_OPTIONS}
+          value={sortChoice}
+          onChange={(e) => setSortChoice(e.target.value)}
+        />
+      </div>
+
+      <DataTable
+        data={sortedReports}
+        columns={columns}
+        loading={loading}
+        density="compact"
+        bordered
+        striped
+        stickyHeader
+        caption="Adoption reports results"
+        emptyState={
+          <div className="py-8 text-center">
+            <Text>
+              <em>No results found.</em>
+            </Text>
+          </div>
+        }
+        onRowClick={(row) => handleOpenARV(row)}
+      />
+
+      <AdoptionReportView
+        show={showARVModal}
+        onClose={handleCloseARV}
+        report={currentReport}
+      />
+    </div>
   );
 };
 
