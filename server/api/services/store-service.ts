@@ -227,7 +227,7 @@ class StoreService {
             trackingURLs: string[];
         }>;
     } | null> {
-        const order = await StoreOrder.findOne({ id: checkout_session_id });
+        const order = await StoreOrder.findOne({ id: { $eq: checkout_session_id } });
         if (!order || !order.luluJobStatusUpdates?.length) return null;
 
         const latestUpdate = order.luluJobStatusUpdates[order.luluJobStatusUpdates.length - 1];
