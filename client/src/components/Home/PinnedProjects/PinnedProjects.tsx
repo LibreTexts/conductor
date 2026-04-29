@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Badge, Button, Spinner, Tabs, Tooltip } from "@libretexts/davis-react";
+import { Badge, Button, Card, Heading, Spinner, Stack, Tabs } from "@libretexts/davis-react";
 import { DataTable } from "@libretexts/davis-react-table";
 import type { ColumnDef } from "@libretexts/davis-react-table";
 import { Link } from "react-router-dom";
@@ -108,38 +108,44 @@ const PinnedProjects: React.FC = () => {
   }, [data, allProjects]);
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 pb-10 bg-white">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-base font-semibold flex items-center gap-2">
-          <IconPin size={20} />
-          Pinned Projects
-        </h3>
-        <Tooltip content="Edit Pinned Projects" placement="top">
+    <Card>
+      <Card.Header>
+        <Stack direction="horizontal" align="center" justify="between">
+          <Stack direction="horizontal" align="center" gap="sm">
+            <IconPin size={24} />
+            <Heading level={3} className="!my-0">
+              Pinned Projects
+            </Heading>
+          </Stack>
           <Button
             variant="secondary"
             size="sm"
             onClick={onShowPinnedModal}
             icon={<IconPencil size={16} />}
+            name="Edit Pinned Projects"
+            title="Edit Pinned Projects"
           />
-        </Tooltip>
-      </div>
-      {isLoading ? (
-        <div className="flex justify-center py-8">
-          <Spinner />
-        </div>
-      ) : (
-        <Tabs variant="pills">
-          <div className="lg:flex lg:flex-row lg:items-start lg:gap-4">
-            <Tabs.List className="lg:!flex-col lg:!bg-transparent lg:!px-1 lg:!py-1 lg:!rounded-none lg:!gap-1 lg:border-r lg:border-gray-200 lg:pr-3 lg:min-w-[160px] overflow-x-auto">
-              {tabLabels}
-            </Tabs.List>
-            <Tabs.Panels className="flex-1 min-w-0 mt-3 lg:mt-0 max-h-[500px] overflow-y-auto">
-              {tabPanels}
-            </Tabs.Panels>
+        </Stack>
+      </Card.Header>
+      <Card.Body>
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Spinner />
           </div>
-        </Tabs>
-      )}
-    </div>
+        ) : (
+          <Tabs variant="pills">
+            <div className="lg:flex lg:flex-row lg:items-start lg:gap-4">
+              <Tabs.List className="lg:!flex-col lg:!bg-transparent lg:!px-1 lg:!py-1 lg:!rounded-none lg:!gap-1 lg:border-r lg:border-gray-200 lg:pr-3 lg:min-w-[160px] overflow-x-auto">
+                {tabLabels}
+              </Tabs.List>
+              <Tabs.Panels className="flex-1 min-w-0 mt-3 lg:mt-0 max-h-fit overflow-y-auto">
+                {tabPanels}
+              </Tabs.Panels>
+            </div>
+          </Tabs>
+        )}
+      </Card.Body>
+    </Card>
   );
 };
 

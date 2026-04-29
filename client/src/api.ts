@@ -1403,6 +1403,15 @@ class API {
     return res;
   }
 
+  async getRecentProjects() {
+    const res = await axios.get<
+      {
+        projects: Project[];
+      } & ConductorBaseResponse
+    >("/projects/recent");
+    return res;
+  }
+
   async getUserProjects() {
     const res = await axios.get<
       {

@@ -1,4 +1,4 @@
-import { Avatar, Button, Heading } from "@libretexts/davis-react";
+import { Avatar, Badge, Button, Heading } from "@libretexts/davis-react";
 import {
   IconBell,
   IconBriefcase,
@@ -10,7 +10,6 @@ import {
   IconPlus,
   IconTicket,
 } from "@tabler/icons-react";
-import AccountStatus from "../util/AccountStatus";
 import { Link } from "react-router-dom";
 import { useTypedSelector } from "../../state/hooks";
 import { useState } from "react";
@@ -20,9 +19,9 @@ type NavItemProps = {
   label: string;
   icon: React.ReactNode;
 } & (
-  | { href: string; to?: never }
-  | { to: string; href?: never }
-);
+    | { href: string; to?: never }
+    | { to: string; href?: never }
+  );
 
 const NavItem: React.FC<NavItemProps> = ({ label, icon, href, to }) => {
   const base =
@@ -54,14 +53,12 @@ const NavList: React.FC<{ showUserDetail: boolean }> = ({ showUserDetail }) => {
       {showUserDetail && (
         <div className="flex flex-col items-center py-6 px-4 border-b border-gray-200">
           <Avatar src={user.avatar} alt={user.firstName} size="xl" />
-          <Heading level={3} className="mt-3 text-center">
+          <Heading level={3} className="text-center">
             Welcome,
             <br />
             {user.firstName}
           </Heading>
-          <div className="mt-2">
-            <AccountStatus verifiedInstructor={user.verifiedInstructor} />
-          </div>
+          <Badge variant={user.verifiedInstructor ? "success" : "default"} label={user.verifiedInstructor ? "Verified Instructor" : "Unverified Instructor"} />
         </div>
       )}
       {(user.isSuperAdmin || user.isCampusAdmin || user.isSupport) && (
