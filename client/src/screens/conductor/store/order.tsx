@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router-dom-v5-compat";
 import { useParams } from "react-router-dom";
 import classNames from "classnames";
 import api from "../../../api";
+import ShippingTimeline from "../../../components/store/ShippingTimeline";
 
 export default function OrderStatusPage() {
   const params = useParams<{ order_id: string }>();
@@ -17,6 +18,7 @@ export default function OrderStatusPage() {
   
   const order = data?.data?.session;
   const charge = data?.data?.charge;
+  const shippingData = data?.data?.shipping;
   const products = order?.line_items?.data || [];
   const customer = order?.customer_details || {};
   const billingAddress = customer.address || {};
@@ -112,13 +114,15 @@ export default function OrderStatusPage() {
                 </div>
                 <div className="border-t border-gray-200 px-4 py-6 sm:px-6 lg:p-8">
                   <h4 className="sr-only">Status</h4>
-                  <p className="text-sm font-medium text-gray-900">
-                    {item.price?.product?.metadata.digital === "true" ? (
-                      "Digitally Delivered"
-                    ) : (
-                      ""
-                    ) }
-                  </p>
+                  {item.price?.product?.metadata?.digital === "true" ? (
+                    <p className="text-sm font-medium text-gray-900">Digitally Delivered</p>
+                  ) : item.price?.product?.metadata?.book_id ? (
+                    <ShippingTimeline
+                      itemData={shippingData?.items?.[item.price.product.metadata.book_id] ?? null}
+                      estimatedShippingDates={shippingData?.estimatedShippingDates}
+                      orderDate={order?.created}
+                    />
+                  ) : null}
                 </div>
               </div>
             ))}

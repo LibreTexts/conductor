@@ -83,6 +83,18 @@ export type StoreShippingOption = {
 
 export type StoreDigitalDeliveryOption = "apply_to_account" | "email_access_codes";
 
+export type StoreOrderShippingItemData = {
+    shippingStatus: "ORDER_PLACED" | "IN_PRODUCTION" | "SHIPPED";
+    trackingID?: string;
+    carrierName?: string;
+    trackingURLs: string[];
+}
+
+export type StoreOrderShippingData = {
+    estimatedShippingDates?: { arrival_min: string; arrival_max: string; dispatch_min: string; dispatch_max: string } | null;
+    items: Record<string, StoreOrderShippingItemData>;
+}
+
 export type StoreOrder = {
     _id: string; // MongoDB ObjectID
     id: string; // Stripe checkout session ID
