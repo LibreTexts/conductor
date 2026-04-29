@@ -16,12 +16,11 @@ import Input from "../../../components/NextGenInputs/Input";
 import Select from "../../../components/NextGenInputs/Select";
 import { formatPrice } from "../../../utils/storeHelpers";
 import { Icon } from "semantic-ui-react";
-import LoadingSpinner from "../../../components/LoadingSpinner";
 import { useTypedSelector } from "../../../state/hooks";
 import { useModals } from "../../../context/ModalContext";
 import ConfirmOrderModal from "../../../components/store/ConfirmOrderModal";
 import ShippingTimeline from "../../../components/store/ShippingTimeline";
-import { Button } from "@libretexts/davis-react";
+import { Button, Stack, Text } from "@libretexts/davis-react";
 import { IconArrowRight } from "@tabler/icons-react";
 
 const STATE_CODES = [
@@ -314,6 +313,8 @@ const STATE_CODES = [
     abbreviation: "YT",
   },
 ];
+
+const TODAY_TIMESTAMP_SECONDS = Math.floor(Date.now() / 1000);
 
 export default function ShippingPage() {
   const { cart, hasDigitalProducts, hasPhysicalProducts } = useCart();
@@ -903,7 +904,21 @@ export default function ShippingPage() {
               )}
             </div>
             {hasPhysicalProducts && selectedShippingOption && (
-              <ShippingTimeline shippingOption={selectedShippingOption} />
+              <Stack className="mt-6" gap='sm'>
+                <Text>Estimated Delivery Timeline:</Text>
+                <ShippingTimeline
+                  isEstimatePreview={true}
+                  orderDate={TODAY_TIMESTAMP_SECONDS}
+                  estimatedShippingDates={{
+                    production_min: selectedShippingOption.production_start_date_estimate,
+                    production_max: selectedShippingOption.production_end_date_estimate,
+                    dispatch_min: selectedShippingOption.ship_date_start_estimate,
+                    dispatch_max: selectedShippingOption.ship_date_end_estimate,
+                    arrival_min: selectedShippingOption.delivery_date_start_estimate,
+                    arrival_max: selectedShippingOption.delivery_date_end_estimate,
+                  }}
+                />
+              </Stack>
             )}
             <Button
               type="submit"
