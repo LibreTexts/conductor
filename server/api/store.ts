@@ -304,7 +304,10 @@ export async function getOrder(req: Request, res: Response) {
   try {
     const { order_id } = req.params;
 
-    const result = await storeService.getCheckoutSession(order_id);
+    const [result, shippingData] = await Promise.all([
+      storeService.getCheckoutSession(order_id),
+      storeService.getShippingData(order_id),
+    ]);
 
     if (!result) {
       return conductor404Err(res);
@@ -316,7 +319,8 @@ export async function getOrder(req: Request, res: Response) {
       err: false,
       data: {
         session,
-        charge
+        charge,
+        shipping: shippingData,
       },
       message: "Order fetched successfully.",
     });

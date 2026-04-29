@@ -1,134 +1,115 @@
 import React from "react";
-import { StoreShippingOption } from "../../types";
+import { StoreOrderShippingItemData } from "../../types";
 import { IconCheck, IconSettings, IconTruck, IconHome } from "@tabler/icons-react";
 
 interface ShippingTimelineProps {
-  shippingOption: StoreShippingOption;
+  itemData?: StoreOrderShippingItemData | null;
+  estimatedShippingDates?: { arrival_min: string; arrival_max: string; dispatch_min: string; dispatch_max: string } | null;
+  orderDate?: number; // Stripe session `created` unix timestamp
 }
 
-export default function ShippingTimeline({ shippingOption }: ShippingTimelineProps) {
-  if (
-    !shippingOption.production_start_date_estimate ||
-    !shippingOption.production_end_date_estimate ||
-    !shippingOption.ship_date_start_estimate ||
-    !shippingOption.ship_date_end_estimate ||
-    !shippingOption.delivery_date_start_estimate ||
-    !shippingOption.delivery_date_end_estimate
-    ) {
-    // Don't render if date fields are missing
-    return null;
-  }
+const formatDate = (dateString: string) =>
+  new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(dateString));
 
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }).format(date);
-  };
+const formatDateRange = (start: string, end: string) => `${formatDate(start)} – ${formatDate(end)}`;
 
-  const formatDateRange = (start: string, end: string): string => {
-    return `${formatDate(start)} - ${formatDate(end)}`;
-  };
+export default function ShippingTimeline({ itemData, estimatedShippingDates, orderDate }: ShippingTimelineProps) {
+  const statusOrder = ["ORDER_PLACED", "IN_PRODUCTION", "SHIPPED", "DELIVERED"] as const;
+  const currentStatusIndex = itemData ? statusOrder.indexOf(itemData.shippingStatus) : 0;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayFormatted = formatDate(today.toISOString().split('T')[0]);
+  const orderDateFormatted = orderDate
+    ? new Date(orderDate * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : "";
 
   const timelineSteps = [
     {
       name: "Order Placed",
       icon: IconCheck,
-      date: `Today (${todayFormatted})`,
-      completed: false,
+      date: orderDateFormatted,
+      statusIndex: 0,
     },
     {
-      name: "Printing (On-Demand)",
+      name: "In Production",
       icon: IconSettings,
-      date: formatDateRange(
-        shippingOption.production_start_date_estimate,
-        shippingOption.production_end_date_estimate
-      ),
-      completed: false,
+      date: "",
+      statusIndex: 1,
     },
     {
       name: "Shipped",
       icon: IconTruck,
-      date: formatDateRange(
-        shippingOption.ship_date_start_estimate,
-        shippingOption.ship_date_end_estimate
-      ),
-      completed: false,
+      date: estimatedShippingDates
+        ? formatDateRange(estimatedShippingDates.dispatch_min, estimatedShippingDates.dispatch_max)
+        : "",
+      statusIndex: 2,
     },
     {
       name: "Estimated Arrival",
       icon: IconHome,
-      date: formatDateRange(
-        shippingOption.delivery_date_start_estimate,
-        shippingOption.delivery_date_end_estimate
-      ),
-      completed: false,
+      date: estimatedShippingDates
+        ? formatDateRange(estimatedShippingDates.arrival_min, estimatedShippingDates.arrival_max)
+        : "",
+      statusIndex: 3,
     },
   ];
 
   return (
     <div className="mt-6">
-      {/* Title outside the box, matching "Order summary" style */}
-      <h3 className="text-lg font-medium text-gray-900">
-        Estimated Production & Delivery Timeline
-      </h3>
-      
-      {/* Content box with same styling as order summary */}
-      <div className="mt-4 rounded-lg border border-gray-200 bg-white shadow-sm px-4 py-6 sm:px-6">
-        <div className="flex items-start">
-          {timelineSteps.map((step, stepIdx) => (
+      <div className="flex items-start">
+        {timelineSteps.map((step, stepIdx) => {
+          const completed = step.statusIndex <= currentStatusIndex;
+          const active = step.statusIndex === currentStatusIndex;
+          return (
             <React.Fragment key={step.name}>
               <div className="flex flex-col items-center" style={{ width: 80 }}>
                 <div
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 ${
-                    step.completed
-                      ? "border-primary bg-primary"
-                      : "border-gray-300 bg-white"
+                    completed ? "border-primary bg-primary" : "border-gray-300 bg-white"
                   }`}
                 >
                   <step.icon
-                    className={`h-6 w-6 ${
-                      step.completed ? "text-white" : "text-gray-400"
-                    }`}
+                    className={`h-6 w-6 ${completed ? "text-white" : "text-gray-400"}`}
                     aria-hidden="true"
                   />
                 </div>
                 <div className="mt-3 text-center">
-                  <p
-                    className={`text-sm font-medium ${
-                      step.completed ? "text-primary" : "text-gray-500"
-                    }`}
-                  >
+                  <p className={`text-sm font-medium ${active ? "text-primary" : completed ? "text-gray-700" : "text-gray-500"}`}>
                     {step.name}
                   </p>
-                  <p className="mt-1 text-xs text-gray-500 !text-center">{step.date}</p>
+                  {step.date && (
+                    <p className="mt-1 text-xs text-gray-500 !text-center">{step.date}</p>
+                  )}
                 </div>
               </div>
               {stepIdx < timelineSteps.length - 1 && (
                 <div className="flex flex-1 items-center" style={{ height: 40 }}>
                   <div
-                    className={`h-0.5 w-full ${
-                      step.completed ? "bg-primary" : "bg-gray-300"
-                    }`}
+                    className={`h-0.5 w-full ${step.statusIndex < currentStatusIndex ? "bg-primary" : "bg-gray-300"}`}
                     aria-hidden="true"
                   />
                 </div>
               )}
             </React.Fragment>
+          );
+        })}
+      </div>
+
+      {itemData?.trackingID && (
+        <div className="mt-5 flex flex-wrap gap-x-8 gap-y-1 text-sm">
+          {itemData.carrierName && (
+            <span className="text-gray-600">
+              <span className="font-medium text-gray-900">Carrier:</span> {itemData.carrierName}
+            </span>
+          )}
+          <span className="text-gray-600">
+            <span className="font-medium text-gray-900">Tracking ID:</span> {itemData.trackingID}
+          </span>
+          {itemData.trackingURLs.map((url, i) => (
+            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="text-primary underline font-medium">
+              Track shipment{itemData.trackingURLs.length > 1 ? ` (${i + 1})` : ""}
+            </a>
           ))}
         </div>
-        
-        <p className="mt-6 text-sm text-gray-500 text-center">
-          *Please note: Because your book is printed on demand and just for you,
-          production times can vary before shipping begins.
-        </p>
-      </div>
+      )}
     </div>
   );
 }

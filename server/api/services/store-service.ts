@@ -218,6 +218,45 @@ class StoreService {
         }
     }
 
+    public async getShippingData(checkout_session_id: string): Promise<{
+        estimatedShippingDates?: { arrival_min: string; arrival_max: string; dispatch_min: string; dispatch_max: string } | null;
+        items: Record<string, {
+            shippingStatus: "ORDER_PLACED" | "IN_PRODUCTION" | "SHIPPED";
+            trackingID?: string;
+            carrierName?: string;
+            trackingURLs: string[];
+        }>;
+    } | null> {
+        const order = await StoreOrder.findOne({ id: { $eq: checkout_session_id } });
+        if (!order || !order.luluJobStatusUpdates?.length) return null;
+
+        const latestUpdate = order.luluJobStatusUpdates[order.luluJobStatusUpdates.length - 1];
+        const lineItems: any[] = latestUpdate.line_items || [];
+
+        const luluStatusToShipping = (statusName: string): "ORDER_PLACED" | "IN_PRODUCTION" | "SHIPPED" => {
+            if (statusName === "SHIPPED") return "SHIPPED";
+            if (statusName === "IN_PRODUCTION") return "IN_PRODUCTION";
+            return "ORDER_PLACED";
+        };
+
+        const items: Record<string, { shippingStatus: "ORDER_PLACED" | "IN_PRODUCTION" | "SHIPPED"; trackingID?: string; carrierName?: string; trackingURLs: string[] }> = {};
+        for (const li of lineItems) {
+            const externalId = li.external_id;
+            if (!externalId) continue;
+            items[externalId] = {
+                shippingStatus: luluStatusToShipping(li.status?.name || ""),
+                trackingID: li.tracking_id || undefined,
+                carrierName: li.carrier_name || undefined,
+                trackingURLs: li.tracking_urls || [],
+            };
+        }
+
+        return {
+            estimatedShippingDates: latestUpdate.estimated_shipping_dates ?? null,
+            items,
+        };
+    }
+
     public async getCheckoutSession(checkout_session_id: string) {
         try {
             const { session, charge } = await this._fetchCheckoutSession(checkout_session_id, { includeCharges: true });
