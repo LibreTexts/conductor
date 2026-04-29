@@ -98,7 +98,7 @@ const Conductor = () => {
   return (
     <div className='flex flex-col min-h-screen'>
       <Navbar />
-      <div id="main-content" className='flex-1 bg-white pb-8'>
+      <div id="main-content" className='flex-1 bg-surface-muted pb-8'>
         <Suspense fallback={<LoadingSpinner />}>
           <Switch>
           <AnonRoute exact path='/login' component={Login} />
