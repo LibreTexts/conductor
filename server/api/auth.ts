@@ -16,6 +16,7 @@ import FormData from "form-data";
 import Session from "../models/session.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
 import { z } from "zod";
+import { isUUID } from "./validators/misc.js";
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = new TextEncoder().encode(process.env.SECRETKEY);
@@ -724,6 +725,10 @@ const getUserBasicWithEmail = (uuid: string | string[]) => {
  * @param {express.NextFunction} next - The next function to run in the middleware chain.
  */
 async function verifyRequest(req: Request, res: Response, next: NextFunction) {
+  // Skip if already verified globally by optionalVerifyRequest
+  const existingDecodedUUID = (req as any).user?.decoded?.uuid;
+  if (existingDecodedUUID && isUUID(existingDecodedUUID)) return next();
+
   const authHeader = req.headers.authorization;
   try {
     if (!authHeader) {
@@ -808,6 +813,9 @@ const getUserAttributes = (
   res: Response,
   next: NextFunction
 ) => {
+  // Skip if roles already loaded globally by optionalGetUserAttributes
+  if (req.user?.roles) return next();
+
   if (req.user.decoded !== undefined) {
     return User.findOne({
       uuid: req.user.decoded.uuid,
