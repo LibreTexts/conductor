@@ -33,7 +33,6 @@ import projectfilesAPI from "./api/projectfiles.js";
 import tasksAPI from "./api/tasks.js";
 import msgAPI from "./api/messaging.js";
 import transFeedbackAPI from "./api/translationfeedback.js";
-import OAuth from "./api/oauth.js";
 import apiClientsAPI from "./api/apiclients.js";
 import CIDDescriptorsAPI from "./api/ciddescriptors.js";
 import analyticsAPI from "./api/analytics.js";
@@ -637,13 +636,6 @@ router
 router.route('/config').get(
   clientConfigAPI.getClientConfig
 );
-
-/* OAuth (server) */
-router
-  .route("/oauth2.0/authorize")
-  .get(authAPI.verifyRequest, OAuth.authorize());
-
-router.route("/oauth2.0/accessToken").post(OAuth.token());
 
 /* Organizations */
 router
