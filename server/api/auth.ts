@@ -8,7 +8,6 @@ import { randomBytes } from "crypto";
 import { createRemoteJWKSet, jwtVerify, SignJWT, decodeJwt } from "jose";
 import axios from "axios";
 import User from "../models/user.js";
-import OAuth from "./oauth.js";
 import conductorErrors from "../conductor-errors.js";
 import { debugError } from "../debug.js";
 import { assembleUrl, isEmptyString, isFullURL, maybeDecodeURIComponent } from "../util/helpers.js";
@@ -717,8 +716,7 @@ const getUserBasicWithEmail = (uuid: string | string[]) => {
 };
 
 /**
- * Verifies the JWT provided by a user or a Bearer access token provided by
- * an API client in the Authorization header.
+ * Verifies the JWT provided by a user in the Authorization header.
  *
  * @param {express.Request} req - Incoming request object, with cookies already processed.
  * @param {express.Response} res - Outgoing response object.
@@ -735,9 +733,6 @@ async function verifyRequest(req: Request, res: Response, next: NextFunction) {
       throw new Error("ERR_BAD_SESSION");
     }
 
-    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
-      return OAuth.authenticate(req, res, next);
-    }
     const { payload } = await jwtVerify(authHeader, JWT_SECRET, {
       issuer: JWT_COOKIE_DOMAIN,
       audience: JWT_COOKIE_DOMAIN,
