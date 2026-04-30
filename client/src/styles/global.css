@@ -76,12 +76,12 @@ body {
 
 .library-glyph-header {
     position: absolute;
-    top: 4px;
-    right: 5px;
+    top: 0px;
+    right: -25px;
     background-color: white;
     padding: 10px 10px;
-    border-radius: 5px;
-    border-top-right-radius: 6px;
+    border-top-right-radius: 6px !important;
+    border-bottom-left-radius: 6px !important;
     display: flex;
     align-items: center;
     justify-content: center;

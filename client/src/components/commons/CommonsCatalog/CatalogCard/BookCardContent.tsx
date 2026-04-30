@@ -1,7 +1,7 @@
 import { Icon } from "semantic-ui-react";
 import { Book } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
-import { getLibGlyphURL, getLibraryName } from "../../../util/LibraryOptions";
+import { getLibGlyphAltText, getLibGlyphURL } from "../../../util/LibraryOptions";
 import { Heading, Card, Text, Stack } from "@libretexts/davis-react";
 
 interface BookCardContentProps {
@@ -32,7 +32,11 @@ const BookCardContent: React.FC<BookCardContentProps> = ({ book }) => {
           }}
         />
         <div className="library-glyph-header">
-          <img src={getLibGlyphURL(book.library)} className="library-glyph !w-6 !h-6 !mr-0" alt="" />
+          <img
+            src={getLibGlyphURL(book.library)}
+            className="library-glyph !w-7 !h-7 !mr-0"
+            alt={getLibGlyphAltText(book.library)}
+          />
         </div>
       </div>
       <Card.Body>
