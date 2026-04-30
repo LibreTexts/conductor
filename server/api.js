@@ -7,6 +7,7 @@ import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
 import { catchInternal } from "./util/helpers.js";
+import { rateLimitMiddleware } from "./util/rateLimitHelpers.js";
 import middleware from "./middleware.js"; // Route middleware
 import assetTagFrameworkAPI from "./api/assettagframeworks.js";
 import authorsAPI from "./api/authors.js";
@@ -127,6 +128,13 @@ router.use(
 );
 router.use(bodyParser.urlencoded({ extended: false }));
 router.use(middleware.authSanitizer);
+
+/** Globally resolve user identity (if token present) for rate limiting
+ * This global check ONLY verifies the token and extracts basic user attributes for rate limiting purposes
+ * - it DOES NOT load user roles or enforce permissions (that is done in route-specific middleware)
+ */
+router.use(authAPI.optionalVerifyRequest);
+router.use(rateLimitMiddleware);
 
 /* Auth */
 router.route("/oidc/libretexts").get(authAPI.completeLogin);

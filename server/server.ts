@@ -15,7 +15,7 @@ import Promise from "bluebird";
 import helmet from "helmet";
 import { debug, debugServer, debugDB } from "./debug.js";
 import api, { permalinkRouter } from "./api.js";
-import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import { floodShield } from "./util/rateLimitHelpers.js";
 
 // Prevent startup without ORG_ID env variable
 if (!process.env.ORG_ID) {
@@ -23,21 +23,13 @@ if (!process.env.ORG_ID) {
   exit(1);
 }
 
-const apiLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  limit: 500, // limit requests/IP address/windowMs
-  keyGenerator: (req) => {
-    const forwardFor = req.headers['x-forwarded-for'];
-    if (forwardFor && typeof forwardFor === 'string') {
-      const ips = forwardFor.split(',').map(ip => ip.trim());
-      if (ips.length > 0) {
-        return ipKeyGenerator(ips[0]); // Use the first IP in the list        
-      }
-    }
+// Validate TRUST_PROXY_HOPS env variable and set default if not provided
+const _trustProxyRaw = process.env.TRUST_PROXY_HOPS;
+const _trustProxyHops = _trustProxyRaw !== undefined ? parseInt(_trustProxyRaw, 10) : 2; // Default to 2 hops for Cloudflare + ALB, but can be set to 0 to disable if not behind proxies
+if (!Number.isInteger(_trustProxyHops) || _trustProxyHops < 0) {
+  throw new Error(`Invalid TRUST_PROXY_HOPS="${_trustProxyRaw}": must be a non-negative integer`);
+}
 
-    return ipKeyGenerator(req.ip || ""); // Fallback to req.ip if no X-Forwarded-For header
-  }
-});
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -49,7 +41,7 @@ const matomoSiteID = process.env.MATOMO_SITE_ID;
 mongoose.Promise = Promise;
 mongoose.set("debug", process.env.NODE_ENV === "development");
 
-app.set("trust proxy", 1); // Trust first proxy (i.e. ALB)
+app.set("trust proxy", _trustProxyHops);
 app.use(cookieParser());
 app.use(helmet.hidePoweredBy());
 app.use(
@@ -100,7 +92,7 @@ app.use(
 );
 
 // Serve API
-app.use("/api/v1", apiLimiter, api);
+app.use("/api/v1", floodShield, api);
 app.use("/permalink", permalinkRouter);
 
 // Health endpoint that checks actual MongoDB connection status
