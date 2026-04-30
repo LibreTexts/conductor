@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { Route, Switch } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { SkipLink } from '@libretexts/davis-react';
 
 import AnonRoute from './components/util/AnonRoute';
 import PrivateRoute from './components/util/PrivateRoute';
@@ -97,8 +98,9 @@ const Conductor = () => {
 
   return (
     <div className='flex flex-col min-h-screen'>
+      <SkipLink targetId="main-content" />
       <Navbar />
-      <div id="main-content" className='flex-1 bg-surface-muted pb-8'>
+      <main id="main-content" className='flex-1 bg-surface-muted pb-8'>
         <Suspense fallback={<LoadingSpinner />}>
           <Switch>
           <AnonRoute exact path='/login' component={Login} />
@@ -181,7 +183,7 @@ const Conductor = () => {
           </Switch>
         </Suspense>
         {/* <ChatBot /> */}
-      </div>
+      </main>
       <Footer />
     </div>
   )

@@ -5,7 +5,7 @@ import { useTypedSelector } from "../../../state/hooks.js";
 import NavbarShell from "./NavbarShell.js";
 import EnvironmentBanner from "../EnvironmentBanner.js";
 import useClientConfig from "../../../hooks/useClientConfig.js";
-import { Button, SkipLink } from "@libretexts/davis-react";
+import { Button } from "@libretexts/davis-react";
 import { NavbarContext } from "../../../types/index.js";
 import {
   IconLifebuoy,
@@ -275,7 +275,6 @@ const Navbar: React.FC<{}> = () => {
       className="w-full bg-white flex flex-col"
       style={{ height: isProduction ? "60px" : "100px" }} // Account for extra height of EnvironmentBanner in non-production envs
     >
-      <SkipLink targetId="main-content" />
       <EnvironmentBanner />
       <nav
         aria-label="Main navigation"
