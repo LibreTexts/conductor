@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Icon, List } from "semantic-ui-react";
 import { TableOfContents } from "../../types";
 
@@ -7,6 +7,7 @@ interface TreeViewProps {
   asLinks: boolean;
   hrefKey: string | null;
   textKey: string | null;
+  expandAll?: boolean;
 }
 
 interface TreeNodeProps extends Omit<TreeViewProps, "items"> {
@@ -23,8 +24,15 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   asLinks,
   hrefKey,
   textKey,
+  expandAll,
 }) => {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(expandAll ?? false);
+
+  useEffect(() => {
+    if (typeof expandAll === "boolean") {
+      setExpanded(expandAll);
+    }
+  }, [expandAll]);
   const hasChildren = Array.isArray(item.children) && item.children.length > 0;
 
   let display = null;
@@ -81,6 +89,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   asLinks={asLinks}
                   hrefKey={hrefKey}
                   textKey={textKey}
+                  expandAll={expandAll}
                 />
               );
             })}
@@ -96,6 +105,7 @@ const TreeView: React.FC<TreeViewProps> = ({
   asLinks,
   hrefKey,
   textKey,
+  expandAll,
 }) => {
   if (!Array.isArray(items)) return <List relaxed />;
   if (
@@ -115,6 +125,7 @@ const TreeView: React.FC<TreeViewProps> = ({
               asLinks={asLinks}
               hrefKey={hrefKey}
               textKey={textKey}
+              expandAll={expandAll}
             />
           );
         })}

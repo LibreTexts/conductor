@@ -180,6 +180,7 @@ const CommonsBook = () => {
   const [pieChartData, setPieChartData] = useState<CustomPieChartData[]>([]);
   const [clrData, setCLRData] = useState<LicenseReport>({} as LicenseReport);
   const [clrChapters, setCLRChapters] = useState<any[]>([]);
+  const [clrExpandAll, setCLRExpandAll] = useState<boolean>(false);
 
   // Peer Reviews
   const [prAllow, setPRAllow] = useState<boolean>(false);
@@ -255,6 +256,12 @@ const CommonsBook = () => {
             };
           } else {
             processedItem.meta = { text: item.license.label };
+          }
+          if (item.license?.label) {
+            const licenseText = item.license.version
+              ? `${item.license.label} ${item.license.version}`
+              : item.license.label;
+            processedItem.title = `${item.title} (${licenseText})`;
           }
           if (Array.isArray(item.children)) {
             processedItem.children = processTOC(item.children);
@@ -718,7 +725,7 @@ const CommonsBook = () => {
           return (
             <li key={`pie-${licItem.raw}`}>
               <div className="commons-book-clr-overview-flex">
-                <span>{renderLicenseLink(licItem)}</span>
+                <span>{renderLicenseLink(licItem)}{" "}</span>
                 <span className="right">
                   ({licItem.count} {licItem.count > 1 ? "pages" : "page"}){" "}
                   {licPercent}%
@@ -760,7 +767,7 @@ const CommonsBook = () => {
             clrData.meta.specialRestrictions.length > 0 && (
               <div className="commons-book-clr-overview-flex">
                 <span>
-                  <strong>Applicable Restrictions:</strong>
+                  <strong>Applicable Restrictions:{" "}</strong>
                 </span>
                 <span className="right">
                   {renderLicenseSpecialRestrictions(
@@ -778,7 +785,20 @@ const CommonsBook = () => {
         </div>
         <div className={styles.clr_breakdown}>
           <Header as="h4" className="mt-2p" dividing>
-            Breakdown
+            <div className="flex items-center justify-between">
+              <span>Breakdown</span>
+              {clrChapters.length > 0 && (
+                <Button
+                  variant="tertiary"
+                  onClick={() => setCLRExpandAll((prev) => !prev)}
+                  size="sm"
+                >
+                  <Text size="sm" className="text-white">
+                    {clrExpandAll ? "Collapse All" : "Expand All"}
+                  </Text>
+                </Button>
+              )}
+            </div>
           </Header>
           {clrChapters.length > 0 ? (
             <TreeView
@@ -786,6 +806,7 @@ const CommonsBook = () => {
               asLinks={true}
               hrefKey="url"
               textKey="title"
+              expandAll={clrExpandAll}
             />
           ) : (
             <p className={styles.meta_largefont}>
@@ -1257,7 +1278,7 @@ const CommonsBook = () => {
             {foundCLR && (
               <Card padding="sm">
                 <Stack direction="horizontal" gap="sm" align="center" justify="between">
-                  <Heading level={3}>Licensing</Heading>
+                  <Heading level={3}>Licensing Stack</Heading>
                   <Button variant="tertiary" onClick={handleChangeLicensingVis}>
                     {showLicensing ? "Hide" : "Show"}
                   </Button>
