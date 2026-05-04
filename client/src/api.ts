@@ -1137,6 +1137,14 @@ class API {
     );
   }
 
+  async getADAPTCommonsCourses() {
+    return await axios.get<
+      {
+        courses: Homework[]
+      } & ConductorBaseResponse
+    >("/commons/homework/adapt");
+  }
+
   async syncWithLibraries() {
     return await axios.post<{ msg: string } & ConductorBaseResponse>(
       "/commons/syncwithlibs"
