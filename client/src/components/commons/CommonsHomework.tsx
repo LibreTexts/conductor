@@ -1,673 +1,279 @@
 import "./Commons.css";
 
 import {
-  Grid,
-  Dropdown,
-  Segment,
-  Input,
-  Card,
-  Table,
-  Header,
   Button,
-  Modal,
-  List,
-  Icon,
-  PaginationProps,
-} from "semantic-ui-react";
-import { useEffect, useState } from "react";
-import { useLocation, useHistory } from "react-router-dom";
-import axios from "axios";
-import queryString from "query-string";
+  Card,
+  Divider,
+  Heading,
+  IconButton,
+  Input,
+  Spinner,
+  Stack,
+  Text,
+} from "@libretexts/davis-react";
+import { DataTable } from "@libretexts/davis-react-table";
+import type { ColumnDef } from "@libretexts/davis-react-table";
+import {
+  IconChecklist,
+  IconDownload,
+  IconLayoutGrid,
+  IconList,
+  IconSearch,
+} from "@tabler/icons-react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-import Breakpoint from "../util/Breakpoints";
-import ConductorPagination from "../util/ConductorPagination";
+import api from "../../api";
 import useGlobalError from "../error/ErrorHooks";
-import { catalogDisplayOptions } from "../util/CatalogOptions";
-import { catalogItemsPerPageOptions } from "../util/PaginationOptions.js";
-import { truncateString, updateParams } from "../util/HelperFunctions.js";
-import { Homework, AdaptAssignment } from "../../types";
+import { truncateString } from "../util/HelperFunctions.js";
+import { Homework } from "../../types";
+import { useModals } from "../../context/ModalContext";
+import CourseViewModal from "./CourseViewModal";
+import { useDocumentTitle } from "usehooks-ts";
+
+const ITEMS_PER_LOAD = 12;
 
 const CommonsHomework = () => {
-  // Global State and Location/History
-  const location = useLocation();
-  const history = useHistory();
+  useDocumentTitle("LibreCommons | Homework Resources");
   const { handleGlobalError } = useGlobalError();
+  const { openModal, closeAllModals } = useModals();
 
   // UI
-  const [itemsPerPage, setItemsPerPage] = useState<number>(12);
-  const [activePage, setActivePage] = useState<number>(1);
   const [displayChoice, setDisplayChoice] = useState<string>("visual");
-  const [totalPages, setTotalPages] = useState(1);
-  const [loadedCourses, setLoadedCourses] = useState(false);
   const [searchString, setSearchString] = useState("");
+  const [displayCount, setDisplayCount] = useState(ITEMS_PER_LOAD);
 
   // Data
-  const [origCourses, setOrigCourses] = useState<Homework[]>([]);
-  const [adaptCourses, setAdaptCourses] = useState<Homework[]>([]);
-  const [pageCourses, setPageCourses] = useState<Homework[]>([]);
+  const { data: allCourses = [], isLoading } = useQuery({
+    queryKey: ["adapt-commons-courses"],
+    queryFn: async () => {
+      const res = await api.getADAPTCommonsCourses();
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      return res.data.courses ?? [];
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5,
+  });
 
-  // Course View Modal
-  const [showCourseModal, setShowCourseModal] = useState<boolean>(false);
-  const [courseModalID, setCourseModalID] = useState<string>("");
-  const [courseModalTitle, setCourseModalTitle] = useState<string>("");
-  const [courseModalDescrip, setCourseModalDescrip] = useState<string>("");
-  const [courseModalAsgmts, setCourseModalAsgmts] = useState<AdaptAssignment[]>(
-    []
+  const filteredCourses = useMemo(() => {
+    if (!searchString) return allCourses;
+    const lower = searchString.toLowerCase();
+    return allCourses.filter((course) =>
+      `${course.title} ${course.description}`.toLowerCase().includes(lower)
+    );
+  }, [allCourses, searchString]);
+
+  const visibleCourses = useMemo(
+    () => filteredCourses.slice(0, displayCount),
+    [filteredCourses, displayCount]
   );
-  const [courseModalOpenCourse, setCourseModalOpenCourse] =
-    useState<boolean>(false);
+  const hasMore = displayCount < filteredCourses.length;
 
-  /**
-   * Retrieve ADAPT Commons courses from the server
-   * via GET request.
-   */
-  const getADAPTCourses = () => {
-    setLoadedCourses(false);
-    axios
-      .get("/commons/homework/adapt")
-      .then((res) => {
-        if (!res.data.err) {
-          if (res.data.courses && Array.isArray(res.data.courses)) {
-            setAdaptCourses(res.data.courses);
-            setOrigCourses(res.data.courses);
-          }
-        } else {
-          handleGlobalError(res.data.errMsg);
-        }
-        setLoadedCourses(true);
-      })
-      .catch((err) => {
-        handleGlobalError(err);
-      });
-  };
-
-  /**
-   * Open the Course View modal and populate
-   * information for the given @courseID
-   */
   const openCourseViewModal = (courseID: string) => {
-    var course = adaptCourses.find((element) => {
+    const course = filteredCourses.find((element) => {
       return element.hwID === courseID;
     });
-    if (course !== undefined) {
-      setCourseModalID(course.externalID);
-      setCourseModalTitle(course.title);
-      setCourseModalDescrip(course.description);
-      setCourseModalAsgmts(course.adaptAssignments);
-      if (course.hasOwnProperty("adaptOpen")) {
-        setCourseModalOpenCourse(course.adaptOpen);
-      }
-      setShowCourseModal(true);
+    if (!course) {
+      handleGlobalError("Course not found.");
+      return;
     }
+
+    openModal(<CourseViewModal courseId={courseID} onClose={() => closeAllModals()} courseData={{
+      title: course.title,
+      description: course.description,
+      openCourse: course.hasOwnProperty("adaptOpen") ? course.adaptOpen : false,
+      assignments: course.adaptAssignments || [],
+    }} />);
   };
 
-  /**
-   * Close the Course View modal and
-   * clear the information.
-   */
-  const closeCourseViewModal = () => {
-    setShowCourseModal(false);
-    setCourseModalID("");
-    setCourseModalTitle("");
-    setCourseModalDescrip("");
-    setCourseModalOpenCourse(false);
-    setCourseModalAsgmts([]);
-  };
-
-  /**
-   * Run getADAPTCourses() on page load.
-   */
-  useEffect(() => {
-    document.title = "LibreCommons | Homework Resources";
-    getADAPTCourses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  /**
-   * Subscribe to changes in the URL search string
-   * and update state accordingly.
-   */
-  useEffect(() => {
-    var params = queryString.parse(location.search);
-    if (params.mode && params.mode !== displayChoice) {
-      if (params.mode === "visual" || params.mode === "itemized") {
-        setDisplayChoice(params.mode);
-      }
-    }
-    if (
-      params.items &&
-      typeof params.items === "string" &&
-      parseInt(params.items) !== itemsPerPage
-    ) {
-      if (!isNaN(parseInt(params.items))) {
-        setItemsPerPage(parseInt(params.items));
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.search]);
-
-  /**
-   * Track changes to the number of courses loaded
-   * and the selected itemsPerPage and update the
-   * set of courses to display.
-   */
-  useEffect(() => {
-    setTotalPages(Math.ceil(adaptCourses.length / itemsPerPage));
-    setPageCourses(
-      adaptCourses.slice(
-        (activePage - 1) * itemsPerPage,
-        activePage * itemsPerPage
-      )
-    );
-    if (itemsPerPage > adaptCourses.length) {
-      setActivePage(1);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemsPerPage, adaptCourses, activePage]);
-
-  /**
-   * Track changes to the UI searchString
-   * and update the UI with relevant results.
-   */
-  useEffect(() => {
-    if (searchString !== "") {
-      let filtered = origCourses.filter((course) => {
-        const descripString = String(
-          course.title + " " + course.description
-        ).toLowerCase();
-        if (descripString.indexOf(String(searchString).toLowerCase()) > -1) {
-          return course;
-        } else {
-          return false;
-        }
-      });
-      setAdaptCourses(filtered);
-      if (activePage !== 1) {
-        setActivePage(1);
-      }
-    } else {
-      setAdaptCourses(origCourses);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchString, origCourses, activePage]);
-
-  /**
-   * Updates the Active Page selection in state.
-   *
-   * @param {React.ChangeEvent} _e - The event that activated the handler.
-   * @param {object} data - Data passed from the calling component.
-   */
-  function handleActivePageChange(_e: any, data: PaginationProps) {
-    if (data.activePage && typeof data.activePage === "number") {
-      return setActivePage(data.activePage);
-    }
-    setActivePage(1);
-  }
+  const columns: ColumnDef<Homework>[] = [
+    {
+      id: "title",
+      header: "Name",
+      cell: ({ row }) => (
+        <button
+          onClick={() => openCourseViewModal(row.original.hwID)}
+          className="text-link font-bold cursor-pointer bg-transparent border-none p-0 text-left"
+        >
+          {row.original.title}
+        </button>
+      ),
+    },
+    {
+      id: "description",
+      header: "Description",
+      cell: ({ row }) => (
+        <Text>{truncateString(row.original.description, 250)}</Text>
+      ),
+    },
+  ];
 
   const VisualMode = () => {
-    if (pageCourses.length > 0) {
+    if (visibleCourses.length > 0) {
       return (
-        <div className="commons-content-card-grid">
-          {pageCourses.map((item, index) => {
-            return (
-              <Card key={index} className="commons-hw-card">
-                <Card.Content>
-                  <Card.Header as="h3" className="commons-content-card-header">
-                    {item.title}
-                  </Card.Header>
-                  <Card.Description>
-                    <p className="commons-hw-card-descrip">
-                      {truncateString(item.description, 200)}
-                    </p>
-                  </Card.Description>
-                </Card.Content>
-                <Card.Content extra>
-                  <Button
-                    color="blue"
-                    fluid
-                    onClick={() => {
-                      openCourseViewModal(item.hwID);
-                    }}
-                  >
-                    View Assignments
-                  </Button>
-                </Card.Content>
-              </Card>
-            );
-          })}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {visibleCourses.map((item, index) => (
+            <Card
+              key={index}
+              variant="elevated"
+              className="flex flex-col justify-between"
+            >
+              <Card.Header>
+                <Heading level={5} className="line-clamp-1">{item.title}</Heading>
+              </Card.Header>
+              <Card.Body>
+                <Text className="text-sm line-clamp-3">
+                  {item.description || "No description available."}
+                </Text>
+              </Card.Body>
+              <Card.Footer>
+                <Button
+                  variant="primary"
+                  onClick={() => openCourseViewModal(item.hwID)}
+                  icon={<IconChecklist size={16} />}
+                >
+                  View Assignments
+                </Button>
+              </Card.Footer>
+            </Card>
+          ))}
         </div>
       );
-    } else {
-      return (
-        <p className="text-center">
-          <em>No courses available right now.</em>
-        </p>
-      );
     }
+    return (
+      <Text className="text-center italic">
+        No courses available right now.
+      </Text>
+    );
   };
 
   const ItemizedMode = () => {
+    if (visibleCourses.length === 0) {
+      return (
+        <Text className="text-center" role="alert">
+          <em>No results found.</em>
+        </Text>
+      );
+    }
     return (
-      <Table celled title="All Homework">
-        <Table.Header>
-          <Table.Row>
-            <Table.HeaderCell width={6} scope="col">
-              <Header sub>Name</Header>
-            </Table.HeaderCell>
-            <Table.HeaderCell width={10} scope="col">
-              <Header sub>Description</Header>
-            </Table.HeaderCell>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {pageCourses.length > 0 &&
-            pageCourses.map((item, index) => {
-              return (
-                <Table.Row key={index}>
-                  <Table.Cell>
-                    <p
-                      onClick={() => {
-                        return openCourseViewModal(item.hwID);
-                      }}
-                      className="text-link"
-                      tabIndex={0}
-                    >
-                      <strong>{item.title}</strong>
-                    </p>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <p>{truncateString(item.description, 250)}</p>
-                  </Table.Cell>
-                </Table.Row>
-              );
-            })}
-          {pageCourses.length === 0 && (
-            <Table.Row>
-              <Table.Cell colSpan="2">
-                <p className="text-center" role="alert">
-                  <em>No results found.</em>
-                </p>
-              </Table.Cell>
-            </Table.Row>
-          )}
-        </Table.Body>
-      </Table>
+      <DataTable<Homework> data={visibleCourses} columns={columns} density="compact" />
     );
   };
 
   return (
-    <Grid className="commons-container">
-      <Grid.Row>
-        <Grid.Column>
-          <Segment.Group raised>
-            <Segment>
-              <Breakpoint name="tabletOrDesktop">
-                <Header as="h2">Homework</Header>
-              </Breakpoint>
-              <Breakpoint name="mobile">
-                <Header as="h2" textAlign="center">
-                  Homework
-                </Header>
-              </Breakpoint>
-            </Segment>
-            <Segment>
-              <Breakpoint name="desktop">
-                <Grid>
-                  <Grid.Column width={12} verticalAlign="middle">
-                    <p>
-                      These are ready to use sets of questions for LibreTexts books that can also be used with other OER or commercial texts. The sets and questions can be edited and rearranged. Selecting "View Assignments" will provide a list of subjects covered.
-                      In some cases you will be able to see a list of questions (but not the answers) by subsequently selecting "View Course". All answers and questions are open to Verified Instructors. You can register{" "}
-                      <a
-                        href="https://one.libretexts.org/register"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        here
-                      </a>
-                      .
-                    </p>
-                  </Grid.Column>
-                  <Grid.Column width={4}>
-                    <Input
-                      fluid
-                      icon="search"
-                      placeholder="Search courses..."
-                      onChange={(e) => {
-                        setSearchString(e.target.value);
-                      }}
-                      value={searchString}
-                    />
-                  </Grid.Column>
-                </Grid>
-              </Breakpoint>
-              <Breakpoint name="mobileOrTablet">
-                <Grid>
-                  <Grid.Row columns={1}>
-                    <Grid.Column>
-                      <p className="text-center">
-                      These are ready to use sets of questions for LibreTexts books that can also be used with other OER or commercial texts. The sets and questions can be edited and rearranged. Selecting "View Assignments" will provide a list of subjects covered.
-                      In some cases you will be able to see a list of questions (but not the answers) by subsequently selecting "View Course". All answers and questions are open to Verified Instructors. You can register{" "}
-                        <a
-                          href="https://one.libretexts.org/register"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          here
-                        </a>
-                        .
-                      </p>
-                    </Grid.Column>
-                  </Grid.Row>
-                  <Grid.Row columns={1}>
-                    <Grid.Column>
-                      <Input
-                        fluid
-                        icon="search"
-                        placeholder="Search courses..."
-                        onChange={(e) => {
-                          setSearchString(e.target.value);
-                        }}
-                        value={searchString}
-                      />
-                    </Grid.Column>
-                  </Grid.Row>
-                </Grid>
-              </Breakpoint>
-            </Segment>
-            <Segment>
-              <Breakpoint name="desktop">
-                <div className="commons-content-pagemenu">
-                  <div className="commons-content-pagemenu-left">
-                    <span>Displaying </span>
-                    <Dropdown
-                      className="commons-content-pagemenu-dropdown"
-                      selection
-                      options={catalogItemsPerPageOptions}
-                      onChange={(_e, { value }) => {
-                        history.push({
-                          pathname: location.pathname,
-                          search: updateParams(
-                            location.search,
-                            "items",
-                            value as string
-                          ),
-                        });
-                      }}
-                      value={itemsPerPage}
-                      aria-label="Number of results to display per page"
-                    />
-                    <span>
-                      {" "}
-                      items per page of <strong>
-                        {adaptCourses.length}
-                      </strong>{" "}
-                      results, sorted by name.
-                    </span>
-                  </div>
-                  <div className="commons-content-pagemenu-center">
-                    <ConductorPagination
-                      activePage={activePage}
-                      totalPages={totalPages}
-                      firstItem={null}
-                      lastItem={null}
-                      onPageChange={handleActivePageChange}
-                      size="large"
-                    />
-                  </div>
-                  <div className="commons-content-pagemenu-right">
-                    <Dropdown
-                      placeholder="Display mode..."
-                      floating
-                      selection
-                      button
-                      className="float-right"
-                      options={catalogDisplayOptions}
-                      onChange={(_e, { value }) => {
-                        history.push({
-                          pathname: location.pathname,
-                          search: updateParams(
-                            location.search,
-                            "mode",
-                            value as string
-                          ),
-                        });
-                      }}
-                      value={displayChoice}
-                      aria-label="Set results display mode"
-                    />
-                  </div>
-                </div>
-              </Breakpoint>
-              <Breakpoint name="mobileOrTablet">
-                <Grid>
-                  <Grid.Row columns={1}>
-                    <Grid.Column>
-                      <Dropdown
-                        placeholder="Display mode..."
-                        floating
-                        selection
-                        button
-                        className="float-right"
-                        options={catalogDisplayOptions}
-                        onChange={(_e, { value }) => {
-                          history.push({
-                            pathname: location.pathname,
-                            search: updateParams(
-                              location.search,
-                              "mode",
-                              value as string
-                            ),
-                          });
-                        }}
-                        value={displayChoice}
-                        fluid
-                        aria-label="Set results display mode"
-                      />
-                    </Grid.Column>
-                  </Grid.Row>
-                  <Grid.Row columns={1}>
-                    <Grid.Column>
-                      <div className="center-flex flex-wrap">
-                        <span>Displaying </span>
-                        <Dropdown
-                          className="commons-content-pagemenu-dropdown"
-                          selection
-                          options={catalogItemsPerPageOptions}
-                          onChange={(_e, { value }) => {
-                            history.push({
-                              pathname: location.pathname,
-                              search: updateParams(
-                                location.search,
-                                "items",
-                                value as string
-                              ),
-                            });
-                          }}
-                          value={itemsPerPage}
-                          aria-label="Number of results to display per page"
-                        />
-                        <span>
-                          {" "}
-                          items per page of{" "}
-                          <strong>{adaptCourses.length}</strong> results.
-                        </span>
-                      </div>
-                    </Grid.Column>
-                  </Grid.Row>
-                  <Grid.Row columns={1}>
-                    <Grid.Column className="commons-pagination-mobile-container">
-                      <ConductorPagination
-                        activePage={activePage}
-                        totalPages={totalPages}
-                        firstItem={null}
-                        lastItem={null}
-                        onPageChange={handleActivePageChange}
-                        size="mini"
-                      />
-                    </Grid.Column>
-                  </Grid.Row>
-                </Grid>
-              </Breakpoint>
-            </Segment>
-            {displayChoice === "visual" ? (
-              <Segment className="commons-content" loading={!loadedCourses}>
-                <VisualMode />
-              </Segment>
+    <Stack direction="vertical" gap="lg" className="p-6">
+      <Stack direction="vertical" gap="md" className="p-6 text-center">
+        <Heading level={3} className="text-center lg:text-left">
+          Homework
+        </Heading>
+
+        <Text className="flex-1">
+          These are ready to use sets of questions for LibreTexts books that can
+          also be used with other OER or commercial texts. The sets and questions
+          can be edited and rearranged. Selecting &quot;View Assignments&quot;
+          will provide a list of subjects covered. In some cases you will be able
+          to see a list of questions (but not the answers) by subsequently
+          selecting &quot;View Course&quot;. All answers and questions are open to
+          Verified Instructors. You can register{" "}
+          <a
+            href="https://one.libretexts.org/register"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            here
+          </a>
+          .
+        </Text>
+      </Stack>
+      <Divider />
+      <div className="flex flex-row items-end justify-center w-full gap-2">
+        <Input
+          name="commons-hw-search"
+          label="Search courses"
+          placeholder="Search courses..."
+          leftIcon={<IconSearch />}
+          value={searchString}
+          onChange={(e) => {
+            setSearchString(e.target.value);
+            setDisplayCount(ITEMS_PER_LOAD);
+          }}
+          className="w-full max-w-lg"
+        />
+      </div>
+
+      {/* Controls Bar */}
+      <div className="flex flex-row items-center justify-end gap-4">
+        <IconButton
+          variant="outline"
+          size="sm"
+          tooltip={
+            displayChoice === "visual"
+              ? "Switch to itemized mode"
+              : "Switch to visual mode"
+          }
+          aria-label={
+            displayChoice === "visual"
+              ? "Switch to itemized mode"
+              : "Switch to visual mode"
+          }
+          onClick={() =>
+            setDisplayChoice(
+              displayChoice === "visual" ? "itemized" : "visual"
+            )
+          }
+          icon={
+            displayChoice === "visual" ? (
+              <IconList size={16} />
             ) : (
-              <Segment
-                className="commons-content commons-content-itemized"
-                loading={!loadedCourses}
+              <IconLayoutGrid size={16} />
+            )
+          }
+        />
+      </div>
+
+      {/* Content */}
+      <div aria-busy={isLoading}>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <Spinner />
+          </div>
+        ) : displayChoice === "visual" ? (
+          <VisualMode />
+        ) : (
+          <ItemizedMode />
+        )}
+      </div>
+
+      {/* Load More / End of Results */}
+      {!isLoading && (
+        <>
+          {hasMore ? (
+            <div className="w-full mt-6 flex justify-center">
+              <Button
+                variant="primary"
+                onClick={() =>
+                  setDisplayCount((prev) => prev + ITEMS_PER_LOAD)
+                }
+                aria-label="Load more courses"
+                icon={<IconDownload size={16} />}
               >
-                <ItemizedMode />
-              </Segment>
-            )}
-            <Segment>
-              <Breakpoint name="desktop">
-                <div className="commons-content-pagemenu">
-                  <div className="commons-content-pagemenu-left">
-                    <span>Displaying </span>
-                    <Dropdown
-                      className="commons-content-pagemenu-dropdown"
-                      selection
-                      options={catalogItemsPerPageOptions}
-                      onChange={(_e, { value }) => {
-                        history.push({
-                          pathname: location.pathname,
-                          search: updateParams(
-                            location.search,
-                            "items",
-                            value as string
-                          ),
-                        });
-                      }}
-                      value={itemsPerPage}
-                      aria-label="Number of results to display per page"
-                    />
-                    <span>
-                      {" "}
-                      items per page of <strong>
-                        {adaptCourses.length}
-                      </strong>{" "}
-                      results, sorted by name.
-                    </span>
-                  </div>
-                  <div className="commons-content-pagemenu-right">
-                    <ConductorPagination
-                      activePage={activePage}
-                      totalPages={totalPages}
-                      firstItem={null}
-                      lastItem={null}
-                      onPageChange={handleActivePageChange}
-                      size="large"
-                    />
-                  </div>
-                </div>
-              </Breakpoint>
-              <Breakpoint name="mobileOrTablet">
-                <Grid>
-                  <Grid.Row columns={1}>
-                    <Grid.Column>
-                      <div className="center-flex flex-wrap">
-                        <span>Displaying </span>
-                        <Dropdown
-                          className="commons-content-pagemenu-dropdown"
-                          selection
-                          options={catalogItemsPerPageOptions}
-                          onChange={(_e, { value }) => {
-                            history.push({
-                              pathname: location.pathname,
-                              search: updateParams(
-                                location.search,
-                                "items",
-                                value as string
-                              ),
-                            });
-                          }}
-                          value={itemsPerPage}
-                          aria-label="Number of results to display per page"
-                        />
-                        <span>
-                          {" "}
-                          items per page of{" "}
-                          <strong>{adaptCourses.length}</strong> results.
-                        </span>
-                      </div>
-                    </Grid.Column>
-                  </Grid.Row>
-                  <Grid.Row columns={1}>
-                    <Grid.Column className="commons-pagination-mobile-container">
-                      <ConductorPagination
-                        activePage={activePage}
-                        totalPages={totalPages}
-                        firstItem={null}
-                        lastItem={null}
-                        onPageChange={handleActivePageChange}
-                        size="mini"
-                      />
-                    </Grid.Column>
-                  </Grid.Row>
-                </Grid>
-              </Breakpoint>
-            </Segment>
-          </Segment.Group>
-          <Modal open={showCourseModal} onClose={closeCourseViewModal}>
-            <Modal.Header as="h2">{courseModalTitle}</Modal.Header>
-            <Modal.Content scrolling tabIndex={0}>
-              <Header size="small" dividing as="h3">
-                Description
-              </Header>
-              <p>{courseModalDescrip}</p>
-              {courseModalOpenCourse && (
-                <div>
-                  <p>
-                    <em>This course is open for anonymous viewing.</em>
-                  </p>
-                  <Button
-                    color="blue"
-                    fluid
-                    as="a"
-                    href={`https://adapt.libretexts.org/courses/${courseModalID}/anonymous`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Icon name="external" />
-                    View Course
-                  </Button>
-                </div>
-              )}
-              <Header size="small" dividing as="h3">
-                Assignments
-              </Header>
-              <Segment basic>
-                {courseModalAsgmts.length > 0 && (
-                  <List bulleted>
-                    {courseModalAsgmts.map((item, idx) => {
-                      return (
-                        <List.Item
-                          key={idx}
-                          className="item"
-                          content={<span className="ml-05p">{item.title}</span>}
-                        />
-                      );
-                    })}
-                  </List>
-                )}
-                {courseModalAsgmts.length === 0 && (
-                  <p>
-                    <em>No assignments found.</em>
-                  </p>
-                )}
-              </Segment>
-            </Modal.Content>
-            <Modal.Actions>
-              <Button color="blue" onClick={closeCourseViewModal}>
-                Done
+                Load More
               </Button>
-            </Modal.Actions>
-          </Modal>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+            </div>
+          ) : (
+            filteredCourses.length > 0 && (
+              <div className="w-full mt-4">
+                <Text className="text-center font-semibold">
+                  End of results
+                </Text>
+              </div>
+            )
+          )}
+        </>
+      )}
+    </Stack>
   );
 };
 
