@@ -429,10 +429,20 @@ async function logout(_req: Request, res: Response) {
     const sessionJWT = `${accessCookie}.${signedCookie}`;
     if (accessCookie && signedCookie && sessionJWT) {
       try {
-        const { payload } = await jwtVerify(sessionJWT, JWT_SECRET, {
-          issuer: JWT_COOKIE_DOMAIN,
-          audience: JWT_COOKIE_DOMAIN,
-        });
+        let payload;
+        try {
+          ({ payload } = await jwtVerify(sessionJWT, JWT_SECRET, {
+            issuer: JWT_COOKIE_DOMAIN,
+            audience: JWT_COOKIE_DOMAIN,
+          }));
+        } catch (verifyErr: any) {
+          if (verifyErr?.code === "ERR_JWT_EXPIRED") {
+            // JWT expired but we still need to invalidate the session in DB
+            payload = decodeJwt(sessionJWT);
+          } else {
+            throw verifyErr;
+          }
+        }
 
         const { sessionId, uuid: userId } = payload;
         if (userId && sessionId) {
@@ -779,21 +789,56 @@ async function verifyRequest(req: Request, res: Response, next: NextFunction) {
 
 /**
  * Middleware to optionally verify a request if authorization
- * headers are present.
+ * headers are present. Unlike verifyRequest, this middleware
+ * never returns 401 — on any failure it simply continues
+ * without attaching user context (used for rate-limit tier resolution).
  *
  * @param {Object} req - the express.js request object.
  * @param {Object} res - the express.js response object.
  * @param {Object} next - the next function in the middleware chain.
  */
-function optionalVerifyRequest(
+async function optionalVerifyRequest(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
-  if (req.headers.authorization) {
-    return verifyRequest(req, res, next);
+  if (!req.headers.authorization) {
+    return next();
   }
-  return next();
+
+  try {
+    const { payload } = await jwtVerify(
+      req.headers.authorization,
+      JWT_SECRET,
+      {
+        issuer: JWT_COOKIE_DOMAIN,
+        audience: JWT_COOKIE_DOMAIN,
+      }
+    );
+
+    const sessionId = payload.sessionId;
+    if (!sessionId) {
+      return next();
+    }
+
+    const session = await Session.findOne({
+      sessionId,
+      valid: true,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!session) {
+      return next();
+    }
+
+    // @ts-ignore
+    req.user = { decoded: payload };
+    // @ts-ignore
+    req.decoded = payload;
+    return next();
+  } catch (e) {
+    return next();
+  }
 }
 
 /**
