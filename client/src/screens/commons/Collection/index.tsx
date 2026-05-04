@@ -1,17 +1,28 @@
 import "../../../components/commons/Commons.css";
 import {
   Breadcrumb,
-  Dropdown,
+  Button,
+  Divider,
   Grid,
-  Header,
-  Icon,
+  Heading,
+  IconButton,
   Input,
-  Popup,
-  Segment,
-} from "semantic-ui-react";
-import Breakpoint from "../../../components/util/Breakpoints";
-import { Link, useLocation } from "react-router-dom-v5-compat";
-import React, { Fragment, useEffect, useState } from "react";
+  Select,
+  Spinner,
+  Stack,
+  Text,
+} from "@libretexts/davis-react";
+import type { SelectOption } from "@libretexts/davis-react";
+import {
+  IconArrowDown,
+  IconDownload,
+  IconLayoutGrid,
+  IconList,
+  IconRefresh,
+  IconSearch,
+} from "@tabler/icons-react";
+import { useLocation } from "react-router-dom-v5-compat";
+import React, { useEffect, useState } from "react";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import {
   useInfiniteQuery,
@@ -27,24 +38,23 @@ import useDebounce from "../../../hooks/useDebounce";
 import { checkIsCollection } from "../../../components/util/TypeHelpers";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
+
 const limit = 12;
 const BASE_PATH = "/collections";
 
 const getIDFromPath = (path?: string): string => {
   if (!path) return "";
   if (path === BASE_PATH) return "";
-  // remove trailing slash if not equal to BASE_PATH
   if (path.endsWith("/")) path = path.slice(0, -1);
   const lastValue = path.split("/").pop();
   return lastValue || "";
-}
+};
 
 const getDynamicPath = (path?: string): string => {
-  // remove BASE_PATH from path
   if (!path) return "";
   const pathWithoutBase = path.replace(BASE_PATH, "");
-  return pathWithoutBase
-}
+  return pathWithoutBase;
+};
 
 const CommonsCollection: React.FC<{}> = () => {
   const { handleGlobalError } = useGlobalError();
@@ -55,8 +65,8 @@ const CommonsCollection: React.FC<{}> = () => {
   const org = useTypedSelector((state) => state.org);
   const queryClient = useQueryClient();
   const [sort, setSort] = useState("title");
-  const [searchInput, setSearchInput] = useState<string>(""); // ui search input only
-  const [query, setQuery] = useState<string>(""); // actual query
+  const [searchInput, setSearchInput] = useState<string>("");
+  const [query, setQuery] = useState<string>("");
   const [itemizedMode, setItemizedMode] = useState(false);
   const [jumpToBottomClicked, setJumpToBottomClicked] = useState(false);
   const [loadingDisabled, setLoadingDisabled] = useState(false);
@@ -68,7 +78,6 @@ const CommonsCollection: React.FC<{}> = () => {
   };
 
   useEffect(() => {
-    // Reset pagination when navigating to a new collection
     queryClient.setQueryData(["collection-resource"], () => ({
       pages: [],
       pageParams: [],
@@ -82,24 +91,24 @@ const CommonsCollection: React.FC<{}> = () => {
         node.setAttribute("rel", "noopener noreferrer");
       }
     });
-  }, [])
+  }, []);
 
-  const rootSortOptions = [
-    { key: "title", text: "Sort by Title", value: "title" },
-    { key: "program", text: "Sort by Program", value: "program" },
+  const rootSortOptions: SelectOption[] = [
+    { value: "title", label: "Sort by Title" },
+    { value: "program", label: "Sort by Program" },
   ];
 
-  const collectionSortOptions = [
-    { key: "title", text: "Sort by Title", value: "title" },
-    { key: "author", text: "Sort by Author", value: "author" },
-    { key: "type", text: "Sort by Type", value: "resourceType" },
+  const collectionSortOptions: SelectOption[] = [
+    { value: "title", label: "Sort by Title" },
+    { value: "author", label: "Sort by Author" },
+    { value: "resourceType", label: "Sort by Type" },
   ];
 
   const { data: collection, isFetching: collectionLoading } = useQuery({
     queryKey: ["collection", pathname],
     queryFn: getCollection,
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
     enabled: !!id && !loadingDisabled,
   });
 
@@ -115,7 +124,7 @@ const CommonsCollection: React.FC<{}> = () => {
     cursor?: number;
   }>({
     queryKey: ["collection-resources", id, sort, limit, query, pathname],
-    queryFn: ({ pageParam = 1 },) =>
+    queryFn: ({ pageParam = 1 }) =>
       !!id
         ? getCollectionResources({
           collIDOrTitle: id,
@@ -141,7 +150,6 @@ const CommonsCollection: React.FC<{}> = () => {
     },
   });
 
-  // Inline useInfiniteScroll - it was just a pass-through wrapper
   const loadMore = async () => {
     if (hasNextPage) {
       await fetchNextPage();
@@ -173,7 +181,6 @@ const CommonsCollection: React.FC<{}> = () => {
     if (!input.collIDOrTitle)
       return { data: [], total_items: 0, cursor: undefined };
 
-    // if the sort option is not valid, default to the first option
     if (
       !collectionSortOptions.map((opt) => opt.value).includes(input.sort || "")
     ) {
@@ -208,7 +215,6 @@ const CommonsCollection: React.FC<{}> = () => {
     sort?: string;
   }) {
     try {
-      // if the sort option is not valid, default to the first option
       if (!rootSortOptions.map((opt) => opt.value).includes(input.sort || "")) {
         input.sort = rootSortOptions[0].value;
         setSort(rootSortOptions[0].value);
@@ -242,9 +248,6 @@ const CommonsCollection: React.FC<{}> = () => {
     setQuery(newQuery);
   }, 150);
 
-  /**
-   * Update the page title based on Organization information.
-   */
   useEffect(() => {
     if (org.orgID !== "libretexts" && collection?.title !== "") {
       document.title = `${org.shortName} Commons | Collections | ${collection?.title}`;
@@ -258,29 +261,60 @@ const CommonsCollection: React.FC<{}> = () => {
   const getToLink = (item: Collection | CollectionResource) => {
     if ("resourceData" in item) {
       if (checkIsCollection(item.resourceData)) {
-        const toLink = (pathname.endsWith('/') ? pathname : `${pathname}/`) + encodeURIComponent(item.resourceData.title)
+        const toLink =
+          (pathname.endsWith("/") ? pathname : `${pathname}/`) +
+          encodeURIComponent(item.resourceData.title);
         return toLink;
       }
     }
     return undefined;
-  }
+  };
+
+  const Breadcrumbs = () => {
+    const elements = dynamicPath.split("/").filter((el) => el !== "");
+
+    const linkPathForIndex = (index: number) => {
+      return BASE_PATH + "/" + elements.slice(0, index + 1).join("/");
+    };
+
+    return (
+      <Breadcrumb aria-label="Collection navigation">
+        <Breadcrumb.Item href="/collections">
+          {org.collectionsDisplayLabel || "Collections"}
+        </Breadcrumb.Item>
+        {elements.map((el, i) => (
+          <Breadcrumb.Item
+            key={i}
+            href={i === elements.length - 1 ? undefined : linkPathForIndex(i)}
+            isCurrent={i === elements.length - 1}
+          >
+            {decodeURIComponent(el)}
+          </Breadcrumb.Item>
+        ))}
+      </Breadcrumb>
+    );
+  };
 
   const VisualMode = () => {
     if (resourcesLoaded && resources.pages.length > 0) {
       return (
-        <div className="commons-content-card-grid">
+        <Grid className="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {resources.pages.map((p) => {
             return p.data.map((item: Collection | CollectionResource) => (
-              <CollectionCard key={crypto.randomUUID()} item={item} to={getToLink(item)} />
+              <CollectionCard
+                key={crypto.randomUUID()}
+                item={item}
+                to={getToLink(item)}
+              />
             ));
           })}
-        </div>
+        </Grid>
       );
     } else {
       return (
-        <p className="text-center">
+        <Text className="text-center" role="alert">
           <em>No results found.</em>
-        </p>
+        </Text>
       );
     }
   };
@@ -298,182 +332,157 @@ const CommonsCollection: React.FC<{}> = () => {
     );
   };
 
-  const Breadcrumbs = () => {
-    const elements = dynamicPath.split("/").filter((el) => el !== "");
-
-    const linkPathForIndex = (index: number) => {
-      return BASE_PATH + "/" + elements.slice(0, index + 1).join("/");
-    };
-
-    return (<Breadcrumb>
-      <Breadcrumb.Section as={Link} to="/collections">
-        <span>
-          <span className="muted-text">You are on: </span>
-          {org.collectionsDisplayLabel || "Collections"}
-        </span>
-      </Breadcrumb.Section>
-      {elements.map((el, i) => (
-        <Fragment key={i}>
-          <Breadcrumb.Divider icon="right chevron" />
-          <Breadcrumb.Section as={
-            i === elements.length - 1
-              ? "span"
-              : Link
-          } to={
-            i === elements.length - 1
-              ? undefined
-              : linkPathForIndex(i)
-          }>
-            {el}
-          </Breadcrumb.Section>
-        </Fragment>
-      ))}
-    </Breadcrumb>
-    )
-  }
-
   return (
-    <Grid className="commons-container">
-      <Grid.Row>
-        <Grid.Column>
-          <Segment.Group raised>
-            {id && (
-              <Segment>
-                <Breadcrumbs />
-              </Segment>
+    <Stack direction="vertical" gap="lg" className="p-6">
+      {id && (
+        <div className="px-6 pt-4">
+          <Breadcrumbs />
+        </div>
+      )}
+
+      <div>
+        <Heading level={3} className="text-center lg:text-left">
+          {id
+            ? collection?.title
+            : org.collectionsDisplayLabel || "Collections"}
+        </Heading>
+        <div
+          className="text-lg text-center lg:text-left prose prose-code:before:hidden prose-code:after:hidden max-w-full mt-2"
+          dangerouslySetInnerHTML={{
+            __html: DOMPurify.sanitize(
+              marked(
+                id
+                  ? collection?.description || ""
+                  : org.collectionsMessage || "",
+                { breaks: true }
+              )
+            ),
+          }}
+        />
+      </div>
+      <Divider />
+      <div className="flex flex-row items-end justify-center w-full gap-2">
+        <Input
+          name="collection-search"
+          label="Search collections"
+          placeholder="Search..."
+          leftIcon={<IconSearch />}
+          value={searchInput}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+            handleSearchChange(e.target.value);
+          }}
+          className="w-full max-w-lg"
+        />
+        <Button
+          variant="primary"
+          onClick={() => handleSearchChange(searchInput)}
+          icon={<IconSearch />}
+          iconPosition="left"
+        >
+          Search {org.collectionsDisplayLabel || "Collections"}
+        </Button>
+      </div>
+
+      <div className="flex flex-row justify-between items-center px-6">
+        <Select
+          name="collection-sort"
+          label="Sort results"
+          placeholder="Sort by..."
+          options={id ? collectionSortOptions : rootSortOptions}
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          aria-label="Sort results by"
+        />
+        <div className="flex items-center gap-1">
+          <IconButton
+            variant="outline"
+            size="sm"
+            tooltip={
+              jumpToBottomClicked
+                ? "Refresh to continue browsing"
+                : "Jump to bottom"
+            }
+            aria-label={
+              jumpToBottomClicked
+                ? "Refresh to continue browsing"
+                : "Jump to bottom"
+            }
+            onClick={() =>
+              jumpToBottomClicked
+                ? window.location.reload()
+                : jumpToBottom()
+            }
+            icon={
+              jumpToBottomClicked ? (
+                <IconRefresh size={16} />
+              ) : (
+                <IconArrowDown size={16} />
+              )
+            }
+          />
+          <IconButton
+            variant="outline"
+            size="sm"
+            tooltip={
+              itemizedMode
+                ? "Switch to visual mode"
+                : "Switch to itemized mode"
+            }
+            aria-label={
+              itemizedMode
+                ? "Switch to visual mode"
+                : "Switch to itemized mode"
+            }
+            onClick={() => setItemizedMode(!itemizedMode)}
+            icon={
+              itemizedMode ? (
+                <IconLayoutGrid size={16} />
+              ) : (
+                <IconList size={16} />
+              )
+            }
+          />
+        </div>
+      </div>
+
+      <div className="min-h-[800px] px-6 pb-6" aria-busy={collectionLoading || resourcesLoading}>
+        {collectionLoading || resourcesLoading ? (
+          <div className="flex justify-center items-center p-16">
+            <Spinner />
+          </div>
+        ) : (
+          <>
+            {itemizedMode ? <ItemizedMode /> : <VisualMode />}
+
+            {hasMore && (
+              <div className="w-full mt-6 flex justify-center">
+                <Button
+                  variant="primary"
+                  onClick={loadMore}
+                  disabled={isLoading}
+                  aria-label="Load more resources"
+                  icon={<IconDownload size={16} />}
+                >
+                  {isLoading ? "Loading..." : "Load More"}
+                </Button>
+              </div>
             )}
-            <Segment>
-              <Header size="large" as="h2" className="text-center lg:text-left">
-                {id ? collection?.title : org.collectionsDisplayLabel || "Collections"}
-              </Header>
-              <p
-                className='text-lg text-center lg:text-left prose prose-code:before:hidden prose-code:after:hidden max-w-full'
-                dangerouslySetInnerHTML={{
-                  __html: DOMPurify.sanitize(marked(id ? collection?.description || "" : org.collectionsMessage || "", { breaks: true }))
-                }}
-              />
-            </Segment>
-            <Segment>
-              <div className="flex flex-row justify-center w-full">
-                <Input
-                  icon="search"
-                  placeholder="Search..."
-                  onChange={(e) => {
-                    setSearchInput(e.target.value);
-                    handleSearchChange(e.target.value);
-                  }}
-                  value={searchInput}
-                  fluid
-                  className="commons-filter w-1/2"
-                />
-              </div>
-            </Segment>
-            <Segment>
-              <div className="flex flex-row justify-between items-center">
-                <div className="flex flex-row justify-start items-center">
-                  <Dropdown
-                    placeholder="Sort by..."
-                    floating
-                    selection
-                    button
-                    className="commons-filter"
-                    options={
-                      id ? collectionSortOptions : rootSortOptions
-                    }
-                    onChange={(_e, { value }) => {
-                      setSort(value as string);
-                    }}
-                    value={sort}
-                    aria-label="Sort results by"
-                  />
-                </div>
-                <div className="flex flex-row items-center mb-1 justify-end">
-                  <Popup
-                    trigger={
-                      <button
-                        onClick={() => {
-                          jumpToBottomClicked
-                            ? window.location.reload()
-                            : jumpToBottom();
-                        }}
-                        className="bg-slate-100 text-black border border-slate-300 rounded-md mr-2 !pl-1.5 p-1 shadow-sm hover:shadow-md"
-                        aria-label={
-                          jumpToBottomClicked
-                            ? "Refresh to continue browsing"
-                            : "Jump to bottom"
-                        }
-                      >
-                        {jumpToBottomClicked ? (
-                          <Icon name="refresh" />
-                        ) : (
-                          <Icon name="arrow down" />
-                        )}
-                      </button>
-                    }
-                    content={
-                      jumpToBottomClicked
-                        ? "Refresh to continue browsing"
-                        : "Jump to bottom"
-                    }
-                  />
-                  <Popup
-                    trigger={
-                      <button
-                        onClick={() => setItemizedMode(!itemizedMode)}
-                        className="bg-slate-100 text-black border border-slate-300 rounded-md !pl-1.5 p-1 shadow-sm hover:shadow-md"
-                        aria-label={
-                          itemizedMode
-                            ? "Switch to visual mode"
-                            : "Switch to itemized mode"
-                        }
-                      >
-                        {itemizedMode ? (
-                          <Icon name="grid layout" />
-                        ) : (
-                          <Icon name="list layout" />
-                        )}
-                      </button>
-                    }
-                    content={
-                      itemizedMode
-                        ? "Switch to visual mode"
-                        : "Switch to itemized mode"
-                    }
-                  />
-                </div>
-              </div>
-            </Segment>
-            <Segment
-              className='!pb-4 min-h-[800px]'
-              loading={collectionLoading || resourcesLoading}
-            >
-              {itemizedMode ? <ItemizedMode /> : <VisualMode />}
 
-              {/* Load More Button */}
-              {hasMore && (
-                <div className="w-full mt-6 flex justify-center">
-                  <button
-                    onClick={loadMore}
-                    disabled={isLoading}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-wait transition-colors font-semibold"
-                    aria-label="Load more resources"
-                  >
-                    {isLoading ? "Loading..." : "Load More"}
-                  </button>
-                </div>
-              )}
-
-              {/* End of results message */}
-              {resources && !hasMore && resources.pages && resources.pages.length > 0 && (
+            {resources &&
+              !hasMore &&
+              resources.pages &&
+              resources.pages.length > 0 && (
                 <div className="w-full mt-4">
-                  <p className="text-center font-semibold">End of results</p>
+                  <Text className="text-center font-semibold">
+                    End of results
+                  </Text>
                 </div>
               )}
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+          </>
+        )}
+      </div>
+    </Stack>
   );
 };
 

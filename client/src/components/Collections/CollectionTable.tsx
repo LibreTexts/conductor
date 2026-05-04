@@ -1,98 +1,105 @@
-import { Header, Image, Table } from "semantic-ui-react";
 import { Collection, CollectionResource } from "../../types";
 import { getLibGlyphAltText, getLibGlyphURL } from "../util/LibraryOptions";
 import { Link } from "react-router-dom";
 import { isBook as checkIsBook } from "../../utils/typeHelpers";
 import { getCollectionHref } from "../util/CollectionHelpers";
+import { DataTable } from "@libretexts/davis-react-table";
+import type { ColumnDef } from "@libretexts/davis-react-table";
+import { Avatar, Text } from "@libretexts/davis-react";
 
 export interface CollectionTableProps {
   data: Collection[] | CollectionResource[];
   loading: boolean;
 }
 
+type RowItem = Collection | CollectionResource;
+
+const getItemData = (item: RowItem) => {
+  if ("resourceData" in item) {
+    return item.resourceData;
+  }
+  return item;
+};
+
+const columns: ColumnDef<RowItem>[] = [
+  {
+    id: "library",
+    header: "",
+    cell: ({ row }) => {
+      const data = getItemData(row.original);
+      const isBook = checkIsBook(data);
+      return (
+        <Avatar
+          src={getLibGlyphURL(isBook ? data.library : "")}
+          alt={getLibGlyphAltText(isBook ? data.library : "")}
+          size="xs"
+        />
+      );
+    },
+  },
+  {
+    id: "title",
+    header: "Title",
+    cell: ({ row }) => {
+      const data = getItemData(row.original);
+      return (
+        <p>
+          <strong>
+            <Link to={getCollectionHref(row.original)}>{data.title}</Link>
+          </strong>
+        </p>
+      );
+    },
+  },
+  {
+    id: "subject",
+    header: "Subject",
+    cell: ({ row }) => {
+      const data = getItemData(row.original);
+      const isBook = checkIsBook(data);
+      return <p>{isBook ? data.subject : ""}</p>;
+    },
+  },
+  {
+    id: "author",
+    header: "Author",
+    cell: ({ row }) => {
+      const data = getItemData(row.original);
+      const isBook = checkIsBook(data);
+      return <p>{isBook ? data.author : ""}</p>;
+    },
+  },
+  {
+    id: "affiliation",
+    header: "Affiliation",
+    cell: ({ row }) => {
+      const data = getItemData(row.original);
+      const isBook = checkIsBook(data);
+      return (
+        <p>
+          <em>{isBook ? data.affiliation : ""}</em>
+        </p>
+      );
+    },
+  },
+];
+
 const CollectionTable: React.FC<CollectionTableProps> = ({ data, loading }) => {
-  const getItemData = (item: Collection | CollectionResource) => {
-    if ("resourceData" in item) {
-      return item.resourceData;
-    } else {
-      return item;
-    }
-  };
+  if (!loading && data.length === 0) {
+    return (
+      <Text className="text-center" role="alert">
+        <em>No results found.</em>
+      </Text>
+    );
+  }
 
   return (
-    <Table celled title="Collection Resources">
-      <Table.Header>
-        <Table.Row>
-          <Table.HeaderCell scope="col" role="columnheader">
-            <Image
-              centered
-              src={getLibGlyphURL("")}
-              className="commons-itemized-glyph"
-              alt={getLibGlyphAltText("")}
-            />
-          </Table.HeaderCell>
-          <Table.HeaderCell scope="col">
-            <Header sub>Title</Header>
-          </Table.HeaderCell>
-          <Table.HeaderCell scope="col">
-            <Header sub>Subject</Header>
-          </Table.HeaderCell>
-          <Table.HeaderCell scope="col">
-            <Header sub>Author</Header>
-          </Table.HeaderCell>
-          <Table.HeaderCell scope="col">
-            <Header sub>Affiliation</Header>
-          </Table.HeaderCell>
-        </Table.Row>
-      </Table.Header>
-      <Table.Body>
-        {!loading &&
-          data.length > 0 &&
-          data.map((i) => {
-            const item = getItemData(i);
-            const isBook = checkIsBook(item);
-            return (
-              <Table.Row key={crypto.randomUUID()}>
-                <Table.Cell>
-                  <Image
-                    centered
-                    src={getLibGlyphURL(isBook ? item.library : "")}
-                    className="commons-itemized-glyph"
-                    alt={getLibGlyphAltText(isBook ? item.library : "")}
-                  />
-                </Table.Cell>
-                <Table.Cell>
-                  <p>
-                    <strong>
-                      <Link to={getCollectionHref(i)}>{item.title}</Link>
-                    </strong>
-                  </p>
-                </Table.Cell>
-                <Table.Cell>
-                  <p>{isBook ? item.subject : ""}</p>
-                </Table.Cell>
-                <Table.Cell>
-                  <p>{isBook ? item.author : ""}</p>
-                </Table.Cell>
-                <Table.Cell>
-                  <p>
-                    <em>{isBook ? item.affiliation : ""}</em>
-                  </p>
-                </Table.Cell>
-              </Table.Row>
-            );
-          })}
-        {!loading && data.length === 0 && (
-          <Table.Row>
-            <Table.Cell colSpan={4}>
-              <p className="text-center" role="alert">
-                <em>No results found.</em>
-              </p>
-            </Table.Cell>
-          </Table.Row>
-        )}
-      </Table.Body>
-    </Table>
+    <DataTable<RowItem>
+      data={data}
+      columns={columns}
+      loading={loading}
+      density="compact"
+    />
   );
 };
 

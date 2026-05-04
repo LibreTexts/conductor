@@ -37,3 +37,4 @@ server/temp
 # IDE Files
 .vscode
 .idea
+.claude

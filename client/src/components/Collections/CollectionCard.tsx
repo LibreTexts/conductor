@@ -1,9 +1,10 @@
-import { Card, Image } from "semantic-ui-react";
 import { Collection, CollectionResource } from "../../types";
-import { Link } from "react-router-dom";
-import { getLibGlyphURL, getLibraryName } from "../util/LibraryOptions";
+import { useHistory } from "react-router-dom";
+import { getLibGlyphAltText, getLibGlyphURL } from "../util/LibraryOptions";
 import { isBook as checkIsBook } from "../../utils/typeHelpers";
 import { getCollectionHref } from "../util/CollectionHelpers";
+import { Card, Heading, Text, Stack } from "@libretexts/davis-react";
+import "../commons/Commons.css";
 
 interface CollectionCardProps {
   item: Collection | CollectionResource;
@@ -11,54 +12,59 @@ interface CollectionCardProps {
 }
 
 const CollectionCard: React.FC<CollectionCardProps> = ({ item, to }) => {
+  const history = useHistory();
+
   const getResourceData = () => {
     if ("resourceData" in item) {
       return item.resourceData;
-    } else {
-      return item;
     }
+    return item;
   };
 
   const resourceData = getResourceData();
   const isBook = checkIsBook(resourceData);
+  const thumbnail = isBook ? resourceData.thumbnail : resourceData.coverPhoto;
 
   return (
     <Card
-      as={Link}
-      to={to ? to : getCollectionHref(item)}
-      className="commons-content-card"
+      variant="elevated"
+      className="hover:border-secondary hover:border-2"
+      onClick={() => history.push(to || getCollectionHref(item))}
     >
-      <div
-        className="commons-content-card-img"
-        style={{
-          backgroundImage: `url(${isBook ? resourceData.thumbnail : resourceData.coverPhoto
-            })`,
-        }}
-      />
-      <Card.Content>
-        <Card.Header className="commons-content-card-header">
-          {resourceData.title}
-        </Card.Header>
-        {
-          isBook && (
+      <div className="relative">
+        <Card.Header
+          image={{
+            src: thumbnail,
+            alt: "",
+          }}
+        />
+        {isBook && (
+          <div className="library-glyph-header">
+            <img
+              src={getLibGlyphURL(resourceData.library)}
+              className="library-glyph !w-7 !h-7 !mr-0"
+              alt={getLibGlyphAltText(resourceData.library)}
+            />
+          </div>
+        )}
+      </div>
+      <Card.Body>
+        <Stack direction="vertical" gap="sm" className="py-4">
+          <Heading level={6} className="line-clamp-2">
+            {resourceData.title}
+          </Heading>
+          {isBook && (
             <>
-              <Card.Meta>
-                <Image
-                  src={getLibGlyphURL(isBook ? resourceData.library : "")}
-                  className="library-glyph"
-                />
-                {getLibraryName(isBook ? resourceData.library : "")}
-              </Card.Meta>
-              <Card.Description>
-                <p>{resourceData.author}</p>
-                <p>
-                  <em>{resourceData.affiliation}</em>
-                </p>
-              </Card.Description>
+              <Text size="base" className="line-clamp-2">
+                {resourceData.author}
+              </Text>
+              <Text>
+                <em>{resourceData.affiliation}</em>
+              </Text>
             </>
-          )
-        }
-      </Card.Content>
+          )}
+        </Stack>
+      </Card.Body>
     </Card>
   );
 };
