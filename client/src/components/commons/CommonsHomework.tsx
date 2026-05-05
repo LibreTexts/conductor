@@ -164,8 +164,8 @@ const CommonsHomework = () => {
 
   return (
     <Stack direction="vertical" gap="lg" className="p-6">
-      <Stack direction="vertical" gap="md" className="p-6 text-center">
-        <Heading level={3} className="text-center lg:text-left">
+      <Stack direction="vertical" gap="md" className="text-center">
+        <Heading level={1} className="text-center lg:text-left">
           Homework
         </Heading>
 

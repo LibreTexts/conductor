@@ -55,7 +55,6 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
       <div className="flex flex-row items-center justify-between px-4 h-[60px] w-full bg-white border-b border-gray-300">
         {/* Left: Launchpad + Logo + Desktop nav links */}
         <div className="flex flex-row items-center gap-2">
-          {pageTitle && <h1 className="sr-only">{pageTitle}</h1>}
           <Launchpad />
           <Link
             to={logoLinkTo}

@@ -11,7 +11,7 @@ const AuthorCardContent: React.FC<AuthorCardContentProps> = ({ author }) => {
   return (
     <Card.Body>
       <Stack direction="vertical" gap="sm" className="py-4">
-        <Heading level={6}>
+        <Heading level={2} className="line-clamp-2 !text-2xl">
           {truncateString(author.name, 100)}
         </Heading>
         {(author.companyName || author.programName) && (

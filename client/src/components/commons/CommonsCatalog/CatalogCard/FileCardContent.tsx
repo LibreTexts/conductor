@@ -54,7 +54,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
       />
       <Card.Body>
         <Stack direction="vertical" gap="sm" className="py-4">
-          <Heading level={6} className="line-clamp-2">
+          <Heading level={2} className="line-clamp-2 !text-2xl">
             {file.name}
           </Heading>
           <div className="overflow-hidden !my-1">
