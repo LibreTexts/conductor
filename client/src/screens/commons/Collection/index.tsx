@@ -341,7 +341,7 @@ const CommonsCollection: React.FC<{}> = () => {
       )}
 
       <div>
-        <Heading level={3} className="text-center lg:text-left">
+        <Heading level={1} className="text-center lg:text-left">
           {id
             ? collection?.title
             : org.collectionsDisplayLabel || "Collections"}
