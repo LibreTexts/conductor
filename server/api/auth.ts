@@ -528,8 +528,15 @@ async function handleSingleLogout(req: Request, res: Response) {
 
     // Find the matching user
     const user = await User.findOne({ email: sub });
+    /**
+     * If we don't have a matching user, they may just not exist in this instance,
+     * but we still want to return a 200 to CAS to indicate that we've "handled" the logout request.
+     */
     if (!user) {
-      throw new Error("User not found");
+      return res.status(200).send({
+        err: false,
+        msg: "Logout request received - no matching user. Ignoring.",
+      });
     }
 
     // Invalidate matching session(s) for the user (technically should only be one)
@@ -545,7 +552,7 @@ async function handleSingleLogout(req: Request, res: Response) {
 
     return res.send({
       err: false,
-      msg: "Logout request received",
+      msg: "Logout request received. Session(s) invalidated.",
     });
   } catch (e) {
     debugError(e);
