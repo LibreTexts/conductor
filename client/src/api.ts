@@ -2285,6 +2285,109 @@ class API {
     });
     return res.data;
   }
+
+  async getRemixerProject(id: string) {
+    const res = await axios.get<
+      {
+        project: Project;
+      } & ConductorBaseResponse
+    >(`/remixer/${id}/project`);
+    return res.data;
+  }
+
+  async saveRemixerProjectState(
+    id: string,
+    currentBook: unknown[],
+    settings?: { autoNumbering?: boolean; copyModeState?: string; pathLevelFormats?: unknown[] },
+  ) {
+    const res = await axios.put<
+      {
+        projectID: string;
+        currentBook: unknown[];
+        autoNumbering?: boolean;
+        copyModeState?: string;
+        pathLevelFormats?: unknown[];
+      } & ConductorBaseResponse
+    >(`/remixer/${id}/project`, {
+      currentBook,
+      ...settings,
+    });
+    return res.data;
+  }
+
+  async publishRemixerProject(
+    id: string,
+    currentBook: unknown[],
+    settings?: { autoNumbering?: boolean; copyModeState?: string; pathLevelFormats?: unknown[] },
+  ) {
+    const res = await axios.post<
+      {
+        projectID: string;
+        currentBook: unknown[];
+      } & ConductorBaseResponse
+    >(`/remixer/${id}/publish`, { currentBook, ...settings });
+    return res.data;
+  }
+
+  async getRemixerPublishJobStatus(id: string) {
+    const res = await axios.get<
+      {
+        job: {
+          jobID: string;
+          projectID: string;
+          userID: string;
+          status: "pending" | "running" | "success" | "error";
+          messages: string[];
+          errorMessage?: string;
+          createdAt?: string;
+          updatedAt?: string;
+        } | null;
+      } & ConductorBaseResponse
+    >(`/remixer/${id}/publish`);
+    return res.data;
+  }
+
+  async getRemixerProjectState(id: string) {
+    const res = await axios.post<
+      {
+        projectID: string;
+        currentBook: unknown[];
+        autoNumbering?: boolean;
+        copyModeState?: string;
+        pathLevelFormats?: unknown[];
+      } & ConductorBaseResponse
+    >(`/remixer/${id}/project`, {});
+    return res.data;
+  }
+
+  async deleteRemixerProjectState(id: string) {
+    const res = await axios.delete<
+      {
+        projectID: string;
+        currentBook: unknown[];
+      } & ConductorBaseResponse
+    >(`/remixer/${id}/project`);
+    return res.data;
+  }
+
+  async getRemixerPage(
+    id: string,
+    path: string,
+    subdomain: string,
+    pageDetails: boolean = false,
+    currentbook: boolean = true,
+    option: { includeMatter: boolean; linkTitle: boolean; full: boolean },
+  ) {
+
+    const res = await axios.post(`/remixer/${id}/page`, {
+      path,
+      subdomain,
+      pageDetails,
+      currentbook,
+      option,
+    });
+    return res.data;
+  }
 }
 
 export default new API();
