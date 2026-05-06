@@ -196,3 +196,26 @@ export const GeneratePageImagesAltTextSchema =
       }),
     })
   );
+
+
+  export const importPressBooksBookSchema = z.object({
+    body: z.object({
+      library: z.coerce.number().positive().int(),
+      // pressbooks book URL
+      pbBookURL: z.string().trim().url({ message: "Invalid URLsssss" }),
+      title: z.string().min(1).max(255).optional(),
+      projectID: z.string().length(10),
+    }),
+  });
+
+  export const getPressbooksImportJobStatusSchema = z.object({
+    params: z.object({
+      jobID: z.string().min(1),
+    }),
+  });
+  
+  export const getActivePressbooksImportJobSchema = z.object({
+    query: z.object({
+      projectID: z.string().length(10),
+    }),
+  });

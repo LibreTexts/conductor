@@ -5,8 +5,11 @@ import {
   buildLibraryPageGoURL,
   buildRemixerURL,
 } from "../../utils/projectHelpers";
-import { lazy, useState } from "react";
+import { lazy, useEffect, useState } from "react";
 import { ProjectClassification } from "../../types";
+import { useTypedSelector } from "../../state/hooks";
+import axios from "axios";
+import ImportWorkbenchModal from "./ImportWorkbenchModal";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 
 interface ProjectLinkButtonsProps {
@@ -38,7 +41,40 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
 }) => {
   const [showCreateWorkbenchModal, setShowCreateWorkbenchModal] =
     useState(false);
+  const [showImportWorkbenchModal, setShowImportWorkbenchModal] =
+    useState(false);
   const validWorkbench = didCreateWorkbench && libreCoverID && libreLibrary;
+
+  const [initialImportJob, setInitialImportJob] = useState<{
+    jobID: string;
+    status: "pending" | "running" | "success" | "error";
+    messages: string[];
+  } | null>(null);
+  const user = useTypedSelector((state) => state.user);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!projectID) return;
+
+    axios
+      .get("/commons/import-pressbooks/active", {
+        params: { projectID },
+      })
+      .then((res) => {
+        if (cancelled) return;
+        if (!res.data.err && res.data.job) {
+          setInitialImportJob(res.data.job);
+          setShowImportWorkbenchModal(true);
+        }
+      })
+      .catch(() => {
+        // Silently ignore; absence of job is non-fatal
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectID]);
 
   return (
     <div>
@@ -47,7 +83,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
       </Header>
       {projectClassification === ProjectClassification.MINI_REPO ? null : (
         <div className="flex flex-row flex-wrap gap-2">
-          {!projectLink && !didCreateWorkbench && isProjectMemberOrAdmin && (
+          {!projectLink && !didCreateWorkbench && isProjectMemberOrAdmin && (<>
             <Button
               color="green"
               onClick={() => setShowCreateWorkbenchModal(true)}
@@ -55,36 +91,49 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
               <Icon name="plus" />
               Create Book
             </Button>
+            {user.isSuperAdmin && (
+              <Button
+                color="green"
+                onClick={() => setShowImportWorkbenchModal(true)}
+              >
+                <Icon name="plus" />
+                Import Book
+              </Button>
+            )}
+          </>
           )}
           {(projectLink || validWorkbench) && (
-            <Popup
-              content={
-                validWorkbench
-                  ? "This link will take you to the book's page in the LibreTexts libraries."
-                  : projectLink
-                  ? "This link will take you to the project's linked URL. This may be a book in the LibreTexts library or a third-party resource."
-                  : "This project does not have a linked URL."
-              }
-              trigger={
-                <Button
-                  onClick={() =>
-                    validWorkbench
-                      ? window.open(
+            <>
+              <Popup
+                content={
+                  validWorkbench
+                    ? "This link will take you to the book's page in the LibreTexts libraries."
+                    : projectLink
+                      ? "This link will take you to the project's linked URL. This may be a book in the LibreTexts library or a third-party resource."
+                      : "This project does not have a linked URL."
+                }
+                trigger={
+                  <Button
+                    onClick={() =>
+                      validWorkbench
+                        ? window.open(
                           buildLibraryPageGoURL(libreLibrary, libreCoverID),
                           "_blank"
                         )
-                      : projectLink
-                      ? window.open(normalizeURL(projectLink ?? ""), "_blank")
-                      : ""
-                  }
-                  color="blue"
-                  size="small"
-                >
-                  Open Project Link
-                  <Icon name="external alternate" className="!ml-2" />
-                </Button>
-              }
-            />
+                        : projectLink
+                          ? window.open(normalizeURL(projectLink ?? ""), "_blank")
+                          : ""
+                    }
+                    color="blue"
+                    size="small"
+                  >
+                    Open Project Link
+                    <Icon name="external alternate" className="!ml-2" />
+                  </Button>
+                }
+              />
+            </>
+
           )}
           {hasCommonsBook && libreCoverID && libreLibrary && (
             <Popup
@@ -126,7 +175,20 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
           {(validWorkbench || hasCommonsBook) &&
             libreCoverID &&
             libreLibrary &&
-            isProjectMemberOrAdmin && (
+            isProjectMemberOrAdmin && (<>
+              <Popup
+                content="This link will open the book in the LibreTexts OER Remixer Version 3."
+                trigger={
+                  <Button
+                    onClick={() => window.open(`/remixer/${projectID}`, "_blank")}
+                    color="blue"
+                    size="small"
+                  >
+                    Open OER Remixer Version 3
+                    <Icon name="external alternate" className="!ml-2" />
+                  </Button>
+                }
+              />
               <Popup
                 content="This link will open the book in the LibreTexts OER Remixer."
                 trigger={
@@ -149,7 +211,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                     <Icon name="external alternate" className="!ml-2" />
                   </Button>
                 }
-              />
+              /></>
             )}
           {projectID && projectTitle && (
             <CreateWorkbenchModal
@@ -169,6 +231,21 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
               onClose={() => setShowCreateWorkbenchModal(false)}
               onSuccess={() => window.location.reload()}
               project={project}
+            />
+
+
+          )}
+          {projectID && projectTitle && user.isSuperAdmin && (
+            <ImportWorkbenchModal
+              show={showImportWorkbenchModal}
+              projectID={projectID}
+              projectTitle={projectTitle}
+              onClose={() => setShowImportWorkbenchModal(false)}
+              onSuccess={() => window.location.reload()}
+              project={project}
+              initialJobID={initialImportJob?.jobID ?? null}
+              initialJobStatus={initialImportJob?.status}
+              initialJobMessages={initialImportJob?.messages}
             />
           )}
         </div>

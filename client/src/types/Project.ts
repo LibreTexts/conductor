@@ -218,3 +218,8 @@ export type AddableProjectTeamMember = Pick<
 > & {
   orgs: { name: string }[];
 };
+
+
+export type AuthenBrowser ={
+  [key: string]: string;
+}
