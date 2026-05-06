@@ -1,4 +1,11 @@
 import type { Request, Response } from "express";
+import { z } from "zod";
+import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
+import {
+  GetRemixerPageSchema,
+  GetRemixerProjectStateSchema,
+  SaveRemixerProjectStateSchema,
+} from "./validators/remixer.js";
 import Project from "../models/project.js";
 import PrejectRemixer from "../models/projectremixer.js";
 import remixerService from "./services/remixer-service.js";
@@ -58,7 +65,10 @@ const buildConductorCookieHeader = (req: Request): string | undefined => {
   return cookieParts.join("; ");
 };
 
-const getRemixerProject = async (req: Request, res: Response) => {
+const getRemixerProject = async (
+  req: ZodReqWithOptionalUser<z.infer<typeof GetRemixerProjectStateSchema>>,
+  res: Response,
+) => {
   const { id } = req.params;
   // Only select specific fields for remixer: libreCoverID, libreLibrary, projectID, and title
   const projection = {
@@ -81,16 +91,14 @@ const getRemixerProject = async (req: Request, res: Response) => {
   });
 };
 
-const saveRemixerProjectState = async (req: Request, res: Response) => {
+const saveRemixerProjectState = async (
+  req: ZodReqWithUser<z.infer<typeof SaveRemixerProjectStateSchema>>,
+  res: Response,
+) => {
   const { id } = req.params;
   const { currentBook, autoNumbering, copyModeState, pathLevelFormats } =
-    req.body as {
-      currentBook: unknown[];
-      autoNumbering?: boolean;
-      copyModeState?: string;
-      pathLevelFormats?: unknown[];
-    };
-  const actorUUID = (req as any).user?.decoded?.uuid ?? "";
+    req.body;
+  const actorUUID = req.user.decoded.uuid;
 
   const project = await Project.findOne(
     { projectID: id },
@@ -156,16 +164,14 @@ const saveRemixerProjectState = async (req: Request, res: Response) => {
     pathLevelFormats: remixerState?.pathLevelFormats ?? [],
   });
 };
-const publishRemixerProject = async (req: Request, res: Response) => {
+const publishRemixerProject = async (
+  req: ZodReqWithOptionalUser<z.infer<typeof SaveRemixerProjectStateSchema>>,
+  res: Response,
+) => {
   const { id } = req.params;
   const { currentBook, autoNumbering, copyModeState, pathLevelFormats } =
-    req.body as {
-      currentBook: unknown[];
-      autoNumbering?: boolean;
-      copyModeState?: string;
-      pathLevelFormats?: unknown[];
-    };
-  const actorUUID = (req as any).user?.decoded?.uuid ?? "";
+    req.body;
+  const actorUUID = req.user?.decoded?.uuid ?? "";
   const existingJob = await PrejectRemixerJob.findOne({
     projectID: id,
     status: { $in: ["pending", "running"] },
@@ -266,7 +272,10 @@ const publishRemixerProject = async (req: Request, res: Response) => {
   });
 };
 
-const getRemixerJobStatus = async (req: Request, res: Response) => {
+const getRemixerJobStatus = async (
+  req: ZodReqWithOptionalUser<z.infer<typeof GetRemixerProjectStateSchema>>,
+  res: Response,
+) => {
   const { id } = req.params;
   const job = await PrejectRemixerJob.findOne(
     { projectID: id },
@@ -278,7 +287,10 @@ const getRemixerJobStatus = async (req: Request, res: Response) => {
   });
 };
 
-const getRemixerProjectState = async (req: Request, res: Response) => {
+const getRemixerProjectState = async (
+  req: ZodReqWithOptionalUser<z.infer<typeof GetRemixerProjectStateSchema>>,
+  res: Response,
+) => {
   const { id } = req.params;
   const project = await Project.findOne(
     { projectID: id },
@@ -322,7 +334,10 @@ const getRemixerProjectState = async (req: Request, res: Response) => {
   });
 };
 
-const deleteRemixerProjectState = async (req: Request, res: Response) => {
+const deleteRemixerProjectState = async (
+  req: ZodReqWithOptionalUser<z.infer<typeof GetRemixerProjectStateSchema>>,
+  res: Response,
+) => {
   const { id } = req.params;
   const project = await Project.findOne(
     { projectID: id },
@@ -345,8 +360,10 @@ const deleteRemixerProjectState = async (req: Request, res: Response) => {
   });
 };
 
-// Zod validator ensures body/params shape; use it as the request body type.
-const fetchPage = async (req: Request, res: Response) => {
+const fetchPage = async (
+  req: ZodReqWithOptionalUser<z.infer<typeof GetRemixerPageSchema>>,
+  res: Response,
+) => {
   try {
     const pageDetailsApi = CXOnePageAPIEndpoints.DREAM_OUT_FORMAT_LIMIT(1000);
     const subpageApi = CXOnePageAPIEndpoints.GET_Subpages;
@@ -373,7 +390,7 @@ const fetchPage = async (req: Request, res: Response) => {
 
     const url = `https://${subdomain}.libretexts.org/@api/deki/pages/${pathPrefix
       }${normalizedPath}${pageDetails ? pageDetailsApi : subpageApi}`;
-    const conductorCookieHeader = buildConductorCookieHeader(req);
+    const conductorCookieHeader = buildConductorCookieHeader(req as unknown as Request);
 
     const options = {
       headers: {
@@ -441,7 +458,7 @@ const fetchPage = async (req: Request, res: Response) => {
     );
     // console.log(responseData.length);
 
-    const userId = (req as any).user?.decoded?.uuid as string | undefined;
+    const userId = req.user?.decoded?.uuid;
     const isWorkbenchRoot =
       String(path).toLowerCase() === "home" || (isNumber && numericPath <= 0);
 
