@@ -109,3 +109,15 @@ code {
 a {
   color: var(--link-color);
 }
+
+/*
+  Override Semantic UI's unlayered `a:hover { color: #1e70bf }`.
+  Tailwind v4 utilities live inside @layer, which loses to Semantic UI's
+  unlayered rule regardless of specificity. This restores hover color control
+  to component-level Tailwind classes (e.g. hover:text-white in Footer).
+  This can be removed when Semantic UI is removed entirely.
+*/
+a:hover {
+  color: inherit;
+  text-decoration: revert-layer;
+}
