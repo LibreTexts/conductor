@@ -357,7 +357,8 @@ const Navbar: React.FC<{}> = () => {
     <header
       className="w-full bg-white flex flex-col"
       style={{
-        height: isProduction ? "60px" : "100px",
+        minHeight: isProduction ? "60px" : "100px",
+        height: "auto",
         overflow: "visible",
         position: "relative",
         zIndex: 9999,
