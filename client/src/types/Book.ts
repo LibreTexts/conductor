@@ -14,6 +14,7 @@ export type Book = {
   program: string;
   license: string;
   thumbnail: string;
+  thumbnailIsAnimated?: boolean;
   summary: string;
   rating: number;
   links: BookLinks;
