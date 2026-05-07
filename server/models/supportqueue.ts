@@ -22,6 +22,8 @@ export interface SupportQueueInterface {
         placeholder?: string;
         options?: string[];
     }>;
+    category_filters?: string[];
+    visible_to_users: boolean;
     ticket_count?: number;
 }
 
@@ -123,6 +125,16 @@ const SupportQueueSchema = new Schema<SupportQueueInterface>({
         ],
         required: true,
         default: [],
+    },
+    category_filters: {
+        type: [String],
+        required: false,
+        default: [],
+    },
+    visible_to_users: {
+        type: Boolean,
+        required: true,
+        default: true,
     },
 });
 

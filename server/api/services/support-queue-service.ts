@@ -6,9 +6,14 @@ import { TypedReqUser } from "../../types";
 export default class SupportQueueService {
     private OPEN_IN_PROGRESS_STATUSES: SupportTicketStatusEnum[] = ["open", "in_progress", "assigned", "awaiting_requester"];
 
-    async getQueues({ withCount = false } = {}) {
+    async getQueues({ withCount = false, visibleOnly = false } = {}) {
+        const matchFilter: Record<string, unknown> = { active: true };
+        if (visibleOnly) {
+            matchFilter.visible_to_users = true;
+        }
+
         const results = await SupportQueue.aggregate([
-            { $match: { active: true } },
+            { $match: matchFilter },
             { $sort: { order: 1 } },
             ...(withCount ? [
                 {
@@ -126,6 +131,13 @@ export default class SupportQueueService {
             avg_mins_to_close: isNaN(avgMinsToClose) ? 0 : avgMinsToClose,
             tickets_opened_last_7_days: lastSevenTicketCount,
         }
+    }
+
+    async getQueueByCategoryFilter(category: string): Promise<SupportQueueInterface | null> {
+        return await SupportQueue.findOne({
+            category_filters: category,
+            active: true,
+        }).lean();
     }
 
     canReadTicketCount(userRoles: TypedReqUser["roles"]) {

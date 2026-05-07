@@ -12,13 +12,14 @@ async function getSupportQueues(req: ZodReqWithOptionalUser<z.infer<typeof getSu
     try {
         const service = new SupportQueueService();
         const withCount = req.query?.with_count || false;
+        const isSupportUser = req.user && authAPI.checkHasRole(req.user, "libretexts", "support");
 
         // User must have support role to view ticket counts
-        if (withCount && (!req.user || !authAPI.checkHasRole(req.user, "libretexts", "support"))) {
+        if (withCount && !isSupportUser) {
             return res.status(403).json({ err: true, errMsg: "Forbidden" });
         }
 
-        const queues = await service.getQueues({ withCount });
+        const queues = await service.getQueues({ withCount, visibleOnly: !isSupportUser });
         return res.status(200).json({
             err: false,
             queues,

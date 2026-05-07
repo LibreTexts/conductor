@@ -20,6 +20,8 @@ export type SupportQueue = {
         placeholder?: string;
         options?: string[];
     }>;
+    category_filters?: string[];
+    visible_to_users: boolean;
     ticket_count?: number;
 }
 
