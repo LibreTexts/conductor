@@ -26,6 +26,7 @@ export interface BookInterface extends Document {
   lastUpdated?: string;
   libraryTags?: string[];
   readerResources: ReaderResource[];
+  thumbnailIsAnimated?: boolean;
   trafficAnalyticsConfigured?: boolean;
   randomIndex?: number;
 }
@@ -89,6 +90,11 @@ const BookSchema = new Schema<BookInterface>(
      * URL of the Book's thumbnail.
      */
     thumbnail: String,
+    /**
+     * Whether the Book's thumbnail is an animated image (e.g. GIF).
+     * Determined during library sync via Content-Type header check.
+     */
+    thumbnailIsAnimated: Boolean,
     /**
      * The Book's overview/description/summary.
      */
