@@ -52,17 +52,17 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
   return (
     <div style={{ position: "relative" }}>
       {/* Top bar — always visible */}
-      <div className="flex flex-row items-center justify-between px-4 h-[60px] w-full bg-white border-b border-gray-300">
+      <div className="flex flex-row items-center justify-between px-2 sm:px-4 h-[60px] w-full bg-white border-b border-gray-300">
         {/* Left: Launchpad + Logo + Desktop nav links */}
-        <div className="flex flex-row items-center gap-2">
+        <div className="flex flex-row items-center gap-2 min-w-0 overflow-hidden">
           <Launchpad />
           <Link
             to={logoLinkTo}
             className="flex items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            <img src={logoSrc} alt="" className="max-h-[44px] w-auto" />
+            <img src={logoSrc} alt="" className="max-h-[44px] w-auto max-w-[min(150px,40vw)]" />
             {logoLockupText && (
-              <span className="ml-2 text-2xl font-semibold text-nowrap">
+              <span className="ml-2 text-2xl font-semibold text-nowrap hidden sm:inline">
                 {logoLockupText}
               </span>
             )}
@@ -76,7 +76,7 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
         </div>
 
         {/* Right: Desktop actions + Hamburger (mobile only) */}
-        <div className="flex flex-row items-center gap-4">
+        <div className="flex flex-row items-center gap-4 flex-shrink-0">
           {desktopActions && (
             <ul className="hidden xl:flex flex-row items-center gap-4 list-none m-0 p-0">
               {desktopActions}
