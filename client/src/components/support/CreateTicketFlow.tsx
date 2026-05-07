@@ -137,7 +137,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
       >
         {isLoadingQueues && <LoadingSpinner iconOnly={true} className="m-4" />}
         {!isLoadingQueues &&
-          queues?.map((queue) => (
+          queues?.filter((queue) => queue.visible_to_users !== false).map((queue) => (
             <li
               key={queue.slug}
               className="relative flex justify-between gap-x-6 px-4 py-5 hover:bg-gray-50 sm:px-6 cursor-pointer"
