@@ -19,7 +19,7 @@ interface NavbarShellProps {
   desktopNavItems?: React.ReactNode;
   /** Rendered in the right cluster, hidden on mobile. */
   desktopActions?: React.ReactNode;
-  /** Content of the mobile drawer; if not provided, will default to desktopNavItems. */
+  /** Content of the mobile drawer. Must be provided for each context — no fallback. */
   mobileDrawerItems?: React.ReactNode;
   /** id for the drawer element and the hamburger's aria-controls. */
   mobileDrawerId?: string;
@@ -50,7 +50,7 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
   }, [menuOpen]);
 
   return (
-    <>
+    <div style={{ position: "relative" }}>
       {/* Top bar — always visible */}
       <div className="flex flex-row items-center justify-between px-4 h-[60px] w-full bg-white border-b border-gray-300">
         {/* Left: Launchpad + Logo + Desktop nav links */}
@@ -69,20 +69,20 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
             <VisuallyHidden>{logoLabel}</VisuallyHidden>
           </Link>
           {desktopNavItems && (
-            <div className="hidden xl:flex flex-row items-center ml-4 gap-2">
+            <ul className="hidden xl:flex flex-row items-center ml-4 gap-2 list-none m-0 p-0">
               {desktopNavItems}
-            </div>
+            </ul>
           )}
         </div>
 
         {/* Right: Desktop actions + Hamburger (mobile only) */}
         <div className="flex flex-row items-center gap-4">
           {desktopActions && (
-            <div className="hidden xl:flex flex-row items-center gap-4">
+            <ul className="hidden xl:flex flex-row items-center gap-4 list-none m-0 p-0">
               {desktopActions}
-            </div>
+            </ul>
           )}
-          {(mobileDrawerItems || desktopActions) && (
+          {mobileDrawerItems && (
             <IconButton
               ref={hamburgerRef}
               icon={menuOpen ? <IconX /> : <IconMenu2 />}
@@ -100,16 +100,17 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
         </div>
       </div>
 
-      {/* Mobile drawer — visible below xl breakpoint when open */}
-      {menuOpen && (mobileDrawerItems || desktopActions) && (
-        <div
+      {/* Mobile drawer */}
+      {menuOpen && mobileDrawerItems && (
+        <ul
           id={mobileDrawerId}
-          className="xl:hidden bg-white w-full px-6 py-4 shadow-xl flex flex-col gap-3 border-t border-neutral-100 overflow-y-auto max-h-[50vh] justify-center"
+          className="xl:hidden bg-white w-full px-4 py-4 shadow-xl flex flex-col gap-3 border-t border-neutral-100 overflow-y-auto max-h-[calc(100vh-60px)] list-none"
+          style={{ position: "absolute", top: "100%", left: 0 }}
         >
-          {mobileDrawerItems || desktopActions}
-        </div>
+          {mobileDrawerItems}
+        </ul>
       )}
-    </>
+    </div>
   );
 };
 

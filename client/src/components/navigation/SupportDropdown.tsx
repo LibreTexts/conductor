@@ -32,7 +32,7 @@ const SupportDropdown: React.FC<SupportDropdownProps> = () => {
             <Menu.Button className="!w-full !xl:w-auto">
                 Support
             </Menu.Button>
-            <Menu.Items>
+            <Menu.Items className="z-[10000]!">
                 {itemsArr.map((item) => (
                     <Menu.Item {...item} />
                 ))}
