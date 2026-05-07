@@ -26,7 +26,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
           {user.firstName} {user.lastName}
         </Text>
       </Menu.Button>
-      <Menu.Items>
+      <Menu.Items className="z-[10000]!">
         <Menu.Item
           onClick={() => window.open(
             `${centralIdentityBaseUrl}/profile`,

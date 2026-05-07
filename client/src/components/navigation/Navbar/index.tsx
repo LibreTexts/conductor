@@ -42,22 +42,26 @@ const ConductorNavItems: React.FC<ConductorNavItemsProps> = ({
   setActiveItem,
 }) => (
   <>
-    <Link
-      to="/home"
-      className={`${menuItemBase} ${activeItem === "home" ? menuItemActive : menuItemInactive}`}
-      aria-current={activeItem === "home" ? "page" : undefined}
-      onClick={() => setActiveItem("home")}
-    >
-      Home
-    </Link>
-    <Link
-      to="/projects"
-      className={`${menuItemBase} ${activeItem === "projects" ? menuItemActive : menuItemInactive}`}
-      aria-current={activeItem === "projects" ? "page" : undefined}
-      onClick={() => setActiveItem("projects")}
-    >
-      My Projects
-    </Link>
+    <li>
+      <Link
+        to="/home"
+        className={`${menuItemBase} ${activeItem === "home" ? menuItemActive : menuItemInactive}`}
+        aria-current={activeItem === "home" ? "page" : undefined}
+        onClick={() => setActiveItem("home")}
+      >
+        Home
+      </Link>
+    </li>
+    <li>
+      <Link
+        to="/projects"
+        className={`${menuItemBase} ${activeItem === "projects" ? menuItemActive : menuItemInactive}`}
+        aria-current={activeItem === "projects" ? "page" : undefined}
+        onClick={() => setActiveItem("projects")}
+      >
+        My Projects
+      </Link>
+    </li>
   </>
 );
 
@@ -163,7 +167,7 @@ const Navbar: React.FC<{}> = () => {
     }
 
     if (context === "commons") {
-      return `${org.name} Catalog Home`;
+      return `${org.name} Commons — Catalog Home`;
     }
     if (context === "support") {
       return "LibreTexts Support Center Home";
@@ -189,10 +193,19 @@ const Navbar: React.FC<{}> = () => {
       );
       desktopActions = (
         <>
-          <SearchForm context="conductor" />
-          <SupportDropdown />
-          <SwitchApp user={user} parent="conductor" />
-          <UserAuthButton user={user} />
+          <li><SearchForm context="conductor" /></li>
+          <li><SupportDropdown /></li>
+          <li><SwitchApp user={user} parent="conductor" /></li>
+          <li><UserAuthButton user={user} /></li>
+        </>
+      );
+      mobileDrawerItems = (
+        <>
+          <ConductorNavItems activeItem={activeItem} setActiveItem={setActiveItem} />
+          <li><SearchForm context="conductor" /></li>
+          <li><SupportDropdown /></li>
+          <li><SwitchApp user={user} parent="conductor" /></li>
+          <li><UserAuthButton user={user} /></li>
         </>
       );
       break;
@@ -202,18 +215,34 @@ const Navbar: React.FC<{}> = () => {
       const libretextsOnly = org.orgID === "libretexts";
       desktopActions = (
         <>
-          <AboutOrgLink org={org} />
+          <li><AboutOrgLink org={org} /></li>
           {libretextsOnly && (
             <>
-              <DonateLink />
-              <AccountRequestLink />
-              <StoreLink />
+              <li><DonateLink /></li>
+              <li><AccountRequestLink /></li>
+              <li><StoreLink /></li>
             </>
           )}
-          <SupportDropdown />
-          {libretextsOnly && <CommonsList />}
-          <SwitchApp user={user} parent="commons" />
-          <UserAuthButton user={user} />
+          <li><SupportDropdown /></li>
+          {libretextsOnly && <li><CommonsList /></li>}
+          <li><SwitchApp user={user} parent="commons" /></li>
+          <li><UserAuthButton user={user} /></li>
+        </>
+      );
+      mobileDrawerItems = (
+        <>
+          <li><AboutOrgLink org={org} /></li>
+          {libretextsOnly && (
+            <>
+              <li><DonateLink /></li>
+              <li><AccountRequestLink /></li>
+              <li><StoreLink /></li>
+            </>
+          )}
+          <li><SupportDropdown /></li>
+          {libretextsOnly && <li><CommonsList /></li>}
+          <li><SwitchApp user={user} parent="commons" /></li>
+          <li><UserAuthButton user={user} /></li>
         </>
       );
       break;
@@ -222,30 +251,66 @@ const Navbar: React.FC<{}> = () => {
     case "support": {
       desktopActions = (
         <>
-          <SearchForm context="support" />
-          <SwitchApp user={user} parent="support" />
+          <li><SearchForm context="support" /></li>
+          <li><SwitchApp user={user} parent="support" /></li>
           {user.isSupport || user.isHarvester ? (
-            <Button
-              onClick={() => window.location.href = "/support/dashboard"}
-              variant="primary"
-              icon={<IconTicket />}
-            >
-              Staff Dashboard
-            </Button>
+            <li>
+              <Button
+                onClick={() => window.location.href = "/support/dashboard"}
+                variant="primary"
+                icon={<IconTicket />}
+              >
+                Staff Dashboard
+              </Button>
+            </li>
           ) : (
             <>
-              <UserAuthButton user={user} />
-              <Button
-                as={Link}
-                to="/support/contact"
-                variant="outline"
-                icon={<IconLifebuoy />}
-              >
-                Contact Support
-              </Button>
+              <li><UserAuthButton user={user} /></li>
+              <li>
+                <Button
+                  as={Link}
+                  to="/support/contact"
+                  variant="outline"
+                  icon={<IconLifebuoy />}
+                >
+                  Contact Support
+                </Button>
+              </li>
             </>
           )}
-          {user.uuid && <UserDropdown />}
+          {user.uuid && <li><UserDropdown /></li>}
+        </>
+      );
+      mobileDrawerItems = (
+        <>
+          <li><SearchForm context="support" /></li>
+          <li><SwitchApp user={user} parent="support" /></li>
+          {user.isSupport || user.isHarvester ? (
+            <li>
+              <Button
+                onClick={() => window.location.href = "/support/dashboard"}
+                variant="primary"
+                icon={<IconTicket />}
+              >
+                Staff Dashboard
+              </Button>
+            </li>
+          ) : (
+            <>
+              <li><UserAuthButton user={user} /></li>
+              <li>
+                <Button
+                  as={Link}
+                  to="/support/contact"
+                  variant="outline"
+                  icon={<IconLifebuoy />}
+                >
+                  Contact Support
+                </Button>
+              </li>
+            </>
+          )}
+          {user.uuid && <li><UserDropdown /></li>}
         </>
       );
       break;
@@ -254,16 +319,34 @@ const Navbar: React.FC<{}> = () => {
     case "store": {
       desktopActions = (
         <>
-          <SearchForm context="store" />
-          <Link
-            to="/store/cart"
-            className="flex items-center gap-2 text-base font-medium text-text hover:text-primary"
-          >
-            <IconShoppingCart size={20} />
-            Cart ({productCount})
-          </Link>
-          <SwitchApp user={user} parent="conductor" />
-          <UserAuthButton user={user} />
+          <li><SearchForm context="store" /></li>
+          <li>
+            <Link
+              to="/store/cart"
+              className="flex items-center gap-2 text-base font-medium text-text hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <IconShoppingCart size={20} />
+              Cart ({productCount})
+            </Link>
+          </li>
+          <li><SwitchApp user={user} parent="conductor" /></li>
+          <li><UserAuthButton user={user} /></li>
+        </>
+      );
+      mobileDrawerItems = (
+        <>
+          <li><SearchForm context="store" /></li>
+          <li>
+            <Link
+              to="/store/cart"
+              className="flex items-center gap-2 text-base font-medium text-text hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <IconShoppingCart size={20} />
+              Cart ({productCount})
+            </Link>
+          </li>
+          <li><SwitchApp user={user} parent="conductor" /></li>
+          <li><UserAuthButton user={user} /></li>
         </>
       );
       break;
@@ -273,12 +356,18 @@ const Navbar: React.FC<{}> = () => {
   return (
     <header
       className="w-full bg-white flex flex-col"
-      style={{ height: isProduction ? "60px" : "100px" }} // Account for extra height of EnvironmentBanner in non-production envs
+      style={{
+        height: isProduction ? "60px" : "100px",
+        overflow: "visible",
+        position: "relative",
+        zIndex: 9999,
+      }}
     >
       <EnvironmentBanner />
       <nav
         aria-label="Main navigation"
         className="w-full flex-1 flex flex-col justify-center"
+        style={{ overflow: "visible" }}
       >
         <NavbarShell
           logoSrc={getLogoSrc()}

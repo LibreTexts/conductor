@@ -1,19 +1,18 @@
-import "./Launchpad.css";
-
 const Launchpad = () => {
   return (
-    <button
-      role="link"
-      className="app-switcher"
-      onClick={() => window.open("https://one.libretexts.org/home", "_blank")}
+    <a
+      href="https://one.libretexts.org/home"
+      target="_blank"
+      rel="noopener noreferrer"
       aria-label="Open LibreTexts Launchpad in new tab"
+      className="inline-flex items-center justify-center h-11 w-11 rounded-md bg-white border border-gray-500 shadow-sm hover:border-gray-700 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
     >
       <img
         src="https://cdn.libretexts.net/Icons/launchpad-rocket-icon.svg"
-        alt="" // Decorative image, so alt text is empty to be ignored by screen readers
-        className="app-switcher-icon"
+        alt=""
+        className="h-8 w-8"
       />
-    </button>
+    </a>
   );
 };
 
