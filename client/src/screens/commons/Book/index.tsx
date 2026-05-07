@@ -82,6 +82,7 @@ import api from "../../../api";
 import BookPeerReviewsModal from "../../../components/peerreview/BookPeerReviewsModal";
 import { format, parseISO } from "date-fns";
 import { getLanguageName } from "../../../utils/languageCodes";
+import PausableImage from "../../../components/util/PausableImage";
 type CustomPieChartData = {
   value: number;
   title: string;
@@ -883,11 +884,11 @@ const CommonsBook = () => {
           {/* Left Column — Book Meta */}
           <Card padding="sm">
             <Stack direction="vertical" gap="md">
-              <img
+              <PausableImage
                 src={book.thumbnail}
-                aria-hidden={true}
-                alt=""
+                alt="" // Thumbnails are purely decorative
                 className="w-full rounded-md"
+                isAnimated={book.thumbnailIsAnimated}
               />
               <Heading level={1} className="text-center">
                 {book.title}
