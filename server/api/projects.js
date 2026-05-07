@@ -693,7 +693,7 @@ async function uploadProjectThumbnail(req, res) {
       ContentDisposition: `inline; filename="${thumbnailKey}"`,
       ContentType: thumbnail.mimetype ?? "application/octet-stream",
     };
-    const s3Client = new S3Client({ region: process.env.AWS_REGION });
+    const s3Client = new S3Client({ region: process.env.AWS_PROJECT_THUMBNAILS_REGION || process.env.AWS_REGION });
     const uploadResult = await s3Client.send(
       new PutObjectCommand(thumbnailParams)
     );

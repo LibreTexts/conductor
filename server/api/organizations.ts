@@ -370,7 +370,7 @@ async function updateBrandingImageAsset(req: Request, res: Response) {
       }
     }
 
-    const storageClient = new S3Client({ region: process.env.AWS_REGION });
+    const storageClient = new S3Client({ region: process.env.AWS_ORGDATA_REGION || process.env.AWS_REGION });
     const uploadCommand = new PutObjectCommand({
       Bucket: process.env.AWS_ORGDATA_BUCKET,
       Key: fileKey,

@@ -285,7 +285,7 @@ async function addKBImage(
       throw new Error("Missing file storage config");
     }
 
-    const storageClient = new S3Client({ region: process.env.AWS_REGION });
+    const storageClient = new S3Client({ region: process.env.AWS_KBFILES_REGION || process.env.AWS_REGION });
     const imageFile = req.file;
 
     if (!imageFile) {
@@ -917,7 +917,7 @@ async function _deleteKBImagesFromStorage(urls: string[]): Promise<boolean> {
     ) {
       throw new Error("Missing file storage config");
     }
-    const storageClient = new S3Client({ region: process.env.AWS_REGION });
+    const storageClient = new S3Client({ region: process.env.AWS_KBFILES_REGION || process.env.AWS_REGION });
     const promises = [];
 
     for (const url of urls) {

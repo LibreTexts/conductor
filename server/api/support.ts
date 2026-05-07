@@ -1642,7 +1642,7 @@ async function _uploadTicketAttachments(
       throw new Error("Missing file storage config");
     }
 
-    const storageClient = new S3Client({ region: process.env.AWS_REGION });
+    const storageClient = new S3Client({ region: process.env.AWS_SUPPORTFILES_REGION || process.env.AWS_REGION });
     const uploadCommands: PutObjectCommand[] = [];
     const savedFiles: SupportTicketAttachmentInterface[] = [];
 
