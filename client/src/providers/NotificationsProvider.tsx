@@ -70,6 +70,7 @@ const NotificationsProvider = ({ children }: { children: React.ReactNode }) => {
         {notifications.map((notification) => (
           <div
             key={notification.id}
+            role={notification.type === "error" ? "alert" : "status"}
             className={`mb-4 p-4 rounded shadow-md border border-slate-300 bg-white max-w-96`}
             onClick={() => removeNotification(notification.id)}
           >

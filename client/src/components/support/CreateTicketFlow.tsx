@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SupportTicket } from "../../types";
 import { FormProvider, useForm } from "react-hook-form";
 import {
@@ -50,6 +50,13 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
 
   const [step, setStep] = useState(1);
   const [autoCapturedURL, setAutoCapturedURL] = useState<boolean>(false);
+  const stepContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (step > 1 && stepContainerRef.current) {
+      stepContainerRef.current.focus();
+    }
+  }, [step]);
 
   useEffect(() => {
     processSearchParams();
@@ -132,7 +139,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     return (
       <ul
         role="list"
-        className="divide-y divide-gray-200 overflow-hidden bg-white  outline-gray-900/5 sm:rounded-xl"
+        className="divide-y divide-gray-200 overflow-hidden bg-white  outline-gray-900/5"
         aria-label="Support Queues"
       >
         {isLoadingQueues && <LoadingSpinner iconOnly={true} className="m-4" />}
@@ -140,8 +147,16 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
           queues?.filter((queue) => queue.visible_to_users !== false).map((queue) => (
             <li
               key={queue.slug}
-              className="relative flex justify-between gap-x-6 px-4 py-5 hover:bg-gray-50 sm:px-6 cursor-pointer"
+              role="button"
+              tabIndex={0}
+              className="relative flex justify-between gap-x-6 px-4 py-5 hover:bg-gray-50 sm:px-6 cursor-pointer focus-visible:bg-gray-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary focus-visible:outline-none"
               onClick={() => handleQueueSelect(queue.slug, true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleQueueSelect(queue.slug, true);
+                }
+              }}
             >
               <div className="flex min-w-0 gap-x-4 items-center">
                 <DynamicIcon
@@ -169,7 +184,11 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
 
   return (
     <FormProvider {...methods}>
-      <div className="flex flex-col border border-gray-300 rounded-lg m-4 p-4 w-full lg:w-3/4 bg-white">
+      <div
+        ref={stepContainerRef}
+        tabIndex={-1}
+        className="flex flex-col border border-gray-300 rounded-lg m-4 p-4 w-full lg:w-3/4 bg-white focus:outline-none"
+      >
         {step === 1 && <QueueSelector />}
         {step === 2 && (
           <RenderTicketRequestForm
