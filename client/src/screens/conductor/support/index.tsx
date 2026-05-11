@@ -6,7 +6,7 @@ import { Card, Heading, Text } from "@libretexts/davis-react";
 import { IconLifebuoy, IconMessages, IconProgressCheck, IconQuestionMark, IconTicket, IconVideoPlus } from "@tabler/icons-react";
 
 const SupportCenter = () => {
-  useDocumentTitle("LibreTexts | Support Center");
+  useDocumentTitle("Welcome to the LibreTexts Support Center");
   const user = useTypedSelector((state) => state.user);
   const officeHoursAvailable = (): boolean => {
     // Office hours are available tuesday and thursday from 9am to 10am Pacific Time (use a 30 minute buffer on either side)
@@ -90,6 +90,8 @@ const SupportCenter = () => {
     window.location.href = link;
   }
 
+  const canJoinOfficeHours = officeHoursAvailable();
+
   return (
     <DefaultLayout h="screen" noPadding>
       <SupportCenterJumbotron />
@@ -115,10 +117,10 @@ const SupportCenter = () => {
         />
         <HomeItem
           title="Office Hours"
-          text="Join our office hours to get live help from the LibreTexts Team. Tuesdays & Thursdays, 9am-10am Pacific Time"
+          text={`${canJoinOfficeHours ? "Join our office hours to get live help from the LibreTexts Team. Tuesdays & Thursdays, 9am-10am Pacific Time" : "Office hours are currently unavailable. Please check back during our regular office hours: Tuesdays & Thursdays, 9am-10am Pacific Time."}`}
           icon={ICON_MAP.officeHours}
           link="https://zoom.libretexts.org"
-          disabled={!officeHoursAvailable()}
+          disabled={!canJoinOfficeHours}
         />
         <HomeItem
           title="Systems Status"

@@ -5,10 +5,9 @@ const SupportCenterJumbotron = () => {
       className=" h-56 flex flex-col items-center justify-center bg-primary"
     >
       <div className="text-center my-8 text-white">
-        <h1 className="sr-only">Support Center</h1>
-        <h2 className="text-4xl font-semibold px-3 lg:px-0">
+        <h1 className="text-4xl font-semibold px-3 lg:px-0">
           Welcome to the LibreTexts Support Center!
-        </h2>
+        </h1>
 
         <p className="text-2xl mt-4">How can we help?</p>
       </div>
