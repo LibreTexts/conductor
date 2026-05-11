@@ -121,3 +121,17 @@ a:hover {
   color: inherit;
   text-decoration: revert-layer;
 }
+
+/*
+  Override Semantic UI's unlayered `p { margin: 0 0 1em; line-height: 1.4285em }`.
+  Davis Design System's Timeline component renders <p> elements for title and
+  description slots with Tailwind utilities that assume zero default margin.
+  Because Semantic UI's rule is unlayered, it beats Tailwind v4 Preflight's
+  @layer base reset. This scoped rule targets <ol role="list"> — the Timeline
+  root — without affecting <p> tags in prose content or other contexts.
+  This can be removed when Semantic UI is removed entirely.
+*/
+ol[role="list"] p {
+  margin: 0;
+  line-height: inherit;
+}
