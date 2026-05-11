@@ -1,16 +1,6 @@
 import { forwardRef, useImperativeHandle, useRef } from "react";
 import { SupportTicket, SupportTicketMessage } from "../../types";
 import TicketComment from "./TicketComment";
-import {
-  Comment,
-  CommentAuthor,
-  CommentAvatar,
-  CommentContent,
-  CommentMetadata,
-  CommentText,
-} from "semantic-ui-react";
-import { format, parseISO } from "date-fns";
-import Linkify from "linkify-react";
 
 interface _GeneralMessagingProps {
   scope: "general";
@@ -52,37 +42,21 @@ const TicketCommentsContainer = forwardRef(
 
     return (
       <div
-        className="flex flex-col mt-1 border border-gray-300 rounded-md min-h-44 max-h-screen xl:max-h-96 2xl:max-h-[42rem] overflow-y-auto"
+        className="flex flex-col mt-1 border border-gray-300 divide-y divide-gray-300 rounded-md min-h-44 max-h-screen xl:max-h-96 2xl:max-h-[42rem] overflow-y-auto"
         ref={commentsContainer}
         {...props}
       >
         {scope === "general" && (
-          <Comment className="flex flex-row w-full border-b border-gray-300 items-center py-4 px-2">
-            <CommentContent className="ml-4">
-              <div className="flex flex-row items-center">
-                <CommentAuthor className="font-bold">
-                  System Message
-                </CommentAuthor>
-                <CommentMetadata className="text-sm text-gray-500">
-                  <p className="ml-2">
-                    {"- "}
-                    {format(
-                      parseISO(
-                        props.ticket?.timeOpened ?? new Date().toISOString()
-                      ),
-                      "MM/dd/yy hh:mm aa"
-                    )}
-                  </p>
-                </CommentMetadata>
-              </div>
-              <CommentText>
-                <span className="font-semibold">Ticket Description: </span>
-                <Linkify options={{ rel: "noopener noreferrer" }}>
-                  {props.ticket?.description}
-                </Linkify>
-              </CommentText>
-            </CommentContent>
-          </Comment>
+          <TicketComment
+            msg={{
+              uuid: "system-message",
+              type: "general",
+              message: props.ticket?.description || "No description provided.",
+              timeSent: props.ticket?.timeOpened ?? new Date().toISOString(),
+              isSystemMessage: true,
+              senderIsStaff: true
+            }}
+          />
         )}
         {(!messages || messages?.length === 0) && (
           <p className="text-lg text-center text-gray-500 italic mt-1">
