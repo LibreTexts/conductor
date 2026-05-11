@@ -1,15 +1,11 @@
 import { Control, useFieldArray, useFormContext } from "react-hook-form";
 import RequestFormWithAuth from "./RequestFormWithAuth";
 import { SupportTicket } from "../../../types";
-import CtlTextInput from "../../ControlledInputs/CtlTextInput";
-import { required } from "../../../utils/formRules";
 import { Button, Icon, Table } from "semantic-ui-react";
 import { useCallback, useEffect, useState } from "react";
 import useCentralIdentityLicenses from "../../../hooks/useCentralIdentityLicenses";
-import CtlNextGenInput from "../../ControlledInputs/CtlNextGenInput";
-import CtlNextGenSelect from "../../ControlledInputs/CtlNextGenSelect";
 import CtlNextGenCheckbox from "../../ControlledInputs/CtlNextGenCheckbox";
-import CtlNextGenTextarea from "../../ControlledInputs/CtlNextGenTextarea";
+import { Input, Select, Textarea } from "@libretexts/davis-react";
 
 interface AuthorEntry {
   firstName: string;
@@ -24,6 +20,7 @@ const AuthorsTable: React.FC<{
     control,
     name: "metadata.authors",
   });
+  const { register } = useFormContext<SupportTicket>();
 
   return (
     <div className="w-full">
@@ -40,31 +37,33 @@ const AuthorsTable: React.FC<{
           {fields.map((field, idx) => (
             <Table.Row key={field.id}>
               <Table.Cell>
-                <CtlTextInput
-                  control={control}
-                  name={`metadata.authors.${idx}.firstName`}
+                <Input
+                  label="First Name"
                   placeholder="First Name"
-                  className="w-full"
+                  {...register(`metadata.authors.${idx}.firstName` as const)}
                 />
               </Table.Cell>
               <Table.Cell>
-                <CtlTextInput
-                  control={control}
-                  name={`metadata.authors.${idx}.lastName`}
+                <Input
+                  label="Last Name"
                   placeholder="Last Name"
-                  className="w-full"
+                  {...register(`metadata.authors.${idx}.lastName` as const)}
                 />
               </Table.Cell>
               <Table.Cell>
-                <CtlTextInput
-                  control={control}
-                  name={`metadata.authors.${idx}.institution`}
+                <Input
+                  label="Institution"
                   placeholder="Institution"
-                  className="w-full"
+                  {...register(`metadata.authors.${idx}.institution` as const)}
                 />
               </Table.Cell>
               <Table.Cell>
-                <Button color="red" icon onClick={() => remove(idx)}>
+                <Button
+                  color="red"
+                  icon
+                  onClick={() => remove(idx)}
+                  aria-label={`Remove author ${idx + 1}`}
+                >
                   <Icon name="trash" />
                 </Button>
               </Table.Cell>
@@ -108,7 +107,7 @@ interface PublishingRequestFormProps {}
 const PublishingRequestForm: React.FC<PublishingRequestFormProps> = () => {
   const [didPassProjectID, setDidPassProjectID] = useState(false);
 
-  const { control, watch, getValues, setValue, formState } =
+  const { control, watch, getValues, setValue, register } =
     useFormContext<SupportTicket>();
 
   const { licenseOptions, isFetching: licensesLoading } =
@@ -143,24 +142,22 @@ const PublishingRequestForm: React.FC<PublishingRequestFormProps> = () => {
             Please only submit one request per project. If you have multiple
             projects, please submit a separate request for each.
           </p>
-          <CtlNextGenInput
-            control={control}
-            name="title"
+          <Input
             label="Book Title"
             placeholder="What is the official title of your book?"
-            rules={required}
+            required
             maxLength={200}
             className="!mt-4"
+            {...register("title", { required: "Book title is required" })}
           />
-          <CtlNextGenInput
-            control={control}
-            name="metadata.projectID"
+          <Input
             label="Project ID"
             placeholder="What is the ID of the Conductor project? (e.g. 'gsIYEkWa3i')"
-            rules={required}
+            required
             maxLength={200}
             className="!mt-4"
             disabled={didPassProjectID}
+            {...register("metadata.projectID", { required: "Project ID is required" })}
           />
         </div>
         <div className="border-b border-gray-900/10 pb-10">
@@ -212,32 +209,30 @@ const PublishingRequestForm: React.FC<PublishingRequestFormProps> = () => {
             What license will this resource be published under?
           </p>
           <div className="mt-4">
-            <CtlNextGenSelect
-              name="metadata.license.name"
-              control={control}
+            <Select
               label="License Name"
               placeholder="Select a license..."
-              rules={required}
+              required
               options={licenseOptions?.map((l) => ({
                 value: l.name,
                 label: l.name,
               }))}
+              {...register("metadata.license.name", { required: "License is required" })}
             />
           </div>
           {selectedLicenseVersions().length > 0 && (
             <div className="mt-4">
-              <CtlNextGenSelect
-                name="metadata.license.version"
-                control={control}
+              <Select
                 label="License Version"
                 placeholder="Select license version"
-                rules={{
-                  required: selectedLicenseVersions().length > 0 ? true : false,
-                }}
+                required={selectedLicenseVersions().length > 0}
                 options={selectedLicenseVersions().map((v) => ({
                   value: v,
                   label: v,
                 }))}
+                {...register("metadata.license.version", {
+                  required: selectedLicenseVersions().length > 0 ? "License version is required" : false,
+                })}
               />
             </div>
           )}
@@ -250,27 +245,24 @@ const PublishingRequestForm: React.FC<PublishingRequestFormProps> = () => {
             Please provide the name of the author(s) and their institution(s).
           </p>
           <AuthorsTable control={control} />
-          <CtlNextGenInput
-            control={control}
-            name="metadata.institution"
+          <Input
             label="Primary Institution (if applicable)"
             placeholder="Enter the name of the primary institution this book will be used at"
             maxLength={200}
             className="!mt-4"
+            {...register("metadata.institution")}
           />
         </div>
         <div>
           <h3 className="font-semibold text-2xl mb-2">
             Additional Information (optional)
           </h3>
-          <CtlNextGenTextarea
-            control={control}
-            name="description"
-            label=""
+          <Textarea
+            label="Additional Information"
             placeholder="Is there any other information you'd like to provide about this publishing request?"
             maxLength={2000}
-            showRemaining
             rows={4}
+            {...register("description")}
           />
         </div>
       </div>

@@ -172,7 +172,7 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
   };
 
   return (
-    <form className="" onSubmit={(e) => { e.preventDefault() }}>
+    <form aria-label="Support ticket request" onSubmit={(e) => { e.preventDefault() }}>
       <Stack gap="xl">
         <RenderedForm />
         <FormSection title="Attachments (optional) (max 4 files, 100 MB each)" className="mt-6">
@@ -186,6 +186,9 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
           />
         </FormSection>
         <div className="flex flex-row justify-end">
+          <div role="status" aria-live="polite" className="sr-only">
+            {loading ? "Submitting your request..." : ""}
+          </div>
           <Button variant="primary" loading={loading} onClick={handleSubmit} icon={<IconSend />}>
             Submit
           </Button>

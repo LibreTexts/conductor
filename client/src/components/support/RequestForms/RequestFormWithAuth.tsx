@@ -66,13 +66,15 @@ const RequestFormWithAuth: React.FC<RequestFormWithAuthProps> = ({
               value={confirmEmail}
               required={true}
               type="email"
+              aria-invalid={startedConfirming && confirmEmail !== watch("guest.email")}
+              aria-describedby={startedConfirming && confirmEmail !== watch("guest.email") ? "confirm-email-error" : undefined}
               onChange={(e) => {
                 setConfirmEmail(e.target.value);
                 setStartedConfirming(true);
               }}
             />
             {startedConfirming && confirmEmail !== watch("guest.email") && (
-              <Text className="text-red-500">Emails do not match</Text>
+              <Text id="confirm-email-error" role="alert" className="text-red-500">Emails do not match</Text>
             )}
           </Stack>
         </FormSection>
