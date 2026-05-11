@@ -52,29 +52,33 @@ const SupportCreateTicket = () => {
           )}
         </Stack>
 
-        <Stack gap="md" align="center">
+        <Stack gap="md" align="center" className="mt-8">
           {!isLoggedIn && !guestMode && (
             <Card variant="outline" className="w-full !bg-white">
               <Card.Header>
                 <Heading level={2} align="center">How would you like to continue?</Heading>
               </Card.Header>
               <Card.Body>
-                <Stack gap="md">
-                  <Button
-                    variant="primary"
-                    className="w-full justify-center"
-                    onClick={redirectToLogin}
-                  >
-                    Log In with LibreOne (Recommended)
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="w-full justify-center"
-                    onClick={() => setGuestMode(true)}
-                  >
-                    Continue as Guest
-                  </Button>
-                </Stack>
+                <ul role="list" aria-label="Authentication options">
+                  <li className="mb-4">
+                    <Button
+                      variant="primary"
+                      className="w-full justify-center"
+                      onClick={redirectToLogin}
+                    >
+                      Log In with LibreOne (Recommended)
+                    </Button>
+                  </li>
+                  <li>
+                    <Button
+                      variant="secondary"
+                      className="w-full justify-center"
+                      onClick={() => setGuestMode(true)}
+                    >
+                      Continue as Guest
+                    </Button>
+                  </li>
+                </ul>
               </Card.Body>
             </Card>
           )}
