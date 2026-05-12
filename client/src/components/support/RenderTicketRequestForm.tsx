@@ -34,13 +34,17 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
   });
 
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
   const [files, setFiles] = useState<File[]>([]);
 
   async function handleSubmit() {
     try {
       setLoading(true);
+      setStatusMessage("Submitting your request...");
       const formValid = await trigger();
       if (!formValid) {
+        setStatusMessage("Please fix the errors above before submitting.");
+        setLoading(false);
         return;
       }
 
@@ -61,6 +65,8 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
             type: "error",
             message: "All pre-publishing checks must be confirmed.",
           });
+          setStatusMessage("All pre-publishing checks must be confirmed.");
+          setLoading(false);
           return;
         }
 
@@ -73,6 +79,8 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
             type: "error",
             message: "At least one author is required for publishing requests.",
           });
+          setStatusMessage("At least one author is required for publishing requests.");
+          setLoading(false);
           return;
         }
       }
@@ -108,6 +116,7 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
       );
     } catch (err) {
       handleGlobalError(err);
+      setStatusMessage("");
     } finally {
       setLoading(false);
     }
@@ -187,7 +196,7 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
         </FormSection>
         <div className="flex flex-row justify-end">
           <div role="status" aria-live="polite" className="sr-only">
-            {loading ? "Submitting your request..." : ""}
+            {statusMessage}
           </div>
           <Button variant="primary" loading={loading} onClick={handleSubmit} icon={<IconSend />}>
             Submit

@@ -113,7 +113,7 @@ const TicketTable: React.FC<TicketTableProps> = ({
   return (
     <div className="w-full h-screen overflow-auto border border-gray-200 rounded-lg !bg-white">
       <table className="w-full text-left whitespace-nowrap !bg-white">
-        <thead className="sticky top-0 z-10 border-b border-r border-slate-200 text-sm/6  text-gray-900 bg-gray-100 font-semibold shadow-sm">
+        <thead className="sticky top-0 border-b border-r border-slate-200 text-sm/6  text-gray-900 bg-gray-100 font-semibold shadow-sm">
           <tr className="">
             {showSelect && (
               <th scope="col" className="py-2 pl-5">
@@ -181,7 +181,7 @@ const TicketTable: React.FC<TicketTableProps> = ({
                   <td className={`${showSelect ? "" : "pl-5"}`}>
                     <div className="flex flex-col py-2 align-middle">
                       <p className="font-semibold text-gray-900 group-hover:text-blue-600 text-lg truncate max-w-2xl !mb-1">
-                        {truncateString(ticket.title, 70)}{" "}
+                        {truncateString(ticket.title, 60)}{" "}
                       </p>
                       <p className="text-sm text-gray-600 font-mono pl-0.5">
                         {format(

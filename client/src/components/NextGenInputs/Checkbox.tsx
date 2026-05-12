@@ -43,6 +43,7 @@ const Checkbox: React.FC<CheckboxProps> = ({
             id={name}
             name={name}
             checked={props.checked}
+            aria-required={required || undefined}
             onChange={(e) => {
               if (onChange) onChange(e.target.checked);
             }}

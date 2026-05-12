@@ -3,7 +3,7 @@ import { useFormContext } from "react-hook-form";
 import { useTypedSelector } from "../../../state/hooks";
 import { SupportTicket } from "../../../types";
 import Alert from "../../NextGenComponents/Alert";
-import { FormSection, Stack, Input, Text } from "@libretexts/davis-react"
+import { FormSection, Stack, Input } from "@libretexts/davis-react"
 
 interface RequestFormWithAuthProps {
   children: React.ReactNode;
@@ -66,16 +66,13 @@ const RequestFormWithAuth: React.FC<RequestFormWithAuthProps> = ({
               value={confirmEmail}
               required={true}
               type="email"
-              aria-invalid={startedConfirming && confirmEmail !== watch("guest.email")}
-              aria-describedby={startedConfirming && confirmEmail !== watch("guest.email") ? "confirm-email-error" : undefined}
+              error={startedConfirming && confirmEmail !== watch("guest.email")}
+              errorMessage="Emails do not match"
               onChange={(e) => {
                 setConfirmEmail(e.target.value);
                 setStartedConfirming(true);
               }}
             />
-            {startedConfirming && confirmEmail !== watch("guest.email") && (
-              <Text id="confirm-email-error" role="alert" className="text-red-500">Emails do not match</Text>
-            )}
           </Stack>
         </FormSection>
       )}

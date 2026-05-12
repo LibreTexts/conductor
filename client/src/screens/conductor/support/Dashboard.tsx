@@ -1,21 +1,19 @@
 import AlternateLayout from "../../../components/navigation/AlternateLayout";
 import { useState, lazy, useEffect } from "react";
-import { IconSearch } from "@tabler/icons-react";
+import { IconBellZ, IconPencilBolt, IconPlus, IconRefresh, IconSearch } from "@tabler/icons-react";
 import { useTypedSelector } from "../../../state/hooks";
 import useDebounce from "../../../hooks/useDebounce";
 import useSupportTicketFilters from "../../../hooks/useSupportTicketFilters";
 import useSupportTickets from "../../../hooks/useSupportTickets";
 import SupportQueuesSidebar from "../../../components/support/SupportQueuesSidebar";
-import Input from "../../../components/NextGenInputs/Input";
-import Combobox from "../../../components/NextGenInputs/Combobox";
 import { TicketPagination } from "../../../components/support/TicketPagination";
 import TicketTable from "../../../components/support/TicketTable";
 import useUserSupportTickets from "../../../hooks/useUserSupportTickets";
-import Button from "../../../components/NextGenComponents/Button";
 import { useSupportCenterContext } from "../../../context/SupportCenterContext";
 import { useModals } from "../../../context/ModalContext";
 import BulkChangeModal from "../../../components/support/BulkChangeModal";
 import { useDocumentTitle } from "usehooks-ts";
+import { Button, Heading, IconButton, Input, Listbox, Stack } from "@libretexts/davis-react";
 const SupportCenterSettingsModal = lazy(
   () => import("../../../components/support/SupportCenterSettingsModal")
 );
@@ -93,36 +91,33 @@ const SupportDashboard = () => {
           showMetrics={user.isSupport}
         />
         <div className="flex flex-col w-full p-8 bg-gray-100/50">
-          <div className="w-full overflow-x-auto pr-2">
+          <div className="w-full overflow-x-auto">
             <div className="flex flex-col w-full">
-              <div className="flex justify-between w-full items-center pt-1">
-                <p className="text-3xl font-semibold mb-2 capitalize">
+              <div className="flex justify-between w-full items-center">
+                <Heading level={2} className="mb-2 capitalize">
                   {selectedQueue}
-                </p>
-                <div className="flex space-x-3">
+                </Heading>
+                <Stack direction="horizontal" gap="sm">
                   <Button
-                    color="blue"
-                    variant="secondary"
+                    variant="outline"
                     onClick={() => (window.location.href = `/support/closed`)}
-                    className="h-10 self-start"
-                    icon="IconBellZ"
+                    icon={<IconBellZ size={18} />}
                   >
-                    <span className="pb-0.5">View Closed Tickets</span>
+                    View Closed Tickets
                   </Button>
                   <Button
-                    color="blue"
+                    variant="primary"
                     onClick={() =>
                       (window.location.href = `/support/contact?queue=${selectedQueue}`)
                     }
-                    className="h-10 self-start"
-                    icon="IconPlus"
+                    icon={<IconPlus size={18} />}
                   >
-                    <span className="pb-0.5">Create New Ticket</span>
+                    Create New Ticket
                   </Button>
-                </div>
+                </Stack>
               </div>
               <div className="flex flex-col w-full">
-                <div className="flex flex-row items-end space-x-3">
+                <Stack direction="horizontal" gap="md" align="end">
                   <Input
                     name="search-tickets"
                     label="Search"
@@ -132,54 +127,122 @@ const SupportDashboard = () => {
                       setQueryInputString(e.target.value);
                       debouncedQueryUpdate(e.target.value);
                     }}
-                    className="w-80"
+                    className="min-w-80!"
                     leftIcon={<IconSearch className="size-5 text-gray-400" />}
                   />
                   {user.isSupport && (
-                    <Combobox
-                      name="assignee-filter"
-                      label="Assignee"
-                      items={ticketFilters?.filters.assignee || []}
-                      multiple={true}
+                    <Listbox
                       value={assigneeFilters}
-                      onChange={(values) => setAssigneeFilters(values)}
-                      loading={isFetchingFilters}
-                    />
+                      onChange={(v) => setAssigneeFilters(v)}
+                      multiple
+                      className="max-w-56!"
+                    >
+                      <Listbox.Button
+                        displayValue={(v) => {
+                          const vals = v as unknown as string[];
+                          if (!vals.length) return "";
+                          const items = ticketFilters?.filters.assignee || [];
+                          return items
+                            .filter((i) => vals.includes(i.value))
+                            .map((i) => i.text)
+                            .join(", ");
+                        }}
+                        placeholder="Assignee"
+                      />
+                      <Listbox.Options>
+                        {(ticketFilters?.filters.assignee || []).map((item) => (
+                          <Listbox.Option key={item.key} value={item.value}>
+                            {item.text}
+                          </Listbox.Option>
+                        ))}
+                      </Listbox.Options>
+                    </Listbox>
                   )}
                   {selectedQueueObject?.has_priorities && (
-                    <Combobox
-                      name="priority-filter"
-                      label="Priority"
-                      items={ticketFilters?.filters.priority || []}
-                      multiple={true}
+                    <Listbox
                       value={priorityFilters}
-                      onChange={(values) => setPriorityFilters(values)}
-                      loading={isFetchingFilters}
-                    />
+                      onChange={(v) => setPriorityFilters(v)}
+                      multiple
+                      className="max-w-56!"
+                    >
+                      <Listbox.Button
+                        displayValue={(v) => {
+                          const vals = v as unknown as string[];
+                          if (!vals.length) return "";
+                          const items = ticketFilters?.filters.priority || [];
+                          return items
+                            .filter((i) => vals.includes(i.value))
+                            .map((i) => i.text)
+                            .join(", ");
+                        }}
+                        placeholder="Priority"
+                      />
+                      <Listbox.Options>
+                        {(ticketFilters?.filters.priority || []).map((item) => (
+                          <Listbox.Option key={item.key} value={item.value}>
+                            {item.text}
+                          </Listbox.Option>
+                        ))}
+                      </Listbox.Options>
+                    </Listbox>
                   )}
-                  <Combobox
-                    name="status-filter"
-                    label="Status"
-                    items={ticketFilters?.filters.status || []}
-                    multiple={true}
+                  <Listbox
                     value={statusFilters}
-                    onChange={(values) => setStatusFilters(values)}
-                    loading={isFetchingFilters}
-                  />
-                  {selectedQueueObject?.has_categories && (
-                    <Combobox
-                      name="category-filter"
-                      label="Category"
-                      items={ticketFilters?.filters.category || []}
-                      multiple={true}
-                      value={categoryFilters}
-                      onChange={(values) => setCategoryFilters(values)}
-                      loading={isFetchingFilters}
+                    onChange={(v) => setStatusFilters(v)}
+                    multiple
+                    className="max-w-56!"
+                  >
+                    <Listbox.Button
+                      displayValue={(v) => {
+                        const vals = v as unknown as string[];
+                        if (!vals.length) return "";
+                        const items = ticketFilters?.filters.status || [];
+                        return items
+                          .filter((i) => vals.includes(i.value))
+                          .map((i) => i.text)
+                          .join(", ");
+                      }}
+                      placeholder="Status"
                     />
+                    <Listbox.Options>
+                      {(ticketFilters?.filters.status || []).map((item) => (
+                        <Listbox.Option key={item.key} value={item.value}>
+                          {item.text}
+                        </Listbox.Option>
+                      ))}
+                    </Listbox.Options>
+                  </Listbox>
+                  {selectedQueueObject?.has_categories && (
+                    <Listbox
+                      value={categoryFilters}
+                      onChange={(v) => setCategoryFilters(v)}
+                      multiple
+                      className="max-w-56!"
+                    >
+                      <Listbox.Button
+                        displayValue={(v) => {
+                          const vals = v as unknown as string[];
+                          if (!vals.length) return "";
+                          const items = ticketFilters?.filters.category || [];
+                          return items
+                            .filter((i) => vals.includes(i.value))
+                            .map((i) => i.text)
+                            .join(", ");
+                        }}
+                        placeholder="Category"
+                      />
+                      <Listbox.Options>
+                        {(ticketFilters?.filters.category || []).map((item) => (
+                          <Listbox.Option key={item.key} value={item.value}>
+                            {item.text}
+                          </Listbox.Option>
+                        ))}
+                      </Listbox.Options>
+                    </Listbox>
                   )}
                   {selectedTickets.length > 0 && (
                     <Button
-                      color="blue"
+                      variant="secondary"
                       onClick={() =>
                         openModal(
                           <BulkChangeModal
@@ -193,24 +256,23 @@ const SupportDashboard = () => {
                           />
                         )
                       }
-                      className="h-10"
-                      icon="IconPencilBolt"
+                      icon={<IconPencilBolt size={18} />}
                     >
-                      <span className="">Change</span>
+                      Change
                     </Button>
                   )}
-                </div>
+                </Stack>
                 <div className="flex justify-between mt-2 w-full">
                   <TicketPagination
                     itemsPerPage={itemsPerPage}
                     totalItems={openTickets?.total || 0}
                     onPageChange={(page) => setActivePage(page)}
                   />
-                  <Button
+                  <IconButton
+                    aria-label="Refresh Ticket Results"
                     variant="primary"
-                    icon="IconRefresh"
-                    className="h-10"
-                    size="small"
+                    icon={<IconRefresh size={18} />}
+                    size="md"
                     loading={isFetching || isFetchingUserTickets}
                     onClick={() => {
                       if (user.isSupport || user.isHarvester) {

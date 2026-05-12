@@ -1,12 +1,10 @@
 import React, { useState } from "react";
 import Uppy from "@uppy/core";
-import "@uppy/core/dist/style.min.css";
-import "@uppy/dashboard/dist/style.min.css";
-import "@uppy/screen-capture/dist/style.css";
-import { Dashboard, useUppyEvent } from "@uppy/react";
-import ScreenCapture from "@uppy/screen-capture";
+import { useUppyEvent } from "@uppy/react";
 import classNames from "classnames";
-import "./FileUploader.css"; // Custom styles for the uploader
+import DropZone from "./DropZone";
+import FileList from "./FileList";
+import ScreenCaptureModal from "./ScreenCaptureModal";
 
 interface FileUploaderProps {
   minFiles?: number; // minimum number of files required
@@ -34,9 +32,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
   allowScreenCast = false,
 }) => {
   const [uppy] = useState(() => {
-    const uppy = new Uppy({
-      debug: true,
-      
+    return new Uppy({
       restrictions: {
         maxFileSize: maxFileSize,
         minNumberOfFiles: minFiles,
@@ -44,15 +40,10 @@ const FileUploader: React.FC<FileUploaderProps> = ({
         allowedFileTypes: fileTypes || undefined,
       },
     });
-    if (allowScreenCast) {
-      uppy.use(ScreenCapture, {
-        preferredVideoMimeType: "video/webm",
-      });
-    }
-    return uppy;
   });
 
-  useUppyEvent(uppy, "state-update", (prevState, newState) => {
+  // Keep parent in sync with Uppy file state
+  useUppyEvent(uppy, "state-update", (_prevState, newState) => {
     const stateFiles = Object.values(newState.files);
 
     const dataTransfer = new DataTransfer();
@@ -78,15 +69,42 @@ const FileUploader: React.FC<FileUploaderProps> = ({
     onUpload(fileList); // Always send new file list even if empty
   });
 
+  // Derive file list from Uppy state for rendering
+  const [files, setFiles] = useState<
+    { id: string; name: string; size: number }[]
+  >([]);
+
+  useUppyEvent(uppy, "state-update", (_prevState, newState) => {
+    const uppyFiles = Object.values(newState.files);
+    setFiles(
+      uppyFiles.map((f) => ({
+        id: f.id,
+        name: f.name ?? "Unnamed file",
+        size: f.size ?? 0,
+      }))
+    );
+  });
+
   return (
-    <Dashboard
-      uppy={uppy}
-      width={"100%"}
-      height={"250px"}
-      hideUploadButton
-      disabled={disabled}
-      className={classNames(className)}
-    />
+    <div
+      className={classNames("flex flex-col gap-3", className)}
+      role="group"
+      aria-label="File upload"
+    >
+      <DropZone
+        uppy={uppy}
+        disabled={disabled}
+        fileTypes={fileTypes}
+        maxFiles={maxFiles}
+        currentFileCount={files.length}
+      />
+      {files.length > 0 && (
+        <FileList files={files} uppy={uppy} disabled={disabled} />
+      )}
+      {allowScreenCast && (
+        <ScreenCaptureModal uppy={uppy} disabled={disabled} />
+      )}
+    </div>
   );
 };
 
