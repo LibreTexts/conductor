@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Button, Checkbox, Input, Modal } from "semantic-ui-react";
+import {    Modal } from "semantic-ui-react";
 import { RemixerSubPage } from "./model";
+import { Button, Checkbox, Input, Stack } from "@libretexts/davis-react";
+import { DAVIS_REMIXER_BTN_CLASS } from "./style";
 
 interface EditPanelProps {
   open: boolean;
@@ -67,11 +69,10 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
       <Modal.Header>Edit Page</Modal.Header>
       <Modal.Content>
         <Input
-          focus
+          name="title"
           label="Title"
           placeholder="Loading title..."
           value={page?.title ?? page?.["@title"] ?? ""}
-          fluid
           onChange={(e) => {
             const next = sanitizeRemixerTitle(e.target.value,false);
             setPage((prev) =>
@@ -80,12 +81,13 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
           }}
         />
         <Checkbox
+          name="formattedPathOverride"
           label="Override Prefix"
           checked={page?.formattedPathOverride ?? false}
-          onChange={(_, data) =>
+          onChange={(checked) =>
             setPage((prev) => {
               if (!prev) return prev;
-              const enabled = data.checked === true;
+              const enabled = checked === true;
               return {
                 ...prev,
                 formattedPathOverride: enabled,
@@ -97,7 +99,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
           }
         />
         <Input
-          focus
+          name="formattedPath"
           label="Prefix"
           placeholder="Custom prefix (leave blank to hide prefix)"
           value={
@@ -106,7 +108,6 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
               : (formattedPathDefault ?? "")
           }
           disabled={page?.formattedPathOverride !== true}
-          fluid
           onChange={(e) =>
             setPage((prev) =>
               prev ? { ...prev, formattedPath: e.target.value } : prev,
@@ -115,12 +116,14 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
         />
       </Modal.Content>
       <Modal.Actions>
-        <Button positive onClick={handleSaveClick} disabled={!page}>
-          Save
-        </Button>
-        <Button negative onClick={onClose}>
+        <Stack direction="horizontal" gap="md" justify="end">
+        <Button  onClick={onClose} className={DAVIS_REMIXER_BTN_CLASS.base}>
           Cancel
         </Button>
+        <Button  onClick={handleSaveClick} disabled={!page} className={DAVIS_REMIXER_BTN_CLASS.success}>
+          Save
+        </Button>
+        </Stack>
       </Modal.Actions>
     </Modal>
   );

@@ -3025,25 +3025,25 @@ router
 router
   .route("/remixer/:id/project")
   .get(
-    authAPI.optionalVerifyRequest,
-    authAPI.optionalGetUserAttributes,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes ,
     remixerAPI.getRemixerProject
   )
   .put(
-    authAPI.optionalVerifyRequest,
-    authAPI.optionalGetUserAttributes,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes ,
     middleware.validateZod(RemixerValidators.SaveRemixerProjectStateSchema),
     remixerAPI.saveRemixerProjectState
   )
   .post(
-    authAPI.optionalVerifyRequest,
-    authAPI.optionalGetUserAttributes,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes ,
     middleware.validateZod(RemixerValidators.GetRemixerProjectStateSchema),
     remixerAPI.getRemixerProjectState
   )
   .delete(
-    authAPI.optionalVerifyRequest,
-    authAPI.optionalGetUserAttributes,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes ,
     middleware.validateZod(RemixerValidators.GetRemixerProjectStateSchema),
     remixerAPI.deleteRemixerProjectState
   );
@@ -3051,8 +3051,8 @@ router
 router
   .route("/remixer/:id/page")
   .post(
-    authAPI.optionalVerifyRequest,
-    authAPI.optionalGetUserAttributes,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes ,
     middleware.validateZod(RemixerValidators.GetRemixerPageSchema),
     remixerAPI.fetchPage
   );
@@ -3062,14 +3062,14 @@ router
 router
   .route("/remixer/:id/publish")
   .post(
-    authAPI.optionalVerifyRequest,
-    authAPI.optionalGetUserAttributes,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes ,
     middleware.validateZod(RemixerValidators.SaveRemixerProjectStateSchema),
     remixerAPI.publishRemixerProject
   )
   .get(
-    authAPI.optionalVerifyRequest,
-    authAPI.optionalGetUserAttributes,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes ,
     remixerAPI.getRemixerJobStatus
   );
 

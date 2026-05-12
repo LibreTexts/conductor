@@ -1,27 +1,20 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Button,
-  Dropdown,
-  Form,
-  Icon,
-  Message,
-  Modal,
-  ModalProps,
-} from "semantic-ui-react";
-import { Controller, get, useForm } from "react-hook-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Button, Input, Modal, Select } from "@libretexts/davis-react";
+import { IconDeviceFloppy } from "@tabler/icons-react";
+import { Controller, useForm } from "react-hook-form";
 import { httpUrl, required } from "../../utils/formRules";
-import { CentralIdentityApp } from "../../types";
-import CtlTextInput from "../ControlledInputs/CtlTextInput";
+import { CentralIdentityApp, ImportWorkbenchForm } from "../../types";
 import { useTypedSelector } from "../../state/hooks";
 import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
-import { getCentralAuthInstructorURL } from "../../utils/centralIdentityHelpers";
 import TeamAccessWarningModal from "./TeamAccessWarningModal";
+import useClientConfig from "../../hooks/useClientConfig";
+import api from "../../api";
 
-interface ImportWorkbenchModalProps extends ModalProps {
+interface ImportWorkbenchModalProps {
   show: boolean;
   projectID: string;
-  projectTitle: string;
   project: any;
   onClose: () => void;
   onSuccess: () => void;
@@ -29,12 +22,7 @@ interface ImportWorkbenchModalProps extends ModalProps {
   initialJobStatus?: "pending" | "running" | "success" | "error";
   initialJobMessages?: string[];
 }
-interface ImportWorkbenchForm {
-  library: number | string;
-  pbBookURL: string;
-  title: string;
 
-}
 
 interface TeamMemberWithoutAccess {
   uuid: string;
@@ -47,14 +35,12 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
   const {
     show,
     projectID,
-    projectTitle,
     project,
     onClose,
     onSuccess,
     initialJobID,
     initialJobStatus,
     initialJobMessages,
-    ...rest
   } = props;
   const teamMembers = [
     ...(project?.auditors || []),
@@ -69,6 +55,7 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
       avatar: member.avatar,
     };
   });
+  const { clientConfig } = useClientConfig();
 
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
@@ -80,16 +67,11 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
       },
     });
   const [loading, setLoading] = useState(false);
-  const [libraryOptsLoading, setLibraryOptsLoading] = useState(false);
-  const [libraryOptions, setLibraryOptions] = useState<CentralIdentityApp[]>(
-    [],
-  );
   const [showAccessWarning, setShowAccessWarning] = useState(false);
   const [membersWithoutAccess, setMembersWithoutAccess] = useState<
     TeamMemberWithoutAccess[]
   >([]);
   const [selectedLibraryName, setSelectedLibraryName] = useState("");
-  const [canAccessLibrary, setCanAccessLibrary] = useState(true);
   const [jobID, setJobID] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<
     "idle" | "pending" | "running" | "success" | "error"
@@ -105,11 +87,57 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
 
   const selectedLibrary = watch("library");
 
+  const {
+    data: libraryData,
+    isLoading: libraryOptsLoading,
+    error: libraryError,
+  } = useQuery({
+    queryKey: ["central-identity", "public", "apps"],
+    queryFn: async () => {
+      const res = await axios.get("/central-identity/public/apps");
+      if (res.data.err) throw new Error(res.data.errMsg);
+      if (!res.data.applications) throw new Error("No libraries found");
+      const libraries = (res.data.applications as CentralIdentityApp[]).filter(
+        (a) => a.app_type === "library",
+      );
+      if (!libraries.length) throw new Error("No libraries found");
+      return libraries;
+    },
+    enabled: show,
+  });
+  const libraryOptions = libraryData ?? [];
+
+  useEffect(() => {
+    if (libraryError) handleGlobalError(libraryError);
+  }, [libraryError]);
+
+  const { data: hasLibraryAccess, error: libraryAccessError } = useQuery({
+    queryKey: [
+      "central-identity",
+      "users",
+      user.uuid,
+      "applications",
+      selectedLibrary,
+    ],
+    queryFn: async () => {
+      const res = await axios.get(
+        `/central-identity/users/${user.uuid}/applications/${selectedLibrary}`,
+      );
+      if (res.data.err) throw new Error(res.data.errMsg);
+      return (res.data.hasAccess as boolean) ?? false;
+    },
+    enabled: show && !!user.uuid && !!selectedLibrary,
+  });
+  const canAccessLibrary = hasLibraryAccess ?? true;
+
+  useEffect(() => {
+    if (libraryAccessError) handleGlobalError(libraryAccessError);
+  }, [libraryAccessError]);
+
   useEffect(() => {
     if (show) {
-      reset(); // reset form on open
-      loadLibraries();
-      setValue("pbBookURL", projectTitle);
+      reset();
+      setValue("pbBookURL", "");
     }
   }, [show]);
 
@@ -129,32 +157,6 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
     setLoading(true);
   }, [show, initialJobID, initialJobStatus, initialJobMessages]);
 
-  async function loadLibraries() {
-    try {
-      setLibraryOptsLoading(true);
-      const res = await axios.get("/central-identity/public/apps");
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      if (!res.data.applications) throw new Error("No libraries found");
-
-      const libraries = res.data.applications.filter(
-        (a: CentralIdentityApp) => a.app_type === "library",
-      );
-
-      if (!libraries.length) throw new Error("No libraries found");
-      setLibraryOptions(libraries);
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setLibraryOptsLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    checkLibraryAccess();
-  }, [user, selectedLibrary]);
-
   useEffect(() => {
     if (selectedLibrary) {
       const libraryObj = libraryOptions.find(
@@ -166,71 +168,82 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
     }
   }, [selectedLibrary, libraryOptions]);
 
-  async function checkLibraryAccess() {
-    try {
-      if (!user.uuid || !getValues("library")) return;
-      const res = await axios.get(
-        `/central-identity/users/${user.uuid}/applications/${getValues(
-          "library",
-        )}`,
+  const { mutateAsync: checkTeamMembersAccess } = useMutation({
+    mutationFn: async (): Promise<TeamMemberWithoutAccess[]> => {
+      if (!teamMembers.length || !getValues("library")) return [];
+      const ids = teamMembers.map((member) => member.uuid);
+      const res = await api.checkTeamLibraryAccess(getValues("library"), ids);
+      return teamMembers.filter(
+        (member) =>
+          !res.data.accessResults.find(
+            (result: any) => result.id === member.uuid,
+          )?.hasAccess,
       );
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      setCanAccessLibrary(res.data.hasAccess ?? false);
-    } catch (err) {
-      handleGlobalError(err);
-    }
-  }
+    },
+  });
 
-  // async function checkTeamMembersAccess() {
-  //   try {
-  //     if (!teamMembers.length || !getValues("library")) return [];
-  //     const ids = teamMembers.map((member) => member.uuid);
-
-  //     const res = await api.checkTeamLibraryAccess(getValues("library"), ids);
-
-  //     const withoutAccess = teamMembers.filter(
-  //       (member) =>
-  //         !res.data.accessResults.find(
-  //           (result: any) => result.id === member.uuid,
-  //         )?.hasAccess,
-  //     );
-  //     return withoutAccess;
-  //   } catch (err) {
-  //     handleGlobalError(err);
-  //     return [];
-  //   }
-  // }
-
-  async function createWorkbench() {
-    try {
-      if (!canAccessLibrary) return;
-      setLoading(true);
-      if (!(await trigger())) {
+  const { mutateAsync: createWorkbench } = useMutation({
+    mutationFn: async () => {
+      if (!(await trigger())) return null;
+      const res = await api.createPressbooksJob(getValues(), projectID);
+      if (res.data.err) throw new Error(res.data.errMsg);
+      if (!res.data.jobID) throw new Error("Failed to start import job.");
+      return res.data.jobID as string;
+    },
+    onSuccess: (newJobID) => {
+      if (!newJobID) {
         setLoading(false);
         return;
       }
-
-      const res = await axios.post("/commons/import-pressbooks", {
-        ...getValues(),
-        projectID,
-      });
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-
-      if (!res.data.jobID) {
-        throw new Error("Failed to start import job.");
-      }
-
-      setJobID(res.data.jobID);
+      setJobID(newJobID);
       setJobStatus("pending");
       setJobMessages([]);
-    } catch (err) {
-      handleGlobalError(err);
+    },
+  });
+
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = () => {
+    if (pollIntervalRef.current !== null) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
     }
-  }
+  };
+
+  const { mutate: pollJob } = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await axios.get(`/commons/import-pressbooks/${id}`);
+      if (res.data.err) throw new Error(res.data.errMsg);
+      return res.data.job as {
+        status: "pending" | "running" | "success" | "error";
+        messages?: string[];
+        errorMessage?: string;
+      };
+    },
+    onSuccess: (job) => {
+      setJobStatus(job.status);
+      if (Array.isArray(job.messages)) {
+        setJobMessages(job.messages);
+      }
+      if (job.status === "success") {
+        stopPolling();
+        setLoading(false);
+        setJobID(null);
+        onSuccess();
+      } else if (job.status === "error") {
+        stopPolling();
+        setLoading(false);
+        setJobID(null);
+        handleGlobalError(new Error(job.errorMessage || "Import failed."));
+      }
+    },
+    onError: (err) => {
+      stopPolling();
+      setLoading(false);
+      setJobID(null);
+      handleGlobalError(err);
+    },
+  });
 
   useEffect(() => {
     if (!jobID) return;
@@ -239,54 +252,20 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
       current === "idle" || current === "pending" ? "running" : current,
     );
 
-    const interval = setInterval(async () => {
-      try {
-        const res = await axios.get(`/commons/import-pressbooks/${jobID}`);
-        if (res.data.err) {
-          throw new Error(res.data.errMsg);
-        }
+    pollIntervalRef.current = setInterval(() => pollJob(jobID), 3000);
 
-        const job = res.data.job;
-        setJobStatus(job.status);
-        if (Array.isArray(job.messages)) {
-          setJobMessages(job.messages);
-        }
-
-        if (job.status === "success") {
-          clearInterval(interval);
-          setLoading(false);
-          setJobID(null);
-          onSuccess();
-        } else if (job.status === "error") {
-          clearInterval(interval);
-          setLoading(false);
-          setJobID(null);
-          handleGlobalError(new Error(job.errorMessage || "Import failed."));
-        }
-      } catch (err) {
-        clearInterval(interval);
-        setLoading(false);
-        setJobID(null);
-        handleGlobalError(err);
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
+    return stopPolling;
   }, [jobID]);
 
   async function handleCreateClick() {
     try {
       setLoading(true);
-
-      // Check team members' access
-      // const membersWithoutAccess = await checkTeamMembersAccess();
-      if (membersWithoutAccess.length > 0) {
-        setMembersWithoutAccess(membersWithoutAccess);
+      const withoutAccess = await checkTeamMembersAccess();
+      if (withoutAccess.length > 0) {
+        setMembersWithoutAccess(withoutAccess);
         setShowAccessWarning(true);
         setLoading(false);
-        console.error(getValues());
       } else {
-        // Everyone has access, proceed with creating the workbench
         await createWorkbench();
       }
     } catch (err) {
@@ -295,144 +274,171 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
     }
   }
 
+
+
   return (
     <>
-      <Modal size="fullscreen" open={show} {...rest}>
-        <Modal.Header>Import Book</Modal.Header>
-        <Modal.Content>
+      <Modal size="full" open={show} onClose={() => onClose()}>
+        <Modal.Header>
+          <Modal.Title>Import Book</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
           <p id="bookInstructions">
-            This imports a book from a library into this Conductor project.
+            This imports a book from a Pressbook source into this Conductor project.
           </p>
 
-          <Form
-            onSubmit={(e) => {
-              e.preventDefault();
-            }}
-            loading={loading}
-          >
-            <div className="w-full mr-6">
-              <label
-                htmlFor="projectStatus"
-                className="form-field-label form-required"
+          <form onSubmit={(e) => e.preventDefault()}>
+            <Controller
+              name="library"
+              control={control}
+              rules={required}
+              render={({ field }) => (
+                <Select
+                  name={field.name}
+                  label="Library"
+                  options={libraryOptions.map((l) => ({
+                    value: l.id.toString(),
+                    label: l.name,
+                  }))}
+                  value={field.value?.toString() ?? ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  placeholder="Select Library..."
+                  error={!!formState.errors.library}
+                  disabled={libraryOptsLoading || loading}
+                  required
+                />
+              )}
+            />
+            {user.isSuperAdmin && (
+              // Super Admins can use the dev library for debugging
+              <p
+                className="underline cursor-pointer mt-1"
+                onClick={() => setValue("library", "21", { shouldDirty: false })}
               >
-                Library
-              </label>
+                Use Dev (Super Admins Only)
+              </p>
+            )}
+            <div className="mt-4">
               <Controller
-                name="library"
+                name="pbBookURL"
                 control={control}
-                rules={required}
+                rules={{ ...required, ...httpUrl }}
                 render={({ field }) => (
-                  <Dropdown
-                    id="projectStatus"
-                    options={libraryOptions.map((l) => ({
-                      key: l.id,
-                      text: l.name,
-                      value: l.id,
-                    }))}
-                    {...field}
-                    onChange={(e, data) => {
-                      field.onChange(data.value);
-                    }}
-                    fluid
-                    selection
-                    placeholder="Select Library..."
-                    error={formState.errors.library ? true : false}
-                    loading={libraryOptsLoading}
-                    disabled={libraryOptsLoading}
+                  <Input
+                    name={field.name}
+                    id={field.name}
+                    label="Book URL"
+                    placeholder="https://pressbooks.pub/example_book"
+                    type="url"
+                    required
+                    onChange={(e) => field.onChange(e.target.value)}
                   />
                 )}
               />
-              {user.isSuperAdmin && (
-                <>
-                  {/* Super Admins can use the dev library for debugging */}
-                  <p
-                    className="underline cursor-pointer mt-1"
-                    onClick={() => setValue("library", 21, { shouldDirty: true })}
-                  >
-                    Use Dev (Super Admins Only)
-                  </p>
-                </>
-              )}
+
             </div>
             <div className="mt-4">
-              <CtlTextInput
-                control={control}
-                name="pbBookURL"
-                label="Book URL"
-                placeholder="Enter Book URL"
-                type="url"
-                required
-                rules={{ ...required, ...httpUrl }}
-              />
-            </div>
-            <div className="mt-4">
-              <CtlTextInput
-                control={control}
+              <Controller
                 name="title"
-                label="Book Title"
-                placeholder="Enter Book Title"
-                // required
-                // rules={required}
+                control={control}
+                
+                render={({ field }) => (
+                  <Input
+                    name={field.name}
+                    id={field.name}
+                    label="Book Title"
+                    placeholder="Enter Book Title"
+                    required={false}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
+                )}
               />
             </div>
             <div className="mt-4">
-            <p>
-              <strong>CAUTION:</strong> Book Title cannot be changed after book is
-              imported! Leaving this blank will use the title from the book Metadata.
-            </p></div>
-          </Form>
+              <p>
+                <strong>CAUTION:</strong> Book Title cannot be changed after book
+                is imported! Leaving this blank will use the title from the book
+                Metadata.
+              </p>
+            </div>
+          </form>
+
           {(jobStatus === "pending" || jobStatus === "running") && (
-            <Message info className="mt-4">
-              <Message.Header>Import in progress</Message.Header>
+            <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-4">
+              <p className="font-semibold text-blue-800">Import in progress</p>
               {jobMessages.length > 0 ? (
                 <div
+                  className="mt-1"
                   style={{ maxHeight: 200, overflowY: "auto" }}
                   ref={messagesContainerRef}
                 >
-                  <ul>
+                  <ul className="ml-4 list-disc text-sm text-blue-700">
                     {jobMessages.map((msg, idx) => (
                       <li key={idx}>{msg}</li>
                     ))}
                   </ul>
                 </div>
               ) : (
-                <p>
-                  The book is being imported from Pressbooks. This may take a
-                  few minutes. Please keep this window open.
+                <p className="mt-1 text-sm text-blue-700">
+                  The book is being imported from Pressbooks. This may take a few
+                  minutes. Please keep this window open.
                 </p>
               )}
-            </Message>
+            </div>
           )}
+
           {!canAccessLibrary && (
-            <Message warning>
-              <Message.Header>Cannot Access Library</Message.Header>
-              <p>
-                Oops, it looks like you do not have access to this library. If
-                you need to request access, please submit or update your
-                instructor verification request here:{" "}
-                <a href={getCentralAuthInstructorURL()} target="_blank">
-                  {getCentralAuthInstructorURL()}
-                </a>
+            <div className="mt-4 rounded-md border border-yellow-200 bg-yellow-50 p-4">
+              <p className="font-semibold text-yellow-800">
+                Cannot Access Library
               </p>
-            </Message>
+              <p className="mt-1 text-sm text-yellow-700">
+                Oops, it looks like you do not have access to this library. If you
+                need to request access, please{" "}
+                {clientConfig?.instructor_verification_url ? (
+                  <>
+                    <span>
+                      submit or update your instructor verification request
+                      here:{" "}
+                    </span>
+                    <a
+                      href={clientConfig.instructor_verification_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      {clientConfig.instructor_verification_url}
+                    </a>
+                  </>
+                ) : (
+                  <a
+                    href="https://commons.libretexts.org/support/contact"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    contact our Support Center.
+                  </a>
+                )}
+              </p>
+            </div>
           )}
-        </Modal.Content>
-        <Modal.Actions>
-          <Button onClick={onClose} loading={loading}>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={onClose} loading={loading}>
             Cancel
           </Button>
           <Button
+            variant="primary"
             onClick={handleCreateClick}
-            labelPosition="left"
-            icon
-            color="green"
             loading={loading}
             disabled={!canAccessLibrary}
+            icon={<IconDeviceFloppy size={16} />}
+            iconPosition="left"
           >
-            <Icon name="save" />
             Create
           </Button>
-        </Modal.Actions>
+        </Modal.Footer>
       </Modal>
       <TeamAccessWarningModal
         open={showAccessWarning}
@@ -442,9 +448,14 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
           setShowAccessWarning(false);
           setLoading(false);
         }}
-        onCreateWithWarning={() => {
+        onCreateWithWarning={async () => {
           setShowAccessWarning(false);
-          createWorkbench();
+          try {
+            await createWorkbench();
+          } catch (err) {
+            handleGlobalError(err);
+            setLoading(false);
+          }
         }}
       />
     </>

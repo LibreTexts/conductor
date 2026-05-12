@@ -1,30 +1,52 @@
 import React from "react";
-import { Placeholder } from "semantic-ui-react";
+import { Skeleton, Stack } from "@libretexts/davis-react";
 
+const TreeSkeleton: React.FC = () => (
+  <Stack direction="vertical" gap="md">
+    <Skeleton
+      variant="text"
+      lines={1}
+      aria-label="Loading book tree"
+      width="70%"
+      height="10px"
+    />
+    <Skeleton
+      variant="text"
+      lines={1}
+      aria-label="Loading book tree"
+      width="60%"
+      height="10px"
+    />
+    <Skeleton
+      variant="text"
+      lines={1}
+      aria-label="Loading book tree"
+      width="60%"
+      height="10px" 
+    />
+    <Skeleton
+      variant="text"
+      lines={1}
+      aria-label="Loading book tree"
+      width="70%"
+      height="10px" 
+    />
+    <Skeleton
+      variant="text"
+      lines={1}
+      aria-label="Loading book tree"
+      width="60%"
+      height="10px" 
+    />
+    <Skeleton
+      variant="text"
+      lines={1}
+      aria-label="Loading book tree"
+      width="60%"
+      height="10px" 
+    />
 
- const TreeSkeleton: React.FC = () => (
-    <div
-      style={{
-        padding: 16,
-        background: "#f9f9f9",
-        borderRadius: 8,
-        // width: 320,
-        marginTop: 12,
-      }}
-    >
-      <Placeholder fluid>
-        <Placeholder.Header>
-          <Placeholder.Line length="medium" />
-        </Placeholder.Header>
-        <Placeholder.Paragraph>
-          <Placeholder.Line length="short" />
-          <Placeholder.Line length="medium" />
-          <Placeholder.Line length="long" />
-          <Placeholder.Line length="medium" />
-          <Placeholder.Line length="short" />
-        </Placeholder.Paragraph>
-      </Placeholder>
-    </div>
-  );
+    </Stack>
+);
 
-  export default TreeSkeleton
+export default TreeSkeleton;

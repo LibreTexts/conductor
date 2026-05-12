@@ -1,6 +1,8 @@
 import React from "react";
-import { Button, Checkbox, Icon, Loader, Modal, Popup } from "semantic-ui-react";
+import {   Icon, Loader,  Popup } from "semantic-ui-react";
 import { RemixerSubPage } from "./model";
+import { Button, Checkbox, IconButton, Modal, Stack, Text } from "@libretexts/davis-react";
+import { DAVIS_REMIXER_BTN_CLASS } from "./style";
 
 const collectDescendantIds = (
   nodes: RemixerSubPage[],
@@ -143,8 +145,9 @@ const BookImportModal: React.FC<BookImportModalProps> = ({
               ) : null}
             </span>
             <Checkbox
+              name="selected"
               checked={selected}
-              onChange={(_, d) => toggleSelection(id, Boolean(d.checked))}
+              onChange={(checked) => toggleSelection(id, checked)}
             />
             <span style={{ flex: 1, minWidth: 0 }}>{title}</span>
           </div>
@@ -155,15 +158,16 @@ const BookImportModal: React.FC<BookImportModalProps> = ({
   };
 
   return (
-    <Modal open={open} size="large" onClose={onCancel}>
+    <Modal open={open} size="xl" onClose={onCancel}>
       <Modal.Header>Import from book</Modal.Header>
-      <Modal.Content scrolling>
-        <p>
+      <Modal.Body >
+        <Text>
           Choose pages from <strong>{bookTitle}</strong> to copy into the
           current book. Folders toggle with all nested pages.
-        </p>
+        </Text>
+          
         {subtreeLoading ? (
-          <div style={{ padding: "2rem", textAlign: "center" }}>
+          <div  className="flex justify-center items-center h-full">
             <Loader active inline="centered" content="Loading pages…" />
           </div>
         ) : subtree && rootId ? (
@@ -179,33 +183,33 @@ const BookImportModal: React.FC<BookImportModalProps> = ({
               <span style={{ color: "rgba(0,0,0,.6)", fontSize: "0.9em" }}>
                 {selectedIds.size} of {selectableIds.length} selected
               </span>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            
+                <Stack direction="horizontal" gap="md" justify="end">
                 <Popup
                   content={allExpanded ? "Collapse all" : "Expand all"}
                   position="top center"
                   trigger={
-                    <Button
-                      icon
-                      size="tiny"
-                      basic
+                
+                    <IconButton
+                      icon={<Icon name={allExpanded ? "chevron up" : "chevron down"} />}
                       onClick={toggleExpandAll}
                       disabled={expandableIds.length === 0}
-                    >
-                      <Icon
-                        name={allExpanded ? "chevron up" : "chevron down"}
-                      />
-                    </Button>
+                      aria-label={allExpanded ? "Collapse all" : "Expand all"}
+                      className={DAVIS_REMIXER_BTN_CLASS.neutral}
+                    />
                   }
                 />
+
+
                 <Button
-                  size="tiny"
-                  basic
+                  size="sm"
                   onClick={toggleSelectAll}
                   disabled={selectableIds.length === 0}
+                  className={DAVIS_REMIXER_BTN_CLASS.neutral}
                 >
                   {allSelected ? "Deselect all" : "Select all"}
-                </Button>
-              </div>
+                </Button> </Stack>
+           
             </div>
             <div
               style={{
@@ -221,18 +225,19 @@ const BookImportModal: React.FC<BookImportModalProps> = ({
             </div>
           </>
         ) : null}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onCancel}>Cancel</Button>
+      </Modal.Body>
+      <Modal.Footer>
+        <Stack direction="horizontal" gap="md" justify="end">
+        <Button onClick={onCancel} className={DAVIS_REMIXER_BTN_CLASS.base}>Cancel</Button>
         <Button
-          positive
           disabled={subtreeLoading || !subtree || selectedIds.size === 0}
           loading={isImporting}
           onClick={onConfirm}
+          className={DAVIS_REMIXER_BTN_CLASS.success}
         >
           Import selected
-        </Button>
-      </Modal.Actions>
+        </Button></Stack>
+      </Modal.Footer>
     </Modal>
   );
 };

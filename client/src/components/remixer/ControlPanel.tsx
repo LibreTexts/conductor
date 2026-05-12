@@ -1,14 +1,20 @@
 import React, { useState } from "react";
 import { useMediaQuery } from "react-responsive";
-import { Button, Dropdown, Grid, Header, Icon, Modal, Popup } from "semantic-ui-react";
+import { Dropdown, Grid, Header, Icon, Modal, Popup } from "semantic-ui-react";
 import {
+  DAVIS_REMIXER_BTN_CLASS,
   buttonActiveStyle,
   buttonStyle,
   handleMouseEnter,
   handleMouseLeave,
-  STATUS_PALETTE,
 } from "./style";
 import { CopyMode, copyModeStates, defaultCopyModeState } from "./model";
+import { Button, IconButton, Select, Stack } from "@libretexts/davis-react";
+
+/** Matches davis IconButton `md` (`size-10` = 2.5rem) row height for toolbar + modal actions. */
+const CP_CONTROL_H = "h-10 min-h-10 shrink-0";
+const cpTextBtn = (surface: string) => `${surface} ${CP_CONTROL_H}`;
+const cpIconBtn = (surface: string) => `${surface} ${CP_CONTROL_H} size-10`;
 
 interface ControlPanelProps {
   onStartOver?: () => void | Promise<void>;
@@ -84,36 +90,39 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             gap: "12px",
           }}
         >
-          <Header
-            as="h2"
-            style={{ margin: 0, whiteSpace: "nowrap", color: "white" }}
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "2px",
+            }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
-              <Button
-                style={buttonStyle}
-                onClick={() => setConfirmStartOverOpen(true)}
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
-              >
-                <Icon name="refresh" /> Start Over
-              </Button>
-              <Popup
-                content="Load a different version"
-                position="bottom center"
-                trigger={
-                  <Button
-                    icon
-                    style={buttonStyle}
+            <Button
+              onClick={() => setConfirmStartOverOpen(true)}
+              style={buttonStyle}
+              className={cpTextBtn(DAVIS_REMIXER_BTN_CLASS.neutral)}
+              icon={<Icon name="refresh" />}
+              iconPosition="left"
+            >
+              Start Over
+            </Button>
+            <Popup
+              content="Load a different version"
+              position="bottom center"
+              trigger={
+                <span className={`inline-flex items-center ${CP_CONTROL_H}`}>
+                  <IconButton
                     onClick={onLoadVersion}
-                    onMouseEnter={handleMouseEnter}
-                    onMouseLeave={handleMouseLeave}
-                  >
-                    <Icon name="history" />
-                  </Button>
-                }
-              />{" "}
-            </div>
-          </Header>
+                    icon={<Icon name="history" />}
+                    className={cpIconBtn(DAVIS_REMIXER_BTN_CLASS.neutral)}
+                    aria-label="Load a different version"
+                  />
+                </span>
+              }
+            />
+          </div>
+
           {isAdmin && (
             <div
               style={{
@@ -123,10 +132,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                 minWidth: 0,
               }}
             >
-              <Dropdown
+              {/* <Dropdown
                 options={copyModeStates.map((state) => ({
                   key: state.value,
-                  text: isToolbarNarrow? state.title.length > 10 ? state.title.substring(0, 10) + "..." : state.title : state.title,
+                  text: isToolbarNarrow ? state.title.length > 10 ? state.title.substring(0, 10) + "..." : state.title : state.title,
                   value: state.value,
                 }))}
                 value={copyModeState ?? defaultCopyModeState.value}
@@ -138,8 +147,23 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                 compact
                 upward={false}
                 placeholder="Copy Mode..."
-                style={{ minWidth: 180, zIndex: 20 }}
+                style={{ minWidth: 180, zIndex: 20, minHeight: 40 }}
+              /> */}
+              <Select
+                name="copyMode"
+                label=""
+                options={copyModeStates.map((state) => ({
+                  label: state.title,
+                  value: state.value,
+                }))}
+                placeholder="Copy Mode..."
+                value={copyModeState ?? defaultCopyModeState.value}
+                onChange={(e) => {
+                  const next = copyModeStates.find((s) => s.value === e.target.value);
+                  if (next) onCopyModeChange?.(next.value);
+                }}
               />
+
             </div>
           )}
           <div
@@ -158,16 +182,13 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                 direction="left"
                 icon={null}
                 trigger={
-                  <Button
-                    icon
-                    compact
-                    aria-label="Control panel actions"
-                    style={buttonStyle}
-                    onMouseEnter={handleMouseEnter}
-                    onMouseLeave={handleMouseLeave}
-                  >
-                    <Icon name="ellipsis vertical" />
-                  </Button>
+                  <span className={`inline-flex items-center ${CP_CONTROL_H}`}>
+                    <IconButton
+                      icon={<Icon name="ellipsis vertical" />}
+                      className={cpIconBtn(DAVIS_REMIXER_BTN_CLASS.neutral)}
+                      aria-label="Control panel actions"
+                    />
+                  </span>
                 }
               >
                 <Dropdown.Menu>
@@ -175,80 +196,63 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                     icon="options"
                     text="Path Name Format"
                     onClick={onPathNameFormat}
-                    style={autoNumbering ? { color: STATUS_PALETTE.success } : undefined}
+                    className={
+                      autoNumbering ? DAVIS_REMIXER_BTN_CLASS.menuSuccess : undefined
+                    }
                   />
                   <Dropdown.Divider />
                   <Dropdown.Item icon="save" text="Save as a draft" onClick={onSave} />
-                  <Dropdown.Item icon="upload" text="Save on Library" onClick={onPublish} />
+                  <Dropdown.Item icon="upload" text="Save to Library" onClick={onPublish} />
                 </Dropdown.Menu>
               </Dropdown>
             ) : (
               <>
                 <Popup
-                  content="Path Name Format"
+                  content="Autonumbering settings"
                   position="bottom center"
                   trigger={
-                    autoNumbering ? (
-                      <Button
-                        onClick={onPathNameFormat}
-                        style={{
-                          backgroundColor: STATUS_PALETTE.successBg,
-                          color: STATUS_PALETTE.success,
-                        }}
-                        onMouseEnter={(event: React.MouseEvent<HTMLButtonElement>) => {
-                          event.currentTarget.style.backgroundColor =
-                            STATUS_PALETTE.success;
-                          event.currentTarget.style.color = "#ffffff";
-                        }}
-                        onMouseLeave={(event: React.MouseEvent<HTMLButtonElement>) => {
-                          event.currentTarget.style.backgroundColor =
-                            STATUS_PALETTE.successBg;
-                          event.currentTarget.style.color = STATUS_PALETTE.success;
-                        }}
-                      >
-                        Autonumber
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={onPathNameFormat}
-                        style={buttonStyle}
-                        onMouseEnter={handleMouseEnter}
-                        onMouseLeave={handleMouseLeave}
-                      >
-                        Autonumber
-                      </Button>
-                    )
+
+
+                    <Button
+                    style={buttonStyle}
+                      onClick={onPathNameFormat}
+                      className={autoNumbering ? `${DAVIS_REMIXER_BTN_CLASS.success} ${CP_CONTROL_H}` : cpTextBtn(DAVIS_REMIXER_BTN_CLASS.neutral)}
+                    >
+                      Autonumber
+                    </Button>
+
+
                   }
                 />
 
                 <Popup
                   content="Save as a draft"
                   position="bottom center"
+                  aria-label="Save as a draft"
                   trigger={
-                    <Button
-                      icon
-                      onClick={onSave}
-                      style={buttonStyle}
-                      onMouseEnter={handleMouseEnter}
-                      onMouseLeave={handleMouseLeave}
-                    >
-                      <Icon name="save" />
-                    </Button>
+                    <span className={`inline-flex items-center ${CP_CONTROL_H}`}>
+                      <IconButton
+                        icon={<Icon name="save" />}
+                        onClick={onSave}
+                        className={cpIconBtn(DAVIS_REMIXER_BTN_CLASS.neutral)}
+                        aria-label="Save as a draft"
+                      />
+                    </span>
                   }
                 />
                 <Popup
                   content="Save on Library"
                   position="bottom center"
+                  aria-label="Save to Library"
                   trigger={
-                    <Button
-                      icon
-                      onClick={onPublish}
-                      style={buttonStyle}
-                      onMouseEnter={handleMouseEnter}
-                      onMouseLeave={handleMouseLeave}
-                    >
-                      <Icon name="upload" />
-                    </Button>
+                    <span className={`inline-flex items-center ${CP_CONTROL_H}`}>
+                      <IconButton
+                        icon={<Icon name="upload" />}
+                        onClick={onPublish}
+                        className={cpIconBtn(DAVIS_REMIXER_BTN_CLASS.neutral)}
+                        aria-label="Save to Library"
+                      />
+                    </span>
                   }
                 />
               </>
@@ -269,20 +273,28 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           cannot be undone.
         </Modal.Content>
         <Modal.Actions>
-          <Button
-            onClick={() => setConfirmStartOverOpen(false)}
-            disabled={startOverLoading}
+          <Stack
+            direction="horizontal"
+            gap="md"
+            justify="end"
           >
-            Cancel
-          </Button>
-          <Button
-            negative
-            onClick={handleStartOverConfirm}
-            loading={startOverLoading}
-            disabled={startOverLoading}
-          >
-            Confirm
-          </Button>
+            <Button
+              className={CP_CONTROL_H}
+              onClick={() => setConfirmStartOverOpen(false)}
+              disabled={startOverLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              className={`${DAVIS_REMIXER_BTN_CLASS.success} ${CP_CONTROL_H}`}
+              onClick={handleStartOverConfirm}
+              loading={startOverLoading}
+              disabled={startOverLoading}
+            >
+              Confirm
+            </Button>
+          </Stack>
+
         </Modal.Actions>
       </Modal>
     </Grid.Row>

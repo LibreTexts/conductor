@@ -1,15 +1,16 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Button, Input, Modal, Table } from "semantic-ui-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  DataTable,
+  type ColumnDef,
+  type RowSelectionState,
+} from "@libretexts/davis-react-table";
 import { Book } from "../../../types";
-import { PaginationWithItemsSelect } from "../../util/PaginationWithItemsSelect";
 import { getLibraryName } from "../../util/LibraryOptions";
 import { getLicenseText } from "../../util/LicenseOptions";
+import { Button, Input, Modal, Stack } from "@libretexts/davis-react";
+import { IconSearch } from "@tabler/icons-react";
 
-const truncateStyle: React.CSSProperties = {
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
+const truncateCellClass = "block max-w-full overflow-hidden text-ellipsis whitespace-nowrap";
 
 interface CatalogListProps {
   open: boolean;
@@ -19,9 +20,6 @@ interface CatalogListProps {
   loadSelectedBook: (bookID: string, library: string, url: string) => void | Promise<void>;
   loading?: boolean;
 }
-
-type SortableColumn = "title" | "bookID" | "library" | "author" | "course" | "license";
-type SortDirection = "ascending" | "descending";
 
 const CatalogList: React.FC<CatalogListProps> = ({
   open,
@@ -33,22 +31,11 @@ const CatalogList: React.FC<CatalogListProps> = ({
 }: CatalogListProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
-  const [activePage, setActivePage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [sortColumn, setSortColumn] = useState<SortableColumn | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>("ascending");
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
-  const handleSort = (column: SortableColumn) => {
-    if (sortColumn === column) {
-      setSortDirection((prev) =>
-        prev === "ascending" ? "descending" : "ascending",
-      );
-    } else {
-      setSortColumn(column);
-      setSortDirection("ascending");
-    }
-    setActivePage(1);
-  };
+  const handleRowClick = useCallback((book: Book) => {
+    setRowSelection({ [book.bookID]: true });
+  }, []);
 
   const filteredCatalogBook = useMemo(() => {
     const books = catalogBook ?? [];
@@ -71,166 +58,187 @@ const CatalogList: React.FC<CatalogListProps> = ({
     });
   }, [catalogBook, searchTerm]);
 
-  const sortedBooks = useMemo(() => {
-    if (!sortColumn) return filteredCatalogBook;
-    const sorted = [...filteredCatalogBook].sort((a, b) => {
-      const rawA = (a[sortColumn] ?? "").toString();
-      const rawB = (b[sortColumn] ?? "").toString();
-      const resolve = (raw: string) => {
-        if (sortColumn === "library") return getLibraryName(raw);
-        if (sortColumn === "license") return getLicenseText(raw) ?? raw;
-        return raw;
-      };
-      const aVal = resolve(rawA).toLowerCase();
-      const bVal = resolve(rawB).toLowerCase();
-      return aVal.localeCompare(bVal);
-    });
-    return sortDirection === "descending" ? sorted.reverse() : sorted;
-  }, [filteredCatalogBook, sortColumn, sortDirection]);
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(sortedBooks.length / itemsPerPage) || 1,
+  const columns = useMemo<ColumnDef<Book>[]>(
+    () => [
+      {
+        accessorKey: "title",
+        header: "Title",
+        size: 280,
+        minSize: 120,
+        cell: ({ row }) => (
+          <span className="block whitespace-normal break-words leading-snug">
+            {row.original.title}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "bookID",
+        header: "ID",
+        size: 96,
+        minSize: 72,
+        cell: ({ row }) => (
+          <span
+            className={truncateCellClass}
+            title={row.original.bookID}
+          >
+            {row.original.bookID}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "library",
+        header: "Library",
+        size: 112,
+        minSize: 88,
+        sortingFn: (rowA, rowB) =>
+          getLibraryName(rowA.original.library)
+            .toLowerCase()
+            .localeCompare(getLibraryName(rowB.original.library).toLowerCase()),
+        cell: ({ row }) => {
+          const label = getLibraryName(row.original.library);
+          return (
+            <span className={truncateCellClass} title={label}>
+              {label}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: "author",
+        header: "Author",
+        size: 180,
+        minSize: 100,
+        cell: ({ row }) => (
+          <span
+            className={truncateCellClass}
+            title={row.original.author ?? ""}
+          >
+            {row.original.author}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "course",
+        header: "Campus",
+        size: 160,
+        minSize: 100,
+        cell: ({ row }) => (
+          <span
+            className={truncateCellClass}
+            title={row.original.course ?? ""}
+          >
+            {row.original.course}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "license",
+        header: "License",
+        size: 96,
+        minSize: 72,
+        sortingFn: (rowA, rowB) => {
+          const a = (getLicenseText(rowA.original.license) ?? "").toLowerCase();
+          const b = (getLicenseText(rowB.original.license) ?? "").toLowerCase();
+          return a.localeCompare(b);
+        },
+        cell: ({ row }) => {
+          const label = getLicenseText(row.original.license) ?? "";
+          return (
+            <span className={truncateCellClass} title={label}>
+              {label}
+            </span>
+          );
+        },
+      },
+    ],
+    [],
   );
 
-  const paginatedBooks = useMemo(() => {
-    const start = (activePage - 1) * itemsPerPage;
-    return sortedBooks.slice(start, start + itemsPerPage);
-  }, [sortedBooks, activePage, itemsPerPage]);
-
   useEffect(() => {
-    setActivePage(1);
+    setRowSelection({});
   }, [searchTerm, catalogBook]);
 
   useEffect(() => {
-    if (activePage > totalPages) {
-      setActivePage(totalPages);
+    const selectedId = Object.keys(rowSelection).find((id) => rowSelection[id]);
+    if (!selectedId) {
+      setSelectedBook(null);
+      return;
     }
-  }, [activePage, totalPages]);
+    const book = filteredCatalogBook.find((b) => b.bookID === selectedId);
+    if (!book) {
+      setSelectedBook(null);
+      setRowSelection({});
+      return;
+    }
+    setSelectedBook(book);
+  }, [rowSelection, filteredCatalogBook]);
 
   return (
-    <Modal open={open}  dimmer={dimmer} size="large" >
+    <Modal open={open} size="xl" onClose={onClose}>
       <Modal.Header>Catalog Book</Modal.Header>
-      <Modal.Content scrolling>
+      <Modal.Body >
         <Input
-          fluid
-          icon="search"
+          name="search"
+          label=""
+          leftIcon={<IconSearch size={16} />}
           placeholder="Search by title, ID, library, author, course, or license…"
           value={searchTerm}
-          onChange={(_e, { value }) => setSearchTerm(value)}
+          onChange={(value) => setSearchTerm(value.target.value ?? "")}
           style={{ marginBottom: 12 }}
         />
-        <PaginationWithItemsSelect
-          itemsPerPage={itemsPerPage}
-          setItemsPerPageFn={(n: number) => {
-            setItemsPerPage(n);
-            setActivePage(1);
-          }}
-          activePage={activePage}
-          setActivePageFn={setActivePage}
-          totalPages={totalPages}
-          totalLength={sortedBooks.length}
-        />
-        <div style={{ overflowX: "auto", marginTop: 8 }}>
-          <Table celled compact selectable striped sortable style={{ tableLayout: "fixed", width: "100%" }}>
-            <Table.Header>
-              <Table.Row>
-                <Table.HeaderCell
-                  style={{ width: "30%" }}
-                  sorted={sortColumn === "title" ? sortDirection : undefined}
-                  onClick={() => handleSort("title")}
-                >
-                  Title
-                </Table.HeaderCell>
-                <Table.HeaderCell
-                  style={{ width: "10%" }}
-                  sorted={sortColumn === "bookID" ? sortDirection : undefined}
-                  onClick={() => handleSort("bookID")}
-                >
-                  ID
-                </Table.HeaderCell>
-                <Table.HeaderCell
-                  style={{ width: "12%" }}
-                  sorted={sortColumn === "library" ? sortDirection : undefined}
-                  onClick={() => handleSort("library")}
-                >
-                  Library
-                </Table.HeaderCell>
-                <Table.HeaderCell
-                  style={{ width: "20%" }}
-                  sorted={sortColumn === "author" ? sortDirection : undefined}
-                  onClick={() => handleSort("author")}
-                >
-                  Author
-                </Table.HeaderCell>
-                <Table.HeaderCell
-                  style={{ width: "18%" }}
-                  sorted={sortColumn === "course" ? sortDirection : undefined}
-                  onClick={() => handleSort("course")}
-                >
-                  Campus
-                </Table.HeaderCell>
-                <Table.HeaderCell
-                  style={{ width: "10%" }}
-                  sorted={sortColumn === "license" ? sortDirection : undefined}
-                  onClick={() => handleSort("license")}
-                >
-                  License
-                </Table.HeaderCell>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {paginatedBooks.length === 0 ? (
-                <Table.Row>
-                  <Table.Cell colSpan={6} textAlign="center">
-                    No books match your search.
-                  </Table.Cell>
-                </Table.Row>
-              ) : (
-                paginatedBooks.map((book) => {
-                  const isSelected = selectedBook?.bookID === book.bookID;
-                  return (
-                    <Table.Row
-                      key={book.bookID}
-                      active={isSelected}
-                      onClick={() => setSelectedBook(book)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      <Table.Cell style={{ wordBreak: "break-word" }}>
-                        {book.title}
-                      </Table.Cell>
-                      <Table.Cell style={truncateStyle}>{book.bookID}</Table.Cell>
-                      <Table.Cell style={truncateStyle} title={getLibraryName(book.library)}>
-                        {getLibraryName(book.library)}
-                      </Table.Cell>
-                      <Table.Cell style={truncateStyle} title={book.author ?? ""}>
-                        {book.author}
-                      </Table.Cell>
-                      <Table.Cell style={truncateStyle} title={book.course ?? ""}>
-                        {book.course}
-                      </Table.Cell>
-                      <Table.Cell style={truncateStyle} title={getLicenseText(book.license) ?? ""}>
-                        {getLicenseText(book.license)}
-                      </Table.Cell>
-                    </Table.Row>
-                  );
-                })
-              )}
-            </Table.Body>
-          </Table>
-        </div>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose} disabled={loading}>Close</Button>
-        <Button
-          loading={loading}
-          disabled={!selectedBook || loading}
-          onClick={() => loadSelectedBook(selectedBook?.bookID ?? "", selectedBook?.library ?? "", selectedBook?.links?.online ?? "")}
-        >
-          Load on Library
-        </Button>
 
-      </Modal.Actions>
+        <DataTable<Book>
+          data={filteredCatalogBook}
+          columns={columns}
+          caption="Catalog books"
+          enableSorting
+          enablePagination
+          pageSize={10}
+          pageSizeOptions={[5, 10, 25, 50, 100]}
+          density="compact"
+          striped
+          bordered
+          maxHeight="min(55vh, 420px)"
+          stickyHeader
+          classNames={{
+            table: "w-full min-w-[640px] table-fixed",
+
+          }}
+          emptyState="No books match your search."
+          enableRowSelection
+          onRowClick={handleRowClick}
+          enableMultiSort
+          enableColumnFilters
+          tableOptions={{
+            getRowId: (row) => row.bookID,
+            enableMultiRowSelection: false,
+            state: { rowSelection },
+            onRowSelectionChange: setRowSelection,
+          }}
+        />
+
+      </Modal.Body>
+      <Modal.Footer>
+        <Stack direction="horizontal" gap="md" justify="end">
+          <Button onClick={onClose} disabled={loading} variant="outline" className="bg-neutral-100 text-neutral-700 hover:bg-neutral-200">
+            Close
+          </Button>
+          <Button
+            variant="primary"
+            className="bg-primary text-white hover:bg-primary-dark"
+            loading={loading}
+            disabled={!selectedBook || loading}
+            onClick={() =>
+              loadSelectedBook(
+                selectedBook?.bookID ?? "",
+                selectedBook?.library ?? "",
+                selectedBook?.links?.online ?? "",
+              )
+            }
+          >
+            Load on Library
+          </Button></Stack>
+      </Modal.Footer>
     </Modal>
   );
 };

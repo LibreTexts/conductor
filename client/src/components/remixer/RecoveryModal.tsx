@@ -1,5 +1,6 @@
 import React from "react";
-import { Button, Header, Icon, Modal, Segment } from "semantic-ui-react";
+import { Icon } from "semantic-ui-react";
+import { Button, Card, Heading, Modal, Stack, Text } from "@libretexts/davis-react";
 
 interface AvailableSources {
   hasLocal: boolean;
@@ -26,97 +27,90 @@ const RecoveryModal: React.FC<RecoveryModalProps> = ({
   onClose,
 }) => {
   return (
-    <Modal open={open} size="small" onClose={() => !loading && onClose()}>
+    <Modal open={open} size="md" onClose={() => {}}>
       <Modal.Header>
-        <Icon name="history" /> Load Remixer State
+        <Modal.Title>
+          <Icon name="history" /> Load Remixer State
+        </Modal.Title>
       </Modal.Header>
-      <Modal.Content>
-        <p>
+      <Modal.Body>
+
+        <Text className="text-gray-700">
           Choose which version to load. This will replace your current book
           tree.
-        </p>
-        <Segment.Group>
+        </Text>
+        <Stack direction="vertical" gap="md" className="mt-4">
           {availableSources.hasLocal && (
-            <Segment
-              style={{
-                cursor: loading ? "default" : "pointer",
-                transition: "background 0.15s",
-              }}
-              className="selectable"
+            <Card
+              variant="outline"
+              padding="md"
+              className={
+                loading
+                  ? "cursor-default"
+                  : "cursor-pointer transition-colors hover:bg-surface-hover"
+              }
               onClick={() => !loading && onLoadSource("local")}
             >
-              <Header as="h4">
-                <Icon name="computer" /> Browser Draft
-                {availableSources.localTimestamp && (
-                  <Header.Subheader>
+              <Card.Body>
+                <Heading level={4} className="flex items-center gap-2">
+                  <Icon name="computer" /> Browser Draft
+                </Heading>
+                {availableSources.localTimestamp != null && (
+                  <Text size="sm" className="mt-1 text-gray-500">
                     Saved:{" "}
-                    {new Date(
-                      availableSources.localTimestamp,
-                    ).toLocaleString()}
-                  </Header.Subheader>
+                    {new Date(availableSources.localTimestamp).toLocaleString()}
+                  </Text>
                 )}
-              </Header>
-              <p style={{ margin: 0, color: "#666" }}>
-                Restore unsaved changes from this browser.
-              </p>
-            </Segment>
+                <Text className="mt-2 text-gray-600">
+                 <br/> Restore unsaved changes from this browser.
+                </Text>
+              </Card.Body>
+            </Card>
           )}
           {availableSources.hasServerDraft && (
-            <Segment
-              style={{
-                cursor: loading ? "default" : "pointer",
-                transition: "background 0.15s",
-              }}
-              className="selectable"
+            <Card
+              variant="outline"
+              padding="md"
+              className={
+                loading
+                  ? "cursor-default"
+                  : "cursor-pointer transition-colors hover:bg-surface-hover"
+              }
               onClick={() => !loading && onLoadSource("serverDraft")}
             >
-              <Header as="h4">
-                <Icon name="cloud download" /> Server Draft
-              </Header>
-              <p style={{ margin: 0, color: "#666" }}>
-                Load the draft saved to the server.
-              </p>
-            </Segment>
+              <Card.Body>
+                <Heading level={4} className="flex items-center gap-2">
+                  <Icon name="cloud download" /> Server Draft
+                </Heading>
+                <Text className="mt-2 text-gray-600">
+                  Load the draft saved to the server.
+                </Text>
+              </Card.Body>
+            </Card>
           )}
-          {/* {availableSources.hasServer && (
-            <Segment
-              style={{
-                cursor: loading ? "default" : "pointer",
-                transition: "background 0.15s",
-              }}
-              className="selectable"
-              onClick={() => !loading && onLoadSource("server")}
-            >
-              <Header as="h4">
-                <Icon name="cloud" /> Server Saved State
-              </Header>
-              <p style={{ margin: 0, color: "#666" }}>
-                Fetch the latest saved state from the server.
-              </p>
-            </Segment>
-          )} */}
-          <Segment
-            style={{
-              cursor: loading ? "default" : "pointer",
-              transition: "background 0.15s",
-            }}
-            className="selectable"
+
+          <Card
+            variant="outline"
+            padding="md"
+            className={
+              loading
+                ? "cursor-default"
+                : "cursor-pointer transition-colors hover:bg-surface-hover"
+            }
             onClick={() => !loading && onLoadSource("fresh")}
           >
-            <Header as="h4">
-              <Icon name="book" /> Fresh from Library
-            </Header>
-            <p style={{ margin: 0, color: "#666" }}>
-              Reload the original book structure from the library.
-            </p>
-          </Segment>
-        </Segment.Group>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button disabled={loading} onClick={onClose}>
-          Cancel
-        </Button>
-      </Modal.Actions>
+            <Card.Body>
+              <Heading level={4} className="flex items-center gap-2">
+                <Icon name="book" /> Fresh from Library
+              </Heading>
+              <Text className="mt-2 text-gray-600">
+                Reload the original book structure from the library.
+              </Text>
+            </Card.Body>
+          </Card>
+        </Stack>
+      </Modal.Body>
+    
     </Modal>
   );
 };

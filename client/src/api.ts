@@ -68,6 +68,7 @@ import {
 import {
   AddableProjectTeamMember,
   CIDDescriptor,
+  ImportWorkbenchForm,
   ProjectBookBatchUpdateJob,
   ProjectFileAuthor,
   ProjectTag,
@@ -2388,6 +2389,16 @@ class API {
     });
     return res.data;
   }
+
+  async createPressbooksJob(values: ImportWorkbenchForm, projectID: string) {
+    const response = axios.post("/commons/import-pressbooks", {
+      ...values,
+      projectID,
+    });
+    return response;
+  }
+
+
 }
 
 export default new API();

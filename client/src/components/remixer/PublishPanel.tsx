@@ -1,19 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionTitle,
-  Button,
   Icon,
   List,
-  Modal,
-  ModalActions,
-  ModalContent,
-  ModalHeader,
   Progress,
 } from "semantic-ui-react";
 import { RemixerSubPage } from "./model";
-
+import { Accordion, Button, Modal, Text } from "@libretexts/davis-react";
 interface PublishPanelProps {
   open: boolean;
   dimmer: string;
@@ -47,7 +39,6 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
   publishStatus = "idle",
   publishMessages = [],
 }) => {
-  const [openSection, setOpenSection] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -129,9 +120,15 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
   }, [currentBook]);
 
   return (
-    <Modal dimmer={dimmer} open={open} onClose={canClose ? handleClose : undefined} closeOnDimmerClick={canClose} closeOnEscape={canClose}>
-      <ModalHeader>Save to Library</ModalHeader>
-      <ModalContent>
+    <Modal
+      open={open}
+      size="xl"
+      onClose={() => {
+        if (canClose) handleClose();
+      }}
+    >
+      <Modal.Header>Save to Library</Modal.Header>
+      <Modal.Body>
         {publishStatus !== "idle" && (
           <div
             style={{
@@ -192,43 +189,40 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
             )}
           </div>
         )}
-        <Accordion fluid styled>
+        <Accordion variant="bordered" className="mt-4 w-full">
           {sections.map((section) => (
-            <React.Fragment key={section.key}>
-              <AccordionTitle
-                active={openSection === section.key}
-                onClick={() =>
-                  setOpenSection((prev) => (prev === section.key ? "" : section.key))
-                }
-              >
-                <Icon name={openSection === section.key ? "angle up" : "angle down"} />
-                <span style={{ color: section.color, fontWeight: 600 }}>
+            <Accordion.Item key={section.key} defaultOpen={false}>
+              <Accordion.Trigger>
+                <span
+                  className="font-semibold"
+                  style={{ color: section.color }}
+                >
                   {section.items.length} {section.label}
                 </span>
-              </AccordionTitle>
-              <AccordionContent active={openSection === section.key}>
+              </Accordion.Trigger>
+              <Accordion.Panel>
                 {section.items.length === 0 ? (
-                  <span style={{ color: "#8a8a8a" }}>No pages</span>
+                  <Text color="muted">No pages</Text>
                 ) : (
-                  <List bulleted>
+                  <ul className="list-disc space-y-1 pl-5">
                     {section.items.map((item) => (
-                      <List.Item key={item["@id"]}>
+                      <li key={item["@id"]} className="text-sm text-gray-800">
                         {item["@title"] || item.title}
-                      </List.Item>
+                      </li>
                     ))}
-                  </List>
+                  </ul>
                 )}
-              </AccordionContent>
-            </React.Fragment>
+              </Accordion.Panel>
+            </Accordion.Item>
           ))}
         </Accordion>
-      </ModalContent>
-      <ModalActions>
-        <Button onClick={handleClose} disabled={!canClose}>Close</Button>
-        <Button positive onClick={publish} loading={publishInProgress} disabled={publishInProgress}>
-          Save 
+      </Modal.Body>
+      <Modal.Footer>
+        <Button onClick={handleClose} disabled={!canClose} variant="outline" className="bg-neutral-100 text-neutral-700 hover:bg-neutral-200">Close</Button>
+        <Button variant="primary" onClick={publish} loading={publishInProgress} disabled={publishInProgress}>
+          <Icon name="save" /> Save 
         </Button>
-      </ModalActions>
+      </Modal.Footer>
     </Modal>
   );
 };

@@ -9,7 +9,14 @@ import { lazy, useEffect, useState } from "react";
 import { ProjectClassification } from "../../types";
 import { useTypedSelector } from "../../state/hooks";
 import axios from "axios";
+import { useQuery } from "@tanstack/react-query";
 import ImportWorkbenchModal from "./ImportWorkbenchModal";
+
+type ActiveImportJob = {
+  jobID: string;
+  status: "pending" | "running" | "success" | "error";
+  messages: string[];
+};
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 
 interface ProjectLinkButtonsProps {
@@ -45,36 +52,28 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
     useState(false);
   const validWorkbench = didCreateWorkbench && libreCoverID && libreLibrary;
 
-  const [initialImportJob, setInitialImportJob] = useState<{
-    jobID: string;
-    status: "pending" | "running" | "success" | "error";
-    messages: string[];
-  } | null>(null);
   const user = useTypedSelector((state) => state.user);
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!projectID) return;
-
-    axios
-      .get("/commons/import-pressbooks/active", {
+  const { data: initialImportJob } = useQuery<ActiveImportJob | null>({
+    queryKey: ["active-import-pressbooks-job", projectID],
+    queryFn: async () => {
+      const res = await axios.get("/commons/import-pressbooks/active", {
         params: { projectID },
-      })
-      .then((res) => {
-        if (cancelled) return;
-        if (!res.data.err && res.data.job) {
-          setInitialImportJob(res.data.job);
-          setShowImportWorkbenchModal(true);
-        }
-      })
-      .catch(() => {
-        // Silently ignore; absence of job is non-fatal
       });
+      if (res.data.err || !res.data.job) return null;
+      return res.data.job as ActiveImportJob;
+    },
+    enabled: !!projectID,
+    retry: false,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [projectID]);
+  useEffect(() => {
+    if (initialImportJob) {
+      setShowImportWorkbenchModal(true);
+    }
+  }, [initialImportJob]);
 
   return (
     <div>
@@ -239,7 +238,6 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             <ImportWorkbenchModal
               show={showImportWorkbenchModal}
               projectID={projectID}
-              projectTitle={projectTitle}
               onClose={() => setShowImportWorkbenchModal(false)}
               onSuccess={() => window.location.reload()}
               project={project}

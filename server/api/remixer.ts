@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
+import {  ZodReqWithUser } from "../types/Express.js";
 import {
   GetRemixerPageSchema,
   GetRemixerProjectStateSchema,
@@ -50,23 +50,9 @@ const normalizeUpstreamErrorMessage = (message: string): string => {
   return trimmedMessage.slice(0, 300);
 };
 
-const buildConductorCookieHeader = (req: Request): string | undefined => {
-  const accessCookie = req.cookies?.conductor_access_v2;
-  const signedCookie = req.cookies?.conductor_signed_v2;
-  const cookieParts = [
-    accessCookie
-      ? `conductor_access_v2=${encodeURIComponent(accessCookie)}`
-      : "",
-    signedCookie
-      ? `conductor_signed_v2=${encodeURIComponent(signedCookie)}`
-      : "",
-  ].filter(Boolean);
-  if (cookieParts.length === 0) return undefined;
-  return cookieParts.join("; ");
-};
 
 const getRemixerProject = async (
-  req: ZodReqWithOptionalUser<z.infer<typeof GetRemixerProjectStateSchema>>,
+  req: ZodReqWithUser<z.infer<typeof GetRemixerProjectStateSchema>>,
   res: Response,
 ) => {
   const { id } = req.params;
@@ -165,7 +151,7 @@ const saveRemixerProjectState = async (
   });
 };
 const publishRemixerProject = async (
-  req: ZodReqWithOptionalUser<z.infer<typeof SaveRemixerProjectStateSchema>>,
+  req: ZodReqWithUser<z.infer<typeof SaveRemixerProjectStateSchema>>,
   res: Response,
 ) => {
   const { id } = req.params;
@@ -273,7 +259,7 @@ const publishRemixerProject = async (
 };
 
 const getRemixerJobStatus = async (
-  req: ZodReqWithOptionalUser<z.infer<typeof GetRemixerProjectStateSchema>>,
+  req: ZodReqWithUser<z.infer<typeof GetRemixerProjectStateSchema>>,
   res: Response,
 ) => {
   const { id } = req.params;
@@ -288,7 +274,7 @@ const getRemixerJobStatus = async (
 };
 
 const getRemixerProjectState = async (
-  req: ZodReqWithOptionalUser<z.infer<typeof GetRemixerProjectStateSchema>>,
+  req: ZodReqWithUser<z.infer<typeof GetRemixerProjectStateSchema>>,
   res: Response,
 ) => {
   const { id } = req.params;
@@ -335,7 +321,7 @@ const getRemixerProjectState = async (
 };
 
 const deleteRemixerProjectState = async (
-  req: ZodReqWithOptionalUser<z.infer<typeof GetRemixerProjectStateSchema>>,
+  req: ZodReqWithUser<z.infer<typeof GetRemixerProjectStateSchema>>,
   res: Response,
 ) => {
   const { id } = req.params;
@@ -361,7 +347,7 @@ const deleteRemixerProjectState = async (
 };
 
 const fetchPage = async (
-  req: ZodReqWithOptionalUser<z.infer<typeof GetRemixerPageSchema>>,
+  req: ZodReqWithUser<z.infer<typeof GetRemixerPageSchema>>,
   res: Response,
 ) => {
   try {
@@ -390,12 +376,11 @@ const fetchPage = async (
 
     const url = `https://${subdomain}.libretexts.org/@api/deki/pages/${pathPrefix
       }${normalizedPath}${pageDetails ? pageDetailsApi : subpageApi}`;
-    const conductorCookieHeader = buildConductorCookieHeader(req as unknown as Request);
 
     const options = {
       headers: {
         ...((await generateAPIRequestHeaders(subdomain)) ?? {}),
-        ...(conductorCookieHeader ? { Cookie: conductorCookieHeader } : {}),
+      
       },
     };
     const response = await fetch(url, options);

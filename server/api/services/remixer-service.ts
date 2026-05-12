@@ -20,19 +20,9 @@ import {
 } from "../../util/remixerutils";
 import * as cheerio from "cheerio";
 import { log } from "debug";
+import { RemixerSubPage } from "../../types/Remixer";
 
-export interface RemixerSubPage {
-  "@id": string;
-  "@title": string;
-  "@href": string;
-  "@subpages": boolean;
-  article: string;
-  namespace: string;
-  title: string;
-  "uri.ui": string;
-  parentID?: string;
-  formattedPath?: string;
-}
+
 
 export type RemixerCopyMode = "Transclude" | "Fork" | "Full";
 
