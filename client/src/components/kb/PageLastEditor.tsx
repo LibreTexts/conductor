@@ -1,4 +1,4 @@
-import { Image } from "semantic-ui-react";
+import { Avatar } from "@libretexts/davis-react";
 import { isKBPageEditor } from "../../utils/typeHelpers";
 import { KBPage } from "../../types";
 import { format, parseISO } from "date-fns";
@@ -25,7 +25,12 @@ const PageLastEditor: React.FC<PageLastEditorProps> = ({
           ? `${lastEditedBy.firstName} ${lastEditedBy.lastName}`
           : "Unknown"}
         {isKBPageEditor(lastEditedBy) && (
-          <Image src={`${lastEditedBy.avatar}`} avatar className="ml-1 mb-1" />
+          <Avatar
+            src={lastEditedBy.avatar}
+            name={`${lastEditedBy.firstName} ${lastEditedBy.lastName}`}
+            size="xs"
+            className="inline-block ml-1 mb-1"
+          />
         )}
       </p>
     </div>

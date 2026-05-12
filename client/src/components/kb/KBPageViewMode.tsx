@@ -1,3 +1,4 @@
+import { Divider } from "@libretexts/davis-react";
 import useGlobalError from "../../components/error/ErrorHooks";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -111,13 +112,14 @@ const KBPageViewMode = ({
         <span className="font-medium">Description</span>:{" "}
         <span className="italic">{page?.description}</span>
       </p>
-      <div className="flex flex-row border-b pb-2">
+      <div className="flex flex-row pb-2">
         <PageLastEditor
           lastEditedBy={page?.lastEditedBy}
           updatedAt={page?.updatedAt}
         />
         {canEdit && <PageStatusLabel status={page?.status} className="!mt-0.5"/>}
       </div>
+      <Divider />
 
       {toc && toc.length > 0 && (
         <div className="mt-6 mb-9">

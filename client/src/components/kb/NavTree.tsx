@@ -4,7 +4,14 @@ import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
 import { KBTreeNode } from "../../types";
 import { useTypedSelector } from "../../state/hooks";
-import { Icon, Popup } from "semantic-ui-react";
+import { Tooltip } from "@libretexts/davis-react";
+import {
+  IconCheck,
+  IconPaperclip,
+  IconPlus,
+  IconChevronLeft,
+  IconChevronRight,
+} from "@tabler/icons-react";
 import { truncateString } from "../util/HelperFunctions";
 import { canEditKB } from "../../utils/kbHelpers";
 import { useQuery } from "@tanstack/react-query";
@@ -101,24 +108,21 @@ const NavTree = () => {
 
   const StatusLabel = ({ status }: Pick<KBTreeNode, "status">) => {
     if (status === "published") {
-      return (
-        <Icon name="check" className="!ml-2 !mt-1" color="green" size="small" />
-      );
+      return <IconCheck size={14} className="ml-2 mt-0.5 text-green-600 shrink-0" aria-label="Published" />;
     }
-    return <Icon name="paperclip" className="!ml-2 !mb-1" color="blue" />;
+    return <IconPaperclip size={14} className="ml-2 mb-0.5 text-blue-600 shrink-0" aria-label="Draft" />;
   };
 
   return (
     <div
-      ref={navTreeRef}
       aria-busy={loading}
-      className={`h-screen-content overflow-y-auto border-r-1 border-gray-300 p-4 ${
-        drawerOpen ? "min-w-[15rem]" : "min-w-[4rem]"
-      } ${drawerOpen ? "max-w-[20rem]" : "max-w-[4rem]"} overflow-y-auto`}
+      className={`h-screen-content flex flex-col border-r border-gray-300 ${
+        drawerOpen ? "min-w-[15rem] max-w-[20rem]" : "min-w-[4rem] max-w-[4rem]"
+      }`}
     >
       {drawerOpen ? (
         <>
-          <div className="flex flex-row justify-between border-b mb-1 pb-1 items-center max-h-screen">
+          <div className="flex flex-row justify-between border-b mb-1 pb-1 px-4 pt-4 items-center shrink-0">
             <a
               className="text-xl font-semibold text-black"
               href="/insight/welcome"
@@ -126,37 +130,27 @@ const NavTree = () => {
               Insight Articles
             </a>
             {canEdit && (
-              <Popup
-                trigger={
-                  <Icon
-                    name="plus"
-                    className="!mb-1 !cursor-pointer"
-                    onClick={() => handleCreatePage()}
-                  />
-                }
-                position="top center"
-              >
-                <Popup.Content>
-                  <p className="text-sm">Create new root level page</p>
-                </Popup.Content>
-              </Popup>
+              <Tooltip content="Create new root level page" placement="top" className="z-[9999]">
+                <button
+                  className="mb-1 cursor-pointer text-gray-600 hover:text-primary"
+                  onClick={() => handleCreatePage()}
+                  aria-label="Create new root level page"
+                >
+                  <IconPlus size={18} />
+                </button>
+              </Tooltip>
             )}
-            <Popup
-              trigger={
-                <Icon
-                  name="angle left"
-                  className="!mb-1 !cursor-pointer"
-                  size="large"
-                  onClick={() => handleDrawerChange(false)}
-                />
-              }
-              position="top center"
-            >
-              <Popup.Content>
-                <p className="text-sm">Hide Table of Contents</p>
-              </Popup.Content>
-            </Popup>
+            <Tooltip content="Hide Table of Contents" placement="top" className="z-[9999]">
+              <button
+                className="mb-1 cursor-pointer text-gray-600 hover:text-primary"
+                onClick={() => handleDrawerChange(false)}
+                aria-label="Hide Table of Contents"
+              >
+                <IconChevronLeft size={22} />
+              </button>
+            </Tooltip>
           </div>
+          <div ref={navTreeRef} className="overflow-y-auto flex-1 px-4 pb-4">
           {tree?.map((node, index) => {
             const isActive = isActiveLink(node.slug);
             return (
@@ -216,13 +210,14 @@ const NavTree = () => {
               </div>
             );
           })}
+          </div>
         </>
       ) : (
         <div
           className="flex flex-col items-center cursor-pointer"
           onClick={() => handleDrawerChange(true)}
         >
-          <Icon name="angle right" size="large" className="!ml-2" />
+          <IconChevronRight size={22} className="ml-2 text-gray-600" />
           <div className="transform -rotate-90 text-xl font-semibold text-black whitespace-nowrap mt-20">
             Table of Contents
           </div>

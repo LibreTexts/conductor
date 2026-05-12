@@ -1,9 +1,10 @@
 import { useParams } from "react-router-dom";
 import DefaultLayoutWNavTree from "../../../components/kb/DefaultLayoutWNavTree";
-import { useEffect, useState, useRef, lazy } from "react";
+import { useEffect, useState, lazy } from "react";
 import KBPageViewMode from "../../../components/kb/KBPageViewMode";
 import { useTypedSelector } from "../../../state/hooks";
-import { Button, Icon } from "semantic-ui-react";
+import { Button } from "@libretexts/davis-react";
+import { IconPencil } from "@tabler/icons-react";
 import { canEditKB } from "../../../utils/kbHelpers";
 const KBPageEditMode = lazy(
   () => import("../../../components/kb/KBPageEditMode")
@@ -28,24 +29,21 @@ const KBPage = () => {
     setCanEdit(canEditKB(user));
   }, [user]);
 
-  function switchToEditMode() {
-    setMode("edit");
-  }
-
   const AdminOptions = () => {
+    if (!canEdit) return null;
     return (
-      <>
-        {canEdit && (
-          <div className="flex flex-row justify-end mb-2">
-            {mode === "view" && parsedSlug && (
-              <Button color="blue" onClick={switchToEditMode} size="small">
-                <Icon name="edit" />
-                Edit This Page
-              </Button>
-            )}
-          </div>
+      <div className="flex flex-row justify-end mb-2">
+        {mode === "view" && parsedSlug && (
+          <Button
+            variant="primary"
+            size="md"
+            icon={<IconPencil size={16} aria-hidden="true" />}
+            onClick={() => setMode("edit")}
+          >
+            Edit This Page
+          </Button>
         )}
-      </>
+      </div>
     );
   };
 
@@ -59,9 +57,7 @@ const KBPage = () => {
         <KBPageEditMode
           mode={mode}
           slug={parsedSlug}
-          onSaved={() => {
-            setMode("view");
-          }}
+          onSaved={() => setMode("view")}
         />
       )}
       <AdminOptions />
