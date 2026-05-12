@@ -202,7 +202,7 @@ export const GeneratePageImagesAltTextSchema =
     body: z.object({
       library: z.coerce.number().positive().int(),
       // pressbooks book URL
-      pbBookURL: z.string().trim().url({ message: "Invalid URLsssss" }),
+      pbBookURL: z.string().trim().url({ message: "Invalid URL" }),
       title: z.string().min(1).max(255).optional(),
       projectID: z.string().length(10),
     }),

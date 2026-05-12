@@ -1,26 +1,20 @@
 import { Book, MasterCatalogV2Response } from "../../types";
+import { LIBRARIES } from "../../utils/constants";
 
-export type Library = "bio" | "biz" | "chem" | "dev" | "eng" | "espanol" | "geo" | "human" | "k12" | "math" | "med" | "phys" | "socialsci" | "stats" | "workforce";
-export const libraries: Library[] = ["bio", "biz", "chem", "dev", "eng", "espanol", "geo", "human", "k12", "math", "med", "phys", "socialsci", "stats", "workforce"];
+export type Library = (typeof LIBRARIES)[number]["shortName"] | "dev";
+export const libraries: Library[] = [...LIBRARIES.map((lib) => lib.shortName), "dev"];
 export type PublishJobStatus = "idle" | "pending" | "running" | "success" | "error";
 
-export const libraryTitles: Record<Library, string> = {
-  bio: "Biology",
-  biz: "Business",
-  chem: "Chemistry",
-  dev: "Development",
-  eng: "Engineering",
-  espanol: "Español",
-  geo: "Geosciences",
-  human: "Humanities",
-  k12: "K-12 Education",
-  math: "Mathematics",
-  med: "Medicine",
-  phys: "Physics",
-  socialsci: "Social Sciences",
-  stats: "Statistics",
-  workforce: "Workforce",
-};
+export const libraryTitles: Record<Library, string> = [
+  ...LIBRARIES,
+  { href: "https://dev.libretexts.org/", shortName: "dev", longName: "Development" },
+].reduce(
+  (acc, lib) => {
+    acc[lib.shortName as Library] = lib.longName;
+    return acc;
+  },
+  {} as Record<Library, string>
+);
 
 
 export type NumberingType = "numeric" | "alphabetic" | "alphabetic_lower" | "roman" | "roman_lower" | "none";

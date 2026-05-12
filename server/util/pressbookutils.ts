@@ -30,16 +30,10 @@ interface TocShape {
   "back-matter": TocNode[];
 }
 
-export interface MindTouchConfig {
-  hostname: string;
-  apiKey: string;
-  apiSecret: string;
-  user?: string;
-  rootPath?: string;
-}
+
 
 export interface PublishOptions {
-  auth?: { username: string; password: string };
+
   /**
    * Optional logging callback used to stream progress messages.
    * Intended for background jobs (e.g., Pressbooks imports).
@@ -153,7 +147,7 @@ export class PressBookScraper {
 
   async publishBook(options: PublishOptions): Promise<PublishResult> {
     const encodePbURL = this.pbBookURL.replace(/\/+$/, "");
-    const auth = options.auth;
+    const auth = undefined;
     const result: PublishResult = {
       err: false,
       path: "",

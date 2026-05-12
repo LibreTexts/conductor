@@ -69,7 +69,7 @@ export type ProjectFileWCustomData<
   T extends keyof Project = never
 > = ProjectFile & {
   projectInfo: Record<K, string> &
-    (T extends never ? {} : ProjectFileWProjectData<T>);
+  (T extends never ? {} : ProjectFileWProjectData<T>);
 };
 
 export enum ProjectStatus {
@@ -220,6 +220,13 @@ export type AddableProjectTeamMember = Pick<
 };
 
 
-export type AuthenBrowser ={
+export type AuthenBrowser = {
   [key: string]: string;
+}
+
+export interface ImportWorkbenchForm {
+  library: number | string;
+  pbBookURL: string;
+  title: string;
+
 }

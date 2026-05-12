@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Button, Checkbox, Dropdown, Input, Message, Modal, Table } from "semantic-ui-react";
+import { Message, Table } from "semantic-ui-react";
 import {
   DEFAULT_PREFIX_OPTIONS,
   DELIMITER_OPTIONS,
@@ -9,6 +9,7 @@ import {
   PrefixOption,
 } from "./model";
 import { getStartToken, joinLeveledPathParts } from "./services";
+import { Button, Checkbox, Heading, Input, Modal, Select, Text } from "@libretexts/davis-react";
 
 interface PathNameFormatProps {
   open: boolean;
@@ -139,30 +140,24 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
   };
 
   return (
-    <Modal open={open} onClose={onClose} dimmer={dimmer} size="fullscreen">
+    <Modal open={open} onClose={onClose} size="xl" >
       <Modal.Header>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 16,
-          }}
-        >
-          <span>Autonumber Options</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
-            <span></span>
+        <div className="flex w-full min-w-0 items-center justify-between gap-4">
+          <Heading level={4} className="min-w-0 shrink">
+            Autonumber Options
+          </Heading>
+          <div className="ml-auto shrink-0">
             <Checkbox
-              toggle
+              name="autoNumbering"
               checked={localAutoNumbering}
-              onChange={(_, data) => setLocalAutoNumbering(!!data.checked)}
+              // onChange={(_, data) => setLocalAutoNumbering(!!data.checked)}
+              onChange={(checked) => setLocalAutoNumbering(checked)}
               label={localAutoNumbering ? "Enabled" : "Disabled"}
             />
-      
           </div>
         </div>
       </Modal.Header>
-      <Modal.Content>
+      <Modal.Body>
         <p>Configure how each level of hierarchy numbering should be displayed.</p>
         {depth <= 0 ? (
           <Message
@@ -189,105 +184,95 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                   <Table.Cell>{format.level}</Table.Cell>
                   <Table.Cell>
                     <Checkbox
+                      name="excludeParent"
+                      label=""
                       checked={format.excludeParent ?? false}
-                      onChange={() => updateLevelFormat(index, "excludeParent", !(format.excludeParent ))}
+                      onChange={() => updateLevelFormat(index, "excludeParent", !(format.excludeParent))}
                     />
                   </Table.Cell>
                   <Table.Cell>
-                    <Dropdown
-                      fluid
-                      selection
-                      search
-                      allowAdditions
-                      additionLabel="Custom: "
-                      options={DELIMITER_OPTIONS}
+
+                    <Select
+                      options={DELIMITER_OPTIONS.map((option) => ({
+                        label: option.text,
+                        value: option.value,
+                      }))}
+                      name="delimiter"
+                      label=""
                       value={format.delimiter ?? "."}
                       placeholder="Delimiter"
-                      onChange={(_, data) =>
-                        updateLevelFormat(
-                          index,
-                          "delimiter",
-                          String(data.value ?? "."),
-                        )
-                      }
+                      className="w-full"
+                      onChange={(value) => updateLevelFormat(index, "delimiter", String(value ?? "."))}
                     />
                   </Table.Cell>
                   <Table.Cell>
-                    <Dropdown
-                      fluid
-                      selection
-                      search
-                      allowAdditions
-                      additionLabel="Custom: "
-                      options={prefixOptions}
+
+                    <Select
+                      options={prefixOptions.map((option) => ({
+                        label: option.text,
+                        value: option.value,
+                      }))}
+                      name="prefix"
+                      label=""
                       value={format.prefix}
                       placeholder="Select or type a prefix"
-                      onAddItem={(_, data) => {
-                        const rawValue = String(data.value ?? "").trim();
-                        const normalized =
-                          rawValue.length > 0 && !rawValue.endsWith(" ")
-                            ? `${rawValue} `
-                            : rawValue;
-                        ensurePrefixOption(normalized);
-                        updateLevelFormat(index, "prefix", normalized);
-                      }}
-                      onChange={(_, data) => {
-                        const value = String(data.value ?? "");
-                        updateLevelFormat(index, "prefix", value);
-                      }}
+                      className="w-full"
+                      onChange={(value) => updateLevelFormat(index, "prefix", String(value ?? ""))}
                     />
-                    
-                    <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
+
+                    <Text size="xs" className="mt-1  text-neutral-500">
                       Example: {`${format.prefix}${getStartToken(format.start, format.type)}`}
-                    </div>
+                    </Text>
                   </Table.Cell>
                   <Table.Cell>
-                    <Dropdown
-                      fluid
-                      selection
-                      options={NUMBERING_TYPE_OPTIONS}
+
+                    <Select
+                      options={NUMBERING_TYPE_OPTIONS.map((option) => ({
+                        label: option.text,
+                        value: option.value,
+                      }))}
+                      name="type"
+                      label=""
                       value={format.type}
-                      onChange={(_, data) =>
-                        updateLevelFormat(
-                          index,
-                          "type",
-                          (data.value as NumberingType) ?? "numeric",
-                        )
-                      }
+                      placeholder="Select a type"
+                      className="w-full"
+
+                      onChange={(value) => updateLevelFormat(index, "type", String(value ?? "numeric"))}
                     />
                   </Table.Cell>
                   <Table.Cell>
                     <Input
-                      fluid
                       type="number"
-                      min={1}
-                      step={1}
+                      name="start"
+                      label=" "
+                      aria-label="Starting value"
                       value={format.start}
-                      onChange={(event) =>
-                        updateLevelFormat(
-                          index,
-                          "start",
-                          Number(event.target.value) || 1,
-                        )
+                      className="w-full"
+                      onChange={(value) =>
+                        updateLevelFormat(index, "start", Number(value ?? 1))
                       }
                     />
-                    <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>
+                    <Text size="xs" className="mt-1   text-neutral-500">
                       Based on type: {getStartToken(format.start, format.type)}
-                    </div>
+                    </Text>
                   </Table.Cell>
-                  <Table.Cell>{previewByLevel[index]}</Table.Cell>
+                  <Table.Cell>
+                    <Text size="sm" className="mt-3 text-gray-500">
+                      {previewByLevel[index]}
+                    </Text>
+                  </Table.Cell>
                 </Table.Row>
               ))}
             </Table.Body>
           </Table>
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button positive onClick={handleSave}>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button onClick={onClose} variant="outline" className="bg-neutral-100 text-neutral-700 hover:bg-neutral-200">Cancel</Button>
+        <Button onClick={handleSave} variant="primary" className="bg-primary text-white hover:bg-primary-dark">
           Apply
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };
