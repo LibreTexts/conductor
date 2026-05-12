@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { VisuallyHidden } from "@libretexts/davis-react";
 import { IconBrandFacebook, IconBrandX, type IconProps } from "@tabler/icons-react";
 import classNames from "classnames";
@@ -22,10 +22,14 @@ const Footer = () => {
   const org = useTypedSelector((state) => state.org);
   const [tooltipsDismissed, setTooltipsDismissed] = useState(false);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      setTooltipsDismissed(true);
-    }
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setTooltipsDismissed(true);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   const handleMouseEnter = useCallback(() => {
@@ -123,7 +127,6 @@ const Footer = () => {
                 className="relative group"
                 onMouseEnter={handleMouseEnter}
                 onFocus={handleFocus}
-                onKeyDown={handleKeyDown}
               >
                 <a
                   href={item.href}
@@ -153,7 +156,7 @@ const Footer = () => {
                 {!tooltipsDismissed && (
                   <span
                     role="tooltip"
-                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-sm rounded shadow-md opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none transition-opacity whitespace-nowrap"
+                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-sm rounded shadow-md opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity whitespace-nowrap"
                   >
                     {item.tooltip}
                   </span>
