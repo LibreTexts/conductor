@@ -1,14 +1,13 @@
 import { useEffect } from "react";
-import { Modal, ModalProps } from "semantic-ui-react";
 import { SupportTicket, User } from "../../types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../../api";
 import { useNotifications } from "../../context/NotificationContext";
-import CtlNextGenCombobox from "../ControlledInputs/CtlNextGenCombobox";
 import { useForm } from "react-hook-form";
-import Button from "../NextGenComponents/Button";
+import { Button, Listbox, Modal } from "@libretexts/davis-react";
+import { IconCheck, IconX } from "@tabler/icons-react";
 
-interface AssignTicketModalProps extends ModalProps {
+interface AssignTicketModalProps {
   open: boolean;
   onCancel: () => void;
   onSave: () => void;
@@ -24,7 +23,7 @@ const AssignTicketModal: React.FC<AssignTicketModalProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const { addNotification } = useNotifications();
-  const { control, getValues, setValue, watch } = useForm<{
+  const { control, getValues, setValue, watch, register } = useForm<{
     assignees: string[];
   }>({
     defaultValues: {
@@ -32,17 +31,16 @@ const AssignTicketModal: React.FC<AssignTicketModalProps> = ({
     },
   });
 
-  const { data: ticket, isFetching: isFetchingTicket } =
-    useQuery<SupportTicket>({
-      queryKey: ["ticket", ticketId],
-      queryFn: async () => {
-        const res = await api.getSupportTicket(ticketId);
-        return res.data.ticket;
-      },
-      enabled: open && !!ticketId,
-    });
+  const { data: ticket } = useQuery<SupportTicket>({
+    queryKey: ["ticket", ticketId],
+    queryFn: async () => {
+      const res = await api.getSupportTicket(ticketId);
+      return res.data.ticket;
+    },
+    enabled: open && !!ticketId,
+  });
 
-  const { data: assignableUsers, isFetching: isFetchingUsers } = useQuery<
+  const { data: assignableUsers } = useQuery<
     Pick<User, "uuid" | "firstName" | "lastName" | "email" | "avatar">[]
   >({
     queryKey: ["assignableUsers"],
@@ -88,45 +86,61 @@ const AssignTicketModal: React.FC<AssignTicketModalProps> = ({
     },
   });
 
+  const getAssignedNames = (v: string[]) => {
+    if (v.length === 0) return "No change...";
+    const names = assignableUsers
+      ?.filter((user) => v.includes(user.uuid))
+      .map((user) => `${user.firstName} ${user.lastName}`);
+    return names?.join(", ") || "No change...";
+  }
+
   return (
     <Modal {...rest} open={open} onClose={onCancel}>
-      <Modal.Header>Assign Ticket to User(s)</Modal.Header>
-      <Modal.Content className="!mb-64">
-        <CtlNextGenCombobox
-          control={control}
-          name="assignees"
-          label="Change Assignees"
-          placeholder="No Change..."
-          multiple={true}
-          loading={isFetchingUsers}
-          items={
-            assignableUsers?.map((user) => ({
-              key: user.uuid,
-              value: user.uuid,
-              text: `${user.firstName} ${user.lastName} (${user.email})`,
-            })) || []
-          }
-        />
-      </Modal.Content>
-      <Modal.Actions className="flex justify-end space-x-2">
+      <Modal.Header>
+        <Modal.Title>Assign Ticket to User(s)</Modal.Title>
+      </Modal.Header>
+      <Modal.Body className="">
+        <Listbox
+          // {...register("assignees")}
+          value={watch('assignees')}
+          onChange={(v) => setValue("assignees", v)}
+          multiple
+        >
+          <Listbox.Button
+            displayValue={(v) => getAssignedNames(v as unknown as string[])}
+            placeholder="No change..."
+          />
+
+          <Listbox.Options>
+            {
+              assignableUsers?.map((user) => (
+                <Listbox.Option key={user.uuid} value={user.uuid}>
+                  {`${user.firstName} ${user.lastName} (${user.email})`}
+                </Listbox.Option>
+              )) || []
+            }
+          </Listbox.Options>
+        </Listbox>
+      </Modal.Body>
+      <Modal.Footer>
         <Button
-          variant="secondary"
+          variant="outline"
           onClick={() => onCancel()}
-          icon="IconX"
-          loading={updateAssignedMutation.isLoading}
+          icon={<IconX size={18} />}
+          loading={updateAssignedMutation.isPending}
         >
           Cancel
         </Button>
         <Button
           color="blue"
           onClick={() => updateAssignedMutation.mutate(getValues())}
-          icon="IconCheck"
-          loading={updateAssignedMutation.isLoading}
+          icon={<IconCheck size={18} />}
+          loading={updateAssignedMutation.isPending}
           disabled={watch("assignees").length === 0}
         >
           Save Changes
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };

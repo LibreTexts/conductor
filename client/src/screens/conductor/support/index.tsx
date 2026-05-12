@@ -106,7 +106,7 @@ const SupportCenter = () => {
           title="Connections"
           text="Connect and converse with fellow instructors and OER authors (Verified Instructors only)."
           icon={ICON_MAP.connections}
-          link="/support/connections"
+          link="https://connections.libretexts.org"
         />
         <HomeItem
           title="Insight"

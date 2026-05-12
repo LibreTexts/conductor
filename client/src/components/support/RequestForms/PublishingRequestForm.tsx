@@ -25,6 +25,7 @@ const AuthorsTable: React.FC<{
   return (
     <div className="w-full">
       <Table celled fluid compact striped className="!mt-4 !mb-0">
+        <caption className="sr-only">Authors and their institutions</caption>
         <Table.Header>
           <Table.Row>
             <Table.HeaderCell>First Name</Table.HeaderCell>
@@ -39,6 +40,7 @@ const AuthorsTable: React.FC<{
               <Table.Cell>
                 <Input
                   label="First Name"
+                  labelClassName="sr-only"
                   placeholder="First Name"
                   {...register(`metadata.authors.${idx}.firstName` as const)}
                 />
@@ -46,6 +48,7 @@ const AuthorsTable: React.FC<{
               <Table.Cell>
                 <Input
                   label="Last Name"
+                  labelClassName="sr-only"
                   placeholder="Last Name"
                   {...register(`metadata.authors.${idx}.lastName` as const)}
                 />
@@ -53,6 +56,7 @@ const AuthorsTable: React.FC<{
               <Table.Cell>
                 <Input
                   label="Institution"
+                  labelClassName="sr-only"
                   placeholder="Institution"
                   {...register(`metadata.authors.${idx}.institution` as const)}
                 />
@@ -135,9 +139,9 @@ const PublishingRequestForm: React.FC<PublishingRequestFormProps> = () => {
     <RequestFormWithAuth>
       <div className="space-y-8">
         <div className="border-b border-gray-900/10 pb-10">
-          <h3 className="font-semibold text-2xl mt-12">
+          <h2 className="font-semibold text-2xl mt-12">
             Publishing Request Info
-          </h3>
+          </h2>
           <p className="text-gray-600 text-sm/6 !mt-1">
             Please only submit one request per project. If you have multiple
             projects, please submit a separate request for each.
@@ -161,7 +165,7 @@ const PublishingRequestForm: React.FC<PublishingRequestFormProps> = () => {
           />
         </div>
         <div className="border-b border-gray-900/10 pb-10">
-          <h3 className="font-semibold text-2xl">Pre-Publishing Checks</h3>
+          <h2 className="font-semibold text-2xl">Pre-Publishing Checks</h2>
           <p className="text-gray-600 text-sm/6 !mt-1">
             Please review the following checklist to ensure your resource is
             ready for publishing. You can find more information about each item
@@ -173,6 +177,7 @@ const PublishingRequestForm: React.FC<PublishingRequestFormProps> = () => {
               className="text-blue-600 underline"
             >
               this page
+              <span className="sr-only"> (opens in a new tab)</span>
             </a>{" "}
             of our Construction Guide.
           </p>
@@ -204,7 +209,7 @@ const PublishingRequestForm: React.FC<PublishingRequestFormProps> = () => {
           </div>
         </div>
         <div className="border-b border-gray-900/10 pb-10">
-          <h3 className="font-semibold text-2xl">License Information</h3>
+          <h2 className="font-semibold text-2xl">License Information</h2>
           <p className="text-gray-600 text-sm/6 !mt-1">
             What license will this resource be published under?
           </p>
@@ -238,9 +243,9 @@ const PublishingRequestForm: React.FC<PublishingRequestFormProps> = () => {
           )}
         </div>
         <div className="border-b border-gray-900/10 pb-10">
-          <h3 className="font-semibold text-2xl">
+          <h2 className="font-semibold text-2xl">
             Author & Institution Information
-          </h3>
+          </h2>
           <p className="text-gray-600 text-sm/6 !mt-1">
             Please provide the name of the author(s) and their institution(s).
           </p>
@@ -254,9 +259,9 @@ const PublishingRequestForm: React.FC<PublishingRequestFormProps> = () => {
           />
         </div>
         <div>
-          <h3 className="font-semibold text-2xl mb-2">
+          <h2 className="font-semibold text-2xl mb-2">
             Additional Information (optional)
-          </h3>
+          </h2>
           <Textarea
             label="Additional Information"
             placeholder="Is there any other information you'd like to provide about this publishing request?"

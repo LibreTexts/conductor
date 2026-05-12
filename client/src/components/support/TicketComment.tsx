@@ -1,6 +1,6 @@
 import React from "react";
 import { SupportTicketMessage } from "../../types";
-import { Comment } from "@libretexts/davis-react";
+import { Comment, Link } from "@libretexts/davis-react";
 import { format, parseISO } from "date-fns";
 import Linkify from "linkify-react";
 
@@ -12,6 +12,15 @@ interface TicketCommentProps {
 }
 
 const TicketComment: React.FC<TicketCommentProps> = ({ msg }) => {
+
+  const renderLink = ({ attributes, content }: { attributes: any; content: string }) => {
+    const { href } = attributes;
+    if (!href) {
+      return content;
+    }
+    return <Link className="text-sm" href={href} target="_blank" rel="noopener noreferrer">{content}</Link>;
+  }
+
   const formatMessage = (message: string) => {
     return message.split("\n").map((line, index) => {
       // ignore trailing empty line
@@ -19,7 +28,9 @@ const TicketComment: React.FC<TicketCommentProps> = ({ msg }) => {
         return null;
       }
       return (
-        <Linkify key={index} options={{ rel: "noopener noreferrer", target: "_blank" }}>
+        <Linkify key={index} options={{
+          render: renderLink,
+        }}>
           {line}
           <br />
         </Linkify>
