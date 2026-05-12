@@ -156,8 +156,8 @@ const NavTree = () => {
             return (
               <div
                 key={node.uuid}
-                id={`node-${index}`} 
-                className="p-2 rounded-xl hover:bg-slate-100"
+                id={`node-${index}`}
+                className={`p-2 rounded-xl ${isActive ? "bg-blue-50" : "hover:bg-slate-100"}`}
                 data-active={isActive}
               >
                 <div className="flex flex-row justify-between items-center">
@@ -182,7 +182,7 @@ const NavTree = () => {
                         <div
                           key={child.uuid}
                           id={`child-${index}`}
-                          className="p-2 flex flex-row items-center"
+                          className={`p-2 rounded-lg flex flex-row items-center ${isChildActive ? "bg-blue-50" : "hover:bg-slate-100"}`}
                           data-active={isChildActive}
                         >
                           <a

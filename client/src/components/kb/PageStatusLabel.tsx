@@ -8,11 +8,10 @@ type PageStatusLabelProps = {
 const PageStatusLabel: React.FC<PageStatusLabelProps> = ({ status, className }) => {
   return (
     <Badge
+      label={status === "published" ? "Published" : "Draft"}
       variant={status === "published" ? "success" : "primary"}
       className={`ml-3 ${className ?? ""}`}
-    >
-      {status === "published" ? "Published" : "Draft"}
-    </Badge>
+    />
   );
 };
 
