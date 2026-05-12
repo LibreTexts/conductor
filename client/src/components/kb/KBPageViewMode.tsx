@@ -56,6 +56,7 @@ const KBPageViewMode = ({
         throw new Error("Page not found");
       }
       setPage(res.data.page);
+      document.title = `${res.data.page.title} | LibreTexts Insight`;
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -106,7 +107,7 @@ const KBPageViewMode = ({
   return (
     <div aria-busy={loading}>
       <div className="flex flex-row items-center">
-        <p className="text-4xl font-semibold">{page?.title}</p>
+        <h1 className="text-4xl font-semibold">{page?.title}</h1>
       </div>
       <p className="max-w-6xl">
         <span className="font-medium">Description</span>:{" "}

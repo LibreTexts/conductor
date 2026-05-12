@@ -24,7 +24,7 @@ const KBSearchForm: React.FC = () => {
                 labelClassName="sr-only"
                 placeholder="Search Insight Articles..."
                 className="w-3/4"
-                inputClassName="bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black"
+                inputClassName="bg-white placeholder-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 rightIcon={<IconSearch size={18} aria-hidden="true" />}

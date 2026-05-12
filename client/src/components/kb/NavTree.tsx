@@ -114,7 +114,8 @@ const NavTree = () => {
   };
 
   return (
-    <div
+    <nav
+      aria-label="Knowledge base navigation"
       aria-busy={loading}
       className={`h-screen-content flex flex-col border-r border-gray-300 ${
         drawerOpen ? "min-w-[15rem] max-w-[20rem]" : "min-w-[4rem] max-w-[4rem]"
@@ -124,7 +125,7 @@ const NavTree = () => {
         <>
           <div className="flex flex-row justify-between border-b mb-1 pb-1 px-4 pt-4 items-center shrink-0">
             <a
-              className="text-xl font-semibold text-black"
+              className="text-xl font-semibold text-black rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               href="/insight/welcome"
             >
               Insight Articles
@@ -132,21 +133,23 @@ const NavTree = () => {
             {canEdit && (
               <Tooltip content="Create new root level page" placement="top" className="z-[9999]">
                 <button
-                  className="mb-1 cursor-pointer text-gray-600 hover:text-primary"
+                  type="button"
+                  className="mb-1 cursor-pointer text-gray-600 hover:text-primary rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-w-6 min-h-6 flex items-center justify-center"
                   onClick={() => handleCreatePage()}
                   aria-label="Create new root level page"
                 >
-                  <IconPlus size={18} />
+                  <IconPlus size={18} aria-hidden="true" />
                 </button>
               </Tooltip>
             )}
             <Tooltip content="Hide Table of Contents" placement="top" className="z-[9999]">
               <button
-                className="mb-1 cursor-pointer text-gray-600 hover:text-primary"
+                type="button"
+                className="mb-1 cursor-pointer text-gray-600 hover:text-primary rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-w-6 min-h-6 flex items-center justify-center"
                 onClick={() => handleDrawerChange(false)}
                 aria-label="Hide Table of Contents"
               >
-                <IconChevronLeft size={22} />
+                <IconChevronLeft size={22} aria-hidden="true" />
               </button>
             </Tooltip>
           </div>
@@ -163,7 +166,7 @@ const NavTree = () => {
                 <div className="flex flex-row justify-between items-center">
                   <div className="flex flex-row items-center overflow-x-clip align-middle">
                     <a
-                      className={`text-lg break-words hyphens-auto ${
+                      className={`text-lg break-words hyphens-auto rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                         isActive ? "text-blue-600" : "text-black"
                       }`}
                       href={getLink(node.slug)}
@@ -186,7 +189,7 @@ const NavTree = () => {
                           data-active={isChildActive}
                         >
                           <a
-                            className={`text-md break-words hyphens-auto ${
+                            className={`text-md break-words hyphens-auto rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                               isChildActive ? "text-blue-600" : "text-gray-600"
                             }`}
                             href={getLink(child.slug)}
@@ -199,12 +202,13 @@ const NavTree = () => {
                       );
                     })}
                   {canEdit && (
-                    <a
-                      className="p-2 text-md font-semibold text-blue-500  break-words hyphens-auto !cursor-pointer"
+                    <button
+                      type="button"
+                      className="p-2 text-md font-semibold text-blue-500 break-words hyphens-auto cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       onClick={() => handleCreatePage(node.uuid)}
                     >
                       + Add Page
-                    </a>
+                    </button>
                   )}
                 </div>
               </div>
@@ -213,17 +217,19 @@ const NavTree = () => {
           </div>
         </>
       ) : (
-        <div
-          className="flex flex-col items-center cursor-pointer"
+        <button
+          type="button"
+          className="flex flex-col items-center cursor-pointer w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
           onClick={() => handleDrawerChange(true)}
+          aria-label="Show Table of Contents"
         >
-          <IconChevronRight size={22} className="ml-2 text-gray-600" />
+          <IconChevronRight size={22} className="ml-2 text-gray-600" aria-hidden="true" />
           <div className="transform -rotate-90 text-xl font-semibold text-black whitespace-nowrap mt-20">
             Table of Contents
           </div>
-        </div>
+        </button>
       )}
-    </div>
+    </nav>
   );
 };
 

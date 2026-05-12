@@ -227,17 +227,16 @@ const KBPageEditMode = ({
       {saveSuccess && (
         <Alert
           variant="success"
+          message="Page saved successfully!"
           dismissible
           onDismiss={() => setSaveSuccess(false)}
           className="mb-4"
-        >
-          Page saved successfully!
-        </Alert>
+        />
       )}
       <div className="flex flex-row justify-between">
         <div className="flex flex-row items-center">
           <div className="flex flex-row max-w-3xl">
-            <p className="text-3xl font-semibold">
+            <h1 className="text-3xl font-semibold">
               {mode === "edit" ? (
                 <span>
                   Editing Page: <em>{getValues("title")}</em>
@@ -245,7 +244,7 @@ const KBPageEditMode = ({
               ) : (
                 <span>Create New Page</span>
               )}
-            </p>
+            </h1>
           </div>
         </div>
         <EditorOptions editMode={mode === "edit"} />

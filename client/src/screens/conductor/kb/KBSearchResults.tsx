@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import DefaultLayoutWNavTree from "../../../components/kb/DefaultLayoutWNavTree";
 import KBFooter from "../../../components/kb/KBFooter";
@@ -19,6 +19,7 @@ const KBSearchResults = () => {
 
   useEffect(() => {
     if (query) {
+      document.title = `Search: ${decodeURIComponent(query)} | LibreTexts Insight`;
       handleSearch(query);
     }
   }, [query]);
