@@ -13,7 +13,11 @@ const KBJumbotron: React.FC<{}> = ({}) => {
       <div className="mt-8 w-full">
         <KBSearchForm />
       </div>
-      <a className="mt-4 text-white underline" href="/insight/welcome">
+      <a
+        className="mt-4 px-4 py-2 rounded border border-white font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white hover:bg-white/10 transition-colors"
+        style={{ color: "white" }}
+        href="/insight/welcome"
+      >
         View All Content
       </a>
     </div>

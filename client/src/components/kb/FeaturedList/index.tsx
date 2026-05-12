@@ -1,4 +1,5 @@
-import { Button, Icon } from "semantic-ui-react";
+import { Button } from "@libretexts/davis-react";
+import { IconPlus } from "@tabler/icons-react";
 import { useTypedSelector } from "../../../state/hooks";
 import FeaturedPageCard from "./FeaturedPageCard";
 import useGlobalError from "../../error/ErrorHooks";
@@ -73,21 +74,19 @@ const FeaturedList = () => {
           </p>
         </div>
         {canEdit && (
-          <div className="mt-2 lg:mt-0">
+          <div className="mt-2 lg:mt-0 flex gap-2 self-start">
             <Button
-              size="tiny"
-              color="blue"
+              variant="primary"
+              icon={<IconPlus size={18} aria-hidden="true" />}
               onClick={() => setShowAddPage(true)}
             >
-              <Icon name="plus" />
               Add Featured Article
             </Button>
             <Button
-              size="tiny"
-              color="blue"
+              variant="primary"
+              icon={<IconPlus size={18} aria-hidden="true" />}
               onClick={() => setShowAddVideo(true)}
             >
-              <Icon name="plus" />
               Add Featured Video
             </Button>
           </div>
