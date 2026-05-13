@@ -282,49 +282,53 @@ const AdoptionReports = () => {
         </Breadcrumb>
       </Stack>
 
-      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3 xl:max-w-6xl">
-        <Input
-          name="adoption-reports-from-date"
-          label="From"
-          type="date"
-          value={fromDate}
-          onChange={(e) => setFromDate(e.target.value)}
-        />
-        <Input
-          name="adoption-reports-to-date"
-          label="To"
-          type="date"
-          value={toDate}
-          onChange={(e) => setToDate(e.target.value)}
-        />
-        <Select
-          name="adoption-reports-sort"
-          label="Sort by"
-          placeholder="Sort reports"
-          options={SORT_OPTIONS}
-          value={sortChoice}
-          onChange={(e) => setSortChoice(e.target.value)}
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="p-4 bg-white border-b border-gray-200">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:max-w-6xl">
+            <Input
+              name="adoption-reports-from-date"
+              label="From"
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+            />
+            <Input
+              name="adoption-reports-to-date"
+              label="To"
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+            />
+            <Select
+              name="adoption-reports-sort"
+              label="Sort by"
+              placeholder="Sort reports"
+              options={SORT_OPTIONS}
+              value={sortChoice}
+              onChange={(e) => setSortChoice(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <DataTable
+          data={sortedReports}
+          columns={columns}
+          loading={loading}
+          density="compact"
+          bordered
+          striped
+          stickyHeader
+          caption="Adoption reports results"
+          emptyState={
+            <div className="py-8 text-center">
+              <Text>
+                <em>No results found.</em>
+              </Text>
+            </div>
+          }
+          onRowClick={(row) => handleOpenARV(row)}
         />
       </div>
-
-      <DataTable
-        data={sortedReports}
-        columns={columns}
-        loading={loading}
-        density="compact"
-        bordered
-        striped
-        stickyHeader
-        caption="Adoption reports results"
-        emptyState={
-          <div className="py-8 text-center">
-            <Text>
-              <em>No results found.</em>
-            </Text>
-          </div>
-        }
-        onRowClick={(row) => handleOpenARV(row)}
-      />
 
       <AdoptionReportView
         show={showARVModal}
