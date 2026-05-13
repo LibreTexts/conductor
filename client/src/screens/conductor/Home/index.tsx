@@ -1,4 +1,4 @@
-import { Alert, Card, Timeline, Button, Heading, Stack } from "@libretexts/davis-react";
+import { Alert, Card, Divider, Timeline, Button, Heading, Stack } from "@libretexts/davis-react";
 import { IconPlus } from "@tabler/icons-react";
 import { useEffect, useState, useCallback, lazy } from "react";
 import { useTypedSelector } from "../../../state/hooks";
@@ -144,14 +144,14 @@ const Home = () => {
       )}
       <div className="flex flex-col mb-4 w-full">
         <Heading level={1}>Home</Heading>
-        <div className="border border-b-gray-300 w-full"></div>
+        <Divider className="mt-2" />
       </div>
 
-      <div className="flex flex-col lg:flex-row w-full gap-12">
-        <div className="flex flex-col lg:w-[15%]">
+      <div className="flex flex-col xl:flex-row w-full gap-8">
+        <div className="flex flex-col xl:w-52 xl:shrink-0">
           <UserMenu />
         </div>
-        <div className="flex flex-col lg:w-[65%]">
+        <div className="flex flex-col flex-1 min-w-0">
           <Button
             variant="primary"
             fullWidth
@@ -164,11 +164,11 @@ const Home = () => {
           <PinnedProjects />
           <RecentlyEditedProjects />
         </div>
-        <div className="flex flex-col lg:w-[20%]">
+        <div className="flex flex-col xl:w-72 xl:shrink-0">
           <Card>
             <Card.Header>
-              <div className="flex items-center justify-between">
-                <Heading level={3} className="m-0!">Announcements</Heading>
+              <div className="flex items-center justify-between gap-2">
+                <Heading level={4} style={{ margin: 0 }}>Announcements</Heading>
                 {(user.isCampusAdmin === true || user.isSuperAdmin === true) && (
                   <Button
                     variant="primary"
@@ -177,6 +177,7 @@ const Home = () => {
                     icon={<IconPlus size={16} />}
                     name="New Announcement"
                     title="New Announcement"
+                    className="shrink-0"
                   />
                 )}
               </div>
