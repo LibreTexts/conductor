@@ -82,6 +82,7 @@ app.use(
         "'sha256-wjPyHKFbRc4HkIhBXM6I/dBX9NqqdnXFbz8jONRWKCU='", // gtag.js inline
         "'sha256-pnIV3nmqaM9pcomyIJxQz4o3MHOOZiXIQ7B+8Wca1Fw='", // Matomo (traffic.libretexts.org) inline
         "'sha256-aawMBSWTXKcxtf97Ip9Pv5QB2AqhxUOYnYSLtKH0eBo='", // New Relic Browser inline
+        "'sha256-N3GwF3F0yVStOHQ4jxCvXyt6XrRYmQ/y5TvgGD8/cd4='", // New Relic Browser inline
         "*.googletagmanager.com", // gtag.js,
         "*.ssa.gov", // ANDI,
         "https://ajax.googleapis.com", // Google CDN (jQuery for ANDI)
