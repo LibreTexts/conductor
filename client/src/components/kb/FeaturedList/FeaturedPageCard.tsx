@@ -1,8 +1,8 @@
 import "./FeaturedList.css";
 import { lazy, useState } from "react";
 import { KBFeaturedPage } from "../../../types";
-import { Icon } from "semantic-ui-react";
-import { truncateString } from "../../util/HelperFunctions";
+import { Card } from "@libretexts/davis-react";
+import { IconTrash } from "@tabler/icons-react";
 const ConfirmDeleteFeaturedModal = lazy(() => import("./ConfirmDeleteFeaturedModal"));
 
 const FeaturedPageCard = ({
@@ -21,29 +21,29 @@ const FeaturedPageCard = ({
     onDeleted();
   }
 
-  function handleClicked() {
-    window.location.assign(`/insight/${page.page.slug}`);
-  }
-
   return (
-    <div className="featured-article-card" onClick={handleClicked}>
+    <div className="relative mr-6 mb-5">
+      {/* Card renders as <a>, so delete button must live OUTSIDE it in the DOM */}
+      <Card
+        href={`/insight/${page.page.slug}`}
+        className="block w-72 text-center border-2 border-transparent"
+        padding="sm"
+      >
+        <Card.Body className="flex flex-col items-center px-2 py-4">
+          <p className="text-lg font-semibold line-clamp-2">{page.page.title}</p>
+          <p className="text-sm my-1 line-clamp-3">{page.page.description}</p>
+        </Card.Body>
+      </Card>
       {canDelete && (
-        <div
-          className="flex flex-row justify-end w-full mb-1"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowDeleteModal(true);
-          }}
+        <button
+          type="button"
+          aria-label={`Delete ${page.page.title}`}
+          className="absolute top-2 right-2 z-10 bg-white/80 text-gray-500 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 rounded cursor-pointer min-w-6 min-h-6 flex items-center justify-center"
+          onClick={() => setShowDeleteModal(true)}
         >
-          <Icon name="trash" size="small" />
-        </div>
+          <IconTrash size={16} aria-hidden="true" />
+        </button>
       )}
-      <div className="flex flex-col px-4">
-        <p className="text-lg font-semibold flex-wrap line-clamp-2">
-          {page.page.title}
-        </p>
-        <p className="text-sm flex-wrap my-1 line-clamp-3">{page.page.description}</p>
-      </div>
       <ConfirmDeleteFeaturedModal
         open={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}

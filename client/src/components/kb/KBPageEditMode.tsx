@@ -1,12 +1,17 @@
-import { Button, Icon, Message } from "semantic-ui-react";
+import { Alert, Button, FormSection, Input } from "@libretexts/davis-react";
+import {
+  IconTrash,
+  IconEye,
+  IconDeviceFloppy,
+  IconCheck,
+} from "@tabler/icons-react";
 import useGlobalError from "../../components/error/ErrorHooks";
 import { useEffect, useState, lazy } from "react";
 import axios from "axios";
 import { useTypedSelector } from "../../state/hooks";
-import { get, useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { KBPage } from "../../types";
 import PageLastEditor from "./PageLastEditor";
-import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 import useQueryParam from "../../utils/useQueryParam";
 import PageStatusLabel from "./PageStatusLabel";
@@ -170,48 +175,47 @@ const KBPageEditMode = ({
 
   const EditorOptions = ({ editMode }: { editMode: boolean }) => {
     return (
-      <div className="flex flex-row h-8">
+      <div className="flex flex-row gap-2 items-center">
         {editMode && (
           <>
             <Button
-              color="red"
+              variant="destructive"
+              size="md"
               loading={loading}
+              icon={<IconTrash size={18} aria-hidden="true" />}
               onClick={() => setShowDeleteModal(true)}
-              size="mini"
             >
-              <Icon name="trash" />
               Delete
             </Button>
             <Button
-              color="purple"
+              variant="outline"
+              size="md"
               loading={loading}
+              icon={<IconEye size={18} aria-hidden="true" />}
               onClick={() => setShowPreview(true)}
-              size="mini"
             >
-              <Icon name="eye" />
               Preview
             </Button>
           </>
         )}
         {mode === "edit" && (
           <Button
-            color="green"
+            variant="primary"
+            size="md"
             loading={loading}
+            icon={<IconDeviceFloppy size={18} aria-hidden="true" />}
             onClick={() => handleSave("published")}
-            size="mini"
           >
-            <Icon name="save" />
             Save & Publish
           </Button>
         )}
         <Button
-          color={editMode ? "blue" : "green"}
-          basic={editMode}
+          variant={editMode ? "outline" : "primary"}
+          size="md"
           loading={loading}
+          icon={<IconDeviceFloppy size={18} aria-hidden="true" />}
           onClick={() => handleSave("draft")}
-          size="mini"
         >
-          <Icon name="save" />
           {editMode ? "Save as Draft" : "Create Draft"}
         </Button>
       </div>
@@ -221,15 +225,18 @@ const KBPageEditMode = ({
   return (
     <div>
       {saveSuccess && (
-        <Message color="green" onDismiss={() => setSaveSuccess(false)}>
-          <Icon name="save" />
-          Page saved successfully!
-        </Message>
+        <Alert
+          variant="success"
+          message="Page saved successfully!"
+          dismissible
+          onDismiss={() => setSaveSuccess(false)}
+          className="mb-4"
+        />
       )}
       <div className="flex flex-row justify-between">
         <div className="flex flex-row items-center">
           <div className="flex flex-row max-w-3xl">
-            <p className="text-3xl font-semibold">
+            <h1 className="text-3xl font-semibold">
               {mode === "edit" ? (
                 <span>
                   Editing Page: <em>{getValues("title")}</em>
@@ -237,7 +244,7 @@ const KBPageEditMode = ({
               ) : (
                 <span>Create New Page</span>
               )}
-            </p>
+            </h1>
           </div>
         </div>
         <EditorOptions editMode={mode === "edit"} />
@@ -260,49 +267,60 @@ const KBPageEditMode = ({
           <PageStatusLabel status={getValues("status")} className="!mt-0.5" />
         </div>
       )}
-      <div className="flex flex-col my-8">
-        <div className="mb-4">
-          <CtlTextInput
-            control={control}
-            name="title"
-            label="Title (max 100 characters)"
-            placeholder="Page Title"
-            rules={required}
-            required
-            fluid
-            maxLength={100}
-          />
-        </div>
-        <div className="mb-4">
-          <CtlTextInput
-            control={control}
-            name="description"
-            label="Description (max 200 characters)"
-            placeholder="Brief description of the page"
-            rules={required}
-            required
-            fluid
-            maxLength={200}
-          />
-        </div>
-        <div className="mb-4">
-          <CtlTextInput
-            control={control}
-            name="slug"
-            label="URL Slug (optional) (ex: my-page-title)"
-            placeholder="URL slug of the page. Leave blank to auto-generate."
-            fluid
-          />
-          <p className="text-xs text-gray-500 italic ml-1">
-            If you leave this blank, the URL slug will be auto-generated based
-            on the page title. If you provide a slug, it must be unique and will
-            be parsed and safely encoded by the system. Use caution when
-            changing an existing slug as it may break existing links.
-          </p>
-        </div>
+      <div className="flex flex-col my-8 gap-6">
+        <FormSection title="Page Details" description="Basic information about this knowledge base page.">
+          <div className="flex flex-col gap-4">
+            <Controller
+              control={control}
+              name="title"
+              rules={required}
+              render={({ field, fieldState: { error } }) => (
+                <Input
+                  {...field}
+                  name="title"
+                  label="Title (max 100 characters)"
+                  placeholder="Page Title"
+                  required
+                  maxLength={100}
+                  error={!!error}
+                  errorMessage={error?.message}
+                />
+              )}
+            />
+            <Controller
+              control={control}
+              name="description"
+              rules={required}
+              render={({ field, fieldState: { error } }) => (
+                <Input
+                  {...field}
+                  name="description"
+                  label="Description (max 200 characters)"
+                  placeholder="Brief description of the page"
+                  required
+                  maxLength={200}
+                  error={!!error}
+                  errorMessage={error?.message}
+                />
+              )}
+            />
+            <Controller
+              control={control}
+              name="slug"
+              render={({ field }) => (
+                <Input
+                  {...field}
+                  name="slug"
+                  label="URL Slug (optional) (ex: my-page-title)"
+                  placeholder="URL slug of the page. Leave blank to auto-generate."
+                  helperText="Leave blank to auto-generate from the title. If provided, must be unique. Use caution when changing an existing slug as it may break existing links."
+                />
+              )}
+            />
+          </div>
+        </FormSection>
 
-        <div className="mt-8">
-          <p className="form-field-label mb-1">Content</p>
+        <FormSection title="Content" description="The body content of this page.">
           {watch("uuid") ? (
             <KBCKEditor
               data={watch("body")}
@@ -316,7 +334,7 @@ const KBPageEditMode = ({
               Save this page first to start editing the content.
             </p>
           )}
-        </div>
+        </FormSection>
       </div>
       <div className="flex flex-row justify-end mt-6">
         <EditorOptions editMode={mode === "edit"} />

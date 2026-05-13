@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import DefaultLayoutWNavTree from "../../../components/kb/DefaultLayoutWNavTree";
 import KBFooter from "../../../components/kb/KBFooter";
@@ -9,6 +9,7 @@ import {
   extractPathHiglights,
   getHighlightedTextSafe,
 } from "../../../utils/kbHelpers";
+import { Card, EmptyState, Spinner } from "@libretexts/davis-react";
 
 const KBSearchResults = () => {
   const { handleGlobalError } = useGlobalError();
@@ -18,6 +19,7 @@ const KBSearchResults = () => {
 
   useEffect(() => {
     if (query) {
+      document.title = `Search: ${decodeURIComponent(query)} | LibreTexts Insight`;
       handleSearch(query);
     }
   }, [query]);
@@ -57,19 +59,20 @@ const KBSearchResults = () => {
       <div className="flex flex-col" aria-busy={loading}>
         <h1 className="text-4xl font-semibold">Search Results</h1>
         <div className="my-6">
-          {loading && <p>Loading...</p>}
-          {!loading && results.length === 0 && <p>No results found.</p>}
+          {loading && <Spinner size="md" text="Loading..." />}
+          {!loading && results.length === 0 && (
+            <EmptyState title="No results found" description={`No pages matched your search for "${decodeURIComponent(query ?? "")}"`.trim()} />
+          )}
           {!loading &&
             results.length > 0 &&
             results.map((result) => (
-              <div
+              <Card
                 key={result.uuid}
-                onClick={() => {
-                  goToPage(result.slug);
-                }}
-                className="w-full rounded-lg shadow-md hover:shadow-xl mb-4 border cursor-pointer"
+                onClick={() => goToPage(result.slug)}
+                padding="sm"
+                className="mb-4"
               >
-                <div className="p-4">
+                <Card.Body>
                   <p
                     className="text-xl font-semibold overflow-clip"
                     dangerouslySetInnerHTML={{
@@ -78,7 +81,7 @@ const KBSearchResults = () => {
                         extractPathHiglights("title", result.highlight)
                       ),
                     }}
-                  ></p>
+                  />
                   <p
                     className="overflow-clip"
                     dangerouslySetInnerHTML={{
@@ -87,9 +90,9 @@ const KBSearchResults = () => {
                         extractPathHiglights("description", result.highlight)
                       ),
                     }}
-                  ></p>
-                </div>
-              </div>
+                  />
+                </Card.Body>
+              </Card>
             ))}
         </div>
       </div>

@@ -1,13 +1,9 @@
 import { useState } from "react";
-import { Form, FormProps } from "semantic-ui-react";
+import { Input } from "@libretexts/davis-react";
+import { IconSearch } from "@tabler/icons-react";
 
-interface KBSearchFormProps extends FormProps { }
-
-const KBSearchForm: React.FC<KBSearchFormProps> = ({
-    ...rest
-}) => {
+const KBSearchForm: React.FC = () => {
     const [search, setSearch] = useState("");
-    const [loading, setLoading] = useState(false);
 
     async function handleSearch() {
         if (!search) return;
@@ -15,25 +11,26 @@ const KBSearchForm: React.FC<KBSearchFormProps> = ({
     }
 
     return (
-        <Form
+        <form
             className="w-full flex justify-center"
             onSubmit={(e) => {
                 e.preventDefault();
                 handleSearch();
             }}
-            {...rest}
         >
-            <Form.Input
-                id="kb-search"
-                icon="search"
+            <Input
+                name="kb-search"
+                label="Search Insight Articles"
+                labelClassName="sr-only"
                 placeholder="Search Insight Articles..."
                 className="w-3/4"
+                inputClassName="bg-white placeholder-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                loading={loading}
+                rightIcon={<IconSearch size={18} aria-hidden="true" />}
             />
-        </Form>
-    )
-}
+        </form>
+    );
+};
 
 export default KBSearchForm;
