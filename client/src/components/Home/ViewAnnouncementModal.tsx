@@ -1,11 +1,5 @@
-import {
-  Button,
-  Header,
-  Icon,
-  Modal,
-  ModalProps,
-  Image,
-} from "semantic-ui-react";
+import { Modal, Button, Avatar } from "@libretexts/davis-react";
+import { IconTrash } from "@tabler/icons-react";
 import axios from "axios";
 import { useState } from "react";
 import { Announcement } from "../../types";
@@ -14,11 +8,10 @@ import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { capitalizeFirstLetter } from "../util/HelperFunctions";
 import { useTypedSelector } from "../../state/hooks";
-import { fi } from "date-fns/locale";
 import useGlobalError from "../error/ErrorHooks";
 import { isOrganization } from "../../utils/typeHelpers";
 
-interface ViewAnnouncementModalProps extends ModalProps {
+interface ViewAnnouncementModalProps {
   show: boolean;
   announcement?: Announcement;
   onClose: () => void;
@@ -28,25 +21,17 @@ const ViewAnnouncementModal: React.FC<ViewAnnouncementModalProps> = ({
   show,
   announcement,
   onClose,
-  ...rest
 }) => {
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
   const [loading, setLoading] = useState<boolean>(false);
 
-  /**
-   * Submit a DELETE request to the server to delete the announcement
-   * currently open in the View Announcement Modal, then close
-   * the modal
-   */
   async function deleteAnnouncement() {
     try {
       if (!announcement || !announcement._id) return;
       setLoading(true);
       const res = await axios.delete("/announcement", {
-        data: {
-          announcementID: announcement._id,
-        },
+        data: { announcementID: announcement._id },
       });
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -60,62 +45,70 @@ const ViewAnnouncementModal: React.FC<ViewAnnouncementModalProps> = ({
   }
 
   return (
-    <Modal onClose={() => onClose()} open={show} {...rest}>
-      <Modal.Header>{announcement?.title ?? ""}</Modal.Header>
+    <Modal open={show} onClose={() => onClose()} size="lg">
+      <Modal.Header>
+        <Modal.Title>{announcement?.title ?? ""}</Modal.Title>
+        <Modal.Close />
+      </Modal.Header>
       {announcement && (
         <>
-          <Modal.Content>
-            <Header as="h4">
-              <Image
-                avatar
-                src={`${announcement.author?.avatar || "/mini_logo.png"}`}
+          <Modal.Body>
+            <div className="flex items-center gap-3 mb-4">
+              <Avatar
+                src={announcement.author?.avatar || "/mini_logo.png"}
+                alt={`${announcement.author?.firstName ?? ""} ${announcement.author?.lastName ?? ""}`}
+                size="md"
               />
-              <Header.Content>
-                {announcement?.author?.firstName ?? ""}{" "}
-                {announcement.author?.lastName}
-                <Header.Subheader>
+              <div>
+                <p className="font-semibold m-0">
+                  {announcement.author?.firstName ?? ""}{" "}
+                  {announcement.author?.lastName}
+                </p>
+                <p className="text-sm text-gray-500 m-0">
                   {format(parseISO(announcement.createdAt), "MM/dd/yy")} at{" "}
                   {format(parseISO(announcement.createdAt), "h:mm aa")}
-                </Header.Subheader>
-              </Header.Content>
-            </Header>
-            <Modal.Description className="announcement-view-text">
-              {announcement.message && (
-                <p
-                  className="prose prose-code:before:hidden prose-code:after:hidden"
-                  dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(
-                      marked(announcement.message, { breaks: true })
-                    ),
-                  }}
-                ></p>
-              )}
-            </Modal.Description>
-            <span className="gray-span">
+                </p>
+              </div>
+            </div>
+            {announcement.message && (
+              <div
+                className="prose prose-code:before:hidden prose-code:after:hidden mb-3"
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(
+                    marked(announcement.message, { breaks: true }) as string
+                  ),
+                }}
+              />
+            )}
+            <p className="text-sm text-gray-500 m-0">
               Sent to:{" "}
               {isOrganization(announcement.org)
                 ? capitalizeFirstLetter(
                     announcement.org?.shortName || "Unknown"
                   )
                 : "Global"}
-            </span>
-          </Modal.Content>
-          <Modal.Actions className="flex flex-row justify-between">
-            {(announcement.author?.uuid === user.uuid || user.isSuperAdmin) && (
-              <Button
-                color="red"
-                loading={loading}
-                onClick={deleteAnnouncement}
-              >
-                <Icon name="trash" />
-                Delete
+            </p>
+          </Modal.Body>
+          <Modal.Footer>
+            <div className="flex justify-between w-full">
+              <div>
+                {(announcement.author?.uuid === user.uuid ||
+                  user.isSuperAdmin) && (
+                  <Button
+                    variant="destructive"
+                    loading={loading}
+                    onClick={deleteAnnouncement}
+                    icon={<IconTrash size={16} />}
+                  >
+                    Delete
+                  </Button>
+                )}
+              </div>
+              <Button variant="primary" onClick={() => onClose()}>
+                Done
               </Button>
-            )}
-
-            <Button color="blue" onClick={() => onClose()}>
-              Done
-            </Button>
-          </Modal.Actions>
+            </div>
+          </Modal.Footer>
         </>
       )}
     </Modal>
