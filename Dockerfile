@@ -59,6 +59,10 @@ COPY --from=server-builder /usr/src/conductor/server/util ./util
 COPY --from=server-builder /usr/src/conductor/server/public ./public
 COPY --from=client-builder /usr/src/conductor/client/dist ../client/dist
 
+ENV NEW_RELIC_NO_CONFIG_FILE=true
+ENV NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true
+ENV NEW_RELIC_LOG=stdout
+
 EXPOSE 5000
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=45s --retries=3 \
