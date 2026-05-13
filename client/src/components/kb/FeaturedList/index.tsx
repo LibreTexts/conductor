@@ -1,4 +1,5 @@
-import { Button, Icon } from "semantic-ui-react";
+import { Button } from "@libretexts/davis-react";
+import { IconPlus } from "@tabler/icons-react";
 import { useTypedSelector } from "../../../state/hooks";
 import FeaturedPageCard from "./FeaturedPageCard";
 import useGlobalError from "../../error/ErrorHooks";
@@ -66,70 +67,74 @@ const FeaturedList = () => {
     <div className="flex flex-col p-8" aria-busy={loadingContent}>
       <div className="flex flex-col lg:flex-row justify-between">
         <div className="flex flex-col">
-          <p className="text-3xl font-bold">Featured Content</p>
+          <h2 className="text-3xl font-bold">Featured Content</h2>
           <p className="text-xl font-semibold">
             Explore featured insight articles and videos curated by the
             LibreTexts team.
           </p>
         </div>
         {canEdit && (
-          <div className="mt-2 lg:mt-0">
+          <div className="mt-2 lg:mt-0 flex gap-2 self-start">
             <Button
-              size="tiny"
-              color="blue"
+              variant="primary"
+              icon={<IconPlus size={18} aria-hidden="true" />}
               onClick={() => setShowAddPage(true)}
             >
-              <Icon name="plus" />
               Add Featured Article
             </Button>
             <Button
-              size="tiny"
-              color="blue"
+              variant="primary"
+              icon={<IconPlus size={18} aria-hidden="true" />}
               onClick={() => setShowAddVideo(true)}
             >
-              <Icon name="plus" />
               Add Featured Video
             </Button>
           </div>
         )}
       </div>
       <div className="mt-8">
-        <p className="text-lg font-semibold">Featured Articles</p>
-        <div className="items-list">
+        <h3 className="text-lg font-semibold">Featured Articles</h3>
+        <ul className="items-list list-none">
           {featuredPages.length > 0 &&
             featuredPages.map((page) => (
-              <FeaturedPageCard
-                key={page.uuid}
-                page={page}
-                canDelete={canEdit}
-                onDeleted={loadFeaturedContent}
-              />
+              <li key={page.uuid}>
+                <FeaturedPageCard
+                  page={page}
+                  canDelete={canEdit}
+                  onDeleted={loadFeaturedContent}
+                />
+              </li>
             ))}
           {featuredPages.length === 0 && (
-            <p className="text-md text-gray-500 italic">
-              No featured articles yet!.
-            </p>
+            <li>
+              <p className="text-md text-gray-500 italic">
+                No featured articles yet!.
+              </p>
+            </li>
           )}
-        </div>
+        </ul>
       </div>
       <div className="mt-8">
-        <p className="text-lg font-semibold">Featured Videos</p>
-        <div className="items-list">
-          {featuredPages.length > 0 &&
+        <h3 className="text-lg font-semibold">Featured Videos</h3>
+        <ul className="items-list list-none">
+          {featuredVideos.length > 0 &&
             featuredVideos.map((video) => (
-              <FeaturedVideoCard
-                key={video.uuid}
-                video={video}
-                canDelete={canEdit}
-                onDeleted={loadFeaturedContent}
-              />
+              <li key={video.uuid}>
+                <FeaturedVideoCard
+                  video={video}
+                  canDelete={canEdit}
+                  onDeleted={loadFeaturedContent}
+                />
+              </li>
             ))}
           {featuredVideos.length === 0 && (
-            <p className="text-md text-gray-500 italic">
-              No featured videos yet!.
-            </p>
+            <li>
+              <p className="text-md text-gray-500 italic">
+                No featured videos yet!.
+              </p>
+            </li>
           )}
-        </div>
+        </ul>
       </div>
       <AddPageModal open={showAddPage} onClose={handleCloseAddPage} />
       <AddVideoModal open={showAddVideo} onClose={handleCloseAddVideo} />

@@ -4,7 +4,14 @@ import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
 import { KBTreeNode } from "../../types";
 import { useTypedSelector } from "../../state/hooks";
-import { Icon, Popup } from "semantic-ui-react";
+import { Tooltip } from "@libretexts/davis-react";
+import {
+  IconCheck,
+  IconPaperclip,
+  IconPlus,
+  IconChevronLeft,
+  IconChevronRight,
+} from "@tabler/icons-react";
 import { truncateString } from "../util/HelperFunctions";
 import { canEditKB } from "../../utils/kbHelpers";
 import { useQuery } from "@tanstack/react-query";
@@ -101,75 +108,65 @@ const NavTree = () => {
 
   const StatusLabel = ({ status }: Pick<KBTreeNode, "status">) => {
     if (status === "published") {
-      return (
-        <Icon name="check" className="!ml-2 !mt-1" color="green" size="small" />
-      );
+      return <IconCheck size={14} className="ml-2 mt-0.5 text-green-600 shrink-0" aria-label="Published" />;
     }
-    return <Icon name="paperclip" className="!ml-2 !mb-1" color="blue" />;
+    return <IconPaperclip size={14} className="ml-2 mb-0.5 text-blue-600 shrink-0" aria-label="Draft" />;
   };
 
   return (
-    <div
-      ref={navTreeRef}
+    <nav
+      aria-label="Knowledge base navigation"
       aria-busy={loading}
-      className={`h-screen-content overflow-y-auto border-r-1 border-gray-300 p-4 ${
-        drawerOpen ? "min-w-[15rem]" : "min-w-[4rem]"
-      } ${drawerOpen ? "max-w-[20rem]" : "max-w-[4rem]"} overflow-y-auto`}
+      className={`h-screen-content flex flex-col border-r border-gray-300 ${
+        drawerOpen ? "min-w-[15rem] max-w-[20rem]" : "min-w-[4rem] max-w-[4rem]"
+      }`}
     >
       {drawerOpen ? (
         <>
-          <div className="flex flex-row justify-between border-b mb-1 pb-1 items-center max-h-screen">
+          <div className="flex flex-row justify-between border-b mb-1 pb-1 px-4 pt-4 items-center shrink-0">
             <a
-              className="text-xl font-semibold text-black"
+              className="text-xl font-semibold text-black rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               href="/insight/welcome"
             >
               Insight Articles
             </a>
             {canEdit && (
-              <Popup
-                trigger={
-                  <Icon
-                    name="plus"
-                    className="!mb-1 !cursor-pointer"
-                    onClick={() => handleCreatePage()}
-                  />
-                }
-                position="top center"
-              >
-                <Popup.Content>
-                  <p className="text-sm">Create new root level page</p>
-                </Popup.Content>
-              </Popup>
+              <Tooltip content="Create new root level page" placement="top" className="z-[9999]">
+                <button
+                  type="button"
+                  className="mb-1 cursor-pointer text-gray-600 hover:text-primary rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-w-6 min-h-6 flex items-center justify-center"
+                  onClick={() => handleCreatePage()}
+                  aria-label="Create new root level page"
+                >
+                  <IconPlus size={18} aria-hidden="true" />
+                </button>
+              </Tooltip>
             )}
-            <Popup
-              trigger={
-                <Icon
-                  name="angle left"
-                  className="!mb-1 !cursor-pointer"
-                  size="large"
-                  onClick={() => handleDrawerChange(false)}
-                />
-              }
-              position="top center"
-            >
-              <Popup.Content>
-                <p className="text-sm">Hide Table of Contents</p>
-              </Popup.Content>
-            </Popup>
+            <Tooltip content="Hide Table of Contents" placement="top" className="z-[9999]">
+              <button
+                type="button"
+                className="mb-1 cursor-pointer text-gray-600 hover:text-primary rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-w-6 min-h-6 flex items-center justify-center"
+                onClick={() => handleDrawerChange(false)}
+                aria-label="Hide Table of Contents"
+              >
+                <IconChevronLeft size={22} aria-hidden="true" />
+              </button>
+            </Tooltip>
           </div>
+          <div ref={navTreeRef} className="overflow-y-auto flex-1 px-4 pb-4">
           {tree?.map((node, index) => {
             const isActive = isActiveLink(node.slug);
             return (
               <div
                 key={node.uuid}
-                id={`node-${index}`} 
-                className="p-2 rounded-xl hover:bg-slate-100"
+                id={`node-${index}`}
+                className={`p-2 rounded-xl ${isActive ? "bg-blue-50" : "hover:bg-slate-100"}`}
                 data-active={isActive}
               >
                 <div className="flex flex-row justify-between items-center">
                   <div className="flex flex-row items-center overflow-x-clip align-middle">
                     <a
-                      className={`text-lg break-words hyphens-auto ${
+                      className={`text-lg break-words hyphens-auto rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                         isActive ? "text-blue-600" : "text-black"
                       }`}
                       href={getLink(node.slug)}
@@ -188,11 +185,11 @@ const NavTree = () => {
                         <div
                           key={child.uuid}
                           id={`child-${index}`}
-                          className="p-2 flex flex-row items-center"
+                          className={`p-2 rounded-lg flex flex-row items-center ${isChildActive ? "bg-blue-50" : "hover:bg-slate-100"}`}
                           data-active={isChildActive}
                         >
                           <a
-                            className={`text-md break-words hyphens-auto ${
+                            className={`text-md break-words hyphens-auto rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                               isChildActive ? "text-blue-600" : "text-gray-600"
                             }`}
                             href={getLink(child.slug)}
@@ -205,30 +202,34 @@ const NavTree = () => {
                       );
                     })}
                   {canEdit && (
-                    <a
-                      className="p-2 text-md font-semibold text-blue-500  break-words hyphens-auto !cursor-pointer"
+                    <button
+                      type="button"
+                      className="p-2 text-md font-semibold text-blue-500 break-words hyphens-auto cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       onClick={() => handleCreatePage(node.uuid)}
                     >
                       + Add Page
-                    </a>
+                    </button>
                   )}
                 </div>
               </div>
             );
           })}
+          </div>
         </>
       ) : (
-        <div
-          className="flex flex-col items-center cursor-pointer"
+        <button
+          type="button"
+          className="flex flex-col items-center cursor-pointer w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
           onClick={() => handleDrawerChange(true)}
+          aria-label="Show Table of Contents"
         >
-          <Icon name="angle right" size="large" className="!ml-2" />
+          <IconChevronRight size={22} className="ml-2 text-gray-600" aria-hidden="true" />
           <div className="transform -rotate-90 text-xl font-semibold text-black whitespace-nowrap mt-20">
             Table of Contents
           </div>
-        </div>
+        </button>
       )}
-    </div>
+    </nav>
   );
 };
 

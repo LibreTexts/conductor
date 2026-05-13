@@ -1,3 +1,4 @@
+import { Divider } from "@libretexts/davis-react";
 import useGlobalError from "../../components/error/ErrorHooks";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -55,6 +56,7 @@ const KBPageViewMode = ({
         throw new Error("Page not found");
       }
       setPage(res.data.page);
+      document.title = `${res.data.page.title} | LibreTexts Insight`;
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -105,19 +107,20 @@ const KBPageViewMode = ({
   return (
     <div aria-busy={loading}>
       <div className="flex flex-row items-center">
-        <p className="text-4xl font-semibold">{page?.title}</p>
+        <h1 className="text-4xl font-semibold">{page?.title}</h1>
       </div>
       <p className="max-w-6xl">
         <span className="font-medium">Description</span>:{" "}
         <span className="italic">{page?.description}</span>
       </p>
-      <div className="flex flex-row border-b pb-2">
+      <div className="flex flex-row pb-2">
         <PageLastEditor
           lastEditedBy={page?.lastEditedBy}
           updatedAt={page?.updatedAt}
         />
         {canEdit && <PageStatusLabel status={page?.status} className="!mt-0.5"/>}
       </div>
+      <Divider />
 
       {toc && toc.length > 0 && (
         <div className="mt-6 mb-9">

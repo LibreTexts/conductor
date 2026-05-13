@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Button, Icon, Modal, ModalProps } from "semantic-ui-react";
+import { Modal, Button } from "@libretexts/davis-react";
+import { IconTrash, IconX } from "@tabler/icons-react";
 import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
 
-interface ConfirmDeletePageModalProps extends ModalProps {
+interface ConfirmDeletePageModalProps {
   open: boolean;
   uuid: string;
   onClose: () => void;
@@ -15,7 +16,6 @@ const ConfirmDeletePageModal: React.FC<ConfirmDeletePageModalProps> = ({
   onClose,
   uuid,
   onDeleted,
-  ...rest
 }) => {
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
@@ -24,11 +24,8 @@ const ConfirmDeletePageModal: React.FC<ConfirmDeletePageModalProps> = ({
     try {
       setLoading(true);
       if (!uuid) return;
-
       const res = await axios.delete(`/kb/page/${uuid}`);
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
+      if (res.data.err) throw new Error(res.data.errMsg);
       onDeleted();
     } catch (err) {
       handleGlobalError(err);
@@ -38,22 +35,34 @@ const ConfirmDeletePageModal: React.FC<ConfirmDeletePageModalProps> = ({
   }
 
   return (
-    <Modal open={open} onClose={onClose} size="large" {...rest}>
-      <Modal.Header>Delete Page?</Modal.Header>
-      <Modal.Content>
+    <Modal open={open} onClose={() => onClose()} size="sm">
+      <Modal.Header>
+        <Modal.Title>Delete Page?</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
         <p>
           Are you sure you want to delete this page?{" "}
           <strong>This action cannot be undone.</strong>
         </p>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button color="red" loading={loading} onClick={() => handleDelete()}>
-          <Icon name="trash" /> Delete
+      </Modal.Body>
+      <Modal.Footer>
+        <Button
+          variant="destructive"
+          icon={<IconTrash size={16} aria-hidden="true" />}
+          loading={loading}
+          onClick={handleDelete}
+        >
+          Delete
         </Button>
-        <Button onClick={onClose} loading={loading}>
-          <Icon name="cancel" /> Cancel
+        <Button
+          variant="ghost"
+          icon={<IconX size={16} aria-hidden="true" />}
+          disabled={loading}
+          onClick={onClose}
+        >
+          Cancel
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };

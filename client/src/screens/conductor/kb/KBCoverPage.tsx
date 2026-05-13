@@ -1,7 +1,12 @@
+import { useEffect } from "react";
 import DefaultLayoutWNavTree from "../../../components/kb/DefaultLayoutWNavTree";
 import KBFooter from "../../../components/kb/KBFooter";
 
 const KBCoverPage = () => {
+  useEffect(() => {
+    document.title = "Welcome | LibreTexts Insight";
+  }, []);
+
   return (
     <DefaultLayoutWNavTree>
       <div className="flex flex-col text-center">
