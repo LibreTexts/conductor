@@ -13,8 +13,6 @@ interface NavbarShellProps {
   logoLabel: string;
   /** Optional text rendered beside the logo (e.g. "| Support Center"). */
   logoLockupText?: string;
-  /** Rendered as a screen-reader-only <h1> when provided (commons catalog title). */
-  pageTitle?: string;
   /** Rendered in the left cluster after the logo, hidden on mobile. */
   desktopNavItems?: React.ReactNode;
   /** Rendered in the right cluster, hidden on mobile. */
@@ -35,7 +33,6 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
   logoLinkTo,
   logoLabel,
   logoLockupText,
-  pageTitle,
   desktopNavItems,
   desktopActions,
   mobileDrawerItems,
@@ -61,12 +58,14 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
             className="flex items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <img src={logoSrc} alt="" className="max-h-[44px] w-auto max-w-[min(150px,40vw)]" />
-            {logoLockupText && (
-              <span className="ml-2 text-2xl font-semibold text-nowrap hidden sm:inline">
+            {logoLockupText ? (
+              <h1 className="text-xl! font-semibold text-nowrap hidden sm:inline mt-0.5! p-0! ml-0!">
+                <span aria-hidden="true" className="mx-2 font-light text-gray-400">|</span>
                 {logoLockupText}
-              </span>
+              </h1>
+            ) : (
+              <VisuallyHidden>{logoLabel}</VisuallyHidden>
             )}
-            <VisuallyHidden>{logoLabel}</VisuallyHidden>
           </Link>
           {desktopNavItems && (
             <ul className="hidden xl:flex flex-row items-center ml-4 gap-2 list-none m-0 p-0">
