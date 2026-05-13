@@ -137,10 +137,10 @@ const Navbar: React.FC<{}> = () => {
 
   const getLogoLockupText = () => {
     if (context === "support") {
-      return "| Support Center";
+      return "Support Center";
     }
     if (context === "store") {
-      return "| Store";
+      return "Store";
     }
     return undefined;
   }
@@ -177,8 +177,6 @@ const Navbar: React.FC<{}> = () => {
     }
     return "LibreTexts Home";
   }
-
-  const pageTitle = context === "commons" ? org.name : undefined;
 
   // ── Slot composition ──────────────────────────────────────────────────────
   let desktopNavItems: React.ReactNode = null;
@@ -375,7 +373,6 @@ const Navbar: React.FC<{}> = () => {
           logoLinkTo={getLogoLinkTo()}
           logoLabel={getLogoLabel()}
           logoLockupText={getLogoLockupText()}
-          pageTitle={pageTitle}
           desktopNavItems={desktopNavItems}
           desktopActions={desktopActions}
           mobileDrawerItems={mobileDrawerItems}
