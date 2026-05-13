@@ -1,15 +1,5 @@
-//import "../../../styles/global.css";
-import {
-  Grid,
-  Header,
-  Segment,
-  Table,
-  Pagination,
-  Button,
-  Icon,
-  Checkbox,
-  Message,
-} from "semantic-ui-react";
+import { Button, Spinner } from "@libretexts/davis-react";
+import { IconBan, IconDownload, IconSettings, IconCheck } from "@tabler/icons-react";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   OrgEvent,
@@ -60,88 +50,52 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
   onChangeActivePage,
   onUnregisterParticipants,
   onConfigureAutoSync,
-  ...rest
 }) => {
-  // UI
-  const [tableColumns, setTableColumns] = useState<
-    { key: number; text: string }[]
-  >([]);
+  const [tableColumns, setTableColumns] = useState<{ key: number; text: string }[]>([]);
   const [showUnregisterModal, setShowUnregisterModal] = useState(false);
   const [showSyncProjectModal, setShowSyncProjectModal] = useState(false);
-  const [selectableParticipants, setSelectableParticipants] = useState<
-    SelectableParticipant[]
-  >([]);
+  const [selectableParticipants, setSelectableParticipants] = useState<SelectableParticipant[]>([]);
   const [allSelected, setAllSelected] = useState<boolean>(false);
 
-  /**
-   * Get registration form prompts and prepare them for table UI
-   */
   useEffect(() => {
     if (!orgEvent || !orgEvent.prompts) return;
     setTableColumns([
-      ...orgEvent.prompts.map((p) => {
-        return {
-          key: p.order,
-          text: p.promptText,
-        };
-      }),
+      ...orgEvent.prompts.map((p) => ({ key: p.order, text: p.promptText })),
     ]);
-  }, [orgEvent, setTableColumns]);
+  }, [orgEvent]);
 
-  // Reset selected participants when participants change
   useEffect(() => {
     if (!participants) return;
     setSelectableParticipants(
-      participants.map((p) => {
-        return {
-          ...p,
-          selected: false,
-        };
-      })
+      participants.map((p) => ({ ...p, selected: false }))
     );
-  }, [participants, setSelectableParticipants]);
+  }, [participants]);
 
   const selectedParticipantsCount: number = useMemo(
-    () =>
-      selectableParticipants.filter((p) => {
-        return p.selected;
-      }).length,
+    () => selectableParticipants.filter((p) => p.selected).length,
     [selectableParticipants]
   );
 
   const selectedParticipants: OrgEventParticipant[] = useMemo(
-    () =>
-      selectableParticipants.filter((p) => {
-        return p.selected;
-      }),
+    () => selectableParticipants.filter((p) => p.selected),
     [selectableParticipants]
   );
 
   function resetSelectedParticipants() {
     setAllSelected(false);
     setSelectableParticipants(
-      [...selectableParticipants].map((p) => {
-        return {
-          ...p,
-          selected: false,
-        };
-      })
+      [...selectableParticipants].map((p) => ({ ...p, selected: false }))
     );
   }
 
   function getResponseValText(promptOrder: number, responses: OrgEventParticipantFormResponse[]): string {
-    const foundPrompt = orgEvent?.prompts.find(
-      (p) => p.order === promptOrder
-    );
+    const foundPrompt = orgEvent?.prompts.find((p) => p.order === promptOrder);
     if (!foundPrompt) return "";
     const foundResponse = responses.find((r) => r.promptNum === foundPrompt.order);
     if (!foundResponse) return "";
 
     if (["3-likert", "5-likert", "7-likert"].includes(foundPrompt.promptType)) {
-      return getLikertResponseText(
-        foundPrompt.promptType,
-        parseInt(foundResponse.responseVal ?? "")
-      );
+      return getLikertResponseText(foundPrompt.promptType, parseInt(foundResponse.responseVal ?? ""));
     }
 
     if (foundPrompt.promptType === "text" && foundResponse.responseVal) {
@@ -152,15 +106,13 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
 
     if (foundPrompt.promptType === "dropdown" && foundResponse.responseVal) {
       const foundPromptOption = foundPrompt.promptOptions?.find((o) => o.value === foundResponse.responseVal);
-      if (foundPromptOption) {
-        return foundPromptOption.text;
-      }
+      if (foundPromptOption) return foundPromptOption.text;
     } else if (foundPrompt.promptType === "dropdown") {
       return "(No Response)";
     }
 
     if (foundPrompt.promptType === "checkbox") {
-      return foundResponse.responseVal === "true" ? 'Yes' : 'No';
+      return foundResponse.responseVal === "true" ? "Yes" : "No";
     }
 
     return "UNKNOWN VALUE";
@@ -176,35 +128,24 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
       setShowUnregisterModal(false);
       return;
     }
-
     onUnregisterParticipants(selectedParticipants.map((p) => p.regID));
     resetSelectedParticipants();
     setShowUnregisterModal(false);
   }
+
   function handleCheckbox(participant: SelectableParticipant, checked = false) {
     if (!participant) return;
-
-    const foundParticipant = selectableParticipants.find((p) => {
-      return p.regID === participant.regID;
-    });
-
-    const foundIndex = selectableParticipants.findIndex((p) => {
-      return p.regID === participant.regID;
-    });
-
-    if (!foundParticipant || foundIndex === -1) return;
+    const foundIndex = selectableParticipants.findIndex((p) => p.regID === participant.regID);
+    if (foundIndex === -1) return;
     const arr = [...selectableParticipants];
-    arr.splice(foundIndex, 1, { ...foundParticipant, selected: checked });
+    arr.splice(foundIndex, 1, { ...selectableParticipants[foundIndex], selected: checked });
     setSelectableParticipants(arr);
     if (!checked) setAllSelected(false);
   }
 
   function handleSelectAllCheckbox(checked = false) {
     setAllSelected(checked);
-    const arr = [...selectableParticipants].map((p) => {
-      return { ...p, selected: checked };
-    });
-    setSelectableParticipants(arr);
+    setSelectableParticipants([...selectableParticipants].map((p) => ({ ...p, selected: checked })));
   }
 
   function handleConfigureAutoSync(projectID: string) {
@@ -212,230 +153,178 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
     setShowSyncProjectModal(false);
   }
 
-  function TableRow({
-    participant,
-    selected,
-    ...props
-  }: {
-    participant: SelectableParticipant;
-    selected: boolean;
-  }) {
-    return (
-      <Table.Row {...props}>
-        <Table.Cell>
-          <Checkbox
-            id={`participant-${
-              participant.user?.uuid ?? participant.email
-            }-checkbox`}
-            checked={selected}
-            onClick={(e, data) => handleCheckbox(participant, data.checked)}
-          />
-        </Table.Cell>
-        <Table.Cell>
-          <span>
-            {participant.user?.firstName ?? participant.firstName ?? "Unknown"}
-          </span>
-        </Table.Cell>
-        <Table.Cell>
-          <span>
-            {participant.user?.lastName ?? participant.lastName ?? "Unknown"}
-          </span>
-        </Table.Cell>
-        <Table.Cell>
-          <span>
-            {participant.user?.email ?? participant.email ?? "Unknown"}
-          </span>
-        </Table.Cell>
-        <Table.Cell>
-          <PaymentStatusLabel paymentStatus={participant.paymentStatus} />
-        </Table.Cell>
-        <Table.Cell>
-          <span>
-            {participant.registeredBy?.uuid === participant.user?.uuid
-              ? "Self"
-              : `${participant.registeredBy?.firstName} ${participant.registeredBy?.lastName} (${participant.registeredBy?.email})`}
-          </span>
-        </Table.Cell>
-        {orgEvent.collectShipping && (
-          <Table.Cell>
-            <span>
-              {participant.shippingAddress?.lineOne}
-              {participant.shippingAddress?.lineTwo
-                ? `, ${participant.shippingAddress.lineTwo}`
-                : ""}
-              {", " + participant.shippingAddress?.city}
-              {", " + participant.shippingAddress?.state}
-              {" " + participant.shippingAddress?.zip}
-              {" " + participant.shippingAddress?.country}
-            </span>
-          </Table.Cell>
-        )}
-        {tableColumns.map((item) => {
-          return (
-            <Table.Cell key={item.key}>
-              <span>{getResponseValText(item.key, participant.formResponses)}</span>
-            </Table.Cell>
-          );
-        })}
-      </Table.Row>
-    );
-  }
-
   if (!show) {
     return (
-      <Grid.Column {...rest}>
-        <Header
-          as="h2"
-          dividing
-          className="flex-row-div  flex-row-verticalcenter"
-        >
-          <span>Participants</span>
-          <div className="right-flex">
-            <Button onClick={toggleVisibility}>Show</Button>
-          </div>
-        </Header>
-        <Segment.Group size="large" raised className="mb-4p">
-          <Segment loading={loading}>
-            <span>Collapsed for brevity... Click "Show" to view</span>
-          </Segment>
-        </Segment.Group>
-      </Grid.Column>
+      <div>
+        <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-4">
+          <h2 className="text-lg font-semibold text-gray-800 m-0">Participants</h2>
+          <Button variant="outline" onClick={toggleVisibility}>Show</Button>
+        </div>
+        <div className="border border-gray-200 rounded-lg p-4 text-sm text-gray-500">
+          {loading ? <Spinner /> : <span>Collapsed for brevity... Click "Show" to view</span>}
+        </div>
+      </div>
     );
   }
 
   return (
-    <Grid.Column {...rest}>
-      <Header
-        as="h2"
-        dividing
-        className="flex-row-div  flex-row-verticalcenter"
-      >
-        <span>Participants</span>
-        <div className="right-flex">
-          <Button onClick={toggleVisibility}>Hide</Button>
+    <div>
+      <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-4">
+        <h2 className="text-lg font-semibold text-gray-800 m-0">Participants</h2>
+        <Button variant="outline" onClick={toggleVisibility}>Hide</Button>
+      </div>
+
+      <div className="flex items-center justify-between mb-3 gap-2">
+        <div>
+          {autoSyncSuccess && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-md text-green-800 text-sm">
+              <IconCheck size={16} />
+              <span>Auto-Sync Configured Successfully</span>
+            </div>
+          )}
         </div>
-      </Header>
-      <Segment.Group size="large" raised className="mb-4p">
-        <Segment loading={loading}>
-          <div className="flex-row-div flex-row-verticalcenter mb-1p">
-            <div className="left-flex">
-              {autoSyncSuccess && (
-                <Message success>
-                  <Icon name="check" />
-                  <span>Auto-Sync Configured Successfully</span>
-                </Message>
-              )}
-            </div>
-            <div className="right-flex">
-              <Button
-                color="red"
-                disabled={selectedParticipantsCount === 0}
-                onClick={() => handleOpenUnregisterModal()}
-              >
-                <Icon name="ban" />
-                <span>Unregister</span>
-              </Button>
-              <Button
-                color="blue"
-                onClick={() => setShowSyncProjectModal(true)}
-              >
-                <Icon name="setting" />
-                <span>Configure Auto-Sync to Project</span>
-              </Button>
-            </div>
+        <div className="flex gap-2">
+          <Button
+            variant="destructive"
+            icon={<IconBan size={16} />}
+            disabled={selectedParticipantsCount === 0}
+            onClick={handleOpenUnregisterModal}
+          >
+            Unregister
+          </Button>
+          <Button
+            variant="secondary"
+            icon={<IconSettings size={16} />}
+            onClick={() => setShowSyncProjectModal(true)}
+          >
+            Configure Auto-Sync to Project
+          </Button>
+        </div>
+      </div>
+
+      <div className="border border-gray-200 rounded-lg overflow-x-auto">
+        {loading ? (
+          <div className="flex justify-center p-8">
+            <Spinner />
           </div>
-          <div className="x-scroll-table-container">
-            <Table striped celled size="small" className="mb-05p">
-              <Table.Header>
-                <Table.Row>
-                  <Table.HeaderCell key="actions" collapsing>
-                    <Checkbox
-                      id="select-all-checkbox"
-                      checked={allSelected}
-                      onClick={(e, data) =>
-                        handleSelectAllCheckbox(data.checked)
-                      }
-                    />
-                  </Table.HeaderCell>
-                  <Table.HeaderCell key="firstName" collapsing>
-                    <span>First Name</span>
-                  </Table.HeaderCell>
-                  <Table.HeaderCell key="lastName" collapsing>
-                    <span>Last Name</span>
-                  </Table.HeaderCell>
-                  <Table.HeaderCell key="email" collapsing>
-                    <span>Email Address</span>
-                  </Table.HeaderCell>
-                  <Table.HeaderCell key="paymentStatus" collapsing>
-                    <span>Payment Status</span>
-                  </Table.HeaderCell>
-                  <Table.HeaderCell key="registeredBy" collapsing>
-                    <span>Registered By</span>
-                  </Table.HeaderCell>
-                  {orgEvent.collectShipping && (
-                    <Table.HeaderCell key="shippingAddress" collapsing>
-                      <span>Shipping Address</span>
-                    </Table.HeaderCell>
-                  )}
-                  {tableColumns.map((item) => (
-                    <Table.HeaderCell key={item.key} collapsing>
-                      <span>{item.text}</span>
-                    </Table.HeaderCell>
-                  ))}
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {selectableParticipants &&
-                  selectableParticipants.length > 0 &&
-                  selectableParticipants.map((item) => (
-                    <TableRow
-                      participant={item}
-                      selected={item.selected}
-                      key={item.user?.uuid ?? item.email}
-                    />
-                  ))}
-                {(!selectableParticipants ||
-                  selectableParticipants.length === 0) && (
-                  <Table.Row>
-                    <Table.Cell colSpan={6}>
-                      <p className="text-center">
-                        <em>No participants found.</em>
-                      </p>
-                    </Table.Cell>
-                  </Table.Row>
+        ) : (
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-4 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    id="select-all-checkbox"
+                    checked={allSelected}
+                    onChange={(e) => handleSelectAllCheckbox(e.target.checked)}
+                    className="accent-primary"
+                  />
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap">First Name</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap">Last Name</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap">Email Address</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap">Payment Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap">Registered By</th>
+                {orgEvent.collectShipping && (
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap">Shipping Address</th>
                 )}
-              </Table.Body>
-            </Table>
-          </div>
-          <div className="flex-row-div mt-1p">
-            <div className="left-flex">
-              <p style={{ fontSize: "0.9em" }}>
-                Displaying{" "}
-                {selectableParticipants ? selectableParticipants.length : 0} of{" "}
-                {totalItems} participants.
-              </p>
-            </div>
-            <div className="right-flex flex-row-verticalcenter">
-              {selectableParticipants && selectableParticipants.length > 0 && (
-                <Button className="mr-4p" onClick={onDownloadParticipants}>
-                  <Icon name="download" /> Export CSV
-                </Button>
+                {tableColumns.map((item) => (
+                  <th key={item.key} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap">
+                    {item.text}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {selectableParticipants && selectableParticipants.length > 0 ? (
+                selectableParticipants.map((item) => (
+                  <tr key={item.user?.uuid ?? item.email} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        id={`participant-${item.user?.uuid ?? item.email}-checkbox`}
+                        checked={item.selected}
+                        onChange={(e) => handleCheckbox(item, e.target.checked)}
+                        className="accent-primary"
+                      />
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">{item.user?.firstName ?? item.firstName ?? "Unknown"}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{item.user?.lastName ?? item.lastName ?? "Unknown"}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{item.user?.email ?? item.email ?? "Unknown"}</td>
+                    <td className="px-4 py-3">
+                      <PaymentStatusLabel paymentStatus={item.paymentStatus} />
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {item.registeredBy?.uuid === item.user?.uuid
+                        ? "Self"
+                        : `${item.registeredBy?.firstName} ${item.registeredBy?.lastName} (${item.registeredBy?.email})`}
+                    </td>
+                    {orgEvent.collectShipping && (
+                      <td className="px-4 py-3">
+                        <span>
+                          {item.shippingAddress?.lineOne}
+                          {item.shippingAddress?.lineTwo ? `, ${item.shippingAddress.lineTwo}` : ""}
+                          {", " + item.shippingAddress?.city}
+                          {", " + item.shippingAddress?.state}
+                          {" " + item.shippingAddress?.zip}
+                          {" " + item.shippingAddress?.country}
+                        </span>
+                      </td>
+                    )}
+                    {tableColumns.map((col) => (
+                      <td key={col.key} className="px-4 py-3">
+                        {getResponseValText(col.key, item.formResponses)}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6 + tableColumns.length + (orgEvent.collectShipping ? 1 : 0)} className="px-4 py-8 text-center text-gray-500">
+                    <em>No participants found.</em>
+                  </td>
+                </tr>
               )}
-              <Pagination
-                activePage={activePage}
-                totalPages={totalPages}
-                firstItem={null}
-                lastItem={null}
-                onPageChange={(e, data) =>
-                  onChangeActivePage(
-                    parseInt(data.activePage?.toString() ?? "1") ?? 1
-                  )
-                }
-              />
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between mt-3">
+        <p className="text-sm text-gray-600">
+          Displaying {selectableParticipants ? selectableParticipants.length : 0} of {totalItems} participants.
+        </p>
+        <div className="flex items-center gap-3">
+          {selectableParticipants && selectableParticipants.length > 0 && (
+            <Button variant="outline" icon={<IconDownload size={16} />} onClick={onDownloadParticipants}>
+              Export CSV
+            </Button>
+          )}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onChangeActivePage(Math.max(1, activePage - 1))}
+                disabled={activePage <= 1}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ‹
+              </button>
+              <span className="px-3 py-1.5 text-sm text-gray-600">
+                {activePage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => onChangeActivePage(Math.min(totalPages, activePage + 1))}
+                disabled={activePage >= totalPages}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ›
+              </button>
             </div>
-          </div>
-        </Segment>
-      </Segment.Group>
+          )}
+        </div>
+      </div>
 
       <UnregisterParticipantsModal
         show={showUnregisterModal}
@@ -448,7 +337,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
         onClose={() => setShowSyncProjectModal(false)}
         onConfirm={(projectID) => handleConfigureAutoSync(projectID)}
       />
-    </Grid.Column>
+    </div>
   );
 };
 

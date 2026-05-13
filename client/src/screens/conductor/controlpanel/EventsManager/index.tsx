@@ -1,225 +1,165 @@
-import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Link, useHistory } from "react-router-dom";
 import axios from "axios";
 import {
   Breadcrumb,
   Button,
-  Grid,
-  Header,
-  Icon,
-  Pagination,
-  Segment,
-  Table,
-} from "semantic-ui-react";
+  Heading,
+  Stack,
+  Text,
+} from "@libretexts/davis-react";
+import { DataTable, ColumnDef } from "@libretexts/davis-react-table";
+import { IconCopy, IconEye, IconPlus } from "@tabler/icons-react";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { parseAndFormatDate } from "../../../../utils/misc";
-import "../../../../components/controlpanel/ControlPanel.css";
 import { OrgEvent } from "../../../../types";
 import { initOrgEventDates } from "../../../../utils/orgEventsHelpers";
-const COLUMNS = [
-  { key: "title", text: "Title" },
-  { key: "regOpen", text: "Registration Open Date" },
-  { key: "regClose", text: "Registration Close Date" },
-  { key: "startDate", text: "Event Start Date" },
-  { key: "endDate", text: "Event End Date" },
-  { key: "Action", text: "Action" },
-];
 
-/**
- * The Events Manager interface allows Campus Administrators to create events
- * with custom registration forms for participants
- */
+const DATE_FORMAT_STRING = "MM/dd/yyyy hh:mm aa";
+
 const EventsManager = () => {
-  const DATE_FORMAT_STRING = "MM/dd/yyyy hh:mm aa";
-
-  // Global State and Error Handling
   const { handleGlobalError } = useGlobalError();
+  const history = useHistory();
 
-  // Data
   const [orgEvents, setOrgEvents] = useState<OrgEvent[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  // UI
-  const [activePage, setActivePage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [totalItems, setTotalItems] = useState<number>(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
-  const [loadedData, setLoadedData] = useState<boolean>(true);
-
-  /**
-   * Retrieve events from the server and save it into state.
-   */
   const getOrgEvents = useCallback(async () => {
-    setLoadedData(false);
+    setLoading(true);
     try {
-      const orgEventRes = await axios.get(`/orgevents?page=${activePage}`);
-      if (orgEventRes.data.err) {
-        throw new Error(orgEventRes.data.errMsg);
-      }
-
-      if (!Array.isArray(orgEventRes.data.orgEvents)) {
-        throw new Error("Error parsing server data.");
-      }
-
-      setOrgEvents(
-        orgEventRes.data.orgEvents.map((item: OrgEvent) =>
-          initOrgEventDates(item)
-        )
-      );
-      setTotalPages(Math.ceil(orgEventRes.data.totalCount / 25));
-      setTotalItems(orgEventRes.data.totalCount);
+      // Fetch all events (no page param) — DataTable handles client-side pagination
+      const res = await axios.get("/orgevents?limit=1000");
+      if (res.data.err) throw new Error(res.data.errMsg);
+      if (!Array.isArray(res.data.orgEvents)) throw new Error("Error parsing server data.");
+      setOrgEvents(res.data.orgEvents.map((item: OrgEvent) => initOrgEventDates(item)));
     } catch (e) {
       handleGlobalError(e);
+    } finally {
+      setLoading(false);
     }
-    setLoadedData(true);
-  }, [
-    setOrgEvents,
-    setTotalItems,
-    setLoadedData,
-    handleGlobalError,
-    activePage,
-  ]);
+  }, [handleGlobalError]);
 
-  /**
-   * Set page title on initial load.
-   */
   useEffect(() => {
     document.title = "LibreTexts Conductor | Events Manager";
     getOrgEvents();
-  }, [activePage]);
+  }, []);
 
-  function TableRow({ orgEvent, ...props }: { orgEvent: OrgEvent }) {
-    return (
-      <Table.Row {...props}>
-        <Table.Cell>
-          <span>
-            <Link to={`/controlpanel/eventsmanager/edit/${orgEvent.eventID}`}>
-              {orgEvent.title}
-            </Link>
-          </span>
-        </Table.Cell>
-        <Table.Cell>
-          <span>
-            {parseAndFormatDate(orgEvent.regOpenDate, DATE_FORMAT_STRING)} (
-            {orgEvent.timeZone.abbrev})
-          </span>
-        </Table.Cell>
-        <Table.Cell>
-          <span>
-            {parseAndFormatDate(orgEvent.regCloseDate, DATE_FORMAT_STRING)} (
-            {orgEvent.timeZone.abbrev})
-          </span>
-        </Table.Cell>
-        <Table.Cell>
-          <span>
-            {parseAndFormatDate(orgEvent.startDate, DATE_FORMAT_STRING)} (
-            {orgEvent.timeZone.abbrev})
-          </span>
-        </Table.Cell>
-        <Table.Cell>
-          <span>
-            {parseAndFormatDate(orgEvent.endDate, DATE_FORMAT_STRING)} (
-            {orgEvent.timeZone.abbrev})
-          </span>
-        </Table.Cell>
-        <Table.Cell>
+  const columns = useMemo<ColumnDef<OrgEvent>[]>(() => [
+    {
+      id: "title",
+      header: "Title",
+      accessorKey: "title",
+      cell: ({ row }) => (
+        <Link
+          to={`/controlpanel/eventsmanager/edit/${row.original.eventID}`}
+          className="text-primary hover:underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {row.original.title}
+        </Link>
+      ),
+    },
+    {
+      id: "regOpen",
+      header: "Registration Open Date",
+      cell: ({ row }) => (
+        <span>
+          {parseAndFormatDate(row.original.regOpenDate, DATE_FORMAT_STRING)} ({row.original.timeZone?.abbrev})
+        </span>
+      ),
+    },
+    {
+      id: "regClose",
+      header: "Registration Close Date",
+      cell: ({ row }) => (
+        <span>
+          {parseAndFormatDate(row.original.regCloseDate, DATE_FORMAT_STRING)} ({row.original.timeZone?.abbrev})
+        </span>
+      ),
+    },
+    {
+      id: "startDate",
+      header: "Event Start Date",
+      cell: ({ row }) => (
+        <span>
+          {parseAndFormatDate(row.original.startDate, DATE_FORMAT_STRING)} ({row.original.timeZone?.abbrev})
+        </span>
+      ),
+    },
+    {
+      id: "endDate",
+      header: "Event End Date",
+      cell: ({ row }) => (
+        <span>
+          {parseAndFormatDate(row.original.endDate, DATE_FORMAT_STRING)} ({row.original.timeZone?.abbrev})
+        </span>
+      ),
+    },
+    {
+      id: "action",
+      header: "Action",
+      cell: ({ row }) => (
+        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
           <Button
-            as={Link}
-            to={`/controlpanel/eventsmanager/edit/${orgEvent.eventID}`}
-            color="blue"
+            variant="primary"
+            icon={<IconEye size={14} />}
+            onClick={() => history.push(`/controlpanel/eventsmanager/edit/${row.original.eventID}`)}
           >
-            <Icon name="eye" />
             View
           </Button>
           <Button
-            as={Link}
-            to={`/controlpanel/eventsmanager/create?duplicateID=${orgEvent.eventID}`}
+            variant="secondary"
+            icon={<IconCopy size={14} />}
+            onClick={() => history.push(`/controlpanel/eventsmanager/create?duplicateID=${row.original.eventID}`)}
           >
-            <Icon name="copy" />
             Duplicate
           </Button>
-        </Table.Cell>
-      </Table.Row>
-    );
-  }
+        </div>
+      ),
+    },
+  ], [history]);
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">Events Manager</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment className="flex-row-div">
-              <div className="left-flex">
-                <Breadcrumb>
-                  <Breadcrumb.Section as={Link} to="/controlpanel">
-                    Control Panel
-                  </Breadcrumb.Section>
-                  <Breadcrumb.Divider icon="right chevron" />
-                  <Breadcrumb.Section active>Events Manager</Breadcrumb.Section>
-                </Breadcrumb>
-              </div>
-              <div className="right-flex">
-                <Button
-                  as={Link}
-                  to="/controlpanel/eventsmanager/create"
-                  color="green"
-                >
-                  <Icon name="add" />
-                  New Event
-                </Button>
-              </div>
-            </Segment>
-            <Segment loading={!loadedData}>
-              <Table striped celled fixed>
-                <Table.Header>
-                  <Table.Row>
-                    {COLUMNS.map((item) => (
-                      <Table.HeaderCell key={item.key}>
-                        <span>{item.text}</span>
-                      </Table.HeaderCell>
-                    ))}
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {orgEvents.length > 0 &&
-                    orgEvents.map((item) => (
-                      <TableRow orgEvent={item} key={item.eventID} />
-                    ))}
-                  {orgEvents.length === 0 && (
-                    <Table.Row>
-                      <Table.Cell colSpan={5}>
-                        <p className="text-center">
-                          <em>No results found.</em>
-                        </p>
-                      </Table.Cell>
-                    </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
-              <div className="flex-row-div">
-                <div className="right-flex">
-                  <Pagination
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    firstItem={null}
-                    lastItem={null}
-                    onPageChange={(e, data) =>
-                      setActivePage(
-                        parseInt(data.activePage?.toString() ?? "1") ?? 1
-                      )
-                    }
-                  />
-                </div>
-              </div>
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+    <div className="bg-white h-full px-8 pt-8">
+      <Stack direction="vertical" gap="md" className="mb-4">
+        <Heading level={2}>Events Manager</Heading>
+        <div className="flex items-center justify-between">
+          <Breadcrumb aria-label="Page navigation">
+            <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+            <Breadcrumb.Item isCurrent>Events Manager</Breadcrumb.Item>
+          </Breadcrumb>
+          <Button
+            variant="primary"
+            icon={<IconPlus size={16} />}
+            onClick={() => history.push("/controlpanel/eventsmanager/create")}
+          >
+            New Event
+          </Button>
+        </div>
+      </Stack>
+
+      <div className="border border-gray-200 rounded-lg overflow-x-auto">
+        <DataTable
+          data={orgEvents}
+          columns={columns}
+          loading={loading}
+          density="compact"
+          bordered
+          striped
+          stickyHeader
+          caption="Events list"
+          enablePagination
+          pageSize={25}
+          pageSizeOptions={[10, 25, 50, 100]}
+          emptyState={
+            <div className="py-8 text-center">
+              <Text><em>No events found.</em></Text>
+            </div>
+          }
+          onRowClick={(row) => history.push(`/controlpanel/eventsmanager/edit/${row.eventID}`)}
+        />
+      </div>
+    </div>
   );
 };
 
