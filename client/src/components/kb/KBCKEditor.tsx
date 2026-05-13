@@ -65,7 +65,7 @@ const KBCKEditor: React.FC<KBCKEditorProps> = ({
       // @ts-ignore
         editor={InsightEditor}
         data={data}
-        onReady={(editor) => {
+        onReady={(editor: any) => {
           // @ts-ignore
           editor.plugins.get("FileRepository").createUploadAdapter = (
             // @ts-ignore
@@ -74,7 +74,7 @@ const KBCKEditor: React.FC<KBCKEditorProps> = ({
             return new ImageUploadAdapterPlugin(loader);
           };
         }}
-        onChange={(event, editor) => {
+        onChange={(event: any, editor: any) => {
           const data = editor.data.get();
           onDataChange(data);
         }}
