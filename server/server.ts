@@ -60,6 +60,7 @@ app.use(
         '*.cloudfront.net',
         '*.videodelivery.net', // Cloudflare Stream
         'https://*.libretexts.net', // LibreTexts CDN
+        "https://bam.nr-data.net", // New Relic Browser
       ],
       defaultSrc: ["'self'"],
       fontSrc: [
@@ -72,6 +73,7 @@ app.use(
       imgSrc: ["'self'", "https:", "data:"],
       mediaSrc: ["'self'", "blob:"],
       objectSrc: ["none"],
+      workerSrc: ["'self'", "blob:"], // NewRelic session replay
       scriptSrc: [
         "'self'",
         "https://*.libretexts.org",
@@ -79,10 +81,12 @@ app.use(
         "https://*.libretexts.net", // LibreTexts CDN
         "'sha256-wjPyHKFbRc4HkIhBXM6I/dBX9NqqdnXFbz8jONRWKCU='", // gtag.js inline
         "'sha256-pnIV3nmqaM9pcomyIJxQz4o3MHOOZiXIQ7B+8Wca1Fw='", // Matomo (traffic.libretexts.org) inline
+        "'sha256-aawMBSWTXKcxtf97Ip9Pv5QB2AqhxUOYnYSLtKH0eBo='", // New Relic Browser inline
         "*.googletagmanager.com", // gtag.js,
         "*.ssa.gov", // ANDI,
         "https://ajax.googleapis.com", // Google CDN (jQuery for ANDI)
         "https://embed.cloudflarestream.com", // Cloudflare Stream
+        "https://js-agent.newrelic.com" // New Relic Browser
       ],
       styleSrc: [
         "'self'",
@@ -125,7 +129,22 @@ app.use("/health", (_req, res) => {
 // Serve frontend assets. Resolve relative to the server package root (one level up from dist/ in prod, same dir in dev).
 const serverRoot = __dirname.endsWith("dist") ? path.join(__dirname, "..") : __dirname;
 const clientDist = path.join(serverRoot, "../client/dist");
-app.use(express.static(clientDist));
+
+// Load index.html once. Strip the NewRelic browser monitoring snippet outside production so it doesn't run locally.
+const indexHtmlPath = path.resolve(clientDist, "index.html");
+let indexHtml = fs.readFileSync(indexHtmlPath, "utf-8");
+if (process.env.NODE_ENV !== "production") {
+  indexHtml = indexHtml.replace(
+    /[ \t]*<!-- NewRelic:start -->[\s\S]*?<!-- NewRelic:end -->\r?\n?/,
+    ""
+  );
+}
+
+// Serve index.html from the in-memory copy so the conditional strip takes effect; static middleware handles other assets.
+app.get(["/", "/index.html"], (_req, res) => {
+  res.setHeader("Content-Type", "text/html").send(indexHtml);
+});
+app.use(express.static(clientDist, { index: false }));
 
 // Serve runtime env config for frontend use. Loaded via <script src="/env.js"> in index.html to avoid CSP issues with inline scripts.
 const appEnv = process.env.APP_ENV ?? "production";
@@ -159,8 +178,6 @@ app.get("/matomo-init.js", (_req, res) => {
     .send(matomoJS);
 });
 
-const indexHtmlPath = path.resolve(clientDist, "index.html");
-const indexHtml = fs.readFileSync(indexHtmlPath, "utf-8");
 let cliRouter = express.Router();
 cliRouter.route("*").get((_req, res) => {
   res.setHeader("Content-Type", "text/html").send(indexHtml);
