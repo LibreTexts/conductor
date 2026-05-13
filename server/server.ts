@@ -3,6 +3,10 @@
 // server.js
 //
 
+if (process.env.NODE_ENV === "production") {
+  await import("newrelic");
+}
+
 import "dotenv/config";
 import path from "path";
 import { exit } from "process";
