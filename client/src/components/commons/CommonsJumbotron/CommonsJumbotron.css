@@ -1,7 +1,5 @@
 #commons-jumbotron {
   /* Background image is set dynamically */
-  z-index: 50; /* Appear underneath menu */
-  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;

@@ -359,7 +359,6 @@ const Navbar: React.FC<{}> = () => {
         height: "auto",
         overflow: "visible",
         position: "relative",
-        zIndex: 9999,
       }}
     >
       <EnvironmentBanner />
