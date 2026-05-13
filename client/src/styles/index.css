@@ -123,6 +123,29 @@ a:hover {
 }
 
 /*
+  Override Semantic UI's unlayered `a { background-color: transparent }` for
+  the Davis SkipLink. Tailwind v4's `focus:bg-primary` utility is layered, so
+  Semantic UI's unlayered anchor reset wins, leaving the focused SkipLink with
+  a transparent background and white text on the page bg — visually invisible.
+  This can be removed when Semantic UI is removed entirely.
+*/
+a:focus.focus\:bg-primary {
+  background-color: var(--color-primary);
+}
+
+/*
+  Companion to the focus:bg-primary override above. The unlayered
+  `a { color: var(--link-color) }` rule (and Semantic UI's anchor color reset)
+  beats Tailwind v4's layered `focus:text-white` utility, leaving the focused
+  Davis SkipLink with low-contrast link-colored text on a primary background.
+  This can be removed when Semantic UI is removed entirely and the unlayered
+  `a` rule above is moved into a layer.
+*/
+a:focus.focus\:text-white {
+  color: white;
+}
+
+/*
   Override Semantic UI's unlayered `p { margin: 0 0 1em; line-height: 1.4285em }`.
   Davis Design System's Timeline component renders <p> elements for title and
   description slots with Tailwind utilities that assume zero default margin.
