@@ -1,16 +1,10 @@
 import { useState } from "react";
-import {
-  Button,
-  Dropdown,
-  Form,
-  Icon,
-  Modal,
-  ModalProps,
-} from "semantic-ui-react";
+import { Modal, Button } from "@libretexts/davis-react";
+import { IconTrash, IconX } from "@tabler/icons-react";
 import useGlobalError from "../../error/ErrorHooks";
 import axios from "axios";
 
-interface ConfirmDeleteFeaturedModalProps extends ModalProps {
+interface ConfirmDeleteFeaturedModalProps {
   open: boolean;
   onClose: () => void;
   type: "page" | "video";
@@ -24,7 +18,6 @@ const ConfirmDeleteFeaturedModal: React.FC<ConfirmDeleteFeaturedModalProps> = ({
   type,
   id,
   onDeleted,
-  ...rest
 }) => {
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
@@ -33,11 +26,8 @@ const ConfirmDeleteFeaturedModal: React.FC<ConfirmDeleteFeaturedModalProps> = ({
     try {
       setLoading(true);
       if (!id || !type) return;
-
       const res = await axios.delete(`/kb/featured/${type}/${id}`);
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
+      if (res.data.err) throw new Error(res.data.errMsg);
       onDeleted();
     } catch (err) {
       handleGlobalError(err);
@@ -47,27 +37,39 @@ const ConfirmDeleteFeaturedModal: React.FC<ConfirmDeleteFeaturedModalProps> = ({
   }
 
   return (
-    <Modal open={open} onClose={onClose} size="large" {...rest}>
-      <Modal.Header>Remove From Featured Content?</Modal.Header>
-      <Modal.Content>
+    <Modal open={open} onClose={() => onClose()} size="sm">
+      <Modal.Header>
+        <Modal.Title>Remove From Featured Content?</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
         <p>
           Are you sure you want to remove this {type} from featured content?
           {type === "page" && (
             <span>
-              Removing this page from featured content will NOT delete it from
-              the knowledge base.
+              {" "}Removing this page from featured content will NOT delete it
+              from the knowledge base.
             </span>
           )}
         </p>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button color="red" loading={loading} onClick={() => handleDelete()}>
-          <Icon name="trash" /> Delete
+      </Modal.Body>
+      <Modal.Footer>
+        <Button
+          variant="destructive"
+          icon={<IconTrash size={16} aria-hidden="true" />}
+          loading={loading}
+          onClick={handleDelete}
+        >
+          Delete
         </Button>
-        <Button onClick={onClose} loading={loading}>
-          <Icon name="cancel" /> Cancel
+        <Button
+          variant="ghost"
+          icon={<IconX size={16} aria-hidden="true" />}
+          disabled={loading}
+          onClick={onClose}
+        >
+          Cancel
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };

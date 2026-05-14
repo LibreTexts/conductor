@@ -132,7 +132,7 @@ const HarvestRequestForm: React.FC<HarvestRequestFormProps> = () => {
         </FormSection>
         <FormSection title="Additional Information (optional)">
           <Textarea
-            label=""
+            label="Additional Information"
             placeholder="Is there any other information you'd like to provide about this publishing request?"
             maxLength={2000}
             rows={4}

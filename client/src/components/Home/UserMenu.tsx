@@ -25,7 +25,7 @@ type NavItemProps = {
 
 const NavItem: React.FC<NavItemProps> = ({ label, icon, href, to }) => {
   const base =
-    "flex justify-between items-center px-4 py-3 text-gray-800 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0";
+    "flex justify-between items-center px-4 py-3 text-gray-800 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset";
 
   if (to) {
     return (
@@ -53,7 +53,7 @@ const NavList: React.FC<{ showUserDetail: boolean }> = ({ showUserDetail }) => {
       {showUserDetail && (
         <div className="flex flex-col items-center py-6 px-4 border-b border-gray-200">
           <Avatar src={user.avatar} alt={user.firstName} size="xl" />
-          <Heading level={3} className="text-center">
+          <Heading level={4} className="text-center">
             Welcome,
             <br />
             {user.firstName}
@@ -105,7 +105,7 @@ const UserMenu: React.FC = () => {
         <div className="flex justify-between items-center p-3">
           <div className="flex items-center gap-2">
             <Avatar src={user.avatar} alt={user.firstName} size="md" />
-            <h1 className="text-xl font-semibold">Welcome, {user.firstName}</h1>
+            <p className="text-2xl font-semibold">Welcome, {user.firstName}</p>
           </div>
           <Button
             variant="ghost"

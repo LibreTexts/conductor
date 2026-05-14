@@ -249,10 +249,10 @@ const CommonsCollection: React.FC<{}> = () => {
   }, 150);
 
   useEffect(() => {
-    if (org.orgID !== "libretexts" && collection?.title !== "") {
-      document.title = `${org.shortName} Commons | Collections | ${collection?.title}`;
-    } else if (org.orgID === "libretexts" && collection?.title !== "") {
-      document.title = `LibreCommons | Collections | ${collection?.title}`;
+    if (org.orgID !== "libretexts") {
+      document.title = `${org.shortName} Commons | Collections ${collection?.title ? `| ${collection.title}` : ""}`;
+    } else if (org.orgID === "libretexts") {
+      document.title = `LibreCommons | Collections ${collection?.title ? `| ${collection.title}` : ""}`;
     } else {
       document.title = `LibreCommons | Collection`;
     }
@@ -298,7 +298,7 @@ const CommonsCollection: React.FC<{}> = () => {
   const VisualMode = () => {
     if (resourcesLoaded && resources.pages.length > 0) {
       return (
-        <Grid className="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <Grid gap="lg" className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
           {resources.pages.map((p) => {
             return p.data.map((item: Collection | CollectionResource) => (
               <CollectionCard
@@ -341,7 +341,7 @@ const CommonsCollection: React.FC<{}> = () => {
       )}
 
       <div>
-        <Heading level={3} className="text-center lg:text-left">
+        <Heading level={1} className="text-center lg:text-left">
           {id
             ? collection?.title
             : org.collectionsDisplayLabel || "Collections"}

@@ -77,7 +77,7 @@ const Commons = () => {
 
   return (
     <div className="commons">
-      <SkipLink />
+<SkipLink targetId="main-content" />
       <Navbar />
       <CommonsJumbotron backgroundURL={org.coverPhoto ?? ""} />
       <CommonsMenu activeItem={activeItem} />

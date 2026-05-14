@@ -7,6 +7,7 @@ import {
 } from "../../../utils/supportHelpers";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../../api";
+import { useEffect, useId, useRef } from "react";
 import { FormSection, Text, Input, Select, Textarea, Stack } from "@libretexts/davis-react";
 
 interface TechnicalSupportFormProps {
@@ -16,7 +17,20 @@ interface TechnicalSupportFormProps {
 const TechnicalSupportForm: React.FC<TechnicalSupportFormProps> = ({
   autoCapturedURL,
 }) => {
+  const priorityHelpId = useId();
+  const prevShowAppsRef = useRef(false);
   const { watch, register } = useFormContext<SupportTicket>();
+  const category = watch("category");
+  const showApps = ["technical", "feature"].includes(category || "");
+
+  useEffect(() => {
+    // When the Application/Library field is removed, return focus to Category
+    if (prevShowAppsRef.current && !showApps) {
+      document.querySelector<HTMLSelectElement>('select[name="category"]')?.focus();
+    }
+    prevShowAppsRef.current = showApps;
+  }, [showApps]);
+
   const { data } = useQuery<CentralIdentityApp[]>({
     queryKey: ["central-identity-apps"],
     queryFn: async () => {
@@ -43,23 +57,19 @@ const TechnicalSupportForm: React.FC<TechnicalSupportFormProps> = ({
             }))}
             {...register("category", { required: "Category is required" })}
           />
-          {["technical", "feature"].includes(watch("category") || "") && (
+          {showApps && (
             <Select
               label="Application/Library"
-              placeholder="Select the applications and/or libraries related to your ticket"
+              placeholder="Select application or library..."
               options={
                 data?.map((app) => ({
                   value: app.id.toString(),
                   label: app.name,
                 })) || []
               }
-              required={["technical", "feature"].includes(
-                watch("category") || ""
-              )}
+              required={showApps}
               {...register("apps", {
-                required: ["technical", "feature"].includes(
-                  watch("category") || ""
-                ) ? "Application/Library is required" : false
+                required: showApps ? "Application/Library is required" : false
               })}
             />
           )}
@@ -68,13 +78,14 @@ const TechnicalSupportForm: React.FC<TechnicalSupportFormProps> = ({
               label="Priority"
               placeholder="Select the priority level of your ticket"
               required
+              aria-describedby={priorityHelpId}
               options={SupportTicketPriorityOptions?.map((l) => ({
                 value: l.value,
                 label: l.text,
               }))}
               {...register("priority", { required: "Priority is required" })}
             />
-            <Text className="text-xs mt-3">
+            <Text id={priorityHelpId} className="text-xs mt-3">
               Note: A higher priority does not guarantee a faster response. Support
               tickets created by users from LibreNet member campuses are reviewed
               first.
@@ -89,7 +100,7 @@ const TechnicalSupportForm: React.FC<TechnicalSupportFormProps> = ({
           {!autoCapturedURL && (
             <Input
               label="URL (if applicable)"
-              placeholder="Enter the URL of the page this ticket is related to - this may help us resolve your issue faster"
+              placeholder="Enter the URL related to this issue"
               type="url"
               {...register("capturedURL")}
             />

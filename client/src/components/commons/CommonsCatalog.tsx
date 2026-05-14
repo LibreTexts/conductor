@@ -676,7 +676,7 @@ const CommonsCatalog = () => {
           <Stack direction="vertical" gap="md" className="p-6 text-center">
             {org.commonsHeader && org.commonsHeader !== "" && (
               <Heading
-                level={3}
+                level={1}
               >
                 {org.commonsHeader}
               </Heading>

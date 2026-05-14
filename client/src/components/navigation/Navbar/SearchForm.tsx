@@ -59,7 +59,8 @@ const SearchForm: React.FC<SearchFormProps> = ({ context, className }) => {
     >
       <Input
         name="search-input"
-        label=""
+        label="Search"
+        labelClassName="sr-only"
         placeholder={getPlaceholder()}
         value={searchInput}
         onChange={(e) => setSearchInput(e.target.value)}

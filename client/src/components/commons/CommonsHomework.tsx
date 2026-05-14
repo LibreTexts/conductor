@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Divider,
+  Grid,
   Heading,
   IconButton,
   Input,
@@ -113,7 +114,7 @@ const CommonsHomework = () => {
   const VisualMode = () => {
     if (visibleCourses.length > 0) {
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <Grid gap="lg" className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
           {visibleCourses.map((item, index) => (
             <Card
               key={index}
@@ -139,7 +140,7 @@ const CommonsHomework = () => {
               </Card.Footer>
             </Card>
           ))}
-        </div>
+        </Grid>
       );
     }
     return (
@@ -164,8 +165,8 @@ const CommonsHomework = () => {
 
   return (
     <Stack direction="vertical" gap="lg" className="p-6">
-      <Stack direction="vertical" gap="md" className="p-6 text-center">
-        <Heading level={3} className="text-center lg:text-left">
+      <Stack direction="vertical" gap="md" className="text-center">
+        <Heading level={1} className="text-center lg:text-left">
           Homework
         </Heading>
 

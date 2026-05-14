@@ -151,7 +151,7 @@ export function base64ToBlob(
     byteArrays.push(byteArray);
   }
 
-  return new Blob(byteArrays, { type: contentType });
+  return new Blob(byteArrays as BlobPart[], { type: contentType });
 }
 
 export function getBookFilterText(filter: string) {

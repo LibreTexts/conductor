@@ -560,7 +560,7 @@ export async function getFolderContents(
 export async function getProjectFileS3Metadata(projectID: string, fileID: string): Promise<HeadObjectCommandOutput | null> {
   try {
     // @ts-ignore
-    const s3 = new S3Client({ region: process.env.AWS_REGION });
+    const s3 = new S3Client({ region: process.env.AWS_PROJECTFILES_REGION || process.env.AWS_REGION });
     const fileKey = `${projectID}/${fileID}`;
     const command = new HeadObjectCommand({
       Bucket: process.env.AWS_PROJECTFILES_BUCKET ?? "",
@@ -1009,7 +1009,7 @@ export async function createZIPAndNotify(
 ): Promise<boolean> {
   try {
     // @ts-ignore
-    const storageClient = new S3Client({ region: process.env.AWS_REGION });
+    const storageClient = new S3Client({ region: process.env.AWS_PROJECTFILES_REGION || process.env.AWS_REGION });
 
     const downloadCommands: GetObjectCommand[] = [];
     fileKeys.forEach(async (key) => {

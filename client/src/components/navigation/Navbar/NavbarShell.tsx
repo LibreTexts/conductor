@@ -13,13 +13,11 @@ interface NavbarShellProps {
   logoLabel: string;
   /** Optional text rendered beside the logo (e.g. "| Support Center"). */
   logoLockupText?: string;
-  /** Rendered as a screen-reader-only <h1> when provided (commons catalog title). */
-  pageTitle?: string;
   /** Rendered in the left cluster after the logo, hidden on mobile. */
   desktopNavItems?: React.ReactNode;
   /** Rendered in the right cluster, hidden on mobile. */
   desktopActions?: React.ReactNode;
-  /** Content of the mobile drawer; if not provided, will default to desktopNavItems. */
+  /** Content of the mobile drawer. Must be provided for each context — no fallback. */
   mobileDrawerItems?: React.ReactNode;
   /** id for the drawer element and the hamburger's aria-controls. */
   mobileDrawerId?: string;
@@ -35,7 +33,6 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
   logoLinkTo,
   logoLabel,
   logoLockupText,
-  pageTitle,
   desktopNavItems,
   desktopActions,
   mobileDrawerItems,
@@ -50,40 +47,41 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
   }, [menuOpen]);
 
   return (
-    <>
+    <div style={{ position: "relative" }}>
       {/* Top bar — always visible */}
-      <div className="flex flex-row items-center justify-between px-4 h-[60px] w-full bg-white border-b border-gray-300">
+      <div className="flex flex-row items-center justify-between px-2 sm:px-4 h-[60px] w-full bg-white border-b border-gray-300">
         {/* Left: Launchpad + Logo + Desktop nav links */}
-        <div className="flex flex-row items-center gap-2">
-          {pageTitle && <h1 className="sr-only">{pageTitle}</h1>}
+        <div className="flex flex-row items-center gap-2 min-w-0 overflow-hidden">
           <Launchpad />
           <Link
             to={logoLinkTo}
             className="flex items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            <img src={logoSrc} alt="" className="max-h-[44px] w-auto" />
-            {logoLockupText && (
-              <span className="ml-2 text-2xl font-semibold text-nowrap">
+            <img src={logoSrc} alt="" className="max-h-[44px] w-auto max-w-[min(150px,40vw)]" />
+            {logoLockupText ? (
+              <h1 className="text-xl! font-semibold text-nowrap hidden sm:inline mt-0.5! p-0! ml-0!">
+                <span aria-hidden="true" className="mx-2 font-light text-gray-400">|</span>
                 {logoLockupText}
-              </span>
+              </h1>
+            ) : (
+              <VisuallyHidden>{logoLabel}</VisuallyHidden>
             )}
-            <VisuallyHidden>{logoLabel}</VisuallyHidden>
           </Link>
           {desktopNavItems && (
-            <div className="hidden xl:flex flex-row items-center ml-4 gap-2">
+            <ul className="hidden xl:flex flex-row items-center ml-4 gap-2 list-none m-0 p-0">
               {desktopNavItems}
-            </div>
+            </ul>
           )}
         </div>
 
         {/* Right: Desktop actions + Hamburger (mobile only) */}
-        <div className="flex flex-row items-center gap-4">
+        <div className="flex flex-row items-center gap-4 flex-shrink-0">
           {desktopActions && (
-            <div className="hidden xl:flex flex-row items-center gap-4">
+            <ul className="hidden xl:flex flex-row items-center gap-4 list-none m-0 p-0">
               {desktopActions}
-            </div>
+            </ul>
           )}
-          {(mobileDrawerItems || desktopActions) && (
+          {mobileDrawerItems && (
             <IconButton
               ref={hamburgerRef}
               icon={menuOpen ? <IconX /> : <IconMenu2 />}
@@ -101,16 +99,17 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
         </div>
       </div>
 
-      {/* Mobile drawer — visible below xl breakpoint when open */}
-      {menuOpen && (mobileDrawerItems || desktopActions) && (
-        <div
+      {/* Mobile drawer */}
+      {menuOpen && mobileDrawerItems && (
+        <ul
           id={mobileDrawerId}
-          className="xl:hidden bg-white w-full px-6 py-4 shadow-xl flex flex-col gap-3 border-t border-neutral-100 overflow-y-auto max-h-[50vh] justify-center"
+          className="xl:hidden bg-white w-full px-4 py-4 shadow-xl flex flex-col gap-3 border-t border-neutral-100 overflow-y-auto max-h-[calc(100vh-60px)] list-none"
+          style={{ position: "absolute", top: "100%", left: 0 }}
         >
-          {mobileDrawerItems || desktopActions}
-        </div>
+          {mobileDrawerItems}
+        </ul>
       )}
-    </>
+    </div>
   );
 };
 

@@ -32,6 +32,7 @@ const TicketFeed: React.FC<TicketFeedProps> = ({ ticket }) => {
                 title={f.action}
                 description={f.blame}
                 timestamp={getEntryTimestamp(f)}
+                status={idx === ticket.feed.length - 1 ? "current" : "complete"}
               />
             ))}
           </Timeline>

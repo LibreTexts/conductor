@@ -1,48 +1,54 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
 import {
-  Header,
-  Segment,
-  Grid,
   Breadcrumb,
-  Icon,
-  Dropdown,
+  Button,
+  Heading,
   Input,
-} from "semantic-ui-react";
+  Select,
+  Stack,
+  Text,
+} from "@libretexts/davis-react";
+import { DataTable, ColumnDef } from "@libretexts/davis-react-table";
+import {
+  IconCheck,
+  IconCode,
+  IconCopy,
+  IconDownload,
+  IconExternalLink,
+  IconPlus,
+} from "@tabler/icons-react";
 import { Author } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import useDebounce from "../../../../hooks/useDebounce";
 import api from "../../../../api";
 import useDocumentTitle from "../../../../hooks/useDocumentTitle";
-import SupportCenterTable from "../../../../components/support/SupportCenterTable";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useModals } from "../../../../context/ModalContext";
-import Button from "../../../../components/NextGenComponents/Button";
+import { useNotifications } from "../../../../context/NotificationContext";
 import { truncateString } from "../../../../components/util/HelperFunctions";
-import ManageAuthorModal from "../../../../components/controlpanel/AuthorsManager/ManageAuthorModal"
-import GenerateTemplateJSONModal from "../../../../components/controlpanel/AuthorsManager/GenerateTemplateJSONModal"
+import CopyButton from "../../../../components/util/CopyButton";
+import ManageAuthorModal from "../../../../components/controlpanel/AuthorsManager/ManageAuthorModal";
+import GenerateTemplateJSONModal from "../../../../components/controlpanel/AuthorsManager/GenerateTemplateJSONModal";
 
 const LIMIT = 25;
 
+const SORT_OPTIONS = [
+  { label: "Sort by Name Key", value: "nameKey" },
+  { label: "Sort by Name", value: "name" },
+  { label: "Sort by Company Name", value: "companyName" },
+];
+
 const AuthorsManager = () => {
-  //Global State & Hooks
   useDocumentTitle("LibreTexts Conductor | Authors Manager");
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
   const { openModal, closeAllModals } = useModals();
+  const { addNotification } = useNotifications();
 
-  //UI
-  const [sortChoice, setSortChoice] = useState<string>("nameKey");
-  const [searchString, setSearchString] = useState<string>("");
-  const [activeSearch, setActiveSearch] = useState<string>("");
+  const [sortChoice, setSortChoice] = useState("nameKey");
+  const [searchString, setSearchString] = useState("");
+  const [activeSearch, setActiveSearch] = useState("");
 
-  const sortOptions = [
-    { key: "nameKey", text: "Sort by Name Key", value: "nameKey" },
-    { key: "name", text: "Sort by Name", value: "name" },
-    { key: "companyName", text: "Sort by Company Name", value: "companyName" },
-  ];
-
-  //Data
   const { data, isFetching, isInitialLoading, fetchNextPage } =
     useInfiniteQuery({
       queryKey: ["authors", LIMIT, sortChoice, activeSearch],
@@ -53,11 +59,8 @@ const AuthorsManager = () => {
           sort: sortChoice,
           query: activeSearch || undefined,
         });
-
         if (response.data.err) {
-          handleGlobalError(
-            response.data.errMsg || "Failed to fetch authors."
-          );
+          handleGlobalError(response.data.errMsg || "Failed to fetch authors.");
           return {
             items: [],
             meta: { total_count: 0, has_more: false, next_page: null },
@@ -66,14 +69,14 @@ const AuthorsManager = () => {
         return response.data;
       },
       getNextPageParam: (lastPage) => {
-        const nextPage = lastPage?.meta?.has_more && lastPage.meta.next_page ? lastPage.meta.next_page : undefined;
+        const nextPage =
+          lastPage?.meta?.has_more && lastPage.meta.next_page
+            ? lastPage.meta.next_page
+            : undefined;
         const parsed = parseInt(nextPage as string, 10);
-        if (isNaN(parsed)) {
-          return undefined;
-        }
-        return parsed;
+        return isNaN(parsed) ? undefined : parsed;
       },
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60 * 5,
       refetchOnWindowFocus: false,
     });
 
@@ -82,187 +85,210 @@ const AuthorsManager = () => {
 
   function handleOpenManageModal(authorID?: string) {
     openModal(
-      <ManageAuthorModal show onClose={() => closeAllModals()} authorID={authorID} />
+      <ManageAuthorModal
+        show
+        onClose={() => closeAllModals()}
+        authorID={authorID}
+      />
     );
   }
 
-  function renderURLField(url?: string) {
+  function renderURLCell(url?: string) {
     if (!url) return null;
-
     let parsedURL: URL;
     try {
       parsedURL = new URL(url);
-    } catch (error) {
+    } catch {
       return null;
     }
-
-    const truncated = truncateString(parsedURL.toString(), 30);
-
     return parsedURL.hostname ? (
-      <a href={parsedURL.toString()} target="_blank" rel="noopener noreferrer">
-        {truncated} <Icon name="external alternate" />
+      <a
+        href={parsedURL.toString()}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1 text-primary hover:underline"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {truncateString(parsedURL.toString(), 30)}
+        <IconExternalLink size={14} aria-hidden="true" />
       </a>
     ) : null;
   }
 
-  return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">
-            Authors Manager
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <div className="flex flex-row justify-between items-center">
-                <Breadcrumb>
-                  <Breadcrumb.Section as={Link} to="/controlpanel">
-                    Control Panel
-                  </Breadcrumb.Section>
-                  <Breadcrumb.Divider icon="right chevron" />
-                  <Breadcrumb.Section active>Authors Manager</Breadcrumb.Section>
-                </Breadcrumb>
-                <div className="flex gap-x-2">
-                  <Button
-                    color="blue"
-                    onClick={() => openModal(<GenerateTemplateJSONModal onClose={() => closeAllModals()} />)}
-                    icon="IconCode"
-                  >
-                    Generate Template JSON
-                  </Button>
-                  <Button
-                    color="green"
-                    onClick={() => handleOpenManageModal()}
-                    icon="IconPlus"
-                  >
-                    Add Author
-                  </Button>
-                </div>
-              </div>
-            </Segment>
-            <Segment>
-              <Grid>
-                <Grid.Row>
-                  <Grid.Column width={11}>
-                    <Dropdown
-                      placeholder="Sort by..."
-                      floating
-                      selection
-                      button
-                      options={sortOptions}
-                      onChange={(_e, { value }) => {
-                        setSortChoice(value as string);
-                      }}
-                      value={sortChoice}
-                    />
-                  </Grid.Column>
-                  <Grid.Column width={5}>
-                    <Input
-                      icon="search"
-                      placeholder="Search by Name Key, Name, or Company"
-                      onChange={(e) => {
-                        setSearchString(e.target.value);
-                        debounce((val: string) => setActiveSearch(val), 300)(e.target.value.trim());
-                      }}
-                      value={searchString}
-                      fluid
-                    />
-                  </Grid.Column>
-                </Grid.Row>
-              </Grid>
-            </Segment>
-            <Segment>
-              <SupportCenterTable<
-                Author & { actions?: string }
-              >
-                loading={isInitialLoading}
-                data={allData || []}
-                onRowClick={(author) => {
-                  handleOpenManageModal(author._id);
-                }}
-                columns={[
-                  {
-                    accessor: "nameKey",
-                    title: "Name Key (Unique)",
-                    copyButton: true,
-                    render(record) {
-                      return <span className="font-mono">{truncateString(record.nameKey, 30)}</span>;
-                    }
-                  },
-                  {
-                    accessor: "name",
-                    title: "Name",
-                    render(record, index) {
-                      return (
-                        <div className="flex items-center gap-x-2">
-                          {record.pictureURL && (
-                            <img
-                              alt={record.name}
-                              src={record.pictureURL}
-                              className="inline-block size-8 rounded-full outline -outline-offset-1 outline-black/5"
-                            />
-                          )}
-                          <p>{record.name}</p>
-                        </div>
-                      )
-                    },
-                  },
-                  {
-                    accessor: "nameTitle",
-                    title: "Name Title",
-                  },
-                  {
-                    accessor: "nameURL",
-                    title: "Name URL",
-                    render(record) {
-                      return renderURLField(record.nameURL);
-                    },
-                  },
-                  {
-                    accessor: "companyName",
-                    title: "Company Name",
-                  },
-                  {
-                    accessor: "companyURL",
-                    title: "Company URL",
-                    render(record) {
-                      return renderURLField(record.companyURL);
-                    },
-                  },
-                  {
-                    accessor: "programName",
-                    title: "Program Name",
-                  },
-                  {
-                    accessor: "programURL",
-                    title: "Program URL",
-                    render(record) {
-                      return renderURLField(record.programURL);
-                    },
-                  },
-                ]}
-              />
-              {lastPage?.meta?.has_more && (
-                <div className="flex justify-center mt-4 w-full">
-                  <Button
-                    onClick={() => fetchNextPage()}
-                    loading={isFetching || isInitialLoading}
-                    variant="primary"
-                    icon="IconDownload"
-                  >
-                    Load More
-                  </Button>
-                </div>
+  const columns = useMemo<ColumnDef<Author>[]>(
+    () => [
+      {
+        id: "nameKey",
+        header: "Name Key (Unique)",
+        accessorKey: "nameKey",
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1 font-mono">
+            <span>{truncateString(row.original.nameKey, 30)}</span>
+            <CopyButton val={row.original.nameKey || ""}>
+              {({ copied, copy }) => (
+                <button
+                  type="button"
+                  className="cursor-pointer text-primary hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    copy();
+                    addNotification({
+                      message: "Copied to clipboard",
+                      type: "success",
+                      duration: 2000,
+                    });
+                  }}
+                  aria-label="Copy name key"
+                >
+                  {copied
+                    ? <IconCheck size={14} className="text-green-600" />
+                    : <IconCopy size={14} />}
+                </button>
               )}
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid >
+            </CopyButton>
+          </div>
+        ),
+      },
+      {
+        id: "name",
+        header: "Name",
+        accessorKey: "name",
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            {row.original.pictureURL && (
+              <img
+                alt={row.original.name}
+                src={row.original.pictureURL}
+                className="inline-block size-7 rounded-full outline -outline-offset-1 outline-black/5"
+              />
+            )}
+            <span>{row.original.name}</span>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "nameTitle",
+        header: "Name Title",
+      },
+      {
+        id: "nameURL",
+        header: "Name URL",
+        cell: ({ row }) => renderURLCell(row.original.nameURL),
+      },
+      {
+        accessorKey: "companyName",
+        header: "Company Name",
+      },
+      {
+        id: "companyURL",
+        header: "Company URL",
+        cell: ({ row }) => renderURLCell(row.original.companyURL),
+      },
+      {
+        accessorKey: "programName",
+        header: "Program Name",
+      },
+      {
+        id: "programURL",
+        header: "Program URL",
+        cell: ({ row }) => renderURLCell(row.original.programURL),
+      },
+    ],
+    [addNotification]
+  );
+
+  return (
+    <div className="bg-white h-full px-8 pt-8">
+      <Stack direction="vertical" gap="md" className="mb-4">
+        <Heading level={2}>Authors Manager</Heading>
+        <div className="flex items-center justify-between">
+          <Breadcrumb aria-label="Page navigation">
+            <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+            <Breadcrumb.Item isCurrent>Authors Manager</Breadcrumb.Item>
+          </Breadcrumb>
+          <div className="flex gap-2">
+            <Button
+              variant="primary"
+              icon={<IconCode size={16} />}
+              onClick={() =>
+                openModal(
+                  <GenerateTemplateJSONModal onClose={() => closeAllModals()} />
+                )
+              }
+            >
+              Generate Template JSON
+            </Button>
+            <Button
+              variant="primary"
+              icon={<IconPlus size={16} />}
+              onClick={() => handleOpenManageModal()}
+            >
+              Add Author
+            </Button>
+          </div>
+        </div>
+      </Stack>
+
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="p-4 bg-white border-b border-gray-200">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:max-w-4xl">
+            <Select
+              name="sort"
+              label="Sort"
+              placeholder="Sort by..."
+              options={SORT_OPTIONS}
+              value={sortChoice}
+              onChange={(e) => setSortChoice(e.target.value)}
+            />
+            <div className="md:col-span-2">
+              <Input
+                name="search"
+                label="Search"
+                placeholder="Search by Name Key, Name, or Company"
+                value={searchString}
+                onChange={(e) => {
+                  setSearchString(e.target.value);
+                  debounce(
+                    (val: string) => setActiveSearch(val),
+                    300
+                  )(e.target.value.trim());
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <DataTable
+          data={allData}
+          columns={columns}
+          loading={isInitialLoading}
+          density="compact"
+          bordered
+          striped
+          stickyHeader
+          caption="Authors list"
+          emptyState={
+            <div className="py-8 text-center">
+              <Text><em>No authors found.</em></Text>
+            </div>
+          }
+          onRowClick={(row) => handleOpenManageModal(row._id)}
+        />
+
+        {lastPage?.meta?.has_more && (
+          <div className="flex justify-center p-4 border-t border-gray-200">
+            <Button
+              variant="primary"
+              icon={<IconDownload size={16} />}
+              onClick={() => fetchNextPage()}
+              loading={isFetching || isInitialLoading}
+            >
+              Load More
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 

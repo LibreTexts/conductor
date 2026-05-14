@@ -348,7 +348,7 @@ const SupportTicketView = () => {
                   </div>
                 )}
               </div>
-              <div className="flex flex-col xl:basis-3/5 mt-4 xl:mt-0">
+              <div className="flex flex-col xl:basis-3/5 mt-4 xl:mt-0 min-w-0">
                 <TicketMessaging
                   id={id}
                   guestAccessKey={accessKey}

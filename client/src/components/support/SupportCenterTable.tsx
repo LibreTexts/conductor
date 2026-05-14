@@ -1,17 +1,19 @@
 import classNames from "classnames";
-import { Table, TableProps, Icon } from "semantic-ui-react";
-import LoadingSpinner from "../LoadingSpinner";
+import { IconCopy, IconCheck } from "@tabler/icons-react";
+import { Spinner } from "@libretexts/davis-react";
 import { capitalizeFirstLetter } from "../util/HelperFunctions";
 import { NestedKeyOf } from "../../types";
 import { getNestedProperty } from "../../utils/misc";
 import CopyButton from "../util/CopyButton";
 import { useNotifications } from "../../context/NotificationContext";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 interface SupportCenterTableProps<T = Record<string, unknown>> {
   loading?: boolean;
-  tableProps?: TableProps;
+  /** @deprecated use className on the wrapper instead */
+  tableProps?: { className?: string };
+  tableClassName?: string;
   data?: T[];
   noDataText?: string;
   onRowClick?: (record: T) => void;
@@ -30,7 +32,8 @@ interface SupportCenterTableProps<T = Record<string, unknown>> {
 
 function SupportCenterTable<T>({
   loading = false,
-  tableProps = {},
+  tableProps,
+  tableClassName,
   data = [],
   noDataText = "No records found",
   onRowClick,
@@ -40,9 +43,9 @@ function SupportCenterTable<T>({
   enableVirtualization = false,
   maxHeight = "600px",
 }: SupportCenterTableProps<T>) {
-  const { className: tableClassName, ...restTableProps } = tableProps;
   const { addNotification } = useNotifications();
   const parentRef = useRef<HTMLDivElement>(null);
+  const mergedTableClassName = tableClassName ?? tableProps?.className ?? "";
 
   const virtualizer = useVirtualizer({
     count: data.length,
@@ -57,23 +60,20 @@ function SupportCenterTable<T>({
       ? column.render(record, index)
       : (getNestedProperty(record, column.accessor) as React.ReactNode);
 
-    if (!column.copyButton) {
-      return cellValue;
-    }
+    if (!column.copyButton) return cellValue;
 
-    // If copyButton is enabled, wrap content with copy functionality
     const copyValue = String(getNestedProperty(record, column.accessor) || "");
 
     return (
-      <div className="flex justify-start items-center">
+      <div className="flex items-center gap-1">
         <span>{cellValue}</span>
         <CopyButton val={copyValue}>
           {({ copied, copy }) => (
-            <Icon
-              name="copy"
-              className="cursor-pointer !ml-2"
+            <button
+              type="button"
+              className="cursor-pointer text-primary hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
               onClick={(e: React.MouseEvent) => {
-                e.stopPropagation(); // Prevent row click when clicking copy button
+                e.stopPropagation();
                 copy();
                 addNotification({
                   message: "Copied to clipboard",
@@ -81,8 +81,12 @@ function SupportCenterTable<T>({
                   duration: 2000,
                 });
               }}
-              color={copied ? "green" : "blue"}
-            />
+              aria-label="Copy to clipboard"
+            >
+              {copied
+                ? <IconCheck size={16} className="text-green-600" />
+                : <IconCopy size={16} />}
+            </button>
           )}
         </CopyButton>
       </div>
@@ -92,63 +96,71 @@ function SupportCenterTable<T>({
   if (!enableVirtualization) {
     return (
       <div className={classNames("w-full overflow-x-auto", className)}>
-        <Table
-          celled
-          className={classNames("mt-2", tableClassName)}
-          compact
-          striped
-          {...restTableProps}
+        <table
+          className={classNames(
+            "w-full text-sm border-collapse mt-2",
+            mergedTableClassName
+          )}
         >
-          <Table.Header>
-            <Table.Row>
+          <thead>
+            <tr className="bg-gray-50 border-b-2 border-gray-300">
               {columns.map((column, index) => (
-                <Table.HeaderCell key={index} className="whitespace-nowrap">
+                <th
+                  key={index}
+                  className="px-4 py-3 text-left font-semibold text-gray-800 whitespace-nowrap border-r border-gray-200 last:border-r-0"
+                >
                   {column.title ??
                     capitalizeFirstLetter(column.accessor.toString())}
-                </Table.HeaderCell>
+                </th>
               ))}
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr>
+                <td colSpan={columns.length} className="text-center py-8">
+                  <div className="flex justify-center">
+                    <Spinner size="md" />
+                  </div>
+                </td>
+              </tr>
+            )}
+            {!loading && data.length === 0 && (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="text-center py-8 text-gray-500"
+                >
+                  {noDataText}
+                </td>
+              </tr>
+            )}
             {!loading &&
-              data.length !== 0 &&
               data.map((record, idx) => (
-                <Table.Row
+                <tr
                   key={idx}
                   onClick={() => onRowClick?.(record)}
-                  className={
-                    onRowClick ? "cursor-pointer hover:!bg-gray-200" : ""
-                  }
+                  className={classNames(
+                    "border-b border-gray-200",
+                    idx % 2 !== 0 ? "bg-gray-50" : "bg-white",
+                    onRowClick && "cursor-pointer hover:bg-gray-100 transition-colors"
+                  )}
                 >
                   {columns.map((column, index) => (
-                    <Table.Cell
+                    <td
                       key={column.accessor?.toString() || index}
                       className={classNames(
-                        "whitespace-nowrap max-w-80 truncate break-words",
+                        "px-4 py-3 whitespace-nowrap max-w-80 truncate border-r border-gray-200 last:border-r-0",
                         column.className
                       )}
                     >
                       {renderCellContent(column, record, index)}
-                    </Table.Cell>
+                    </td>
                   ))}
-                </Table.Row>
+                </tr>
               ))}
-            {!loading && data.length === 0 && (
-              <Table.Row>
-                <Table.Cell colSpan={columns.length} className="!text-center ">
-                  {noDataText}
-                </Table.Cell>
-              </Table.Row>
-            )}
-            {loading && (
-              <Table.Row className="!h-16">
-                <Table.Cell colSpan={columns.length} className="!text-center">
-                  <LoadingSpinner fullscreen={false} />
-                </Table.Cell>
-              </Table.Row>
-            )}
-          </Table.Body>
-        </Table>
+          </tbody>
+        </table>
       </div>
     );
   }
@@ -169,7 +181,7 @@ function SupportCenterTable<T>({
             <div
               key={index}
               className="px-4 py-3 text-left font-semibold text-gray-800 whitespace-nowrap border-r border-gray-200"
-              style={{ width: `calc(${columnWidth} - 1px)` }} // bit of a hack to account for slight border offsets
+              style={{ width: `calc(${columnWidth} - 1px)` }}
             >
               {column.title ??
                 capitalizeFirstLetter(column.accessor.toString())}
@@ -177,17 +189,14 @@ function SupportCenterTable<T>({
           ))}
         </div>
       </div>
-
       <div
         ref={parentRef}
         className="overflow-auto bg-white"
-        style={{
-          maxHeight: maxHeight,
-        }}
+        style={{ maxHeight }}
       >
         {loading ? (
           <div className="flex justify-center items-center py-8">
-            <LoadingSpinner fullscreen={false} />
+            <Spinner size="md" />
           </div>
         ) : data.length === 0 ? (
           <div className="text-center py-8 text-gray-500">{noDataText}</div>
@@ -202,7 +211,6 @@ function SupportCenterTable<T>({
             {virtualItems.map((virtualRow) => {
               const record = data[virtualRow.index];
               const isEven = virtualRow.index % 2 === 0;
-
               return (
                 <div
                   key={virtualRow.key}
@@ -211,13 +219,10 @@ function SupportCenterTable<T>({
                   onClick={() => onRowClick?.(record)}
                   className={classNames(
                     "absolute top-0 left-0 w-full flex border-b border-gray-200",
-                    onRowClick &&
-                      "cursor-pointer hover:bg-gray-200 transition-colors",
+                    onRowClick && "cursor-pointer hover:bg-gray-200 transition-colors",
                     isEven ? "bg-white" : "bg-gray-50"
                   )}
-                  style={{
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
+                  style={{ transform: `translateY(${virtualRow.start}px)` }}
                 >
                   {columns.map((column, index) => (
                     <div

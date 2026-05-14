@@ -151,24 +151,26 @@ const AnalyticsRequests = () => {
         </Breadcrumb>
       </Stack>
 
-      <DataTable
-        data={analyticsRequests}
-        columns={columns}
-        loading={loading}
-        density="compact"
-        bordered
-        striped
-        stickyHeader
-        caption="Analytics access requests"
-        emptyState={
-          <div className="py-8 text-center">
-            <Text>
-              <em>No results found.</em>
-            </Text>
-          </div>
-        }
-        onRowClick={(row) => handleOpenRequestView(row)}
-      />
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <DataTable
+          data={analyticsRequests}
+          columns={columns}
+          loading={loading}
+          density="compact"
+          bordered
+          striped
+          stickyHeader
+          caption="Analytics access requests"
+          emptyState={
+            <div className="py-8 text-center">
+              <Text>
+                <em>No results found.</em>
+              </Text>
+            </div>
+          }
+          onRowClick={(row) => handleOpenRequestView(row)}
+        />
+      </div>
 
       <ViewAnalyticsRequest
         show={showViewModal}

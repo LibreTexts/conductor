@@ -636,13 +636,18 @@ async function createTicket(
         : `${guest?.firstName} ${guest?.lastName}`,
     );
 
-    const determineSupportQueue = () => {
+    const determineSupportQueue = async () => {
+      // Check for category-based queue override
+      if (category) {
+        const categoryQueue = await supportQueueService.getQueueByCategoryFilter(category);
+        if (categoryQueue) return categoryQueue;
+      }
+
+      // Fall back to explicit queue_id or default
       if (queue_id) {
         return supportQueueService.getQueueById(queue_id);
       }
-      else {
-        return supportQueueService.getDefaultQueue();
-      }
+      return supportQueueService.getDefaultQueue();
     }
 
     const supportQueue = await determineSupportQueue();
@@ -653,9 +658,7 @@ async function createTicket(
       });
     }
 
-    if (!queue_id) {
-      queue_id = supportQueue.id; // Default queue was returned so set the queue_id
-    }
+    queue_id = supportQueue.id; // Always use the resolved queue
 
     // Check if this is a publishing request and ensure publishing has not already been requested for the project
     const projectID = metadata?.projectID;
@@ -1642,7 +1645,7 @@ async function _uploadTicketAttachments(
       throw new Error("Missing file storage config");
     }
 
-    const storageClient = new S3Client({ region: process.env.AWS_REGION });
+    const storageClient = new S3Client({ region: process.env.AWS_SUPPORTFILES_REGION || process.env.AWS_REGION });
     const uploadCommands: PutObjectCommand[] = [];
     const savedFiles: SupportTicketAttachmentInterface[] = [];
 

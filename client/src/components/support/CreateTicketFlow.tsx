@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SupportTicket } from "../../types";
 import { FormProvider, useForm } from "react-hook-form";
 import {
@@ -14,7 +14,7 @@ import useSupportQueues from "../../hooks/useSupportQueues";
 import DynamicIcon, { DynamicIconName } from "../NextGenComponents/DynamicIcon";
 import LoadingSpinner from "../LoadingSpinner";
 import { useSupportCenterContext } from "../../context/SupportCenterContext";
-import { Alert, Button, Stack } from "@libretexts/davis-react";
+import { Alert, Button, Heading, Stack } from "@libretexts/davis-react";
 
 interface CreateTicketFlowProps {
   isLoggedIn: boolean;
@@ -26,6 +26,8 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   const {
     data: queues,
     isLoading: isLoadingQueues,
+    isError: isErrorQueues,
+    refetch: refetchQueues,
     isValidQueue,
     getQueueIDBySlug,
   } = useSupportQueues({
@@ -50,6 +52,13 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
 
   const [step, setStep] = useState(1);
   const [autoCapturedURL, setAutoCapturedURL] = useState<boolean>(false);
+  const stepContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (step > 1 && stepContainerRef.current) {
+      stepContainerRef.current.focus();
+    }
+  }, [step]);
 
   useEffect(() => {
     processSearchParams();
@@ -130,46 +139,79 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
 
   const QueueSelector = () => {
     return (
-      <ul
-        role="list"
-        className="divide-y divide-gray-200 overflow-hidden bg-white  outline-gray-900/5 sm:rounded-xl"
-        aria-label="Support Queues"
-      >
-        {isLoadingQueues && <LoadingSpinner iconOnly={true} className="m-4" />}
-        {!isLoadingQueues &&
-          queues?.map((queue) => (
-            <li
-              key={queue.slug}
-              className="relative flex justify-between gap-x-6 px-4 py-5 hover:bg-gray-50 sm:px-6 cursor-pointer"
-              onClick={() => handleQueueSelect(queue.slug, true)}
-            >
-              <div className="flex min-w-0 gap-x-4 items-center">
-                <DynamicIcon
-                  icon={queue.icon as DynamicIconName}
-                  className="!size-12 flex-none text-primary"
+      <div>
+        <Heading level={2} className="mb-4 text-center">Select a support queue</Heading>
+        <ul
+          role="list"
+          className="divide-y divide-gray-200 overflow-hidden bg-white shadow-xs outline-1 outline-gray-900/5"
+          aria-label="Support Queues"
+        >
+          {isLoadingQueues && <LoadingSpinner iconOnly={true} className="m-4" />}
+          {!isLoadingQueues && isErrorQueues && (
+            <li className="p-4 list-none">
+              <Stack gap="sm" align="center">
+                <Alert
+                  variant="warning"
+                  message="Unable to load support queues. Please try again."
                 />
-                <div className="min-w-0 flex-auto">
-                  <p className="text-xl font-semibold text-gray-900">
-                    {queue.ticket_descriptor}
-                  </p>
-                  <p className="mt-1 flex text-gray-600">{queue.description}</p>
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-x-4">
-                <IconChevronRight
-                  aria-hidden="true"
-                  className="size-8 flex-none text-gray-600"
-                />
-              </div>
+                <Button variant="outline" onClick={() => refetchQueues()}>
+                  Retry
+                </Button>
+              </Stack>
             </li>
-          ))}
-      </ul>
+          )}
+          {!isLoadingQueues &&
+            !isErrorQueues &&
+            queues?.filter((queue) => queue.visible_to_users !== false).length === 0 && (
+            <li className="p-4 list-none">
+              <Alert
+                variant="info"
+                message="No support queues are currently available. Please try again later."
+              />
+            </li>
+          )}
+          {!isLoadingQueues &&
+            !isErrorQueues &&
+            queues?.filter((queue) => queue.visible_to_users !== false).map((queue) => (
+              <li key={queue.slug} className="list-none">
+                <button
+                  type="button"
+                  className="relative flex w-full justify-between gap-x-6 px-4 py-5 hover:bg-gray-50 sm:px-6 cursor-pointer focus-visible:bg-gray-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary focus-visible:outline-none text-left"
+                  onClick={() => handleQueueSelect(queue.slug, true)}
+                >
+                  <div className="flex min-w-0 gap-x-4 items-center">
+                    <DynamicIcon
+                      icon={queue.icon as DynamicIconName}
+                      className="!size-12 flex-none text-primary"
+                    />
+                    <div className="min-w-0 flex-auto">
+                      <p className="text-xl font-semibold text-gray-900">
+                        {queue.ticket_descriptor}
+                      </p>
+                      <p className="mt-1 flex text-gray-600">{queue.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-x-4">
+                    <IconChevronRight
+                      aria-hidden="true"
+                      className="size-8 flex-none text-gray-600"
+                    />
+                  </div>
+                </button>
+              </li>
+            ))}
+        </ul>
+      </div>
     );
   };
 
   return (
     <FormProvider {...methods}>
-      <div className="flex flex-col border border-gray-300 rounded-lg m-4 p-4 w-full lg:w-3/4 bg-white">
+      <div
+        ref={stepContainerRef}
+        tabIndex={-1}
+        className="flex flex-col border border-gray-300 rounded-lg m-4 p-4 w-full lg:w-3/4 bg-white focus:outline-none"
+      >
         {step === 1 && <QueueSelector />}
         {step === 2 && (
           <RenderTicketRequestForm

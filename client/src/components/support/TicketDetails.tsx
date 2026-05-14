@@ -4,7 +4,7 @@ import { getPrettySupportTicketCategory } from "../../utils/supportHelpers";
 import { capitalizeFirstLetter } from "../util/HelperFunctions";
 import { useModals } from "../../context/ModalContext";
 import AddCCModal from "./AddCCModal";
-import { Badge, Button, Card, Heading, Link, Stack, Text } from "@libretexts/davis-react";
+import { Badge, Button, Card, Heading, IconButton, Link, Stack, Text } from "@libretexts/davis-react";
 import { IconPlus } from "@tabler/icons-react";
 
 interface TicketDetailsProps {
@@ -66,13 +66,13 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
               {ticket?.ccedEmails?.map((c) => c.email).join(", ") || "None"}
             </Text>
             {ticket.status !== "closed" && (
-              <Button
+              <IconButton
+                aria-label="Add CC'd user email"
+                size="sm"
                 onClick={() => openAddCCModal()}
                 variant="outline"
-                icon={<IconPlus size={12} />}
-              >
-                Add CC
-              </Button>
+                icon={<IconPlus size={16} />}
+              />
             )}
           </Stack>
           {

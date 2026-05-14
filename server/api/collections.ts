@@ -113,7 +113,7 @@ async function updateCollectionImageAsset(
       }
     }
 
-    const storageClient = new S3Client({ region: process.env.AWS_REGION });
+    const storageClient = new S3Client({ region: process.env.AWS_COLLECTIONDATA_REGION || process.env.AWS_REGION });
 
     const uploadCommand = new PutObjectCommand({
       Bucket: process.env.AWS_COLLECTIONDATA_BUCKET,
