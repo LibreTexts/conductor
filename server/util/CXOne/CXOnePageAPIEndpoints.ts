@@ -11,7 +11,7 @@ const CXOnePageAPIEndpoints = {
   GET_Page_Properties: `properties?${DREAM_OUT_FORMAT}`,
   GET_Page_Security: `security?${DREAM_OUT_FORMAT}`,
   GET_Page_Tree: `tree?${DREAM_OUT_FORMAT}&include=properties,lastmodified`,
-  GET_Subpages: `subpages?${DREAM_OUT_FORMAT}`,
+  GET_Subpages: `subpages?${DREAM_OUT_FORMAT}&limit=all`,
   GET_Page_Tags: `tags?${DREAM_OUT_FORMAT}`,
   POST_Contents: `contents?${DREAM_OUT_FORMAT}`,
   POST_Contents_Title: (title: string) =>
@@ -24,6 +24,9 @@ const CXOnePageAPIEndpoints = {
     `properties/${encodeURIComponent(property)}?${DREAM_OUT_FORMAT}`,
   PUT_Page_Tags: `tags?${DREAM_OUT_FORMAT}`,
   PUT_Security: `security?${DREAM_OUT_FORMAT}`,
+  GET_page_RawContents: `contents?mode=raw&${DREAM_OUT_FORMAT}`,
+  DREAM_OUT_FORMAT: `?${DREAM_OUT_FORMAT}`,
+  DREAM_OUT_FORMAT_LIMIT: (limit: number):string => `?${DREAM_OUT_FORMAT}&limit=${limit}`,
 };
 
 export default CXOnePageAPIEndpoints;
