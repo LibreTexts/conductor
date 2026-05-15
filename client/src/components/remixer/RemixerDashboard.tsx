@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { useMediaQuery } from "react-responsive";
 import {
@@ -26,7 +26,7 @@ import ControlPanel from "./ControlPanel";
 import EditPanel from "./EditPanel";
 import PathNameFormat from "./PathNameFormat";
 import PublishPanel from "./PublishPanel";
-import RecoveryModal from "./RecoveryModal";
+import RecoveryModal, { type AvailableSources } from "./RecoveryModal";
 import {
   CopyMode,
   Library,
@@ -101,13 +101,14 @@ const RemixerDashboard: React.FC = () => {
   const [publishPolling, setPublishPolling] = useState<boolean>(false);
 
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [recoveryModalDismissible, setRecoveryModalDismissible] =
+    useState(false);
   const [loadingRecovery, setLoadingRecovery] = useState(false);
-  const [availableSources, setAvailableSources] = useState<{
-    hasLocal: boolean;
-    hasServer: boolean;
-    hasServerDraft: boolean;
-    localTimestamp?: number;
-  }>({ hasLocal: false, hasServer: false, hasServerDraft: false });
+  const [availableSources, setAvailableSources] = useState<AvailableSources>({
+    hasLocal: false,
+    hasServer: false,
+    hasServerDraft: false,
+  });
 
   const [contextMenu, setContextMenu] = useState<{
     nodeId: string;
@@ -144,18 +145,10 @@ const RemixerDashboard: React.FC = () => {
       autoNumbering?: boolean;
       copyModeState?: string;
       pathLevelFormats?: unknown;
+      updatedAt?: string | Date;
+      updatedBy?: string;
     };
   } | null>(null);
-  /** Holds the setInterval id for publish-job polling; cleared once the job resolves. */
-  const publishPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const stopPublishPolling = () => {
-    if (publishPollIntervalRef.current !== null) {
-      clearInterval(publishPollIntervalRef.current);
-      publishPollIntervalRef.current = null;
-    }
-  };
-
   // ==========================================================================
   // Derived selectors (recomputed each render)
   // ==========================================================================
@@ -1334,6 +1327,8 @@ const RemixerDashboard: React.FC = () => {
               autoNumbering: savedState.autoNumbering,
               copyModeState: savedState.copyModeState,
               pathLevelFormats: savedState.pathLevelFormats,
+              updatedAt: savedState.updatedAt,
+              updatedBy: savedState.updatedBy,
             },
           };
         }
@@ -1347,7 +1342,10 @@ const RemixerDashboard: React.FC = () => {
       hasServer: !!serverStateRef.current,
       hasServerDraft: !!serverStateRef.current,
       localTimestamp: localDraft?.savedAt,
+      serverUpdatedAt: serverStateRef.current?.settings.updatedAt,
+      serverUpdatedBy: serverStateRef.current?.settings.updatedBy,
     });
+    setRecoveryModalDismissible(true);
     setShowRecoveryModal(true);
   };
 
@@ -1496,75 +1494,64 @@ const RemixerDashboard: React.FC = () => {
   // ==========================================================================
 
   // Load pages for the pending book-import modal whenever a new pending import appears.
+  const bookImportSubtreeQuery = useQuery({
+    queryKey: [
+      "remixer-book-import-subtree",
+      id,
+      remixerData.selectedLibrary,
+      pendingBookImport?.node["@id"],
+      pendingBookImport?.targetNodeId,
+    ],
+    enabled:
+      !!pendingBookImport && !!id && !!remixerData.selectedLibrary,
+    queryFn: async () => {
+      const subtree = await loadLibrarySubtree(
+        id,
+        pendingBookImport!.node,
+        remixerData.selectedLibrary as Library,
+      );
+      return { rootId: pendingBookImport!.node["@id"], subtree };
+    },
+    onSuccess: ({ rootId, subtree }) => {
+      setBookImportSubtree(subtree);
+      const defaultSelectable = subtree
+        .filter(
+          (n) =>
+            n["@id"] !== rootId &&
+            !isMatterBranchNodePure(n["@id"], subtree),
+        )
+        .map((n) => n["@id"]);
+      setBookImportSelectedIds(new Set(defaultSelectable));
+      const expanded = new Set<string>();
+      subtree.forEach((n) => {
+        if (n["@subpages"] && n["@id"] !== rootId) expanded.add(n["@id"]);
+      });
+      setBookImportExpandedIds(expanded);
+    },
+    onError: (error) => {
+      addNotification({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to load book pages.",
+        type: "error",
+        duration: 4000,
+      });
+      setPendingBookImport(null);
+    },
+  });
+
+  // Reset the modal state when the pending import is cleared.
   useEffect(() => {
-    if (!pendingBookImport) {
-      setBookImportSubtree(null);
-      setBookImportSubtreeLoading(false);
-      setBookImportSelectedIds(new Set());
-      setBookImportExpandedIds(new Set());
-      return;
-    }
-    if (!id || !remixerData.selectedLibrary) return;
+    if (pendingBookImport) return;
+    setBookImportSubtree(null);
+    setBookImportSelectedIds(new Set());
+    setBookImportExpandedIds(new Set());
+  }, [pendingBookImport]);
 
-    const projectId = id;
-    const libKey = remixerData.selectedLibrary;
-    let cancelled = false;
-    const rootNode = pendingBookImport.node;
-    const rootId = rootNode["@id"];
-
-    (async () => {
-      setBookImportSubtreeLoading(true);
-      setBookImportSubtree(null);
-      setBookImportSelectedIds(new Set());
-      try {
-        const subtree = await loadLibrarySubtree(
-          projectId,
-          rootNode,
-          libKey,
-        );
-        if (cancelled) return;
-        setBookImportSubtree(subtree);
-        const defaultSelectable = subtree
-          .filter(
-            (n) =>
-              n["@id"] !== rootId &&
-              !isMatterBranchNodePure(n["@id"], subtree),
-          )
-          .map((n) => n["@id"]);
-        setBookImportSelectedIds(new Set(defaultSelectable));
-        const expanded = new Set<string>();
-        subtree.forEach((n) => {
-          if (n["@subpages"] && n["@id"] !== rootId) expanded.add(n["@id"]);
-        });
-        setBookImportExpandedIds(expanded);
-      } catch (error) {
-        if (!cancelled) {
-          addNotification({
-            message:
-              error instanceof Error
-                ? error.message
-                : "Failed to load book pages.",
-            type: "error",
-            duration: 4000,
-          });
-          setPendingBookImport(null);
-        }
-      } finally {
-        if (!cancelled) setBookImportSubtreeLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    pendingBookImport?.node["@id"],
-    pendingBookImport?.targetNodeId,
-    id,
-    remixerData.selectedLibrary,
-    loadLibrarySubtree,
-    addNotification,
-  ]);
+  useEffect(() => {
+    setBookImportSubtreeLoading(bookImportSubtreeQuery.isFetching);
+  }, [bookImportSubtreeQuery.isFetching]);
 
   // Initial load: project metadata, catalog, and existing book state (with recovery prompt).
   useEffect(() => {
@@ -1612,6 +1599,8 @@ const RemixerDashboard: React.FC = () => {
         autoNumbering?: boolean;
         copyModeState?: string;
         pathLevelFormats?: unknown;
+        updatedAt?: string | Date;
+        updatedBy?: string;
       } | null = null;
 
       try {
@@ -1623,6 +1612,8 @@ const RemixerDashboard: React.FC = () => {
             autoNumbering: savedState.autoNumbering,
             copyModeState: savedState.copyModeState,
             pathLevelFormats: savedState.pathLevelFormats,
+            updatedAt: savedState?.updatedAt,
+            updatedBy: savedState?.updatedBy,
           };
           serverStateRef.current = {
             book: savedBook,
@@ -1638,9 +1629,12 @@ const RemixerDashboard: React.FC = () => {
         hasServer: !!serverBook,
         hasServerDraft: !!serverBook,
         localTimestamp: localDraft?.savedAt,
+        serverUpdatedAt: serverSettings?.updatedAt,
+        serverUpdatedBy: serverSettings?.updatedBy,
       });
 
       if (localDraft && serverBook) {
+        setRecoveryModalDismissible(false);
         setShowRecoveryModal(true);
         return;
       }
@@ -1700,47 +1694,51 @@ const RemixerDashboard: React.FC = () => {
   }, [id]);
 
   // Auto-load the library tree when the selected library changes (skipped when catalog-driven).
-  useEffect(() => {
-    const loadSelectedLibrary = async () => {
-      if (!id || !remixerData.selectedLibrary || skipLibraryAutoLoadRef.current)
-        return;
-      setLibraryLoading(true);
-
-      // get the selected library details
+  const selectedLibraryQuery = useQuery({
+    queryKey: ["remixer-selected-library", id, remixerData.selectedLibrary],
+    enabled: !!id && !!remixerData.selectedLibrary,
+    queryFn: async () => {
+      if (skipLibraryAutoLoadRef.current) return null;
+      const library = remixerData.selectedLibrary as Library;
       const resLibraryDetails = await api.getRemixerPage(
         id,
         "0",
-        remixerData.selectedLibrary,
+        library,
         true,
         true,
         { includeMatter: false, linkTitle: true, full: false },
       );
-
-      // get selected library root children
       const resLibrary = await api.getRemixerPage(
         id,
         resLibraryDetails.response["@id"],
-        remixerData.selectedLibrary,
+        library,
         false,
         true,
         { includeMatter: false, linkTitle: true, full: false },
       );
-
+      return {
+        library,
+        nodes: [
+          resLibraryDetails.response,
+          ...(resLibrary.response ?? []),
+        ],
+      };
+    },
+    onSuccess: (data) => {
+      if (!data) return;
       setRemixerData((prev) => ({
         ...prev,
         library: {
           ...(prev.library ?? {}),
-          [remixerData.selectedLibrary as Library]: [
-            resLibraryDetails.response,
-            ...(resLibrary.response ?? []),
-          ],
+          [data.library]: data.nodes,
         },
       }));
-      setLibraryLoading(false);
-    };
+    },
+  });
 
-    loadSelectedLibrary();
-  }, [id, remixerData.selectedLibrary]);
+  useEffect(() => {
+    setLibraryLoading(selectedLibraryQuery.isFetching);
+  }, [selectedLibraryQuery.isFetching]);
 
   // Clear the selected-book-node id when the node no longer exists (e.g. after delete/undo).
   useEffect(() => {
@@ -1781,8 +1779,12 @@ const RemixerDashboard: React.FC = () => {
   ]);
 
   // Poll the publish job status; refreshes the page on success, surfaces errors.
-  const { mutate: pollPublish } = useMutation({
-    mutationFn: async () => {
+  useQuery({
+    queryKey: ["remixer-publish-job", id],
+    enabled: !!id && publishPolling,
+    refetchInterval: publishPolling ? 2000 : false,
+    refetchIntervalInBackground: true,
+    queryFn: async () => {
       const statusResponse = await api.getRemixerPublishJobStatus(id);
       return statusResponse.job as {
         status: PublishJobStatus;
@@ -1798,34 +1800,35 @@ const RemixerDashboard: React.FC = () => {
       setPublishStatus(job.status);
       setPublishMessages(job.messages ?? []);
       if (job.status === "success") {
-        stopPublishPolling();
         setPublishPolling(false);
-        addNotification({ message: "Publish completed successfully.", type: "success", duration: 4000 });
+        addNotification({
+          message: "Publish completed successfully.",
+          type: "success",
+          duration: 4000,
+        });
         setTimeout(() => window.location.reload(), 4000);
       } else if (job.status === "error") {
-        stopPublishPolling();
         setPublishPolling(false);
-        addNotification({ message: job.errorMessage || "Publish failed.", type: "error", duration: 5000 });
+        addNotification({
+          message: job.errorMessage || "Publish failed.",
+          type: "error",
+          duration: 5000,
+        });
       }
     },
     onError: (error) => {
-      stopPublishPolling();
       setPublishPolling(false);
       setPublishStatus("error");
       addNotification({
-        message: error instanceof Error ? error.message : "Failed to get publish status.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to get publish status.",
         type: "error",
         duration: 5000,
       });
     },
   });
-
-  useEffect(() => {
-    if (!id || !publishPolling) return;
-    pollPublish();
-    publishPollIntervalRef.current = setInterval(() => pollPublish(), 2000);
-    return stopPublishPolling;
-  }, [id, publishPolling]);
 
   // F2 opens the edit panel for the currently selected book node.
   useEffect(() => {
@@ -2268,6 +2271,7 @@ const RemixerDashboard: React.FC = () => {
       <RecoveryModal
         open={showRecoveryModal}
         loading={loadingRecovery}
+        dismissible={recoveryModalDismissible}
         availableSources={availableSources}
         onLoadSource={handleLoadSource}
         onClose={() => setShowRecoveryModal(false)}

@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import {  ZodReqWithUser } from "../types/Express.js";
+import { ZodReqWithUser } from "../types/Express.js";
 import {
   GetRemixerPageSchema,
   GetRemixerProjectStateSchema,
@@ -17,6 +17,7 @@ import {
   getUserWorkbenchProjects,
 } from "../util/remixerutils";
 import { generateAPIRequestHeaders } from "../util/librariesclient.js";
+import User from "../models/user.js";
 
 class FetchPageError extends Error {
   statusCode: number;
@@ -49,7 +50,6 @@ const normalizeUpstreamErrorMessage = (message: string): string => {
 
   return trimmedMessage.slice(0, 300);
 };
-
 
 const getRemixerProject = async (
   req: ZodReqWithUser<z.infer<typeof GetRemixerProjectStateSchema>>,
@@ -225,7 +225,6 @@ const publishRemixerProject = async (
   const bookDetailsResponse = await fetch(bookAPIURL, {
     headers: {
       ...((await generateAPIRequestHeaders(subdomain)) ?? {}),
-
     },
   });
   const bookDetails = await bookDetailsResponse.json();
@@ -302,11 +301,18 @@ const getRemixerProjectState = async (
       autoNumbering: 1,
       copyModeState: 1,
       pathLevelFormats: 1,
+      updatedAt: 1,
+      updatedBy: 1,
       _id: 0,
     },
   )
     .sort({ updatedAt: -1 })
     .exec();
+  // find user by updatedBy
+  const updatedByUser = await User.findOne(
+    { uuid: remixerState?.updatedBy },
+    { name: 1, email: 1, _id: 0 },
+  );
 
   return res.send({
     err: false,
@@ -317,6 +323,10 @@ const getRemixerProjectState = async (
     autoNumbering: remixerState?.autoNumbering,
     copyModeState: remixerState?.copyModeState,
     pathLevelFormats: remixerState?.pathLevelFormats ?? [],
+    updatedAt: remixerState?.updatedAt,
+    updatedBy: updatedByUser
+      ? `${updatedByUser.firstName ? updatedByUser.firstName : ""} ${updatedByUser?.lastName ? updatedByUser.lastName : ""} ${updatedByUser?.email ? updatedByUser.email : ""}`
+      : "",
   });
 };
 
@@ -374,13 +384,13 @@ const fetchPage = async (
     const isHomePath = String(normalizedPath).toLowerCase() === "home";
     const pathPrefix = isNumber || isHomePath ? "" : "=";
 
-    const url = `https://${subdomain}.libretexts.org/@api/deki/pages/${pathPrefix
-      }${normalizedPath}${pageDetails ? pageDetailsApi : subpageApi}`;
+    const url = `https://${subdomain}.libretexts.org/@api/deki/pages/${
+      pathPrefix
+    }${normalizedPath}${pageDetails ? pageDetailsApi : subpageApi}`;
 
     const options = {
       headers: {
         ...((await generateAPIRequestHeaders(subdomain)) ?? {}),
-      
       },
     };
     const response = await fetch(url, options);
@@ -425,8 +435,9 @@ const fetchPage = async (
     let parentID: string | undefined = isNumber ? path : undefined;
 
     if (!parentID) {
-      const detailsUrl = `https://${subdomain}.libretexts.org/@api/deki/pages/${pathPrefix
-        }${normalizedPath}${pageDetailsApi}`;
+      const detailsUrl = `https://${subdomain}.libretexts.org/@api/deki/pages/${
+        pathPrefix
+      }${normalizedPath}${pageDetailsApi}`;
       const detailsRes = await fetch(detailsUrl, options);
       if (detailsRes.ok) {
         const detailsData = (await detailsRes.json()) as Record<

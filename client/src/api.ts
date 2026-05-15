@@ -2356,6 +2356,8 @@ class API {
         autoNumbering?: boolean;
         copyModeState?: string;
         pathLevelFormats?: unknown[];
+        updatedAt?: Date;
+        updatedBy?: string;
       } & ConductorBaseResponse
     >(`/remixer/${id}/project`, {});
     return res.data;

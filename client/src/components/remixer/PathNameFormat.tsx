@@ -9,7 +9,15 @@ import {
   PrefixOption,
 } from "./model";
 import { getStartToken, joinLeveledPathParts } from "./services";
-import { Button, Checkbox, Heading, Input, Modal, Select, Text } from "@libretexts/davis-react";
+import {
+  Button,
+  Checkbox,
+  Heading,
+  Input,
+  Modal,
+  Select,
+  Text,
+} from "@libretexts/davis-react";
 
 interface PathNameFormatProps {
   open: boolean;
@@ -35,8 +43,9 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
   } = props;
 
   const [levelFormats, setLevelFormats] = useState<PathLevelFormat[]>([]);
-  const [prefixOptions, setPrefixOptions] =
-    useState<PrefixOption[]>(DEFAULT_PREFIX_OPTIONS);
+  const [prefixOptions, setPrefixOptions] = useState<PrefixOption[]>(
+    DEFAULT_PREFIX_OPTIONS,
+  );
   const [localAutoNumbering, setLocalAutoNumbering] =
     useState<boolean>(autoNumbering);
 
@@ -46,19 +55,22 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
     const savedByLevel = new Map(
       (pathLevelFormats ?? []).map((format) => [format.level, format]),
     );
-    const normalized = Array.from({ length: Math.max(0, depth) }, (_, index) => {
-      const level = index + 1;
-      const existing = savedByLevel.get(level);
-      return (
-        existing ?? {
-          level,
-          delimiter: ".",
-          prefix: "",
-          start: 1,
-          type: "numeric" as NumberingType,
-        }
-      );
-    });
+    const normalized = Array.from(
+      { length: Math.max(0, depth) },
+      (_, index) => {
+        const level = index + 1;
+        const existing = savedByLevel.get(level);
+        return (
+          existing ?? {
+            level,
+            delimiter: ".",
+            prefix: "",
+            start: 1,
+            type: "numeric" as NumberingType,
+          }
+        );
+      },
+    );
     setLevelFormats(normalized);
     setPrefixOptions((prev) => {
       const next = [...prev];
@@ -126,9 +138,20 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
     };
   };
 
-  const ensurePrefixOption = (rawPrefix: string) => {
-    if (prefixOptions.some((option) => option.value === rawPrefix)) return;
-    setPrefixOptions((prev) => [...prev, toPrefixOption(rawPrefix)]);
+  const buildDefaultFormats = () =>
+    Array.from({ length: Math.max(0, depth) }, (_, index) => ({
+      level: index + 1,
+      delimiter: ".",
+      prefix: "",
+      start: 1,
+      type: "numeric" as NumberingType,
+      excludeParent: false,
+    }));
+
+  const handleReset = () => {
+    setLevelFormats(buildDefaultFormats());
+    setPrefixOptions(DEFAULT_PREFIX_OPTIONS);
+    setLocalAutoNumbering(true);
   };
 
   const handleSave = () => {
@@ -140,7 +163,7 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
   };
 
   return (
-    <Modal open={open} onClose={onClose} size="xl" >
+    <Modal open={open} onClose={onClose} size="xl">
       <Modal.Header>
         <div className="flex w-full min-w-0 items-center justify-between gap-4">
           <Heading level={4} className="min-w-0 shrink">
@@ -158,7 +181,9 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
         </div>
       </Modal.Header>
       <Modal.Body>
-        <p>Configure how each level of hierarchy numbering should be displayed.</p>
+        <p>
+          Configure how each level of hierarchy numbering should be displayed.
+        </p>
         {depth <= 0 ? (
           <Message
             info
@@ -187,11 +212,16 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                       name="excludeParent"
                       label=""
                       checked={format.excludeParent ?? false}
-                      onChange={() => updateLevelFormat(index, "excludeParent", !(format.excludeParent))}
+                      onChange={() =>
+                        updateLevelFormat(
+                          index,
+                          "excludeParent",
+                          !format.excludeParent,
+                        )
+                      }
                     />
                   </Table.Cell>
                   <Table.Cell>
-
                     <Select
                       options={DELIMITER_OPTIONS.map((option) => ({
                         label: option.text,
@@ -202,11 +232,16 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                       value={format.delimiter ?? "."}
                       placeholder="Delimiter"
                       className="w-full"
-                      onChange={(value) => updateLevelFormat(index, "delimiter", String(value ?? "."))}
+                      onChange={(e) =>
+                        updateLevelFormat(
+                          index,
+                          "delimiter",
+                          String(e.target.value ?? "."),
+                        )
+                      }
                     />
                   </Table.Cell>
                   <Table.Cell>
-
                     <Select
                       options={prefixOptions.map((option) => ({
                         label: option.text,
@@ -217,15 +252,21 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                       value={format.prefix}
                       placeholder="Select or type a prefix"
                       className="w-full"
-                      onChange={(value) => updateLevelFormat(index, "prefix", String(value ?? ""))}
+                      onChange={(e) =>
+                        updateLevelFormat(
+                          index,
+                          "prefix",
+                          String(e.target.value ?? ""),
+                        )
+                      }
                     />
 
                     <Text size="xs" className="mt-1  text-neutral-500">
-                      Example: {`${format.prefix}${getStartToken(format.start, format.type)}`}
+                      Example:{" "}
+                      {`${format.prefix}${getStartToken(format.start, format.type)}`}
                     </Text>
                   </Table.Cell>
                   <Table.Cell>
-
                     <Select
                       options={NUMBERING_TYPE_OPTIONS.map((option) => ({
                         label: option.text,
@@ -236,8 +277,13 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                       value={format.type}
                       placeholder="Select a type"
                       className="w-full"
-
-                      onChange={(value) => updateLevelFormat(index, "type", String(value ?? "numeric"))}
+                      onChange={(e) =>
+                        updateLevelFormat(
+                          index,
+                          "type",
+                          String(e.target.value ?? "numeric"),
+                        )
+                      }
                     />
                   </Table.Cell>
                   <Table.Cell>
@@ -248,8 +294,12 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                       aria-label="Starting value"
                       value={format.start}
                       className="w-full"
-                      onChange={(value) =>
-                        updateLevelFormat(index, "start", Number(value ?? 1))
+                      onChange={(e) =>
+                        updateLevelFormat(
+                          index,
+                          "start",
+                          Number(e.target.value ?? 1),
+                        )
                       }
                     />
                     <Text size="xs" className="mt-1   text-neutral-500">
@@ -268,8 +318,25 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
         )}
       </Modal.Body>
       <Modal.Footer>
-        <Button onClick={onClose} variant="outline" className="bg-neutral-100 text-neutral-700 hover:bg-neutral-200">Cancel</Button>
-        <Button onClick={handleSave} variant="primary" className="bg-primary text-white hover:bg-primary-dark">
+        <Button
+          onClick={onClose}
+          variant="outline"
+          className="bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleReset}
+          variant="outline"
+          className="bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+        >
+          Reset to Defaults
+        </Button>
+        <Button
+          onClick={handleSave}
+          variant="primary"
+          className="bg-primary text-white hover:bg-primary-dark"
+        >
           Apply
         </Button>
       </Modal.Footer>
