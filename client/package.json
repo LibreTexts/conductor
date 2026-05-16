@@ -137,6 +137,7 @@
     "vite-tsconfig-paths": "^4.0.5"
   },
   "overrides": {
-    "vfile": "5.3.7"
+    "vfile": "5.3.7",
+    "lodash-es@<=4.18.1": "4.18.1"
   }
 }
