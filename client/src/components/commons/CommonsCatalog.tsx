@@ -251,6 +251,27 @@ const CommonsCatalog = () => {
   const searchTimeoutRef = useRef<number>();
   const suggestionsTimeoutRef = useRef<number>();
 
+  // Holds the latest typed value that hasn't yet been committed as an intent-bearing
+  // search. Recorded once on session-end (Enter, Search button, suggestion click,
+  // input blur, or unmount) so we don't pollute the search-queries index with the
+  // prefix chain produced by debounced typing.
+  const pendingQueryRef = useRef<string>("");
+  const activeTabRef = useRef(activeTab);
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  const commitPendingSearch = useCallback(() => {
+    const q = pendingQueryRef.current;
+    if (!q) return;
+    pendingQueryRef.current = "";
+    // Tab values map 1:1 to server scopes — the server validates with z.enum,
+    // so an unexpected value would 400 and be swallowed by the .catch below.
+    api
+      .recordSearchQuery({ query: q, scope: activeTabRef.current })
+      .catch(() => { /* swallowed — nicety, not core */ });
+  }, []);
+
   const setSearchStringDebounced = useCallback((value: string) => {
     clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = window.setTimeout(() => {
@@ -258,19 +279,20 @@ const CommonsCatalog = () => {
     }, 200);
   }, []);
 
-  const getSuggestionsDebounced = useCallback((searchVal: string) => {
-    clearTimeout(suggestionsTimeoutRef.current);
-    suggestionsTimeoutRef.current = window.setTimeout(() => {
-      getSearchSuggestions(searchVal);
-    }, 150);
-  }, []);
+  // const getSuggestionsDebounced = useCallback((searchVal: string) => {
+  //   clearTimeout(suggestionsTimeoutRef.current);
+  //   suggestionsTimeoutRef.current = window.setTimeout(() => {
+  //     getSearchSuggestions(searchVal);
+  //   }, 150);
+  // }, []);
 
   useEffect(() => {
     return () => {
       clearTimeout(searchTimeoutRef.current);
       clearTimeout(suggestionsTimeoutRef.current);
+      commitPendingSearch();
     };
-  }, []);
+  }, [commitPendingSearch]);
 
   // Sync searchString with URL when URL changes (e.g., from Enter key or Search button)
   useEffect(() => {
@@ -704,15 +726,22 @@ const CommonsCatalog = () => {
                   onChange={(e) => {
                     setSearchStringUI(e.target.value);
                     setSearchStringDebounced(e.target.value);
-                    getSuggestionsDebounced(e.target.value);
+                    // getSuggestionsDebounced(e.target.value);
                     setShowSuggestions(e.target.value.length > 0);
+                    // Track latest typed value for session-end recording.
+                    // Empty input clears any pending session (treat as discarded).
+                    pendingQueryRef.current = e.target.value.trim();
                   }}
                   onBlur={() => {
-                    setTimeout(() => setShowSuggestions(false), 200);
+                    setTimeout(() => {
+                      setShowSuggestions(false);
+                      commitPendingSearch();
+                    }, 200);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
+                      commitPendingSearch();
                       updateSearchParam(searchStringUI);
                     }
                   }}
@@ -724,6 +753,8 @@ const CommonsCatalog = () => {
                         className="px-2 hover:bg-slate-50 rounded-md cursor-pointer font-semibold"
                         onClick={(e) => {
                           e.preventDefault();
+                          pendingQueryRef.current = suggestion.trim();
+                          commitPendingSearch();
                           updateSearchParam(suggestion);
                           setShowSuggestions(false);
                         }}
@@ -738,7 +769,10 @@ const CommonsCatalog = () => {
             </form>
             <Button
               variant="primary"
-              onClick={() => updateSearchParam(searchStringUI)}
+              onClick={() => {
+                commitPendingSearch();
+                updateSearchParam(searchStringUI);
+              }}
               icon={<IconSearch />}
               iconPosition="left"
             >

@@ -1087,6 +1087,13 @@ router.route("/search-index/reinitialize-settings").post(
   searchIndexManagementAPI.reinitializeIndexSettings
 );
 
+router.route("/search-index/clear-search-queries").post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  searchIndexManagementAPI.clearSearchQueriesIndex
+);
+
 /* Commons Books/Catalogs */
 router
   .route("/commons/catalog")
@@ -1370,6 +1377,18 @@ router
     authAPI.optionalVerifyRequest,
     middleware.validateZod(SearchValidators.authorsSearchSchema),
     searchAPI.authorsSearch
+  );
+router
+  .route("/search/suggestions")
+  .get(
+    middleware.validateZod(SearchValidators.searchSuggestionsSchema),
+    searchAPI.getSearchSuggestions
+  );
+router
+  .route("/search/record")
+  .post(
+    middleware.validateZod(SearchValidators.recordSearchSchema),
+    searchAPI.recordSearch
   );
 router.route("/search/asset-filters").get(searchAPI.getAssetFilterOptions);
 router.route("/search/author-filters").get(searchAPI.getAuthorFilterOptions);

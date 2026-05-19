@@ -1,5 +1,30 @@
 import { z } from "zod";
 
+// Scopes recorded by recordSearchQuery in api/search.ts. Keep in sync if a new scope is added.
+const SEARCH_QUERY_SCOPES = [
+  "projects",
+  "minirepos",
+  "books",
+  "assets",
+  "homework",
+  "authors",
+] as const;
+
+export const searchSuggestionsSchema = z.object({
+  query: z.object({
+    scope: z.enum(SEARCH_QUERY_SCOPES),
+    q: z.string().max(100).optional(),
+    limit: z.coerce.number().min(1).max(25).default(10),
+  }),
+});
+
+export const recordSearchSchema = z.object({
+  body: z.object({
+    query: z.string().min(1).max(200),
+    scope: z.enum(SEARCH_QUERY_SCOPES),
+  }),
+});
+
 export const autocompleteSchema = z.object({
   query: z.object({
     query: z
