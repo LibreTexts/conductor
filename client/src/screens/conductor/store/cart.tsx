@@ -6,9 +6,16 @@ import { formatPrice } from "../../../utils/storeHelpers";
 import StyledQuantitySelect from "../../../components/util/StyledQuantitySelect";
 import { Link } from "react-router-dom";
 import { Button, Heading } from "@libretexts/davis-react";
+import useStoreMaxQuantityPerItem from "../../../hooks/useStoreMaxQuantityPerItem";
 
 export default function CartPage() {
   const { cart, loading, removeFromCart, updateQuantity } = useCart();
+  const maxQuantityPerItem = useStoreMaxQuantityPerItem();
+
+  const hasInvalidQuantity = !!cart?.items.some(
+    (item) => item.quantity > maxQuantityPerItem || item.quantity < 1
+  );
+
   return (
     <AlternateLayout>
       <div className="mx-auto max-w-2xl px-4 pb-24 pt-16 sm:px-6 lg:max-w-7xl lg:px-8">
@@ -42,77 +49,77 @@ export default function CartPage() {
                 role="list"
                 className="divide-y divide-gray-200 border-b border-t border-gray-200"
               >
-                {cart?.items.map((item, itemIdx) => (
-                  <li key={item.id} className="flex py-6 sm:py-10">
-                    <div className="shrink-0">
-                      <img
-                        alt={`Image of ${item.product.name}`}
-                        src={item.product.images[0]}
-                        className="size-24 rounded-md object-cover sm:size-48"
-                      />
-                    </div>
+                {cart?.items.map((item, itemIdx) => {
+                  const itemExceedsMax = item.quantity > maxQuantityPerItem;
+                  return (
+                    <li key={item.id} className="flex py-6 sm:py-10">
+                      <div className="shrink-0">
+                        <img
+                          alt={`Image of ${item.product.name}`}
+                          src={item.product.images[0]}
+                          className="size-24 rounded-md object-cover sm:size-48"
+                        />
+                      </div>
 
-                    <div className="ml-4 flex flex-1 flex-col justify-between sm:ml-6">
-                      <div className="relative pr-9 sm:grid sm:grid-cols-2 sm:gap-x-6 sm:pr-0">
-                        <div>
-                          <div className="flex justify-between">
-                            <h3 className="text-sm">
-                              <a
-                                href={`/store/product/${item.product.id}`}
-                                className="font-semibold text-lg text-gray-700 hover:text-gray-800"
+                      <div className="ml-4 flex flex-1 flex-col justify-between sm:ml-6">
+                        <div className="relative pr-9 sm:grid sm:grid-cols-2 sm:gap-x-6 sm:pr-0">
+                          <div>
+                            <div className="flex justify-between">
+                              <h3 className="text-sm">
+                                <a
+                                  href={`/store/product/${item.product.id}`}
+                                  className="font-semibold text-lg text-gray-700 hover:text-gray-800"
+                                >
+                                  {item.product.name} - {item.price.nickname}
+                                </a>
+                              </h3>
+                            </div>
+                            <p className="mt-1 text-sm font-medium text-gray-900">
+                              {formatPrice(item.price.unit_amount, true)}
+                            </p>
+                          </div>
+
+                          <div className="mt-4 sm:mt-0 sm:pr-9">
+                            <div className="grid w-full max-w-40 grid-cols-1">
+                              <p className="sr-only">
+                                Quantity, {item.product.name}
+                              </p>
+                              <StyledQuantitySelect
+                                value={item.quantity}
+                                max={maxQuantityPerItem}
+                                onChange={(v) => {
+                                  updateQuantity(
+                                    item.product.id,
+                                    item.price.id,
+                                    v
+                                  );
+                                }}
+                                label=""
+                                helperText={`Up to ${maxQuantityPerItem} per item.`}
+                                error={itemExceedsMax}
+                                errorMessage={`Maximum ${maxQuantityPerItem} per item. Please reduce the quantity to continue.`}
+                              />
+                            </div>
+
+                            <div className="absolute right-0 top-0">
+                              <button
+                                type="button"
+                                className="-m-2 inline-flex p-2 text-gray-500 hover:text-gray-700"
+                                onClick={() =>
+                                  removeFromCart(item.product.id, item.price.id)
+                                }
+                                aria-label={`Remove ${item.product.name} from cart`}
                               >
-                                {item.product.name} - {item.price.nickname}
-                              </a>
-                            </h3>
-                          </div>
-                          {/* <div className="mt-1 flex text-sm">
-                          <p className="text-gray-500">{product.color}</p>
-                          {product.size ? (
-                            <p className="ml-4 border-l border-gray-200 pl-4 text-gray-500">
-                              {product.size}
-                            </p>
-                          ) : null}
-                        </div> */}
-                          <p className="mt-1 text-sm font-medium text-gray-900">
-                            {formatPrice(item.price.unit_amount, true)}
-                          </p>
-                        </div>
-
-                        <div className="mt-4 sm:mt-0 sm:pr-9">
-                          <div className="grid w-full max-w-16 grid-cols-1">
-                            <p className="sr-only">
-                              Quantity, {item.product.name}
-                            </p>
-                            <StyledQuantitySelect
-                              value={item.quantity}
-                              onChange={(v) => {
-                                updateQuantity(
-                                  item.product.id,
-                                  item.price.id,
-                                  v
-                                );
-                              }}
-                              label=""
-                            />
-                          </div>
-
-                          <div className="absolute right-0 top-0">
-                            <button
-                              type="button"
-                              className="-m-2 inline-flex p-2 text-gray-400 hover:text-gray-500"
-                              onClick={() =>
-                                removeFromCart(item.product.id, item.price.id)
-                              }
-                            >
-                              <span className="sr-only">Remove</span>
-                              <Icon name="x" size="large" className="size-5" />
-                            </button>
+                                <span className="sr-only">Remove</span>
+                                <Icon name="x" size="large" className="size-5" aria-hidden="true" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </section>
 
@@ -182,15 +189,31 @@ export default function CartPage() {
                 </div>
               </dl>
 
+              {hasInvalidQuantity && (
+                <p role="alert" className="mt-4 text-sm text-red-700 font-medium">
+                  One or more items exceed the maximum allowed quantity ({maxQuantityPerItem} per item). Please update the quantities above before checking out.
+                </p>
+              )}
+
               <div className="mt-6">
-                <Link to="/store/checkout/auth-check">
+                {hasInvalidQuantity ? (
                   <Button
                     variant="primary"
                     fullWidth
+                    softDisabled
                   >
                     Checkout
                   </Button>
-                </Link>
+                ) : (
+                  <Link to="/store/checkout/auth-check">
+                    <Button
+                      variant="primary"
+                      fullWidth
+                    >
+                      Checkout
+                    </Button>
+                  </Link>
+                )}
               </div>
             </section>
           </form>
