@@ -3,7 +3,7 @@ import { z } from 'zod';
 const _ProductPriceQuantity = z.object({
     product_id: z.string().min(1, "Product ID is required"),
     price_id: z.string().min(1, "Price ID is required"),
-    quantity: z.coerce.number().min(1, "Quantity must be at least 1").max(199, "Quantity cannot exceed 199"),
+    quantity: z.coerce.number().min(1, "Quantity must be at least 1"), // Maximum quantity validation will be handled in business logic to allow flexibility based on user role
 })
 
 const _BasicShippingAddress = z.object({

@@ -865,6 +865,8 @@ router.route("/store/checkout/session/:order_id").get(
 )
 
 router.route("/store/checkout/shipping-options").post(
+  authAPI.optionalVerifyRequest,
+  authAPI.optionalGetUserAttributes,
   middleware.validateZod(storeValidators.GetShippingOptionsSchema),
   storeAPI.getShippingOptions
 )

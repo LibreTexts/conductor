@@ -15,15 +15,16 @@ import { useNotifications } from "../../../context/NotificationContext";
 import { buildLibraryPageGoURL } from "../../../utils/projectHelpers";
 import { Alert, Button, Divider, Heading, Link, NumberInput, Radio, RadioGroup, Stack, Text } from "@libretexts/davis-react";
 import { IconBook2, IconShoppingCartPlus } from "@tabler/icons-react";
+import useStoreMaxQuantityPerItem from "../../../hooks/useStoreMaxQuantityPerItem";
 
 const BOOK_PAGE_LIMIT = 799;
-const MAX_QUANTITY = 150;
 
 export default function ProductPage() {
   const { openModal, closeAllModals } = useModals();
   const { addNotification } = useNotifications();
   const { cart, addToCart, removeFromCart, loading: cartLoading } = useCart();
   const params = useParams<{ product_id: string }>();
+  const maxQuantityPerItem = useStoreMaxQuantityPerItem();
   const { data: product, isFetching } = useQuery<StoreProduct>({
     queryKey: ["store-product", params.product_id],
     queryFn: async () => {
@@ -105,7 +106,7 @@ export default function ProductPage() {
     if (!product) return true;
     if (!price) return true;
     if (quantity < 1) return true;
-    if (quantity > MAX_QUANTITY) return true;
+    if (quantity > maxQuantityPerItem) return true;
     return false;
   }, [product, price, quantity]);
 
@@ -152,8 +153,8 @@ export default function ProductPage() {
       return;
     }
 
-    if (quantity > MAX_QUANTITY) {
-      console.error(`Quantity cannot exceed ${MAX_QUANTITY}`);
+    if (quantity > maxQuantityPerItem) {
+      console.error(`Quantity cannot exceed ${maxQuantityPerItem}`);
       return;
     }
 
@@ -298,12 +299,14 @@ export default function ProductPage() {
                 onChange={setQuantity}
                 disabled={cartLoading || tooManyPages}
                 min={1}
-                max={MAX_QUANTITY}
-                aria-label={
+                max={maxQuantityPerItem}
+                helperText={
                   tooManyPages
                     ? "Quantity selection is disabled because the book exceeds the page limit."
-                    : undefined
+                    : `Up to ${maxQuantityPerItem} per item.`
                 }
+                error={quantity > maxQuantityPerItem}
+                errorMessage={`Maximum ${maxQuantityPerItem} per item. Please reduce the quantity to continue.`}
               />
               {hasNCLicense && (
                 <Alert variant="warning" message={"This book has a NonCommercial clause in its license and cannot be resold for profit."} />

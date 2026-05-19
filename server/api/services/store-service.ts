@@ -14,12 +14,18 @@ import Fuse from "fuse.js";
 import NodeCache from "node-cache";
 import { serializeError } from "../../util/errorutils";
 import mailAPI from "../mail"
+import User from "../../models/user";
+import authAPI from "../../api/auth.js";
 
 const BASE_COST = 1.80;
 const PAGE_MULTIPLIER = 0.032;
 const HARDCOVER_SURCHARGE = 7.35;
 const COLOR_MULTIPLIER = 1.5;
 const OPERATING_COST_MULTIPLIER = 0.24;
+
+// Define max item quantity limits
+const DEFAULT_MAX_QUANTITY = 200;
+const STAFF_MAX_QUANTITY = 500;
 
 class StoreService {
     private stripeService = new StripeService();
@@ -32,38 +38,38 @@ class StoreService {
 
     private _redactPersonalInfo(text: string): string {
         if (!text || typeof text !== 'string') return text;
-        
+
         const words = text.trim().split(/\s+/);
-    
+
         const redactedWords = words.map(word => {
             if (word.length <= 1) return word;
-            
+
             if (word.length === 2) {
                 return word[0] + '*';
             }
-            
+
             return word[0] + '*'.repeat(word.length - 1);
         });
-        
+
         return redactedWords.join(' ');
     }
-    
+
     private _redactEmail(email: string): string {
         if (!email || typeof email !== 'string' || !email.includes('@')) return email;
-        
+
         const [localPart, domain] = email.split('@');
         if (localPart.length <= 1) return email;
-        
+
         const redactedLocal = localPart[0] + '*'.repeat(Math.max(localPart.length - 1, 1));
         return `${redactedLocal}@${domain}`;
     }
-    
+
     private _redactPhoneNumber(phone: string): string {
         if (!phone || typeof phone !== 'string') return phone;
-        
+
         // Keep first 3 and last 4 digits, redact the middle
         const digits = phone.replace(/\D/g, '');
-        
+
         // Preserve original formatting structure but with redacted digits
         return phone.replace(/\d/g, (digit, index) => {
             const digitIndex = phone.slice(0, index).replace(/\D/g, '').length;
@@ -585,7 +591,7 @@ class StoreService {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-             // Helper function to add business days (excluding weekends)
+            // Helper function to add business days (excluding weekends)
             const addBusinessDays = (date: Date, days: number): Date => {
                 const result = new Date(date);
                 let added = 0;
@@ -1249,6 +1255,53 @@ class StoreService {
 
     public getBookThumbnailUrl({ library, id }: { library: string, id: string }): string {
         return `https://${library}.libretexts.org/@api/deki/pages/${id}/files/=mindtouch.page%2523thumbnail`
+    }
+
+    public async validateItemQuantities({
+        items,
+        userId,
+    }: {
+        items: { quantity: number }[];
+        userId?: string;
+    }): Promise<
+        | { ok: true; maxQuantity: number }
+        | { ok: false; maxQuantity: number; message: string }
+    > {
+        const { maxQuantity, reason } = await this.determineMaxQuantity(userId);
+        const offender = items.find((item) => item.quantity > maxQuantity);
+        if (offender) {
+            debug(`[StoreService] Quantity ${offender.quantity} exceeds max ${maxQuantity} (${reason})`);
+            return {
+                ok: false,
+                maxQuantity,
+                message: `Item quantity exceeds the maximum allowed (${maxQuantity}) for this account.`,
+            };
+        }
+        return { ok: true, maxQuantity };
+    }
+
+    public async determineMaxQuantity(userId?: string): Promise<{ maxQuantity: number; reason: string }> {
+        try {
+            if (!userId) {
+                return { maxQuantity: DEFAULT_MAX_QUANTITY, reason: "No user ID provided, applying default max quantity." };
+            }
+
+            const user = await User.findOne({ uuid: { $eq: userId } });
+            if (!user) {
+                debug(`[StoreService] User with ID ${userId} not found. Applying default max quantity.`);
+                return { maxQuantity: DEFAULT_MAX_QUANTITY, reason: "User not found, applying default max quantity." };
+            }
+
+            const senderIsStaff = authAPI.checkHasRole(user, "libretexts", "support");
+            if (senderIsStaff) {
+                return { maxQuantity: STAFF_MAX_QUANTITY, reason: "User is staff, applying staff max quantity." };
+            }
+
+            return { maxQuantity: DEFAULT_MAX_QUANTITY, reason: "User is not staff, applying default max quantity." };
+        } catch (err: any) {
+            debug("[StoreService] Error validating max quantity for user:", err);
+            return { maxQuantity: DEFAULT_MAX_QUANTITY, reason: "Error validating user role, applying default max quantity." };
+        }
     }
 
     private async _fetchAllProducts(category?: string): Promise<StoreProduct[]> {

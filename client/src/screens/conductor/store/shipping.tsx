@@ -429,7 +429,9 @@ export default function ShippingPage() {
       }
     } catch (error: any) {
       console.error("Error updating shipping options:", error);
+      const serverMessage = error?.response?.data?.errMsg;
       setError(
+        serverMessage ||
         "Failed to update shipping options. Please check your address and try again: " +
         error.message
       );
@@ -484,9 +486,11 @@ export default function ShippingPage() {
 
       // Redirect to Stripe checkout
       window.location.href = response.data.checkout_url;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error confirming order:", error);
+      const serverMessage = error?.response?.data?.errMsg;
       setError(
+        serverMessage ||
         "Failed to submit order. Please check your details and try again."
       );
     } finally {
@@ -943,8 +947,8 @@ export default function ShippingPage() {
               before proceeding.
             </p>
             {error && (
-              <div className="mt-4 text-red-600 text-center flex items-center justify-center text-lg">
-                <Icon name="exclamation triangle" className="!mb-1 !mr-2" />
+              <div role="alert" className="mt-4 text-red-700 text-center flex items-center justify-center text-lg font-medium">
+                <Icon name="exclamation triangle" className="!mb-1 !mr-2" aria-hidden="true" />
                 {error}
               </div>
             )}

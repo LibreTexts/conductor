@@ -1,5 +1,14 @@
 import { StoreProduct, StoreProductPrice } from "../types";
 
+/**
+ * Max quantity constants
+ * Mirrored and validated in `server/api/services/store-service.ts`
+ * but defined here for better UX in the frontend when setting max values on quantity selectors and providing user feedback.
+ * See `client\src\hooks\useStoreMaxQuantityPerItem.ts` for reusable hook that determines max quantity based on user role.
+ */
+export const DEFAULT_MAX_QUANTITY = 200; // General max quantity
+export const STAFF_MAX_QUANTITY = 500; // Max quantity for staff users
+
 export const formatPrice = (price?: number | null, cents = false): string => {
     if (!price || isNaN(price)) {
         return "Unknown";
