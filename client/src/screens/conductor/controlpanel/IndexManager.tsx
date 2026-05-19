@@ -6,11 +6,14 @@ import api from "../../../api";
 import { useNotifications } from "../../../context/NotificationContext";
 import "../../../components/controlpanel/ControlPanel.css";
 
+const SEARCH_QUERIES_INDEX = "search-queries";
+
 interface IndexStatus {
     name: string;
     numberOfDocuments?: number;
     isIndexing?: boolean;
     fieldDistribution?: Record<string, number>;
+    searchableAttributes?: string[];
     filterableAttributes?: string[];
     sortableAttributes?: string[];
     error?: string;
@@ -76,6 +79,34 @@ const IndexManager = () => {
             });
         },
     });
+
+    const clearSearchQueriesMutation = useMutation({
+        mutationFn: async () => {
+            return await api.clearSearchQueriesIndex();
+        },
+        onSuccess: (data) => {
+            addNotification({
+                type: "success",
+                message: data.message || "Index cleared successfully",
+            });
+            refetchStatus();
+        },
+        onError: (error: any) => {
+            addNotification({
+                type: "error",
+                message: error.response?.data?.errMsg || "Failed to clear index",
+            });
+        },
+    });
+
+    const handleClearSearchQueries = () => {
+        const ok = window.confirm(
+            "Clear all popular-query data from the search-queries index? " +
+            "This wipes every recorded query and is not reversible. New queries will " +
+            "accumulate fresh from this point on."
+        );
+        if (ok) clearSearchQueriesMutation.mutate();
+    };
 
     const toggleExpandIndex = (indexName: string) => {
         setExpandedIndex(expandedIndex === indexName ? null : indexName);
@@ -172,18 +203,20 @@ const IndexManager = () => {
                                                 </Table.Cell>
                                                 <Table.Cell>
                                                     <div className="flex gap-2 flex-wrap">
-                                                        <Button
-                                                            size="small"
-                                                            color="green"
-                                                            icon
-                                                            labelPosition="left"
-                                                            onClick={() => resyncMutation.mutate(index.name)}
-                                                            loading={resyncMutation.isPending}
-                                                            disabled={!!index.error}
-                                                        >
-                                                            <Icon name="sync" />
-                                                            Re-sync
-                                                        </Button>
+                                                        {index.name !== SEARCH_QUERIES_INDEX && (
+                                                            <Button
+                                                                size="small"
+                                                                color="green"
+                                                                icon
+                                                                labelPosition="left"
+                                                                onClick={() => resyncMutation.mutate(index.name)}
+                                                                loading={resyncMutation.isPending}
+                                                                disabled={!!index.error}
+                                                            >
+                                                                <Icon name="sync" />
+                                                                Re-sync
+                                                            </Button>
+                                                        )}
                                                         <Button
                                                             size="small"
                                                             color="orange"
@@ -196,6 +229,20 @@ const IndexManager = () => {
                                                             <Icon name="settings" />
                                                             Re-initialize
                                                         </Button>
+                                                        {index.name === SEARCH_QUERIES_INDEX && (
+                                                            <Button
+                                                                size="small"
+                                                                color="red"
+                                                                icon
+                                                                labelPosition="left"
+                                                                onClick={handleClearSearchQueries}
+                                                                loading={clearSearchQueriesMutation.isPending}
+                                                                disabled={!!index.error}
+                                                            >
+                                                                <Icon name="trash" />
+                                                                Clear
+                                                            </Button>
+                                                        )}
                                                         <Button
                                                             size="small"
                                                             icon
@@ -254,6 +301,25 @@ const IndexManager = () => {
                                                                         <p className="text-gray-500">No fields</p>
                                                                     )}
                                                                 </div>
+
+                                                                {index.searchableAttributes && (
+                                                                    <div className="mb-4">
+                                                                        <Header as="h4">Searchable Attributes</Header>
+                                                                        {index.searchableAttributes.length > 0 ? (
+                                                                            <div className="flex flex-wrap gap-2">
+                                                                                {index.searchableAttributes.map((attr) => (
+                                                                                    <Label key={attr} color="teal">
+                                                                                        {attr}
+                                                                                    </Label>
+                                                                                ))}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <p className="text-gray-500">
+                                                                                No searchable attributes
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                )}
 
                                                                 <div className="mb-4">
                                                                     <Header as="h4">Filterable Attributes</Header>
@@ -338,6 +404,19 @@ const IndexManager = () => {
                                     Re-applies the filterable and sortable attribute configurations to the
                                     selected index. Use this if index settings have been modified or
                                     corrupted. This operation does not affect document data.
+                                </p>
+                            </div>
+
+                            <div>
+                                <Header as="h4">
+                                    <Icon name="trash" size="tiny" />
+                                    Clear (search-queries only)
+                                </Header>
+                                <p>
+                                    Wipes all popular-query data from the <code>search-queries</code> index.
+                                    Only available for that index because it has no MongoDB source of truth —
+                                    new queries will start accumulating again from the next search. Not
+                                    available for the other indexes, which can be re-synced from MongoDB instead.
                                 </p>
                             </div>
 

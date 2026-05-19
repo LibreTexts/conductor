@@ -1,8 +1,29 @@
 import { Index, MeiliSearch } from "meilisearch";
-import { debugServer } from "../../debug";
+import { createHash } from "crypto";
+import { debugServer, debugError } from "../../debug";
+import Organization from "../../models/organization";
 import { FilterInput, FilterValue } from "../../types";
 
 export const INDEXES = ["books", "projects", "supportTickets"] as const;
+
+// Popular-search-terms index. Kept outside INDEXES so its (different) document shape and
+// looser typing do not leak into addDocuments/search/getIndexStats, which are tuple-typed.
+// This whole subsystem is best-effort: failures here must NEVER affect core search.
+export const SEARCH_QUERIES_INDEX = "search-queries";
+const SEARCH_QUERIES_PRIMARY_KEY = "id";
+const SEARCH_QUERIES_SEARCHABLE = ["query", "normalizedQuery"];
+const SEARCH_QUERIES_FILTERABLE = ["scope"];
+const SEARCH_QUERIES_SORTABLE = ["count", "lastSeen"];
+const SEARCH_QUERIES_FLUSH_MS = Number(process.env.MEILI_SEARCH_QUERY_FLUSH_MS) || 60_000;
+const FEATURE_FLAG_TTL_MS = 60_000;
+
+type SearchQueryBufferEntry = {
+  query: string;
+  normalizedQuery: string;
+  scope: string;
+  delta: number;
+  lastSeen: number;
+};
 const INDEX_NOT_FOUND_ERROR =
   "Index was not found. Are you using the correct index name?";
 
@@ -33,6 +54,13 @@ export default class SearchService {
     apiKey: process.env.MEILISEARCH_API_KEY || "",
   });
   private indexes = new Map<string, Index>();
+
+  // Popular-search-terms state. All access must be wrapped in try/catch — failure here
+  // must never surface to callers.
+  private searchQueriesIndex: Index | null = null;
+  private searchQueryBuffer = new Map<string, SearchQueryBufferEntry>();
+  private searchQueriesFlushTimer: NodeJS.Timeout | null = null;
+  private cachedRecordFlag: { value: boolean; expiresAt: number } | null = null;
 
   private constructor() { }
 
@@ -80,6 +108,211 @@ export default class SearchService {
     } catch (error: any) {
       debugServer(`[SearchService] Error initializing indexes: ${error}`);
       throw error;
+    }
+
+    // Popular-search-terms init: best-effort. Must NOT throw, so a missing/broken
+    // search-queries index can never block boot or core search.
+    try {
+      await this.ensureSearchQueriesIndex();
+    } catch (error: any) {
+      debugError(`[SearchService] search-queries init failed (non-fatal): ${error?.message || error}`);
+    }
+    try {
+      this.startSearchQueriesFlushTimer();
+    } catch (error: any) {
+      debugError(`[SearchService] could not start search-queries flush timer: ${error?.message || error}`);
+    }
+  }
+
+  async ensureSearchQueriesIndex(): Promise<void> {
+    const indexes = await this._client.getIndexes();
+    const found = indexes.results.find((idx) => idx.uid === SEARCH_QUERIES_INDEX);
+    let index: Index;
+    if (found) {
+      index = found;
+    } else {
+      await this._client.createIndex(SEARCH_QUERIES_INDEX, { primaryKey: SEARCH_QUERIES_PRIMARY_KEY });
+      index = this._client.index(SEARCH_QUERIES_INDEX);
+    }
+    // Apply settings each boot — idempotent.
+    await index.updateSearchableAttributes(SEARCH_QUERIES_SEARCHABLE);
+    await index.updateFilterableAttributes(SEARCH_QUERIES_FILTERABLE);
+    await index.updateSortableAttributes(SEARCH_QUERIES_SORTABLE);
+    this.searchQueriesIndex = index;
+  }
+
+  private startSearchQueriesFlushTimer() {
+    if (this.searchQueriesFlushTimer) return;
+    this.searchQueriesFlushTimer = setInterval(() => {
+      // Wrap so a rejected promise can't crash the process.
+      this.flushSearchQueries().catch((err) => {
+        debugError(`[SearchService] flushSearchQueries failed: ${err?.message || err}`);
+      });
+    }, SEARCH_QUERIES_FLUSH_MS);
+    // Don't keep the event loop alive solely for this timer.
+    if (typeof this.searchQueriesFlushTimer.unref === "function") {
+      this.searchQueriesFlushTimer.unref();
+    }
+  }
+
+  private normalizeSearchQuery(raw: string): string {
+    return raw.toLowerCase().replace(/\s+/g, " ").trim();
+  }
+
+  private searchQueryDocId(scope: string, normalizedQuery: string): string {
+    return createHash("sha1").update(`${scope}|${normalizedQuery}`).digest("hex");
+  }
+
+  private async shouldRecordSearchQueries(): Promise<boolean> {
+    const now = Date.now();
+    if (this.cachedRecordFlag && this.cachedRecordFlag.expiresAt > now) {
+      return this.cachedRecordFlag.value;
+    }
+    try {
+      const org = await Organization.findOne({ orgID: process.env.ORG_ID });
+      // @ts-ignore — flag is defined on the Organization model but typing may not surface it here.
+      const value = Boolean(org?.FEAT_RecordSearchQueries);
+      this.cachedRecordFlag = { value, expiresAt: now + FEATURE_FLAG_TTL_MS };
+      return value;
+    } catch (err: any) {
+      debugError(`[SearchService] feature flag lookup failed: ${err?.message || err}`);
+      return false;
+    }
+  }
+
+  /**
+   * Records a single search query into an in-memory buffer. Fire-and-forget; never throws.
+   * The buffer is flushed to the search-queries Meilisearch index on an interval.
+   */
+  async recordSearchQuery(rawQuery: string, scope: string): Promise<void> {
+    try {
+      if (!rawQuery || typeof rawQuery !== "string" || !scope) return;
+      const normalized = this.normalizeSearchQuery(rawQuery);
+      if (!normalized) return;
+      const key = `${scope}|${normalized}`;
+      const now = Date.now();
+      const existing = this.searchQueryBuffer.get(key);
+      if (existing) {
+        existing.delta += 1;
+        existing.lastSeen = now;
+      } else {
+        this.searchQueryBuffer.set(key, {
+          query: rawQuery.trim(),
+          normalizedQuery: normalized,
+          scope,
+          delta: 1,
+          lastSeen: now,
+        });
+      }
+    } catch (err: any) {
+      debugError(`[SearchService] recordSearchQuery swallowed error: ${err?.message || err}`);
+    }
+  }
+
+  /**
+   * Drains the in-memory buffer and upserts counts into the search-queries index.
+   * Best-effort: never throws; on failure the buffer is dropped so memory can't grow unbounded.
+   */
+  async flushSearchQueries(): Promise<void> {
+    try {
+      if (this.searchQueryBuffer.size === 0) return;
+      const index = this.searchQueriesIndex;
+      if (!index) {
+        // Drop the buffer rather than letting it grow forever if the index never came up.
+        this.searchQueryBuffer.clear();
+        return;
+      }
+      const enabled = await this.shouldRecordSearchQueries();
+      if (!enabled) {
+        this.searchQueryBuffer.clear();
+        return;
+      }
+
+      // Snapshot and clear so new records can keep accumulating during the flush.
+      const buffered = Array.from(this.searchQueryBuffer.values());
+      this.searchQueryBuffer.clear();
+
+      // Read-modify-write upsert. NOTE: not atomic across processes — two instances flushing
+      // concurrently can lose increments. Acceptable at current scale (this is a nicety, not
+      // a billing system). If/when it matters, swap the buffer for Redis INCR or move to
+      // Meilisearch Cloud's native analytics.
+      const documents: any[] = [];
+      for (const entry of buffered) {
+        const id = this.searchQueryDocId(entry.scope, entry.normalizedQuery);
+        let existingCount = 0;
+        try {
+          const doc: any = await index.getDocument(id);
+          if (doc && typeof doc.count === "number") existingCount = doc.count;
+        } catch {
+          // 404 / not found — treat as zero. Any other failure is also treated as zero
+          // to avoid blocking the whole batch on one bad read.
+        }
+        documents.push({
+          id,
+          query: entry.query,
+          normalizedQuery: entry.normalizedQuery,
+          scope: entry.scope,
+          count: existingCount + entry.delta,
+          lastSeen: entry.lastSeen,
+        });
+      }
+
+      if (documents.length > 0) {
+        await index.addDocuments(documents, { primaryKey: SEARCH_QUERIES_PRIMARY_KEY });
+      }
+    } catch (err: any) {
+      debugError(`[SearchService] flushSearchQueries swallowed error: ${err?.message || err}`);
+    }
+  }
+
+  /**
+   * Management helper: returns the live search-queries index handle, ensuring it exists.
+   * Throws on failure (this is for admin endpoints, not the hot path).
+   */
+  async getSearchQueriesIndex(): Promise<Index> {
+    if (!this.searchQueriesIndex) {
+      await this.ensureSearchQueriesIndex();
+    }
+    if (!this.searchQueriesIndex) {
+      throw new Error("search-queries index is not available");
+    }
+    return this.searchQueriesIndex;
+  }
+
+  /**
+   * Management helper: wipes all documents from the search-queries index and drops
+   * any buffered-but-unflushed entries. The index itself is preserved.
+   * Throws on failure so the caller can surface a meaningful error.
+   */
+  async clearSearchQueries(): Promise<void> {
+    this.searchQueryBuffer.clear();
+    const index = await this.getSearchQueriesIndex();
+    await index.deleteAllDocuments();
+  }
+
+  /**
+   * Returns popular-query suggestions for typeahead. Best-effort: any failure
+   * returns an empty list so the UI degrades to "no suggestions" rather than erroring.
+   */
+  async getSearchSuggestions(params: {
+    scope: string;
+    q?: string;
+    limit?: number;
+  }): Promise<{ query: string; count: number }[]> {
+    try {
+      const index = this.searchQueriesIndex;
+      if (!index) return [];
+      const limit = Math.min(Math.max(1, params.limit ?? 10), 25);
+      const result: any = await index.search(params.q ?? "", {
+        filter: [`scope = "${params.scope.replace(/"/g, '\\"')}"`],
+        sort: ["count:desc", "lastSeen:desc"],
+        limit,
+      });
+      const hits: any[] = result?.hits || [];
+      return hits.map((h) => ({ query: h.query, count: h.count }));
+    } catch (err: any) {
+      debugError(`[SearchService] getSearchSuggestions swallowed error: ${err?.message || err}`);
+      return [];
     }
   }
 
