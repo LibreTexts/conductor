@@ -1,14 +1,7 @@
-import {
-  Grid,
-  Header,
-  Segment,
-  Table,
-  Button,
-  Icon,
-} from "semantic-ui-react";
+import { Button, Spinner } from "@libretexts/davis-react";
+import { IconCopy, IconEdit, IconPlus } from "@tabler/icons-react";
 import { useState } from "react";
 import { OrgEvent } from "../../../types";
-import useGlobalError from "../../error/ErrorHooks";
 import { copyToClipboard, parseAndFormatDate } from "../../../utils/misc";
 import { OrgEventFeeWaiver } from "../../../types/OrgEvent";
 import FeeWaiverStatusLabel from "./FeeWaiverStatusLabel";
@@ -37,7 +30,6 @@ const FeeWaiversSegment: React.FC<FeeWaiversSegmentProps> = ({
   loading,
   canEdit,
   onUpdate,
-  ...rest
 }) => {
   const [showFeeWaiverModal, setShowFeeWaiverModal] = useState(false);
   const [feeWaiverToEdit, setFeeWaiverToEdit] = useState<OrgEventFeeWaiver>();
@@ -53,107 +45,94 @@ const FeeWaiversSegment: React.FC<FeeWaiversSegmentProps> = ({
     setShowFeeWaiverModal(true);
   }
 
-  function TableRow({ feeWaiver, ...props }: { feeWaiver: OrgEventFeeWaiver }) {
-    return (
-      <Table.Row {...props}>
-        <Table.Cell>
-          <span>{feeWaiver.name}</span>
-        </Table.Cell>
-        <Table.Cell>
-          <FeeWaiverStatusLabel active={feeWaiver.active} />
-        </Table.Cell>
-        <Table.Cell>
-          <span>
-            {feeWaiver.code}
-            <Icon
-              name="copy"
-              color="blue"
-              className="ml-1p"
-              style={{ cursor: "pointer" }}
-              onClick={async () => {
-                await copyToClipboard(feeWaiver.code)
-              }}
-            />
-          </span>
-        </Table.Cell>
-        <Table.Cell>
-          <span>{feeWaiver.percentage}%</span>
-        </Table.Cell>
-        <Table.Cell>
-          <span>
-            {parseAndFormatDate(feeWaiver.expirationDate, "MM/dd/yyyy hh:mm aa")}
-            {" "}
-            ({feeWaiver.timeZone.abbrev})
-          </span>
-        </Table.Cell>
-        <Table.Cell textAlign="center">
-          <Button.Group vertical fluid>
-            <Button
-              color="blue"
-              onClick={() => handleOpenFeeWaiverModal(feeWaiver)}
-            >
-              <Icon name="edit" />
-              Edit
-            </Button>
-          </Button.Group>
-        </Table.Cell>
-      </Table.Row>
-    );
-  }
-
   return (
-    <Grid.Column {...rest}>
-      <Header
-        as="h2"
-        dividing
-        className="flex-row-div  flex-row-verticalcenter"
-      >
-        <span>Fee Waivers</span>
-        <div className="right-flex">
-          <Button color="green" onClick={() => handleOpenFeeWaiverModal()}>
-            <Icon name="plus" />
-            Add Fee Waiver
-          </Button>
-        </div>
-      </Header>
-      <Segment.Group size="large" raised className="mb-4p">
-        <Segment loading={loading}>
-          <Table striped celled size="small">
-            <Table.Header>
-              <Table.Row>
-                {TABLE_COLUMNS.map((col) => {
-                  return (
-                    <Table.HeaderCell key={col.key}>
-                      <span>{col.text}</span>
-                    </Table.HeaderCell>
-                  );
-                })}
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {(feeWaivers && feeWaivers.length > 0) && (
-                feeWaivers.map((item) => <TableRow feeWaiver={item} key={item.code} />)
+    <div>
+      <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-4">
+        <h2 className="text-lg font-semibold text-gray-800 m-0">Fee Waivers</h2>
+        <Button
+          variant="primary"
+          icon={<IconPlus size={16} />}
+          onClick={() => handleOpenFeeWaiverModal()}
+        >
+          Add Fee Waiver
+        </Button>
+      </div>
+
+      <div className="border border-gray-200 rounded-lg overflow-x-auto">
+        {loading ? (
+          <div className="flex justify-center p-8">
+            <Spinner />
+          </div>
+        ) : (
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                {TABLE_COLUMNS.map((col) => (
+                  <th
+                    key={col.key}
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide"
+                  >
+                    {col.text}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {feeWaivers && feeWaivers.length > 0 ? (
+                feeWaivers.map((item) => (
+                  <tr key={item.code} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">{item.name}</td>
+                    <td className="px-4 py-3">
+                      <FeeWaiverStatusLabel active={item.active} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-1">
+                        {item.code}
+                        <button
+                          type="button"
+                          title="Copy code"
+                          className="p-1 hover:bg-gray-100 rounded text-blue-600"
+                          onClick={async () => await copyToClipboard(item.code)}
+                        >
+                          <IconCopy size={14} />
+                        </button>
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">{item.percentage}%</td>
+                    <td className="px-4 py-3">
+                      {parseAndFormatDate(item.expirationDate, "MM/dd/yyyy hh:mm aa")}{" "}
+                      ({item.timeZone.abbrev})
+                    </td>
+                    <td className="px-4 py-3">
+                      <Button
+                        variant="primary"
+                        icon={<IconEdit size={14} />}
+                        onClick={() => handleOpenFeeWaiverModal(item)}
+                      >
+                        Edit
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={TABLE_COLUMNS.length} className="px-4 py-8 text-center text-gray-500">
+                    <em>No fee waivers found.</em>
+                  </td>
+                </tr>
               )}
-              {(!feeWaivers || feeWaivers.length === 0 )&& (
-                <Table.Row>
-                  <Table.Cell colSpan={TABLE_COLUMNS.length}>
-                    <p className="text-center">
-                      <em>No fee waivers found.</em>
-                    </p>
-                  </Table.Cell>
-                </Table.Row>
-              )}
-            </Table.Body>
-          </Table>
-        </Segment>
-      </Segment.Group>
+            </tbody>
+          </table>
+        )}
+      </div>
+
       <FeeWaiverModal
         show={showFeeWaiverModal}
         orgEvent={orgEvent}
         feeWaiverToEdit={feeWaiverToEdit}
         onClose={handleCloseFeeWaiverModal}
       />
-    </Grid.Column>
+    </div>
   );
 };
 

@@ -1,57 +1,26 @@
-import { Label, LabelProps } from "semantic-ui-react";
+import { Badge } from "@libretexts/davis-react";
 import { OrgEventParticipant } from "../../../types";
 
-interface PaymentStatusLabelProps extends LabelProps {
+interface PaymentStatusLabelProps {
   paymentStatus: OrgEventParticipant["paymentStatus"];
 }
 
-const PaymentStatusLabel: React.FC<PaymentStatusLabelProps> = ({
-  paymentStatus,
-  ...rest
-}) => {
+const PaymentStatusLabel: React.FC<PaymentStatusLabelProps> = ({ paymentStatus }) => {
   switch (paymentStatus) {
     case "na":
-      return (
-        <Label color="grey" {...rest}>
-          N/A
-        </Label>
-      );
+      return <Badge variant="default" label="N/A" />;
     case "unpaid":
-      return (
-        <Label color="red" {...rest}>
-          Unpaid
-        </Label>
-      );
+      return <Badge variant="danger" label="Unpaid" />;
     case "paid":
-      return (
-        <Label color="green" {...rest}>
-          Paid
-        </Label>
-      );
+      return <Badge variant="success" label="Paid" />;
     case "waived":
-      return (
-        <Label color="blue" {...rest}>
-          Waived
-        </Label>
-      );
+      return <Badge variant="primary" label="Waived" />;
     case "partial_waived":
-      return (
-        <Label color="blue" {...rest}>
-          Partially Waived
-        </Label>
-      );
+      return <Badge variant="primary" label="Partially Waived" />;
     case "refunded":
-      return (
-        <Label color="orange" {...rest}>
-          Refunded
-        </Label>
-      );
+      return <Badge variant="warning" label="Refunded" />;
     default:
-      return (
-        <Label color="grey" {...rest}>
-          Unknown
-        </Label>
-      );
+      return <Badge variant="default" label="Unknown" />;
   }
 };
 

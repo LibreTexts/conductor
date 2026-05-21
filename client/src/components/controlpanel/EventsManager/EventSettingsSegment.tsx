@@ -1,17 +1,20 @@
 import { UseFormGetValues } from "react-hook-form";
-import { Grid, Header, Icon, Segment } from "semantic-ui-react";
-import { copyToClipboard, parseAndFormatDate } from "../../../utils/misc";
+import { Spinner } from "@libretexts/davis-react";
+import { IconCopy } from "@tabler/icons-react";
+import { copyToClipboard } from "../../../utils/misc";
 import { OrgEvent, Organization } from "../../../types";
-import { format as formatDate, parseISO } from "date-fns";
-import { utcToZonedTime } from "date-fns-tz";
+import { format as formatDate } from "date-fns";
+
 interface EventSettingsSegmentProps {
   getValuesFn: UseFormGetValues<OrgEvent>;
   manageMode: "create" | "edit";
   org: Organization;
   loading: boolean;
   projectSyncID?: string;
-  projectSyncTitle?: string
+  projectSyncTitle?: string;
 }
+
+const DATE_FORMAT_STRING = "MM/dd/yyyy hh:mm aa";
 
 const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
   getValuesFn,
@@ -20,136 +23,89 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
   loading,
   projectSyncID,
   projectSyncTitle,
-  ...rest
 }) => {
-  const DATE_FORMAT_STRING = "MM/dd/yyyy hh:mm aa";
+  if (loading) {
+    return (
+      <div className="flex justify-center py-8">
+        <Spinner size="md" />
+      </div>
+    );
+  }
 
   return (
-    <Segment loading={loading}>
-      <Grid divided>
-        <Grid.Row columns={2}>
-          <Grid.Column>
-            <Header as="h4">Event Information</Header>
-            <p>
-              <Header sub as="span">
-                Event Start Date:
-              </Header>
-              <span>
-                {" "}
-                {getValuesFn("startDate")
-                  ? formatDate(
-                      getValuesFn("startDate"),
-                      DATE_FORMAT_STRING
-                    )
-                  : "Unknown"}{" "}
-                ({getValuesFn("timeZone.abbrev")})
-              </span>
-            </p>
-            <p>
-              <Header sub as="span">
-                Event End Date:
-              </Header>
-              <span>
-                {" "}
-                {getValuesFn("endDate")
-                  ? formatDate(
-                      getValuesFn("endDate"),
-                      DATE_FORMAT_STRING
-                    )
-                  : "Unknown"}{" "}
-                ({getValuesFn("timeZone.abbrev")})
-              </span>
-            </p>
+    <div className="border border-gray-200 rounded-md p-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 divide-y md:divide-y-0 md:divide-x divide-gray-200">
+        <div>
+          <p className="font-semibold text-sm text-gray-700 mb-3">Event Information</p>
+          <dl className="space-y-2 text-sm">
+            <div className="flex gap-2">
+              <dt className="font-semibold uppercase text-xs text-gray-500 tracking-wide w-40 shrink-0">Event Start Date:</dt>
+              <dd>{getValuesFn("startDate") ? formatDate(getValuesFn("startDate"), DATE_FORMAT_STRING) : "Unknown"} ({getValuesFn("timeZone.abbrev")})</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="font-semibold uppercase text-xs text-gray-500 tracking-wide w-40 shrink-0">Event End Date:</dt>
+              <dd>{getValuesFn("endDate") ? formatDate(getValuesFn("endDate"), DATE_FORMAT_STRING) : "Unknown"} ({getValuesFn("timeZone.abbrev")})</dd>
+            </div>
             {manageMode === "edit" && (
-              <p>
-                <Header sub as="span">
-                  Registration URL:
-                </Header>
-                <a
-                  href={`${org.domain}/events/${getValuesFn("eventID")}`}
-                  target="_blank"
-                >
-                  {" "}
-                  {`${org.domain}/events/${getValuesFn("eventID")}`}
-                </a>
-                <Icon
-                  name="copy"
-                  color="blue"
-                  className="ml-1p"
-                  style={{ cursor: "pointer" }}
-                  onClick={async () => {
-                    await copyToClipboard(
-                      `${org.domain}/events/${getValuesFn("eventID")}`
-                    );
-                  }}
-                />
-              </p>
+              <div className="flex gap-2 items-center">
+                <dt className="font-semibold uppercase text-xs text-gray-500 tracking-wide w-40 shrink-0">Registration URL:</dt>
+                <dd className="flex items-center gap-1">
+                  <a
+                    href={`${org.domain}/events/${getValuesFn("eventID")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline truncate max-w-48"
+                  >
+                    {`${org.domain}/events/${getValuesFn("eventID")}`}
+                  </a>
+                  <button
+                    type="button"
+                    className="text-primary hover:text-primary/80 cursor-pointer"
+                    onClick={() => copyToClipboard(`${org.domain}/events/${getValuesFn("eventID")}`)}
+                    title="Copy URL"
+                  >
+                    <IconCopy size={14} />
+                  </button>
+                </dd>
+              </div>
             )}
-            {(projectSyncID && projectSyncTitle) && (
-              <p>
-                <Header sub as="span">
-                  Synced Project:
-                </Header>
-                <a
-                  href={`/projects/${projectSyncID}`}
-                  target="_blank"
-                >
-                  {" "}
-                  {projectSyncTitle}
-                </a>
-              </p>
+            {projectSyncID && projectSyncTitle && (
+              <div className="flex gap-2">
+                <dt className="font-semibold uppercase text-xs text-gray-500 tracking-wide w-40 shrink-0">Synced Project:</dt>
+                <dd>
+                  <a href={`/projects/${projectSyncID}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    {projectSyncTitle}
+                  </a>
+                </dd>
+              </div>
             )}
-          </Grid.Column>
-          <Grid.Column>
-            <Header as="h4">Registration Information</Header>
-            <p>
-              <Header sub as="span">
-                <strong>Registration Open Date:</strong>{" "}
-              </Header>
-              <span>
-                {" "}
-                {getValuesFn("regOpenDate")
-                  ? formatDate(
-                      getValuesFn("regOpenDate"),
-                      DATE_FORMAT_STRING
-                    )
-                  : "Unknown"}{" "}
-                ({getValuesFn("timeZone.abbrev")})
-              </span>
-            </p>
-            <p>
-              <Header sub as="span">
-                <strong>Registration Close Date:</strong>{" "}
-              </Header>
-              <span>
-                {" "}
-                {getValuesFn("regCloseDate")
-                  ? formatDate(
-                      getValuesFn("regCloseDate"),
-                      DATE_FORMAT_STRING
-                    )
-                  : "Unknown"}{" "}
-                ({getValuesFn("timeZone.abbrev")})
-              </span>
-            </p>
+          </dl>
+        </div>
+        <div className="pt-4 md:pt-0 md:pl-6">
+          <p className="font-semibold text-sm text-gray-700 mb-3">Registration Information</p>
+          <dl className="space-y-2 text-sm">
+            <div className="flex gap-2">
+              <dt className="font-semibold uppercase text-xs text-gray-500 tracking-wide w-44 shrink-0">Registration Open Date:</dt>
+              <dd>{getValuesFn("regOpenDate") ? formatDate(getValuesFn("regOpenDate"), DATE_FORMAT_STRING) : "Unknown"} ({getValuesFn("timeZone.abbrev")})</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="font-semibold uppercase text-xs text-gray-500 tracking-wide w-44 shrink-0">Registration Close Date:</dt>
+              <dd>{getValuesFn("regCloseDate") ? formatDate(getValuesFn("regCloseDate"), DATE_FORMAT_STRING) : "Unknown"} ({getValuesFn("timeZone.abbrev")})</dd>
+            </div>
             {org.orgID === "libretexts" && (
-              <p>
-                <Header sub as="span">
-                  <strong>Registration Fee:</strong>
-                </Header>
-                <span> ${getValuesFn("regFee") ?? "0.00"}</span>
-              </p>
+              <div className="flex gap-2">
+                <dt className="font-semibold uppercase text-xs text-gray-500 tracking-wide w-44 shrink-0">Registration Fee:</dt>
+                <dd>${getValuesFn("regFee") ?? "0.00"}</dd>
+              </div>
             )}
-            <p>
-              <Header sub as="span">
-                <strong>Collect Shipping Address:</strong>{" "}
-              </Header>
-              <span>{getValuesFn("collectShipping") ? "Yes" : "No"}</span>
-            </p>
-          </Grid.Column>
-        </Grid.Row>
-      </Grid>
-    </Segment>
+            <div className="flex gap-2">
+              <dt className="font-semibold uppercase text-xs text-gray-500 tracking-wide w-44 shrink-0">Collect Shipping Address:</dt>
+              <dd>{getValuesFn("collectShipping") ? "Yes" : "No"}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+    </div>
   );
 };
 

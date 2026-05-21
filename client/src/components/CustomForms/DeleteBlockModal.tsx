@@ -1,6 +1,7 @@
-import { Modal, Button, Icon, ModalProps } from "semantic-ui-react";
+import { Modal, Button } from "@libretexts/davis-react";
+import { IconTrash } from "@tabler/icons-react";
 
-interface DeleteBlockModalProps extends ModalProps {
+interface DeleteBlockModalProps {
   show: boolean;
   blockType: "heading" | "textBlock" | "prompt";
   onSave: () => void;
@@ -14,24 +15,31 @@ const DeleteBlockModal: React.FC<DeleteBlockModalProps> = ({
   onSave,
   onRequestClose,
   loading,
-  ...rest
 }) => {
   return (
-    <Modal open={show} onClose={() => onRequestClose()} {...rest}>
-      <Modal.Header>Delete Block</Modal.Header>
-      <Modal.Content>
+    <Modal open={show} onClose={onRequestClose} size="sm">
+      <Modal.Header>
+        <Modal.Title>Delete Block</Modal.Title>
+        <Modal.Close />
+      </Modal.Header>
+      <Modal.Body>
         <p>
-          Are you sure you want to delete this <strong>{blockType}</strong>{" "}
-          block?
+          Are you sure you want to delete this <strong>{blockType}</strong> block?
         </p>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={() => onRequestClose()}>Cancel</Button>
-        <Button loading={loading ?? false} color="red" onClick={() => onSave()}>
-          <Icon name="trash" />
-          Delete Block
-        </Button>
-      </Modal.Actions>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onRequestClose}>Cancel</Button>
+          <Button
+            variant="destructive"
+            icon={<IconTrash size={16} />}
+            loading={loading ?? false}
+            onClick={onSave}
+          >
+            Delete Block
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };

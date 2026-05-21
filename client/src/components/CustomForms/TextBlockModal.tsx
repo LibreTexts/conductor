@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from "react";
-import { Modal, Button, Icon, ModalProps } from "semantic-ui-react";
+import { Modal, Button } from "@libretexts/davis-react";
+import { IconDeviceFloppy, IconPlus } from "@tabler/icons-react";
 import TextArea from "../TextArea";
 
-interface TextBlockModalProps extends ModalProps {
+interface TextBlockModalProps {
   show: boolean;
   mode: "add" | "edit";
   value: string;
@@ -12,6 +13,7 @@ interface TextBlockModalProps extends ModalProps {
   onClose: () => void;
   loading?: boolean;
 }
+
 const TextBlockModal: React.FC<TextBlockModalProps> = ({
   show,
   mode,
@@ -21,9 +23,7 @@ const TextBlockModal: React.FC<TextBlockModalProps> = ({
   onSave,
   onClose,
   loading,
-  ...rest
 }) => {
-  // Focus on text area when modal is opened
   const textAreaRef = useRef(null);
   useEffect(() => {
     if (show && textAreaRef.current) {
@@ -32,24 +32,33 @@ const TextBlockModal: React.FC<TextBlockModalProps> = ({
   }, [show]);
 
   return (
-    <Modal open={show} onClose={onClose} {...rest}>
-      <Modal.Header>{mode === "add" ? "Add" : "Edit"} Text Block</Modal.Header>
-      <Modal.Content>
+    <Modal open={show} onClose={onClose} size="md">
+      <Modal.Header>
+        <Modal.Title>{mode === "add" ? "Add" : "Edit"} Text Block</Modal.Title>
+        <Modal.Close />
+      </Modal.Header>
+      <Modal.Body>
         <TextArea
-          placeholder={`Enter ${mode === "add" && "new"} text...`}
+          placeholder={`Enter ${mode === "add" ? "new " : ""}text...`}
           textValue={value}
           onTextChange={(newVal) => onChange(newVal)}
           innerRef={textAreaRef}
           contentType="text"
         />
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button color="green" loading={loading ?? false} onClick={onSave}>
-          <Icon name={mode === "add" ? "add" : "save"} />
-          {mode === "add" ? "Add" : "Save"} Text Block
-        </Button>
-      </Modal.Actions>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            variant="primary"
+            icon={mode === "add" ? <IconPlus size={16} /> : <IconDeviceFloppy size={16} />}
+            loading={loading ?? false}
+            onClick={onSave}
+          >
+            {mode === "add" ? "Add" : "Save"} Text Block
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };

@@ -1,4 +1,5 @@
-import { Button, Dropdown, Icon, Modal, Grid, Form } from "semantic-ui-react";
+import { Modal, Button } from "@libretexts/davis-react";
+import { IconRefresh } from "@tabler/icons-react";
 import { useTypedSelector } from "../../../state/hooks";
 import { isEmptyString } from "../../util/HelperFunctions";
 import { useCallback, useEffect, useState } from "react";
@@ -19,35 +20,25 @@ const AutoSyncToProjectModal: React.FC<AutoSyncToProjectModalProps> = ({
   orgEvent,
   onClose,
   onConfirm,
-  ...props
 }) => {
-  // Global State and Error Handling
   const user = useTypedSelector((state) => state.user);
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
 
   const [loading, setLoading] = useState<boolean>(false);
-  const [projectOpts, setProjectOpts] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
+  const [projectOpts, setProjectOpts] = useState<GenericKeyTextValueObj<string>[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
-  const getProjectOpts = async (searchQuery: string) => {
+  const getProjectOpts = async (query: string) => {
     try {
       setLoading(true);
       const res = await axios.get("/projects/all", {
-        params: {
-          uuid: user.uuid,
-          searchQuery: searchQuery,
-        },
+        params: { uuid: user.uuid, searchQuery: query },
       });
 
-      if (
-        res.data.err ||
-        !res.data.projects ||
-        !Array.isArray(res.data.projects)
-      ) {
+      if (res.data.err || !res.data.projects || !Array.isArray(res.data.projects)) {
         handleGlobalError(res.data.errMsg);
         return;
       }
@@ -92,7 +83,6 @@ const AutoSyncToProjectModal: React.FC<AutoSyncToProjectModalProps> = ({
     }
   }
 
-  // Clear state when modal closes
   useEffect(() => {
     if (show) {
       getCurrentProjectInfo();
@@ -100,6 +90,7 @@ const AutoSyncToProjectModal: React.FC<AutoSyncToProjectModalProps> = ({
     if (!show) {
       setProjectOpts([]);
       setSelectedProject("");
+      setSearchQuery("");
     }
   }, [show]);
 
@@ -115,67 +106,91 @@ const AutoSyncToProjectModal: React.FC<AutoSyncToProjectModalProps> = ({
   }
 
   return (
-    <Modal size="large" open={show} onClose={onClose} {...props}>
-      <Modal.Header>Configure Auto-Sync Users to Project</Modal.Header>
-      <Modal.Content scrolling style={{ minHeight: "30vh" }}>
-        <Form noValidate>
+    <Modal open={show} onClose={onClose} size="lg">
+      <Modal.Header>
+        <Modal.Title>Configure Auto-Sync Users to Project</Modal.Title>
+        <Modal.Close />
+      </Modal.Header>
+      <Modal.Body className="overflow-y-auto min-h-[30vh]">
+        <div className="flex flex-col gap-4">
           {currentProject && (
-            <p className="mb-2p">
+            <p className="text-sm">
               <strong>Current Auto-Sync Project: </strong>
-              {currentProject && (
-                <a
-                  href={`/projects/${currentProject.projectID}`}
-                  target="_blank"
-                >
-                  {currentProject.title}
-                </a>
-              )}
+              <a
+                href={`/projects/${currentProject.projectID}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                {currentProject.title}
+              </a>
             </p>
           )}
-          <Form.Group widths="equal">
-            <Form.Select
-              search
-              label={
-                orgEvent.projectSyncID ? "Select New Project" : "Select Project"
-              }
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {orgEvent.projectSyncID ? "Select New Project" : "Select Project"}
+              <span className="text-red-500 ml-1">*</span>
+            </label>
+            <input
+              type="text"
               placeholder="Start typing to search by title..."
-              options={projectOpts}
-              onChange={(_e, { value }) => {
-                setSelectedProject(value ? value.toString() : "");
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                getProjectOptionsDebounced(e.target.value);
               }}
-              onSearchChange={(_e, { searchQuery }) => {
-                if (searchQuery) {
-                  getProjectOptionsDebounced(searchQuery);
-                }
-              }}
-              loading={loading}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               disabled={loading}
-              required
             />
-          </Form.Group>
-        </Form>
-        <p>
-          <strong>Note:</strong> Only participants with emails that can be
-          matched to a Conductor account will be added to the project. All
-          participants will be added with the <strong>Project Member</strong>{" "}
-          role. Existing participants will be synced upon submission of this
-          form. Future participants will be synced automatically. If a
-          participant cancels their registration, they <strong>will not</strong>{" "}
-          automatically be removed from the project.
-        </p>
-        <p></p>
-      </Modal.Content>
-      <Modal.Actions>
-        {selectedProject && (
-          <Button onClick={() => handleConfirm()} color="green">
-            <Icon name="refresh" />
-            Confirm Sync Settings
-          </Button>
-        )}
-        <Button onClick={onClose} color="grey">
-          Cancel
-        </Button>
-      </Modal.Actions>
+            {projectOpts.length > 0 && (
+              <div className="border border-gray-200 rounded mt-1 max-h-48 overflow-y-auto divide-y divide-gray-100">
+                {projectOpts.map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
+                      selectedProject === opt.value ? "bg-blue-50 font-medium" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedProject(opt.value ?? "");
+                      setSearchQuery(opt.text ?? "");
+                      setProjectOpts([]);
+                    }}
+                  >
+                    {opt.text}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <p className="text-sm text-gray-600">
+            <strong>Note:</strong> Only participants with emails that can be
+            matched to a Conductor account will be added to the project. All
+            participants will be added with the <strong>Project Member</strong>{" "}
+            role. Existing participants will be synced upon submission of this
+            form. Future participants will be synced automatically. If a
+            participant cancels their registration, they <strong>will not</strong>{" "}
+            automatically be removed from the project.
+          </p>
+        </div>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          {selectedProject && (
+            <Button
+              variant="primary"
+              icon={<IconRefresh size={16} />}
+              loading={loading}
+              onClick={handleConfirm}
+            >
+              Confirm Sync Settings
+            </Button>
+          )}
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };
