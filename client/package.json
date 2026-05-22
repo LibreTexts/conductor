@@ -52,7 +52,7 @@
     "frappe-gantt": "^0.5.0",
     "fuse.js": "^7.0.0",
     "html-react-parser": "^1.2.7",
-    "js-cookie": "^2.2.1",
+    "js-cookie": "^3.0.7",
     "linkify-react": "^4.3.2",
     "linkifyjs": "^4.3.2",
     "marked": "^4.0.10",
