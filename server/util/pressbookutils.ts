@@ -2043,7 +2043,7 @@ export class PressBookScraper {
   ): Promise<void> {
     if (contributors.length === 0) return;
 
-    const orgID = "libretexts";
+    // const orgID = "libretexts";
     const PLACEHOLDER_PICTURE =
       "https://biz.libretexts.org/@api/deki/files/5084/girl-160172__340.png";
 
@@ -2083,7 +2083,7 @@ export class PressBookScraper {
 
     // ── 2. One-shot lookup of every conflicting nameKey ──────────────────
     const existing = await Author.find(
-      { orgID, nameKey: { $in: candidates.map((c) => c.nameKey) } },
+      {  nameKey: { $in: candidates.map((c) => c.nameKey) } },
       { nameKey: 1, name: 1 },
     ).lean();
     const existingByKey = new Map<string, string>(
@@ -2092,7 +2092,7 @@ export class PressBookScraper {
 
     // ── 3. Resolve each candidate ────────────────────────────────────────
     const docs: Array<
-      Pick<AuthorInterface, "orgID" | "nameKey" | "name" | "pictureURL">
+      Pick<AuthorInterface,  "nameKey" | "name" | "pictureURL">
     > = [];
     for (const c of candidates) {
       const existingName = existingByKey.get(c.nameKey);
@@ -2106,20 +2106,18 @@ export class PressBookScraper {
           continue;
         }
         // Different person, same slug — pick the next free suffix.
-        const freeKey = await this.findFreeNameKey(orgID, c.nameKey);
+        const freeKey = await this.findFreeNameKey( c.nameKey);
         console.log(
           `[PressBookScraper] Author nameKey collision: "${c.nameKey}" already used by "${existingName}"; ` +
             `inserting "${c.name}" as "${freeKey}".`,
         );
         docs.push({
-          orgID,
           nameKey: freeKey,
           name: c.name,
           pictureURL: PLACEHOLDER_PICTURE,
         });
       } else {
         docs.push({
-          orgID,
           nameKey: c.nameKey,
           name: c.name,
           pictureURL: PLACEHOLDER_PICTURE,
@@ -2151,7 +2149,6 @@ export class PressBookScraper {
    * occupying suffix=1, so the first generated variant is `baseKey-2`.
    */
   private async findFreeNameKey(
-    orgID: string,
     baseKey: string,
   ): Promise<string> {
     // Slug values may legally contain characters that mean something to
@@ -2159,7 +2156,7 @@ export class PressBookScraper {
     const escaped = baseKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const re = new RegExp(`^${escaped}(?:-(\\d+))?$`);
     const existing = await Author.find(
-      { orgID, nameKey: re },
+      { nameKey: re },
       { nameKey: 1 },
     ).lean();
 
