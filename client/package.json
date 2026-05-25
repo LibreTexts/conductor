@@ -43,7 +43,6 @@
     "@uppy/react": "^4.5.2",
     "@uppy/screen-capture": "^4.4.2",
     "axios": "^1.13.6",
-    "canvas": "^3.1.0",
     "classnames": "^2.5.1",
     "d3": "^7.9.0",
     "date-and-time": "^0.14.2",
