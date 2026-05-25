@@ -8,7 +8,6 @@ const CXOneTemplates = {
     <p class="template:tag-insert"><a href="#">article:topic-guide</a></p>
   `,
   POST_CreateBookTopic: `
-   <p>{{template.ShowOrg()}}</p>
     <p class="template:tag-insert"><a href="#">article:topic</a></p>
   `
   ,
@@ -17,7 +16,7 @@ const CXOneTemplates = {
   <p class="template:tag-insert">
     <a href="#">article:topic-category</a><a href="#"></a>
   </p>
-`,
+`,  
   POST_GrantContributorRole: (userID: string) => `<security>
     <permissions.page>
       <restriction>Semi-Private</restriction>
