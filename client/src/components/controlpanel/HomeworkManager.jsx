@@ -5,7 +5,9 @@ import {
   Breadcrumb,
   Button,
   Heading,
+  Input,
   Modal,
+  Select,
   Stack,
   Text,
 } from '@libretexts/davis-react';
@@ -21,6 +23,23 @@ const HomeworkManager = () => {
   const [homework, setHomework] = useState([]);
   const [loadedData, setLoadedData] = useState(false);
   const [syncResponse, setSyncResponse] = useState('');
+
+  const [searchField, setSearchField] = useState('title');
+  const [searchString, setSearchString] = useState('');
+
+  const SEARCH_FIELD_OPTIONS = [
+    { value: 'title', label: 'Title' },
+    { value: 'description', label: 'Description' },
+    { value: 'kind', label: 'Type' },
+  ];
+
+  const filteredHomework = useMemo(() => {
+    if (!searchString.trim()) return homework;
+    const q = searchString.toLowerCase();
+    return homework.filter((hw) =>
+      String(hw[searchField] ?? '').toLowerCase().includes(q)
+    );
+  }, [homework, searchField, searchString]);
 
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [syncInProgress, setSyncInProgress] = useState(false);
@@ -160,7 +179,7 @@ const HomeworkManager = () => {
 
       <div className="border border-gray-200 rounded-lg overflow-hidden">
         <DataTable
-          data={homework}
+          data={filteredHomework}
           columns={columns}
           loading={!loadedData}
           density="compact"
@@ -176,7 +195,31 @@ const HomeworkManager = () => {
           enablePagination
           pageSize={10}
           pageSizeOptions={[5, 10, 25, 50, 100]}
-          toolbar={{ globalSearch: true }}
+          toolbar={{
+            start: (
+              <Input
+                name="search"
+                label={`Search by ${SEARCH_FIELD_OPTIONS.find((o) => o.value === searchField)?.label}`}
+                labelClassName="sr-only"
+                placeholder={`Search by ${SEARCH_FIELD_OPTIONS.find((o) => o.value === searchField)?.label}...`}
+                value={searchString}
+                onChange={(e) => setSearchString(e.target.value)}
+                className="w-80"
+              />
+            ),
+            end: (
+              <Select
+                name="searchField"
+                label="Search by"
+                labelClassName="sr-only"
+                options={SEARCH_FIELD_OPTIONS}
+                placeholder="Search by..."
+                value={searchField}
+                onChange={(e) => setSearchField(e.target.value)}
+                selectClassName="!min-w-36"
+              />
+            ),
+          }}
         />
       </div>
 
@@ -225,7 +268,7 @@ const HomeworkManager = () => {
             </Button>
           ) : (
             <Button
-              variant="secondary"
+              variant="outline"
               onClick={closeSyncModal}
               disabled={syncInProgress}
             >
