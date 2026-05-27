@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { Header, Segment, Grid, Breadcrumb } from "semantic-ui-react";
+import { Breadcrumb, Button, Heading, Stack } from "@libretexts/davis-react";
 import { formatPrice, truncateOrderId } from "../../../../utils/storeHelpers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { StoreOrderWithStripeSession } from "../../../../types";
@@ -10,11 +10,12 @@ import {
   IconBrandVisa,
   IconClipboardFilled,
   IconCloudComputing,
+  IconExternalLink,
   IconPackage,
+  IconRefreshAlert,
 } from "@tabler/icons-react";
 import { useMemo } from "react";
 import useGlobalError from "../../../../components/error/ErrorHooks";
-import Button from "../../../../components/NextGenComponents/Button";
 import { useModals } from "../../../../context/ModalContext";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import { buildLibraryPageGoURL } from "../../../../utils/projectHelpers";
@@ -49,7 +50,7 @@ const OrderView = () => {
       return response.data.data;
     },
     enabled: !!order_id,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   });
 
@@ -112,7 +113,7 @@ const OrderView = () => {
         />
       );
     },
-    onError(error, variables, context) {
+    onError(error) {
       handleGlobalError(error);
     },
   });
@@ -136,418 +137,389 @@ const OrderView = () => {
   }
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">
-            LibreTexts Store Management
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment className="flex items-center justify-between">
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section as={Link} to="/controlpanel/store">
-                  Store Management
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>
-                  <div className="flex items-center">
-                    <span>{truncateOrderId(order_id)}</span>
-                    <CopyButton val={order_id}>
-                      {({ copied, copy }) => (
-                        <IconClipboardFilled
-                          className="cursor-pointer !ml-1.5 w-5 h-5 text-primary"
-                          onClick={() => {
-                            copy();
-                            addNotification({
-                              message: "Order ID copied to clipboard",
-                              type: "success",
-                              duration: 2000,
-                            });
-                          }}
-                        />
-                      )}
-                    </CopyButton>
-                  </div>
-                </Breadcrumb.Section>
-              </Breadcrumb>
+    <div className="bg-white h-full px-8 pt-8">
+      <Stack direction="vertical" gap="md" className="mb-6">
+        <Heading level={2}>LibreTexts Store Management</Heading>
+      </Stack>
+
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <Breadcrumb aria-label="Page navigation">
+            <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+            <Breadcrumb.Item href="/controlpanel/store">
+              Store Management
+            </Breadcrumb.Item>
+            <Breadcrumb.Item isCurrent>
               <div className="flex items-center">
-                <div
-                  className={`font-medium capitalize ${
-                    data?.status === "failed"
-                      ? "text-red-600"
-                      : "text-gray-900"
-                  }`}
-                >
-                  Status: {data?.status || "Unknown"}
-                </div>
-                <div className="mx-2 text-gray-400">•</div>
-                <div className="font-medium text-gray-900">
-                  Ordered{" "}
-                  {data?.createdAt
-                    ? new Date(data.createdAt).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "2-digit",
-                        day: "2-digit",
-                      })
-                    : ""}
-                </div>{" "}
-                {/* show dot seperator here*/}
-                <div className="mx-2 text-gray-400">•</div>
-                <div className="">
-                  {data?.stripe_charge?.receipt_url && (
-                    <a
-                      href={data.stripe_charge.receipt_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold text-primary hover:text-primary-hover"
-                    >
-                      View receipt
-                      <span aria-hidden="true"> &rarr;</span>
-                    </a>
+                <span>{truncateOrderId(order_id)}</span>
+                <CopyButton val={order_id}>
+                  {({ copied, copy }) => (
+                    <IconClipboardFilled
+                      className="cursor-pointer !ml-1.5 w-5 h-5 text-primary"
+                      onClick={() => {
+                        copy();
+                        addNotification({
+                          message: "Order ID copied to clipboard",
+                          type: "success",
+                          duration: 2000,
+                        });
+                      }}
+                    />
                   )}
-                </div>
+                </CopyButton>
               </div>
-            </Segment>
-            <Segment>
-              <section aria-labelledby="products-heading" className="mt-6">
-                <h2 id="products-heading" className="sr-only">
-                  Products purchased
-                </h2>
+            </Breadcrumb.Item>
+          </Breadcrumb>
+          <div className="flex items-center text-sm">
+            <div
+              className={`font-medium capitalize ${
+                data?.status === "failed" ? "text-red-600" : "text-gray-900"
+              }`}
+            >
+              Status: {data?.status || "Unknown"}
+            </div>
+            <div className="mx-2 text-gray-400">•</div>
+            <div className="font-medium text-gray-900">
+              Ordered{" "}
+              {data?.createdAt
+                ? new Date(data.createdAt).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                  })
+                : ""}
+            </div>
+            <div className="mx-2 text-gray-400">•</div>
+            <div>
+              {data?.stripe_charge?.receipt_url && (
+                <a
+                  href={data.stripe_charge.receipt_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-primary hover:text-primary-hover"
+                >
+                  View receipt
+                  <span aria-hidden="true"> &rarr;</span>
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
 
-                <div className="space-y-6">
-                  {data?.stripe_session?.line_items?.data.map((item) => {
-                    const lineItem = item as PopulatedLineItem;
-                    const bookID =
-                      lineItem.price?.product?.metadata?.["book_id"] || "";
-                    const digitalProduct =
-                      lineItem.price?.product?.metadata?.digital === "true";
-                    return (
-                      <div
-                        key={lineItem.id}
-                        className="border-b border-t border-gray-200 bg-white shadow-sm sm:rounded-lg sm:border"
-                      >
-                        <div className="flex flex-row items-center justify-between px-4 py-6 sm:px-6">
-                          <div className="flex flex-col">
-                            <div className="sm:flex lg:col-span-7">
-                              {lineItem.price?.product?.images &&
-                              lineItem.price?.product?.images.length > 0 ? (
-                                <img
-                                  alt={
-                                    lineItem.price?.product?.name ||
-                                    "Product Image"
-                                  }
-                                  src={lineItem.price?.product?.images[0] || ""}
-                                  className="aspect-square w-full shrink-0 rounded-lg object-contain sm:size-40"
-                                />
-                              ) : (
-                                <IconPackage className="size-40 text-gray-400" />
-                              )}
+        <div className="p-6">
+          <section aria-labelledby="products-heading">
+            <h2 id="products-heading" className="sr-only">
+              Products purchased
+            </h2>
 
-                              <div className="mt-6 sm:ml-6 sm:mt-0">
-                                <h3 className="text-base font-medium text-gray-900">
+            <div className="space-y-6">
+              {data?.stripe_session?.line_items?.data.map((item) => {
+                const lineItem = item as PopulatedLineItem;
+                const bookID =
+                  lineItem.price?.product?.metadata?.["book_id"] || "";
+                const digitalProduct =
+                  lineItem.price?.product?.metadata?.digital === "true";
+                return (
+                  <div
+                    key={lineItem.id}
+                    className="border-b border-t border-gray-200 bg-white shadow-sm sm:rounded-lg sm:border"
+                  >
+                    <div className="flex flex-row items-center justify-between px-4 py-6 sm:px-6">
+                      <div className="flex flex-col">
+                        <div className="sm:flex lg:col-span-7">
+                          {lineItem.price?.product?.images &&
+                          lineItem.price?.product?.images.length > 0 ? (
+                            <img
+                              alt={
+                                lineItem.price?.product?.name || "Product Image"
+                              }
+                              src={lineItem.price?.product?.images[0] || ""}
+                              className="aspect-square w-full shrink-0 rounded-lg object-contain sm:size-40"
+                            />
+                          ) : (
+                            <IconPackage className="size-40 text-gray-400" />
+                          )}
+
+                          <div className="mt-6 sm:ml-6 sm:mt-0">
+                            <h3 className="text-base font-medium text-gray-900">
+                              <a
+                                href={`https://commons.libretexts.org/store/product/${
+                                  bookID ? bookID : lineItem.price?.product?.id
+                                }`}
+                              >
+                                {lineItem.price?.product?.name}{" "}
+                                {lineItem.price?.nickname ? (
+                                  <span className="text-gray-500">
+                                    ({lineItem.price?.nickname})
+                                  </span>
+                                ) : null}
+                              </a>
+                            </h3>
+                            <p className="mt-2 text-sm font-medium text-gray-900">
+                              {formatPrice(lineItem.price?.unit_amount, true)}
+                            </p>
+                            <p className="mt-3 text-sm text-gray-500">
+                              {lineItem.description}
+                            </p>
+                            <MetadataDisplay
+                              metadata={lineItem.price?.product?.metadata}
+                            />
+                            <div className="mt-4">
+                              {lineItem.price?.product?.metadata["book_id"] && (
+                                <div className="flex flex-row space-x-2">
                                   <a
-                                    href={`https://commons.libretexts.org/store/product/${
-                                      bookID
-                                        ? bookID
-                                        : lineItem.price?.product?.id
-                                    }`}
+                                    href={buildLibraryPageGoURL(
+                                      bookID.split("-")[0] || "unknown",
+                                      bookID.split("-")[1] || "unknown"
+                                    )}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                   >
-                                    {lineItem.price?.product?.name}{" "}
-                                    {lineItem.price?.nickname ? (
-                                      <span className="text-gray-500">
-                                        ({lineItem.price?.nickname})
-                                      </span>
-                                    ) : null}
+                                    <Button
+                                      variant="primary"
+                                      icon={<IconExternalLink size={16} />}
+                                      size="sm"
+                                    >
+                                      View Book in Library
+                                    </Button>
                                   </a>
-                                </h3>
-                                <p className="mt-2 text-sm font-medium text-gray-900">
-                                  {formatPrice(
-                                    lineItem.price?.unit_amount,
-                                    true
-                                  )}
-                                </p>
-                                <p className="mt-3 text-sm text-gray-500">
-                                  {lineItem.description}
-                                </p>
-                                <MetadataDisplay
-                                  metadata={lineItem.price?.product?.metadata}
-                                />
-                                <div className="mt-4">
-                                  {lineItem.price?.product?.metadata[
-                                    "book_id"
-                                  ] && (
-                                    <div className="flex flex-row space-x-2">
-                                    <a
-                                      href={buildLibraryPageGoURL(
-                                        bookID.split("-")[0] || "unknown",
-                                        bookID.split("-")[1] || "unknown"
-                                      )}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
+                                  <a
+                                    href={`https://commons.libretexts.org/store/product/${bookID}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <Button
+                                      variant="primary"
+                                      icon={<IconExternalLink size={16} />}
+                                      size="sm"
                                     >
-                                      <Button
-                                        icon="IconExternalLink"
-                                        size="small"
-                                      >
-                                        View Book in Library
-                                      </Button>
-                                    </a>
-                                    <a
-                                      href={`https://commons.libretexts.org/store/product/${bookID}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      <Button
-                                        icon="IconExternalLink"
-                                        size="small"
-                                      >
-                                        View Book in Store
-                                      </Button>
-                                    </a>
-                                    </div>
-                                  )}
+                                      View Book in Store
+                                    </Button>
+                                  </a>
                                 </div>
-                              </div>
+                              )}
                             </div>
                           </div>
-                          <div className="mt-6 flex flex-col justify-end items-end self-start text-sm text-gray-500 sm:mt-0">
-                            <span className="font-medium text-gray-900">
-                              Quantity: {lineItem.quantity}
-                            </span>
-                            {digitalProduct ? (
-                              <span className="mt-2">
-                                <IconCloudComputing className="inline-block h-5 w-5 text-gray-500 mr-1" />
-                                Digital Product
-                              </span>
-                            ) : null}
-                          </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </section>
-              {data?.luluJobID && (
-                <section aria-labelledby="lulu-heading" className="mt-12">
-                  <h2
-                    id="lulu-heading"
-                    className="font-semibold text-lg text-gray-900 ml-1 mb-2"
-                  >
-                    Lulu Job Information
-                  </h2>
-                  <div className="rounded-lg bg-gray-50 p-8 text-sm flex flex-row justify-between">
-                    <div className="flex flex-col">
-                      <div>
-                        <dt className="font-medium text-gray-900">
-                          Lulu Job ID
-                        </dt>
-                        <dd className="mt-1 text-gray-500">
-                          <a
-                            href={`https://developers.lulu.com/print-jobs/detail/${data?.luluJobID}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block"
-                          >
-                            {data?.luluJobID}
-                          </a>
-                        </dd>
-                      </div>
-                      <div className="mt-4">
-                        <dt className="font-medium text-gray-900">
-                          Last Lulu Job Status
-                        </dt>
-                        <dd className="mt-1 text-gray-500">
-                          <span className="block">{data?.luluJobStatus}</span>
-                        </dd>
-                      </div>
-                      <div className="mt-4">
-                        <dt className="font-medium text-gray-900">
-                          Last Lulu Job Status Update
-                        </dt>
-                        <dd className="mt-1 text-gray-500">
-                          <span className="block">
-                            {data?.luluJobStatusMessage || "No status message"}
+                      <div className="mt-6 flex flex-col justify-end items-end self-start text-sm text-gray-500 sm:mt-0">
+                        <span className="font-medium text-gray-900">
+                          Quantity: {lineItem.quantity}
+                        </span>
+                        {digitalProduct ? (
+                          <span className="mt-2">
+                            <IconCloudComputing className="inline-block h-5 w-5 text-gray-500 mr-1" />
+                            Digital Product
                           </span>
-                        </dd>
+                        ) : null}
                       </div>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <Button
-                        icon="IconRefreshAlert"
-                        onClick={initResubmitPrintJob}
-                        disabled={
-                          resubmitPrintJobMutation.isLoading || !data?.luluJobID
-                        }
-                        loading={resubmitPrintJobMutation.isLoading}
-                      >
-                        Re-Submit Print Job
-                      </Button>
                     </div>
                   </div>
-                </section>
-              )}
+                );
+              })}
+            </div>
+          </section>
 
-              <section aria-labelledby="summary-heading" className="mt-12">
-                <h2
-                  id="summary-heading"
-                  className="font-semibold text-lg text-gray-900 ml-1 mb-2"
-                >
-                  Summary
-                </h2>
-
-                <div className="rounded-lg bg-gray-50 px-6 py-6 lg:grid lg:grid-cols-12 lg:gap-x-8 lg:px-0 lg:py-8">
-                  <dl className="grid grid-cols-1 gap-6 text-sm sm:grid-cols-2 md:gap-x-8 lg:col-span-5 lg:pl-8">
-                    <div>
-                      <dt className="font-medium text-gray-900">
-                        Shipping address
-                      </dt>
-                      <dd className="mt-3 text-gray-500">
-                        <span className="block">
-                          {shippingAddress?.first_name}{" "}
-                          {shippingAddress?.last_name}{" "}
-                          {shippingAddress?.company
-                            ? `(${shippingAddress?.company})`
-                            : null}
-                        </span>
-                        <span className="block">
-                          {shippingAddress?.address_line_1}
-                        </span>
-                        <span className="block">
-                          {shippingAddress?.address_line_2}
-                        </span>
-                        <span className="block">
-                          {shippingAddress?.city}, {shippingAddress?.state}{" "}
-                          {shippingAddress?.postal_code}{" "}
-                          {shippingAddress?.country &&
-                            `(${shippingAddress?.country})`}
-                        </span>
-                        <span className="block">
-                          {shippingAddress?.email || "No email provided"}
-                        </span>
-                        <span className="block">
-                          {shippingAddress?.phone || "No phone number provided"}
-                        </span>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="font-medium text-gray-900">
-                        Payment information
-                      </dt>
-                      <dd className="mt-3 flex">
-                        <div>
-                          {data?.stripe_charge?.payment_method_details?.card
-                            ?.brand === "visa" && (
-                            <IconBrandVisa className="h-6 w-6 text-gray-900" />
-                          )}
-                          {data?.stripe_charge?.payment_method_details?.card
-                            ?.brand === "mastercard" && (
-                            <IconBrandMastercard className="h-6 w-6 text-gray-900" />
-                          )}
-                          <p className="sr-only">
-                            {
-                              data?.stripe_charge?.payment_method_details?.card
-                                ?.brand
-                            }
-                          </p>
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-gray-900">
-                            Ending with{" "}
-                            {
-                              data?.stripe_charge?.payment_method_details?.card
-                                ?.last4
-                            }
-                          </p>
-                          <p className="text-gray-600">
-                            Expires{" "}
-                            {
-                              data?.stripe_charge?.payment_method_details?.card
-                                ?.exp_month
-                            }{" "}
-                            /{" "}
-                            {
-                              data?.stripe_charge?.payment_method_details?.card
-                                ?.exp_year
-                            }
-                          </p>
-                          <p className="text-gray-600">
-                            Billing ZIP:{" "}
-                            {data?.stripe_charge?.billing_details?.address
-                              ?.postal_code || "Unknown"}
-                          </p>
-                        </div>
-                      </dd>
-                    </div>
-                  </dl>
-
-                  <dl className="mt-8 divide-y divide-gray-200 text-sm lg:col-span-7 lg:mt-0 lg:pr-8">
-                    <div className="flex items-center justify-between pb-4">
-                      <dt className="text-gray-600">Subtotal</dt>
-                      <dd className="font-medium text-gray-900">
-                        {formatPrice(
-                          data?.stripe_session?.amount_subtotal,
-                          true
-                        )}
-                      </dd>
-                    </div>
-                    <div className="flex items-center justify-between py-4">
-                      <dt className="text-gray-600">Shipping</dt>
-                      <dd className="font-medium text-gray-900">
-                        {foundShippingItem && foundShippingItem.amount_total
-                          ? formatPrice(foundShippingItem.amount_total, true)
-                          : "$0.00"}
-                      </dd>
-                    </div>
-                    <div className="flex items-center justify-between py-4">
-                      <dt className="text-gray-600">Tax</dt>
-                      <dd className="font-medium text-gray-900">
-                        {data?.stripe_session?.total_details?.amount_tax
-                          ? formatPrice(
-                              data?.stripe_session?.total_details?.amount_tax,
-                              true
-                            )
-                          : "$0.00"}
-                      </dd>
-                    </div>
-                    <div className="flex items-center justify-between py-4">
-                      <dt className="text-gray-600">Discount</dt>
-                      <dd className="font-medium text-gray-900">
-                        {data?.stripe_session?.total_details?.amount_discount
-                          ? `(${formatPrice(
-                              data?.stripe_session?.total_details
-                                ?.amount_discount,
-                              true
-                            )})`
-                          : "$0.00"}
-                      </dd>
-                    </div>
-                    <div className="flex items-center justify-between pt-4">
-                      <dt className="font-medium text-gray-900">Order total</dt>
-                      <dd className="font-semibold text-primary">
-                        {data?.stripe_session?.amount_total
-                          ? formatPrice(
-                              data?.stripe_session?.amount_total,
-                              true
-                            )
-                          : "$0.00"}
-                      </dd>
-                    </div>
-                  </dl>
+          {data?.luluJobID && (
+            <section aria-labelledby="lulu-heading" className="mt-12">
+              <h2
+                id="lulu-heading"
+                className="font-semibold text-lg text-gray-900 ml-1 mb-2"
+              >
+                Lulu Job Information
+              </h2>
+              <div className="rounded-lg bg-gray-50 p-8 text-sm flex flex-row justify-between">
+                <div className="flex flex-col">
+                  <div>
+                    <dt className="font-medium text-gray-900">Lulu Job ID</dt>
+                    <dd className="mt-1 text-gray-500">
+                      <a
+                        href={`https://developers.lulu.com/print-jobs/detail/${data?.luluJobID}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block"
+                      >
+                        {data?.luluJobID}
+                      </a>
+                    </dd>
+                  </div>
+                  <div className="mt-4">
+                    <dt className="font-medium text-gray-900">
+                      Last Lulu Job Status
+                    </dt>
+                    <dd className="mt-1 text-gray-500">
+                      <span className="block">{data?.luluJobStatus}</span>
+                    </dd>
+                  </div>
+                  <div className="mt-4">
+                    <dt className="font-medium text-gray-900">
+                      Last Lulu Job Status Update
+                    </dt>
+                    <dd className="mt-1 text-gray-500">
+                      <span className="block">
+                        {data?.luluJobStatusMessage || "No status message"}
+                      </span>
+                    </dd>
+                  </div>
                 </div>
-              </section>
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+                <div className="flex flex-col items-end">
+                  <Button
+                    variant="secondary"
+                    icon={<IconRefreshAlert size={16} />}
+                    onClick={initResubmitPrintJob}
+                    disabled={
+                      resubmitPrintJobMutation.isLoading || !data?.luluJobID
+                    }
+                    loading={resubmitPrintJobMutation.isLoading}
+                  >
+                    Re-Submit Print Job
+                  </Button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          <section aria-labelledby="summary-heading" className="mt-12">
+            <h2
+              id="summary-heading"
+              className="font-semibold text-lg text-gray-900 ml-1 mb-2"
+            >
+              Summary
+            </h2>
+
+            <div className="rounded-lg bg-gray-50 px-6 py-6 lg:grid lg:grid-cols-12 lg:gap-x-8 lg:px-0 lg:py-8">
+              <dl className="grid grid-cols-1 gap-6 text-sm sm:grid-cols-2 md:gap-x-8 lg:col-span-5 lg:pl-8">
+                <div>
+                  <dt className="font-medium text-gray-900">Shipping address</dt>
+                  <dd className="mt-3 text-gray-500">
+                    <span className="block">
+                      {shippingAddress?.first_name} {shippingAddress?.last_name}{" "}
+                      {shippingAddress?.company
+                        ? `(${shippingAddress?.company})`
+                        : null}
+                    </span>
+                    <span className="block">
+                      {shippingAddress?.address_line_1}
+                    </span>
+                    <span className="block">
+                      {shippingAddress?.address_line_2}
+                    </span>
+                    <span className="block">
+                      {shippingAddress?.city}, {shippingAddress?.state}{" "}
+                      {shippingAddress?.postal_code}{" "}
+                      {shippingAddress?.country &&
+                        `(${shippingAddress?.country})`}
+                    </span>
+                    <span className="block">
+                      {shippingAddress?.email || "No email provided"}
+                    </span>
+                    <span className="block">
+                      {shippingAddress?.phone || "No phone number provided"}
+                    </span>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-900">
+                    Payment information
+                  </dt>
+                  <dd className="mt-3 flex">
+                    <div>
+                      {data?.stripe_charge?.payment_method_details?.card
+                        ?.brand === "visa" && (
+                        <IconBrandVisa className="h-6 w-6 text-gray-900" />
+                      )}
+                      {data?.stripe_charge?.payment_method_details?.card
+                        ?.brand === "mastercard" && (
+                        <IconBrandMastercard className="h-6 w-6 text-gray-900" />
+                      )}
+                      <p className="sr-only">
+                        {
+                          data?.stripe_charge?.payment_method_details?.card
+                            ?.brand
+                        }
+                      </p>
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-gray-900">
+                        Ending with{" "}
+                        {
+                          data?.stripe_charge?.payment_method_details?.card
+                            ?.last4
+                        }
+                      </p>
+                      <p className="text-gray-600">
+                        Expires{" "}
+                        {
+                          data?.stripe_charge?.payment_method_details?.card
+                            ?.exp_month
+                        }{" "}
+                        /{" "}
+                        {
+                          data?.stripe_charge?.payment_method_details?.card
+                            ?.exp_year
+                        }
+                      </p>
+                      <p className="text-gray-600">
+                        Billing ZIP:{" "}
+                        {data?.stripe_charge?.billing_details?.address
+                          ?.postal_code || "Unknown"}
+                      </p>
+                    </div>
+                  </dd>
+                </div>
+              </dl>
+
+              <dl className="mt-8 divide-y divide-gray-200 text-sm lg:col-span-7 lg:mt-0 lg:pr-8">
+                <div className="flex items-center justify-between pb-4">
+                  <dt className="text-gray-600">Subtotal</dt>
+                  <dd className="font-medium text-gray-900">
+                    {formatPrice(data?.stripe_session?.amount_subtotal, true)}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between py-4">
+                  <dt className="text-gray-600">Shipping</dt>
+                  <dd className="font-medium text-gray-900">
+                    {foundShippingItem && foundShippingItem.amount_total
+                      ? formatPrice(foundShippingItem.amount_total, true)
+                      : "$0.00"}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between py-4">
+                  <dt className="text-gray-600">Tax</dt>
+                  <dd className="font-medium text-gray-900">
+                    {data?.stripe_session?.total_details?.amount_tax
+                      ? formatPrice(
+                          data?.stripe_session?.total_details?.amount_tax,
+                          true
+                        )
+                      : "$0.00"}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between py-4">
+                  <dt className="text-gray-600">Discount</dt>
+                  <dd className="font-medium text-gray-900">
+                    {data?.stripe_session?.total_details?.amount_discount
+                      ? `(${formatPrice(
+                          data?.stripe_session?.total_details?.amount_discount,
+                          true
+                        )})`
+                      : "$0.00"}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between pt-4">
+                  <dt className="font-medium text-gray-900">Order total</dt>
+                  <dd className="font-semibold text-primary">
+                    {data?.stripe_session?.amount_total
+                      ? formatPrice(data?.stripe_session?.amount_total, true)
+                      : "$0.00"}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
   );
 };
 
