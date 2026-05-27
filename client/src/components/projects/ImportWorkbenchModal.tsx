@@ -425,7 +425,7 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={onClose} loading={loading}>
+          <Button variant="secondary" onClick={onClose} loading={loading}  iconPosition="left">
             Cancel
           </Button>
           <Button

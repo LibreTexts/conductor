@@ -14,6 +14,16 @@ export const DAVIS_REMIXER_BTN_CLASS = {
   menuDanger: "davis-remixer-menu-item davis-remixer-menu-item--danger",
 } as const;
 
+/** `className` strings for Davis-themed links in remixer surfaces. */
+export const DAVIS_REMIXER_LINK_CLASS = {
+  external: "davis-remixer-link",
+} as const;
+
+/** Checkbox layouts in remixer forms (label left, control right). */
+export const DAVIS_REMIXER_CHECKBOX_CLASS = {
+  labelLeft: "davis-remixer-checkbox--label-left",
+} as const;
+
 const buttonActiveStyle = { color: COLORS.primary[500] };
 const buttonStyle = { backgroundColor: COLORS.neutral[50] };
 const handleMouseEnter: React.MouseEventHandler<HTMLButtonElement> = (

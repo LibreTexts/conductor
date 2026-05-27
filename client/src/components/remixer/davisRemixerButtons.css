@@ -90,3 +90,23 @@
   background-color: var(--color-danger) !important;
   color: var(--color-text-white) !important;
 }
+
+/* External page links in remixer modals and panels */
+.davis-remixer-link {
+  display: inline-block;
+  margin-top: 1rem;
+  color: var(--color-primary-500);
+  font-size: 0.875rem;
+  text-decoration: underline;
+  transition: color 0.15s ease;
+}
+
+.davis-remixer-link:hover {
+  color: var(--color-primary-700);
+}
+
+/* Checkbox with label on the left and control immediately to its right */
+.davis-remixer-checkbox--label-left {
+  flex-direction: row-reverse;
+  display: inline-flex;
+}

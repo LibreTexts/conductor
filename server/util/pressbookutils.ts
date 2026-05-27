@@ -923,7 +923,7 @@ export class PressBookScraper {
       ),
     ]);
 
-    // ── 8. Create default Front / Back Matter + trigger MindMap TOC update ───
+    // ── 8. Update with default Front / Back Matter + trigger MindMap TOC update ───
     // The `batch.libretexts.org/print` endpoint is dual-purpose: with
     // `?createMatterOnly=true` it generates the standard LibreTexts matter
     // pages (TitlePage, InfoPage, TableOfContents, Index, …) into the
@@ -941,7 +941,7 @@ export class PressBookScraper {
     // `api/books.ts` exactly.
     log("[*] Triggering default matter creation + MindMap TOC update...");
     fetch(
-      `https://batch.libretexts.org/print/Libretext=${bookURL}?createMatterOnly=true`,
+      `https://batch.libretexts.org/print/Libretext=${bookURL}`,
       {
         headers: { origin: "commons.libretexts.org" },
       },

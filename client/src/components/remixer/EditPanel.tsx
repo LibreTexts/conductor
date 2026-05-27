@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import {    Modal } from "semantic-ui-react";
-import { RemixerSubPage } from "./model";
+import {    Icon, Modal } from "semantic-ui-react";
+import { Library, RemixerSubPage } from "./model";
 import { Button, Checkbox, Input, Stack } from "@libretexts/davis-react";
-import { DAVIS_REMIXER_BTN_CLASS } from "./style";
+import { DAVIS_REMIXER_BTN_CLASS, DAVIS_REMIXER_CHECKBOX_CLASS, DAVIS_REMIXER_LINK_CLASS } from "./style";
 
 interface EditPanelProps {
   open: boolean;
@@ -11,6 +11,7 @@ interface EditPanelProps {
   currentPage?: RemixerSubPage;
   handleSave: (page: RemixerSubPage) => void;
   formattedPathDefault?: string;
+  library:Library;
 }
 
 /** Colons are not allowed. If present, drop the prefix before the first ":" and any remaining ":". */
@@ -34,6 +35,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
     currentPage,
     handleSave,
     formattedPathDefault,
+    library
   } = props;
   const [page, setPage] = useState<RemixerSubPage | undefined>(currentPage);
 
@@ -83,6 +85,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
         <Checkbox
           name="formattedPathOverride"
           label="Override Prefix"
+          className={DAVIS_REMIXER_CHECKBOX_CLASS.labelLeft}
           checked={page?.formattedPathOverride ?? false}
           onChange={(checked) =>
             setPage((prev) => {
@@ -114,6 +117,17 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
             )
           }
         />
+        {!currentPage?.["@id"].startsWith("new-") && (
+          <a
+            href={`https://${library}.libretexts.org/@go/page/${currentPage?.["@id"]}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={DAVIS_REMIXER_LINK_CLASS.external}
+          >
+            Link to this page in the library
+            <Icon name="external alternate" className="!ml-2" />
+          </a>
+        )}
       </Modal.Content>
       <Modal.Actions>
         <Stack direction="horizontal" gap="md" justify="end">

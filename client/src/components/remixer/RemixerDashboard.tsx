@@ -63,13 +63,9 @@ import {
   syncRenamedItemFromAutonumberTitle,
   withDerivedStatusFlags,
 } from "./services";
-import {
-  DAVIS_REMIXER_BTN_CLASS,
-
-} from "./style";
+import { DAVIS_REMIXER_BTN_CLASS } from "./style";
 
 import { IconButton, Select, Text } from "@libretexts/davis-react";
-
 
 const RemixerDashboard: React.FC = () => {
   // ==========================================================================
@@ -161,8 +157,8 @@ const RemixerDashboard: React.FC = () => {
   /** The book node matching the current selection, if any. */
   const selectedBookNode = uiState.selectedBookNodeId
     ? remixerData.currentBook?.find(
-      (node) => node["@id"] === uiState.selectedBookNodeId,
-    )
+        (node) => node["@id"] === uiState.selectedBookNodeId,
+      )
     : undefined;
 
   /** True when a library node is a restricted shelf (cannot be imported). */
@@ -267,9 +263,9 @@ const RemixerDashboard: React.FC = () => {
       ).map((page) =>
         initializeOriginalPathNumber
           ? {
-            ...page,
-            originalPathNumber: page.pathNumber ? [...page.pathNumber] : [],
-          }
+              ...page,
+              originalPathNumber: page.pathNumber ? [...page.pathNumber] : [],
+            }
           : page,
       );
       const withRenamed = syncRenamedItemFromAutonumberTitle(
@@ -283,7 +279,11 @@ const RemixerDashboard: React.FC = () => {
       );
       return withDerivedStatusFlags(withArticleTypes);
     },
-    [uiState.pathLevelFormats, remixerData.autoNumbering, remixerData.liberCoverID],
+    [
+      uiState.pathLevelFormats,
+      remixerData.autoNumbering,
+      remixerData.liberCoverID,
+    ],
   );
 
   /** Apply an updater to `currentBook`, re-normalize, and optionally push the previous snapshot to undo. */
@@ -950,7 +950,13 @@ const RemixerDashboard: React.FC = () => {
 
   /** Dispatch a context-menu action (add above/to/below, delete, modify, duplicate). */
   const handleContextMenuAction = (
-    action: "add-above" | "add-to" | "add-below" | "delete" | "modify" | "duplicate",
+    action:
+      | "add-above"
+      | "add-to"
+      | "add-below"
+      | "delete"
+      | "modify"
+      | "duplicate",
   ) => {
     if (!contextMenu) return;
     const { nodeId } = contextMenu;
@@ -965,8 +971,7 @@ const RemixerDashboard: React.FC = () => {
     } else if (action === "delete") {
       if (isMatterBranchNode(nodeId)) return;
       updateCurrentBook(
-        (existingBookNodes) =>
-          applyBookNodeDeletion(existingBookNodes, nodeId),
+        (existingBookNodes) => applyBookNodeDeletion(existingBookNodes, nodeId),
         { trackHistory: true },
       );
       setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
@@ -1364,7 +1369,8 @@ const RemixerDashboard: React.FC = () => {
         data.book,
         data.settings,
       );
-      if (response.err) throw new Error(response.errMsg ?? "Failed to save draft");
+      if (response.err)
+        throw new Error(response.errMsg ?? "Failed to save draft");
       return response;
     },
     onSuccess: (_, variables) => {
@@ -1373,11 +1379,16 @@ const RemixerDashboard: React.FC = () => {
         book: variables.book,
         settings: variables.settings,
       };
-      addNotification({ message: "Draft saved successfully.", type: "success", duration: 3000 });
+      addNotification({
+        message: "Draft saved successfully.",
+        type: "success",
+        duration: 3000,
+      });
     },
     onError: (error) => {
       addNotification({
-        message: error instanceof Error ? error.message : "Failed to save draft",
+        message:
+          error instanceof Error ? error.message : "Failed to save draft",
         type: "error",
         duration: 3000,
       });
@@ -1435,7 +1446,8 @@ const RemixerDashboard: React.FC = () => {
     },
     onError: (error) => {
       addNotification({
-        message: error instanceof Error ? error.message : "Failed to start over.",
+        message:
+          error instanceof Error ? error.message : "Failed to start over.",
         type: "error",
         duration: 4000,
       });
@@ -1458,7 +1470,11 @@ const RemixerDashboard: React.FC = () => {
         pathLevelFormats?: PathLevelFormat[];
       };
     }) => {
-      const response = await api.publishRemixerProject(id, data.book, data.settings);
+      const response = await api.publishRemixerProject(
+        id,
+        data.book,
+        data.settings,
+      );
       if (response.err) throw new Error(response.errMsg ?? "Failed to publish");
       return response;
     },
@@ -1502,8 +1518,7 @@ const RemixerDashboard: React.FC = () => {
       pendingBookImport?.node["@id"],
       pendingBookImport?.targetNodeId,
     ],
-    enabled:
-      !!pendingBookImport && !!id && !!remixerData.selectedLibrary,
+    enabled: !!pendingBookImport && !!id && !!remixerData.selectedLibrary,
     queryFn: async () => {
       const subtree = await loadLibrarySubtree(
         id,
@@ -1517,8 +1532,7 @@ const RemixerDashboard: React.FC = () => {
       const defaultSelectable = subtree
         .filter(
           (n) =>
-            n["@id"] !== rootId &&
-            !isMatterBranchNodePure(n["@id"], subtree),
+            n["@id"] !== rootId && !isMatterBranchNodePure(n["@id"], subtree),
         )
         .map((n) => n["@id"]);
       setBookImportSelectedIds(new Set(defaultSelectable));
@@ -1531,9 +1545,7 @@ const RemixerDashboard: React.FC = () => {
     onError: (error) => {
       addNotification({
         message:
-          error instanceof Error
-            ? error.message
-            : "Failed to load book pages.",
+          error instanceof Error ? error.message : "Failed to load book pages.",
         type: "error",
         duration: 4000,
       });
@@ -1718,10 +1730,7 @@ const RemixerDashboard: React.FC = () => {
       );
       return {
         library,
-        nodes: [
-          resLibraryDetails.response,
-          ...(resLibrary.response ?? []),
-        ],
+        nodes: [resLibraryDetails.response, ...(resLibrary.response ?? [])],
       };
     },
     onSuccess: (data) => {
@@ -1891,33 +1900,52 @@ const RemixerDashboard: React.FC = () => {
       />
 
       <Grid.Row>
-        <Grid.Column width={8} style={{ padding: "25px", paddingRight: isBookToolbarNarrow ? "0px" : "25px", paddingLeft: isBookToolbarNarrow ? "0px" : "25px" }}>
+        <Grid.Column
+          width={8}
+          style={{
+            padding: "25px",
+            paddingRight: isBookToolbarNarrow ? "0px" : "25px",
+            paddingLeft: isBookToolbarNarrow ? "0px" : "25px",
+          }}
+        >
           <Container fluid>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
+            <div
+              style={{ display: "flex", alignItems: "center", gap: "0.5em" }}
+            >
               <Text size="base" color="default">
                 Library
               </Text>
 
               {isBookToolbarNarrow ? (
-                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", paddingTop: isBookToolbarNarrow ? "1.5em" : "0px" }}>
+                <div
+                  style={{
+                    marginLeft: "auto",
+                    display: "flex",
+                    alignItems: "center",
+                    paddingTop: isBookToolbarNarrow ? "1.5em" : "0px",
+                  }}
+                >
                   <Dropdown
                     direction="left"
                     icon={null}
                     trigger={
-
-
-
-                      <IconButton aria-label="Dropdown" icon={<Icon name="ellipsis vertical" />} />
+                      <IconButton
+                        aria-label="Dropdown"
+                        icon={<Icon name="ellipsis vertical" />}
+                      />
                     }
                   >
                     <Dropdown.Menu>
                       {(remixerData.libraries ?? []).map((library) => {
-                        const isSelected = remixerData.selectedLibrary === library;
+                        const isSelected =
+                          remixerData.selectedLibrary === library;
                         return (
                           <Dropdown.Item
                             key={library}
                             text={
-                              isLibrary(library) ? libraryTitles[library] : library
+                              isLibrary(library)
+                                ? libraryTitles[library]
+                                : library
                             }
                             icon={isSelected ? "check" : undefined}
                             onClick={() =>
@@ -1937,7 +1965,10 @@ const RemixerDashboard: React.FC = () => {
                         text="Search Catalog Book"
                         className={DAVIS_REMIXER_BTN_CLASS.menuPrimary}
                         onClick={() =>
-                          setUiState((prev) => ({ ...prev, catalogListOpen: true }))
+                          setUiState((prev) => ({
+                            ...prev,
+                            catalogListOpen: true,
+                          }))
                         }
                       />
                     </Dropdown.Menu>
@@ -1972,17 +2003,18 @@ const RemixerDashboard: React.FC = () => {
                     />
                   )}
 
-
                   <Popup
                     content="Search Catalog Book"
                     position="bottom center"
                     trigger={
-
                       <IconButton
                         aria-label="Search Catalog Book"
                         icon={<Icon name="search" />}
                         onClick={() =>
-                          setUiState((prev) => ({ ...prev, catalogListOpen: true }))
+                          setUiState((prev) => ({
+                            ...prev,
+                            catalogListOpen: true,
+                          }))
                         }
                         className={DAVIS_REMIXER_BTN_CLASS.neutral}
                       />
@@ -1993,8 +2025,8 @@ const RemixerDashboard: React.FC = () => {
             </div>
 
             {!libraryLoading &&
-              selectedLibraryPages &&
-              remixerData.selectedLibrary ? (
+            selectedLibraryPages &&
+            remixerData.selectedLibrary ? (
               <TreeDnd
                 expandedNodeIds={expandedNodeIdsLibrary}
                 setExpandedNodeIds={setExpandedNodeIdsLibrary}
@@ -2011,22 +2043,36 @@ const RemixerDashboard: React.FC = () => {
         </Grid.Column>
         <Grid.Column
           width={8}
-          style={{ padding: "25px", display: "flex", alignItems: "flex-start", paddingLeft: isBookToolbarNarrow ? "0px" : "25px" }}
-
+          style={{
+            padding: "25px",
+            display: "flex",
+            alignItems: "flex-start",
+            paddingLeft: isBookToolbarNarrow ? "0px" : "25px",
+          }}
         >
           <Container fluid style={{ width: "100%" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
-              <Text size="base" color="default">Text</Text>
+            <div
+              style={{ display: "flex", alignItems: "center", gap: "0.5em" }}
+            >
+              <Text size="base" color="default">
+                Text
+              </Text>
               <div
-                style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.2em", paddingTop: isBookToolbarNarrow ? "1.5em" : "0px" }}
+                style={{
+                  marginLeft: "auto",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.2em",
+                  paddingTop: isBookToolbarNarrow ? "1.5em" : "0px",
+                }}
               >
                 {isBookToolbarNarrow ? (
                   <Dropdown
                     direction="left"
                     icon={null}
                     trigger={
-
-                      <IconButton aria-label="Dropdown"
+                      <IconButton
+                        aria-label="Dropdown"
                         icon={<Icon name="ellipsis vertical" />}
                         onClick={() => handleAddBookItem()}
                       />
@@ -2061,7 +2107,9 @@ const RemixerDashboard: React.FC = () => {
                       <Dropdown.Divider />
                       <Dropdown.Item
                         icon={
-                          isExpandedAllCurrentBookNodes() ? "chevron up" : "chevron down"
+                          isExpandedAllCurrentBookNodes()
+                            ? "chevron up"
+                            : "chevron down"
                         }
                         text={
                           isExpandedAllCurrentBookNodes()
@@ -2082,7 +2130,6 @@ const RemixerDashboard: React.FC = () => {
                       content="Add"
                       position="bottom center"
                       trigger={
-
                         <IconButton
                           aria-label="Add"
                           icon={<Icon name="add" />}
@@ -2095,8 +2142,6 @@ const RemixerDashboard: React.FC = () => {
                       content="Delete"
                       position="bottom center"
                       trigger={
-
-
                         <IconButton
                           aria-label="Delete"
                           icon={<Icon name="trash alternate" />}
@@ -2109,7 +2154,6 @@ const RemixerDashboard: React.FC = () => {
                       content="Undo"
                       position="bottom center"
                       trigger={
-
                         <IconButton
                           aria-label="Undo"
                           icon={<Icon name="undo" />}
@@ -2123,7 +2167,6 @@ const RemixerDashboard: React.FC = () => {
                       content="Redo"
                       position="bottom center"
                       trigger={
-
                         <IconButton
                           aria-label="Redo"
                           icon={<Icon name="redo" />}
@@ -2131,7 +2174,6 @@ const RemixerDashboard: React.FC = () => {
                           disabled={redoStack.length === 0}
                           className={DAVIS_REMIXER_BTN_CLASS.neutral}
                         />
-
                       }
                     />
                     <Popup
@@ -2161,7 +2203,6 @@ const RemixerDashboard: React.FC = () => {
                           className={DAVIS_REMIXER_BTN_CLASS.neutral}
                         />
                       }
-
                     />
                   </>
                 )}
@@ -2229,16 +2270,19 @@ const RemixerDashboard: React.FC = () => {
         publishStatus={publishStatus}
         publishMessages={publishMessages}
       />
-      <EditPanel
-        open={uiState.editPanelOpen}
-        dimmer="blurring"
-        onClose={() =>
-          setUiState((prev) => ({ ...prev, editPanelOpen: false }))
-        }
-        formattedPathDefault={selectedBookDefaultFormattedPath()}
-        currentPage={selectedBookNode}
-        handleSave={handleSaveEdit}
-      />
+      {remixerData.library && (
+        <EditPanel
+          open={uiState.editPanelOpen}
+          dimmer="blurring"
+          onClose={() =>
+            setUiState((prev) => ({ ...prev, editPanelOpen: false }))
+          }
+          formattedPathDefault={selectedBookDefaultFormattedPath()}
+          currentPage={selectedBookNode}
+          handleSave={handleSaveEdit}
+          library={remixerData.libreLibrary as Library}
+        />
+      )}
       <PathNameFormat
         open={uiState.pathNameFormatOpen}
         dimmer="blurring"
