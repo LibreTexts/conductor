@@ -868,6 +868,8 @@ router.route("/store/checkout/session/:order_id").get(
 )
 
 router.route("/store/checkout/shipping-options").post(
+  authAPI.optionalVerifyRequest,
+  authAPI.optionalGetUserAttributes,
   middleware.validateZod(storeValidators.GetShippingOptionsSchema),
   storeAPI.getShippingOptions
 )
@@ -1088,6 +1090,13 @@ router.route("/search-index/reinitialize-settings").post(
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
   searchIndexManagementAPI.reinitializeIndexSettings
+);
+
+router.route("/search-index/clear-search-queries").post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  searchIndexManagementAPI.clearSearchQueriesIndex
 );
 
 /* Commons Books/Catalogs */
@@ -1373,6 +1382,18 @@ router
     authAPI.optionalVerifyRequest,
     middleware.validateZod(SearchValidators.authorsSearchSchema),
     searchAPI.authorsSearch
+  );
+router
+  .route("/search/suggestions")
+  .get(
+    middleware.validateZod(SearchValidators.searchSuggestionsSchema),
+    searchAPI.getSearchSuggestions
+  );
+router
+  .route("/search/record")
+  .post(
+    middleware.validateZod(SearchValidators.recordSearchSchema),
+    searchAPI.recordSearch
   );
 router.route("/search/asset-filters").get(searchAPI.getAssetFilterOptions);
 router.route("/search/author-filters").get(searchAPI.getAuthorFilterOptions);

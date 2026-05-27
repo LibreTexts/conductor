@@ -81,6 +81,18 @@ export async function createCheckoutSession(req: ZodReqWithOptionalUser<z.infer<
   try {
     const { items, shipping_option_id, shipping_address, digital_delivery_option } = req.body;
 
+    const quantityCheck = await storeService.validateItemQuantities({
+      items,
+      userId: req.user?.decoded.uuid,
+    });
+    if (!quantityCheck.ok) {
+      return res.status(400).send({
+        err: true,
+        errMsg: quantityCheck.message,
+        maxQuantity: quantityCheck.maxQuantity,
+      });
+    }
+
     const shippingOptions = await storeService.getShippingOptions({
       items,
       shipping_address,
@@ -130,8 +142,20 @@ export async function createCheckoutSession(req: ZodReqWithOptionalUser<z.infer<
   }
 }
 
-export async function getShippingOptions(req: z.infer<typeof GetShippingOptionsSchema>, res: Response) {
+export async function getShippingOptions(req: ZodReqWithOptionalUser<z.infer<typeof GetShippingOptionsSchema>>, res: Response) {
   try {
+    const quantityCheck = await storeService.validateItemQuantities({
+      items: req.body.items,
+      userId: req.user?.decoded.uuid,
+    });
+    if (!quantityCheck.ok) {
+      return res.status(400).send({
+        err: true,
+        errMsg: quantityCheck.message,
+        maxQuantity: quantityCheck.maxQuantity,
+      });
+    }
+
     const options = await storeService.getShippingOptions({
       items: req.body.items,
       shipping_address: req.body.shipping_address,

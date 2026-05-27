@@ -1185,6 +1185,14 @@ class API {
   }
 
   // Search
+  async recordSearchQuery(params: { query: string; scope: string }) {
+    const res = await axios.post<ConductorBaseResponse>(
+      "/search/record",
+      params
+    );
+    return res;
+  }
+
   async getAutoCompleteSuggestions(query: string, limit?: number) {
     const res = await axios.get<
       { numResults: number; results: string[] } & ConductorBaseResponse
@@ -2235,12 +2243,22 @@ class API {
           numberOfDocuments?: number;
           isIndexing?: boolean;
           fieldDistribution?: Record<string, number>;
+          searchableAttributes?: string[];
           filterableAttributes?: string[];
           sortableAttributes?: string[];
           error?: string;
         }>;
       } & ConductorBaseResponse
     >("/search-index/status");
+    return res.data;
+  }
+
+  async clearSearchQueriesIndex() {
+    const res = await axios.post<
+      {
+        message: string;
+      } & ConductorBaseResponse
+    >("/search-index/clear-search-queries");
     return res.data;
   }
 

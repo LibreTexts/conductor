@@ -20,6 +20,8 @@ import {
   miniReposSearchSchema,
   projectSearchSchema,
   projectSearchV2Schema,
+  recordSearchSchema,
+  searchSuggestionsSchema,
   userSearchSchema,
 } from "./validators/search.js";
 import ProjectFile from "../models/projectfile.js";
@@ -28,17 +30,12 @@ import Author from "../models/author.js";
 import Fuse from "fuse.js";
 import Organization from "../models/organization.js";
 import AssetTagFramework from "../models/assettagframework.js";
-import SearchQuery, {
-  SearchQueryInterface_Raw,
-} from "../models/searchquery.js";
 import Tag from "../models/tag.js";
 import { _getBookPublicOrInstructorAssetsCount, buildOrganizationNamesList } from "./books.js";
 import CustomCatalog, { CustomCatalogInterface } from "../models/customcatalog.js";
 import { normalizedSort } from "../util/searchutils.js";
 import SearchService from "./services/search-service.js";
 import { FilterInput, FilterObject } from "../types/Search.js";
-
-const searchQueryCache: SearchQueryInterface_Raw[] = []; // in-memory cache for search queries
 
 /**
  * Gets the singleton SearchService instance, returning null on failure.
@@ -50,6 +47,17 @@ async function getSearchService(): Promise<SearchService | null> {
     debugError(`[SearchService] Failed to initialize SearchService: ${error}`);
     return null;
   }
+}
+
+/**
+ * Fire-and-forget popular-search recording. Safe to call from any search handler;
+ * failure inside the SearchService is swallowed and never affects the response.
+ */
+function recordSearchQuery(query: string | undefined, scope: string): void {
+  if (!query) return;
+  getSearchService()
+    .then((svc) => svc?.recordSearchQuery(query, scope))
+    .catch(() => { /* swallowed — nicety, not core */ });
 }
 
 /**
@@ -68,9 +76,6 @@ async function projectsSearch(
       req.query.principalInvestigators?.toString() === "true";
 
     const query = req.query.searchQuery;
-    if (query) {
-      addToSearchQueryCache(query, "projects"); // don't await
-    }
 
     // Get pagination offsets
     const projectsPage = parseInt(req.query.page?.toString()) || 1;
@@ -236,9 +241,6 @@ async function miniReposSearch(
     const sort = req.query.sort || "relevance";
 
     const query = req.query.searchQuery;
-    if (query) {
-      addToSearchQueryCache(query, "minirepos"); // don't await
-    }
 
     // Get pagination offsets
     const reposPage = parseInt(req.query.page?.toString()) || 1;
@@ -363,9 +365,6 @@ async function booksSearch(
 ) {
   try {
     const query = req.query.searchQuery;
-    if (query) {
-      addToSearchQueryCache(query, "books");
-    }
 
     const booksPage = parseInt(req.query.page?.toString()) || 1;
     const booksLimit = parseInt(req.query.limit?.toString()) || 25;
@@ -902,10 +901,6 @@ export async function assetsSearch(
     const assetsPage = parseInt(req.query.page?.toString()) || 1;
     const assetsLimit = parseInt(req.query.limit?.toString()) || 25;
     const assetsOffset = getPaginationOffset(assetsPage, assetsLimit);
-
-    if (mongoSearchQueryTerm) {
-      addToSearchQueryCache(mongoSearchQueryTerm, "assets");
-    }
 
     const projectFilesQuery = _buildAssetsSearchQuery({
       query: mongoSearchQueryTerm,
@@ -1728,10 +1723,6 @@ async function homeworkSearch(
       }
       : undefined;
 
-    if (query) {
-      addToSearchQueryCache(query, "homework"); // Don't await
-    }
-
     const homeworkPage = parseInt(req.query.page?.toString()) || 1;
     const homeworkLimit = parseInt(req.query.limit?.toString()) || 25;
     const homeworkOffset = getPaginationOffset(homeworkPage, req.query.limit);
@@ -1802,10 +1793,6 @@ async function usersSearch(
       }
       : undefined;
 
-    if (query) {
-      addToSearchQueryCache(query, "users"); // Don't await
-    }
-
     const usersPage = parseInt(req.query.page?.toString()) || 1;
     const usersLimit = parseInt(req.query.limit?.toString()) || 25;
     const usersOffset = getPaginationOffset(usersPage, req.query.limit);
@@ -1870,10 +1857,6 @@ async function authorsSearch(
   try {
     // Create regex for query
     const query = req.query.searchQuery;
-
-    if (query) {
-      addToSearchQueryCache(query, "authors"); // Don't await
-    }
 
     const authorsPage = parseInt(req.query.page?.toString()) || 1;
     const authorsLimit = parseInt(req.query.limit?.toString()) || 25;
@@ -2681,58 +2664,45 @@ function _calculateLowerOutlierThreshold(numbers: number[], k = 1.5) {
   return Math.abs(threshold);
 }
 
-async function addToSearchQueryCache(query: string, scope: string) {
+/**
+ * Records an intent-bearing search query (e.g. user pressed Enter, clicked Search,
+ * blurred the input). Best-effort: always returns { err: false } so a recording
+ * failure cannot surface as a UI error.
+ */
+async function recordSearch(
+  req: ZodReqWithOptionalUser<z.infer<typeof recordSearchSchema>>,
+  res: Response
+) {
   try {
-    const org = await Organization.findOne({
-      orgID: process.env.ORG_ID,
-    });
-
-    if (!org?.FEAT_RecordSearchQueries) return true; // Check if feature flag is enabled
-
-    searchQueryCache.push({
-      query,
-      scope,
-      timestamp: new Date(),
-    });
-
-    // Flush the cache if it's too large
-    if (searchQueryCache.length >= 100) {
-      await flushSearchQueryCache();
-    }
-
-    return true;
+    const { query, scope } = req.body;
+    recordSearchQuery(query, scope);
   } catch (err) {
     debugError(err);
-    return false;
   }
+  return res.send({ err: false });
 }
 
-async function flushSearchQueryCache() {
+/**
+ * Returns popular-query suggestions for typeahead. Best-effort:
+ * any failure inside the search-queries subsystem yields an empty list,
+ * never an error response.
+ */
+async function getSearchSuggestions(
+  req: ZodReqWithOptionalUser<z.infer<typeof searchSuggestionsSchema>>,
+  res: Response
+) {
   try {
-    if (searchQueryCache.length === 0) return true;
-
-    const org = await Organization.findOne({
-      orgID: process.env.ORG_ID,
-    });
-
-    // @ts-ignore
-    if (!org?.FEAT_RecordSearchQueries) return true; // Check if feature flag is enabled
-
-    const localCopy = [...searchQueryCache]; // Copy so we can keep collecting queries while we flush
-    searchQueryCache.splice(0, searchQueryCache.length); // Clear the cache
-
-    // Write to the database
-    await SearchQuery.insertMany(localCopy);
-    console.log("[SYSTEM] Flushed search query cache to database");
-
-    return true;
+    const { scope, q, limit } = req.query;
+    const svc = await getSearchService();
+    const suggestions = svc
+      ? await svc.getSearchSuggestions({ scope, q, limit })
+      : [];
+    return res.send({ err: false, suggestions });
   } catch (err) {
     debugError(err);
-    return false;
+    return res.send({ err: false, suggestions: [] });
   }
 }
-
-setInterval(flushSearchQueryCache, 1000 * 60 * 60 * 3); // Flush every 3 hours
 
 export default {
   assetsSearch,
@@ -2748,4 +2718,6 @@ export default {
   getProjectFilterOptions,
   bookSearchV2,
   projectSearchV2,
+  getSearchSuggestions,
+  recordSearch,
 };

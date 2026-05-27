@@ -1,10 +1,14 @@
 import { Request, Response } from "express";
-import SearchService, { INDEXES } from "./services/search-service.js";
+import SearchService, { INDEXES, SEARCH_QUERIES_INDEX } from "./services/search-service.js";
 import { debugError, debugServer } from "../debug.js";
 import { conductor500Err } from "../util/errorutils.js";
 import SupportTicketService from "./services/support-ticket-service.js";
 import booksAPI from "./books.js";
 import projectsAPI from "./projects.js";
+
+// Indexes valid for the reinitialize-settings endpoint. Includes search-queries
+// alongside the tuple-typed core indexes.
+const REINIT_ALLOWED = [...INDEXES, SEARCH_QUERIES_INDEX] as const;
 
 /**
  * Gets the status of all Meilisearch indexes including document counts and settings
@@ -38,6 +42,34 @@ export async function getIndexStatus(req: Request, res: Response) {
           error: error.message || "Failed to fetch index status",
         });
       }
+    }
+
+    // search-queries lives outside the typed INDEXES tuple, so we fetch it via the
+    // raw Meilisearch client. Wrapped in its own try/catch so a failure here cannot
+    // hide status for the core indexes.
+    try {
+      const index = await searchService.getSearchQueriesIndex();
+      const [stats, searchableAttrs, filterableAttrs, sortableAttrs] = await Promise.all([
+        index.getStats(),
+        index.getSearchableAttributes(),
+        index.getFilterableAttributes(),
+        index.getSortableAttributes(),
+      ]);
+      indexStatuses.push({
+        name: SEARCH_QUERIES_INDEX,
+        numberOfDocuments: stats.numberOfDocuments,
+        isIndexing: stats.isIndexing,
+        fieldDistribution: stats.fieldDistribution,
+        searchableAttributes: searchableAttrs,
+        filterableAttributes: filterableAttrs,
+        sortableAttributes: sortableAttrs,
+      });
+    } catch (error: any) {
+      debugError(`Error fetching status for index ${SEARCH_QUERIES_INDEX}: ${error}`);
+      indexStatuses.push({
+        name: SEARCH_QUERIES_INDEX,
+        error: error.message || "Failed to fetch index status",
+      });
     }
 
     return res.send({
@@ -103,17 +135,21 @@ export async function reinitializeIndexSettings(req: Request, res: Response) {
       });
     }
 
-    if (!INDEXES.includes(indexName as any)) {
+    if (!REINIT_ALLOWED.includes(indexName as any)) {
       return res.status(400).send({
         err: true,
-        errMsg: `Invalid index name. Must be one of: ${INDEXES.join(", ")}`,
+        errMsg: `Invalid index name. Must be one of: ${REINIT_ALLOWED.join(", ")}`,
       });
     }
 
     const searchService = await SearchService.create();
 
     try {
-      await searchService.ensureIndex(indexName as typeof INDEXES[number]);
+      if (indexName === SEARCH_QUERIES_INDEX) {
+        await searchService.ensureSearchQueriesIndex();
+      } else {
+        await searchService.ensureIndex(indexName as typeof INDEXES[number]);
+      }
       return res.send({
         err: false,
         message: `Settings for index '${indexName}' re-initialized successfully`,
@@ -161,8 +197,31 @@ async function resyncIndexInBackground(indexName: typeof INDEXES[number]) {
   }
 }
 
+/**
+ * Wipes all documents from the search-queries index. Only valid for that index —
+ * the other indexes have Mongo as their source of truth and should be re-synced,
+ * not cleared.
+ */
+export async function clearSearchQueriesIndex(req: Request, res: Response) {
+  try {
+    const searchService = await SearchService.getInstance();
+    await searchService.clearSearchQueries();
+    return res.send({
+      err: false,
+      message: `Index '${SEARCH_QUERIES_INDEX}' cleared successfully`,
+    });
+  } catch (error: any) {
+    debugError(`Error clearing index ${SEARCH_QUERIES_INDEX}: ${error}`);
+    return res.status(500).send({
+      err: true,
+      errMsg: error.message || "Failed to clear index",
+    });
+  }
+}
+
 export default {
   getIndexStatus,
   resyncIndex,
   reinitializeIndexSettings,
+  clearSearchQueriesIndex,
 };
