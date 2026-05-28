@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { Breadcrumb, Button, Heading, Select, Stack } from "@libretexts/davis-react";
+import { Badge, Breadcrumb, Button, Heading, Select, Stack } from "@libretexts/davis-react";
+import type { BadgeVariant } from "@libretexts/davis-react";
 import { StoreOrderWithStripeSession } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import SupportCenterTable from "../../../../components/support/SupportCenterTable";
@@ -14,6 +15,21 @@ import {
 import { useNotifications } from "../../../../context/NotificationContext";
 import { formatPrice, truncateOrderId } from "../../../../utils/storeHelpers";
 import { useState } from "react";
+
+function luluStatusVariant(status?: string | null): BadgeVariant {
+  if (!status) return "default";
+  if (["REJECTED", "ERROR"].includes(status)) return "danger";
+  if (status === "SHIPPED") return "success";
+  if (["IN_PRODUCTION", "PRODUCTION_DELAYED"].includes(status)) return "warning";
+  if (status === "CREATED") return "primary";
+  return "default";
+}
+
+function orderStatusVariant(status?: string): BadgeVariant {
+  if (status === "completed") return "success";
+  if (status === "failed") return "danger";
+  return "default";
+}
 
 const StoreManager = () => {
   useDocumentTitle("LibreTexts Store Management");
@@ -177,19 +193,13 @@ const StoreManager = () => {
               accessor: "luluJobStatus",
               title: "Lulu Job Status",
               render(record) {
+                if (!record.luluJobStatus) return <span>--</span>;
                 return (
-                  <span
-                    className={`capitalize ${
-                      record.luluJobStatus &&
-                      ["REJECTED", "ERROR", "CREATED"].includes(
-                        record.luluJobStatus
-                      )
-                        ? "text-red-600 font-semibold"
-                        : ""
-                    }`}
-                  >
-                    {record.luluJobStatus || "--"}
-                  </span>
+                  <Badge
+                    label={record.luluJobStatus}
+                    variant={luluStatusVariant(record.luluJobStatus)}
+                    size="sm"
+                  />
                 );
               },
             },
@@ -198,15 +208,12 @@ const StoreManager = () => {
               title: "Status",
               render(record) {
                 return (
-                  <span
-                    className={`capitalize ${
-                      record.status === "failed"
-                        ? "text-red-600 font-semibold"
-                        : ""
-                    }`}
-                  >
-                    {record.status}
-                  </span>
+                  <Badge
+                    label={record.status}
+                    variant={orderStatusVariant(record.status)}
+                    size="sm"
+                    className="capitalize"
+                  />
                 );
               },
             },

@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router-dom";
-import { Breadcrumb, Button, Heading, Stack } from "@libretexts/davis-react";
+import { Badge, Breadcrumb, Button, Card, Heading, Stack } from "@libretexts/davis-react";
+import type { BadgeVariant } from "@libretexts/davis-react";
 import { formatPrice, truncateOrderId } from "../../../../utils/storeHelpers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { StoreOrderWithStripeSession } from "../../../../types";
@@ -33,6 +34,12 @@ type PopulatedLineItem = Stripe.LineItem & {
       })
     | null;
 };
+
+function orderStatusVariant(status?: string): BadgeVariant {
+  if (status === "completed") return "success";
+  if (status === "failed") return "danger";
+  return "default";
+}
 
 const OrderView = () => {
   const { addNotification } = useNotifications();
@@ -170,14 +177,14 @@ const OrderView = () => {
               </div>
             </Breadcrumb.Item>
           </Breadcrumb>
-          <div className="flex items-center text-sm">
-            <div
-              className={`font-medium capitalize ${
-                data?.status === "failed" ? "text-red-600" : "text-gray-900"
-              }`}
-            >
-              Status: {data?.status || "Unknown"}
-            </div>
+          <div className="flex items-center text-sm gap-1">
+            <span className="font-medium text-gray-700">Status:</span>
+            <Badge
+              label={data?.status || "Unknown"}
+              variant={orderStatusVariant(data?.status)}
+              size="sm"
+              className="capitalize"
+            />
             <div className="mx-2 text-gray-400">•</div>
             <div className="font-medium text-gray-900">
               Ordered{" "}
@@ -220,11 +227,9 @@ const OrderView = () => {
                 const digitalProduct =
                   lineItem.price?.product?.metadata?.digital === "true";
                 return (
-                  <div
-                    key={lineItem.id}
-                    className="border-b border-t border-gray-200 bg-white shadow-sm sm:rounded-lg sm:border"
-                  >
-                    <div className="flex flex-row items-center justify-between px-4 py-6 sm:px-6">
+                  <Card key={lineItem.id}>
+                    <Card.Body>
+                    <div className="flex flex-row items-center justify-between">
                       <div className="flex flex-col">
                         <div className="sm:flex lg:col-span-7">
                           {lineItem.price?.product?.images &&
@@ -314,7 +319,8 @@ const OrderView = () => {
                         ) : null}
                       </div>
                     </div>
-                  </div>
+                    </Card.Body>
+                  </Card>
                 );
               })}
             </div>
