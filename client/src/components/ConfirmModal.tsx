@@ -7,6 +7,7 @@ interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   confirmColor?: "green" | "red";
+  open?: boolean;
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -16,11 +17,12 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmText = "Confirm",
   cancelText = "Cancel",
   confirmColor = "green",
+  open = true,
 }) => {
   const confirmVariant = confirmColor === "red" ? "destructive" : "primary";
 
   return (
-    <Modal open={true} onClose={() => onCancel()} size="sm">
+    <Modal open={open} onClose={() => onCancel()} size="sm">
       <Modal.Header>
         <Modal.Title>Confirm</Modal.Title>
       </Modal.Header>

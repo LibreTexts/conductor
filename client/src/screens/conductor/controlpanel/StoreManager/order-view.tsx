@@ -15,9 +15,8 @@ import {
   IconPackage,
   IconRefreshAlert,
 } from "@tabler/icons-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import useGlobalError from "../../../../components/error/ErrorHooks";
-import { useModals } from "../../../../context/ModalContext";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import { buildLibraryPageGoURL } from "../../../../utils/projectHelpers";
 import CopyButton from "../../../../components/util/CopyButton";
@@ -41,10 +40,15 @@ function orderStatusVariant(status?: string): BadgeVariant {
   return "default";
 }
 
+type ModalState =
+  | { type: "confirm_resubmit" }
+  | { type: "success_resubmit" }
+  | null;
+
 const OrderView = () => {
   const { addNotification } = useNotifications();
   const { handleGlobalError } = useGlobalError();
-  const { openModal, closeAllModals } = useModals();
+  const [activeModal, setActiveModal] = useState<ModalState>(null);
   const { order_id } = useParams<{ order_id: string }>();
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery<StoreOrderWithStripeSession>({
@@ -111,14 +115,7 @@ const OrderView = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(["store-order", order_id]);
-      openModal(
-        <ConfirmModal
-          text="Print job resubmitted successfully. It may take some time for the status to update."
-          onConfirm={closeAllModals}
-          onCancel={closeAllModals}
-          confirmText="OK"
-        />
-      );
+      setActiveModal({ type: "success_resubmit" });
     },
     onError(error) {
       handleGlobalError(error);
@@ -130,21 +127,27 @@ const OrderView = () => {
       handleGlobalError(new Error("No Lulu job ID found for this order."));
       return;
     }
-
-    openModal(
-      <ConfirmModal
-        text="Are you sure you want to re-submit this print job?"
-        onConfirm={() => {
-          resubmitPrintJobMutation.mutate();
-          closeAllModals();
-        }}
-        onCancel={closeAllModals}
-      />
-    );
+    setActiveModal({ type: "confirm_resubmit" });
   }
 
   return (
     <div className="bg-white min-h-screen px-8 pt-8 pb-8">
+      <ConfirmModal
+        text="Are you sure you want to re-submit this print job?"
+        onConfirm={() => {
+          resubmitPrintJobMutation.mutate();
+          setActiveModal(null);
+        }}
+        onCancel={() => setActiveModal(null)}
+        open={activeModal?.type === "confirm_resubmit"}
+      />
+      <ConfirmModal
+        text="Print job resubmitted successfully. It may take some time for the status to update."
+        onConfirm={() => setActiveModal(null)}
+        onCancel={() => setActiveModal(null)}
+        confirmText="OK"
+        open={activeModal?.type === "success_resubmit"}
+      />
       <Stack direction="vertical" gap="md" className="mb-6">
         <Heading level={2}>LibreTexts Store Management</Heading>
       </Stack>
