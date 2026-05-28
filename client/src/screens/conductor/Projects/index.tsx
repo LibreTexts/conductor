@@ -1,17 +1,7 @@
 import "../../../components/projects/Projects.css";
 
-import {
-  Grid,
-  Header,
-  Menu,
-  Input,
-  Segment,
-  Message,
-  Icon,
-  Button,
-  Loader,
-} from "semantic-ui-react";
-import { Link } from "react-router-dom";
+import { Alert, Button, Heading, Input, Spinner, Stack, Tabs } from "@libretexts/davis-react";
+import { IconFolderOpen, IconCheck, IconFlag, IconPlus } from "@tabler/icons-react";
 import { useEffect, useState, useCallback } from "react";
 import { useLocation, useHistory } from "react-router-dom";
 import axios from "axios";
@@ -22,24 +12,20 @@ import { Project } from "../../../types/index.js";
 import MyProjectsTable from "../../../components/projects/MyProjectsTable";
 
 const ProjectsPortal = () => {
-  // Global State and Error Handling
   const { handleGlobalError } = useGlobalError();
   const history = useHistory();
   const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
-  // UI
   const [loadedProjects, setLoadedProjects] = useState(false);
   const [searchString, setSearchString] = useState("");
-  const [sortChoice, setSortChoice] = useState("title");
+  const [sortChoice] = useState("title");
   const [projectCreated, setProjectCreated] = useState(false);
   const [projectDeleted, setProjectDeleted] = useState(false);
 
-  // Projects Data
   const [projects, setProjects] = useState<Project[]>([]);
   const [displayProjects, setDisplayProjects] = useState<Project[]>([]);
 
-  // Create Project
   const [showCreateProject, setShowCreateProject] = useState(false);
 
   useEffect(() => {
@@ -48,12 +34,10 @@ const ProjectsPortal = () => {
     } else {
       setShowCreateProject(false);
     }
-  }, [location, setShowCreateProject]);
+  }, [location]);
 
-  /**
-   * Retrieve user's projects from the server and save them to state.
-   */
   const getUserProjects = useCallback(() => {
+    setLoadedProjects(false);
     axios
       .get("/projects/all")
       .then((res) => {
@@ -72,160 +56,120 @@ const ProjectsPortal = () => {
       });
   }, [setProjects, setLoadedProjects, handleGlobalError]);
 
-  /**
-   * Initialize plugins and UI state, then get user's projects.
-   */
   useEffect(() => {
     document.title = "LibreTexts Conductor | My Projects";
     if (searchParams) {
-      let createdFlag = searchParams.get("projectCreated");
-      let deletedFlag = searchParams.get("projectDeleted");
-      if (createdFlag === "true") setProjectCreated(true);
-      if (deletedFlag === "true") setProjectDeleted(true);
+      if (searchParams.get("projectCreated") === "true") setProjectCreated(true);
+      if (searchParams.get("projectDeleted") === "true") setProjectDeleted(true);
     }
     getUserProjects();
-  }, [location, getUserProjects, setProjectCreated, setProjectDeleted]);
+  }, [location, getUserProjects]);
 
-  /**
-   * Track changes to the number of projects loaded
-   * and the selected itemsPerPage and update the
-   * set of projects to display.
-   */
-  /*
-    useEffect(() => {
-        setTotalPages(Math.ceil(displayProjects.length/itemsPerPage));
-        setPageProjects(displayProjects.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage));
-    }, [itemsPerPage, displayProjects, activePage]);
-    */
-
-  /**
-   * Filter and sort projects according to
-   * current filters and sort choice.
-   */
   useEffect(() => {
     let filtered = projects.filter((proj) => {
-      let descripString = String(proj.title).toLowerCase();
+      const descripString = String(proj.title).toLowerCase();
       if (
         searchString !== "" &&
-        String(descripString).indexOf(String(searchString).toLowerCase()) === -1
+        descripString.indexOf(String(searchString).toLowerCase()) === -1
       ) {
-        // doesn't match search string, don't include
         return false;
       }
-      return proj;
+      return true;
     });
     if (sortChoice === "title") {
       const sorted = [...filtered].sort((a, b) => {
-        let normalA = String(a.title)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        let normalB = String(b.title)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
+        const normalA = String(a.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
+        const normalB = String(b.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
         if (normalA < normalB) return -1;
         if (normalA > normalB) return 1;
         return 0;
       });
       setDisplayProjects(sorted);
     }
-  }, [projects, sortChoice, searchString, setDisplayProjects]);
+  }, [projects, sortChoice, searchString]);
 
-  /**
-   * Opens the Create Project tool.
-   */
   function handleOpenCreateProject() {
     history.push("/projects/create");
   }
 
-  /**
-   * Closes the Create Project tool.
-   */
   function handleCloseCreateProject() {
     history.push("/projects");
   }
 
   return (
-    <Grid className="component-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">My Projects</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          {projectCreated && (
-            <Message floating icon success>
-              <Icon name="check" />
-              <Message.Content>
-                <Message.Header>Project successfully created!</Message.Header>
-              </Message.Content>
-            </Message>
-          )}
-          {projectDeleted && (
-            <Message floating icon info>
-              <Icon name="delete" />
-              <Message.Content>
-                <Message.Header>Project successfully deleted.</Message.Header>
-              </Message.Content>
-            </Message>
-          )}
-          <Menu widths={3}>
-            <Menu.Item
-              as={Link}
-              to="/projects/available"
-              name="availableprojects"
-              icon="folder open"
-              content={<p>Available Projects</p>}
-            />
-            <Menu.Item
-              as={Link}
-              to="/projects/completed"
-              name="completedprojects"
-              icon="check"
-              content={<p>Completed Projects</p>}
-            />
-            <Menu.Item
-              as={Link}
-              to="/projects/flagged"
-              name="flaggedprojects"
-              icon="attention"
-              content={<p>Flagged Projects</p>}
-            />
-          </Menu>
-          <Segment.Group>
-            <Segment>
-              <Input
-                icon="search"
-                iconPosition="left"
-                placeholder="Search current projects..."
-                onChange={(e) => {
-                  setSearchString(e.target.value);
-                }}
-                value={searchString}
-              />
-              <Loader active={!loadedProjects} className="ml-2p" inline />
-              <Button
-                floated="right"
-                color="green"
-                onClick={handleOpenCreateProject}
-              >
-                <Button.Content>
-                  <Icon name="add" />
-                  Create a Project
-                </Button.Content>
-              </Button>
-            </Segment>
-            <Segment>
-              <MyProjectsTable data={displayProjects} />
-            </Segment>
-          </Segment.Group>
-          <CreateProject
-            show={showCreateProject}
-            onClose={handleCloseCreateProject}
+    <div className="bg-white h-full px-8 pt-8">
+      <Stack direction="row" className="justify-between items-center mb-6">
+        <Heading level={2}>My Projects</Heading>
+        <Button
+          variant="primary"
+          icon={<IconPlus size={16} />}
+          onClick={handleOpenCreateProject}
+        >
+          Create a Project
+        </Button>
+      </Stack>
+
+      {projectCreated && (
+        <Alert variant="success" className="mb-4">
+          Project successfully created!
+        </Alert>
+      )}
+      {projectDeleted && (
+        <Alert variant="info" className="mb-4">
+          Project successfully deleted.
+        </Alert>
+      )}
+
+      {(() => {
+        const tabRoutes = ["/projects/available", "/projects/completed", "/projects/flagged"];
+        const activeIdx = tabRoutes.findIndex((r) => location.pathname.startsWith(r));
+        return (
+          <Tabs
+            variant="pills"
+            color="white"
+            selectedIndex={activeIdx >= 0 ? activeIdx : 0}
+            onChange={(idx) => history.push(tabRoutes[idx])}
+            className="mb-4 max-w-lg"
+          >
+            <Tabs.List>
+              <Tabs.Tab>
+                <span className="flex items-center gap-1.5">
+                  <IconFolderOpen size={15} />
+                  Available Projects
+                </span>
+              </Tabs.Tab>
+              <Tabs.Tab>
+                <span className="flex items-center gap-1.5">
+                  <IconCheck size={15} />
+                  Completed Projects
+                </span>
+              </Tabs.Tab>
+              <Tabs.Tab>
+                <span className="flex items-center gap-1.5">
+                  <IconFlag size={15} />
+                  Flagged Projects
+                </span>
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs>
+        );
+      })()}
+
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="flex items-center gap-3 p-4 border-b border-gray-200 bg-gray-50">
+          <Input
+            placeholder="Search current projects..."
+            value={searchString}
+            onChange={(e) => setSearchString(e.target.value)}
+            className="w-80"
           />
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+          {!loadedProjects && <Spinner size="sm" />}
+        </div>
+        <MyProjectsTable data={displayProjects} loading={!loadedProjects} />
+      </div>
+
+      <CreateProject show={showCreateProject} onClose={handleCloseCreateProject} />
+    </div>
   );
 };
 

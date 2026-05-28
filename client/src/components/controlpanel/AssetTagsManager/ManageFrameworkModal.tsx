@@ -1,9 +1,14 @@
 import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { Dropdown, Table } from "semantic-ui-react";
 import {
-  Dropdown,
-  Table,
-} from "semantic-ui-react";
-import { Button, IconButton, Modal, Spinner, Switch, Tabs, Tooltip } from "@libretexts/davis-react";
+  Button,
+  IconButton,
+  Modal,
+  Spinner,
+  Switch,
+  Tabs,
+  Tooltip,
+} from "@libretexts/davis-react";
 import {
   IconArrowDown,
   IconArrowUp,
@@ -32,6 +37,7 @@ import EditDropdownOptionsModal from "./EditDropdownOptionsModal";
 import { cleanDropdownOptions } from "../../../utils/assetHelpers";
 
 interface ManageFrameworkModalProps {
+interface ManageFrameworkModalProps {
   open: boolean;
   mode: "create" | "edit";
   id?: string;
@@ -45,6 +51,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
   onClose,
 }) => {
   const { handleGlobalError } = useGlobalError();
+  const { control, reset, watch, getValues, setValue } =
   const { control, reset, watch, getValues, setValue } =
     useForm<AssetTagFramework>({
       defaultValues: {
@@ -77,22 +84,17 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
       if (!res.data.framework) throw new Error("No framework found");
 
       const parsed: AssetTagTemplate[] = res.data.framework.templates.map(
-        (t) => {
-          return {
-            key: isAssetTagKeyObject(t.key) ? t.key.title : "",
-            valueType: t.valueType,
-            defaultValue: t.defaultValue,
-            options: t.options,
-            enabledAsFilter: t.enabledAsFilter,
-            isDeleted: false,
-          };
-        }
+        (t) => ({
+          key: isAssetTagKeyObject(t.key) ? t.key.title : "",
+          valueType: t.valueType,
+          defaultValue: t.defaultValue,
+          options: t.options,
+          enabledAsFilter: t.enabledAsFilter,
+          isDeleted: false,
+        })
       );
 
-      reset({
-        ...res.data.framework,
-        templates: parsed,
-      });
+      reset({ ...res.data.framework, templates: parsed });
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -101,12 +103,13 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
   }
 
   async function handleSave() {
-    const cleaned = cleanDropdownOptions(getValues("templates"));
-    setValue("templates", cleaned);
-    if (mode === "create") {
-      return createFramework(getValues());
-    }
-    return updateFramework(getValues());
+    const templates = cleanDropdownOptions(getValues("templates"));
+    const frameworkData: AssetTagFramework = {
+      ...getValues(),
+      templates,
+    };
+    if (mode === "create") return createFramework(frameworkData);
+    return updateFramework(frameworkData);
   }
 
   async function createFramework(framework: AssetTagFramework) {
@@ -150,79 +153,77 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
   }
 
   function getOptionsString(index: number): string {
-    if (!getValues(`templates.${index}.options`)) return "No options set";
-
-    if (
-      getValues(`templates.${index}.options`) &&
-      (getValues(`templates.${index}.options`) as string[]).length > 0
-    ) {
-      return truncateString(
-        watch(`templates.${index}.options`)?.join(", ") ?? "",
-        50
-      );
-    }
-
-    return "No options set";
+    const opts = getValues(`templates.${index}.options`) as string[] | undefined;
+    if (!opts || opts.length === 0) return "No options set";
+    return truncateString(
+      watch(`templates.${index}.options`)?.join(", ") ?? "",
+      50
+    );
   }
 
   function handleClose() {
-    reset({
-      name: "",
-      description: "",
-      enabled: true,
-      templates: [],
-    });
+    reset({ name: "", description: "", enabled: true, templates: [] });
     onClose();
   }
 
   function handleMoveUp(index: number) {
-    if (index === 0) return;
-    if (!fields[index - 1]) return;
+    if (index === 0 || !fields[index - 1]) return;
     move(index, index - 1);
   }
 
   function handleMoveDown(index: number) {
     if (index === fields.length - 1) return;
+    if (index === fields.length - 1) return;
     move(index, index + 1);
   }
 
   return (
-    <>
-      <Modal open={open} onClose={() => handleClose()} size="full">
-        <Modal.Header>
-          <Modal.Title>{mode === "create" ? "Create" : "Edit"} Framework</Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="overflow-y-auto">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Spinner />
-            </div>
-          ) : (
-            <Tabs defaultIndex={0}>
-              <Tabs.List>
-                <Tabs.Tab>Details</Tabs.Tab>
-                <Tabs.Tab>Tags</Tabs.Tab>
-              </Tabs.List>
-              <Tabs.Panels>
-                <Tabs.Panel className="pt-4">
-                  <div className="space-y-4 max-w-lg">
-                    <CtlTextInput name="name" control={control} label="Name" fluid />
-                    <CtlTextInput
-                      name="description"
-                      control={control}
-                      label="Description"
-                      fluid
-                    />
-                    <Switch
-                      label="Enabled"
-                      checked={watch("enabled") ?? true}
-                      onChange={(checked) => setValue("enabled", checked)}
-                    />
-                  </div>
-                </Tabs.Panel>
-                <Tabs.Panel className="pt-4">
-                  <p className="form-field-label mb-1">Default Tags</p>
-                  <Table celled>
+    <Modal open={open} onClose={handleClose} size="full">
+      <Modal.Header>
+        <div className="flex items-center justify-between w-full">
+          <Modal.Title>
+            {mode === "create" ? "Create" : "Edit"} Framework
+          </Modal.Title>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={watch("enabled") ?? true}
+              onChange={(checked) => setValue("enabled", checked)}
+            />
+            <span className="text-sm">Enabled</span>
+          </div>
+        </div>
+      </Modal.Header>
+      <Modal.Body>
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Spinner />
+          </div>
+        ) : (
+          <Tabs defaultIndex={0}>
+            <Tabs.List>
+              <Tabs.Tab>Details</Tabs.Tab>
+              <Tabs.Tab>Tags</Tabs.Tab>
+            </Tabs.List>
+            <Tabs.Panels>
+              <Tabs.Panel>
+                <div className="flex flex-col gap-4 pt-4">
+                  <CtlTextInput
+                    name="name"
+                    control={control}
+                    label="Name"
+                    fluid
+                  />
+                  <CtlTextInput
+                    name="description"
+                    control={control}
+                    label="Description"
+                    fluid
+                  />
+                </div>
+              </Tabs.Panel>
+              <Tabs.Panel>
+                <div className="pt-4">
+                  <Table celled className="!mt-1">
                     <Table.Header fullWidth>
                       <Table.Row key="header">
                         <Table.HeaderCell>Tag Title</Table.HeaderCell>
@@ -238,7 +239,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                               placement="top"
                             >
                               <span className="cursor-help">
-                                <IconInfoCircle size={16} className="text-gray-500" />
+                                <IconInfoCircle size={16} />
                               </span>
                             </Tooltip>
                           </div>
@@ -247,7 +248,8 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                       </Table.Row>
                     </Table.Header>
                     <Table.Body>
-                      {(!watch("templates") || watch("templates").length === 0) && (
+                      {(!watch("templates") ||
+                        watch("templates").length === 0) && (
                         <Table.Row>
                           <Table.Cell colSpan={5} className="text-center">
                             No tags have been added to this framework.
@@ -271,7 +273,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                                     <Dropdown
                                       options={AssetTagTemplateValueTypeOptions}
                                       {...field}
-                                      onChange={(e, data) => {
+                                      onChange={(_e, data) => {
                                         field.onChange(
                                           data.value?.toString() ?? "text"
                                         );
@@ -289,13 +291,15 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                                   watch(`templates.${index}.valueType`)
                                 ) ? (
                                   <div className="flex items-center gap-2">
-                                    <p className="m-0">{getOptionsString(index)}</p>
+                                    <p className="mr-2">
+                                      {getOptionsString(index)}
+                                    </p>
                                     <IconButton
-                                      variant="outline"
+                                      icon={<IconEdit size={16} />}
                                       aria-label="Edit options"
-                                      tooltip="Edit options"
-                                      icon={<IconEdit size={14} />}
-                                      onClick={() => handleEditDropdownOptions(index)}
+                                      onClick={() =>
+                                        handleEditDropdownOptions(index)
+                                      }
                                     />
                                   </div>
                                 ) : (
@@ -317,24 +321,19 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                               <Table.Cell>
                                 <div className="flex items-center justify-center gap-1">
                                   <IconButton
-                                    variant="outline"
+                                    icon={<IconArrowUp size={16} />}
                                     aria-label="Move up"
-                                    tooltip="Move up"
-                                    icon={<IconArrowUp size={14} />}
                                     onClick={() => handleMoveUp(index)}
                                   />
                                   <IconButton
-                                    variant="outline"
+                                    icon={<IconArrowDown size={16} />}
                                     aria-label="Move down"
-                                    tooltip="Move down"
-                                    icon={<IconArrowDown size={14} />}
                                     onClick={() => handleMoveDown(index)}
                                   />
                                   <IconButton
-                                    variant="destructive"
+                                    icon={<IconTrash size={16} />}
                                     aria-label="Remove tag"
-                                    tooltip="Remove tag"
-                                    icon={<IconTrash size={14} />}
+                                    variant="destructive"
                                     onClick={() => remove(index)}
                                   />
                                 </div>
@@ -347,6 +346,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                   <Button
                     variant="primary"
                     icon={<IconPlus size={16} />}
+                    className="mt-3"
                     onClick={() =>
                       append(
                         {
@@ -358,22 +358,23 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                         { shouldFocus: false }
                       )
                     }
-                    className="mt-3"
                   >
                     Add Tag
                   </Button>
-                </Tabs.Panel>
-              </Tabs.Panels>
-            </Tabs>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="outline" onClick={() => handleClose()}>Cancel</Button>
-          <Button variant="primary" onClick={() => handleSave()} loading={loading}>
-            Save
-          </Button>
-        </Modal.Footer>
-      </Modal>
+                </div>
+              </Tabs.Panel>
+            </Tabs.Panels>
+          </Tabs>
+        )}
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline" onClick={handleClose}>
+          Cancel
+        </Button>
+        <Button variant="primary" onClick={handleSave} loading={loading}>
+          Save
+        </Button>
+      </Modal.Footer>
       {editDropdownOptionsIndex !== null && (
         <EditDropdownOptionsModal
           open={showEditDropdownOptions}

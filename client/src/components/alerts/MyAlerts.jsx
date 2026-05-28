@@ -18,10 +18,9 @@ import AlertModal from './AlertModal.jsx';
 import useGlobalError from '../error/ErrorHooks';
 
 const MyAlerts = (_props) => {
-
-  const sortParam = 'sort';
-  const sortDefault = 'title';
-  const alertModalDefaultMode = 'create';
+  const sortParam = "sort";
+  const sortDefault = "title";
+  const alertModalDefaultMode = "create";
 
   const { handleGlobalError } = useGlobalError();
   const history = useHistory();
@@ -45,7 +44,7 @@ const MyAlerts = (_props) => {
   ];
 
   useEffect(() => {
-    document.title = 'LibreTexts Conductor | My Alerts';
+    document.title = "LibreTexts Conductor | My Alerts";
     date.plugin(ordinal);
   }, []);
 
