@@ -1,26 +1,20 @@
-import '../projects/Projects.css';
-
-import {
-  Grid,
-  Header,
-  Segment,
-  List,
-  Divider,
-  Icon,
-  Button,
-  Dropdown,
-  Popup,
-  Modal,
-  Loader,
-} from 'semantic-ui-react';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
+import {
+  Button,
+  Divider,
+  Heading,
+  IconButton,
+  Modal,
+  Select,
+  Spinner,
+} from '@libretexts/davis-react';
+import { IconPlus, IconTrash, IconEye } from '@tabler/icons-react';
 
 import AlertModal from './AlertModal.jsx';
-
 import useGlobalError from '../error/ErrorHooks';
 
 const MyAlerts = (_props) => {
@@ -29,51 +23,35 @@ const MyAlerts = (_props) => {
   const sortDefault = 'title';
   const alertModalDefaultMode = 'create';
 
-  // Global State and Error Handling
   const { handleGlobalError } = useGlobalError();
   const history = useHistory();
   const location = useLocation();
 
-  // UI
   const [loadedData, setLoadedData] = useState(false);
   const [sortChoice, setSortChoice] = useState('');
-
-  // Data
   const [alerts, setAlerts] = useState([]);
 
-  // Create/View Alert Modal
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertModalMode, setAlertModalMode] = useState(alertModalDefaultMode);
   const [alertModalData, setAlertModalData] = useState(null);
 
-  // Delete Alert Modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteAlertData, setDeleteAlertData] = useState({});
   const [deleteAlertLoading, setDeleteAlertLoading] = useState(false);
 
   const sortOptions = [
-    { key: 'title', text: 'Sort by Alert Title/Query', value: 'title' },
-    { key: 'date', text: 'Sort by Alert Creation Date', value: 'date' }
+    { value: 'title', label: 'Sort by Alert Title/Query' },
+    { value: 'date', label: 'Sort by Alert Creation Date' },
   ];
 
-  /**
-   * Initialization and plugin registration.
-   */
   useEffect(() => {
     document.title = 'LibreTexts Conductor | My Alerts';
     date.plugin(ordinal);
   }, []);
 
-  /**
-   * Retrive the user's Alerts from the server.
-   */
   const getUserAlerts = useCallback((sort) => {
     setLoadedData(false);
-    axios.get('/alerts', {
-      params: {
-        sort
-      }
-    }).then((res) => {
+    axios.get('/alerts', { params: { sort } }).then((res) => {
       if (!res.data.err) {
         if (Array.isArray(res.data.alerts)) {
           setAlerts(res.data.alerts);
@@ -88,9 +66,6 @@ const MyAlerts = (_props) => {
     });
   }, [setLoadedData, setAlerts, handleGlobalError]);
 
-  /**
-   * Subscribe to changes in the URL search query and process parameters.
-   */
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const sort = urlParams.get(sortParam) || sortDefault;
@@ -98,37 +73,18 @@ const MyAlerts = (_props) => {
     getUserAlerts(sort);
   }, [location.search, setSortChoice, getUserAlerts]);
 
-  /**
-   * Update the URL search query with a new value after a filter or sort option change.
-   * @param {string} name - The internal filter or sort option name.
-   * @param {string} newValue - The new value of the search parameter to set.
-   */
   const handleFilterSortChange = (name, newValue) => {
-    let urlParams = new URLSearchParams(location.search);
-    switch (name) {
-      case 'sort':
-        urlParams.set(sortParam, newValue);
-        break;
-      default:
-        break;
-    }
+    const urlParams = new URLSearchParams(location.search);
+    if (name === 'sort') urlParams.set(sortParam, newValue);
     history.push({ search: urlParams.toString() });
   };
 
-  /**
-   * Opens the Add/View Alert Modal and sets associated state.
-   * @param {string} mode - Mode to open the Modal in. 
-   * @param {object} [alertData=null] - Alert Data object if in View mode.
-   */
   const openAlertModal = (mode, alertData = null) => {
-    if (typeof (alertData) === 'object') setAlertModalData(alertData);
+    if (typeof alertData === 'object') setAlertModalData(alertData);
     setAlertModalMode(mode);
     setShowAlertModal(true);
   };
 
-  /**
-   * Close the Add Alert Modal and refresh the list of Alerts.
-   */
   const closeAlertModal = () => {
     setShowAlertModal(false);
     setAlertModalMode(alertModalDefaultMode);
@@ -136,42 +92,23 @@ const MyAlerts = (_props) => {
     getUserAlerts();
   };
 
-
-  /**
-   * Open the Delete Alert Modal and set the selected Alert in state.
-   * @param {object} alertData - The Alert data object.
-   */
   const openDeleteModal = (alertData) => {
-    if (typeof (alertData) === 'object') {
+    if (typeof alertData === 'object') {
       setDeleteAlertData(alertData);
       setShowDeleteModal(true);
     }
   };
 
-  /**
-   * Close the Delete Alert Modal, reset its state, and refresh the list of Alerts.
-   * 
-   * @param {boolean} [didDelete=false] - If the alert was deleted and the list should be refreshed.
-   */
   const closeDeleteModal = (didDelete = false) => {
     setShowDeleteModal(false);
     setDeleteAlertData({});
-    if (didDelete) {
-      getUserAlerts();
-    }
+    if (didDelete) getUserAlerts();
   };
 
-  /**
-   * Submit a request to the server to delete an alert, then close the Delete Alert Modal.
-   */
   const deleteAlert = () => {
-    if (typeof (deleteAlertData.alertID) === 'string') {
+    if (typeof deleteAlertData.alertID === 'string') {
       setDeleteAlertLoading(true);
-      axios.delete('/alert', {
-        data: {
-          alertID: deleteAlertData.alertID
-        }
-      }).then((res) => {
+      axios.delete('/alert', { data: { alertID: deleteAlertData.alertID } }).then((res) => {
         if (!res.data.err) {
           closeDeleteModal(true);
         } else {
@@ -186,121 +123,123 @@ const MyAlerts = (_props) => {
   };
 
   return (
-    <Grid className='component-container' divided='vertically'>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className='component-header'>My Alerts</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment>
-            <p>Conductor Alerts notify you when new LibreTexts Open Education resources and projects are
-              available that match criteria you've specified. You can add a new Alert
-              anytime by clicking <em>Create Alert</em> below or on a Search results page.
-            </p>
-            <div className='flex-row-div flex-row-verticalcenter'>
-              <div className='left-flex'>
-                <Dropdown
-                  placeholder='Sort by...'
-                  floating
-                  selection
-                  button
-                  options={sortOptions}
-                  onChange={(_e, { value }) => handleFilterSortChange('sort', value)}
-                  value={sortChoice}
-                  style={{
-                    marginTop: '0.25rem !important'
-                  }}
-                  aria-label='Sort Alerts by'
-                />
-              </div>
-              <div className='right-flex'>
-                <Button color='green' onClick={() => openAlertModal('create')}>
-                  <Icon name='add' />
-                  Create Alert
-                </Button>
-              </div>
-            </div>
-            <Divider />
-            {!loadedData && (
-              <Loader active />
-            )}
-            {(loadedData && alerts.length > 0) && (
-              <List divided verticalAlign='middle' className='mb-2p'>
-                {alerts.map((item, idx) => {
-                  const itemDate = new Date(item.createdAt);
-                  item.createdDate = date.format(itemDate, 'MMMM DDD, YYYY');
-                  return (
-                    <List.Item key={`user-alert-${idx}`}>
-                      <div className='flex-row-div'>
-                        <div className='left-flex'>
-                          <div className='flex-col-div'>
-                            <p className='margin-none'><strong>Query: </strong><em>{item.query}</em></p>
-                            <p className='muted-text'>Created {item.createdDate}</p>
-                          </div>
-                        </div>
-                        <div className='right-flex'>
-                          <Popup
-                            content='Delete Alert'
-                            trigger={
-                              <Button
-                                onClick={() => openDeleteModal(item)}
-                                icon='trash'
-                                color='red'
-                              />
-                            }
-                            position='top center'
-                          />
-                          <Popup
-                            content='View Alert Details'
-                            trigger={
-                              <Button
-                                onClick={() => openAlertModal('view', item)}
-                                icon='eye'
-                                color='blue'
-                              />
-                            }
-                            position='top center'
-                          />
-                        </div>
-                      </div>
-                    </List.Item>
-                  )
-                })}
-              </List>
-            )}
-            {(loadedData && alerts.length === 0) && (
-              <p className='mt-2p mb-2p muted-text text-center'>No alerts yet!</p>
-            )}
-          </Segment>
-          {/* Delete Alert Modal */}
-          <Modal open={showDeleteModal} onClose={() => closeDeleteModal(false)}>
-            <Modal.Header>Delete Alert</Modal.Header>
-            <Modal.Content>
-              <p>Are you sure you want to delete this alert? You will stop receiving notifications for new resources matching its criteria.</p>
-            </Modal.Content>
-            <Modal.Actions>
-              <Button onClick={() => closeDeleteModal(false)}>Cancel</Button>
-              <Button color='red' onClick={deleteAlert} loading={deleteAlertLoading}>
-                <Icon name='trash' />
-                Delete Alert
-              </Button>
-            </Modal.Actions>
+    <div className="bg-white px-8 pt-8 pb-8 min-h-screen">
+      <Heading level={2} className="mb-6">My Alerts</Heading>
 
-          </Modal>
-          {/* Add/View Alert Modal */}
-          <AlertModal
-            open={showAlertModal}
-            onClose={closeAlertModal}
-            mode={alertModalMode}
-            alertData={alertModalData}
+      <div className="border border-gray-200 rounded-lg p-6">
+        <p className="text-gray-700 mb-4">
+          Conductor Alerts notify you when new LibreTexts Open Education resources and projects are
+          available that match criteria you've specified. You can add a new Alert
+          anytime by clicking <em>Create Alert</em> below or on a Search results page.
+        </p>
+
+        <div className="flex items-center justify-between">
+          <Select
+            name="sort"
+            label="Sort by"
+            labelClassName="sr-only"
+            value={sortChoice}
+            options={sortOptions}
+            placeholder="Sort by..."
+            onChange={(e) => handleFilterSortChange('sort', e.target.value)}
+            className="w-64"
           />
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
-  );
+          <Button
+            variant="primary"
+            icon={<IconPlus size={16} />}
+            onClick={() => openAlertModal('create')}
+          >
+            Create Alert
+          </Button>
+        </div>
 
+        <Divider className="my-4" />
+
+        {!loadedData && (
+          <div className="flex justify-center py-8">
+            <Spinner size="lg" />
+          </div>
+        )}
+
+        {loadedData && alerts.length > 0 && (
+          <div className="divide-y divide-gray-200">
+            {alerts.map((item, idx) => {
+              const itemDate = new Date(item.createdAt);
+              item.createdDate = date.format(itemDate, 'MMMM DDD, YYYY');
+              return (
+                <div key={`user-alert-${idx}`} className="flex items-center justify-between py-3">
+                  <div className="flex flex-col">
+                    <p className="text-sm font-medium text-gray-900">
+                      <strong>Query: </strong><em>{item.query}</em>
+                    </p>
+                    <p className="text-sm text-gray-500">Created {item.createdDate}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <IconButton
+                      icon={<IconTrash size={16} />}
+                      variant="destructive"
+                      size="sm"
+                      aria-label="Delete Alert"
+                      tooltip="Delete Alert"
+                      tooltipPosition="top"
+                      onClick={() => openDeleteModal(item)}
+                    />
+                    <IconButton
+                      icon={<IconEye size={16} />}
+                      variant="primary"
+                      size="sm"
+                      aria-label="View Alert Details"
+                      tooltip="View Alert Details"
+                      tooltipPosition="top"
+                      onClick={() => openAlertModal('view', item)}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {loadedData && alerts.length === 0 && (
+          <p className="text-center text-gray-500 py-8">No alerts yet!</p>
+        )}
+      </div>
+
+      {/* Delete Alert Modal */}
+      <Modal open={showDeleteModal} onClose={() => closeDeleteModal(false)} size="md">
+        <Modal.Header>
+          <Modal.Title>Delete Alert</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="text-gray-700">
+            Are you sure you want to delete this alert? You will stop receiving notifications
+            for new resources matching its criteria.
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline" onClick={() => closeDeleteModal(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            icon={<IconTrash size={16} />}
+            loading={deleteAlertLoading}
+            onClick={deleteAlert}
+          >
+            Delete Alert
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Create / View Alert Modal */}
+      <AlertModal
+        open={showAlertModal}
+        onClose={closeAlertModal}
+        mode={alertModalMode}
+        alertData={alertModalData}
+      />
+    </div>
+  );
 };
 
 export default MyAlerts;
