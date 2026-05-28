@@ -87,8 +87,6 @@ const MyAlerts = (_props) => {
 
   const closeAlertModal = () => {
     setShowAlertModal(false);
-    setAlertModalMode(alertModalDefaultMode);
-    setAlertModalData(null);
     getUserAlerts();
   };
 
