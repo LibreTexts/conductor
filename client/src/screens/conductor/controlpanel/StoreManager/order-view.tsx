@@ -144,7 +144,7 @@ const OrderView = () => {
   }
 
   return (
-    <div className="bg-white min-h-full px-8 pt-8 pb-8">
+    <div className="bg-white min-h-screen px-8 pt-8 pb-8">
       <Stack direction="vertical" gap="md" className="mb-6">
         <Heading level={2}>LibreTexts Store Management</Heading>
       </Stack>
