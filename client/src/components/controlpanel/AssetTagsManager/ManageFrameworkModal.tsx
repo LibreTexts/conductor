@@ -1,14 +1,22 @@
 import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { Dropdown, Table } from "semantic-ui-react";
 import {
   Button,
-  Checkbox,
-  Dropdown,
-  Icon,
+  IconButton,
   Modal,
-  ModalProps,
-  Popup,
-  Table,
-} from "semantic-ui-react";
+  Spinner,
+  Switch,
+  Tabs,
+  Tooltip,
+} from "@libretexts/davis-react";
+import {
+  IconArrowDown,
+  IconArrowUp,
+  IconEdit,
+  IconInfoCircle,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
 import {
   AssetTagFramework,
   AssetTagTemplate,
@@ -24,12 +32,11 @@ import {
 import { useEffect, useState } from "react";
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
-import LoadingSpinner from "../../LoadingSpinner";
 import { truncateString } from "../../util/HelperFunctions";
 import EditDropdownOptionsModal from "./EditDropdownOptionsModal";
 import { cleanDropdownOptions } from "../../../utils/assetHelpers";
 
-interface ManageFrameworkModalProps extends ModalProps {
+interface ManageFrameworkModalProps {
   open: boolean;
   mode: "create" | "edit";
   id?: string;
@@ -42,9 +49,8 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
   id,
   onClose,
 }) => {
-  // Global State & Hooks
   const { handleGlobalError } = useGlobalError();
-  const { control, formState, reset, watch, getValues, setValue, register } =
+  const { control, reset, watch, getValues, setValue } =
     useForm<AssetTagFramework>({
       defaultValues: {
         name: "",
@@ -58,7 +64,6 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
     name: "templates",
   });
 
-  // Data & UI
   const [loading, setLoading] = useState<boolean>(false);
   const [showEditDropdownOptions, setShowEditDropdownOptions] =
     useState<boolean>(false);
@@ -66,12 +71,10 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
     number | null
   >(null);
 
-  // Effects
   useEffect(() => {
     if (open && mode === "edit" && id) loadFramework(id);
   }, [id, open]);
 
-  // Handlers & Methods
   async function loadFramework(id: string) {
     try {
       setLoading(true);
@@ -79,22 +82,17 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
       if (!res.data.framework) throw new Error("No framework found");
 
       const parsed: AssetTagTemplate[] = res.data.framework.templates.map(
-        (t) => {
-          return {
-            key: isAssetTagKeyObject(t.key) ? t.key.title : "",
-            valueType: t.valueType,
-            defaultValue: t.defaultValue,
-            options: t.options,
-            enabledAsFilter: t.enabledAsFilter,
-            isDeleted: false,
-          };
-        }
+        (t) => ({
+          key: isAssetTagKeyObject(t.key) ? t.key.title : "",
+          valueType: t.valueType,
+          defaultValue: t.defaultValue,
+          options: t.options,
+          enabledAsFilter: t.enabledAsFilter,
+          isDeleted: false,
+        })
       );
 
-      reset({
-        ...res.data.framework,
-        templates: parsed,
-      });
+      reset({ ...res.data.framework, templates: parsed });
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -103,19 +101,19 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
   }
 
   async function handleSave() {
-    const cleaned = cleanDropdownOptions(getValues("templates"));
-    setValue("templates", cleaned);
-    if (mode === "create") {
-      return createFramework(getValues());
-    }
-    return updateFramework(getValues());
+    const templates = cleanDropdownOptions(getValues("templates"));
+    const frameworkData: AssetTagFramework = {
+      ...getValues(),
+      templates,
+    };
+    if (mode === "create") return createFramework(frameworkData);
+    return updateFramework(frameworkData);
   }
 
   async function createFramework(framework: AssetTagFramework) {
     try {
       setLoading(true);
       await api.createFramework(framework);
-
       handleClose();
     } catch (err) {
       handleGlobalError(err);
@@ -129,7 +127,6 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
       if (!framework.uuid)
         throw new Error("No ID provided for updateFramework");
       setLoading(true);
-
       await api.updateFramework(framework);
       handleClose();
     } catch (err) {
@@ -147,7 +144,6 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
   function handleCloseEditDropdownOptionsModal() {
     setEditDropdownOptionsIndex(null);
     setShowEditDropdownOptions(false);
-    // Sort dropdown/multiselect options (for all tags) alphabetically
     const values = getValues();
     values.templates.forEach((t: AssetTagTemplate) => {
       if (t.options) t.options.sort();
@@ -155,202 +151,227 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
   }
 
   function getOptionsString(index: number): string {
-    if (!getValues(`templates.${index}.options`)) return "No options set";
-
-    if (
-      getValues(`templates.${index}.options`) &&
-      (getValues(`templates.${index}.options`) as string[]).length > 0
-    ) {
-      return truncateString(
-        watch(`templates.${index}.options`)?.join(", ") ?? "",
-        50
-      );
-    }
-
-    return "No options set";
+    const opts = getValues(`templates.${index}.options`) as string[] | undefined;
+    if (!opts || opts.length === 0) return "No options set";
+    return truncateString(
+      watch(`templates.${index}.options`)?.join(", ") ?? "",
+      50
+    );
   }
 
   function handleClose() {
-    reset({
-      name: "",
-      description: "",
-      enabled: true,
-      templates: [],
-    }); // Reset form state
+    reset({ name: "", description: "", enabled: true, templates: [] });
     onClose();
   }
 
   function handleMoveUp(index: number) {
-    if (index === 0) return; // Don't move if already at top
-    // Check index - 1 exists
-    if (!fields[index - 1]) return;
+    if (index === 0 || !fields[index - 1]) return;
     move(index, index - 1);
   }
 
   function handleMoveDown(index: number) {
-    if (index === fields.length - 1) return; // Don't move if already at bottom
+    if (index === fields.length - 1) return;
     move(index, index + 1);
   }
 
   return (
-    <Modal open={open} onClose={() => handleClose()} size="fullscreen">
+    <Modal open={open} onClose={handleClose} size="full">
       <Modal.Header>
-        <div className="flex justify-between">
-          <span>{mode === "create" ? "Create" : "Edit"} Framework</span>
-          <div className="flex">
-            <CtlCheckbox name="enabled" control={control} toggle />
-            <p className="text-base ml-2">Enabled?</p>
+        <div className="flex items-center justify-between w-full">
+          <Modal.Title>
+            {mode === "create" ? "Create" : "Edit"} Framework
+          </Modal.Title>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={watch("enabled") ?? true}
+              onChange={(checked) => setValue("enabled", checked)}
+            />
+            <span className="text-sm">Enabled</span>
           </div>
         </div>
       </Modal.Header>
-      <Modal.Content scrolling>
-        {loading && (
-          <div className="my-4r">
-            <LoadingSpinner />
+      <Modal.Body>
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Spinner />
           </div>
-        )}
-        {!loading && (
-          <div className="mb-8">
-            <CtlTextInput name="name" control={control} label="Name" fluid />
-            <CtlTextInput
-              name="description"
-              control={control}
-              label="Description"
-              className="mt-6"
-              fluid
-            />
-            <p className="!mt-6 form-field-label">Default Tags</p>
-            <Table celled className="!mt-1">
-              <Table.Header fullWidth>
-                <Table.Row key="header">
-                  <Table.HeaderCell>Tag Title</Table.HeaderCell>
-                  <Table.HeaderCell>Value Type</Table.HeaderCell>
-                  <Table.HeaderCell>
-                    Options / Default Value (optional)
-                  </Table.HeaderCell>
-                  <Table.HeaderCell width={2}>
-                    Enabled as Search Filter
-                    <Popup
-                      trigger={<Icon name="info circle" className="!ml-1" />}
-                      content="If enabled, this tag will be available as a filter in Common's assets search."
-                    />
-                  </Table.HeaderCell>
-                  <Table.HeaderCell width={2}>Actions</Table.HeaderCell>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {(!watch("templates") || watch("templates").length === 0) && (
-                  <Table.Row>
-                    <Table.Cell colSpan={3} className="text-center">
-                      No tags have been added to this framework.
-                    </Table.Cell>
-                  </Table.Row>
-                )}
-                {fields.map(
-                  (tag, index) =>
-                    isAssetTagTemplate(tag) && (
-                      <Table.Row key={tag.id}>
-                        <Table.Cell>
-                          <CtlTextInput
-                            control={control}
-                            name={`templates.${index}.key`}
-                            fluid
-                          />
-                        </Table.Cell>
-                        <Table.Cell>
-                          <Controller
-                            render={({ field }) => (
-                              <Dropdown
-                                options={AssetTagTemplateValueTypeOptions}
-                                {...field}
-                                onChange={(e, data) => {
-                                  field.onChange(
-                                    data.value?.toString() ?? "text"
-                                  );
-                                }}
-                                fluid
-                                selection
-                              />
-                            )}
-                            name={`templates.${index}.valueType`}
-                            control={control}
-                          />
-                        </Table.Cell>
-                        <Table.Cell>
-                          {["dropdown", "multiselect"].includes(
-                            watch(`templates.${index}.valueType`)
-                          ) ? (
-                            <div className="flex items-center">
-                              <p className="mr-2">{getOptionsString(index)}</p>
-                              <Button
-                                icon="edit"
-                                onClick={() => handleEditDropdownOptions(index)}
-                              />
-                            </div>
-                          ) : (
-                            <CtlTextInput
-                              name={`templates.${index}.defaultValue`}
-                              control={control}
-                              fluid
-                              placeholder="Enter default value (optional)..."
-                            />
-                          )}
-                        </Table.Cell>
-                        <Table.Cell>
-                          <CtlCheckbox
-                            name={`templates.${index}.enabledAsFilter`}
-                            control={control}
-                            toggle
-                          />
-                        </Table.Cell>
-                        <Table.Cell>
-                          <Button
-                            icon="arrow up"
-                            onClick={() => handleMoveUp(index)}
-                          />
-                          <Button
-                            icon="arrow down"
-                            onClick={() => handleMoveDown(index)}
-                            className="!ml-1"
-                          />
-                          <Button
-                            color="red"
-                            icon="trash"
-                            onClick={() => remove(index)}
-                            className="!ml-1"
-                          />
-                        </Table.Cell>
+        ) : (
+          <Tabs defaultIndex={0}>
+            <Tabs.List>
+              <Tabs.Tab>Details</Tabs.Tab>
+              <Tabs.Tab>Tags</Tabs.Tab>
+            </Tabs.List>
+            <Tabs.Panels>
+              <Tabs.Panel>
+                <div className="flex flex-col gap-4 pt-4">
+                  <CtlTextInput
+                    name="name"
+                    control={control}
+                    label="Name"
+                    fluid
+                  />
+                  <CtlTextInput
+                    name="description"
+                    control={control}
+                    label="Description"
+                    fluid
+                  />
+                </div>
+              </Tabs.Panel>
+              <Tabs.Panel>
+                <div className="pt-4">
+                  <Table celled className="!mt-1">
+                    <Table.Header fullWidth>
+                      <Table.Row key="header">
+                        <Table.HeaderCell>Tag Title</Table.HeaderCell>
+                        <Table.HeaderCell>Value Type</Table.HeaderCell>
+                        <Table.HeaderCell>
+                          Options / Default Value (optional)
+                        </Table.HeaderCell>
+                        <Table.HeaderCell width={2}>
+                          <div className="flex items-center gap-1">
+                            Enabled as Search Filter
+                            <Tooltip
+                              content="If enabled, this tag will be available as a filter in Common's assets search."
+                              placement="top"
+                            >
+                              <span className="cursor-help">
+                                <IconInfoCircle size={16} />
+                              </span>
+                            </Tooltip>
+                          </div>
+                        </Table.HeaderCell>
+                        <Table.HeaderCell width={2}>Actions</Table.HeaderCell>
                       </Table.Row>
-                    )
-                )}
-              </Table.Body>
-            </Table>
-            <Button
-              color="blue"
-              onClick={() =>
-                append(
-                  {
-                    key: "",
-                    valueType: "text",
-                    defaultValue: "",
-                    isDeleted: false,
-                  },
-                  { shouldFocus: false }
-                )
-              }
-            >
-              <Icon name="plus" />
-              Add Tag
-            </Button>
-          </div>
+                    </Table.Header>
+                    <Table.Body>
+                      {(!watch("templates") ||
+                        watch("templates").length === 0) && (
+                        <Table.Row>
+                          <Table.Cell colSpan={5} className="text-center">
+                            No tags have been added to this framework.
+                          </Table.Cell>
+                        </Table.Row>
+                      )}
+                      {fields.map(
+                        (tag, index) =>
+                          isAssetTagTemplate(tag) && (
+                            <Table.Row key={tag.id}>
+                              <Table.Cell>
+                                <CtlTextInput
+                                  control={control}
+                                  name={`templates.${index}.key`}
+                                  fluid
+                                />
+                              </Table.Cell>
+                              <Table.Cell>
+                                <Controller
+                                  render={({ field }) => (
+                                    <Dropdown
+                                      options={AssetTagTemplateValueTypeOptions}
+                                      {...field}
+                                      onChange={(_e, data) => {
+                                        field.onChange(
+                                          data.value?.toString() ?? "text"
+                                        );
+                                      }}
+                                      fluid
+                                      selection
+                                    />
+                                  )}
+                                  name={`templates.${index}.valueType`}
+                                  control={control}
+                                />
+                              </Table.Cell>
+                              <Table.Cell>
+                                {["dropdown", "multiselect"].includes(
+                                  watch(`templates.${index}.valueType`)
+                                ) ? (
+                                  <div className="flex items-center gap-2">
+                                    <p className="mr-2">
+                                      {getOptionsString(index)}
+                                    </p>
+                                    <IconButton
+                                      icon={<IconEdit size={16} />}
+                                      aria-label="Edit options"
+                                      onClick={() =>
+                                        handleEditDropdownOptions(index)
+                                      }
+                                    />
+                                  </div>
+                                ) : (
+                                  <CtlTextInput
+                                    name={`templates.${index}.defaultValue`}
+                                    control={control}
+                                    fluid
+                                    placeholder="Enter default value (optional)..."
+                                  />
+                                )}
+                              </Table.Cell>
+                              <Table.Cell>
+                                <CtlCheckbox
+                                  name={`templates.${index}.enabledAsFilter`}
+                                  control={control}
+                                  toggle
+                                />
+                              </Table.Cell>
+                              <Table.Cell>
+                                <div className="flex items-center justify-center gap-1">
+                                  <IconButton
+                                    icon={<IconArrowUp size={16} />}
+                                    aria-label="Move up"
+                                    onClick={() => handleMoveUp(index)}
+                                  />
+                                  <IconButton
+                                    icon={<IconArrowDown size={16} />}
+                                    aria-label="Move down"
+                                    onClick={() => handleMoveDown(index)}
+                                  />
+                                  <IconButton
+                                    icon={<IconTrash size={16} />}
+                                    aria-label="Remove tag"
+                                    variant="destructive"
+                                    onClick={() => remove(index)}
+                                  />
+                                </div>
+                              </Table.Cell>
+                            </Table.Row>
+                          )
+                      )}
+                    </Table.Body>
+                  </Table>
+                  <Button
+                    variant="primary"
+                    icon={<IconPlus size={16} />}
+                    className="mt-3"
+                    onClick={() =>
+                      append(
+                        {
+                          key: "",
+                          valueType: "text",
+                          defaultValue: "",
+                          isDeleted: false,
+                        },
+                        { shouldFocus: false }
+                      )
+                    }
+                  >
+                    Add Tag
+                  </Button>
+                </div>
+              </Tabs.Panel>
+            </Tabs.Panels>
+          </Tabs>
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={() => handleClose()}>Cancel</Button>
-        <Button color="green" onClick={() => handleSave()}>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline" onClick={handleClose}>
+          Cancel
+        </Button>
+        <Button variant="primary" onClick={handleSave} loading={loading}>
           Save
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
       {editDropdownOptionsIndex !== null && (
         <EditDropdownOptionsModal
           open={showEditDropdownOptions}

@@ -1,6 +1,7 @@
-import { Button, Icon, Modal, ModalProps } from "semantic-ui-react";
+import { Button, Modal } from "@libretexts/davis-react";
+import { IconCheck } from "@tabler/icons-react";
 
-interface ConfirmSetOrgDefaultProps extends ModalProps {
+interface ConfirmSetOrgDefaultProps {
   show: boolean;
   selectedUUID: string;
   onClose: () => void;
@@ -12,26 +13,31 @@ const ConfirmSetOrgDefault: React.FC<ConfirmSetOrgDefaultProps> = ({
   selectedUUID,
   onClose,
   onConfirm,
-  ...rest
 }) => {
   return (
-    <Modal open={show} onClose={onClose} {...rest}>
-      <Modal.Header>Set Default Framework</Modal.Header>
-      <Modal.Content>
+    <Modal open={show} onClose={onClose} size="md">
+      <Modal.Header>
+        <Modal.Title>Set Default Framework</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
         <p>
-          Are you sure you want to set this organization as the campus default?
+          Are you sure you want to set this framework as the campus default?
           Users will be prompted to populate these tags by default when editing a
           file.
         </p>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button color="green" onClick={() => onConfirm(selectedUUID)}>
-          <Icon name="checkmark" /> Yes
+        <Button
+          variant="primary"
+          icon={<IconCheck size={16} />}
+          onClick={() => onConfirm(selectedUUID)}
+        >
+          Yes
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };
