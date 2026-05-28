@@ -334,7 +334,8 @@ const OrderView = () => {
               >
                 Lulu Job Information
               </h2>
-              <div className="rounded-lg bg-gray-50 p-8 text-sm flex flex-row justify-between">
+              <Card>
+              <Card.Body className="text-sm flex flex-row justify-between">
                 <div className="flex flex-col">
                   <div>
                     <dt className="font-medium text-gray-900">Lulu Job ID</dt>
@@ -381,7 +382,8 @@ const OrderView = () => {
                     Re-Submit Print Job
                   </Button>
                 </div>
-              </div>
+              </Card.Body>
+              </Card>
             </section>
           )}
 
@@ -393,7 +395,8 @@ const OrderView = () => {
               Summary
             </h2>
 
-            <div className="rounded-lg bg-gray-50 px-6 py-6 lg:grid lg:grid-cols-12 lg:gap-x-8 lg:px-0 lg:py-8">
+            <Card>
+            <Card.Body className="lg:grid lg:grid-cols-12 lg:gap-x-8">
               <dl className="grid grid-cols-1 gap-6 text-sm sm:grid-cols-2 md:gap-x-8 lg:col-span-5 lg:pl-8">
                 <div>
                   <dt className="font-medium text-gray-900">Shipping address</dt>
@@ -521,7 +524,8 @@ const OrderView = () => {
                   </dd>
                 </div>
               </dl>
-            </div>
+            </Card.Body>
+            </Card>
           </section>
         </div>
       </div>
