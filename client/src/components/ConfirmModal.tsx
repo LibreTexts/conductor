@@ -18,10 +18,6 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmColor = "green",
 }) => {
   const confirmVariant = confirmColor === "red" ? "destructive" : "primary";
-  const confirmClassName =
-    confirmColor === "green"
-      ? "!bg-green-600 hover:!bg-green-700 active:!bg-green-800 focus-visible:!ring-green-600"
-      : undefined;
 
   return (
     <Modal open={true} onClose={() => onCancel()} size="sm">
@@ -32,14 +28,10 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
         <p className="text-gray-700">{text}</p>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onCancel}>
+        <Button variant="outline" onClick={onCancel}>
           {cancelText}
         </Button>
-        <Button
-          variant={confirmVariant}
-          onClick={onConfirm}
-          className={confirmClassName}
-        >
+        <Button variant={confirmVariant} onClick={onConfirm}>
           {confirmText}
         </Button>
       </Modal.Footer>

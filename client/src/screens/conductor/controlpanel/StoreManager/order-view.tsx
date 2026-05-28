@@ -144,12 +144,12 @@ const OrderView = () => {
   }
 
   return (
-    <div className="bg-white h-full px-8 pt-8">
+    <div className="bg-white min-h-full px-8 pt-8 pb-8">
       <Stack direction="vertical" gap="md" className="mb-6">
         <Heading level={2}>LibreTexts Store Management</Heading>
       </Stack>
 
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div className="border border-gray-200 rounded-lg">
         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
           <Breadcrumb aria-label="Page navigation">
             <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
