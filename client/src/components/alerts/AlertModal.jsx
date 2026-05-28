@@ -6,7 +6,6 @@ import {
   Checkbox,
   Input,
   Modal,
-  RadioGroup,
   Select,
 } from '@libretexts/davis-react';
 import { IconPlus } from '@tabler/icons-react';
@@ -114,11 +113,6 @@ const AlertModal = ({
     label: f.text,
   }));
 
-  const timingOptions = alertTimingOptions.map((t) => ({
-    value: t.value,
-    label: `${t.text} ${t.description}`,
-  }));
-
   return (
     <Modal open={open} onClose={closeModalInternal} size="xl">
       <Modal.Header>
@@ -170,13 +164,20 @@ const AlertModal = ({
               />
             )}
 
-            <RadioGroup
-              name="timing"
-              label="Timing"
-              value={timing}
-              onChange={setTiming}
-              options={timingOptions}
-            />
+            <div>
+              <p className="text-sm font-semibold text-gray-900 mb-2">Timing</p>
+              <div className="space-y-2">
+                {alertTimingOptions.map((item) => (
+                  <Checkbox
+                    key={item.key}
+                    name={`timing-${item.key}`}
+                    label={`${item.text} ${item.description}`}
+                    checked={timing === item.value}
+                    onChange={() => setTiming(item.value)}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         ) : (
           <div className="space-y-3 text-sm">
