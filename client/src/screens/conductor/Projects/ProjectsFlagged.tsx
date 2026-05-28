@@ -1,38 +1,46 @@
-import "../../../components/projects/Projects.css";
-
 import {
-  Grid,
-  Header,
+  Heading,
+  IconButton,
   Input,
-  Segment,
-  Dropdown,
-  Pagination,
-  Breadcrumb,
-} from "semantic-ui-react";
-import { Link } from "react-router-dom";
+  Select,
+  Stack,
+  Tabs,
+} from "@libretexts/davis-react";
+import {
+  IconCheck,
+  IconChevronLeft,
+  IconChevronRight,
+  IconFlag,
+  IconFolderOpen,
+} from "@tabler/icons-react";
+import { useHistory, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import axios from "axios";
 
-import { itemsPerPageOptions } from "../../../components/util/PaginationOptions.js";
 import useGlobalError from "../../../components/error/ErrorHooks";
-import { useSearchParams } from "react-router-dom-v5-compat";
 import { Project } from "../../../types";
 import MyProjectsTable from "../../../components/projects/MyProjectsTable";
 
-const ProjectsFlagged = () => {
-  // Global Error Handling
-  const { handleGlobalError } = useGlobalError();
-  const [searchParams, setSearchParams] = useSearchParams();
+const ITEMS_OPTIONS = [
+  { value: "5", label: "5" },
+  { value: "10", label: "10" },
+  { value: "25", label: "25" },
+  { value: "50", label: "50" },
+  { value: "100", label: "100" },
+];
 
-  // UI
+const ProjectsFlagged = () => {
+  const { handleGlobalError } = useGlobalError();
+  const history = useHistory();
+  const location = useLocation();
+
   const [loadedProjects, setLoadedProjects] = useState(true);
   const [activePage, setActivePage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchString, setSearchString] = useState("");
-  const [sortChoice, setSortChoice] = useState("title");
+  const [sortChoice] = useState("title");
 
-  // Projects Data
   const [projects, setProjects] = useState<Project[]>([]);
   const [displayProjects, setDisplayProjects] = useState<Project[]>([]);
   const [pageProjects, setPageProjects] = useState<Project[]>([]);
@@ -42,11 +50,6 @@ const ProjectsFlagged = () => {
     getFlaggedProjects();
   }, []);
 
-  /**
-   * Track changes to the number of projects loaded
-   * and the selected itemsPerPage and update the
-   * set of projects to display.
-   */
   useEffect(() => {
     setTotalPages(Math.ceil(displayProjects.length / itemsPerPage));
     setPageProjects(
@@ -57,54 +60,28 @@ const ProjectsFlagged = () => {
     );
   }, [itemsPerPage, displayProjects, activePage]);
 
-  /**
-   * Filter and sort projects according to
-   * user's choices, then update the list.
-   */
   useEffect(() => {
     filterAndSortProjs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects, searchString, sortChoice]);
 
-  /**
-   * Filter and sort projects according to
-   * current filters and sort choice.
-   */
   const filterAndSortProjs = () => {
     setLoadedProjects(false);
-    let filtered = projects.filter((proj) => {
-      var include = true;
-      var descripString = String(proj.title).toLowerCase();
-      if (
-        searchString !== "" &&
-        String(descripString).indexOf(String(searchString).toLowerCase()) === -1
-      ) {
-        include = false;
-      }
-      if (include) {
-        return proj;
-      } else {
-        return false;
-      }
+    const filtered = projects.filter((proj) => {
+      const descripString = String(proj.title).toLowerCase();
+      return (
+        searchString === "" ||
+        descripString.indexOf(String(searchString).toLowerCase()) !== -1
+      );
     });
-    if (sortChoice === "title") {
-      const sorted = [...filtered].sort((a, b) => {
-        var normalA = String(a.title)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        var normalB = String(b.title)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        if (normalA < normalB) {
-          return -1;
-        }
-        if (normalA > normalB) {
-          return 1;
-        }
-        return 0;
-      });
-      setDisplayProjects(sorted);
-    }
+    const sorted = [...filtered].sort((a, b) => {
+      const normalA = String(a.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
+      const normalB = String(b.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
+      if (normalA < normalB) return -1;
+      if (normalA > normalB) return 1;
+      return 0;
+    });
+    setDisplayProjects(sorted);
     setLoadedProjects(true);
   };
 
@@ -120,86 +97,142 @@ const ProjectsFlagged = () => {
         } else {
           handleGlobalError(res.data.errMsg);
         }
-        setLoadedProjects(false);
+        setLoadedProjects(true);
       })
       .catch((err) => {
         handleGlobalError(err);
-        setLoadedProjects(false);
+        setLoadedProjects(true);
       });
   };
 
   return (
-    <Grid className="component-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">Flagged Projects</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/projects">
-                  My Projects
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>Flagged Projects</Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment>
-              <Input
-                icon="search"
-                iconPosition="left"
-                placeholder="Search available projects..."
-                onChange={(e) => {
-                  setSearchString(e.target.value);
-                }}
-                value={searchString}
-              />
-            </Segment>
-            <Segment>
-              <div className="flex-row-div">
-                <div className="left-flex">
-                  <span>Displaying </span>
-                  <Dropdown
-                    className="commons-content-pagemenu-dropdown"
-                    selection
-                    options={itemsPerPageOptions}
-                    onChange={(_e, { value }) => {
-                      setItemsPerPage(value as number);
-                    }}
-                    value={itemsPerPage}
-                  />
-                  <span>
-                    {" "}
-                    items per page of{" "}
-                    <strong>
-                      {Number(projects.length).toLocaleString()}
-                    </strong>{" "}
-                    results.
-                  </span>
-                </div>
-                <div className="right-flex">
-                  <Pagination
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    firstItem={null}
-                    lastItem={null}
-                    onPageChange={(_e, data) => {
-                      setActivePage(data.activePage as number);
-                    }}
-                  />
-                </div>
-              </div>
-            </Segment>
-            <Segment loading={!loadedProjects}>
-              <MyProjectsTable data={pageProjects} />
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+    <div className="bg-white h-full px-8 pt-8">
+      <Stack direction="row" className="justify-between items-center mb-6">
+        <Heading level={2}>Flagged Projects</Heading>
+      </Stack>
+
+      {(() => {
+        const tabRoutes = ["/projects/available", "/projects/completed", "/projects/flagged"];
+        const activeIdx = tabRoutes.findIndex((r) => location.pathname.startsWith(r));
+        return (
+          <Tabs
+            variant="pills"
+            color="white"
+            selectedIndex={activeIdx >= 0 ? activeIdx : 2}
+            onChange={(idx) => history.push(tabRoutes[idx])}
+            className="mb-4 max-w-lg"
+          >
+            <Tabs.List>
+              <Tabs.Tab>
+                <span className="flex items-center gap-1.5">
+                  <IconFolderOpen size={15} />
+                  Available Projects
+                </span>
+              </Tabs.Tab>
+              <Tabs.Tab>
+                <span className="flex items-center gap-1.5">
+                  <IconCheck size={15} />
+                  Completed Projects
+                </span>
+              </Tabs.Tab>
+              <Tabs.Tab>
+                <span className="flex items-center gap-1.5">
+                  <IconFlag size={15} />
+                  Flagged Projects
+                </span>
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs>
+        );
+      })()}
+
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="p-4 border-b border-gray-200 bg-gray-50">
+          <Input
+            placeholder="Search flagged projects..."
+            value={searchString}
+            onChange={(e) => setSearchString(e.target.value)}
+            className="w-80"
+          />
+        </div>
+
+        <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Displaying</span>
+            <Select
+              options={ITEMS_OPTIONS}
+              value={String(itemsPerPage)}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setActivePage(1);
+              }}
+            />
+            <span className="text-sm text-gray-600">
+              items per page of{" "}
+              <strong>{Number(projects.length).toLocaleString()}</strong> results.
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <IconButton
+              icon={<IconChevronLeft size={16} />}
+              aria-label="Previous page"
+              variant="ghost"
+              onClick={() => setActivePage((p) => p - 1)}
+              disabled={activePage <= 1}
+            />
+            <span className="text-sm text-gray-600 px-2">
+              {activePage} / {totalPages || 1}
+            </span>
+            <IconButton
+              icon={<IconChevronRight size={16} />}
+              aria-label="Next page"
+              variant="ghost"
+              onClick={() => setActivePage((p) => p + 1)}
+              disabled={activePage >= totalPages}
+            />
+          </div>
+        </div>
+
+        <MyProjectsTable data={pageProjects} loading={!loadedProjects} />
+
+        <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-t border-gray-200">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Displaying</span>
+            <Select
+              options={ITEMS_OPTIONS}
+              value={String(itemsPerPage)}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setActivePage(1);
+              }}
+            />
+            <span className="text-sm text-gray-600">
+              items per page of{" "}
+              <strong>{Number(projects.length).toLocaleString()}</strong> results.
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <IconButton
+              icon={<IconChevronLeft size={16} />}
+              aria-label="Previous page"
+              variant="ghost"
+              onClick={() => setActivePage((p) => p - 1)}
+              disabled={activePage <= 1}
+            />
+            <span className="text-sm text-gray-600 px-2">
+              {activePage} / {totalPages || 1}
+            </span>
+            <IconButton
+              icon={<IconChevronRight size={16} />}
+              aria-label="Next page"
+              variant="ghost"
+              onClick={() => setActivePage((p) => p + 1)}
+              disabled={activePage >= totalPages}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
