@@ -1,4 +1,5 @@
-import { Button, Dropdown, Icon, Modal, ModalProps } from "semantic-ui-react";
+import { Button, Modal, Select } from "@libretexts/davis-react";
+import { IconDeviceFloppy } from "@tabler/icons-react";
 import { useForm } from "react-hook-form";
 import { ProjectFile } from "../../types";
 import RenderTagFields from "./RenderTagFields";
@@ -7,7 +8,7 @@ import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
 import { cleanTagsForRequest } from "../../utils/assetHelpers";
 
-interface BulkTagModalProps extends ModalProps {
+interface BulkTagModalProps {
   projectID: string;
   fileIds: string[];
   onCancel: () => void;
@@ -19,7 +20,6 @@ const BulkTagModal: React.FC<BulkTagModalProps> = ({
   fileIds,
   onCancel,
   onSave,
-  ...props
 }) => {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"replace" | "append">("append");
@@ -50,9 +50,11 @@ const BulkTagModal: React.FC<BulkTagModalProps> = ({
   }
 
   return (
-    <Modal {...props} open={true} onClose={onCancel}>
-      <Modal.Header>Bulk Tag Files</Modal.Header>
-      <Modal.Content>
+    <Modal open={true} onClose={() => onCancel()} size="xl">
+      <Modal.Header>
+        <Modal.Title>Bulk Tag Files</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
         <p>These tags will be applied to {fileIds.length} files:</p>
         <RenderTagFields
           ref={tagFieldsRef}
@@ -60,32 +62,35 @@ const BulkTagModal: React.FC<BulkTagModalProps> = ({
           formState={formState}
         />
 
-        <p className="mt-8 mb-1 font-semibold">Choose how to apply the tags:</p>
-        <Dropdown
+        <p className="mt-10 mb-3 font-semibold">Choose how to apply the tags:</p>
+        <Select
+          name="bulk-tag-mode"
+          label="Tag apply mode"
+          labelClassName="sr-only"
           placeholder="Select mode"
           options={[
-            { key: "append", text: "Merge with existing tags", value: "append" },
-            { key: "replace", text: "Replace existing tags", value: "replace" },
+            { label: "Merge with existing tags", value: "append" },
+            { label: "Replace existing tags", value: "replace" },
           ]}
           value={mode}
-          onChange={(e, { value }) => setMode(value as "replace" | "append")}
-          fluid
-          selection
+          onChange={(e) => setMode(e.target.value as "replace" | "append")}
           className="mt-1 mb-4"
         />
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onCancel}>Cancel</Button>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
         <Button
-          color="green"
+          variant="primary"
           onClick={saveTags}
           disabled={watch("tags")?.length === 0}
           loading={loading}
+          icon={<IconDeviceFloppy size={16} />}
         >
-          <Icon name="save" />
           Save
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };

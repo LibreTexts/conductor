@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect } from "react";
 import axios from "axios";
-import { Modal, Button, Icon, Divider, Loader } from "semantic-ui-react";
-import FileIcon from "../FileIcon";
+import { Button, Modal } from "@libretexts/davis-react";
+import { IconFile, IconFolder } from "@tabler/icons-react";
 import FileTree from "../FileTree";
 import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
 import { _MoveFile, _MoveFileWithChildren } from "../../types";
+import LoadingSpinner from "../LoadingSpinner";
 
 
 interface MoveFilesProps {
@@ -135,46 +136,50 @@ const MoveFiles: React.FC<MoveFilesProps> = ({
   }
 
   return (
-    <Modal open={show} onClose={onClose} size="large">
-      <Modal.Header>Move Files</Modal.Header>
-      <Modal.Content scrolling>
+    <Modal open={show} onClose={() => onClose()} size="xl">
+      <Modal.Header>
+        <Modal.Title>Move Files</Modal.Title>
+      </Modal.Header>
+      <Modal.Body className="max-h-[70vh] overflow-y-auto">
         {!loading ? (
           <>
             <p>Select a new location for the following files:</p>
-            <ul className="my-8">
+            <ul className="my-8 space-y-2">
               {files.map((obj) => (
-                <li key={obj.fileID}>
+                <li key={obj.fileID} className="flex items-center gap-2">
                   {obj.storageType === "folder" ? (
-                    <Icon name="folder outline" />
+                    <IconFolder size={20} aria-hidden="true" />
                   ) : (
-                    <FileIcon filename={obj.name} />
+                    <IconFile size={20} aria-hidden="true" />
                   )}
-                  {obj.name}
+                  <span>{obj.name}</span>
                 </li>
               ))}
             </ul>
-            <Divider/>
+            <hr className="my-6 border-gray-200" />
             {!loadingLocs ? (
               <FileTree
                 items={locations}
                 onFolderActionClick={handleMove}
                 folderAction={
-                  <Button color="green" size="small" compact className="ml-1e">
+                  <Button variant="primary" size="sm" className="ml-2">
                     Move here
                   </Button>
                 }
               />
             ) : (
-              <Loader active inline="centered" className="mt-2r mb-2r" />
+              <LoadingSpinner />
             )}
           </>
         ) : (
-          <Loader active inline="centered" className="mt-2r mb-2r" />
+          <LoadingSpinner />
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-      </Modal.Actions>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+      </Modal.Footer>
     </Modal>
   );
 };
