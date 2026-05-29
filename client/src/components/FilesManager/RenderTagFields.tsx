@@ -5,17 +5,18 @@ import {
   AssetTagValue,
   ProjectFile,
 } from "../../types";
-import { Button, Icon, Table } from "semantic-ui-react";
+import { Button } from "@libretexts/davis-react";
+import { DataTable, ColumnDef } from "@libretexts/davis-react-table";
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { RenderTagInput } from "./RenderTagInput";
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import { isAssetTagKeyObject } from "../../utils/typeHelpers";
 import { useModals } from "../../context/ModalContext";
 import SelectFramework from "./SelectFramework";
 import { getInitValueFromTemplate } from "../../utils/assetHelpers";
 import api from "../../api";
 import { useQuery } from "@tanstack/react-query";
-import LoadingSpinner from "../LoadingSpinner";
 
 type RenderTagFieldsProps = {
   control: Control<ProjectFile, any>;
@@ -51,6 +52,59 @@ const RenderTagFields = forwardRef(
       control: props.control,
       name: "tags",
     });
+    const tagRows = fields.map((tag, index) => ({ tag, index }));
+
+    const tagColumns = useMemo<ColumnDef<(typeof tagRows)[number]>[]>(
+      () => [
+        {
+          id: "title",
+          header: "Tag Title",
+          cell: ({ row }) => {
+            const { tag, index } = row.original;
+            return tag.framework ? (
+              <p>
+                {isAssetTagKeyObject(tag.key) ? tag.key.title : tag.key}
+              </p>
+            ) : (
+              <CtlTextInput
+                name={`tags.${index}.key`}
+                control={props.control}
+                fluid
+              />
+            );
+          },
+        },
+        {
+          id: "value",
+          header: "Value",
+          cell: ({ row }) => {
+            const { tag, index } = row.original;
+            return (
+              <RenderTagInput
+                tag={tag}
+                index={index}
+                control={props.control}
+                formState={props.formState}
+              />
+            );
+          },
+        },
+        {
+          id: "actions",
+          header: "Actions",
+          cell: ({ row }) => (
+            <Button
+              variant="primary"
+              className="!bg-red-600 hover:!bg-red-700 active:!bg-red-800 focus-visible:!ring-red-600"
+              onClick={() => remove(row.original.index)}
+              aria-label="Remove tag"
+              icon={<IconTrash size={16} />}
+            />
+          ),
+        },
+      ],
+      [props.control, props.formState, remove]
+    );
 
     const { data: selectedFramework, isFetching } =
       useQuery<AssetTagFramework | null>({
@@ -149,66 +203,25 @@ const RenderTagFields = forwardRef(
 
     return (
       <>
-        <Table celled>
-          <Table.Header fullWidth>
-            <Table.Row key="header">
-              <Table.HeaderCell>Tag Title</Table.HeaderCell>
-              <Table.HeaderCell>Value</Table.HeaderCell>
-              <Table.HeaderCell width={1}>Actions</Table.HeaderCell>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {isFetching && <LoadingSpinner />}
-            {fields && fields.length > 0 ? (
-              fields.map((tag, index) => (
-                <Table.Row key={tag.id}>
-                  <Table.Cell>
-                    {tag.framework ? (
-                      <div className="flex flex-col">
-                        <p>
-                          {isAssetTagKeyObject(tag.key)
-                            ? tag.key.title
-                            : tag.key}
-                        </p>
-                      </div>
-                    ) : (
-                      <CtlTextInput
-                        name={`tags.${index}.key`}
-                        control={props.control}
-                        fluid
-                      />
-                    )}
-                  </Table.Cell>
-                  <Table.Cell>
-                    <RenderTagInput
-                      tag={tag}
-                      index={index}
-                      control={props.control}
-                      formState={props.formState}
-                    />
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Button
-                      color="red"
-                      icon="trash"
-                      onClick={() => remove(index)}
-                      className="!ml-1"
-                    ></Button>
-                  </Table.Cell>
-                </Table.Row>
-              ))
-            ) : (
-              <Table.Row>
-                <Table.Cell colSpan={3} className="text-center">
-                  No tags have been added to this file.
-                </Table.Cell>
-              </Table.Row>
-            )}
-          </Table.Body>
-        </Table>
-        <div className="flex flex-row">
+        <div className="border border-gray-200 rounded-lg overflow-hidden mt-4">
+          <DataTable
+            data={tagRows}
+            columns={tagColumns}
+            loading={isFetching}
+            density="compact"
+            bordered
+            striped
+            caption="Asset tags"
+            emptyState={
+              <div className="py-8 text-center">
+                No tags have been added to this file.
+              </div>
+            }
+          />
+        </div>
+        <div className="flex flex-row gap-4 mt-6 mb-6">
           <Button
-            color="blue"
+            variant="primary"
             onClick={() =>
               append({
                 uuid: crypto.randomUUID(),
@@ -216,12 +229,15 @@ const RenderTagFields = forwardRef(
                 value: "",
               })
             }
+            icon={<IconPlus size={16} />}
           >
-            <Icon name="plus" />
             Add Tag
           </Button>
-          <Button color="blue" onClick={() => openSelectFrameworkModal()}>
-            <Icon name="plus" />
+          <Button
+            variant="primary"
+            onClick={() => openSelectFrameworkModal()}
+            icon={<IconPlus size={16} />}
+          >
             Add From Framework
           </Button>
         </div>

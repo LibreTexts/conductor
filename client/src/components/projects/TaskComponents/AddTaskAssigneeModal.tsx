@@ -1,11 +1,5 @@
-import {
-  Modal,
-  Breadcrumb,
-  Dropdown,
-  Button,
-  Checkbox,
-  Icon,
-} from "semantic-ui-react";
+import { Button, Checkbox, Modal, Select } from "@libretexts/davis-react";
+import { IconChevronRight, IconPlus } from "@tabler/icons-react";
 
 interface AddTaskAssigneeModalProps {
   show: boolean;
@@ -38,82 +32,81 @@ const AddTaskAssigneeModal: React.FC<AddTaskAssigneeModalProps> = ({
   onRequestAdd,
   onClose,
 }) => {
+  const title = viewTaskData.hasOwnProperty("title")
+    ? viewTaskData.title
+    : "Loading...";
+  const parentTitle =
+    viewTaskData.parent && viewTaskData.parent !== ""
+      ? getParentTaskName(viewTaskData.parent)
+      : "";
+  const assigneeOptions = ataUsers.map((user) => ({
+    value: String(user.value),
+    label: String(user.text || user.label || user.value),
+  }));
+
   return (
-    <Modal open={show} onClose={onClose}>
+    <Modal open={show} onClose={() => onClose()} size="lg">
       <Modal.Header>
-        {viewTaskData.parent && viewTaskData.parent !== "" ? (
-          <Breadcrumb className="task-view-header-crumbs">
-            <Breadcrumb.Section
-              onClick={() => openViewTaskModal(viewTaskData.parent)}
-            >
-              {getParentTaskName(viewTaskData.parent)}
-            </Breadcrumb.Section>
-            <Breadcrumb.Divider icon="right chevron" />
-            <Breadcrumb.Section active>
-              <em>
-                {viewTaskData.hasOwnProperty("title")
-                  ? viewTaskData.title
-                  : "Loading..."}
-              </em>
-              : Add Assignee
-            </Breadcrumb.Section>
-          </Breadcrumb>
-        ) : (
-          <Breadcrumb className="task-view-header-crumbs">
-            <Breadcrumb.Section active>
-              <em>
-                {viewTaskData.hasOwnProperty("title")
-                  ? viewTaskData.title
-                  : "Loading..."}
-              </em>
-              : Add Assignee
-            </Breadcrumb.Section>
-          </Breadcrumb>
-        )}
+        <Modal.Title>
+          <span className="flex min-w-0 items-center gap-3">
+            {parentTitle && (
+              <>
+                <button
+                  type="button"
+                  className="truncate text-left text-blue-700 hover:underline"
+                  onClick={() => openViewTaskModal(viewTaskData.parent)}
+                >
+                  {parentTitle}
+                </button>
+                <IconChevronRight className="shrink-0 text-gray-400" size={30} />
+              </>
+            )}
+            <span className="truncate">
+              <em>{title}</em>: Add Assignee
+            </span>
+          </span>
+        </Modal.Title>
       </Modal.Header>
-      <Modal.Content scrolling className="modal-tall-content">
-        <p>
-          Select a user to assign to{" "}
-          <em>
-            {viewTaskData.hasOwnProperty("title")
-              ? viewTaskData.title
-              : "Loading..."}
-          </em>
-          .
+      <Modal.Body className="min-h-[18rem]">
+        <p className="mb-6 text-lg">
+          Select a user to assign to <em>{title}</em>.
         </p>
-        <Dropdown
-          placeholder="Select assignee or start typing to search......"
-          search
-          fluid
-          selection
-          loading={ataLoading}
-          options={ataUsers}
-          error={ataError}
+        <Select
+          name="task-assignee"
+          label="Task assignee"
+          labelClassName="sr-only"
+          placeholder="Select assignee..."
+          options={assigneeOptions}
           value={ataUUID}
-          onChange={(_e, { value }) => setATAUUID(value?.toString() ?? "")}
-          className={
-            !viewTaskData.parent || viewTaskData.parent === ""
-              ? "mb-2p"
-              : "mb-4p"
-          }
+          onChange={(e) => setATAUUID(e.target.value)}
+          disabled={ataLoading}
+          error={ataError}
+          className={!viewTaskData.parent || viewTaskData.parent === "" ? "mb-6" : "mb-4"}
         />
         {(!viewTaskData.parent || viewTaskData.parent === "") && (
           <Checkbox
-            toggle
+            name="assign-assignee-to-subtasks"
             checked={ataSubtasks}
-            onChange={(_e, data) => setATASubtasks(data.checked ?? false)}
+            onChange={setATASubtasks}
             label="Assign to all subtasks"
-            className="mb-2p"
           />
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button color="green" loading={ataLoading} onClick={onRequestAdd}>
-          <Icon name="add" />
-          Add Assignee
-        </Button>
-      </Modal.Actions>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex justify-end gap-4">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            loading={ataLoading}
+            onClick={onRequestAdd}
+            icon={<IconPlus size={18} />}
+          >
+            Add Assignee
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };
