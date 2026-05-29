@@ -6,15 +6,8 @@ import { marked } from 'marked';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import day_of_week from 'date-and-time/plugin/day-of-week';
-import {
-    Header,
-    Button,
-    Modal,
-    Icon,
-    Loader,
-    Form,
-    Input
-} from 'semantic-ui-react';
+import { Button, IconButton, Input, Modal, Spinner } from '@libretexts/davis-react';
+import { IconPlus, IconTrash } from '@tabler/icons-react';
 import Chat from '../Chat';
 import {
     isEmptyString,
@@ -201,29 +194,24 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin, defaultNotificationS
             <div id='conductor-messaging-threads'>
                 <div className='flex-row-div' id='conductor-messaging-threads-header-container'>
                     <div className='left-flex'>
-                        <Header as='h3'>Threads</Header>
+                        <span className="font-semibold text-base text-gray-800">Threads</span>
                     </div>
-                    <div className='right-flex'>
-                        <Button
-                            icon
-                            color='red'         
+                    <div className='right-flex flex items-center gap-1'>
+                        <IconButton
+                            icon={<IconTrash size={14} />}
+                            variant="destructive"
+                            size="sm"
                             onClick={openDelThreadModal}
                             disabled={activeThread === ''}
-                            className='mr-2p'
-                            fluid
                             aria-label='Delete Thread'
-                        >
-                            <Icon name='trash'/>
-                        </Button>
-                        <Button
-                            color='green'
+                        />
+                        <IconButton
+                            icon={<IconPlus size={14} />}
+                            variant="primary"
+                            size="sm"
                             onClick={openNewThreadModal}
-                            fluid
-                            icon
                             aria-label='Add Thread'
-                        >
-                           <Icon name='add'/>
-                        </Button>
+                        />
                     </div>
                 </div>
                 <div className='flex-col-div' id='conductor-messaging-threads-list-container'>
@@ -261,7 +249,7 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin, defaultNotificationS
                         <p className='text-center muted-text mt-4r pa-2p'><em>No threads yet. Create one above!</em></p>
                     }
                     {(!loadedThreads) &&
-                        <Loader active inline='centered' className='mt-4r' />
+                        <div className="flex justify-center mt-8"><Spinner /></div>
                     }
                 </div>
             </div>
@@ -279,67 +267,56 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin, defaultNotificationS
                 defaultNotificationSetting={defaultNotificationSetting}
             />
             {/* New Discussion Thread Modal */}
-            <Modal
-                open={showNewThreadModal}
-                onClose={closeNewThreadModal}
-            >
-                <Modal.Header>Create a Thread</Modal.Header>
-                <Modal.Content>
-                    <Form noValidate>
-                        <Form.Field>
-                            <label>Thread Title</label>
-                            <Input
-                                type='text'
-                                icon='comments'
-                                iconPosition='left'
-                                placeholder='Enter thread title or topic...'
-                                onChange={(e) => setNewThreadTitle(e.target.value)}
-                                value={newThreadTitle}
-                            />
-                        </Form.Field>
-                    </Form>
-                </Modal.Content>
-                <Modal.Actions>
-                    <Button
-                        onClick={closeNewThreadModal}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        color='green'
-                        loading={newThreadLoading}
-                        onClick={submitNewThread}
-                    >
-                        <Icon name='add' />
-                        Create Thread
-                    </Button>
-                </Modal.Actions>
+            <Modal open={showNewThreadModal} onClose={closeNewThreadModal}>
+                <Modal.Header>
+                    <Modal.Title>Create a Thread</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Input
+                        name="thread-title"
+                        label="Thread Title"
+                        type='text'
+                        placeholder='Enter thread title or topic...'
+                        onChange={(e) => setNewThreadTitle(e.target.value)}
+                        value={newThreadTitle}
+                    />
+                </Modal.Body>
+                <Modal.Footer>
+                    <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={closeNewThreadModal}>Cancel</Button>
+                        <Button
+                            variant="primary"
+                            loading={newThreadLoading}
+                            onClick={submitNewThread}
+                            icon={<IconPlus size={15} />}
+                        >
+                            Create Thread
+                        </Button>
+                    </div>
+                </Modal.Footer>
             </Modal>
             {/* Delete Discussion Thread Modal */}
-            <Modal
-                open={showDelThreadModal}
-                onClose={closeDelThreadModal}
-            >
-                <Modal.Header>Delete Thread</Modal.Header>
-                <Modal.Content>
+            <Modal open={showDelThreadModal} onClose={closeDelThreadModal}>
+                <Modal.Header>
+                    <Modal.Title>Delete Thread</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
                     <p>Are you sure you want to delete the <strong>{activeThreadTitle}</strong> thread?</p>
                     <p><strong>This will delete all messages within the thread. This action is irreversible.</strong></p>
-                </Modal.Content>
-                <Modal.Actions>
-                    <Button
-                        onClick={closeDelThreadModal}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        color='red'
-                        loading={delThreadLoading}
-                        onClick={submitDeleteThread}
-                    >
-                        <Icon name='trash' />
-                        Delete Thread
-                    </Button>
-                </Modal.Actions>
+                </Modal.Body>
+                <Modal.Footer>
+                    <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={closeDelThreadModal}>Cancel</Button>
+                        <Button
+                            variant="destructive"
+                            loading={delThreadLoading}
+                            onClick={submitDeleteThread}
+                            icon={<IconTrash size={15} />}
+                        >
+                            Delete Thread
+                        </Button>
+                    </div>
+                </Modal.Footer>
             </Modal>
         </div>
     )

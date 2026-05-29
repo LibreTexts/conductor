@@ -1,23 +1,27 @@
+import type { FC, ReactNode } from "react";
 import {
-  Modal,
-  Breadcrumb,
-  Header,
-  Dropdown,
+  Avatar,
+  Badge,
   Button,
-  Checkbox,
-  Icon,
-  Popup,
-  List,
-  Image,
-  Form,
-  Label,
-} from "semantic-ui-react";
+  Input as DavisInput,
+  Modal,
+  Select,
+  Tooltip,
+} from "@libretexts/davis-react";
+import {
+  IconCircleMinus,
+  IconDeviceFloppy,
+  IconEdit,
+  IconEye,
+  IconInfoCircle,
+  IconPlus,
+  IconTrash,
+  IconUsers,
+} from "@tabler/icons-react";
 import Chat from "../../Chat";
-import DateInput from "../../DateInput";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { User } from "../../../types";
-import Input from "../../NextGenInputs/Input"
 import { fromISODateOnly, toISODateOnly } from "../../../utils/misc";
 
 interface ViewTaskModalProps {
@@ -63,7 +67,91 @@ interface ViewTaskModalProps {
   onClose: () => void;
 }
 
-const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
+const DetailLabel = ({ children }: { children: ReactNode }) => (
+  <div className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-800">
+    {children}
+  </div>
+);
+
+const SectionHeader = ({
+  title,
+  info,
+  action,
+}: {
+  title: string;
+  info?: ReactNode;
+  action?: ReactNode;
+}) => (
+  <div className="mb-3 flex items-center gap-2 border-b border-gray-200 pb-2">
+    <h3 className="m-0 text-xl font-semibold text-gray-900">{title}</h3>
+    {info && (
+      <Tooltip content={info}>
+        <span className="inline-flex text-gray-600">
+          <IconInfoCircle size={18} />
+        </span>
+      </Tooltip>
+    )}
+    {action && <div className="ml-auto">{action}</div>}
+  </div>
+);
+
+const TooltipButton = ({
+  label,
+  icon,
+  onClick,
+  disabled,
+  loading,
+  variant = "primary",
+  className,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+  variant?: "primary" | "outline" | "destructive";
+  className?: string;
+}) => (
+  <Tooltip content={label}>
+    <span className="inline-flex">
+      <Button
+        variant={variant}
+        size="sm"
+        icon={icon}
+        aria-label={label}
+        onClick={onClick}
+        disabled={disabled}
+        loading={loading}
+        className={className}
+      />
+    </span>
+  </Tooltip>
+);
+
+const TaskListRow = ({
+  title,
+  status,
+  overdue,
+  actions,
+  renderStatusIndicator,
+}: {
+  title: string;
+  status: string;
+  overdue?: boolean;
+  actions: ReactNode;
+  renderStatusIndicator: (status: string) => JSX.Element;
+}) => (
+  <li className="flex items-center justify-between gap-3 border-b border-gray-100 py-3 last:border-b-0">
+    <div className="flex min-w-0 items-center gap-2">
+      <span className="project-task-title truncate">{title}</span>
+      {renderStatusIndicator(status)}
+      {overdue && <Badge label="OVERDUE" variant="danger" size="sm" />}
+    </div>
+    <div className="flex shrink-0 items-center gap-2">{actions}</div>
+  </li>
+);
+
+const ViewTaskModal: FC<ViewTaskModalProps> = ({
   show,
   user,
   projectID,
@@ -99,60 +187,82 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
   renderStatusIndicator,
   onClose,
 }) => {
+  const taskTitle = viewTaskData.hasOwnProperty("title")
+    ? viewTaskData.title
+    : "Loading...";
+
+  const statusOptions = createTaskOptions.map((option) => ({
+    value: String(option.value),
+    label: String(option.text || option.label || option.value),
+  }));
+
+  const parentTitle =
+    viewTaskData.parent && viewTaskData.parent !== ""
+      ? getParentTaskName(viewTaskData.parent)
+      : "";
+
+  const taskPath = parentTitle ? (
+    <span className="flex min-w-0 items-center gap-2">
+      <button
+        type="button"
+        className="truncate text-left text-blue-700 hover:underline"
+        onClick={() => openViewTaskModal(viewTaskData.parent)}
+      >
+        {parentTitle}
+      </button>
+      <span className="text-gray-400">/</span>
+      <em className="truncate text-gray-900">{taskTitle}</em>
+    </span>
+  ) : (
+    <em className="truncate text-gray-900">{taskTitle}</em>
+  );
+
+  const dependencyInfo = (
+    <span className="text-center">
+      Tasks that must be completed before{" "}
+      <em>{parentTitle ? `${parentTitle} > ${taskTitle}` : taskTitle}</em>.
+    </span>
+  );
+
+  const blockingInfo = (
+    <span className="text-center">
+      <em>{parentTitle ? `${parentTitle} > ${taskTitle}` : taskTitle}</em> must
+      be completed before these tasks.
+    </span>
+  );
+
   return (
-    <Modal open={show} onClose={onClose} size="fullscreen" closeIcon>
-      <Modal.Header>
-        {viewTaskData.parent && viewTaskData.parent !== "" ? (
-          <Breadcrumb className="task-view-header-crumbs">
-            <Breadcrumb.Section
-              onClick={() => openViewTaskModal(viewTaskData.parent)}
-            >
-              {getParentTaskName(viewTaskData.parent)}
-            </Breadcrumb.Section>
-            <Breadcrumb.Divider icon="right chevron" />
-            <Breadcrumb.Section active>
-              <em>
-                {viewTaskData.hasOwnProperty("title")
-                  ? viewTaskData.title
-                  : "Loading..."}
-              </em>
-            </Breadcrumb.Section>
-          </Breadcrumb>
-        ) : (
-          <Breadcrumb className="task-view-header-crumbs">
-            <Breadcrumb.Section active>
-              <em>
-                {viewTaskData.hasOwnProperty("title")
-                  ? viewTaskData.title
-                  : "Loading..."}
-              </em>
-            </Breadcrumb.Section>
-          </Breadcrumb>
-        )}
+    <Modal open={show} onClose={() => onClose()} size="full">
+      <Modal.Header className="flex items-center justify-between gap-4">
+        <Modal.Title className="min-w-0">{taskPath}</Modal.Title>
+        <Modal.Close aria-label="Close task details" />
       </Modal.Header>
-      <Modal.Content scrolling id="task-view-content">
-        <div className="flex-col-div">
-          <div className="flex-row-div" id="project-task-header">
+      <Modal.Body className="max-h-[80vh] overflow-y-auto p-0">
+        <div className="flex-col-div" id="task-view-content">
+          <div
+            className="grid gap-6 border-b border-gray-200 p-6 md:grid-cols-3 xl:grid-cols-6"
+            id="project-task-header"
+          >
             <div className="task-detail-div">
-              <Header sub>Status</Header>
-              <Dropdown
-                className={`compact button ${
-                  viewTaskData.status === "completed"
-                    ? "green"
-                    : viewTaskData.status === "inprogress"
-                    ? "blue"
-                    : "teal"
-                }`}
-                placeholder="Status.."
-                options={createTaskOptions}
-                value={viewTaskData.status}
-                loading={viewTaskStatusLoading}
-                onChange={submitTaskStatus}
-                disabled={!userProjectMember}
+              <DetailLabel>Status</DetailLabel>
+              <Select
+                name="task-status"
+                label="Status"
+                labelClassName="sr-only"
+                placeholder="Status..."
+                options={statusOptions}
+                value={viewTaskData.status || ""}
+                onChange={(e) =>
+                  submitTaskStatus(e, {
+                    value: e.target.value,
+                    name: "status",
+                  })
+                }
+                disabled={!userProjectMember || viewTaskStatusLoading}
               />
             </div>
             <div className="task-detail-div">
-              <Header sub>Created</Header>
+              <DetailLabel>Created</DetailLabel>
               <div className="task-detail-textdiv">
                 {viewTaskData.createdAtString ? (
                   <p>{viewTaskData.createdAtString}</p>
@@ -164,63 +274,53 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
               </div>
             </div>
             <div className="task-detail-div">
-              <Header sub>Start Date</Header>
+              <DetailLabel>Start Date</DetailLabel>
               {!viewTaskStartDateEdit && (
                 <div className="task-detail-textdiv">
-                  <p>
+                  <p className="flex items-center gap-2">
                     {viewTaskData.startDateString ? (
                       viewTaskData.startDateString
                     ) : (
                       <em>Not set</em>
                     )}
-                    <Icon
-                      name="pencil"
-                      className={`pl-4p ${
-                        userProjectMember && "cursor-pointer"
-                      }`}
+                    <TooltipButton
+                      label="Edit start date"
+                      icon={<IconEdit size={16} />}
                       onClick={() => editTaskDate("start")}
-                      color="grey"
                       disabled={!userProjectMember}
+                      variant="outline"
                     />
                   </p>
                 </div>
               )}
               {viewTaskStartDateEdit && (
-                <div className="task-detail-textdiv mt-3p">
-                  <Form>
-                    <Form.Group inline>
-                      <Form.Field inline>
-                        <Input
-                          name="startDate"
-                          type="date"
-                          value={toISODateOnly(viewTaskStartDateNew)}
-                          label=""
-                          onChange={(e) => {
-                            const parsed = fromISODateOnly(e.target.value);
-                            if (!parsed) return;
-                            setViewTaskStartDateNew(parsed);
-                          }}
-                        />
-                      </Form.Field>
-                      <Button
-                        icon
-                        className="mt-1p"
-                        onClick={() => saveTaskDate("start")}
-                        color="green"
-                        loading={viewTaskStartDateLoading}
-                      >
-                        <Icon name="save outline" />
-                      </Button>
-                    </Form.Group>
-                  </Form>
+                <div className="mt-3 flex items-end gap-2">
+                  <DavisInput
+                    name="startDate"
+                    type="date"
+                    value={toISODateOnly(viewTaskStartDateNew)}
+                    label="Start date"
+                    labelClassName="sr-only"
+                    onChange={(e) => {
+                      const parsed = fromISODateOnly(e.target.value);
+                      if (!parsed) return;
+                      setViewTaskStartDateNew(parsed);
+                    }}
+                  />
+                  <TooltipButton
+                    label="Save start date"
+                    icon={<IconDeviceFloppy size={16} />}
+                    onClick={() => saveTaskDate("start")}
+                    loading={viewTaskStartDateLoading}
+                  />
                 </div>
               )}
             </div>
             <div className="task-detail-div">
-              <Header sub>End/Due Date</Header>
+              <DetailLabel>End/Due Date</DetailLabel>
               {!viewTaskEndDateEdit && (
                 <div className="task-detail-textdiv">
-                  <p>
+                  <p className="flex items-center gap-2">
                     {viewTaskData.endDateString ? (
                       viewTaskData.endDateObj &&
                       viewTaskData.endDateObj instanceof Date &&
@@ -235,180 +335,115 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
                     ) : (
                       <em>Not set</em>
                     )}
-                    <Icon
-                      name="pencil"
-                      className={`pl-4p ${
-                        userProjectMember && "cursor-pointer"
-                      }`}
+                    <TooltipButton
+                      label="Edit end date"
+                      icon={<IconEdit size={16} />}
                       onClick={() => editTaskDate("end")}
-                      color="grey"
                       disabled={!userProjectMember}
+                      variant="outline"
                     />
                   </p>
                 </div>
               )}
               {viewTaskEndDateEdit && (
-                <div className="task-detail-textdiv mt-3p">
-                  <Form>
-                    <Form.Group inline>
-                      <Form.Field inline>
-                        <Input
-                          name="endDate"
-                          type="date"
-                          value={toISODateOnly(viewTaskEndDateNew)}
-                          label=""
-                          onChange={(e) =>{
-                            const parsed = fromISODateOnly(e.target.value);
-                            if (!parsed) return;
-                            setViewTaskEndDateNew(parsed)
-                          }}
-                        />
-                      </Form.Field>
-                      <Button
-                        icon
-                        className="mt-2p"
-                        onClick={() => saveTaskDate("end")}
-                        color="green"
-                        loading={viewTaskEndDateLoading}
-                      >
-                        <Icon name="save outline" />
-                      </Button>
-                    </Form.Group>
-                  </Form>
+                <div className="mt-3 flex items-end gap-2">
+                  <DavisInput
+                    name="endDate"
+                    type="date"
+                    value={toISODateOnly(viewTaskEndDateNew)}
+                    label="End date"
+                    labelClassName="sr-only"
+                    onChange={(e) => {
+                      const parsed = fromISODateOnly(e.target.value);
+                      if (!parsed) return;
+                      setViewTaskEndDateNew(parsed);
+                    }}
+                  />
+                  <TooltipButton
+                    label="Save end date"
+                    icon={<IconDeviceFloppy size={16} />}
+                    onClick={() => saveTaskDate("end")}
+                    loading={viewTaskEndDateLoading}
+                  />
                 </div>
               )}
             </div>
             <div className="task-detail-div">
-              <Header sub>Assignees</Header>
-              <div className="flex-row-div left-flex">
+              <DetailLabel>Assignees</DetailLabel>
+              <div className="flex-row-div left-flex gap-2">
                 {viewTaskData.hasOwnProperty("assignees") &&
                   viewTaskData.assignees.length > 0 &&
-                  viewTaskData.assignees.slice(0, 5).map((item: any, idx: number) => {
+                  viewTaskData.assignees.slice(0, 5).map((item: any) => {
+                    const name = `${item.firstName} ${item.lastName}`;
                     return (
-                      <Popup
-                        key={idx}
-                        trigger={
-                          <Image
-                            className="cursor-pointer"
-                            src={item.avatar}
-                            avatar
-                            key={item.uuid}
-                            onClick={() => {
-                              openRMTAModal(
-                                `${item.firstName} ${item.lastName}`,
-                                item.uuid
-                              );
-                            }}
-                          />
-                        }
-                        header={
+                      <Tooltip
+                        key={item.uuid}
+                        content={
                           <span>
-                            <strong>{`${item.firstName} ${item.lastName}`}</strong>{" "}
+                            <strong>{name}</strong>{" "}
                             <span className="color-semanticred">
                               (click to remove)
                             </span>
                           </span>
                         }
-                        position="top center"
-                      />
+                      >
+                        <button
+                          type="button"
+                          className="inline-flex"
+                          onClick={() => openRMTAModal(name, item.uuid)}
+                          disabled={!userProjectMember}
+                        >
+                          <Avatar src={item.avatar} name={name} size="sm" />
+                        </button>
+                      </Tooltip>
                     );
                   })}
-                  {
-                    (viewTaskData.hasOwnProperty('assignees') && viewTaskData.assignees.length > 5) && (
-                      <p className='muted-text'> + {viewTaskData.assignees.length - 5} more</p>
-                    )
-                  }
-                <Popup
-                  key="add-assignee"
-                  trigger={
-                    <Button
-                      size="tiny"
-                      circular
-                      icon="add"
-                      color="green"
-                      onClick={() => openATAModal(viewTaskData)}
-                      disabled={!userProjectMember}
-                    />
-                  }
-                  header={
-                    <span>
-                      <em>Add Assignee</em>
-                    </span>
-                  }
-                  position="top center"
+                {viewTaskData.hasOwnProperty("assignees") &&
+                  viewTaskData.assignees.length > 5 && (
+                    <p className="muted-text">
+                      + {viewTaskData.assignees.length - 5} more
+                    </p>
+                  )}
+                <TooltipButton
+                  label="Add Assignee"
+                  icon={<IconPlus size={16} />}
+                  onClick={() => openATAModal(viewTaskData)}
+                  disabled={!userProjectMember}
                 />
-                <Popup
-                  key="assign-all"
-                  trigger={
-                    <Button
-                      size="tiny"
-                      circular
-                      icon="users"
-                      color="blue"
-                      onClick={() => openAssignAllModal()}
-                      disabled={!userProjectMember}
-                    />
-                  }
-                  header={
-                    <span>
-                      <em>Assign All Members</em>
-                    </span>
-                  }
-                  position="top center"
+                <TooltipButton
+                  label="Assign All Members"
+                  icon={<IconUsers size={16} />}
+                  onClick={() => openAssignAllModal()}
+                  disabled={!userProjectMember}
                 />
               </div>
             </div>
-            <div className="task-actions-div">
-              <Header sub>Actions</Header>
-              <div className="flex-row-div left-flex">
-                <Popup
-                  key="edit-task"
-                  trigger={
-                    <Button
-                      size="tiny"
-                      icon="pencil"
-                      color="blue"
-                      onClick={() =>
-                        openManageTaskModal("edit", viewTaskData.taskID, null)
-                      }
-                      disabled={!userProjectMember}
-                    />
+            <div className="task-detail-div">
+              <DetailLabel>Actions</DetailLabel>
+              <div className="task-detail-textdiv gap-4">
+                <TooltipButton
+                  label="Edit Task"
+                  icon={<IconEdit size={16} />}
+                  onClick={() =>
+                    openManageTaskModal("edit", viewTaskData.taskID, null)
                   }
-                  header={
-                    <span>
-                      <em>Edit Task</em>
-                    </span>
-                  }
-                  position="top center"
+                  disabled={!userProjectMember}
                 />
-                <Popup
-                  key="delete-task"
-                  trigger={
-                    <Button
-                      size="tiny"
-                      icon="trash"
-                      color="red"
-                      onClick={() => openDeleteTaskModal(viewTaskData.taskID)}
-                      disabled={!userProjectMember}
-                    />
-                  }
-                  header={
-                    <span className="color-semanticred">
-                      <em>Delete Task</em>
-                    </span>
-                  }
-                  position="top center"
+                <TooltipButton
+                  label="Delete Task"
+                  icon={<IconTrash size={16} />}
+                  onClick={() => openDeleteTaskModal(viewTaskData.taskID)}
+                  disabled={!userProjectMember}
+                  variant="destructive"
                 />
               </div>
             </div>
           </div>
-          <div className="flex-row-div" id="project-task-page">
+          <div className="flex-row-div p-6" id="project-task-page">
             <div id="task-view-left">
               {viewTaskData.description && viewTaskData.description !== "" && (
                 <div className="mt-1p mb-4p">
-                  <Header as="h3" dividing>
-                    Description
-                  </Header>
+                  <SectionHeader title="Description" />
                   <p
                     className="word-break-word prose prose-code:before:hidden prose-code:after:hidden"
                     dangerouslySetInnerHTML={{
@@ -420,102 +455,48 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
                 </div>
               )}
               <div className="mt-2p mb-4p">
-                <div className="dividing-header-custom">
-                  <h3>Dependencies</h3>
-                  <Popup
-                    trigger={<Icon className="ml-05p" name="info circle" />}
-                    position="top center"
-                    content={
-                      <span className="text-center">
-                        Tasks that must be completed before{" "}
-                        <em>
-                          {viewTaskData.parent && viewTaskData.parent !== ""
-                            ? `${getParentTaskName(viewTaskData.parent)} > ${
-                                viewTaskData.hasOwnProperty("title")
-                                  ? viewTaskData.title
-                                  : "Loading..."
-                              }`
-                            : `${
-                                viewTaskData.hasOwnProperty("title")
-                                  ? viewTaskData.title
-                                  : "Loading..."
-                              }`}
-                        </em>
-                        .
-                      </span>
-                    }
-                  />
-                  <div className="right-flex">
-                    <Popup
-                      position="top center"
-                      trigger={
-                        <Button
-                          color="green"
-                          icon
-                          onClick={openATDModal}
-                          loading={atdLoading}
-                          disabled={!userProjectMember}
-                        >
-                          <Icon name="add" />
-                        </Button>
-                      }
-                      content="Add dependencies"
+                <SectionHeader
+                  title="Dependencies"
+                  info={dependencyInfo}
+                  action={
+                    <TooltipButton
+                      label="Add dependencies"
+                      icon={<IconPlus size={16} />}
+                      onClick={openATDModal}
+                      loading={atdLoading}
+                      disabled={!userProjectMember}
                     />
-                  </div>
-                </div>
+                  }
+                />
                 {viewTaskData.dependencies &&
                 Array.isArray(viewTaskData.dependencies) &&
                 viewTaskData.dependencies.length > 0 ? (
-                  <List
-                    divided
-                    verticalAlign="middle"
-                    className="project-task-list"
-                  >
-                    {viewTaskData.dependencies.map((depend: any) => {
-                      return (
-                        <List.Item
-                          className="project-task-subtask"
-                          key={depend.taskID}
-                        >
-                          <div className="flex-row-div">
-                            <div className="left-flex">
-                              <span className="project-task-title">
-                                {depend.title}
-                              </span>
-                              {renderStatusIndicator(depend.status)}
-                            </div>
-                            <div className="right-flex">
-                              <Popup
-                                content="Remove as dependency"
-                                trigger={
-                                  <Button
-                                    onClick={() => openRTDModal(depend)}
-                                    icon="remove circle"
-                                    color="red"
-                                    disabled={!userProjectMember}
-                                  />
-                                }
-                                position="top center"
-                              />
-                              <Popup
-                                content="View dependency"
-                                trigger={
-                                  <Button
-                                    onClick={() =>
-                                      openViewTaskModal(depend.taskID)
-                                    }
-                                    icon="eye"
-                                    color="blue"
-                                  />
-                                }
-                                position="top center"
-                              />
-                            </div>
-                          </div>
-                        </List.Item>
-                      );
-                    })}
-                  </List>
+                  <ul className="project-task-list divide-y divide-gray-100">
+                    {viewTaskData.dependencies.map((depend: any) => (
+                      <TaskListRow
+                        key={depend.taskID}
+                        title={depend.title}
+                        status={depend.status}
+                        renderStatusIndicator={renderStatusIndicator}
+                        actions={
+                          <>
+                            <TooltipButton
+                              label="Remove as dependency"
+                              icon={<IconCircleMinus size={16} />}
+                              onClick={() => openRTDModal(depend)}
+                              disabled={!userProjectMember}
+                              variant="destructive"
+                            />
+                            <TooltipButton
+                              label="View dependency"
+                              icon={<IconEye size={16} />}
+                              onClick={() => openViewTaskModal(depend.taskID)}
+                            />
+                          </>
+                        }
+                      />
+                    ))}
+                  </ul>
                 ) : (
                   <p className="text-center muted-text mt-2p">
                     <em>No dependencies yet. Add one above!</em>
@@ -526,148 +507,63 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
                 Array.isArray(viewTaskData.blocking) &&
                 viewTaskData.blocking.length > 0 && (
                   <div className="mt-4p mb-4p">
-                    <div className="dividing-header-custom">
-                      <h3>Blocking</h3>
-                      <Popup
-                        trigger={<Icon className="ml-05p" name="info circle" />}
-                        position="top center"
-                        content={
-                          <span className="text-center">
-                            <em>
-                              {viewTaskData.parent && viewTaskData.parent !== ""
-                                ? `${getParentTaskName(
-                                    viewTaskData.parent
-                                  )} > ${
-                                    viewTaskData.hasOwnProperty("title")
-                                      ? viewTaskData.title
-                                      : "Loading..."
-                                  }`
-                                : `${
-                                    viewTaskData.hasOwnProperty("title")
-                                      ? viewTaskData.title
-                                      : "Loading..."
-                                  }`}
-                            </em>{" "}
-                            must be completed before these tasks.
-                          </span>
-                        }
-                      />
-                    </div>
-                    <List
-                      divided
-                      verticalAlign="middle"
-                      className="project-task-list"
-                    >
-                      {viewTaskData.blocking.map((block: any) => {
-                        return (
-                          <List.Item
-                            className="project-task-subtask"
-                            key={block.taskID}
-                          >
-                            <div className="flex-row-div">
-                              <div className="left-flex">
-                                <span className="project-task-title">
-                                  {block.title}
-                                </span>
-                                {renderStatusIndicator(block.status)}
-                              </div>
-                              <div className="right-flex">
-                                <Popup
-                                  content="View blocked task"
-                                  trigger={
-                                    <Button
-                                      onClick={() =>
-                                        openViewTaskModal(block.taskID)
-                                      }
-                                      icon="eye"
-                                      color="blue"
-                                    />
-                                  }
-                                  position="top center"
-                                />
-                              </div>
-                            </div>
-                          </List.Item>
-                        );
-                      })}
-                    </List>
+                    <SectionHeader title="Blocking" info={blockingInfo} />
+                    <ul className="project-task-list divide-y divide-gray-100">
+                      {viewTaskData.blocking.map((block: any) => (
+                        <TaskListRow
+                          key={block.taskID}
+                          title={block.title}
+                          status={block.status}
+                          renderStatusIndicator={renderStatusIndicator}
+                          actions={
+                            <TooltipButton
+                              label="View blocked task"
+                              icon={<IconEye size={16} />}
+                              onClick={() => openViewTaskModal(block.taskID)}
+                            />
+                          }
+                        />
+                      ))}
+                    </ul>
                   </div>
                 )}
               {(viewTaskData.parent === undefined ||
                 viewTaskData.parent === "" ||
                 viewTaskData.parent === null) && (
                 <div className="mt-4p mb-4p">
-                  <div className="dividing-header-custom">
-                    <h3>Subtasks</h3>
-                    <div className="right-flex">
-                      <Popup
-                        position="top center"
-                        trigger={
-                          <Button
-                            color="green"
-                            icon
-                            onClick={() =>
-                              openManageTaskModal(
-                                "add",
-                                null,
-                                viewTaskData.taskID
-                              )
-                            }
-                            disabled={!userProjectMember}
-                          >
-                            <Icon name="add" />
-                          </Button>
+                  <SectionHeader
+                    title="Subtasks"
+                    action={
+                      <TooltipButton
+                        label="Add subtask"
+                        icon={<IconPlus size={16} />}
+                        onClick={() =>
+                          openManageTaskModal("add", null, viewTaskData.taskID)
                         }
-                        content="Add subtask"
+                        disabled={!userProjectMember}
                       />
-                    </div>
-                  </div>
+                    }
+                  />
                   {viewTaskData.hasOwnProperty("subtasks") &&
                   viewTaskData.subtasks.length > 0 ? (
-                    <List
-                      divided
-                      verticalAlign="middle"
-                      className="project-task-list"
-                    >
-                      {viewTaskData.subtasks.map((subtask: any) => {
-                        return (
-                          <List.Item
-                            className="project-task-subtask"
-                            key={subtask.taskID}
-                          >
-                            <div className="flex-row-div">
-                              <div className="left-flex">
-                                <span className="project-task-title">
-                                  {subtask.title}
-                                </span>
-                                {renderStatusIndicator(subtask.status)}
-                                {subtask.hasOwnProperty("overdue") &&
-                                  subtask.overdue === true && (
-                                    <Label color="red" className="ml-2p">
-                                      OVERDUE
-                                    </Label>
-                                  )}
-                              </div>
-                              <div className="right-flex">
-                                <Popup
-                                  content="View subtask"
-                                  trigger={
-                                    <Button
-                                      onClick={() =>
-                                        openViewTaskModal(subtask.taskID)
-                                      }
-                                      icon="eye"
-                                      color="blue"
-                                    />
-                                  }
-                                  position="top center"
-                                />
-                              </div>
-                            </div>
-                          </List.Item>
-                        );
-                      })}
-                    </List>
+                    <ul className="project-task-list divide-y divide-gray-100">
+                      {viewTaskData.subtasks.map((subtask: any) => (
+                        <TaskListRow
+                          key={subtask.taskID}
+                          title={subtask.title}
+                          status={subtask.status}
+                          overdue={subtask.overdue === true}
+                          renderStatusIndicator={renderStatusIndicator}
+                          actions={
+                            <TooltipButton
+                              label="View subtask"
+                              icon={<IconEye size={16} />}
+                              onClick={() => openViewTaskModal(subtask.taskID)}
+                            />
+                          }
+                        />
+                      ))}
+                    </ul>
                   ) : (
                     <p className="text-center muted-text mt-2p">
                       <em>No subtasks yet. Add one above!</em>
@@ -694,7 +590,7 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
             </div>
           </div>
         </div>
-      </Modal.Content>
+      </Modal.Body>
     </Modal>
   );
 };

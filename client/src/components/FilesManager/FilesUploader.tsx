@@ -1,15 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
-import {
-  Button,
-  Divider,
-  Form,
-  Icon,
-  Modal,
-  ModalProps,
-  Checkbox,
-} from "semantic-ui-react";
-import ProgressBar from "../ProgressBar";
+import { Button, Checkbox, Input, Modal, Progress } from "@libretexts/davis-react";
+import { IconDeviceFloppy, IconUpload } from "@tabler/icons-react";
 import useGlobalError from "../error/ErrorHooks";
 import FileUploader from "../FileUploader";
 import { z } from "zod";
@@ -19,24 +11,17 @@ import tusUpload from "../../utils/tusUpload";
 import { calculateVideoLength } from "../../utils/assetHelpers";
 import { supportTicketAttachmentAllowedTypes } from "../../utils/supportHelpers";
 
-type _AddProps = {
-  mode: "add";
-  directory: string;
-  projectHasDefaultLicense?: boolean;
-};
-
-type _ReplaceProps = {
-  mode: "replace";
-  fileID: string;
-};
-
-type FilesUploaderProps = ModalProps & {
+type FilesUploaderProps = {
   show: boolean;
   onClose: () => void;
   projectID: string;
   uploadPath: string;
   onFinishedUpload: () => void;
-} & (_AddProps | _ReplaceProps);
+  mode?: "add" | "replace";
+  directory?: string;
+  fileID?: string;
+  projectHasDefaultLicense?: boolean;
+};
 
 const MAX_ADD_FILES = 20;
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
@@ -54,14 +39,11 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
   onFinishedUpload,
   mode = "add",
   fileID,
-  ...props
 }) => {
-  // Global State &  Error Handling
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
   const org = useTypedSelector((state) => state.org);
 
-  // State
   const [loading, setLoading] = useState<boolean>(false);
   const [urlDisabled, setUrlDisabled] = useState<boolean>(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -70,13 +52,11 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
   const [urlInput, setUrlInput] = useState<string>("");
   const [overwriteName, setOverwriteName] = useState<boolean>(true);
   const [percentUploaded, setPercentUploaded] = useState<number>(0);
-  const [finishedFileTransfer, setFinishedFileTransfer] =
-    useState<boolean>(false);
+  const [finishedFileTransfer, setFinishedFileTransfer] = useState<boolean>(false);
   const abortControllerRef = useRef<AbortController>(new AbortController());
   const URL_SCHEMA = z.string().trim().url();
   const dirText = directory ? directory : "root";
 
-  // Reset URL input when modal is closed/opened
   useEffect(() => {
     if (show) {
       setUrlInput("");
@@ -85,7 +65,6 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
     }
   }, [show]);
 
-  // Disable file upload if URL is entered
   useEffect(() => {
     if (urlInput) {
       setFileDisabled(true);
@@ -94,7 +73,6 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
     }
   }, [urlInput]);
 
-  // Disable URL input if files are selected
   useEffect(() => {
     if (files.length > 0) {
       setUrlDisabled(true);
@@ -105,63 +83,26 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
 
   useEffect(() => {
     if (!urlInput) return;
-
     const result = URL_SCHEMA.safeParse(urlInput);
-    if (result.success) {
-      setValidURL(true);
-    } else {
-      setValidURL(false);
-    }
+    setValidURL(result.success);
   }, [urlInput]);
 
-  /**
-   * Handles upload to the server after files are collected using the FileUploader.
-   *
-   * @param {File[]} files - Files selected for upload by the user.
-   */
   async function handleUpload(files: File[]) {
     try {
-      if (!files || files.length === 0) {
-        return;
-      }
+      if (!files || files.length === 0) return;
 
       setLoading(true);
       const formData = new FormData();
       formData.append("parentID", uploadPath);
 
-      // If uploader exists in authors collection, add them as an author to the file
-      // if (mode === "add" && user) {
-      //   const authorsRes = await api.getAuthors({ query: user.email });
-      //   if (authorsRes.data.err) {
-      //     console.error(authorsRes.data.errMsg);
-      //   }
-      //   if (!authorsRes.data.authors) {
-      //     console.error("An error occurred while getting authors");
-      //   }
-
-      //   if (authorsRes.data.authors) {
-      //     const foundAuthor = authorsRes.data.authors.find(
-      //       (author) => author.email === user.email
-      //     );
-      //     if (foundAuthor && foundAuthor._id) {
-      //       formData.append("authors", [foundAuthor._id].toString());
-      //     }
-      //   }
-      // }
-
       if (mode === "replace") {
-        formData.append("overwriteName", overwriteName.toString()); // Only used for replace mode
+        formData.append("overwriteName", overwriteName.toString());
       }
 
       const videoFiles = files.filter((file) => file.type.startsWith("video"));
-      const standardFiles = files.filter(
-        (file) => !file.type.startsWith("video")
-      );
+      const standardFiles = files.filter((file) => !file.type.startsWith("video"));
 
-      const videoCheckPromises = videoFiles.map((file) => {
-        return calculateVideoLength(file);
-      });
-
+      const videoCheckPromises = videoFiles.map((file) => calculateVideoLength(file));
       const videoCheckResults = await Promise.allSettled(videoCheckPromises);
       videoCheckResults.forEach((result) => {
         if (result.status === "rejected" || !result.value) {
@@ -174,7 +115,6 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
         }
       });
 
-      // Handle video files with Cloudflare Stream
       const videoData: { videoID: string; videoName: string }[] = [];
       const videoPromises = videoFiles.map((file) => {
         return (async () => {
@@ -183,20 +123,13 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
             api.cloudflareStreamUploadURL,
             (progress) => {
               setPercentUploaded(progress / videoFiles.length);
-              if (
-                progress / videoFiles.length === 100 &&
-                standardFiles.length === 0
-              ) {
-                // If this is the last file to upload, set finished to true
+              if (progress / videoFiles.length === 100 && standardFiles.length === 0) {
                 setFinishedFileTransfer(true);
               }
             },
             abortControllerRef.current.signal,
-            {
-              maxDurationSeconds: org.videoLengthLimit * 60,
-            }
+            { maxDurationSeconds: org.videoLengthLimit * 60 }
           );
-
           if (!uploadId) throw new Error("Failed to upload video file");
           videoData.push({ videoID: uploadId, videoName: file.name });
         })();
@@ -208,7 +141,6 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
         formData.append("videoData", JSON.stringify(videoData));
       }
 
-      // Handle non-video files
       standardFiles.forEach((file) => {
         formData.append("files", file);
       });
@@ -232,19 +164,14 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
       const uploadRes =
         mode === "add"
           ? await api.addProjectFile(projectID, formData, opts)
-          : await api.replaceProjectFile_FormData(
-              projectID,
-              fileID,
-              formData,
-              opts
-            );
+          : await api.replaceProjectFile_FormData(projectID, fileID!, formData, opts);
 
       if (uploadRes.data.err) {
         throw new Error(uploadRes.data.errMsg);
       }
       cleanupFileUploader();
     } catch (e: any) {
-      if (e.message === "canceled") return; // Noop if canceled
+      if (e.message === "canceled") return;
       setLoading(false);
       handleGlobalError(e);
     }
@@ -253,8 +180,7 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
   async function handleURLUpload() {
     try {
       setLoading(true);
-
-      await URL_SCHEMA.parseAsync(urlInput); // Will throw if invalid URL
+      await URL_SCHEMA.parseAsync(urlInput);
 
       const formData = new FormData();
       formData.append("parentID", uploadPath);
@@ -276,7 +202,6 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
-
       cleanupFileUploader();
     } catch (err) {
       handleGlobalError(err);
@@ -290,7 +215,7 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
-      abortControllerRef.current = new AbortController(); // Reset abort controller
+      abortControllerRef.current = new AbortController();
       cleanupFileUploader();
     } catch (err) {
       handleGlobalError(err);
@@ -309,36 +234,33 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
   }
 
   return (
-    <Modal size="large" open={show} onClose={onClose} {...props}>
+    <Modal open={show} onClose={(v) => { if (!v) onClose(); }}>
       <Modal.Header>
-        {mode === "add" ? "Upload Files" : "Replace Files"}
+        <Modal.Title>{mode === "add" ? "Upload Files" : "Replace Files"}</Modal.Title>
       </Modal.Header>
-      <Modal.Content>
+      <Modal.Body>
         {!loading ? (
           <div>
             {mode === "replace" && (
-              <div className="flex flex-col justify-center items-center">
-                <p className="mb-2 text-center">
-                  <strong>Warning:</strong> Replacing an existing file with a
-                  new file or URL will remove and overwrite the old file. This
-                  action cannot be undone!
+              <div className="flex flex-col justify-center items-center mb-4">
+                <p className="mb-3 text-center">
+                  <strong>Warning:</strong> Replacing an existing file with a new file or URL
+                  will remove and overwrite the old file. This action cannot be undone!
                 </p>
                 <Checkbox
+                  name="overwrite-name"
                   label="Overwrite file name?"
-                  toggle
-                  className="mb-4"
                   checked={overwriteName}
-                  onChange={() => setOverwriteName(!overwriteName)}
+                  onChange={(checked) => setOverwriteName(checked)}
                 />
               </div>
             )}
             {mode === "add" && (
-              <p>
+              <p className="mb-3">
                 Files will be uploaded to the <strong>{dirText}</strong> folder.
-                Up to <strong>{MAX_ADD_FILES} files</strong> can be uploaded at
-                once, with a maximum of <strong>100 MB</strong> each. Your
-                organization has a video length limit of{" "}
-                <strong>{org.videoLengthLimit}</strong> minutes.
+                Up to <strong>{MAX_ADD_FILES} files</strong> can be uploaded at once,
+                with a maximum of <strong>100 MB</strong> each. Your organization has a
+                video length limit of <strong>{org.videoLengthLimit}</strong> minutes.
               </p>
             )}
 
@@ -351,89 +273,74 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
               disabled={fileDisabled}
               minFiles={1}
             />
-            <Divider horizontal>Or</Divider>
-            <div>
-              <Form onSubmit={(e) => e.preventDefault()}>
-                <div className="">
-                  <label className="form-field-label">
-                    Externally Hosted Asset URL{" "}
-                    <span className="italic">
-                      (this will not download the asset to Conductor)
-                    </span>
-                  </label>
-                  <Form.Input
-                    type="url"
-                    value={urlInput}
-                    onChange={(e) => setUrlInput(e.target.value)}
-                    placeholder="https://example.com/my-asset.png"
-                    disabled={urlDisabled}
-                    error={!validURL && urlInput ? true : false}
-                  />
-                  {!validURL && urlInput && (
-                    <p className="text-red-400 -mt-3">
-                      Please enter a valid URL.
-                    </p>
-                  )}
-                </div>
-              </Form>
+
+            <div className="flex items-center my-4">
+              <hr className="flex-1 border-gray-200" />
+              <span className="px-3 text-sm text-gray-500">Or</span>
+              <hr className="flex-1 border-gray-200" />
             </div>
+
+            <Input
+              name="url-input"
+              label="Externally Hosted Asset URL"
+              type="url"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              placeholder="https://example.com/my-asset.png"
+              disabled={urlDisabled}
+              error={!validURL && !!urlInput}
+              errorMessage={!validURL && urlInput ? "Please enter a valid URL." : undefined}
+              helperText="This will not download the asset to Conductor"
+            />
+
             {projectHasDefaultLicense && (
-              <p className="mt-4 text-center italic">
-                This project has a default license set for assets. You can
-                change the license information for this file after uploading as
-                needed.
+              <p className="mt-4 text-center italic text-sm text-gray-600">
+                This project has a default license set for assets. You can change the
+                license information for this file after uploading as needed.
               </p>
             )}
           </div>
         ) : (
-          <ProgressBar
-            id="upload-progress"
-            label={
-              <label
-                htmlFor="upload-progress"
-                className="block text-center mb-4 font-semibold"
-              >
-                {!finishedFileTransfer ? "Uploading..." : "Finishing..."}
-              </label>
-            }
+          <Progress
             value={percentUploaded}
-            max={100}
+            variant="success"
+            size="lg"
+            label={!finishedFileTransfer ? "Uploading..." : "Finishing..."}
+            showValue
           />
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        {!loading ? (
-          <Button onClick={onClose}>Cancel</Button>
-        ) : (
-          <Button onClick={handleCancelUpload}>Cancel Upload</Button>
-        )}
-        {urlInput && !urlDisabled && (
-          <Button
-            color="green"
-            icon
-            labelPosition="left"
-            disabled={!validURL}
-            loading={loading}
-            onClick={handleURLUpload}
-          >
-            <Icon name="save" />
-            Save URL
-          </Button>
-        )}
-        {files.length > 0 && !fileDisabled && (
-          <Button
-            color="green"
-            icon
-            labelPosition="left"
-            loading={loading}
-            onClick={() => handleUpload(files)}
-            disabled={fileDisabled || loading}
-          >
-            <Icon name="upload" />
-            Upload Files
-          </Button>
-        )}
-      </Modal.Actions>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex justify-end gap-2">
+          {!loading ? (
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+          ) : (
+            <Button variant="outline" onClick={handleCancelUpload}>Cancel Upload</Button>
+          )}
+          {urlInput && !urlDisabled && (
+            <Button
+              variant="primary"
+              icon={<IconDeviceFloppy size={15} />}
+              disabled={!validURL}
+              loading={loading}
+              onClick={handleURLUpload}
+            >
+              Save URL
+            </Button>
+          )}
+          {files.length > 0 && !fileDisabled && (
+            <Button
+              variant="primary"
+              icon={<IconUpload size={15} />}
+              loading={loading}
+              onClick={() => handleUpload(files)}
+              disabled={fileDisabled || loading}
+            >
+              Upload Files
+            </Button>
+          )}
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };

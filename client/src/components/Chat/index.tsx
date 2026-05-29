@@ -3,15 +3,8 @@ import PropTypes from 'prop-types';
 import axios from 'axios';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
-import {
-  Header,
-  Button,
-  Modal,
-  Icon,
-  Loader,
-  Comment,
-  Dropdown
-} from 'semantic-ui-react';
+import { Button, Comment, Modal, Select, Spinner } from '@libretexts/davis-react';
+import { IconSend } from '@tabler/icons-react';
 import TextArea from '../TextArea';
 import { isEmptyString } from '../util/HelperFunctions.js';
 import useGlobalError from '../error/ErrorHooks';
@@ -130,14 +123,10 @@ const Chat: FC<Chatinterface>= ({
 
   const [notifySetting, setNotifySetting] = useState(defaultNotificationSetting);
 
-  const notifySettingDropdownText = useMemo(() => {
-    if (notifySetting === 'specific') {
-      const modifier = teamToNotify.length > 1 ? 'people' : 'person';
-      return `Notify ${teamToNotify.length} ${modifier}`;
-    }
-    const foundOption = notificationOptions.find((item) => item.value === notifySetting);
-    return foundOption?.text;
-  }, [notifySetting, notificationOptions, teamToNotify]);
+  const notificationSelectOptions = useMemo(() =>
+    notificationOptions.map((opt) => ({ value: opt.value, label: opt.text })),
+    [notificationOptions]
+  );
 
   /**
    * Register plugins on load.
@@ -267,8 +256,9 @@ const Chat: FC<Chatinterface>= ({
    * @param {object} data - Data passed from the UI component.
    * @param {string[]} data.value - The updated list of selected team members. 
    */
-  function handleChangeTeamToNotify(_e:React.SyntheticEvent<HTMLElement, Event>, { value }: any) {
-    setTeamToNotify(value);
+  function handleChangeTeamToNotify(e: React.ChangeEvent<HTMLSelectElement>) {
+    const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
+    setTeamToNotify(values as any);
   }
 
   /**
@@ -279,8 +269,11 @@ const Chat: FC<Chatinterface>= ({
    * @param {object} data - Data passed from the UI component.
    * @param {string} data.value - The new notification setting. 
    */
-  function handleNotifySettingChange(_e:React.SyntheticEvent<HTMLElement, Event>, { value }:any) {
-    if (value !== 'specific') {
+  function handleNotifySettingChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const value = e.target.value;
+    if (value === 'specific') {
+      handleOpenNotifyPicker();
+    } else {
       setNotifySetting(value);
     }
   };
@@ -289,65 +282,59 @@ const Chat: FC<Chatinterface>= ({
     <div id="conductor-chat">
       <div id="conductor-chat-msgs-header-container">
         <div className="left-flex">
-          <Header as="h3">
-            {(activeThreadTitle !== '')
-              ? <em>{activeThreadTitle}</em>
-              : <span>Messages</span>
-            }
-          </Header>
+          <span className="font-semibold text-base text-gray-800">
+            {activeThreadTitle !== '' ? <em>{activeThreadTitle}</em> : 'Messages'}
+          </span>
         </div>
         <div className="right-flex" id="conductor-chat-msgs-header-options"></div>
       </div>
       <div id="conductor-chat-window">
         {(loadedThreadMsgs && activeThreadMsgs.length > 0) && (
-          <Comment.Group id="conductor-chat-msgs">
+          <div id="conductor-chat-msgs">
             {activeThreadMsgs.map((item) => {
               const today = new Date();
               const itemDate = new Date(item.createdAt);
-              if (today.getDate() === itemDate.getDate()) { // today
+              if (today.getDate() === itemDate.getDate()) {
                 item.date = 'Today';
               } else {
-               item.date = format(itemDate, 'MMM do, yyyy')
+                item.date = format(itemDate, 'MMM do, yyyy');
               }
               item.time = format(itemDate, 'h:mm a');
               const readyMsgBody = {
                 __html: DOMPurify.sanitize(marked(item.body, { breaks: true }))
               };
               return (
-                <Comment className="conductor-chat-msg" key={item.messageID}>
-                  <Comment.Avatar src={item.author?.avatar || '/mini_logo.png'} />
-                  <Comment.Content>
-                    <Comment.Author as="span">
-                      {item.author?.firstName} {item.author?.lastName}
-                    </Comment.Author>
-                    <Comment.Metadata>
-                      <div><span>{item.date} at {item.time}</span></div>
-                    </Comment.Metadata>
-                    <Comment.Text
+                <Comment key={item.messageID} className="conductor-chat-msg">
+                  <Comment.Header
+                    avatar={{ src: item.author?.avatar || '/mini_logo.png', name: `${item.author?.firstName} ${item.author?.lastName}` }}
+                    name={`${item.author?.firstName} ${item.author?.lastName}`}
+                  >
+                    <span className="text-xs text-gray-500 ml-2">{item.date} at {item.time}</span>
+                    {((item.author?.uuid === user.uuid) || isProjectAdmin) && (
+                      <button
+                        className="conductor-chat-del text-xs text-gray-400 ml-2"
+                        onClick={() => handleOpenDeleteMessage(item.messageID)}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </Comment.Header>
+                  <Comment.Body>
+                    <div
                       className="conductor-chat-msg-body !prose prose-code:before:hidden prose-code:after:hidden !max-w-none"
                       dangerouslySetInnerHTML={readyMsgBody}
                     />
-                    {((item.author?.uuid === user.uuid) || isProjectAdmin) && (
-                      <Comment.Actions>
-                        <Comment.Action className="conductor-chat-del"
-                          
-                          onClick={() => handleOpenDeleteMessage(item.messageID)}
-                        >
-                          Delete
-                        </Comment.Action>
-                      </Comment.Actions>
-                    )}
-                  </Comment.Content>
+                  </Comment.Body>
                 </Comment>
-              )
+              );
             })}
-          </Comment.Group>
+          </div>
         )}
         {(loadedThreadMsgs && activeThreadMsgs.length === 0) && (
           <p className="text-center muted-text mt-4r"><em>No messages yet. Send one below!</em></p>
         )}
         {(!loadedThreadMsgs && activeThread !== '') && (
-          <Loader active inline="centered" className="mt-4r" />
+          <div className="flex justify-center mt-8"><Spinner /></div>
         )}
         {(activeThread === '' && activeThreadMsgs.length === 0) && (
           <p className="text-center muted-text mt-4r">
@@ -362,78 +349,88 @@ const Chat: FC<Chatinterface>= ({
         <div ref={chatWindowBottom} />
       </div>
       <div id="conductor-chat-reply-container">
-        <div id="replycontainer-left">
-          <TextArea
-            placeholder="Send a message..."
-            textValue={messageCompose}
-            onTextChange={(value) => setMessageCompose(value)}
-            contentType="message"
-            rows={1}
-            maxLength={2000}
+        <TextArea
+          placeholder="Send a message..."
+          textValue={messageCompose}
+          onTextChange={(value) => setMessageCompose(value)}
+          contentType="message"
+          hideFormatMsg
+          rows={1}
+          maxLength={2000}
+        />
+        <div id="replycontainer-actions">
+          <Select
+            id="replycontainer-notifydropdown"
+            name="chat-notification-setting"
+            label="Notification setting"
+            labelClassName="sr-only"
+            placeholder="Notify..."
+            options={notificationSelectOptions}
+            value={notifySetting}
+            onChange={handleNotifySettingChange}
+            selectClassName="text-sm"
           />
-        </div>
-        <div id="replycontainer-right">
           <Button
             id="replycontainer-sendbutton"
-            color="blue"
+            variant="primary"
             disabled={activeThread === '' || messageCompose === '' || messageCompose.length > 2000}
             loading={messageSending}
             onClick={sendMessage}
-            fluid
+            icon={<IconSend size={15} />}
           >
-            <Icon name="send" />
             Send
           </Button>
-          <Dropdown
-            id="replycontainer-notifydropdown"
-            options={notificationOptions}
-            selection
-            value={notifySetting}
-            onChange={(e,data)=>handleNotifySettingChange(e,data)}
-            text={notifySettingDropdownText}
-          />
         </div>
       </div>
       {/* Notify People Picker */}
       <Modal open={showNotifyPicker} onClose={handleCloseNotifyPicker}>
-        <Modal.Header>Choose People to Notify</Modal.Header>
-        <Modal.Content>
-          <p>Choose which team members to notify</p>
-          <Dropdown
-            placeholder="Team members..."
-            fluid
-            multiple
-            search
-            selection
-            options={projectTeam}
-            onChange={(e,data)=>handleChangeTeamToNotify(e,data)}
-            value={teamToNotify}
-            loading={loadingTeam}
-          />
-        </Modal.Content>
-        <Modal.Actions>
-          <Button color="blue" loading={loadingTeam} onClick={handleSetTeamToNotify}>Done</Button>
-        </Modal.Actions>
+        <Modal.Header>
+          <Modal.Title>Choose People to Notify</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="mb-2">Choose which team members to notify</p>
+          {loadingTeam ? (
+            <div className="flex justify-center py-4"><Spinner /></div>
+          ) : (
+            <select
+              multiple
+              size={5}
+              className="w-full border border-gray-300 rounded p-2 text-sm"
+              onChange={handleChangeTeamToNotify}
+              value={teamToNotify as string[]}
+            >
+              {(projectTeam as any[]).map((item) => (
+                <option key={item.key} value={item.value}>{item.text}</option>
+              ))}
+            </select>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <div className="flex justify-end">
+            <Button variant="primary" loading={loadingTeam} onClick={handleSetTeamToNotify}>Done</Button>
+          </div>
+        </Modal.Footer>
       </Modal>
       {/* Delete Discussion Message Modal */}
       <Modal open={showDelMsgModal} onClose={handleCloseDeleteMessage}>
-        <Modal.Header>Delete Message</Modal.Header>
-        <Modal.Content>
+        <Modal.Header>
+          <Modal.Title>Delete Message</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
           <p>
-            {'Are you sure you want to this message? '}
+            {'Are you sure you want to delete this message? '}
             <span className="muted-text">(MessageID: {delMsgID})</span>
           </p>
           <p><strong>This action is irreversible.</strong></p>
-        </Modal.Content>
-        <Modal.Actions>
-          <Button onClick={handleCloseDeleteMessage}>
-            Cancel
-          </Button>
-          <Button color="red" loading={delMsgLoading} onClick={submitDeleteMessage}>
-            <Icon name="trash" />
-            Delete Message
-          </Button>
-        </Modal.Actions>
+        </Modal.Body>
+        <Modal.Footer>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={handleCloseDeleteMessage}>Cancel</Button>
+            <Button variant="destructive" loading={delMsgLoading} onClick={submitDeleteMessage}>
+              Delete Message
+            </Button>
+          </div>
+        </Modal.Footer>
       </Modal>
     </div>
   )

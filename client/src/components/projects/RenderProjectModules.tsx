@@ -1,24 +1,34 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Button,
-  Dropdown,
+  Avatar,
+  Badge,
+  Button as DavisButton,
+  Input,
+  Tooltip,
+} from "@libretexts/davis-react";
+import {
   Grid,
   Header,
-  Icon,
-  Image,
-  Label,
-  List,
-  Popup,
-  Search,
   Segment,
 } from "semantic-ui-react";
 import Messaging from "../Messaging";
 import FilesManager from "../FilesManager";
-import { Link } from "react-router-dom";
+import { useHistory } from "react-router-dom";
 import Breakpoint from "../util/Breakpoints";
 import { DEFAULT_PROJECT_MODULES } from "../../utils/projectHelpers";
 import { useTypedSelector } from "../../state/hooks";
-import SearchableDropdown from "../util/SearchableDropdown";
+import {
+  IconCalendarTime,
+  IconArrowsDownUp,
+  IconChevronDown,
+  IconChevronRight,
+  IconCopyPlus,
+  IconEye,
+  IconPlus,
+  IconSearch,
+  IconTrash,
+  IconUsers,
+} from "@tabler/icons-react";
 
 interface RenderProjectModulesProps {
   projectID: string;
@@ -49,7 +59,7 @@ interface RenderProjectModulesProps {
   mngTaskLoading: boolean;
   libreLibrary?: string;
   libreCoverID?: string;
-  getTeamMemberOptions: (projData: any) => { value: string; label: string }[];
+  getTeamMemberOptions: (projData: any) => { value: string; label: string; image?: string }[];
 }
 
 const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
@@ -79,26 +89,106 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
   libreCoverID,
   getTeamMemberOptions
 }) => {
+  const history = useHistory();
   const [showDiscussion, setShowDiscussion] = useState(true);
   const [showFiles, setShowFiles] = useState(true);
 
   const [selectedValue, setSelectedValue] = useState<string>('');
+  const [assigneeFilterOpen, setAssigneeFilterOpen] = useState(false);
+
+  const taskAssigneeOptions = useMemo(
+    () => {
+      if (!project || !Object.keys(project).length) {
+        return [{ value: "", label: "All assignees" }];
+      }
+
+      return [
+        { value: "", label: "All assignees" },
+        ...getTeamMemberOptions(project),
+      ];
+    },
+    [project, getTeamMemberOptions]
+  );
+
+  const selectedAssigneeLabel = taskAssigneeOptions.find(
+    (option) => option.value === selectedValue
+  )?.label || "Filter by...";
+
+  const renderAssigneeAvatars = (assignees: any[]) => {
+    if (!Array.isArray(assignees) || assignees.length === 0) return null;
+
+    return (
+      <>
+        {assignees.slice(0, 5).map((assignee: any, assignIdx: number) => {
+          if (!assignee.uuid || !assignee.firstName || !assignee.lastName) {
+            return null;
+          }
+          const name = `${assignee.firstName} ${assignee.lastName}`;
+          return (
+            <Tooltip key={`${assignee.uuid}-${assignIdx}`} content={<strong>{name}</strong>}>
+              <span className="inline-flex">
+                <Avatar
+                  className="cursor-pointer"
+                  src={assignee.avatar || "/mini_logo.png"}
+                  name={name}
+                  size="sm"
+                />
+              </span>
+            </Tooltip>
+          );
+        })}
+        {assignees.length > 5 && (
+          <span className="muted-text">+ {assignees.length - 5} more</span>
+        )}
+      </>
+    );
+  };
+
+  const renderTaskActionButton = ({
+    label,
+    icon,
+    onClick,
+    disabled,
+    className,
+    variant = "primary",
+  }: {
+    label: string;
+    icon: JSX.Element;
+    onClick: () => void;
+    disabled?: boolean;
+    className: string;
+    variant?: "primary" | "outline" | "destructive";
+  }) => (
+    <Tooltip content={label}>
+      <span className="ml-2 inline-flex">
+        <DavisButton
+          variant={variant}
+          size="sm"
+          aria-label={label}
+          icon={icon}
+          onClick={onClick}
+          disabled={disabled}
+          className={className}
+        />
+      </span>
+    </Tooltip>
+  );
 
   const DiscussionModule = useMemo(() => {
     return (
       <Grid.Row key={"discussion-module"}>
         {canViewDetails && showDiscussion && (
           <Grid.Column>
-            <Header as="h2" dividing>
-              Discussion
-              <Button
-                compact
-                floated="right"
+            <div className="flex items-center justify-between mb-3 border-b border-gray-200 pb-2">
+              <Header as="h2" style={{ margin: 0 }}>Discussion</Header>
+              <DavisButton
+                variant="outline"
+                size="sm"
                 onClick={() => setShowDiscussion(!showDiscussion)}
               >
                 Hide
-              </Button>
-            </Header>
+              </DavisButton>
+            </div>
             <Segment
               size="large"
               raised
@@ -117,15 +207,18 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
         {canViewDetails && !showDiscussion && (
           <Grid.Column>
             <Segment raised clearing>
-              <Header as="h2" className="project-hiddensection-heading">
-                Discussion
-              </Header>
-              <Button
-                floated="right"
-                onClick={() => setShowDiscussion(!showDiscussion)}
-              >
-                Show
-              </Button>
+              <div className="flex items-center justify-between">
+                <Header as="h2" className="project-hiddensection-heading" style={{ margin: 0 }}>
+                  Discussion
+                </Header>
+                <DavisButton
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDiscussion(!showDiscussion)}
+                >
+                  Show
+                </DavisButton>
+              </div>
             </Segment>
           </Grid.Column>
         )}
@@ -150,29 +243,33 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
 
   const FilesModule = useMemo(() => {
     return (
-      <Grid.Row key={"files-module"}>
+      <Grid.Row key={"files-module"} className="!mt-6">
         {showFiles && (
-          <FilesManager
-            key={"files-manager"}
-            projectID={projectID}
-            toggleFilesManager={() => setShowFiles(!showFiles)}
-            canViewDetails={canViewDetails}
-            projectHasDefaultLicense={
-              project.defaultFileLicense &&
-              Object.keys(project.defaultFileLicense).length > 0
-            }
-            projectVisibility={project.visibility}
-          />
+          <Grid.Column className="!w-full">
+            <FilesManager
+              key={"files-manager"}
+              projectID={projectID}
+              toggleFilesManager={() => setShowFiles(!showFiles)}
+              canViewDetails={canViewDetails}
+              projectHasDefaultLicense={
+                project.defaultFileLicense &&
+                Object.keys(project.defaultFileLicense).length > 0
+              }
+              projectVisibility={project.visibility}
+            />
+          </Grid.Column>
         )}
         {!showFiles && (
           <Grid.Column>
             <Segment raised clearing>
-              <Header as="h2" className="project-hiddensection-heading">
-                Assets
-              </Header>
-              <Button floated="right" onClick={() => setShowFiles(!showFiles)}>
-                Show
-              </Button>
+              <div className="flex items-center justify-between">
+                <Header as="h2" className="project-hiddensection-heading" style={{ margin: 0 }}>
+                  Assets
+                </Header>
+                <DavisButton variant="outline" size="sm" onClick={() => setShowFiles(!showFiles)}>
+                  Show
+                </DavisButton>
+              </div>
             </Segment>
           </Grid.Column>
         )}
@@ -206,7 +303,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
 
   const TasksModule = useMemo(() => {
     return (
-      <Grid.Row key={"tasks-module"}>
+      <Grid.Row key={"tasks-module"} className="!mt-8">
         {canViewDetails && (
           <Grid.Column>
             <Header as="h2" dividing>
@@ -224,75 +321,140 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                       flex: '1 1 auto', 
                       minWidth: '200px',
                       display: 'flex',
-                      gap: '0.5rem',
-                      flexWrap: 'wrap'
+                      justifyContent: 'space-between',
+                      gap: '1rem',
+                      flexWrap: 'wrap',
+                      width: '100%'
                     }}>
-                      <Search
-                        input={{
-                          icon: "search",
-                          iconPosition: "left",
-                          placeholder: "Search tasks...",
+                      <div className="relative flex-1 min-w-[220px] max-w-md">
+                        <Input
+                          name="task-search"
+                          label="Search tasks"
+                          labelClassName="sr-only"
+                          placeholder="Search tasks..."
+                          value={taskSearchQuery}
+                          onChange={(e) =>
+                            handleTaskSearch(e, { value: e.target.value })
+                          }
+                          leftIcon={<IconSearch size={18} />}
+                        />
+                        {taskSearchResults.length > 0 && (
+                          <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg">
+                            {taskSearchResults.map((result: any) => (
+                              <button
+                                key={result.id}
+                                type="button"
+                                className="block w-full px-3 py-2 text-left hover:bg-gray-50"
+                                onClick={() => openViewTaskModal(result.id)}
+                              >
+                                <span className="block font-medium">
+                                  {result.title}
+                                </span>
+                                {result.description && (
+                                  <span className="block truncate text-sm text-gray-500">
+                                    {result.description}
+                                  </span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div
+                        className="relative min-w-[220px] max-w-sm"
+                        onBlur={(event) => {
+                          if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                            setAssigneeFilterOpen(false);
+                          }
                         }}
-                        loading={taskSearchLoading}
-                        onResultSelect={(_e, { result }) =>
-                          openViewTaskModal(result.id)
-                        }
-                        onSearchChange={handleTaskSearch}
-                        results={taskSearchResults}
-                        value={taskSearchQuery}
-                        style={{ flex: '1 1 250px', minWidth: '150px' }}
-                      />
-                      <SearchableDropdown
-                        options={getTeamMemberOptions(project)}
-                        placeholder="Filter by..."
-                        value={selectedValue}
-                        onChange={(value) => {
-                          setSelectedValue(Array.isArray(value) ? value[0] : value);
-                        }}
-                      />
+                      >
+                        <DavisButton
+                          variant="outline"
+                          fullWidth
+                          className="justify-between"
+                          icon={
+                            selectedValue ? (
+                              <Avatar
+                                src={taskAssigneeOptions.find((option) => option.value === selectedValue)?.image}
+                                name={selectedAssigneeLabel}
+                                size="xs"
+                              />
+                            ) : (
+                              <IconUsers size={16} />
+                            )
+                          }
+                          iconPosition="left"
+                          onClick={() => setAssigneeFilterOpen((open) => !open)}
+                          aria-haspopup="listbox"
+                          aria-expanded={assigneeFilterOpen}
+                        >
+                          {selectedAssigneeLabel}
+                        </DavisButton>
+                        {assigneeFilterOpen && (
+                          <div
+                            className="absolute right-0 z-50 mt-1 w-full overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg"
+                            role="listbox"
+                            aria-label="Filter tasks by assignee"
+                          >
+                            {taskAssigneeOptions.map((option) => (
+                              <button
+                                key={option.value || "all-assignees"}
+                                type="button"
+                                className={`flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 ${
+                                  selectedValue === option.value ? "bg-blue-50 text-blue-700" : ""
+                                }`}
+                                role="option"
+                                aria-selected={selectedValue === option.value}
+                                onClick={() => {
+                                  setSelectedValue(option.value);
+                                  setAssigneeFilterOpen(false);
+                                }}
+                              >
+                                <Avatar src={option.image} name={option.label} size="xs" />
+                                <span>{option.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="right-flex">
-                    <Button.Group fluid className="flex flex-wrap">
-                      <Button
-                        color="olive"
-                        as={Link}
-                        to={`${url}/timeline`}
-                        aria-label="Timeline"
+                    <div className="grid w-full grid-cols-4 gap-3">
+                      <DavisButton
+                        variant="outline"
+                        onClick={() => history.push(`${url}/timeline`)}
+                        icon={<IconCalendarTime size={16} />}
                       >
-                        <Icon name="clock outline" />
                         <Breakpoint name="desktop">Timeline</Breakpoint>
-                      </Button>
-                      <Button
-                        color="orange"
+                      </DavisButton>
+                      <DavisButton
+                        variant="outline"
                         onClick={expandCollapseAllTasks}
-                        aria-label="Expand or Collapse All"
+                        icon={<IconArrowsDownUp size={16} />}
                       >
-                        <Icon name="arrows alternate vertical" />
                         <Breakpoint name="desktop">
                           Expand/Collapse All
                         </Breakpoint>
-                      </Button>
-                      <Button
-                        color="purple"
+                      </DavisButton>
+                      <DavisButton
+                        variant="outline"
                         disabled={!userProjectMember}
                         onClick={openBatchModal}
-                        aria-label="Batch Add"
+                        icon={<IconCopyPlus size={16} />}
                       >
-                        <Icon name="clone" />
                         <Breakpoint name="desktop">Batch Add</Breakpoint>
-                      </Button>
-                      <Button
-                        color="green"
+                      </DavisButton>
+                      <DavisButton
+                        variant="primary"
                         loading={mngTaskLoading}
                         onClick={() => openManageTaskModal("add")}
                         disabled={!userProjectMember}
-                        aria-label="Add Task"
+                        icon={<IconPlus size={16} />}
                       >
-                        <Icon name="add" />
                         <Breakpoint name="desktop">Add Task</Breakpoint>
-                      </Button>
-                    </Button.Group>
+                      </DavisButton>
+                    </div>
                   </div>
                 </div>
               </Segment>
@@ -301,7 +463,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                 className={projTasks.length === 0 ? "muted-segment" : ""}
               >
                 {projTasks.length > 0 ? (
-                  <List divided verticalAlign="middle">
+                  <ul className="divide-y divide-gray-100">
                     {filteredTasks.map((item: any, idx: any) => {
                       let today = new Date();
                       let overdueTasks = false;
@@ -328,123 +490,59 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                       }
                       if (overdueTasks) item.overdue = true;
                       return (
-                        <List.Item key={item.taskID}>
+                        <li key={item.taskID} className="py-4">
                           <div className="flex-col-div">
                             <div className="flex-row-div">
                               <div className="left-flex">
-                                <Icon
-                                  name={
-                                    item.uiOpen
-                                      ? "chevron down"
-                                      : "chevron right"
-                                  }
-                                  className="pointer-hover"
+                                <button
+                                  type="button"
+                                  className="inline-flex text-gray-800 hover:text-blue-700"
                                   onClick={() => toggleTaskDetail(item.taskID)}
-                                />
+                                  aria-label={
+                                    item.uiOpen ? "Collapse task" : "Expand task"
+                                  }
+                                >
+                                  {item.uiOpen ? (
+                                    <IconChevronDown size={20} />
+                                  ) : (
+                                    <IconChevronRight size={20} />
+                                  )}
+                                </button>
                                 <span className="project-task-title">
                                   {item.title}
                                 </span>
                                 {renderStatusIndicator(item.status)}
                                 {item.hasOwnProperty("overdue") &&
                                   item.overdue === true && (
-                                    <Label color="red" className="ml-2p">
-                                      OVERDUE
-                                    </Label>
+                                    <Badge label="OVERDUE" variant="danger" size="sm" className="ml-2p" />
                                   )}
                               </div>
                               <div className="right-flex">
                                 <div className="task-assignees-row">
-                                  {item.hasOwnProperty("assignees") &&
-                                    item.assignees.length > 0 &&
-                                    item.assignees
-                                      .slice(0, 5)
-                                      .map((assignee: any, assignIdx: any) => {
-                                        if (
-                                          assignee.uuid &&
-                                          assignee.firstName &&
-                                          assignee.lastName
-                                        ) {
-                                          return (
-                                            <Popup
-                                              key={assignIdx}
-                                              trigger={
-                                                <Image
-                                                  className="cursor-pointer"
-                                                  src={
-                                                    assignee.avatar ||
-                                                    "/mini_logo.png"
-                                                  }
-                                                  avatar
-                                                  key={assignee.uuid}
-                                                />
-                                              }
-                                              header={
-                                                <span>
-                                                  <strong>{`${assignee.firstName} ${assignee.lastName}`}</strong>
-                                                </span>
-                                              }
-                                              position="top center"
-                                            />
-                                          );
-                                        } else return null;
-                                      })}
-                                  {item.hasOwnProperty("assignees") &&
-                                    item.assignees.length > 5 && (
-                                      <p className="muted-text">
-                                        {" "}
-                                        + {item.assignees.length - 5} more
-                                      </p>
-                                    )}
+                                  {renderAssigneeAvatars(item.assignees)}
                                 </div>
-                                <Popup
-                                  content={
-                                    <span className="color-semanticred">
-                                      <em>Delete Task</em>
-                                    </span>
-                                  }
-                                  trigger={
-                                    <Button
-                                      icon="trash"
-                                      color="red"
-                                      onClick={() =>
-                                        openDeleteTaskModal(item.taskID)
-                                      }
-                                      disabled={!userProjectMember}
-                                    />
-                                  }
-                                  position="top center"
-                                />
-                                <Popup
-                                  content="Add Subtask"
-                                  trigger={
-                                    <Button
-                                      onClick={() =>
-                                        openManageTaskModal(
-                                          "add",
-                                          "",
-                                          item.taskID
-                                        )
-                                      }
-                                      icon="add"
-                                      color="green"
-                                      disabled={!userProjectMember}
-                                    />
-                                  }
-                                  position="top center"
-                                />
-                                <Popup
-                                  content="View Task"
-                                  trigger={
-                                    <Button
-                                      onClick={() =>
-                                        openViewTaskModal(item.taskID)
-                                      }
-                                      icon="eye"
-                                      color="blue"
-                                    />
-                                  }
-                                  position="top center"
-                                />
+                                {renderTaskActionButton({
+                                  label: "Delete Task",
+                                  icon: <IconTrash size={16} />,
+                                  onClick: () => openDeleteTaskModal(item.taskID),
+                                  disabled: !userProjectMember,
+                                  className: "",
+                                  variant: "destructive",
+                                })}
+                                {renderTaskActionButton({
+                                  label: "Add Subtask",
+                                  icon: <IconPlus size={16} />,
+                                  onClick: () =>
+                                    openManageTaskModal("add", "", item.taskID),
+                                  disabled: !userProjectMember,
+                                  className: "",
+                                })}
+                                {renderTaskActionButton({
+                                  label: "View Task",
+                                  icon: <IconEye size={16} />,
+                                  onClick: () => openViewTaskModal(item.taskID),
+                                  className: "",
+                                })}
                               </div>
                             </div>
                             <div
@@ -454,12 +552,12 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                                   : "project-task-detail hidden"
                               }
                             >
-                              <List divided verticalAlign="middle">
+                              <ul className="divide-y divide-gray-100">
                                 {item.hasOwnProperty("subtasks") &&
                                 item.subtasks.length > 0 ? (
                                   item.subtasks.map((subtask: any) => {
                                     return (
-                                      <List.Item
+                                      <li
                                         className="project-task-subtask"
                                         key={subtask.taskID}
                                       >
@@ -475,140 +573,48 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                                               "overdue"
                                             ) &&
                                               subtask.overdue === true && (
-                                                <Label
-                                                  color="red"
-                                                  className="ml-2p"
-                                                >
-                                                  OVERDUE
-                                                </Label>
+                                                <Badge label="OVERDUE" variant="danger" size="sm" className="ml-2p" />
                                               )}
                                           </div>
                                           <div className="right-flex">
                                             <div className="task-assignees-row">
-                                              {subtask.hasOwnProperty(
-                                                "assignees"
-                                              ) &&
-                                                subtask.assignees.length > 0 &&
-                                                subtask.assignees
-                                                  .slice(0, 5)
-                                                  .map(
-                                                    (
-                                                      assignee: any,
-                                                      assignIdx: any
-                                                    ) => {
-                                                      if (
-                                                        assignee.uuid &&
-                                                        assignee.firstName &&
-                                                        assignee.lastName
-                                                      ) {
-                                                        return (
-                                                          <Popup
-                                                            key={assignIdx}
-                                                            trigger={
-                                                              <Image
-                                                                className="cursor-pointer"
-                                                                src={
-                                                                  assignee.avatar ||
-                                                                  "/mini_logo.png"
-                                                                }
-                                                                avatar
-                                                                key={
-                                                                  assignee.uuid
-                                                                }
-                                                              />
-                                                            }
-                                                            header={
-                                                              <span>
-                                                                <strong>{`${assignee.firstName} ${assignee.lastName}`}</strong>
-                                                              </span>
-                                                            }
-                                                            position="top center"
-                                                          />
-                                                        );
-                                                      } else return null;
-                                                    }
-                                                  )}
-                                              {subtask.hasOwnProperty(
-                                                "assignees"
-                                              ) &&
-                                                subtask.assignees.length >
-                                                  5 && (
-                                                  <Popup
-                                                    key="more-subtask-assigneed"
-                                                    trigger={
-                                                      <p className="muted-text">
-                                                        {" "}
-                                                        +{" "}
-                                                        {subtask.assignees
-                                                          .length - 5}{" "}
-                                                        more
-                                                      </p>
-                                                    }
-                                                    header={
-                                                      <span>
-                                                        <strong>
-                                                          More assignees
-                                                        </strong>
-                                                      </span>
-                                                    }
-                                                    position="top center"
-                                                  />
-                                                )}
+                                              {renderAssigneeAvatars(subtask.assignees)}
                                             </div>
-                                            <Popup
-                                              content={
-                                                <span className="color-semanticred">
-                                                  <em>Delete Subtask</em>
-                                                </span>
-                                              }
-                                              trigger={
-                                                <Button
-                                                  icon="trash"
-                                                  color="red"
-                                                  onClick={() =>
-                                                    openDeleteTaskModal(
-                                                      subtask.taskID
-                                                    )
-                                                  }
-                                                  disabled={!userProjectMember}
-                                                />
-                                              }
-                                              position="top center"
-                                            />
-                                            <Popup
-                                              content="View Subtask"
-                                              trigger={
-                                                <Button
-                                                  onClick={() =>
-                                                    openViewTaskModal(
-                                                      subtask.taskID
-                                                    )
-                                                  }
-                                                  icon="eye"
-                                                  color="blue"
-                                                />
-                                              }
-                                              position="top center"
-                                            />
+                                            {renderTaskActionButton({
+                                              label: "Delete Subtask",
+                                              icon: <IconTrash size={16} />,
+                                              onClick: () =>
+                                                openDeleteTaskModal(subtask.taskID),
+                                              disabled: !userProjectMember,
+                                              className: "",
+                                              variant: "destructive",
+                                            })}
+                                            {renderTaskActionButton({
+                                              label: "View Subtask",
+                                              icon: <IconEye size={16} />,
+                                              onClick: () =>
+                                                openViewTaskModal(subtask.taskID),
+                                              className: "",
+                                            })}
                                           </div>
                                         </div>
-                                      </List.Item>
+                                      </li>
                                     );
                                   })
                                 ) : (
-                                  <List.Item className="project-task-subtask">
+                                  <li className="project-task-subtask">
                                     <p>
                                       <em>No subtasks yet.</em>
                                     </p>
-                                  </List.Item>
+                                  </li>
                                 )}
-                              </List>
+                              </ul>
                             </div>
                           </div>
-                        </List.Item>
+                        </li>
                       );
                     })}
-                  </List>
+                  </ul>
                 ) : (
                   <div>
                     <p className="text-center muted-text">
@@ -648,7 +654,11 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
     canViewDetails,
     toggleTaskDetail,
     selectedValue,          
-    filteredTasks 
+    filteredTasks,
+    taskAssigneeOptions,
+    selectedAssigneeLabel,
+    assigneeFilterOpen,
+    history
   ]);
 
   const CalculatedModules = useMemo(() => {
