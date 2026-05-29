@@ -1,4 +1,5 @@
-import { Modal, Breadcrumb, Button, Checkbox, Icon } from "semantic-ui-react";
+import { Button, Checkbox, Modal } from "@libretexts/davis-react";
+import { IconChevronRight, IconPlus } from "@tabler/icons-react";
 
 interface AssignAllModalProps {
   show: boolean;
@@ -16,7 +17,6 @@ interface AssignAllModalProps {
 const AssignAllModal: React.FC<AssignAllModalProps> = ({
   show,
   viewTaskData,
-  assignAllError,
   assignAllLoading,
   assignAllSubtasks,
   setAssignAllSubtasks,
@@ -25,58 +25,67 @@ const AssignAllModal: React.FC<AssignAllModalProps> = ({
   onRequestAssignAll,
   onClose,
 }) => {
+  const title = viewTaskData.hasOwnProperty("title")
+    ? viewTaskData.title
+    : "Loading...";
+  const parentTitle =
+    viewTaskData.parent && viewTaskData.parent !== ""
+      ? getParentTaskName(viewTaskData.parent)
+      : "";
+
   return (
-    <Modal open={show} onClose={onClose} size="small">
+    <Modal open={show} onClose={() => onClose()} size="lg">
       <Modal.Header>
-        <Breadcrumb className="task-view-header-crumbs">
-          {viewTaskData.parent && viewTaskData.parent !== "" && (
-            <>
-              <Breadcrumb.Section
-                onClick={() => openViewTaskModal(viewTaskData.parent)}
-                active
-              >
-                {getParentTaskName(viewTaskData.parent)}
-              </Breadcrumb.Section>
-              <Breadcrumb.Divider icon="right chevron" />
-            </>
-          )}
-          <Breadcrumb.Section active={viewTaskData.parent ? false : true}>
-            <em>
-              {viewTaskData.hasOwnProperty("title")
-                ? viewTaskData.title
-                : "Loading..."}
-            </em>
-            : Assign All Members to Task
-          </Breadcrumb.Section>
-        </Breadcrumb>
+        <Modal.Title>
+          <span className="flex min-w-0 items-center gap-3">
+            {parentTitle && (
+              <>
+                <button
+                  type="button"
+                  className="truncate text-left text-blue-700 hover:underline"
+                  onClick={() => openViewTaskModal(viewTaskData.parent)}
+                >
+                  {parentTitle}
+                </button>
+                <IconChevronRight className="shrink-0 text-gray-400" size={30} />
+              </>
+            )}
+            <span className="truncate">
+              <em>{title}</em>: Assign All Members to Task
+            </span>
+          </span>
+        </Modal.Title>
       </Modal.Header>
-      <Modal.Content scrolling>
-        <p>
+      <Modal.Body>
+        <p className="text-lg">
           Are you sure you want to assign all members of this project to{" "}
-          <em>
-            {viewTaskData.hasOwnProperty("title")
-              ? viewTaskData.title
-              : "Loading..."}
-          </em>
-          ?
+          <em>{title}</em>?
         </p>
         {(!viewTaskData.parent || viewTaskData.parent === "") && (
           <Checkbox
-            toggle
+            name="assign-all-subtasks"
             checked={assignAllSubtasks}
-            onChange={(_e, data) => setAssignAllSubtasks(data.checked ?? false)}
+            onChange={setAssignAllSubtasks}
             label="Assign to all subtasks"
-            className="mb-2p"
+            className="mt-6"
           />
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button color="green" onClick={onRequestAssignAll}>
-          <Icon name="add" />
-          Assign All
-        </Button>
-      </Modal.Actions>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex justify-end gap-4">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            loading={assignAllLoading}
+            onClick={onRequestAssignAll}
+            icon={<IconPlus size={18} />}
+          >
+            Assign All
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };

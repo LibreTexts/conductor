@@ -157,14 +157,10 @@ const ProjectsCompleted = () => {
       })()}
 
       {projectCreated && (
-        <Alert variant="success" className="mb-4">
-          Project successfully created!
-        </Alert>
+        <Alert variant="success" message="Project successfully created!" className="mb-4" />
       )}
       {projectDeleted && (
-        <Alert variant="info" className="mb-4">
-          Project successfully deleted.
-        </Alert>
+        <Alert variant="info" message="Project successfully deleted." className="mb-4" />
       )}
 
       <div className="border border-gray-200 rounded-lg overflow-hidden">
