@@ -55,7 +55,10 @@ const TextArea: React.FC<TextAreaProps> = ({
       {!hideFormatMsg && (
         <div id={styles.format_msg}>
           <span id={styles.format_msg_text}>
-            You **<strong>can</strong>** `<code>format</code>` *<em>your</em>* {contentType}! {maxLength && `${maxLength - textValue.length} characters left`}
+            You **<strong>can</strong>** `<code>format</code>` *<em>your</em>* {contentType}!{" "}
+            {maxLength && (
+              <strong>{maxLength - textValue.length} characters left</strong>
+            )}
           </span>
         </div>
       )}

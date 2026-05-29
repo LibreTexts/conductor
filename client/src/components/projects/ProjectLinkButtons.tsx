@@ -1,4 +1,5 @@
-import { Button, Header, Icon, Popup } from "semantic-ui-react";
+import { Button, Tooltip } from "@libretexts/davis-react";
+import { IconExternalLink, IconPlus } from "@tabler/icons-react";
 import { normalizeURL } from "../util/HelperFunctions";
 import {
   buildCommonsUrl,
@@ -31,6 +32,8 @@ interface ProjectLinkButtonsProps {
   projectVisibility?: string;
   project: object;
   isProjectMemberOrAdmin?: boolean;
+  canRequestPublish?: boolean;
+  didRequestPublish?: boolean;
 }
 
 const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
@@ -45,6 +48,8 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
   projectVisibility,
   project,
   isProjectMemberOrAdmin = false,
+  canRequestPublish = false,
+  didRequestPublish = false,
 }) => {
   const [showCreateWorkbenchModal, setShowCreateWorkbenchModal] =
     useState(false);

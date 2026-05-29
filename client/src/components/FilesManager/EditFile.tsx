@@ -1,14 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
+import { Button, FormSection, Modal, Select } from "@libretexts/davis-react";
 import {
-  Modal,
-  Form,
-  Button,
-  Icon,
-  ModalProps,
-  Dropdown,
-  Accordion,
-} from "semantic-ui-react";
+  IconDeviceFloppy,
+  IconSubtitles,
+  IconUpload,
+} from "@tabler/icons-react";
 import useGlobalError from "../error/ErrorHooks";
 import { Controller, useForm } from "react-hook-form";
 import { AssetTag, AssetTagFramework, License, ProjectFile } from "../../types";
@@ -30,7 +27,7 @@ import useCentralIdentityLicenses from "../../hooks/useCentralIdentityLicenses";
 import RenderTagFields from "./RenderTagFields";
 const FilesUploader = React.lazy(() => import("./FilesUploader"));
 
-interface EditFileProps extends ModalProps {
+interface EditFileProps {
   show: boolean;
   onClose: () => void;
   projectID: string;
@@ -44,7 +41,6 @@ const EditFile: React.FC<EditFileProps> = ({
   projectID,
   fileID,
   onFinishedEdit,
-  ...rest
 }) => {
   const DESCRIP_MAX_CHARS = 500;
 
@@ -88,9 +84,6 @@ const EditFile: React.FC<EditFileProps> = ({
   const [loading, setLoading] = useState(false);
   const [isFolder, setIsFolder] = useState(false); // No asset tags for folders
   const [showUploader, setShowUploader] = useState(false);
-  const [showLicenseInfo, setShowLicenseInfo] = useState(true);
-  const [showAuthorInfo, setShowAuthorInfo] = useState(true);
-  const [showTags, setShowTags] = useState(true);
   const [showCaptionsModal, setShowCaptionsModal] = useState(false);
   const [videoStreamURL, setVideoStreamURL] = useState<string | undefined>(
     undefined
@@ -300,13 +293,6 @@ const EditFile: React.FC<EditFileProps> = ({
     }
   }
 
-  function handleToggleAll() {
-    const currVal = showLicenseInfo && showAuthorInfo && showTags;
-    setShowLicenseInfo(!currVal);
-    setShowAuthorInfo(!currVal);
-    setShowTags(!currVal);
-  }
-
   function handleUploadFinished() {
     onFinishedEdit();
   }
@@ -320,14 +306,14 @@ const EditFile: React.FC<EditFileProps> = ({
   }
 
   return (
-    <Modal open={show} onClose={onClose} size="fullscreen" {...rest}>
+    <Modal open={show} onClose={() => onClose()} size="full">
       <Modal.Header>
-        <h1>Edit {isFolder ? "Folder" : "File"}</h1>
+        <Modal.Title>Edit {isFolder ? "Folder" : "File"}</Modal.Title>
       </Modal.Header>
-      <Modal.Content scrolling>
+      <Modal.Body className="max-h-[80vh] overflow-y-auto">
         {loading && <LoadingSpinner />}
         {!loading && (
-          <Form
+          <form
             onSubmit={(e) => {
               e.preventDefault();
             }}
@@ -359,12 +345,12 @@ const EditFile: React.FC<EditFileProps> = ({
                 {!isFolder && !getValues("isVideo") && (
                   <div className="mt-4">
                     <Button
-                      color="blue"
+                      variant="primary"
                       onClick={() => setShowUploader(true)}
                       disabled={false}
                       type="button"
+                      icon={<IconUpload size={16} />}
                     >
-                      <Icon name="upload" />
                       Replace File
                     </Button>
                   </div>
@@ -374,12 +360,12 @@ const EditFile: React.FC<EditFileProps> = ({
                   getValues("videoStorageID") && (
                     <div className="mt-4">
                       <Button
-                        color="blue"
+                        variant="primary"
                         onClick={() => setShowCaptionsModal(true)}
                         disabled={false}
                         type="button"
+                        icon={<IconSubtitles size={16} />}
                       >
-                        <Icon name="closed captioning outline" />
                         Manage Captions
                       </Button>
                     </div>
@@ -398,217 +384,168 @@ const EditFile: React.FC<EditFileProps> = ({
                 />
               </div>
               {!isFolder && (
-                <div className="flex flex-col basis-1/2">
-                  <p
-                    onClick={handleToggleAll}
-                    className="text-right underline text-sm text-gray-500 mr-2 mb-2 cursor-pointer !-mt-1"
-                  >
-                    Toggle All
-                  </p>
-                  <div className="flex flex-col rounded-md shadow-lg border p-4">
-                    <Accordion>
-                      <Accordion.Title
-                        active={showLicenseInfo}
-                        index={0}
-                        onClick={() => setShowLicenseInfo(!showLicenseInfo)}
-                      >
-                        <Icon name="dropdown" />
-                        <span className="font-semibold">License Info</span>
-                      </Accordion.Title>
-                      <Accordion.Content active={showLicenseInfo}>
-                        <div>
-                          <label
-                            className="form-field-label form-required"
-                            htmlFor="selectLicenseName"
-                          >
-                            Name
-                          </label>
-                          <Controller
-                            render={({ field }) => (
-                              <Dropdown
-                                id="selectLicenseName"
-                                options={licenseOptions?.map((l) => ({
-                                  key: l.name,
-                                  value: l.name,
-                                  text: l.name,
-                                }))}
-                                {...field}
-                                onChange={(e, data) => {
-                                  field.onChange(data.value?.toString() ?? "");
-                                }}
-                                fluid
-                                selection
-                                placeholder="Select a license..."
-                                error={
-                                  formState.errors.license?.name ? true : false
-                                }
-                              />
-                            )}
-                            name="license.name"
-                            control={control}
-                            rules={required}
-                          />
-                        </div>
-                        {selectedLicenseVersions().length > 0 && (
-                          <div className="mt-4">
-                            <label
-                              className="form-field-label form-required"
-                              htmlFor="selectLicenseVersion"
-                            >
-                              Version
-                            </label>
-                            <Controller
-                              render={({ field }) => (
-                                <Dropdown
-                                  id="selectLicenseVersion"
-                                  options={selectedLicenseVersions().map(
-                                    (v) => ({
-                                      key: v,
-                                      value: v,
-                                      text: v,
-                                    })
-                                  )}
-                                  {...field}
-                                  onChange={(e, data) => {
-                                    field.onChange(
-                                      data.value?.toString() ?? ""
-                                    );
-                                  }}
-                                  fluid
-                                  selection
-                                  placeholder="Select license version"
-                                  error={
-                                    formState.errors.license?.version
-                                      ? true
-                                      : false
-                                  }
-                                  loading={licensesLoading}
-                                />
-                              )}
-                              name="license.version"
-                              control={control}
-                              rules={required}
+                <div className="flex flex-col basis-1/2 gap-6">
+                  <FormSection title="License Info">
+                    <Controller
+                      render={({ field }) => (
+                        <Select
+                          id="selectLicenseName"
+                          name={field.name}
+                          label="Name"
+                          options={(licenseOptions ?? []).map((l) => ({
+                            value: l.name,
+                            label: l.name,
+                          }))}
+                          value={field.value ?? ""}
+                          onChange={(e) => {
+                            field.onChange(e.target.value);
+                          }}
+                          placeholder="Select a license..."
+                          error={formState.errors.license?.name ? true : false}
+                          errorMessage={
+                            formState.errors.license?.name
+                              ? "License name is required."
+                              : undefined
+                          }
+                          disabled={licensesLoading}
+                        />
+                      )}
+                      name="license.name"
+                      control={control}
+                      rules={required}
+                    />
+                    {selectedLicenseVersions().length > 0 && (
+                      <div className="mt-4">
+                        <Controller
+                          render={({ field }) => (
+                            <Select
+                              id="selectLicenseVersion"
+                              name={field.name}
+                              label="Version"
+                              options={selectedLicenseVersions().map((v) => ({
+                                value: v,
+                                label: v,
+                              }))}
+                              value={field.value ?? ""}
+                              onChange={(e) => {
+                                field.onChange(e.target.value);
+                              }}
+                              placeholder="Select license version"
+                              error={
+                                formState.errors.license?.version
+                                  ? true
+                                  : false
+                              }
+                              errorMessage={
+                                formState.errors.license?.version
+                                  ? "License version is required."
+                                  : undefined
+                              }
+                              disabled={licensesLoading}
                             />
-                          </div>
-                        )}
-                        <CtlTextInput
-                          name="license.sourceURL"
-                          control={control}
-                          label="File Source URL"
-                          placeholder="https://example.com"
-                          className="mt-2"
-                          helpText="URL where the file was sourced from"
-                          disabled={watch("license.sourceURL") === "local"}
-                        />
-                        {watch("license.sourceURL") !== "local" && (
-                          <p
-                            className="text-sky-500 ml-1 mt-1 cursor-pointer hover:underline"
-                            onClick={handleNoExternalSource}
-                          >
-                            This file doesn't have an external source.
-                          </p>
-                        )}
-                        {watch("license.sourceURL") === "local" && (
-                          <p
-                            className="text-sky-500 ml-1 mt-1 cursor-pointer hover:underline"
-                            onClick={handleResetExternalSource}
-                          >
-                            Add an external source URL
-                          </p>
-                        )}
-                        <div className="flex items-start mt-3">
-                          <CtlCheckbox
-                            name="license.modifiedFromSource"
-                            control={control}
-                            label="File modified from source?"
-                            labelDirection="row-reverse"
-                          />
-                        </div>
-                        <CtlTextArea
-                          name="license.additionalTerms"
-                          control={control}
-                          label="Additional License Terms"
-                          placeholder="Additional terms (if applicable)..."
-                          className="mt-2"
-                          maxLength={DESCRIP_MAX_CHARS}
-                          showRemaining
-                        />
-                      </Accordion.Content>
-                    </Accordion>
-                  </div>
-                  <div className="flex flex-col rounded-md shadow-lg border p-4 mt-4">
-                    <Accordion>
-                      <Accordion.Title
-                        active={showAuthorInfo}
-                        index={0}
-                        onClick={() => setShowAuthorInfo(!showAuthorInfo)}
-                      >
-                        <Icon name="dropdown" />
-                        <span className="font-semibold">
-                          Author & Publisher Info
-                        </span>
-                      </Accordion.Title>
-                      <Accordion.Content active={showAuthorInfo}>
-                        <AuthorsForm
-                          ref={authorsFormRef}
-                          mode="file"
-                          currentPrimaryAuthor={getValues("primaryAuthor")}
-                          currentAuthors={getValues("authors")}
-                          currentCorrespondingAuthor={getValues(
-                            "correspondingAuthor"
                           )}
-                        />
-                        <CtlTextInput
-                          name="publisher.name"
+                          name="license.version"
                           control={control}
-                          label="Publisher Name"
-                          placeholder="John Doe"
-                          className=""
+                          rules={required}
                         />
-                        <CtlTextInput
-                          name="publisher.url"
-                          control={control}
-                          label="Publisher URL"
-                          placeholder="https://example.com"
-                          className="mt-2"
-                        />
-                      </Accordion.Content>
-                    </Accordion>
-                  </div>
-                  {org.FEAT_AssetTagsManager && (
-                    <div className="flex flex-col rounded-md shadow-lg border p-4 mt-4">
-                      <Accordion>
-                        <Accordion.Title
-                          active={showTags}
-                          index={0}
-                          onClick={() => setShowTags(!showTags)}
-                        >
-                          <Icon name="dropdown" />
-                          <span className="font-semibold">Tags</span>
-                        </Accordion.Title>
-                        <Accordion.Content active={showTags}>
-                          <RenderTagFields
-                            ref={tagFieldsRef}
-                            control={control}
-                            formState={formState}
-                          />
-                        </Accordion.Content>
-                      </Accordion>
+                      </div>
+                    )}
+                    <CtlTextInput
+                      name="license.sourceURL"
+                      control={control}
+                      label="File Source URL"
+                      placeholder="https://example.com"
+                      className="mt-2"
+                      helpText="URL where the file was sourced from"
+                      disabled={watch("license.sourceURL") === "local"}
+                    />
+                    {watch("license.sourceURL") !== "local" && (
+                      <p
+                        className="text-sky-500 ml-1 mt-1 cursor-pointer hover:underline"
+                        onClick={handleNoExternalSource}
+                      >
+                        This file doesn't have an external source.
+                      </p>
+                    )}
+                    {watch("license.sourceURL") === "local" && (
+                      <p
+                        className="text-sky-500 ml-1 mt-1 cursor-pointer hover:underline"
+                        onClick={handleResetExternalSource}
+                      >
+                        Add an external source URL
+                      </p>
+                    )}
+                    <div className="flex items-start mt-3">
+                      <CtlCheckbox
+                        name="license.modifiedFromSource"
+                        control={control}
+                        label="File modified from source?"
+                        labelDirection="row-reverse"
+                      />
                     </div>
+                    <CtlTextArea
+                      name="license.additionalTerms"
+                      control={control}
+                      label="Additional License Terms"
+                      placeholder="Additional terms (if applicable)..."
+                      className="mt-2"
+                      maxLength={DESCRIP_MAX_CHARS}
+                      showRemaining
+                    />
+                  </FormSection>
+                  <FormSection title="Author & Publisher Info">
+                    <AuthorsForm
+                      ref={authorsFormRef}
+                      mode="file"
+                      currentPrimaryAuthor={getValues("primaryAuthor")}
+                      currentAuthors={getValues("authors")}
+                      currentCorrespondingAuthor={getValues(
+                        "correspondingAuthor"
+                      )}
+                    />
+                    <CtlTextInput
+                      name="publisher.name"
+                      control={control}
+                      label="Publisher Name"
+                      placeholder="John Doe"
+                      className=""
+                    />
+                    <CtlTextInput
+                      name="publisher.url"
+                      control={control}
+                      label="Publisher URL"
+                      placeholder="https://example.com"
+                      className="mt-2"
+                    />
+                  </FormSection>
+                  {org.FEAT_AssetTagsManager && (
+                    <FormSection title="Tags">
+                      <RenderTagFields
+                        ref={tagFieldsRef}
+                        control={control}
+                        formState={formState}
+                      />
+                    </FormSection>
                   )}
                 </div>
               )}
             </div>
-          </Form>
+          </form>
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button color="green" onClick={() => handleEdit()} loading={loading}>
-          <Icon name="save" />
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          onClick={() => handleEdit()}
+          loading={loading}
+          icon={<IconDeviceFloppy size={16} />}
+        >
           Save
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
       <ManageCaptionsModal
         show={showCaptionsModal}
         onClose={() => setShowCaptionsModal(false)}

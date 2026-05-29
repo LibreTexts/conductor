@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
-import { Modal, Button, Icon } from 'semantic-ui-react';
-import FileIcon from '../FileIcon';
+import { Button, Modal } from '@libretexts/davis-react';
+import { IconFile, IconFolder, IconTrash } from '@tabler/icons-react';
 import useGlobalError from '../error/ErrorHooks';
 
 /**
@@ -40,30 +40,39 @@ const DeleteFiles = ({ show, onClose, projectID, files, onFinishedDelete }) => {
   }
 
   return (
-    <Modal open={show} onClose={onClose}>
-      <Modal.Header>Delete Files</Modal.Header>
-      <Modal.Content>
+    <Modal open={show} onClose={() => onClose()} size="lg">
+      <Modal.Header>
+        <Modal.Title>Delete Files</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
         <p>Are you sure you want to delete the following files? <strong>Files inside any selected folders will also be deleted.</strong></p>
-        <ul>
+        <ul className="mt-4 space-y-2">
           {files.map((obj) => (
-            <li key={obj.fileID}>
+            <li key={obj.fileID} className="flex items-start gap-2 break-words">
               {obj.storageType === 'folder' ? (
-                <Icon name="folder outline" />
+                <IconFolder size={20} aria-hidden="true" className="mt-1 shrink-0" />
               ) : (
-                <FileIcon filename={obj.name} />
+                <IconFile size={20} aria-hidden="true" className="mt-1 shrink-0" />
               )}
-              {obj.name}
+              <span>{obj.name}</span>
             </li>
           ))}
         </ul>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button color="red" onClick={handleDelete} loading={loading}>
-          <Icon name="trash" />
-          Delete Files
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline" onClick={onClose}>
+          Cancel
         </Button>
-      </Modal.Actions>
+        <Button
+          variant="primary"
+          className="!bg-red-600 hover:!bg-red-700 active:!bg-red-800 focus-visible:!ring-red-600"
+          onClick={handleDelete}
+          loading={loading}
+          icon={<IconTrash size={16} />}
+        >
+          Delete
+        </Button>
+      </Modal.Footer>
     </Modal>
   )
 };

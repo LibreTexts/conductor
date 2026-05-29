@@ -2,28 +2,36 @@ import './Projects.css'
 import 'react-circular-progressbar/dist/styles.css';
 
 import {
-  Grid,
-  Header,
-  Segment,
-  Divider,
-  Message,
-  Icon,
-  Button,
-  Form,
+  Alert,
+  Avatar,
+  Badge,
   Breadcrumb,
-  Modal,
-  Label,
-  List,
-  Image,
-  Accordion,
+  Button,
+  Card,
+  Grid as DavisGrid,
+  Heading,
   Input,
-  Loader,
-  Search,
-  Popup,
-  Dropdown,
-  Checkbox,
-} from 'semantic-ui-react';
-import { Link } from 'react-router-dom';
+  Menu,
+  Modal,
+  Spinner,
+  Stepper,
+  Stack,
+  Tabs,
+  Tooltip,
+} from '@libretexts/davis-react';
+import {
+  IconAccessible,
+  IconChartBar,
+  IconCheck,
+  IconClipboardList,
+  IconClock,
+  IconEdit,
+  IconExternalLink,
+  IconPin,
+  IconUsers,
+  IconWand,
+} from '@tabler/icons-react';
+import { Link, useHistory, useLocation } from 'react-router-dom';
 import { useEffect, useState, useCallback, lazy, Suspense, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import date from 'date-and-time';
@@ -72,7 +80,8 @@ import {
   PROJECT_ROLE_SORT_ORDER
 } from '../util/ProjectHelpers';
 import {
-  getRoadmapStepName
+  getRoadmapStepName,
+  roadmapStepsSimple,
 } from '../util/RoadmapOptions.jsx';
 
 import useGlobalError from '../error/ErrorHooks';
@@ -102,6 +111,8 @@ const ProjectView = (props) => {
   const { handleGlobalError } = useGlobalError();
   const { openModal, closeAllModals } = useModals();
   const user = useSelector((state) => state.user);
+  const history = useHistory();
+  const location = useLocation();
   const isProjectPinned = useIsProjectPinned(props.match.params.id)
   const unpinProjectMutation = useUnpinProjectMutation()
 
@@ -1376,41 +1387,17 @@ const ProjectView = (props) => {
   let libreAlertEnabled = project.libreAlerts && Array.isArray(project.libreAlerts) && user.uuid && project.libreAlerts.includes(user.uuid);
 
 
-  const AvailableIndicator = () => {
-    return (
-      <Popup
-        content='Available'
-        trigger={
-          <Icon name='bullseye' color='teal' />
-        }
-        position='top center'
-      />
-    )
-  };
+  const AvailableIndicator = () => (
+    <Badge label="Available" variant="default" size="sm" className="whitespace-nowrap" />
+  );
 
-  const InProgressIndicator = () => {
-    return (
-      <Popup
-        content='In progress'
-        trigger={
-          <Icon name='spinner' color='blue' />
-        }
-        position='top center'
-      />
-    )
-  };
+  const InProgressIndicator = () => (
+    <Badge label="In Progress" variant="primary" size="sm" className="whitespace-nowrap" />
+  );
 
-  const CompletedIndicator = () => {
-    return (
-      <Popup
-        content='Completed'
-        trigger={
-          <Icon name='check' color='green' />
-        }
-        position='top center'
-      />
-    )
-  };
+  const CompletedIndicator = () => (
+    <Badge label="Completed" variant="success" size="sm" className="whitespace-nowrap" />
+  );
 
   const renderStatusIndicator = (status, addLeftMargin) => {
     switch (status) {
@@ -1423,11 +1410,14 @@ const ProjectView = (props) => {
     }
   };
 
-  const BookCreatedLabel = () => {
-    return (
-      <Label basic color='green' className='!mb-4 cursor-pointer' onClick={() => window.open(buildLibraryPageGoURL(project.libreLibrary, project.libreCoverID))}>Book created <Icon name='external' className='!ml-1'/></Label>
-    )
-  }
+  const BookCreatedLabel = () => (
+    <button
+      className="text-sm text-green-700 border border-green-300 rounded px-2 py-1 mb-4 cursor-pointer hover:bg-green-50 flex items-center gap-1 w-fit"
+      onClick={() => window.open(buildLibraryPageGoURL(project.libreLibrary, project.libreCoverID))}
+    >
+      Book created <IconExternalLink size={13} />
+    </button>
+  );
 
   const renderTeamList = (projData, showAll) => {
     const transformMembers = (role, roleDisplay) => (item) => ({
@@ -1456,46 +1446,36 @@ const ProjectView = (props) => {
     const moreThanFive = allTeamMembers.length > 5;
     const teamToDisplay = (!showAll && moreThanFive) ? allTeamMembers.slice(0, 5): allTeamMembers;
 
-    const renderListItem = (item, idx) => {
-      return (
-        <List.Item key={`${item.role}-${idx}`}>
-          <Image avatar src={item.avatar} />
-          <List.Content>
-            {item.firstName} {item.lastName}{" "}
-            <span className="muted-text">({item.roleDisplay})</span>
-          </List.Content>
-        </List.Item>
-      );
-    };
+    const renderListItem = (item, idx) => (
+      <div key={`${item.role}-${idx}`} className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-b-0">
+        <Avatar src={item.avatar} name={`${item.firstName} ${item.lastName}`} size="sm" />
+        <span className="text-sm">
+          {item.firstName} {item.lastName}{" "}
+          <span className="text-gray-500">({item.roleDisplay})</span>
+        </span>
+      </div>
+    );
 
     return (
-      <List divided verticalAlign="middle">
+      <div>
         {teamToDisplay.map((item, idx) => renderListItem(item, idx))}
         {!showAll && moreThanFive && (
-          <List.Item key="collapsed-msg">
-            <List.Content className="text-center">
-              <p className="muted-text mt-1p">
-                Team list collapsed for brevity.{" "}
-                <a onClick={() => setShowAllTeamMembers(!showAllTeamMembers)}>
-                  Click to show all...
-                </a>
-              </p>
-            </List.Content>
-          </List.Item>
+          <p className="text-sm text-gray-500 text-center mt-2">
+            Team list collapsed for brevity.{" "}
+            <button className="text-blue-600 hover:underline" onClick={() => setShowAllTeamMembers(!showAllTeamMembers)}>
+              Click to show all...
+            </button>
+          </p>
         )}
         {showAll && moreThanFive && (
-          <List.Item key="showing-all-msg">
-            <List.Content className="text-center">
-              <p className="muted-text mt-1p">
-                Showing all team members.{" "}
-                <a onClick={() => setShowAllTeamMembers(!showAllTeamMembers)}>
-                  Click to collapse...
-                </a>
-              </p>
-            </List.Content>
-          </List.Item>
+          <p className="text-sm text-gray-500 text-center mt-2">
+            Showing all team members.{" "}
+            <button className="text-blue-600 hover:underline" onClick={() => setShowAllTeamMembers(!showAllTeamMembers)}>
+              Click to collapse...
+            </button>
+          </p>
         )}
-      </List>
+      </div>
     );
   };
 
@@ -1518,536 +1498,444 @@ const ProjectView = (props) => {
 
 
   return (
-    <Grid className='component-container'>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className='component-header'>Project: <em>{project.title || 'Loading...'}</em></Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment className='flex-row-div flex-row-verticalcenter'>
-              <Breadcrumb className='project-meta-breadcrumb'>
-                <Breadcrumb.Section as={Link} to='/projects'>
-                  Projects
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon='right chevron' />
-                {(flagCrumbEnabled) &&
-                  <Breadcrumb.Section as={Link} to='/projects/flagged'>
-                    Flagged Projects
-                  </Breadcrumb.Section>
-                }
-                {(!flagCrumbEnabled && project.status === 'available') &&
-                  <Breadcrumb.Section as={Link} to='/projects/available'>
-                    Available Projects
-                  </Breadcrumb.Section>
-                }
-                {(!flagCrumbEnabled && project.status === 'completed') &&
-                  <Breadcrumb.Section as={Link} to='/projects/completed'>
-                    Completed Projects
-                  </Breadcrumb.Section>
-                }
-                {(flagCrumbEnabled || project.status === 'available' || project.status === 'completed') &&
-                  <Breadcrumb.Divider icon='right chevron' />
-                }
-                <Breadcrumb.Section active>
-                  {project.title || 'Loading...'}
-                </Breadcrumb.Section>
-              </Breadcrumb>
-              <div className='flex-row-div flex-row-verticalcenter'>
-                <span className='muted-text mr-2r'>ID: {project.projectID || 'Loading...'}</span>
-                <Button
-                  content={`${isProjectPinned ? 'Unpin' : 'Pin'} Project`}
-                  icon='pin'
-                  labelPosition='left'
-                  color={isProjectPinned ? undefined : 'blue'}
-                  size='small'
-                  onClick={() => {
-                    if(!project.projectID) return;
-                    isProjectPinned ? unpinProjectMutation.mutate(project.projectID) : handlePinProject(project.projectID);
-                  }}
-                />
-              </div>
-            </Segment>
-            <Segment loading={loadingData}>
-              <Grid padded='horizontally' relaxed>
-                {showProjectCreated &&
-                  <Grid.Row>
-                    <Grid.Column width={16}>
-                      <Message floating icon success>
-                        <Icon name='check' />
-                        <Message.Content>
-                          <Message.Header>Project successfully created!</Message.Header>
-                        </Message.Content>
-                      </Message>
-                    </Grid.Column>
-                  </Grid.Row>
-                }
-                {showJoinComingSoon &&
-                  <Grid.Row>
-                    <Grid.Column width={16}>
-                      <Message floating color='blue'>
-                        <span><Icon name='users' /> <strong>Coming Soon: </strong> Request to join an existing project and get involved!</span>
-                      </Message>
-                    </Grid.Column>
-                  </Grid.Row>
-                }
-                <Grid.Row>
-                  <Grid.Column>
-                    <Button.Group fluid>
-                      {userProjectMember &&
-                        <Button
-                          color='blue'
-                          onClick={openEditInfoModal}
-                          aria-label='Edit Properties'
-                        >
-                          <Icon name='edit' />
-                          <Breakpoint name='desktop'>
-                          Edit Properties
-                          </Breakpoint>
-                        </Button>
-                      }
-                      {userProjectAdmin &&
-                        <Button
-                          color='violet'
-                          onClick={openTeamModal}
-                          aria-label='Manage Team'
-                        >
-                          <Icon name='users' />
-                          <Breakpoint name='desktop'>
-                          Manage Team
-                          </Breakpoint>
-                        </Button>
-                      }
-                      {
-                        project.libreLibrary && project.libreCoverID && !isMiniRepo && (
-                          <Button
-                          as={Link}
-                          color='pink'
-                          to={`/projects/${project.projectID}/ai-co-author`}
-                          aria-label='Textbook Curation'
-                        >
-                          <Icon name='magic' />
-                          <Breakpoint name='desktop'>
-                          AI Co-Author
-                          </Breakpoint>
-                        </Button>
-                        )
-                      }
-                      {
-                        project.hasTrafficAnalyticsConfigured && (
-                          <Button
-                          as={Link}
-                          color='green'
-                          to={`/projects/${project.projectID}/analytics`}
-                          aria-label='Textbook analytics'
-                        >
-                          <Icon name='dashboard' />
-                          <Breakpoint name='desktop'>
-                          Analytics
-                          </Breakpoint>
-                        </Button>
-                        )
-                      }
-                      <Button
-                        color='olive'
-                        as={Link}
-                        to={`${props.match.url}/timeline`}
-                        aria-label='Timeline'
-                      >
-                        <Icon name='clock outline' />
-                        <Breakpoint name='desktop'>
-                        Timeline
-                        </Breakpoint>
-                      </Button>
-                      {
-                        !isMiniRepo && (
-                        <>
-                          <Button
-                            color='orange'
-                            as={Link}
-                            to={`${props.match.url}/peerreview`}
-                            aria-label='Peer Review'
-                          >
-                            <Icon name='clipboard list' />
-                            <Breakpoint name='desktop'>
-                              Peer Review
-                            </Breakpoint>
-                          </Button>
-                          <Button
-                            color='teal'
-                            as={Link}
-                            to={`${props.match.url}/accessibility`}
-                            aria-label='Accessibility'
-                          >
-                            <Icon name='universal access' />
-                            <Breakpoint name='desktop'>
-                            Accessibility
-                            </Breakpoint>
-                          </Button>
-                        </>
-                      )}
-                      <Dropdown text='More Tools' color='purple' as={Button} className='text-center-force'>
-                        <Dropdown.Menu>
-                          {userProjectMember && (
-                            <>
-                              <Dropdown.Item
-                                icon={hasFlag ? (
-                                  <Icon.Group className='icon'>
-                                    <Icon name='attention' />
-                                    <Icon corner name='x' />
-                                  </Icon.Group>
-                                ) : (
-                                  <Icon name='attention' />
-                                )}
-                                text={hasFlag ? 'Clear flag' : 'Flag Project'}
-                                onClick={() => {
-                                  if (hasFlag) openFlagModal('clear')
-                                  else openFlagModal('set')
-                                }}
-                              />
-                            </>
-                          )}
-                          {!userProjectMember && (
-                            <Dropdown.Item text={<span><em>No actions available.</em></span>} />
-                          )}
-                        </Dropdown.Menu>
-                      </Dropdown>
-                    </Button.Group>
-                  </Grid.Column>
-                </Grid.Row>
-                {hasFlag &&
-                  <Grid.Row>
-                    <Grid.Column>
-                      <Message color='orange' className='project-flag-message'>
-                        <Message.Content>
-                          <p className='project-flag-message-text'><Icon name='attention' /> This project has an active flag for <em>{getFlagGroupName(project.flag)}</em>. It can be cleared under <strong>More Tools</strong>.</p>
-                          {(project.flagDescrip && !isEmptyString(project.flagDescrip)) &&
-                            <div>
-                              <p className='project-flag-message-text'><strong>Reason for flagging:</strong></p>
-                              <div className='ui message prose prose-code:before:hidden prose-code:after:hidden' dangerouslySetInnerHTML={{
-                                __html: DOMPurify.sanitize(marked(project.flagDescrip))
-                              }} />
-                            </div>
-                          }
-                        </Message.Content>
-                      </Message>
-                    </Grid.Column>
-                  </Grid.Row>
-                }
-                <Grid.Row className='mb-2p mt-2'>
-                  <Grid.Column>
-                    <Grid>
-                      <Grid.Row columns='equal'>
-                        <Grid.Column>
-                          <Header as='h2' dividing>Project Properties</Header>
-                          <div className='mb-1p'>
-                            <Header as='span' sub>Status: </Header>
-                            <span>{project.status ? capitalizeFirstLetter(project.status) : 'Loading...'}</span>
-                          </div>
-                          <div className='mb-1p'>
-                            <Header as='span' sub>Visibility: </Header>
-                            <span>{project.visibility ? capitalizeFirstLetter(project.visibility) : 'Loading...'}</span>
-                          </div>
-                          {(project.classification && !isEmptyString(project.classification)) &&
-                            <div className='mb-1p'>
-                              <Header as='span' sub>Classification: </Header>
-                              <span>{getClassificationText(project.classification)}</span>
-                            </div>
-                          }
-                          {(project.rdmpCurrentStep && !isEmptyString(project.rdmpCurrentStep)) &&
-                            <div className='mb-1p'>
-                              <Header as='span' sub>Construction Step: </Header>
-                              <span><em>{getRoadmapStepName(project.rdmpCurrentStep)}</em></span>
-                            </div>
-                          }
-                          {(project.libreLibrary && !isEmptyString(project.libreLibrary)) &&
-                            <div className='mb-1p'>
-                              <Header as='span' sub>Library: </Header>
-                              <span>{getLibraryName(project.libreLibrary)}</span>
-                            </div>
-                          }
-                          {(project.libreShelf && !isEmptyString(project.libreShelf)) &&
-                            <div className='mb-1p'>
-                              <Header as='span' sub>Bookshelf: </Header>
-                              <span>{project.libreShelf}</span>
-                            </div>
-                          }
-                          {(project.libreCampus && !isEmptyString(project.libreCampus)) &&
-                            <div className='mb-1p'>
-                              <Header as='span' sub>Campus: </Header>
-                              <span>{project.libreCampus}</span>
-                            </div>
-                          }
-                          {(Array.isArray(project.cidDescriptors) && project.cidDescriptors.length > 0) && (
-                            <div className="mb-1p">
-                              <Header as="span" sub>C-ID(s): </Header>
-                              <Label.Group className="inlineblock-display ml-1p">
-                                {project.cidDescriptors.map((cid) => (
-                                  <Label key={cid}>{cid}</Label>
-                                ))}
-                              </Label.Group>
-                            </div>
-                          )}
-                          {(project.tags && Array.isArray(project.tags) && project.tags.length > 0) &&
-                            <div>
-                              <Header as='span' sub>Tags: </Header>
-                              <Label.Group className='inlineblock-display ml-1p'>
-                                {project.tags.map((tag, idx) => {
-                                  return (
-                                    <Label key={idx}>{tag}</Label>
-                                  )
-                                })}
-                              </Label.Group>
-                            </div>
-                          }
-                          <ProjectLinkButtons
-                            projectID={project.projectID}
-                            libreCoverID={project.libreCoverID}
-                            libreLibrary={project.libreLibrary}
-                            projectLink={project.projectURL}
-                            projectTitle={project.title}
-                            didCreateWorkbench={project.didCreateWorkbench}
-                            hasCommonsBook={project.hasCommonsBook}
-                            projectClassification={project.classification}
-                            projectVisibility={project.visibility}
-                            project={project}
-                            isProjectMemberOrAdmin={userProjectAdmin || userProjectMember}
-                          />
-                          {(project.adaptCourseID && project.adaptCourseID !== '') && (
-                            <div className="mt-1e">
-                              <a
-                                href={`https://adapt.libretexts.org/instructors/courses/${project.adaptCourseID}/assignments`}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                View Course on ADAPT <Icon name="external" />
-                              </a>
-                            </div>
-                          )}
-                          {canViewDetails&& (
-                            <div className="mt-8 flex flex-col">
-                              <Header as='span' sub>Important Tools: </Header>
-                              {
-                                project.hasCommonsBook && (
-                                  <Button
-                                    color="blue"
-                                    compact
-                                    onClick={handleOpenReaderResourcesModal}
-                                    className='!w-64'
-                                  >
-                                    Manage Reader Resources
-                                  </Button>
-                              )}
-                              {
-                                !project.hasCommonsBook && project.didCreateWorkbench && (
-                                  <Button
-                                    color='blue'
-                                    compact
-                                    className='!w-64'
-                                    disabled={project.didRequestPublish}
-                                    as={'a'}
-                                    href={`https://commons.libretexts.org/support/contact?queue=publishing&projectID=${project.projectID}&capturedURL=${encodeURIComponent(window.location.href)}`}
-                                    target='_blank'
-                                  >
-                                    {project.didRequestPublish ? 'Publishing Requested' : 'Request to Publish'}
-                                  </Button>
-                                )
-                              }
-                            </div>
-                          )}
-                        </Grid.Column>
-                        {hasResourceInfo &&
-                          <Grid.Column>
-                            <Header as='h2' dividing>Source Properties</Header>
-                            {(project.author && !isEmptyString(project.author)) &&
-                              <div className='mb-1p'>
-                                <Header as='span' sub>Author: </Header>
-                                <span>{project.author}</span>
-                              </div>
-                            }
-                            {(project.authorEmail && !isEmptyString(project.authorEmail)) &&
-                              <div className='mt-1p mb-1p'>
-                                <Header as='span' sub>Author Email: </Header>
-                                <a href={`mailto:${project.authorEmail}`} target='_blank' rel='noopener noreferrer'>{project.authorEmail}</a>
-                              </div>
-                            }
-                            {project.license && project.license.name &&
-                              <div className='mt-1p mb-1p'>
-                                <Header as='span' sub>License: </Header>
-                                <span>{project.license.name ?? 'Unknown License'} {project.license.version ?? ""}</span>
-                              </div>
-                            }
-                            {project.license && project.license.sourceURL &&
-                              <div className='mt-1p'>
-                                <a href={normalizeURL(project.license.sourceURL)} target='_blank' rel='noopener noreferrer'>Resource Link<Icon name='external' className='ml-1p' /></a>
-                              </div>
-                            }
-                          </Grid.Column>
-                        }
-                      </Grid.Row>
-                      <Grid.Row columns='equal'>
-                        {hasNotes &&
-                          <Grid.Column>
-                            <Header as='h3' dividing>Notes</Header>
-                            <p
-                              className='project-notes-body prose prose-code:before:hidden prose-code:after:hidden max-w-full'
-                              dangerouslySetInnerHTML={{
-                                __html: DOMPurify.sanitize(marked(project.notes, { breaks: true }))
-                              }}
-                            />
-                          </Grid.Column>
-                        }
-                        <Grid.Column>
-                          <Header as='h3' dividing>Team</Header>
-                          {(Object.keys(project).length > 0) &&
-                            renderTeamList(project, showAllTeamMembers)
-                          }
-                        </Grid.Column>
-                      </Grid.Row>
-                    </Grid>
-                  </Grid.Column>
-                </Grid.Row>
-                <RenderProjectModules
-                  projectID={projectID}
-                  project={project}
-                  url={props.match.url}
-                  canViewDetails={canViewDetails}
-                  userProjectAdmin={userProjectAdmin}
-                  userProjectMember={userProjectMember}
-                  user={user}
-                  projTasks={projTasks}
-                  taskSearchLoading={taskSearchLoading}
-                  taskSearchResults={taskSearchResults}
-                  taskSearchQuery={taskSearchQuery}
-                  handleTaskSearch={handleTaskSearch}
-                  openViewTaskModal={openViewTaskModal}
-                  expandCollapseAllTasks={expandCollapseAllTasks}
-                  openBatchModal={openBatchModal}
-                  openManageTaskModal={openManageTaskModal}
-                  openDeleteTaskModal={openDeleteTaskModal}
-                  renderStatusIndicator={renderStatusIndicator}
-                  toggleTaskDetail={toggleTaskDetail}
-                  loadingTasks={loadingTasks}
-                  defaultNotificationSetting={project.defaultChatNotification}
-                  mngTaskLoading={mngTaskLoading}
-                  libreLibrary={project.libreLibrary}
-                  libreCoverID={project.libreCoverID}
-                  getTeamMemberOptions={getTeamMemberOptions}
-                />                
-              </Grid>
-            </Segment>
-          </Segment.Group>
-          {/* Edit Project Modal */}
-          <ProjectPropertiesModal show={showEditModal} projectID={projectID} onClose={() => handleCloseEditModal()}/>
-          {/* Manage Team Modal */}
-          <Suspense fallback={<LoadingSpinner/>}>
-            <ManageTeamModal show={showManageTeamModal} project={project} onDataChanged={getProject} onClose={closeTeamModal} />
-          </Suspense>
-          {/* Manage (Add/Edit) Task Modal */}
-          <Modal
-            open={showMngTaskModal}
-            closeOnDimmerClick={false}
+    <div className="bg-white min-h-screen px-8 pt-8 pb-16">
+
+      {/* Page header + breadcrumb row */}
+      <div className="flex items-start justify-between mb-2">
+        <Heading level={1} className="text-3xl font-bold">
+          Project: <em>{project.title || 'Loading...'}</em>
+        </Heading>
+      </div>
+
+      <div className="flex items-center justify-between mb-5">
+        <Breadcrumb>
+          <Breadcrumb.Item><Link to="/projects">Projects</Link></Breadcrumb.Item>
+          {flagCrumbEnabled && (
+            <Breadcrumb.Item><Link to="/projects/flagged">Flagged Projects</Link></Breadcrumb.Item>
+          )}
+          {!flagCrumbEnabled && project.status === 'available' && (
+            <Breadcrumb.Item><Link to="/projects/available">Available Projects</Link></Breadcrumb.Item>
+          )}
+          {!flagCrumbEnabled && project.status === 'completed' && (
+            <Breadcrumb.Item><Link to="/projects/completed">Completed Projects</Link></Breadcrumb.Item>
+          )}
+          <Breadcrumb.Item isCurrent>{project.title || 'Loading...'}</Breadcrumb.Item>
+        </Breadcrumb>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">ID: {project.projectID || 'Loading...'}</span>
+          <Button
+            variant={isProjectPinned ? 'outline' : 'primary'}
+            icon={<IconPin size={15} />}
+            onClick={() => {
+              if (!project.projectID) return;
+              isProjectPinned
+                ? unpinProjectMutation.mutate(project.projectID)
+                : handlePinProject();
+            }}
           >
-            <Modal.Header>
-              {(mngTaskSubtask && mngTaskParent !== '')
-                ? (
-                  <Breadcrumb className='task-view-header-crumbs'>
-                    <Breadcrumb.Section>
-                      <em>{getParentTaskName(mngTaskParent)}</em>
-                    </Breadcrumb.Section>
-                    <Breadcrumb.Divider icon='right chevron' />
-                    {(mngTaskMode === 'add')
-                      ? (<Breadcrumb.Section active>New Subtask</Breadcrumb.Section>)
-                      : (<Breadcrumb.Section active>Edit <em>{mngTaskData.title || 'Loading...'}</em></Breadcrumb.Section>)
-                    }
-                  </Breadcrumb>
-                )
-                : (
-                  <Breadcrumb className='task-view-header-crumbs'>
-                    {(mngTaskMode === 'add')
-                      ? (<Breadcrumb.Section active>New Task</Breadcrumb.Section>)
-                      : (<Breadcrumb.Section active>Edit <em>{mngTaskData.title || 'Loading...'}</em></Breadcrumb.Section>)
-                    }
-                  </Breadcrumb>
-                )
-              }
-            </Modal.Header>
-            <Modal.Content>
-              {(mngTaskMode === 'add' && !mngTaskSubtask) &&
-                <p><em>To add a subtask, use the add button on a task listing.</em></p>
-              }
-              <Form noValidate>
-                <Form.Field
-                  required={true}
-                  error={mngTaskTitleErr}
-                >
-                  <label>Title</label>
-                  <Input
-                    type='text'
-                    placeholder='Title...'
-                    icon='file'
-                    iconPosition='left'
-                    onChange={(e) => setMngTaskTitle(e.target.value)}
-                    value={mngTaskTitle}
+            {isProjectPinned ? 'Unpin' : 'Pin'} Project
+          </Button>
+        </div>
+      </div>
+
+      {/* Action buttons + Navigation tabs on one line */}
+      {(() => {
+        const navTabs = [
+          { label: 'Project', icon: null, path: props.match.url },
+          { label: 'Timeline', icon: <IconClock size={14} />, path: `${props.match.url}/timeline` },
+          ...(!isMiniRepo ? [
+            { label: 'Peer Review', icon: <IconClipboardList size={14} />, path: `${props.match.url}/peerreview` },
+            { label: 'Accessibility', icon: <IconAccessible size={14} />, path: `${props.match.url}/accessibility` },
+          ] : []),
+          ...(project.libreLibrary && project.libreCoverID && !isMiniRepo ? [
+            { label: 'AI Co-Author', icon: <IconWand size={14} />, path: `/projects/${project.projectID}/ai-co-author` },
+          ] : []),
+          ...(project.hasTrafficAnalyticsConfigured ? [
+            { label: 'Analytics', icon: <IconChartBar size={14} />, path: `/projects/${project.projectID}/analytics` },
+          ] : []),
+        ];
+        const activeIdx = navTabs.findIndex((t, i) =>
+          i === 0
+            ? location.pathname === t.path
+            : location.pathname.startsWith(t.path)
+        );
+        return (
+          <div className="flex items-center gap-3 mb-6 overflow-x-auto min-w-0">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {userProjectMember && (
+                <Button variant="primary" icon={<IconEdit size={15} />} onClick={openEditInfoModal}>
+                  Edit Properties
+                </Button>
+              )}
+              {userProjectAdmin && (
+                <Button variant="outline" icon={<IconUsers size={15} />} onClick={openTeamModal}>
+                  Manage Team
+                </Button>
+              )}
+              <Menu>
+                <Menu.Button>
+                  <span className="flex items-center gap-1 text-sm font-medium px-1">
+                    More Tools
+                  </span>
+                </Menu.Button>
+                <Menu.Items>
+                  {userProjectMember && (
+                    <Menu.Item onClick={() => hasFlag ? openFlagModal('clear') : openFlagModal('set')}>
+                      {hasFlag ? 'Clear Flag' : 'Flag Project'}
+                    </Menu.Item>
+                  )}
+                  {!userProjectMember && (
+                    <Menu.Item disabled><em>No actions available.</em></Menu.Item>
+                  )}
+                </Menu.Items>
+              </Menu>
+            </div>
+            <Tabs
+              variant="pills"
+              color="white"
+              selectedIndex={activeIdx >= 0 ? activeIdx : 0}
+              onChange={(idx) => history.push(navTabs[idx].path)}
+            >
+              <Tabs.List>
+                {navTabs.map((tab) => (
+                  <Tabs.Tab key={tab.label}>
+                    <span className="flex items-center gap-1.5">
+                      {tab.icon}
+                      {tab.label}
+                    </span>
+                  </Tabs.Tab>
+                ))}
+              </Tabs.List>
+            </Tabs>
+          </div>
+        );
+      })()}
+
+      {/* Alert messages */}
+      {showProjectCreated && (
+        <Alert variant="success" message="Project successfully created!" className="mb-4" />
+      )}
+      {showJoinComingSoon && (
+        <Alert variant="info" message="Coming Soon: Request to join an existing project and get involved!" className="mb-4" />
+      )}
+      {hasFlag && (
+        <Alert
+          variant="warning"
+          asHeading="p"
+          title={`Flagged: ${getFlagGroupName(project.flag)}`}
+          message={
+            project.flagDescrip && !isEmptyString(project.flagDescrip)
+              ? `Reason for flagging: ${project.flagDescrip}`
+              : 'This flag can be cleared under More Tools.'
+          }
+          className="mb-6"
+        />
+      )}
+
+      {/* Main content */}
+      {loadingData ? (
+        <div className="flex justify-center py-16"><Spinner /></div>
+      ) : (
+        <>
+          {/* Project Properties — full width */}
+          <Card variant="outline" padding="lg" className="mb-6">
+            <Card.Body>
+              <Heading level={5} color="muted" className="mb-3 pb-2 border-b border-gray-200 uppercase tracking-wide">Project Properties</Heading>
+              <div className="grid grid-cols-2 gap-x-12 gap-y-3">
+                {project.status && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 w-28">Status</span>
+                    <Badge
+                      label={project.status === 'open' ? 'Open / In Progress' : capitalizeFirstLetter(project.status)}
+                      variant={
+                        project.status === 'completed' ? 'success'
+                        : project.status === 'open' ? 'primary'
+                        : project.status === 'available' ? 'warning'
+                        : 'default'
+                      }
+                    />
+                  </div>
+                )}
+                {project.visibility && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 w-28">Visibility</span>
+                    <Badge
+                      label={capitalizeFirstLetter(project.visibility)}
+                      variant={project.visibility === 'public' ? 'success' : 'default'}
+                    />
+                  </div>
+                )}
+                {project.classification && !isEmptyString(project.classification) && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 w-28">Classification</span>
+                    <Badge label={getClassificationText(project.classification)} variant="primary" size="sm" />
+                  </div>
+                )}
+                {project.libreLibrary && !isEmptyString(project.libreLibrary) && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 w-28">Library</span>
+                    <span className="text-sm">{getLibraryName(project.libreLibrary)}</span>
+                  </div>
+                )}
+                {project.libreShelf && !isEmptyString(project.libreShelf) && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 w-28">Bookshelf</span>
+                    <span className="text-sm">{project.libreShelf}</span>
+                  </div>
+                )}
+                {project.libreCampus && !isEmptyString(project.libreCampus) && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 w-28">Campus</span>
+                    <span className="text-sm">{project.libreCampus}</span>
+                  </div>
+                )}
+                {Array.isArray(project.cidDescriptors) && project.cidDescriptors.length > 0 && (
+                  <div className="col-span-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 block mb-1">C-ID(s)</span>
+                    <div className="flex flex-wrap gap-1">
+                      {project.cidDescriptors.map((cid) => (
+                        <Badge key={cid} label={cid} variant="default" size="sm" />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {project.tags && Array.isArray(project.tags) && project.tags.length > 0 && (
+                  <div className="col-span-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 block mb-1">Tags</span>
+                    <div className="flex flex-wrap gap-1">
+                      {project.tags.map((tag, idx) => (
+                        <Badge key={idx} label={tag} variant="default" size="sm" />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Construction step stepper (horizontal) */}
+              {project.rdmpCurrentStep && !isEmptyString(project.rdmpCurrentStep) && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 block mb-3">Construction Step</span>
+                  <Stepper
+                    steps={roadmapStepsSimple.map((s) => ({ label: s.text }))}
+                    currentStep={Math.max(0, roadmapStepsSimple.findIndex((s) => s.name === project.rdmpCurrentStep))}
+                    orientation="horizontal"
+                    size="sm"
                   />
-                </Form.Field>
-                <Form.Field>
-                  <label>Description</label>
-                  <TextArea
-                    placeholder='Description...'
-                    textValue={mngTaskDescrip}
-                    onTextChange={(value) => setMngTaskDescrip(value)}
-                    contentType='description'
+                </div>
+              )}
+
+              {/* Links + tools row */}
+              <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-end gap-3">
+                <ProjectLinkButtons
+                  projectID={project.projectID}
+                  libreCoverID={project.libreCoverID}
+                  libreLibrary={project.libreLibrary}
+                  projectLink={project.projectURL}
+                  projectTitle={project.title}
+                  didCreateWorkbench={project.didCreateWorkbench}
+                  hasCommonsBook={project.hasCommonsBook}
+                  projectClassification={project.classification}
+                  projectVisibility={project.visibility}
+                  project={project}
+                  isProjectMemberOrAdmin={userProjectAdmin || userProjectMember}
+                  canRequestPublish={canViewDetails && !project.hasCommonsBook && project.didCreateWorkbench}
+                  didRequestPublish={project.didRequestPublish}
+                />
+                {project.adaptCourseID && project.adaptCourseID !== '' && (
+                  <a
+                    href={`https://adapt.libretexts.org/instructors/courses/${project.adaptCourseID}/assignments`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                  >
+                    View Course on ADAPT <IconExternalLink size={13} />
+                  </a>
+                )}
+                {canViewDetails && project.hasCommonsBook && (
+                  <Button variant="outline" onClick={handleOpenReaderResourcesModal}>
+                    Manage Reader Resources
+                  </Button>
+                )}
+              </div>
+            </Card.Body>
+          </Card>
+
+          {/* 3-column bottom grid: Notes | Source Properties | Team */}
+          <DavisGrid cols={3} gap="md" className="mb-8">
+
+            {/* Notes card */}
+            {hasNotes && (
+              <Card variant="outline" padding="lg">
+                <Card.Body>
+                  <Heading level={5} color="muted" className="mb-3 pb-2 border-b border-gray-200 uppercase tracking-wide">Notes</Heading>
+                  <p
+                    className="project-notes-body prose prose-code:before:hidden prose-code:after:hidden max-w-full text-sm"
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(marked(project.notes, { breaks: true }))
+                    }}
                   />
-                </Form.Field>
-                {(mngTaskMode === 'add') &&
-                <Form.Field inline>
-                  <NextGenInput
-                    name='startDate'
-                    value={mngTaskStartDate}
-                    onChange={(e) => setMngTaskStartDate(e.target.value)}
-                    label='Start Date'
-                    type='date'
-                    labelClassName='!text-black !font-bold'
-                  />
-                </Form.Field>
-                }
-                {(mngTaskMode === 'add') &&
-                <Form.Field inline>
-                  <NextGenInput
-                    name='endDate'
-                    value={mngTaskEndDate}
-                    onChange={(e) => setMngTaskEndDate(e.target.value)}
-                    label='End Date'
-                    type='date'
-                    labelClassName='!text-black !font-bold'
-                    className='!mt-4'
-                  />
-                  </Form.Field>
-                }
-              </Form>
-            </Modal.Content>
-            <Modal.Actions>
-              <Button
-                onClick={closeManageTaskModal}
-              >
-                Cancel
-              </Button>
-              <Button
-                color='green'
-                loading={mngTaskLoading}
-                onClick={submitManageTask}
-              >
-                <Icon name={(mngTaskMode === 'add') ? 'add' : 'save'} />
-                {(mngTaskMode === 'add')
-                  ? (mngTaskSubtask ? 'Add Subtask' : 'Add Task')
-                  : 'Save Changes'
-                }
-              </Button>
-            </Modal.Actions>
-          </Modal>
+                </Card.Body>
+              </Card>
+            )}
+
+            {/* Source Properties card */}
+            {hasResourceInfo && (
+              <Card variant="outline" padding="lg">
+                <Card.Body>
+                  <Heading level={5} color="muted" className="mb-3 pb-2 border-b border-gray-200 uppercase tracking-wide">Source Properties</Heading>
+                  <div className="flex flex-col gap-3">
+                    {project.author && !isEmptyString(project.author) && (
+                      <div>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 block mb-0.5">Author</span>
+                        <span className="text-sm">{project.author}</span>
+                      </div>
+                    )}
+                    {project.authorEmail && !isEmptyString(project.authorEmail) && (
+                      <div>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 block mb-0.5">Author Email</span>
+                        <a href={`mailto:${project.authorEmail}`} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+                          {project.authorEmail}
+                        </a>
+                      </div>
+                    )}
+                    {project.license && project.license.name && (
+                      <div>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 block mb-0.5">License</span>
+                        <span className="text-sm">{project.license.name ?? 'Unknown License'} {project.license.version ?? ''}</span>
+                      </div>
+                    )}
+                    {project.license && project.license.sourceURL && (
+                      <a
+                        href={normalizeURL(project.license.sourceURL)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:underline flex items-center gap-1 w-fit"
+                      >
+                        Resource Link <IconExternalLink size={13} />
+                      </a>
+                    )}
+                  </div>
+                </Card.Body>
+              </Card>
+            )}
+
+            {/* Team card */}
+            <Card variant="outline" padding="lg">
+              <Card.Body>
+                <Heading level={5} color="muted" className="mb-3 pb-2 border-b border-gray-200 uppercase tracking-wide">Team</Heading>
+                {Object.keys(project).length > 0 && renderTeamList(project, showAllTeamMembers)}
+              </Card.Body>
+            </Card>
+
+          </DavisGrid>
+
+          <RenderProjectModules
+            projectID={projectID}
+            project={project}
+            url={props.match.url}
+            canViewDetails={canViewDetails}
+            userProjectAdmin={userProjectAdmin}
+            userProjectMember={userProjectMember}
+            user={user}
+            projTasks={projTasks}
+            taskSearchLoading={taskSearchLoading}
+            taskSearchResults={taskSearchResults}
+            taskSearchQuery={taskSearchQuery}
+            handleTaskSearch={handleTaskSearch}
+            openViewTaskModal={openViewTaskModal}
+            expandCollapseAllTasks={expandCollapseAllTasks}
+            openBatchModal={openBatchModal}
+            openManageTaskModal={openManageTaskModal}
+            openDeleteTaskModal={openDeleteTaskModal}
+            renderStatusIndicator={renderStatusIndicator}
+            toggleTaskDetail={toggleTaskDetail}
+            loadingTasks={loadingTasks}
+            defaultNotificationSetting={project.defaultChatNotification}
+            mngTaskLoading={mngTaskLoading}
+            libreLibrary={project.libreLibrary}
+            libreCoverID={project.libreCoverID}
+            getTeamMemberOptions={getTeamMemberOptions}
+          />
+        </>
+      )}
+
+      {/* Edit Project Modal */}
+      <ProjectPropertiesModal show={showEditModal} projectID={projectID} onClose={() => handleCloseEditModal()} />
+      {/* Manage Team Modal */}
+      <Suspense fallback={<LoadingSpinner />}>
+        <ManageTeamModal show={showManageTeamModal} project={project} onDataChanged={getProject} onClose={closeTeamModal} />
+      </Suspense>
+
+      {/* Add/Edit Task Modal */}
+      <Modal open={showMngTaskModal} onClose={closeManageTaskModal} size="md">
+        <Modal.Header>
+          <Modal.Title>
+            {mngTaskSubtask && mngTaskParent !== '' ? (
+              <span>
+                <em>{getParentTaskName(mngTaskParent)}</em>
+                {' › '}
+                {mngTaskMode === 'add' ? 'New Subtask' : <><em>{mngTaskData.title || 'Loading...'}</em></>}
+              </span>
+            ) : (
+              mngTaskMode === 'add' ? 'New Task' : <span>Edit <em>{mngTaskData.title || 'Loading...'}</em></span>
+            )}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {mngTaskMode === 'add' && !mngTaskSubtask && (
+            <p className="text-sm text-gray-500 mb-3 italic">To add a subtask, use the add button on a task listing.</p>
+          )}
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Title *</label>
+              <Input
+                placeholder="Title..."
+                value={mngTaskTitle}
+                onChange={(e) => setMngTaskTitle(e.target.value)}
+                className={mngTaskTitleErr ? 'border-red-500' : ''}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Description</label>
+              <TextArea
+                placeholder="Description..."
+                textValue={mngTaskDescrip}
+                onTextChange={(value) => setMngTaskDescrip(value)}
+                contentType="description"
+              />
+            </div>
+            {mngTaskMode === 'add' && (
+              <NextGenInput
+                name="startDate"
+                value={mngTaskStartDate}
+                onChange={(e) => setMngTaskStartDate(e.target.value)}
+                label="Start Date"
+                type="date"
+                labelClassName="!text-black !font-bold"
+              />
+            )}
+            {mngTaskMode === 'add' && (
+              <NextGenInput
+                name="endDate"
+                value={mngTaskEndDate}
+                onChange={(e) => setMngTaskEndDate(e.target.value)}
+                label="End Date"
+                type="date"
+                labelClassName="!text-black !font-bold"
+              />
+            )}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline" onClick={closeManageTaskModal}>Cancel</Button>
+          <Button variant="primary" loading={mngTaskLoading} onClick={submitManageTask}>
+            {mngTaskMode === 'add'
+              ? (mngTaskSubtask ? 'Add Subtask' : 'Add Task')
+              : 'Save Changes'
+            }
+          </Button>
+        </Modal.Footer>
+      </Modal>
           {/* View Task Modal */}
           <ViewTaskModal
           show={showViewTaskModal}
@@ -2208,9 +2096,7 @@ const ProjectView = (props) => {
                 />
             )
           }
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+    </div>
   );
 
 };

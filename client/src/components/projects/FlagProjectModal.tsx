@@ -1,4 +1,5 @@
-import { Modal, Dropdown, Button, Icon, TextArea } from "semantic-ui-react";
+import { Button, Modal, Select, Textarea } from "@libretexts/davis-react";
+import { IconAlertCircle, IconX } from "@tabler/icons-react";
 import { Project } from "../../types";
 
 interface FlagProjectModalProps {
@@ -28,76 +29,73 @@ const FlagProjectModal: React.FC<FlagProjectModalProps> = ({
   onRequestSave,
   onClose,
 }) => {
+  const hasLiaisons =
+    Array.isArray(project.liaisons) && project.liaisons.length > 0;
+
+  const flagOptions = [
+    { value: "libretexts", label: "LibreTexts Administrators" },
+    { value: "campusadmin", label: "Campus Administrator" },
+    ...(hasLiaisons ? [{ value: "liaison", label: "Project Liaison(s)" }] : []),
+    { value: "lead", label: "Project Lead(s)" },
+  ];
+
   return (
-    <Modal open={show} onClose={onClose}>
+    <Modal open={show} onClose={(v) => { if (!v) onClose(); }}>
       <Modal.Header>
-        {flagMode === "set" ? "Flag Project" : "Clear Project Flag"}
+        <Modal.Title>
+          {flagMode === "set" ? "Flag Project" : "Clear Project Flag"}
+        </Modal.Title>
       </Modal.Header>
-      <Modal.Content scrolling>
+      <Modal.Body>
         {flagMode === "set" ? (
-          <div>
-            <p>
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-gray-700">
               Flagging a project sends an email notification to the selected
               user and places it in their Flagged Projects list for review.
               Please place a description of the reason for flagging in the text
               box below.
             </p>
-            <Dropdown
+            <Select
+              name="flag-option"
+              label="Flag Option"
               placeholder="Flag Option..."
-              fluid
-              selection
-              options={[
-                {
-                  key: "libretexts",
-                  text: "LibreTexts Administrators",
-                  value: "libretexts",
-                },
-                {
-                  key: "campusadmin",
-                  text: "Campus Administrator",
-                  value: "campusadmin",
-                },
-                {
-                  key: "liaison",
-                  text: "Project Liaison(s)",
-                  value: "liaison",
-                  disabled:
-                    !project.liaisons ||
-                    (Array.isArray(project.liaisons) &&
-                      project.liaisons.length === 0),
-                },
-                {
-                  key: "lead",
-                  text: "Project Lead(s)",
-                  value: "lead",
-                },
-              ]}
+              options={flagOptions}
               value={flagOption}
-              onChange={(e, { value }) =>
-                setFlagOption(value?.toString() ?? "")
-              }
+              onChange={(e) => setFlagOption(e.target.value)}
               error={flagOptionErr}
-              className="mb-2p"
             />
-            <TextArea
+            <Textarea
+              name="flag-description"
+              label="Reason for Flagging"
               placeholder="Describe the reason for flagging..."
               value={flagDescrip}
-              onChange={(value, data) =>
-                setFlagDescrip(data.value?.toString() ?? "")
-              }
+              onChange={(e) => setFlagDescrip(e.target.value)}
+              rows={5}
             />
           </div>
         ) : (
-          <p>Are you sure you want to clear this project's flag?</p>
+          <p className="text-sm text-gray-700">
+            Are you sure you want to clear this project&apos;s flag?
+          </p>
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button color="orange" loading={flagLoading} onClick={onRequestSave}>
-          {flagMode === "set" ? <Icon name="attention" /> : <Icon name="x" />}
-          {flagMode === "set" ? "Flag Project" : "Clear Flag"}
-        </Button>
-      </Modal.Actions>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            loading={flagLoading}
+            onClick={onRequestSave}
+          >
+            <span className="flex items-center gap-1.5 whitespace-nowrap">
+              {flagMode === "set" ? <IconAlertCircle size={15} /> : <IconX size={15} />}
+              {flagMode === "set" ? "Flag Project" : "Clear Flag"}
+            </span>
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };
