@@ -119,7 +119,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
         />
         {!currentPage?.["@id"].startsWith("new-") && (
           <a
-            href={`https://${library}.libretexts.org/@go/page/${currentPage?.["@id"]}`}
+            href={currentPage?.["uri.ui"] && currentPage?.["uri.ui"] !== "" ? currentPage?.["uri.ui"] : `https://${library}.libretexts.org/@go/page/${currentPage?.["@id"]}`}
             target="_blank"
             rel="noopener noreferrer"
             className={DAVIS_REMIXER_LINK_CLASS.external}

@@ -8,8 +8,272 @@ import conductorErrors from "../conductor-errors";
 import MindTouch from "./CXOne/index.js";
 import { License } from "../types";
 import Author, { AuthorInterface } from "../models/author";
+import sanitizeHtml from "sanitize-html";
 
 const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
+
+// ── Pressbooks HTML sanitizer ──────────────────────────────────────────────
+// All content that arrives from the Pressbooks REST API passes through this
+// before it is stored in CXOne.  The allowlist is intentionally broad enough
+// to preserve academic/educational formatting (tables, figures, math, iframes
+// from trusted video hosts) while unconditionally stripping:
+//   • <script>, <style>, <object>, <embed>, <form>, <input>, …
+//   • ALL event-handler attributes (on*)
+//   • javascript: / vbscript: / data: (except data: in <img> src)
+//   • <iframe> src from any host not in TRUSTED_IFRAME_HOSTS
+const TRUSTED_IFRAME_HOSTS = [
+  "www.youtube.com",
+  "youtube.com",
+  "www.youtube-nocookie.com",
+  "youtube-nocookie.com",
+  "player.vimeo.com",
+  "vimeo.com",
+  "www.khanacademy.org",
+  "archive.org",
+  "phet.colorado.edu",
+  "app.kognity.com",
+  "h5p.org",
+  "media.libretexts.org",
+];
+
+const PRESSBOOKS_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: [
+    // Document structure
+    "article",
+    "section",
+    "div",
+    "header",
+    "footer",
+    "main",
+    "aside",
+    "nav",
+    // Headings
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    // Text blocks
+    "p",
+    "blockquote",
+    "pre",
+    "hr",
+    "br",
+    // Lists
+    "ul",
+    "ol",
+    "li",
+    "dl",
+    "dt",
+    "dd",
+    // Inline text
+    "a",
+    "strong",
+    "em",
+    "b",
+    "i",
+    "u",
+    "s",
+    "del",
+    "ins",
+    "mark",
+    "small",
+    "sub",
+    "sup",
+    "abbr",
+    "cite",
+    "q",
+    "code",
+    "kbd",
+    "samp",
+    "var",
+    "span",
+    "time",
+    "bdi",
+    "bdo",
+    // Media
+    "figure",
+    "figcaption",
+    "img",
+    "picture",
+    "source",
+    "audio",
+    "video",
+    "track",
+    // Tables
+    "table",
+    "caption",
+    "colgroup",
+    "col",
+    "thead",
+    "tbody",
+    "tfoot",
+    "tr",
+    "th",
+    "td",
+    // Embedded
+    "iframe",
+    // Math (MathJax output / MathML)
+    "math",
+    "mrow",
+    "mi",
+    "mn",
+    "mo",
+    "mtext",
+    "mspace",
+    "ms",
+    "msqrt",
+    "mroot",
+    "merror",
+    "mpadded",
+    "mphantom",
+    "mfrac",
+    "mstyle",
+    "msub",
+    "msup",
+    "msubsup",
+    "munder",
+    "mover",
+    "munderover",
+    "mmultiscripts",
+    "mtable",
+    "mtr",
+    "mtd",
+    "mlabeledtr",
+    "mfenced",
+    "menclose",
+    "maction",
+    "annotation",
+    "semantics",
+    // Details/summary
+    "details",
+    "summary",
+  ],
+  allowedAttributes: {
+    "*": [
+      "id",
+      "class",
+      "style",
+      "lang",
+      "dir",
+      "title",
+      "aria-*",
+      "role",
+      "data-*",
+    ],
+    a: ["href", "rel", "target", "download"],
+    img: [
+      "src",
+      "alt",
+      "width",
+      "height",
+      "loading",
+      "decoding",
+      "crossorigin",
+    ],
+    source: ["src", "srcset", "media", "type", "sizes"],
+    audio: [
+      "src",
+      "controls",
+      "autoplay",
+      "loop",
+      "muted",
+      "preload",
+      "crossorigin",
+    ],
+    video: [
+      "src",
+      "controls",
+      "autoplay",
+      "loop",
+      "muted",
+      "preload",
+      "poster",
+      "width",
+      "height",
+      "crossorigin",
+    ],
+    track: ["kind", "src", "srclang", "label", "default"],
+    iframe: [
+      "src",
+      "width",
+      "height",
+      "frameborder",
+      "allowfullscreen",
+      "allow",
+      "title",
+      "loading",
+    ],
+    table: ["border", "cellpadding", "cellspacing", "summary"],
+    th: ["scope", "colspan", "rowspan", "abbr"],
+    td: ["colspan", "rowspan", "headers"],
+    col: ["span"],
+    colgroup: ["span"],
+    time: ["datetime"],
+    math: ["xmlns", "display"],
+    // MathML attributes
+    mo: [
+      "fence",
+      "stretchy",
+      "symmetric",
+      "largeop",
+      "movablelimits",
+      "accent",
+      "lspace",
+      "rspace",
+      "separator",
+    ],
+    mspace: ["width", "height", "depth"],
+    mfrac: ["linethickness", "bevelled"],
+    mstyle: [
+      "scriptlevel",
+      "displaystyle",
+      "scriptminsize",
+      "scriptsizemultiplier",
+      "background",
+      "color",
+    ],
+    mtable: [
+      "align",
+      "rowalign",
+      "columnalign",
+      "columnwidth",
+      "equalrows",
+      "equalcolumns",
+      "displaystyle",
+      "side",
+      "minlabelspacing",
+      "frame",
+      "framespacing",
+    ],
+    mtd: ["columnalign", "rowalign", "columnspan", "rowspan"],
+    mtr: ["rowalign", "columnalign"],
+    menclose: ["notation"],
+    annotation: ["encoding"],
+  },
+  disallowedTagsMode: "discard",
+  allowedSchemes: ["http", "https", "mailto", "tel"],
+  allowedSchemesByTag: {
+    img: ["http", "https", "data"], // data: for base64-embedded book assets
+  },
+  allowedSchemesAppliedToAttributes: ["href", "src", "action"],
+  // Restrict <iframe> to explicitly trusted video/embed hosts
+  allowedIframeHostnames: TRUSTED_IFRAME_HOSTS,
+  // Let sanitize-html validate/close tags properly
+  enforceHtmlBoundary: false,
+  // Do not escape text nodes that are already-valid HTML entities
+  textFilter: (text) => text,
+};
+
+/**
+ * Run Pressbooks-sourced HTML through sanitize-html before storage.
+ * Empty strings are returned as-is without the overhead of a parse pass.
+ */
+function sanitizePressbooks(html: string): string {
+  if (!html || !html.trim()) return html;
+  return sanitizeHtml(html, PRESSBOOKS_SANITIZE_OPTIONS);
+}
 
 interface TocNode {
   id: number;
@@ -134,6 +398,12 @@ function sleep(ms: number): Promise<void> {
 }
 
 export class PressBookScraper {
+  /** Hard ceiling for paginated WP REST requests. 50 pages × 100 items = 5 000
+   *  items — far beyond any real book. Guards against a buggy or hostile
+   *  upstream that always returns a full page and would otherwise hang the
+   *  worker indefinitely while growing memory without bound. */
+  private static readonly MAX_PAGING_PAGES = 50;
+
   private pbBookURL: string;
   private title?: string;
   private subdomain: string;
@@ -274,10 +544,7 @@ export class PressBookScraper {
     // a `<picture>` (legal HTML inside `<video>` / `<audio>`, which won't
     // host raster images for us but we strip uniformly for safety), and
     // any future container we haven't enumerated above.
-    result = result.replace(
-      /\ssrcset\s*=\s*(?:"[^"]*"|'[^']*')/gi,
-      "",
-    );
+    result = result.replace(/\ssrcset\s*=\s*(?:"[^"]*"|'[^']*')/gi, "");
     result = result.replace(/\ssizes\s*=\s*(?:"[^"]*"|'[^']*')/gi, "");
 
     return result;
@@ -329,10 +596,7 @@ export class PressBookScraper {
     } else {
       // No usable srcset anywhere — still strip responsive attrs so the
       // returned tag is clean.
-      imgTag = imgTag.replace(
-        /\ssrcset\s*=\s*(?:"[^"]*"|'[^']*')/gi,
-        "",
-      );
+      imgTag = imgTag.replace(/\ssrcset\s*=\s*(?:"[^"]*"|'[^']*')/gi, "");
       imgTag = imgTag.replace(/\ssizes\s*=\s*(?:"[^"]*"|'[^']*')/gi, "");
     }
     return imgTag;
@@ -359,10 +623,7 @@ export class PressBookScraper {
       // srcset strip below.
       result = result.replace(/<img\b/i, `<img src="${largestSrc}"`);
     }
-    result = result.replace(
-      /\ssrcset\s*=\s*(?:"[^"]*"|'[^']*')/gi,
-      "",
-    );
+    result = result.replace(/\ssrcset\s*=\s*(?:"[^"]*"|'[^']*')/gi, "");
     result = result.replace(/\ssizes\s*=\s*(?:"[^"]*"|'[^']*')/gi, "");
     return result;
   }
@@ -940,12 +1201,9 @@ export class PressBookScraper {
     // and the import job potentially exits. Matches the pattern in
     // `api/books.ts` exactly.
     log("[*] Triggering default matter creation + MindMap TOC update...");
-    fetch(
-      `https://batch.libretexts.org/print/Libretext=${bookURL}`,
-      {
-        headers: { origin: "commons.libretexts.org" },
-      },
-    ).catch((e) => {
+    fetch(`https://batch.libretexts.org/print/Libretext=${bookURL}`, {
+      headers: { origin: "commons.libretexts.org" },
+    }).catch((e) => {
       console.warn(
         "[PressBookScraper] Matter / MindMap trigger failed (non-fatal):",
         (e as Error).message,
@@ -1100,7 +1358,8 @@ export class PressBookScraper {
     const base = `${bookUrl.replace(/\/+$/, "")}/wp-json/wp/v2/contributor`;
     const collected: PressbooksContributor[] = [];
     let page = 1;
-    while (true) {
+    let flag=true;
+    while (flag && page <= PressBookScraper.MAX_PAGING_PAGES) {
       const url = `${base}?per_page=${perPage}&page=${page}`;
       let terms: any[];
       try {
@@ -1111,9 +1370,10 @@ export class PressBookScraper {
             `[PressBookScraper] Failed to fetch contributors: ${(err as Error).message}`,
           );
         }
+        flag=false;
         break;
       }
-      if (!Array.isArray(terms) || terms.length === 0) break;
+      if (!Array.isArray(terms) || terms.length === 0) {flag=false; break;};
       for (const term of terms) {
         if (typeof term?.id !== "number") continue;
         const meta = (term.meta ?? {}) as Record<string, unknown>;
@@ -1156,8 +1416,14 @@ export class PressBookScraper {
           );
         }
       }
-      if (terms.length < perPage) break;
+      if (terms.length < perPage) {flag = false; break;};
       page++;
+      if (page > PressBookScraper.MAX_PAGING_PAGES) {
+        console.warn(
+          `[PressBookScraper] fetchContributors: reached page-cap (${PressBookScraper.MAX_PAGING_PAGES}) — truncating results for ${bookUrl}`,
+        );
+        break;
+      }
     }
     return collected;
   }
@@ -1838,7 +2104,8 @@ export class PressBookScraper {
   ): Promise<TocNode[]> {
     const nodes: TocNode[] = [];
     let page = 1;
-    while (true) {
+    let flag = true;
+    while (flag && page <= PressBookScraper.MAX_PAGING_PAGES) {
       const url =
         `${this.pbApi(bookUrl)}/${postType}` +
         `?per_page=${perPage}&page=${page}` +
@@ -1848,9 +2115,13 @@ export class PressBookScraper {
         items = await this.getJson(url, auth);
       } catch {
         // A 400 / 404 ("page out of bounds") means we have everything.
+        flag = false;
         break;
       }
-      if (!Array.isArray(items) || items.length === 0) break;
+      if (!Array.isArray(items) || items.length === 0) {
+        flag = false;
+        break;
+      }
       for (const item of items) {
         nodes.push({
           id: item.id as number,
@@ -1862,8 +2133,17 @@ export class PressBookScraper {
           status: (item.status as string) ?? "publish",
         });
       }
-      if (items.length < perPage) break;
+      if (items.length < perPage) {
+        flag = false;
+        break;
+      }
       page++;
+      if (page > PressBookScraper.MAX_PAGING_PAGES) {
+        console.warn(
+          `[PressBookScraper] fetchAllPostsOfType(${postType}): reached page-cap (${PressBookScraper.MAX_PAGING_PAGES}) — truncating results for ${bookUrl}`,
+        );
+        break;
+      }
     }
     return nodes;
   }
@@ -1901,6 +2181,10 @@ export class PressBookScraper {
     if (!pageID)
       throw new Error(`Error locating CXOne page ID for "${pagePath}"`);
 
+    // Sanitize before storage — strips <script>, event handlers, javascript:
+    // URLs, and any other vectors that could produce stored XSS for readers.
+    const safeHtml = sanitizePressbooks(contentHtml || "");
+
     // POST the HTML content as plain text so MindTouch renders it
     const res = await CXOneFetch({
       scope: "page",
@@ -1910,7 +2194,7 @@ export class PressBookScraper {
       query: { edittime: "now", comment: "Imported from Pressbooks" },
       options: {
         method: "POST",
-        body: `${contentHtml || ""}\n${isContainer ? MindTouch.Templates.POST_CreateBookChapter : MindTouch.Templates.POST_CreateBookTopic}`,
+        body: `${safeHtml}\n${isContainer ? MindTouch.Templates.POST_CreateBookChapter : MindTouch.Templates.POST_CreateBookTopic}`,
         headers: { "Content-Type": "text/plain; charset=utf-8" },
       },
     });
@@ -2039,7 +2323,7 @@ export class PressBookScraper {
    *      throws on duplicate-key (code 11000), and we swallow only those.
    */
   private async createAuthors(
-    contributors: PressbooksContributor[]
+    contributors: PressbooksContributor[],
   ): Promise<void> {
     if (contributors.length === 0) return;
 
@@ -2083,7 +2367,7 @@ export class PressBookScraper {
 
     // ── 2. One-shot lookup of every conflicting nameKey ──────────────────
     const existing = await Author.find(
-      {  nameKey: { $in: candidates.map((c) => c.nameKey) } },
+      { nameKey: { $in: candidates.map((c) => c.nameKey) } },
       { nameKey: 1, name: 1 },
     ).lean();
     const existingByKey = new Map<string, string>(
@@ -2092,7 +2376,7 @@ export class PressBookScraper {
 
     // ── 3. Resolve each candidate ────────────────────────────────────────
     const docs: Array<
-      Pick<AuthorInterface,  "nameKey" | "name" | "pictureURL">
+      Pick<AuthorInterface, "nameKey" | "name" | "pictureURL">
     > = [];
     for (const c of candidates) {
       const existingName = existingByKey.get(c.nameKey);
@@ -2106,7 +2390,7 @@ export class PressBookScraper {
           continue;
         }
         // Different person, same slug — pick the next free suffix.
-        const freeKey = await this.findFreeNameKey( c.nameKey);
+        const freeKey = await this.findFreeNameKey(c.nameKey);
         console.log(
           `[PressBookScraper] Author nameKey collision: "${c.nameKey}" already used by "${existingName}"; ` +
             `inserting "${c.name}" as "${freeKey}".`,
@@ -2148,17 +2432,12 @@ export class PressBookScraper {
    * variant isn't already taken. The bare `baseKey` itself is treated as
    * occupying suffix=1, so the first generated variant is `baseKey-2`.
    */
-  private async findFreeNameKey(
-    baseKey: string,
-  ): Promise<string> {
+  private async findFreeNameKey(baseKey: string): Promise<string> {
     // Slug values may legally contain characters that mean something to
     // regex (Pressbooks doesn't strictly enforce `[a-z0-9-]+`).
     const escaped = baseKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const re = new RegExp(`^${escaped}(?:-(\\d+))?$`);
-    const existing = await Author.find(
-      { nameKey: re },
-      { nameKey: 1 },
-    ).lean();
+    const existing = await Author.find({ nameKey: re }, { nameKey: 1 }).lean();
 
     const taken = new Set<number>();
     for (const row of existing) {

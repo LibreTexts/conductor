@@ -2789,6 +2789,19 @@ async function importPressBooksBook(
   try {
     const { library, title, projectID, pbBookURL } = req.body;
     const { uuid: userID } = req.user.decoded;
+    const user = await User.findOne({ uuid: userID }).orFail();
+    const project = await Project.findOne({ projectID }).orFail();
+
+    const libraryApp = await centralIdentity.getApplicationById(library);
+    if (!libraryApp) {
+      throw new Error("badlibrary");
+    }
+    if (!projectsAPI.checkProjectMemberPermission(project, user)) {
+      throw new Error(conductorErrors.err8);
+    }
+    if (!await centralIdentity.checkUserApplicationAccessInternal(user.centralID, libraryApp.id)) {
+      throw new Error(conductorErrors.err8);
+    }
 
     const jobID = base62(10);
 
@@ -3037,7 +3050,7 @@ export default {
   createBook,
   importPressBooksBook,
   getPressBooksImportJobStatus,
-   getActivePressBooksImportJob,
+  getActivePressBooksImportJob,
   deleteBook,
   getBookDetail,
   getBookPeerReviews,

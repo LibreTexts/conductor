@@ -60,6 +60,7 @@ import {
   isRootBookNode,
   reorderBookNodes,
   setLocalDraft,
+  hasFormattedPathChanged,
   syncRenamedItemFromAutonumberTitle,
   withDerivedStatusFlags,
 } from "./services";
@@ -260,14 +261,27 @@ const RemixerDashboard: React.FC = () => {
       const withPaths = buildBookPaths(
         book,
         uiState.pathLevelFormats ?? [],
-      ).map((page) =>
-        initializeOriginalPathNumber
-          ? {
-              ...page,
-              originalPathNumber: page.pathNumber ? [...page.pathNumber] : [],
-            }
-          : page,
-      );
+      ).map((page) => {
+        const seedPathOriginals = initializeOriginalPathNumber;
+        const seedFormattedOriginals =
+          !page.addedItem &&
+          page.originalFormattedPathOverride === undefined;
+        if (!seedPathOriginals && !seedFormattedOriginals) return page;
+        return {
+          ...page,
+          ...(seedPathOriginals && {
+            originalPathNumber: page.pathNumber ? [...page.pathNumber] : [],
+          }),
+          ...(seedFormattedOriginals && {
+            originalFormattedPathOverride:
+              page.formattedPathOverride === true,
+            originalFormattedPath:
+              page.formattedPathOverride === true
+                ? (page.formattedPath ?? "").trim()
+                : undefined,
+          }),
+        };
+      });
       const withRenamed = syncRenamedItemFromAutonumberTitle(
         withPaths,
         remixerData.autoNumbering ?? true,
@@ -834,17 +848,24 @@ const RemixerDashboard: React.FC = () => {
           const previousTitle = node.title || node["@title"] || "";
           const nextTitle = page.title || page["@title"] || "";
           const renamed = previousTitle !== nextTitle;
-          return {
+          const nextOverride = page.formattedPathOverride === true;
+          const nextFormattedPath = nextOverride
+            ? (page.formattedPath ?? "").trim()
+            : undefined;
+          const saved = {
             ...node,
             ...page,
             title: nextTitle,
             "@title": nextTitle,
-            formattedPathOverride: page.formattedPathOverride === true,
-            formattedPath:
-              page.formattedPathOverride === true
-                ? page.formattedPath
-                : undefined,
-            renamedItem: node.renamedItem || renamed,
+            formattedPathOverride: nextOverride,
+            formattedPath: nextFormattedPath,
+          };
+          return {
+            ...saved,
+            renamedItem:
+              node.renamedItem ||
+              renamed ||
+              hasFormattedPathChanged(saved),
           };
         });
       },

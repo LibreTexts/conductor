@@ -39,6 +39,8 @@ export interface RemixerSubPage {
     "title": string;
     "uri.ui": string;
     originalPathNumber?: string[];
+    originalFormattedPathOverride?: boolean;
+    originalFormattedPath?: string;
     pathNumber?: string[];
     numberedPath?: string;
     formattedPath?: string;

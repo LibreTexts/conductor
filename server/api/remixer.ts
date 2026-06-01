@@ -18,6 +18,7 @@ import {
 } from "../util/remixerutils";
 import { generateAPIRequestHeaders } from "../util/librariesclient.js";
 import User from "../models/user.js";
+import projectsAPI from "./projects.js";
 
 class FetchPageError extends Error {
   statusCode: number;
@@ -56,6 +57,7 @@ const getRemixerProject = async (
   res: Response,
 ) => {
   const { id } = req.params;
+  
   // Only select specific fields for remixer: libreCoverID, libreLibrary, projectID, and title
   const projection = {
     libreCoverID: 1,
@@ -65,10 +67,17 @@ const getRemixerProject = async (
     _id: 0,
   };
   const project = await Project.findOne({ projectID: id }, projection);
+  
   if (!project) {
     return res.status(404).send({
       err: true,
       errMsg: "Project not found",
+    });
+  }
+  if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+    return res.status(403).send({
+      err: true,
+      errMsg: "You do not have permission to access this project",
     });
   }
   res.send({
@@ -95,6 +104,12 @@ const saveRemixerProjectState = async (
     return res.status(404).send({
       err: true,
       errMsg: "Project not found",
+    });
+  }
+  if(!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+    return res.status(403).send({
+      err: true,
+      errMsg: "You do not have permission to access this project",
     });
   }
   // Check for an existing pending or running remixer job before allowing state save
@@ -150,6 +165,7 @@ const saveRemixerProjectState = async (
     pathLevelFormats: remixerState?.pathLevelFormats ?? [],
   });
 };
+
 const publishRemixerProject = async (
   req: ZodReqWithUser<z.infer<typeof SaveRemixerProjectStateSchema>>,
   res: Response,
@@ -178,6 +194,12 @@ const publishRemixerProject = async (
     return res.status(404).send({
       err: true,
       errMsg: "Project not found",
+    });
+  }
+  if(!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+    return res.status(403).send({
+      err: true,
+      errMsg: "You do not have permission to access this project",
     });
   }
   const subdomain = project.libreLibrary;
@@ -291,6 +313,12 @@ const getRemixerProjectState = async (
       errMsg: "Project not found",
     });
   }
+  if(!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+    return res.status(403).send({
+      err: true,
+      errMsg: "You do not have permission to access this project",
+    });
+  }
 
   const remixerState = await PrejectRemixer.findOne(
     { projectID: id },
@@ -344,6 +372,12 @@ const deleteRemixerProjectState = async (
     return res.status(404).send({
       err: true,
       errMsg: "Project not found",
+    });
+  }
+  if(!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+    return res.status(403).send({
+      err: true,
+      errMsg: "You do not have permission to access this project",
     });
   }
 

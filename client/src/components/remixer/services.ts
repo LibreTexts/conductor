@@ -513,6 +513,8 @@ export const buildBookPaths = (
     return {
       ...node,
       originalPathNumber: node.originalPathNumber,
+      originalFormattedPathOverride: node.originalFormattedPathOverride,
+      originalFormattedPath: node.originalFormattedPath,
       pathNumber: ordinalPath,
       numberedPath,
       formattedPath,
@@ -612,12 +614,26 @@ const isInDeletedBranchForAutonumber = (
   return false;
 };
 
+/** True when override toggle or custom prefix differs from the loaded baseline. */
+export const hasFormattedPathChanged = (page: RemixerSubPage): boolean => {
+  if (page.addedItem === true) return false;
+  if (page.originalFormattedPathOverride === undefined) {
+    return false;
+  }
+  const origOverride = page.originalFormattedPathOverride === true;
+  const currOverride = page.formattedPathOverride === true;
+  if (origOverride !== currOverride) return true;
+  if (!currOverride) return false;
+  const origPath = (page.originalFormattedPath ?? "").trim();
+  const currPath = (page.formattedPath ?? "").trim();
+  return origPath !== currPath;
+};
+
 /**
  * When autonumbering is on, sets `renamedItem` if the stored title is not the canonical
- * autonumber display (`getRemixerDisplayTitle`), except: if the user has a custom
- * `formattedPathOverride` and `renamedItem` is not already true, we leave `renamedItem`
- * false so custom-prefix pages are not listed as renames. Display still follows override
- * in `getRemixerDisplayTitle`. When autonumbering is off, `renamedItem` is unchanged.
+ * autonumber display (`getRemixerDisplayTitle`). Custom-prefix pages with an unchanged
+ * override are not listed as renames; changing the override toggle or prefix value is.
+ * When autonumbering is off, `renamedItem` is unchanged.
  */
 export const syncRenamedItemFromAutonumberTitle = (
   book: RemixerSubPage[],
@@ -638,6 +654,10 @@ export const syncRenamedItemFromAutonumberTitle = (
   return book.map((page) => {
     if (!autoNumbering) {
       return page;
+    }
+
+    if (hasFormattedPathChanged(page)) {
+      return { ...page, renamedItem: true };
     }
 
     if (page.formattedPathOverride === true && page.renamedItem !== true) {

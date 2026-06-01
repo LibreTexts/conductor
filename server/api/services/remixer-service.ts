@@ -14,9 +14,9 @@ import {
 } from "../../util/librariesclient";
 import MindTouch from "../../util/CXOne/index.js";
 import {
+  buildRemixerPagePathSegment,
   extractLibretextsSubdomain,
   extractPagePath,
-  slugifyNode,
 } from "../../util/remixerutils";
 import * as cheerio from "cheerio";
 import { log } from "debug";
@@ -225,6 +225,35 @@ const setRemixerPageUriUi = (page: RemixerSubPageState, uri: string) => {
   }
 };
 
+/**
+ * Returns a human-readable LibreTexts URI suitable for path construction.
+ * If the stored uri.ui is an API URL (e.g. `@api/deki/pages/123?redirects=0`)
+ * we resolve the real uri.ui via the page-info endpoint and cache it back on
+ * the page object so subsequent callers don't need to re-fetch.
+ */
+const resolveUiUri = async (
+  page: RemixerSubPageState,
+  subdomain: string,
+): Promise<string> => {
+  const uri = getRemixerPageUriUi(page);
+  const isApiUrl = uri.includes("/@api/deki/") || uri.startsWith("@api/deki/");
+  if (!isApiUrl) return uri;
+
+  const pid = parseInt(page["@id"], 10);
+  if (!Number.isNaN(pid)) {
+    const info = await getPage(pid, subdomain);
+    const realUri =
+      typeof info?.["uri.ui"] === "string" && (info["uri.ui"] as string).length > 0
+        ? (info["uri.ui"] as string)
+        : undefined;
+    if (realUri) {
+      setRemixerPageUriUi(page, realUri);
+      return realUri;
+    }
+  }
+  return uri;
+};
+
 const isMatterNode = (page: {
   "@title": string;
   title: string;
@@ -308,13 +337,20 @@ const handleNewPage = async (
     : RemixerTemplates.POST_CreateBlankPage("topic");
   ;
 
-  const numberedPath = page.pathNumber?.join("_") ?? "";
-  // TODO: POST new page to bookURL using title, numberedPath, content
-  const slug = slugifyNode(`${numberedPath}: ${title}`);
+  const rawTitle = page["@title"] || page.title || title;
+  // segment must be un-encoded here — we double-encode the full path below,
+  // matching CXOneFetch's encodeURIComponent(encodeURIComponent(path)) convention.
+  const segment = buildRemixerPagePathSegment(page, rawTitle);
 
-  const parentUri = getRemixerPageUriUi(parent);
-  const pagePath = encodeURIComponent(`${extractPagePath(parentUri)}/${slug}`);
-  const url = `https://${subdomain}.libretexts.org/@api/deki/pages/=${encodeURIComponent(pagePath)}/${CXOnePageAPIEndpoints.POST_Contents_Title(title)}`;
+  const parentUri = await resolveUiUri(parent, subdomain);
+  // uri.ui already has %3A-encoded colons; decode once so the combined path
+  // contains only raw characters before we apply the double-encode.
+  const parentPath = (() => { try { return decodeURIComponent(extractPagePath(parentUri)); } catch { return extractPagePath(parentUri); } })();
+  const rawPath = `${parentPath}/${segment}`;
+  // MindTouch pages/=<path> requires the content path to be double-encoded:
+  // the HTTP server decodes once, then the DekiWiki router decodes again.
+  const pathEnc = encodeURIComponent(encodeURIComponent(rawPath));
+  const url = `https://${subdomain}.libretexts.org/@api/deki/pages/=${pathEnc}/${CXOnePageAPIEndpoints.POST_Contents_Title(title)}`;
   const dekiHeaders = await generateAPIRequestHeaders(subdomain);
   if (!dekiHeaders) {
     throw new Error(
@@ -333,15 +369,14 @@ const handleNewPage = async (
   if (!response.ok) {
     throwForMindTouchResponse(response, `Error creating page "${title}"`);
   }
-  const createdPage = await getPage(pagePath, subdomain);
+  const createdPage = await getPage(rawPath, subdomain);
   const pageID = createdPage?.["@id"]?.toString();
-  const pageURI = (
-    createdPage?.["uri.ui"] ||
-    createdPage?.["@href"] ||
-    ""
-  ).toString();
+  // Only accept uri.ui — @href from the info endpoint is the API URL form
+  // and must not be stored as the page's human-readable URI.
+  const rawUri = createdPage?.["uri.ui"];
+  const pageURI = typeof rawUri === "string" && rawUri.length > 0 ? rawUri : "";
   if (!pageID) {
-    throw new Error(`Error locating CXOne page ID for "${pagePath}"`);
+    throw new Error(`Error locating CXOne page ID for "${rawPath}"`);
   }
 
   await applyDefaultRemixerPageProperties(subdomain, pageID);
@@ -354,8 +389,8 @@ const remixerPagePaddedSlug = (
   page: RemixerSubPageState,
   displayTitle: string,
 ): string => {
-  const numberedPath = page.pathNumber?.join("_") ?? "";
-  return slugifyNode(`${numberedPath}: ${displayTitle}`);
+  const rawTitle = page["@title"] || page.title || displayTitle;
+  return buildRemixerPagePathSegment(page, rawTitle);
 };
 
 const handleDeletedPage = async (
@@ -423,27 +458,30 @@ const handleModifiedPage = async (
 
   let moveUrl: string;
 
+  // Decode path segments from uri.ui (which may have %3A-encoded colons)
+  // before double-encoding, to avoid triple-encoding colons in the final URL.
+  const safeDecPath = (s: string) => { try { return decodeURIComponent(s); } catch { return s; } };
+
   if (isMoved && !isRenamed) {
-    const pageUri = getRemixerPageUriUi(page);
-    const currentPath = extractPagePath(pageUri);
-    const segments = currentPath.split("/").filter(Boolean);
+    const pageUri = await resolveUiUri(page, subdomain);
+    const currentPathSegments = extractPagePath(pageUri).split("/").filter(Boolean);
     const leaf =
-      segments.length > 0
-        ? segments[segments.length - 1]!
+      currentPathSegments.length > 0
+        ? safeDecPath(currentPathSegments[currentPathSegments.length - 1]!)
         : remixerPagePaddedSlug(page, title);
-    const parentPath = extractPagePath(getRemixerPageUriUi(parent!));
-    const newPathPlain = `${parentPath}/${leaf}`;
-    const toEnc = encodeURIComponent(encodeURIComponent(newPathPlain));
+    const parentPath = safeDecPath(extractPagePath(await resolveUiUri(parent!, subdomain)));
+    const newPathRaw = `${parentPath}/${leaf}`;
+    const toEnc = encodeURIComponent(encodeURIComponent(newPathRaw));
     moveUrl = `${base}/move?title=${titleEnc}&to=${toEnc}&allow=deleteredirects&dream.out.format=json`;
   } else if (isRenamed && !isMoved) {
     const padded = remixerPagePaddedSlug(page, title);
     const nameEnc = encodeURIComponent(padded);
     moveUrl = `${base}/move?title=${titleEnc}&name=${nameEnc}&allow=deleteredirects&dream.out.format=json`;
   } else if (isMoved && isRenamed) {
-    const parentPath = extractPagePath(getRemixerPageUriUi(parent!));
+    const parentPath = safeDecPath(extractPagePath(await resolveUiUri(parent!, subdomain)));
     const padded = remixerPagePaddedSlug(page, title);
-    const newPathPlain = `${parentPath}/${padded}`;
-    const toEnc = encodeURIComponent(encodeURIComponent(newPathPlain));
+    const newPathRaw = `${parentPath}/${padded}`;
+    const toEnc = encodeURIComponent(encodeURIComponent(newPathRaw));
     moveUrl = `${base}/move?title=${titleEnc}&to=${toEnc}&allow=deleteredirects&dream.out.format=json`;
   } else {
     return;
@@ -703,8 +741,19 @@ const toFinalBookEntry = (
     typeof rawTitle === "string" && rawTitle.trim().length > 0
       ? rawTitle.trim()
       : "Untitled";
-  const uriUi = String(plain["uri.ui"] ?? plain["@href"] ?? "");
-  const href = String(plain["@href"] ?? plain["uri.ui"] ?? "");
+  // uri.ui must be the human-readable URL. @href from MindTouch is the API
+  // URL (e.g. @api/deki/pages/123?redirects=0) and must never be used as
+  // the uri.ui value — it would corrupt child-path construction on the next run.
+  const rawUriUi = plain["uri.ui"];
+  const rawHref = plain["@href"];
+  const isApiUrl = (v: unknown): boolean =>
+    typeof v === "string" && (v.includes("/@api/deki/") || v.startsWith("@api/deki/"));
+  const uriUi = String(
+    typeof rawUriUi === "string" && rawUriUi.length > 0 && !isApiUrl(rawUriUi)
+      ? rawUriUi
+      : "",
+  );
+  const href = String(rawHref ?? rawUriUi ?? "");
   return {
     "@id": String(plain["@id"] ?? ""),
     "@title": displayTitle ?? title,
@@ -911,11 +960,10 @@ const runRemixerJob = async ({
         const pid = parseInt(page["@id"], 10);
         if (!Number.isNaN(pid)) {
           const info = await getPage(pid, subdomain);
-          const uri = info?.["uri.ui"] ?? info?.["@href"];
-          if (uri) {
-            const uriStr = String(uri);
-            setRemixerPageUriUi(page, uriStr);
-            page["@href"] = uriStr;
+          const uriUiVal = info?.["uri.ui"];
+          if (typeof uriUiVal === "string" && uriUiVal.length > 0) {
+            setRemixerPageUriUi(page, uriUiVal);
+            page["@href"] = uriUiVal;
           }
         }
       } else if (status === "deleted") {
