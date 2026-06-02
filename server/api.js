@@ -1125,6 +1125,13 @@ router
   );
 
 router
+  .route("/commons/book/get-cover-id-by-url")
+  .get(
+    middleware.validateZod(BookValidators.getCoverIdByUrlSchema),
+    booksAPI.getCoverIdByUrl
+  );
+
+router
   .route("/commons/book/:bookID")
   .get(
     middleware.validateZod(BookValidators.getWithBookIDParamSchema),
