@@ -54,6 +54,7 @@ import {
   TableOfContentsDetailed,
 } from "../types/Book.js";
 import { isBookSortOption } from "../util/typeHelpers.js";
+import { resolveCoverPageIdFromUrl } from "./services/cover-page-id-service.js";
 import { z } from "zod";
 import {
   addPageProperty,
@@ -2776,8 +2777,27 @@ export async function syncBooksInBackground() {
   }
 }
 
+async function getCoverIdByUrl(req: Request, res: Response) {
+  try {
+    const { url } = req.query as { url: string };
+    const result = await resolveCoverPageIdFromUrl(url);
+    if (!result) {
+      return res
+        .status(404)
+        .send({ err: true, errMsg: "Could not resolve cover page ID." });
+    }
+    return res.send({ err: false, id: result.id, bookID: result.bookID });
+  } catch (err) {
+    debugError(err);
+    return res
+      .status(500)
+      .send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
 export default {
   syncWithLibraries,
+  getCoverIdByUrl,
   runAutomatedSyncWithLibraries,
   getCommonsCatalog,
   getMasterCatalog,

@@ -27,6 +27,28 @@ export const getCommonsCatalogSchema = z.object({
   }),
 });
 
+export const getCoverIdByUrlSchema = z.object({
+  query: z.object({
+    url: z
+      .string()
+      .url()
+      .refine(
+        (v) => {
+          try {
+            const u = new URL(v);
+            return (
+              (u.protocol === "https:" || u.protocol === "http:") &&
+              /\.libretexts\.org$/i.test(u.hostname)
+            );
+          } catch {
+            return false;
+          }
+        },
+        { message: "URL must be an http(s) *.libretexts.org address." }
+      ),
+  }),
+});
+
 export const getMasterCatalogSchema = z.object({
   query: z.object({
     sort: z
