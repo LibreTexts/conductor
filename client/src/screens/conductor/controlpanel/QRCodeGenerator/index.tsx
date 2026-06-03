@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 // @ts-ignore
 import QRCodeStyling from "qr-code-styling";
 import { useTypedSelector } from "../../../../state/hooks";
-import { Button, Input, Form, Header, Segment, Grid } from "semantic-ui-react";
+import { Button, Input } from "@libretexts/davis-react";
+import { IconRefresh } from "@tabler/icons-react";
 import { z } from "zod";
 
 const URLSchema = z.string().url();
@@ -10,68 +11,43 @@ const URLSchema = z.string().url();
 const QRCodeGenerator: React.FC = () => {
   const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
   const [url, setUrl] = useState("https://libretexts.org");
+  const [urlErr, setUrlErr] = useState(false);
   const [didGenerate, setDidGenerate] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
 
-  // Reset state when URL changes
   useEffect(() => {
     setDidGenerate(false);
+    setUrlErr(false);
     if (qrRef.current) {
       qrRef.current.innerHTML = "";
     }
   }, [url]);
 
-  // Create new QR code instance with the current URL
   const createQrCode = (targetUrl: string) => {
-    const newQrCode = new QRCodeStyling({
+    return new QRCodeStyling({
       width: 300,
       height: 300,
       data: targetUrl,
       margin: 5,
-      qrOptions: {
-        typeNumber: 0,
-        mode: "Byte",
-        errorCorrectionLevel: "H",
-      },
-      imageOptions: {
-        hideBackgroundDots: true,
-        imageSize: 0.4,
-        margin: 4,
-      },
-      dotsOptions: {
-        type: "dots",
-        color: "#000000",
-      },
-      backgroundOptions: {
-        color: "#ffffff",
-      },
+      qrOptions: { typeNumber: 0, mode: "Byte", errorCorrectionLevel: "H" },
+      imageOptions: { hideBackgroundDots: true, imageSize: 0.4, margin: 4 },
+      dotsOptions: { type: "dots", color: "#000000" },
+      backgroundOptions: { color: "#ffffff" },
       image: "https://cdn.libretexts.net/Logos/libretexts_icon.png",
-      cornersSquareOptions: {
-        type: "square",
-        color: "#000000",
-      },
-      cornersDotOptions: {
-        type: "square",
-        color: "#000000",
-      },
+      cornersSquareOptions: { type: "square", color: "#000000" },
+      cornersDotOptions: { type: "square", color: "#000000" },
     });
-    return newQrCode;
   };
 
-  // Generate QR code with new URL and show modal
   const handleGenerate = () => {
     if (!url) return;
-
     const validation = URLSchema.safeParse(url);
     if (!validation.success) {
-      alert("Invalid URL. Please enter a valid URL.");
+      setUrlErr(true);
       return;
     }
-
     const newQrCode = createQrCode(url);
     setDidGenerate(true);
-
-    // Need to use a small delay to ensure the component has rendered
     setTimeout(() => {
       if (qrRef.current) {
         qrRef.current.innerHTML = "";
@@ -80,57 +56,48 @@ const QRCodeGenerator: React.FC = () => {
     }, 100);
   };
 
-  if (!isSuperAdmin) {
-    return null;
-  }
+  if (!isSuperAdmin) return null;
 
   return (
-    <Grid centered className="controlpanel-container">
-      <Grid.Column width={10}>
-        <Header
-          as="h1"
-          content="QR Code Generator"
-          textAlign="center"
-          className="mb-4"
-        />
-        <Segment padded="very">
-          <Form>
-            <Form.Field>
-              <label>Enter URL for QR Code</label>
-              <Input
-                // type="url"
-                placeholder="https://example.com"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                fluid
-                size="large"
-              />
-            </Form.Field>
-            <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
-              <Button
-                color="blue"
-                icon="sync"
-                content="Generate QR Code"
-                onClick={() => handleGenerate()}
-                size="large"
-                disabled={!url}
-              />
-            </div>
-          </Form>
-        </Segment>
+    <div className="flex justify-center px-4 py-8">
+      <div className="w-full max-w-2xl flex flex-col gap-4">
+        <h1 className="text-2xl font-bold text-center text-gray-900">QR Code Generator</h1>
+
+        <div className="border border-gray-200 rounded-lg p-8 bg-white flex flex-col gap-6">
+          <Input
+            name="qr-url"
+            label="Enter URL for QR Code"
+            placeholder="https://example.com"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            error={urlErr}
+            errorMessage="Please enter a valid URL."
+          />
+          <div className="flex justify-center">
+            <Button
+              variant="primary"
+              icon={<IconRefresh size={16} />}
+              disabled={!url}
+              onClick={handleGenerate}
+            >
+              Generate QR Code
+            </Button>
+          </div>
+        </div>
+
         {didGenerate && (
-          <Segment padded="very">
-            <div className="text-center">
-              <p className="mb-2">QR Code for {url}</p>
-              <div ref={qrRef} className="inline-block"></div>
-              <p className="mt-2">
+          <div className="border border-gray-200 rounded-lg p-8 bg-white">
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-sm text-gray-600">QR Code for {url}</p>
+              <div ref={qrRef} className="inline-block" />
+              <p className="text-sm text-gray-500">
                 Right-click the QR code to save or copy the image.
               </p>
             </div>
-          </Segment>
+          </div>
         )}
-      </Grid.Column>
-    </Grid>
+      </div>
+    </div>
   );
 };
 
