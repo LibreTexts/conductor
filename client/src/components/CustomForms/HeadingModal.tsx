@@ -1,7 +1,8 @@
-import { Modal, Input, Button, Icon, ModalProps } from "semantic-ui-react";
+import { Modal, Button, Input } from "@libretexts/davis-react";
+import { IconDeviceFloppy, IconPlus } from "@tabler/icons-react";
 import { useRef, useEffect } from "react";
 
-interface HeadingModalProps extends ModalProps {
+interface HeadingModalProps {
   show: boolean;
   mode: "add" | "edit";
   value: string;
@@ -21,38 +22,44 @@ const HeadingModal: React.FC<HeadingModalProps> = ({
   onSave,
   onClose,
   loading,
-  ...rest
 }) => {
-  
-  //Auto-focus input on open
-  const textInputRef = useRef(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (show && textInputRef.current) {
-      (textInputRef.current as HTMLFormElement).focus();
+      textInputRef.current.focus();
     }
   }, [show]);
 
   return (
-    <Modal open={show} onClose={onClose} {...rest}>
-      <Modal.Header>{mode === "add" ? "Add" : "Edit"} Heading</Modal.Header>
-      <Modal.Content>
+    <Modal open={show} onClose={onClose} size="sm">
+      <Modal.Header>
+        <Modal.Title>{mode === "add" ? "Add" : "Edit"} Heading</Modal.Title>
+        <Modal.Close />
+      </Modal.Header>
+      <Modal.Body>
         <Input
+          name="heading-text"
+          label="Heading Text"
           type="text"
           value={value}
-          onChange={(_e, { value }) => onChange(value)}
-          fluid
-          placeholder={`Enter ${mode === "add" && "new"} heading text...`}
-          error={hasError}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={`Enter ${mode === "add" ? "new " : ""}heading text...`}
           ref={textInputRef}
         />
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button color="green" loading={loading ?? false} onClick={onSave}>
-          <Icon name={mode === "add" ? "add" : "save"} />
-          {mode === "add" ? "Add" : "Save"} Heading
-        </Button>
-      </Modal.Actions>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            variant="primary"
+            icon={mode === "add" ? <IconPlus size={16} /> : <IconDeviceFloppy size={16} />}
+            loading={loading ?? false}
+            onClick={onSave}
+          >
+            {mode === "add" ? "Add" : "Save"} Heading
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };

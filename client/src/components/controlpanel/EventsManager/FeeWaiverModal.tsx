@@ -1,4 +1,5 @@
-import { Button, Icon, Modal, Form, Accordion } from "semantic-ui-react";
+import { Modal, Button, Checkbox } from "@libretexts/davis-react";
+import { IconDeviceFloppy, IconPlus } from "@tabler/icons-react";
 import CtlTextInput from "../../ControlledInputs/CtlTextInput";
 import useGlobalError from "../../error/ErrorHooks";
 import { useState, useEffect } from "react";
@@ -22,7 +23,6 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
   show,
   feeWaiverToEdit,
   onClose,
-  ...props
 }) => {
   const { handleGlobalError } = useGlobalError();
   const {
@@ -105,21 +105,20 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
   }
 
   return (
-    <Modal size="large" open={show} onClose={onClose} {...props}>
+    <Modal open={show} onClose={onClose} size="lg">
       <Modal.Header>
-        {mode === "create" ? "Create" : "Edit"} Fee Waiver
+        <Modal.Title>{mode === "create" ? "Create" : "Edit"} Fee Waiver</Modal.Title>
+        <Modal.Close />
       </Modal.Header>
-      <Modal.Content scrolling className="mb-4p">
-        <p className="mb-4p">
-          Create a fee waiver to share a discount code with participants.
-          Discounts can be partial or full (100%). Fee waivers can be
-          inactivated at any time, if necessary. Fee waiver names must be unique within an event.{" "}
-          <strong>
-            Discount percentages cannot be changed after creation.
-          </strong>
-        </p>
+      <Modal.Body className="overflow-y-auto max-h-[70vh]">
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-600">
+            Create a fee waiver to share a discount code with participants.
+            Discounts can be partial or full (100%). Fee waivers can be
+            inactivated at any time, if necessary. Fee waiver names must be unique within an event.{" "}
+            <strong>Discount percentages cannot be changed after creation.</strong>
+          </p>
 
-        <Form noValidate loading={loading}>
           <CtlTextInput
             name="name"
             control={control}
@@ -127,18 +126,14 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
             label="Fee Waiver Name"
             placeholder="Enter Fee Waiver Name..."
           />
-          <Form.Checkbox
-            id="feewaiver-active"
-            label={
-              <label className="form-field-label" htmlFor="feewaiver-active">
-                Active
-              </label>
-            }
+
+          <Checkbox
+            name="feewaiver-active"
+            label="Active"
             checked={watchValue("active") ?? false}
-            onChange={(_e, { checked }) => {
-              setValue("active", checked ?? false);
-            }}
+            onChange={(checked) => setValue("active", checked)}
           />
+
           <CtlTextInput
             name="percentage"
             control={control}
@@ -150,7 +145,8 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
             max={100}
             disabled={mode === "edit"}
           />
-          <div className="flex-row-div left-flex">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <CtlDateInput
               type="datetime-local"
               name="expirationDate"
@@ -159,27 +155,29 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
               label="Expiration Date"
               value={getValues("expirationDate")}
               error={false}
-              className="my-2p"
             />
             <CtlTimeZoneInput
               name="timeZone"
               control={control}
               label="Time Zone (applies to all dates/times)"
               value={getValues("timeZone")}
-              className="my-2p ml-2p"
             />
           </div>
-        </Form>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose} color="grey">
-          Cancel
-        </Button>
-        <Button onClick={handleSave} color="green">
-          <Icon name="save" />
-          {mode === "create" ? "Create" : "Save"}
-        </Button>
-      </Modal.Actions>
+        </div>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            variant="primary"
+            icon={mode === "create" ? <IconPlus size={16} /> : <IconDeviceFloppy size={16} />}
+            loading={loading}
+            onClick={handleSave}
+          >
+            {mode === "create" ? "Create" : "Save"}
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };
