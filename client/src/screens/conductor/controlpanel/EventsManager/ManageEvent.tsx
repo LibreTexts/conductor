@@ -141,7 +141,7 @@ const ManageEvent = () => {
 
   const getOrgEventFeeWaivers = useCallback(async () => {
     try {
-      if (!routeParams.eventID || manageMode === "create") return;
+      if (!routeParams.eventID || routeParams.mode !== "edit") return;
       setLoadedFeeWaivers(false);
       const res = await axios.get(`/orgevents/${routeParams.eventID}/feewaivers`);
       if (res.data.err) throw new Error(res.data.errMsg);
@@ -151,11 +151,11 @@ const ManageEvent = () => {
       handleGlobalError(err);
     }
     setLoadedFeeWaivers(true);
-  }, [routeParams, manageMode, setLoadedFeeWaivers, handleGlobalError]);
+  }, [routeParams, setLoadedFeeWaivers, handleGlobalError]);
 
   const getOrgParticipants = useCallback(async () => {
     try {
-      if (!routeParams.eventID || manageMode === "create") return;
+      if (!routeParams.eventID || routeParams.mode !== "edit") return;
       setLoadedParticipants(false);
       const res = await axios.get(`/orgevents/${routeParams.eventID}/participants?page=${activePage}`);
       if (res.data.err) throw new Error(res.data.errMsg);
@@ -169,7 +169,7 @@ const ManageEvent = () => {
       handleGlobalError(err);
     }
     setLoadedParticipants(true);
-  }, [routeParams, manageMode, activePage, itemsPerPage, handleGlobalError]);
+  }, [routeParams, activePage, itemsPerPage, handleGlobalError]);
 
   useEffect(() => { getOrgParticipants(); }, [activePage]);
 
