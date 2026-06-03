@@ -1,8 +1,4 @@
-export const LIBRARIES: {
-  href: string;
-  shortName: string;
-  longName: string;
-}[] = [
+export const LIBRARIES = [
   {
     href: "https://bio.libretexts.org/",
     shortName: "bio",
@@ -73,7 +69,11 @@ export const LIBRARIES: {
     shortName: "workforce",
     longName: "Workforce",
   },
-];
+] as const satisfies readonly {
+  href: string;
+  shortName: string;
+  longName: string;
+}[];
 
 export const CHAT_NOTIFY_OPTS = (
   defaultOnly: boolean,
