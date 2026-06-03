@@ -3083,6 +3083,9 @@ async function getActivePressBooksImportJob(
       err: true,
       errMsg: conductorErrors.err6,
     });
+  }
+}
+
 async function getCoverIdByUrl(req: Request, res: Response) {
   try {
     const { url } = req.query as { url: string };
