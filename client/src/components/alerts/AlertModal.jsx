@@ -19,21 +19,14 @@ import {
   getAlertTimingDescription,
   getAlertProjectLocationFilterText
 } from '../util/AlertHelpers.js';
-
 import useGlobalError from '../error/ErrorHooks';
 
-const AlertModal = ({
-  open,
-  onClose,
-  query,
-  mode,
-  alertData
-}) => {
+const AlertModal = ({ open, onClose, query, mode, alertData }) => {
 
   const resourcesDefault = {
     project: false,
     book: false,
-    homework: false
+    homework: false,
   };
   const projLocationDefault = 'global';
 
@@ -240,7 +233,7 @@ AlertModal.defaultProps = {
   onClose: () => {},
   query: '',
   mode: 'create',
-  alertData: null
+  alertData: null,
 };
 
 AlertModal.propTypes = {
@@ -248,7 +241,7 @@ AlertModal.propTypes = {
   onClose: PropTypes.func.isRequired,
   query: PropTypes.string,
   mode: PropTypes.string.isRequired,
-  alertData: PropTypes.object
+  alertData: PropTypes.object,
 };
 
 export default AlertModal;
