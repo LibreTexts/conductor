@@ -1,15 +1,15 @@
-import { Header, HeaderProps } from "semantic-ui-react";
 import { CustomFormHeading } from "../../types";
 
-interface HeadingBlockProps extends HeaderProps {
+interface HeadingBlockProps {
   item: CustomFormHeading;
+  className?: string;
 }
 
-const HeadingBlock: React.FC<HeadingBlockProps> = ({ item, ...rest }) => {
+const HeadingBlock: React.FC<HeadingBlockProps> = ({ item, className }) => {
   return (
-    <Header as="h4" key={item.order} dividing {...rest}>
+    <h4 className={`text-base font-semibold border-b border-gray-200 pb-1 mb-3 ${className ?? ""}`}>
       {item.text}
-    </Header>
+    </h4>
   );
 };
 
