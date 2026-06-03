@@ -36,7 +36,7 @@ const ControlPanel = () => {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !user.uuid) return;
     if (!user.isCampusAdmin && !user.isSuperAdmin && !user.isSupport) {
       window.location.href = "/home";
     }
