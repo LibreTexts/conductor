@@ -1,0 +1,112 @@
+/**
+ * Davis-themed button surfaces for remixer.
+ * Uses CSS variables from @libretexts/davis-react/styles.css (theme.css).
+ * !important overrides Tailwind utilities on davis-react IconButton (default ghost variant)
+ * and Semantic UI button defaults when these classes are applied.
+ */
+
+.davis-remixer-btn {
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+/* Icon + soft action surfaces (success / danger / neutral) */
+.davis-remixer-btn--success {
+  background-color: var(--color-success-100) !important;
+  color: var(--color-success-700) !important;
+}
+
+.davis-remixer-btn--success:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-color: var(--color-success) !important;
+  color: var(--color-text-white) !important;
+}
+
+.davis-remixer-btn--success:active:not(:disabled):not([aria-disabled="true"]) {
+  background-color: var(--color-success-700) !important;
+  color: var(--color-text-white) !important;
+}
+
+.davis-remixer-btn--danger {
+  background-color: var(--color-danger-100) !important;
+  color: var(--color-danger-700) !important;
+}
+
+.davis-remixer-btn--danger:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-color: var(--color-danger) !important;
+  color: var(--color-text-white) !important;
+}
+
+.davis-remixer-btn--danger:active:not(:disabled):not([aria-disabled="true"]) {
+  background-color: var(--color-danger-700) !important;
+  color: var(--color-text-white) !important;
+}
+
+.davis-remixer-btn--neutral {
+  background-color: var(--color-neutral-100) !important;
+  color: var(--color-neutral-600) !important;
+}
+
+.davis-remixer-btn--neutral:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-color: var(--color-neutral-500) !important;
+  color: var(--color-text-white) !important;
+}
+
+.davis-remixer-btn--neutral:active:not(:disabled):not([aria-disabled="true"]) {
+  background-color: var(--color-neutral-600) !important;
+  color: var(--color-text-white) !important;
+}
+
+/* Semantic UI Dropdown.Item — text + hover fill */
+.davis-remixer-menu-item {
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.davis-remixer-menu-item--primary {
+  color: var(--color-primary-500) !important;
+}
+
+.davis-remixer-menu-item--primary:hover {
+  background-color: var(--color-primary-500) !important;
+  color: var(--color-text-white) !important;
+}
+
+.davis-remixer-menu-item--success {
+  color: var(--color-success-700) !important;
+}
+
+.davis-remixer-menu-item--success:hover {
+  background-color: var(--color-success) !important;
+  color: var(--color-text-white) !important;
+}
+
+.davis-remixer-menu-item--danger {
+  color: var(--color-danger-700) !important;
+}
+
+.davis-remixer-menu-item--danger:hover {
+  background-color: var(--color-danger) !important;
+  color: var(--color-text-white) !important;
+}
+
+/* External page links in remixer modals and panels */
+.davis-remixer-link {
+  display: inline-block;
+  margin-top: 1rem;
+  color: var(--color-primary-500);
+  font-size: 0.875rem;
+  text-decoration: underline;
+  transition: color 0.15s ease;
+}
+
+.davis-remixer-link:hover {
+  color: var(--color-primary-700);
+}
+
+/* Checkbox with label on the left and control immediately to its right */
+.davis-remixer-checkbox--label-left {
+  flex-direction: row-reverse;
+  display: inline-flex;
+}
