@@ -207,10 +207,17 @@ async function createFramework(
   try {
     const framework = new AssetTagFramework({
       ...req.body,
+      templates: [],
       uuid: v4(),
       orgID: process.env.ORG_ID,
     });
     await framework.save();
+
+    if (Array.isArray(req.body.templates) && req.body.templates.length > 0) {
+      framework.templates = await _upsertTemplates(framework._id, req.body.templates);
+      await framework.save();
+    }
+
     return res.send({
       err: false,
       framework,
