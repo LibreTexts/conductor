@@ -532,7 +532,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
           try {
             const headRes = await axios.head(book.thumbnail, { timeout: 5000 });
             const contentType = headRes.headers["content-type"];
-            if (typeof contentType === "string" && contentType.includes("image/gif")) {
+            if (typeof contentType === "string" && ["image/gif", "image/webp", "image/apng", "image/avif"].includes(contentType.toLowerCase())) {
               (book as any).thumbnailIsAnimated = true;
             }
           } catch {
