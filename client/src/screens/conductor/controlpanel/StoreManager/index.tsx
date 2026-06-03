@@ -95,6 +95,7 @@ const StoreManager = () => {
               { value: "REJECTED", label: "Rejected" },
               { value: "SHIPPED", label: "Shipped" },
             ]}
+            placeholder="Filter by Lulu Job Status"
             onChange={(e) => setLuluStatusFilter(e.target.value)}
           />
           <Select
@@ -107,6 +108,7 @@ const StoreManager = () => {
               { value: "completed", label: "Completed" },
               { value: "failed", label: "Failed" },
             ]}
+            placeholder="Filter by Order Status"
             onChange={(e) => setStatusFilter(e.target.value)}
           />
         </div>
