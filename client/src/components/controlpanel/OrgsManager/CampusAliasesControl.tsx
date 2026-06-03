@@ -1,5 +1,6 @@
 import React from "react";
-import { Button, Icon } from "semantic-ui-react";
+import { Button, Input } from "@libretexts/davis-react";
+import { IconPlus, IconX } from "@tabler/icons-react";
 
 type CampusAliasesControlProps = {
   aliases: string[];
@@ -17,8 +18,7 @@ const CampusAliasesControl: React.FC<CampusAliasesControlProps> = ({
   };
 
   const deleteAlias = (index: number) => {
-    const updatedAliases = aliases.filter((_, i) => i !== index);
-    setAliases(updatedAliases);
+    setAliases(aliases.filter((_, i) => i !== index));
   };
 
   const addAlias = () => {
@@ -26,49 +26,43 @@ const CampusAliasesControl: React.FC<CampusAliasesControlProps> = ({
   };
 
   return (
-    <div className="w-full">
-      <div className="border rounded-lg overflow-hidden">
-        {/* Header Row */}
-        <div className="flex items-center bg-gray-50 border-b px-4 py-2">
-          <div className="flex-1 font-semibold">Alias</div>
-          <div className="w-16 text-right font-semibold">Actions</div>
+    <div className="w-full border border-gray-200 rounded-lg overflow-hidden">
+      <div className="flex items-center bg-gray-50 border-b border-gray-200 px-4 py-2">
+        <div className="flex-1 text-sm font-semibold text-gray-700">Alias</div>
+        <div className="w-16 text-right text-sm font-semibold text-gray-700">
+          Actions
         </div>
+      </div>
 
-        {/* Content Rows */}
-        <div className="p-4">
-          {aliases.map((alias, index) => (
-            <div key={index} className="flex items-center gap-1 mb-2">
-              <input
-                type="text"
-                value={alias}
-                onChange={(e) => handleAliasChange(index, e.target.value)}
-                className="flex-1 p-2 border rounded min-w-0"
-              />
-              <div className="w-16 flex justify-end">
-                <Button
-                  icon
-                  color="red"
-                  onClick={() => deleteAlias(index)}
-                  className="w-8 h-8 shrink-0"
-                  style={{
-                    minWidth: "32px",
-                    padding: 0,
-                  }}
-                >
-                  <Icon name="delete" className="m-0" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="p-4 space-y-2">
+        {aliases.map((alias, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <Input
+              name={`alias-${index}`}
+              label=""
+              aria-label={`Alias ${index + 1}`}
+              value={alias}
+              onChange={(e) => handleAliasChange(index, e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              variant="destructive"
+              icon={<IconX size={16} />}
+              onClick={() => deleteAlias(index)}
+              aria-label={`Remove alias ${index + 1}`}
+            />
+          </div>
+        ))}
+      </div>
 
-        {/* Footer Row */}
-        <div className="flex items-center bg-gray-50 border-t px-4 py-2">
-          <Button color="blue" onClick={addAlias}>
-            <Icon name="add" />
-            Add Alias
-          </Button>
-        </div>
+      <div className="bg-gray-50 border-t border-gray-200 px-4 py-2">
+        <Button
+          variant="primary"
+          icon={<IconPlus size={16} />}
+          onClick={addAlias}
+        >
+          Add Alias
+        </Button>
       </div>
     </div>
   );
