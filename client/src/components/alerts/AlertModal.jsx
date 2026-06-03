@@ -1,14 +1,14 @@
-import {
-  Icon,
-  Button,
-  Modal,
-  Form,
-  Input,
-  Select
-} from 'semantic-ui-react';
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
+import {
+  Button,
+  Checkbox,
+  Input,
+  Modal,
+  Select,
+} from '@libretexts/davis-react';
+import { IconPlus } from '@tabler/icons-react';
 
 import {
   alertResourceTypes,
@@ -19,60 +19,39 @@ import {
   getAlertTimingDescription,
   getAlertProjectLocationFilterText
 } from '../util/AlertHelpers.js';
-
 import useGlobalError from '../error/ErrorHooks';
 
-const AlertModal = ({
-  open,
-  onClose,
-  query,
-  mode,
-  alertData
-}) => {
+const AlertModal = ({ open, onClose, query, mode, alertData }) => {
 
   const resourcesDefault = {
     project: false,
     book: false,
-    homework: false
+    homework: false,
   };
   const projLocationDefault = 'global';
 
-  // Global State and Error Handling
   const { handleGlobalError } = useGlobalError();
 
-  // UI
   const [modalLoading, setModalLoading] = useState(false);
-
-  // Data
   const [alertQuery, setAlertQuery] = useState('');
   const [resources, setResources] = useState(resourcesDefault);
   const [projLocation, setProjLocation] = useState(projLocationDefault);
   const [timing, setTiming] = useState(alertTimingOptions[0].value);
 
-  // Error States
   const [queryError, setQueryError] = useState(false);
   const [resourcesError, setResourcesError] = useState(false);
 
-  /**
-   * If applicable, set the provided query in UI.
-   */
   useEffect(() => {
-    if (typeof (query) === 'string' && query.length > 0 && query.length <= 150) {
+    if (typeof query === 'string' && query.length > 0 && query.length <= 150) {
       setAlertQuery(query);
     }
   }, [query, setAlertQuery]);
 
-  /**
-   * Resets the Create Alert form's error states.
-   */
   const resetCreateForm = () => {
     setQueryError(false);
     setResourcesError(false);
   };
 
-  /**
-   * Internal safety method for closing the Modal.
-   */
   const closeModalInternal = () => {
     setAlertQuery('');
     setResources(resourcesDefault);
@@ -80,25 +59,16 @@ const AlertModal = ({
     setTiming(alertTimingOptions[0].value);
     setModalLoading(false);
     resetCreateForm();
-    if (typeof (onClose) === 'function') onClose();
+    if (typeof onClose === 'function') onClose();
   };
 
-  /**
-   * Validates the Create Alert form and sets error states, if necessary.
-   * @returns {boolean} True if valid form, false otherwise.
-   */
   const validateCreateForm = () => {
     let validForm = true;
     if (alertQuery.length === 0 || alertQuery.length > 150) {
       validForm = false;
       setQueryError(true);
     }
-    let oneResource = false;
-    Object.keys(resources).forEach((key) => {
-      if (resources[key] === true && !oneResource) {
-        oneResource = true;
-      }
-    });
+    const oneResource = Object.values(resources).some((v) => v === true);
     if (!oneResource) {
       validForm = false;
       setResourcesError(true);
@@ -106,26 +76,16 @@ const AlertModal = ({
     return validForm;
   };
 
-  /**
-   * Submits the new Alert to the server, then closes the Modal.
-   */
   const createAlert = () => {
     setModalLoading(true);
     resetCreateForm();
     if (validateCreateForm()) {
-      let resourceTypes = [];
-      alertResourceTypes.forEach((type) => {
-        if (resources[type.key] === true) {
-          resourceTypes.push(type.value);
-        }
-      });
-      let alertData = {
-        query: alertQuery,
-        resources: resourceTypes,
-        timing
-      };
-      if (resourceTypes.includes('project')) alertData.projectLocation = projLocation;
-      axios.post('/alert', alertData).then((res) => {
+      const resourceTypes = alertResourceTypes
+        .filter((type) => resources[type.key] === true)
+        .map((type) => type.value);
+      const alertPayload = { query: alertQuery, resources: resourceTypes, timing };
+      if (resourceTypes.includes('project')) alertPayload.projectLocation = projLocation;
+      axios.post('/alert', alertPayload).then((res) => {
         if (!res.data.err) {
           closeModalInternal();
         } else {
@@ -141,122 +101,139 @@ const AlertModal = ({
     }
   };
 
+  const projLocationOptions = alertProjectLocationFilters.map((f) => ({
+    value: f.value,
+    label: f.text,
+  }));
+
   return (
-    <Modal
-      open={open}
-      onClose={closeModalInternal}
-      size='fullscreen'
-    >
-      <Modal.Header>{(mode === 'create' ? 'Create' : 'View')} Alert</Modal.Header>
-      <Modal.Content>
-        {(mode === 'create') ? (
-          <>
-            <Form>
-              <Form.Field error={queryError}>
-                <label>Search Query</label>
-                <Input
-                  type='text'
-                  placeholder='Search query...'
-                  onChange={(_e, { value }) => setAlertQuery(value)}
-                  value={alertQuery}
-                />
-              </Form.Field>
-              <label className='form-field-label' htmlFor='alert-modal-resourcetypes'>Resource Types</label>
-              <div id='alert-modal-resourcetypes' className='mt-1p mb-1p'>
-                {alertResourceTypes.map((item, idx) => {
-                  return (
-                    <Form.Checkbox
-                      key={`alert-resource-option-${idx}`}
-                      checked={resources[item.key]}
-                      label={item.text}
-                      onChange={() => {
-                        setResources({
-                          ...resources,
-                          [item.key]: !resources[item.key]
-                        });
-                      }}
-                      error={resourcesError}
-                    />
-                  )
-                })}
-              </div>
-              {(resources['project'] === true) && (
-                <Form.Field
-                  control={Select}
-                  label='Project Location Filter'
-                  options={alertProjectLocationFilters}
-                  placeholder='Project Location...'
-                  value={projLocation}
-                  onChange={(_e, { value }) => setProjLocation(value)}
-                />
+    <Modal open={open} onClose={closeModalInternal} size="xl">
+      <Modal.Header>
+        <Modal.Title>{mode === 'create' ? 'Create' : 'View'} Alert</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {mode === 'create' ? (
+          <div className="space-y-5">
+            <Input
+              name="alert-query"
+              label="Search Query"
+              type="text"
+              placeholder="Search query..."
+              value={alertQuery}
+              onChange={(e) => setAlertQuery(e.target.value)}
+              error={queryError}
+              errorMessage="Please enter a search query (max 150 characters)."
+            />
+
+            <div>
+              <p className="text-sm font-semibold text-gray-900 mb-2">Resource Types</p>
+              {resourcesError && (
+                <p className="text-sm text-danger mb-2">Please select at least one resource type.</p>
               )}
-              <label className='form-field-label' htmlFor='alert-modal-timingoptions'>Timing</label>
-              <div id='alert-modal-timingoptions' className='mt-1p mb-1p'>
-                {alertTimingOptions.map((item, idx) => {
-                  return (
-                    <Form.Radio
-                      key={`alert-timing-option-${idx}`}
-                      checked={timing === item.value}
-                      label={`${item.text} ${item.description}`}
-                      value={item.value}
-                      onChange={(_e, { value }) => setTiming(value)}
-                    />
-                  )
-                })}
+              <div className="space-y-2">
+                {alertResourceTypes.map((item) => (
+                  <Checkbox
+                    key={item.key}
+                    name={`resource-${item.key}`}
+                    label={item.text}
+                    checked={resources[item.key]}
+                    error={resourcesError}
+                    onChange={() =>
+                      setResources({ ...resources, [item.key]: !resources[item.key] })
+                    }
+                  />
+                ))}
               </div>
-            </Form>
-          </>
-        ) : (
-          <>
-            <p><strong>Search Query:</strong> {alertData.query}</p>
-            <p><strong>Resource Types:</strong></p>
-            {(Array.isArray(alertData.resources)) && (
-              <ul>
-                {alertData.resources.map((item, idx) => {
-                  return (
-                    <li key={`alert-modal-resourcetypes-view-${idx}`}>{getAlertResourceText(item)}</li>
-                  )
-                })}
-              </ul>
+            </div>
+
+            {resources['project'] === true && (
+              <Select
+                name="proj-location"
+                label="Project Location Filter"
+                value={projLocation}
+                options={projLocationOptions}
+                placeholder="Project Location..."
+                onChange={(e) => setProjLocation(e.target.value)}
+              />
             )}
-            {(Array.isArray(alertData.resources) && alertData.resources.includes('project')) && (
+
+            <div>
+              <p className="text-sm font-semibold text-gray-900 mb-2">Timing</p>
+              <div className="space-y-2">
+                {alertTimingOptions.map((item) => (
+                  <Checkbox
+                    key={item.key}
+                    name={`timing-${item.key}`}
+                    label={`${item.text} ${item.description}`}
+                    checked={timing === item.value}
+                    onChange={() => setTiming(item.value)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3 text-sm">
+            <p><strong>Search Query:</strong> {alertData?.query}</p>
+            <div>
+              <p className="font-semibold">Resource Types:</p>
+              {Array.isArray(alertData?.resources) && (
+                <ul className="mt-1 space-y-1 pl-4 list-disc">
+                  {alertData.resources.map((item, idx) => (
+                    <li key={`alert-modal-resource-view-${idx}`}>{getAlertResourceText(item)}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {Array.isArray(alertData?.resources) && alertData.resources.includes('project') && (
               <p>
                 <strong>Project Location Filter: </strong>
                 <em>
-                  {(alertData.projectLocation === 'global')
+                  {alertData.projectLocation === 'global'
                     ? getAlertProjectLocationFilterText(alertData.projectLocation)
-                    : `${alertData.org.name} instance`
-                  }
+                    : `${alertData.org?.name} instance`}
                 </em>
               </p>
             )}
-            <p><strong>Timing: </strong> {getAlertTimingText(alertData.timing)} <span className='muted-text'>{getAlertTimingDescription(alertData.timing)}</span></p>
-          </>
+            <p>
+              <strong>Timing: </strong>
+              {getAlertTimingText(alertData?.timing)}{' '}
+              <span className="text-gray-500">{getAlertTimingDescription(alertData?.timing)}</span>
+            </p>
+          </div>
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        {(mode === 'create') ? (
+      </Modal.Body>
+      <Modal.Footer>
+        {mode === 'create' ? (
           <>
-            <Button onClick={closeModalInternal}>Cancel</Button>
-            <Button color='green' onClick={createAlert} loading={modalLoading}>
-              <Icon name='add' />
+            <Button variant="outline" onClick={closeModalInternal}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              icon={<IconPlus size={16} />}
+              loading={modalLoading}
+              onClick={createAlert}
+            >
               Create Alert
             </Button>
           </>
         ) : (
-          <Button onClick={closeModalInternal} color='blue'>Done</Button>
+          <Button variant="primary" onClick={closeModalInternal}>
+            Done
+          </Button>
         )}
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };
 
 AlertModal.defaultProps = {
   open: false,
-  onClose: () => { },
+  onClose: () => {},
   query: '',
   mode: 'create',
-  alertData: null
+  alertData: null,
 };
 
 AlertModal.propTypes = {
@@ -264,7 +241,7 @@ AlertModal.propTypes = {
   onClose: PropTypes.func.isRequired,
   query: PropTypes.string,
   mode: PropTypes.string.isRequired,
-  alertData: PropTypes.object
+  alertData: PropTypes.object,
 };
 
 export default AlertModal;

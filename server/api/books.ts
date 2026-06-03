@@ -54,6 +54,7 @@ import {
   TableOfContentsDetailed,
 } from "../types/Book.js";
 import { isBookSortOption } from "../util/typeHelpers.js";
+import { resolveCoverPageIdFromUrl } from "./services/cover-page-id-service.js";
 import { z } from "zod";
 import {
   addPageProperty,
@@ -363,7 +364,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
 
   // Execute requests
   Promise.all(allRequests)
-    .then((booksRes) => {
+    .then(async (booksRes) => {
       // Extract books from responses
       booksRes.forEach((axiosRes) => {
         allBooks = allBooks.concat(axiosRes.data.items);
@@ -462,11 +463,14 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
           });
         }
       });
+
       let booksQuery = Book.aggregate([
         {
           $project: {
             _id: 0,
             bookID: 1,
+            thumbnail: 1,
+            thumbnailIsAnimated: 1,
           },
         },
       ]);
@@ -491,7 +495,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
       ]);
       return Promise.all([booksQuery, projsQuery]);
     })
-    .then((queryResults) => {
+    .then(async (queryResults) => {
       if (queryResults.length === 2) {
         if (Array.isArray(queryResults[0])) {
           existingBooks = queryResults[0]
@@ -503,6 +507,46 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
         }
         if (Array.isArray(queryResults[1])) existingProjects = queryResults[1];
       }
+
+      // Detect animated thumbnails (GIFs) via HEAD requests in parallel.
+      // Server-side requests avoid CORS restrictions that block client-side detection.
+      const existingBooksMap = new Map(
+        (queryResults[0] ?? []).map((b: any) => [b.bookID, b])
+      );
+      await Promise.all(
+        processedBooks.map(async (book) => {
+          if (!book.thumbnail) return;
+
+          // Short-circuit: URL clearly identifies a GIF
+          if (/\.gif(\?|$)/i.test(book.thumbnail)) {
+            (book as any).thumbnailIsAnimated = true;
+            return;
+          }
+
+          // Skip HEAD request if the thumbnail URL hasn't changed and we
+          // already have a detection result from a previous sync cycle
+          const existing = existingBooksMap.get(book.bookID);
+          if (
+            existing &&
+            existing.thumbnail === book.thumbnail &&
+            existing.thumbnailIsAnimated !== undefined
+          ) {
+            (book as any).thumbnailIsAnimated = existing.thumbnailIsAnimated;
+            return;
+          }
+
+          try {
+            const headRes = await axios.head(book.thumbnail, { timeout: 5000 });
+            const contentType = headRes.headers["content-type"];
+            if (typeof contentType === "string" && ["image/gif", "image/webp", "image/apng", "image/avif"].includes(contentType.toLowerCase())) {
+              (book as any).thumbnailIsAnimated = true;
+            }
+          } catch {
+            // Request failed — leave thumbnailIsAnimated unset
+          }
+        })
+      );
+
       processedBooks.forEach((book) => {
         /* check if project needs to be created */
         let [bookLib, bookCoverID] = getLibraryAndPageFromBookID(book.bookID);
@@ -547,6 +591,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
                 program: book.program,
                 license: book.license,
                 thumbnail: book.thumbnail,
+                thumbnailIsAnimated: !!(book as any).thumbnailIsAnimated,
                 summary: book.summary,
                 links: book.links,
                 lastUpdated: book.lastUpdated,
@@ -3038,11 +3083,27 @@ async function getActivePressBooksImportJob(
       err: true,
       errMsg: conductorErrors.err6,
     });
+async function getCoverIdByUrl(req: Request, res: Response) {
+  try {
+    const { url } = req.query as { url: string };
+    const result = await resolveCoverPageIdFromUrl(url);
+    if (!result) {
+      return res
+        .status(404)
+        .send({ err: true, errMsg: "Could not resolve cover page ID." });
+    }
+    return res.send({ err: false, id: result.id, bookID: result.bookID });
+  } catch (err) {
+    debugError(err);
+    return res
+      .status(500)
+      .send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
 
 export default {
   syncWithLibraries,
+  getCoverIdByUrl,
   runAutomatedSyncWithLibraries,
   getCommonsCatalog,
   getMasterCatalog,
