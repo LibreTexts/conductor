@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Button, Icon, List, Modal, ModalProps } from "semantic-ui-react";
+import { Modal, Button, Spinner } from "@libretexts/davis-react";
+import { IconEye } from "@tabler/icons-react";
 import { PeerReview } from "../../types";
 import api from "../../api";
 import useGlobalError from "../error/ErrorHooks";
@@ -7,9 +8,8 @@ import { getPeerReviewAuthorText } from "../util/ProjectHelpers";
 import { format, parseISO } from "date-fns";
 import { useState } from "react";
 import PeerReviewView from "./PeerReviewView";
-import LoadingSpinner from "../LoadingSpinner";
 
-interface BookPeerReviewsModalProps extends ModalProps {
+interface BookPeerReviewsModalProps {
   open: boolean;
   onClose: () => void;
   bookID: string;
@@ -21,11 +21,11 @@ const BookPeerReviewsModal: React.FC<BookPeerReviewsModalProps> = ({
   onClose,
   bookID,
   bookTitle,
-  ...rest
 }) => {
   const [openView, setOpenView] = useState(false);
   const [selectedReview, setSelectedReview] = useState<PeerReview | null>(null);
   const { handleGlobalError } = useGlobalError();
+
   const { data, isFetching } = useQuery<PeerReview[]>({
     queryKey: ["peer-reviews", bookID],
     queryFn: () => fetchPeerReviews(bookID),
@@ -57,70 +57,66 @@ const BookPeerReviewsModal: React.FC<BookPeerReviewsModalProps> = ({
   }
 
   return (
-    <Modal open={open} onClose={onClose} size="fullscreen" {...rest}>
-      <Modal.Header>
-        Peer Reviews for <em>{bookTitle}</em>
-      </Modal.Header>
-      <Modal.Content>
-        {isFetching && <LoadingSpinner />}
-        {!isFetching && (
-          <>
-            {data && data?.length > 0 ? (
-              <List divided>
-                {data.map((item) => {
-                  let itemDate;
-                  if (item.createdAt) {
-                    itemDate = format(new Date(item.createdAt), "MM/dd/yyyy");
-                  }
-                  return (
-                    <List.Item key={item.peerReviewID}>
-                      <div className="flex-row-div mt-05p mb-05p">
-                        <div className="left-flex">
-                          <div className="flex-col-div">
-                            <span className="project-peerreview-title">
-                              {item.author || "Unknown Reviewer"}
-                            </span>
-                            <span className="project-peerreview-detail muted-text">
-                              <em>
-                                {getPeerReviewAuthorText(item.authorType)}
-                              </em>{" "}
-                              <>&#8226;</>{" "}
-                              {item.createdAt &&
-                                format(parseISO(item.createdAt), "MM/dd/yyyy")}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="right-flex">
-                          <Button
-                            color="blue"
-                            onClick={() => handleOpenPeerReview(item)}
-                          >
-                            <Icon name="eye" /> View
-                          </Button>
-                        </div>
+    <>
+      <Modal open={open} onClose={onClose} size="full">
+        <Modal.Header>
+          <Modal.Title>
+            Peer Reviews for <em>{bookTitle}</em>
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="overflow-y-auto max-h-[calc(100dvh-10rem)]">
+          {isFetching && (
+            <div className="flex justify-center py-8">
+              <Spinner />
+            </div>
+          )}
+          {!isFetching && (
+            <>
+              {data && data.length > 0 ? (
+                <ul className="divide-y divide-gray-200">
+                  {data.map((item) => (
+                    <li key={item.peerReviewID} className="flex items-center justify-between py-3 gap-4">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">
+                          {item.author || "Unknown Reviewer"}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          <em>{getPeerReviewAuthorText(item.authorType)}</em>
+                          {item.createdAt && (
+                            <> &bull; {format(parseISO(item.createdAt), "MM/dd/yyyy")}</>
+                          )}
+                        </p>
                       </div>
-                    </List.Item>
-                  );
-                })}
-              </List>
-            ) : (
-              <p className="muted-text mt-2p mb-2p">No reviews found.</p>
-            )}
-          </>
-        )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button color="blue" onClick={onClose}>
-          Done
-        </Button>
-      </Modal.Actions>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleOpenPeerReview(item)}
+                      >
+                        <IconEye size={16} className="mr-1" />
+                        View
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-center text-gray-400 py-8">No reviews found.</p>
+              )}
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <div className="flex justify-end">
+            <Button onClick={onClose}>Done</Button>
+          </div>
+        </Modal.Footer>
+      </Modal>
+
       <PeerReviewView
         open={openView}
         onClose={handleClosePeerReview}
         peerReviewData={selectedReview}
         publicView={true}
       />
-    </Modal>
+    </>
   );
 };
 

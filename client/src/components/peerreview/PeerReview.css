@@ -94,7 +94,22 @@
 }
 
 .star-rating > input {
-    display: none;
+    /* Visually hidden but kept in the accessibility tree and tab order. */
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    white-space: nowrap;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+}
+
+/* Focus ring appears on the visual label when the hidden radio is focused. */
+.star-rating > input:focus-visible + label {
+    outline: 2px solid #127bc4;
+    outline-offset: 2px;
+    border-radius: 2px;
 }
 
 .star-rating > label {

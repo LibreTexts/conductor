@@ -107,6 +107,7 @@ const Platform = () => {
     "/adopt",
     "/accessibility",
     "/translationfeedbackexport",
+    "/book/:bookID/submit-peer-review",
   ];
 
   useEffect(() => {

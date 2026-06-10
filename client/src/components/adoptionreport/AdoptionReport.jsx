@@ -1,20 +1,17 @@
-import './AdoptionReport.css';
-
-import {
-    Header,
-    Button,
-    Modal,
-    Form,
-    Input,
-    Divider,
-    Checkbox
-} from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
-
+import {
+    Modal,
+    Button,
+    Input,
+    Select,
+    RadioGroup,
+    Checkbox,
+    Heading,
+    Textarea,
+} from '@libretexts/davis-react';
 import useGlobalError from '../error/ErrorHooks';
-
 import {
     iAmOptions,
     libreNetOptions,
@@ -23,14 +20,49 @@ import {
 } from './AdoptionReportOptions.js';
 import { isEmptyString } from '../util/HelperFunctions.js';
 
-const AdoptionReport = (props) => {
+// Map Semantic UI {key,text,value} → Davis Select {value,label}
+const toSelectOpts = (opts) => opts
+    .filter((o) => o.value !== '')
+    .map((o) => ({ value: o.value, label: o.text }));
 
-    // Global State and Error Handling
+const iAmSelectOpts = toSelectOpts(iAmOptions);
+const libreNetSelectOpts = toSelectOpts(libreNetOptions);
+const studentUseSelectOpts = toSelectOpts(studentUseOptions);
+
+const libreNetRadioOpts = [
+    { value: 'yes', label: 'Yes' },
+    { value: 'no', label: 'No' },
+    { value: 'dk', label: "Don't Know" },
+];
+
+const qualityRadioOpts = [
+    { value: '1', label: '1 (Very low)' },
+    { value: '2', label: '2' },
+    { value: '3', label: '3' },
+    { value: '4', label: '4' },
+    { value: '5', label: '5 (Very high)' },
+];
+
+const navigateRadioOpts = [
+    { value: '1', label: '1 (Very hard)' },
+    { value: '2', label: '2' },
+    { value: '3', label: '3' },
+    { value: '4', label: '4' },
+    { value: '5', label: '5 (Very easy)' },
+];
+
+const ACCESS_LABELS = ['Online', 'Printed Book', 'Downloaded PDF', 'Via LMS', 'LibreTexts in a Box'];
+const ACCESS_VALUES = ['online', 'print', 'pdf', 'lms', 'librebox'];
+
+const AdoptionReport = (props) => {
     const { handleGlobalError } = useGlobalError();
     const org = useSelector((state) => state.org);
 
-    // Main
-    const [showModal, setShowModal] = useState(false); // Controlled by the @open prop — do not modify directly
+    const instrTaughtOptions = getInstructionTermOptions();
+    const instrTaughtSelectOpts = instrTaughtOptions
+        .filter((o) => o.value !== '')
+        .map((o) => ({ value: o.value, label: o.text }));
+
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
     const [email, setEmail] = useState('');
@@ -43,26 +75,22 @@ const AdoptionReport = (props) => {
     const [instrInstName, setInstrInstName] = useState('');
     const [instrClassName, setInstrClassName] = useState('');
     const [instrTaughtTerm, setInstrTaughtTerm] = useState('');
-    const [instrNumStudents, setInstrNumStudents] = useState(0);
-    const [instrReplaceCost, setInstrReplaceCost] = useState(0);
-    const [instrPrintCost, setInstrPrintCost] = useState(0);
-    const [instrStudentAccess, setInstrStudentAccess] = useState(
-        new Array(5).fill(false)
-    );
+    const [instrNumStudents, setInstrNumStudents] = useState('');
+    const [instrReplaceCost, setInstrReplaceCost] = useState('');
+    const [instrPrintCost, setInstrPrintCost] = useState('');
+    const [instrStudentAccess, setInstrStudentAccess] = useState(new Array(5).fill(false));
 
     // Student
     const [studentUse, setStudentUse] = useState('');
     const [studentInst, setStudentInst] = useState('');
     const [studentClass, setStudentClass] = useState('');
     const [studentInstr, setStudentInstr] = useState('');
-    const [studentQuality, setStudentQuality] = useState(0);
-    const [studentNavigate, setStudentNavigate] = useState(0);
-    const [studentPrintCost, setStudentPrintCost] = useState(0);
-    const [studentAccess, setStudentAccess] = useState(
-        new Array(5).fill(false)
-    );
+    const [studentQuality, setStudentQuality] = useState('');
+    const [studentNavigate, setStudentNavigate] = useState('');
+    const [studentPrintCost, setStudentPrintCost] = useState('');
+    const [studentAccess, setStudentAccess] = useState(new Array(5).fill(false));
 
-    // Form Errors
+    // Errors
     const [emailErr, setEmailErr] = useState(false);
     const [nameErr, setNameErr] = useState(false);
     const [iAmErr, setIAmErr] = useState(false);
@@ -72,102 +100,10 @@ const AdoptionReport = (props) => {
     const [instrTaughtTermErr, setInstrTaughtTermErr] = useState(false);
     const [instrNumStudentsErr, setInstrNumStudentsErr] = useState(false);
 
-    const instrTaughtOptions = getInstructionTermOptions();
-
-    /**
-     * Open or close the modal depending on the
-     * boolean passed from the parent/host component
-     */
-    useEffect(() => {
-        setShowModal(props.open);
-    }, [props.open])
-
-
-    /** Form input handlers **/
-    const handleInputChange = (e) => {
-        switch (e.target.id) {
-            case 'ar-email-input':
-                setEmail(e.target.value);
-                break;
-            case 'ar-name-input':
-                setName(e.target.value);
-                break;
-            case 'ar-not-libre-inst-input':
-                setInstrInstName(e.target.value);
-                break;
-            case 'ar-instr-class-input':
-                setInstrClassName(e.target.value);
-                break;
-            case 'ar-instr-num-students-input':
-                setInstrNumStudents(e.target.value);
-                break;
-            case 'ar-instr-replace-cost-input':
-                setInstrReplaceCost(e.target.value);
-                break;
-            case 'ar-instr-print-cost-input':
-                setInstrPrintCost(e.target.value);
-                break;
-            case 'ar-student-inst-input':
-                setStudentInst(e.target.value);
-                break;
-            case 'ar-student-class-input':
-                setStudentClass(e.target.value);
-                break;
-            case 'ar-student-instructor-input':
-                setStudentInstr(e.target.value);
-                break;
-            case 'ar-student-print-cost-input':
-                setStudentPrintCost(e.target.value);
-                break;
-            case 'ar-addtl-comments-input':
-                setComments(e.target.value);
-                break;
-            default:
-                break // Silence React warning
-        }
+    const toggleAccess = (arr, setter, index) => {
+        setter(arr.map((v, i) => (i === index ? !v : v)));
     };
 
-    const handleInstrStudentAccessChange = (index) => {
-        const updated = instrStudentAccess.map((item, idx) => {
-            if (index === idx) {
-                return !item;
-            } else {
-                return item;
-            }
-        });
-        setInstrStudentAccess(updated);
-    };
-
-    const handleStudentAccessChange = (index) => {
-        const updated = studentAccess.map((item, idx) => {
-            if (index === idx) {
-                return !item;
-            } else {
-                return item;
-            }
-        });
-        setStudentAccess(updated);
-    };
-
-    const handleLibreNetInstChange = (_e, { value }) => {
-        setLibreNetInst(value);
-    };
-
-    const handleStudentQualityChange = (_e, { value }) => {
-        setStudentQuality(value);
-    };
-
-    const handleStudentNavigateChange = (_e, { value }) => {
-        setStudentNavigate(value);
-    };
-
-
-    /**
-     * Reset all fields, then call the onClose function
-     * passed from the parent/host component. Parent component
-     * should modify the @open prop value in/after the onClose
-     * function to properly close the modal.
-     */
     const closeModal = () => {
         resetFormErrors();
         setEmail('');
@@ -178,79 +114,22 @@ const AdoptionReport = (props) => {
         setInstrInstName('');
         setInstrClassName('');
         setInstrTaughtTerm('');
-        setInstrNumStudents(0);
-        setInstrReplaceCost(0);
-        setInstrPrintCost(0);
-        setInstrStudentAccess(
-            new Array(5).fill(false)
-        );
+        setInstrNumStudents('');
+        setInstrReplaceCost('');
+        setInstrPrintCost('');
+        setInstrStudentAccess(new Array(5).fill(false));
         setStudentUse('');
         setStudentInst('');
         setStudentClass('');
         setStudentInstr('');
-        setStudentQuality(0);
-        setStudentNavigate(0);
-        setStudentPrintCost(0);
-        setStudentAccess(
-            new Array(5).fill(false)
-        );
+        setStudentQuality('');
+        setStudentNavigate('');
+        setStudentPrintCost('');
+        setStudentAccess(new Array(5).fill(false));
         setShowSuccessModal(false);
         props.onClose();
     };
 
-
-    /**
-     * Validate the form data, return
-     * 'false' if validation errors exists,
-     * 'true' otherwise
-     */
-    const validateForm = () => {
-        var validForm = true;
-        if (!props.resourceID || !props.resourceTitle || !props.resourceLibrary ||  isEmptyString(props.resourceID) || isEmptyString(props.resourceTitle) || isEmptyString(props.resourceLibrary)) {
-            handleGlobalError("Sorry, required internal values appear to be missing. Try reloading this page and submitting the form again.");
-            validForm = false;
-        }
-        if (isEmptyString(email)) {
-            validForm = false;
-            setEmailErr(true);
-        }
-        if (isEmptyString(name)) {
-            validForm = false;
-            setNameErr(true);
-        }
-        if (isEmptyString(iAm)) {
-            validForm = false;
-            setIAmErr(true);
-        }
-        if (iAm === 'instructor') {
-            if (isEmptyString(libreNetInst)) {
-                validForm = false;
-                setLibreNetInstErr(true);
-            }
-            if (isEmptyString(instrInstName)) {
-                validForm = false;
-                setInstrInstNameErr(true);
-            }
-            if (isEmptyString(instrClassName)) {
-                validForm = false;
-                setInstrClassNameErr(true);
-            }
-            if (isEmptyString(instrTaughtTerm)) {
-                validForm = false;
-                setInstrTaughtTermErr(true);
-            }
-            if (instrNumStudents === 0) {
-                validForm = false;
-                setInstrNumStudentsErr(true);
-            }
-        }
-        return validForm;
-    };
-
-
-    /**
-     * Reset all form error states
-     */
     const resetFormErrors = () => {
         setEmailErr(false);
         setNameErr(false);
@@ -262,49 +141,47 @@ const AdoptionReport = (props) => {
         setInstrNumStudentsErr(false);
     };
 
+    const validateForm = () => {
+        let valid = true;
+        if (
+            !props.resourceID || !props.resourceTitle || !props.resourceLibrary ||
+            isEmptyString(props.resourceID) || isEmptyString(props.resourceTitle) || isEmptyString(props.resourceLibrary)
+        ) {
+            handleGlobalError('Sorry, required internal values appear to be missing. Try reloading this page and submitting the form again.');
+            valid = false;
+        }
+        if (isEmptyString(email)) { setEmailErr(true); valid = false; }
+        if (isEmptyString(name)) { setNameErr(true); valid = false; }
+        if (isEmptyString(iAm)) { setIAmErr(true); valid = false; }
+        if (iAm === 'instructor') {
+            if (isEmptyString(libreNetInst)) { setLibreNetInstErr(true); valid = false; }
+            if (isEmptyString(instrInstName)) { setInstrInstNameErr(true); valid = false; }
+            if (isEmptyString(instrClassName)) { setInstrClassNameErr(true); valid = false; }
+            if (isEmptyString(instrTaughtTerm)) { setInstrTaughtTermErr(true); valid = false; }
+            if (!instrNumStudents || instrNumStudents === '0') { setInstrNumStudentsErr(true); valid = false; }
+        }
+        return valid;
+    };
 
-    /**
-     * Submit data via POST to the server, then
-     * call closeModal() on success.
-     */
+    const buildAccessArray = (flags) =>
+        ACCESS_VALUES.filter((_, i) => flags[i]);
+
     const submitReport = () => {
         setSubmitLoading(true);
         resetFormErrors();
         if (validateForm()) {
             const formData = {
-                email: email,
-                name: name,
+                email,
+                name,
                 role: iAm,
-                comments: comments,
+                comments,
                 resource: {
                     id: props.resourceID,
                     title: props.resourceTitle,
-                    library: props.resourceLibrary
-                }
+                    library: props.resourceLibrary,
+                },
             };
             if (iAm === 'instructor') {
-                let postInstrStudentAccess = [];
-                instrStudentAccess.forEach((item, idx) => {
-                    switch (idx) {
-                        case 0:
-                            if (item === true) postInstrStudentAccess.push('online');
-                            break;
-                        case 1:
-                            if (item === true) postInstrStudentAccess.push('print');
-                            break;
-                        case 2:
-                            if (item === true) postInstrStudentAccess.push('pdf');
-                            break;
-                        case 3:
-                            if (item === true) postInstrStudentAccess.push('lms');
-                            break;
-                        case 4:
-                            if (item === true) postInstrStudentAccess.push('librebox');
-                            break;
-                        default:
-                            break; // silence React warning
-                    }
-                });
                 formData.instructor = {
                     isLibreNet: libreNetInst,
                     institution: instrInstName,
@@ -313,508 +190,325 @@ const AdoptionReport = (props) => {
                     students: instrNumStudents,
                     replaceCost: instrReplaceCost,
                     printCost: instrPrintCost,
-                    access: postInstrStudentAccess
+                    access: buildAccessArray(instrStudentAccess),
                 };
             } else if (iAm === 'student') {
-                let postStudentAccess = [];
-                studentAccess.forEach((item, idx) => {
-                    switch (idx) {
-                        case 0:
-                            if (item === true) postStudentAccess.push('online');
-                            break;
-                        case 1:
-                            if (item === true) postStudentAccess.push('print');
-                            break;
-                        case 2:
-                            if (item === true) postStudentAccess.push('pdf');
-                            break;
-                        case 3:
-                            if (item === true) postStudentAccess.push('lms');
-                            break;
-                        case 4:
-                            if (item === true) postStudentAccess.push('librebox');
-                            break;
-                        default:
-                            break; // silence React warning
-                    }
-                });
                 formData.student = {
                     use: studentUse,
                     institution: studentInst,
                     class: studentClass,
                     instructor: studentInstr,
-                    quality: studentQuality,
-                    navigation: studentNavigate,
+                    quality: Number(studentQuality),
+                    navigation: Number(studentNavigate),
                     printCost: studentPrintCost,
-                    access: postStudentAccess
+                    access: buildAccessArray(studentAccess),
                 };
             }
-            let postURL = "";
-            if (org.orgID !== 'libretexts' && import.meta.env.VITE_ADOPTIONREPORT_URL) {
-              postURL = import.meta.env.VITE_ADOPTIONREPORT_URL;
-            } else {
-              postURL = '/adoptionreport';
-            }
+            const postURL =
+                org.orgID !== 'libretexts' && import.meta.env.VITE_ADOPTIONREPORT_URL
+                    ? import.meta.env.VITE_ADOPTIONREPORT_URL
+                    : '/adoptionreport';
             axios.post(postURL, formData).then((res) => {
                 if (!res.data.err) {
                     setShowSuccessModal(true);
                 } else {
                     handleGlobalError(res.data.errMsg);
                 }
-            }).catch((err) => {
-                handleGlobalError(err);
-            });
+            }).catch(handleGlobalError);
         }
         setSubmitLoading(false);
     };
 
-
     return (
-        <Modal
-            onClose={closeModal}
-            open={showModal}
-            closeOnDimmerClick={false}
-        >
-            <Modal.Header>Adoption Report</Modal.Header>
-            <Modal.Content scrolling>
-                <p>If you are an instructor or student using this LibreText in your class, it would help us greatly if you would fill out this form.</p>
-                <Form noValidate>
-                    <Form.Group widths='equal'>
-                        <Form.Field
+        <>
+            <Modal open={!!props.open} onClose={closeModal} size="lg">
+                <Modal.Header>
+                    <Modal.Title>Adoption Report</Modal.Title>
+                </Modal.Header>
+                <Modal.Body className="space-y-4 overflow-y-auto max-h-[calc(100dvh-10rem)]">
+                    <p>If you are an instructor or student using this LibreText in your class, it would help us greatly if you would fill out this form.</p>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Input
+                            name="email"
+                            label="Your Email"
+                            type="email"
+                            placeholder="Email..."
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
                             required
                             error={emailErr}
-                        >
-                            <label htmlFor='ar-email-input'>Your Email</label>
-                            <Input
-                                fluid
-                                id='ar-email-input'
-                                type='email'
-                                name='email'
-                                placeholder='Email...'
-                                required
-                                icon='mail'
-                                iconPosition='left'
-                                onChange={handleInputChange}
-                                value={email}
-                            />
-                        </Form.Field>
-                        <Form.Field
+                            errorMessage={emailErr ? 'Email is required.' : undefined}
+                        />
+                        <Input
+                            name="name"
+                            label="Your Name"
+                            type="text"
+                            placeholder="Name..."
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
                             required
                             error={nameErr}
-                        >
-                            <label htmlFor='ar-name-input'>Your Name</label>
-                            <Input
-                                fluid
-                                id='ar-name-input'
-                                type='text'
-                                name='name'
-                                placeholder='Name...'
-                                required
-                                icon='user'
-                                iconPosition='left'
-                                onChange={handleInputChange}
-                                value={name}
+                            errorMessage={nameErr ? 'Name is required.' : undefined}
+                        />
+                    </div>
 
-                            />
-                        </Form.Field>
-                    </Form.Group>
-                    <Form.Select
-                        fluid
-                        label='I am a(n)'
-                        options={iAmOptions}
-                        placeholder='Choose...'
-                        onChange={(e, { value }) => { setIAm(value) }}
+                    <Select
+                        name="iAm"
+                        label="I am a(n)"
+                        placeholder="Choose..."
+                        options={iAmSelectOpts}
                         value={iAm}
+                        onChange={(e) => setIAm(e.target.value)}
                         required
                         error={iAmErr}
+                        errorMessage={iAmErr ? 'Please select your role.' : undefined}
                     />
-                    {(iAm === 'instructor') &&
-                        <div>
-                            <Divider />
-                            <Header as='h3'>Instructor</Header>
+
+                    {iAm === 'instructor' && (
+                        <div className="space-y-4">
+                            <hr className="my-2" />
+                            <Heading level={3}>Instructor</Heading>
                             <p>If you are using this LibreText in your class(es), please help us by providing some additional data.</p>
-                            <Form.Group grouped required>
-                                <label className='form-required'>Is your Institution part of the LibreNet consortium?</label>
-                                <Form.Radio
-                                    label='Yes'
-                                    value='yes'
-                                    onChange={handleLibreNetInstChange}
-                                    checked={libreNetInst === 'yes'}
-                                    error={libreNetInstErr}
-                                />
-                                <Form.Radio
-                                    label='No'
-                                    value='no'
-                                    onChange={handleLibreNetInstChange}
-                                    checked={libreNetInst === 'no'}
-                                    error={libreNetInstErr}
-                                />
-                                <Form.Radio
-                                    label="Don't Know"
-                                    value='dk'
-                                    onChange={handleLibreNetInstChange}
-                                    checked={libreNetInst === 'dk'}
-                                    error={libreNetInstErr}
-                                />
-                            </Form.Group>
-                            {((libreNetInst === 'yes') || (libreNetInst === 'dk')) &&
-                                <Form.Select
-                                    fluid
-                                    label='Institution Name'
-                                    options={libreNetOptions}
-                                    placeholder='Choose...'
-                                    onChange={(e, { value }) => { setInstrInstName(value) }}
+
+                            <RadioGroup
+                                name="libreNetInst"
+                                label="Is your Institution part of the LibreNet consortium?"
+                                options={libreNetRadioOpts}
+                                value={libreNetInst}
+                                onChange={setLibreNetInst}
+                                required
+                                error={libreNetInstErr}
+                                errorMessage={libreNetInstErr ? 'Please select an option.' : undefined}
+                                orientation="vertical"
+                            />
+
+                            {(libreNetInst === 'yes' || libreNetInst === 'dk') && (
+                                <Select
+                                    name="instrInstName"
+                                    label="Institution Name"
+                                    placeholder="Choose..."
+                                    options={libreNetSelectOpts}
                                     value={instrInstName}
+                                    onChange={(e) => setInstrInstName(e.target.value)}
                                     required
                                     error={instrInstNameErr}
+                                    errorMessage={instrInstNameErr ? 'Institution name is required.' : undefined}
                                 />
-                            }
-                            {(libreNetInst === 'no') &&
-                                <Form.Field
+                            )}
+                            {libreNetInst === 'no' && (
+                                <Input
+                                    name="instrInstName"
+                                    label="Institution Name"
+                                    type="text"
+                                    placeholder="Institution..."
+                                    value={instrInstName}
+                                    onChange={(e) => setInstrInstName(e.target.value)}
                                     required
                                     error={instrInstNameErr}
-                                >
-                                    <label htmlFor='ar-not-libre-inst-input'>Institution Name</label>
-                                    <Input
-                                        fluid
-                                        id='ar-not-libre-inst-input'
-                                        type='text'
-                                        name='not-libre-inst'
-                                        placeholder='Institution...'
-                                        icon='university'
-                                        iconPosition='left'
-                                        onChange={handleInputChange}
-                                        value={instrInstName}
-                                    />
-                                </Form.Field>
-                            }
-                            <Form.Field
+                                    errorMessage={instrInstNameErr ? 'Institution name is required.' : undefined}
+                                />
+                            )}
+
+                            <Input
+                                name="instrClassName"
+                                label="Class Name"
+                                type="text"
+                                placeholder="Class..."
+                                value={instrClassName}
+                                onChange={(e) => setInstrClassName(e.target.value)}
                                 required
                                 error={instrClassNameErr}
-                            >
-                                <label htmlFor='ar-instr-class-input'>Class Name</label>
-                                <Input
-                                    fluid
-                                    id='ar-instr-class-input'
-                                    type='text'
-                                    name='instr-class'
-                                    placeholder='Class...'
-                                    icon='pencil'
-                                    iconPosition='left'
-                                    onChange={handleInputChange}
-                                    value={instrClassName}
-                                />
-                            </Form.Field>
-                            <p><em>If you have tought this class multiple times, please fill out this form for each.</em></p>
-                            <Form.Select
-                                fluid
-                                label='When did you teach this class?'
-                                options={instrTaughtOptions}
-                                placeholder='Choose...'
-                                onChange={(e, { value }) => { setInstrTaughtTerm(value) }}
+                                errorMessage={instrClassNameErr ? 'Class name is required.' : undefined}
+                            />
+
+                            <p><em>If you have taught this class multiple times, please fill out this form for each.</em></p>
+
+                            <Select
+                                name="instrTaughtTerm"
+                                label="When did you teach this class?"
+                                placeholder="Choose..."
+                                options={instrTaughtSelectOpts}
                                 value={instrTaughtTerm}
+                                onChange={(e) => setInstrTaughtTerm(e.target.value)}
                                 required
                                 error={instrTaughtTermErr}
+                                errorMessage={instrTaughtTermErr ? 'Please select a term.' : undefined}
                             />
-                            <Form.Field
+
+                            <Input
+                                name="instrNumStudents"
+                                label="Number of Students"
+                                type="number"
+                                min={0}
+                                placeholder="Number..."
+                                value={instrNumStudents}
+                                onChange={(e) => setInstrNumStudents(e.target.value)}
                                 required
                                 error={instrNumStudentsErr}
-                            >
-                                <label htmlFor='ar-instr-num-students-input'>Number of Students</label>
-                                <Input
-                                    fluid
-                                    id='ar-instr-num-students-input'
-                                    type='number'
-                                    min={0}
-                                    name='instr-num-students'
-                                    placeholder='Number...'
-                                    icon='users'
-                                    iconPosition='left'
-                                    onChange={handleInputChange}
-                                    value={instrNumStudents}
-                                />
-                            </Form.Field>
-                            <Form.Field>
-                                <label htmlFor='ar-instr-replace-cost-input'>Cost of textbook that LibreTexts replaced</label>
-                                <Input
-                                    fluid
-                                    id='ar-instr-replace-cost-input'
-                                    type='number'
-                                    name='instr-replace-cost'
-                                    placeholder='Cost...'
-                                    icon='dollar'
-                                    iconPosition='left'
-                                    onChange={handleInputChange}
-                                    value={instrReplaceCost}
-                                />
-                            </Form.Field>
-                            <Form.Group grouped>
-                                <label>In which ways did students use this LibreText in your class? (Select all that apply)</label>
-                                <Checkbox
-                                    label='Online'
-                                    className='ar-checkbox'
-                                    checked={instrStudentAccess[0]}
-                                    onChange={() => { handleInstrStudentAccessChange(0) }}
-                                />
-                                <Checkbox
-                                    label='Printed Book'
-                                    className='ar-checkbox'
-                                    checked={instrStudentAccess[1]}
-                                    onChange={() => { handleInstrStudentAccessChange(1) }}
-                                />
-                                <Checkbox
-                                    label='Downloaded PDF'
-                                    className='ar-checkbox'
-                                    checked={instrStudentAccess[2]}
-                                    onChange={() => { handleInstrStudentAccessChange(2) }}
-                                />
-                                <Checkbox
-                                    label='Via LMS'
-                                    className='ar-checkbox'
-                                    checked={instrStudentAccess[3]}
-                                    onChange={() => { handleInstrStudentAccessChange(3) }}
-                                />
-                                <Checkbox
-                                    label='LibreTexts in a Box'
-                                    className='ar-checkbox'
-                                    checked={instrStudentAccess[4]}
-                                    onChange={() => { handleInstrStudentAccessChange(4) }}
-                                />
-                            </Form.Group>
-                            <Form.Field>
-                                <label htmlFor='ar-instr-print-cost-input'>If you used a printed version of this LibreText, how much did it cost?</label>
-                                <Input
-                                    fluid
-                                    id='ar-instr-print-cost-input'
-                                    type='number'
-                                    name='instr-print-cost'
-                                    placeholder='Cost...'
-                                    icon='book'
-                                    iconPosition='left'
-                                    onChange={handleInputChange}
-                                    value={instrPrintCost}
-                                />
-                            </Form.Field>
-                        </div>
-                    }
-                    {(iAm === 'student') &&
-                        <div>
-                            <Divider />
-                            <Header as='h3'>Student</Header>
-                            <p>We are happy to hear that you are using LibreTexts in your classes.</p>
-                            <Form.Select
-                                fluid
-                                label='How is this LibreText used in your class?'
-                                options={studentUseOptions}
-                                placeholder='Choose...'
-                                onChange={(e, { value }) => { setStudentUse(value) }}
-                                value={studentUse}
+                                errorMessage={instrNumStudentsErr ? 'Please enter the number of students.' : undefined}
                             />
-                            <Form.Field>
-                                <label htmlFor='ar-student-inst-input'>Institution Name</label>
-                                <Input
-                                    fluid
-                                    id='ar-student-inst-input'
-                                    type='text'
-                                    name='student-inst'
-                                    placeholder='Institution...'
-                                    icon='university'
-                                    iconPosition='left'
-                                    onChange={handleInputChange}
-                                    value={studentInst}
-                                />
-                            </Form.Field>
-                            <Form.Field>
-                                <label htmlFor='ar-student-class-input'>Class Name</label>
-                                <Input
-                                    fluid
-                                    id='ar-student-class-input'
-                                    type='text'
-                                    name='student-class'
-                                    placeholder='Class...'
-                                    icon='pencil'
-                                    iconPosition='left'
-                                    onChange={handleInputChange}
-                                    value={studentClass}
-                                />
-                            </Form.Field>
-                            <Form.Field>
-                                <label htmlFor='ar-student-instructor-input'>Instructor Name</label>
-                                <Input
-                                    fluid
-                                    id='ar-student-instructor-input'
-                                    type='text'
-                                    name='student-instructor'
-                                    placeholder='Instructor...'
-                                    icon='user circle outline'
-                                    iconPosition='left'
-                                    onChange={handleInputChange}
-                                    value={studentInstr}
-                                />
-                            </Form.Field>
-                            <Form.Group grouped>
-                                <label>On a scale from 1 to 5, what is the quality of this LibreTexts content?</label>
-                                <Form.Radio
-                                    label='1 (Very low)'
-                                    value={1}
-                                    onChange={handleStudentQualityChange}
-                                    checked={studentQuality === 1}
-                                />
-                                <Form.Radio
-                                    label='2'
-                                    value={2}
-                                    onChange={handleStudentQualityChange}
-                                    checked={studentQuality === 2}
-                                />
-                                <Form.Radio
-                                    label='3'
-                                    value={3}
-                                    onChange={handleStudentQualityChange}
-                                    checked={studentQuality === 3}
-                                />
-                                <Form.Radio
-                                    label='4'
-                                    value={4}
-                                    onChange={handleStudentQualityChange}
-                                    checked={studentQuality === 4}
-                                />
-                                <Form.Radio
-                                    label='5 (Very high)'
-                                    value={5}
-                                    onChange={handleStudentQualityChange}
-                                    checked={studentQuality === 5}
-                                />
-                            </Form.Group>
-                            <Form.Group grouped>
-                                <label>On a scale from 1 to 5, how easy is it to navigate the LibreTexts site?</label>
-                                <Form.Radio
-                                    label='1 (Very hard)'
-                                    value={1}
-                                    onChange={handleStudentNavigateChange}
-                                    checked={studentNavigate === 1}
-                                />
-                                <Form.Radio
-                                    label='2'
-                                    value={2}
-                                    onChange={handleStudentNavigateChange}
-                                    checked={studentNavigate === 2}
-                                />
-                                <Form.Radio
-                                    label='3'
-                                    value={3}
-                                    onChange={handleStudentNavigateChange}
-                                    checked={studentNavigate === 3}
-                                />
-                                <Form.Radio
-                                    label='4'
-                                    value={4}
-                                    onChange={handleStudentNavigateChange}
-                                    checked={studentNavigate === 4}
-                                />
-                                <Form.Radio
-                                    label='5 (Very easy)'
-                                    value={5}
-                                    onChange={handleStudentNavigateChange}
-                                    checked={studentNavigate === 5}
-                                />
-                            </Form.Group>
-                            <Form.Group grouped>
-                                <label>How did you access this LibreText? (Select all that apply)</label>
-                                <Checkbox
-                                    label='Online'
-                                    className='ar-checkbox'
-                                    checked={studentAccess[0]}
-                                    onChange={() => { handleStudentAccessChange(0) }}
-                                />
-                                <Checkbox
-                                    label='Printed Book'
-                                    className='ar-checkbox'
-                                    checked={studentAccess[1]}
-                                    onChange={() => { handleStudentAccessChange(1) }}
-                                />
-                                <Checkbox
-                                    label='Downloaded PDF'
-                                    className='ar-checkbox'
-                                    checked={studentAccess[2]}
-                                    onChange={() => { handleStudentAccessChange(2) }}
-                                />
-                                <Checkbox
-                                    label='Via LMS'
-                                    className='ar-checkbox'
-                                    checked={studentAccess[3]}
-                                    onChange={() => { handleStudentAccessChange(3) }}
-                                />
-                                <Checkbox
-                                    label='LibreTexts in a Box'
-                                    className='ar-checkbox'
-                                    checked={studentAccess[4]}
-                                    onChange={() => { handleStudentAccessChange(4) }}
-                                />
-                            </Form.Group>
-                            <Form.Field>
-                                <label htmlFor='ar-student-print-cost-input'>If you used a printed version of this LibreText, how much did it cost?</label>
-                                <Input
-                                    fluid
-                                    id='ar-student-print-cost-input'
-                                    type='number'
-                                    name='student-print-cost'
-                                    placeholder='Cost...'
-                                    icon='book'
-                                    iconPosition='left'
-                                    onChange={handleInputChange}
-                                    value={studentPrintCost}
-                                />
-                            </Form.Field>
+
+                            <Input
+                                name="instrReplaceCost"
+                                label="Cost of textbook that LibreTexts replaced"
+                                type="number"
+                                placeholder="Cost..."
+                                value={instrReplaceCost}
+                                onChange={(e) => setInstrReplaceCost(e.target.value)}
+                            />
+
+                            <fieldset>
+                                <legend className="text-sm font-medium text-gray-700 mb-2">
+                                    In which ways did students use this LibreText in your class? (Select all that apply)
+                                </legend>
+                                <div className="space-y-2">
+                                    {ACCESS_LABELS.map((label, i) => (
+                                        <Checkbox
+                                            key={label}
+                                            name={`instr-access-${i}`}
+                                            label={label}
+                                            checked={instrStudentAccess[i]}
+                                            onChange={() => toggleAccess(instrStudentAccess, setInstrStudentAccess, i)}
+                                        />
+                                    ))}
+                                </div>
+                            </fieldset>
+
+                            <Input
+                                name="instrPrintCost"
+                                label="If you used a printed version of this LibreText, how much did it cost?"
+                                type="number"
+                                placeholder="Cost..."
+                                value={instrPrintCost}
+                                onChange={(e) => setInstrPrintCost(e.target.value)}
+                            />
                         </div>
-                    }
-                    <Divider />
-                    <Form.Field>
-                        <label htmlFor='ar-addtl-comments-input'>If you have additional comments, please share below</label>
-                        <Input
-                            fluid
-                            id='ar-addtl-comments-input'
-                            type='text'
-                            name='addtl-comments'
-                            placeholder='Comments...'
-                            icon='comment'
-                            iconPosition='left'
-                            onChange={handleInputChange}
-                            value={comments}
-                        />
-                    </Form.Field>
-                </Form>
-            </Modal.Content>
-            <Modal.Actions>
-                <Button
-                    content='Cancel'
-                    onClick={closeModal}
-                />
-                <Button
-                    content='Submit'
-                    onClick={submitReport}
-                    loading={submitLoading}
-                    color='green'
-                    labelPosition='right'
-                    icon='check'
-                />
-            </Modal.Actions>
-            <Modal
-                onClose={closeModal}
-                open={showSuccessModal}
-                closeOnDimmerClick={false}
-            >
-                <Modal.Header>Adoption Report: Success</Modal.Header>
-                <Modal.Content>
-                    <Modal.Description>
-                        <p>Thank you for submitting an Adoption Report!</p>
-                    </Modal.Description>
-                </Modal.Content>
-                <Modal.Actions>
-                    <Button color="blue" onClick={closeModal}>Done</Button>
-                </Modal.Actions>
+                    )}
+
+                    {iAm === 'student' && (
+                        <div className="space-y-4">
+                            <hr className="my-2" />
+                            <Heading level={3}>Student</Heading>
+                            <p>We are happy to hear that you are using LibreTexts in your classes.</p>
+
+                            <Select
+                                name="studentUse"
+                                label="How is this LibreText used in your class?"
+                                placeholder="Choose..."
+                                options={studentUseSelectOpts}
+                                value={studentUse}
+                                onChange={(e) => setStudentUse(e.target.value)}
+                            />
+
+                            <Input
+                                name="studentInst"
+                                label="Institution Name"
+                                type="text"
+                                placeholder="Institution..."
+                                value={studentInst}
+                                onChange={(e) => setStudentInst(e.target.value)}
+                            />
+
+                            <Input
+                                name="studentClass"
+                                label="Class Name"
+                                type="text"
+                                placeholder="Class..."
+                                value={studentClass}
+                                onChange={(e) => setStudentClass(e.target.value)}
+                            />
+
+                            <Input
+                                name="studentInstr"
+                                label="Instructor Name"
+                                type="text"
+                                placeholder="Instructor..."
+                                value={studentInstr}
+                                onChange={(e) => setStudentInstr(e.target.value)}
+                            />
+
+                            <RadioGroup
+                                name="studentQuality"
+                                label="On a scale from 1 to 5, what is the quality of this LibreTexts content?"
+                                options={qualityRadioOpts}
+                                value={studentQuality}
+                                onChange={setStudentQuality}
+                                orientation="vertical"
+                            />
+
+                            <RadioGroup
+                                name="studentNavigate"
+                                label="On a scale from 1 to 5, how easy is it to navigate the LibreTexts site?"
+                                options={navigateRadioOpts}
+                                value={studentNavigate}
+                                onChange={setStudentNavigate}
+                                orientation="vertical"
+                            />
+
+                            <fieldset>
+                                <legend className="text-sm font-medium text-gray-700 mb-2">
+                                    How did you access this LibreText? (Select all that apply)
+                                </legend>
+                                <div className="space-y-2">
+                                    {ACCESS_LABELS.map((label, i) => (
+                                        <Checkbox
+                                            key={label}
+                                            name={`student-access-${i}`}
+                                            label={label}
+                                            checked={studentAccess[i]}
+                                            onChange={() => toggleAccess(studentAccess, setStudentAccess, i)}
+                                        />
+                                    ))}
+                                </div>
+                            </fieldset>
+
+                            <Input
+                                name="studentPrintCost"
+                                label="If you used a printed version of this LibreText, how much did it cost?"
+                                type="number"
+                                placeholder="Cost..."
+                                value={studentPrintCost}
+                                onChange={(e) => setStudentPrintCost(e.target.value)}
+                            />
+                        </div>
+                    )}
+
+                    <hr className="my-2" />
+
+                    <Textarea
+                        name="comments"
+                        label="If you have additional comments, please share below"
+                        placeholder="Comments..."
+                        value={comments}
+                        onChange={(e) => setComments(e.target.value)}
+                        rows={3}
+                    />
+                </Modal.Body>
+                <Modal.Footer>
+                    <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={closeModal}>Cancel</Button>
+                        <Button loading={submitLoading} onClick={submitReport}>Submit</Button>
+                    </div>
+                </Modal.Footer>
             </Modal>
-        </Modal>
-    )
-}
+
+            {/* Success confirmation modal */}
+            <Modal open={showSuccessModal} onClose={closeModal} size="sm">
+                <Modal.Header>
+                    <Modal.Title>Adoption Report: Success</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <p>Thank you for submitting an Adoption Report!</p>
+                </Modal.Body>
+                <Modal.Footer>
+                    <div className="flex justify-end">
+                        <Button onClick={closeModal}>Done</Button>
+                    </div>
+                </Modal.Footer>
+            </Modal>
+        </>
+    );
+};
 
 export default AdoptionReport;

@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import AdoptionReportPage from "./components/adoptionreport/AdoptionReportPage";
 import AccessibilityStatement from "./components/util/AccessibilityStatement";
 import TranslationFeedbackExport from "./components/util/TranslationFeedbackExport";
+import PeerReviewSubmitPage from "./screens/commons/Book/PeerReview/submit";
 import { SkipLink } from "@libretexts/davis-react";
 
 /* 404 */
@@ -20,6 +21,7 @@ const Standalone = () => {
       <SkipLink targetId="main-content" />
       <main id="main-content">
         <Switch>
+          <Route exact path="/book/:bookID/submit-peer-review" component={PeerReviewSubmitPage} />
           {org.orgID === "libretexts" && [
             <Route
               exact

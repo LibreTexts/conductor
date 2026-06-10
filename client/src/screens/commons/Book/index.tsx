@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, ReactElement } from "react";
-import { Link, useParams, useLocation } from "react-router-dom";
+import { Link, useParams, useLocation, useHistory } from "react-router-dom";
 import {
   Icon,
   Segment,
@@ -60,7 +60,6 @@ import { isEmptyString } from "../../../components/util/HelperFunctions.js";
 import { getLicenseColor } from "../../../components/util/BookHelpers.js";
 import AdoptionReport from "../../../components/adoptionreport/AdoptionReport.jsx";
 import TreeView from "../../../components/TreeView/index.jsx";
-import PeerReview from "../../../components/peerreview/PeerReview.jsx";
 import StarRating from "../../../components/peerreview/StarRating.jsx";
 import styles from "./Book.module.css";
 import FileIcon from "../../../components/FileIcon/index.jsx";
@@ -97,6 +96,7 @@ type CustomPieChartData = {
 const CommonsBook = () => {
   const { id: bookID } = useParams<{ id: string }>();
   const location = useLocation();
+  const history = useHistory();
 
   // Global State & Error Handling
   const { handleGlobalError } = useGlobalError();
@@ -185,8 +185,6 @@ const CommonsBook = () => {
 
   // Peer Reviews
   const [prAllow, setPRAllow] = useState<boolean>(false);
-  const [prProjectID, setPRProjectID] = useState<string>("");
-  const [prShow, setPRShow] = useState<boolean>(false);
   const [prReviewsShow, setPRReviewsShow] = useState<boolean>(false);
 
   const accessLinks = [
@@ -399,7 +397,6 @@ const CommonsBook = () => {
         bookData.projectID.length > 0
       ) {
         setPRAllow(true);
-        setPRProjectID(bookData.projectID);
       }
     } catch (e) {
       handleGlobalError(e);
@@ -409,7 +406,6 @@ const CommonsBook = () => {
     bookID,
     setBook,
     setPRAllow,
-    setPRProjectID,
     setLoadedData,
     handleGlobalError,
   ]);
@@ -452,12 +448,12 @@ const CommonsBook = () => {
       setShowAdoptionReport(true);
     }
     if (searchParams.get("peerreview") === "show" && prAllow) {
-      setPRShow(true);
+      history.push(`/book/${bookID}/submit-peer-review`);
     }
     if (searchParams.get("files") === "show") {
       setShowFiles(true);
     }
-  }, [location, prAllow, setShowAdoptionReport, setPRShow, setShowFiles]);
+  }, [location, prAllow, history, bookID, setShowAdoptionReport, setShowFiles]);
 
   /**
    * Updates state and localStorage with the user's preference to display Book Licensing.
@@ -470,18 +466,21 @@ const CommonsBook = () => {
     );
   }
 
-  /**
-   * Handles requests to open the Adoption Report modal.
-   */
   function handleOpenAdoptionReport() {
+    window.scrollTo(0, 0);
     setShowAdoptionReport(true);
   }
 
+  function handleOpenPeerReviews() {
+    window.scrollTo(0, 0);
+    setPRReviewsShow(true);
+  }
+
   /**
-   * Handles requests to open the new Peer Review modal.
+   * Navigates to the peer review submission page.
    */
   function handleOpenPeerReviewForm() {
-    setPRShow(true);
+    history.push(`/book/${bookID}/submit-peer-review`);
   }
 
   /**
@@ -638,7 +637,7 @@ const CommonsBook = () => {
             variant="secondary"
             icon={<IconList size={16} />}
             fullWidth
-            onClick={() => setPRReviewsShow(true)}
+            onClick={handleOpenPeerReviews}
           >
             View Peer Reviews
           </Button>
@@ -663,7 +662,7 @@ const CommonsBook = () => {
           variant="secondary"
           icon={<IconList size={16} />}
           fullWidth
-          onClick={() => setPRReviewsShow(true)}
+          onClick={handleOpenPeerReviews}
         >
           View Peer Reviews
         </Button>
@@ -1304,11 +1303,6 @@ const CommonsBook = () => {
         resourceID={book.bookID}
         resourceTitle={book.title}
         resourceLibrary={book.library}
-      />
-      <PeerReview
-        open={prShow}
-        onClose={() => setPRShow(false)}
-        projectID={prProjectID}
       />
     </>
   );

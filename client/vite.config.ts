@@ -10,5 +10,11 @@ export default defineConfig({
       // https://github.com/tabler/tabler-icons/issues/1233#issuecomment-2428245119
       '@tabler/icons-react': '@tabler/icons-react/dist/esm/icons/index.mjs',
     }
-  }
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/setupTests.ts'],
+    css: false,
+  },
 });
