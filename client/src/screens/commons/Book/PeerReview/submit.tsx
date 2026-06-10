@@ -186,7 +186,8 @@ const PeerReviewSubmitPage = () => {
   const isPublicView = !!book?.allowAnonPR;
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8">
+    <div className="min-h-screen bg-white">
+      <div className="mx-auto max-w-4xl px-6 py-8">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <Heading level={1} className="mb-1">
@@ -577,6 +578,7 @@ const PeerReviewSubmitPage = () => {
           </form>
         </>
       )}
+      </div>
     </div>
   );
 };

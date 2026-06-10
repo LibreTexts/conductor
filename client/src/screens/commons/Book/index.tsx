@@ -889,7 +889,7 @@ const CommonsBook = () => {
                 className="w-full rounded-md"
                 isAnimated={book.thumbnailIsAnimated}
               />
-              <Heading level={1} className="text-center">
+              <Heading level={1} className="text-center break-words">
                 {book.title}
               </Heading>
               <Stack direction="vertical" gap="sm">
@@ -1006,7 +1006,9 @@ const CommonsBook = () => {
               </Stack>
 
               {typeof book.rating === "number" && book.rating > 0 && (
-                <StarRating value={book.rating} displayMode={true} />
+                <div className="overflow-x-auto">
+                  <StarRating value={book.rating} displayMode={true} />
+                </div>
               )}
 
               <Stack direction="vertical" gap="xs">
