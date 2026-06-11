@@ -48,6 +48,17 @@ mongoose.set("debug", process.env.NODE_ENV === "development");
 app.set("trust proxy", _trustProxyHops);
 app.use(cookieParser());
 app.use(helmet.hidePoweredBy());
+if (process.env.NODE_ENV === "production") {
+  // Staged rollout: start at 300s, then 86400s, then 31536000s (1 year).
+  // Only add `preload` after submitting to the HSTS preload list.
+  app.use(
+    helmet.strictTransportSecurity({
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: false,
+    })
+  );
+}
 app.use(
   helmet.contentSecurityPolicy({
     directives: {
