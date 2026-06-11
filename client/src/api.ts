@@ -90,6 +90,7 @@ import {
 } from "./types/TrafficAnalytics";
 import { EventSource } from "extended-eventsource";
 import { ShapeshiftJob } from "./types/Shapeshift";
+import { BookBotRun, BookBotType } from "./types/BookBot";
 
 /**
  * @fileoverview
@@ -2301,6 +2302,42 @@ class API {
         limit: limit ?? 100,
         offset: offset ?? 0,
       }
+    });
+    return res.data;
+  }
+
+  // Book Bots
+  async submitEditorPreprocessJob({ url }: { url: string }) {
+    const res = await axios.post<{ jobID: string } & ConductorBaseResponse>(
+      "/book-bots/editor-preprocess",
+      { url },
+    );
+    return res.data;
+  }
+
+  async getBookBotRun(jobID: string) {
+    const res = await axios.get<{ run: BookBotRun } & ConductorBaseResponse>(
+      `/book-bots/runs/${jobID}`,
+    );
+    return res.data;
+  }
+
+  async listBookBotRuns({
+    botType,
+    page,
+    limit,
+  }: { botType?: BookBotType; page?: number; limit?: number } = {}) {
+    const res = await axios.get<
+      {
+        runs: BookBotRun[];
+        meta: { page: number; limit: number; total: number };
+      } & ConductorBaseResponse
+    >("/book-bots/runs", {
+      params: {
+        botType,
+        page: page ?? 1,
+        limit: limit ?? 25,
+      },
     });
     return res.data;
   }

@@ -43,6 +43,7 @@ import supportAPI from "./api/support.js";
 import supportQueuesAPI from "./api/supportqueues.js";
 import projectInvitationsAPI from "./api/projectinvitations.js";
 import * as shapeshiftAPI from "./api/shapeshift.js";
+import * as bookBotsAPI from "./api/book-bots.js";
 
 import * as storeValidators from "./api/validators/store.js";
 import * as centralIdentityValidators from "./api/validators/central-identity.js";
@@ -60,6 +61,7 @@ import * as BookValidators from "./api/validators/book.js";
 import * as UserValidators from "./api/validators/user.js";
 import * as ProjectInvitationValidators from "./api/validators/project-invitations.js";
 import * as ShapeshiftValidators from "./api/validators/shapeshift.js";
+import * as BookBotsValidators from "./api/validators/book-bots.js";
 
 import remixerAPI from "./api/remixer.js";
 import * as RemixerValidators from "./api/validators/remixer.js";
@@ -3024,6 +3026,36 @@ router.route('/shapeshift/job').post(
   authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
   middleware.validateZod(ShapeshiftValidators.CreateJobValidator),
   catchInternal((req, res) => shapeshiftAPI.createJob(req, res)),
+);
+
+router.route('/book-bots/editor-preprocess').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(BookBotsValidators.SubmitEditorPreprocessValidator),
+  catchInternal((req, res) => bookBotsAPI.submitEditorPreprocessJob(req, res)),
+);
+
+router.route('/book-bots/runs').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(BookBotsValidators.ListBookBotRunsValidator),
+  catchInternal((req, res) => bookBotsAPI.listBookBotRuns(req, res)),
+);
+
+router.route('/book-bots/runs/:jobID').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(BookBotsValidators.GetBookBotRunValidator),
+  catchInternal((req, res) => bookBotsAPI.getBookBotRun(req, res)),
+);
+
+router.route('/bot-jobs/:jobID').post(
+  bookBotsAPI.verifyRunnerCallback,
+  middleware.validateZod(BookBotsValidators.RunnerCallbackValidator),
+  catchInternal((req, res) => bookBotsAPI.handleRunnerCallback(req, res)),
 );
 
 router

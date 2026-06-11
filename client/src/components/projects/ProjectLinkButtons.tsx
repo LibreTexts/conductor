@@ -50,7 +50,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
     useState(false);
   const [showImportWorkbenchModal, setShowImportWorkbenchModal] =
     useState(false);
-  const validWorkbench = didCreateWorkbench && libreCoverID && libreLibrary;
+  const validBook = libreCoverID && libreLibrary;
 
   const user = useTypedSelector((state) => state.user);
 
@@ -101,11 +101,11 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             )}
           </>
           )}
-          {(projectLink || validWorkbench) && (
+          {(projectLink || validBook) && (
             <>
               <Popup
                 content={
-                  validWorkbench
+                  validBook
                     ? "This link will take you to the book's page in the LibreTexts libraries."
                     : projectLink
                       ? "This link will take you to the project's linked URL. This may be a book in the LibreTexts library or a third-party resource."
@@ -114,7 +114,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                 trigger={
                   <Button
                     onClick={() =>
-                      validWorkbench
+                      validBook
                         ? window.open(
                           buildLibraryPageGoURL(libreLibrary, libreCoverID),
                           "_blank"
@@ -171,7 +171,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
               }
             />
           )}
-          {(validWorkbench || hasCommonsBook) &&
+          {(validBook || hasCommonsBook) &&
             libreCoverID &&
             libreLibrary &&
             isProjectMemberOrAdmin && (<>

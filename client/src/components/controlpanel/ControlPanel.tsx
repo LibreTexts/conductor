@@ -13,6 +13,7 @@ import {
   IconListCheck,
   IconMessages,
   IconQrcode,
+  IconRobot,
   IconSchool,
   IconShoppingCart,
   IconSitemap,
@@ -112,6 +113,14 @@ const ControlPanel = () => {
       icon: "shuffle",
       title: "Shapeshift Admin Console",
       description: "View and manage Shapeshift export processing jobs.",
+      roles: ["superAdmin"],
+    },
+    {
+      url: "/controlpanel/book-bots",
+      icon: <IconRobot size={20} />,
+      title: "Book Bots",
+      description:
+        "Trigger and monitor automated book processing bots (e.g. editor preprocess).",
       roles: ["superAdmin"],
     },
     {
