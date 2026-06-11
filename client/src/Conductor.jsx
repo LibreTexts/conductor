@@ -54,6 +54,8 @@ import ProjectTimeline from './components/projects/ProjectTimeline';
 import ProjectView from './components/projects/ProjectView';
 const Search = lazy(() => import('./screens/conductor/Search'));
 const ShapeshiftConsole = lazy(() => import('./screens/conductor/controlpanel/ShapeshiftConsole'));
+const BookBots = lazy(() => import('./screens/conductor/controlpanel/BookBots'));
+const BookBotsEditorPreprocess = lazy(() => import('./screens/conductor/controlpanel/BookBots/EditorPreprocess'));
 const Store = lazy(() => import('./screens/conductor/store'));
 const StoreAuthCheck = lazy(() => import('./screens/conductor/store/auth-check'));
 const StoreCart = lazy(() => import('./screens/conductor/store/cart'));
@@ -152,6 +154,8 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/peerreviewrubrics' component={PeerReviewRubrics} />
           <PrivateRoute exact path='/controlpanel/peerreviewrubrics/:mode/:rubricID?' component={PeerReviewRubricManage} />
           <PrivateRoute exact path='/controlpanel/shapeshift' component={ShapeshiftConsole} />
+          <PrivateRoute exact path='/controlpanel/book-bots' component={BookBots} />
+          <PrivateRoute exact path='/controlpanel/book-bots/editor-preprocess' component={BookBotsEditorPreprocess} />
           <PrivateRoute exact path='/controlpanel/store' component={StoreManager} />
           <PrivateRoute exact path='/controlpanel/store/orders/:order_id' component={StoreManagerOrderView} />
           <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
