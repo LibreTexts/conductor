@@ -24,6 +24,7 @@ import SearchForm from "./SearchForm.js";
 import { useCart } from "../../../context/CartContext.js";
 import SwitchApp from "../SwitchApp.jsx";
 import { COMMONS_PATHS } from "../../../Platform.js";
+import LibreFestBanner from "../LibreFestBanner.js";
 
 // ─── Conductor nav items ──────────────────────────────────────────────────────
 const menuItemBase =
@@ -362,6 +363,7 @@ const Navbar: React.FC<{}> = () => {
       }}
     >
       <EnvironmentBanner />
+      <LibreFestBanner />
       <nav
         aria-label="Main navigation"
         className="w-full flex-1 flex flex-col justify-center"
