@@ -48,6 +48,53 @@ const oidcJWKS = `${oidcBase}/cas/oidc/jwks`;
 const oidcProfile = `${oidcBase}/cas/oidc/profile`;
 const oidcLogout = `${oidcBase}/cas/logout`;
 
+// Hosts allowed as post-auth redirect targets, sourced from env or defaulting to commons.libretexts.org.
+// Each entry is matched exactly or as a parent domain (*.entry).
+const ALLOWED_REDIRECT_HOSTS: string[] = (
+  process.env.AUTH_REDIRECT_ALLOWED_HOSTS || "commons.libretexts.org"
+)
+  .split(",")
+  .map((h) => h.trim().toLowerCase())
+  .filter(Boolean);
+
+/**
+ * Returns true only when `url` is safe to use as a post-auth redirect target:
+ *   - scheme is http or https (https required in production)
+ *   - hostname exactly equals an allowlisted host or is a true subdomain of one
+ *   - no userinfo (user:pass@) embedded in the URL
+ * Rejects protocol-relative URLs, non-http(s) schemes, null bytes, and all
+ * suffix-confusion / encoding tricks by working on the parsed URL object only.
+ */
+export function isAllowedRedirectTarget(
+  url: string,
+  allowedHosts: string[] = ALLOWED_REDIRECT_HOSTS
+): boolean {
+  // Reject null bytes immediately — they can confuse parsers.
+  if (url.includes("\0")) return false;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  // Only http/https schemes.
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+
+  // In production, require https.
+  if (process.env.NODE_ENV === "production" && parsed.protocol !== "https:") return false;
+
+  // Reject embedded credentials (user:pass@host).
+  if (parsed.username || parsed.password) return false;
+
+  const host = parsed.hostname.toLowerCase();
+  const allowed = allowedHosts.some(
+    (h) => host === h || host.endsWith(`.${h}`)
+  );
+  return allowed;
+}
+
 /**
  * Creates a JWT for a local session.
  *
@@ -378,9 +425,11 @@ async function completeLogin(req: Request, res: Response) {
     // Create local session
     await createAndAttachLocalSession(res, authUser.uuid, ticketID);
 
+    const safeDefault = `${oidcCallbackProto}://${oidcCallbackHost}/home`;
+
     // Determine base of redirect URL
     let finalRedirectURL = `${oidcCallbackProto}://${oidcCallbackHost}`; // Default to callback host
-    if(req.cookies[COOKIE_NAMES.AUTH_REDIRECT]){
+    if (req.cookies[COOKIE_NAMES.AUTH_REDIRECT]) {
       finalRedirectURL = req.cookies[COOKIE_NAMES.AUTH_REDIRECT]; // Use auth redirect cookie if available
     }
 
@@ -389,11 +438,11 @@ async function completeLogin(req: Request, res: Response) {
     if (safeDecoded && isFullURL(safeDecoded)) {
       finalRedirectURL = safeDecoded;
     } else if (safeDecoded && !isFullURL(safeDecoded)) {
-      // redirectURI is only a path
-      finalRedirectURL = assembleUrl([finalRedirectURL, safeDecoded]);
+      // redirectURI is only a path — resolve against the callback host
+      finalRedirectURL = assembleUrl([`${oidcCallbackProto}://${oidcCallbackHost}`, safeDecoded]);
     } else {
       // Default to home if no redirectURI is provided
-      finalRedirectURL = assembleUrl([finalRedirectURL, "home"]);
+      finalRedirectURL = assembleUrl([`${oidcCallbackProto}://${oidcCallbackHost}`, "home"]);
     }
 
     if (!safeDecoded && isNewMember) {
@@ -403,6 +452,14 @@ async function completeLogin(req: Request, res: Response) {
       finalRedirectURL = `${_final.origin}${
         _final.pathname
       }?${_params.toString()}`;
+    }
+
+    // Validate the final redirect target against the allowlist before issuing the redirect.
+    if (!isAllowedRedirectTarget(finalRedirectURL)) {
+      debugError(
+        `[auth] Open-redirect blocked: attempted target="${finalRedirectURL.substring(0, 200)}" user="${authUser?.uuid ?? "unknown"}"`
+      );
+      return res.redirect(safeDefault);
     }
 
     return res.redirect(finalRedirectURL);
