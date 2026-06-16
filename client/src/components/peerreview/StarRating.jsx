@@ -108,7 +108,6 @@ const StarRating = ({
         return (
             <fieldset
                 className='star-rating'
-                tabIndex={0}
                 aria-labelledby={fieldLabel}
                 aria-required={fieldRequired ? 'true' : 'false'}
             >
@@ -128,7 +127,6 @@ const StarRating = ({
                             <label
                                 htmlFor={`form-star-${idx}`}
                                 title={`${star} stars`}
-                                tabIndex={0}
                                 className={!Number.isInteger(star) ? 'half' : ''}
                             > </label>
                         </React.Fragment>

@@ -26,6 +26,7 @@ import {
   PageDetailsResponse,
   PageTag,
   PeerReview,
+  PeerReviewRubric,
   Project,
   ProjectFile,
   ProjectSearchParams,
@@ -397,6 +398,25 @@ class API {
         reviews: PeerReview[];
       } & ConductorBaseResponse
     >(`/commons/book/${bookID}/peerreviews`);
+    return res;
+  }
+
+  async getProjectPeerReviewRubric(projectID: string) {
+    const res = await axios.get<
+      { rubric: PeerReviewRubric } & ConductorBaseResponse
+    >("/peerreview/projectrubric", { params: { projectID } });
+    return res;
+  }
+
+  async getPeerReviewRubric(rubricID: string) {
+    const res = await axios.get<
+      { rubric: PeerReviewRubric } & ConductorBaseResponse
+    >("/peerreview/rubric", { params: { rubricID } });
+    return res;
+  }
+
+  async submitPeerReview(data: Record<string, unknown>) {
+    const res = await axios.post<ConductorBaseResponse>("/peerreview", data);
     return res;
   }
 
