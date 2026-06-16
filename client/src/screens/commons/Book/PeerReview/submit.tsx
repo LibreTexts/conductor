@@ -27,7 +27,9 @@ import {
 } from "../../../../types";
 import { usePeerReviewRubric } from "./usePeerReviewRubric";
 import { useSubmitPeerReview } from "./useSubmitPeerReview";
-import type { PeerReviewFormValues } from "./schema";
+import { peerReviewSchema, type PeerReviewFormValues } from "./schema";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useDocumentTitle } from "usehooks-ts";
 
 // Backend returns MongoDB documents — _id is present at runtime but not in the shared type.
 type PRPrompt = CustomFormPrompt & { _id?: string };
@@ -43,12 +45,12 @@ const authorTypeOpts = peerReviewAuthorTypes.map((t) => ({
 }));
 
 const PeerReviewSubmitPage = () => {
+  useDocumentTitle("LibreTexts | Submit Peer Review");
   const { bookID } = useParams<{ bookID: string }>();
   const history = useHistory();
   const user = useTypedSelector((state) => state.user);
 
   useEffect(() => {
-    document.title = "LibreTexts | Submit Peer Review";
     window.scrollTo(0, 0);
     DOMPurify.addHook("afterSanitizeAttributes", (node) => {
       if ("target" in node) {
@@ -56,7 +58,6 @@ const PeerReviewSubmitPage = () => {
         node.setAttribute("rel", "noopener noreferrer");
       }
     });
-    return () => DOMPurify.removeHooks("afterSanitizeAttributes");
   }, []);
 
   const { data: book, isLoading: loadingBook, error: bookError } = useQuery({
@@ -84,6 +85,7 @@ const PeerReviewSubmitPage = () => {
   } = usePeerReviewRubric(book?.projectID);
 
   const { control, handleSubmit, reset } = useForm<PeerReviewFormValues>({
+    resolver: zodResolver(peerReviewSchema),
     defaultValues: {
       authorType: "",
       rating: 0,
@@ -93,6 +95,21 @@ const PeerReviewSubmitPage = () => {
       prompts: {},
     },
   });
+
+  useEffect(() => {
+    // wait for both book and user to populate before continuing check
+    if (!book) return;
+    if (!user) return;
+
+    /**
+     * If the book doesn't allow anonymous peer reviews and the user isn't logged in,
+     * redirect back to Commons book page.
+     * */ 
+    if (!book.allowAnonPR && !user.isAuthenticated) {
+      history.replace(`/book/${bookID}`);
+    }
+
+  }, [book, user])
 
   // Seed prompt defaults once rubric loads so every Controller is pre-registered.
   useEffect(() => {

@@ -62,7 +62,6 @@ const PeerReview = ({
                 node.setAttribute('rel', 'noopener noreferrer');
             }
         });
-        return () => DOMPurify.removeHooks('afterSanitizeAttributes');
     }, []);
 
     useEffect(() => {
