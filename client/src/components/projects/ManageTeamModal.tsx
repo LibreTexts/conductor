@@ -329,7 +329,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                         <td className="border border-gray-200 px-3 py-2">
                           <div className="flex items-center gap-2">
                             {lackAccess && project.libreLibrary && project.libreCoverID && (
-                              <Tooltip content="This user doesn't have access to the library for this project.">
+                              <Tooltip content="This user doesn't have access to the library for this project." className="!z-[9999]" placement="right">
                                 <IconAlertTriangle size={16} className="text-yellow-500" />
                               </Tooltip>
                             )}
@@ -469,7 +469,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1">
                   <p className="text-lg font-semibold">Add Team Members By Name</p>
-                  <Tooltip content="Add users to the project team by searching for their name or email address. Use the toggle to restrict search to users with the same email domain as you.">
+                  <Tooltip content="Add users to the project team by searching for their name or email address. Use the toggle to restrict search to users with the same email domain as you." className="!z-[9999]">
                     <span className="text-gray-400 cursor-help text-sm">(?)</span>
                   </Tooltip>
                 </div>
