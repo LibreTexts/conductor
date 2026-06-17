@@ -1164,6 +1164,76 @@ router
     booksAPI.getBookTOC
   );
 
+// glossary routes
+router.route("/commons/book/:library/:coverID/glossary")
+  // get glossary of a book
+  .get(
+    middleware.validateZod(BookValidators.getWithCoverIDParamSchema),
+    booksAPI.getBookGlossary
+  )
+  // add glossary usage
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    booksAPI.glossaryImageUploadHandler,
+    middleware.validateZod(BookValidators.addWithCoverIDParamSchema),
+    booksAPI.addBookGlossary
+  )
+  // add page to glossary usage
+  .put(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    booksAPI.glossaryImageUploadHandler,
+    (req, res, next)=>{console.log("-----------------addPageToGlossaryUsage", req.body, req.params); next()},
+    middleware.validateZod(BookValidators.addPageWithCoverIDParamSchema),
+    booksAPI.addPageToGlossaryUsage
+  );
+  
+
+  router.route("/commons/glossary/usage/:usageID").delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.deleteWithUsageIDParamSchema),
+    booksAPI.deleteBookGlossaryUsage
+  );
+  // delete page from glossary usage
+  router.route("/commons/glossary/usage/:usageID/page/:pageID").delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.deleteWithUsageIDParamSchema),
+    booksAPI.deleteBookGlossaryUsage
+  );
+  router.route("/commons/glossary/usage/:usageID/image").get(
+    middleware.validateZod(BookValidators.getWithUsageIDParamSchema),
+    booksAPI.getGlossaryUsageImage
+  );
+
+  router.route("/commons/glossary/page/:pageID/library/:library").post(
+    middleware.validateZod(BookValidators.getWithPageIDParamAndLibraryParamSchema),
+    booksAPI.getGlossaryPage
+  )
+  .get(
+    
+    middleware.validateZod(BookValidators.getWithPageIDParamAndLibraryParamSchema),
+    booksAPI.getGlossaryDetails
+  );
+  
+router
+  .route("/commons/glossary/term-search")
+  .get(
+    middleware.validateZod(BookValidators.getGlossaryTermSearchSchema),
+    booksAPI.getGlossaryTermSearch
+  );
+
+router
+  .route("/commons/project/:projectID/toc")
+  .get(
+    middleware.validateZod(ProjectValidators.getWithProjectIDParamSchema),
+    projectsAPI.getProjectToc
+  );
+
+
+
 router
   .route("/commons/book/:bookID/licensereport")
   .get(

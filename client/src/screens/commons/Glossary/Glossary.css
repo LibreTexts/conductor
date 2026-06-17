@@ -1,0 +1,85 @@
+/* Scroll heights account for Conductor navbar, footer, main padding, and page chrome. */
+.glossary-page {
+  --glossary-column-padding-y: 3rem;
+  --glossary-column-header: 4.5rem;
+  --glossary-card-heading: 2.5rem;
+  --glossary-height-buffer: 12px;
+  --height-glossary-layout: calc(
+    var(--height-app-viewport) - var(--glossary-column-padding-y) - var(--glossary-height-buffer)
+  );
+  --height-glossary-tree: calc(
+    var(--height-glossary-layout) - var(--glossary-column-header) - var(--glossary-card-heading)
+  );
+  --height-glossary-panel: calc(
+    var(--height-glossary-layout) - var(--glossary-column-header)
+  );
+
+  max-height: var(--height-glossary-layout);
+  min-height: 0;
+}
+
+.glossary-page__column {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.glossary-page__column-header {
+  flex-shrink: 0;
+}
+
+.glossary-page__card {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.glossary-page__panel-scroll {
+  min-height: 0;
+  min-width: 0;
+  max-height: var(--height-glossary-panel);
+  overflow-y: auto;
+}
+
+.glossary-tree-view {
+  min-height: 0;
+  max-height: var(--height-glossary-tree);
+  overflow-y: auto;
+}
+
+.glossary-list {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.glossary-list__table-wrapper {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.glossary-list__table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+}
+
+.glossary-list__cell {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+  vertical-align: top;
+}
+
+.glossary-list__pages-table th:first-child,
+.glossary-list__pages-table td:first-child {
+  width: 70%;
+}
+
+
+.toc-tree-view__node-selected {
+  font-style: oblique;
+  color: #007bff;
+}

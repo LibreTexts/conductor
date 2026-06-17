@@ -241,3 +241,81 @@ export const GeneratePageImagesAltTextSchema =
       projectID: z.string().length(10),
     }),
   });
+
+export const getGlossaryTermSearchSchema = z.object({
+  query: z.object({
+    term: z.string().min(1).max(20),
+  }),
+});
+
+export const getWithCoverIDParamSchema = z.object({
+  params: z.object({
+    coverID: z.coerce.number().int().positive().max(999999999999),
+    library:z.string().min(2).max(12),
+  }),
+});
+
+export const deleteWithCoverIDParamSchema = z.object({
+  params: z.object({
+    coverID: z.string(),
+    library:z.string().min(2).max(12),
+  }),
+});
+
+
+export const deleteWithUsageIDParamSchema = z.object({
+  params: z.object({
+    usageID: z.string().min(10).max(10),
+    pageID:  z.coerce.string().optional()
+  }),
+});
+
+export const addWithCoverIDParamSchema = z.object({
+  params: z.object({
+    coverID: z.string(),
+    library: z.string().min(2).max(12),
+  }),
+  body: z.object({
+    term: z.string().min(1).max(50),
+    definition: z.string().min(1).max(1000),
+    pageId: z.coerce.number().int().positive().optional(),
+    glossaryID: z.coerce.number().int().positive().optional(),
+    bookId: z
+      .string()
+      .optional()
+      .refine(
+        (bookId) => bookId === undefined || checkBookIDFormat(bookId),
+        { message: conductorErrors.err1 },
+      ),
+    altText: z.string().max(500).optional(),
+    caption: z.string().max(500).optional(),
+    link: z.string().url().optional(),
+    source: z.string().max(500).optional(),
+
+
+  }),
+});
+
+export const addPageWithCoverIDParamSchema = z.object({
+  params: z.object({
+    coverID: z.string(),
+    library: z.string().min(2).max(12),
+  }),
+  body: z.object({
+    pageIds: z.array(z.coerce.number().int().positive().max(999999999999)),
+    usageIds: z.array(z.string().min(10).max(10)),
+  }),
+});
+
+export const getWithPageIDParamAndLibraryParamSchema = z.object({
+  params: z.object({
+    pageID: z.coerce.number().int().positive().max(999999999999),
+    library:z.string().min(2).max(12),
+  }),
+});
+
+export const getWithUsageIDParamSchema = z.object({
+  params: z.object({
+    usageID: z.string().min(10).max(10),
+  }),
+});

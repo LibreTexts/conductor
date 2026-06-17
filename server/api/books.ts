@@ -1,4 +1,5 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
+import multer, { memoryStorage, MulterError } from "multer";
 import fs from "fs-extra";
 import { debug, debugError, debugCommonsSync, debugServer } from "../debug.js";
 import AdoptionReport from "../models/adoptionreport.js";
@@ -65,7 +66,7 @@ import {
 } from "../util/librariesclient.js";
 import MindTouch from "../util/CXOne/index.js";
 import { conductor400Err, conductor500Err } from "../util/errorutils.js";
-import { ZodReqWithUser } from "../types/Express.js";
+import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
 import User from "../models/user.js";
 import centralIdentity from "./central-identity.js";
 const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
@@ -84,6 +85,13 @@ import {
   importPressBooksBookSchema,
   getPressbooksImportJobStatusSchema,
   getActivePressbooksImportJobSchema,
+  addWithCoverIDParamSchema,
+  getWithCoverIDParamSchema,
+  deleteWithCoverIDParamSchema,
+  deleteWithUsageIDParamSchema,
+  getWithPageIDParamAndLibraryParamSchema,
+  getWithUsageIDParamSchema,
+  addPageWithCoverIDParamSchema,
 } from "./validators/book.js";
 import BookService from "./services/book-service.js";
 import { normalizedSort } from "../util/searchutils.js";
@@ -91,6 +99,8 @@ import SearchService from "./services/search-service.js";
 import { PressBookScraper } from "../util/pressbookutils.js";
 import PressbooksImportJob from "../models/pressbooksimportjob.js";
 import base62 from "base62-random";
+import Glossary from "../models/glossary.js";
+import GlossaryService from "./services/glossary-service.js";
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   _id: 0,
@@ -245,7 +255,7 @@ const autoGenerateCollections = () => {
                   program: 1,
                 },
               },
-            ])
+            ]),
           );
         }
       }
@@ -260,7 +270,7 @@ const autoGenerateCollections = () => {
       for (let i = 0, n = allBooksFound.length; i < n; i += 1) {
         const currBook = allBooksFound[i];
         const collIdx = collections.findIndex(
-          (coll) => coll.program === currBook.program
+          (coll) => coll.program === currBook.program,
         );
         if (collIdx > -1) {
           const resourcesById =
@@ -403,7 +413,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
             if (String(book.link).includes("/Bookshelves/")) {
               location = "central";
               let baseURL = `https://${extractLibFromID(
-                book.zipFilename
+                book.zipFilename,
               )}.libretexts.org/Bookshelves/`;
               let isolated = String(book.link).replace(baseURL, "");
               let splitURL = isolated.split("/");
@@ -415,7 +425,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
             if (String(book.link).includes("/Courses/")) {
               location = "campus";
               let baseURL = `https://${extractLibFromID(
-                book.zipFilename
+                book.zipFilename,
               )}.libretexts.org/Courses/`;
               let isolated = String(book.link).replace(baseURL, "");
               let splitURL = isolated.split("/");
@@ -448,7 +458,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
             library: extractLibFromID(book.zipFilename),
             thumbnail: genThumbnailLink(
               extractLibFromID(book.zipFilename),
-              book.id
+              book.id,
             ),
             links: {
               online: link,
@@ -596,7 +606,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
                 links: book.links,
                 lastUpdated: book.lastUpdated,
                 libraryTags: book.libraryTags,
-                randomIndex: hashStringToFloat(book.bookID)
+                randomIndex: hashStringToFloat(book.bookID),
               },
             },
             upsert: true,
@@ -606,7 +616,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
       existingBooks.forEach((book) => {
         /* check if book needs to be deleted */
         let foundProcessed = processedBooks.find(
-          (processed) => book === processed.bookID
+          (processed) => book === processed.bookID,
         );
         if (foundProcessed === undefined) {
           // book not found in new batch, needs to be deleted
@@ -629,7 +639,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
       if (writeErr.result?.nMatched > 0) {
         // Some imports failed (silent)
         debugCommonsSync(
-          `Updated only ${writeErr.result.nMatched} books when ${allBooks.length} books were expected.`
+          `Updated only ${writeErr.result.nMatched} books when ${allBooks.length} books were expected.`,
         );
         return null; // Continue to auto-generate Program Collections
       } else {
@@ -731,7 +741,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
  */
 const runAutomatedSyncWithLibraries = (req: Request, res: Response) => {
   debugServer(
-    `Received automated request to sync Commons with Libraries ${new Date().toLocaleString()}`
+    `Received automated request to sync Commons with Libraries ${new Date().toLocaleString()}`,
   );
   return syncWithLibraries(req, res);
 };
@@ -744,13 +754,15 @@ const runAutomatedSyncWithLibraries = (req: Request, res: Response) => {
  * @param {Object} orgData - An Organization information object.
  * @returns {String[]} An array of known Organization names.
  */
-export const buildOrganizationNamesList = (orgData: OrganizationInterface): string[] => {
+export const buildOrganizationNamesList = (
+  orgData: OrganizationInterface,
+): string[] => {
   if (!orgData) return [];
 
   const names = new Set<string>();
 
   // Collect base names
-  const fields = ['name', 'shortName', 'abbreviation'] as const;
+  const fields = ["name", "shortName", "abbreviation"] as const;
   fields.forEach((field) => {
     const value = orgData[field];
     if (value && !isEmptyString(value)) {
@@ -765,7 +777,7 @@ export const buildOrganizationNamesList = (orgData: OrganizationInterface): stri
 
   // Generate normalized variations
   const normalizedVariations = Array.from(names).flatMap((name) => {
-    const normalized = String(name).replace(/[,\-:']/g, '');
+    const normalized = String(name).replace(/[,\-:']/g, "");
     return [normalized, normalized.toLowerCase()];
   });
 
@@ -784,7 +796,7 @@ export const buildOrganizationNamesList = (orgData: OrganizationInterface): stri
  */
 async function getCommonsCatalog(
   req: z.input<typeof getCommonsCatalogSchema>,
-  res: Response
+  res: Response,
 ) {
   try {
     const orgID = process.env.ORG_ID;
@@ -792,10 +804,10 @@ async function getCommonsCatalog(
     const seed = req.query.seed
       ? parseInt(req.query.seed.toString())
       : Math.floor(Math.random() * 1000000);
-    
+
     const paginationOffset = getPaginationOffset(
       (req.query.activePage as number) || 1,
-      limit
+      limit,
     );
 
     if (isNaN(seed) || seed < 1) {
@@ -817,11 +829,11 @@ async function getCommonsCatalog(
             abbreviation: 1,
             aliases: 1,
             autoCatalogMatchingDisabled: 1,
-          }
+          },
         ).lean(),
         CustomCatalog.findOne(
           { orgID },
-          { _id: 0, orgID: 1, resources: 1, automaticMatchingExclusions: 1 }
+          { _id: 0, orgID: 1, resources: 1, automaticMatchingExclusions: 1 },
         ).lean(),
       ]);
       if (!orgData || Object.keys(orgData).length === 0) {
@@ -829,7 +841,7 @@ async function getCommonsCatalog(
       }
 
       const campusNames = buildOrganizationNamesList(orgData).map((name) =>
-        name.toLowerCase()
+        name.toLowerCase(),
       );
       const matchObject = {
         $and: [
@@ -931,7 +943,9 @@ async function getCommonsCatalog(
         },
       ]);
 
-      const totalCountPromise = Book.countDocuments({ randomIndex: { $ne: null } });
+      const totalCountPromise = Book.countDocuments({
+        randomIndex: { $ne: null },
+      });
       const [allBooks, totalCount] = await Promise.all([
         allBookPromise,
         totalCountPromise,
@@ -944,7 +958,7 @@ async function getCommonsCatalog(
     // Check if the associated project has any public or instructor only files
     const publicOrInstructorSearch =
       await _getBookPublicOrInstructorAssetsCount(
-        books.map((r) => r.bookID) || []
+        books.map((r) => r.bookID) || [],
       );
 
     // Add the publicOrInstructorAssets field to each book
@@ -981,7 +995,7 @@ async function getCommonsCatalog(
  */
 const getMasterCatalog = (
   req: z.infer<typeof getMasterCatalogSchema>,
-  res: Response
+  res: Response,
 ) => {
   var sortedBooks: BookInterface[] = [];
   var orgData = {};
@@ -1035,7 +1049,7 @@ const getMasterCatalog = (
             _id: 0,
             orgID: 1,
             resources: 1,
-          }
+          },
         );
       } else {
         return {}; // LibreCommons — don't need to lookup Custom Catalog
@@ -1090,30 +1104,24 @@ async function getMasterCatalogV2(_req: Request, res: Response) {
             groupBy: {
               $cond: [
                 {
-                  $and: [
-                    { $ne: ["$course", null] },
-                    { $ne: ["$course", ""] }
-                  ]
+                  $and: [{ $ne: ["$course", null] }, { $ne: ["$course", ""] }],
                 },
                 "$course",
-                "$subject"
-              ]
+                "$subject",
+              ],
             },
             type: {
               $cond: [
                 {
-                  $and: [
-                    { $ne: ["$course", null] },
-                    { $ne: ["$course", ""] }
-                  ]
+                  $and: [{ $ne: ["$course", null] }, { $ne: ["$course", ""] }],
                 },
                 "course",
-                "subject"
-              ]
-            }
+                "subject",
+              ],
+            },
           },
-          books: { $push: "$$ROOT" }
-        }
+          books: { $push: "$$ROOT" },
+        },
       },
       {
         $group: {
@@ -1124,11 +1132,11 @@ async function getMasterCatalogV2(_req: Request, res: Response) {
                 { $eq: ["$_id.type", "course"] },
                 {
                   course: "$_id.groupBy",
-                  books: "$books"
+                  books: "$books",
                 },
-                "$$REMOVE"
-              ]
-            }
+                "$$REMOVE",
+              ],
+            },
           },
           subjects: {
             $push: {
@@ -1136,48 +1144,56 @@ async function getMasterCatalogV2(_req: Request, res: Response) {
                 { $eq: ["$_id.type", "subject"] },
                 {
                   subject: "$_id.groupBy",
-                  books: "$books"
+                  books: "$books",
                 },
-                "$$REMOVE"
-              ]
-            }
-          }
-        }
+                "$$REMOVE",
+              ],
+            },
+          },
+        },
       },
       {
         $sort: {
-          "_id": 1
-        }
+          _id: 1,
+        },
       },
       {
         $project: {
-          "_id": 0,
-          "library": "$_id",
-          "courses": 1,
-          "subjects": 1
-        }
-      } 
+          _id: 0,
+          library: "$_id",
+          courses: 1,
+          subjects: 1,
+        },
+      },
     ]);
 
     // We can't sort by parallel arrays in the aggregation, so we need to do it here
-    (libraries as MasterCatalogV2Response['libraries']).forEach((lib) => {
+    (libraries as MasterCatalogV2Response["libraries"]).forEach((lib) => {
       // First sort the course and subject groups
-      lib.courses = lib.courses.sort((a, b) => normalizedSort(a.course, b.course));
-      lib.subjects = lib.subjects.sort((a, b) => normalizedSort(a.subject, b.subject));
-      
+      lib.courses = lib.courses.sort((a, b) =>
+        normalizedSort(a.course, b.course),
+      );
+      lib.subjects = lib.subjects.sort((a, b) =>
+        normalizedSort(a.subject, b.subject),
+      );
+
       // Then sort the books within each group
       lib.courses.forEach((courseGroup) => {
-        courseGroup.books = courseGroup.books.sort((a, b) => normalizedSort(a.title, b.title));
+        courseGroup.books = courseGroup.books.sort((a, b) =>
+          normalizedSort(a.title, b.title),
+        );
       });
 
       lib.subjects.forEach((subjectGroup) => {
-        subjectGroup.books = subjectGroup.books.sort((a, b) => normalizedSort(a.title, b.title));
+        subjectGroup.books = subjectGroup.books.sort((a, b) =>
+          normalizedSort(a.title, b.title),
+        );
       });
     });
 
     return res.send({
       err: false,
-      libraries
+      libraries,
     });
   } catch (error) {
     debugError(error);
@@ -1215,7 +1231,7 @@ async function getCatalogFilterOptions(_req: Request, res: Response) {
             shortName: 1,
             abbreviation: 1,
             aliases: 1,
-          }
+          },
         ).lean(),
         CustomCatalog.findOne(
           { orgID },
@@ -1223,7 +1239,7 @@ async function getCatalogFilterOptions(_req: Request, res: Response) {
             _id: 0,
             orgID: 1,
             resources: 1,
-          }
+          },
         ).lean(),
       ]);
       const campusNames = buildOrganizationNamesList(orgData);
@@ -1334,7 +1350,7 @@ async function getCatalogFilterOptions(_req: Request, res: Response) {
  */
 async function createBook(
   req: ZodReqWithUser<z.infer<typeof createBookSchema>>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { library, title, projectID } = req.body;
@@ -1362,7 +1378,7 @@ async function createBook(
     const hasLibAccess =
       await centralIdentity.checkUserApplicationAccessInternal(
         user.centralID,
-        libraryApp.id
+        libraryApp.id,
       );
     if (!hasLibAccess) {
       throw new Error(conductorErrors.err8);
@@ -1431,7 +1447,7 @@ async function createBook(
         subdomain,
         chapterOnePath,
         "GuideTabs",
-        MindTouch.Templates.PROP_GuideTabs
+        MindTouch.Templates.PROP_GuideTabs,
       ),
     ]);
 
@@ -1453,7 +1469,7 @@ async function createBook(
       `https://batch.libretexts.org/print/Libretext=${bookURL}?createMatterOnly=true`,
       {
         headers: { origin: "commons.libretexts.org" },
-      }
+      },
     ); // Don't wait for response, no-op if fails
 
     sleep(1500); // let CXone catch up with page creations
@@ -1472,12 +1488,12 @@ async function createBook(
     const permsUpdated = await updateTeamWorkbenchPermissions(
       projectID,
       subdomain,
-      newBookID
+      newBookID,
     );
 
     if (!permsUpdated) {
       console.log(
-        `[createBook] Failed to update permissions for ${projectID}.`
+        `[createBook] Failed to update permissions for ${projectID}.`,
       ); // Silent fail
     }
 
@@ -1513,7 +1529,7 @@ async function createBook(
  */
 async function deleteBook(
   req: ZodReqWithUser<z.infer<typeof deleteBookSchema>>,
-  res: Response
+  res: Response,
 ) {
   try {
     const deleteProject = !!req.query?.deleteProject;
@@ -1586,7 +1602,7 @@ async function deleteBook(
  */
 async function getBookDetail(
   req: z.infer<typeof getWithBookIDParamSchema>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { bookID } = req.params;
@@ -1670,7 +1686,7 @@ async function getBookDetail(
             ],
           },
           allowAnonPR: {
-            $eq: ["$project.allowAnonPR", true]
+            $eq: ["$project.allowAnonPR", true],
           },
           hasPeerReviews: {
             $and: [
@@ -1820,7 +1836,7 @@ async function getBookDetail(
  */
 async function getBookPeerReviews(
   req: z.infer<typeof getWithBookIDParamSchema>,
-  res: Response
+  res: Response,
 ) {
   try {
     let allowsAnon = true;
@@ -1850,7 +1866,7 @@ async function getBookPeerReviews(
       allowsAnon = false; // true by default
     }
     const peerReviews = await PeerReview.aggregate(
-      buildPeerReviewAggregation(project.projectID)
+      buildPeerReviewAggregation(project.projectID),
     );
     return res.send({
       err: false,
@@ -1881,7 +1897,7 @@ async function getBookPeerReviews(
  */
 const addBookToCustomCatalog = async (
   req: z.infer<typeof getWithBookIDBodySchema>,
-  res: Response
+  res: Response,
 ) => {
   try {
     await CustomCatalog.updateOne(
@@ -1895,11 +1911,11 @@ const addBookToCustomCatalog = async (
         },
         $pull: {
           automaticMatchingExclusions: req.body.bookID, // ensure not in excluded list
-        }
+        },
       },
       {
         upsert: true,
-      }
+      },
     );
 
     return res.send({
@@ -1928,7 +1944,7 @@ const addBookToCustomCatalog = async (
  */
 const removeBookFromCustomCatalog = async (
   req: z.infer<typeof getWithBookIDBodySchema>,
-  res: Response
+  res: Response,
 ) => {
   try {
     await CustomCatalog.updateOne(
@@ -1936,8 +1952,8 @@ const removeBookFromCustomCatalog = async (
       {
         $pullAll: {
           resources: [req.body.bookID],
-        }
-      }
+        },
+      },
     );
 
     return res.send({
@@ -1955,18 +1971,21 @@ const removeBookFromCustomCatalog = async (
 
 const excludeBookFromAutoMatch = async (
   req: z.infer<typeof getWithBookIDBodySchema>,
-  res: Response
+  res: Response,
 ) => {
   try {
     const orgData = await Organization.findOne(
       { orgID: process.env.ORG_ID },
-      { _id: 0, autoCatalogMatchingDisabled: 1 }
-    ).lean().orFail();
+      { _id: 0, autoCatalogMatchingDisabled: 1 },
+    )
+      .lean()
+      .orFail();
 
     if (orgData?.autoCatalogMatchingDisabled) {
       return res.status(400).send({
         err: true,
-        errMsg: "Automatic Catalog Matching is not enabled for this organization. Exclusion not necessary.",
+        errMsg:
+          "Automatic Catalog Matching is not enabled for this organization. Exclusion not necessary.",
       });
     }
 
@@ -1977,9 +1996,9 @@ const excludeBookFromAutoMatch = async (
           resources: [req.body.bookID],
         },
         $addToSet: {
-          automaticMatchingExclusions: req.body.bookID
+          automaticMatchingExclusions: req.body.bookID,
         },
-      }
+      },
     );
 
     return res.send({
@@ -2005,7 +2024,7 @@ const excludeBookFromAutoMatch = async (
  */
 async function downloadBookFile(
   req: z.infer<typeof downloadBookFileSchema>,
-  res: Response
+  res: Response,
 ) {
   try {
     const [lib, coverID] = getLibraryAndPageFromBookID(req.params.bookID);
@@ -2036,7 +2055,7 @@ async function downloadBookFile(
       [fileID],
       true,
       "",
-      true
+      true,
     );
 
     if (
@@ -2074,7 +2093,7 @@ async function downloadBookFile(
  */
 async function getBookTOC(
   req: z.infer<typeof getWithBookIDParamSchema>,
-  res: Response
+  res: Response,
 ) {
   try {
     const bookService = new BookService({ bookID: req.params.bookID });
@@ -2101,7 +2120,7 @@ async function getBookTOC(
  */
 async function getLicenseReport(
   req: z.infer<typeof getWithBookIDParamSchema>,
-  res: Response
+  res: Response,
 ) {
   const notFoundResponse = {
     err: false,
@@ -2141,7 +2160,7 @@ async function getLicenseReport(
 
 async function getBookPagesDetails(
   req: ZodReqWithUser<z.infer<typeof getWithBookIDParamSchema>>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { bookID } = req.params;
@@ -2157,7 +2176,7 @@ async function getBookPagesDetails(
     // Loop through table of contents and add overviews and tags to each page (based on ID)
     // Table of contents is a nested array, so we need to loop through each level
     const addOverviewsAndTags = (
-      toc: TableOfContents
+      toc: TableOfContents,
     ): TableOfContentsDetailed => {
       const pageOverview = overviews.find((o) => o.id === toc.id);
       const pageTags = tags.find((t) => t.id === toc.id)?.tags || [];
@@ -2189,7 +2208,7 @@ async function getBookPagesDetails(
 
 async function getPageDetail(
   req: ZodReqWithUser<z.infer<typeof getWithPageIDParamAndCoverPageIDSchema>>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { pageID: fullPageID } = req.params;
@@ -2201,7 +2220,12 @@ async function getPageDetail(
     // Check if the user has access to the page. If not, check if they are a superadmin first before returning 403.
     const canAccess = await bookService.canAccessPage(req.user.decoded.uuid);
     if (!canAccess) {
-      const isSuperadmin = authAPI.checkHasRole(req.user, "libretexts", "superadmin", true);
+      const isSuperadmin = authAPI.checkHasRole(
+        req.user,
+        "libretexts",
+        "superadmin",
+        true,
+      );
       if (!isSuperadmin) {
         return res.status(403).send({
           err: true,
@@ -2234,7 +2258,7 @@ async function getPageDetail(
 
 async function updatePageDetails(
   req: ZodReqWithUser<z.infer<typeof updatePageDetailsSchema>>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { pageID } = req.params;
@@ -2253,7 +2277,7 @@ async function updatePageDetails(
     const [error, success] = await bookService.updatePageDetails(
       pageID,
       summary,
-      tags
+      tags,
     );
 
     if (error) {
@@ -2293,7 +2317,7 @@ async function updatePageDetails(
 
 async function bulkUpdatePageTags(
   req: ZodReqWithUser<z.infer<typeof bulkUpdatePageTagsSchema>>,
-  res: Response
+  res: Response,
 ) {
   try {
     const { bookID } = req.params;
@@ -2309,7 +2333,7 @@ async function bulkUpdatePageTags(
           const [error, success] = await bookService.updatePageDetails(
             page.id,
             undefined,
-            page.tags
+            page.tags,
           );
           if (error) {
             reject(error);
@@ -2435,7 +2459,7 @@ const generateKBExport = () => {
             lastUpdated: 1,
           },
         },
-      ])
+      ]),
     );
   })
     .then((commonsBooks) => {
@@ -2501,7 +2525,7 @@ const generateKBExport = () => {
                   let authorProcess = author.trim();
                   if (
                     authorProcess.toLowerCase() !==
-                    "no attribution by request" &&
+                      "no attribution by request" &&
                     authorProcess.length > 0
                   ) {
                     itemAuthors.push(authorProcess);
@@ -2556,126 +2580,117 @@ const retrieveKBExport = (_req: Request, res: Response) => {
     });
 };
 
-export async function _getBookPublicOrInstructorAssetsCount(ids: string[]): Promise<{
-  bookID: string;
-  publicAssets: number;
-  instructorAssets: number;
-}[]> {
-  return Book.aggregate([{
-    $match: {
-      bookID: { $in: ids },
-    }
-  },
+export async function _getBookPublicOrInstructorAssetsCount(
+  ids: string[],
+): Promise<
   {
-    $lookup: {
-      from: "projects",
-      let: {
-        bookIdParts: {
-          $split: ["$bookID", "-"]
-        }
+    bookID: string;
+    publicAssets: number;
+    instructorAssets: number;
+  }[]
+> {
+  return Book.aggregate([
+    {
+      $match: {
+        bookID: { $in: ids },
       },
-      pipeline: [
-        {
-          $match: {
-            $expr: {
-              $and: [
-                {
-                  $eq: [
-                    "$libreLibrary",
-                    {
-                      $arrayElemAt: [
-                        "$$bookIdParts",
-                        0
-                      ]
-                    }
-                  ]
-                },
-                {
-                  $eq: [
-                    "$libreCoverID",
-                    {
-                      $arrayElemAt: [
-                        "$$bookIdParts",
-                        1
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          }
+    },
+    {
+      $lookup: {
+        from: "projects",
+        let: {
+          bookIdParts: {
+            $split: ["$bookID", "-"],
+          },
         },
-        {
-          $project: {
-            projectID: 1
-          }
-        }
-      ],
-      as: "projectDetails"
-    }
-  },
-  {
-    $addFields: {
-      project: {
-        $first: "$projectDetails"
-      }
-    }
-  },
-  {
-    $match: {
-      "project.projectID": {
-        $exists: true,
-        $ne: ""
-      }
-    }
-  },
-  {
-    $lookup: {
-      from: "projectfiles",
-      localField: "project.projectID",
-      foreignField: "projectID",
-      as: "projectFiles"
-    }
-  },
-  {
-    $project: {
-      bookID: "$bookID",
-      publicAssets: {
-        $size: {
-          $filter: {
-            input: "$projectFiles",
-            as: "file",
-            cond: {
-              $eq: [
-                "$$file.access",
-                "public"
-              ]
-            }
-          }
-        }
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  {
+                    $eq: [
+                      "$libreLibrary",
+                      {
+                        $arrayElemAt: ["$$bookIdParts", 0],
+                      },
+                    ],
+                  },
+                  {
+                    $eq: [
+                      "$libreCoverID",
+                      {
+                        $arrayElemAt: ["$$bookIdParts", 1],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          {
+            $project: {
+              projectID: 1,
+            },
+          },
+        ],
+        as: "projectDetails",
       },
-      instructorAssets: {
-        $size: {
-          $filter: {
-            input: "$projectFiles",
-            as: "file",
-            cond: {
-              $eq: [
-                "$$file.access",
-                "instructors"
-              ]
-            }
-          }
-        }
-      }
-    }
-  }]);
+    },
+    {
+      $addFields: {
+        project: {
+          $first: "$projectDetails",
+        },
+      },
+    },
+    {
+      $match: {
+        "project.projectID": {
+          $exists: true,
+          $ne: "",
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: "projectfiles",
+        localField: "project.projectID",
+        foreignField: "projectID",
+        as: "projectFiles",
+      },
+    },
+    {
+      $project: {
+        bookID: "$bookID",
+        publicAssets: {
+          $size: {
+            $filter: {
+              input: "$projectFiles",
+              as: "file",
+              cond: {
+                $eq: ["$$file.access", "public"],
+              },
+            },
+          },
+        },
+        instructorAssets: {
+          $size: {
+            $filter: {
+              input: "$projectFiles",
+              as: "file",
+              cond: {
+                $eq: ["$$file.access", "instructors"],
+              },
+            },
+          },
+        },
+      },
+    },
+  ]);
 }
 
-export async function syncWithSearchIndex(
-  req: Request,
-  res: Response
-) {
+export async function syncWithSearchIndex(req: Request, res: Response) {
   try {
     // Return response immediately to avoid timeout
     res.send({
@@ -2745,7 +2760,7 @@ export async function syncBooksInBackground() {
             },
           ],
           as: "project",
-        }
+        },
       },
       {
         $addFields: {
@@ -2791,9 +2806,9 @@ export async function syncBooksInBackground() {
           createdAt: 0,
           updatedAt: 0,
           randomIndex: 0,
-          project: 0
-        }
-      }
+          project: 0,
+        },
+      },
     ];
 
     while (hasMore) {
@@ -2810,7 +2825,9 @@ export async function syncBooksInBackground() {
 
       await searchService.addDocuments("books", books);
       totalSynced += books.length;
-      debugServer(`Synced batch of ${books.length} books (${totalSynced} total)...`);
+      debugServer(
+        `Synced batch of ${books.length} books (${totalSynced} total)...`,
+      );
 
       skip += batchSize;
 
@@ -2820,7 +2837,9 @@ export async function syncBooksInBackground() {
       }
     }
 
-    debugServer(`Commons Books search index sync completed. Total synced: ${totalSynced}`);
+    debugServer(
+      `Commons Books search index sync completed. Total synced: ${totalSynced}`,
+    );
   } catch (e) {
     debugError("Error in syncBooksInBackground:", e);
     throw e;
@@ -3098,9 +3117,206 @@ async function getCoverIdByUrl(req: Request, res: Response) {
     return res.send({ err: false, id: result.id, bookID: result.bookID });
   } catch (err) {
     debugError(err);
-    return res
-      .status(500)
-      .send({ err: true, errMsg: conductorErrors.err6 });
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+async function getGlossaryTermSearch(req: Request, res: Response) {
+  try {
+    const { term } = req.query as { term: string };
+    const results = await Glossary.find(
+      { term: { $regex: term, $options: "i" } },
+      { term: 1, _id: 0 },
+    )
+      .limit(10)
+      .lean();
+    return res.send({
+      err: false,
+      data: results.map((entry) => entry.term),
+    });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+async function getBookGlossary(
+  req: ZodReqWithUser<z.infer<typeof getWithCoverIDParamSchema>>,
+  res: Response,
+) {
+  try {
+    const { coverID, library } = req.params;
+
+    const glossaryService = new GlossaryService();
+
+    const glossary = await glossaryService.getGlossary({
+      coverID: coverID.toString(),
+      library,
+    });
+    return res.send({ err: false, data: glossary });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+
+async function addBookGlossary(
+  req: ZodReqWithUser<z.infer<typeof addWithCoverIDParamSchema>> & { image: Express.Multer.File },
+  res: Response,
+) {
+  try {
+    const { term, definition, pageId, bookId, altText, caption, link, source } = req.body;
+    const { coverID, library } = req.params;
+    const glossaryService = new GlossaryService();
+    const termID = await glossaryService.addGlossary({
+      term: term.trim(),
+      definition: definition.trim(),
+      pageId,
+      bookId: bookId?.trim() === "" ? undefined : bookId?.trim(),
+      library: library.trim(),
+      coverID: coverID.trim(),
+      addedBy: req.user.decoded.uuid,
+      imageFile: req.file,
+      altText: altText?.trim() || undefined,
+      caption: caption?.trim() || undefined,
+      link: link?.trim() || undefined,
+      source: source?.trim() || undefined,
+    });
+    return res.send({ err: false, pageId, termID });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+async function addPageToGlossaryUsage(
+  req: ZodReqWithUser<z.infer<typeof addPageWithCoverIDParamSchema>>,
+  res: Response,
+) {
+  try {
+    const { pageIds, usageIds } = req.body;
+    const { coverID, library } = req.params;
+    const glossaryService = new GlossaryService();
+    await glossaryService.addPageToGlossaryUsage(pageIds, usageIds, coverID, library);
+    return res.send({ err: false, msg: "Page added to glossary usage successfully." });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+async function deleteBookGlossary(
+  req: ZodReqWithUser<z.infer<typeof deleteWithCoverIDParamSchema>>,
+  res: Response,
+) {
+  const { coverID, library } = req.params;
+  try {
+    const glossaryService = new GlossaryService();
+    await glossaryService.deleteBookGlossary({
+      coverID,
+      library,
+    });
+    return res.send({ err: false, msg: "Glossary deleted successfully." });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+async function deleteBookGlossaryUsage(
+  req: ZodReqWithUser<z.infer<typeof deleteWithUsageIDParamSchema>>,
+  res: Response,
+) {
+  const { usageID, pageID } = req.params;
+  try {
+    const glossaryService = new GlossaryService();
+    await glossaryService.deleteGlossaryUsage(  usageID, pageID);
+    return res.send({ err: false, msg: "Glossary usage deleted successfully." });
+  }
+  catch (err) {
+    debugError(err);
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+async function getGlossaryPage(
+  req: ZodReqWithUser<z.infer<typeof getWithPageIDParamAndLibraryParamSchema>>,
+  res: Response,
+) {
+  const { pageID, library } = req.params;
+  try {
+    const glossaryService = new GlossaryService();
+    const glossary = await glossaryService.getGlossaryPage(pageID, library);
+    return res.send({ err: false, data: glossary });
+  }
+  catch (err) {
+    debugError(err);
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+async function getGlossaryDetails(
+  req: ZodReqWithUser<z.infer<typeof getWithPageIDParamAndLibraryParamSchema>>,
+  res: Response,
+) {
+  const { pageID, library } = req.params;
+  try {
+    const glossaryService = new GlossaryService();
+    const glossaryDetails = await glossaryService.getGlossaryDetails(pageID, library);
+    return res.send({err:false,...glossaryDetails})
+  }
+  catch (err) {
+    debugError(err);
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+async function glossaryImageUploadHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const config = multer({
+    storage: memoryStorage(),
+    limits: { files: 1, fileSize: 10 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (!file.mimetype.startsWith("image/")) {
+        return cb(new Error("notimagefile"));
+      }
+      return cb(null, true);
+    },
+  }).single("image");
+
+  return config(req, res, (err) => {
+    if (err) {
+      let errMsg = conductorErrors.err6;
+      if (err instanceof MulterError && err.code === "LIMIT_FILE_SIZE") {
+        errMsg = conductorErrors.err60;
+      }
+      if (err.message === "notimagefile") {
+        errMsg = conductorErrors.err55;
+      }
+      return res.status(400).send({ err: true, errMsg });
+    }
+    return next();
+  });
+}
+
+async function getGlossaryUsageImage(
+  req: ZodReqWithOptionalUser<z.infer<typeof getWithUsageIDParamSchema>>,
+  res: Response,
+) {
+  try {
+    const { usageID } = req.params;
+    const glossaryService = new GlossaryService();
+    const { data, contentType } =
+      await glossaryService.getGlossaryUsageImage(usageID);
+    res.set("Content-Type", contentType);
+    res.set("Cache-Control", "public, max-age=31536000");
+    return res.send(data);
+  } catch (err) {
+    debugError(err);
+    return res.status(404).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
 
@@ -3132,5 +3348,15 @@ export default {
   retrieveKBExport,
   syncWithSearchIndex,
   syncBooksInBackground,
-  _getBookPublicOrInstructorAssetsCount
+  _getBookPublicOrInstructorAssetsCount,
+  getGlossaryTermSearch,
+  addBookGlossary,
+  getBookGlossary,
+  deleteBookGlossary,
+  deleteBookGlossaryUsage,
+  getGlossaryPage,
+  getGlossaryDetails,
+  glossaryImageUploadHandler,
+  getGlossaryUsageImage,
+  addPageToGlossaryUsage
 };
