@@ -46,7 +46,7 @@
     "express": "4.22.1",
     "express-validator": "6.15.0",
     "extended-eventsource": "2.1.0",
-    "form-data": "4.0.5",
+    "form-data": "4.0.6",
     "fs-extra": "10.1.0",
     "fuse.js": "7.3.0",
     "gpt-tokenizer": "2.9.0",
