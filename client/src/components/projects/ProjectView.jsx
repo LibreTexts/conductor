@@ -1369,7 +1369,7 @@ const ProjectView = (props) => {
   }
 
   // Rendering Helper Booleans
-  const hasResourceInfo = project.author || project.license?.sourceURL || project.license?.licenseName;
+  const hasResourceInfo = project.author || project.license?.sourceURL || project.license?.licenseName || project.license?.name;
   const hasNotes = project.notes && !isEmptyString(project.notes);
   const hasFlag = project.flag && !isEmptyString(project.flag);
   const flagCrumbEnabled = hasFlag && showReviewerCrumb;

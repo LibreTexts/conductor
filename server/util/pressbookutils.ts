@@ -319,14 +319,11 @@ interface PressbooksLicense {
  * institution, URL, picture, etc.) in `meta.contributor_*`.
  */
 interface PressbooksContributor {
-  id: number;
   slug: string;
   name: string;
   firstName?: string;
   lastName?: string;
   institution?: string;
-  description?: string;
-  url?: string;
   picture?: string;
 }
 
@@ -667,9 +664,6 @@ export class PressBookScraper {
     }
     return bestURL;
   }
-  private getAuthorsName(metadata: any): string {
-    return metadata.authors.map((author: any) => author.name).join(", ");
-  }
 
   async publishBook(options: PublishOptions): Promise<PublishResult> {
     const encodePbURL = this.pbBookURL.replace(/\/+$/, "");
@@ -716,6 +710,7 @@ export class PressBookScraper {
 
     // ── 1. Metadata ──────────────────────────────────────────────────────────
     let metadata: any = {};
+    let metadataV2: any = {};
     try {
       metadata = await this.getJson(
         this.pbApi(encodePbURL) + "/metadata",
@@ -727,6 +722,16 @@ export class PressBookScraper {
       } catch {
         throw new Error(conductorErrors.err8);
       }
+    }
+
+    try {
+      const v2Url = this.pbApi(encodePbURL) + "/metadata";
+      metadataV2 = await this.getJson(
+        v2Url,
+        auth,
+      );
+    } catch {
+      throw new Error(conductorErrors.err8);
     }
 
     // ── 2. TOC — single source of truth for structure AND order ──────────────
@@ -754,13 +759,7 @@ export class PressBookScraper {
     result.url = bookURL;
     log(`[*] bookPath: ${bookPath}`);
     log(`[*] bookURL: ${bookURL}`);
-    // ── 3.1 Authors Name ──────────────────────────────────────────────────────
-    try {
-      result.authorsName = this.getAuthorsName(metadata);
-    } catch {
-      result.authorsName = undefined;
-    }
-    // ── 3.2 Source Publication Date ────────────────────────────────────────────
+    // ── 3.1 Source Publication Date ────────────────────────────────────────────
     try {
       // "datePublished": "2024-01-18",
       result.sourcePublicationDate = new Date(metadata.datePublished);
@@ -768,7 +767,7 @@ export class PressBookScraper {
     } catch {
       result.sourcePublicationDate = undefined;
     }
-    // ── 3.3 License ────────────────────────────────────────────────────────────
+    // ── 3.2 License ────────────────────────────────────────────────────────────
     // In Pressbooks, license is a WordPress taxonomy exposed at
     // `/wp-json/wp/v2/license`. Each term has an `id` and a `slug` (e.g.
     // `cc-by`); posts reference licenses either by term-ID array (WP REST shape)
@@ -786,7 +785,7 @@ export class PressBookScraper {
     console.log("bookLicense", bookLicense);
     try {
       result.license = bookLicense
-        ? { name: bookLicense.name, url: bookLicense.url }
+        ? { name: bookLicense.name, sourceURL: bookLicense.url }
         : undefined;
     } catch {
       result.license = undefined;
@@ -795,42 +794,51 @@ export class PressBookScraper {
     log(
       `[*] bookLicenseTags: ${bookLicenseTags.length ? bookLicenseTags.join(", ") : "(none)"}`,
     );
-    // ── 3.4 Resource URL ───────────────────────────────────────────────────────
+    // ── 3.3 Resource URL ───────────────────────────────────────────────────────
     result.resourceURL = this.pbBookURL;
-    // ── 3.5 Thumbnail ────────────────────────────────────────────────────────────
+    // ── 3.4 Thumbnail ────────────────────────────────────────────────────────────
     try {
       result.thumbnail = metadata.image;
     } catch {
       result.thumbnail = `${defaultImagesURL}/default.png`;
     }
-    // ── 3.6 Contributors ───────────────────────────────────────────────────────
+    // ── 3.5 Contributors ───────────────────────────────────────────────────────
     // Pressbooks exposes contributors as a WP taxonomy at
     // `/wp-json/wp/v2/contributor`. Hydrate the cache up front so any later
     // per-post contributor reference (by ID or slug) can be resolved without
     // an extra round-trip. Each contributor is also emitted as an
     // `author@<clean name>` tag (academic / honorific titles stripped) so the
     // book root carries attribution alongside the license/source tags below.
-    const contributors = await this.fetchContributors(encodePbURL, auth);
+    const contributors = await this.fetchContributors(metadataV2);
     const contributorAuthorTags = this.buildContributorAuthorTags(contributors);
     log(
-      `[*] Contributors: ${contributors.length}` +
-        (contributors.length > 0
-          ? ` (${contributors.map((c) => c.name).join(", ")})`
+      `[*] Contributors: ${contributors.authors.length + contributors.editors.length + contributors.contributors.length + contributors.translators.length + contributors.reviewedBy.length + contributors.illustrators.length}` +
+        (contributors.authors.length +
+          contributors.editors.length +
+          contributors.contributors.length +
+          contributors.translators.length +
+          contributors.reviewedBy.length +
+          contributors.illustrators.length >
+        0
+          ? ` (${contributors.authors.map((c) => c.name).join(", ")} ${contributors.editors.map((c) => c.name).join(", ")} ${contributors.contributors.map((c) => c.name).join(", ")} ${contributors.translators.map((c) => c.name).join(", ")} ${contributors.reviewedBy.map((c) => c.name).join(", ")} ${contributors.illustrators.map((c) => c.name).join(", ")})`
           : ""),
     );
     if (contributorAuthorTags.length > 0) {
       log(`[*] contributorAuthorTags: ${contributorAuthorTags.join(", ")}`);
     }
 
-    await this.createAuthors(contributors);
+
+    await this.createAuthors(contributors.authors);
+    result.authorsName = contributors.authors.map((c) => this.resolveContributorCleanName(c)).join(", ");
 
     // ── 4. Create the CXOne book root ─────────────────────────────────────────
+    const bookContent = metadataV2.disambiguatingDescription ? MindTouch.Templates.POST_CreateBookWithDescription(metadataV2.disambiguatingDescription) : MindTouch.Templates.POST_CreateBook;
     const createBookRes = await CXOneFetch({
       scope: "page",
       path: bookPath,
       api: MindTouch.API.Page.POST_Contents_Title(title),
       subdomain: this.subdomain,
-      options: { method: "POST", body: MindTouch.Templates.POST_CreateBook },
+      options: { method: "POST", body: bookContent },
       query: { abort: "exists" },
     }).catch(() => {
       throw Object.assign(new Error(conductorErrors.err86), {
@@ -891,7 +899,7 @@ export class PressBookScraper {
 
     // Front-matter (and back-matter) child pages are numbered from `10`,
     // matching MindTouch's convention for sub-pages of the matter containers.
-    // The corresponding Pressbooks items live on `menu_order` 10, 11, 12, …
+    // The corresponding Pressbooks items live on `menu_order` 10, 11, 12, ..., 99
     // (Pressbooks reserves single digits for re-ordering inserts), so we use
     // the post-sort array index — not `menu_order` — to produce a dense
     // 00-based MindTouch sequence regardless of gaps on the Pressbooks side.
@@ -1104,10 +1112,10 @@ export class PressBookScraper {
 
     // Back-matter children follow the same 00-based MindTouch convention as
     // front-matter children. See the front-matter loop above for why we use
-    // the array index instead of Pressbooks' 10-based `menu_order`.
+    // the array index instead of Pressbooks' 40-based `menu_order`.
     for (let i = 0; i < sortedBackMatter.length; i++) {
       const node = sortedBackMatter[i];
-      const seq = String(i + 10).padStart(2, "0");
+      const seq = String(i + 40).padStart(2, "0");
       const pagePath = `${backMatterContainerPath}/${seq}:_${this.slugifyNode(node)}`;
       log(
         `  [BM ${seq}] ${node.title}, ${node.has_post_content}, id: ${node.id}`,
@@ -1350,82 +1358,46 @@ export class PressBookScraper {
    *       …
    *     } }
    */
-  private async fetchContributors(
-    bookUrl: string,
-    auth?: { username: string; password: string },
-    perPage = 100,
-  ): Promise<PressbooksContributor[]> {
-    const base = `${bookUrl.replace(/\/+$/, "")}/wp-json/wp/v2/contributor`;
-    const collected: PressbooksContributor[] = [];
-    let page = 1;
-    let flag=true;
-    while (flag && page <= PressBookScraper.MAX_PAGING_PAGES) {
-      const url = `${base}?per_page=${perPage}&page=${page}`;
-      let terms: any[];
-      try {
-        terms = await this.getJson(url, auth);
-      } catch (err) {
-        if (page === 1) {
-          console.warn(
-            `[PressBookScraper] Failed to fetch contributors: ${(err as Error).message}`,
-          );
-        }
-        flag=false;
-        break;
-      }
-      if (!Array.isArray(terms) || terms.length === 0) {flag=false; break;};
-      for (const term of terms) {
-        if (typeof term?.id !== "number") continue;
-        const meta = (term.meta ?? {}) as Record<string, unknown>;
-        const pick = (k: string): string | undefined => {
-          const v = meta[k];
-          return typeof v === "string" && v.trim() !== "" ? v : undefined;
-        };
-        const firstName = pick("contributor_first_name");
-        const lastName = pick("contributor_last_name");
-        const composedName = [firstName, lastName]
-          .filter(Boolean)
-          .join(" ")
-          .trim();
-        const name =
-          (typeof term.name === "string" && term.name.trim() !== ""
-            ? term.name
-            : composedName) || (typeof term.slug === "string" ? term.slug : "");
-        const contributor: PressbooksContributor = {
-          id: term.id,
-          slug: typeof term.slug === "string" ? term.slug : "",
-          name,
-          firstName,
-          lastName,
-          institution: pick("contributor_institution"),
-          description:
-            pick("contributor_description") ??
-            (typeof term.description === "string" &&
-            term.description.trim() !== ""
-              ? term.description
-              : undefined),
-          url: pick("contributor_user_url"),
-          picture: pick("contributor_picture"),
-        };
-        collected.push(contributor);
-        this.contributorsById.set(contributor.id, contributor);
-        if (contributor.slug) {
-          this.contributorsBySlug.set(
-            contributor.slug.toLowerCase(),
-            contributor,
-          );
-        }
-      }
-      if (terms.length < perPage) {flag = false; break;};
-      page++;
-      if (page > PressBookScraper.MAX_PAGING_PAGES) {
-        console.warn(
-          `[PressBookScraper] fetchContributors: reached page-cap (${PressBookScraper.MAX_PAGING_PAGES}) — truncating results for ${bookUrl}`,
-        );
-        break;
-      }
-    }
-    return collected;
+  private async fetchContributors(metadataV2: any): Promise<{
+    authors: PressbooksContributor[];
+    editors: PressbooksContributor[];
+    contributors: PressbooksContributor[];
+    translators: PressbooksContributor[];
+    reviewedBy: PressbooksContributor[];
+    illustrators: PressbooksContributor[];
+  }> {
+    var authors: PressbooksContributor[] = [];
+    var editors: PressbooksContributor[] = [];
+    var contributors: PressbooksContributor[] = [];
+    var translators: PressbooksContributor[] = [];
+    var reviewedBy: PressbooksContributor[] = [];
+    var illustrators: PressbooksContributor[] = [];
+
+    const toPerson = (person: any): PressbooksContributor => ({
+      slug: person.slug,
+      name: person.name,
+      firstName: person.contributor_first_name,
+      lastName: person.contributor_last_name,
+      institution: person.contributor_institution,
+      picture: person.contributor_picture,
+    });
+
+    try {
+      authors = (metadataV2.author ?? []).map(toPerson);
+      editors = (metadataV2.editor ?? []).map(toPerson);
+      contributors = (metadataV2.contributor ?? []).map(toPerson);
+      translators = (metadataV2.translator ?? []).map(toPerson);
+      reviewedBy = (metadataV2.reviewedBy ?? []).map(toPerson);
+      illustrators = (metadataV2.illustrator ?? []).map(toPerson);
+    } catch {}
+    return {
+      authors,
+      editors,
+      contributors,
+      translators,
+      reviewedBy,
+      illustrators,
+    };
   }
 
   /**
@@ -1755,16 +1727,58 @@ export class PressBookScraper {
    *   that resolve to the same legal name (e.g. one with "PhD" and one
    *   without) only emit a single tag.
    */
-  private buildContributorAuthorTags(
-    contributors: PressbooksContributor[],
-  ): string[] {
-    const names = contributors.map((c) => this.resolveContributorCleanName(c));
+  private buildContributorAuthorTags({
+    authors,
+    editors,
+    contributors,
+    translators,
+    reviewedBy,
+    illustrators,
+  }: {
+    authors: PressbooksContributor[];
+    editors: PressbooksContributor[];
+    contributors: PressbooksContributor[];
+    translators: PressbooksContributor[];
+    reviewedBy: PressbooksContributor[];
+    illustrators: PressbooksContributor[];
+  }): string[] {
+    const authorTags = this.buildAuthorTagsFromNames(
+      authors.map((c) => this.resolveContributorCleanName(c)),
+      "author",
+    );
+    const editorTags = this.buildAuthorTagsFromNames(
+      editors.map((c) => this.resolveContributorCleanName(c)),
+      "editor",
+    );
+    const contributorTags = this.buildAuthorTagsFromNames(
+      contributors.map((c) => this.resolveContributorCleanName(c)),
+      "contributor",
+    );
+    const translatorTags = this.buildAuthorTagsFromNames(
+      translators.map((c) => this.resolveContributorCleanName(c)),
+      "translator",
+    );
+    const reviewedByTags = this.buildAuthorTagsFromNames(
+      reviewedBy.map((c) => this.resolveContributorCleanName(c)),
+      "reviewedBy",
+    );
+    const illustratorTags = this.buildAuthorTagsFromNames(
+      illustrators.map((c) => this.resolveContributorCleanName(c)),
+      "illustrator",
+    );
+    return [
+      ...authorTags,
+      ...editorTags,
+      ...contributorTags,
+      ...translatorTags,
+      ...reviewedByTags,
+      ...illustratorTags,
+    ];
     // `buildAuthorTagsFromNames` re-runs `stripAcademicTitles` on its input.
     // That's a no-op for an already-cleaned name, so passing cleaned names
     // through doesn't change the result — but it does keep the DB-persisted
     // value and the tag value derived from the *same* source string, so
     // they cannot drift apart.
-    return this.buildAuthorTagsFromNames(names);
   }
 
   /**
@@ -1810,7 +1824,16 @@ export class PressBookScraper {
    * `PressbooksContributor` records) and the per-chapter pipeline
    * (schema.org Person objects pulled from `/metadata`).
    */
-  private buildAuthorTagsFromNames(names: Array<string | undefined>): string[] {
+  private buildAuthorTagsFromNames(
+    names: Array<string | undefined>,
+    type:
+      | "author"
+      | "editor"
+      | "contributor"
+      | "translator"
+      | "illustrator"
+      | "reviewedBy" = "author",
+  ): string[] {
     const seen = new Set<string>();
     const tags: string[] = [];
     for (const raw of names) {
@@ -1820,7 +1843,7 @@ export class PressBookScraper {
       const key = cleaned.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
-      tags.push(`author@${this.escapeXmlAttr(cleaned)}`);
+      tags.push(`${type}@${this.escapeXmlAttr(cleaned)}`);
     }
     return tags;
   }
@@ -2350,7 +2373,7 @@ export class PressBookScraper {
     //   - The same canonicalization is applied to existing DB rows in
     //     the collision check below so legacy records stored before
     //     these rules existed still match a re-imported clean name.
-    type Candidate = { nameKey: string; name: string };
+    type Candidate = { nameKey: string; name: string; picture?: string };
     const seenKeys = new Set<string>();
     const candidates: Candidate[] = [];
     for (const c of contributors) {
@@ -2361,7 +2384,7 @@ export class PressBookScraper {
       const dedupeKey = nameKey.toLowerCase();
       if (seenKeys.has(dedupeKey)) continue;
       seenKeys.add(dedupeKey);
-      candidates.push({ nameKey, name: cleanName });
+      candidates.push({ nameKey, name: cleanName, picture: c.picture });
     }
     if (candidates.length === 0) return;
 
@@ -2398,7 +2421,7 @@ export class PressBookScraper {
         docs.push({
           nameKey: freeKey,
           name: c.name,
-          pictureURL: PLACEHOLDER_PICTURE,
+          pictureURL: c.picture ? c.picture : PLACEHOLDER_PICTURE,
         });
       } else {
         docs.push({

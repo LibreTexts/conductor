@@ -3,6 +3,12 @@ const CXOneTemplates = {
     <p class="template:tag-insert">
       <a href="#">article:topic-category</a><a href="#">coverpage:yes</a>
     </p>`,
+    POST_CreateBookWithDescription: (description: string) => `<p>${description}</p>
+    <p>{{template.ShowOrg()}}</p>
+    <p class="template:tag-insert">
+      <a href="#">article:topic-category</a><a href="#">coverpage:yes</a>
+    </p>
+    `,
   POST_CreateBookChapter: `
     <p>{{template.ShowOrg()}}</p>
     <p class="template:tag-insert"><a href="#">article:topic-guide</a></p>
