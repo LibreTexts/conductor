@@ -54,6 +54,7 @@ import { getLibraryNameKeys } from './libraries.js';
 import TrafficAnalyticsService from "./services/traffic-analytics-service.js";
 import ProjectInvitation from '../models/projectinvitation.js';
 import SearchService from './services/search-service.js';
+import BookService from './services/book-service.js';
 
 const projectListingProjection = {
     _id: 0,
@@ -4087,6 +4088,47 @@ const validate = (method) => {
   }
 };
 
+const getProjectToc = async (req, res) => {
+  try {
+    const projectID = req.params.projectID;
+    
+    const project = await Project.findOne({ projectID :{$eq: projectID}}).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    if(!checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    if(isEmptyString(project.libreLibrary) || isEmptyString(project.libreCoverID)) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const bookService = new BookService({ bookID: project.libreLibrary + '-' + project.libreCoverID });
+    const toc = await bookService.getBookTOCNew();
+    return res.send({
+      err: false,
+      toc,
+    });
+  
+  } catch (err) {
+    console.log('-----------------',err);
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
 export default {
     projectStatusOptions,
     projectVisibilityOptions,
@@ -4134,5 +4176,6 @@ export default {
     LOOKUP_PROJECT_PI_STAGES,
     syncWithSearchIndex,
     syncProjectsInBackground,
-    validate
+    validate,
+    getProjectToc
 }

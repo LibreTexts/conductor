@@ -79,7 +79,11 @@ import {
   CustomFilter,
   MiniRepoSearchParams,
 } from "./types/Search";
-import { CloudflareCaptionData, ConductorInfiniteScrollResponse, SortDirection } from "./types/Misc";
+import {
+  CloudflareCaptionData,
+  ConductorInfiniteScrollResponse,
+  SortDirection,
+} from "./types/Misc";
 import {
   TrafficAnalyticsAggregatedMetricsByPageDataPoint,
   TrafficAnalyticsBaseRequestParams,
@@ -199,7 +203,7 @@ class API {
 
     file: FormData,
 
-    opts?: AxiosRequestConfig
+    opts?: AxiosRequestConfig,
   ) {
     const res = await axios.post<ConductorBaseResponse>(
       `/project/${projectID}/files`,
@@ -209,7 +213,7 @@ class API {
           "Content-Type": "multipart/form-data",
         },
         ...opts,
-      }
+      },
     );
     return res;
   }
@@ -217,14 +221,14 @@ class API {
   async addProjectFileFolder(
     projectID: string,
     name: string,
-    parentID?: string
+    parentID?: string,
   ) {
     const res = await axios.post<ConductorBaseResponse>(
       `/project/${projectID}/files/folder`,
       {
         name,
         parentID,
-      }
+      },
     );
     return res;
   }
@@ -233,7 +237,7 @@ class API {
     projectID: string,
     fileID: string,
     file: FormData,
-    opts?: AxiosRequestConfig
+    opts?: AxiosRequestConfig,
   ) {
     const res = await axios.put<ConductorBaseResponse>(
       `/project/${projectID}/files/${fileID}`,
@@ -243,7 +247,7 @@ class API {
           "Content-Type": "multipart/form-data",
         },
         ...opts,
-      }
+      },
     );
     return res;
   }
@@ -260,7 +264,7 @@ class API {
   async uploadProjectFileCaptions(
     projectID: string,
     fileID: string,
-    captions: FormData
+    captions: FormData,
   ) {
     const res = await axios.put<ConductorBaseResponse>(
       `/project/${projectID}/files/${fileID}/captions`,
@@ -269,7 +273,7 @@ class API {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-      }
+      },
     );
     return res;
   }
@@ -285,10 +289,11 @@ class API {
     return res;
   }
 
-  public cloudflareStreamUploadURL: string = `${import.meta.env.MODE === "development"
-    ? import.meta.env.VITE_DEV_BASE_URL
-    : ""
-    }/api/v1/cloudflare/stream-url`;
+  public cloudflareStreamUploadURL: string = `${
+    import.meta.env.MODE === "development"
+      ? import.meta.env.VITE_DEV_BASE_URL
+      : ""
+  }/api/v1/cloudflare/stream-url`;
 
   async getPermanentLink(projectID: string, fileID: string) {
     const res = await axios.get<
@@ -311,14 +316,17 @@ class API {
     query?: string;
     sort?: string;
   }) {
-    const res = await axios.get<ConductorInfiniteScrollResponse<Author>>("/authors", {
-      params: {
-        page,
-        limit,
-        query,
-        sort,
+    const res = await axios.get<ConductorInfiniteScrollResponse<Author>>(
+      "/authors",
+      {
+        params: {
+          page,
+          limit,
+          query,
+          sort,
+        },
       },
-    });
+    );
     return res;
   }
 
@@ -333,7 +341,7 @@ class API {
 
   async getAuthorAssets(
     id: string,
-    paramsObj?: { page?: number; limit?: number }
+    paramsObj?: { page?: number; limit?: number },
   ) {
     const res = await axios.get<
       {
@@ -384,7 +392,9 @@ class API {
   // Books
   async getBookDetail(bookID: string) {
     const res = await axios.get<
-      { book: { license?: string;[key: string]: unknown } } & ConductorBaseResponse
+      {
+        book: { license?: string; [key: string]: unknown };
+      } & ConductorBaseResponse
     >(`/commons/book/${bookID}`);
     return res;
   }
@@ -407,6 +417,15 @@ class API {
     return res;
   }
 
+  async getProjectTOC(projectID: string) {
+    const res = await axios.get<
+      {
+        toc: TableOfContents;
+      } & ConductorBaseResponse
+    >(`/commons/project/${projectID}/toc`);
+    return res;
+  }
+
   async getBookPagesDetails(bookID: string) {
     const nonce = Math.random().toString(36).substring(7);
     const res = await axios.get<
@@ -420,7 +439,7 @@ class API {
   async getPageDetails(pageID: string, coverPageID: string) {
     const nonce = Math.random().toString(36).substring(7);
     const res = await axios.get<PageDetailsResponse & ConductorBaseResponse>(
-      `/commons/pages/${pageID}?coverPageID=${coverPageID}?nonce=${nonce}`
+      `/commons/pages/${pageID}?coverPageID=${coverPageID}?nonce=${nonce}`,
     );
     return res;
   }
@@ -446,7 +465,7 @@ class API {
   async generatePageImagesAltText(
     pageID: string,
     coverPageID: string,
-    overwrite: boolean
+    overwrite: boolean,
   ) {
     const res = await axios.post<
       {
@@ -469,7 +488,7 @@ class API {
       summaries: { generate: boolean; overwrite: boolean };
       tags: { generate: boolean; overwrite: boolean };
       alttext: { generate: boolean; overwrite: boolean };
-    }
+    },
   ) {
     return new EventSource(
       `${this.BASE_URL}/co-author/books/${bookID}/ai-metadata-batch`,
@@ -480,7 +499,7 @@ class API {
         withCredentials: true,
         method: "POST",
         body: JSON.stringify(config),
-      }
+      },
     );
   }
 
@@ -491,7 +510,7 @@ class API {
    */
   batchUpdateBookMetadata(
     bookID: string,
-    pages: { id: string; summary: string; tags: string[] }[]
+    pages: { id: string; summary: string; tags: string[] }[],
   ) {
     return new EventSource(
       `${this.BASE_URL}/co-author/books/${bookID}/update-metadata-batch`,
@@ -502,25 +521,25 @@ class API {
         withCredentials: true,
         method: "POST",
         body: JSON.stringify({ pages }),
-      }
+      },
     );
   }
 
   async updatePageDetails(
     pageID: string,
     coverPageID: string,
-    data: { summary: string; tags: string[] }
+    data: { summary: string; tags: string[] },
   ) {
     const res = await axios.patch<ConductorBaseResponse>(
       `/commons/pages/${pageID}?coverPageID=${coverPageID}`,
-      data
+      data,
     );
     return res;
   }
 
   async bulkUpdatePageTags(
     bookID: string,
-    pages: { id: string; tags: string[] }[]
+    pages: { id: string; tags: string[] }[],
   ) {
     const res = await axios.put<
       {
@@ -641,12 +660,11 @@ class API {
     lulu_status?: string;
     query?: string;
   }) {
-    const res = await axios.get<ConductorInfiniteScrollResponse<StoreOrderWithStripeSession>>(
-      "/store/admin/orders",
-      {
-        params,
-      }
-    );
+    const res = await axios.get<
+      ConductorInfiniteScrollResponse<StoreOrderWithStripeSession>
+    >("/store/admin/orders", {
+      params,
+    });
     return res;
   }
 
@@ -848,7 +866,7 @@ class API {
 
   async getCentralIdentityPublicApps() {
     return await axios.get<{ applications: CentralIdentityApp[] }>(
-      "/central-identity/public/apps"
+      "/central-identity/public/apps",
     );
   }
 
@@ -924,7 +942,7 @@ class API {
   async updateCentralIdentityService(body: { body: string }, id: number) {
     const res = await axios.put<ConductorBaseResponse>(
       `/central-identity/services/${id}`,
-      body
+      body,
     );
 
     return res;
@@ -966,7 +984,7 @@ class API {
 
   async updateCentralIdentityUser(
     uuid: string,
-    data: Partial<CentralIdentityUser>
+    data: Partial<CentralIdentityUser>,
   ) {
     const res = await axios.patch<
       {
@@ -988,32 +1006,32 @@ class API {
   async disableCentralIdentityUser(uuid: string, reason: string) {
     const res = await axios.patch<ConductorBaseResponse>(
       `/central-identity/users/${uuid}/disable`,
-      { reason }
+      { reason },
     );
     return res;
   }
 
   async deleteCentralIdentityUser(uuid: string) {
     const res = await axios.delete<ConductorBaseResponse>(
-      `/central-identity/users/${uuid}`
+      `/central-identity/users/${uuid}`,
     );
     return res;
   }
 
   async reEnableCentralIdentityUser(uuid: string) {
     const res = await axios.patch<ConductorBaseResponse>(
-      `/central-identity/users/${uuid}/re-enable`
+      `/central-identity/users/${uuid}/re-enable`,
     );
     return res;
   }
 
   async updateCentralIdentityUserOrgs(
     uuid: string,
-    orgs: Array<string | number>
+    orgs: Array<string | number>,
   ) {
     const res = await axios.post<ConductorBaseResponse>(
       `/central-identity/users/${uuid}/orgs`,
-      { orgs }
+      { orgs },
     );
     return res;
   }
@@ -1021,18 +1039,18 @@ class API {
   async updateCentralIdentityUserOrgAdminRole(
     uuid: string,
     orgId: string | number,
-    admin_role: string
+    admin_role: string,
   ) {
     const res = await axios.patch<ConductorBaseResponse>(
       `/central-identity/users/${uuid}/orgs/${orgId}/admin-role`,
-      { admin_role }
+      { admin_role },
     );
     return res;
   }
 
   async updateCentralIdentityUserAcademyOnlineAccess(
     uuid: string,
-    data: EditAcademyOnlineAccessFormValues
+    data: EditAcademyOnlineAccessFormValues,
   ) {
     const res = await axios.patch<
       {
@@ -1067,7 +1085,7 @@ class API {
 
   async revokeCentralIdentityAppLicense(
     // Either user_id or org_id must be present, but not both
-    data: { user_id?: string; org_id?: string; application_license_id: string }
+    data: { user_id?: string; org_id?: string; application_license_id: string },
   ) {
     const res = await axios.post<
       {
@@ -1080,13 +1098,13 @@ class API {
 
   async bulkGenerateCentralIdentityAppLicenseAccessCodes(
     application_license_id: string,
-    quantity: number
+    quantity: number,
   ) {
     const res = await axios.post(
       `/central-identity/app-licenses/${application_license_id}/bulk-generate`,
       {
         quantity,
-      }
+      },
     );
     return res;
   }
@@ -1103,7 +1121,7 @@ class API {
   // Client Config
   async getClientConfig() {
     return await axios.get<{ data: ClientConfig } & ConductorBaseResponse>(
-      "/config"
+      "/config",
     );
   }
 
@@ -1133,21 +1151,21 @@ class API {
 
   async getMasterCatalogV2() {
     return await axios.get<MasterCatalogV2Response & ConductorBaseResponse>(
-      "/commons/mastercatalog/v2"
+      "/commons/mastercatalog/v2",
     );
   }
 
   async getADAPTCommonsCourses() {
     return await axios.get<
       {
-        courses: Homework[]
+        courses: Homework[];
       } & ConductorBaseResponse
     >("/commons/homework/adapt");
   }
 
   async syncWithLibraries() {
     return await axios.post<{ msg: string } & ConductorBaseResponse>(
-      "/commons/syncwithlibs"
+      "/commons/syncwithlibs",
     );
   }
 
@@ -1156,29 +1174,29 @@ class API {
       `/commons/catalogs/addresource`,
       {
         bookID,
-      }
+      },
     );
   }
 
   async disableBookOnCommons(bookID: string) {
     return await axios.put<ConductorBaseResponse>(
       `/commons/catalogs/removeresource`,
-      { bookID }
+      { bookID },
     );
-  };
+  }
 
   async excludeBookFromAutoCatalogMatching(bookID: string) {
     return await axios.put<ConductorBaseResponse>(
       `/commons/catalogs/exclude-auto-match`,
-      { bookID }
+      { bookID },
     );
-  };
+  }
 
   // Harvest Requests
   async createHarvestRequest(data: HarvestRequest) {
     const res = await axios.post<ConductorBaseResponse>(
       "/harvestingrequest",
-      data
+      data,
     );
     return res;
   }
@@ -1187,7 +1205,7 @@ class API {
   async recordSearchQuery(params: { query: string; scope: string }) {
     const res = await axios.post<ConductorBaseResponse>(
       "/search/record",
-      params
+      params,
     );
     return res;
   }
@@ -1359,7 +1377,9 @@ class API {
 
   // Organization
   async getCampusAdmins(orgID: string) {
-    return await axios.get<GetCampusAdminResponse>(`/org/${orgID}/campus-admins`);
+    return await axios.get<GetCampusAdminResponse>(
+      `/org/${orgID}/campus-admins`,
+    );
   }
 
   async updateOrganization(orgID: string, data: Partial<Organization>) {
@@ -1373,11 +1393,11 @@ class API {
     orgID: string,
     params: {
       autoCatalogMatchingEnabled: boolean;
-    }
+    },
   ) {
     const res = await axios.patch<ConductorBaseResponse>(
       `/org/${orgID}/automatic-catalog-matching`,
-      params
+      params,
     );
     return res;
   }
@@ -1405,7 +1425,7 @@ class API {
 
   async reSyncProjectTeamBookAccess(projectID: string) {
     const res = await axios.put<ConductorBaseResponse>(
-      `/project/${projectID}/team/re-sync`
+      `/project/${projectID}/team/re-sync`,
     );
     return res;
   }
@@ -1440,22 +1460,22 @@ class API {
   async updateUserPinnedProjects(
     data:
       | {
-        action: "add-project" | "move-project";
-        folder: string;
-        projectID: string;
-      }
+          action: "add-project" | "move-project";
+          folder: string;
+          projectID: string;
+        }
       | {
-        action: "remove-project";
-        projectID: string;
-      }
+          action: "remove-project";
+          projectID: string;
+        }
       | {
-        action: "add-folder" | "remove-folder";
-        folder: string;
-      }
+          action: "add-folder" | "remove-folder";
+          folder: string;
+        },
   ) {
     const res = await axios.patch<ConductorBaseResponse>(
       "/user/projects/pinned",
-      data
+      data,
     );
     return res;
   }
@@ -1514,7 +1534,7 @@ class API {
 
   async getTags() {
     const res = await axios.get<{ tags: ProjectTag[] } & ConductorBaseResponse>(
-      "projects/tags/org"
+      "projects/tags/org",
     );
     return res;
   }
@@ -1535,7 +1555,7 @@ class API {
   async getProjectFiles(
     projectID: string,
     folderID?: string,
-    publicOnly = false
+    publicOnly = false,
   ) {
     const res = await axios.get<
       {
@@ -1562,7 +1582,7 @@ class API {
   async getFileDownloadURL(
     projectID: string,
     fileID: string,
-    shouldIncrement?: boolean
+    shouldIncrement?: boolean,
   ) {
     const res = await axios.get<
       {
@@ -1576,10 +1596,7 @@ class API {
     return res;
   }
 
-  async bulkDownloadFiles(
-    projectID: string,
-    fileIDs: string[]
-  ) {
+  async bulkDownloadFiles(projectID: string, fileIDs: string[]) {
     const arrQuery = fileIDs.map((id) => `fileID=${id}`).join(`&`);
     const res = await axios.get<{ file?: string } & ConductorBaseResponse>(
       `/project/${projectID}/files/bulk`,
@@ -1587,7 +1604,7 @@ class API {
         params: {
           fileIDs: arrQuery,
         },
-      }
+      },
     );
     return res;
   }
@@ -1598,14 +1615,14 @@ class API {
     data: {
       tags: AssetTag[];
       tagMode: "replace" | "append";
-    }
+    },
   ) {
     return await axios.patch<{ files: ProjectFile[] } & ConductorBaseResponse>(
       `/project/${projectID}/files/bulk`,
       {
         fileIDs,
         ...data,
-      }
+      },
     );
   }
 
@@ -1634,7 +1651,7 @@ class API {
       "/kb/oembed",
       {
         params: { url },
-      }
+      },
     );
     return res;
   }
@@ -1664,7 +1681,7 @@ class API {
 
   async deleteTicket(ticketID: string) {
     const res = await axios.delete<ConductorBaseResponse>(
-      `/support/ticket/${ticketID}`
+      `/support/ticket/${ticketID}`,
     );
     return res;
   }
@@ -1690,14 +1707,14 @@ class API {
         priority,
         status,
         queue,
-      }
+      },
     );
   }
 
   async getTicketAttachmentURL(
     ticketID: string,
     attachmentID: string,
-    guestAccessKey?: string
+    guestAccessKey?: string,
   ) {
     const res = await axios.get<
       {
@@ -1749,7 +1766,7 @@ class API {
       } & ConductorBaseResponse
     >(
       `/commons/collection/${encodeURIComponent(
-        collIDOrTitle ?? ""
+        collIDOrTitle ?? "",
       )}/resources`,
       {
         params: {
@@ -1758,7 +1775,7 @@ class API {
           sort,
           query,
         },
-      }
+      },
     );
   }
 
@@ -1823,13 +1840,13 @@ class API {
 
   async deleteCollection(id: string) {
     return await axios.delete<ConductorBaseResponse>(
-      `/commons/collection/${id}`
+      `/commons/collection/${id}`,
     );
   }
 
   async deleteCollectionResource(collID: string, resourceID: string) {
     return await axios.delete<ConductorBaseResponse>(
-      `/commons/collection/${collID}/resources/${resourceID}`
+      `/commons/collection/${collID}/resources/${resourceID}`,
     );
   }
 
@@ -1886,7 +1903,7 @@ class API {
       `/support/ticket/${ticketID}/assign`,
       {
         assigned,
-      }
+      },
     );
   }
 
@@ -1895,7 +1912,7 @@ class API {
       `/support/ticket/${ticketID}/cc`,
       {
         email,
-      }
+      },
     );
   }
 
@@ -1906,7 +1923,7 @@ class API {
         data: {
           email,
         },
-      }
+      },
     );
   }
 
@@ -1949,7 +1966,7 @@ class API {
   async createProjectInvitation(
     projectID: string,
     email: string,
-    role: string
+    role: string,
   ) {
     const res = await axios.post<
       {
@@ -1965,7 +1982,7 @@ class API {
   async getAllProjectInvitations(
     projectID: string,
     page: number = 1,
-    limit: number
+    limit: number,
   ) {
     const res = await axios.get<
       {
@@ -2020,7 +2037,7 @@ class API {
       {},
       {
         params: { token },
-      }
+      },
     );
 
     return res.data;
@@ -2044,7 +2061,11 @@ class API {
       {
         user: {
           uuid: string;
-          roles: { org: Pick<Organization, "orgID" | "name" | "shortName">; role: string; roleInternal: string }[];
+          roles: {
+            org: Pick<Organization, "orgID" | "name" | "shortName">;
+            role: string;
+            roleInternal: string;
+          }[];
         };
       } & ConductorBaseResponse
     >("/user/roles", { params: { uuid } });
@@ -2061,7 +2082,9 @@ class API {
   }
 
   async getAllOrganizations() {
-    const res = await axios.get<{ orgs: Organization[] } & ConductorBaseResponse>("/orgs");
+    const res = await axios.get<
+      { orgs: Organization[] } & ConductorBaseResponse
+    >("/orgs");
     return res;
   }
 
@@ -2122,7 +2145,7 @@ class API {
   // Project Traffic Analytics
   async getProjectTrafficAnalyticsAggregatedMetricsByPage(
     params: TrafficAnalyticsBaseRequestParams,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ) {
     const { projectID, ...rest } = params;
     return await axios.get<
@@ -2134,13 +2157,13 @@ class API {
       {
         params: rest,
         signal,
-      }
+      },
     );
   }
 
   async getProjectTrafficAnalyticsPageViews(
     params: TrafficAnalyticsBaseRequestParams,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ) {
     const { projectID, ...rest } = params;
     return await axios.get<
@@ -2155,7 +2178,7 @@ class API {
 
   async getProjectTrafficAnalyticsUniqueVisitors(
     params: TrafficAnalyticsBaseRequestParams,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ) {
     const { projectID, ...rest } = params;
     return await axios.get<
@@ -2170,7 +2193,7 @@ class API {
 
   async getProjectTrafficAnalyticsVisitorCountries(
     params: TrafficAnalyticsBaseRequestParams,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ) {
     const { projectID, ...rest } = params;
     return await axios.get<
@@ -2220,7 +2243,7 @@ class API {
           slug?: string;
           url: string;
           relevanceScore?: number;
-          source: 'kb' | 'web';
+          source: "kb" | "web";
         }>;
         query: string;
         timestamp: string;
@@ -2284,23 +2307,145 @@ class API {
   }
 
   // Shapeshift
-  async createShapeshiftJob({ highPriority, url }: { highPriority?: boolean; url: string }) {
-    const res = await axios.post<{ jobId: string } & ConductorBaseResponse>("/shapeshift/job", {
-      highPriority,
-      url,
-    });
+  async createShapeshiftJob({
+    highPriority,
+    url,
+  }: {
+    highPriority?: boolean;
+    url: string;
+  }) {
+    const res = await axios.post<{ jobId: string } & ConductorBaseResponse>(
+      "/shapeshift/job",
+      {
+        highPriority,
+        url,
+      },
+    );
     return res.data;
   }
 
-  async getShapeshiftJobs({ limit, offset }: { limit?: number; offset?: number }) {
+  async getShapeshiftJobs({
+    limit,
+    offset,
+  }: {
+    limit?: number;
+    offset?: number;
+  }) {
     const res = await axios.get<
-      { jobs: ShapeshiftJob[]; meta: { offset: number; limit: number; total: number } } & ConductorBaseResponse
+      {
+        jobs: ShapeshiftJob[];
+        meta: { offset: number; limit: number; total: number };
+      } & ConductorBaseResponse
     >("/shapeshift/jobs", {
       params: {
         limit: limit ?? 100,
         offset: offset ?? 0,
+      },
+    });
+    return res.data;
+  }
+
+  async searchGlossary(term: string) {
+    const res = await axios.get<
+      {
+        data: string[];
+      } & ConductorBaseResponse
+    >("/commons/glossary/term-search", {
+      params: { term },
+    });
+    return res.data;
+  }
+
+  async createGlossaryTerm(props: {
+    term: string;
+    definition: string;
+    coverID: string;
+    bookId?: string;
+    library: string;
+    imageFile?: File;
+    altText?: string;
+    caption?: string;
+    link?: string;
+    source?: string;
+    glossaryID?: string;
+  }) {
+    const { coverID, library, imageFile, ...rest } = props;
+    const formData = new FormData();
+    Object.entries(rest).forEach(([key, value]) => {
+      if (value !== undefined && value !== "") {
+        formData.append(key, String(value));
       }
     });
+    if (imageFile) {
+      formData.append("image", imageFile);
+    }
+    const res = await axios.post<
+      {
+        term: string;
+      } & ConductorBaseResponse
+    >(`/commons/book/${library}/${coverID}/glossary`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  }
+
+  async getBookGlossary(library: string, coverID: string) {
+    const res = await axios.get<
+      {
+        data: Array<{
+          usageID: string;
+          term: string;
+          termID: string;
+          definition: string;
+          altText?: string;
+          caption?: string;
+          link?: string;
+          source?: string;
+          imageUrl?: string;
+          pages: Array<{
+            pageID: string;
+            addedBy: string;
+            createdAt: string;
+          }>;
+        }>;
+      } & ConductorBaseResponse
+    >(`/commons/book/${library}/${coverID}/glossary`);
+    return res.data;
+  }
+
+  async addGlossaryTermsToPages(props: {
+    pageIds: string[];
+    usageIds: string[];
+    library: string;
+    coverID: string;
+  }) {
+    const { pageIds, usageIds, library, coverID } = props;
+    const res = await axios.put<ConductorBaseResponse>(
+      `/commons/book/${library}/${coverID}/glossary`,
+      {
+        pageIds,
+        usageIds,
+      },
+    );
+    return res.data;
+  }
+
+  async removePageFromGlossary(props: {
+    pageId: string;
+    usageId: string;
+  }) {
+    const { pageId, usageId, } = props;
+    const res = await axios.delete<ConductorBaseResponse>(
+      `/commons/glossary/usage/${usageId}/page/${pageId}`);
+    return res.data;
+  }
+
+  async removeGlossaryTerm(props: {
+    usageId: string;
+  }) {
+    const { usageId } = props;
+    const res = await axios.delete<ConductorBaseResponse>(
+      `/commons/glossary/usage/${usageId}`);
     return res.data;
   }
 }

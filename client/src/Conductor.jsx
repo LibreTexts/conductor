@@ -81,6 +81,7 @@ const TextbookCuration = lazy(() => import('./screens/conductor/Projects/Textboo
 const BatchRun = lazy(() => import('./screens/conductor/Projects/TextbookCuration/BatchRun'));
 const AcceptProjectInviteScreen = lazy(() => import('./screens/conductor/Projects/AcceptProjectInviteScreen'));
 const PermanentLinkDownload = lazy(() => import('./components/FilesManager/PermanentLinkDownload'));
+const GlossaryManager =lazy(() => import('./screens/commons/Glossary'));
 
 /* 404 */
 import PageNotFound from './components/util/PageNotFound';
@@ -154,6 +155,8 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/store' component={StoreManager} />
           <PrivateRoute exact path='/controlpanel/store/orders/:order_id' component={StoreManagerOrderView} />
           <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
+          <PrivateRoute exact path='/glossary/:id/book' component={GlossaryManager} />
+          <PrivateRoute exact path='/glossary/:id/project' component={GlossaryManager} />
           <Route exact path="/download/:projectID/:fileID" component={PermanentLinkDownload} />
           <Route exact path='/peerreview/:id' component={PeerReviewPage} />
           {/* LibreTexts org public routes */}
