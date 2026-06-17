@@ -38,6 +38,7 @@ import SupportTicketMessage, {
   SupportTicketMessageInterface,
 } from "../models/supporticketmessage.js";
 import mailAPI from "../api/mail.js";
+import SlackNotificationService from "./services/slack-notification-service.js";
 import multer from "multer";
 import async from "async";
 import conductorErrors from "../conductor-errors.js";
@@ -749,6 +750,18 @@ async function createTicket(
     if (teamToNotify.length > 0) emailPromises.push(teamPromise);
 
     await Promise.allSettled(emailPromises);
+
+    void new SlackNotificationService().sendSupportTicketCreated({
+      queueDescriptor: supportQueue.ticket_descriptor,
+      ticketID: ticket.uuid,
+      ticketTitle: ticket.title,
+      ticketDescription: ticket.description || "",
+      authorString,
+      category: capitalizeFirstLetter(ticket.category || ""),
+      priority: capitalizeFirstLetter(ticket.priority || ""),
+      capturedURL: ticket.capturedURL ?? undefined,
+      metadata: (metadata as Record<string, unknown>) ?? {},
+    }).catch(() => { /* nicety isolation: never break ticket creation */ });
 
     if (supportQueue.slug === "publishing") {
       await Project.updateOne({
