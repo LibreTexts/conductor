@@ -20,6 +20,11 @@ export const SupportTicketCategoryOptions: GenericKeyTextValueObj<string>[] = [
     value: "general",
   },
   {
+    key: "accessibility",
+    text: "Accessibility",
+    value: "accessibility",
+  },
+  {
     key: "adaptcode",
     text: "ADAPT Access Code Request",
     value: "adaptcode",
