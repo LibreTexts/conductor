@@ -19,6 +19,7 @@ import {
     getInstructionTermOptions,
 } from './AdoptionReportOptions.js';
 import { isEmptyString } from '../util/HelperFunctions.js';
+import { numberIsNotNullOrUndefined } from '../../utils/misc';
 
 // Map Semantic UI {key,text,value} → Davis Select {value,label}
 const toSelectOpts = (opts) => opts
@@ -198,8 +199,8 @@ const AdoptionReport = (props) => {
                     institution: studentInst,
                     class: studentClass,
                     instructor: studentInstr,
-                    quality: Number(studentQuality),
-                    navigation: Number(studentNavigate),
+                    ...(numberIsNotNullOrUndefined(studentQuality) && { quality: Number(studentQuality) }),
+                    ...(numberIsNotNullOrUndefined(studentNavigate) && { navigation: Number(studentNavigate) }),
                     printCost: studentPrintCost,
                     access: buildAccessArray(studentAccess),
                 };
@@ -399,6 +400,7 @@ const AdoptionReport = (props) => {
                                 options={studentUseSelectOpts}
                                 value={studentUse}
                                 onChange={(e) => setStudentUse(e.target.value)}
+                                re
                             />
 
                             <Input

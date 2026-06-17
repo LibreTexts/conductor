@@ -148,60 +148,62 @@ const validateRole = (value) => {
  */
 const validateInstructorObj = (value) => {
     if (typeof(value) === 'object') {
-        if (value.hasOwnProperty('isLibreNet') && typeof(value.isLibreNet) !== 'string') {
-            return false;
-        }
-        if (value.hasOwnProperty('institution') && typeof(value.institution) !== 'string') {
-            return false;
-        }
-        if (value.hasOwnProperty('class') && typeof(value.class) !== 'string') {
-            return false;
-        }
-        if (value.hasOwnProperty('term') && typeof(value.term) !== 'string') {
-            return false;
-        }
-        if (value.hasOwnProperty('students')) {
-            if (!isEmptyString(value.students)) {
-                const parsed = parseInt(value.students);
-                if (!isNaN(parsed)) {
-                    value.students = parsed;
-                } else {
-                    return false;
-                }
-            } else {
-                delete value.students;
-            }
-        }
-        if (value.hasOwnProperty('replaceCost')) {
-            if (!isEmptyString(value.students)) {
-                const parsed = parseInt(value.replaceCost);
-                if (!isNaN(parsed)) {
-                    value.replaceCost = parsed;
-                } else {
-                    return false;
-                }
-            } else {
-                delete value.replaceCost;
-            }
-        }
-        if (value.hasOwnProperty('printCost')) {
-            if (!isEmptyString(value.students)) {
-                const parsed = parseInt(value.printCost);
-                if (!isNaN(parsed)) {
-                    value.printCost = parsed;
-                } else {
-                    return false;
-                }
-            } else {
-                delete value.printCost;
-            }
-        }
-        if (value.hasOwnProperty('access') && !Array.isArray(value.access)) {
-            return false;
-        }
-        return true;
+        return false;
     }
-    return false;
+
+    if (value.hasOwnProperty('isLibreNet') && typeof(value.isLibreNet) !== 'string') {
+        return false;
+    }
+    if (value.hasOwnProperty('institution') && typeof(value.institution) !== 'string') {
+        return false;
+    }
+    if (value.hasOwnProperty('class') && typeof(value.class) !== 'string') {
+        return false;
+    }
+    if (value.hasOwnProperty('term') && typeof(value.term) !== 'string') {
+        return false;
+    }
+    if (value.hasOwnProperty('students')) {
+        if (!isEmptyString(value.students)) {
+            const parsed = parseInt(value.students);
+            if (!isNaN(parsed)) {
+                value.students = parsed;
+            } else {
+                return false;
+            }
+        } else {
+            delete value.students;
+        }
+    }
+    if (value.hasOwnProperty('replaceCost')) {
+        if (!isEmptyString(value.replaceCost)) {
+            const parsed = parseInt(value.replaceCost);
+            if (!isNaN(parsed)) {
+                value.replaceCost = parsed;
+            } else {
+                return false;
+            }
+        } else {
+            delete value.replaceCost;
+        }
+    }
+    if (value.hasOwnProperty('printCost')) {
+        if (!isEmptyString(value.printCost)) {
+            const parsed = parseInt(value.printCost);
+            if (!isNaN(parsed)) {
+                value.printCost = parsed;
+            } else {
+                return false;
+            }
+        } else {
+            delete value.printCost;
+        }
+    }
+    if (value.hasOwnProperty('access') && !Array.isArray(value.access)) {
+        return false;
+    }
+    
+    return true;
 };
 
 /**
@@ -211,49 +213,55 @@ const validateInstructorObj = (value) => {
  *  and @student.printCost to the expected Number type.
  */
 const validateStudentObj = (value) => {
-    if (typeof(value) === 'object') {
-        if (value.hasOwnProperty('use') && typeof(value.use) !== 'string') {
+    if (typeof(value) !== 'object') {
+        return false;
+    }
+    
+    if (value.hasOwnProperty('use') && typeof(value.use) !== 'string') {
+        return false;
+    }
+    if (value.hasOwnProperty('institution') && typeof(value.institution) !== 'string') {
+        return false;
+    }
+    if (value.hasOwnProperty('class') && typeof(value.class) !== 'string') {
+        return false;
+    }
+    if (value.hasOwnProperty('instructor') && typeof(value.instructor) !== 'string') {
+        return false;
+    }
+    if (value.hasOwnProperty('quality')) {
+        const parsed = parseInt(value.quality);
+        if (!isNaN(parsed)) {
+            value.quality = parsed;
+        } else {
             return false;
         }
-        if (value.hasOwnProperty('institution') && typeof(value.institution) !== 'string') {
+    }
+    if (value.hasOwnProperty('navigation')) {
+        const parsed = parseInt(value.navigation);
+        if (!isNaN(parsed)) {
+            value.navigation = parsed;
+        } else {
             return false;
         }
-        if (value.hasOwnProperty('class') && typeof(value.class) !== 'string') {
-            return false;
-        }
-        if (value.hasOwnProperty('instructor') && typeof(value.instructor) !== 'string') {
-            return false;
-        }
-        if (value.hasOwnProperty('quality')) {
-            const parsed = parseInt(value.quality);
-            if (!isNaN(parsed)) {
-                value.quality = parsed;
-            } else {
-                return false;
-            }
-        }
-        if (value.hasOwnProperty('navigation')) {
-            const parsed = parseInt(value.navigation);
-            if (!isNaN(parsed)) {
-                value.navigation = parsed;
-            } else {
-                return false;
-            }
-        }
-        if (value.hasOwnProperty('printCost')) {
+    }
+    if (value.hasOwnProperty('printCost')) {
+        if (!isEmptyString(value.printCost)) {
             const parsed = parseInt(value.printCost);
             if (!isNaN(parsed)) {
                 value.printCost = parsed;
             } else {
                 return false;
             }
+        } else {
+            delete value.printCost;
         }
-        if (value.hasOwnProperty('access') && !Array.isArray(value.access)) {
-            return false;
-        }
-        return true;
     }
-    return false;
+    if (value.hasOwnProperty('access') && !Array.isArray(value.access)) {
+        return false;
+    }
+
+    return true;
 };
 
 /**

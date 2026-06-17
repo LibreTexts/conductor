@@ -307,3 +307,13 @@ export const camelCaseToSpaces = (str: string) => {
 export const bookIDSchema = z.string().regex(/^[a-zA-Z]{2,12}-\d{1,12}$/, {
   message: "Book ID must be in the format 'library-pageid' (e.g. 'chem-123')",
 });
+
+/**
+ * Checks if a value is a valid number (not null, undefined, or NaN)
+ * but allows for 0 as a valid number
+ * @param value - the value to check
+ * @returns true if the value is a valid number, false otherwise
+ */
+export const numberIsNotNullOrUndefined = (value: any): boolean => {
+  return typeof value === "number" && !isNaN(value);
+};
