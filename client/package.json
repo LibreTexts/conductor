@@ -48,7 +48,7 @@
     "date-and-time": "0.14.2",
     "date-fns": "2.30.0",
     "date-fns-tz": "2.0.1",
-    "dompurify": "3.4.2",
+    "dompurify": "3.4.11",
     "extended-eventsource": "2.1.0",
     "file-saver": "2.0.5",
     "focus-trap-react": "10.3.1",
