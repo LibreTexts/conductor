@@ -68,6 +68,59 @@ export default class SupportTicketService {
         }
     }
 
+    /**
+     * Automatically assigns a newly-created ticket to the support staff configured on its queue.
+     * Unlike {@link assignTicket}, there is no human assigner: the configured UUIDs are applied
+     * directly, a system-attributed feed entry is written, and the standard assignment email is
+     * sent. Configured users are re-validated against the support roster so stale UUIDs (deleted
+     * or de-roled users) are silently skipped.
+     */
+    async autoAssignNewTicket(ticket: SupportTicketInterface, assigneeUUIDs: string[]): Promise<SupportTicketInterface> {
+        try {
+            if (!assigneeUUIDs || assigneeUUIDs.length === 0) return ticket;
+
+            // Only auto-assign users who currently hold a libretexts support/superadmin role
+            const assignees = await User.find({
+                uuid: { $in: assigneeUUIDs },
+                roles: {
+                    $elemMatch: {
+                        org: "libretexts",
+                        role: { $in: ["superadmin", "support"] },
+                    },
+                },
+            });
+
+            if (assignees.length === 0) return ticket; // No valid assignees, leave unassigned
+
+            const validUUIDs = assignees.map(a => a.uuid);
+
+            // Ensure the queue is populated for the assignment email (ticket_descriptor)
+            if (!ticket.queue) {
+                await ticket.populate("queue");
+            }
+
+            const feedEntry = this._createFeedEntry_AutoAssigned(
+                assignees.map(a => `${a.firstName} ${a.lastName}`),
+            );
+
+            ticket.assignedUUIDs = validUUIDs;
+            ticket.status = "assigned";
+            ticket.feed = [...(ticket.feed || []), feedEntry];
+            await ticket.save();
+            await this.upsertToSearchIndex(ticket.uuid);
+
+            await this.sendAssignmentEmails(
+                ticket,
+                assignees.map(a => a.email),
+                "the LibreTexts Support system",
+            );
+
+            return ticket;
+        } catch (err) {
+            throw err;
+        }
+    }
+
     async bulkUpdateTickets({ tickets, assignee, priority, queue, status, callingUserId }: z.infer<typeof BulkUpdateTicketsValidator>['body'] & { callingUserId: string; }) {
         try {
             const queueService = new SupportQueueService();
@@ -491,6 +544,16 @@ export default class SupportTicketService {
         return {
             action: `Ticket was assigned to ${assignees.join(", ")}`,
             blame: assigner,
+            date: new Date().toISOString(),
+        };
+    };
+
+    private _createFeedEntry_AutoAssigned(
+        assignees: string[],
+    ): SupportTicketFeedEntryInterface {
+        return {
+            action: `Ticket was automatically assigned to ${assignees.join(", ")}`,
+            blame: "LibreTexts Support (Auto-Assignment)",
             date: new Date().toISOString(),
         };
     };

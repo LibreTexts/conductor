@@ -24,6 +24,8 @@ export interface SupportQueueInterface {
     }>;
     category_filters?: string[];
     visible_to_users: boolean;
+    auto_assign_enabled: boolean;
+    auto_assign_uuids: string[];
     ticket_count?: number;
 }
 
@@ -135,6 +137,16 @@ const SupportQueueSchema = new Schema<SupportQueueInterface>({
         type: Boolean,
         required: true,
         default: true,
+    },
+    auto_assign_enabled: {
+        type: Boolean,
+        required: true,
+        default: false,
+    },
+    auto_assign_uuids: {
+        type: [String],
+        required: true,
+        default: [],
     },
 });
 

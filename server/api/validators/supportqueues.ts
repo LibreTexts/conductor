@@ -19,3 +19,13 @@ export const getSupportQueueSchema = z.object({
 }).merge(SlugOnlyParamSchema);
 
 export const getMetricsSchema = SlugOnlyParamSchema;
+
+export const updateAutoAssignConfigSchema = z.object({
+  params: z.object({
+    id: z.string().min(1, "Invalid queue id"),
+  }),
+  body: z.object({
+    auto_assign_enabled: z.boolean(),
+    auto_assign_uuids: z.array(z.string()),
+  }),
+});

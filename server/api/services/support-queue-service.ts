@@ -41,10 +41,33 @@ export default class SupportQueueService {
                 {
                     $project: { tickets: 0 } // Exclude the tickets array
                 }
-            ] : [])
+            ] : []),
+            // Never expose auto-assignment config (staff roster) on the general queue list
+            { $project: { auto_assign_uuids: 0, auto_assign_enabled: 0 } }
         ])
 
         return results;
+    }
+
+    async getQueuesWithAutoAssignConfig() {
+        return await SupportQueue.find({ active: true })
+            .select("id name slug auto_assign_enabled auto_assign_uuids")
+            .sort({ order: 1 })
+            .lean();
+    }
+
+    async updateAutoAssignConfig(
+        id: string,
+        config: { auto_assign_enabled: boolean; auto_assign_uuids: string[] }
+    ): Promise<SupportQueueInterface | null> {
+        return await SupportQueue.findOneAndUpdate(
+            { id: { $eq: id } },
+            {
+                auto_assign_enabled: config.auto_assign_enabled,
+                auto_assign_uuids: config.auto_assign_uuids,
+            },
+            { new: true, lean: true }
+        );
     }
 
     async getQueueBySlug(slug: string, { withCount = false } = {}): Promise<SupportQueueInterface | null> {

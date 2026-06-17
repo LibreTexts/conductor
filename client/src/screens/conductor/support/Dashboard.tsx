@@ -1,6 +1,6 @@
 import AlternateLayout from "../../../components/navigation/AlternateLayout";
 import { useState, lazy, useEffect } from "react";
-import { IconBellZ, IconPencilBolt, IconPlus, IconRefresh, IconSearch } from "@tabler/icons-react";
+import { IconBellZ, IconPencilBolt, IconPlus, IconRefresh, IconSearch, IconSettings } from "@tabler/icons-react";
 import { useTypedSelector } from "../../../state/hooks";
 import useDebounce from "../../../hooks/useDebounce";
 import useSupportTicketFilters from "../../../hooks/useSupportTicketFilters";
@@ -14,6 +14,7 @@ import { useModals } from "../../../context/ModalContext";
 import BulkChangeModal from "../../../components/support/BulkChangeModal";
 import { useDocumentTitle } from "usehooks-ts";
 import { Button, Heading, IconButton, Input, Listbox, Stack } from "@libretexts/davis-react";
+import QueueAutoAssignmentModal from "../../../components/support/QueueAutoAssignmentModal";
 const SupportCenterSettingsModal = lazy(
   () => import("../../../components/support/SupportCenterSettingsModal")
 );
@@ -97,7 +98,23 @@ const SupportDashboard = () => {
                 <Heading level={2} className="mb-2 capitalize">
                   {selectedQueue}
                 </Heading>
-                <Stack direction="horizontal" gap="sm">
+                <Stack direction="horizontal" gap="sm" align="center">
+                  {user.isSuperAdmin && (
+                    <IconButton
+                      icon={<IconSettings size={18} />}
+                      aria-label="Configure queue auto-assignment"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        openModal(
+                          <QueueAutoAssignmentModal
+                            open={true}
+                            onClose={() => closeAllModals()}
+                          />
+                        )
+                      }
+                    />
+                  )}
                   <Button
                     variant="outline"
                     onClick={() => (window.location.href = `/support/closed`)}

@@ -710,6 +710,16 @@ async function createTicket(
       metadata
     });
 
+    // Auto-assign the ticket to the queue's configured support staff, if enabled.
+    // Wrapped defensively: a failure here must never break ticket creation.
+    if (supportQueue.auto_assign_enabled && supportQueue.auto_assign_uuids?.length) {
+      try {
+        await ticketService.autoAssignNewTicket(ticket, supportQueue.auto_assign_uuids);
+      } catch (err) {
+        debugError(err);
+      }
+    }
+
     const ticketAuthor = await ticketService._getTicketAuthor(ticket);
     const emailToNotify = await ticketService._getTicketAuthorEmail(ticket, ticketAuthor);
     if (!emailToNotify) return conductor500Err(res);

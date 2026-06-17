@@ -22,7 +22,17 @@ export type SupportQueue = {
     }>;
     category_filters?: string[];
     visible_to_users: boolean;
+    auto_assign_enabled?: boolean;
+    auto_assign_uuids?: string[];
     ticket_count?: number;
+}
+
+export type SupportQueueAutoAssignConfig = Pick<
+    SupportQueue,
+    "id" | "name" | "slug"
+> & {
+    auto_assign_enabled: boolean;
+    auto_assign_uuids: string[];
 }
 
 export type SupportQueueMetrics = {

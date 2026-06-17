@@ -59,6 +59,7 @@ import {
   CentralIdentityOrgAdminResult,
   AssetTag,
   SupportQueue,
+  SupportQueueAutoAssignConfig,
   SupportQueueMetrics,
   SupportTicketPriority,
   MasterCatalogV2Response,
@@ -1681,6 +1682,27 @@ class API {
         metrics: SupportQueueMetrics;
       } & ConductorBaseResponse
     >(`/support-queues/${slug}/metrics`);
+    return res;
+  }
+
+  async getQueueAutoAssignConfig() {
+    const res = await axios.get<
+      {
+        queues: SupportQueueAutoAssignConfig[];
+      } & ConductorBaseResponse
+    >("/support-queues/auto-assign-config");
+    return res;
+  }
+
+  async updateQueueAutoAssignConfig(
+    id: string,
+    config: { auto_assign_enabled: boolean; auto_assign_uuids: string[] }
+  ) {
+    const res = await axios.put<
+      {
+        queue: SupportQueueAutoAssignConfig;
+      } & ConductorBaseResponse
+    >(`/support-queues/${id}/auto-assign-config`, config);
     return res;
   }
 

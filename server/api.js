@@ -2698,6 +2698,25 @@ router
   );
 
 router
+  .route("/support-queues/auto-assign-config")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", ["superadmin"]),
+    supportQueuesAPI.getAutoAssignConfig
+  );
+
+router
+  .route("/support-queues/:id/auto-assign-config")
+  .put(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", ["superadmin"]),
+    middleware.validateZod(supportQueueValidators.updateAutoAssignConfigSchema),
+    supportQueuesAPI.updateAutoAssignConfig
+  );
+
+router
   .route("/support-queues/:slug/metrics")
   .get(
     authAPI.verifyRequest,
