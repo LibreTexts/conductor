@@ -410,7 +410,7 @@ const PeerReviewSubmitPage = () => {
             {allElements.map((item) => {
               if (item.uiType === "heading") {
                 return (
-                  <Heading level={4} key={item.order} className="!mt-8 border-b pb-1">
+                  <Heading as="h2" level={4} key={item.order} className="!mt-8 border-b pb-1">
                     {(item as UIHeading).text}
                   </Heading>
                 );

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import {
@@ -142,8 +142,17 @@ const AdoptionReport = (props) => {
         setInstrNumStudentsErr(false);
     };
 
+    // Tracks the id of the first invalid field so focus can be moved there on
+    // failed submit — without it, errors set far down a scrolled modal give
+    // keyboard and screen reader users no signal the submit was rejected.
+    const firstInvalidFieldRef = useRef(null);
+
     const validateForm = () => {
         let valid = true;
+        let firstInvalid = null;
+        // Davis Input/Select render id={name}, so the field id matches its name.
+        const markInvalid = (id) => { valid = false; if (!firstInvalid) firstInvalid = id; };
+
         if (
             !props.resourceID || !props.resourceTitle || !props.resourceLibrary ||
             isEmptyString(props.resourceID) || isEmptyString(props.resourceTitle) || isEmptyString(props.resourceLibrary)
@@ -151,16 +160,17 @@ const AdoptionReport = (props) => {
             handleGlobalError('Sorry, required internal values appear to be missing. Try reloading this page and submitting the form again.');
             valid = false;
         }
-        if (isEmptyString(email)) { setEmailErr(true); valid = false; }
-        if (isEmptyString(name)) { setNameErr(true); valid = false; }
-        if (isEmptyString(iAm)) { setIAmErr(true); valid = false; }
+        if (isEmptyString(email)) { setEmailErr(true); markInvalid('email'); }
+        if (isEmptyString(name)) { setNameErr(true); markInvalid('name'); }
+        if (isEmptyString(iAm)) { setIAmErr(true); markInvalid('iAm'); }
         if (iAm === 'instructor') {
-            if (isEmptyString(libreNetInst)) { setLibreNetInstErr(true); valid = false; }
-            if (isEmptyString(instrInstName)) { setInstrInstNameErr(true); valid = false; }
-            if (isEmptyString(instrClassName)) { setInstrClassNameErr(true); valid = false; }
-            if (isEmptyString(instrTaughtTerm)) { setInstrTaughtTermErr(true); valid = false; }
-            if (!instrNumStudents || instrNumStudents === '0') { setInstrNumStudentsErr(true); valid = false; }
+            if (isEmptyString(libreNetInst)) { setLibreNetInstErr(true); markInvalid('libreNetInst'); }
+            if (isEmptyString(instrInstName)) { setInstrInstNameErr(true); markInvalid('instrInstName'); }
+            if (isEmptyString(instrClassName)) { setInstrClassNameErr(true); markInvalid('instrClassName'); }
+            if (isEmptyString(instrTaughtTerm)) { setInstrTaughtTermErr(true); markInvalid('instrTaughtTerm'); }
+            if (!instrNumStudents || instrNumStudents === '0') { setInstrNumStudentsErr(true); markInvalid('instrNumStudents'); }
         }
+        firstInvalidFieldRef.current = firstInvalid;
         return valid;
     };
 
@@ -216,13 +226,16 @@ const AdoptionReport = (props) => {
                     handleGlobalError(res.data.errMsg);
                 }
             }).catch(handleGlobalError);
+        } else if (firstInvalidFieldRef.current) {
+            // Move focus to the first invalid field so the rejection is perceivable.
+            document.getElementById(firstInvalidFieldRef.current)?.focus();
         }
         setSubmitLoading(false);
     };
 
     return (
         <>
-            <Modal open={!!props.open} onClose={closeModal} size="lg">
+            <Modal open={!!props.open && !showSuccessModal} onClose={closeModal} size="lg">
                 <Modal.Header>
                     <Modal.Title>Adoption Report</Modal.Title>
                 </Modal.Header>
@@ -400,7 +413,6 @@ const AdoptionReport = (props) => {
                                 options={studentUseSelectOpts}
                                 value={studentUse}
                                 onChange={(e) => setStudentUse(e.target.value)}
-                                re
                             />
 
                             <Input

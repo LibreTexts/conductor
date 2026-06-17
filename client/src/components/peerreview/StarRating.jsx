@@ -121,6 +121,7 @@ const StarRating = ({
                                 value={star}
                                 checked={value === star}
                                 onChange={handleChange}
+                                aria-label={`${star} stars`}
                                 title={`${star} stars`}
                                 required={fieldRequired}
                             />
