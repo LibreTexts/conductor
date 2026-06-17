@@ -60,7 +60,7 @@
     "mime": "4.1.0",
     "mongodb": "6.21.0",
     "mongoose": "8.23.1",
-    "multer": "2.1.1",
+    "multer": "2.2.0",
     "newrelic": "13.20.0",
     "node-cache": "5.1.2",
     "openai": "6.35.0",
