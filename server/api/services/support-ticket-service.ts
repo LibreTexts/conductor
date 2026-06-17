@@ -1,6 +1,10 @@
 import { z } from "zod";
+import { v4 } from "uuid";
+import { randomBytes } from "crypto";
 import SupportTicket, { SupportTicketFeedEntryInterface, SupportTicketInterface, SupportTicketStatusEnum } from "../../models/supporticket";
 import User, { SanitizedUserSelectProjection, UserInterface } from "../../models/user";
+import Organization from "../../models/organization";
+import { SupportQueueInterface } from "../../models/supportqueue";
 import { AssignSupportTicketParams, ChangeTicketStatusParams, SearchTicketsParams } from "../../types/SupportTicket";
 import { capitalizeFirstLetter, getPaginationOffset } from "../../util/helpers";
 import mailAPI from "../mail";
@@ -10,6 +14,7 @@ import SupportQueueService from "./support-queue-service";
 import SupportTicketMessage, { SupportTicketMessageInterface } from "../../models/supporticketmessage";
 import { debugError, debugServer } from "../../debug";
 import SearchService from "./search-service";
+import SlackNotificationService from "./slack-notification-service";
 
 export default class SupportTicketService {
     async getTicket(uuid: string): Promise<SupportTicketInterface | null> {
@@ -446,6 +451,117 @@ export default class SupportTicketService {
         }
     }
 
+    /**
+     * Creates a support ticket authored by Conductor itself (no human requester), for situations
+     * where the system detects work that needs manual resolution (e.g. a failed/rejected store order).
+     *
+     * The ticket is routed to the "store" queue when present, otherwise the default queue. It follows
+     * the same auto-assign + internal-notification flow as a user-submitted ticket, but is attributed
+     * to "Conductor System" via the feed `blame` field rather than a user/guest. Notifications and
+     * auto-assignment are best-effort: a failure there never prevents the ticket from being created.
+     *
+     * Returns the created ticket, or `null` if no destination queue could be resolved or creation
+     * failed — callers must treat ticket creation as best-effort and never let it break core paths.
+     */
+    async createSystemTicket({
+        title,
+        description,
+        category = "bookstore",
+        priority = "high",
+        metadata,
+    }: {
+        title: string;
+        description: string;
+        category?: string;
+        priority?: "low" | "medium" | "high" | "severe";
+        metadata?: Record<string, any>;
+    }): Promise<SupportTicketInterface | null> {
+        try {
+            const queueService = new SupportQueueService();
+            const queue = (await queueService.getQueueBySlug("store")) ?? (await queueService.getDefaultQueue());
+            if (!queue) {
+                debugError("[SupportTicketService] Cannot create system ticket: no 'store' queue and no default queue configured.");
+                return null;
+            }
+
+            const uuid = v4();
+            const ticket = await this.createTicket({
+                uuid,
+                uuidShort: uuid.slice(-7),
+                queue_id: queue.id,
+                title,
+                description,
+                category,
+                priority,
+                timeOpened: new Date().toISOString(),
+                guestAccessKey: randomBytes(32).toString("hex"),
+                feed: [this._createFeedEntry_SystemCreated()],
+                metadata,
+            });
+
+            // Auto-assign to the queue's configured staff, if enabled. Defensive: never break creation.
+            if (queue.auto_assign_enabled && queue.auto_assign_uuids?.length) {
+                try {
+                    await this.autoAssignNewTicket(ticket, queue.auto_assign_uuids);
+                } catch (err) {
+                    debugError(err);
+                }
+            }
+
+            // Notify the support team (fire-and-forget; nicety isolation: never break creation).
+            this._notifySystemTicketCreated(ticket, queue).catch(() => { /* swallowed in helper */ });
+
+            return ticket;
+        } catch (err) {
+            debugError(err);
+            return null;
+        }
+    }
+
+    /**
+     * Sends the internal support-team email + Slack notification for a system-generated ticket.
+     * All failures are swallowed: alerting must never break ticket creation.
+     */
+    private async _notifySystemTicketCreated(ticket: SupportTicketInterface, queue: SupportQueueInterface): Promise<void> {
+        const authorString = "Conductor System";
+        try {
+            const org = await Organization.findOne({ orgID: process.env.ORG_ID });
+            const teamToNotify = org?.supportTicketNotifiers ?? [];
+            if (teamToNotify.length > 0) {
+                await mailAPI.sendSupportTicketCreateInternalNotification(
+                    queue.ticket_descriptor,
+                    teamToNotify,
+                    ticket.uuid,
+                    ticket.title,
+                    ticket.description || "",
+                    authorString,
+                    capitalizeFirstLetter(ticket.category || ""),
+                    capitalizeFirstLetter(ticket.priority || ""),
+                    ticket.capturedURL ?? undefined,
+                    (ticket.metadata as object) ?? {},
+                );
+            }
+        } catch (err) {
+            debugError(err);
+        }
+
+        try {
+            await new SlackNotificationService().sendSupportTicketCreated({
+                queueDescriptor: queue.ticket_descriptor,
+                ticketID: ticket.uuid,
+                ticketTitle: ticket.title,
+                ticketDescription: ticket.description || "",
+                authorString,
+                category: capitalizeFirstLetter(ticket.category || ""),
+                priority: capitalizeFirstLetter(ticket.priority || ""),
+                capturedURL: ticket.capturedURL ?? undefined,
+                metadata: (ticket.metadata as Record<string, unknown>) ?? {},
+            });
+        } catch (err) {
+            debugError(err);
+        }
+    }
+
     async saveTicket(ticket: SupportTicketInterface): Promise<SupportTicketInterface> {
         try {
             await ticket.save();
@@ -554,6 +670,14 @@ export default class SupportTicketService {
         return {
             action: `Ticket was automatically assigned to ${assignees.join(", ")}`,
             blame: "LibreTexts Support (Auto-Assignment)",
+            date: new Date().toISOString(),
+        };
+    };
+
+    private _createFeedEntry_SystemCreated(): SupportTicketFeedEntryInterface {
+        return {
+            action: `Ticket was created`,
+            blame: "Conductor System",
             date: new Date().toISOString(),
         };
     };

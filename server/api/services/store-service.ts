@@ -16,6 +16,7 @@ import { serializeError } from "../../util/errorutils";
 import mailAPI from "../mail"
 import User from "../../models/user";
 import authAPI from "../../api/auth.js";
+import SupportTicketService from "./support-ticket-service";
 
 const BASE_COST = 1.80;
 const PAGE_MULTIPLIER = 0.032;
@@ -30,6 +31,7 @@ const STAFF_MAX_QUANTITY = 500;
 class StoreService {
     private stripeService = new StripeService();
     private luluService = new LuluService();
+    private ticketService = new SupportTicketService();
     private cache: NodeCache;
 
     constructor() {
@@ -823,12 +825,19 @@ class StoreService {
                 storeOrder.status = 'completed';
             }
 
+            // A rejected or errored Lulu print job needs manual resolution; open a support ticket.
             if (data.status?.name === 'REJECTED') {
-                if (process.env.BOOKSTORE_CONTACT_EMAIL) {
-                    await mailAPI.sendStoreOrderRejectedInternalNotification(process.env.BOOKSTORE_CONTACT_EMAIL, storeOrder.id, data.status.message || '').catch((err) => {
-                        debug("Failed to send store order rejected internal notification email:", err);
-                    });
-                }
+                await this._createOrderFailureTicket(storeOrder, {
+                    trigger: "lulu_rejected",
+                    message: data.status?.message || '',
+                });
+            }
+
+            if (data.status?.name === 'ERROR') {
+                await this._createOrderFailureTicket(storeOrder, {
+                    trigger: "lulu_error",
+                    message: data.status?.message || '',
+                });
             }
 
             storeOrder.luluJobID = data.id.toString(); // Update the Lulu job ID (e.g. on resubmits)
@@ -1592,18 +1601,72 @@ class StoreService {
      * @param error - The error message to set on the store order.
      */
     private async _failStoreOrder(storeOrder: RawStoreOrder, error: string) {
-        if (process.env.BOOKSTORE_CONTACT_EMAIL) {
-            await mailAPI.sendStoreOrderFailedInternalNotification(process.env.BOOKSTORE_CONTACT_EMAIL, storeOrder.id, error).catch((err) => {
-                debug("Failed to send internal notification email for failed store order:", err);
-            });
-        }
-
-        return await StoreOrder.updateOne({
+        const result = await StoreOrder.updateOne({
             id: storeOrder.id,
         }, {
             status: "failed",
             error: error,
-        })
+        });
+
+        // Open a support ticket so the failure lands in the assignable triage workflow.
+        // Best-effort: never let ticketing affect the order's failure handling.
+        await this._createOrderFailureTicket(storeOrder, {
+            trigger: "order_failed",
+            message: error,
+        });
+
+        return result;
+    }
+
+    /**
+     * Opens a system-generated support ticket for a store order that needs manual resolution,
+     * enforcing one ticket per order via the order's `supportTicketUUID`. Fully defensive: any
+     * failure here is logged and swallowed so it can never disrupt order processing.
+     */
+    private async _createOrderFailureTicket(
+        storeOrder: RawStoreOrder,
+        { trigger, message }: { trigger: "order_failed" | "lulu_rejected" | "lulu_error"; message?: string },
+    ): Promise<string | undefined> {
+        try {
+            if (storeOrder.supportTicketUUID) return storeOrder.supportTicketUUID; // already ticketed
+
+            const shortID = storeOrder.id.slice(-6);
+            const titleByTrigger: Record<typeof trigger, string> = {
+                order_failed: `Store order failed (#${shortID})`,
+                lulu_rejected: `Store order rejected by Lulu (#${shortID})`,
+                lulu_error: `Store order errored at Lulu (#${shortID})`,
+            };
+
+            const descriptionLines = [
+                `A store order requires manual resolution.`,
+                ``,
+                `Order ID: ${storeOrder.id}`,
+                storeOrder.customerEmail ? `Customer: ${storeOrder.customerEmail}` : undefined,
+                storeOrder.luluJobID ? `Lulu Job ID: ${storeOrder.luluJobID}` : undefined,
+                message ? `Details: ${message}` : undefined,
+            ].filter(Boolean);
+
+            const ticket = await this.ticketService.createSystemTicket({
+                title: titleByTrigger[trigger],
+                description: descriptionLines.join("\n"),
+                category: "bookstore",
+                priority: "high",
+                metadata: {
+                    orderID: storeOrder.id,
+                    trigger,
+                    luluJobStatus: storeOrder.luluJobStatus,
+                    message,
+                },
+            });
+
+            if (ticket?.uuid) {
+                await StoreOrder.updateOne({ id: storeOrder.id }, { supportTicketUUID: ticket.uuid });
+                return ticket.uuid;
+            }
+        } catch (err) {
+            debug("Failed to create support ticket for store order:", err);
+        }
+        return undefined;
     }
 
     /**

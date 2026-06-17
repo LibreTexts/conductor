@@ -360,11 +360,12 @@ const SupportTicketView = () => {
                     guestAccessKey={accessKey}
                   />
                 </div>
-                {(user.isSupport || user.isHarvester) && (
-                  <div className="mt-4">
-                    <TicketUserOtherTickets ticket={ticket} />
-                  </div>
-                )}
+                {(user.isSupport || user.isHarvester) &&
+                  (ticket.user?.uuid || ticket.guest?.email) && (
+                    <div className="mt-4">
+                      <TicketUserOtherTickets ticket={ticket} />
+                    </div>
+                  )}
               </div>
             </div>
           </>

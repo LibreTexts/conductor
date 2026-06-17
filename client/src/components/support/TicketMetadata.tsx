@@ -1,4 +1,3 @@
-import { Button, Icon } from "semantic-ui-react";
 import { useTypedSelector } from "../../state/hooks";
 import { SupportTicket } from "../../types";
 import { camelCaseToSpaces } from "../../utils/misc";
@@ -6,6 +5,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../api";
 import { useNotifications } from "../../context/NotificationContext";
 import { Link } from "react-router-dom";
+import { Button, Card, Link as DavisLink, Heading, Stack } from "@libretexts/davis-react";
+import useClientConfig from "../../hooks/useClientConfig";
+import { IconEye, IconPlus } from "@tabler/icons-react";
 
 interface TicketMetadataProps {
   ticket: SupportTicket;
@@ -15,7 +17,10 @@ const TicketMetadata: React.FC<TicketMetadataProps> = ({ ticket }) => {
   const user = useTypedSelector((state) => state.user);
   const queryClient = useQueryClient();
   const { addNotification } = useNotifications();
+  const { clientConfig } = useClientConfig();
   const projectID = ticket?.metadata?.projectID as string | undefined;
+  const commonsURL =
+    clientConfig?.main_commons_url || "https://commons.libretexts.org";
 
   const createProjectMutation = useMutation({
     mutationFn: async () => {
@@ -44,10 +49,21 @@ const TicketMetadata: React.FC<TicketMetadataProps> = ({ ticket }) => {
       <>
         {Object.entries(obj).map(([key, value]) => (
           <div key={key} className="flex flex-col">
-            <div className="flex flex-row">
+            <div className="flex flex-row items-center">
               <span className="font-semibold">{camelCaseToSpaces(key)}:</span>
               &nbsp;
-              {typeof value === "object" ? null : String(value)}
+              {key === "orderID" && value ? (
+                <DavisLink
+                  href={`${commonsURL}/controlpanel/store/orders/${value}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="break-all"
+                >
+                  {String(value)}
+                </DavisLink>
+              ) : typeof value === "object" ? null : (
+                String(value)
+              )}
             </div>
             {typeof value === "object" && (
               <div className="ml-4">
@@ -65,39 +81,44 @@ const TicketMetadata: React.FC<TicketMetadataProps> = ({ ticket }) => {
   }
 
   return (
-    <div className="flex flex-col border rounded-md p-4 shadow-md bg-white h-fit space-y-2">
-      <div className="relative flex items-center justify-center mb-2">
-        <p className="text-2xl font-semibold text-center mb-0">
+    <Card padding="sm" variant="elevated">
+      <Card.Header>
+        <Heading level={4} align="center">
           Ticket Metadata
-        </p>
-      </div>
-      <div className="flex flex-col space-y-1">
-        <RenderObject obj={ticket.metadata} />
-      </div>
-      {(user.isSupport || user.isHarvester) &&
-        ticket.queue?.slug === "harvesting" &&
-        !projectID && (
-          <Button
-            color="green"
-            onClick={() => createProjectMutation.mutate()}
-            loading={createProjectMutation.isLoading}
-          >
-            <Icon name="plus" />
-            Create Project
-          </Button>
-        )}
-      {projectID && (
-        <Button
-          color="blue"
-          as={Link}
-          to={`/projects/${projectID}`}
-          target="_blank"
-        >
-          <Icon name="eye" />
-          View Project
-        </Button>
-      )}
-    </div>
+        </Heading>
+      </Card.Header>
+      <Card.Body className="py-4">
+        <Stack gap="xs" align="start">
+          <RenderObject obj={ticket.metadata} />
+          {(user.isSupport || user.isHarvester) &&
+            ticket.queue?.slug === "harvesting" &&
+            !projectID && (
+              <Button
+                className="w-full!"
+                variant="primary"
+                onClick={() => createProjectMutation.mutate()}
+                loading={createProjectMutation.isLoading}
+                icon={<IconPlus size={16} />}
+              >
+                Create Project
+              </Button>
+            )}
+          {projectID && (
+            <Button
+              className="w-full!"
+              variant="outline"
+              as={Link}
+              to={`/projects/${projectID}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              icon={<IconEye size={16} />}
+            >
+              View Project
+            </Button>
+          )}
+        </Stack>
+      </Card.Body>
+    </Card>
   );
 };
 

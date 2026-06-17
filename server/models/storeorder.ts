@@ -18,6 +18,8 @@ export interface RawStoreOrder {
     luluJobStatusMessage?: string; // Error message if the Lulu job fails
     luluJobStatusUpdates?: Array<Record<string, any>>; // Array of status updates data from Lulu, if any
     notificationsSent?: Array<RawStoreOrderNotification>;
+    supportTicketUUID?: string; // UUID of the system-generated support ticket, if one was opened for a failure/rejection
+
     createdAt?: Date; // Automatically set by Mongoose
     updatedAt?: Date; // Automatically set by Mongoose
 }
@@ -51,7 +53,8 @@ const StoreOrderSchema = new Schema<RawStoreOrder>({
     },
     notificationsSent: {
         type: [Object],
-    }
+    },
+    supportTicketUUID: String,
 }, {
     timestamps: true
 })

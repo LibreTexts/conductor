@@ -96,11 +96,14 @@ const TicketUserOtherTickets: React.FC<TicketUserOtherTicketsProps> = ({
 
   const tableRef = useRef<Table<SupportTicket> | null>(null);
 
+  const hasRequestor = !!(ticket.user?.uuid || ticket.guest?.email);
+
   const { data: requesterOtherTickets, isFetching } = useQuery<SupportTicket[]>(
     {
-      queryKey: ["userTickets", activePage, itemsPerPage, sortChoice],
+      queryKey: ["userTickets", ticket.uuid, activePage, itemsPerPage, sortChoice],
       queryFn: () =>
         getRequesterOtherTickets(activePage, itemsPerPage, sortChoice),
+      enabled: hasRequestor, // System-created tickets have no requestor; skip the (otherwise-400) call
       keepPreviousData: true,
       staleTime: 1000 * 60 * 10, // 10 minutes
       refetchOnWindowFocus: false,
