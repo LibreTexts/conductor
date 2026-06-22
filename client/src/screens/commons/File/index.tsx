@@ -1,7 +1,8 @@
-import { Breadcrumb, Header, Icon, Segment } from "semantic-ui-react";
-import { Link, useParams } from "react-router-dom";
+import { Header, Icon, Segment } from "semantic-ui-react";
+import { useParams } from "react-router-dom";
 import React, { useEffect, useState } from "react";
 import { Stream } from "@cloudflare/stream-react";
+import { Breadcrumb } from "@libretexts/davis-react";
 import api from "../../../api";
 import { ProjectFile } from "../../../types";
 import useGlobalError from "../../../components/error/ErrorHooks";
@@ -47,20 +48,15 @@ const CommonsFile: React.FC<CommonsFileProps> = () => {
   return (
     <div className="commons-page-container">
       <Segment.Group raised>
-        <Segment>
-          <Breadcrumb>
-            <Breadcrumb.Section as={Link} to="/catalog">
-              <span>
-                <span className="muted-text">You are on: </span>
-                Catalog
-              </span>
-            </Breadcrumb.Section>
-            <Breadcrumb.Divider icon="right chevron" />
-            <Breadcrumb.Section active>
-              {file?.name ?? "Unknown"}
-            </Breadcrumb.Section>
+        <div className="px-6 py-3 border-b border-neutral-200">
+          <Breadcrumb aria-label="Page navigation">
+            <Breadcrumb.Item href="/catalog">Catalog</Breadcrumb.Item>
+            <Breadcrumb.Item href={`/commons-project/${projectID}`}>
+              Project
+            </Breadcrumb.Item>
+            <Breadcrumb.Item isCurrent>{file?.name ?? "File"}</Breadcrumb.Item>
           </Breadcrumb>
-        </Segment>
+        </div>
         <Segment loading={loading}>
           <div className="flex flex-col lg:flex-row px-1 pb-8">
             <div className="flex flex-col w-full lg:w-1/4 min-h-48 h-fit border shadow-md p-4 rounded-md mr-16">

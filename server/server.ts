@@ -20,6 +20,7 @@ import helmet from "helmet";
 import { debug, debugServer, debugDB } from "./debug.js";
 import api, { permalinkRouter } from "./api.js";
 import { floodShield } from "./util/rateLimitHelpers.js";
+import { sitemapRouter } from "./static-endpoints/sitemap.js";
 
 // Prevent startup without ORG_ID env variable
 if (!process.env.ORG_ID) {
@@ -156,6 +157,9 @@ if (process.env.NODE_ENV !== "production") {
 app.get(["/", "/index.html"], (_req, res) => {
   res.setHeader("Content-Type", "text/html").send(indexHtml);
 });
+
+app.use(sitemapRouter());
+
 app.use(express.static(clientDist, { index: false }));
 
 // Serve runtime env config for frontend use. Loaded via <script src="/env.js"> in index.html to avoid CSP issues with inline scripts.

@@ -47,7 +47,7 @@ const CommonsProject = () => {
           <Breadcrumb.Item href="/catalog">
             Catalog
           </Breadcrumb.Item>
-          <Breadcrumb.Item isCurrent>{project?.title}</Breadcrumb.Item>
+          <Breadcrumb.Item isCurrent>{project?.title ?? "Project"}</Breadcrumb.Item>
         </Breadcrumb>
       </div>
 

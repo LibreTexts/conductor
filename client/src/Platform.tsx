@@ -55,6 +55,7 @@ export const COMMONS_PATHS = [
   "/libraries",
   "/search-results",
   "/file",
+  "/sitemap",
 ];
 
 /**
@@ -101,6 +102,7 @@ const Platform = () => {
     "/libraries",
     "/search-results",
     "/file/:projectID/:fileID",
+    "/sitemap",
   ];
 
   const standalonePaths = [

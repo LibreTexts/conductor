@@ -104,7 +104,7 @@ const CommonsAuthor = () => {
           <Breadcrumb.Item href="/catalog">
             Catalog
           </Breadcrumb.Item>
-          <Breadcrumb.Item isCurrent>{author?.name}</Breadcrumb.Item>
+          <Breadcrumb.Item isCurrent>{author?.name ?? "Author"}</Breadcrumb.Item>
         </Breadcrumb>
       </div>
 

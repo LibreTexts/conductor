@@ -11,6 +11,7 @@ import CommonsMenu from "./components/commons/CommonsMenu";
 import Navbar from "./components/navigation/Navbar";
 import CommonsProject from "./screens/commons/Project";
 import CommonsFile from "./screens/commons/File";
+import CommonsSitemap from "./screens/commons/Sitemap";
 import SystemAnnouncement from "./components/util/SystemAnnouncement";
 import withUserStateDependency from "./enhancers/withUserStateDependency";
 import "./components/commons/Commons.css";
@@ -106,6 +107,7 @@ const Commons = () => {
             <Route exact path="/book/:id" component={CommonsBook} />
             <Route exact path="/commons-project/:id" component={CommonsProject} />
             <Route exact path="/file/:projectID/:fileID" component={CommonsFile} />
+            <Route exact path="/sitemap" component={CommonsSitemap} />
           </Switch>
         </Suspense>
       </main>

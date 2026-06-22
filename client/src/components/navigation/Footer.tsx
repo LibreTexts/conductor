@@ -84,6 +84,14 @@ const Footer = () => {
       icon: null,
     },
     {
+      key: "sitemap",
+      href: "/sitemap",
+      text: "Sitemap",
+      tooltip: "Sitemap",
+      external: false,
+      icon: null,
+    },
+    {
       key: "status",
       href: "https://status.libretexts.org",
       text: "Status",

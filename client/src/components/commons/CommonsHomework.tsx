@@ -1,6 +1,7 @@
 import "./Commons.css";
 
 import {
+  Breadcrumb,
   Button,
   Card,
   Divider,
@@ -164,6 +165,13 @@ const CommonsHomework = () => {
   };
 
   return (
+    <>
+      <div className="px-6 py-3 border-b border-neutral-200">
+        <Breadcrumb aria-label="Page navigation">
+          <Breadcrumb.Item href="/catalog">Catalog</Breadcrumb.Item>
+          <Breadcrumb.Item isCurrent>Homework</Breadcrumb.Item>
+        </Breadcrumb>
+      </div>
     <Stack direction="vertical" gap="lg" className="p-6">
       <Stack direction="vertical" gap="md" className="text-center">
         <Heading level={1} className="text-center lg:text-left">
@@ -275,6 +283,7 @@ const CommonsHomework = () => {
         </>
       )}
     </Stack>
+    </>
   );
 };
 
