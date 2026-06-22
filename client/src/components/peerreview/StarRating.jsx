@@ -121,15 +121,15 @@ const StarRating = ({
                                 value={star}
                                 checked={value === star}
                                 onChange={handleChange}
-                                aria-label={`${star} stars`}
-                                title={`${star} stars`}
                                 required={fieldRequired}
                             />
                             <label
                                 htmlFor={`form-star-${idx}`}
                                 title={`${star} stars`}
                                 className={!Number.isInteger(star) ? 'half' : ''}
-                            > </label>
+                            >
+                                <span className="sr-only">{`${star} stars`}</span>
+                            </label>
                         </React.Fragment>
                     )
                 })}
