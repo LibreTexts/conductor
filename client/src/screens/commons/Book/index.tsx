@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, ReactElement } from "react";
+import { useEffect, useRef, useState, useCallback, ReactElement } from "react";
 import { Link, useParams, useLocation, useHistory } from "react-router-dom";
 import {
   Icon,
@@ -182,6 +182,24 @@ const CommonsBook = () => {
   const [clrData, setCLRData] = useState<LicenseReport>({} as LicenseReport);
   const [clrChapters, setCLRChapters] = useState<any[]>([]);
   const [clrExpandAll, setCLRExpandAll] = useState<boolean>(false);
+  // Focus management for the licensing Expand All / Collapse All toggle
+  // (SC 2.4.3): on expand move focus into the revealed breakdown tree; on
+  // collapse return focus to the toggle button.
+  const clrExpandAllBtnRef = useRef<HTMLButtonElement>(null);
+  const clrTreeRef = useRef<HTMLDivElement>(null);
+  const clrExpandDidMount = useRef(false);
+
+  useEffect(() => {
+    if (!clrExpandDidMount.current) {
+      clrExpandDidMount.current = true;
+      return;
+    }
+    if (clrExpandAll) {
+      clrTreeRef.current?.focus();
+    } else {
+      clrExpandAllBtnRef.current?.focus();
+    }
+  }, [clrExpandAll]);
 
   // Peer Reviews
   const [prAllow, setPRAllow] = useState<boolean>(false);
@@ -792,9 +810,12 @@ const CommonsBook = () => {
               <span>Breakdown</span>
               {clrChapters.length > 0 && (
                 <Button
+                  ref={clrExpandAllBtnRef}
                   variant="tertiary"
                   onClick={() => setCLRExpandAll((prev) => !prev)}
                   size="sm"
+                  aria-expanded={clrExpandAll}
+                  aria-controls="clr-breakdown-tree"
                 >
                   <Text size="sm" className="text-white">
                     {clrExpandAll ? "Collapse All" : "Expand All"}
@@ -804,13 +825,20 @@ const CommonsBook = () => {
             </div>
           </Header>
           {clrChapters.length > 0 ? (
-            <TreeView
-              items={clrChapters}
-              asLinks={true}
-              hrefKey="url"
-              textKey="title"
-              expandAll={clrExpandAll}
-            />
+            <div
+              ref={clrTreeRef}
+              id="clr-breakdown-tree"
+              tabIndex={-1}
+              className="scroll-mt-20 focus:outline-none"
+            >
+              <TreeView
+                items={clrChapters}
+                asLinks={true}
+                hrefKey="url"
+                textKey="title"
+                expandAll={clrExpandAll}
+              />
+            </div>
           ) : (
             <p className={styles.meta_largefont}>
               Licensing breakdown unavailable.
@@ -1214,6 +1242,7 @@ const CommonsBook = () => {
                                               icon
                                               size="small"
                                               title="Download asset (opens in new tab)"
+                                              aria-label={`Download ${file.name} (opens in new tab)`}
                                               onClick={() =>
                                                 handleDownloadFile(file.fileID)
                                               }
@@ -1232,6 +1261,7 @@ const CommonsBook = () => {
                                               icon
                                               size="small"
                                               title="Open Folder"
+                                              aria-label={`Open folder ${file.name}`}
                                               onClick={() =>
                                                 handleDirectoryClick(file.fileID)
                                               }

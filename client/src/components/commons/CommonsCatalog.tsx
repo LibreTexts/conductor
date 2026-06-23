@@ -582,6 +582,44 @@ const CommonsCatalog = () => {
     setBrowsePage(1);
   }, [setActiveTab]);
 
+  // Live-region announcement of result counts (SC 4.1.2). A user search or
+  // filter change updates results without otherwise notifying screen readers;
+  // we announce the active tab's settled count. The empty case is already
+  // announced via role="alert" in VisualMode, so we keep both behaviors.
+  const TAB_RESULT_LABELS: Record<CommonsModule, string> = {
+    books: "Books",
+    assets: "Assets",
+    authors: "Authors",
+    projects: "Projects",
+    minirepos: "Mini-Repos",
+  };
+
+  const activeResultCount =
+    activeTab === "books" ? booksCount :
+    activeTab === "assets" ? assetsCount :
+    activeTab === "authors" ? authorsCount :
+    activeTab === "projects" ? projectsCount :
+    miniReposCount;
+
+  const activeResultLoading =
+    activeTab === "books" ? booksLoading :
+    activeTab === "assets" ? assetsLoading :
+    activeTab === "authors" ? authorsLoading :
+    activeTab === "projects" ? projectsLoading :
+    miniReposLoading;
+
+  const [resultsAnnouncement, setResultsAnnouncement] = useState("");
+  useEffect(() => {
+    // Only announce in response to a search/filter action, and only once the
+    // active tab's query has settled (avoids announcing intermediate loading
+    // states and browse-mode/infinite-scroll updates).
+    if (!isSearchMode || activeResultLoading) return;
+    setResultsAnnouncement(
+      `${activeResultCount} result${activeResultCount === 1 ? "" : "s"} found in ${TAB_RESULT_LABELS[activeTab]}`
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSearchMode, activeResultLoading, activeResultCount, activeTab]);
+
   // Create context value for CatalogContext.Provider
   const contextValue = useMemo(
     () => {
@@ -693,6 +731,11 @@ const CommonsCatalog = () => {
 
   return (
     <CatalogContext.Provider value={contextValue}>
+      {/* Persistent live region — must exist in the DOM before its content
+          changes so search/filter result counts are announced (SC 4.1.2). */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {resultsAnnouncement}
+      </div>
       {((org.commonsHeader && org.commonsHeader !== "") ||
         (org.commonsMessage && org.commonsMessage !== "")) && (
           <Stack direction="vertical" gap="md" className="p-6 text-center">

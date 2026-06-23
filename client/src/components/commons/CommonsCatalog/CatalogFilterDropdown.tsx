@@ -43,26 +43,32 @@ const CatalogFilterDropdown: React.FC<CatalogFilterDropdownProps> = ({
 
   return (
     <Menu>
-      <Menu.Button
-        className="!min-w-44 !h-[36px] !text-sm"
-        aria-busy={loading}
-        aria-label={text}
-      >
-        {icon && ICON_MAP[icon]}
-        <span className="truncate">{text}</span>
+      {/* Relative wrapper so the clear control is a SIBLING of the trigger,
+          not a nested interactive element inside <Menu.Button> (SC 2.1.1). */}
+      <div className="relative inline-block">
+        <Menu.Button
+          className={`!min-w-44 !h-[36px] !text-sm${isActive ? " !pr-8" : ""}`}
+          aria-busy={loading}
+          aria-label={text}
+        >
+          {icon && ICON_MAP[icon]}
+          <span className="truncate">{text}</span>
+        </Menu.Button>
         {isActive && (
-          <span
-            className="ml-auto pl-1 font-bold text-gray-700 hover:text-black"
+          <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
+              e.preventDefault();
               interceptFilterSelect(filterKey, "");
             }}
-            aria-label="Clear filter"
+            aria-label={`Clear ${text} filter`}
+            className="absolute right-1 top-1/2 inline-flex min-h-6 min-w-6 -translate-y-1/2 items-center justify-center rounded font-bold text-gray-700 hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
           >
             ✕
-          </span>
+          </button>
         )}
-      </Menu.Button>
+      </div>
       <Menu.Items className="max-h-52 overflow-y-auto overflow-x-clip" width="md">
         {options.length === 0 && (
           <Menu.Item disabled>No options available</Menu.Item>

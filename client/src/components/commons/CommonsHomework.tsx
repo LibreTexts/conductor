@@ -97,6 +97,7 @@ const CommonsHomework = () => {
       cell: ({ row }) => (
         <button
           onClick={() => openCourseViewModal(row.original.hwID)}
+          aria-label={`View Assignments for ${row.original.title}`}
           className="text-link font-bold cursor-pointer bg-transparent border-none p-0 text-left"
         >
           {row.original.title}
@@ -134,6 +135,7 @@ const CommonsHomework = () => {
                 <Button
                   variant="primary"
                   onClick={() => openCourseViewModal(item.hwID)}
+                  aria-label={`View Assignments for ${item.title}`}
                   icon={<IconChecklist size={16} />}
                 >
                   View Assignments

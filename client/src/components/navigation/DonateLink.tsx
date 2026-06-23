@@ -8,6 +8,7 @@ const DonateLink = () => {
       target="_blank"
       rel="noopener noreferrer"
       external
+      underline="hover" // hover acceptable here for WCAG because not in prose + we have external icon
     >
       <IconHeart className="float-right" size={14} />
       Donate

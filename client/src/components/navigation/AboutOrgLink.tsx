@@ -14,6 +14,7 @@ const AboutOrgLink: React.FC<AboutOrgLinkProps> = ({
       target="_blank"
       rel="noopener noreferrer"
       external
+      underline="hover" // hover acceptable here for WCAG because not in prose + we have external icon
     >
       About {org.shortName}
     </Link>
