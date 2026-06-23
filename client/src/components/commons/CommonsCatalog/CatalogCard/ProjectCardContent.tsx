@@ -8,12 +8,17 @@ import { useTypedSelector } from "../../../../state/hooks";
 import CardMetaWIcon from "../../../util/CardMetaWIcon";
 import { Card, Heading, Link, Stack } from "@libretexts/davis-react";
 import { Icon } from "semantic-ui-react";
+import { Link as RouterLink } from "react-router-dom";
 
 interface ProjectCardContentProps {
   project: Project;
+  linkTo: string;
 }
 
-const ProjectCardContent: React.FC<ProjectCardContentProps> = ({ project }) => {
+const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
+  project,
+  linkTo,
+}) => {
   const org = useTypedSelector((state) => state.org);
 
   const buildAssetString = () => {
@@ -43,7 +48,9 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({ project }) => {
       <Card.Body>
         <Stack direction="vertical" gap="sm" className="py-4">
           <Heading level={2} className="line-clamp-2 !text-2xl">
-            {project.title}
+            <RouterLink to={linkTo} className="commons-card-title-link">
+              {project.title}
+            </RouterLink>
           </Heading>
           {project?.description && (
             <div className="line-clamp-5 mb-1">
@@ -63,9 +70,8 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({ project }) => {
                     href={project.projectURL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="break-all"
+                    className="break-all commons-card-inline-link"
                     external
-                    onClick={(e) => e.stopPropagation()}
                   >
                     {truncateString(project.projectURL, 35)}
                   </Link>

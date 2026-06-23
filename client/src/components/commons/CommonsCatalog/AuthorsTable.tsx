@@ -1,7 +1,7 @@
 import { Author } from "../../../types";
 import { truncateString } from "../../util/HelperFunctions";
-import { DataTable } from "@libretexts/davis-react-table";
 import type { ColumnDef, DataTableProps } from "@libretexts/davis-react-table";
+import AccessibleDataTable from "./AccessibleDataTable";
 
 interface AuthorsTableProps extends DataTableProps<Author> {
   items: Author[];
@@ -53,7 +53,14 @@ const AuthorsTable: React.FC<AuthorsTableProps> = ({
   ...rest
 }) => {
   return (
-    <DataTable<Author> data={items} columns={columns} loading={loading} density="compact" />);
+    <AccessibleDataTable<Author>
+      data={items}
+      columns={columns}
+      loading={loading}
+      rowHeaderColumnId="name"
+      caption="Authors search results"
+    />
+  );
 };
 
 export default AuthorsTable;

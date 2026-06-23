@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import { truncateString } from "../../util/HelperFunctions";
 import { getClassificationText } from "../../util/ProjectHelpers";
 import { format, parseISO } from "date-fns";
-import { DataTable } from "@libretexts/davis-react-table";
 import type { ColumnDef, DataTableProps } from "@libretexts/davis-react-table";
+import AccessibleDataTable from "./AccessibleDataTable";
 
 interface ProjectsTableProps extends DataTableProps<Project> {
   items: Project[];
@@ -75,7 +75,14 @@ const ProjectsTable: React.FC<ProjectsTableProps> = ({
   ...rest
 }) => {
   return (
-    <DataTable<Project> data={items} columns={columns} loading={loading} density="compact" />);
+    <AccessibleDataTable<Project>
+      data={items}
+      columns={columns}
+      loading={loading}
+      rowHeaderColumnId="title"
+      caption="Projects search results"
+    />
+  );
 };
 
 export default ProjectsTable;

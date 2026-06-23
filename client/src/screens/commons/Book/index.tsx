@@ -569,9 +569,9 @@ const CommonsBook = () => {
     if (typeof licenseObj === "object") {
       if (licenseObj.link && licenseObj.link !== "#") {
         return (
-          <a href={licenseObj?.link} target="_blank" rel="noopener noreferrer">
+          <DavisLink href={licenseObj.link} external underline="always">
             {licenseObj.label} {licenseObj.version}
-          </a>
+          </DavisLink>
         );
       }
       return (
@@ -702,7 +702,9 @@ const CommonsBook = () => {
    */
   function LicensingList() {
     return (
-      <ul>
+      // Ordered list — the ACR requires the "All licenses" breakdown to be a
+      // programmatic ordered list (SC 1.3.1). list-none keeps the visual style.
+      <ol className="list-none">
         {pieChartData.map((pieDataItem) => {
           let licItem = null;
           if (Array.isArray(clrData.meta?.licenses)) {
@@ -733,13 +735,14 @@ const CommonsBook = () => {
                     name="square full"
                     style={{ color: pieDataItem.color }}
                     className="ml-2p"
+                    aria-hidden="true"
                   />
                 </span>
               </div>
             </li>
           );
         })}
-      </ul>
+      </ol>
     );
   }
 
@@ -1049,24 +1052,26 @@ const CommonsBook = () => {
                 )}
               </Stack>
 
-              <Stack direction="vertical" gap="xs" className="mt-6">
+              {/* Access links rendered as a programmatic unordered list (SC 1.3.1) */}
+              <ul className="mt-6 flex list-none flex-col gap-2">
                 {accessLinks.map((item) => (
-                  <Button
-                    key={item.key}
-                    variant="outline"
-                    icon={item.icon}
-                    fullWidth
-                    as={DavisLink}
-                    href={item.href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="justify-start"
-                    external
-                  >
-                    {item.text}
-                  </Button>
+                  <li key={item.key}>
+                    <Button
+                      variant="outline"
+                      icon={item.icon}
+                      fullWidth
+                      as={DavisLink}
+                      href={item.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="justify-start"
+                      external
+                    >
+                      {item.text}
+                    </Button>
+                  </li>
                 ))}
-              </Stack>
+              </ul>
             </Stack>
           </Card>
           {/* Right Column — Book Info */}

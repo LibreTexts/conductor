@@ -55,7 +55,13 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
       <Card.Body>
         <Stack direction="vertical" gap="sm" className="py-4">
           <Heading level={2} className="line-clamp-2 !text-2xl">
-            {file.name}
+            <button
+              type="button"
+              className="commons-card-title-link"
+              onClick={() => onDetailClick && onDetailClick()}
+            >
+              {file.name}
+            </button>
           </Heading>
           <div className="overflow-hidden !my-1">
             <div className="line-clamp-3">
@@ -67,7 +73,11 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
           <CardMetaWIcon icon="user">
             <Popup
               disabled={!prettyAuthors || prettyAuthors === "Unknown"}
-              trigger={<div>{truncateString(prettyAuthors, 50)}</div>}
+              trigger={
+                <div className="commons-card-inline-link">
+                  {truncateString(prettyAuthors, 50)}
+                </div>
+              }
               content={
                 <div className="line-clamp-2">
                   <p>{allAuthors}</p>

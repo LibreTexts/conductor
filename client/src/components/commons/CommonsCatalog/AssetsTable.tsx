@@ -8,9 +8,9 @@ import {
   getPrettyAuthorsList,
 } from "../../../utils/assetHelpers";
 import { useMemo, useState } from "react";
-import { DataTable } from "@libretexts/davis-react-table";
 import type { ColumnDef, DataTableProps } from "@libretexts/davis-react-table";
 import { IconFile } from "@tabler/icons-react";
+import AccessibleDataTable from "./AccessibleDataTable";
 
 
 interface AssetsTableProps extends DataTableProps<ConductorSearchResponseFile> {
@@ -136,11 +136,12 @@ const AssetsTable: React.FC<AssetsTableProps> = ({
   }
 
   return (
-    <DataTable<ConductorSearchResponseFile>
+    <AccessibleDataTable<ConductorSearchResponseFile>
       columns={columns}
       data={items}
       loading={loading || downloadLoading}
-      density="compact"
+      rowHeaderColumnId="name"
+      caption="Assets search results"
     />
   );
 };

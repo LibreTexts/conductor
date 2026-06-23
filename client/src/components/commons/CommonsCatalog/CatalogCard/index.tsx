@@ -1,4 +1,3 @@
-import { useHistory } from "react-router-dom";
 import { Card } from "@libretexts/davis-react";
 import {
   Book,
@@ -18,51 +17,41 @@ interface CatalogCardProps {
   onDetailClick?: () => void;
 }
 
-const CatalogCard: React.FC<CatalogCardProps> = ({ item, onDetailClick }) => {
-  const history = useHistory();
+// `relative` anchors the title's stretched-link overlay to the card, so the
+// whole card stays clickable while the accessible control is a real heading
+// link/button rather than a clickable container wrapping a heading (SC 1.3.1).
+const CARD_CLASSNAME = "relative hover:border-secondary hover:border-2";
 
+const CatalogCard: React.FC<CatalogCardProps> = ({ item, onDetailClick }) => {
   if (isAuthor(item)) {
     return (
-      <Card
-        variant="elevated"
-        className=" hover:border-secondary hover:border-2"
-        onClick={() => history.push(`/author/${item._id}`)}
-      >
-        <AuthorCardContent author={item} />
+      <Card variant="elevated" className={CARD_CLASSNAME}>
+        <AuthorCardContent author={item} linkTo={`/author/${item._id}`} />
       </Card>
     );
   }
 
   if (isBook(item)) {
     return (
-      <Card
-        variant="elevated"
-        className=" hover:border-secondary hover:border-2"
-        onClick={() => history.push(`/book/${item.bookID}`)}
-      >
-        <BookCardContent book={item} />
+      <Card variant="elevated" className={CARD_CLASSNAME}>
+        <BookCardContent book={item} linkTo={`/book/${item.bookID}`} />
       </Card>
     );
   }
 
   if (isProject(item)) {
     return (
-      <Card
-        variant="elevated"
-        className=" hover:border-secondary hover:border-2"
-        onClick={() => history.push(`/commons-project/${item.projectID}`)}
-      >
-        <ProjectCardContent project={item} />
+      <Card variant="elevated" className={CARD_CLASSNAME}>
+        <ProjectCardContent
+          project={item}
+          linkTo={`/commons-project/${item.projectID}`}
+        />
       </Card>
     );
   }
 
   return (
-    <Card
-      variant="elevated"
-      className=" hover:border-secondary hover:border-2"
-      onClick={() => onDetailClick && onDetailClick()}
-    >
+    <Card variant="elevated" className={CARD_CLASSNAME}>
       <FileCardContent file={item} onDetailClick={onDetailClick} />
     </Card>
   );

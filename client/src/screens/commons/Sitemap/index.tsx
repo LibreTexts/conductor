@@ -108,6 +108,7 @@ const CommonsSitemap = () => {
                   target={item.external ? "_blank" : undefined}
                   rel={item.external ? "noopener noreferrer" : undefined}
                   external={item.external}
+                  underline="always"
                 >
                   {item.label}
                 </Link>

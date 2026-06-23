@@ -2,17 +2,24 @@ import { Author } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import CardMetaWIcon from "../../../util/CardMetaWIcon";
 import { Card, Heading, Link, Stack } from "@libretexts/davis-react";
+import { Link as RouterLink } from "react-router-dom";
 
 interface AuthorCardContentProps {
   author: Author;
+  linkTo: string;
 }
 
-const AuthorCardContent: React.FC<AuthorCardContentProps> = ({ author }) => {
+const AuthorCardContent: React.FC<AuthorCardContentProps> = ({
+  author,
+  linkTo,
+}) => {
   return (
     <Card.Body>
       <Stack direction="vertical" gap="sm" className="py-4">
         <Heading level={2} className="line-clamp-2 !text-2xl">
-          {truncateString(author.name, 100)}
+          <RouterLink to={linkTo} className="commons-card-title-link">
+            {truncateString(author.name, 100)}
+          </RouterLink>
         </Heading>
         {(author.companyName || author.programName) && (
           <CardMetaWIcon icon="university">
@@ -29,8 +36,7 @@ const AuthorCardContent: React.FC<AuthorCardContentProps> = ({ author }) => {
                 target="_blank"
                 rel="noreferrer"
                 external
-                className="break-all"
-                onClick={(e) => e.stopPropagation()}
+                className="break-all commons-card-inline-link"
               >
                 {truncateString(author.nameURL, 35)}
               </Link>

@@ -123,6 +123,21 @@ a:hover {
 }
 
 /*
+  Restore resting-state underlines for Davis Link's underline="always" variant.
+  Davis emits Tailwind's `.underline` utility, which lives inside @layer and so
+  loses to Semantic UI's unlayered `a { text-decoration: none }` regardless of
+  specificity. The link therefore only underlines on hover (via the revert-layer
+  rule above), making underline="always" indistinguishable from underline="hover".
+  This unlayered rule (specificity 0,1,1) beats Semantic UI's `a` reset (0,0,1)
+  and reinstates the persistent underline SC 1.4.1 depends on. Placed after the
+  a:hover override so always-underlined links stay underlined in every state.
+  This can be removed when Semantic UI is removed entirely.
+*/
+a.underline {
+  text-decoration-line: underline;
+}
+
+/*
   Override Semantic UI's unlayered `a { background-color: transparent }` for
   the Davis SkipLink. Tailwind v4's `focus:bg-primary` utility is layered, so
   Semantic UI's unlayered anchor reset wins, leaving the focused SkipLink with

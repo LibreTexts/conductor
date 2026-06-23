@@ -1,4 +1,5 @@
 import { Icon } from "semantic-ui-react";
+import { Link } from "react-router-dom";
 import { Book } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import { getLibGlyphAltText, getLibGlyphURL } from "../../../util/LibraryOptions";
@@ -7,9 +8,10 @@ import PausableImage from "../../../util/PausableImage";
 
 interface BookCardContentProps {
   book: Book;
+  linkTo: string;
 }
 
-const BookCardContent: React.FC<BookCardContentProps> = ({ book }) => {
+const BookCardContent: React.FC<BookCardContentProps> = ({ book, linkTo }) => {
   const buildAssetString = () => {
     let assetString = "";
     if (book.publicAssets) {
@@ -48,7 +50,9 @@ const BookCardContent: React.FC<BookCardContentProps> = ({ book }) => {
       <Card.Body>
         <Stack direction="vertical" gap="sm" className="py-4">
           <Heading level={2} className="line-clamp-2 !text-2xl">
-            {book.title}
+            <Link to={linkTo} className="commons-card-title-link">
+              {book.title}
+            </Link>
           </Heading>
           <Text size="base" className="line-clamp-2">
             {book.author}

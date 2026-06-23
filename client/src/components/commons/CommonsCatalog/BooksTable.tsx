@@ -1,9 +1,9 @@
 import { Book } from "../../../types";
 import { getLibGlyphURL } from "../../util/LibraryOptions";
 import { Link } from "react-router-dom";
-import { DataTable } from "@libretexts/davis-react-table";
 import type { ColumnDef, DataTableProps } from "@libretexts/davis-react-table";
 import { Avatar } from "@libretexts/davis-react";
+import AccessibleDataTable from "./AccessibleDataTable";
 
 interface BooksTableProps extends DataTableProps<Book> {
   items: Book[];
@@ -54,7 +54,13 @@ const BooksTable: React.FC<BooksTableProps> = ({
 }) => {
 
   return (
-    <DataTable<Book> data={items} columns={columns} loading={loading} density="compact" />
+    <AccessibleDataTable<Book>
+      data={items}
+      columns={columns}
+      loading={loading}
+      rowHeaderColumnId="title"
+      caption="Books search results"
+    />
   )
 };
 
