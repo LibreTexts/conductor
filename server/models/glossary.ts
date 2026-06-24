@@ -16,7 +16,7 @@ const GlossarySchema = new Schema<GlossaryInterface>(
         },
         definition: {
             type: String,
-            required: true,
+            required: false,
         },
         slug: {
             type: String,

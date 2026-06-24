@@ -4091,20 +4091,20 @@ const validate = (method) => {
 const getProjectToc = async (req, res) => {
   try {
     const projectID = req.params.projectID;
-    
+    const { uuid: userID } = req.user.decoded;
+    const user = await User.findOne({ uuid: userID }).orFail();
     const project = await Project.findOne({ projectID :{$eq: projectID}}).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
       });
+    } 
+    const canAccess = checkProjectMemberPermission(project, user);
+    if (!canAccess && !isSuperAdmin) {
+      throw new Error(conductorErrors.err8);
     }
-    if(!checkProjectMemberPermission(project, req.user)) {
-      return res.status(403).send({
-        err: true,
-        errMsg: conductorErrors.err11,
-      });
-    }
+    
     if(isEmptyString(project.libreLibrary) || isEmptyString(project.libreCoverID)) {
       return res.status(400).send({
         err: true,

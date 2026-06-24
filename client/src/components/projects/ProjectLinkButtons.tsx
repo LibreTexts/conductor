@@ -57,34 +57,40 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             </Button>
           )}
           {(projectLink || validWorkbench) && (
-            <Popup
-              content={
-                validWorkbench
-                  ? "This link will take you to the book's page in the LibreTexts libraries."
-                  : projectLink
-                  ? "This link will take you to the project's linked URL. This may be a book in the LibreTexts library or a third-party resource."
-                  : "This project does not have a linked URL."
-              }
-              trigger={
-                <Button
-                  onClick={() =>
-                    validWorkbench
-                      ? window.open(
-                          buildLibraryPageGoURL(libreLibrary, libreCoverID),
-                          "_blank"
-                        )
-                      : projectLink
-                      ? window.open(normalizeURL(projectLink ?? ""), "_blank")
-                      : ""
-                  }
-                  color="blue"
-                  size="small"
-                >
-                  Open Project Link
-                  <Icon name="external alternate" className="!ml-2" />
-                </Button>
-              }
-            />
+            <>
+              <Popup
+                content={
+                  validWorkbench
+                    ? "This link will take you to the book's page in the LibreTexts libraries."
+                    : projectLink
+                      ? "This link will take you to the project's linked URL. This may be a book in the LibreTexts library or a third-party resource."
+                      : "This project does not have a linked URL."
+                }
+                trigger={
+                  <Button
+                    onClick={() =>
+                      validWorkbench
+                        ? window.open(
+                            buildLibraryPageGoURL(libreLibrary, libreCoverID),
+                            "_blank",
+                          )
+                        : projectLink
+                          ? window.open(
+                              normalizeURL(projectLink ?? ""),
+                              "_blank",
+                            )
+                          : ""
+                    }
+                    color="blue"
+                    size="small"
+                  >
+                    Open Project Link
+                    <Icon name="external alternate" className="!ml-2" />
+                  </Button>
+                }
+              />
+             
+            </>
           )}
           {hasCommonsBook && libreCoverID && libreLibrary && (
             <Popup
@@ -94,7 +100,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                   onClick={() =>
                     window.open(
                       buildCommonsUrl(libreLibrary, libreCoverID),
-                      "_blank"
+                      "_blank",
                     )
                   }
                   color="blue"
@@ -126,7 +132,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
           {(validWorkbench || hasCommonsBook) &&
             libreCoverID &&
             libreLibrary &&
-            isProjectMemberOrAdmin && (
+            isProjectMemberOrAdmin && (<>
               <Popup
                 content="This link will open the book in the LibreTexts OER Remixer."
                 trigger={
@@ -137,9 +143,9 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                           libreLibrary ?? "chem",
                           libreLibrary && libreCoverID
                             ? buildLibraryPageGoURL(libreLibrary, libreCoverID)
-                            : ""
+                            : "",
                         ),
-                        "_blank"
+                        "_blank",
                       )
                     }
                     color="blue"
@@ -150,6 +156,15 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                   </Button>
                 }
               />
+              <Button
+              onClick={() =>
+                window.open(`/glossary/${projectID}/project`, "_blank")
+              }
+              color="blue"
+              size="small"
+            >
+              Glossary Manager
+            </Button></>
             )}
           {projectID && projectTitle && (
             <CreateWorkbenchModal

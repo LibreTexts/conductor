@@ -60,6 +60,7 @@ import * as BookValidators from "./api/validators/book.js";
 import * as UserValidators from "./api/validators/user.js";
 import * as ProjectInvitationValidators from "./api/validators/project-invitations.js";
 import * as ShapeshiftValidators from "./api/validators/shapeshift.js";
+import { read } from "node:fs";
 
 const corsMiddleware = cors({
   origin(origin, callback) {
@@ -81,7 +82,7 @@ const corsMiddleware = cors({
       if (process.env.DEVELOPMENTURLS) {
         allowedOrigins = String(process.env.DEVELOPMENTURLS).split(",").map((url) => url.trim());
       } else {
-        allowedOrigins = ["http://localhost:5000"];
+        allowedOrigins = ["http://localhost:5000","http://localhost:5500"];
       }
     }
 
@@ -1174,6 +1175,16 @@ router.route("/commons/book/:library/:coverID/glossary")
     middleware.validateZod(BookValidators.addWithCoverIDParamSchema),
     booksAPI.addBookGlossary
   )
+  // read from cxone glossary and add to glossary usage
+  // glossary page id is in the body
+  .patch(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    (req, res, next)=>{console.log("-----------------addPageToGlossaryUsage", req.body, req.params); next()},
+
+    middleware.validateZod(BookValidators.readFromCxOneGlossaryAndAddToGlossaryUsageSchema),
+    booksAPI.addExternalGlossaryToGlossaryUsage
+  )
   // add page to glossary usage
   .put(
     authAPI.verifyRequest,
@@ -1208,7 +1219,6 @@ router.route("/commons/book/:library/:coverID/glossary")
     booksAPI.getGlossaryPage
   )
   .get(
-    
     middleware.validateZod(BookValidators.getWithPageIDParamAndLibraryParamSchema),
     booksAPI.getGlossaryDetails
   );

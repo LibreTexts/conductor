@@ -26,6 +26,8 @@ export interface GlossaryUsageInterface extends Document {
   termID: string;
   term: string;
   definition: string;
+  aliases?: { termID: string; term: string }[];
+  author?: string;
   updatedAt: Date;
   bookID?: string;
   coverID: number;
@@ -37,6 +39,9 @@ export interface GlossaryUsageInterface extends Document {
   caption?: string;
   link?: string;
   source?: string;
+  imageSource?: string;
+  imageAuthor?: string;
+  imageLicense?: string;
 }
 
 const GlossaryUsageSchema = new Schema<GlossaryUsageInterface>({
@@ -71,7 +76,7 @@ const GlossaryUsageSchema = new Schema<GlossaryUsageInterface>({
     required: true,
   },
   updatedAt: { type: Date, required: true, default: Date.now },
-  glossaryID: {type: String, required: false, default: ""},
+  glossaryID: { type: String, required: false, default: "" },
   imageFile: {
     type: new Schema<GlossaryImageFile>(
       {
@@ -87,6 +92,23 @@ const GlossaryUsageSchema = new Schema<GlossaryUsageInterface>({
   caption: { type: String, required: false },
   link: { type: String, required: false },
   source: { type: String, required: false },
+  imageSource: { type: String, required: false },
+  imageAuthor: { type: String, required: false },
+  imageLicense: { type: String, required: false },
+  author: { type: String, required: false },
+  aliases: {
+    type: [
+      new Schema<{ termID: string; term: string }>(
+        {
+          termID: { type: String, required: true },
+          term: { type: String, required: true },
+        },
+        { _id: false },
+      ),
+    ],
+    required: false,
+    default: undefined,
+  },
 });
 
 const GlossaryUsage = model<GlossaryUsageInterface>(
