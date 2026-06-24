@@ -21,6 +21,7 @@ type GlossaryTermAutocompleteProps<
   rules?: RegisterOptions<TFieldValues, TName>;
   label?: string;
   placeholder?: string;
+  onSelect?: (value: string) => void;
 };
 
 const GlossaryTermAutocomplete = <
@@ -32,6 +33,7 @@ const GlossaryTermAutocomplete = <
   rules,
   label = "Term",
   placeholder = "Search glossary terms...",
+  onSelect,
 }: GlossaryTermAutocompleteProps<TFieldValues, TName>) => {
   return (
     <Controller
@@ -44,8 +46,10 @@ const GlossaryTermAutocomplete = <
           value={typeof value === "string" ? value : ""}
           onChange={onChange}
           onBlur={onBlur}
+          onSelect={onSelect}
           label={label}
           placeholder={placeholder}
+          required={!!rules?.required}
           error={!!error}
           errorMessage={error?.message}
         />
@@ -59,8 +63,10 @@ type GlossaryTermAutocompleteFieldProps = {
   value: string;
   onChange: (value: string) => void;
   onBlur: () => void;
+  onSelect?: (value: string) => void;
   label: string;
   placeholder: string;
+  required?: boolean;
   error: boolean;
   errorMessage?: string;
 };
@@ -70,8 +76,10 @@ const GlossaryTermAutocompleteField = ({
   value,
   onChange,
   onBlur,
+  onSelect,
   label,
   placeholder,
+  required,
   error,
   errorMessage,
 }: GlossaryTermAutocompleteFieldProps) => {
@@ -114,12 +122,13 @@ const GlossaryTermAutocompleteField = ({
     setQuery(term);
     onChange(term);
     setIsOpen(false);
+    onSelect?.(term);
   };
 
   return (
     <div className="relative">
       <label className="block text-sm/6 font-medium text-gray-900">
-        {label}*
+        {label}{required ? "*" : ""}
       </label>
       <div className="relative mt-2">
         <input
@@ -138,18 +147,25 @@ const GlossaryTermAutocompleteField = ({
               : "outline-gray-300 focus:outline-indigo-600"
           )}
           onChange={(event) => handleInputChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              const trimmed = query.trim();
+              if (trimmed) handleSelect(trimmed);
+            }
+          }}
           onFocus={() => setIsOpen(true)}
           onBlur={() => {
             window.setTimeout(() => setIsOpen(false), 150);
             onBlur();
           }}
         />
-        {isLoading && (
+        {/* {isLoading && (
           <IconLoader2
             className="pointer-events-none absolute right-3 top-1/2 size-5 -translate-y-1/2 animate-spin text-gray-400"
             aria-hidden="true"
           />
-        )}
+        )} */}
       </div>
 
       {errorMessage && (

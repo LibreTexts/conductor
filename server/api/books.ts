@@ -92,6 +92,7 @@ import {
   getWithPageIDParamAndLibraryParamSchema,
   getWithUsageIDParamSchema,
   addPageWithCoverIDParamSchema,
+  readFromCxOneGlossaryAndAddToGlossaryUsageSchema,
 } from "./validators/book.js";
 import BookService from "./services/book-service.js";
 import { normalizedSort } from "../util/searchutils.js";
@@ -101,6 +102,7 @@ import PressbooksImportJob from "../models/pressbooksimportjob.js";
 import base62 from "base62-random";
 import Glossary from "../models/glossary.js";
 import GlossaryService from "./services/glossary-service.js";
+
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   _id: 0,
@@ -3146,8 +3148,27 @@ async function getBookGlossary(
 ) {
   try {
     const { coverID, library } = req.params;
-
     const glossaryService = new GlossaryService();
+    const project = await glossaryService.getProject({
+      coverID: coverID.toString(),
+      library,
+    });
+    const { uuid: userID } = req.user.decoded;
+
+    const user = await User.findOne({ uuid: userID }).orFail();
+    const isSuperAdmin = authAPI.checkHasRole(
+      req.user,
+      "libretexts",
+      "superadmin",
+      true,
+    );
+    if (!project && !isSuperAdmin) {
+      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
+    }
+    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
+    if (!canAccess && !isSuperAdmin) {
+      throw new Error(conductorErrors.err8);
+    }
 
     const glossary = await glossaryService.getGlossary({
       coverID: coverID.toString(),
@@ -3166,9 +3187,28 @@ async function addBookGlossary(
   res: Response,
 ) {
   try {
-    const { term, definition, pageId, bookId, altText, caption, link, source } = req.body;
+    const { term, definition, pageId, bookId, altText, caption, link, source, imageSource, imageAuthor, imageLicense, aliases, author } = req.body;
     const { coverID, library } = req.params;
     const glossaryService = new GlossaryService();
+    const project = await glossaryService.getProject({
+      coverID: coverID.toString(),
+      library,
+    });
+    const { uuid: userID } = req.user.decoded;
+    const user = await User.findOne({ uuid: userID }).orFail();
+    const isSuperAdmin = authAPI.checkHasRole(
+      req.user,
+      "libretexts",
+      "superadmin",
+      true,
+    );
+    if (!project && !isSuperAdmin) {
+      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
+    }
+    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
+    if (!canAccess && !isSuperAdmin) {
+      throw new Error(conductorErrors.err8);
+    }
     const termID = await glossaryService.addGlossary({
       term: term.trim(),
       definition: definition.trim(),
@@ -3180,8 +3220,13 @@ async function addBookGlossary(
       imageFile: req.file,
       altText: altText?.trim() || undefined,
       caption: caption?.trim() || undefined,
+      aliases: aliases?.split(",").map((alias) => alias.trim()) || undefined,
+      author: author?.trim() || undefined,
       link: link?.trim() || undefined,
       source: source?.trim() || undefined,
+      imageSource: imageSource?.trim() || undefined,
+      imageAuthor: imageAuthor?.trim() || undefined,
+      imageLicense: imageLicense?.trim() || undefined,
     });
     return res.send({ err: false, pageId, termID });
   } catch (err) {
@@ -3198,6 +3243,25 @@ async function addPageToGlossaryUsage(
     const { pageIds, usageIds } = req.body;
     const { coverID, library } = req.params;
     const glossaryService = new GlossaryService();
+    const project = await glossaryService.getProject({
+      coverID: coverID.toString(),
+      library,
+    });
+    const { uuid: userID } = req.user.decoded;
+    const user = await User.findOne({ uuid: userID }).orFail();
+    const isSuperAdmin = authAPI.checkHasRole(
+      req.user,
+      "libretexts",
+      "superadmin",
+      true,
+    );
+    if (!project && !isSuperAdmin) {
+      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
+    }
+    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
+    if (!canAccess && !isSuperAdmin) {
+      throw new Error(conductorErrors.err8);
+    }
     await glossaryService.addPageToGlossaryUsage(pageIds, usageIds, coverID, library);
     return res.send({ err: false, msg: "Page added to glossary usage successfully." });
   } catch (err) {
@@ -3211,10 +3275,29 @@ async function deleteBookGlossary(
   res: Response,
 ) {
   const { coverID, library } = req.params;
+  const glossaryService = new GlossaryService();
+  const project = await glossaryService.getProject({
+    coverID: coverID.toString(),
+    library,
+  });
+  const { uuid: userID } = req.user.decoded;
+  const user = await User.findOne({ uuid: userID }).orFail();
+  const isSuperAdmin = authAPI.checkHasRole(
+    req.user,
+    "libretexts",
+    "superadmin",
+    true,
+  );
+  if (!project && !isSuperAdmin) {
+    return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
+  }
+  const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
+  if (!canAccess && !isSuperAdmin) {
+    throw new Error(conductorErrors.err8);
+  }
   try {
-    const glossaryService = new GlossaryService();
     await glossaryService.deleteBookGlossary({
-      coverID,
+      coverID: coverID.toString(),
       library,
     });
     return res.send({ err: false, msg: "Glossary deleted successfully." });
@@ -3231,6 +3314,22 @@ async function deleteBookGlossaryUsage(
   const { usageID, pageID } = req.params;
   try {
     const glossaryService = new GlossaryService();
+    const project = await glossaryService.getProjectByUsageID(usageID.toString());
+    const { uuid: userID } = req.user.decoded;
+    const user = await User.findOne({ uuid: userID }).orFail();
+    const isSuperAdmin = authAPI.checkHasRole(
+      req.user,
+      "libretexts",
+      "superadmin",
+      true,
+    );
+    if (!project && !isSuperAdmin) {
+      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
+    }
+    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
+    if (!canAccess && !isSuperAdmin) {
+      throw new Error(conductorErrors.err8);
+    }
     await glossaryService.deleteGlossaryUsage(  usageID, pageID);
     return res.send({ err: false, msg: "Glossary usage deleted successfully." });
   }
@@ -3240,7 +3339,7 @@ async function deleteBookGlossaryUsage(
   }
 }
 async function getGlossaryPage(
-  req: ZodReqWithUser<z.infer<typeof getWithPageIDParamAndLibraryParamSchema>>,
+  req: ZodReqWithOptionalUser<z.infer<typeof getWithPageIDParamAndLibraryParamSchema>>,
   res: Response,
 ) {
   const { pageID, library } = req.params;
@@ -3256,7 +3355,7 @@ async function getGlossaryPage(
 }
 
 async function getGlossaryDetails(
-  req: ZodReqWithUser<z.infer<typeof getWithPageIDParamAndLibraryParamSchema>>,
+  req: ZodReqWithOptionalUser<z.infer<typeof getWithPageIDParamAndLibraryParamSchema>>,
   res: Response,
 ) {
   const { pageID, library } = req.params;
@@ -3264,6 +3363,22 @@ async function getGlossaryDetails(
     const glossaryService = new GlossaryService();
     const glossaryDetails = await glossaryService.getGlossaryDetails(pageID, library);
     return res.send({err:false,...glossaryDetails})
+  }
+  catch (err) {
+    debugError(err);
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+async function addExternalGlossaryToGlossaryUsage(
+  req: ZodReqWithUser<z.infer<typeof readFromCxOneGlossaryAndAddToGlossaryUsageSchema>>,
+  res: Response,
+) {
+  try {
+  const { glossaryID } = req.body;
+  const {  library, coverID } = req.params;
+  const glossaryService = new GlossaryService();
+  await glossaryService.addExternalGlossaryToGlossaryUsage(glossaryID.toString(), coverID, library, req.user.decoded.uuid);
+  return res.send({ err: false, msg: "External glossary added to glossary usage successfully." });
   }
   catch (err) {
     debugError(err);
@@ -3358,5 +3473,6 @@ export default {
   getGlossaryDetails,
   glossaryImageUploadHandler,
   getGlossaryUsageImage,
-  addPageToGlossaryUsage
+  addPageToGlossaryUsage,
+  addExternalGlossaryToGlossaryUsage,
 };

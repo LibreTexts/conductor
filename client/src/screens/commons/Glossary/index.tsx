@@ -2,16 +2,20 @@ import React, { useMemo, useState } from "react";
 import { useParams, useRouteMatch } from "react-router-dom";
 import PageNotFound from "../../../components/util/PageNotFound";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { TableOfContents } from "../../../types/Book";
 
 import api from "../../../api";
 import { Button, Card, Grid, Link, Stack } from "@libretexts/davis-react";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus, IconTableImport } from "@tabler/icons-react";
 import TOCTreeView from "./TOCTreeView";
 import GlossaryForm from "./manager";
 import "./Glossary.css";
-import { extractLibraryFromURL, findTocNode, getPageAncestors } from "./services";
+import {
+  extractLibraryFromURL,
+  findTocNode,
+  getPageAncestors,
+} from "./services";
 import GlossaryList from "./GlossaryList";
 import { GlossaryEntry } from "./model";
 import AddPageDialog from "./AddPageDialog";
@@ -28,8 +32,6 @@ const GlossaryManager: React.FC = () => {
   });
   const bookMatch = useRouteMatch({ path: "/glossary/:id/book", exact: true });
 
-
-
   const [selectedTerms, setSelectedTerms] = useState<GlossaryEntry[]>([]);
 
   let resourceType: GlossaryResourceType | null = null;
@@ -38,8 +40,6 @@ const GlossaryManager: React.FC = () => {
   } else if (bookMatch) {
     resourceType = "book";
   }
-
- 
 
   const { data: bookTOC, isLoading: loadingTOC } = useQuery<TableOfContents>({
     queryKey: ["book-toc", id, resourceType],
@@ -80,18 +80,17 @@ const GlossaryManager: React.FC = () => {
     enabled: !!library && !!coverID,
   });
 
-
   if (!resourceType) {
     return <PageNotFound />;
   }
   const [selectedPageIds, setSelectedPageIds] = useState<string[]>([]);
   const onNodeClick = (nodeId: string) => {
-    var pageIds: string[] =[];
+    var pageIds: string[] = [];
     // show nodeId and its parents pageIds
     pageIds = getPageAncestors(bookTOC!, nodeId);
     setSelectedPageIds([...pageIds]);
     setShowAddPageModal(true);
-  }
+  };
   const handleAddTermsToPages = async () => {
     const res = await api.addGlossaryTermsToPages({
       pageIds: selectedPageIds,
@@ -114,7 +113,7 @@ const GlossaryManager: React.FC = () => {
     setShowAddPageModal(false);
     setSelectedPageIds([]);
     refetchGlossary();
-  }
+  };
 
   const glossaryID = useMemo(() => {
     if (!bookTOC) return undefined;
@@ -125,25 +124,72 @@ const GlossaryManager: React.FC = () => {
         node.url.endsWith("zz%3A_Back_Matter/20%3A_Glossary"),
     )?.id;
   }, [bookTOC]);
-  
+
+  const importGlossaryTermsMutation = useMutation({
+    mutationFn: async () => {
+      if (!glossaryID) {
+        throw new Error("No glossary ID found.");
+      }
+      const res = await api.importGlossaryTermsFromExistingGlossary({
+        library: library,
+        coverID: coverID,
+        glossaryID: glossaryID,
+      });
+      if (res.err) {
+        throw new Error(
+          res.errMsg ??
+            "Failed to import glossary terms from existing glossary.",
+        );
+      }
+    },
+    onSuccess: () => {
+      addNotification({
+        message: "Glossary terms imported from existing glossary successfully",
+        type: "success",
+      });
+      refetchGlossary();
+    },
+    onError: (error) => {
+      addNotification({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to import glossary terms from existing glossary.",
+        type: "error",
+      });
+    },
+  });
+
   return (
-    <Grid cols={2} gap="lg" className="glossary-page px-4 py-6">
-      <div className="glossary-page__column commons-glossary">
+    <Grid cols={3} gap="lg" className="glossary-page px-4 py-6">
+      <div className="glossary-page__column commons-glossary col-span-2">
         <div className="glossary-page__column-header">
           <Stack direction="horizontal" align="center" justify="between">
             <h4 className="text-2xl font-semibold">Book Glossary</h4>
-            <Button
-              size="sm"
-              onClick={() => setShowAddModal(true)}
-              icon={<IconPlus size={16} />}
-              iconPosition="left"
-            >
-              Add Term 
-            </Button>
+            <Stack direction="horizontal" gap="sm">
+              <Button
+                size="sm"
+                onClick={() => setShowAddModal(true)}
+                icon={<IconPlus size={16} />}
+                iconPosition="left"
+              >
+                Add Term
+              </Button>
+              {glossaryID && (
+                <Button
+                  size="sm"
+                  onClick={() => importGlossaryTermsMutation.mutate()}
+                  loading={importGlossaryTermsMutation.isLoading}
+                  disabled={importGlossaryTermsMutation.isLoading}
+                  icon={<IconTableImport size={16} />}
+                  iconPosition="left"
+                >
+                  Improt from existing glossary
+                </Button>
+              )}
+            </Stack>
           </Stack>
-          <p className="text-sm text-neutral-600">
-           
-          </p>
+          <p className="text-sm text-neutral-600"></p>
         </div>
         <GlossaryForm
           open={showAddModal}
@@ -198,11 +244,7 @@ const GlossaryManager: React.FC = () => {
             className="shrink-0"
           ></Stack>
           {bookTOC && bookTOC.children.length > 0 ? (
-            <TOCTreeView
-              items={bookTOC.children}
-              onNodeClick={onNodeClick}
-             
-            />
+            <TOCTreeView items={bookTOC.children} onNodeClick={onNodeClick} />
           ) : (
             <p>
               <em>Table of contents unavailable.</em>
@@ -213,7 +255,7 @@ const GlossaryManager: React.FC = () => {
       <AddPageDialog
         open={showAddPageModal}
         onClose={() => setShowAddPageModal(false)}
-        pageIds={ selectedPageIds}
+        pageIds={selectedPageIds}
         selectedTerms={selectedTerms}
         toc={bookTOC!}
         setSelectedPageIds={setSelectedPageIds}

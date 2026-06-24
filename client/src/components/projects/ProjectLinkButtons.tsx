@@ -142,7 +142,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                   onClick={() =>
                     window.open(
                       buildCommonsUrl(libreLibrary, libreCoverID),
-                      "_blank"
+                      "_blank",
                     )
                   }
                   color="blue"
@@ -200,9 +200,9 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                           libreLibrary ?? "chem",
                           libreLibrary && libreCoverID
                             ? buildLibraryPageGoURL(libreLibrary, libreCoverID)
-                            : ""
+                            : "",
                         ),
-                        "_blank"
+                        "_blank",
                       )
                     }
                     color="blue"
@@ -212,7 +212,16 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                     <Icon name="external alternate" className="!ml-2" />
                   </Button>
                 }
-              /></>
+              />
+              <Button
+              onClick={() =>
+                window.open(`/glossary/${projectID}/project`, "_blank")
+              }
+              color="blue"
+              size="small"
+            >
+              Glossary Manager
+            </Button></>
             )}
           {projectID && projectTitle && (
             <CreateWorkbenchModal

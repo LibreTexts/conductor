@@ -2412,14 +2412,22 @@ class API {
     link?: string;
     source?: string;
     glossaryID?: string;
+    author?: string;
+    imageAuthor?: string;
+    imageLicense?: string;
+    aliases?: string[];
+    imageSource?: string;
   }) {
-    const { coverID, library, imageFile, ...rest } = props;
+    const { coverID, library, imageFile, aliases, ...rest } = props;
     const formData = new FormData();
     Object.entries(rest).forEach(([key, value]) => {
       if (value !== undefined && value !== "") {
         formData.append(key, String(value));
       }
     });
+    if (aliases) {
+      formData.append("aliases", aliases.join(","));
+    }
     if (imageFile) {
       formData.append("image", imageFile);
     }
@@ -2474,6 +2482,22 @@ class API {
     return res.data;
   }
 
+  async importGlossaryTermsFromExistingGlossary(props: {
+    library: string;
+    coverID: string;
+    glossaryID: string;
+  }) {
+    const { library, coverID, glossaryID } = props;
+    const res = await axios.patch<ConductorBaseResponse>(
+      `/commons/book/${library}/${coverID}/glossary`, { glossaryID });
+    return res.data;
+  }
+  async getExistingGlossary(library: string, coverID: string) {
+    const res = await axios.put<
+      ConductorBaseResponse
+    >(`/commons/book/${library}/${coverID}/glossary/existing`);
+    return res.data;
+  }
   async removePageFromGlossary(props: {
     pageId: string;
     usageId: string;

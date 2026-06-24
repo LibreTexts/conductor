@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { checkBookIDFormat } from "../../util/bookutils.js";
+import { checkBookIDFormat, isValidLicense } from "../../util/bookutils.js";
 import conductorErrors from "../../conductor-errors.js";
 
 // Book ID format: library-pageid (e.g. "chem-123")
@@ -44,7 +44,7 @@ export const getCoverIdByUrlSchema = z.object({
             return false;
           }
         },
-        { message: "URL must be an http(s) *.libretexts.org address." }
+        { message: "URL must be an http(s) *.libretexts.org address." },
       ),
   }),
 });
@@ -99,7 +99,7 @@ export const deleteBookSchema = z.intersection(
       deleteProject: z.coerce.boolean().optional(),
     }),
   }),
-  getWithBookIDParamSchema
+  getWithBookIDParamSchema,
 );
 
 // Uses the same ID format as getWithBookIDParamSchema
@@ -170,7 +170,7 @@ export const batchGenerateAIMetadataSchema = z.object({
       {
         message:
           "At least one of 'summaries', 'tags', or 'alttext'  must be true",
-      }
+      },
     ),
 });
 
@@ -187,7 +187,7 @@ export const batchUpdateBookMetadataSchema = z.object({
         id: z.string(),
         summary: z.string().max(550).optional(), // Technically anything past 500 is truncated by MindTouch, but allow for some buffer
         tags: z.array(z.string().max(255)).max(100).optional(),
-      })
+      }),
     ),
   }),
 });
@@ -196,7 +196,7 @@ const _ReducedPageSimpleWTagsSchema = z.array(
   z.object({
     id: z.string(),
     tags: z.array(z.string()),
-  })
+  }),
 );
 
 export const bulkUpdatePageTagsSchema = z.object({
@@ -216,7 +216,7 @@ export const GeneratePageImagesAltTextSchema =
       body: z.object({
         overwrite: z.coerce.boolean(),
       }),
-    })
+    }),
   );
 
 
@@ -251,22 +251,21 @@ export const getGlossaryTermSearchSchema = z.object({
 export const getWithCoverIDParamSchema = z.object({
   params: z.object({
     coverID: z.coerce.number().int().positive().max(999999999999),
-    library:z.string().min(2).max(12),
+    library: z.string().min(2).max(12),
   }),
 });
 
 export const deleteWithCoverIDParamSchema = z.object({
   params: z.object({
     coverID: z.string(),
-    library:z.string().min(2).max(12),
+    library: z.string().min(2).max(12),
   }),
 });
-
 
 export const deleteWithUsageIDParamSchema = z.object({
   params: z.object({
     usageID: z.string().min(10).max(10),
-    pageID:  z.coerce.string().optional()
+    pageID: z.coerce.string().optional(),
   }),
 });
 
@@ -276,23 +275,29 @@ export const addWithCoverIDParamSchema = z.object({
     library: z.string().min(2).max(12),
   }),
   body: z.object({
-    term: z.string().min(1).max(50),
-    definition: z.string().min(1).max(1000),
-    pageId: z.coerce.number().int().positive().optional(),
     glossaryID: z.coerce.number().int().positive().optional(),
     bookId: z
       .string()
       .optional()
-      .refine(
-        (bookId) => bookId === undefined || checkBookIDFormat(bookId),
-        { message: conductorErrors.err1 },
-      ),
-    altText: z.string().max(500).optional(),
-    caption: z.string().max(500).optional(),
+      .refine((bookId) => bookId === undefined || checkBookIDFormat(bookId), {
+        message: conductorErrors.err1,
+      }),
+    pageId: z.coerce.number().int().positive().optional(),
+    term: z.string().min(1).max(50),
+    definition: z.string().min(1).max(1000),
+    aliases: z.string().min(0).max(500).optional(),
     link: z.string().url().optional(),
-    source: z.string().max(500).optional(),
-
-
+    source: z.string().refine(isValidLicense, {
+      message: conductorErrors.err1,
+    }).optional(),
+    author: z.string().max(500).optional(),
+    imageSource: z.string().max(500).optional(),
+    caption: z.string().max(500).optional(),
+    altText: z.string().max(500).optional(),
+    imageAuthor: z.string().max(500).optional(),
+    imageLicense: z.string().refine(isValidLicense, {
+      message: conductorErrors.err1,
+    }).optional(),
   }),
 });
 
@@ -307,10 +312,20 @@ export const addPageWithCoverIDParamSchema = z.object({
   }),
 });
 
+export const readFromCxOneGlossaryAndAddToGlossaryUsageSchema = z.object({
+  params: z.object({
+    coverID: z.string(),
+    library: z.string().min(2).max(12),
+  }),
+  body: z.object({
+    glossaryID: z.coerce.number().int().positive().max(999999999999),
+  }),
+});
+
 export const getWithPageIDParamAndLibraryParamSchema = z.object({
   params: z.object({
     pageID: z.coerce.number().int().positive().max(999999999999),
-    library:z.string().min(2).max(12),
+    library: z.string().min(2).max(12),
   }),
 });
 
