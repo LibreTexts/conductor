@@ -3529,6 +3529,7 @@ const checkProjectGeneralPermission = (project, user) => {
 
 /**
  * Checks if a user has permission to perform member-only actions on a Project.
+ * LibreTexts superadmins and support staff return true.
  * @param {Object} project - the project data object
  * @param {Object|String} user - the current user context
  * @return {Boolean} true if user has permission, false otherwise
@@ -4101,7 +4102,7 @@ const getProjectToc = async (req, res) => {
       });
     } 
     const canAccess = checkProjectMemberPermission(project, user);
-    if (!canAccess && !isSuperAdmin) {
+    if (!canAccess) {
       throw new Error(conductorErrors.err8);
     }
     
