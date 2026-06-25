@@ -65,7 +65,6 @@ import * as BookBotsValidators from "./api/validators/book-bots.js";
 
 import remixerAPI from "./api/remixer.js";
 import * as RemixerValidators from "./api/validators/remixer.js";
-import { read } from "node:fs";
 
 const corsMiddleware = cors({
   origin(origin, callback) {
@@ -1185,8 +1184,6 @@ router.route("/commons/book/:library/:coverID/glossary")
   .patch(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    (req, res, next)=>{console.log("-----------------addPageToGlossaryUsage", req.body, req.params); next()},
-
     middleware.validateZod(BookValidators.readFromCxOneGlossaryAndAddToGlossaryUsageSchema),
     booksAPI.addExternalGlossaryToGlossaryUsage
   )
@@ -1195,7 +1192,6 @@ router.route("/commons/book/:library/:coverID/glossary")
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     booksAPI.glossaryImageUploadHandler,
-    (req, res, next)=>{console.log("-----------------addPageToGlossaryUsage", req.body, req.params); next()},
     middleware.validateZod(BookValidators.addPageWithCoverIDParamSchema),
     booksAPI.addPageToGlossaryUsage
   );

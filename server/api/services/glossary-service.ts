@@ -183,8 +183,7 @@ export default class GlossaryService {
       if (!html) {
         throw new Error("No page content found");
       }
-      // console.log(html);
-      // fs.writeFileSync(path.join(__dirname, "glossary.txt"), html, "utf-8");
+
       const $ = cheerio.load(html);
 
       const tables = $("table.mt-responsive-table.mt-table-big");

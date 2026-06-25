@@ -4120,7 +4120,6 @@ const getProjectToc = async (req, res) => {
     });
   
   } catch (err) {
-    console.log('-----------------',err);
     debugError(err);
     return res.status(500).send({
       err: true,
