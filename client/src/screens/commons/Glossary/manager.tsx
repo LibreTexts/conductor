@@ -9,7 +9,7 @@ import {
   Textarea,
 } from "@libretexts/davis-react";
 import { IconPhoto, IconX } from "@tabler/icons-react";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import GlossaryTermAutocomplete from "./GlossaryTermAutocomplete";
 import { licenseOptions } from "../../../components/util/LicenseOptions";
@@ -429,7 +429,13 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
             Submit {control._formState.isSubmitting ? "..." : ""}
           </Button>
         ) : (
-          <Button type="button" onClick={() => setSelectedTab((t) => t + 1)}>
+          <Button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              setSelectedTab((t) => t + 1);
+            }}
+          >
             Next
           </Button>
         )}
