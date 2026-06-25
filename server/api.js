@@ -1238,6 +1238,8 @@ router
 router
   .route("/commons/project/:projectID/toc")
   .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
     middleware.validateZod(ProjectValidators.getWithProjectIDParamSchema),
     projectsAPI.getProjectToc
   );
