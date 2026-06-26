@@ -32,6 +32,8 @@ import {
   ProjectSearchParams,
   SupportTicket,
   TableOfContents,
+  RestackerTocEntry,
+  RestackerEntry,
   User,
   UserSearchParams,
   BaseInvitation,
@@ -2681,6 +2683,21 @@ class API {
       projectID,
     });
     return response;
+  }
+
+  async getRestackerToc(id: string) {
+    // /projects/:projectID/restacker/toc
+    const res = await axios.get<{
+      toc: TableOfContents;
+    } & ConductorBaseResponse & { status: "pending" | "completed" | "failed" }>(`/projects/${id}/restacker/toc`);
+    return res.data;
+  }
+
+  async getRestacker(id: string) {
+    const res = await axios.get<{
+      restacker: RestackerEntry[];
+    } & ConductorBaseResponse>(`/projects/${id}/restacker`);
+    return res.data;
   }
 
 

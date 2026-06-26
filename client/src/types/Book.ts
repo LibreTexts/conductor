@@ -66,6 +66,29 @@ export type TableOfContents = {
   children: TableOfContents[];
 };
 
+export type RestackerTocLicense = {
+  label: string;
+  raw: string;
+  version?: string;
+};
+
+export type RestackerTocEntry = {
+  id: string;
+  title: string;
+  url: string;
+  bookLicense?: RestackerTocLicense;
+  pageLicense?: RestackerTocLicense;
+  contentLicenses?: RestackerTocLicense[];
+  children: RestackerTocEntry[];
+};
+
+export type RestackerEntry = {
+  id: string;
+  license?: RestackerTocLicense;
+  contentLicense: RestackerTocLicense[];
+  status: "pending" | "running" | "completed" | "failed";
+};
+
 export type PageTag = {
   "@value": string;
   "@id": string;

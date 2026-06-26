@@ -92,6 +92,7 @@ import PageNotFound from './components/util/PageNotFound';
 import LibreTextsRoute from './components/util/LibreTextsRoute';
 import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
 import SupportCenterDataLoader from './providers/SupportCenterDataLoader';
+import Restacker from './components/projects/Restacker';
 
 /**
  * The project planning and internal tools system. Requires authentication to access most pages.
@@ -124,6 +125,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
           <PrivateRoute exact path='/projects/:id/ai-co-author' component={TextbookCuration} />
           <PrivateRoute exact path='/projects/:id/ai-co-author/batch' component={BatchRun} />
+          <PrivateRoute exact path='/projects/:id/restacker' component={Restacker} />
           <Route exact path='/projects/:id/analytics' component={ProjectAnalytics} /> {/* Auth handled at page level. Can be private or public*/}
           <PrivateRoute exact path='/projects/accept-invite/:id' component={AcceptProjectInviteScreen} />
           {/* <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />

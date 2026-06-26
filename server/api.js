@@ -66,6 +66,9 @@ import * as BookBotsValidators from "./api/validators/book-bots.js";
 import remixerAPI from "./api/remixer.js";
 import * as RemixerValidators from "./api/validators/remixer.js";
 
+import * as RestackerValidators from "./api/validators/Restacker.js";
+import restackerAPI from "./api/restacker.js";
+
 const corsMiddleware = cors({
   origin(origin, callback) {
     /* Build dynamic origins list */
@@ -3233,8 +3236,6 @@ router
     remixerAPI.fetchPage
   );
 
-
-
 router
   .route("/remixer/:id/publish")
   .post(
@@ -3248,5 +3249,19 @@ router
     authAPI.getUserAttributes ,
     remixerAPI.getRemixerJobStatus
   );
+
+router.route('/projects/:projectID/restacker/toc').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes ,
+  middleware.validateZod(RestackerValidators.GetRestackerPageSchema),
+  restackerAPI.getRestackerToc
+);
+
+router.route('/projects/:projectID/restacker').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes ,
+  middleware.validateZod(RestackerValidators.GetRestackerPageSchema),
+  restackerAPI.getRestacker
+);
 
 export default router;
