@@ -27,10 +27,10 @@ const GlossaryManager: React.FC = () => {
   const { addNotification } = useNotifications();
   const { id } = useParams<{ id: string }>();
   const projectMatch = useRouteMatch({
-    path: "/glossary/:id/project",
+    path: "/glossary/project/:id",
     exact: true,
   });
-  const bookMatch = useRouteMatch({ path: "/glossary/:id/book", exact: true });
+  const bookMatch = useRouteMatch({ path: "/glossary/book/:id", exact: true });
 
   const [selectedTerms, setSelectedTerms] = useState<GlossaryEntry[]>([]);
 

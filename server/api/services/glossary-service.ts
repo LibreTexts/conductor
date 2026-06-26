@@ -130,7 +130,9 @@ export default class GlossaryService {
         libreLibrary: glossary.library,
       });
       return project;
-    } catch (error) {}
+    } catch (error) {
+      throw error;
+    }
   }
   async getGlossary(params: GetGlossaryParams): Promise<GetGlossaryResponse[]> {
     try {
@@ -186,7 +188,7 @@ export default class GlossaryService {
 
       const $ = cheerio.load(html);
 
-      const tables = $("table.mt-responsive-table.mt-table-big");
+      const tables = $("table.mt-responsive-table");
       // The first table is the example/directions template; the data table is captioned "Glossary Entries"
       const targetTable =
         tables
@@ -479,7 +481,7 @@ export default class GlossaryService {
       throw error;
     }
   }
-  private async _generateSlug(term: string): Promise<string> {
+  private  _generateSlug(term: string): string {
     return term.toLowerCase().replace(/ /g, "-");
   }
 
@@ -501,7 +503,7 @@ export default class GlossaryService {
       // generate a new termID
       const termID = base62(10);
       // generate a new slug
-      const slug = await this._generateSlug(term);
+      const slug = this._generateSlug(term);
       const glossary = await Glossary.create({
         term,
         slug,

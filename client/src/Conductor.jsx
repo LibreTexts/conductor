@@ -161,8 +161,8 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/store/orders/:order_id' component={StoreManagerOrderView} />
           <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
           <PrivateRoute exact path='/remixer/:id' component={RemixerDashboard} />
-          <PrivateRoute exact path='/glossary/:id/book' component={GlossaryManager} />
-          <PrivateRoute exact path='/glossary/:id/project' component={GlossaryManager} />
+          <PrivateRoute exact path='/glossary/book/:id' component={GlossaryManager} />
+          <PrivateRoute exact path='/glossary/project/:id' component={GlossaryManager} />
           <Route exact path="/download/:projectID/:fileID" component={PermanentLinkDownload} />
           <Route exact path='/peerreview/:id' component={PeerReviewPage} />
           {/* LibreTexts org public routes */}

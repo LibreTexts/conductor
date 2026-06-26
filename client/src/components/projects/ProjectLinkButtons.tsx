@@ -215,7 +215,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
               />
               <Button
               onClick={() =>
-                window.open(`/glossary/${projectID}/project`, "_blank")
+                window.open(`/glossary/project/${projectID}`, "_blank")
               }
               color="blue"
               size="small"

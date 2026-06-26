@@ -255,23 +255,17 @@ export const getWithCoverIDParamSchema = z.object({
   }),
 });
 
-export const deleteWithCoverIDParamSchema = z.object({
-  params: z.object({
-    coverID: z.string(),
-    library: z.string().min(2).max(12),
-  }),
-});
-
 export const deleteWithUsageIDParamSchema = z.object({
   params: z.object({
     usageID: z.string().min(10).max(10),
-    pageID: z.coerce.string().optional(),
+    pageID: z.coerce.number().int().positive().max(999999999999).optional(),
   }),
 });
 
+
 export const addWithCoverIDParamSchema = z.object({
   params: z.object({
-    coverID: z.string(),
+    coverID: z.coerce.number().int().positive().max(999999999999),
     library: z.string().min(2).max(12),
   }),
   body: z.object({
@@ -303,7 +297,7 @@ export const addWithCoverIDParamSchema = z.object({
 
 export const addPageWithCoverIDParamSchema = z.object({
   params: z.object({
-    coverID: z.string(),
+    coverID: z.coerce.number().int().positive().max(999999999999),
     library: z.string().min(2).max(12),
   }),
   body: z.object({
@@ -314,7 +308,7 @@ export const addPageWithCoverIDParamSchema = z.object({
 
 export const readFromCxOneGlossaryAndAddToGlossaryUsageSchema = z.object({
   params: z.object({
-    coverID: z.string(),
+    coverID: z.coerce.number().int().positive().max(999999999999),
     library: z.string().min(2).max(12),
   }),
   body: z.object({

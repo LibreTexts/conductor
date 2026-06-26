@@ -87,7 +87,6 @@ import {
   getActivePressbooksImportJobSchema,
   addWithCoverIDParamSchema,
   getWithCoverIDParamSchema,
-  deleteWithCoverIDParamSchema,
   deleteWithUsageIDParamSchema,
   getWithPageIDParamAndLibraryParamSchema,
   getWithUsageIDParamSchema,
@@ -3215,7 +3214,7 @@ async function addBookGlossary(
       pageId,
       bookId: bookId?.trim() === "" ? undefined : bookId?.trim(),
       library: library.trim(),
-      coverID: coverID.trim(),
+      coverID: coverID.toString(),
       addedBy: req.user.decoded.uuid,
       imageFile: req.file,
       altText: altText?.trim() || undefined,
@@ -3262,7 +3261,7 @@ async function addPageToGlossaryUsage(
     if (!canAccess && !isSuperAdmin) {
       throw new Error(conductorErrors.err8);
     }
-    await glossaryService.addPageToGlossaryUsage(pageIds, usageIds, coverID, library);
+    await glossaryService.addPageToGlossaryUsage(pageIds, usageIds, coverID.toString(), library);
     return res.send({ err: false, msg: "Page added to glossary usage successfully." });
   } catch (err) {
     debugError(err);
@@ -3271,9 +3270,9 @@ async function addPageToGlossaryUsage(
 }
 
 async function deleteBookGlossary(
-  req: ZodReqWithUser<z.infer<typeof deleteWithCoverIDParamSchema>>,
+  req: ZodReqWithUser<z.infer<typeof getWithCoverIDParamSchema>>,
   res: Response,
-) {
+) { try {
   const { coverID, library } = req.params;
   const glossaryService = new GlossaryService();
   const project = await glossaryService.getProject({
@@ -3295,7 +3294,7 @@ async function deleteBookGlossary(
   if (!canAccess && !isSuperAdmin) {
     throw new Error(conductorErrors.err8);
   }
-  try {
+ 
     await glossaryService.deleteBookGlossary({
       coverID: coverID.toString(),
       library,
@@ -3306,6 +3305,7 @@ async function deleteBookGlossary(
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
+
 
 async function deleteBookGlossaryUsage(
   req: ZodReqWithUser<z.infer<typeof deleteWithUsageIDParamSchema>>,
@@ -3330,12 +3330,12 @@ async function deleteBookGlossaryUsage(
     if (!canAccess && !isSuperAdmin) {
       throw new Error(conductorErrors.err8);
     }
-    await glossaryService.deleteGlossaryUsage(  usageID, pageID);
+    await glossaryService.deleteGlossaryUsage(  usageID, pageID?.toString() || undefined);
     return res.send({ err: false, msg: "Glossary usage deleted successfully." });
   }
   catch (err) {
-    debugError(err);
-    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+   
+    return res.status(500).send({ err: true, errMsg: "Failed to delete glossary usage." });
   }
 }
 async function getGlossaryPage(
@@ -3377,7 +3377,7 @@ async function addExternalGlossaryToGlossaryUsage(
   const { glossaryID } = req.body;
   const {  library, coverID } = req.params;
   const glossaryService = new GlossaryService();
-  await glossaryService.addExternalGlossaryToGlossaryUsage(glossaryID.toString(), coverID, library, req.user.decoded.uuid);
+  await glossaryService.addExternalGlossaryToGlossaryUsage(glossaryID.toString(), coverID.toString(), library, req.user.decoded.uuid);
   return res.send({ err: false, msg: "External glossary added to glossary usage successfully." });
   }
   catch (err) {

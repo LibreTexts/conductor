@@ -333,6 +333,12 @@ export interface PublishOptions {
    * Intended for background jobs (e.g., Pressbooks imports).
    */
   log?: (message: string) => void | Promise<void>;
+  /**
+   * Optional Pressbooks application-password credentials.
+   * Required for books whose REST API is restricted to authenticated users.
+   * Generate one under Users → Your Profile → Application Passwords in Pressbooks.
+   */
+  auth?: { username: string; password: string };
 }
 
 export interface PublishResult {
@@ -431,7 +437,7 @@ export class PressBookScraper {
     this.title = title;
     this.subdomain = subdomain;
     this.pbHeaders = {
-      "User-Agent": "Scraper/1.0 (educational research)",
+      "User-Agent": "Mozilla/5.0 (compatible; LibreTexts-Conductor/1.0; +https://libretexts.org)",
       Accept: "application/json",
     };
   }
@@ -450,7 +456,7 @@ export class PressBookScraper {
       headers,
       signal: AbortSignal.timeout(30_000),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}-${res.statusText}-${res.body} for ${url}`);
     return res.json();
   }
 
@@ -667,7 +673,7 @@ export class PressBookScraper {
 
   async publishBook(options: PublishOptions): Promise<PublishResult> {
     const encodePbURL = this.pbBookURL.replace(/\/+$/, "");
-    const auth = undefined;
+    const auth = options.auth;
     const result: PublishResult = {
       err: false,
       path: "",
@@ -712,15 +718,18 @@ export class PressBookScraper {
     let metadata: any = {};
     let metadataV2: any = {};
     try {
+      const url = this.pbApi(encodePbURL) + "/metadata";
       metadata = await this.getJson(
-        this.pbApi(encodePbURL) + "/metadata",
+        url,
         auth,
       );
-    } catch {
+    } catch(e) {
+      console.error("Error fetching metadata from Pressbooks", e);
       try {
-        metadata = await this.getJson(encodePbURL + "/wp-json/", auth);
-      } catch {
-        throw new Error(conductorErrors.err8);
+        const url = encodePbURL + "/wp-json/";
+        metadata = await this.getJson(url, auth);
+      } catch(e) {
+        throw new Error("Error fetching metadata from Pressbooks");
       }
     }
 

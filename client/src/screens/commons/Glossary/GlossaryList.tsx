@@ -12,6 +12,7 @@ import { TableOfContents } from "../../../types";
 import { findTocNodeById } from "./services";
 import type { Notification } from "../../../context/NotificationContext";
 import api from "../../../api";
+import GlossaryDefinitionPreview from "./GlossaryDefinitionPreview";
 
 type GlossaryListProps = {
   entries: GlossaryEntry[];
@@ -150,7 +151,7 @@ const GlossaryList = ({
       size: 160,
       cell: ({ getValue }) => (
         <span className="block break-words whitespace-normal">
-          {String(getValue() ?? "")}
+          <GlossaryDefinitionPreview definition={String(getValue() ?? "")} />
         </span>
       ),
     },
@@ -160,7 +161,7 @@ const GlossaryList = ({
       size: 280,
       cell: ({ getValue }) => (
         <span className="block break-words whitespace-normal">
-          {String(getValue() ?? "")}
+          <GlossaryDefinitionPreview definition={String(getValue() ?? "")} />
         </span>
       ),
     },
