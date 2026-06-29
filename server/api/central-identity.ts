@@ -52,6 +52,7 @@ import { ZodReqWithUser } from "../types/Express.js";
 import CentralIdentityService from "./services/central-identity-service.js";
 import { createStandardWorkBook, generateWorkSheetColumnDefinitions } from "../util/exports.js";
 import { GetUserNotesSchema } from "./validators/user.js";
+import { upsertUserToSearchIndex, removeUserFromSearchIndex } from "./services/user-search-service.js";
 
 const centralIdentityService = new CentralIdentityService();
 
@@ -1647,6 +1648,8 @@ async function processNewUserWebhookEvent(
     });
 
     await newUser.save();
+    // Index the newly provisioned user. Fire-and-forget: never block the webhook response.
+    void upsertUserToSearchIndex(newUser.uuid);
 
     console.log("New user created from webhook: ", newUser.centralID);
 
@@ -1815,6 +1818,17 @@ async function deleteUser(
     if (deleteRes.data.err || deleteRes.data.errMsg) {
       return conductor500Err(res);
     }
+
+    // The local User document isn't deleted here (deletion is owned by LibreOne), but drop the
+    // user from the search index so they stop appearing in lookups. req.params.id is a centralID,
+    // so resolve the local uuid first. Fire-and-forget: never block the delete response.
+    void User.findOne({ centralID: { $eq: req.params.id } })
+      .then((localUser) => {
+        if (localUser?.uuid) {
+          return removeUserFromSearchIndex(localUser.uuid);
+        }
+      })
+      .catch((err) => debugError(`[central-identity] deleteUser search-index cleanup failed: ${err}`));
 
     return res.send({
       err: false,

@@ -754,13 +754,14 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                     <Table.HeaderCell width={"4"}>
                       Organization
                     </Table.HeaderCell>
+                    <Table.HeaderCell width={"3"}>Domain</Table.HeaderCell>
                     <Table.HeaderCell width={"2"}>Actions</Table.HeaderCell>
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
                   {teamUserOptsLoading && (
                     <Table.Row>
-                      <Table.Cell colSpan={3}>
+                      <Table.Cell colSpan={4}>
                         <Loader active inline="centered" />
                       </Table.Cell>
                     </Table.Row>
@@ -788,6 +789,9 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                             )}
                           </Table.Cell>
                           <Table.Cell>
+                            {item.emailDomain && <p>{item.emailDomain}</p>}
+                          </Table.Cell>
+                          <Table.Cell>
                             <Button
                               color="green"
                               className="ml-1p"
@@ -807,7 +811,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                     !hasNotSearched &&
                     teamUserOptions.length === 0 && (
                       <Table.Row>
-                        <Table.Cell colSpan={3}>
+                        <Table.Cell colSpan={4}>
                           <p className="text-center">
                             No users found. Please try another search.
                           </p>
@@ -816,7 +820,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                     )}
                   {!teamUserOptsLoading && hasNotSearched && (
                     <Table.Row>
-                      <Table.Cell colSpan={3}>
+                      <Table.Cell colSpan={4}>
                         <p className="text-center">
                           Start typing to search for users to add to the
                           project.
