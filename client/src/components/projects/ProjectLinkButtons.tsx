@@ -175,20 +175,20 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             libreCoverID &&
             libreLibrary &&
             isProjectMemberOrAdmin && (<>
-            {user.isSuperAdmin && (
-              <Popup
-                content="This link will open the book in the LibreTexts OER Remixer Version 3."
-                trigger={
-                  <Button
-                    onClick={() => window.open(`/remixer/${projectID}`, "_blank")}
-                    color="blue"
-                    size="small"
-                  >
-                    Open OER Remixer Version 3 (Admin Only)
-                    <Icon name="external alternate" className="!ml-2" />
-                  </Button>
-                }
-              />
+              {user.isSuperAdmin && (
+                <Popup
+                  content="This link will open the book in the LibreTexts OER Remixer Version 3."
+                  trigger={
+                    <Button
+                      onClick={() => window.open(`/remixer/${projectID}`, "_blank")}
+                      color="blue"
+                      size="small"
+                    >
+                      Open OER Remixer Version 3 (Admin Only)
+                      <Icon name="external alternate" className="!ml-2" />
+                    </Button>
+                  }
+                />
               )}
               <Popup
                 content="This link will open the book in the LibreTexts OER Remixer."
@@ -213,15 +213,19 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                   </Button>
                 }
               />
-              <Button
-              onClick={() =>
-                window.open(`/glossary/project/${projectID}`, "_blank")
-              }
-              color="blue"
-              size="small"
-            >
-              Glossary Manager
-            </Button></>
+              {
+                user.isSuperAdmin && (
+                  <Button
+                    onClick={() =>
+                      window.open(`/glossary/project/${projectID}`, "_blank")
+                    }
+                    color="blue"
+                    size="small"
+                  >
+                    Glossary Manager
+                  </Button>
+                )}
+            </>
             )}
           {projectID && projectTitle && (
             <CreateWorkbenchModal

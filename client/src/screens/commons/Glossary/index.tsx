@@ -184,7 +184,7 @@ const GlossaryManager: React.FC = () => {
                   icon={<IconTableImport size={16} />}
                   iconPosition="left"
                 >
-                  Improt from existing glossary
+                  Import from existing glossary
                 </Button>
               )}
             </Stack>
