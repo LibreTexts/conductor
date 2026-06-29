@@ -459,7 +459,7 @@ async function addTicketCC(
     const { email } = req.body;
     const ticketService = new SupportTicketService();
 
-    const ticket = await SupportTicket.findOne({ uuid })
+    const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } })
       .orFail()
       .populate(["assignedUsers", "user"]);
 
@@ -489,7 +489,7 @@ async function addTicketCC(
     const userUUID = req.user?.decoded.uuid;
     let foundUser;
     if (userUUID) {
-      foundUser = await User.findOne({ uuid: userUUID });
+      foundUser = await User.findOne({ uuid: { $eq: userUUID } });
     }
 
     const adder = foundUser?.uuid
@@ -534,7 +534,7 @@ async function removeTicketCC(
     const { email } = req.body;
     const ticketService = new SupportTicketService();
 
-    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+    const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
 
     // If email is not CCed, nothing to do, return the ticket
     if (
@@ -628,7 +628,7 @@ async function createTicket(
 
     let foundUser;
     if (userUUID) {
-      foundUser = await User.findOne({ uuid: userUUID }).orFail();
+      foundUser = await User.findOne({ uuid: { $eq: userUUID } }).orFail();
     }
 
     const feedEntry = _createFeedEntry_Created(
@@ -805,11 +805,11 @@ async function addTicketAttachments(
     const userUUID = req.user?.decoded.uuid;
     const ticketService = new SupportTicketService();
 
-    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+    const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
 
     let foundUploaderName = "Unknown";
     if (userUUID) {
-      const user = await User.findOne({ uuid: userUUID });
+      const user = await User.findOne({ uuid: { $eq: userUUID } });
       if (user) {
         foundUploaderName = `${user.firstName} ${user.lastName}`;
       }
@@ -881,7 +881,7 @@ async function getTicketAttachmentURL(
       throw new Error("Missing SUPPORT_FILES_CLOUDFRONT_PRIVKEY ENV variable");
     }
 
-    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+    const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
     const f = ticket.attachments?.find((a) => a.uuid === attachmentUUID);
     if (!f) {
       return res.status(404).send({
@@ -930,9 +930,9 @@ async function updateTicket(
     const { priority, status, autoCloseSilenced, category, queue } = req.body;
     const userUUID = req.user?.decoded.uuid;
 
-    const user = await User.findOne({ uuid: userUUID }).orFail();
+    const user = await User.findOne({ uuid: { $eq: userUUID } }).orFail();
 
-    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+    const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
 
     // Per-field auto-save sends one field at a time, so an omitted field means "unchanged",
     // never "set to undefined". Gate every change on the field actually being present.
@@ -1045,7 +1045,7 @@ async function updateTicket(
 
     // ticketService.updateTicket already reindexes search; re-fetch so the response reflects
     // the write (the document loaded above is now stale).
-    const updatedTicket = await SupportTicket.findOne({ uuid }).orFail();
+    const updatedTicket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
 
     return res.send({
       err: false,
@@ -1141,7 +1141,7 @@ async function createGeneralMessage(
 
     // Check if sender is a logged in user
     if (userUUID) {
-      const foundUser = await User.findOne({ uuid: userUUID });
+      const foundUser = await User.findOne({ uuid: { $eq: userUUID } });
       if (foundUser) {
         foundSenderName = `${foundUser.firstName} ${foundUser.lastName}`;
         foundSenderUUID = foundUser.uuid;
@@ -1180,7 +1180,7 @@ async function createGeneralMessage(
 
     const ticketMessage = await SupportTicketMessage.create({
       uuid: v4(),
-      ticket: ticket.uuid,
+      ticket: { $eq: ticket.uuid },
       message,
       attachments,
       senderUUID: foundSenderUUID,
@@ -1191,7 +1191,7 @@ async function createGeneralMessage(
 
     // Notify all users who have previously commented on the ticket, are assigned to the ticket, or the ticket author
     const previousCommenters = await SupportTicketMessage.find({
-      ticket: ticket.uuid,
+      ticket: { $eq: ticket.uuid },
     }).distinct("senderUUID");
 
     const allUUIDs = [
@@ -1343,11 +1343,11 @@ async function createInternalMessage(
 
     const ticketService = new SupportTicketService();
     const ticket = await ticketService.resetAutoClose(uuid);
-    const foundUser = await User.findOne({ uuid: userUUID }).orFail();
+    const foundUser = await User.findOne({ uuid: { $eq: userUUID } }).orFail();
 
     const ticketMessage = await SupportTicketMessage.create({
       uuid: v4(),
-      ticket: ticket.uuid,
+      ticket: { $eq: ticket.uuid },
       message,
       attachments,
       senderUUID: foundUser.uuid,
@@ -1356,7 +1356,7 @@ async function createInternalMessage(
     });
 
     const previousCommenters = await SupportTicketMessage.find({
-      ticket: ticket.uuid,
+      ticket: { $eq: ticket.uuid },
     }).distinct("senderUUID");
 
     const allUUIDs = [
