@@ -927,18 +927,45 @@ async function updateTicket(
   try {
     const ticketService = new SupportTicketService();
     const { uuid } = req.params;
-    const { priority, status, autoCloseSilenced } = req.body;
+    const { priority, status, autoCloseSilenced, category, queue } = req.body;
     const userUUID = req.user?.decoded.uuid;
 
     const user = await User.findOne({ uuid: userUUID }).orFail();
 
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
 
-    // If status/priority/autoClose is the same, just return the ticket
+    // Per-field auto-save sends one field at a time, so an omitted field means "unchanged",
+    // never "set to undefined". Gate every change on the field actually being present.
+    const statusChanged = status !== undefined && status !== ticket.status;
+    const priorityChanged = priority !== undefined && priority !== ticket.priority;
+    const autoCloseStatusChanged =
+      autoCloseSilenced !== undefined && autoCloseSilenced !== ticket.autoCloseSilenced;
+    const categoryChanged = category !== undefined && category !== ticket.category;
+
+    // Resolve the queue slug -> id up front so we can compare and label the feed entry.
+    let nextQueueId = ticket.queue_id;
+    let nextQueueName: string | undefined;
+    if (queue !== undefined) {
+      const queueService = new SupportQueueService();
+      const foundQueue = await queueService.getQueueBySlug(queue);
+      if (!foundQueue) {
+        return res.status(400).send({
+          err: true,
+          errMsg: conductorErrors.err11,
+        });
+      }
+      nextQueueId = foundQueue.id;
+      nextQueueName = foundQueue.ticket_descriptor || foundQueue.name;
+    }
+    const queueChanged = queue !== undefined && nextQueueId !== ticket.queue_id;
+
+    // Nothing actually changed -> return the ticket as-is (no feed entry, no write).
     if (
-      ticket.status === status &&
-      ticket.priority === priority &&
-      autoCloseSilenced === ticket.autoCloseSilenced
+      !statusChanged &&
+      !priorityChanged &&
+      !autoCloseStatusChanged &&
+      !categoryChanged &&
+      !queueChanged
     ) {
       return res.send({
         err: false,
@@ -948,7 +975,7 @@ async function updateTicket(
 
     let updatedFeed = ticket.feed;
 
-    if (ticket.status !== status) {
+    if (statusChanged) {
       // Check if status is changing to closed, if so, add a feed entry
       if (
         ["open", "assigned", "in_progress", "awaiting_requester"].includes(ticket.status) &&
@@ -977,7 +1004,7 @@ async function updateTicket(
       }
     }
 
-    if (ticket.priority !== priority) {
+    if (priorityChanged) {
       const feedEntry = ticketService._createFeedEntryPriorityChanged(
         `${user.firstName} ${user.lastName}`,
         capitalizeFirstLetter(priority || "unknown"),
@@ -985,24 +1012,44 @@ async function updateTicket(
       updatedFeed.push(feedEntry);
     }
 
-    const autoCloseStatusChanged =
-      autoCloseSilenced !== ticket.autoCloseSilenced;
+    if (categoryChanged) {
+      const feedEntry = ticketService._createFeedEntry_CategoryChanged(
+        `${user.firstName} ${user.lastName}`,
+        capitalizeFirstLetter(category || "unknown"),
+      );
+      updatedFeed.push(feedEntry);
+    }
+
+    if (queueChanged) {
+      const feedEntry = ticketService._createFeedEntry_QueueChanged(
+        `${user.firstName} ${user.lastName}`,
+        nextQueueName || "unknown",
+      );
+      updatedFeed.push(feedEntry);
+    }
 
     await ticketService.updateTicket(uuid, {
-      priority,
-      status,
       feed: updatedFeed,
-      timeClosed: status === "closed" ? new Date().toISOString() : undefined, // if status is closed, set timeClosed to now
-      autoCloseSilenced: autoCloseSilenced,
+      ...(statusChanged && { status }),
+      ...(priorityChanged && { priority }),
+      ...(categoryChanged && { category }),
+      ...(queueChanged && { queue_id: nextQueueId }),
       ...(autoCloseStatusChanged && {
+        autoCloseSilenced,
         autoCloseTriggered: false,
         autoCloseDate: null,
       }),
+      // if status is closed, set timeClosed to now
+      ...(statusChanged && status === "closed" && { timeClosed: new Date().toISOString() }),
     });
+
+    // ticketService.updateTicket already reindexes search; re-fetch so the response reflects
+    // the write (the document loaded above is now stale).
+    const updatedTicket = await SupportTicket.findOne({ uuid }).orFail();
 
     return res.send({
       err: false,
-      ticket: ticketService._removeAccessKeysFromResponse(ticket),
+      ticket: ticketService._removeAccessKeysFromResponse(updatedTicket),
     });
   } catch (err) {
     debugError(err);

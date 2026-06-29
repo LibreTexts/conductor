@@ -62,6 +62,7 @@ import {
   SupportQueueAutoAssignConfig,
   SupportQueueMetrics,
   SupportTicketPriority,
+  SupportTicketStatus,
   MasterCatalogV2Response,
   BookWithAutoMatched,
   Organization,
@@ -1940,6 +1941,22 @@ class API {
         >[];
       } & ConductorBaseResponse
     >(`/support/assignable-users`);
+  }
+
+  async updateSupportTicket(
+    ticketID: string,
+    payload: {
+      status?: SupportTicketStatus;
+      priority?: SupportTicketPriority;
+      autoCloseSilenced?: boolean;
+      category?: string;
+      queue?: string; // queue slug
+    }
+  ) {
+    return await axios.patch<{ ticket: SupportTicket } & ConductorBaseResponse>(
+      `/support/ticket/${ticketID}`,
+      payload
+    );
   }
 
   async assignSupportTicket(ticketID: string, assigned: string[]) {
