@@ -11,6 +11,7 @@ import GlossaryUsage from "../../models/glossaryusage";
 import { CXOneFetch } from "../../util/librariesclient";
 import CXOnePageAPIEndpoints from "../../util/CXOne/CXOnePageAPIEndpoints";
 import Project from "../../models/project";
+import { escapeRegEx } from "../../util/helpers";
 
 export interface AddGlossaryParams {
   glossaryID?: string;
@@ -493,7 +494,7 @@ export default class GlossaryService {
       // if term already exists, return the termID
       const existingGlossary = await Glossary.findOne({
         term: {
-          $regex: `^${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+          $regex: `^${escapeRegEx(term)}$`,
           $options: "i",
         },
       });

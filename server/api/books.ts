@@ -20,6 +20,7 @@ import {
   truncateString,
   getPaginationOffset,
   sanitizeControlCharacters,
+  escapeRegEx,
 } from "../util/helpers.js";
 import {
   deleteBookFromAPI,
@@ -3126,7 +3127,7 @@ async function getGlossaryTermSearch(req: Request, res: Response) {
   try {
     const { term } = req.query as { term: string };
     const results = await Glossary.find(
-      { term: { $regex: term, $options: "i" } },
+      { term: { $regex: escapeRegEx(term), $options: "i" } },
       { term: 1, _id: 0 },
     )
       .limit(10)
