@@ -12,6 +12,11 @@ import useDebounce from "../../hooks/useDebounce";
 interface TicketAssigneePickerProps {
   ticketId: string;
   assignedUUIDs?: string[];
+  /**
+   * The already-resolved assignee records carried on the ticket. Used to render
+   * chips in read-only mode, where the staff-roster query is never fetched.
+   */
+  assignedUsers?: AssignableUser[];
   /** When the ticket is closed, render assignees read-only. */
   disabled?: boolean;
   /** DOM id applied to the popover trigger so the header can move focus here. */
@@ -28,6 +33,7 @@ const fullName = (u: AssignableUser) => `${u.firstName} ${u.lastName}`;
 const TicketAssigneePicker: React.FC<TicketAssigneePickerProps> = ({
   ticketId,
   assignedUUIDs,
+  assignedUsers,
   disabled = false,
   triggerId = "ticket-assignee-trigger",
 }) => {
@@ -128,16 +134,23 @@ const TicketAssigneePicker: React.FC<TicketAssigneePickerProps> = ({
     !selected.includes(currentUserUUID) &&
     (assignableUsers ?? []).some((u) => u.uuid === currentUserUUID);
 
+  // In read-only mode the staff-roster query is disabled, so the editable
+  // `selectedUsers` (derived from it) is always empty. Render the assignee
+  // records carried on the ticket instead, falling back to any matched from
+  // the roster if it happens to be populated.
+  const readOnlyUsers =
+    assignedUsers && assignedUsers.length > 0 ? assignedUsers : selectedUsers;
+
   // Read-only rendering for closed tickets: avatars + names, no editing affordances.
   if (disabled) {
     return (
       <div className="flex flex-wrap items-center gap-2">
-        {selectedUsers.length === 0 ? (
+        {readOnlyUsers.length === 0 ? (
           <Text size="sm" color="muted">
             Unassigned
           </Text>
         ) : (
-          selectedUsers.map((u) => (
+          readOnlyUsers.map((u) => (
             <span
               key={u.uuid}
               className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 py-0.5 pl-0.5 pr-2"

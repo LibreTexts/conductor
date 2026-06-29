@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import DefaultLayout from "../../../components/navigation/AlternateLayout";
@@ -6,7 +6,6 @@ import { SupportTicket } from "../../../types";
 import axios from "axios";
 import TicketMessaging from "../../../components/support/TicketMessaging";
 import { useTypedSelector } from "../../../state/hooks";
-import { Dropdown, Icon, SemanticICONS } from "semantic-ui-react";
 import TicketDetails from "../../../components/support/TicketDetails";
 import TicketFeed from "../../../components/support/TicketFeed";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,7 +13,6 @@ import TicketInternalMessaging from "../../../components/support/TicketInternalM
 import TicketAttachments from "../../../components/support/TicketAttachments";
 import ConfirmDeleteTicketModal from "../../../components/support/ConfirmDeleteTicketModal";
 import api from "../../../api";
-import { capitalizeFirstLetter } from "../../../components/util/HelperFunctions";
 import TicketAutoCloseWarning from "../../../components/support/TicketAutoCloseWarning";
 import { SupportTicketPriority } from "../../../types/support";
 import { useMediaQuery } from "react-responsive";
@@ -23,8 +21,8 @@ import TicketMetadata from "../../../components/support/TicketMetadata";
 import { TicketStatusPill } from "../../../components/support/TicketInfoPill";
 import { useDocumentTitle } from "usehooks-ts";
 import AuthHelper from "../../../components/util/AuthHelper";
-import { Avatar, AvatarGroup, Button, Heading, Menu, Stack, Text } from "@libretexts/davis-react";
-import { IconCheck, IconExclamationCircle, IconRefresh, IconShield, IconUser } from "@tabler/icons-react";
+import { Button, Heading, Stack } from "@libretexts/davis-react";
+import { IconCheck, IconRefresh, IconTrash } from "@tabler/icons-react";
 
 const getIdFromURL = (url: string) => {
   if (!url) return "";
@@ -193,8 +191,8 @@ const SupportTicketView = () => {
           onClick={() => setShowDeleteModal(true)}
           loading={loading || isFetching}
           variant="destructive"
+          icon={<IconTrash size={16} />}
         >
-          <Icon name="trash" />
           Delete Ticket
         </Button>
       )}
