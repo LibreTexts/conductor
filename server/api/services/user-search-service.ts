@@ -36,8 +36,8 @@ export const userSearchIndexAggregationStages: any[] = [
       lastName: 1,
       avatar: 1,
       centralID: 1,
-      // emailDomain is filterable-only (never returned to clients) and powers the
-      // "include users outside of <org>" toggle without storing the full email.
+      // emailDomain is filterable and safe to return to clients (domain only — never the full email).
+      // It powers org scoping and helps disambiguate similarly named users with aliased accounts.
       emailDomain: {
         $let: {
           vars: {
