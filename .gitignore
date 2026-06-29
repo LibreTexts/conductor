@@ -38,3 +38,7 @@ server/temp
 .vscode
 .idea
 .claude
+
+# Agents
+agents/
+CLAUDE.md

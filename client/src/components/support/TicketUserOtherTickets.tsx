@@ -171,7 +171,7 @@ const TicketUserOtherTickets: React.FC<TicketUserOtherTicketsProps> = ({
   };
 
   return (
-    <Card variant="elevated" className="!border-blue-500">
+    <Card padding="sm" variant="default" className="!border-blue-500">
       <Card.Header>
         <Heading level={4} align="center">
           {requestorName}

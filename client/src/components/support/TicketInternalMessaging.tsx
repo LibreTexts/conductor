@@ -5,7 +5,7 @@ import axios from "axios";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import TicketCommentsContainer from "./TicketCommentsContainer";
-import { Button, Card, Heading, Stack, Text, Textarea } from "@libretexts/davis-react";
+import { Button, Card, Divider, Heading, Stack, Text, Textarea } from "@libretexts/davis-react";
 import { IconSend, IconTrash } from "@tabler/icons-react";
 
 interface TicketInternalMessagingProps {
@@ -94,7 +94,7 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
   });
 
   return (
-    <Card variant="elevated" className="!border-blue-500">
+    <Card padding="sm" variant="default" className="!border-blue-500">
       <Card.Header>
         <Heading level={4} align="center">
           Internal Comments
@@ -111,7 +111,8 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
             messages={messages}
             scope="internal"
           />
-          <div className="mt-2">
+          <Divider className="my-2" />
+          <div>
             <form onSubmit={(e) => e.preventDefault()}>
               <Textarea
                 label="Send Message"

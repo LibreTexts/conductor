@@ -721,6 +721,28 @@ export default class SupportTicketService {
         };
     };
 
+    _createFeedEntry_CategoryChanged(
+        changer: string,
+        newCategory: string,
+    ): SupportTicketFeedEntryInterface {
+        return {
+            action: `Category changed to ${newCategory}`,
+            blame: changer,
+            date: new Date().toISOString(),
+        };
+    };
+
+    _createFeedEntry_QueueChanged(
+        changer: string,
+        newQueue: string,
+    ): SupportTicketFeedEntryInterface {
+        return {
+            action: `Queue changed to ${newQueue}`,
+            blame: changer,
+            date: new Date().toISOString(),
+        };
+    };
+
     _createFeedEntry_Closed(
         closer: string,
     ): SupportTicketFeedEntryInterface {

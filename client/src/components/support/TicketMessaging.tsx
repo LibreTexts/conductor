@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTypedSelector } from "../../state/hooks";
 import TicketCommentsContainer from "./TicketCommentsContainer";
-import { Button, Card, Heading, Stack, Text, Textarea } from "@libretexts/davis-react";
+import { Button, Card, Divider, Heading, Stack, Text, Textarea } from "@libretexts/davis-react";
 import { IconSend, IconTrash } from "@tabler/icons-react";
 
 interface TicketMessagingProps {
@@ -117,11 +117,13 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
   });
 
   return (
-    <Card variant="elevated">
+    <Card padding="sm" variant="default">
       <Card.Header>
-        <Heading level={4} align="center">
-          Ticket Comments
-        </Heading>
+        <Stack direction="horizontal" gap="md" align="start" justify="between">
+          <Heading level={4} align="left" className="!mb-0">
+            Ticket Comments
+          </Heading>
+        </Stack>
       </Card.Header>
       <Card.Body className="py-4">
         {!user.isSupport && !user.isHarvester && (
@@ -138,7 +140,8 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
           messages={messages}
           ticket={ticket}
         />
-        <div className="mt-4">
+        <Divider className="my-4" />
+        <div>
           <form onSubmit={(e) => e.preventDefault()}>
             <Textarea
               label="Send Message"
@@ -167,8 +170,10 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
               </Stack>
               <Stack direction="horizontal" gap="sm" className="mt-2 md:mt-0" justify="end" align="end">
                 <Button
+                  variant="outline"
                   icon={<IconTrash size={18} />}
-                  onClick={() => setValue("message", "")}>
+                  onClick={() => setValue("message", "")}
+                >
                   Clear
                 </Button>
                 <Button

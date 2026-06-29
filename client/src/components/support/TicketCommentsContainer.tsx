@@ -1,6 +1,7 @@
 import { forwardRef, useImperativeHandle, useRef } from "react";
 import { SupportTicket, SupportTicketMessage } from "../../types";
 import TicketComment from "./TicketComment";
+import { Text } from "@libretexts/davis-react";
 
 interface _GeneralMessagingProps {
   scope: "general";
@@ -42,7 +43,7 @@ const TicketCommentsContainer = forwardRef(
 
     return (
       <div
-        className="flex flex-col mt-1 border border-gray-300 divide-y divide-gray-300 rounded-md min-h-44 max-h-screen xl:max-h-96 2xl:max-h-[42rem] overflow-y-auto"
+        className="flex flex-col divide-y divide-gray-200 min-h-44 max-h-screen xl:max-h-96 2xl:max-h-[42rem] overflow-y-auto"
         ref={commentsContainer}
         {...props}
       >
@@ -59,9 +60,9 @@ const TicketCommentsContainer = forwardRef(
           />
         )}
         {(!messages || messages?.length === 0) && (
-          <p className="text-lg text-center text-gray-500 italic mt-1">
-            No {scope === "general" ? "user" : ""} comments yet...
-          </p>
+          <Text align="center" className="mt-2">
+            No {scope === "general" ? "user" : "staff"} comments yet...
+          </Text>
         )}
         {messages?.map((msg) => (
           <TicketComment key={msg.uuid} msg={msg} />

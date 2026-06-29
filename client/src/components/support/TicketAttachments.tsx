@@ -102,44 +102,49 @@ const TicketAttachments: React.FC<TicketAttachmentsProps> = ({
     attachment: SupportTicketAttachment;
   }) => {
     return (
-      <div className="flex flex-row items-center mb-2">
-        <div className="flex flex-row items-center mb-4">
-          <IconFile size={24} className="text-gray-500 mr-2" />
-        </div>
-        <div className="ml-1 mb-2">
-          <p
+      <div className="flex items-start gap-3 py-2.5">
+        <span
+          aria-hidden="true"
+          className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-white"
+        >
+          <IconFile size={14} />
+        </span>
+        <div className="flex min-w-0 flex-col">
+          <button
+            type="button"
             onClick={() => getDownloadURL(attachment.uuid)}
-            className="text-blue-500 cursor-pointer"
+            className="block break-words text-left text-base font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             {attachment.name}
-          </p>
-          <p className="text-sm text-gray-500">
-            {attachment.uploadedBy} -{" "}
+          </button>
+          <Text size="sm" color="muted" className="block">
+            {attachment.uploadedBy} ·{" "}
             {format(parseISO(attachment.uploadedDate), "MM/dd/yyyy hh:mm a")}
-          </p>
+          </Text>
         </div>
       </div>
     );
   };
 
   return (
-    <Card variant="elevated">
+    <Card padding="sm" variant="default">
       <Card.Header>
-        <Stack direction="horizontal" gap="md" align="start" justify="center">
-          <Heading level={4} align="center">
+        <Stack direction="horizontal" gap="md" align="start" justify="between">
+          <Heading level={4} align="left" className="!mb-0" >
             Attachments
           </Heading>
           <IconButton
             aria-label={showUpload ? "Close attachment uploader" : "Add attachments"}
             icon={showUpload ? <IconX size={16} /> : <IconPlus size={16} />}
             variant="primary"
+            size="sm"
             onClick={() => {
               showUpload ? handleCloseUpload() : handleShowUpload();
             }}
           />
         </Stack>
       </Card.Header>
-      <Card.Body className="py-2">
+      <Card.Body className="py-4">
         {showUpload && (
           <div className="my-2">
             <FileUploader
@@ -164,16 +169,17 @@ const TicketAttachments: React.FC<TicketAttachmentsProps> = ({
             <Divider />
           </div>
         )}
-        <Stack className="mt-2">
-          {ticket.attachments?.length === 0 && (
-            <Text size="base" align="center">
-              No attachments yet...
-            </Text>
-          )}
-          {ticket.attachments?.map((a) => (
-            <AttachmentEntry attachment={a} key={crypto.randomUUID()} />
-          ))}
-        </Stack>
+        {!ticket.attachments || ticket.attachments.length === 0 ? (
+          <Text size="base" align="center" className="mt-2 block">
+            No attachments yet...
+          </Text>
+        ) : (
+          <div className="mt-2 flex flex-col divide-y divide-gray-200">
+            {ticket.attachments.map((a) => (
+              <AttachmentEntry attachment={a} key={a.uuid} />
+            ))}
+          </div>
+        )}
         <div>{loading && <LoadingSpinner />}</div>
       </Card.Body>
     </Card>

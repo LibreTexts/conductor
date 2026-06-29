@@ -22,11 +22,9 @@ import TicketUserOtherTickets from "../../../components/support/TicketUserOtherT
 import TicketMetadata from "../../../components/support/TicketMetadata";
 import { TicketStatusPill } from "../../../components/support/TicketInfoPill";
 import { useDocumentTitle } from "usehooks-ts";
-import { useModals } from "../../../context/ModalContext";
-import AssignTicketModal from "../../../components/support/AssignTicketModal";
 import AuthHelper from "../../../components/util/AuthHelper";
-import { Button, Heading, Menu, Stack } from "@libretexts/davis-react";
-import { IconCheck, IconExclamationCircle, IconRefresh, IconShield, IconUsersPlus } from "@tabler/icons-react";
+import { Avatar, AvatarGroup, Button, Heading, Menu, Stack, Text } from "@libretexts/davis-react";
+import { IconCheck, IconExclamationCircle, IconRefresh, IconShield, IconUser } from "@tabler/icons-react";
 
 const getIdFromURL = (url: string) => {
   if (!url) return "";
@@ -40,7 +38,6 @@ const SupportTicketView = () => {
   const queryClient = useQueryClient();
   const location = useLocation();
   const { handleGlobalError } = useGlobalError();
-  const { openModal, closeAllModals } = useModals();
   const user = useTypedSelector((state) => state.user);
   const isTailwindLg = useMediaQuery({ minWidth: "1024px" });
 
@@ -149,11 +146,13 @@ const SupportTicketView = () => {
       }
 
       setLoading(true);
-      const res = await axios.patch(`/support/ticket/${id}`, {
-        ...ticket,
-        autoCloseSilenced: autoCloseSilenced ?? false,
+      // Send only the field(s) being changed — the server treats omitted fields as unchanged.
+      const res = await api.updateSupportTicket(id, {
         ...(status && { status }),
-        ...(priority && { priority: priority.toLowerCase() }),
+        ...(priority && {
+          priority: priority.toLowerCase() as SupportTicketPriority,
+        }),
+        ...(autoCloseSilenced !== undefined && { autoCloseSilenced }),
       });
 
       if (res.data.err) {
@@ -182,47 +181,10 @@ const SupportTicketView = () => {
     }
   }
 
-  function handleOpenAssignModal() {
-    openModal(
-      <AssignTicketModal
-        ticketId={id}
-        open={true}
-        onCancel={() => closeAllModals()}
-        onSave={() => closeAllModals()}
-      />
-    );
-  }
-
   function handleOnDeleteTicket() {
     setShowDeleteModal(false);
     deleteTicketMutation.mutateAsync();
   }
-
-  const changePriorityOptions = useMemo(() => {
-    const allOpts = ["high", "medium", "low", "severe"];
-    const currentPriority = ticket?.priority ?? "medium";
-    const allowed = allOpts.filter((opt) => opt !== currentPriority);
-
-    const higherOrLower = (priority: SupportTicketPriority) => {
-      const priorityMap: Record<SupportTicketPriority, number> = {
-        severe: 4,
-        high: 3,
-        medium: 2,
-        low: 1,
-      };
-      return priorityMap[priority] > priorityMap[currentPriority]
-        ? "higher"
-        : "lower";
-    };
-
-    return allowed.map((opt) => ({
-      value: capitalizeFirstLetter(opt),
-      icon:
-        higherOrLower(opt as SupportTicketPriority) === "higher"
-          ? "arrow up"
-          : "arrow down",
-    }));
-  }, [ticket]);
 
   const AdminOptions = () => (
     <Stack direction="horizontal" gap="md">
@@ -239,52 +201,7 @@ const SupportTicketView = () => {
       {["open", "assigned", "in_progress", "awaiting_requester"].includes(
         ticket?.status ?? ""
       ) && (
-          <Stack direction={isTailwindLg ? "horizontal" : "vertical"} gap="md" align="start">
-            <Button
-              variant="outline"
-              onClick={() =>
-                toggleAutoCloseMutation.mutateAsync(!ticket?.autoCloseSilenced)
-              }
-              loading={loading || isFetching}
-              icon={<IconShield size={16} />}
-            >
-              {ticket?.autoCloseSilenced ? "Enable" : "Disable"} Auto-Close
-            </Button>
-            <Menu
-            >
-              <Menu.Button disabled={loading || isFetching}>
-                <IconExclamationCircle size={16} className="mr-1" />
-                {`Priority: ${capitalizeFirstLetter(
-                  ticket?.priority ?? "medium"
-                )}`}
-              </Menu.Button>
-              <Menu.Items>
-                {changePriorityOptions.map((opt) => (
-                  <Menu.Item
-                    key={opt.value}
-                    onClick={() =>
-                      updateTicketPriorityMutation.mutateAsync(
-                        opt.value as "high" | "medium" | "low"
-                      )
-                    }
-                  >
-                    <Icon name={opt.icon as SemanticICONS} />
-                    {opt.value}
-                  </Menu.Item>
-                ))}
-              </Menu.Items>
-            </Menu>
-            <Button
-              variant="tertiary"
-              onClick={() => handleOpenAssignModal()}
-              loading={loading || isFetching}
-              icon={<IconUsersPlus size={16} />}
-            >
-              {ticket?.assignedUUIDs && ticket?.assignedUUIDs?.length > 0
-                ? "Re-Assign"
-                : "Assign"}{" "}
-              Ticket
-            </Button>
+          <Stack direction={isTailwindLg ? "horizontal" : "vertical"} gap="md" align="center">
             <Button
               variant="primary"
               onClick={() => updateTicketStatusMutation.mutateAsync("closed")}

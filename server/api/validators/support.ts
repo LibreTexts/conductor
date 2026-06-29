@@ -92,6 +92,8 @@ export const UpdateTicketValidator = z
       priority: TicketPriority,
       status: TicketStatus,
       autoCloseSilenced: z.boolean().optional(),
+      category: z.string().optional(),
+      queue: z.string().min(1).optional(), // queue slug
     }),
   })
   .merge(TicketUUIDParams);

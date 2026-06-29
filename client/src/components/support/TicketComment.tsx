@@ -60,7 +60,7 @@ const TicketComment: React.FC<TicketCommentProps> = ({ msg }) => {
   }
 
   return (
-    <Comment>
+    <Comment padding="none" className="py-3.5">
       <Comment.Header
         avatar={{
           name: senderName(),

@@ -10,6 +10,13 @@ export type SupportTicketGuest = {
 
 export type SupportTicketPriority = "low" | "medium" | "high" | "severe";
 
+export type SupportTicketStatus =
+  | "open"
+  | "assigned"
+  | "in_progress"
+  | "awaiting_requester"
+  | "closed";
+
 export type SupportTicket = {
   uuid: string;
   queue_id: string;
@@ -18,7 +25,7 @@ export type SupportTicket = {
   apps?: number[]; // Central Identity app IDs
   attachments?: SupportTicketAttachment[];
   priority?: SupportTicketPriority;
-  status: "open" | "in_progress" | "closed";
+  status: SupportTicketStatus;
   category?: string;
   capturedURL?: string;
   assignedUUIDs?: string[]; // User uuids
