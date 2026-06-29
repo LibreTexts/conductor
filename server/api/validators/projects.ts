@@ -40,3 +40,9 @@ export const getTrafficAnalyticsDataBaseSchema = z.object({
     toDate: z.string().date(),
   }),
 });
+
+export const getWithProjectIDParamSchema = z.object({
+  params: z.object({
+    projectID: z.string().length(10),
+  }),
+});

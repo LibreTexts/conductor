@@ -54,6 +54,7 @@ import { getLibraryNameKeys } from './libraries.js';
 import TrafficAnalyticsService from "./services/traffic-analytics-service.js";
 import ProjectInvitation from '../models/projectinvitation.js';
 import SearchService from './services/search-service.js';
+import BookService from './services/book-service.js';
 
 const projectListingProjection = {
     _id: 0,
@@ -3528,6 +3529,7 @@ const checkProjectGeneralPermission = (project, user) => {
 
 /**
  * Checks if a user has permission to perform member-only actions on a Project.
+ * LibreTexts superadmins and support staff return true.
  * @param {Object} project - the project data object
  * @param {Object|String} user - the current user context
  * @return {Boolean} true if user has permission, false otherwise
@@ -4087,6 +4089,46 @@ const validate = (method) => {
   }
 };
 
+const getProjectToc = async (req, res) => {
+  try {
+    const projectID = req.params.projectID;
+    const { uuid: userID } = req.user.decoded;
+    const user = await User.findOne({ uuid: userID }).orFail();
+    const project = await Project.findOne({ projectID :{$eq: projectID}}).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    } 
+    const canAccess = checkProjectMemberPermission(project, user);
+    if (!canAccess) {
+      throw new Error(conductorErrors.err8);
+    }
+    
+    if(isEmptyString(project.libreLibrary) || isEmptyString(project.libreCoverID)) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const bookService = new BookService({ bookID: project.libreLibrary + '-' + project.libreCoverID });
+    const toc = await bookService.getBookTOCNew();
+    return res.send({
+      err: false,
+      toc,
+    });
+  
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
 export default {
     projectStatusOptions,
     projectVisibilityOptions,
@@ -4134,5 +4176,6 @@ export default {
     LOOKUP_PROJECT_PI_STAGES,
     syncWithSearchIndex,
     syncProjectsInBackground,
-    validate
+    validate,
+    getProjectToc
 }

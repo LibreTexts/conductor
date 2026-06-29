@@ -14,7 +14,12 @@
   --font-sans: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
   --navbar-height: 3.75rem;
+  --footer-height: 5.5rem;
+  --main-bottom-padding: 2rem;
   --height-screen-content: calc(100dvh - var(--navbar-height));
+  --height-app-viewport: calc(
+    100dvh - var(--navbar-height) - var(--footer-height) - var(--main-bottom-padding)
+  );
 
   /* Brand colors */
   --color-accent: #5F65F5;
