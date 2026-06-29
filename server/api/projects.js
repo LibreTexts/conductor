@@ -1809,55 +1809,40 @@ async function getAddableMembers(req, res) {
     let userDomain;
     if(["false", false].includes(includeOutsideOrg)){
       const user = await User.findOne({uuid: req.user.decoded.uuid}).lean().orFail();
-      userDomain = extractEmailDomain(user.email);
+      // emailDomain is stored lowercased in the index; normalize for an exact match.
+      userDomain = extractEmailDomain(user.email)?.toLowerCase();
     }
 
     const existing = constructProjectTeam(project); // don't include existing team members
 
-    let searchObj = {};
-    if (search) {
-      searchObj = {
-        $search: {
-          text: {
-            query: search,
-            path: ["firstName", "lastName", "email"],
-            fuzzy: {
-              maxEdits: 2,
-              maxExpansions: 50,
-            },
-          },
-        },
-      };
+    // Meilisearch-backed user search. System accounts and users without a centralID are
+    // excluded at index-build time, so they need no runtime filter here.
+    const filterClauses = [];
+    if (existing.length > 0) {
+      filterClauses.push({ $not: { uuid: { $in: existing } } }); // exclude current team members
     }
+    if (userDomain) {
+      filterClauses.push({ emailDomain: userDomain }); // scope to the requester's org domain
+    }
+    const filters = filterClauses.length > 0 ? { $and: filterClauses } : undefined;
 
-    const sortObj = { $sort: { firstName: -1 } }; // sort by first name if no search (otherwise, results are sorted by text score)
-    const users = await User.aggregate([
-      ...(search && [searchObj]),
+    const searchService = await SearchService.getInstance();
+    // With no query, fall back to an alphabetical listing; with a query, use relevance ranking.
+    const sort = search ? undefined : [{ field: "firstName", order: "asc" }];
+    const results = await searchService.search(
+      "users",
+      search || "",
+      filters,
+      sort,
       {
-        $match: {
-          $and: [
-            { uuid: { $nin: existing } },
-            { $expr: { $not: '$isSystem' } },
-            {centralID: {$exists: true}},
-            ...(userDomain ? [{email: {$regex: new RegExp(userDomain, 'i')}}] : []),
-          ],
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          uuid: 1,
-          centralID: 1,
-          firstName: 1,
-          lastName: 1,
-          avatar: 1,
-        },
-      },
-      ...(search ? [] : [sortObj]),
-      { $skip: (parsedPage - 1) * parsedLimit },
-      { $limit: parsedLimit },
-    ])
-
+        limit: parsedLimit,
+        offset: (parsedPage - 1) * parsedLimit,
+        // Hard-limit returned fields. emailDomain (the part after "@", never the full address)
+        // is surfaced so the UI can disambiguate similarly named users with aliased accounts.
+        attributesToRetrieve: ["uuid", "firstName", "lastName", "avatar", "centralID", "emailDomain"],
+      }
+    );
+    const users = results.hits || [];
 
     // Returns map of centralID to orgs (as {name: string} objects)
     const orgsRes = await centralIdentityAPI._getMultipleUsersOrgs(users.map(u => u.centralID)).catch((e) => {

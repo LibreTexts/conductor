@@ -16,6 +16,7 @@ import Session from "../models/session.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
 import { z } from "zod";
 import { isUUID } from "./validators/misc.js";
+import { upsertUserToSearchIndex } from "./services/user-search-service.js";
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = new TextEncoder().encode(process.env.SECRETKEY);
@@ -376,6 +377,9 @@ async function completeLogin(req: Request, res: Response) {
       }
       if (doSync) {
         await authUser.save();
+        // Keep the search index fresh after an IdP-driven name/avatar/email change.
+        // Fire-and-forget: never block or fail login on a search hiccup.
+        void upsertUserToSearchIndex(authUser.uuid);
       }
     }
 
@@ -405,6 +409,8 @@ async function completeLogin(req: Request, res: Response) {
       });
       await newUser.save();
       authUser = newUser;
+      // Index the newly provisioned user. Fire-and-forget: never block login.
+      void upsertUserToSearchIndex(newUser.uuid);
     }
 
     // Handle first login to an instance

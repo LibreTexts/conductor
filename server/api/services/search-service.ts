@@ -4,7 +4,7 @@ import { debugServer, debugError } from "../../debug";
 import Organization from "../../models/organization";
 import { FilterInput, FilterValue } from "../../types";
 
-export const INDEXES = ["books", "projects", "supportTickets"] as const;
+export const INDEXES = ["books", "projects", "supportTickets", "users"] as const;
 
 // Popular-search-terms index. Kept outside INDEXES so its (different) document shape and
 // looser typing do not leak into addDocuments/search/getIndexStats, which are tuple-typed.
@@ -31,18 +31,28 @@ export const INDEX_PRIMARY_KEYS: Record<(typeof INDEXES)[number], string> = {
   books: "bookID",
   projects: "projectID",
   supportTickets: "uuid",
+  users: "uuid",
 };
 
 export const INDEX_FILTERABLE_ATTRIBUTES = {
   books: ["bookID", "library", "license", "author", "course", "courseNormalized", "affiliation", "location", "license", "subject"],
   projects: ["status", "classification", "visibility", "orgID"],
   supportTickets: ["queue_id", "status", "priority", "category", "assignedUUIDs"],
+  users: ["uuid", "emailDomain"],
 };
 
 export const INDEX_SORTABLE_ATTRIBUTES = {
   books: ["bookID", "library", "author", "course", "courseNormalized", "affiliation", "location"],
   projects: ["status", "classification", "visibility", "orgID"],
   supportTickets: ["status", "category", "timeOpened"],
+  users: ["firstName", "lastName"],
+};
+
+// Per-index searchable-attribute overrides. Indexes absent from this map use the
+// Meilisearch default (all fields searchable). The users index opts in explicitly so a
+// query can only ever match a name — never the opaque uuid/centralID or the emailDomain.
+export const INDEX_SEARCHABLE_ATTRIBUTES: Partial<Record<(typeof INDEXES)[number], string[]>> = {
+  users: ["firstName", "lastName"],
 };
 
 export default class SearchService {
@@ -353,6 +363,13 @@ export default class SearchService {
           await foundIndex.updateSortableAttributes(sortAttrs);
         }
 
+        // Ensure searchable attributes are updated (only for indexes that opt out of
+        // the all-fields default).
+        const searchAttrs = INDEX_SEARCHABLE_ATTRIBUTES[indexName];
+        if (searchAttrs) {
+          await foundIndex.updateSearchableAttributes(searchAttrs);
+        }
+
         return foundIndex;
       }
 
@@ -364,6 +381,10 @@ export default class SearchService {
       await index.updateSortableAttributes(
         INDEX_SORTABLE_ATTRIBUTES[indexName]
       );
+      const newSearchAttrs = INDEX_SEARCHABLE_ATTRIBUTES[indexName];
+      if (newSearchAttrs) {
+        await index.updateSearchableAttributes(newSearchAttrs);
+      }
       return index;
     } catch (error: any) {
       debugServer(

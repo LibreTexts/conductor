@@ -5,6 +5,7 @@ import { conductor500Err } from "../util/errorutils.js";
 import SupportTicketService from "./services/support-ticket-service.js";
 import booksAPI from "./books.js";
 import projectsAPI from "./projects.js";
+import { syncUsersInBackground } from "./services/user-search-service.js";
 
 // Indexes valid for the reinitialize-settings endpoint. Includes search-queries
 // alongside the tuple-typed core indexes.
@@ -185,6 +186,9 @@ async function resyncIndexInBackground(indexName: typeof INDEXES[number]) {
       case "supportTickets":
         const ticketService = new SupportTicketService();
         await ticketService.syncWithSearchIndex()
+        break;
+      case "users":
+        await syncUsersInBackground();
         break;
       default:
         throw new Error(`Unknown index: ${indexName}`);

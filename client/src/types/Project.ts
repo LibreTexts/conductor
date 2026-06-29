@@ -217,6 +217,9 @@ export type AddableProjectTeamMember = Pick<
   "uuid" | "firstName" | "lastName" | "avatar"
 > & {
   orgs: { name: string }[];
+  // Email domain only (e.g. "school1.edu"), never the full address. Helps distinguish
+  // similarly named users who hold multiple aliased accounts across a district.
+  emailDomain?: string;
 };
 
 
