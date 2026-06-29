@@ -644,6 +644,7 @@ export default function ShippingPage() {
                   render={({ field }) => (
                     <Select
                       label="State / Province"
+                      placeholder="Select a state / province"
                       options={STATE_CODES.map((state) => ({
                         value: state.abbreviation,
                         label: state.name,
