@@ -1,0 +1,11 @@
+name: "Conductor CodeQL config"
+
+# Drop CodeQL/advanced-security-bot filter that consistently false-positives on all /api/v1 routes.
+# All /api/v1 routes are rate-limited globally by
+# rateLimitMiddleware (server/api.js) + floodShield (server/server.ts); CodeQL's
+# rate-limiter-flexible model only recognizes `.consume()` called inside a route
+# handler body, not rate limiting delegated to global router.use()/app.use()
+# middleware, so it false-positives on every route in server/api.js.
+query-filters:
+  - exclude:
+      id: js/missing-rate-limiting
