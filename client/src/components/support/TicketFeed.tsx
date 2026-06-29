@@ -1,6 +1,6 @@
 import { SupportTicket, SupportTicketFeedEntry } from "../../types";
 import { format, parseISO } from "date-fns";
-import { Card, Heading, IconButton, Stack, Text } from "@libretexts/davis-react";
+import { Card, Heading, Stack, Text } from "@libretexts/davis-react";
 import {
   IconActivity,
   IconAlertTriangle,

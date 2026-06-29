@@ -19,7 +19,6 @@ import {
   Listbox,
   Select,
   Stack,
-  Switch,
   Text,
 } from "@libretexts/davis-react";
 import api from "../../api";
@@ -222,6 +221,7 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
             <TicketAssigneePicker
               ticketId={ticket.uuid}
               assignedUUIDs={ticket.assignedUUIDs}
+              assignedUsers={ticket.assignedUsers}
               disabled={editDisabled}
             />
           </div>
