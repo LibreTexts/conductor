@@ -293,6 +293,7 @@ const PeerReviewSubmitPage = () => {
                       onChange={(e) => field.onChange(e.target.value)}
                       label="First Name"
                       placeholder="Enter first name..."
+                      autoComplete="given-name"
                       required
                       error={!!error}
                       errorMessage={error?.message}
@@ -312,6 +313,7 @@ const PeerReviewSubmitPage = () => {
                       onChange={(e) => field.onChange(e.target.value)}
                       label="Last Name"
                       placeholder="Enter last name..."
+                      autoComplete="family-name"
                       required
                       error={!!error}
                       errorMessage={error?.message}
@@ -338,6 +340,7 @@ const PeerReviewSubmitPage = () => {
                       label="Email"
                       type="email"
                       placeholder="Enter email..."
+                      autoComplete="email"
                       required
                       error={!!error}
                       errorMessage={error?.message}

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import {
@@ -248,6 +248,7 @@ const AdoptionReport = (props) => {
                             label="Your Email"
                             type="email"
                             placeholder="Email..."
+                            autoComplete='email'
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
@@ -258,6 +259,7 @@ const AdoptionReport = (props) => {
                             name="name"
                             label="Your Name"
                             type="text"
+                            autoComplete='name'
                             placeholder="Name..."
                             value={name}
                             onChange={(e) => setName(e.target.value)}
