@@ -1029,8 +1029,8 @@ const CommonsBook = () => {
                 {!isEmptyString(book.thumbnail) && (
                   <Stack direction="horizontal" gap="sm" align="center">
                     <IconPhoto size={16} className="inline mr-1 shrink-0" aria-hidden="true" />
-                    <DavisLink href={book.thumbnail} external target="_blank" rel="noopener noreferrer">
-                      View Thumbnail
+                    <DavisLink href={book.thumbnail} external target="_blank" rel="noopener noreferrer nofollow">
+                      Thumbnail Source
                     </DavisLink>
                   </Stack>
                 )}
