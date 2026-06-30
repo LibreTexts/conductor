@@ -17,7 +17,7 @@ import {
 } from '@libretexts/davis-react';
 
 import StarRating from './StarRating.jsx';
-import DavisLikertScale from '../../screens/commons/Book/PeerReview/DavisLikertScale';
+import DavisLikertScale from './DavisLikertScale';
 
 import { peerReviewAuthorTypes } from '../util/ProjectHelpers';
 import { isEmptyString } from '../util/HelperFunctions.js';

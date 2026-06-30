@@ -3,7 +3,7 @@ import {
   threePointLikertOptions,
   fivePointLikertOptions,
   sevenPointLikertOptions,
-} from "../../../../components/util/LikertHelpers";
+} from "../util/LikertHelpers";
 
 interface DavisLikertScaleProps {
   name: string;

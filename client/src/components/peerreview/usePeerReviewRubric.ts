@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import api from "../../../../api";
-import type { PeerReviewRubric } from "../../../../types";
+import api from "../../api";
+import type { PeerReviewRubric } from "../../types";
 
 export function usePeerReviewRubric(projectID: string | undefined) {
   return useQuery({

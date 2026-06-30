@@ -199,12 +199,8 @@ describe("PeerReviewSubmitPage", () => {
       "student"
     );
 
-    // Set star rating — both the radio input and its label share the same title,
-    // so grab all matches and find the <input> element specifically.
-    const threeStarRadio = screen
-      .getAllByTitle("3 stars")
-      .find((el) => el.tagName === "INPUT")!;
-    await user.click(threeStarRadio);
+    // The label carries the title; clicking it activates the associated radio.
+    await user.click(screen.getByTitle("3 stars"));
 
     await user.click(screen.getByRole("button", { name: /submit review/i }));
 
@@ -242,11 +238,8 @@ describe("PeerReviewSubmitPage", () => {
       "instructor"
     );
 
-    // Set star rating — same dual-title issue; find the radio <input>.
-    const fourStarRadio = screen
-      .getAllByTitle("4 stars")
-      .find((el) => el.tagName === "INPUT")!;
-    await user.click(fourStarRadio);
+    // The label carries the title; clicking it activates the associated radio.
+    await user.click(screen.getByTitle("4 stars"));
 
     await user.click(screen.getByRole("button", { name: /submit review/i }));
 

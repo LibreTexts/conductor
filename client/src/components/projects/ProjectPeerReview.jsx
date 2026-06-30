@@ -48,7 +48,6 @@ const ProjectPeerReview = (props) => {
     const [loadingData, setLoadingData] = useState(false);
     const [showDiscussion, setShowDiscussion] = useState(false);
     const [reviewSort, setReviewSort] = useState('author');
-    const [prShow, setPRShow] = useState(false);
 
     // Project Data
     const [project, setProject] = useState({});
@@ -261,15 +260,6 @@ const ProjectPeerReview = (props) => {
     const handleCloseReviewView = () => {
         setPRViewShow(false);
         setPRViewData({});
-    };
-
-
-    /**
-     * Closes the New Peer Review Modal, then refreshes the list of reviews.
-     */
-    const handleClosePeerReview = () => {
-        setPRShow(false);
-        getReviews();
     };
 
 
@@ -569,7 +559,7 @@ const ProjectPeerReview = (props) => {
                                                                 {(userProjectMember || openAccessPR) && (
                                                                     <Button
                                                                         color='green'
-                                                                        onClick={() => setPRShow(true)}
+                                                                        onClick={() => props.history.push(`/projects/${props.match.params.id}/submit-peer-review`)}
                                                                     >
                                                                         <Icon name='add' />
                                                                         New Review
@@ -967,12 +957,6 @@ const ProjectPeerReview = (props) => {
                         onClose={handleCloseRubricPreviewModal}
                         rubricID={settingsPreviewID}
                         demoView={true}
-                    />
-                    {/* New Peer Review */}
-                    <PeerReview
-                        open={prShow}
-                        onClose={handleClosePeerReview}
-                        projectID={props.match.params.id}
                     />
                     <PeerReviewView
                         open={prViewShow}

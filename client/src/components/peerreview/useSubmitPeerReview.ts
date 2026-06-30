@@ -1,10 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
-import { useHistory } from "react-router-dom";
-import api from "../../../../api";
-import useGlobalError from "../../../../components/error/ErrorHooks";
+import api from "../../api";
+import useGlobalError from "../error/ErrorHooks";
 
-export function useSubmitPeerReview(bookID: string) {
-  const history = useHistory();
+export function useSubmitPeerReview({ onSuccess }: { onSuccess: () => void }) {
   const { handleGlobalError } = useGlobalError();
 
   return useMutation({
@@ -14,7 +12,7 @@ export function useSubmitPeerReview(bookID: string) {
         handleGlobalError(res.data.errMsg);
         return;
       }
-      history.push(`/book/${bookID}`);
+      onSuccess();
     },
     onError: (err) => handleGlobalError(err),
   });
