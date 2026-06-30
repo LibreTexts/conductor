@@ -1180,7 +1180,7 @@ async function createGeneralMessage(
 
     const ticketMessage = await SupportTicketMessage.create({
       uuid: v4(),
-      ticket: { $eq: ticket.uuid },
+      ticket: ticket.uuid,
       message,
       attachments,
       senderUUID: foundSenderUUID,
@@ -1347,7 +1347,7 @@ async function createInternalMessage(
 
     const ticketMessage = await SupportTicketMessage.create({
       uuid: v4(),
-      ticket: { $eq: ticket.uuid },
+      ticket: ticket.uuid,
       message,
       attachments,
       senderUUID: foundUser.uuid,
