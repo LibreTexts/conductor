@@ -174,6 +174,7 @@ const CommonsBook = () => {
       return res.data?.toc?.children // skip first level
     },
     enabled: !!bookID,
+    retry: 2
   })
 
   // Licensing Report
