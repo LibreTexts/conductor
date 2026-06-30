@@ -40,6 +40,9 @@ export const GetAuthorByNameKeyValidator = z.object({
   params: z.object({
     key: z.string().trim().min(1).max(100),
   }),
+  query: z.object({
+    includeProjects: z.coerce.boolean().optional().default(false),
+  }).optional().default({ includeProjects: false }),
 });
 
 export const GetAuthorAssetsValidator = z.object({

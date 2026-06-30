@@ -53,7 +53,7 @@ export default class AuthorService {
         return aggRes.length > 0 ? aggRes[0] : null;
     }
 
-    public async getAuthorByNameKey(nameKey: string): Promise<AuthorInterface | null> {
+    public async getAuthorByNameKey(nameKey: string, includeProjects = false): Promise<AuthorInterface | null> {
         const aggRes = await Author.aggregate([
             {
                 $match: {
@@ -61,7 +61,20 @@ export default class AuthorService {
                     orgID: process.env.ORG_ID,
                 },
             },
-            AuthorService.LOOKUP_AUTHOR_PROJECTS_STAGE,
+            ...(includeProjects ? [AuthorService.LOOKUP_AUTHOR_PROJECTS_STAGE] : []),
+            {
+                $project: {
+                    _id: 0,
+                    nameKey: 1,
+                    name: 1,
+                    nameTitle: 1,
+                    nameURL: 1,
+                    companyName: 1,
+                    pictureURL: 1,
+                    programName: 1,
+                    ...(includeProjects ? { projects: 1 } : {}),
+                }
+            }
         ]);
         
         return aggRes.length > 0 ? aggRes[0] : null;

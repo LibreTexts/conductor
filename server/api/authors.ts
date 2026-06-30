@@ -69,7 +69,7 @@ async function getAuthorByNameKey(
   try {
     const authorService = new AuthorService();
 
-    const author = await authorService.getAuthorByNameKey(req.params.key);
+    const author = await authorService.getAuthorByNameKey(req.params.key, req.query.includeProjects);
     if (!author) {
       return res.status(404).send({
         err: true,
