@@ -35,6 +35,7 @@ import { Collection, CollectionResource } from "../../../types";
 import CollectionCard from "../../../components/Collections/CollectionCard";
 import CollectionTable from "../../../components/Collections/CollectionTable";
 import useDebounce from "../../../hooks/useDebounce";
+import { useJumpToBottom } from "../../../hooks/useJumpToBottom";
 import { checkIsCollection } from "../../../components/util/TypeHelpers";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
@@ -70,11 +71,12 @@ const CommonsCollection: React.FC<{}> = () => {
   const [itemizedMode, setItemizedMode] = useState(false);
   const [jumpToBottomClicked, setJumpToBottomClicked] = useState(false);
   const [loadingDisabled, setLoadingDisabled] = useState(false);
+  const { bottomRef, jumpToBottom: focusBottom } = useJumpToBottom();
 
   const jumpToBottom = () => {
     setLoadingDisabled(true);
     setJumpToBottomClicked(true);
-    window.scrollTo(0, document.body.scrollHeight);
+    focusBottom();
   };
 
   useEffect(() => {
@@ -484,6 +486,11 @@ const CommonsCollection: React.FC<{}> = () => {
                   </Text>
                 </div>
               )}
+
+            {/* Focus sentinel for "Jump to bottom" — keyboard activation moves
+                focus here so the next Tab continues from the bottom (SC 2.1.1 /
+                2.4.3) rather than scrolling the viewport only. */}
+            <div ref={bottomRef} tabIndex={-1} aria-label="End of results" />
           </>
         )}
       </div>

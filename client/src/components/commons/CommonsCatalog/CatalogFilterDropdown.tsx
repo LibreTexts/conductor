@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Menu } from "@libretexts/davis-react";
 import { GenericKeyTextValueObj } from "../../../types";
 import { IconFile, IconFilter, IconGavel, IconProgressCheck, IconSchool, IconTags, IconUser, IconUsers, IconWorld } from "@tabler/icons-react";
@@ -32,6 +33,7 @@ const CatalogFilterDropdown: React.FC<CatalogFilterDropdownProps> = ({
   loading,
 }) => {
   const isActive = text.includes(" - ");
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   function interceptFilterSelect(type: string, value: string) {
     if (value === "") {
@@ -47,6 +49,7 @@ const CatalogFilterDropdown: React.FC<CatalogFilterDropdownProps> = ({
           not a nested interactive element inside <Menu.Button> (SC 2.1.1). */}
       <div className="relative inline-block">
         <Menu.Button
+          ref={triggerRef}
           className={`!min-w-44 !h-[36px] !text-sm${isActive ? " !pr-8" : ""}`}
           aria-busy={loading}
           aria-label={text}
@@ -61,6 +64,10 @@ const CatalogFilterDropdown: React.FC<CatalogFilterDropdownProps> = ({
               e.stopPropagation();
               e.preventDefault();
               interceptFilterSelect(filterKey, "");
+              // Clearing flips isActive to false and unmounts this button, which
+              // would drop focus to <body>. Move focus back to the filter trigger
+              // so keyboard users keep their place (SC 2.4.3).
+              triggerRef.current?.focus();
             }}
             aria-label={`Clear ${text} filter`}
             className="absolute right-1 top-1/2 inline-flex min-h-6 min-w-6 -translate-y-1/2 items-center justify-center rounded font-bold text-gray-700 hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"

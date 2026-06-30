@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Icon, Popup } from "semantic-ui-react";
+import { Icon } from "semantic-ui-react";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import api from "../../../api";
 import VisualMode from "../../../components/commons/CommonsCatalog/VisualMode";
 import AssetsTable from "../../../components/commons/CommonsCatalog/AssetsTable";
 import { useTypedSelector } from "../../../state/hooks";
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
-import { Breadcrumb, Card, Heading, Spinner, Stack, Link } from "@libretexts/davis-react";
+import { Breadcrumb, Card, Heading, IconButton, Spinner, Stack, Link } from "@libretexts/davis-react";
 import { truncateString } from "../../../components/util/HelperFunctions";
-import { IconLink } from "@tabler/icons-react";
+import { IconArrowDown, IconLayoutGrid, IconLink, IconList, IconRefresh } from "@tabler/icons-react";
+import { useJumpToBottom } from "../../../hooks/useJumpToBottom";
 
 const ASSETS_LIMIT = 10;
 
@@ -24,6 +25,7 @@ const CommonsAuthor = () => {
   const [itemizedMode, setItemizedMode] = useState(false);
   const [jumpToBottomClicked, setJumpToBottomClicked] = useState(false);
   const [loadingDisabled, setLoadingDisabled] = useState(false);
+  const { bottomRef, jumpToBottom: focusBottom } = useJumpToBottom();
 
   // Author data
   const {
@@ -94,7 +96,7 @@ const CommonsAuthor = () => {
   const jumpToBottom = () => {
     setLoadingDisabled(true);
     setJumpToBottomClicked(true);
-    window.scrollTo(0, document.body.scrollHeight);
+    focusBottom();
   };
 
   return (
@@ -207,57 +209,53 @@ const CommonsAuthor = () => {
           <Stack direction="vertical" gap="md">
             <div className="flex flex-row justify-between items-start">
               <Heading level={2}>Assets</Heading>
-              <div>
-                <Popup
-                  trigger={
-                    <button
-                      onClick={() => {
-                        jumpToBottomClicked
-                          ? window.location.reload()
-                          : jumpToBottom();
-                      }}
-                      className="bg-slate-100 text-black border border-slate-300 rounded-md mr-2 !pl-1.5 p-1 shadow-sm hover:shadow-md"
-                      aria-label={
-                        jumpToBottomClicked
-                          ? "Refresh to continue browsing"
-                          : "Jump to bottom"
-                      }
-                    >
-                      {jumpToBottomClicked ? (
-                        <Icon name="refresh" />
-                      ) : (
-                        <Icon name="arrow down" />
-                      )}
-                    </button>
-                  }
-                  content={
+              <div className="flex items-center gap-1">
+                <IconButton
+                  variant="outline"
+                  size="sm"
+                  tooltip={
                     jumpToBottomClicked
                       ? "Refresh to continue browsing"
                       : "Jump to bottom"
                   }
-                />
-                <Popup
-                  trigger={
-                    <button
-                      onClick={() => setItemizedMode(!itemizedMode)}
-                      className="bg-slate-100 text-black border border-slate-300 rounded-md !pl-1.5 p-1 shadow-sm hover:shadow-md"
-                      aria-label={
-                        itemizedMode
-                          ? "Switch to visual mode"
-                          : "Switch to itemized mode"
-                      }
-                    >
-                      {itemizedMode ? (
-                        <Icon name="grid layout" />
-                      ) : (
-                        <Icon name="list layout" />
-                      )}
-                    </button>
+                  aria-label={
+                    jumpToBottomClicked
+                      ? "Refresh to continue browsing"
+                      : "Jump to bottom"
                   }
-                  content={
+                  onClick={() =>
+                    jumpToBottomClicked
+                      ? window.location.reload()
+                      : jumpToBottom()
+                  }
+                  icon={
+                    jumpToBottomClicked ? (
+                      <IconRefresh size={16} />
+                    ) : (
+                      <IconArrowDown size={16} />
+                    )
+                  }
+                />
+                <IconButton
+                  variant="outline"
+                  size="sm"
+                  tooltip={
                     itemizedMode
                       ? "Switch to visual mode"
                       : "Switch to itemized mode"
+                  }
+                  aria-label={
+                    itemizedMode
+                      ? "Switch to visual mode"
+                      : "Switch to itemized mode"
+                  }
+                  onClick={() => setItemizedMode(!itemizedMode)}
+                  icon={
+                    itemizedMode ? (
+                      <IconLayoutGrid size={16} />
+                    ) : (
+                      <IconList size={16} />
+                    )
                   }
                 />
               </div>
@@ -286,6 +284,11 @@ const CommonsAuthor = () => {
                   <p className="text-center font-semibold">End of results</p>
                 </div>
               )}
+
+              {/* Focus sentinel for "Jump to bottom" — keyboard activation moves
+                  focus here so the next Tab continues from the bottom (SC 2.1.1 /
+                  2.4.3) rather than scrolling the viewport only. */}
+              <div ref={bottomRef} tabIndex={-1} aria-label="End of results" />
             </div>
           </Stack >
         </div >

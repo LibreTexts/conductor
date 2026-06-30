@@ -3,6 +3,7 @@ import { Badge, IconButton, Spinner, Tabs } from "@libretexts/davis-react";
 import { CommonsModule } from "../../../types";
 import { CatalogContextValue, CatalogEntityData, useCatalog } from "../../../context/CatalogContext";
 import { useTypedSelector } from "../../../state/hooks";
+import { useJumpToBottom } from "../../../hooks/useJumpToBottom";
 import CatalogTab from "./CatalogTab";
 import BooksTable from "./BooksTable";
 import AssetsTable from "./AssetsTable";
@@ -88,10 +89,11 @@ const CatalogTabs: React.FC = () => {
   const catalog = useCatalog();
   const org = useTypedSelector((state) => state.org);
   const [itemizedMode, setItemizedMode] = useState(false);
+  const { bottomRef, jumpToBottom: focusBottom } = useJumpToBottom();
 
   const jumpToBottom = () => {
     catalog.triggerStopLoading();
-    window.scrollTo(0, document.body.scrollHeight);
+    focusBottom();
   };
 
   // Derive the ordered, enabled list of modules from org settings
@@ -197,6 +199,11 @@ const CatalogTabs: React.FC = () => {
           </Tabs.Panel>
         ))}
       </Tabs.Panels>
+
+      {/* Focus sentinel for the "Jump to bottom" control. Keyboard activation
+          moves focus here (not just the viewport) so the next Tab continues
+          from the bottom of the catalog (SC 2.1.1 / 2.4.3). */}
+      <div ref={bottomRef} tabIndex={-1} aria-label="End of results" />
     </Tabs>
   );
 };
