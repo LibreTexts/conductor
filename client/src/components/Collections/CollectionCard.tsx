@@ -1,5 +1,5 @@
 import { Collection, CollectionResource } from "../../types";
-import { useHistory } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { getLibGlyphAltText, getLibGlyphURL } from "../util/LibraryOptions";
 import { isBook as checkIsBook } from "../../utils/typeHelpers";
 import { getCollectionHref } from "../util/CollectionHelpers";
@@ -12,8 +12,6 @@ interface CollectionCardProps {
 }
 
 const CollectionCard: React.FC<CollectionCardProps> = ({ item, to }) => {
-  const history = useHistory();
-
   const getResourceData = () => {
     if ("resourceData" in item) {
       return item.resourceData;
@@ -28,8 +26,7 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ item, to }) => {
   return (
     <Card
       variant="elevated"
-      className="hover:border-secondary hover:border-2"
-      onClick={() => history.push(to || getCollectionHref(item))}
+      className="relative hover:border-secondary hover:border-2"
     >
       <div className="relative">
         <Card.Header
@@ -50,8 +47,13 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ item, to }) => {
       </div>
       <Card.Body>
         <Stack direction="vertical" gap="sm" className="py-4">
-          <Heading level={6} className="line-clamp-2">
-            {resourceData.title}
+          <Heading level={2} className="line-clamp-2 !text-2xl">
+            <Link
+              to={to || getCollectionHref(item)}
+              className="commons-card-title-link"
+            >
+              {resourceData.title}
+            </Link>
           </Heading>
           {isBook && (
             <>

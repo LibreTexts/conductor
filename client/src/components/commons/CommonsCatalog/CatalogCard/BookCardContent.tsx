@@ -9,9 +9,14 @@ import PausableImage from "../../../util/PausableImage";
 interface BookCardContentProps {
   book: Book;
   linkTo: string;
+  headingLevel?: 2 | 3;
 }
 
-const BookCardContent: React.FC<BookCardContentProps> = ({ book, linkTo }) => {
+const BookCardContent: React.FC<BookCardContentProps> = ({
+  book,
+  linkTo,
+  headingLevel = 2,
+}) => {
   const buildAssetString = () => {
     let assetString = "";
     if (book.publicAssets) {
@@ -49,7 +54,7 @@ const BookCardContent: React.FC<BookCardContentProps> = ({ book, linkTo }) => {
       </div>
       <Card.Body>
         <Stack direction="vertical" gap="sm" className="py-4">
-          <Heading level={2} className="line-clamp-2 !text-2xl">
+          <Heading level={headingLevel} className="line-clamp-2 !text-2xl">
             <Link to={linkTo} className="commons-card-title-link">
               {book.title}
             </Link>

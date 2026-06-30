@@ -13,11 +13,13 @@ import { Link as RouterLink } from "react-router-dom";
 interface ProjectCardContentProps {
   project: Project;
   linkTo: string;
+  headingLevel?: 2 | 3;
 }
 
 const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
   project,
   linkTo,
+  headingLevel = 2,
 }) => {
   const org = useTypedSelector((state) => state.org);
 
@@ -47,7 +49,7 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
       />
       <Card.Body>
         <Stack direction="vertical" gap="sm" className="py-4">
-          <Heading level={2} className="line-clamp-2 !text-2xl">
+          <Heading level={headingLevel} className="line-clamp-2 !text-2xl">
             <RouterLink to={linkTo} className="commons-card-title-link">
               {project.title}
             </RouterLink>

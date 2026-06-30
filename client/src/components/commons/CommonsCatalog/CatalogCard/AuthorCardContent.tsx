@@ -7,16 +7,18 @@ import { Link as RouterLink } from "react-router-dom";
 interface AuthorCardContentProps {
   author: Author;
   linkTo: string;
+  headingLevel?: 2 | 3;
 }
 
 const AuthorCardContent: React.FC<AuthorCardContentProps> = ({
   author,
   linkTo,
+  headingLevel = 2,
 }) => {
   return (
     <Card.Body>
       <Stack direction="vertical" gap="sm" className="py-4">
-        <Heading level={2} className="line-clamp-2 !text-2xl">
+        <Heading level={headingLevel} className="line-clamp-2 !text-2xl">
           <RouterLink to={linkTo} className="commons-card-title-link">
             {truncateString(author.name, 100)}
           </RouterLink>

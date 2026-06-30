@@ -15,11 +15,13 @@ import { Card, Heading, Stack } from "@libretexts/davis-react";
 interface FileCardContentProps {
   file: ConductorSearchResponseFile;
   onDetailClick?: () => void;
+  headingLevel?: 2 | 3;
 }
 
 const FileCardContent: React.FC<FileCardContentProps> = ({
   file,
   onDetailClick,
+  headingLevel = 2,
 }) => {
   const [loading, setLoading] = useState(false);
 
@@ -54,7 +56,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
       />
       <Card.Body>
         <Stack direction="vertical" gap="sm" className="py-4">
-          <Heading level={2} className="line-clamp-2 !text-2xl">
+          <Heading level={headingLevel} className="line-clamp-2 !text-2xl">
             <button
               type="button"
               className="commons-card-title-link"

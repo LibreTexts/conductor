@@ -256,6 +256,7 @@ const CommonsAuthor = () => {
                 items={assets}
                 loading={assetsFetching}
                 noResultsMessage="No assets found for this author."
+                headingLevel={3}
               />
               {hasMore && (
                 <div className="w-full mt-6 flex justify-center">

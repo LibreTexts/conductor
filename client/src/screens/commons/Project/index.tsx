@@ -193,7 +193,7 @@ const CommonsProject = () => {
               <Segment>
                 <div className="hiddensection">
                   <div className="header-container">
-                    <Header as="h3">Assets</Header>
+                    <Header as="h2">Assets</Header>
                   </div>
                   <div className="button-container">
                     <Button

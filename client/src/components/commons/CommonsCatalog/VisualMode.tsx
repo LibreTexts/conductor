@@ -15,6 +15,7 @@ const VisualMode = ({
   items,
   loading,
   noResultsMessage,
+  headingLevel,
 }: {
   items: (
     | Book
@@ -24,6 +25,7 @@ const VisualMode = ({
   )[];
   loading?: boolean;
   noResultsMessage?: string;
+  headingLevel?: 2 | 3;
 }) => {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<
@@ -42,6 +44,7 @@ const VisualMode = ({
             <CatalogCard
               item={item}
               key={crypto.randomUUID()}
+              headingLevel={headingLevel}
               onDetailClick={() => {
                 setSelectedItem(item);
                 setDetailModalOpen(true);

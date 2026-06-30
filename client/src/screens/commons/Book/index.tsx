@@ -774,7 +774,7 @@ const CommonsBook = () => {
     return (
       <div className={styles.clr_wrapper}>
         <div className={styles.clr_overview}>
-          <Header as="h4" className="mt-2p" dividing>
+          <Header as="h3" className="mt-2p" dividing>
             Overview
           </Header>
           <div className="commons-book-clr-overview-flex">
@@ -806,7 +806,7 @@ const CommonsBook = () => {
           {pieChartData.length > 0 && <LicensingList />}
         </div>
         <div className={styles.clr_breakdown}>
-          <Header as="h4" className="mt-2p" dividing>
+          <Header as="h3" className="mt-2p" dividing>
             <div className="flex items-center justify-between">
               <span>Breakdown</span>
               {clrChapters.length > 0 && (
@@ -1108,7 +1108,7 @@ const CommonsBook = () => {
             {!isEmptyString(book.summary) && (
               <Card padding="sm">
                 <Stack direction="vertical" gap="sm">
-                  <Heading level={3}>Summary</Heading>
+                  <Heading level={2}>Summary</Heading>
                   <Text as="p" className={styles.meta_largefont}>
                     {book.summary}
                   </Text>
@@ -1120,7 +1120,7 @@ const CommonsBook = () => {
             {projFiles && (projFiles.length > 0 || currDirectory !== "") && (
               <Card padding="sm">
                 <Stack direction="horizontal" gap="sm" align="center" justify="between">
-                  <Heading level={3}>Assets</Heading>
+                  <Heading level={2}>Assets</Heading>
                   <Button
                     variant="tertiary"
                     onClick={() => {
@@ -1296,7 +1296,7 @@ const CommonsBook = () => {
             {/* Table of Contents */}
             <Card padding="sm">
               <Stack direction="horizontal" gap="sm" align="center" justify="between">
-                <Heading level={3}>Table of Contents</Heading>
+                <Heading level={2}>Table of Contents</Heading>
               </Stack>
               {bookTOC && bookTOC.length > 0 ? (
                 <TreeView
@@ -1316,7 +1316,7 @@ const CommonsBook = () => {
             {foundCLR && (
               <Card padding="sm">
                 <Stack direction="horizontal" gap="sm" align="center" justify="between">
-                  <Heading level={3}>Licensing Stack</Heading>
+                  <Heading level={2}>Licensing Stack</Heading>
                   <Button variant="tertiary" onClick={handleChangeLicensingVis}>
                     {showLicensing ? "Hide" : "Show"}
                   </Button>
