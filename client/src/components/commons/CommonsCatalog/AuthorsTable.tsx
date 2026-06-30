@@ -1,7 +1,7 @@
 import { Author } from "../../../types";
 import { truncateString } from "../../util/HelperFunctions";
 import type { ColumnDef, DataTableProps } from "@libretexts/davis-react-table";
-import AccessibleDataTable from "./AccessibleDataTable";
+import AccessibleDataTable from "../AccessibleDataTable";
 
 interface AuthorsTableProps extends DataTableProps<Author> {
   items: Author[];

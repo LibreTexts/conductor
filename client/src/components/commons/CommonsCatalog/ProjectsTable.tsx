@@ -4,7 +4,7 @@ import { truncateString } from "../../util/HelperFunctions";
 import { getClassificationText } from "../../util/ProjectHelpers";
 import { format, parseISO } from "date-fns";
 import type { ColumnDef, DataTableProps } from "@libretexts/davis-react-table";
-import AccessibleDataTable from "./AccessibleDataTable";
+import AccessibleDataTable from "../AccessibleDataTable";
 
 interface ProjectsTableProps extends DataTableProps<Project> {
   items: Project[];

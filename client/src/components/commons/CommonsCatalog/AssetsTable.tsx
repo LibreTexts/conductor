@@ -10,7 +10,7 @@ import {
 import { useMemo, useState } from "react";
 import type { ColumnDef, DataTableProps } from "@libretexts/davis-react-table";
 import { IconFile } from "@tabler/icons-react";
-import AccessibleDataTable from "./AccessibleDataTable";
+import AccessibleDataTable from "../AccessibleDataTable";
 
 
 interface AssetsTableProps extends DataTableProps<ConductorSearchResponseFile> {

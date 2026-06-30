@@ -3,7 +3,7 @@ import { getLibGlyphURL } from "../../util/LibraryOptions";
 import { Link } from "react-router-dom";
 import type { ColumnDef, DataTableProps } from "@libretexts/davis-react-table";
 import { Avatar } from "@libretexts/davis-react";
-import AccessibleDataTable from "./AccessibleDataTable";
+import AccessibleDataTable from "../AccessibleDataTable";
 
 interface BooksTableProps extends DataTableProps<Book> {
   items: Book[];

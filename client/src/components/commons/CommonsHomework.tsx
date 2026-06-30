@@ -13,8 +13,8 @@ import {
   Stack,
   Text,
 } from "@libretexts/davis-react";
-import { DataTable } from "@libretexts/davis-react-table";
 import type { ColumnDef } from "@libretexts/davis-react-table";
+import AccessibleDataTable from "./AccessibleDataTable";
 import {
   IconChecklist,
   IconDownload,
@@ -93,7 +93,7 @@ const CommonsHomework = () => {
   const columns: ColumnDef<Homework>[] = [
     {
       id: "title",
-      header: "Name",
+      header: "Title",
       cell: ({ row }) => (
         <button
           onClick={() => openCourseViewModal(row.original.hwID)}
@@ -162,7 +162,12 @@ const CommonsHomework = () => {
       );
     }
     return (
-      <DataTable<Homework> data={visibleCourses} columns={columns} density="compact" />
+      <AccessibleDataTable<Homework>
+        data={visibleCourses}
+        columns={columns}
+        rowHeaderColumnId="title"
+        caption="Homework courses"
+      />
     );
   };
 

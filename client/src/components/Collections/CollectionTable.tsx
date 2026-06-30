@@ -3,8 +3,8 @@ import { getLibGlyphAltText, getLibGlyphURL } from "../util/LibraryOptions";
 import { Link } from "react-router-dom";
 import { isBook as checkIsBook } from "../../utils/typeHelpers";
 import { getCollectionHref } from "../util/CollectionHelpers";
-import { DataTable } from "@libretexts/davis-react-table";
 import type { ColumnDef } from "@libretexts/davis-react-table";
+import AccessibleDataTable from "../commons/AccessibleDataTable";
 import { Avatar, Text } from "@libretexts/davis-react";
 
 export interface CollectionTableProps {
@@ -23,21 +23,6 @@ const getItemData = (item: RowItem) => {
 
 const columns: ColumnDef<RowItem>[] = [
   {
-    id: "library",
-    header: "",
-    cell: ({ row }) => {
-      const data = getItemData(row.original);
-      const isBook = checkIsBook(data);
-      return (
-        <Avatar
-          src={getLibGlyphURL(isBook ? data.library : "")}
-          alt={getLibGlyphAltText(isBook ? data.library : "")}
-          size="xs"
-        />
-      );
-    },
-  },
-  {
     id: "title",
     header: "Title",
     cell: ({ row }) => {
@@ -52,34 +37,21 @@ const columns: ColumnDef<RowItem>[] = [
     },
   },
   {
-    id: "subject",
-    header: "Subject",
+    id: "program",
+    header: "Program",
     cell: ({ row }) => {
       const data = getItemData(row.original);
-      const isBook = checkIsBook(data);
-      return <p>{isBook ? data.subject : ""}</p>;
+      const isBook = checkIsBook(data); // isBook should never be true for strictly Collections records, but need this for type narrowing
+      return <p>{isBook ? "" : data.program}</p>;
     },
   },
   {
-    id: "author",
-    header: "Author",
+    id: "resources",
+    header: "Number of Resources",
     cell: ({ row }) => {
       const data = getItemData(row.original);
       const isBook = checkIsBook(data);
-      return <p>{isBook ? data.author : ""}</p>;
-    },
-  },
-  {
-    id: "affiliation",
-    header: "Affiliation",
-    cell: ({ row }) => {
-      const data = getItemData(row.original);
-      const isBook = checkIsBook(data);
-      return (
-        <p>
-          <em>{isBook ? data.affiliation : ""}</em>
-        </p>
-      );
+      return <p>{isBook ? "0" : data.resourceCount || "0"}</p>;
     },
   },
 ];
@@ -94,11 +66,12 @@ const CollectionTable: React.FC<CollectionTableProps> = ({ data, loading }) => {
   }
 
   return (
-    <DataTable<RowItem>
+    <AccessibleDataTable<RowItem>
       data={data}
       columns={columns}
       loading={loading}
-      density="compact"
+      rowHeaderColumnId="title"
+      caption="Collection results"
     />
   );
 };
