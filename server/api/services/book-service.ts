@@ -367,6 +367,24 @@ export default class BookService {
     }
   }
 
+  async getPageRawContent(
+    pageID: string
+  ): Promise<string> {
+    const pageRawContentRes = await CXOneFetch({
+      scope: "page",
+      path: parseInt(pageID),
+      api: MindTouch.API.Page.GET_page_RawContents,
+      subdomain: this._library,
+    });
+
+    if (!pageRawContentRes.ok) {
+      throw new Error(
+        `Error fetching page raw content: ${pageRawContentRes.statusText}`
+      );
+    }
+    return await pageRawContentRes.text();
+  }
+
   async getPageDetails(
     pageID: string
   ): Promise<PageDetailsResponse | undefined> {
