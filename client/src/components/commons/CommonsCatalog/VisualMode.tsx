@@ -39,22 +39,34 @@ const VisualMode = ({
   if (items.length > 0) {
     return (
       <>
-        <Grid gap="lg" className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+        {/* Davis Grid rendered as a real <ul>; role="list" restores the list
+            semantics Chromium drops from a display:grid container (SC 1.3.1). */}
+        <Grid
+          as="ul"
+          role="list"
+          gap="lg"
+          className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 list-none m-0 p-0"
+        >
           {items.map((item) => (
-            <CatalogCard
-              item={item}
-              key={crypto.randomUUID()}
-              headingLevel={headingLevel}
-              onDetailClick={() => {
-                setSelectedItem(item);
-                setDetailModalOpen(true);
-              }}
-            />
+            <li key={crypto.randomUUID()} className="h-full">
+              <CatalogCard
+                item={item}
+                headingLevel={headingLevel}
+                onDetailClick={() => {
+                  setSelectedItem(item);
+                  setDetailModalOpen(true);
+                }}
+              />
+            </li>
           ))}
           {loading && (
             <>
               {[...Array(10)].map((_, index) => (
-                <PlaceholderCard key={index} />
+                // Skeletons are decorative; hide from AT so they don't inflate
+                // the announced list count.
+                <li key={index} aria-hidden="true" className="h-full">
+                  <PlaceholderCard />
+                </li>
               ))}
             </>
           )}
@@ -73,9 +85,16 @@ const VisualMode = ({
 
   if (items.length === 0 && loading) {
     return (
-      <Grid className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+      <Grid
+        as="ul"
+        role="list"
+        className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 list-none m-0 p-0"
+      >
         {[...Array(10)].map((_, index) => (
-          <PlaceholderCard key={index} />
+          // Skeletons are decorative; hide from AT (SC 1.3.1).
+          <li key={index} aria-hidden="true" className="h-full">
+            <PlaceholderCard />
+          </li>
         ))}
       </Grid>
     );

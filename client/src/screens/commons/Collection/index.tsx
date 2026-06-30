@@ -298,14 +298,19 @@ const CommonsCollection: React.FC<{}> = () => {
   const VisualMode = () => {
     if (resourcesLoaded && resources.pages.length > 0) {
       return (
-        <Grid gap="lg" className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+        // Davis Grid rendered as a real <ul>; role="list" restores the list
+        // semantics Chromium drops from a display:grid container (SC 1.3.1).
+        <Grid
+          as="ul"
+          role="list"
+          gap="lg"
+          className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 list-none m-0 p-0"
+        >
           {resources.pages.map((p) => {
             return p.data.map((item: Collection | CollectionResource) => (
-              <CollectionCard
-                key={crypto.randomUUID()}
-                item={item}
-                to={getToLink(item)}
-              />
+              <li key={crypto.randomUUID()} className="h-full">
+                <CollectionCard item={item} to={getToLink(item)} />
+              </li>
             ));
           })}
         </Grid>

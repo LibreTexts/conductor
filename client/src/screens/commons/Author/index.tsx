@@ -178,18 +178,29 @@ const CommonsAuthor = () => {
                 </p>
               )}
               {author?.projects && author.projects.length > 0 && (
-                <p>
-                  <Icon name="wrench" className="mr-1" />
-                  {author.projects.map((p, i) => (
-                    <a
-                      href={`/commons-project/${p.projectID}`}
-                      key={p.projectID}
-                      className="hover:underline cursor-pointer !text-blue-500"
-                    >
-                      {p.title}{i < author.projects.length - 1 ? ", " : ""}
-                    </a>
-                  ))}
-                </p>
+                // A list of project links. Real <ul>/<li> kept inline to
+                // preserve the comma-separated look; role attrs restore the
+                // list semantics inline display strips (SC 1.3.1).
+                <div>
+                  <Icon name="wrench" className="mr-1" aria-hidden="true" />
+                  <ul role="list" className="inline list-none m-0 p-0">
+                    {author.projects.map((p, i) => (
+                      <li
+                        role="listitem"
+                        key={p.projectID}
+                        className="inline"
+                      >
+                        <a
+                          href={`/commons-project/${p.projectID}`}
+                          className="hover:underline cursor-pointer !text-blue-500"
+                        >
+                          {p.title}
+                        </a>
+                        {i < author.projects.length - 1 ? ", " : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </Stack>
           </Card>

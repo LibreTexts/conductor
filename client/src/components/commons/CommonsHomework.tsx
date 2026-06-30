@@ -115,33 +115,41 @@ const CommonsHomework = () => {
 
   const VisualMode = () => {
     if (visibleCourses.length > 0) {
+      // Davis Grid rendered as a real <ul>; role="list" restores the list
+      // semantics Chromium drops from a display:grid container (SC 1.3.1).
       return (
-        <Grid gap="lg" className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+        <Grid
+          as="ul"
+          role="list"
+          gap="lg"
+          className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 list-none m-0 p-0"
+        >
           {visibleCourses.map((item, index) => (
-            <Card
-              key={index}
-              variant="elevated"
-              className="flex flex-col justify-between"
-            >
-              <Card.Header>
-                <Heading level={5} className="line-clamp-1">{item.title}</Heading>
-              </Card.Header>
-              <Card.Body>
-                <Text className="text-sm line-clamp-3">
-                  {item.description || "No description available."}
-                </Text>
-              </Card.Body>
-              <Card.Footer>
-                <Button
-                  variant="primary"
-                  onClick={() => openCourseViewModal(item.hwID)}
-                  aria-label={`View Assignments for ${item.title}`}
-                  icon={<IconChecklist size={16} />}
-                >
-                  View Assignments
-                </Button>
-              </Card.Footer>
-            </Card>
+            <li key={index} className="h-full">
+              <Card
+                variant="elevated"
+                className="flex flex-col justify-between h-full"
+              >
+                <Card.Header>
+                  <Heading level={5} className="line-clamp-1">{item.title}</Heading>
+                </Card.Header>
+                <Card.Body>
+                  <Text className="text-sm line-clamp-3">
+                    {item.description || "No description available."}
+                  </Text>
+                </Card.Body>
+                <Card.Footer>
+                  <Button
+                    variant="primary"
+                    onClick={() => openCourseViewModal(item.hwID)}
+                    aria-label={`View Assignments for ${item.title}`}
+                    icon={<IconChecklist size={16} />}
+                  >
+                    View Assignments
+                  </Button>
+                </Card.Footer>
+              </Card>
+            </li>
           ))}
         </Grid>
       );

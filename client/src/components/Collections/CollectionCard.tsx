@@ -26,7 +26,8 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ item, to }) => {
   return (
     <Card
       variant="elevated"
-      className="relative hover:border-secondary hover:border-2"
+      // h-full lets the card fill its <li> grid cell so rows stay equal-height.
+      className="relative h-full hover:border-secondary hover:border-2"
     >
       <div className="relative">
         <Card.Header

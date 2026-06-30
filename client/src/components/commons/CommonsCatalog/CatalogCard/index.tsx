@@ -21,7 +21,9 @@ interface CatalogCardProps {
 // `relative` anchors the title's stretched-link overlay to the card, so the
 // whole card stays clickable while the accessible control is a real heading
 // link/button rather than a clickable container wrapping a heading (SC 1.3.1).
-const CARD_CLASSNAME = "relative hover:border-secondary hover:border-2";
+// `h-full` lets the card fill its <li> grid cell so rows stay equal-height now
+// that the card is wrapped in a list item rather than being the grid item.
+const CARD_CLASSNAME = "relative h-full hover:border-secondary hover:border-2";
 
 const CatalogCard: React.FC<CatalogCardProps> = ({
   item,

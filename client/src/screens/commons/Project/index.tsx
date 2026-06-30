@@ -81,89 +81,123 @@ const CommonsProject = () => {
                   truncateString(project?.title ?? "", 75)
                 )}
               </Header>
-              <p className="mt-2">
-                <strong>Description: </strong>
-                {project?.description
-                  ? project?.description
-                  : "No description available."}
-              </p>
-              <p className="mt-2">
-                <Icon name="user" color="blue" className="!mr-2" />
-                {project?.principalInvestigators &&
-                  project?.principalInvestigators.length > 0 ? (
-                  project?.principalInvestigators
-                    ?.map((p) => p.name)
-                    .join(", ")
-                ) : (
-                  <span className="muted-text">No principal investigators</span>
+              {/* Label/value metadata as a definition list (SC 1.3.1). Each
+                  row is a <dt>/<dd> pair; icon-only rows carry an sr-only <dt>
+                  so the label is programmatically available, and the icons are
+                  decorative (aria-hidden). dt/dd are inline + m-0 to preserve
+                  the original single-line, tightly-spaced appearance. */}
+              <dl className="m-0">
+                <div className="mt-2">
+                  <dt className="inline font-bold m-0">Description: </dt>
+                  <dd className="inline m-0">
+                    {project?.description
+                      ? project?.description
+                      : "No description available."}
+                  </dd>
+                </div>
+                <div className="mt-2">
+                  <dt className="sr-only">Principal Investigators</dt>
+                  <dd className="inline m-0">
+                    <Icon name="user" color="blue" className="!mr-2" aria-hidden="true" />
+                    {project?.principalInvestigators &&
+                      project?.principalInvestigators.length > 0 ? (
+                      project?.principalInvestigators
+                        ?.map((p) => p.name)
+                        .join(", ")
+                    ) : (
+                      <span className="muted-text">No principal investigators</span>
+                    )}
+                  </dd>
+                </div>
+                <div className="mt-2">
+                  <dt className="sr-only">Co-Principal Investigators</dt>
+                  <dd className="inline m-0">
+                    <Icon name="user plus" color="blue" className="!mr-2" aria-hidden="true" />
+                    {project?.coPrincipalInvestigators &&
+                      project?.coPrincipalInvestigators.length > 0 ? (
+                      project?.coPrincipalInvestigators
+                        ?.map((p) => p.name)
+                        .join(", ")
+                    ) : (
+                      <span className="muted-text">
+                        No co-principal investigators
+                      </span>
+                    )}
+                  </dd>
+                </div>
+                <div className="mt-2">
+                  <dt className="sr-only">Associated Organizations</dt>
+                  <dd className="inline m-0">
+                    <Icon name="university" color="blue" className="!mr-2" aria-hidden="true" />
+                    {project?.associatedOrgs &&
+                      project?.associatedOrgs.length > 0 ? (
+                      project?.associatedOrgs.join(", ")
+                    ) : (
+                      <span className="muted-text">
+                        No associated organizations
+                      </span>
+                    )}
+                  </dd>
+                </div>
+                {project?.projectURL && (
+                  <div className="mt-2">
+                    <dt className="sr-only">Project URL</dt>
+                    <dd className="inline m-0">
+                      <Icon name="linkify" color="blue" className="!mr-2" aria-hidden="true" />
+                      <a
+                        href={project?.projectURL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="break-all"
+                      >
+                        {truncateString(project?.projectURL, 50)}
+                      </a>
+                    </dd>
+                  </div>
                 )}
-              </p>
-              <p className="mt-2">
-                <Icon name="user plus" color="blue" className="!mr-2" />
-                {project?.coPrincipalInvestigators &&
-                  project?.coPrincipalInvestigators.length > 0 ? (
-                  project?.coPrincipalInvestigators
-                    ?.map((p) => p.name)
-                    .join(", ")
-                ) : (
-                  <span className="muted-text">
-                    No co-principal investigators
-                  </span>
+                {org.orgID == "calearninglab" && project?.contentArea && (
+                  <div className="mt-2">
+                    <dt className="sr-only">Content Area</dt>
+                    <dd className="inline m-0">
+                      <Icon name="content" color="blue" className="!mr-2" aria-hidden="true" />
+                      {project?.contentArea}
+                    </dd>
+                  </div>
                 )}
-              </p>
-              <p className="mt-2">
-                <Icon name="university" color="blue" className="!mr-2" />
-                {project?.associatedOrgs &&
-                  project?.associatedOrgs.length > 0 ? (
-                  project?.associatedOrgs.join(", ")
-                ) : (
-                  <span className="muted-text">
-                    No associated organizations
-                  </span>
+                {org.orgID !== "calearninglab" && (
+                  <>
+                    <div className="mt-2">
+                      <dt className="sr-only">Status</dt>
+                      <dd className="inline m-0">
+                        <Icon name="dashboard" color="blue" aria-hidden="true" />{" "}
+                        {project?.status
+                          ? capitalizeFirstLetter(project.status)
+                          : "Unknown Status"}
+                      </dd>
+                    </div>
+                    <div className="mt-2">
+                      <dt className="sr-only">Classification</dt>
+                      <dd className="inline m-0">
+                        <Icon name="clipboard list" color="blue" aria-hidden="true" />{" "}
+                        {project?.classification
+                          ? capitalizeFirstLetter(project.classification)
+                          : "Unknown Classification"}
+                      </dd>
+                    </div>
+                    <div className="mt-2">
+                      <dt className="sr-only">Library</dt>
+                      <dd className="inline m-0">
+                        <Image
+                          src={getLibGlyphURL(project?.libreLibrary)}
+                          className="library-glyph"
+                          aria-hidden="true"
+                        />
+                        {getLibraryName(project?.libreLibrary)}
+                      </dd>
+                    </div>
+                  </>
                 )}
-              </p>
-              {project?.projectURL && (
-                <p className="mt-2">
-                  <Icon name="linkify" color="blue" className="!mr-2" />
-                  <a
-                    href={project?.projectURL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="break-all"
-                  >
-                    {truncateString(project?.projectURL, 50)}
-                  </a>
-                </p>
-              )}
-              {org.orgID == "calearninglab" && project?.contentArea && (
-                <p className="mt-2">
-                  <Icon name="content" color="blue" className="!mr-2" />
-                  {project?.contentArea}
-                </p>
-              )}
-              {org.orgID !== "calearninglab" && (
-                <>
-                  <p className="mt-2">
-                    <Icon name="dashboard" color="blue" />{" "}
-                    {project?.status
-                      ? capitalizeFirstLetter(project.status)
-                      : "Unknown Status"}
-                  </p>
-                  <p className="mt-2">
-                    <Icon name="clipboard list" color="blue" />{" "}
-                    {project?.classification
-                      ? capitalizeFirstLetter(project.classification)
-                      : "Unknown Classification"}
-                  </p>
-                  <p className="mt-2">
-                    <Image
-                      src={getLibGlyphURL(project?.libreLibrary)}
-                      className="library-glyph"
-                    />
-                    {getLibraryName(project?.libreLibrary)}
-                  </p>
-                </>
-              )}
+              </dl>
               <Button
                 as={Link}
                 fullWidth
