@@ -44,11 +44,18 @@ const CourseViewModal: React.FC<CourseViewModalProps> = ({ courseId, onClose, co
                     )}
                     <Heading level={4}>Assignments</Heading>
                     {courseData.assignments.length > 0 ? (
-                        <ul className="list-disc pl-6 space-y-1">
-                            {courseData.assignments.map((item, idx) => (
-                                <li key={idx}>{item.title}</li>
-                            ))}
-                        </ul>
+                        <div
+                            role="group"
+                            aria-label="Assignments"
+                            tabIndex={0}
+                            className="max-h-64 overflow-y-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+                        >
+                            <ul className="list-disc pl-6 space-y-1">
+                                {courseData.assignments.map((item, idx) => (
+                                    <li key={idx}>{item.title}</li>
+                                ))}
+                            </ul>
+                        </div>
                     ) : (
                         <Text className="italic">No assignments found.</Text>
                     )}
