@@ -128,7 +128,12 @@ const Footer = () => {
     >
       {org.orgID === "libretexts" ? (
         <nav aria-label="Footer">
-          <ul className="flex flex-wrap justify-center gap-x-8 gap-y-2 list-none m-0 p-0 max-md:flex-col max-md:items-center max-md:gap-y-1">
+          {/* role="list" restores the list semantics Chromium drops from a
+              flex/grid <ul> in the accessibility tree (SC 1.3.1). */}
+          <ul
+            role="list"
+            className="flex flex-wrap justify-center gap-x-8 gap-y-2 list-none m-0 p-0 max-md:flex-col max-md:items-center max-md:gap-y-1"
+          >
             {contactLinks.map((item) => (
               <li
                 key={item.key}

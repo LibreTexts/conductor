@@ -68,7 +68,12 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
             )}
           </Link>
           {desktopNavItems && (
-            <ul className="hidden xl:flex flex-row items-center ml-4 gap-2 list-none m-0 p-0">
+            // role="list" restores the list semantics Chromium drops from a
+            // flex/grid <ul> in the accessibility tree (SC 1.3.1).
+            <ul
+              role="list"
+              className="hidden xl:flex flex-row items-center ml-4 gap-2 list-none m-0 p-0"
+            >
               {desktopNavItems}
             </ul>
           )}
@@ -77,7 +82,12 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
         {/* Right: Desktop actions + Hamburger (mobile only) */}
         <div className="flex flex-row items-center gap-4 flex-shrink-0">
           {desktopActions && (
-            <ul className="hidden xl:flex flex-row items-center gap-4 list-none m-0 p-0">
+            // role="list" restores the list semantics Chromium drops from a
+            // flex/grid <ul> in the accessibility tree (SC 1.3.1).
+            <ul
+              role="list"
+              className="hidden xl:flex flex-row items-center gap-4 list-none m-0 p-0"
+            >
               {desktopActions}
             </ul>
           )}
@@ -103,6 +113,9 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
       {menuOpen && mobileDrawerItems && (
         <ul
           id={mobileDrawerId}
+          // role="list" restores the list semantics Chromium drops from a
+          // flex/grid <ul> in the accessibility tree (SC 1.3.1).
+          role="list"
           className="xl:hidden bg-white w-full px-4 py-4 shadow-xl flex flex-col gap-3 border-t border-neutral-100 overflow-y-auto max-h-[calc(100vh-60px)] list-none"
           style={{ position: "absolute", top: "100%", left: 0 }}
         >
