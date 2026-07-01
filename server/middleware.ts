@@ -128,33 +128,6 @@ function authSanitizer(req: Request, _res: Response, next: NextFunction) {
 }
 
 /**
- * Performs security checks on incoming requests by examing header values.
- *
- * @deprecated
- * @param {express.Request} req - Incoming request object.
- * @param {express.Response} res - Outgoing response object.
- * @param {express.NextFunction} next - Next middleware function to run.
- * @returns {express.NextFunction|express.Response} An invocation of the next middleware, or
- *  an error response.
- */
-function requestSecurityHelper(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  if (
-    req.method !== "OPTIONS" &&
-    req.header("x-requested-with") !== "XMLHttpRequest"
-  ) {
-    return res.status(403).send({
-      err: true,
-      errMsg: conductorErrors.err71,
-    });
-  }
-  return next();
-}
-
-/**
  * Checks if a route is a member of an array of paths to exclude from the given middleware. If so,
  * the route continues its middleware chain, otherwise, the given middleware is activated.
  *
@@ -419,7 +392,6 @@ export default {
   checkLibreAPIKey,
   checkEventBridgeAPIKey,
   authSanitizer,
-  requestSecurityHelper,
   middlewareFilter,
   checkCentralIdentityConfig,
   authLibreOneRequest,
