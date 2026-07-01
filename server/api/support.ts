@@ -65,6 +65,41 @@ import SupportTicketService from "./services/support-ticket-service";
 import Project, { ProjectInterface } from "../models/project";
 import base62 from "base62-random";
 
+async function _isInternalSupportUser(req: {
+  user?: { decoded?: { uuid?: string }; roles?: unknown };
+}): Promise<boolean> {
+  const callerUUID = req.user?.decoded?.uuid;
+  if (!callerUUID) return false;
+
+  // Prefer roles already attached to req.user (by getUserAttributes / canAccessSupportTicket)
+  // to avoid a redundant DB round-trip. Guest-accessible ticket routes authenticate via
+  // optionalVerifyRequest and may not have roles populated, so fall back to a lookup then.
+  const caller = Array.isArray(req.user?.roles)
+    ? req.user
+    : await User.findOne({ uuid: { $eq: callerUUID } });
+  if (!caller) return false;
+
+  return authAPI.checkHasRole(
+    caller,
+    "libretexts",
+    ["superadmin", "support", "harvester"],
+    true,
+  );
+}
+
+function _sanitizeTicketForResponse(
+  ticketService: SupportTicketService,
+  ticket: SupportTicketInterface,
+  isInternal: boolean,
+  allowGuestAccessKey = false,
+): SupportTicketInterface {
+  ticketService._removeAccessKeysFromResponse(ticket, allowGuestAccessKey);
+  if (!isInternal) {
+    ticketService._redactStatusFromResponse(ticket);
+  }
+  return ticket;
+}
+
 async function getTicket(
   req: ZodReqWithOptionalUser<z.infer<typeof GetTicketValidator>>,
   res: Response,
@@ -90,9 +125,11 @@ async function getTicket(
       return conductor404Err(res);
     }
 
+    const isInternal = await _isInternalSupportUser(req);
+
     return res.send({
       err: false,
-      ticket: ticketService._removeAccessKeysFromResponse(ticket),
+      ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal),
     });
   } catch (err: any) {
     if (err.name === "DocumentNotFoundError") {
@@ -120,6 +157,8 @@ async function getUserTickets(
     if (req.query.limit) limit = parseInt(req.query.limit.toString());
     const offset = getPaginationOffset(page, limit);
 
+    const isInternal = await _isInternalSupportUser(req);
+
     const results = await _getUserTickets({
       uuid: uuid,
       sort: req.query.sort,
@@ -127,6 +166,7 @@ async function getUserTickets(
       limit,
       offset,
       queue: req.query.queue,
+      isInternal,
     });
 
     if (!results) {
@@ -165,6 +205,8 @@ async function getRequestorOtherTickets(
       limit,
       offset,
       populateAssignedUsers: true,
+      // Route is gated to support/harvester (checkHasRoleMiddleware), so callers are always internal.
+      isInternal: true,
     });
 
     if (!results) {
@@ -197,7 +239,8 @@ async function _getUserTickets({
   limit = 25,
   offset = 0,
   populateAssignedUsers = false,
-  queue
+  queue,
+  isInternal = false,
 }: {
   uuid?: string;
   email?: string;
@@ -207,6 +250,7 @@ async function _getUserTickets({
   offset?: number;
   populateAssignedUsers?: boolean;
   queue?: string;
+  isInternal?: boolean;
 }): Promise<{ tickets: SupportTicketInterface[]; total: number } | undefined> {
   try {
     const ticketService = new SupportTicketService();
@@ -253,7 +297,7 @@ async function _getUserTickets({
     const tickets = await query.exec();
 
     tickets.forEach((t) => {
-      return ticketService._removeAccessKeysFromResponse(t);
+      _sanitizeTicketForResponse(ticketService, t, isInternal);
     });
 
     const total = await SupportTicket.countDocuments(searchObj);
@@ -459,6 +503,8 @@ async function addTicketCC(
     const { email } = req.body;
     const ticketService = new SupportTicketService();
 
+    const isInternal = await _isInternalSupportUser(req);
+
     const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } })
       .orFail()
       .populate(["assignedUsers", "user"]);
@@ -481,7 +527,7 @@ async function addTicketCC(
     ) {
       return res.send({
         err: false,
-        ticket: ticketService._removeAccessKeysFromResponse(ticket),
+        ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal),
       });
     }
 
@@ -517,7 +563,7 @@ async function addTicketCC(
 
     return res.send({
       err: false,
-      ticket: ticketService._removeAccessKeysFromResponse(ticket),
+      ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal),
     });
   } catch (err) {
     debugError(err);
@@ -526,13 +572,15 @@ async function addTicketCC(
 }
 
 async function removeTicketCC(
-  req: z.infer<typeof RemoveTicketCCValidator>,
+  req: ZodReqWithOptionalUser<z.infer<typeof RemoveTicketCCValidator>>,
   res: Response,
 ) {
   try {
     const { uuid } = req.params;
     const { email } = req.body;
     const ticketService = new SupportTicketService();
+
+    const isInternal = await _isInternalSupportUser(req);
 
     const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
 
@@ -543,7 +591,7 @@ async function removeTicketCC(
     ) {
       return res.send({
         err: false,
-        ticket: ticketService._removeAccessKeysFromResponse(ticket),
+        ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal),
       });
     }
 
@@ -552,7 +600,7 @@ async function removeTicketCC(
 
     return res.send({
       err: false,
-      ticket: ticketService._removeAccessKeysFromResponse(ticket),
+      ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal),
     });
   } catch (err) {
     debugError(err);
@@ -603,6 +651,7 @@ async function createTicket(
   try {
     const supportQueueService = new SupportQueueService();
     const ticketService = new SupportTicketService();
+    const isInternal = await _isInternalSupportUser(req);
 
     const {
       title,
@@ -785,7 +834,7 @@ async function createTicket(
 
     return res.send({
       err: false,
-      ticket: ticketService._removeAccessKeysFromResponse(ticket, true), // Allow guest access key to be returned here for attachments to be immediately uploaded
+      ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal, true), // Allow guest access key to be returned here for attachments to be immediately uploaded
     });
   } catch (err) {
     debugError(err);
@@ -804,6 +853,7 @@ async function addTicketAttachments(
     const { accessKey } = req.query;
     const userUUID = req.user?.decoded.uuid;
     const ticketService = new SupportTicketService();
+    const isInternal = await _isInternalSupportUser(req);
 
     const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
 
@@ -830,7 +880,7 @@ async function addTicketAttachments(
     if (!req.files || req.files.length === 0) {
       return res.send({
         err: false,
-        ticket: ticketService._removeAccessKeysFromResponse(ticket),
+        ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal),
       });
     }
 
@@ -853,7 +903,7 @@ async function addTicketAttachments(
 
     return res.send({
       err: false,
-      ticket: ticketService._removeAccessKeysFromResponse(ticket),
+      ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal),
     });
   } catch (err) {
     debugError(err);

@@ -15,7 +15,8 @@ export type SupportTicketStatus =
   | "assigned"
   | "in_progress"
   | "awaiting_requester"
-  | "closed";
+  | "closed"
+  | "unknown";
 
 export type SupportTicket = {
   uuid: string;
