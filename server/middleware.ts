@@ -262,6 +262,13 @@ const canAccessSupportTicket = async (
         throw new Error("unauthorized");
       }
 
+      // Expose the loaded roles so downstream handlers (e.g. _isInternalSupportUser) can
+      // reuse them instead of issuing another User.findOne for the same caller.
+      if (user.roles !== undefined) {
+        // @ts-ignore
+        req.user.roles = user.roles;
+      }
+
       // if the user object is present, check if the user has the support role (or is superadmin)
       const hasSupportRole = authAPI.checkHasRole(
         user,

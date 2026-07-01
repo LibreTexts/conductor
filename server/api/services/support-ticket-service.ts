@@ -652,6 +652,13 @@ export default class SupportTicketService {
         return ticket;
     };
 
+    _redactStatusFromResponse(
+        ticket: SupportTicketInterface,
+    ): SupportTicketInterface {
+        ticket.status = "unknown";
+        return ticket;
+    };
+
 
     private _createFeedEntry_Assigned(
         assigner: string,

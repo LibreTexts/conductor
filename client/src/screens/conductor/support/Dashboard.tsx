@@ -310,6 +310,7 @@ const SupportDashboard = () => {
               }
               showSelect={true}
               showAssigned={true}
+              showStatus={user.isSupport || user.isHarvester}
               loading={isFetching || isFetchingUserTickets}
             />
           </div>

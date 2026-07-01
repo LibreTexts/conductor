@@ -234,9 +234,11 @@ const SupportTicketView = () => {
                   {ticket.queue?.ticket_descriptor || "Support Ticket"}: #
                   {ticket?.uuid.slice(-7)}
                 </Heading>
-                <TicketStatusPill
-                  status={ticket.status}
-                />
+                {(user.isSupport || user.isHarvester) && (
+                  <TicketStatusPill
+                    status={ticket.status}
+                  />
+                )}
               </Stack>
               {(user.isSupport || user.isHarvester) && <AdminOptions />}
             </div>

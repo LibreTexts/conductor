@@ -288,38 +288,40 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
               />
             </div>
 
-            <div className="flex flex-col">
-              <FieldLabel htmlText="Status" />
-              <Listbox
-                value={ticket.status}
-                disabled={editDisabled}
-                onChange={(val) =>
-                  updateMutation.mutate({
-                    payload: { status: val as SupportTicketStatus },
-                    successMessage: `Status set to ${getPrettySupportTicketStatus(
-                      val
-                    )}.`,
-                  })
-                }
-              >
-                <Listbox.Button
-                  aria-label="Status"
-                  displayValue={(v) =>
-                    getPrettySupportTicketStatus(v ?? ticket.status)
+            {canEdit && (
+              <div className="flex flex-col">
+                <FieldLabel htmlText="Status" />
+                <Listbox
+                  value={ticket.status}
+                  disabled={editDisabled}
+                  onChange={(val) =>
+                    updateMutation.mutate({
+                      payload: { status: val as SupportTicketStatus },
+                      successMessage: `Status set to ${getPrettySupportTicketStatus(
+                        val
+                      )}.`,
+                    })
                   }
-                />
-                <Listbox.Options>
-                  {SupportTicketStatusOptions.map((o) => (
-                    <Listbox.Option key={o.value} value={o.value}>
-                      <span className="flex items-center gap-2">
-                        <Dot className={statusDotColor(o.value)} />
-                        {o.text}
-                      </span>
-                    </Listbox.Option>
-                  ))}
-                </Listbox.Options>
-              </Listbox>
-            </div>
+                >
+                  <Listbox.Button
+                    aria-label="Status"
+                    displayValue={(v) =>
+                      getPrettySupportTicketStatus(v ?? ticket.status)
+                    }
+                  />
+                  <Listbox.Options>
+                    {SupportTicketStatusOptions.map((o) => (
+                      <Listbox.Option key={o.value} value={o.value}>
+                        <span className="flex items-center gap-2">
+                          <Dot className={statusDotColor(o.value)} />
+                          {o.text}
+                        </span>
+                      </Listbox.Option>
+                    ))}
+                  </Listbox.Options>
+                </Listbox>
+              </div>
+            )}
 
             <div className="flex flex-col">
               <FieldLabel htmlText="Priority" />

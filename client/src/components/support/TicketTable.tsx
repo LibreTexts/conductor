@@ -13,6 +13,7 @@ interface TicketTableProps {
   data: SupportTicket[];
   showSelect?: boolean;
   showAssigned?: boolean;
+  showStatus?: boolean;
   showQueue?: boolean;
   forceCategoryColumn?: boolean;
   forcePriorityColumn?: boolean;
@@ -24,6 +25,7 @@ const TicketTable: React.FC<TicketTableProps> = ({
   data,
   showSelect,
   showAssigned,
+  showStatus = true,
   forceCategoryColumn,
   forcePriorityColumn,
   loading,
@@ -96,9 +98,11 @@ const TicketTable: React.FC<TicketTableProps> = ({
                 <div className="h-6 bg-gray-200 rounded-full w-20"></div>
               </td>
             )}
-            <td className="pr-10">
-              <div className="h-6 bg-gray-200 rounded-full w-24"></div>
-            </td>
+            {showStatus && (
+              <td className="pr-10">
+                <div className="h-6 bg-gray-200 rounded-full w-24"></div>
+              </td>
+            )}
             {showAssigned && (
               <td className="pr-5">
                 <div className="h-4 bg-gray-200 rounded w-28"></div>
@@ -141,9 +145,11 @@ const TicketTable: React.FC<TicketTableProps> = ({
                 Priority
               </th>
             )}
-            <th scope="col" className="py-2">
-              Status
-            </th>
+            {showStatus && (
+              <th scope="col" className="py-2">
+                Status
+              </th>
+            )}
             {showAssigned && (
               <th scope="col" className="py-2">
                 Assigned
@@ -210,9 +216,11 @@ const TicketTable: React.FC<TicketTableProps> = ({
                       <TicketPriorityPill priority={ticket.priority || ""} />
                     </td>
                   )}
-                  <td className="pr-10">
-                    <TicketStatusPill status={ticket.status} />
-                  </td>
+                  {showStatus && (
+                    <td className="pr-10">
+                      <TicketStatusPill status={ticket.status} />
+                    </td>
+                  )}
                   {showAssigned && (
                     <td className="text-sm truncate max-w-[10rem] pr-5">
                       {ticket.assignedUsers

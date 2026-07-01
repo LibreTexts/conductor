@@ -103,7 +103,8 @@ export type SupportTicketStatusEnum =
   | "assigned"
   | "in_progress"
   | "awaiting_requester"
-  | "closed";
+  | "closed"
+  | "unknown";
 
 export const SupportTicketStatusOptions: GenericKeyTextValueObj<string>[] = [
   {
