@@ -30,6 +30,7 @@ export const CreateKBPageValidator = z.object({
       description: z.string().max(200),
       body: z.string(),
       status: z.enum(["draft", "published"]),
+      internalOnly: z.boolean().optional(),
       slug: z.string().optional(),
       parent: z.string().uuid().optional(),
     })

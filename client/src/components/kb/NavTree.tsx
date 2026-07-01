@@ -11,6 +11,7 @@ import {
   IconPlus,
   IconChevronLeft,
   IconChevronRight,
+  IconLock,
 } from "@tabler/icons-react";
 import { truncateString } from "../util/HelperFunctions";
 import { canEditKB } from "../../utils/kbHelpers";
@@ -113,6 +114,11 @@ const NavTree = () => {
     return <IconPaperclip size={14} className="ml-2 mb-0.5 text-blue-600 shrink-0" aria-label="Draft" />;
   };
 
+  const InternalLabel = ({ internalOnly }: Pick<KBTreeNode, "internalOnly">) => {
+    if (!internalOnly) return null;
+    return <IconLock size={14} className="ml-2 mt-0.5 text-amber-600 shrink-0" aria-label="Internal only" />;
+  };
+
   return (
     <nav
       aria-label="Knowledge base navigation"
@@ -175,6 +181,7 @@ const NavTree = () => {
                       {truncateString(node.title, 50)}
                     </a>
                     {canEdit && <StatusLabel status={node.status} />}
+                    {canEdit && <InternalLabel internalOnly={node.internalOnly} />}
                   </div>
                 </div>
                 <div className="pl-4">
@@ -198,6 +205,7 @@ const NavTree = () => {
                             {truncateString(child.title, 50)}
                           </a>
                           {canEdit && <StatusLabel status={child.status} />}
+                          {canEdit && <InternalLabel internalOnly={child.internalOnly} />}
                         </div>
                       );
                     })}

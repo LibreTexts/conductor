@@ -7,6 +7,7 @@ export interface KBPageInterface extends Document {
   description: string;
   body: string;
   status: "draft" | "published";
+  internalOnly: boolean;
   slug: string;
   parent?: string;
   imgURLs?: string[];
@@ -37,6 +38,10 @@ const KBPageSchema = new Schema<KBPageInterface>(
       type: String,
       enum: ["draft", "published"],
       default: "draft",
+    },
+    internalOnly: {
+      type: Boolean,
+      default: true,
     },
     slug: {
       type: String,
