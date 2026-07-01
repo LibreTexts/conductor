@@ -45,8 +45,25 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, 
 });
 
+/**
+ * Determines whether the requesting user is allowed to view internal-only KB pages.
+ * Access is strictly limited to LibreTexts users with the harvester, support, or
+ * superadmin role (explicit=true disables the campusadmin override). Works with both
+ * a Mongo user document and req.user, since both carry a `roles` array.
+ */
+function _canViewInternalKB(user?: { roles?: any[] } | null): boolean {
+  if (!user) return false;
+  return authAPI.checkHasRole(
+    user,
+    "libretexts",
+    ["harvester", "support", "superadmin"],
+    true,
+    true
+  );
+}
+
 async function getKBPage(
-  req: z.infer<typeof GetKBPageValidator>,
+  req: ZodReqWithOptionalUser<z.infer<typeof GetKBPageValidator>>,
   res: Response
 ) {
   try {
@@ -66,6 +83,15 @@ async function getKBPage(
       })
       .lean()
       .orFail();
+
+    // Internal-only pages are hidden from unauthorized users. Return 404 (not 403)
+    // to avoid leaking the existence of the page.
+    if (kbPage.internalOnly && !_canViewInternalKB(req.user)) {
+      return res.status(404).send({
+        err: true,
+        msg: "Page not found",
+      });
+    }
 
     return res.send({
       err: false,
@@ -94,8 +120,9 @@ async function getKBTree(
   try {
     const { uuid } = req.params;
     let isAuthorized = false;
+    let canViewInternal = false;
 
-    // If user is logged in, check if they have the libretexts superadmin role
+    // If user is logged in, check their KB roles
     if (req.user) {
       const foundUser = await User.findOne({ uuid: req.user.decoded.uuid });
       if (
@@ -104,18 +131,22 @@ async function getKBTree(
       ) {
         isAuthorized = true;
       }
+      if (_canViewInternalKB(foundUser)) {
+        canViewInternal = true;
+      }
     }
 
-    // Restrict the tree to only published pages if the user is not authorized
-    let matchObj = {};
-    let restriction = {};
+    // Restrict the tree to only published pages if the user is not authorized,
+    // and always exclude internal-only pages from users who can't view them.
+    const matchObj: Record<string, any> = {};
+    const restriction: Record<string, any> = {};
     if (!isAuthorized) {
-      matchObj = {
-        status: "published",
-      };
-      restriction = {
-        status: "published",
-      };
+      matchObj.status = "published";
+      restriction.status = "published";
+    }
+    if (!canViewInternal) {
+      matchObj.internalOnly = { $ne: true };
+      restriction.internalOnly = { $ne: true };
     }
 
     const treeRes = await KBPage.aggregate([
@@ -143,6 +174,7 @@ async function getKBTree(
       title: p.title,
       slug: p.slug,
       status: p.status,
+      internalOnly: p.internalOnly,
       parent: p.parents && p.parents[0] ? p.parents[0].uuid : undefined,
     }));
 
@@ -197,7 +229,8 @@ async function createKBPage(
   res: Response
 ) {
   try {
-    const { title, description, body, slug, status, parent } = req.body;
+    const { title, description, body, slug, status, parent, internalOnly } =
+      req.body;
     const { decoded } = req.user;
 
     const editor = await User.findOne({ uuid: decoded.uuid }).orFail();
@@ -210,12 +243,16 @@ async function createKBPage(
       description,
       body: _sanitizeBodyContent(body),
       status,
+      // Default to internal-only when unspecified so internal docs are never
+      // inadvertently released to the public.
+      internalOnly: internalOnly ?? true,
       slug: safeSlug,
       parent,
       lastEditedByUUID: editor.uuid,
     });
 
-    if (kbPage.status === "published" && kbPage.body) {
+    // Never index internal-only pages into the vector store / public AI agent.
+    if (kbPage.status === "published" && kbPage.body && !kbPage.internalOnly) {
       try {
         await qdrantService.initializeCollection();
         await qdrantService.upsertKBPage(kbPage.toObject());
@@ -334,7 +371,8 @@ async function updateKBPage(
   res: Response
 ) {
   try {
-    const { title, description, body, status, slug, parent } = req.body; // Image URLs should not be updated directly
+    const { title, description, body, status, slug, parent, internalOnly } =
+      req.body; // Image URLs should not be updated directly
     const { uuid } = req.params;
     const { decoded } = req.user;
 
@@ -348,6 +386,7 @@ async function updateKBPage(
     kbPage.body = _sanitizeBodyContent(body);
     kbPage.slug = safeURL;
     kbPage.status = status;
+    kbPage.internalOnly = internalOnly ?? kbPage.internalOnly; // Preserve existing value if not provided
     kbPage.parent = parent;
     kbPage.lastEditedByUUID = editor.uuid;
 
@@ -368,12 +407,12 @@ async function updateKBPage(
 
     try {
       await qdrantService.initializeCollection();
-    
-      if (kbPage.status === "published" && kbPage.body) {
+
+      if (kbPage.status === "published" && kbPage.body && !kbPage.internalOnly) {
         // Upsert replaces old embedding with new content
         await qdrantService.upsertKBPage(kbPage.toObject());
       } else {
-        // Remove from vector DB if it's no longer published
+        // Remove from vector DB if it's no longer published or is now internal-only
         await qdrantService.deleteKBPage(kbPage.uuid);
       }
     } catch (err) {
@@ -424,12 +463,16 @@ async function deleteKBPage(
   }
 }
 
-async function searchKB(req: z.infer<typeof SearchKBValidator>, res: Response) {
+async function searchKB(
+  req: ZodReqWithOptionalUser<z.infer<typeof SearchKBValidator>>,
+  res: Response
+) {
   try {
     const { query } = req.query;
+    const canViewInternal = _canViewInternalKB(req.user);
 
     // Use MongoDB Atlas Search to search for pages
-    const pages = await KBPage.aggregate([
+    const pipeline: Record<string, any>[] = [
       {
         $search: {
           text: {
@@ -444,18 +487,28 @@ async function searchKB(req: z.infer<typeof SearchKBValidator>, res: Response) {
           },
         },
       },
-      {
-        $project: {
-          uuid: 1,
-          title: 1,
-          description: 1,
-          slug: 1,
-          status: 1,
-          parent: 1,
-          highlight: { $meta: "searchHighlights" },
-        },
+    ];
+
+    // Exclude internal-only pages from users who can't view them ($match must
+    // come after the $search stage).
+    if (!canViewInternal) {
+      pipeline.push({ $match: { internalOnly: { $ne: true } } });
+    }
+
+    pipeline.push({
+      $project: {
+        uuid: 1,
+        title: 1,
+        description: 1,
+        slug: 1,
+        status: 1,
+        internalOnly: 1,
+        parent: 1,
+        highlight: { $meta: "searchHighlights" },
       },
-    ]).limit(10);
+    });
+
+    const pages = await KBPage.aggregate(pipeline).limit(10);
 
     return res.send({
       err: false,
@@ -467,9 +520,14 @@ async function searchKB(req: z.infer<typeof SearchKBValidator>, res: Response) {
   }
 }
 
-async function getKBFeaturedContent(req: Request, res: Response) {
+async function getKBFeaturedContent(
+  req: ZodReqWithOptionalUser<Request>,
+  res: Response
+) {
   try {
-    const pages = await KBFeaturedPage.aggregate([
+    const canViewInternal = _canViewInternalKB(req.user);
+
+    const pipeline: Record<string, any>[] = [
       {
         $lookup: {
           from: "kbpages",
@@ -481,20 +539,29 @@ async function getKBFeaturedContent(req: Request, res: Response) {
       {
         $unwind: "$page",
       },
-      {
-        $project: {
-          uuid: 1,
-          page: {
-            uuid: "$page.uuid",
-            title: "$page.title",
-            description: "$page.description",
-            slug: "$page.slug",
-            status: "$page.status",
-            parent: "$page.parent",
-          },
+    ];
+
+    // Hide featured pages that are internal-only from users who can't view them.
+    if (!canViewInternal) {
+      pipeline.push({ $match: { "page.internalOnly": { $ne: true } } });
+    }
+
+    pipeline.push({
+      $project: {
+        uuid: 1,
+        page: {
+          uuid: "$page.uuid",
+          title: "$page.title",
+          description: "$page.description",
+          slug: "$page.slug",
+          status: "$page.status",
+          internalOnly: "$page.internalOnly",
+          parent: "$page.parent",
         },
       },
-    ]);
+    });
+
+    const pages = await KBFeaturedPage.aggregate(pipeline);
 
     const videos = await KBFeaturedVideo.find().lean();
 

@@ -9,6 +9,7 @@ export type KBPage = {
   description: string;
   body: string;
   status: "draft" | "published";
+  internalOnly?: boolean;
   slug: string;
   parent?: string;
   lastEditedBy: string | KBPageEditor;
@@ -21,6 +22,7 @@ export type KBTreeNode = {
   title: string;
   slug: string;
   status: "draft" | "published";
+  internalOnly?: boolean;
   children: KBTreeNode[];
 };
 

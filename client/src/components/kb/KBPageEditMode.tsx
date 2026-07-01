@@ -1,4 +1,4 @@
-import { Alert, Button, FormSection, Input } from "@libretexts/davis-react";
+import { Alert, Button, FormSection, Input, Switch } from "@libretexts/davis-react";
 import {
   IconTrash,
   IconEye,
@@ -42,6 +42,9 @@ const KBPageEditMode = ({
         description: "",
         body: "",
         slug: "",
+        // Default new pages to internal-only so internal docs are never
+        // inadvertently released to the public on publish.
+        internalOnly: true,
       },
     });
 
@@ -314,6 +317,19 @@ const KBPageEditMode = ({
                   label="URL Slug (optional) (ex: my-page-title)"
                   placeholder="URL slug of the page. Leave blank to auto-generate."
                   helperText="Leave blank to auto-generate from the title. If provided, must be unique. Use caution when changing an existing slug as it may break existing links."
+                />
+              )}
+            />
+            <Controller
+              control={control}
+              name="internalOnly"
+              render={({ field }) => (
+                <Switch
+                  name="internalOnly"
+                  label="Internal only"
+                  description="When enabled, this page is only visible to LibreTexts staff (harvester, support, and superadmin roles). Turn this off to make the page visible to the public when published."
+                  checked={!!field.value}
+                  onChange={(checked) => field.onChange(checked)}
                 />
               )}
             />

@@ -2658,7 +2658,12 @@ router
 
 router
   .route("/kb/search")
-  .get(middleware.validateZod(kbValidators.SearchKBValidator), kbAPI.searchKB);
+  .get(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
+    middleware.validateZod(kbValidators.SearchKBValidator),
+    kbAPI.searchKB
+  );
 
 router.route("/kb/tree").get(authAPI.optionalVerifyRequest, kbAPI.getKBTree);
 
@@ -2675,6 +2680,8 @@ router
 router
   .route("/kb/page/slug/:slug")
   .get(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
     middleware.validateZod(kbValidators.GetKBPageValidator),
     kbAPI.getKBPage
   );
@@ -2691,7 +2698,12 @@ router
 
 router
   .route("/kb/page/:uuid")
-  .get(middleware.validateZod(kbValidators.GetKBPageValidator), kbAPI.getKBPage)
+  .get(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
+    middleware.validateZod(kbValidators.GetKBPageValidator),
+    kbAPI.getKBPage
+  )
   .patch(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
@@ -2717,7 +2729,13 @@ router
     kbAPI.addKBImage
   );
 
-router.route("/kb/featured").get(kbAPI.getKBFeaturedContent);
+router
+  .route("/kb/featured")
+  .get(
+    authAPI.optionalVerifyRequest,
+    authAPI.optionalGetUserAttributes,
+    kbAPI.getKBFeaturedContent
+  );
 
 router
   .route("/kb/featured/page")

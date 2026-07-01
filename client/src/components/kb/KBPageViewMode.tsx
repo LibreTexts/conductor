@@ -1,4 +1,4 @@
-import { Divider } from "@libretexts/davis-react";
+import { Badge, Divider } from "@libretexts/davis-react";
 import useGlobalError from "../../components/error/ErrorHooks";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -119,6 +119,9 @@ const KBPageViewMode = ({
           updatedAt={page?.updatedAt}
         />
         {canEdit && <PageStatusLabel status={page?.status} className="!mt-0.5"/>}
+        {canEdit && page?.internalOnly && (
+          <Badge label="Internal only" variant="warning" className="ml-3 !mt-0.5" />
+        )}
       </div>
       <Divider />
 
