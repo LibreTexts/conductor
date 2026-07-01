@@ -460,8 +460,8 @@ const CentralIdentityUserView = () => {
               </Message.Content>
             </Message>
           )}
-          <div className="flex flex-row justify-between pb-4">
-            <div className="flex flex-col basis-1/2">
+          <div className="flex flex-col lg:flex-row lg:justify-between pb-4">
+            <div className="flex flex-col w-full lg:basis-1/2 min-w-0">
               <Segment loading={userLoading}>
                 <div
                   style={{
@@ -763,7 +763,7 @@ const CentralIdentityUserView = () => {
               </Segment>
               {userLocalID && <UserConductorData uuid={userLocalID} />}
             </div>
-            <div className="flex flex-col basis-1/2 ml-8 gap-y-6">
+            <div className="flex flex-col w-full lg:basis-1/2 lg:ml-8 gap-y-6 mt-6 lg:mt-0 min-w-0">
               <Segment className="!my-0">
                 <div className="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
                   <Header as="h3" style={{ margin: 0 }}>
@@ -778,7 +778,7 @@ const CentralIdentityUserView = () => {
                     <Icon name="plus" />
                   </Button>
                 </div>
-                <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+                <div style={{ maxHeight: "300px", overflowY: "auto", overflowX: "auto" }}>
                   <Table compact celled>
                     <Table.Header>
                       <Table.Row>
@@ -839,7 +839,7 @@ const CentralIdentityUserView = () => {
                     <Icon name="plus" />
                   </Button>
                 </div>
-                <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+                <div style={{ maxHeight: "300px", overflowY: "auto", overflowX: "auto" }}>
                   <Table compact celled>
                     <Table.Header>
                       <Table.Row>
@@ -935,7 +935,7 @@ const CentralIdentityUserView = () => {
                     <Icon name="plus" />
                   </Button>
                 </div>
-                <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+                <div style={{ maxHeight: "300px", overflowY: "auto", overflowX: "auto" }}>
                   <Table compact celled>
                     <Table.Header>
                       <Table.Row>
@@ -990,7 +990,7 @@ const CentralIdentityUserView = () => {
                     <Icon name="pencil" />
                   </Button>
                 </div>
-                <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+                <div style={{ maxHeight: "300px", overflowY: "auto", overflowX: "auto" }}>
                   <div style={{ marginBottom: "1.25rem", width: "100%" }}>
                     <Header sub>Level</Header>
                     <span>
