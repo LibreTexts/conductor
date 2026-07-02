@@ -46,7 +46,7 @@ const getRestackerToc = async (
       url: string;
       license: undefined;
       contentLicense: undefined;
-      qutation: undefined;
+      quotation: undefined;
     };
     const flattenPages = (pages: typeof toc.children): RestackerPage[] => {
       return (
@@ -57,7 +57,7 @@ const getRestackerToc = async (
             url: page.url,
             license: undefined,
             contentLicense: undefined,
-            qutation: undefined,
+            quotation: undefined,
           },
           ...flattenPages(page.children ?? []),
         ]) ?? []
@@ -70,7 +70,7 @@ const getRestackerToc = async (
       url: toc?.url,
       license: undefined,
       contentLicense: undefined,
-      qutation: undefined,
+      quotation: undefined,
     };
     restackerCurrentBook.unshift(bookpage);
     restacker = await Restacker.create({
@@ -143,7 +143,7 @@ const getRestacker = async (
         version: page.license?.version?.split(":")[1],
       },
       contentLicense: page.contentLicense,
-      qutation: page.qutation,
+      quotation: page.quotation,
       status: page.status,
     })),
   });
