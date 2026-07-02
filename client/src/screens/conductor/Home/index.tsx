@@ -148,7 +148,7 @@ const Home = () => {
       </div>
 
       <div className="flex flex-col xl:flex-row w-full gap-8">
-        <div className="flex flex-col xl:w-52 xl:shrink-0">
+        <div className="flex flex-col xl:w-72 xl:shrink-0">
           <UserMenu />
         </div>
         <div className="flex flex-col flex-1 min-w-0">
@@ -164,7 +164,7 @@ const Home = () => {
           <PinnedProjects />
           <RecentlyEditedProjects />
         </div>
-        <div className="flex flex-col xl:w-72 xl:shrink-0">
+        <div className="flex flex-col xl:w-96 xl:shrink-0">
           <Card>
             <Card.Header>
               <div className="flex items-center justify-between gap-2">
