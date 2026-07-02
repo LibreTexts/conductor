@@ -1638,7 +1638,9 @@ const ProjectView = (props) => {
       ) : (
         <>
           {/* Project Properties — full width */}
-          <Card variant="outline" padding="lg" className="mb-6">
+          {/* !overflow-visible: this Card hosts Tooltips (in ProjectLinkButtons) that need to
+              escape the card's bounds — Card's default styling clips overflow for rounded corners. */}
+          <Card variant="outline" padding="lg" className="mb-6 !overflow-visible">
             <Card.Body>
               <Heading level={5} color="muted" className="mb-3 pb-2 border-b border-gray-200 uppercase tracking-wide">Project Properties</Heading>
               <div className="grid grid-cols-2 gap-x-12 gap-y-3">

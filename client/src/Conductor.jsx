@@ -51,6 +51,7 @@ const ProjectPeerReviewSubmit = lazy(() => import('./screens/conductor/Projects/
 const ProjectsAvailable = lazy(() => import('./screens/conductor/Projects/ProjectsAvailable'));
 const ProjectsCompleted = lazy(() => import('./screens/conductor/Projects/ProjectsCompleted'));
 const ProjectsFlagged = lazy(() => import('./screens/conductor/Projects/ProjectsFlagged'));
+const SubmitPeerReview = lazy(() => import('./screens/conductor/Projects/SubmitPeerReview'));
 import ProjectTimeline from './components/projects/ProjectTimeline';
 import ProjectView from './components/projects/ProjectView';
 const Search = lazy(() => import('./screens/conductor/Search'));

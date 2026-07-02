@@ -27,6 +27,7 @@ import {
   PageTag,
   PeerReview,
   PeerReviewRubric,
+  PeerReviewRubric,
   Project,
   ProjectFile,
   ProjectSearchParams,
