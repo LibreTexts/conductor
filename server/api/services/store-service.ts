@@ -496,19 +496,26 @@ class StoreService {
 
             const stripe = this.stripeService.getInstance();
 
-            // Ensure all items are valid Stripe products
+            // Ensure all items are valid Stripe products. A cart can contain the same
+            // product_id more than once (e.g. one book as hardcover and another as
+            // paperback), so validate against the set of *distinct* product IDs rather
+            // than the raw item count -- Stripe dedupes the `ids` filter, and a length
+            // comparison would spuriously fail on any duplicated product.
+            const uniqueProductIds = [...new Set(items.map(item => item.product_id))];
             const stripe_products = await stripe.products.list({
                 limit: 100,
-                ids: items.map(item => item.product_id),
+                ids: uniqueProductIds,
             });
             if (!stripe_products || !stripe_products.data || stripe_products.data.length === 0) {
                 debug("No products found for the provided items.");
                 throw new Error("No products found for the provided items");
             }
 
-            if (stripe_products.data.length !== items.length) {
-                debug("Mismatch between provided items and found products.");
-                throw new Error("Mismatch between provided items and found products");
+            const foundProductIds = new Set(stripe_products.data.map(p => p.id));
+            const missingProductIds = uniqueProductIds.filter(id => !foundProductIds.has(id));
+            if (missingProductIds.length > 0) {
+                debug(`One or more items are not valid Stripe products: ${missingProductIds.join(', ')}`);
+                throw new Error("One or more items are not valid Stripe products");
             }
 
             // Check if all items are digital products
@@ -521,12 +528,14 @@ class StoreService {
                 return "digital_delivery_only";
             }
 
-            // Calculate estimated shipping costs from Lulu
+            // Calculate estimated shipping costs from Lulu. Iterate over items (not the
+            // deduped product list) so that multiple variants of the same product -- e.g.
+            // hardcover and paperback of one book -- are each priced and counted.
             const luluShippingLineItems: LuluShippingLineItem[] = [];
-            for (const product of stripe_products.data) {
-                const item = items.find(item => item.product_id === product.id);
-                if (!item || !item.price_id) {
-                    debug(`Item with product ID ${product.id} does not have a valid price_id.`);
+            for (const item of items) {
+                const product = stripe_products.data.find(p => p.id === item.product_id);
+                if (!product || !item.price_id) {
+                    debug(`Item with product ID ${item.product_id} does not have a valid price_id.`);
                     continue;
                 }
 
@@ -535,11 +544,11 @@ class StoreService {
                 });
 
                 if (!price || !price.product || typeof price.product === 'string') {
-                    debug(`Price for product ID ${product.id} is not valid.`);
+                    debug(`Price for product ID ${item.product_id} is not valid.`);
                     continue;
                 }
 
-                if (item && product.metadata && product.metadata.num_pages) {
+                if (product.metadata && product.metadata.num_pages) {
                     luluShippingLineItems.push({
                         quantity: item.quantity,
                         pod_package_id: this.luluService.getPodPackageID({
