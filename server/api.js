@@ -893,6 +893,13 @@ router.route("/store/checkout/shipping-options").post(
   storeAPI.getShippingOptions
 )
 
+router.route("/store/checkout/validate-address").post(
+  authAPI.optionalVerifyRequest,
+  authAPI.optionalGetUserAttributes,
+  middleware.validateZod(storeValidators.ValidateAddressSchema),
+  storeAPI.validateAddress
+)
+
 router.route("/store/admin/orders").get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,

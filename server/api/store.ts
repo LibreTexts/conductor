@@ -1,13 +1,16 @@
 import { Request, Response } from "express";
 import storeService from "./services/store-service";
+import AddressValidationService from "./services/address-validation-service";
 import { z } from "zod";
-import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema, AdminGetStoreOrdersSchema, AdminGetStoreOrderSchema, AdminResubmitPrintJobSchema } from "./validators/store";
+import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema, AdminGetStoreOrdersSchema, AdminGetStoreOrderSchema, AdminResubmitPrintJobSchema, ValidateAddressSchema } from "./validators/store";
 import { conductor400Err, conductor404Err, conductor500Err } from "../util/errorutils";
 import { debug, debugError } from "../debug";
 import { LuluWebhookData, StoreShippingOption, ZodReqWithOptionalUser } from "../types";
 import StripeService from "./services/stripe-service";
 import User from "../models/user";
 import { data } from "cheerio/dist/commonjs/api/attributes";
+
+const addressValidationService = new AddressValidationService();
 
 
 export async function getStoreProduct(req: z.infer<typeof GetStoreProductSchema>, res: Response) {
@@ -165,6 +168,49 @@ export async function getShippingOptions(req: ZodReqWithOptionalUser<z.infer<typ
       message: "Shipping options fetched successfully.",
       options,
     });
+  } catch (error) {
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
+
+export async function validateAddress(req: z.infer<typeof ValidateAddressSchema>, res: Response) {
+  try {
+    const result = await addressValidationService.validateAddress(req.body.shipping_address);
+
+    switch (result.status) {
+      case "not_configured":
+        return res.status(200).send({
+          err: false,
+          message: "Address validation is not configured. Skipping validation.",
+          status: "skipped",
+        });
+      case "error":
+        return res.status(200).send({
+          err: false,
+          message: "Address validation is temporarily unavailable. Skipping validation.",
+          status: "skipped",
+        });
+      case "valid":
+        return res.status(200).send({
+          err: false,
+          message: "Address confirmed.",
+          status: "valid",
+        });
+      case "suggested_correction":
+        return res.status(200).send({
+          err: false,
+          message: "A suggested correction is available for this address.",
+          status: "suggested_correction",
+          suggested_address: result.suggested,
+        });
+      case "invalid":
+        return res.status(200).send({
+          err: true,
+          errMsg: result.reason,
+          status: "invalid",
+        });
+    }
   } catch (error) {
     debugError(error);
     return conductor500Err(res);
@@ -360,6 +406,7 @@ export default {
   getMostPopularStoreProducts,
   createCheckoutSession,
   getShippingOptions,
+  validateAddress,
   processLuluWebhook,
   processStripeWebhook,
   syncBooksToStripe,

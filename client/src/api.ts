@@ -54,6 +54,8 @@ import {
   StoreGetShippingOptionsRes,
   StoreCheckoutForm,
   StoreShippingOption,
+  StoreAddressFields,
+  StoreValidateAddressRes,
   EditAcademyOnlineAccessFormValues,
   CentralIdentityUserLicenseResult,
   CentralIdentityAppLicense,
@@ -699,6 +701,20 @@ class API {
       items,
       shipping_address,
     });
+    return res;
+  }
+
+  async validateAddress({
+    shipping_address,
+  }: {
+    shipping_address: StoreAddressFields;
+  }) {
+    const res = await axios.post<StoreValidateAddressRes & ConductorBaseResponse>(
+      "/store/checkout/validate-address",
+      {
+        shipping_address,
+      }
+    );
     return res;
   }
 

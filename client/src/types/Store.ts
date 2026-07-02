@@ -83,6 +83,18 @@ export type StoreShippingOption = {
 
 export type StoreDigitalDeliveryOption = "apply_to_account" | "email_access_codes";
 
+export type StoreAddressFields = Pick<
+    StoreCheckoutForm,
+    "address_line_1" | "address_line_2" | "city" | "state" | "postal_code" | "country"
+>;
+
+export type StoreAddressValidationStatus = "skipped" | "valid" | "suggested_correction" | "invalid";
+
+export type StoreValidateAddressRes = {
+    status: StoreAddressValidationStatus;
+    suggested_address?: StoreAddressFields;
+};
+
 export type StoreOrderShippingItemData = {
     shippingStatus: "ORDER_PLACED" | "IN_PRODUCTION" | "SHIPPED";
     trackingID?: string;
