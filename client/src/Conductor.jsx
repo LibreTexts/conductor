@@ -51,6 +51,7 @@ const ProjectsAvailable = lazy(() => import('./screens/conductor/Projects/Projec
 const ProjectsCompleted = lazy(() => import('./screens/conductor/Projects/ProjectsCompleted'));
 const ProjectsFlagged = lazy(() => import('./screens/conductor/Projects/ProjectsFlagged'));
 import ProjectTimeline from './components/projects/ProjectTimeline';
+const MyTasks = lazy(() => import('./screens/conductor/Tasks'));
 import ProjectView from './components/projects/ProjectView';
 const Search = lazy(() => import('./screens/conductor/Search'));
 const ShapeshiftConsole = lazy(() => import('./screens/conductor/controlpanel/ShapeshiftConsole'));
@@ -112,6 +113,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/home' component={Home} />
           <PrivateRoute exact path='/search' component={Search} />
           <PrivateRoute exact path='/alerts' component={MyAlerts} />
+          <PrivateRoute exact path='/tasks' component={MyTasks} />
           <PrivateRoute exact path='/projects/(create)?' component={MyProjects} />
           <PrivateRoute exact path='/projects/available' component={ProjectsAvailable} />       
           <PrivateRoute exact path='/projects/completed' component={ProjectsCompleted} />

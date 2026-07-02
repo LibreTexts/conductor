@@ -67,6 +67,7 @@ import {
   BookWithAutoMatched,
   Organization,
   GetCampusAdminResponse,
+  UserTask,
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -118,6 +119,16 @@ class API {
         sysAnnouncement: Announcement | null;
       } & ConductorBaseResponse
     >("/announcements/system");
+
+    return res;
+  }
+
+  async getUserTasks() {
+    const res = await axios.get<
+      {
+        tasks: UserTask[];
+      } & ConductorBaseResponse
+    >("/user/tasks");
 
     return res;
   }

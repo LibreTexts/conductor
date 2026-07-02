@@ -63,6 +63,16 @@ const ConductorNavItems: React.FC<ConductorNavItemsProps> = ({
         My Projects
       </Link>
     </li>
+    <li>
+      <Link
+        to="/tasks"
+        className={`${menuItemBase} ${activeItem === "tasks" ? menuItemActive : menuItemInactive}`}
+        aria-current={activeItem === "tasks" ? "page" : undefined}
+        onClick={() => setActiveItem("tasks")}
+      >
+        My Tasks
+      </Link>
+    </li>
   </>
 );
 
@@ -105,6 +115,7 @@ const Navbar: React.FC<{}> = () => {
     const p = location.pathname;
     if (p.includes("/home")) setActiveItem("home");
     else if (p.includes("/projects")) setActiveItem("projects");
+    else if (p.includes("/tasks")) setActiveItem("tasks");
     else if (p.includes("analytics")) setActiveItem("analytics");
     else setActiveItem("");
   }, [location, context]);
