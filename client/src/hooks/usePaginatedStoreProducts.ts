@@ -40,6 +40,7 @@ export function usePaginatedStoreProducts({
       };
     },
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.cursor : undefined,
+    refetchOnWindowFocus: false,
   });
 
   const allProducts = browseQuery.data?.pages.flatMap(page => page.products) || [];
