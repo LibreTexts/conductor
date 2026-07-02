@@ -61,7 +61,6 @@ export default class StripeService {
                     if (data.object === 'checkout.session') {
                         checkout_session = await this.getExpandedCheckoutSession(data.id);
                         if (!checkout_session) {
-                            debug('Stripe checkout session not found. Cannot further process the event.');
                             return 'bad_request';
                         }
                         payment_intent = await this.getPaymentIntentFromCheckoutSession(checkout_session);
@@ -73,12 +72,10 @@ export default class StripeService {
                     }
 
                     if (!checkout_session) {
-                        debug('Stripe checkout session is missing. Cannot further process the event.');
                         return 'bad_request';
                     }
 
                     if (!checkout_session.metadata || !checkout_session.metadata.feature) {
-                        debug('Stripe checkout session metadata is missing. Cannot further process the event.');
                         return 'bad_request';
                     }
 
