@@ -77,6 +77,14 @@ export const GetShippingOptionsSchema = z.object({
     })
 })
 
+export const ValidateAddressSchema = z.object({
+    body: z.object({
+        shipping_address: _BasicShippingAddress.extend({
+            address_line_2: z.string().trim().optional().or(z.literal("")),
+        })
+    })
+})
+
 export const AdminGetStoreOrdersSchema = z.object({
     query: z.object({
         starting_after: z.string().optional().or(z.literal("")),

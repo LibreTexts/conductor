@@ -21,7 +21,8 @@ const ShippingOptions: React.FC<ShippingOptionsProps> = ({
     if (!shippingCalculated.current) {
       return (
         <p className="mt-2 text-sm text-gray-500">
-          Please complete your address details to calculate shipping options.
+          Complete your address details above, then click "Get Shipping Options" to calculate
+          shipping options.
         </p>
       );
     } else if (shippingOptions === "digital_delivery_only") {
