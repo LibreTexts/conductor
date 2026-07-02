@@ -360,6 +360,7 @@ const Navbar: React.FC<{}> = () => {
         height: "auto",
         overflow: "visible",
         position: "relative",
+        zIndex: 20,
       }}
     >
       <EnvironmentBanner />
