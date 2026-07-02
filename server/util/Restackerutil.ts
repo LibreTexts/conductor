@@ -24,7 +24,11 @@ class RestackerService {
         if (page.status === "pending") {
           const license = await this.getPagelicense(page.id, library, coverID);
           page.license = license;
-          const contentLicense = await this.getContentLicense(page.id, library, coverID);
+          const contentLicense = await this.getContentLicense(
+            page.id,
+            library,
+            coverID,
+          );
           page.contentLicense = contentLicense.contentLicenses;
           page.quotation = contentLicense.quotationRate;
 
@@ -86,20 +90,49 @@ class RestackerService {
     }
   }
 
+  private getQuotationRate(content: string): number {
+    try {
+      const $ = cheerio.load(content);
+      const ltRegex = new RegExp(this.ltRegex.source, this.ltRegex.flags);
+
+      const textTags = $("p, h1, h2, h3, h4, h5, h6");
+      const total = textTags.length;
+      if (total === 0) {
+        return 0;
+      }
+
+      let quotedCount = 0;
+      textTags.each((_, el) => {
+        const classes = $(el).attr("class") ?? "";
+        ltRegex.lastIndex = 0;
+        if (ltRegex.test(classes)) {
+          quotedCount++;
+        }
+      });
+
+      return quotedCount / total;
+    } catch (error) {
+      return -1;
+    }
+  }
+
   private async getContentLicense(
     pageID: string,
     library: string,
     coverID: string,
-  ): Promise<{ contentLicenses: { label: string; raw: string; version: string }[] | undefined, quotationRate: number }> {
+  ): Promise<{
+    contentLicenses:
+      | { label: string; raw: string; version: string }[]
+      | undefined;
+    quotationRate: number;
+  }> {
     const bookService = new BookService({ bookID: `${library}-${coverID}` });
     const page = await bookService.getPageContent(pageID, "json");
 
-      if (!page) {
-        return { contentLicenses: undefined, quotationRate: -1 };
-      }
-    if (pageID == "142945") {
-      console.log(page);
+    if (!page) {
+      return { contentLicenses: undefined, quotationRate: -1 };
     }
+ 
     const $ = cheerio.load(page);
     const html = $.html();
 
@@ -120,9 +153,10 @@ class RestackerService {
       }
     }
     const isTranscluded = await this.isTranscluded(pageID, library);
+    const quotationRate = isTranscluded?1:this.getQuotationRate(page);
     const response = {
       contentLicenses: licenses.length > 0 ? licenses : undefined,
-      quotationRate: isTranscluded ? 1 : 0,
+      quotationRate,
     };
     return response;
   }

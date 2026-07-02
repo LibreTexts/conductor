@@ -79,6 +79,7 @@ export type RestackerTocEntry = {
   bookLicense?: RestackerTocLicense;
   pageLicense?: RestackerTocLicense;
   contentLicenses?: RestackerTocLicense[];
+  quotation?: number;
   children: RestackerTocEntry[];
 };
 
@@ -87,6 +88,7 @@ export type RestackerEntry = {
   license?: RestackerTocLicense;
   contentLicense: RestackerTocLicense[];
   status: "pending" | "running" | "completed" | "failed";
+  quotation?: number;
 };
 
 export type PageTag = {

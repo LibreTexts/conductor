@@ -33,7 +33,7 @@ function LicenseBadge({ license }: { license?: RestackerTocLicense }) {
   const key = parseLicenseKey(license.label);
   const version = parseLicenseVersion(license.version);
   const bgColor = getLicenseColor(key);
-  const text = getLicenseText(key, version);
+  const text = getLicenseText(key, version ?? "");
   return (
     <span
       style={{
@@ -67,6 +67,7 @@ function mergeLicenseData(
       ...node,
       pageLicense: match?.license ?? node.pageLicense,
       contentLicenses: match?.contentLicense ?? node.contentLicenses,
+      quotation: match?.quotation ?? node.quotation,
       children: mergeLicenseData(node.children ?? [], sourceMap),
     };
   });
@@ -111,6 +112,16 @@ function createColumns(bookLicense?: RestackerTocLicense) {
             ))}
           </span>
         );
+      },
+    }),
+    columnHelper.accessor("quotation", {
+      header: "Remixing %",
+      enableSorting: false,
+      cell: ({ getValue }) => {
+        const quotation = getValue();
+        if (quotation === undefined || quotation === -1)
+          return <span style={{ color: "#9ca3af" }}>—</span>;
+        return <span>{(quotation * 100).toFixed(1)}%</span>;
       },
     }),
   ];
