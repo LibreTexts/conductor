@@ -61,7 +61,6 @@ const ProjectPeerReview = (props) => {
   const [loadingData, setLoadingData] = useState(false);
   const [showDiscussion, setShowDiscussion] = useState(false);
   const [reviewSort, setReviewSort] = useState('author');
-  const [prShow, setPRShow] = useState(false);
 
   const [project, setProject] = useState({});
   const [peerReviews, setPeerReviews] = useState([]);
@@ -194,7 +193,6 @@ const ProjectPeerReview = (props) => {
   };
 
   const handleCloseReviewView = () => { setPRViewShow(false); setPRViewData({}); };
-  const handleClosePeerReview = () => { setPRShow(false); getReviews(); };
 
   const handleOpenSettingsModal = () => {
     if (project.hasOwnProperty('allowAnonPR')) setSettingsAllowAnon(project.allowAnonPR ? 'true' : 'false');
@@ -390,7 +388,7 @@ const ProjectPeerReview = (props) => {
                       {(userProjectMember || openAccessPR) && (
                         <Button
                           icon={<IconPlus size={15} />}
-                          onClick={() => setPRShow(true)}
+                          onClick={() => props.history.push(`/projects/${props.match.params.id}/submit-peer-review`)}
                           variant="primary"
                           className="!rounded-l-none"
                         >
@@ -705,13 +703,6 @@ const ProjectPeerReview = (props) => {
         onClose={handleCloseRubricPreviewModal}
         rubricID={settingsPreviewID}
         demoView={true}
-      />
-
-      {/* New Peer Review */}
-      <PeerReview
-        open={prShow}
-        onClose={handleClosePeerReview}
-        projectID={props.match.params.id}
       />
 
       <PeerReviewView
