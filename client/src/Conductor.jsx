@@ -50,6 +50,7 @@ const ProjectAnalytics = lazy(() => import('./screens/conductor/Projects/Analyti
 const ProjectsAvailable = lazy(() => import('./screens/conductor/Projects/ProjectsAvailable'));
 const ProjectsCompleted = lazy(() => import('./screens/conductor/Projects/ProjectsCompleted'));
 const ProjectsFlagged = lazy(() => import('./screens/conductor/Projects/ProjectsFlagged'));
+const SubmitPeerReview = lazy(() => import('./screens/conductor/Projects/SubmitPeerReview'));
 import ProjectTimeline from './components/projects/ProjectTimeline';
 import ProjectView from './components/projects/ProjectView';
 const Search = lazy(() => import('./screens/conductor/Search'));
@@ -115,6 +116,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/projects/:id' component={ProjectView} />
           <PrivateRoute exact path='/projects/:id/accessibility' component={ProjectAccessibility} />
           <PrivateRoute exact path='/projects/:id/peerreview' component={ProjectPeerReview} />
+          <PrivateRoute exact path='/projects/:id/submit-peer-review' component={SubmitPeerReview} />
           <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
           <PrivateRoute exact path='/projects/:id/ai-co-author' component={TextbookCuration} />
           <PrivateRoute exact path='/projects/:id/ai-co-author/batch' component={BatchRun} />

@@ -1360,7 +1360,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       <Modal.Footer>
         <Button variant="outline" onClick={() => onClose()}>Cancel</Button>
         <Button
-          className="!bg-green-600 !text-white hover:!bg-green-700"
+          variant="primary"
           loading={loading}
           icon={<IconDeviceFloppy size={14} />}
           onClick={submitEditInfoForm}

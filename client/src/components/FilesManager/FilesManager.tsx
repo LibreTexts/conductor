@@ -440,7 +440,17 @@ const FilesManager: React.FC<FilesManagerProps> = ({
       const creator = item.uploader ? ` by ${getPrettyUploader(item.uploader)}` : "";
       lines.push(`Created: ${getPrettyCreatedDate(item.createdDate)}${creator}`);
     }
-    return lines.join(" · ");
+    // Stacked as separate lines (rather than one long joined string) so the
+    // tooltip stays narrow and doesn't run past the edge of the page/panel —
+    // davis-react's Tooltip is centered on its trigger with no edge collision
+    // detection, so a long single line is the thing that overflows.
+    return (
+      <div className="flex flex-col gap-0.5 text-left">
+        {lines.map((line) => (
+          <span key={line}>{line}</span>
+        ))}
+      </div>
+    );
   };
 
   const tableColumns = useMemo<ColumnDef<FileEntry>[]>(() => {
@@ -548,7 +558,9 @@ const FilesManager: React.FC<FilesManagerProps> = ({
         />
       )}
 
-      <div className="border border-gray-200 rounded-lg overflow-hidden mb-4">
+      {/* !overflow-visible: the Name column's info Tooltip needs to escape this container's
+          bounds — davis-react's Tooltip isn't portaled, so ancestor overflow-hidden clips it. */}
+      <div className="border border-gray-200 rounded-lg !overflow-visible mb-4">
         {(canViewDetails || allowBulkDownload) && (
           <div className="p-4 border-b border-gray-200 bg-gray-50">
             {canViewDetails && (
@@ -645,6 +657,10 @@ const FilesManager: React.FC<FilesManagerProps> = ({
             state: { rowSelection },
             onRowSelectionChange: setRowSelection,
           }}
+          // DataTable's own wrapper slot bakes in overflow-auto, which clips the
+          // Name column's info Tooltip whenever it renders near the top row
+          // (davis-react's Tooltip isn't portaled). Let it overlap instead.
+          classNames={{ wrapper: "!overflow-visible" }}
         />
         <p className="text-center text-xs text-gray-400 italic p-3 border-t border-gray-100">
           Use caution when opening files/links from unknown sources.

@@ -1,6 +1,6 @@
-import { useForm } from "react-hook-form";
-import { Button, Icon, Modal } from "semantic-ui-react";
-import CtlTextInput from "../ControlledInputs/CtlTextInput";
+import { Controller, useForm } from "react-hook-form";
+import { Alert, Button, Input, Modal } from "@libretexts/davis-react";
+import { IconDeviceFloppy } from "@tabler/icons-react";
 import { useNotifications } from "../../context/NotificationContext";
 import useGlobalError from "../error/ErrorHooks";
 import { useState } from "react";
@@ -18,7 +18,6 @@ const AdminChangeURL: React.FC<AdminChangeURLProps> = ({ projectID, currentURL, 
     const { addNotification } = useNotifications();
     const { control, getValues, trigger, watch } = useForm<{ url: string }>({ defaultValues: { url: currentURL || "" } });
     const [loading, setLoading] = useState(false);
-
 
     async function handleSave() {
         try {
@@ -47,38 +46,50 @@ const AdminChangeURL: React.FC<AdminChangeURLProps> = ({ projectID, currentURL, 
     }
 
     return (
-        <Modal open={true}>
-            <Modal.Header>Change Project URL</Modal.Header>
-            <Modal.Content className="w-full">
-                <p className="mb-4">
-                    <span className="font-semibold">CAUTION:</span> Changing the textbook URL of a project will allow project members to modify the textbook content at the new URL. This action cannot be undone.
-                </p>
-                <CtlTextInput
-                    control={control}
-                    name="url"
-                    label="Textbook URL"
-                    placeholder="Enter the new URL for the project"
-                    rules={{
-                        required: "Please enter a URL for the project"
-                    }}
-                    className="w-full"
-                    fluid
+        <Modal open onClose={onClose} size="md">
+            <Modal.Header>
+                <Modal.Title>Change Project URL</Modal.Title>
+                <Modal.Close />
+            </Modal.Header>
+            <Modal.Body>
+                <Alert
+                    variant="warning"
+                    title="Caution"
+                    asHeading="p"
+                    message="Changing the textbook URL of a project will allow project members to modify the textbook content at the new URL. This action cannot be undone."
+                    className="mb-4"
                 />
-            </Modal.Content>
-            <Modal.Actions>
-                <Button onClick={onClose}>Cancel</Button>
-                <Button
-                    icon
-                    labelPosition="left"
-                    color="green"
-                    loading={loading}
-                    onClick={handleSave}
-                    disabled={loading || watch('url').trim().length < 5}
-                >
-                    <Icon name="save" />
-                    Save
-                </Button>
-            </Modal.Actions>
+                <Controller
+                    name="url"
+                    control={control}
+                    rules={{ required: "Please enter a URL for the project" }}
+                    render={({ field, fieldState }) => (
+                        <Input
+                            label="Textbook URL"
+                            placeholder="Enter the new URL for the project"
+                            {...field}
+                            error={!!fieldState.error}
+                            errorMessage={fieldState.error?.message}
+                        />
+                    )}
+                />
+            </Modal.Body>
+            <Modal.Footer>
+                <div className="flex justify-end gap-2">
+                    <Button variant="secondary" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="primary"
+                        icon={<IconDeviceFloppy size={16} />}
+                        loading={loading}
+                        onClick={handleSave}
+                        disabled={loading || watch("url").trim().length < 5}
+                    >
+                        Save
+                    </Button>
+                </div>
+            </Modal.Footer>
         </Modal>
     )
 }
