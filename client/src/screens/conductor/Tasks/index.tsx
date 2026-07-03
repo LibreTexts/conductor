@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-import axios from "axios";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useDocumentTitle } from "usehooks-ts";
 import {
   EmptyState,
@@ -19,8 +18,6 @@ import {
   IconLoader2,
 } from "@tabler/icons-react";
 import api from "../../../api";
-import useGlobalError from "../../../components/error/ErrorHooks";
-import { TaskStatus, UserTask } from "../../../types";
 import {
   TaskGroup,
   getTaskUrgency,
@@ -57,8 +54,6 @@ function getGroupDonePercent(group: TaskGroup): number {
 
 const MyTasksPage = () => {
   useDocumentTitle("LibreTexts Conductor | My Tasks");
-  const { handleGlobalError } = useGlobalError();
-  const queryClient = useQueryClient();
 
   const [activeFilter, setActiveFilter] = useState<StatFilter>(null);
   const [groupBy, setGroupBy] = useState<GroupByOption>("project");
@@ -79,30 +74,6 @@ const MyTasksPage = () => {
   });
 
   const tasks = useMemo(() => data || [], [data]);
-
-  const completeMutation = useMutation({
-    mutationFn: async ({ taskID, status }: { taskID: string; status: TaskStatus }) => {
-      const res = await axios.put("/project/task", { taskID, status });
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      return { taskID, status };
-    },
-    onMutate: async ({ taskID, status }) => {
-      await queryClient.cancelQueries({ queryKey: ["userTasks"] });
-      const previous = queryClient.getQueryData<UserTask[]>(["userTasks"]);
-      queryClient.setQueryData<UserTask[]>(["userTasks"], (old) =>
-        (old || []).map((t) => (t.taskID === taskID ? { ...t, status } : t))
-      );
-      return { previous };
-    },
-    onError: (err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["userTasks"], context.previous);
-      }
-      handleGlobalError(err);
-    },
-  });
 
   const counts = useMemo(() => {
     let overdue = 0;
@@ -142,13 +113,6 @@ const MyTasksPage = () => {
     if (groupBy === "dueDate") return groupTasksByDueDate(sortedTasks);
     return [{ key: "all", label: "All tasks", tasks: sortedTasks }];
   }, [sortedTasks, groupBy]);
-
-  function handleToggleComplete(task: UserTask, completed: boolean) {
-    completeMutation.mutate({
-      taskID: task.taskID,
-      status: completed ? "completed" : "available",
-    });
-  }
 
   function handleStatClick(filter: StatFilter) {
     setActiveFilter((prev) => (prev === filter ? null : filter));
@@ -283,10 +247,7 @@ const MyTasksPage = () => {
             <caption className="sr-only">Tasks assigned to you</caption>
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <th scope="col" className="w-10 py-2 pl-4 pr-2">
-                  <span className="sr-only">Complete</span>
-                </th>
-                <th scope="col" className="py-2 pr-4">
+                <th scope="col" className="py-2 pl-4 pr-4">
                   Task
                 </th>
                 <th scope="col" className="py-2 pr-4">
@@ -304,7 +265,7 @@ const MyTasksPage = () => {
               <tbody key={group.key}>
                 {groupBy !== "none" && (
                   <tr className="border-b border-gray-200 bg-gray-50">
-                    <td colSpan={5} className="px-4 py-2">
+                    <td colSpan={4} className="px-4 py-2">
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
                           <Text weight="semibold" size="sm">
@@ -332,15 +293,7 @@ const MyTasksPage = () => {
                   </tr>
                 )}
                 {group.tasks.map((task) => (
-                  <TaskRow
-                    key={task.taskID}
-                    task={task}
-                    onToggleComplete={handleToggleComplete}
-                    completing={
-                      completeMutation.isLoading &&
-                      completeMutation.variables?.taskID === task.taskID
-                    }
-                  />
+                  <TaskRow key={task.taskID} task={task} />
                 ))}
               </tbody>
             ))}
