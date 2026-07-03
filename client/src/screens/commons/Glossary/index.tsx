@@ -213,6 +213,7 @@ const GlossaryManager: React.FC = () => {
           addNotification={addNotification}
           editingTerm={glossaryEntries.find((term) => term.usageID === editingUsageID) ?? null}
           setEditingUsageID={setEditingUsageID}
+          existingTerms={glossaryEntries}
         />
         <div className="glossary-page__panel-scroll">
           <GlossaryList

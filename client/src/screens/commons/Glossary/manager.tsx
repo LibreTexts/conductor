@@ -29,6 +29,7 @@ interface GlossaryFormProps {
   addNotification: (notification: Notification) => void;
   editingTerm: GlossaryEntry | null;
   setEditingUsageID: (usageID: string | null) => void;
+  existingTerms?: GlossaryEntry[];
 }
 
 type GlossaryFormFields = {
@@ -86,6 +87,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     addNotification,
     editingTerm,
     setEditingUsageID,
+    existingTerms,
   } = props;
 
   const {
@@ -104,37 +106,53 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
   });
 
   useEffect(() => {
-    if (editingTerm) {
-      const baseUrl = import.meta.env.MODE === "development" ? import.meta.env.VITE_DEV_BASE_URL : "";
-      setValue("term", editingTerm?.term ?? "");
-      setValue("definition", editingTerm?.definition ?? "");
-      setValue("aliases", editingTerm?.aliases ?? []);
-      setValue("link", editingTerm?.link ?? "");
-      setValue("source", editingTerm?.source ?? "");
-      setValue("author", editingTerm?.author ?? "");
-      setValue("imageSource", editingTerm?.imageSource ?? "");
-      setValue("imageAuthor", editingTerm?.imageAuthor ?? "");
-      setValue("imageLicense", editingTerm?.imageLicense ?? "");
-      setValue("altText", editingTerm?.altText ?? "");
-      setValue("caption", editingTerm?.caption ?? "");
-      setValue("imageSource", editingTerm?.imageSource ?? "");
-      setValue("imageAuthor", editingTerm?.imageAuthor ?? "");
-      setValue("imageLicense", editingTerm?.imageLicense ?? "");
-      setValue("imageSource", editingTerm?.imageSource ?? "");
-      setValue("usageID", editingTerm?.usageID ?? undefined);
-      
-      setImageFile(null);
-      setRemoveExistingImage(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      if (editingTerm.imageUrl) {
-        setImagePreview(`${baseUrl}${editingTerm.imageUrl}?t=${Date.now()}`);
-      } else {
-        setImagePreview(null);
-      }
+    if (!open || !editingTerm) return;
+
+    const baseUrl =
+      import.meta.env.MODE === "development"
+        ? import.meta.env.VITE_DEV_BASE_URL
+        : "";
+    setValue("term", editingTerm.term ?? "");
+    setValue("definition", editingTerm.definition ?? "");
+    setValue("aliases", editingTerm.aliases ?? []);
+    setValue("link", editingTerm.link ?? "");
+    setValue("source", editingTerm.source ?? "");
+    setValue("author", editingTerm.author ?? "");
+    setValue("imageSource", editingTerm.imageSource ?? "");
+    setValue("imageAuthor", editingTerm.imageAuthor ?? "");
+    setValue("imageLicense", editingTerm.imageLicense ?? "");
+    setValue("altText", editingTerm.altText ?? "");
+    setValue("caption", editingTerm.caption ?? "");
+    setValue("usageID", editingTerm.usageID ?? undefined);
+
+    setImageFile(null);
+    setRemoveExistingImage(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (editingTerm.imageUrl) {
+      setImagePreview(`${baseUrl}${editingTerm.imageUrl}?t=${Date.now()}`);
+    } else {
+      setImagePreview(null);
     }
-  }, [editingTerm]);
+  }, [editingTerm, open, setValue]);
 
   const hasImage = !!imageFile || !!imagePreview;
+
+  const handleExistingTermMatch = (term: string) => {
+    const trimmed = term.trim();
+    if (!trimmed) {
+      setEditingUsageID(null);
+      setValue("usageID", undefined);
+      return;
+    }
+
+    const existingTerm = existingTerms?.find((t) => t.term === trimmed);
+    if (existingTerm) {
+      setEditingUsageID(existingTerm.usageID);
+    } else {
+      setEditingUsageID(null);
+      setValue("usageID", undefined);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -264,7 +282,10 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                   validate: (value) =>
                     value.trim().length > 0 || "This field is required",
                 }}
+                
                 disabled={!!editingTerm}
+                onSelect={handleExistingTermMatch}
+                onBlur={handleExistingTermMatch}
               />
               <div className="mt-4 flex items-end gap-2">
                 <div className="flex-1">

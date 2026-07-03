@@ -22,6 +22,7 @@ type GlossaryTermAutocompleteProps<
   placeholder?: string;
   disabled?: boolean;
   onSelect?: (value: string) => void;
+  onBlur?: (value: string) => void;
 };
 
 const GlossaryTermAutocomplete = <
@@ -35,6 +36,8 @@ const GlossaryTermAutocomplete = <
   placeholder = "Search glossary terms...",
   disabled,
   onSelect,
+  onBlur: onTermBlur,
+  
 }: GlossaryTermAutocompleteProps<TFieldValues, TName>) => {
   return (
     <Controller
@@ -47,6 +50,7 @@ const GlossaryTermAutocomplete = <
           value={typeof value === "string" ? value : ""}
           onChange={onChange}
           onBlur={onBlur}
+          onTermBlur={onTermBlur}
           onSelect={onSelect}
           label={label}
           placeholder={placeholder}
@@ -65,6 +69,7 @@ type GlossaryTermAutocompleteFieldProps = {
   value: string;
   onChange: (value: string) => void;
   onBlur: () => void;
+  onTermBlur?: (value: string) => void;
   onSelect?: (value: string) => void;
   label: string;
   placeholder: string;
@@ -79,6 +84,7 @@ const GlossaryTermAutocompleteField = ({
   value,
   onChange,
   onBlur,
+  onTermBlur,
   onSelect,
   label,
   placeholder,
@@ -165,6 +171,7 @@ const GlossaryTermAutocompleteField = ({
           onBlur={() => {
             window.setTimeout(() => setIsOpen(false), 150);
             onBlur();
+            onTermBlur?.(query.trim());
           }}
         />
         {/* {isLoading && (
