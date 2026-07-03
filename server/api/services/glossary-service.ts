@@ -287,22 +287,76 @@ export default class GlossaryService {
     params: AddGlossaryParams,
   ): Promise<void> {
     try {
-      const { imageFile, removeImage, ...rest } = params;
+      const {
+        imageFile,
+        removeImage,
+        aliases: aliasesArray,
+        altText,
+        caption,
+        link,
+        source,
+        imageSource,
+        imageAuthor,
+        imageLicense,
+        author,
+        bookId,
+        ...rest
+      } = params;
+      var aliases = [] as { termID: string; term: string }[];
+      if (aliasesArray && aliasesArray.length > 0) {
+        // add aliases to glossary and make a list of [{termID, term}] using _addGlossaryToDatabase
+        for (const alias of aliasesArray) {
+          if (alias.trim() === "") {
+            continue;
+          }
+          const { termID } = await this._addGlossaryToDatabase(
+            alias.trim(),
+            "",
+          );
+          aliases.push({ termID, term: alias.trim() });
+        }
+      }
+
+      const optionalFields: Record<string, string | undefined> = {
+        altText,
+        caption,
+        link,
+        source,
+        imageSource,
+        imageAuthor,
+        imageLicense,
+        author,
+        bookID: bookId,
+      };
+      const toUnset: Record<string, ""> = {};
+      for (const [key, value] of Object.entries(optionalFields)) {
+        if (value === undefined) {
+          toUnset[key] = "";
+        }
+      }
+      if (removeImage) {
+        toUnset.imageFile = "";
+      }
+
       await GlossaryUsage.updateOne(
         { usageID },
         {
           $set: {
             ...rest,
+            ...Object.fromEntries(
+              Object.entries(optionalFields).filter(([, v]) => v !== undefined),
+            ),
+            aliases: aliases,
             updatedAt: new Date(),
-            ...(params.imageFile && !removeImage && {
+            ...(imageFile && !removeImage && {
               imageFile: {
-                data: params.imageFile.buffer,
-                contentType: params.imageFile.mimetype,
-                originalname: params.imageFile.originalname,
+                data: imageFile.buffer,
+                contentType: imageFile.mimetype,
+                originalname: imageFile.originalname,
               },
             }),
           },
-          ...(removeImage && { $unset: { imageFile: "" } }),
+          ...(Object.keys(toUnset).length > 0 && { $unset: toUnset }),
         },
       );
     } catch (error) {

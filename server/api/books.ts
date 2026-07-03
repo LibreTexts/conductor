@@ -3234,6 +3234,7 @@ async function addBookGlossary(
       });
       return res.send({ err: false, pageId, termID: usageID });
     }
+    const aliasesArray = aliases?.split(",").map((alias) => alias.trim()).filter((alias) => alias !== "") || [];
     const termID = await glossaryService.addGlossary({
       term: term.trim(),
       definition: definition.trim(),

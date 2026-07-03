@@ -301,6 +301,19 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                       }
                       setValue("aliasInput", "");
                     }}
+                    onBlur={(term) => {
+                      const trimmed = term.trim();
+                      if (!trimmed) {
+                        setValue("aliasInput", "");
+                        return;
+                      }
+                      const current = getValues("aliases") ?? [];
+                      if (!current.includes(term)) {
+                        setValue("aliases", [...current, term]);
+                      }
+                      setValue("aliasInput", "");
+                    }}
+                    
                   />
                 </div>
               </div>
