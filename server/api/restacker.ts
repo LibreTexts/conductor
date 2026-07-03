@@ -81,9 +81,9 @@ const getRestackerToc = async (
     });
   }
   const restackerStatus = restacker.restackerCurrentBook.some(
-    (page) => page.status === "failed",
+    (page) => page.status === "pending",
   )
-    ? "failed"
+    ? "pending"
     : restacker.restackerCurrentBook.some((page) => page.status === "pending")
       ? "pending"
       : "completed";
