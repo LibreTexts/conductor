@@ -7,7 +7,6 @@ import {
   RegisterOptions,
 } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
-import { IconLoader2 } from "@tabler/icons-react";
 import classNames from "classnames";
 import useDebounce from "../../../hooks/useDebounce";
 import api from "../../../api";
@@ -21,6 +20,7 @@ type GlossaryTermAutocompleteProps<
   rules?: RegisterOptions<TFieldValues, TName>;
   label?: string;
   placeholder?: string;
+  disabled?: boolean;
   onSelect?: (value: string) => void;
 };
 
@@ -33,6 +33,7 @@ const GlossaryTermAutocomplete = <
   rules,
   label = "Term",
   placeholder = "Search glossary terms...",
+  disabled,
   onSelect,
 }: GlossaryTermAutocompleteProps<TFieldValues, TName>) => {
   return (
@@ -49,6 +50,7 @@ const GlossaryTermAutocomplete = <
           onSelect={onSelect}
           label={label}
           placeholder={placeholder}
+          disabled={disabled}
           required={!!rules?.required}
           error={!!error}
           errorMessage={error?.message}
@@ -67,6 +69,7 @@ type GlossaryTermAutocompleteFieldProps = {
   label: string;
   placeholder: string;
   required?: boolean;
+  disabled?: boolean;
   error: boolean;
   errorMessage?: string;
 };
@@ -80,6 +83,7 @@ const GlossaryTermAutocompleteField = ({
   label,
   placeholder,
   required,
+  disabled,
   error,
   errorMessage,
 }: GlossaryTermAutocompleteFieldProps) => {
@@ -110,7 +114,7 @@ const GlossaryTermAutocompleteField = ({
     keepPreviousData: true,
   });
 
-  const showSuggestions = isOpen && query.trim().length >= 1;
+  const showSuggestions = isOpen && !disabled && query.trim().length >= 1;
 
   const handleInputChange = (nextValue: string) => {
     setQuery(nextValue);
@@ -136,15 +140,18 @@ const GlossaryTermAutocompleteField = ({
           type="text"
           value={query}
           placeholder={placeholder}
+          disabled={disabled}
           autoComplete="off"
           role="combobox"
           aria-expanded={showSuggestions}
           aria-autocomplete="list"
           className={classNames(
-            "block w-full rounded-md bg-white py-2 px-3 pr-10 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 sm:text-sm/6",
-            error
-              ? "outline-red-500 focus:outline-red-500"
-              : "outline-gray-300 focus:outline-indigo-600"
+            "block w-full rounded-md py-2 px-3 pr-10 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 sm:text-sm/6",
+            disabled
+              ? "cursor-not-allowed bg-gray-100 text-gray-400 outline-gray-200"
+              : error
+                ? "bg-white outline-red-500 focus:outline-red-500"
+                : "bg-white outline-gray-300 focus:outline-indigo-600"
           )}
           onChange={(event) => handleInputChange(event.target.value)}
           onKeyDown={(event) => {

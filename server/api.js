@@ -86,7 +86,7 @@ const corsMiddleware = cors({
       if (process.env.DEVELOPMENTURLS) {
         allowedOrigins = String(process.env.DEVELOPMENTURLS).split(",").map((url) => url.trim());
       } else {
-        allowedOrigins = ["http://localhost:5000","http://localhost:5500"];
+        allowedOrigins = ["http://localhost:5000","http://localhost:5500","http://localhost:5501"];
       }
     }
 
@@ -1173,6 +1173,7 @@ router.route("/commons/book/:library/:coverID/glossary")
   )
   // add glossary usage
   .post(
+    (req, res, next) => {console.log("-------------", req.body); next();},
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     booksAPI.glossaryImageUploadHandler,

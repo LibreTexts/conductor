@@ -16,7 +16,6 @@ const GlossaryDefinitionPreview = ({
 
     el.innerHTML = definition;
 
-    console.log("[MathJax] GlossaryDefinitionPreview: calling typesetMathElements, definition length:", definition.length);
     typesetMathElements([el]).catch((err) =>
       console.error("MathJax typeset failed:", err),
     );
@@ -27,7 +26,7 @@ const GlossaryDefinitionPreview = ({
   return (
     <div
       ref={ref}
-      className="glossary-definition-preview prose max-w-none text-xs"
+      className="glossary-definition-preview prose max-w-none"
     />
   );
 };

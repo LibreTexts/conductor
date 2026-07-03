@@ -74,9 +74,9 @@ function getMathJaxConfig(): Record<string, unknown> {
 }
 
 export function loadMathJax(): Promise<void> {
-  console.log("[MathJax] loadMathJax() called");
+  console.debug("[MathJax] loadMathJax() called");
   if (window.__libretextsMathJaxLoad) {
-    console.log("[MathJax] Already loading/loaded, returning cached promise");
+    console.debug("[MathJax] Already loading/loaded, returning cached promise");
     return window.__libretextsMathJaxLoad;
   }
 
@@ -91,7 +91,7 @@ export function loadMathJax(): Promise<void> {
       startup: {
         ready: () => {
           window.MathJax?.startup?.defaultReady?.();
-          console.log("[MathJax] Loaded successfully");
+          console.debug("[MathJax] Loaded successfully");
           resolve();
         },
       },
@@ -99,7 +99,7 @@ export function loadMathJax(): Promise<void> {
 
     const existingScript = document.getElementById("mathjax-script");
     if (existingScript) {
-      console.log("[MathJax] Script tag already exists, awaiting startup promise");
+      console.debug("[MathJax] Script tag already exists, awaiting startup promise");
       window.MathJax?.startup?.promise?.then(resolve).catch(reject);
       return;
     }
@@ -112,7 +112,7 @@ export function loadMathJax(): Promise<void> {
       console.error("[MathJax] Failed to load script from", MATHJAX_SCRIPT_URL);
       reject(new Error("MathJax failed to load"));
     };
-    console.log("[MathJax] Injecting script tag...");
+    console.debug("[MathJax] Injecting script tag...");
     document.head.appendChild(script);
   });
 
@@ -122,7 +122,7 @@ export function loadMathJax(): Promise<void> {
 export async function typesetMathElements(
   elements: HTMLElement[],
 ): Promise<void> {
-  console.log("[MathJax] typesetMathElements() called with", elements.length, "element(s)");
+  console.debug("[MathJax] typesetMathElements() called with", elements.length, "element(s)");
   await loadMathJax();
   await (window.MathJax?.startup?.promise ?? Promise.resolve());
   window.MathJax?.typesetClear?.(elements);

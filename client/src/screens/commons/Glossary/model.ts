@@ -9,6 +9,15 @@ export type GlossaryEntry = {
   term: string;
   termID: string;
   definition: string;
-
   pages: GlossaryPageUsage[];
+  imageUrl?: string;
+  aliases?: string[];
+  author?: string;
+  link?: string;
+  source?: string;
+  imageSource?: string;
+  imageAuthor?: string;
+  imageLicense?: string;
+  altText?: string;
+  caption?: string;
 };

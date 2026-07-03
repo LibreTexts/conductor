@@ -32,6 +32,7 @@ export interface AddGlossaryParams {
   imageSource?: string;
   imageAuthor?: string;
   imageLicense?: string;
+  removeImage?: boolean;
 }
 
 export interface GlossaryTableEntry {
@@ -93,6 +94,15 @@ export interface GetGlossaryResponse {
   definition: string;
   pages: pageUsage[];
   imageUrl?: string;
+  aliases?: string[];
+  author?: string;
+  link?: string;
+  source?: string;
+  imageSource?: string;
+  imageAuthor?: string;
+  imageLicense?: string;
+  altText?: string;
+  caption?: string;
 }
 
 export interface DeleteGlossaryParams {
@@ -110,8 +120,8 @@ export default class GlossaryService {
     try {
       const { coverID, library } = params;
       const project = await Project.findOne({
-        libreCoverID:coverID,
-        libreLibrary:library,
+        libreCoverID: coverID,
+        libreLibrary: library,
       });
       return project;
     } catch (error) {
@@ -149,6 +159,15 @@ export default class GlossaryService {
           termID: c.termID,
           definition: c.definition,
           pages: c.pages,
+          aliases: c.aliases?.map((a) => a.term) || [],
+          author: c.author,
+          link: c.link,
+          source: c.source,
+          imageSource: c.imageSource,
+          imageAuthor: c.imageAuthor,
+          imageLicense: c.imageLicense,
+          altText: c.altText,
+          caption: c.caption,
           imageUrl: c.imageFile
             ? `/api/v1/commons/glossary/usage/${c.usageID}/image`
             : undefined,
@@ -258,6 +277,34 @@ export default class GlossaryService {
         ...params,
       });
       return usageID;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateGlossaryUsage(
+    usageID: string,
+    params: AddGlossaryParams,
+  ): Promise<void> {
+    try {
+      const { imageFile, removeImage, ...rest } = params;
+      await GlossaryUsage.updateOne(
+        { usageID },
+        {
+          $set: {
+            ...rest,
+            updatedAt: new Date(),
+            ...(params.imageFile && !removeImage && {
+              imageFile: {
+                data: params.imageFile.buffer,
+                contentType: params.imageFile.mimetype,
+                originalname: params.imageFile.originalname,
+              },
+            }),
+          },
+          ...(removeImage && { $unset: { imageFile: "" } }),
+        },
+      );
     } catch (error) {
       throw error;
     }
@@ -482,7 +529,7 @@ export default class GlossaryService {
       throw error;
     }
   }
-  private  _generateSlug(term: string): string {
+  private _generateSlug(term: string): string {
     return term.toLowerCase().replace(/ /g, "-");
   }
 
@@ -538,10 +585,13 @@ export default class GlossaryService {
       if (params?.aliases && params.aliases.length > 0) {
         // add aliases to glossary and make a list of [{termID, term}] using _addGlossaryToDatabase
         for (const alias of params.aliases) {
-          if(alias.trim() === "") {
+          if (alias.trim() === "") {
             continue;
           }
-          const { termID } = await this._addGlossaryToDatabase(alias.trim(), "");
+          const { termID } = await this._addGlossaryToDatabase(
+            alias.trim(),
+            "",
+          );
           aliases.push({ termID, term: alias.trim() });
         }
       }
