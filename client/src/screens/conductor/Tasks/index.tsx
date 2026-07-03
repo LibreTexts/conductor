@@ -31,6 +31,7 @@ import {
   sortTasksByTitle,
 } from "../../../utils/taskHelpers";
 import TaskRow from "./TaskRow";
+import AttentionBanner from "./AttentionBanner";
 
 type StatFilter = "overdue" | "dueSoon" | "inprogress" | "completed" | null;
 type GroupByOption = "none" | "project" | "status" | "dueDate";
@@ -212,6 +213,8 @@ const MyTasksPage = () => {
           </button>
         ))}
       </div>
+
+      {!isLoading && <AttentionBanner tasks={tasks} />}
 
       {!isLoading && tasks.length > 0 && (
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4">

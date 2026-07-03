@@ -13,6 +13,8 @@ export type UserTask = {
   assignees: string[];
   parent?: string;
   dependencies: string[];
+  /** True when one or more dependency tasks aren't marked completed yet. */
+  blocked: boolean;
   startDate?: string;
   endDate?: string;
   createdBy?: string;

@@ -995,9 +995,52 @@ const getUserTasks = async (req, res) => {
                     assignees: uuid
                 }
             }, {
+                // look up each dependency's status so we can tell whether this
+                // task is actually blocked (a dependency isn't done yet) rather
+                // than just having dependencies listed at all
+                $lookup: {
+                    from: 'tasks',
+                    let: {
+                        deps: '$dependencies'
+                    },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $in: ['$taskID', '$$deps']
+                                }
+                            }
+                        }, {
+                            $project: {
+                                _id: 0,
+                                status: 1
+                            }
+                        }
+                    ],
+                    as: '_dependencyStatuses'
+                }
+            }, {
+                $addFields: {
+                    blocked: {
+                        $gt: [
+                            {
+                                $size: {
+                                    $filter: {
+                                        input: '$_dependencyStatuses',
+                                        as: 'dep',
+                                        cond: { $ne: ['$$dep.status', 'completed'] }
+                                    }
+                                }
+                            },
+                            0
+                        ]
+                    }
+                }
+            }, {
                 $project: {
                     _id: 0,
-                    __v: 0
+                    __v: 0,
+                    _dependencyStatuses: 0
                 }
             }, {
                 $sort: {
