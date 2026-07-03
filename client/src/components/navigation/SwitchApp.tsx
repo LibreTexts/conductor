@@ -42,7 +42,6 @@ const SwitchApp: React.FC<SwitchAppProps> = ({ parent, user }) => {
                 aria-label={`Back to ${switchToApp.label}`}
                 icon={<IconSwitchHorizontal className="pb-1!" />}
                 iconPosition="left"
-                fullWidth
             >
                 {switchToApp.label}
             </Button>

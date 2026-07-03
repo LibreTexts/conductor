@@ -38,6 +38,17 @@ interface ConductorNavItemsProps {
   setActiveItem: React.Dispatch<React.SetStateAction<string>>;
 }
 
+/**
+ * Groups a cluster of action buttons/dropdowns (Support, Commons, Conductor
+ * System, etc.) onto one horizontal, wrapping row within the mobile drawer,
+ * instead of each stacking on its own line like the primary nav links do.
+ */
+const MobileActionRow: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <li className="w-full">
+    <div className="flex flex-row flex-wrap items-center gap-3">{children}</div>
+  </li>
+);
+
 const ConductorNavItems: React.FC<ConductorNavItemsProps> = ({
   activeItem,
   setActiveItem,
@@ -213,9 +224,11 @@ const Navbar: React.FC<{}> = () => {
         <>
           <ConductorNavItems activeItem={activeItem} setActiveItem={setActiveItem} />
           <li><SearchForm context="conductor" /></li>
-          <li><SupportDropdown /></li>
-          <li><SwitchApp user={user} parent="conductor" /></li>
-          <li><UserAuthButton user={user} /></li>
+          <MobileActionRow>
+            <SupportDropdown />
+            <SwitchApp user={user} parent="conductor" />
+            <UserAuthButton user={user} />
+          </MobileActionRow>
         </>
       );
       break;
@@ -242,17 +255,19 @@ const Navbar: React.FC<{}> = () => {
       mobileDrawerItems = (
         <>
           <li><AboutOrgLink org={org} /></li>
-          {libretextsOnly && (
-            <>
-              <li><DonateLink /></li>
-              <li><AccountRequestLink /></li>
-              <li><StoreLink /></li>
-            </>
-          )}
-          <li><SupportDropdown /></li>
-          {libretextsOnly && <li><CommonsList /></li>}
-          <li><SwitchApp user={user} parent="commons" /></li>
-          <li><UserAuthButton user={user} /></li>
+          <MobileActionRow>
+            {libretextsOnly && (
+              <>
+                <DonateLink />
+                <AccountRequestLink />
+                <StoreLink />
+              </>
+            )}
+            <SupportDropdown />
+            {libretextsOnly && <CommonsList />}
+            <SwitchApp user={user} parent="commons" />
+            <UserAuthButton user={user} />
+          </MobileActionRow>
         </>
       );
       break;
@@ -294,9 +309,9 @@ const Navbar: React.FC<{}> = () => {
       mobileDrawerItems = (
         <>
           <li><SearchForm context="support" /></li>
-          <li><SwitchApp user={user} parent="support" /></li>
-          {user.isSupport || user.isHarvester ? (
-            <li>
+          <MobileActionRow>
+            <SwitchApp user={user} parent="support" />
+            {user.isSupport || user.isHarvester ? (
               <Button
                 onClick={() => window.location.href = "/support/dashboard"}
                 variant="primary"
@@ -304,11 +319,9 @@ const Navbar: React.FC<{}> = () => {
               >
                 Staff Dashboard
               </Button>
-            </li>
-          ) : (
-            <>
-              <li><UserAuthButton user={user} /></li>
-              <li>
+            ) : (
+              <>
+                <UserAuthButton user={user} />
                 <Button
                   as={Link}
                   to="/support/contact"
@@ -317,10 +330,10 @@ const Navbar: React.FC<{}> = () => {
                 >
                   Contact Support
                 </Button>
-              </li>
-            </>
-          )}
-          {user.uuid && <li><UserDropdown /></li>}
+              </>
+            )}
+            {user.uuid && <UserDropdown />}
+          </MobileActionRow>
         </>
       );
       break;
@@ -346,7 +359,7 @@ const Navbar: React.FC<{}> = () => {
       mobileDrawerItems = (
         <>
           <li><SearchForm context="store" /></li>
-          <li>
+          <MobileActionRow>
             <Link
               to="/store/cart"
               className="flex items-center gap-2 text-base font-medium text-text hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -354,9 +367,9 @@ const Navbar: React.FC<{}> = () => {
               <IconShoppingCart size={20} />
               Cart ({productCount})
             </Link>
-          </li>
-          <li><SwitchApp user={user} parent="conductor" /></li>
-          <li><UserAuthButton user={user} /></li>
+            <SwitchApp user={user} parent="conductor" />
+            <UserAuthButton user={user} />
+          </MobileActionRow>
         </>
       );
       break;
@@ -371,6 +384,7 @@ const Navbar: React.FC<{}> = () => {
         height: "auto",
         overflow: "visible",
         position: "relative",
+        zIndex: 20,
       }}
     >
       <EnvironmentBanner />
