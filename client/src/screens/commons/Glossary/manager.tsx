@@ -72,9 +72,6 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedTab, setSelectedTab] = useState<number>(0);
 
-  useEffect(() => {
-    console.log(removeExistingImage);
-  }, [removeExistingImage]);
 
   const {
     open,
@@ -217,7 +214,6 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
         aliases: data?.aliases ? data.aliases : [],
         imageSource: data.imageSource?.trim() || undefined,
       }
-      console.log(payload);
     const res = await api.createGlossaryTerm(payload);
 
     if (res.err) {

@@ -83,3 +83,15 @@
   font-style: oblique;
   color: #007bff;
 }
+
+mjx-container {
+  display: inline-block !important;
+}
+
+mjx-container[jax="CHTML"] {
+  display: inline-block !important;
+  margin: 0 !important;
+}
+mjx-container[jax="CHTML"][display="true"] {
+  display: inline-block !important; /* only if you WANT display math inline too */
+}

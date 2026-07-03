@@ -1174,7 +1174,6 @@ router.route("/commons/book/:library/:coverID/glossary")
   )
   // add glossary usage
   .post(
-    (req, res, next) => {console.log("-------------", req.body); next();},
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     booksAPI.glossaryImageUploadHandler,
