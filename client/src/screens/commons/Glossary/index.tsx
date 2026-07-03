@@ -58,6 +58,13 @@ const GlossaryManager: React.FC = () => {
   );
   const coverID = useMemo(() => bookTOC?.id ?? "", [bookTOC?.id]);
 
+  const [editingUsageID, setEditingUsageID] = useState<string | null>(null);
+
+  const handleEditUsageID = (usageID: string) => {
+    setEditingUsageID(usageID);
+    setShowAddModal(true);
+  };
+
   const [glossaryEntries, setGlossaryEntries] = useState<GlossaryEntry[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddPageModal, setShowAddPageModal] = useState(false);
@@ -195,7 +202,6 @@ const GlossaryManager: React.FC = () => {
           open={showAddModal}
           glossaryID={glossaryID}
           onClose={() => setShowAddModal(false)}
-          selectedNode={null}
           coverID={coverID}
           bookID={!projectMatch ? (id ?? "") : ""}
           library={library}
@@ -205,6 +211,8 @@ const GlossaryManager: React.FC = () => {
             }
           }}
           addNotification={addNotification}
+          editingTerm={glossaryEntries.find((term) => term.usageID === editingUsageID) ?? null}
+          setEditingUsageID={setEditingUsageID}
         />
         <div className="glossary-page__panel-scroll">
           <GlossaryList
@@ -221,6 +229,7 @@ const GlossaryManager: React.FC = () => {
             setSelectedTerms={setSelectedTerms}
             addNotification={addNotification}
             refetchGlossary={refetchGlossary}
+            setEditingUsageID={handleEditUsageID}
           />
         </div>
       </div>
@@ -260,6 +269,9 @@ const GlossaryManager: React.FC = () => {
         toc={bookTOC!}
         setSelectedPageIds={setSelectedPageIds}
         handleAddTermsToPages={handleAddTermsToPages}
+        editingUsageID={editingUsageID}
+        setEditingUsageID={handleEditUsageID}
+        glossaryEntries={glossaryEntries}
       />
     </Grid>
   );

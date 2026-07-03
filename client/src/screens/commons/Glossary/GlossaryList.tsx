@@ -6,7 +6,7 @@ import type { ColumnDef, Table } from "@libretexts/davis-react-table";
 import { DataTable } from "@libretexts/davis-react-table";
 import type { RowSelectionState } from "@tanstack/react-table";
 
-import { IconTrash } from "@tabler/icons-react";
+import { IconPencil, IconTrash } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { TableOfContents } from "../../../types";
 import { findTocNodeById } from "./services";
@@ -23,6 +23,7 @@ type GlossaryListProps = {
   setSelectedTerms: (terms: GlossaryEntry[]) => void;
   addNotification: (notification: Notification) => void;
   refetchGlossary: () => void;
+  setEditingUsageID: (usageID: string) => void;
 };
 
 type PageColumnDef = {
@@ -46,7 +47,8 @@ const GlossaryList = ({
   selectedTerms,
   setSelectedTerms,
   addNotification,
-  refetchGlossary
+  refetchGlossary,
+  setEditingUsageID,
 }: GlossaryListProps) => {
   const tableRef = useRef<Table<GlossaryEntry> | null>(null);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -200,6 +202,15 @@ const GlossaryList = ({
               });
               refetchGlossary();
             }}
+            size="sm"
+          />
+          <IconButton
+            name="edit"
+            title="Edit this glossary term"
+            aria-label="Edit this glossary term"
+            variant="primary"
+            icon={<IconPencil />}
+            onClick={() => {setEditingUsageID(row.original.usageID);}}
             size="sm"
           />
         </Stack>

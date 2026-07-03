@@ -102,6 +102,7 @@ import PressbooksImportJob from "../models/pressbooksimportjob.js";
 import base62 from "base62-random";
 import Glossary from "../models/glossary.js";
 import GlossaryService from "./services/glossary-service.js";
+import GlossaryUsage from "../models/glossaryusage.js";
 
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
@@ -3187,8 +3188,9 @@ async function addBookGlossary(
   res: Response,
 ) {
   try {
-    const { term, definition, pageId, bookId, altText, caption, link, source, imageSource, imageAuthor, imageLicense, aliases, author } = req.body;
+    const { term, definition, pageId, bookId, altText, caption, link, source, imageSource, imageAuthor, imageLicense, aliases, author, usageID, removeImage } = req.body;
     const { coverID, library } = req.params;
+
     const glossaryService = new GlossaryService();
     const project = await glossaryService.getProject({
       coverID: coverID.toString(),
@@ -3209,6 +3211,29 @@ async function addBookGlossary(
     if (!canAccess && !isSuperAdmin) {
       throw new Error(conductorErrors.err8);
     }
+    if (usageID) {
+      await glossaryService.updateGlossaryUsage(usageID, {
+        removeImage,
+        term: term.trim(),
+        definition: definition.trim(),
+        pageId,
+        bookId: bookId?.trim() === "" ? undefined : bookId?.trim(),
+        library: library.trim(),
+        coverID: coverID.toString(),
+        addedBy: req.user.decoded.uuid,
+        imageFile: req.file,
+        altText: altText?.trim() || undefined,
+        caption: caption?.trim() || undefined,
+        aliases: aliases?.split(",").map((alias) => alias.trim()).filter((alias) => alias !== "") || [],
+        author: author?.trim() || undefined,
+        link: link?.trim() || undefined,
+        source: source?.trim() || undefined,
+        imageSource: imageSource?.trim() || undefined,
+        imageAuthor: imageAuthor?.trim() || undefined,
+        imageLicense: imageLicense?.trim() || undefined,
+      });
+      return res.send({ err: false, pageId, termID: usageID });
+    }
     const termID = await glossaryService.addGlossary({
       term: term.trim(),
       definition: definition.trim(),
@@ -3220,7 +3245,7 @@ async function addBookGlossary(
       imageFile: req.file,
       altText: altText?.trim() || undefined,
       caption: caption?.trim() || undefined,
-      aliases: aliases?.split(",").map((alias) => alias.trim()) || undefined,
+      aliases: aliases?.split(",").map((alias) => alias.trim()).filter((alias) => alias !== "")  || [],
       author: author?.trim() || undefined,
       link: link?.trim() || undefined,
       source: source?.trim() || undefined,

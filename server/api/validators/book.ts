@@ -269,6 +269,7 @@ export const addWithCoverIDParamSchema = z.object({
     library: z.string().min(2).max(12),
   }),
   body: z.object({
+    usageID: z.string().min(10).max(10).optional(),
     glossaryID: z.coerce.number().int().positive().optional(),
     bookId: z
       .string()
@@ -289,6 +290,7 @@ export const addWithCoverIDParamSchema = z.object({
     caption: z.string().max(500).optional(),
     altText: z.string().max(500).optional(),
     imageAuthor: z.string().max(500).optional(),
+    removeImage: z.coerce.boolean().optional(),
     imageLicense: z.string().refine(isValidLicense, {
       message: conductorErrors.err1,
     }).optional(),

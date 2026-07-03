@@ -98,6 +98,7 @@ import {
 import { EventSource } from "extended-eventsource";
 import { ShapeshiftJob } from "./types/Shapeshift";
 import { BookBotRun, BookBotType } from "./types/BookBot";
+import { GlossaryEntry } from "./screens/commons/Glossary/model";
 
 /**
  * @fileoverview
@@ -2425,12 +2426,14 @@ class API {
   }
 
   async createGlossaryTerm(props: {
+    usageID?: string;
     term: string;
     definition: string;
     coverID: string;
     bookId?: string;
     library: string;
     imageFile?: File;
+    removeImage?: boolean;
     altText?: string;
     caption?: string;
     link?: string;
@@ -2442,7 +2445,8 @@ class API {
     aliases?: string[];
     imageSource?: string;
   }) {
-    const { coverID, library, imageFile, aliases, ...rest } = props;
+
+    const { coverID, library, imageFile, removeImage, aliases, ...rest } = props;
     const formData = new FormData();
     Object.entries(rest).forEach(([key, value]) => {
       if (value !== undefined && value !== "") {
@@ -2454,6 +2458,9 @@ class API {
     }
     if (imageFile) {
       formData.append("image", imageFile);
+    }
+    if (removeImage) {
+      formData.append("removeImage", "true");
     }
     const res = await axios.post<
       {
@@ -2468,22 +2475,7 @@ class API {
   async getBookGlossary(library: string, coverID: string) {
     const res = await axios.get<
       {
-        data: Array<{
-          usageID: string;
-          term: string;
-          termID: string;
-          definition: string;
-          altText?: string;
-          caption?: string;
-          link?: string;
-          source?: string;
-          imageUrl?: string;
-          pages: Array<{
-            pageID: string;
-            addedBy: string;
-            createdAt: string;
-          }>;
-        }>;
+        data: Array<GlossaryEntry>;
       } & ConductorBaseResponse
     >(`/commons/book/${library}/${coverID}/glossary`);
     return res.data;

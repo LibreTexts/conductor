@@ -12,6 +12,9 @@ interface AddPageDialogProps {
   toc: TableOfContents;
   setSelectedPageIds: (pageIds: string[]) => void;
   handleAddTermsToPages: () => void;
+  editingUsageID: string | null;
+  setEditingUsageID: (usageID: string) => void;
+  glossaryEntries: GlossaryEntry[];
 }
 
 const AddPageDialog: React.FC<AddPageDialogProps> = ({

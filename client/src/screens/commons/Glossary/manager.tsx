@@ -20,7 +20,6 @@ import type { Notification } from "../../../context/NotificationContext";
 interface GlossaryFormProps {
   open: boolean;
   onClose: () => void;
-  selectedNode: { id: string } | null;
   coverID: string;
   bookID: string;
   library: string;
@@ -28,9 +27,12 @@ interface GlossaryFormProps {
   onTermCreated?: () => void;
   setGlossaryEntries?: (entries: GlossaryEntry[]) => void;
   addNotification: (notification: Notification) => void;
+  editingTerm: GlossaryEntry | null;
+  setEditingUsageID: (usageID: string | null) => void;
 }
 
 type GlossaryFormFields = {
+  usageID?: string;
   term: string;
   definition: string;
   aliasInput?: string;
@@ -58,25 +60,32 @@ const DEFAULT_VALUES: GlossaryFormFields = {
   author: "",
   imageAuthor: "",
   imageLicense: "",
+  usageID: undefined,
 };
 
 const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
   const [contextError, setContextError] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [removeExistingImage, setRemoveExistingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedTab, setSelectedTab] = useState<number>(0);
+
+  useEffect(() => {
+    console.log(removeExistingImage);
+  }, [removeExistingImage]);
 
   const {
     open,
     onClose,
-    selectedNode,
     coverID,
     bookID,
     library,
     glossaryID,
     onTermCreated,
     addNotification,
+    editingTerm,
+    setEditingUsageID,
   } = props;
 
   const {
@@ -94,7 +103,38 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     defaultValues: DEFAULT_VALUES,
   });
 
-  const hasImage = !!imageFile;
+  useEffect(() => {
+    if (editingTerm) {
+      const baseUrl = import.meta.env.MODE === "development" ? import.meta.env.VITE_DEV_BASE_URL : "";
+      setValue("term", editingTerm?.term ?? "");
+      setValue("definition", editingTerm?.definition ?? "");
+      setValue("aliases", editingTerm?.aliases ?? []);
+      setValue("link", editingTerm?.link ?? "");
+      setValue("source", editingTerm?.source ?? "");
+      setValue("author", editingTerm?.author ?? "");
+      setValue("imageSource", editingTerm?.imageSource ?? "");
+      setValue("imageAuthor", editingTerm?.imageAuthor ?? "");
+      setValue("imageLicense", editingTerm?.imageLicense ?? "");
+      setValue("altText", editingTerm?.altText ?? "");
+      setValue("caption", editingTerm?.caption ?? "");
+      setValue("imageSource", editingTerm?.imageSource ?? "");
+      setValue("imageAuthor", editingTerm?.imageAuthor ?? "");
+      setValue("imageLicense", editingTerm?.imageLicense ?? "");
+      setValue("imageSource", editingTerm?.imageSource ?? "");
+      setValue("usageID", editingTerm?.usageID ?? undefined);
+      
+      setImageFile(null);
+      setRemoveExistingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (editingTerm.imageUrl) {
+        setImagePreview(`${baseUrl}${editingTerm.imageUrl}?t=${Date.now()}`);
+      } else {
+        setImagePreview(null);
+      }
+    }
+  }, [editingTerm]);
+
+  const hasImage = !!imageFile || !!imagePreview;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -107,8 +147,11 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
   };
 
   const handleRemoveImage = () => {
-    if (imagePreview) {
+    if (imagePreview?.startsWith("blob:")) {
       URL.revokeObjectURL(imagePreview);
+    }
+    if (!imageFile && editingTerm?.imageUrl) {
+      setRemoveExistingImage(true);
     }
     setImageFile(null);
     setImagePreview(null);
@@ -133,28 +176,31 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     if (contextErr) {
       setContextError(contextErr);
       return;
-    }
+      }
+      setContextError(null);
 
-    setContextError(null);
-
-    const res = await api.createGlossaryTerm({
-      term: data.term.trim(),
-      definition: data.definition.trim(),
-      coverID: coverID.trim(),
-      bookId: bookID.trim() === "" ? undefined : bookID.trim(),
-      library: library.trim(),
-      imageFile: imageFile ?? undefined,
-      altText: data.altText?.trim() || undefined,
-      caption: data.caption?.trim() || undefined,
-      link: data.link?.trim() || undefined,
-      source: data.source?.trim() || undefined,
-      glossaryID: glossaryID?.trim() || undefined,
-      author: data.author?.trim() || undefined,
-      imageAuthor: data.imageAuthor?.trim() || undefined,
-      imageLicense: data.imageLicense?.trim() || undefined,
-      aliases: data.aliases?.map((a) => a.trim()) || undefined,
-      imageSource: data.imageSource?.trim() || undefined,
-    });
+      const payload = {
+        usageID: data.usageID?.trim() || undefined,
+        term: data.term.trim(),
+        definition: data.definition.trim(),
+        coverID: coverID.trim(),
+        bookId: bookID.trim() === "" ? undefined : bookID.trim(),
+        library: library.trim(),
+        imageFile: imageFile ?? undefined,
+        removeImage: removeExistingImage || undefined,
+        altText: data.altText?.trim() || undefined,
+        caption: data.caption?.trim() || undefined,
+        link: data.link?.trim() || undefined,
+        source: data.source?.trim() || undefined,
+        glossaryID: glossaryID?.trim() || undefined,
+        author: data.author?.trim() || undefined,
+        imageAuthor: data.imageAuthor?.trim() || undefined,
+        imageLicense: data.imageLicense?.trim() || undefined,
+        aliases: data?.aliases ? data.aliases : [],
+        imageSource: data.imageSource?.trim() || undefined,
+      }
+      console.log(payload);
+    const res = await api.createGlossaryTerm(payload);
 
     if (res.err) {
       setContextError(res.errMsg ?? "Failed to save glossary term.");
@@ -177,13 +223,14 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     setContextError(null);
     setImageFile(null);
     setImagePreview(null);
+    setRemoveExistingImage(false);
 
     setValue("aliases", []);
+    setEditingUsageID(null);
   };
   const handleClose = (v: boolean) => {
     if (!v) {
       handleClearAll();
-
       onClose();
     }
   };
@@ -217,6 +264,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                   validate: (value) =>
                     value.trim().length > 0 || "This field is required",
                 }}
+                disabled={!!editingTerm}
               />
               <div className="mt-4 flex items-end gap-2">
                 <div className="flex-1">
@@ -333,7 +381,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                       <IconX size={14} />
                     </button>
                     <p className="mt-1 truncate text-xs text-neutral-500 max-w-[12rem]">
-                      {imageFile?.name}
+                      {imageFile?.name ?? editingTerm?.imageUrl?.split("/").pop()}
                     </p>
                   </div>
                 ) : (
@@ -395,9 +443,10 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
               <Select
                 label="Image License"
                 placeholder="Select a license…"
-                options={licenseOptions
-                 
-                  .map((o) => ({ value: o.value, label: o.text }))}
+                options={licenseOptions.map((o) => ({
+                  value: o.value,
+                  label: o.text,
+                }))}
                 error={!!errors.imageLicense}
                 errorMessage={errors.imageLicense?.message}
                 className="mt-4"
@@ -420,25 +469,14 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
         <Button variant="ghost" onClick={handleClearAll}>
           Clear All
         </Button>
-        {selectedTab === 2 ? (
-          <Button
-            type="submit"
-            form="glossary-form"
-            disabled={control._formState.isSubmitting}
-          >
-            Submit {control._formState.isSubmitting ? "..." : ""}
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              setSelectedTab((t) => t + 1);
-            }}
-          >
-            Next
-          </Button>
-        )}
+
+        <Button
+          type="submit"
+          form="glossary-form"
+          disabled={control._formState.isSubmitting}
+        >
+          Submit {control._formState.isSubmitting ? "..." : ""}
+        </Button>
       </Modal.Footer>
     </Modal>
   );
