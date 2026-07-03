@@ -46,6 +46,22 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
     if (!menuOpen) hamburgerRef.current?.focus();
   }, [menuOpen]);
 
+  // The drawer only unmounts on click — nothing closes it if the viewport is
+  // resized past the desktop breakpoint (e.g. un-maximizing/dragging wider)
+  // while it's open, so it can end up rendered alongside the desktop nav.
+  // `xl:hidden` only hides it visually; explicitly closing it here also
+  // drops it from the DOM and keeps the two in sync with the same "xl"
+  // breakpoint the desktop nav itself uses.
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1280px)");
+    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches) setMenuOpen(false);
+    };
+    handleChange(query);
+    query.addEventListener("change", handleChange);
+    return () => query.removeEventListener("change", handleChange);
+  }, []);
+
   return (
     <div style={{ position: "relative" }}>
       {/* Top bar — always visible */}
