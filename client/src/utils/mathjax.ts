@@ -38,10 +38,7 @@ function getMathJaxConfig(): Record<string, unknown> {
     output: {
       scale: 0.85,
       mtextInheritFont: false,
-      displayOverflow: "linebreak",
-      linebreaks: {
-        width: "100%",
-      },
+      displayOverflow: "scroll",
     },
     chtml: {
       matchFontHeight: true,
