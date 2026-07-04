@@ -167,6 +167,7 @@ const PinProjectsModal: React.FC<PinProjectsModalProps> = ({
                         >
                           <Link
                             to={`/projects/${p.projectID}`}
+                            onClick={() => onClose()}
                             className="text-blue-800 hover:text-blue-900 hover:underline font-semibold text-sm"
                           >
                             {p.title}
