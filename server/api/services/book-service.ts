@@ -16,6 +16,7 @@ import Book, { BookInterface } from "../../models/book";
 import { encodeXML } from "entities";
 import Project from "../../models/project";
 import projectsAPI from "../projects";
+import Restacker from "../../models/restacker";
 
 export interface BookServiceParams {
   bookID: string;
@@ -91,6 +92,8 @@ export default class BookService {
       return false;
     }
   }
+
+
 
   async getBookRecord(): Promise<BookInterface | undefined> {
     try {
@@ -448,10 +451,10 @@ export default class BookService {
     if (!pageID) {
       throw new Error("Missing page ID");
     }
-
+    const path = !isNaN(Number(pageID)) ? parseInt(pageID) : pageID;
     const pageTagsRes = await CXOneFetch({
       scope: "page",
-      path: parseInt(pageID),
+      path,
       api: MindTouch.API.Page.GET_Page_Tags,
       subdomain: this._library,
       options: {

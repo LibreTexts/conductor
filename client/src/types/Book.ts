@@ -78,6 +78,7 @@ export type RestackerTocEntry = {
   url: string;
   bookLicense?: RestackerTocLicense;
   pageLicense?: RestackerTocLicense;
+  sourceLicense?: RestackerTocLicense;
   contentLicenses?: RestackerTocLicense[];
   quotation?: number;
   children: RestackerTocEntry[];
@@ -87,6 +88,7 @@ export type RestackerEntry = {
   id: string;
   license?: RestackerTocLicense;
   contentLicense: RestackerTocLicense[];
+  sourceLicense?: RestackerTocLicense;
   status: "pending" | "running" | "completed" | "failed";
   quotation?: number;
 };
