@@ -88,6 +88,8 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
     <Stack direction="horizontal" gap="xs" align="center" className="py-1">
       <Stack direction="vertical" gap="xs" className="min-w-[120px]">
         <Select
+          name="license"
+          label="License"
           aria-label="License"
           placeholder="License..."
           options={licenseOptions.map((option) => ({
@@ -106,6 +108,8 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
         />
         {showVersion && (
           <Select
+            name="version"
+            label="Version"
             aria-label="License version"
             placeholder="Version..."
             options={LICENSE_VERSION_OPTIONS.map((option) => ({
