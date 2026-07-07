@@ -34,6 +34,7 @@ import {
   TableOfContents,
   RestackerTocEntry,
   RestackerEntry,
+  RestackerTocLicense,
   User,
   UserSearchParams,
   BaseInvitation,
@@ -2697,6 +2698,27 @@ class API {
     const res = await axios.get<{
       restacker: RestackerEntry[];
     } & ConductorBaseResponse>(`/projects/${id}/restacker`);
+    return res.data;
+  }
+
+  async reloadRestacker(id: string) {
+    const res = await axios.post<{
+      toc: TableOfContents;
+    } & ConductorBaseResponse & { status: "pending" | "completed" | "failed" }>(`/projects/${id}/restacker/toc`);
+    return res.data;
+  }
+
+  async updateRestackerLicense(
+    projectID: string,
+    data: { pageID: string; license: string; version?: string; force?: boolean },
+  ) {
+    const res = await axios.patch<
+      {
+        license?: RestackerTocLicense;
+        warning?: boolean;
+        warningMsg?: string;
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/restacker/license`, data);
     return res.data;
   }
 

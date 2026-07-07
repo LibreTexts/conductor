@@ -3255,6 +3255,12 @@ router.route('/projects/:projectID/restacker/toc').get(
   authAPI.getUserAttributes ,
   middleware.validateZod(RestackerValidators.GetRestackerPageSchema),
   restackerAPI.getRestackerToc
+)
+.post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes ,
+  middleware.validateZod(RestackerValidators.GetRestackerPageSchema),
+  restackerAPI.restackerReload
 );
 
 router.route('/projects/:projectID/restacker').get(
@@ -3262,6 +3268,13 @@ router.route('/projects/:projectID/restacker').get(
   authAPI.getUserAttributes ,
   middleware.validateZod(RestackerValidators.GetRestackerPageSchema),
   restackerAPI.getRestacker
+);
+
+router.route('/projects/:projectID/restacker/license').patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes ,
+  middleware.validateZod(RestackerValidators.UpdateRestackerLicenseSchema),
+  restackerAPI.updateRestackerLicense
 );
 
 export default router;

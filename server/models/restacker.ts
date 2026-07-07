@@ -13,6 +13,7 @@ interface RestackerSubPageState {
     "url": string;
     "license"?: RestackerTocLicense;
     contentLicense?: RestackerTocLicense[];
+    sourceLicense?: RestackerTocLicense;
     quotation?: number;
     status: "pending" | "completed" | "failed";
 }
@@ -47,6 +48,7 @@ const RestackerSubPageStateSchema = new Schema<RestackerSubPageState>(
         url: { type: String, required: true },
         license: { type: RestackerTocLicenseSchema, required: false },
         contentLicense: { type: [RestackerTocLicenseSchema], required: false },
+        sourceLicense: { type: RestackerTocLicenseSchema, required: false },
         quotation: { type: Number, required: false },
         status: { type: String, required: true, default: "pending" },
     },

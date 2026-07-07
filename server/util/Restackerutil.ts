@@ -1,11 +1,23 @@
 import BookService from "../api/services/book-service";
 import Restacker from "../models/restacker";
+import { PageTag } from "../types/Book";
 import { libraryKeys } from "./libraries";
 import * as cheerio from "cheerio";
 
 const CROSS_TRANSLUDE_SOURCE_RE =
   /template\(\s*['"]CrossTransclude\/Web['"]\s*,\s*\{[\s\S]*?['"]Library['"]\s*:\s*['"]([^'"]+)['"][\s\S]*?['"]PageID['"]\s*:\s*(\d+)/i;
+// Matches rendered HTML form of content-reuse widget
+const CONTENT_REUSE_WIDGET_RE =
+  /<div[^>]+class=["'][^"']*mt-contentreuse-widget[^"']*["'][^>]+data-page=["'][^"']+["']/i;
+// Matches raw wikitext form: wiki.page("...", NULL) stored inside <pre class="script">
+const WIKI_PAGE_REUSE_RE = /wiki\.page\s*\(\s*["'&quot;]/i;
 class RestackerService {
+  private pageTags: Map<string, PageTag[]>;
+
+  constructor() {
+    this.pageTags = new Map<string, PageTag[]>();
+  }
+
   ltRegex = new RegExp(`\\blt-(${libraryKeys})-\\d+\\b`, "g");
   async runRestacker(projectID: string, library: string, coverID: string) {
     const restacker = await Restacker.findOne({
@@ -31,7 +43,7 @@ class RestackerService {
           );
           page.contentLicense = contentLicense.contentLicenses;
           page.quotation = contentLicense.quotationRate;
-
+          page.sourceLicense = contentLicense.sourceLicense;
           page.status = "completed";
         }
       } catch (error) {
@@ -46,13 +58,50 @@ class RestackerService {
     );
   }
 
+  async getRestackerStatus(projectID:string): Promise<string> {
+    const restacker = await Restacker.findOne({ projectID:{$eq: projectID} });
+    if (!restacker) {
+      return "notfound";
+    }
+    return restacker.restackerCurrentBook.some((page) => page.status === "pending")
+      ? "pending"
+      : "completed";
+  }
+
+
+
+  private pageTagsKey(library: string, pageID: string): string {
+    return `${library}:${pageID}`;
+  }
+
+  private async getCachedPageTags(
+    library: string,
+    pageID: string,
+    bookID: string,
+  ): Promise<PageTag[]> {
+    const key = this.pageTagsKey(library, pageID);
+    const cached = this.pageTags.get(key);
+    if (cached) {
+      return cached;
+    }
+
+    const bookService = new BookService({ bookID });
+    const tags = await bookService.getPageTags(pageID);
+    this.pageTags.set(key, tags);
+    return tags;
+  }
+
   private async getPagelicense(
     pageID: string,
     library: string,
     coverID: string,
+    isContentLicense:boolean = false,
   ): Promise<{ label: string; raw: string; version: string } | undefined> {
-    const bookService = new BookService({ bookID: `${library}-${coverID}` });
-    const page = await bookService.getPageTags(pageID);
+    const page = await this.getCachedPageTags(
+      library,
+      pageID,
+      `${library}-${coverID}`,
+    );
     if (!page) {
       throw new Error("Page not found");
     }
@@ -60,33 +109,108 @@ class RestackerService {
     const licenseVersionTag = page.find((tag) =>
       tag["@value"].startsWith("licenseversion:"),
     );
-    if (!licenseTag || !licenseVersionTag) {
+    if (!isContentLicense) {
+      // add all tags to the pageTags map
+      this.pageTags.set(pageID, page);
+    }
+    if (!licenseTag) {
       return undefined;
     }
     return {
       label: licenseTag["@value"],
-      raw: licenseVersionTag["@value"],
-      version: licenseVersionTag["@value"],
+      raw: licenseVersionTag?.["@value"] ?? "",
+      version: licenseVersionTag?.["@value"] ?? "",
     };
   }
 
   private async isTranscluded(
     pageID: string,
     library: string,
-  ): Promise<boolean> {
+  ): Promise<{isTranscluded: boolean, sourceLicense: { label: string; raw: string; version: string } | undefined}> {
     try {
       const bookService = new BookService({ bookID: `${library}-${pageID}` });
       const rawContents = await bookService.getPageRawContent(pageID);
       if (!rawContents) {
-        return false;
+        return {isTranscluded: false, sourceLicense: undefined};
       }
-      const match = rawContents.match(CROSS_TRANSLUDE_SOURCE_RE);
-      if (!match) {
-        return false;
+      // The API returns a JSON envelope; extract the HTML body for all further matching
+      let content = rawContents;
+      try {
+        const parsed = JSON.parse(rawContents);
+        if (typeof parsed?.body === "string") content = parsed.body;
+      } catch {}
+
+      const isCrossTranscluded =
+        CROSS_TRANSLUDE_SOURCE_RE.test(content);
+      const isContentReused =
+        CONTENT_REUSE_WIDGET_RE.test(content) ||
+        WIKI_PAGE_REUSE_RE.test(content);
+
+        if(isContentReused||isCrossTranscluded){
+          const tags = this.pageTags.get(pageID);
+          // check if transcluded tag is set
+          const transcludedTag = tags?.find((tag) => tag["@value"].startsWith("transcluded:"));
+          if(!transcludedTag){
+          // if not add it to the page on cxone
+            const newTags = tags?.map((tag) => tag["@value"]).concat(["transcluded:yes"]) ?? ["transcluded:yes"] as string[];
+            bookService.updatePageDetails(pageID,undefined, newTags);
+          }
+        }
+
+      if (isContentReused) {
+        // Extract source page path — try data-page attribute first (rendered HTML),
+        // then fall back to wiki.page() argument (&quot; is the HTML-entity form of " in the body)
+        const dataPageMatch = content.match(/data-page=["']([^"']+)["']/i);
+        const wikiPageMatch = content.match(/wiki\.page\s*\(\s*(?:["']|&quot;)([^"'&]+)/i);
+        const rawSourcePath = dataPageMatch?.[1] ?? wikiPageMatch?.[1];
+
+        if (rawSourcePath) {
+          const sourcePath = decodeURIComponent(rawSourcePath);
+          const tags = await this.getCachedPageTags(
+            library,
+            sourcePath,
+            `${library}-${pageID}`,
+          );
+          const licenseTag = tags?.find((tag) => tag["@value"].startsWith("license:"));
+          const licenseVersionTag = tags?.find((tag) =>
+            tag["@value"].startsWith("licenseversion:"),
+          );
+          if (licenseTag) {
+            return {
+              isTranscluded: true,
+              sourceLicense: {
+                label: licenseTag["@value"],
+                raw: licenseVersionTag?.["@value"] ?? "",
+                version: licenseVersionTag?.["@value"] ?? "",
+              },
+            };
+          }
+        }
       }
-      return true;
+      if(isCrossTranscluded){
+        
+          // extract the library and pageID
+          const crossLibrary = content.match(/Library':['"]([^'"]+)['"]/i)?.[1];
+          const crossPageID = content.match(/PageID':(\d+)/i)?.[1];
+          if (crossLibrary && crossPageID) {
+            const tags = await this.getCachedPageTags(
+              crossLibrary,
+              crossPageID,
+              `${crossLibrary}-${crossPageID}`,
+            );
+            const licenseTag = tags?.find((tag) => tag["@value"].startsWith("license:"));
+            const licenseVersionTag = tags?.find((tag) =>
+              tag["@value"].startsWith("licenseversion:"),
+            );
+            if(licenseTag ){
+              return {isTranscluded: true, sourceLicense: {label: licenseTag["@value"], raw: licenseVersionTag?.["@value"] || "", version: licenseVersionTag?.["@value"] || ""}};
+            }
+          }
+        }
+   
+      return {isTranscluded: isCrossTranscluded || isContentReused, sourceLicense: undefined};
     } catch (error) {
-      return false;
+      return {isTranscluded: false, sourceLicense: undefined};
     }
   }
 
@@ -125,12 +249,13 @@ class RestackerService {
       | { label: string; raw: string; version: string }[]
       | undefined;
     quotationRate: number;
+    sourceLicense: { label: string; raw: string; version: string } | undefined;
   }> {
     const bookService = new BookService({ bookID: `${library}-${coverID}` });
     const page = await bookService.getPageContent(pageID, "json");
 
     if (!page) {
-      return { contentLicenses: undefined, quotationRate: -1 };
+      return { contentLicenses: undefined, quotationRate: -1, sourceLicense: undefined };
     }
  
     const $ = cheerio.load(page);
@@ -147,15 +272,21 @@ class RestackerService {
       const parts = classname.split("-");
       const refLibrary = parts[1];
       const refPageID = parts[2];
-      const license = await this.getPagelicense(refPageID, refLibrary, coverID);
+      const license = await this.getPagelicense(refPageID, refLibrary, coverID,true);
       if (license) {
         licenses.push(license);
       }
     }
-    const isTranscluded = await this.isTranscluded(pageID, library);
-    const quotationRate = isTranscluded?1:this.getQuotationRate(page);
+    const transcludedInfo = await this.isTranscluded(pageID, library);
+    const quotationRate = transcludedInfo.isTranscluded?1:this.getQuotationRate(page);
+
+    const licenseMap = new Map<string, { label: string; raw: string; version: string }>();
+    for (const license of licenses) {
+      licenseMap.set(`${license.label}::${license.version}`, license);
+    }
     const response = {
-      contentLicenses: licenses.length > 0 ? licenses : undefined,
+      contentLicenses: licenseMap.size > 0 ? Array.from(licenseMap.values()) : undefined,
+      sourceLicense: transcludedInfo.sourceLicense,
       quotationRate,
     };
     return response;
