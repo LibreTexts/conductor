@@ -134,8 +134,16 @@ export const supportTicketAttachmentAllowedTypes = [
   "application/json", // .json
   "text/plain", // .txt
   "text/html", // .html
+  "text/markdown", // .md
   "application/vnd.oasis.opendocument.text", // .odt
   "image/*",
   "video/*",
-  "application/pdf",
+  "application/pdf", // .pdf
+  "model/gltf-binary", // .glb
+  "model/obj", // .obj
+  "model/stl", // .stl
+  "application/zip", // .zip
+  "application/x-zip-compressed", // .zip (sometimes used on Windows)
+  "text/x-tex", // .tex
+  "text/vtt", // .vtt
 ]

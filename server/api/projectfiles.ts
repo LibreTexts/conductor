@@ -77,6 +77,30 @@ const filesStorage = multer.memoryStorage();
 const MAX_UPLOAD_FILES = 20;
 const MAX_UPLOAD_FILE_SIZE = 100000000; // 100mb
 const LIBRETEXTS_ALLOWED_ORIGINS = ["*.libretexts.org", "*.libretexts.net"];
+const ALLOWED_MIME_TYPES = [
+  "application/msword", // .doc
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+  "application/vnd.ms-powerpoint", // .ppt
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
+  "application/vnd.ms-excel", // .xls
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+  "text/csv", // .csv
+  "application/json", // .json
+  "text/plain", // .txt
+  "text/html", // .html
+  "text/markdown", // .md
+  "application/vnd.oasis.opendocument.text", // .odt
+  "image/*",
+  "video/*",
+  "application/pdf", // .pdf
+  "model/gltf-binary", // .glb
+  "model/obj", // .obj
+  "model/stl", // .stl
+  "application/zip", // .zip
+  "application/x-zip-compressed", // .zip (sometimes used on Windows)
+  "text/x-tex", // .tex
+  "text/vtt", // .vtt
+]
 
 /**
  * Multer handler to process and validate Project File uploads.
@@ -108,6 +132,25 @@ function fileUploadHandler(req: Request, res: Response, next: NextFunction) {
       if (file.originalname.endsWith(".vtt")) {
         file.mimetype = "text/vtt";
       }
+      if (file.originalname.endsWith(".obj")) {
+        file.mimetype = "model/obj";
+      }
+      if (file.originalname.endsWith(".stl")) {
+        file.mimetype = "model/stl";
+      }
+      if (file.originalname.endsWith(".glb")) {
+        file.mimetype = "model/gltf-binary";
+      }
+      if (file.originalname.endsWith(".zip")) {
+        file.mimetype = "application/zip"; // Normalize .zip to application/zip for consistency
+      }
+      const isAllowed = ALLOWED_MIME_TYPES.some((allowed) =>
+        allowed.endsWith("/*")
+          ? file.mimetype.startsWith(allowed.slice(0, -1)) // "image/" etc.
+          : file.mimetype === allowed
+      );
+      // @ts-ignore
+      if (!isAllowed) return cb(new Error("filetype"), false);
       return cb(null, true);
     },
   }).array("files", req.method === "POST" ? MAX_UPLOAD_FILES : 1);
@@ -119,6 +162,9 @@ function fileUploadHandler(req: Request, res: Response, next: NextFunction) {
       }
       if (err.message === "filenameslash") {
         errMsg = conductorErrors.err61;
+      }
+      if (err.message === "filetype") {
+        errMsg = conductorErrors.err2;
       }
       return res.status(400).send({
         err: true,
@@ -575,7 +621,7 @@ async function bulkDownloadProjectFiles(
   try {
     // 150mb limit 
     const MAX_COMBINED_SIZE = 157286400; // 150 * 1024 * 1024
-    
+
     // @ts-ignore
     const rawIds = req.query.fileIDs as string;
     const projectID = req.params.projectID;
@@ -616,7 +662,7 @@ async function bulkDownloadProjectFiles(
     foundFiles.forEach((file) => {
       totalSize += file.size;
     });
-    
+
     // If over limit, return error instead of email notification
     if (totalSize > MAX_COMBINED_SIZE) {
       return res.status(400).send({
