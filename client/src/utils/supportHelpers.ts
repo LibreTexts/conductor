@@ -140,8 +140,11 @@ export const supportTicketAttachmentAllowedTypes = [
   "video/*",
   "application/pdf", // .pdf
   "model/gltf-binary", // .glb
+  ".glb", // .glb (extension fallback; no MIME registered on Windows)
   "model/obj", // .obj
+  ".obj", // .obj (extension fallback; no MIME registered on Windows)
   "model/stl", // .stl
+  ".stl", // .stl (extension fallback; no MIME registered on Windows)
   "application/zip", // .zip
   "application/x-zip-compressed", // .zip (sometimes used on Windows)
   "text/x-tex", // .tex
