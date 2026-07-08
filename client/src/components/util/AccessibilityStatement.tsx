@@ -61,7 +61,7 @@ const AccessibilityStatement = () => {
                 href="https://chem.libretexts.org/Courses/Remixer_University/LibreVerse_Accessibility_Conformance_Reports/ADAPT_for_Students_Accessibility_Conformance_Report?readerView=">ADAPT
                 for Students ACR</Link></li>
               <li><Text size="base">Commons: </Text><Link
-                href="https://chem.libretexts.org/Courses/Remixer_University/LibreVerse_Accessibility_Conformance_Reports/LibreCommons_Accessibility_Conformance_Report?readerView=">LibreCommons
+                href="https://chem.libretexts.org/Courses/Remixer_University/LibreVerse_Accessibility_Conformance_Reports/Commons_Accessibility_Conformance_Report_July_2026?readerView">LibreCommons
                 ACR</Link></li>
               <li><Text size="base">Conductor (coming soon)</Text></li>
               <li><Text size="base">Connections (coming soon)</Text></li>
