@@ -11,7 +11,6 @@ import {
 import { DataTable, ColumnDef } from "@libretexts/davis-react-table";
 import {
   IconCheck,
-  IconCode,
   IconCopy,
   IconDownload,
   IconExternalLink,
@@ -28,7 +27,6 @@ import { useNotifications } from "../../../../context/NotificationContext";
 import { truncateString } from "../../../../components/util/HelperFunctions";
 import CopyButton from "../../../../components/util/CopyButton";
 import ManageAuthorModal from "../../../../components/controlpanel/AuthorsManager/ManageAuthorModal";
-import GenerateTemplateJSONModal from "../../../../components/controlpanel/AuthorsManager/GenerateTemplateJSONModal";
 
 const LIMIT = 25;
 
@@ -207,17 +205,6 @@ const AuthorsManager = () => {
             <Breadcrumb.Item isCurrent>Authors Manager</Breadcrumb.Item>
           </Breadcrumb>
           <div className="flex gap-2">
-            <Button
-              variant="primary"
-              icon={<IconCode size={16} />}
-              onClick={() =>
-                openModal(
-                  <GenerateTemplateJSONModal onClose={() => closeAllModals()} />
-                )
-              }
-            >
-              Generate Template JSON
-            </Button>
             <Button
               variant="primary"
               icon={<IconPlus size={16} />}
