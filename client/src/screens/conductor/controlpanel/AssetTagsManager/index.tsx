@@ -2,11 +2,8 @@ import { useState, useEffect, lazy, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   Badge,
-  Badge,
   Breadcrumb,
   Button,
-  Heading,
-  IconButton,
   Heading,
   IconButton,
   Input,
@@ -46,13 +43,6 @@ const ConfirmSetOrgDefault = lazy(
 );
 
 const ITEMS_PER_PAGE_OPTIONS = [
-  { value: "5", label: "5" },
-  { value: "10", label: "10" },
-  { value: "25", label: "25" },
-  { value: "50", label: "50" },
-];
-
-const ITEMS_PER_PAGE_OPTIONS = [
   { value: "10", label: "10 per page" },
   { value: "25", label: "25 per page" },
   { value: "50", label: "50 per page" },
@@ -87,6 +77,9 @@ const PaginationRow: React.FC<PaginationRowProps> = ({
     <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
       <div className="flex items-center gap-2">
         <Select
+          name="itemsPerPage"
+          label="Items per page"
+          placeholder="Select items per page"
           options={ITEMS_PER_PAGE_OPTIONS}
           value={String(itemsPerPage)}
           onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
@@ -276,7 +269,7 @@ const AssetTagsManager: React.FC<{}> = () => {
 
   return (
     <div className="bg-white h-full px-8 pt-8">
-      <Stack direction="row" className="justify-between items-center mb-2">
+      <Stack direction="horizontal" className="justify-between items-center mb-2">
         <Heading level={2}>Asset Tagging Framework Manager</Heading>
         <Button
           variant="primary"
@@ -288,16 +281,16 @@ const AssetTagsManager: React.FC<{}> = () => {
       </Stack>
 
       <Breadcrumb className="mb-6">
-        <Breadcrumb.Item as={Link} to="/controlpanel">
-          Control Panel
-        </Breadcrumb.Item>
-        <Breadcrumb.Item active>Asset Tagging Framework Manager</Breadcrumb.Item>
+        <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+        <Breadcrumb.Item isCurrent>Asset Tags Manager</Breadcrumb.Item>
       </Breadcrumb>
 
       <div className="border border-gray-200 rounded-lg overflow-hidden">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 border-b border-gray-200 bg-gray-50">
           <div className="md:col-span-2">
             <Input
+              name="search"
+              label="Search"
               placeholder="Search by name or description..."
               value={searchString}
               onChange={(e) => {
@@ -307,6 +300,9 @@ const AssetTagsManager: React.FC<{}> = () => {
             />
           </div>
           <Select
+            name="statusFilter"
+            label="Status"
+            placeholder="Select status"
             options={STATUS_OPTIONS}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -371,7 +367,6 @@ const AssetTagsManager: React.FC<{}> = () => {
         }}
         onConfirm={() => setAsOrgDefault(defaultToSet)}
       />
-    </div>
     </div>
   );
 };
