@@ -376,9 +376,9 @@ async function uploadAuthorPicture(
   res: Response
 ) {
   try {
-
-    console.log("USING BUCKET: ", process.env.AWS_AUTHOR_IMAGES_BUCKET);
-    console.log("USING DOMAIN: ", process.env.AWS_AUTHOR_IMAGES_DOMAIN);
+    if (!process.env.AWS_AUTHOR_IMAGES_BUCKET || !process.env.AWS_AUTHOR_IMAGES_DOMAIN) {
+      return conductor500Err(res);
+    }
 
     if (typeof (req as any).file !== "object") {
       return res.status(400).send({
@@ -404,7 +404,15 @@ async function uploadAuthorPicture(
       });
     }
 
-    const fileKey = `${author.nameKey}.${extension}`;
+    const safeNameKey = String(author.nameKey ?? "").trim();
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(safeNameKey)) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "Author nameKey is invalid for picture upload.",
+      });
+    }
+
+    const fileKey = `${safeNameKey}.${extension}`;
 
     // Cache-bust: bump ?v=N off the existing picture URL when it points at our bucket domain.
     let version = 1;

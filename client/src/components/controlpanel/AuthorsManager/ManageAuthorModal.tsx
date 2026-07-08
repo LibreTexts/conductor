@@ -134,7 +134,7 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
   async function handleImageUpload(files: FileList) {
     try {
       // FileUploader fires on every state change, including when files are cleared.
-      if (!authorID || !files || files.length === 0) return;
+      if (uploadingImage || !authorID || !files || files.length === 0) return;
 
       setUploadingImage(true);
       const formData = new FormData();
@@ -322,7 +322,6 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
                       label="Display picture as circle"
                       description="When enabled, the author's picture is cropped to a circular frame."
                       checked={field.value}
-                      defaultChecked={false}
                       onChange={(checked) => field.onChange(checked)}
                     />
                   )}
