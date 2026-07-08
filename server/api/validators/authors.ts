@@ -1,8 +1,12 @@
 import { z } from "zod";
 import { PaginationSchema, isMongoIDValidator } from "./misc.js";
 
+const nameKeySchema = z.string().trim().min(1).max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+  message: "Name Key must be all lowercase letters, numbers, and hyphens only.",
+});
+
 const _AuthorValidator = z.object({
-  nameKey: z.string().trim().min(1).max(100),
+  nameKey: nameKeySchema,
   name: z.string().trim().min(1).max(200),
   nameTitle: z.string().trim().max(50).optional().or(z.literal("")),
   nameURL: z.url().optional().or(z.literal("")),
@@ -62,6 +66,8 @@ export const UpdateAuthorValidator = z.object({
 });
 
 export const DeleteAuthorValidator = AuthorIDParams;
+
+export const UploadAuthorPictureValidator = AuthorIDParams;
 
 export const GetCXOnePageContentTemplateValidator = z.object({
   params: z.object({

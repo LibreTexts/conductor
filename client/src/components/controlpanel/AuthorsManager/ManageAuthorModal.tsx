@@ -14,6 +14,11 @@ import { Author } from "../../../types";
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 import { useQueryClient } from "@tanstack/react-query";
+import FileUploader from "../../FileUploader";
+import { useNotifications } from "../../../context/NotificationContext";
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 // Work with the pictureCircle field as a boolean in the form, but convert to "yes"/"no" when sending to the API.
 type ManageAuthorFormValues = Omit<Author, 'pictureCircle'> & { pictureCircle: boolean };
@@ -26,12 +31,15 @@ interface ManageAuthorModalProps {
 
 const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) => {
   const queryClient = useQueryClient();
+  const { addNotification } = useNotifications();
   const { handleGlobalError } = useGlobalError();
   const {
     register,
     handleSubmit,
     control,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<ManageAuthorFormValues>({
     defaultValues: {
@@ -53,7 +61,11 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
 
   const mode = authorID ? "edit" : "create";
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+
+  const pictureURL = watch("pictureURL");
+  const pictureCircle = watch("pictureCircle");
 
   useEffect(() => {
     if (show) {
@@ -100,12 +112,49 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
         const res = await api.createAuthor(payload);
         if (res.data.err) throw new Error(res.data.errMsg);
       }
+      
       queryClient.invalidateQueries({ queryKey: ["authors"] });
+      
+      addNotification({
+        message:
+          mode === "create"
+            ? "The author has been successfully added."
+            : "The author's information has been successfully updated.",
+        type: "success",
+      });
+
       onClose();
     } catch (err) {
       handleGlobalError(err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleImageUpload(files: FileList) {
+    try {
+      // FileUploader fires on every state change, including when files are cleared.
+      if (!authorID || !files || files.length === 0) return;
+
+      setUploadingImage(true);
+      const formData = new FormData();
+      formData.append("file", files[0]);
+
+      const res = await api.uploadAuthorImage(authorID, formData);
+      if (res.data.err) throw new Error(res.data.errMsg);
+      if (!res.data.url) throw new Error("Invalid response from server.");
+
+      // Sync the form field so a subsequent save keeps the new URL and doesn't clobber other edits.
+      setValue("pictureURL", res.data.url, { shouldDirty: false });
+      addNotification({
+        message: "The author's image has been successfully uploaded.",
+        type: "success",
+      });
+      queryClient.invalidateQueries({ queryKey: ["authors"] });
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setUploadingImage(false);
     }
   }
 
@@ -143,7 +192,7 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
                 placeholder="e.g. johndoe"
                 required
                 className="sm:col-span-2"
-                helperText="Unique identifier for this author. This key must be added to the 'authorname' classification on the appropriate libraries for the author to be associated with pages."
+                helperText="Unique identifier for this author. All lowercase letters and numbers only, hyphenated. This key must be added to the 'authorname' classification on the appropriate libraries for the author to be associated with pages."
                 error={!!errors.nameKey}
                 errorMessage={errors.nameKey?.message}
                 {...register("nameKey", { required: "Name Key is required." })}
@@ -206,15 +255,61 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
             description="Control how the author's picture and attribution text appear."
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 flex flex-col gap-3 sm:flex-row sm:items-start">
+                <div className="flex flex-col items-center gap-1 shrink-0">
+                  {pictureURL ? (
+                    <img
+                      src={pictureURL}
+                      alt="Author picture preview"
+                      className={`h-24 w-24 object-cover border border-gray-200 ${
+                        pictureCircle ? "rounded-full" : "rounded-md"
+                      }`}
+                    />
+                  ) : (
+                    <div
+                      className={`h-24 w-24 flex items-center justify-center bg-gray-50 border border-dashed border-gray-300 text-xs text-gray-400 text-center px-2 ${
+                        pictureCircle ? "rounded-full" : "rounded-md"
+                      }`}
+                    >
+                      No picture
+                    </div>
+                  )}
+                </div>
+                <div className="grow w-full">
+                  {mode === "edit" ? (
+                    <>
+                      <FileUploader
+                        fileTypes={ALLOWED_IMAGE_TYPES}
+                        maxFiles={1}
+                        maxFileSize={MAX_IMAGE_SIZE}
+                        disabled={uploadingImage}
+                        onUpload={handleImageUpload}
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        {uploadingImage
+                          ? "Uploading picture…"
+                          : "Upload a JPEG, PNG, or WebP image (max 5 MB). The picture is saved immediately."}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      Save the author first to upload a picture.
+                    </p>
+                  )}
+                </div>
+              </div>
               <Input
                 label="Picture URL"
                 type="url"
                 placeholder="https://example.com/photo.jpg"
+                className="sm:col-span-2"
+                helperText="Automatically set when you upload a picture. You can also paste an external URL."
                 {...register("pictureURL")}
               />
               <Input
                 label="Attribution Prefix"
                 placeholder="e.g. Access for free at"
+                className="sm:col-span-2"
                 {...register("attributionPrefix")}
               />
               <div className="sm:col-span-2">
@@ -251,6 +346,7 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
                 label="Note URL"
                 type="url"
                 placeholder="https://example.com/note"
+                className="sm:col-span-2"
                 {...register("noteURL")}
               />
             </div>

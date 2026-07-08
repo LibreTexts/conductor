@@ -1,4 +1,11 @@
 import { z } from "zod";
+import { Request, Response, NextFunction } from "express";
+import multer from "multer";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
 import { debugError } from "../debug.js";
 import Author from "../models/author.js";
 import {
@@ -8,16 +15,57 @@ import {
   GetAuthorAssetsValidator,
   GetAuthorValidator,
   UpdateAuthorValidator,
+  UploadAuthorPictureValidator,
   GetCXOnePageContentTemplateValidator,
   GetAuthorByNameKeyValidator,
 } from "./validators/authors.js";
-import { Response } from "express";
+import conductorErrors from "../conductor-errors.js";
 import { conductor404Err, conductor500Err } from "../util/errorutils.js";
 import { getPaginationOffset } from "../util/helpers.js";
 import ProjectFile from "../models/projectfile.js";
 import AuthorService from "./services/author-service.js";
 import { readFile } from "fs/promises";
 import { join } from "path";
+
+const ALLOWED_PICTURE_MIMETYPES = ["image/jpeg", "image/png", "image/webp"];
+const authorPictureStorage = multer.memoryStorage();
+
+/**
+ * Multer middleware that processes and validates an author picture upload.
+ * Accepts a single JPEG/PNG/WebP image (<= 5 MB) on the "file" field.
+ */
+function authorPictureUploadHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  const config = multer({
+    storage: authorPictureStorage,
+    fileFilter: (_req, file, cb) => {
+      if (!ALLOWED_PICTURE_MIMETYPES.includes(file.mimetype)) {
+        return cb(null, false);
+      }
+      return cb(null, true);
+    },
+    limits: {
+      files: 1,
+      fileSize: 5242880, // 5 MB
+    },
+  }).single("file");
+  return config(req, res, (err) => {
+    if (err) {
+      let errMsg = conductorErrors.err53;
+      if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+        errMsg = conductorErrors.err54;
+      }
+      return res.send({
+        errMsg,
+        err: true,
+      });
+    }
+    next();
+  });
+}
 
 async function getAuthors(
   req: z.infer<typeof GetAuthorsValidator>,
@@ -326,6 +374,115 @@ async function deleteAuthor(
   }
 }
 
+async function uploadAuthorPicture(
+  req: z.infer<typeof UploadAuthorPictureValidator>,
+  res: Response
+) {
+  try {
+
+    console.log("USING BUCKET: ", process.env.AWS_AUTHOR_IMAGES_BUCKET);
+    console.log("USING DOMAIN: ", process.env.AWS_AUTHOR_IMAGES_DOMAIN);
+
+    if (typeof (req as any).file !== "object") {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+    const file = (req as any).file as Express.Multer.File;
+
+    const author = await Author.findOne({
+      _id: req.params.id,
+      orgID: process.env.ORG_ID,
+    }).lean();
+    if (!author) {
+      return conductor404Err(res);
+    }
+
+    const extension = file.mimetype.split("/")[1];
+    if (!extension) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+
+    const fileKey = `${author.nameKey}.${extension}`;
+
+    // Cache-bust: bump ?v=N off the existing picture URL when it points at our bucket domain.
+    let version = 1;
+    if (
+      author.pictureURL &&
+      process.env.AWS_AUTHOR_IMAGES_DOMAIN &&
+      author.pictureURL.includes(process.env.AWS_AUTHOR_IMAGES_DOMAIN)
+    ) {
+      const [, versionPart] = author.pictureURL.split("?v=");
+      const currentVersion = Number.parseInt(versionPart);
+      if (!Number.isNaN(currentVersion)) {
+        version = currentVersion + 1;
+      }
+    }
+
+    const storageClient = new S3Client({ region: process.env.AWS_REGION });
+    const uploadResponse = await storageClient.send(
+      new PutObjectCommand({
+        Bucket: process.env.AWS_AUTHOR_IMAGES_BUCKET,
+        Key: fileKey,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      })
+    );
+    if (uploadResponse.$metadata?.httpStatusCode !== 200) {
+      throw new Error("Error uploading author picture to S3.");
+    }
+
+    const pictureURL = `https://${process.env.AWS_AUTHOR_IMAGES_DOMAIN}/${fileKey}?v=${version}`;
+
+    const authorService = new AuthorService();
+    const updated = await authorService.updateAuthor(req.params.id, {
+      pictureURL,
+    });
+
+    // Remove the previous object if this upload changed the key (e.g. format change PNG -> JPEG),
+    // otherwise the old file is orphaned in the bucket. Best-effort: the new image is already saved,
+    // so a cleanup failure must not fail the request.
+    if (
+      author.pictureURL &&
+      process.env.AWS_AUTHOR_IMAGES_DOMAIN &&
+      author.pictureURL.includes(process.env.AWS_AUTHOR_IMAGES_DOMAIN)
+    ) {
+      try {
+        const previousKey = new URL(author.pictureURL).pathname.replace(
+          /^\/+/,
+          ""
+        );
+        if (previousKey && previousKey !== fileKey) {
+          await storageClient.send(
+            new DeleteObjectCommand({
+              Bucket: process.env.AWS_AUTHOR_IMAGES_BUCKET,
+              Key: previousKey,
+            })
+          );
+        }
+      } catch (cleanupErr) {
+        debugError(cleanupErr);
+      }
+    }
+
+    return res.send({
+      err: false,
+      url: pictureURL,
+      author: updated,
+    });
+  } catch (err: any) {
+    if (err.name === "DocumentNotFoundError") {
+      return conductor404Err(res);
+    }
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 async function getCXOnePageContentTemplate(
   req: z.infer<typeof GetCXOnePageContentTemplateValidator>,
   res: Response
@@ -376,5 +533,7 @@ export default {
   createAuthor,
   updateAuthor,
   deleteAuthor,
+  authorPictureUploadHandler,
+  uploadAuthorPicture,
   getCXOnePageContentTemplate,
 };

@@ -797,6 +797,17 @@ router
   );
 
 router
+  .route("/authors/:id/picture")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    authorsAPI.authorPictureUploadHandler,
+    middleware.validateZod(AuthorsValidators.UploadAuthorPictureValidator),
+    authorsAPI.uploadAuthorPicture
+  );
+
+router
   .route("/authors/key/:key")
   .get(
     middleware.validateZod(AuthorsValidators.GetAuthorByNameKeyValidator),
