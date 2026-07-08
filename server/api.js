@@ -802,8 +802,8 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-    authorsAPI.authorPictureUploadHandler,
     middleware.validateZod(AuthorsValidators.UploadAuthorPictureValidator),
+    authorsAPI.authorPictureUploadHandler,
     authorsAPI.uploadAuthorPicture
   );
 
