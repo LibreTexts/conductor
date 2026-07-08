@@ -72,6 +72,7 @@ export default class AuthorService {
                     companyName: 1,
                     pictureURL: 1,
                     programName: 1,
+                    programURL: 1,
                     ...(includeProjects ? { projects: 1 } : {}),
                 }
             }

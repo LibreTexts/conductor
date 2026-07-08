@@ -42,7 +42,7 @@ export const GetAuthorValidator = AuthorIDParams;
 
 export const GetAuthorByNameKeyValidator = z.object({
   params: z.object({
-    key: z.string().trim().min(1).max(100),
+    key: nameKeySchema,
   }),
   query: z.object({
     includeProjects: z.coerce.boolean().optional().default(false),
