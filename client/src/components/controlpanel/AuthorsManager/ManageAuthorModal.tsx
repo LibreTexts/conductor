@@ -1,13 +1,22 @@
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Modal, Button, Checkbox } from "@libretexts/davis-react";
+import {
+  Modal,
+  Button,
+  Checkbox,
+  Input,
+  FormSection,
+  Stack,
+  Alert,
+} from "@libretexts/davis-react";
 import { IconDeviceFloppy, IconTrash } from "@tabler/icons-react";
 import { Author } from "../../../types";
 import useGlobalError from "../../error/ErrorHooks";
-import CtlTextInput from "../../ControlledInputs/CtlTextInput";
-import { required } from "../../../utils/formRules";
 import api from "../../../api";
 import { useQueryClient } from "@tanstack/react-query";
+
+// Work with the pictureCircle field as a boolean in the form, but convert to "yes"/"no" when sending to the API.
+type ManageAuthorFormValues = Omit<Author, 'pictureCircle'> & { pictureCircle: boolean };
 
 interface ManageAuthorModalProps {
   show: boolean;
@@ -18,7 +27,13 @@ interface ManageAuthorModalProps {
 const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) => {
   const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
-  const { control, getValues, trigger, reset } = useForm<Author>({
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    formState: { errors },
+  } = useForm<ManageAuthorFormValues>({
     defaultValues: {
       nameKey: "",
       name: "",
@@ -28,7 +43,7 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
       noteURL: "",
       companyName: "",
       companyURL: "",
-      pictureCircle: "yes",
+      pictureCircle: false,
       pictureURL: "",
       programName: "",
       programURL: "",
@@ -58,7 +73,10 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
       const res = await api.getAuthor(authorID);
       if (res.data.err) throw new Error(res.data.errMsg);
       if (!res.data.author) throw new Error("Invalid response from server.");
-      reset(res.data.author);
+      reset({
+        ...res.data.author,
+        pictureCircle: res.data.author.pictureCircle === "yes",
+      });
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -66,17 +84,20 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
     }
   }
 
-  async function handleSubmit() {
-    const valid = await trigger();
-    if (!valid) return;
+  async function onSubmit(values: ManageAuthorFormValues) {
     try {
       setLoading(true);
-      const values = getValues();
+
+      const payload = {
+        ...values,
+        pictureCircle: values.pictureCircle ? "yes" : "no",
+      };
+
       if (mode === "edit" && authorID) {
-        const res = await api.updateAuthor(authorID, values);
+        const res = await api.updateAuthor(authorID, payload);
         if (res.data.err) throw new Error(res.data.errMsg);
       } else {
-        const res = await api.createAuthor(values);
+        const res = await api.createAuthor(payload);
         if (res.data.err) throw new Error(res.data.errMsg);
       }
       queryClient.invalidateQueries({ queryKey: ["authors"] });
@@ -111,129 +132,153 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
         <Modal.Close />
       </Modal.Header>
       <Modal.Body className="overflow-y-auto max-h-[70vh]">
-        <div className="grid grid-cols-2 gap-x-4">
-          <CtlTextInput
-            control={control}
-            name="nameKey"
-            label="Name Key"
-            placeholder="e.g. johndoe"
-            rules={required}
-            required
-            helpText="Unique identifier for this author. This key will need to be added to the 'authorname' classification on the appropriate libraries for the author to be associated with pages."
-          />
-          <CtlTextInput
-            control={control}
-            name="name"
-            label="Name"
-            placeholder="John Doe"
-            rules={required}
-            required
-          />
-          <CtlTextInput
-            control={control}
-            name="nameTitle"
-            label="Name Title"
-            placeholder="e.g. Chemistry Professor"
-            className="mt-4"
-          />
-          <CtlTextInput
-            control={control}
-            name="nameURL"
-            label="Name URL"
-            placeholder="https://example.com/johndoe"
-            className="mt-4"
-          />
-          <CtlTextInput
-            control={control}
-            name="companyName"
-            label="Company Name"
-            placeholder="Biola University"
-            className="mt-4"
-          />
-          <CtlTextInput
-            control={control}
-            name="companyURL"
-            label="Company URL"
-            placeholder="https://www.biola.edu"
-            className="mt-4"
-          />
-          <CtlTextInput
-            control={control}
-            name="programName"
-            label="Program Name"
-            placeholder="OER for Good"
-            className="mt-4"
-          />
-          <CtlTextInput
-            control={control}
-            name="programURL"
-            label="Program URL"
-            placeholder="https://oerforgood.example.com"
-            className="mt-4"
-          />
-          <CtlTextInput
-            control={control}
-            name="pictureURL"
-            label="Picture URL"
-            placeholder="https://example.com/photo.jpg"
-            className="mt-4"
-          />
-          <CtlTextInput
-            control={control}
-            name="attributionPrefix"
-            label="Attribution Prefix"
-            placeholder="e.g. Access for free at"
-            className="mt-4"
-          />
-          <CtlTextInput
-            control={control}
-            name="note"
-            label="Note"
-            placeholder="e.g. Donate to the author's research program."
-            className="mt-4 col-span-2"
-          />
-          <CtlTextInput
-            control={control}
-            name="noteURL"
-            label="Note URL"
-            placeholder="https://example.com/note"
-            className="mt-4"
-          />
-          <div className="mt-8 flex items-center">
-            <Controller
-              control={control}
-              name="pictureCircle"
-              render={({ field }) => (
-                <Checkbox
-                  name="pictureCircle"
-                  label="Display picture as circle"
-                  checked={field.value === "yes"}
-                  onChange={(checked) => field.onChange(checked ? "yes" : "no")}
-                />
-              )}
-            />
-          </div>
-        </div>
-        {showConfirmDelete && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-300 rounded-md">
-            <p className="text-red-700 font-semibold mb-3">
-              Are you sure you want to delete this author? This action cannot be undone.
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="destructive"
-                icon={<IconTrash size={16} />}
-                loading={loading}
-                onClick={handleDelete}
-              >
-                Confirm Delete
-              </Button>
-              <Button variant="secondary" onClick={() => setShowConfirmDelete(false)}>
-                Cancel
-              </Button>
+        <Stack gap="xl">
+          <FormSection
+            title="Identity"
+            description="Core information used to attribute this author across libraries."
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Name Key"
+                placeholder="e.g. johndoe"
+                required
+                className="sm:col-span-2"
+                helperText="Unique identifier for this author. This key must be added to the 'authorname' classification on the appropriate libraries for the author to be associated with pages."
+                error={!!errors.nameKey}
+                errorMessage={errors.nameKey?.message}
+                {...register("nameKey", { required: "Name Key is required." })}
+              />
+              <Input
+                label="Name"
+                placeholder="John Doe"
+                required
+                error={!!errors.name}
+                errorMessage={errors.name?.message}
+                {...register("name", { required: "Name is required." })}
+              />
+              <Input
+                label="Name Title"
+                placeholder="e.g. Chemistry Professor"
+                {...register("nameTitle")}
+              />
+              <Input
+                label="Name URL"
+                type="url"
+                placeholder="https://example.com/johndoe"
+                className="sm:col-span-2"
+                {...register("nameURL")}
+              />
             </div>
-          </div>
-        )}
+          </FormSection>
+
+          <FormSection
+            title="Affiliation"
+            description="Optional institution and program credited alongside the author."
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Company Name"
+                placeholder="Biola University"
+                {...register("companyName")}
+              />
+              <Input
+                label="Company URL"
+                type="url"
+                placeholder="https://www.biola.edu"
+                {...register("companyURL")}
+              />
+              <Input
+                label="Program Name"
+                placeholder="OER for Good"
+                {...register("programName")}
+              />
+              <Input
+                label="Program URL"
+                type="url"
+                placeholder="https://oerforgood.example.com"
+                {...register("programURL")}
+              />
+            </div>
+          </FormSection>
+
+          <FormSection
+            title="Display & Attribution"
+            description="Control how the author's picture and attribution text appear."
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Picture URL"
+                type="url"
+                placeholder="https://example.com/photo.jpg"
+                {...register("pictureURL")}
+              />
+              <Input
+                label="Attribution Prefix"
+                placeholder="e.g. Access for free at"
+                {...register("attributionPrefix")}
+              />
+              <div className="sm:col-span-2">
+                <Controller
+                  control={control}
+                  name="pictureCircle"
+                  render={({ field }) => (
+                    <Checkbox
+                      name="pictureCircle"
+                      label="Display picture as circle"
+                      description="When enabled, the author's picture is cropped to a circular frame."
+                      checked={field.value}
+                      defaultChecked={false}
+                      onChange={(checked) => field.onChange(checked)}
+                    />
+                  )}
+                />
+              </div>
+            </div>
+          </FormSection>
+
+          <FormSection
+            title="Note"
+            description="Optional call-to-action shown with the author's attribution."
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Note"
+                placeholder="e.g. Donate to the author's research program."
+                className="sm:col-span-2"
+                {...register("note")}
+              />
+              <Input
+                label="Note URL"
+                type="url"
+                placeholder="https://example.com/note"
+                {...register("noteURL")}
+              />
+            </div>
+          </FormSection>
+
+          {showConfirmDelete && (
+            <Stack gap="sm">
+              <Alert
+                variant="error"
+                title="Delete this author?"
+                message="This action cannot be undone."
+              />
+              <div className="flex gap-2">
+                <Button
+                  variant="destructive"
+                  icon={<IconTrash size={16} />}
+                  loading={loading}
+                  onClick={handleDelete}
+                >
+                  Confirm Delete
+                </Button>
+                <Button variant="secondary" onClick={() => setShowConfirmDelete(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </Stack>
+          )}
+        </Stack>
       </Modal.Body>
       <Modal.Footer>
         <div className="flex justify-between items-center w-full">
@@ -249,13 +294,13 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
             )}
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={onClose} disabled={loading}>
+            <Button variant="outline" onClick={onClose} disabled={loading}>
               Cancel
             </Button>
             <Button
               variant="primary"
               icon={<IconDeviceFloppy size={16} />}
-              onClick={handleSubmit}
+              onClick={handleSubmit(onSubmit)}
               loading={loading}
             >
               {mode === "create" ? "Add Author" : "Save Changes"}
