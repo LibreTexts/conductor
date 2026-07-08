@@ -26,7 +26,6 @@ import {
   PageDetailsResponse,
   PeerReview,
   PeerReviewRubric,
-  PeerReviewRubric,
   Project,
   ProjectFile,
   ProjectSearchParams,

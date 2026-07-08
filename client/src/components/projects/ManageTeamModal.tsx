@@ -530,7 +530,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                           {orgsStr && orgsStr !== "Unknown Organization" && <p>{orgsStr}</p>}
                         </td>
                         <td className="border border-gray-200 px-3 py-2">
-                          {item.email && <p>{item.emailDomain}</p>}
+                          {item.emailDomain && <p>{item.emailDomain}</p>}
                         </td>
                         <td className="border border-gray-200 px-3 py-2">
                           <Button

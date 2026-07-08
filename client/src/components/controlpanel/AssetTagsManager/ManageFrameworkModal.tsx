@@ -37,7 +37,6 @@ import EditDropdownOptionsModal from "./EditDropdownOptionsModal";
 import { cleanDropdownOptions } from "../../../utils/assetHelpers";
 
 interface ManageFrameworkModalProps {
-interface ManageFrameworkModalProps {
   open: boolean;
   mode: "create" | "edit";
   id?: string;
@@ -51,7 +50,6 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
   onClose,
 }) => {
   const { handleGlobalError } = useGlobalError();
-  const { control, reset, watch, getValues, setValue } =
   const { control, reset, watch, getValues, setValue } =
     useForm<AssetTagFramework>({
       defaultValues: {
@@ -383,7 +381,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
           onClose={() => handleCloseEditDropdownOptionsModal()}
         />
       )}
-    </>
+    </Modal>
   );
 };
 
