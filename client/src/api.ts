@@ -387,6 +387,20 @@ class API {
     return res;
   }
 
+  async uploadAuthorImage(id: string, formData: FormData) {
+    const res = await axios.post<
+      {
+        url: string;
+        author: Author;
+      } & ConductorBaseResponse
+    >(`/authors/${id}/picture`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return res;
+  }
+
   async getCXOnePageContentTemplate(type: string) {
     const response = await axios.get<
       { template: string } & ConductorBaseResponse
