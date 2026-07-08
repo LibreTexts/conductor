@@ -1,9 +1,6 @@
 import { Button, Modal } from "@libretexts/davis-react";
 import { IconCheck } from "@tabler/icons-react";
-import { Button, Modal } from "@libretexts/davis-react";
-import { IconCheck } from "@tabler/icons-react";
 
-interface ConfirmSetOrgDefaultProps {
 interface ConfirmSetOrgDefaultProps {
   show: boolean;
   selectedUUID: string;
@@ -31,9 +28,6 @@ const ConfirmSetOrgDefault: React.FC<ConfirmSetOrgDefaultProps> = ({
       </Modal.Body>
       <Modal.Footer>
         <Button variant="outline" onClick={onClose}>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
         <Button
@@ -42,6 +36,7 @@ const ConfirmSetOrgDefault: React.FC<ConfirmSetOrgDefaultProps> = ({
           onClick={() => onConfirm(selectedUUID)}
         >
           Yes
+        </Button>
         <Button
           variant="primary"
           icon={<IconCheck size={16} />}
@@ -49,7 +44,6 @@ const ConfirmSetOrgDefault: React.FC<ConfirmSetOrgDefaultProps> = ({
         >
           Yes
         </Button>
-      </Modal.Footer>
       </Modal.Footer>
     </Modal>
   );
