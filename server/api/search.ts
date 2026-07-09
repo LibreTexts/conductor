@@ -1907,7 +1907,7 @@ async function authorsSearch(
     let filtered = paginated;
     if (req.query.primaryInstitution) {
       filtered = paginated.filter(
-        (author) => author.companyName === req.query.primaryInstitution || author.programName === req.query.primaryInstitution
+        (author) => author.campusName === req.query.primaryInstitution || author.programName === req.query.primaryInstitution
       );
     }
 
@@ -2318,10 +2318,10 @@ async function getAssetFilterOptions(req: Request, res: Response) {
 
 async function getAuthorFilterOptions(req: Request, res: Response) {
   try {
-    const [companyResults, programResults] = await Promise.all([
+    const [campusResults, programResults] = await Promise.all([
       Author.aggregate([
-        { $match: { companyName: { $exists: true, $ne: "" }, orgID: process.env.ORG_ID } },
-        { $group: { _id: "$companyName" } },
+        { $match: { campusName: { $exists: true, $ne: "" }, orgID: process.env.ORG_ID } },
+        { $group: { _id: "$campusName" } },
       ]),
       Author.aggregate([
         { $match: { programName: { $exists: true, $ne: "" }, orgID: process.env.ORG_ID } },
@@ -2330,7 +2330,7 @@ async function getAuthorFilterOptions(req: Request, res: Response) {
     ]);
 
     const combined = new Set([
-      ...companyResults.map((r) => r._id),
+      ...campusResults.map((r) => r._id),
       ...programResults.map((r) => r._id),
     ]);
 

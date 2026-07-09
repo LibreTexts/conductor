@@ -81,7 +81,7 @@ export async function runMigration() {
       }
 
       if (author.primaryInstitution) {
-        updateObj.$set.companyName = author.primaryInstitution;
+        updateObj.$set.campusName = author.primaryInstitution;
       }
 
       // Default to "libretexts" if orgID is missing

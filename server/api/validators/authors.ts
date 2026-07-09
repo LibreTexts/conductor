@@ -8,12 +8,11 @@ const nameKeySchema = z.string().trim().min(1).max(100).regex(/^[a-z0-9]+(?:-[a-
 const _AuthorValidator = z.object({
   nameKey: nameKeySchema,
   name: z.string().trim().min(1).max(200),
-  nameTitle: z.string().trim().max(50).optional().or(z.literal("")),
   nameURL: z.url().optional().or(z.literal("")),
   note: z.string().trim().max(1000).optional().or(z.literal("")),
   noteURL: z.url().optional().or(z.literal("")),
-  companyName: z.string().trim().max(200).optional().or(z.literal("")),
-  companyURL: z.url().optional().or(z.literal("")),
+  campusName: z.string().trim().max(200).optional().or(z.literal("")),
+  campusURL: z.url().optional().or(z.literal("")),
   pictureCircle: z.enum(["yes", "no"]).optional(),
   pictureURL: z.url().optional().or(z.literal("")),
   programName: z.string().trim().max(200).optional().or(z.literal("")),
@@ -34,7 +33,7 @@ export const GetAuthorsValidator = z.object({
       page: z.coerce.number().min(1).optional().default(1),
       limit: z.coerce.number().int().min(1).optional().default(25),
       query: z.string().optional().or(z.literal("")),
-      sort: z.enum(["nameKey", "name", "companyName"]).optional().default("nameKey"),
+      sort: z.enum(["nameKey", "name", "campusName"]).optional().default("nameKey"),
     }).optional().default({ page: 1, limit: 25, sort: "nameKey" }),
 });
 

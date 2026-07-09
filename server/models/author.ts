@@ -4,12 +4,11 @@ export interface AuthorInterface extends Document {
   orgID: string;
   nameKey: string; // A normalized version of the name for indexing and searching. Must be unique within an orgID.
   name: string;
-  nameTitle?: string;
   nameURL?: string;
   note?: string;
   noteURL?: string;
-  companyName?: string;
-  companyURL?: string;
+  campusName?: string;
+  campusURL?: string;
   pictureCircle?: string; // i.e. "yes" or "no"
   pictureURL?: string;
   programName?: string;
@@ -31,10 +30,6 @@ const AuthorSchema = new Schema<AuthorInterface>({
     type: String,
     required: true,
   },
-  nameTitle: {
-    type: String,
-    required: false,
-  },
   nameURL: {
     type: String,
     required: false,
@@ -47,11 +42,11 @@ const AuthorSchema = new Schema<AuthorInterface>({
     type: String,
     required: false,
   },
-  companyName: {
+  campusName: {
     type: String,
     required: false,
   },
-  companyURL: {
+  campusURL: {
     type: String,
     required: false,
   },

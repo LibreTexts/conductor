@@ -33,7 +33,7 @@ const LIMIT = 25;
 const SORT_OPTIONS = [
   { label: "Sort by Name Key", value: "nameKey" },
   { label: "Sort by Name", value: "name" },
-  { label: "Sort by Company Name", value: "companyName" },
+  { label: "Sort by Campus Name", value: "campusName" },
 ];
 
 const AuthorsManager = () => {
@@ -165,22 +165,18 @@ const AuthorsManager = () => {
         ),
       },
       {
-        accessorKey: "nameTitle",
-        header: "Name Title",
-      },
-      {
         id: "nameURL",
         header: "Name URL",
         cell: ({ row }) => renderURLCell(row.original.nameURL),
       },
       {
-        accessorKey: "companyName",
-        header: "Company Name",
+        accessorKey: "campusName",
+        header: "Campus Name",
       },
       {
-        id: "companyURL",
-        header: "Company URL",
-        cell: ({ row }) => renderURLCell(row.original.companyURL),
+        id: "campusURL",
+        header: "Campus URL",
+        cell: ({ row }) => renderURLCell(row.original.campusURL),
       },
       {
         accessorKey: "programName",
