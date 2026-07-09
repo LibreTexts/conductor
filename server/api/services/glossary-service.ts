@@ -300,6 +300,8 @@ export default class GlossaryService {
         imageLicense,
         author,
         bookId,
+        coverID,
+        library,
         ...rest
       } = params;
       var aliases = [] as { termID: string; term: string }[];
@@ -339,7 +341,7 @@ export default class GlossaryService {
       }
 
       await GlossaryUsage.updateOne(
-        { usageID },
+        { usageID, coverID: parseInt(coverID), library },
         {
           $set: {
             ...rest,
