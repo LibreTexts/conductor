@@ -4,6 +4,8 @@ import { IconExternalLink } from "@tabler/icons-react";
 import { UserTask } from "../../../types";
 import { getTaskStatusText } from "../../../components/util/ProjectHelpers";
 import { formatDueDate, getTaskUrgency } from "../../../utils/taskHelpers";
+import { GroupByOption } from "./index";
+import { truncateString } from "../../../components/util/HelperFunctions";
 
 const STATUS_BADGE_VARIANT: Record<UserTask["status"], "default" | "primary" | "success"> = {
   available: "default",
@@ -13,9 +15,10 @@ const STATUS_BADGE_VARIANT: Record<UserTask["status"], "default" | "primary" | "
 
 interface TaskRowProps {
   task: UserTask;
+  groupedBy: GroupByOption;
 }
 
-const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
+const TaskRow: React.FC<TaskRowProps> = ({ task, groupedBy }) => {
   // Deep-links into the project's own task modal (ProjectView.jsx reads this
   // query param and calls its existing openViewTaskModal) instead of
   // reimplementing the modal wiring here.
@@ -27,31 +30,34 @@ const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
     urgency === "overdue"
       ? "danger"
       : urgency === "dueSoon"
-      ? "warning"
-      : urgency === "none"
-      ? "muted"
-      : "default";
+        ? "warning"
+        : urgency === "none"
+          ? "muted"
+          : "default";
 
   return (
     <tr className="border-b border-gray-200 last:border-b-0 hover:bg-gray-50">
       <td className="min-w-0 py-3 pl-4 pr-4 align-top">
         <Link
           to={taskLink}
-          className={`text-sm font-medium text-gray-900 hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-            isCompleted ? "line-through text-gray-400" : ""
-          }`}
+          className={`text-base font-medium text-gray-900 hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${isCompleted ? "line-through text-gray-400" : ""
+            }`}
         >
-          {task.title}
+          {truncateString(task.title, 100)}
         </Link>
-        <div className="mt-0.5">
-          <Link
-            to={`/projects/${task.project.projectID}`}
-            className="text-xs text-gray-500 hover:text-primary hover:underline"
-          >
-            {task.project.title}
-          </Link>
-        </div>
       </td>
+      {
+        groupedBy !== "project" && (
+          <td className="py-3 pr-4 align-top whitespace-nowrap">
+            <Link
+              to={`/projects/${task.project.projectID}`}
+              className="text-gray-500 hover:text-primary hover:underline"
+            >
+              {truncateString(task.project.title, 40)}
+            </Link>
+          </td>
+        )
+      }
       <td className="py-3 pr-4 align-top whitespace-nowrap">
         <Badge
           label={getTaskStatusText(task.status)}

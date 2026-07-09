@@ -2,14 +2,17 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useDocumentTitle } from "usehooks-ts";
 import {
+  Badge,
   EmptyState,
   Heading,
   Listbox,
   Progress,
   Spinner,
+  Stack,
   StatCard,
   Tabs,
   Text,
+  Tooltip,
 } from "@libretexts/davis-react";
 import {
   IconAlertTriangle,
@@ -29,9 +32,10 @@ import {
 } from "../../../utils/taskHelpers";
 import TaskRow from "./TaskRow";
 import AttentionBanner from "./AttentionBanner";
+import { truncateString } from "../../../components/util/HelperFunctions";
 
 type StatFilter = "overdue" | "dueSoon" | "inprogress" | "completed" | null;
-type GroupByOption = "none" | "project" | "status" | "dueDate";
+export type GroupByOption = "none" | "project" | "status" | "dueDate";
 type SortOption = "dueDate" | "title";
 
 const GROUP_BY_TABS: { label: string; value: GroupByOption }[] = [
@@ -125,35 +129,35 @@ const MyTasksPage = () => {
     variant: "default" | "danger" | "warning" | "success";
     icon: React.ReactNode;
   }[] = [
-    {
-      key: "overdue",
-      label: "Overdue",
-      value: counts.overdue,
-      variant: "danger",
-      icon: <IconAlertTriangle size={18} />,
-    },
-    {
-      key: "dueSoon",
-      label: "Due Soon",
-      value: counts.dueSoon,
-      variant: "warning",
-      icon: <IconClock size={18} />,
-    },
-    {
-      key: "inprogress",
-      label: "In Progress",
-      value: counts.inprogress,
-      variant: "default",
-      icon: <IconLoader2 size={18} />,
-    },
-    {
-      key: "completed",
-      label: "Completed",
-      value: counts.completed,
-      variant: "success",
-      icon: <IconChecklist size={18} />,
-    },
-  ];
+      {
+        key: "overdue",
+        label: "Overdue",
+        value: counts.overdue,
+        variant: "danger",
+        icon: <IconAlertTriangle size={18} />,
+      },
+      {
+        key: "dueSoon",
+        label: "Due Soon",
+        value: counts.dueSoon,
+        variant: "warning",
+        icon: <IconClock size={18} />,
+      },
+      {
+        key: "inprogress",
+        label: "In Progress",
+        value: counts.inprogress,
+        variant: "default",
+        icon: <IconLoader2 size={18} />,
+      },
+      {
+        key: "completed",
+        label: "Completed",
+        value: counts.completed,
+        variant: "success",
+        icon: <IconChecklist size={18} />,
+      },
+    ];
 
   return (
     <div className="mx-auto max-w-6xl p-6">
@@ -169,9 +173,8 @@ const MyTasksPage = () => {
             type="button"
             onClick={() => handleStatClick(stat.key)}
             aria-pressed={activeFilter === stat.key}
-            className={`rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-              activeFilter === stat.key ? "ring-2 ring-primary rounded-lg" : ""
-            }`}
+            className={`rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${activeFilter === stat.key ? "ring-2 ring-primary rounded-lg" : ""
+              }`}
           >
             <StatCard label={stat.label} value={stat.value} variant={stat.variant} icon={stat.icon} />
           </button>
@@ -181,14 +184,15 @@ const MyTasksPage = () => {
       {!isLoading && <AttentionBanner tasks={tasks} />}
 
       {!isLoading && tasks.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+        <Stack direction="horizontal" justify="between" align="start" className="mb-4 gap-16">
           <div>
-            <Text as="p" id="group-by-label" size="sm" weight="medium" className="mb-2">
+            <Text as="p" id="group-by-label" size="sm" weight="medium" className="!mb-1">
               Group by
             </Text>
             <Tabs
               variant="pills"
               color="primary"
+              size="lg"
               selectedIndex={GROUP_BY_TABS.findIndex((tab) => tab.value === groupBy)}
               onChange={(index) => setGroupBy(GROUP_BY_TABS[index].value)}
             >
@@ -199,14 +203,14 @@ const MyTasksPage = () => {
               </Tabs.List>
             </Tabs>
           </div>
-          <Listbox value={sortBy} onChange={(value) => setSortBy(value as SortOption)}>
+          <Listbox value={sortBy} onChange={(value) => setSortBy(value as SortOption)} className="max-w-48">
             <Listbox.Label className="text-sm font-medium text-gray-700">
               Sort by
             </Listbox.Label>
             <Listbox.Button
               displayValue={(v) => SORT_LABELS[(v as SortOption) ?? "dueDate"]}
               aria-label="Sort tasks by"
-              className="min-w-40"
+              className="max-w-48"
             />
             <Listbox.Options>
               {(Object.keys(SORT_LABELS) as SortOption[]).map((option) => (
@@ -216,7 +220,7 @@ const MyTasksPage = () => {
               ))}
             </Listbox.Options>
           </Listbox>
-        </div>
+        </Stack>
       )}
 
       {isLoading && (
@@ -250,6 +254,13 @@ const MyTasksPage = () => {
                 <th scope="col" className="py-2 pl-4 pr-4">
                   Task
                 </th>
+                {
+                  groupBy !== "project" && (
+                    <th scope="col" className="py-2 pr-4">
+                      Project
+                    </th>
+                  )
+                }
                 <th scope="col" className="py-2 pr-4">
                   Status
                 </th>
@@ -265,11 +276,11 @@ const MyTasksPage = () => {
               <tbody key={group.key}>
                 {groupBy !== "none" && (
                   <tr className="border-b border-gray-200 bg-gray-50">
-                    <td colSpan={4} className="px-4 py-2">
+                    <td colSpan={groupBy !== "project" ? 5 : 4} className="px-4 py-2">
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
                           <Text weight="semibold" size="sm">
-                            {group.label}
+                            {truncateString(group.label, 50)}
                           </Text>
                           <Text size="xs" color="muted">
                             {group.tasks.length} task{group.tasks.length === 1 ? "" : "s"}
@@ -281,7 +292,6 @@ const MyTasksPage = () => {
                               value={getGroupDonePercent(group)}
                               size="sm"
                               className="w-24"
-                              label={`${group.label} completion`}
                             />
                             <Text size="xs" color="muted">
                               {getGroupDonePercent(group)}%
@@ -293,7 +303,7 @@ const MyTasksPage = () => {
                   </tr>
                 )}
                 {group.tasks.map((task) => (
-                  <TaskRow key={task.taskID} task={task} />
+                  <TaskRow key={task.taskID} task={task} groupedBy={groupBy} />
                 ))}
               </tbody>
             ))}
