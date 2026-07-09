@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 import Project from "../models/project";
 import { ZodReqWithUser } from "../types";
 import * as RestackerValidators from "./validators/Restacker";
