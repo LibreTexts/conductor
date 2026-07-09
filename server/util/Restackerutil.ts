@@ -1,5 +1,5 @@
 import BookService from "../api/services/book-service";
-import Restacker, { RestackerStatus } from "../models/restacker";
+import Restacker, { RestackerInterface, RestackerStatus } from "../models/restacker";
 import { PageTag } from "../types/Book";
 import { libraryKeys } from "./libraries";
 import * as cheerio from "cheerio";
@@ -58,14 +58,26 @@ class RestackerService {
     );
   }
 
-  async getRestackerStatus(projectID:string): Promise<RestackerStatus | "notfound"> {
-    const restacker = await Restacker.findOne({ projectID:{$eq: projectID} });
-    if (!restacker) {
-      return "notfound";
+  async getRestackerStatus(projectIDOrRestackerObj: string | RestackerInterface): Promise<{ statusCode: RestackerStatus | "notfound", allPending?: boolean }> {
+    let restacker: RestackerInterface | null;
+
+    if (typeof projectIDOrRestackerObj === "string") {
+      restacker = await Restacker.findOne({ projectID: { $eq: projectIDOrRestackerObj } });
+    } else {
+      restacker = projectIDOrRestackerObj;
     }
-    if (restacker.restackerCurrentBook.some((page) => page.status === "pending")) return "pending";
-    if (restacker.restackerCurrentBook.some((page) => page.status === "failed")) return "failed";
-    return "completed";
+
+    if (!restacker) {
+      return { statusCode: "notfound" };
+    }
+
+    if (restacker.restackerCurrentBook.some((page) => page.status === "pending")) {
+      return { statusCode: "pending", allPending: restacker.restackerCurrentBook.every((page) => page.status === "pending") };
+    }
+
+    if (restacker.restackerCurrentBook.some((page) => page.status === "failed")) return { statusCode: "failed" };
+
+    return { statusCode: "completed" };
   }
 
 

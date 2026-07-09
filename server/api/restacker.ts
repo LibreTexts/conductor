@@ -203,19 +203,11 @@ const getRestackerToc = async (
       restackerCurrentBook: restackerCurrentBook,
     });
   }
-  const restackerStatus = restacker.restackerCurrentBook.some(
-    (page) => page.status === "pending",
-  )
-    ? "pending"
-    : restacker.restackerCurrentBook.some((page) => page.status === "pending")
-      ? "pending"
-      : "completed";
 
-  const allPending = restacker.restackerCurrentBook.every(
-    (page) => page.status === "pending",
-  );
-  if (allPending) {
-    const restackerService = new RestackerService();
+  const restackerService = new RestackerService();
+  const restackerStatus = await restackerService.getRestackerStatus(restacker);
+
+  if (restackerStatus.allPending) {
     restackerService.runRestacker(
       projectID,
       project.libreLibrary,
@@ -227,7 +219,7 @@ const getRestackerToc = async (
   return res.send({
     err: false,
     toc: toc,
-    status: restackerStatus,
+    status: restackerStatus.statusCode,
   });
 };
 
@@ -263,14 +255,14 @@ const restackerReload = async (
   const restackerService = new RestackerService();
   const status = await restackerService.getRestackerStatus(projectID);
 
-  if (status === "notfound"){
+  if (status.statusCode === "notfound"){
     return res.status(404).send({
       err: true,
       errMsg: "Restacker not found",
     });
   } 
 
-  if (status === "pending") {
+  if (status.statusCode === "pending") {
     return res.status(400).send({
       err: true,
       errMsg: "Restacker is already processing",
@@ -331,7 +323,7 @@ const restackerReload = async (
   return res.send({
     err: false,
     toc: toc,
-    status: restackerStatus,
+    status: restackerStatus.statusCode,
   });
 };
 
