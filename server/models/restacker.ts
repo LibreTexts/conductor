@@ -7,6 +7,8 @@ export type RestackerTocLicense = {
     version?: string;
   };
 
+export type RestackerStatus = "pending" | "completed" | "failed"; // Keep in sync with RestackerSubPageState.status below
+
 interface RestackerSubPageState {
     "id": string;
     "title": string;
@@ -15,7 +17,7 @@ interface RestackerSubPageState {
     contentLicense?: RestackerTocLicense[];
     sourceLicense?: RestackerTocLicense;
     quotation?: number;
-    status: "pending" | "completed" | "failed";
+    status: RestackerStatus;
 }
 
 export interface RestackerInterface extends Document {
@@ -50,7 +52,7 @@ const RestackerSubPageStateSchema = new Schema<RestackerSubPageState>(
         contentLicense: { type: [RestackerTocLicenseSchema], required: false },
         sourceLicense: { type: RestackerTocLicenseSchema, required: false },
         quotation: { type: Number, required: false },
-        status: { type: String, required: true, default: "pending" },
+        status: { type: String, enum: ["pending", "completed", "failed"], required: true, default: "pending" },
     },
     {
         _id: false,

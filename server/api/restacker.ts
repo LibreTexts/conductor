@@ -262,8 +262,15 @@ const restackerReload = async (
   }
   const restackerService = new RestackerService();
   const status = await restackerService.getRestackerStatus(projectID);
- 
-  if (status === "pending" || status === "processing") {
+
+  if (status === "notfound"){
+    return res.status(404).send({
+      err: true,
+      errMsg: "Restacker not found",
+    });
+  } 
+
+  if (status === "pending") {
     return res.status(400).send({
       err: true,
       errMsg: "Restacker is already processing",
