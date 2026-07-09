@@ -3520,8 +3520,9 @@ const checkProjectGeneralPermission = (project, user) => {
  * @return {Boolean} true if user has permission, false otherwise
  */
 const checkProjectMemberPermission = (project, user) => {
-  /* Get Project Team and extract user UUID */
   const projTeam = constructProjectTeam(project);
+
+  // extract user UUID from user object or string
   let userUUID = "";
   if (typeof user === "string") {
     userUUID = user;
@@ -3533,28 +3534,29 @@ const checkProjectMemberPermission = (project, user) => {
     }
   }
 
-  /* Check user has permission */
-  if (userUUID) {
-    const foundUser = projTeam.find((item) => {
-      if (typeof item === "string") {
-        return item.toString() === userUUID.toString();
-      } else if (typeof item === "object" && item.uuid !== undefined) {
-        return item.uuid.toString() === userUUID.toString();
-      }
-    });
+  if (!userUUID) return false; // fail fast if uuid couldn't be determined
 
-    if (!foundUser) {
-      if (typeof user === "object") {
-        // no user found in project team, check if user is a SuperAdmin
-        return authAPI.checkHasRole(user, "libretexts", ["superadmin", "support"]);
-      }
-      return false;
+  // check if user is in the project team
+  const foundUser = projTeam.find((item) => {
+    if (typeof item === "string") {
+      return item.toString() === userUUID.toString();
+    } else if (typeof item === "object" && item.uuid !== undefined) {
+      return item.uuid.toString() === userUUID.toString();
     }
+    return false;
+  });
 
-    return true;
+  // if user is found in project team, they have permission
+  if (foundUser) return true;
+
+  // if not found in project team, check if they have a privileged role in the LibreTexts org
+  if (typeof user === "object") {
+    // if already user object, try check directly so we can avoid extra DB call
+    return authAPI.checkHasRole(user, "libretexts", ["superadmin", "support"]);
   }
 
-  return false;
+  // otherwise, check by user UUID. This will make a DB call first, but uses same logic internally
+  return authAPI.checkHasRoleByID(userUUID, "libretexts", ["superadmin", "support"]);
 };
 
 
