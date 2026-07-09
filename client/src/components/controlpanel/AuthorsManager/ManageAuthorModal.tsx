@@ -45,12 +45,11 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
     defaultValues: {
       nameKey: "",
       name: "",
-      nameTitle: "",
       nameURL: "",
       note: "",
       noteURL: "",
-      companyName: "",
-      companyURL: "",
+      campusName: "",
+      campusURL: "",
       pictureCircle: false,
       pictureURL: "",
       programName: "",
@@ -201,20 +200,16 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
                 label="Name"
                 placeholder="John Doe"
                 required
+                className="sm:col-span-2"
                 error={!!errors.name}
                 errorMessage={errors.name?.message}
                 {...register("name", { required: "Name is required." })}
               />
               <Input
-                label="Name Title"
-                placeholder="e.g. Chemistry Professor"
-                {...register("nameTitle")}
-              />
-              <Input
                 label="Name URL"
                 type="url"
-                placeholder="https://example.com/johndoe"
                 className="sm:col-span-2"
+                placeholder="https://example.com/johndoe"
                 {...register("nameURL")}
               />
             </div>
@@ -226,15 +221,15 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Company Name"
+                label="Campus Name"
                 placeholder="Biola University"
-                {...register("companyName")}
+                {...register("campusName")}
               />
               <Input
-                label="Company URL"
+                label="Campus URL"
                 type="url"
                 placeholder="https://www.biola.edu"
-                {...register("companyURL")}
+                {...register("campusURL")}
               />
               <Input
                 label="Program Name"

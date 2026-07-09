@@ -19,12 +19,12 @@ const columns: ColumnDef<Author>[] = [
     ),
   },
   {
-    accessorKey: "companyName",
+    accessorKey: "campusName",
     header: "Institution/Program",
     cell: ({ row }) => {
-      const companyName = row.original.companyName;
+      const campusName = row.original.campusName;
       const programName = row.original.programName;
-      const displayText = companyName || programName || "";
+      const displayText = campusName || programName || "";
       return <p>{truncateString(displayText, 50)}</p>;
     },
   },

@@ -23,10 +23,10 @@ const AuthorCardContent: React.FC<AuthorCardContentProps> = ({
             {truncateString(author.name, 100)}
           </RouterLink>
         </Heading>
-        {(author.companyName || author.programName) && (
+        {(author.campusName || author.programName) && (
           <CardMetaWIcon icon="university">
             <div className="line-clamp-1">
-              {truncateString(author.companyName || author.programName || "", 50)}
+              {truncateString(author.campusName || author.programName || "", 50)}
             </div>
           </CardMetaWIcon>
         )}

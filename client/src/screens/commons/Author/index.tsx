@@ -129,9 +129,6 @@ const CommonsAuthor = () => {
               <Heading level={1} className="!mb-2 !ml-0.5">
                 {author?.name ?? ""}
               </Heading>
-              {author?.nameTitle && (
-                <p className="text-gray-600 text-sm mb-2">{author.nameTitle}</p>
-              )}
               {author?.nameURL && (
                 <Link
                   href={author.nameURL}
@@ -143,15 +140,15 @@ const CommonsAuthor = () => {
                   {truncateString(author.nameURL || "", 35)}
                 </Link>
               )}
-              {author?.companyName && (
+              {author?.campusName && (
                 <p>
                   <Icon name="university" />
-                  {author.companyURL ? (
-                    <a href={author.companyURL} target="_blank" rel="noreferrer">
-                      {author.companyName}
+                  {author.campusURL ? (
+                    <a href={author.campusURL} target="_blank" rel="noreferrer">
+                      {author.campusName}
                     </a>
                   ) : (
-                    author.companyName
+                    author.campusName
                   )}
                 </p>
               )}

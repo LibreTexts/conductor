@@ -11,7 +11,7 @@ export default class AuthorService {
 
         if (params.query) {
             const queryRegex = new RegExp(escapeRegEx(params.query), "i");
-            filter.$or = [{ name: queryRegex }, { nameKey: queryRegex }, { companyName: queryRegex }, { programName: queryRegex }];
+            filter.$or = [{ name: queryRegex }, { nameKey: queryRegex }, { campusName: queryRegex }, { programName: queryRegex }];
         }
 
         const offset = getPaginationOffset(params.page, params.limit);
@@ -67,10 +67,12 @@ export default class AuthorService {
                     _id: 0,
                     nameKey: 1,
                     name: 1,
-                    nameTitle: 1,
                     nameURL: 1,
-                    companyName: 1,
+                    campusName: 1,
+                    campusURL: 1,
                     pictureURL: 1,
+                    pictureCircle: 1,
+                    attributionPrefix: 1,
                     programName: 1,
                     programURL: 1,
                     ...(includeProjects ? { projects: 1 } : {}),
