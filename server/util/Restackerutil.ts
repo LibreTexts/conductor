@@ -147,7 +147,7 @@ class RestackerService {
         WIKI_PAGE_REUSE_RE.test(content);
 
         if(isContentReused||isCrossTranscluded){
-          const tags = this.pageTags.get(pageID);
+          const tags = this.pageTags.get(this.pageTagsKey(library, pageID));
           // check if transcluded tag is set
           const transcludedTag = tags?.find((tag) => tag["@value"].startsWith("transcluded:"));
           if(!transcludedTag){
