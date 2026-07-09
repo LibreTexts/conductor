@@ -735,6 +735,27 @@ const ProjectView = (props) => {
     }
   };
 
+  /**
+   * Supports deep-linking directly into a task's detail modal (e.g. from the
+   * cross-project My Tasks page) via an `openTask` query param. Waits for
+   * this project's task list to load, opens the same modal used natively
+   * within this page, then strips the param so it doesn't re-trigger.
+   */
+  useEffect(() => {
+    const urlParams = new URLSearchParams(props.location.search);
+    const openTaskID = urlParams.get('openTask');
+    if (openTaskID && allProjTasks.length > 0) {
+      openViewTaskModal(openTaskID);
+      urlParams.delete('openTask');
+      const newSearch = urlParams.toString();
+      props.history.replace({
+        pathname: props.location.pathname,
+        search: newSearch ? `?${newSearch}` : ''
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allProjTasks, props.location.search]);
+
 
   const closeViewTaskModal = () => {
     setShowViewTaskModal(false);

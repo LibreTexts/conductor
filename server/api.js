@@ -2107,6 +2107,16 @@ router
   );
 
 router
+  .route("/user/tasks")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    tasksAPI.validate("getUserTasks"),
+    middleware.checkValidationErrors,
+    tasksAPI.getUserTasks
+  );
+
+router
   .route("/project/task")
   .get(
     authAPI.verifyRequest,

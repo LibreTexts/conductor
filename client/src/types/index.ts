@@ -28,6 +28,7 @@ export * from "./ProjectInvitation"
 export * from "./support";
 export * from "./supportqueues";
 export * from "./Search";
+export * from "./Task";
 export * from "./User";
 export * from "./Note";
 export * from "./Order";

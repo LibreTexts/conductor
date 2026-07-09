@@ -480,11 +480,6 @@ const getTask = (req, res) => {
                     taskID: req.query.taskID
                 }
             }, {
-                $project: {
-                    _id: 0,
-                    __v: 0
-                }
-            }, {
                 // lookup parent
                 $lookup: {
                     from: 'tasks',
@@ -585,6 +580,129 @@ const getTask = (req, res) => {
                         }
                     ],
                     as: 'assignees'
+                }
+            }, {
+                // lookup subtasks
+                $graphLookup: {
+                    from: 'tasks',
+                    startWith: '$taskID',
+                    connectFromField: 'taskID',
+                    connectToField: 'parent',
+                    as: 'subtasks'
+                }
+            }, {
+                $unwind: {
+                    path: '$subtasks',
+                    preserveNullAndEmptyArrays: true
+                }
+            }, {
+                // lookup subtasks dependencies
+                $lookup: {
+                    from: 'tasks',
+                    let: {
+                        subDeps: '$subtasks.dependencies'
+                    },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $eq: [{ $type: '$$subDeps' }, 'array']
+                                }
+                            }
+                        }, {
+                            $match: {
+                                $expr: {
+                                    $in: ['$taskID', '$$subDeps']
+                                }
+                            }
+                        }
+                    ],
+                    as: 'subtasks.dependencies'
+                }
+            }, {
+                // lookup subtasks assignees
+                $lookup: {
+                    from: 'users',
+                    let: {
+                        subAssigns: '$subtasks.assignees'
+                    },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $eq: [{ $type: '$$subAssigns' }, 'array']
+                                }
+                            }
+                        }, {
+                            $match: {
+                                $expr: {
+                                    $in: ['$uuid', '$$subAssigns']
+                                }
+                            }
+                        }, {
+                            $project: {
+                                _id: 0,
+                                uuid: 1,
+                                firstName: 1,
+                                lastName: 1,
+                                avatar: 1,
+                                email: 1
+                            }
+                        }
+                    ],
+                    as: 'subtasks.assignees'
+                }
+            }, {
+                $addFields: {
+                    subtasks: {
+                        $cond: {
+                            if: {
+                                $ifNull: ['$subtasks.taskID', false]
+                            },
+                            then: '$subtasks',
+                            else: []
+                        }
+                    }
+                }
+            }, {
+                $group: {
+                    _id: '$_id',
+                    orgID: { $first: '$orgID' },
+                    projectID: { $first: '$projectID' },
+                    taskID: { $first: '$taskID' },
+                    title: { $first: '$title' },
+                    description: { $first: '$description' },
+                    status: { $first: '$status' },
+                    assignees: { $first: '$assignees' },
+                    parent: { $first: '$parent' },
+                    dependencies: { $first: '$dependencies' },
+                    blocking: { $first: '$blocking' },
+                    startDate: { $first: '$startDate' },
+                    endDate: { $first: '$endDate' },
+                    createdAt: { $first: '$createdAt' },
+                    createdBy: { $first: '$createdBy' },
+                    subtasks: { $push: '$subtasks' }
+                }
+            }, {
+                $addFields: {
+                    subtasks: {
+                        $filter: {
+                            input: '$subtasks',
+                            as: 'subtask',
+                            cond: {
+                                $eq: [{ $type: '$$subtask' }, 'object']
+                            }
+                        }
+                    }
+                }
+            }, {
+                $project: {
+                    _id: 0,
+                    __v: 0,
+                    subtasks: {
+                        _id: 0,
+                        __v: 0
+                    }
                 }
             }
         ]);
@@ -838,6 +956,118 @@ const getProjectTasks = (req, res) => {
             errMsg: errMsg
         });
     });
+};
+
+
+/**
+ * Retrieves all Tasks assigned to the requesting user across every Project
+ * they are a member of, scoped to the active orgID.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'getUserTasks'
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ */
+const getUserTasks = async (req, res) => {
+    try {
+        const uuid = req.decoded.uuid;
+        const orgID = process.env.ORG_ID;
+
+        const memberProjects = await Project.find({
+            orgID,
+            $or: projectsAPI.constructProjectTeamMemberQuery(uuid)
+        }, { projectID: 1, title: 1, _id: 0 }).lean();
+
+        if (memberProjects.length === 0) {
+            return res.send({
+                err: false,
+                tasks: []
+            });
+        }
+
+        const projectIDs = memberProjects.map((item) => item.projectID);
+        const projectTitles = new Map(memberProjects.map((item) => [item.projectID, item.title]));
+
+        const tasks = await Task.aggregate([
+            {
+                $match: {
+                    orgID,
+                    projectID: { $in: projectIDs },
+                    assignees: uuid
+                }
+            }, {
+                // look up each dependency's status so we can tell whether this
+                // task is actually blocked (a dependency isn't done yet) rather
+                // than just having dependencies listed at all
+                $lookup: {
+                    from: 'tasks',
+                    let: {
+                        deps: '$dependencies'
+                    },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $in: ['$taskID', '$$deps']
+                                }
+                            }
+                        }, {
+                            $project: {
+                                _id: 0,
+                                status: 1
+                            }
+                        }
+                    ],
+                    as: '_dependencyStatuses'
+                }
+            }, {
+                $addFields: {
+                    blocked: {
+                        $gt: [
+                            {
+                                $size: {
+                                    $filter: {
+                                        input: '$_dependencyStatuses',
+                                        as: 'dep',
+                                        cond: { $ne: ['$$dep.status', 'completed'] }
+                                    }
+                                }
+                            },
+                            0
+                        ]
+                    }
+                }
+            }, {
+                $project: {
+                    _id: 0,
+                    __v: 0,
+                    _dependencyStatuses: 0
+                }
+            }, {
+                $sort: {
+                    title: 1
+                }
+            }
+        ]);
+
+        const tasksWithProject = tasks.map((task) => ({
+            ...task,
+            project: {
+                projectID: task.projectID,
+                title: projectTitles.get(task.projectID) || 'Unknown Project'
+            }
+        }));
+
+        return res.send({
+            err: false,
+            tasks: tasksWithProject
+        });
+    } catch (err) {
+        debugError(err);
+        return res.send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
+    }
 };
 
 
@@ -1153,6 +1383,8 @@ const validate = (method) => {
             return [
                 query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
             ]
+        case 'getUserTasks':
+            return []
         case 'addTaskAssignee':
             return [
                 body('taskID', conductorErrors.err1).exists().isString().isLength({ min: 16, max: 16}),
@@ -1180,6 +1412,7 @@ export default {
     deleteTask,
     getTask,
     getProjectTasks,
+    getUserTasks,
     validate,
     addTaskAssignee,
     assignAllMembersToTask,
