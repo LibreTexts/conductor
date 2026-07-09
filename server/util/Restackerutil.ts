@@ -110,8 +110,8 @@ class RestackerService {
       tag["@value"].startsWith("licenseversion:"),
     );
     if (!isContentLicense) {
-      // add all tags to the pageTags map
-      this.pageTags.set(pageID, page);
+      // Cache tags for later use (e.g. transclusion tagging) using the same key shape as getCachedPageTags().
+      this.pageTags.set(this.pageTagsKey(library, pageID), page);
     }
     if (!licenseTag) {
       return undefined;
