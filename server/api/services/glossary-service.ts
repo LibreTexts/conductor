@@ -304,7 +304,7 @@ export default class GlossaryService {
         library,
         ...rest
       } = params;
-      var aliases = [] as { termID: string; term: string }[];
+      const aliases = [] as { termID: string; term: string }[];
       if (aliasesArray && aliasesArray.length > 0) {
         // add aliases to glossary and make a list of [{termID, term}] using _addGlossaryToDatabase
         for (const alias of aliasesArray) {
@@ -341,7 +341,7 @@ export default class GlossaryService {
       }
 
       await GlossaryUsage.updateOne(
-        { usageID, coverID: parseInt(coverID), library },
+        { usageID: String(usageID), coverID: parseInt(coverID), library },
         {
           $set: {
             ...rest,
