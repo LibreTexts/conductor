@@ -1052,6 +1052,37 @@ const checkHasRole = (
 };
 
 /**
+ * Looks up a user by ID and checks that they have at least one of the provided roles within the specified Organization.
+ * Users with the "superadmin" role in the "libretexts" organization will always return true, unless the "explicit" param is set to true.
+ * NOTE: This method should NOT be used as middleware.
+ * Best for cases where threading the full user object through the call stack is inconvenient or impossible.
+ * @param {String} userId - The user ID.
+ * @param {String} org - The Organization identifier.
+ * @param {String | String[]} role - The role identifier.
+ * @param {Boolean} [silent=false] - If true, suppresses error logging.
+ * @param {Boolean} [explicit=false] - If true, does not apply superadmin/campusadmin overrides.
+ * @returns {Boolean} True if valid roles are provided and the user has at least one of them, false otherwise.
+ * @see {@link checkHasRole} for the underlying role-checking logic.
+ */
+const checkHasRoleByID = (
+  userId: string,
+  org: string,
+  role: string | string[],
+  silent = false,
+  explicit = false
+): boolean => {
+  if (!userId || isEmptyString(userId)) {
+    if (!silent) {
+      debugError(conductorErrors.err7);
+    }
+    return false;
+  }
+
+  const user = User.findOne({ uuid: { $eq: userId } });
+  return checkHasRole(user, org, role, silent, explicit);
+};
+
+/**
  * Checks that the user has a certain role within the specified Organization.
  * Method should only be called AFTER the 'getUserAttributes' method in a routing chain.
  * @param {String} org - The Organization identifier.
@@ -1239,6 +1270,7 @@ export default {
   getUserAttributes,
   optionalGetUserAttributes,
   checkHasRole,
+  checkHasRoleByID,
   checkHasRoleMiddleware,
   assertCampusAdminForOrgParam,
   cloudflareSiteVerify,
