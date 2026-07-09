@@ -153,7 +153,7 @@ class RestackerService {
           if(!transcludedTag){
           // if not add it to the page on cxone
             const newTags = tags?.map((tag) => tag["@value"]).concat(["transcluded:yes"]) ?? ["transcluded:yes"] as string[];
-            bookService.updatePageDetails(pageID,undefined, newTags);
+            await bookService.updatePageDetails(pageID,undefined, newTags);
           }
         }
 
