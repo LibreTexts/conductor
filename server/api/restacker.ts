@@ -7,6 +7,7 @@ import { Response } from "express";
 import BookService from "./services/book-service";
 import Restacker from "../models/restacker";
 import RestackerService from "../util/Restackerutil";
+import { debugServer } from "../debug";
 
 const LICENSES_WITHOUT_VERSION = new Set(["publicdomain", "arr", "ck12"]);
 
@@ -219,7 +220,9 @@ const getRestackerToc = async (
       projectID,
       project.libreLibrary,
       project.libreCoverID,
-    );
+    ).catch((err) => {
+      debugServer(`Error running restacker for project ${projectID}: ${err.message}`,)
+    })
   }
   return res.send({
     err: false,
