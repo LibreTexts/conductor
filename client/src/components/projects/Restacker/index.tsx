@@ -218,8 +218,8 @@ function createColumns(
             <span style={{ color: "#9ca3af" }}>—</span>
           ) : (
             <Stack direction="vertical" gap="xs">
-              {licenses.map((l) => (
-                <LicenseBadge license={l} />
+              {licenses.map((l, i) => (
+                <LicenseBadge key={`${l.label}::${l.version ?? ""}::${i}`} license={l} />
               ))}
             </Stack>
           ),
