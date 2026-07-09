@@ -35,7 +35,7 @@ const RestackerTocLicenseSchema = new Schema<RestackerTocLicense>(
     {
         label: { type: String, required: true },
         raw: { type: String, required: true },
-        version: { type: String, required: true },
+        version: { type: String, required: false },
     },
     {
         _id: false,
