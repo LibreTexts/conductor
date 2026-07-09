@@ -63,9 +63,9 @@ class RestackerService {
     if (!restacker) {
       return "notfound";
     }
-    return restacker.restackerCurrentBook.some((page) => page.status === "pending")
-      ? "pending"
-      : "completed";
+    if (restacker.restackerCurrentBook.some((page) => page.status === "pending")) return "pending";
+    if (restacker.restackerCurrentBook.some((page) => page.status === "failed")) return "failed";
+    return "completed";
   }
 
 
