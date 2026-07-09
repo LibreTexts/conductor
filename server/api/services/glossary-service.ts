@@ -340,7 +340,7 @@ export default class GlossaryService {
         toUnset.imageFile = "";
       }
 
-      await GlossaryUsage.updateOne(
+      const result = await GlossaryUsage.updateOne(
         { usageID: String(usageID), coverID: parseInt(coverID), library },
         {
           $set: {
@@ -361,6 +361,10 @@ export default class GlossaryService {
           ...(Object.keys(toUnset).length > 0 && { $unset: toUnset }),
         },
       );
+
+      if (result.matchedCount === 0) {
+        throw new Error("Glossary usage not found for usageID: " + usageID);
+      }
     } catch (error) {
       throw error;
     }
