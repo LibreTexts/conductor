@@ -1,5 +1,5 @@
 import BookService from "../api/services/book-service";
-import Restacker from "../models/restacker";
+import Restacker, { RestackerStatus } from "../models/restacker";
 import { PageTag } from "../types/Book";
 import { libraryKeys } from "./libraries";
 import * as cheerio from "cheerio";
@@ -58,7 +58,7 @@ class RestackerService {
     );
   }
 
-  async getRestackerStatus(projectID:string): Promise<string> {
+  async getRestackerStatus(projectID:string): Promise<RestackerStatus | "notfound"> {
     const restacker = await Restacker.findOne({ projectID:{$eq: projectID} });
     if (!restacker) {
       return "notfound";
