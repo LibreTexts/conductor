@@ -16,7 +16,7 @@ import Book, { BookInterface } from "../../models/book";
 import { encodeXML } from "entities";
 import Project from "../../models/project";
 import projectsAPI from "../projects";
-import Restacker from "../../models/restacker";
+import NodeCache from "node-cache";
 
 export interface BookServiceParams {
   bookID: string;
@@ -26,6 +26,18 @@ export default class BookService {
   private _bookID: string = "";
   private _library: string = "";
   private _coverID: string = "";
+
+  // Mild caching of books' TOC to reduce the number of calls to CXOne.
+  // node-cache TTL/checkperiod are in seconds.
+  private static readonly TOC_CACHE_TTL_SECONDS = 120;
+  private static readonly TOC_CACHE_CHECKPERIOD_SECONDS = 120;
+  private static _tocCacheByBookID = new NodeCache({
+    stdTTL: BookService.TOC_CACHE_TTL_SECONDS,
+    checkperiod: BookService.TOC_CACHE_CHECKPERIOD_SECONDS,
+    useClones: false,
+  });
+  private static _tocInFlightByBookID = new Map<string, Promise<TableOfContents>>();
+
   constructor(params: BookServiceParams) {
     if (!params.bookID) {
       throw new Error("Missing bookID");
@@ -75,7 +87,7 @@ export default class BookService {
     "printoptions:",
   ];
 
-  async canAccessPage(userID: string): Promise<boolean> {
+  async canAccessPage(userID: string, pageID: string | number): Promise<boolean> {
     try {
       const project = await Project.findOne({
         libreLibrary: this._library,
@@ -86,7 +98,15 @@ export default class BookService {
         return false;
       }
 
-      return projectsAPI.checkProjectMemberPermission(project, userID);
+      // If the user can't access the project in general, they can't access the page. Fail-fast.
+      const canAccessProject = projectsAPI.checkProjectMemberPermission(project, userID);
+      if (!canAccessProject) {
+        return false;
+      }
+
+      // Load all page ID's from the book's TOC and check if the requested pageID is in that list
+      const toc = await this.getBookPageIDs();
+      return toc.includes(pageID.toString());
     } catch (err) {
       console.error(err);
       return false;
@@ -118,66 +138,119 @@ export default class BookService {
   }
 
   async getBookTOCNew(): Promise<TableOfContents> {
-    const res = await CXOneFetch({
-      scope: "page",
-      path: parseInt(this._coverID),
-      api: MindTouch.API.Page.GET_Page_Tree,
-      subdomain: this._library,
-      options: {
-        method: "GET",
-      },
-    });
-    const rawTree = (await res.json()) as GetPageSubPagesResponse;
-
-    function _buildHierarchy(
-      page: GetPageSubPagesResponse["page"] | PageBase,
-      parentID?: number
-    ): (GetPageSubPagesResponse["page"] | PageBase) & {
-      parentID?: number;
-      subpages?: TableOfContents[];
-    } {
-      const pageID = Number.parseInt(page["@id"], 10);
-      const subpages = [];
-
-      // @ts-ignore
-      const processPage = (p) => ({
-        ...p,
-        id: pageID,
-        url: p["uri.ui"],
-      });
-
-      if ("subpages" in page) {
-        if (Array.isArray(page?.subpages?.page)) {
-          page.subpages.page.forEach((p) =>
-            subpages.push(_buildHierarchy(p, pageID))
-          );
-        } else if (typeof page?.subpages?.page === "object") {
-          // single page
-          subpages.push(_buildHierarchy(page.subpages.page, pageID));
-        }
-      }
-
-      return processPage({
-        ...page,
-        ...(parentID && { parentID }),
-        ...(subpages.length && { subpages }),
-      });
+    const cached = BookService._tocCacheByBookID.get<TableOfContents>(this._bookID);
+    if (cached) {
+      return cached;
     }
 
-    const structured = _buildHierarchy(rawTree?.page);
-    const buildStructure = (
-      page: GetPageSubPagesResponse["page"] | PageBase
-    ): TableOfContents => ({
-      children:
-        "subpages" in page && Array.isArray(page.subpages)
-          ? page.subpages.map((s) => buildStructure(s))
-          : [],
-      id: page["@id"],
-      title: page.title,
-      url: page["uri.ui"],
-    });
+    const inFlight = BookService._tocInFlightByBookID.get(this._bookID);
+    if (inFlight) {
+      return inFlight;
+    }
 
-    return buildStructure(structured);
+    const tocPromise = (async () => {
+      const res = await CXOneFetch({
+        scope: "page",
+        path: parseInt(this._coverID),
+        api: MindTouch.API.Page.GET_Page_Tree,
+        subdomain: this._library,
+        options: {
+          method: "GET",
+        },
+      });
+      const rawTree = (await res.json()) as GetPageSubPagesResponse;
+
+      function _buildHierarchy(
+        page: GetPageSubPagesResponse["page"] | PageBase,
+        parentID?: number
+      ): (GetPageSubPagesResponse["page"] | PageBase) & {
+        parentID?: number;
+        subpages?: TableOfContents[];
+      } {
+        const pageID = Number.parseInt(page["@id"], 10);
+        const subpages = [];
+
+        // @ts-ignore
+        const processPage = (p) => ({
+          ...p,
+          id: pageID,
+          url: p["uri.ui"],
+        });
+
+        if ("subpages" in page) {
+          if (Array.isArray(page?.subpages?.page)) {
+            page.subpages.page.forEach((p) =>
+              subpages.push(_buildHierarchy(p, pageID))
+            );
+          } else if (typeof page?.subpages?.page === "object") {
+            // single page
+            subpages.push(_buildHierarchy(page.subpages.page, pageID));
+          }
+        }
+
+        return processPage({
+          ...page,
+          ...(parentID && { parentID }),
+          ...(subpages.length && { subpages }),
+        });
+      }
+
+      const structured = _buildHierarchy(rawTree?.page);
+      const buildStructure = (
+        page: GetPageSubPagesResponse["page"] | PageBase
+      ): TableOfContents => ({
+        children:
+          "subpages" in page && Array.isArray(page.subpages)
+            ? page.subpages.map((s) => buildStructure(s))
+            : [],
+        id: page["@id"],
+        title: page.title,
+        url: page["uri.ui"],
+      });
+
+      const toc = buildStructure(structured);
+      BookService._tocCacheByBookID.set(this._bookID, toc);
+      return toc;
+    })();
+
+    BookService._tocInFlightByBookID.set(this._bookID, tocPromise);
+
+    try {
+      return await tocPromise;
+    } finally {
+      BookService._tocInFlightByBookID.delete(this._bookID);
+    }
+  }
+
+  /**
+   * Retrieves a flat array of all pages in the book's table of contents
+   * Calls getBookTOCNew() to get the structured TOC, then flattens it into an array of pages
+   * @returns {Promise<{ id: string; title: string; url: string }[]>} - An array of pages with their ID, title, and URL
+   */
+  async getBookTOCFlat(): Promise<{ id: string; title: string; url: string }[]> {
+    const structured = await this.getBookTOCNew();
+    
+    const flattenTOC = (toc: TableOfContents): { id: string; title: string; url: string }[] => {
+      const result = [{ id: toc.id, title: toc.title, url: toc.url }];
+      if (toc.children && toc.children.length > 0) {
+        toc.children.forEach((child) => {
+          result.push(...flattenTOC(child));
+        });
+      }
+      return result;
+    };
+
+    return flattenTOC(structured);
+  }
+
+  /**
+   * Convenience method to get an array of all page IDs in the book's table of contents
+   * Calls getBookTOCFlat() to get the flat array of pages, then maps it to an array of page IDs
+   * @returns {Promise<string[]>} - An array of page IDs
+   */
+  async getBookPageIDs(): Promise<string[]> {
+    const toc = await this.getBookTOCFlat();
+    return toc.map((page) => page.id);
   }
 
   async getAllPageOverviews(

@@ -30,16 +30,13 @@ async function getPageAISummary(
         const bookService = new BookService({ bookID: coverPageID });
         const [_, pageID] = getLibraryAndPageFromBookID(fullPageID);
 
-        // Check if the user has access to the page. If not, check if they are a superadmin first before returning 403.
-        const canAccess = await bookService.canAccessPage(req.user.decoded.uuid);
+        // Check if the user has access to the page and it actually exists in book's TOC.
+        const canAccess = await bookService.canAccessPage(req.user.decoded.uuid, pageID);
         if (!canAccess) {
-            const isSuperadmin = authAPI.checkHasRole(req.user, "libretexts", "superadmin", true);
-            if (!isSuperadmin) {
-                return res.status(403).send({
-                    err: true,
-                    errMsg: conductorErrors.err8,
-                });
-            }
+            return res.status(403).send({
+                err: true,
+                errMsg: conductorErrors.err8,
+            });
         }
 
         const [error, summary] = await _generatePageAISummary(
@@ -76,16 +73,13 @@ async function getPageAITags(
         const bookService = new BookService({ bookID: coverPageID });
         const [_, pageID] = getLibraryAndPageFromBookID(fullPageID);
 
-        // Check if the user has access to the page. If not, check if they are a superadmin first before returning 403.
-        const canAccess = await bookService.canAccessPage(req.user.decoded.uuid);
+        // Check if the user has access to the page and it actually exists in book's TOC.
+        const canAccess = await bookService.canAccessPage(req.user.decoded.uuid, pageID);
         if (!canAccess) {
-            const isSuperadmin = authAPI.checkHasRole(req.user, "libretexts", "superadmin", true);
-            if (!isSuperadmin) {
-                return res.status(403).send({
-                    err: true,
-                    errMsg: conductorErrors.err8,
-                });
-            }
+            return res.status(403).send({
+                err: true,
+                errMsg: conductorErrors.err8,
+            });
         }
 
         const [error, tags] = await _generatePageAITags(bookService, pageID, true);
@@ -118,16 +112,13 @@ async function generatePageImagesAltText(
         const bookService = new BookService({ bookID: coverPageID });
         const [_, pageID] = getLibraryAndPageFromBookID(fullPageID);
 
-        // Check if the user has access to the page. If not, check if they are a superadmin first before returning 403.
-        const canAccess = await bookService.canAccessPage(req.user.decoded.uuid);
+        // Check if the user has access to the page and it actually exists in book's TOC.
+        const canAccess = await bookService.canAccessPage(req.user.decoded.uuid, pageID);
         if (!canAccess) {
-            const isSuperadmin = authAPI.checkHasRole(req.user, "libretexts", "superadmin", true);
-            if (!isSuperadmin) {
-                return res.status(403).send({
-                    err: true,
-                    errMsg: conductorErrors.err8,
-                });
-            }
+            return res.status(403).send({
+                err: true,
+                errMsg: conductorErrors.err8,
+            });
         }
 
         const [error, success, modified_count] =
@@ -202,18 +193,14 @@ async function batchGenerateAIMetadata(
         const user = await User.findOne({ uuid: req.user.decoded.uuid }).orFail();
         if (!user || !user.email) return conductor400Err(res);
 
+        // Check if the user has access to the page and it actually exists in book's TOC.
         const bookService = new BookService({ bookID: `${coverPageLibrary}-${coverPageID}` });
-        const canAccess = await bookService.canAccessPage(req.user.decoded.uuid);
-
-        // If user can't access page, check if they are superadmin. If not, deny access.
+        const canAccess = await bookService.canAccessPage(req.user.decoded.uuid, coverPageID);
         if (!canAccess) {
-            const isSuperAdmin = authAPI.checkHasRole(user, "libretexts", "superadmin", true);
-            if (!isSuperAdmin) {
-                return res.status(403).send({
-                    err: true,
-                    errMsg: conductorErrors.err8,
-                });
-            }
+            return res.status(403).send({
+                err: true,
+                errMsg: conductorErrors.err8,
+            });
         }
 
         const hasActiveJob = hasActiveBatchJob(project);
@@ -320,19 +307,15 @@ async function batchUpdateBookMetadata(
                 errMsg: conductorErrors.err9,
             });
         }
-
+        
+        // Check if the user has access to the page and it actually exists in book's TOC.
         const bookService = new BookService({ bookID: `${coverPageLibrary}-${coverPageID}` });
-        const canAccess = await bookService.canAccessPage(req.user.decoded.uuid);
-
-        // If user can't access page, check if they are superadmin. If not, deny access.
+        const canAccess = await bookService.canAccessPage(req.user.decoded.uuid, coverPageID);
         if (!canAccess) {
-            const isSuperAdmin = authAPI.checkHasRole(user, "libretexts", "superadmin", true);
-            if (!isSuperAdmin) {
-                return res.status(403).send({
-                    err: true,
-                    errMsg: conductorErrors.err8,
-                });
-            }
+            return res.status(403).send({
+                err: true,
+                errMsg: conductorErrors.err8,
+            });
         }
 
         const hasActiveJob = hasActiveBatchJob(project);

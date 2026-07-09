@@ -435,13 +435,14 @@ const updateRestackerLicense = async (
   const bookService = new BookService({
     bookID: `${project.libreLibrary}-${project.libreCoverID}`,
   });
-  // const canAccess = await bookService.canAccessPage(req.user.decoded.uuid);
-  // if (!canAccess) {
-  //   return res.status(403).send({
-  //     err: true,
-  //     errMsg: "You do not have permission to update this page",
-  //   });
-  // }
+  
+  const canAccess = await bookService.canAccessPage(req.user.decoded.uuid, pageID);
+  if (!canAccess) {
+    return res.status(403).send({
+      err: true,
+      errMsg: "You do not have permission to update this page",
+    });
+  }
 
   const currentTags = await bookService.getPageTags(pageID);
   const preservedTags = currentTags
