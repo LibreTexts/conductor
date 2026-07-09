@@ -311,6 +311,8 @@ const Restacker: React.FC = () => {
     queryKey: ["restacker-toc", id],
     queryFn: () => api.getRestackerToc(id),
     enabled: !!id,
+    refetchInterval: (data) =>
+      (data as { status?: string } | undefined)?.status === "pending" ? 2000 : false,
   });
 
   const isCompleted = tocData?.status === "completed";
