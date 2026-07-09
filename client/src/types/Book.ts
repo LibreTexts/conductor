@@ -84,12 +84,14 @@ export type RestackerTocEntry = {
   children: RestackerTocEntry[];
 };
 
+export type RestackerStatus = "pending" | "completed" | "failed";
+
 export type RestackerEntry = {
   id: string;
   license?: RestackerTocLicense;
-  contentLicense: RestackerTocLicense[];
+  contentLicense?: RestackerTocLicense[];
   sourceLicense?: RestackerTocLicense;
-  status: "pending" | "running" | "completed" | "failed";
+  status: RestackerStatus;
   quotation?: number;
 };
 
