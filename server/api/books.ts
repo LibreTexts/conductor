@@ -2220,21 +2220,13 @@ async function getPageDetail(
     const bookService = new BookService({ bookID: coverPageID });
     const [_, pageID] = getLibraryAndPageFromBookID(fullPageID);
 
-    // Check if the user has access to the page. If not, check if they are a superadmin first before returning 403.
-    const canAccess = await bookService.canAccessPage(req.user.decoded.uuid);
+    // Check if the user has access to the page (always true for superadmins, assuming page is actually in book TOC)
+    const canAccess = await bookService.canAccessPage(req.user.decoded.uuid, pageID);
     if (!canAccess) {
-      const isSuperadmin = authAPI.checkHasRole(
-        req.user,
-        "libretexts",
-        "superadmin",
-        true,
-      );
-      if (!isSuperadmin) {
-        return res.status(403).send({
-          err: true,
-          errMsg: conductorErrors.err8,
-        });
-      }
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
     }
 
     const details = await bookService.getPageDetails(pageID);
@@ -2269,7 +2261,7 @@ async function updatePageDetails(
     const { summary, tags } = req.body;
 
     const bookService = new BookService({ bookID: coverPageID });
-    const canAccess = await bookService.canAccessPage(req.user.decoded.uuid);
+    const canAccess = await bookService.canAccessPage(req.user.decoded.uuid, pageID);
     if (!canAccess) {
       return res.status(403).send({
         err: true,
