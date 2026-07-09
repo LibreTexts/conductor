@@ -255,14 +255,14 @@ const Navbar: React.FC<{}> = () => {
       mobileDrawerItems = (
         <>
           <li><AboutOrgLink org={org} /></li>
-          <MobileActionRow>
-            {libretextsOnly && (
+          {libretextsOnly && (
               <>
                 <DonateLink />
                 <AccountRequestLink />
                 <StoreLink />
               </>
-            )}
+          )}
+          <MobileActionRow>
             <SupportDropdown />
             {libretextsOnly && <CommonsList />}
             <SwitchApp user={user} parent="commons" />
