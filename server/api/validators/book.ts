@@ -290,7 +290,7 @@ export const addWithCoverIDParamSchema = z.object({
     caption: z.string().max(500).optional(),
     altText: z.string().max(500).optional(),
     imageAuthor: z.string().max(500).optional(),
-    removeImage: z.coerce.boolean().optional(),
+    removeImage: z.enum(["true", "false"]).transform((val) => val === "true").optional(),
     imageLicense: z.string().refine(isValidLicense, {
       message: conductorErrors.err1,
     }).optional(),
