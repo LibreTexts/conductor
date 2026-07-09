@@ -17,6 +17,7 @@ import mailAPI from "../mail"
 import User from "../../models/user";
 import authAPI from "../../api/auth.js";
 import SupportTicketService from "./support-ticket-service";
+import { escapeRegExp } from "es-toolkit/string";
 
 const BASE_COST = 1.80;
 const PAGE_MULTIPLIER = 0.032;
@@ -954,7 +955,7 @@ class StoreService {
             }
             if (params?.query && params?.query.trim() !== '') {
                 filter.$and.push(
-                    { id: new RegExp(params.query, 'i') },
+                    { id: new RegExp(escapeRegExp(params.query), 'i') },
                 );
             }
 
