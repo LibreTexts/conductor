@@ -3,10 +3,12 @@ import { typesetMathElements } from "../../../utils/mathjax";
 
 interface GlossaryDefinitionPreviewProps {
   definition: string;
+  className?: string;
 }
 
 const GlossaryDefinitionPreview = ({
   definition,
+  className,
 }: GlossaryDefinitionPreviewProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -26,7 +28,7 @@ const GlossaryDefinitionPreview = ({
   return (
     <div
       ref={ref}
-      className="glossary-definition-preview prose max-w-none"
+      className={`glossary-definition-preview prose max-w-none${className ? ` ${className}` : ""}`}
     />
   );
 };
