@@ -231,6 +231,7 @@ const GlossaryManager: React.FC = () => {
             addNotification={addNotification}
             refetchGlossary={refetchGlossary}
             setEditingUsageID={handleEditUsageID}
+            bookTOC={bookTOC!}
           />
         </div>
       </div>
