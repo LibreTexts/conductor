@@ -207,7 +207,7 @@ const getRestackerToc = async (
   const restackerService = new RestackerService();
   const restackerStatus = await restackerService.getRestackerStatus(restacker);
 
-  if (restackerStatus.allPending) {
+  if (restackerStatus.allPending && !restacker.processing) {
     restackerService.runRestacker(
       projectID,
       project.libreLibrary,
@@ -319,7 +319,18 @@ const restackerReload = async (
   }
   
   const restackerStatus = await restackerService.getRestackerStatus(projectID);
-  // send response 
+
+  // Kick off the reload job here (fire-and-forget) so the client doesn't have to make a
+  // follow-up /toc call to start it; the client polls /restacker/status for progress.
+  restackerService.runRestacker(
+    projectID,
+    project.libreLibrary,
+    project.libreCoverID,
+  ).catch((err) => {
+    debugServer(`Error running restacker for project ${projectID}: ${err.message}`,)
+  });
+
+  // send response
   return res.send({
     err: false,
     toc: toc,
@@ -394,6 +405,7 @@ const updateRestackerLicense = async (
     });
   }
   if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+    
     return res.status(403).send({
       err: true,
       errMsg: "You do not have permission to access this project",
@@ -495,9 +507,49 @@ const updateRestackerLicense = async (
   });
 };
 
+/**
+ * Lightweight, pollable progress endpoint. Reads only the persisted status counts —
+ * it never fetches the book TOC and never triggers a restacker run, so it is safe to poll.
+ */
+const getRestackerProgress = async (
+  req: ZodReqWithUser<
+    z.infer<typeof RestackerValidators.GetRestackerPageSchema>
+  >,
+  res: Response,
+) => {
+  const { projectID } = req.params;
+  const project = await Project.findOne({ projectID: { $eq: projectID } });
+  if (!project) {
+    return res.status(404).send({
+      err: true,
+      errMsg: "Project not found",
+    });
+  }
+  if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+    return res.status(403).send({
+      err: true,
+      errMsg: "You do not have permission to access this project",
+    });
+  }
+
+  const restackerService = new RestackerService();
+  const status = await restackerService.getRestackerStatus(projectID);
+
+  return res.send({
+    err: false,
+    status: status.statusCode,
+    processing: status.processing ?? false,
+    total: status.total ?? 0,
+    completed: status.completed ?? 0,
+    failed: status.failed ?? 0,
+    pending: status.pending ?? 0,
+  });
+};
+
 export default {
   getRestackerToc,
   getRestacker,
+  getRestackerProgress,
   restackerReload,
   updateRestackerLicense,
 };

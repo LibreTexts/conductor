@@ -1064,13 +1064,13 @@ const checkHasRole = (
  * @returns {Boolean} True if valid roles are provided and the user has at least one of them, false otherwise.
  * @see {@link checkHasRole} for the underlying role-checking logic.
  */
-const checkHasRoleByID = (
+const checkHasRoleByID = async (
   userId: string,
   org: string,
   role: string | string[],
   silent = false,
   explicit = false
-): boolean => {
+): Promise<boolean> => {
   if (!userId || isEmptyString(userId)) {
     if (!silent) {
       debugError(conductorErrors.err7);
@@ -1078,7 +1078,14 @@ const checkHasRoleByID = (
     return false;
   }
 
-  const user = User.findOne({ uuid: { $eq: userId } });
+  const user = await User.findOne({ uuid: { $eq: userId } });
+  if (!user) {
+    if (!silent) {
+      debugError(conductorErrors.err7);
+    }
+    return false;
+  }
+
   return checkHasRole(user, org, role, silent, explicit);
 };
 

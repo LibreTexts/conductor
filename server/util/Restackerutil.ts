@@ -19,6 +19,11 @@ class RestackerService {
   }
 
   ltRegex = new RegExp(`\\blt-(${libraryKeys})-\\d+\\b`, "g");
+
+  // Persist progress every N pages so a pollable status endpoint reflects near-real-time
+  // progress instead of a single all-or-nothing write at the end of the run.
+  private static readonly PERSIST_BATCH_SIZE = 10;
+
   async runRestacker(projectID: string, library: string, coverID: string) {
     const restacker = await Restacker.findOne({
       projectID: { $eq: projectID },
@@ -29,36 +34,67 @@ class RestackerService {
 
     const pages = restacker.restackerCurrentBook;
 
-    for (const page of pages) {
-      console.log(`Processing page ${page.id}`);
-
-      try {
-        if (page.status === "pending") {
-          const license = await this.getPagelicense(page.id, library, coverID);
-          page.license = license;
-          const contentLicense = await this.getContentLicense(
-            page.id,
-            library,
-            coverID,
-          );
-          page.contentLicense = contentLicense.contentLicenses;
-          page.quotation = contentLicense.quotationRate;
-          page.sourceLicense = contentLicense.sourceLicense;
-          page.status = "completed";
-        }
-      } catch (error) {
-        page.status = "failed";
-      }
-      // const contentLicense = await this.getContentLicense(page.id, library, coverID);
-      // page.contentLicense = contentLicense;
-    }
+    // Mark the doc as processing so getRestackerToc/restackerReload won't spawn a duplicate
+    // concurrent run while the first batch is still all-pending.
     await Restacker.updateOne(
       { projectID: { $eq: projectID } },
-      { $set: { restackerCurrentBook: pages } },
+      { $set: { processing: true } },
     );
+
+    const flush = () =>
+      Restacker.updateOne(
+        { projectID: { $eq: projectID } },
+        { $set: { restackerCurrentBook: pages } },
+      );
+
+    try {
+      let sincePersist = 0;
+      for (const page of pages) {
+        console.log(`Processing page ${page.id}`);
+
+        try {
+          if (page.status === "pending") {
+            const license = await this.getPagelicense(page.id, library, coverID);
+            page.license = license;
+            const contentLicense = await this.getContentLicense(
+              page.id,
+              library,
+              coverID,
+            );
+            page.contentLicense = contentLicense.contentLicenses;
+            page.quotation = contentLicense.quotationRate;
+            page.sourceLicense = contentLicense.sourceLicense;
+            page.status = "completed";
+          }
+        } catch (error) {
+          page.status = "failed";
+        }
+
+        sincePersist += 1;
+        if (sincePersist >= RestackerService.PERSIST_BATCH_SIZE) {
+          await flush();
+          sincePersist = 0;
+        }
+      }
+      // Final flush for the remaining pages in the last (partial) batch.
+      await flush();
+    } finally {
+      await Restacker.updateOne(
+        { projectID: { $eq: projectID } },
+        { $set: { processing: false } },
+      );
+    }
   }
 
-  async getRestackerStatus(projectIDOrRestackerObj: string | RestackerInterface): Promise<{ statusCode: RestackerStatus | "notfound", allPending?: boolean }> {
+  async getRestackerStatus(projectIDOrRestackerObj: string | RestackerInterface): Promise<{
+    statusCode: RestackerStatus | "notfound";
+    allPending?: boolean;
+    processing?: boolean;
+    total?: number;
+    completed?: number;
+    failed?: number;
+    pending?: number;
+  }> {
     let restacker: RestackerInterface | null;
 
     if (typeof projectIDOrRestackerObj === "string") {
@@ -71,13 +107,20 @@ class RestackerService {
       return { statusCode: "notfound" };
     }
 
-    if (restacker.restackerCurrentBook.some((page) => page.status === "pending")) {
-      return { statusCode: "pending", allPending: restacker.restackerCurrentBook.every((page) => page.status === "pending") };
+    const pages = restacker.restackerCurrentBook;
+    const total = pages.length;
+    const pending = pages.filter((page) => page.status === "pending").length;
+    const failed = pages.filter((page) => page.status === "failed").length;
+    const completed = total - pending - failed;
+    const counts = { processing: restacker.processing, total, completed, failed, pending };
+
+    if (pending > 0) {
+      return { statusCode: "pending", allPending: pending === total, ...counts };
     }
 
-    if (restacker.restackerCurrentBook.some((page) => page.status === "failed")) return { statusCode: "failed" };
+    if (failed > 0) return { statusCode: "failed", ...counts };
 
-    return { statusCode: "completed" };
+    return { statusCode: "completed", ...counts };
   }
 
 

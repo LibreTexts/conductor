@@ -3280,6 +3280,13 @@ router.route('/projects/:projectID/restacker').get(
   restackerAPI.getRestacker
 );
 
+router.route('/projects/:projectID/restacker/status').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes ,
+  middleware.validateZod(RestackerValidators.GetRestackerPageSchema),
+  restackerAPI.getRestackerProgress
+);
+
 router.route('/projects/:projectID/restacker/license').patch(
   authAPI.verifyRequest,
   authAPI.getUserAttributes ,

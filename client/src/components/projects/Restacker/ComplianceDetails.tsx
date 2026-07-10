@@ -5,7 +5,7 @@ import { formatLicenseRole, getLicenseByRole } from "./util";
 import { RestackerTocLicense } from "../../../types/Book";
 import LicenseBadge from "./LicenseBadge";
 
-interface ComplienceDetailsProps {
+interface ComplianceDetailsProps {
   open: boolean;
   onClose: () => void;
   pageTitle?: string;
@@ -16,7 +16,7 @@ interface ComplienceDetailsProps {
   contentLicenses?: RestackerTocLicense[];
 }
 
-const ComplienceDetails: React.FC<ComplienceDetailsProps> = ({
+const ComplianceDetails: React.FC<ComplianceDetailsProps> = ({
   open,
   onClose,
   pageTitle,
@@ -107,4 +107,4 @@ const ComplienceDetails: React.FC<ComplienceDetailsProps> = ({
   );
 };
 
-export default ComplienceDetails;
+export default ComplianceDetails;

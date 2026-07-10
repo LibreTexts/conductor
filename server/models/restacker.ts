@@ -28,6 +28,7 @@ export interface RestackerInterface extends Document {
     updatedBy: string;
     restackerCurrentBook: RestackerSubPageState[];
     message: string[];
+    processing: boolean;
 
 }
 
@@ -67,6 +68,7 @@ const RestackerSchema = new Schema<RestackerInterface>(
         updatedBy: { type: String, required: true },
         restackerCurrentBook: { type: [RestackerSubPageStateSchema], required: true },
         message: { type: [String], required: true, default: [] },
+        processing: { type: Boolean, required: true, default: false },
     },
 );
 

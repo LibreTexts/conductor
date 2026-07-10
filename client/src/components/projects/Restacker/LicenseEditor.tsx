@@ -63,15 +63,24 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
 
   if (!isEditing) {
     return (
-      <div
-        onDoubleClick={() => {
+      <button
+        type="button"
+        onClick={() => {
           if (editable) onStartEdit?.();
         }}
-        style={{ cursor: editable ? "pointer" : "default" }}
-        title={editable ? "Double-click to edit" : undefined}
+        style={{
+          cursor: editable ? "pointer" : "default",
+          background: "transparent",
+          border: 0,
+          padding: 0,
+          textAlign: "left",
+        }}
+        title={editable ? "Click to edit" : undefined}
+        disabled={!editable}
+        aria-label={editable ? "Edit license" : undefined}
       >
         <LicenseBadge license={license} />
-      </div>
+      </button>
     );
   }
 

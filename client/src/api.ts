@@ -2712,6 +2712,18 @@ class API {
     return res.data;
   }
 
+  async getRestackerStatus(id: string) {
+    const res = await axios.get<{
+      status: "pending" | "completed" | "failed" | "notfound";
+      processing: boolean;
+      total: number;
+      completed: number;
+      failed: number;
+      pending: number;
+    } & ConductorBaseResponse>(`/projects/${id}/restacker/status`);
+    return res.data;
+  }
+
   async reloadRestacker(id: string) {
     const res = await axios.post<{
       toc: TableOfContents;

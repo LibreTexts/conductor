@@ -17,6 +17,7 @@ import { encodeXML } from "entities";
 import Project from "../../models/project";
 import projectsAPI from "../projects";
 import NodeCache from "node-cache";
+import User from "../../models/user";
 
 export interface BookServiceParams {
   bookID: string;
@@ -98,8 +99,14 @@ export default class BookService {
         return false;
       }
 
+      // Todo: move the user lookup and permission check into a single function in projectsAPI for cleanliness.
+      const user = await User.findOne({ uuid: { $eq: userID } });
+      if (!user) {
+        return false;
+      }
+      const canAccessProject = projectsAPI.checkProjectMemberPermission(project, user);
+
       // If the user can't access the project in general, they can't access the page. Fail-fast.
-      const canAccessProject = projectsAPI.checkProjectMemberPermission(project, userID);
       if (!canAccessProject) {
         return false;
       }

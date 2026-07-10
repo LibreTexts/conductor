@@ -3549,14 +3549,13 @@ const checkProjectMemberPermission = (project, user) => {
   // if user is found in project team, they have permission
   if (foundUser) return true;
 
-  // if not found in project team, check if they have a privileged role in the LibreTexts org
+  // if not found in project team and is an object, check if they have a privileged role in the LibreTexts org
   if (typeof user === "object") {
     // if already user object, try check directly so we can avoid extra DB call
     return authAPI.checkHasRole(user, "libretexts", ["superadmin", "support"]);
   }
 
-  // otherwise, check by user UUID. This will make a DB call first, but uses same logic internally
-  return authAPI.checkHasRoleByID(userUUID, "libretexts", ["superadmin", "support"]);
+  return false; // user not found in project team and no privileged role
 };
 
 

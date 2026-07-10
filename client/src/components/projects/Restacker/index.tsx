@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../../../api";
-import { Button, Card, Link, Spinner, Stack, Text, IconButton, Tooltip } from "@libretexts/davis-react";
-import { IconExternalLink, IconInfoCircle } from "@tabler/icons-react";
+import { Button, Card, Link, Spinner, Stack, Text, IconButton, Tooltip, Heading, Breadcrumb } from "@libretexts/davis-react";
+import { IconExternalLink, IconInfoCircle, IconRefresh } from "@tabler/icons-react";
 import {
   DataTable,
   createColumnHelper,
@@ -20,11 +20,14 @@ import {
   parseLicenseVersion,
   type LicenseComplianceResult,
 } from "./util";
-import ComplienceDetails from "./ComplienceDetails";
+import ComplianceDetails from "./ComplianceDetails";
 import LicenseBadge from "./LicenseBadge";
 import LicenseEditor from "./LicenseEditor";
 import LicenseWarningModal from "./LicenseWarningModal";
 import { useNotifications } from "../../../context/NotificationContext";
+import useProject from "../../../hooks/useProject";
+import { capitalizeFirstLetter, truncateString } from "../../util/HelperFunctions";
+import { useModals } from "../../../context/ModalContext";
 
 type FlatRestackerRow = RestackerTocEntry & { depth: number };
 
@@ -252,7 +255,7 @@ function createColumns(
           <div className="flex w-full justify-end">
             <IconButton
               aria-label="View compliance details"
-              icon={<IconInfoCircle size="xl" />}
+              icon={<IconInfoCircle size={16} />}
               onClick={() => onShowDetails?.(row.original)}
             />
           </div>,
@@ -264,19 +267,43 @@ function createColumns(
 const Restacker: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { addNotification } = useNotifications();
-  const [detailsRow, setDetailsRow] = useState<RestackerTocEntry | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const { openModal, closeAllModals } = useModals();
+  const { project, isLoading: isLoadingProject } = useProject(id ?? "");
+  const queryClient = useQueryClient();
   const savedScrollY = useRef(0);
+
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [editingLicense, setEditingLicense] =
+    useState<EditingLicenseCell>(null);
 
   const handleShowDetails = (row: FlatRestackerRow) => {
     savedScrollY.current = window.scrollY;
-    setDetailsRow(row);
-    setDetailsOpen(true);
-  };
 
-  const handleCloseDetails = () => {
-    setDetailsOpen(false);
-    setDetailsRow(null);
+    const compliance = row
+      ? getLicenseCompliance(
+        bookLicense ?? { label: "", raw: "" },
+        row?.pageLicense ?? { label: "", raw: "" },
+        row?.sourceLicense ?? { label: "", raw: "" },
+        row?.contentLicenses ?? [],
+      )
+      : null;
+
+    setDetailsOpen(true);
+    openModal(
+      <ComplianceDetails
+        open={true}
+        onClose={() => {
+          setDetailsOpen(false);
+          closeAllModals();
+        }}
+        pageTitle={row?.title}
+        compliance={compliance}
+        bookLicense={bookLicense}
+        pageLicense={row?.pageLicense}
+        sourceLicense={row?.sourceLicense}
+        contentLicenses={row?.contentLicenses}
+      />
+    );
   };
 
   useLayoutEffect(() => {
@@ -297,12 +324,6 @@ const Restacker: React.FC = () => {
     restoreScroll();
   }, [detailsOpen]);
 
-  const queryClient = useQueryClient();
-  const [editingLicense, setEditingLicense] =
-    useState<EditingLicenseCell>(null);
-  const [pendingLicenseChange, setPendingLicenseChange] =
-    useState<PendingLicenseChange | null>(null);
-
   const {
     data: tocData,
     isLoading: tocLoading,
@@ -311,11 +332,27 @@ const Restacker: React.FC = () => {
     queryKey: ["restacker-toc", id],
     queryFn: () => api.getRestackerToc(id),
     enabled: !!id,
-    refetchInterval: (data) =>
-      (data as { status?: string } | undefined)?.status === "pending" ? 2000 : false,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
+    refetchOnReconnect: false,
+    retry: 1
   });
 
-  const isCompleted = tocData?.status === "completed";
+  // Poll the lightweight status endpoint while the server job is running. It reads persisted
+  // progress counts only — it never re-triggers the job — so it is safe to poll.
+  const { data: progressData } = useQuery({
+    queryKey: ["restacker-status", id],
+    queryFn: () => api.getRestackerStatus(id),
+    enabled: !!id && !!tocData?.toc,
+    refetchInterval: (data) => (data?.status === "pending" ? 2000 : false),
+    refetchOnWindowFocus: false,
+  });
+
+  const isProcessing = (progressData?.status ?? tocData?.status) === "pending";
+  const isCompleted = progressData
+    ? progressData.status === "completed" || progressData.status === "failed"
+    : tocData?.status === "completed";
 
   const {
     data: restackerData,
@@ -329,7 +366,10 @@ const Restacker: React.FC = () => {
   const { mutate: handleReload, isPending: reloadPending } = useMutation({
     mutationFn: () => api.reloadRestacker(id!),
     onSuccess: async () => {
-      window.location.reload();
+      // The reload endpoint recreates an all-pending doc and starts the job itself, so we just
+      // resume polling; status flips to "pending" and the table repopulates when it completes.
+      await queryClient.invalidateQueries({ queryKey: ["restacker-status", id] });
+      await queryClient.invalidateQueries({ queryKey: ["restacker", id] });
     },
     onError: (err: unknown) => {
       const message =
@@ -366,11 +406,10 @@ const Restacker: React.FC = () => {
         },
       );
       setEditingLicense(null);
-      setPendingLicenseChange(null);
     },
     onError: (error) => {
-        addNotification({ type: "error", message: "Error updating license" });
-        setEditingLicense(null);
+      addNotification({ type: "error", message: "Error updating license" });
+      setEditingLicense(null);
     },
   });
 
@@ -395,15 +434,40 @@ const Restacker: React.FC = () => {
     );
 
     if (compliance.incompatiblePairs.length > 0) {
-      setPendingLicenseChange({
+      const pendingChange: PendingLicenseChange = {
         pageID,
         license,
         version,
         field,
         rowTitle: row.title,
         compliance,
-      });
-      return;
+      };
+
+      openModal(
+        <LicenseWarningModal
+          open={!!pendingChange}
+          field={pendingChange?.field ?? "page"}
+          pageTitle={pendingChange?.rowTitle}
+          proposedLicense={pendingChange?.license ?? ""}
+          proposedVersion={pendingChange?.version}
+          compliance={pendingChange?.compliance ?? null}
+          loading={licenseUpdatePending}
+          onCancel={() => {
+            closeAllModals();
+          }}
+          onConfirm={() => {
+            if (!pendingChange) return;
+            handleLicenseChange({
+              pageID: pendingChange.pageID,
+              license: pendingChange.license,
+              version: pendingChange.version,
+              force: true,
+            });
+            closeAllModals();
+          }}
+        />
+      );
+
     }
 
     handleLicenseChange({ pageID, license, version });
@@ -432,15 +496,6 @@ const Restacker: React.FC = () => {
     ],
   );
 
-  const detailsCompliance = detailsRow
-    ? getLicenseCompliance(
-        bookLicense ?? { label: "", raw: "" },
-        detailsRow.pageLicense ?? { label: "", raw: "" },
-        detailsRow.sourceLicense ?? { label: "", raw: "" },
-        detailsRow.contentLicenses ?? [],
-      )
-    : null;
-
   if (tocLoading) return <Spinner />;
   if (tocError) return <div>Error loading table of contents.</div>;
 
@@ -449,110 +504,110 @@ const Restacker: React.FC = () => {
   const rows = flattenToc(
     isCompleted && restackerData?.restacker?.length
       ? mergeLicenseData(
-          tocChildren,
-          new Map(restackerData.restacker.map((e) => [e.id, e])),
-        )
+        tocChildren,
+        new Map(restackerData.restacker.map((e) => [e.id, e])),
+      )
       : tocChildren,
   );
 
   return (
-    <>
-      <Stack direction="vertical" gap="sm" className="p-4">
-        <h2>License Restacker</h2>
-        <Card variant="elevated">
-          <Card.Body>
-            <Stack
-              direction="horizontal"
-              gap="sm"
-              align="start"
-              className="justify-between"
-            >
-              <Stack direction="vertical" gap="xs">
-                <Text size="base" weight="semibold">
-                  {tocData?.toc?.title}
-                </Text>
-                <Text size="sm">
-                  <Link
-                    href={tocData?.toc?.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {tocData?.toc?.url}
-                  </Link>
-                </Text>
-                <Text size="sm">Status: {tocData?.status}</Text>
-                {(() => {
-                  if (!bookLicense?.label) return null;
-                  return (
-                    <Text size="sm">
-                      Book License: <LicenseBadge license={bookLicense} />
-                    </Text>
-                  );
-                })()}
-              </Stack>
-              {isCompleted && (
-                <Button
-                  variant="primary"
-                  onClick={() => handleReload()}
-                  loading={reloadPending || restackerFetching}
-                  disabled={!id}
-                >
-                  Reload
-                </Button>
-              )}
-              
-            </Stack>
-          </Card.Body>
-        </Card>
-
-        <div className="[&_tbody_tr:has([data-non-compliant=true])]:!bg-[#fee2e2] [&_tbody_tr:has([data-non-compliant=true])_td]:!bg-[#fee2e2] [&_tbody_tr:has([data-non-compliant=true])_td]:!text-[#991b1b]">
-          <DataTable<FlatRestackerRow>
-            data={rows}
-            columns={columns}
-            maxHeight="calc(100vh - 280px)"
-            stickyHeader
-            striped
-            bordered
-            density="compact"
-            classNames={{
-              cell: "!py-0 relative",
-              headerCell: "!py-0",
-            }}
-          />
-        </div>
+    <Stack direction="vertical" gap="md" className="py-8 px-16">
+      <Stack direction="vertical" gap="xs" className="mb-2">
+        <Heading level={2}>
+          License Restacker
+        </Heading>
+        {
+          !isLoadingProject && project?.title && (
+            <Breadcrumb className="ml-1">
+              <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
+              <Breadcrumb.Item href={`/projects/${id}`}>{project?.title}</Breadcrumb.Item>
+              <Breadcrumb.Item isCurrent>License Restacker</Breadcrumb.Item>
+            </Breadcrumb>
+          )
+        }
       </Stack>
+      <Card variant="elevated">
+        <Card.Body>
+          <Stack
+            direction="horizontal"
+            gap="sm"
+            align="start"
+            className="justify-between"
+          >
+            <Stack direction="vertical" gap="xs">
+              <Text size="base" weight="semibold">
+                {tocData?.toc?.title}
+              </Text>
+              <Text size="sm">
+                URL:{" "}
+                <Link
+                  href={tocData?.toc?.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="wrap-anywhere"
+                >
+                  {truncateString(tocData?.toc?.url, 130)}
+                </Link>
+              </Text>
+              <Text size="sm">
+                Status: {capitalizeFirstLetter(progressData?.status ?? tocData?.status)}
+              </Text>
+              {(() => {
+                if (!bookLicense?.label) return null;
+                return (
+                  <Text size="sm">
+                    Book License: <LicenseBadge license={bookLicense} />
+                  </Text>
+                );
+              })()}
+              {
+                isProcessing && (
+                  <Stack
+                    direction="horizontal"
+                    gap="sm"
+                    align="center"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <Spinner size="sm" />
+                    <Text size="sm">
+                      {progressData && progressData.total > 0
+                        ? `Loading license data. This can take a few minutes… processed ${progressData.completed + progressData.failed} of ${progressData.total} pages. This page updates automatically when it's ready.`
+                        : "Loading license data… this can take a few minutes. This page updates automatically when it's ready."}
+                    </Text>
+                  </Stack>
+                )
+              }
+            </Stack>
+            <Button
+              variant="primary"
+              onClick={() => handleReload()}
+              loading={reloadPending || isProcessing}
+              disabled={!id}
+              icon={<IconRefresh size={16} />}
+            >
+              Refresh License Data
+            </Button>
+          </Stack>
+        </Card.Body>
+      </Card>
 
-      <LicenseWarningModal
-        open={!!pendingLicenseChange}
-        field={pendingLicenseChange?.field ?? "page"}
-        pageTitle={pendingLicenseChange?.rowTitle}
-        proposedLicense={pendingLicenseChange?.license ?? ""}
-        proposedVersion={pendingLicenseChange?.version}
-        compliance={pendingLicenseChange?.compliance ?? null}
-        loading={licenseUpdatePending}
-        onCancel={() => setPendingLicenseChange(null)}
-        onConfirm={() => {
-          if (!pendingLicenseChange) return;
-          handleLicenseChange({
-            pageID: pendingLicenseChange.pageID,
-            license: pendingLicenseChange.license,
-            version: pendingLicenseChange.version,
-            force: true,
-          });
-        }}
-      />
-
-      <ComplienceDetails
-        open={detailsOpen}
-        onClose={handleCloseDetails}
-        pageTitle={detailsRow?.title}
-        compliance={detailsCompliance}
-        bookLicense={bookLicense}
-        pageLicense={detailsRow?.pageLicense}
-        sourceLicense={detailsRow?.sourceLicense}
-        contentLicenses={detailsRow?.contentLicenses}
-      />
-    </>
+      <div className="[&_tbody_tr:has([data-non-compliant=true])]:!bg-[#fee2e2] [&_tbody_tr:has([data-non-compliant=true])_td]:!bg-[#fee2e2] [&_tbody_tr:has([data-non-compliant=true])_td]:!text-[#991b1b]">
+        <DataTable<FlatRestackerRow>
+          data={rows}
+          columns={columns}
+          maxHeight="calc(100vh - 280px)"
+          stickyHeader
+          striped
+          bordered
+          density="compact"
+          classNames={{
+            cell: "!py-0 relative",
+            headerCell: "!py-0",
+          }}
+        />
+      </div>
+    </Stack >
   );
 };
 
