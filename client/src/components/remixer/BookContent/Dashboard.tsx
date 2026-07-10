@@ -348,7 +348,12 @@ const TreeDnd: React.FC<TreeDndProps> = ({
       const isSelected = selectedNodeId === page["@id"];
       const itemLink = page["uri.ui"] || page["@href"];
       const targetLevel = depth + 1;
-      const isInteractionLocked = isMatterBranchNode(page["@id"]);
+      // Lock default matter items (non-added descendants) but keep the
+      // matter roots themselves and any user-added children interactive.
+      const isInteractionLocked =
+        isMatterBranchNode(page["@id"]) &&
+        !page.addedItem &&
+        !isMatterNode(page);
       const isDropInside =
         dropIndicator?.targetId === page["@id"] &&
         dropIndicator.position === "inside";
@@ -371,6 +376,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
           isSelected={isSelected}
           isBookTree={isBookTree}
           isInteractionLocked={isInteractionLocked}
+          isVisualLocked={isInteractionLocked}
           itemLink={itemLink}
           displayTitle={
             getRemixerDisplayTitle(
@@ -468,15 +474,11 @@ const TreeDnd: React.FC<TreeDndProps> = ({
           }}
           onSelect={() => {
             if (isBookTree) {
-              if (isInteractionLocked) {
-                onSelectNode?.(undefined);
-                return;
-              }
               onSelectNode?.(isSelected ? undefined : page["@id"]);
             }
           }}
           onDoubleClick={() => {
-            if (isBookTree && !isInteractionLocked) {
+            if (isBookTree) {
               onNodeDoubleClick?.(page["@id"]);
             }
           }}
@@ -538,7 +540,12 @@ const TreeDnd: React.FC<TreeDndProps> = ({
           const isSelected = selectedNodeId === root["@id"];
           const itemLink = root["uri.ui"] || root["@href"];
           const targetLevel = 1;
-          const isInteractionLocked = isMatterBranchNode(root["@id"]);
+          // Matter root nodes are interactive so users can right-click to
+          // add children; only their non-added descendants stay locked.
+          const isInteractionLocked =
+            isMatterBranchNode(root["@id"]) &&
+            !root.addedItem &&
+            !isMatterNode(root);
 
           return (
             <div key={root["@id"]} data-node-id={root["@id"]}>

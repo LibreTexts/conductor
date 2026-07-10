@@ -21,8 +21,7 @@ import {
 import * as cheerio from "cheerio";
 import { log } from "debug";
 import { RemixerSubPage } from "../../types/Remixer";
-
-
+import BookService from "./book-service";
 
 export type RemixerCopyMode = "Transclude" | "Fork" | "Full";
 
@@ -117,7 +116,10 @@ const stripDefaultTitlePrefixBeforeColon = (value: string): string => {
  * Callers can retry the same operation safely from the user's perspective.
  */
 class TransientMindTouchError extends Error {
-  constructor(message: string, public cause?: unknown) {
+  constructor(
+    message: string,
+    public cause?: unknown,
+  ) {
     super(message);
     this.name = "TransientMindTouchError";
   }
@@ -243,7 +245,8 @@ const resolveUiUri = async (
   if (!Number.isNaN(pid)) {
     const info = await getPage(pid, subdomain);
     const realUri =
-      typeof info?.["uri.ui"] === "string" && (info["uri.ui"] as string).length > 0
+      typeof info?.["uri.ui"] === "string" &&
+      (info["uri.ui"] as string).length > 0
         ? (info["uri.ui"] as string)
         : undefined;
     if (realUri) {
@@ -331,12 +334,10 @@ const handleNewPage = async (
   title: string,
   subdomain: string,
 ): Promise<{ pageID: string; pageURI: string }> => {
-
-  const content = page["@subpages"] === true
-    ? RemixerTemplates.POST_CreateBlankTopicGuide
-    : RemixerTemplates.POST_CreateBlankPage("topic");
-  ;
-
+  const content =
+    page["@subpages"] === true
+      ? RemixerTemplates.POST_CreateBlankTopicGuide
+      : RemixerTemplates.POST_CreateBlankPage("topic");
   const rawTitle = page["@title"] || page.title || title;
   // segment must be un-encoded here — we double-encode the full path below,
   // matching CXOneFetch's encodeURIComponent(encodeURIComponent(path)) convention.
@@ -345,7 +346,13 @@ const handleNewPage = async (
   const parentUri = await resolveUiUri(parent, subdomain);
   // uri.ui already has %3A-encoded colons; decode once so the combined path
   // contains only raw characters before we apply the double-encode.
-  const parentPath = (() => { try { return decodeURIComponent(extractPagePath(parentUri)); } catch { return extractPagePath(parentUri); } })();
+  const parentPath = (() => {
+    try {
+      return decodeURIComponent(extractPagePath(parentUri));
+    } catch {
+      return extractPagePath(parentUri);
+    }
+  })();
   const rawPath = `${parentPath}/${segment}`;
   // MindTouch pages/=<path> requires the content path to be double-encoded:
   // the HTTP server decodes once, then the DekiWiki router decodes again.
@@ -460,16 +467,26 @@ const handleModifiedPage = async (
 
   // Decode path segments from uri.ui (which may have %3A-encoded colons)
   // before double-encoding, to avoid triple-encoding colons in the final URL.
-  const safeDecPath = (s: string) => { try { return decodeURIComponent(s); } catch { return s; } };
+  const safeDecPath = (s: string) => {
+    try {
+      return decodeURIComponent(s);
+    } catch {
+      return s;
+    }
+  };
 
   if (isMoved && !isRenamed) {
     const pageUri = await resolveUiUri(page, subdomain);
-    const currentPathSegments = extractPagePath(pageUri).split("/").filter(Boolean);
+    const currentPathSegments = extractPagePath(pageUri)
+      .split("/")
+      .filter(Boolean);
     const leaf =
       currentPathSegments.length > 0
         ? safeDecPath(currentPathSegments[currentPathSegments.length - 1]!)
         : remixerPagePaddedSlug(page, title);
-    const parentPath = safeDecPath(extractPagePath(await resolveUiUri(parent!, subdomain)));
+    const parentPath = safeDecPath(
+      extractPagePath(await resolveUiUri(parent!, subdomain)),
+    );
     const newPathRaw = `${parentPath}/${leaf}`;
     const toEnc = encodeURIComponent(encodeURIComponent(newPathRaw));
     moveUrl = `${base}/move?title=${titleEnc}&to=${toEnc}&allow=deleteredirects&dream.out.format=json`;
@@ -478,7 +495,9 @@ const handleModifiedPage = async (
     const nameEnc = encodeURIComponent(padded);
     moveUrl = `${base}/move?title=${titleEnc}&name=${nameEnc}&allow=deleteredirects&dream.out.format=json`;
   } else if (isMoved && isRenamed) {
-    const parentPath = safeDecPath(extractPagePath(await resolveUiUri(parent!, subdomain)));
+    const parentPath = safeDecPath(
+      extractPagePath(await resolveUiUri(parent!, subdomain)),
+    );
     const padded = remixerPagePaddedSlug(page, title);
     const newPathRaw = `${parentPath}/${padded}`;
     const toEnc = encodeURIComponent(encodeURIComponent(newPathRaw));
@@ -512,7 +531,11 @@ const resolveTranscludeSource = async ({
   subdomain: string;
   pageId: number;
   fallbackUri: string;
-}): Promise<{ sourceSubdomain: string; sourceId: number; sourceUri: string }> => {
+}): Promise<{
+  sourceSubdomain: string;
+  sourceId: number;
+  sourceUri: string;
+}> => {
   const sourceHeaders = await generateAPIRequestHeaders(subdomain);
   const rawRes = await CXOneFetch({
     scope: "page",
@@ -583,10 +606,11 @@ const resolveTranscludeSource = async ({
   });
 };
 
-const hasSubpages = (page: RemixerSubPageState, book: RemixerSubPageState[]): boolean => {
-  return book.some(
-    (p) => p.parentID === page["@id"] && p.deletedItem !== true,
-  );
+const hasSubpages = (
+  page: RemixerSubPageState,
+  book: RemixerSubPageState[],
+): boolean => {
+  return book.some((p) => p.parentID === page["@id"] && p.deletedItem !== true);
 };
 
 const handleImportedPage = async (
@@ -621,6 +645,12 @@ const handleImportedPage = async (
   let postComment: string;
   const dekiHeaders = await generateAPIRequestHeaders(subdomain);
 
+  const sourceService = new BookService({
+    bookID: `${sourceSubdomain}-${sourceId}`,
+  });
+  const sourceTags = await sourceService.getPageTags(sourceId.toString());
+  const preservedTags = sourceTags.map((tag) => tag["@value"]);
+
   const shouldTransclude = copyModeState === "Transclude" && !hasChildren;
   if (shouldTransclude) {
     const resolvedSource = await resolveTranscludeSource({
@@ -636,7 +666,8 @@ const handleImportedPage = async (
     );
     postComment = "Remixer transclude";
   } else {
-    const targetLibarayDekiHeaders = await generateAPIRequestHeaders(sourceSubdomain);
+    const targetLibarayDekiHeaders =
+      await generateAPIRequestHeaders(sourceSubdomain);
     const htmlRes = await CXOneFetch({
       scope: "page",
       path: sourceId,
@@ -664,12 +695,10 @@ const handleImportedPage = async (
   }
   // hasChildren is true if the page has any children
   if (hasChildren) {
-    contentsBody = RemixerTemplates.POST_CreateBlankTopicGuide
-      + contentsBody;
-  }
-  else {
-    contentsBody = RemixerTemplates.POST_CreateBlankPage("topic")
-      + contentsBody;
+    contentsBody = RemixerTemplates.POST_CreateBlankTopicGuide + contentsBody;
+  } else {
+    contentsBody =
+      RemixerTemplates.POST_CreateBlankPage("topic") + contentsBody;
   }
   const postRes = await CXOneFetch({
     scope: "page",
@@ -687,6 +716,28 @@ const handleImportedPage = async (
   if (!postRes.ok) {
     throwForMindTouchResponse(postRes, "Error posting imported content");
   }
+  const targetService = new BookService({
+    bookID: `${subdomain}-${pageID}`,
+  });
+  try {
+    if (shouldTransclude){
+      // make sure transcluded:yes is in the tags
+      if (!preservedTags.includes("transcluded:yes")){
+        preservedTags.push("transcluded:yes");
+      }
+
+    }
+    else{
+      // make sure transcluded:no is in the tags
+      if (!preservedTags.includes("transcluded:no")){
+        preservedTags.push("transcluded:no");
+      }
+    }
+    await targetService.updatePageDetails(pageID, undefined, preservedTags);
+  } catch (error) {
+    console.error(error);
+  }
+
   await applyDefaultRemixerPageProperties(subdomain, pageID);
   return { pageID, pageURI };
 };
@@ -700,7 +751,9 @@ interface RunRemixerJobParams {
 /** Plain snapshot of a remixer page for persistence (avoids spreading Mongoose subdocs). */
 type RemixerSubPagePlain = Record<string, unknown>;
 
-const remixerSubPageToPlain = (page: RemixerSubPageState): RemixerSubPagePlain => {
+const remixerSubPageToPlain = (
+  page: RemixerSubPageState,
+): RemixerSubPagePlain => {
   const maybeDoc = page as unknown as {
     toObject?: (opts?: { getters?: boolean }) => RemixerSubPagePlain;
   };
@@ -710,9 +763,7 @@ const remixerSubPageToPlain = (page: RemixerSubPageState): RemixerSubPagePlain =
   return { ...(page as unknown as RemixerSubPagePlain) };
 };
 
-const normalizeArticle = (
-  value: unknown,
-): RemixerSubPageState["article"] => {
+const normalizeArticle = (value: unknown): RemixerSubPageState["article"] => {
   if (
     value === "article" ||
     value === "topic-category" ||
@@ -744,10 +795,15 @@ const toFinalBookEntry = (
   // uri.ui must be the human-readable URL. @href from MindTouch is the API
   // URL (e.g. @api/deki/pages/123?redirects=0) and must never be used as
   // the uri.ui value — it would corrupt child-path construction on the next run.
-  const rawUriUi = plain["uri.ui"];
+  // Mongoose toObject() expands "uri.ui" into a nested { uri: { ui } } object
+  // due to dot-notation path interpretation; fall back to the flat key for
+  // plain (non-Mongoose) objects.
+  const rawUriUi =
+    (plain as unknown as { uri?: { ui?: unknown } }).uri?.ui ?? plain["uri.ui"];
   const rawHref = plain["@href"];
   const isApiUrl = (v: unknown): boolean =>
-    typeof v === "string" && (v.includes("/@api/deki/") || v.startsWith("@api/deki/"));
+    typeof v === "string" &&
+    (v.includes("/@api/deki/") || v.startsWith("@api/deki/"));
   const uriUi = String(
     typeof rawUriUi === "string" && rawUriUi.length > 0 && !isApiUrl(rawUriUi)
       ? rawUriUi
@@ -761,8 +817,7 @@ const toFinalBookEntry = (
     "@subpages": hasSubpages(page, book),
     article: normalizeArticle(plain.article),
     title,
-    parentID:
-      typeof plain.parentID === "string" ? plain.parentID : undefined,
+    parentID: typeof plain.parentID === "string" ? plain.parentID : undefined,
     namespace: subdomain,
     "uri.ui": uriUi,
     originalPathNumber: Array.isArray(plain.pathNumber)
@@ -796,7 +851,9 @@ const runRemixerJob = async ({
   subdomain,
 }: RunRemixerJobParams) => {
   const job = await PrejectRemixerJob.findOne({ jobID }).sort({ _id: -1 });
-  const remixerState = await PrejectRemixer.findOne({ projectID }).sort({ _id: -1 });
+  const remixerState = await PrejectRemixer.findOne({ projectID }).sort({
+    _id: -1,
+  });
   let finalBook: RemixerSubPageState[] = [];
   if (!remixerState) {
     throw new Error("Remixer state not found");
@@ -935,7 +992,14 @@ const runRemixerJob = async ({
           const oldPageId = page["@id"];
           const { pageID, pageURI } = await withRetryOnTransient(
             () =>
-              handleImportedPage(page, parent, title, subdomain, copyModeState, hasSubpages(page, pages)),
+              handleImportedPage(
+                page,
+                parent,
+                title,
+                subdomain,
+                copyModeState,
+                hasSubpages(page, pages),
+              ),
             { onRetry: logRetry },
           );
           page["@id"] = pageID;
@@ -963,17 +1027,15 @@ const runRemixerJob = async ({
           const uriUiVal = info?.["uri.ui"];
           if (typeof uriUiVal === "string" && uriUiVal.length > 0) {
             setRemixerPageUriUi(page, uriUiVal);
-            page["@href"] = uriUiVal;
+            page["uri.ui"] = uriUiVal as string;
           }
         }
       } else if (status === "deleted") {
         try {
-          await withRetryOnTransient(
-            () => handleDeletedPage(page, subdomain),
-            { onRetry: logRetry },
-          );
-        } catch (error) {
-        }
+          await withRetryOnTransient(() => handleDeletedPage(page, subdomain), {
+            onRetry: logRetry,
+          });
+        } catch (error) {}
       }
 
       // Include everything that still exists in the book in the final
@@ -994,17 +1056,19 @@ const runRemixerJob = async ({
       job.messages.push(message);
       await job.save();
     }
-    const bookURL = remixerState.remixerCurrentBook[0]["@href"] ;
+    const bookURL = remixerState.remixerCurrentBook[0]["@href"];
     // ── Trigger Mindtouch TOC update ─────────────────────────────────────────
     log("[*] Triggering MindMap TOC update...");
     await fetch(`https://batch.libretexts.org/print/Libretext=${bookURL}`, {
       headers: { origin: "commons.libretexts.org" },
-    }).then(()=>console.log("MindMap TOC update done")).catch((e) => {
-      console.warn(
-        "[PressBookScraper] MindMap trigger failed (non-fatal):",
-        (e as Error).message,
-      );
-    });
+    })
+      .then(() => console.log("MindMap TOC update done"))
+      .catch((e) => {
+        console.warn(
+          "[PressBookScraper] MindMap trigger failed (non-fatal):",
+          (e as Error).message,
+        );
+      });
 
     // Archive the remixer state that was just published and persist a fresh
     // snapshot as the new active record. The snapshot captures the fully
@@ -1025,8 +1089,6 @@ const runRemixerJob = async ({
       copyModeState: remixerState.copyModeState,
       pathLevelFormats: remixerState.pathLevelFormats,
     });
-
-
 
     job.status = "success";
     job.messages.push("Remixer job completed successfully.");

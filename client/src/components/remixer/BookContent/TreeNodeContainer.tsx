@@ -110,7 +110,7 @@ const TreeNodeContainer: React.FC<TreeNodeContainerProps> = ({
             : "2px solid transparent",
           borderRadius: 4,
           outline: isSelected ? `2px solid ${palette.info}` : "none",
-          cursor: isVisualLocked ? "not-allowed" : "pointer",
+          cursor: isVisualLocked ? "default" : "pointer",
           textDecoration: isDeleted ? "line-through" : "none",
         }}
       >

@@ -53,7 +53,7 @@ export const buildRemixerPagePathSegment = (
   const titleSegment = titleToRemixerPathSegment(rawTitle);
   const numbering =
     page.formattedPath?.trim() || page.numberedPath?.trim() || "";
-  return numbering ? `${numbering}:_${titleSegment}` : titleSegment;
+  return numbering ? `${numbering.padStart(2, "0")}:_${titleSegment}` : titleSegment;
 };
 
 export const generatePagePath = (parent: string, title: string): string => {
