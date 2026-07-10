@@ -78,12 +78,7 @@ const GlossaryList = ({
     });
   };
 
-  const getPageTitle = (pageID: string) => {
-    if (!toc) {
-      return pageID;
-    }
-    return findTocNodeById(toc, pageID)?.title ?? pageID;
-  };
+
 
   const pageColumns: ColumnDef<PageColumnDef>[] = [
     {
@@ -173,11 +168,27 @@ const GlossaryList = ({
       // enableSorting: true,
       // enableColumnFilter: true,
       size: 160,
-      cell: ({ getValue }) => (
-        <span className="block break-words whitespace-normal">
-          <GlossaryDefinitionPreview definition={String(getValue() ?? "")} />
-        </span>
-      ),
+      cell: ({ getValue, row }) => {
+        const orphaned = toc
+          ? row.original.pages.filter((p) => !tocIdSet.has(p.pageID)).length
+          : 0;
+        return (
+          <span
+            className={`flex items-center gap-1 break-words whitespace-normal${orphaned > 0 ? " text-amber-600" : ""}`}
+            title={
+              orphaned > 0
+                ? `${orphaned} page${orphaned > 1 ? "s" : ""} not found in book table of contents`
+                : undefined
+            }
+          >
+            {orphaned > 0 && <IconAlertTriangle size={14} className="shrink-0" />}
+            <GlossaryDefinitionPreview
+              definition={String(getValue() ?? "")}
+              className={orphaned > 0 ? "text-amber-600" : undefined}
+            />
+          </span>
+        );
+      },
     },
     {
       accessorKey: "definition",
