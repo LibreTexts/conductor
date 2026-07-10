@@ -189,9 +189,18 @@ const RemixerDashboard: React.FC = () => {
     [remixerData.catalogBook, remixerData.selectedLibrary],
   );
 
-  /** True when a book node lives inside a front/back matter subtree. */
-  const isMatterBranchNode = (nodeId?: string): boolean =>
-    isMatterBranchNodePure(nodeId, remixerData.currentBook ?? []);
+  /**
+   * True for the front/back matter root nodes themselves and any of their
+   * descendants that were NOT explicitly added by the user (i.e. default/
+   * original items).  Added items inside matter sections are NOT default.
+   */
+  const isDefaultMatterItem = (nodeId?: string): boolean => {
+    if (!nodeId) return false;
+    const book = remixerData.currentBook ?? [];
+    const node = book.find((n) => n["@id"] === nodeId);
+    if (!node) return false;
+    return isMatterBranchNodePure(nodeId, book) && !node.addedItem;
+  };
 
   /** Deepest path level present in the current book (drives the path-format modal). */
   const highestPathLevel = useCallback(
@@ -217,10 +226,12 @@ const RemixerDashboard: React.FC = () => {
 
   const contextMenuCanAddSibling =
     contextMenu != null &&
-    !isRootBookNode(remixerData.currentBook ?? [], contextMenu.nodeId);
+    !isRootBookNode(remixerData.currentBook ?? [], contextMenu.nodeId) &&
+    !isDefaultMatterItem(contextMenu.nodeId);
 
   const contextMenuCanDuplicate =
     contextMenu != null &&
+    !isDefaultMatterItem(contextMenu.nodeId) &&
     !(remixerData.currentBook ?? []).some(
       (n) => n.parentID === contextMenu.nodeId,
     );
@@ -789,11 +800,11 @@ const RemixerDashboard: React.FC = () => {
     }
   };
 
-  /** Soft-delete the currently selected book node and its descendants (skipped for matter branches). */
+  /** Soft-delete the currently selected book node and its descendants (skipped for default matter items). */
   const handleDeleteSelectedBookNode = () => {
     const selectedNodeId = uiState.selectedBookNodeId;
     if (!selectedNodeId) return;
-    if (isMatterBranchNode(selectedNodeId)) return;
+    if (isDefaultMatterItem(selectedNodeId)) return;
     updateCurrentBook(
       (existingBookNodes) =>
         applyBookNodeDeletion(existingBookNodes, selectedNodeId),
@@ -845,11 +856,34 @@ const RemixerDashboard: React.FC = () => {
 
   /** Persist edits from the edit panel onto the current book (also toggles `renamedItem`). */
   const handleSaveEdit = (page: RemixerSubPage) => {
-    if (isMatterBranchNode(page["@id"])) {
-      setUiState((prev) => ({ ...prev, editPanelOpen: false }));
+    setUiState((prev) => ({ ...prev, editPanelOpen: false }));
+
+    const nextOverride = page.formattedPathOverride === true;
+    const nextFormattedPath = nextOverride
+      ? (page.formattedPath ?? "").trim()
+      : undefined;
+
+    if (isDefaultMatterItem(page["@id"])) {
+      // For default matter items only the path-prefix override can be changed.
+      updateCurrentBook(
+        (existingBook) =>
+          existingBook.map((node) => {
+            if (node["@id"] !== page["@id"]) return node;
+            const saved = {
+              ...node,
+              formattedPathOverride: nextOverride,
+              formattedPath: nextFormattedPath,
+            };
+            return {
+              ...saved,
+              renamedItem: node.renamedItem || hasFormattedPathChanged(saved),
+            };
+          }),
+        { trackHistory: true },
+      );
       return;
     }
-    setUiState((prev) => ({ ...prev, editPanelOpen: false }));
+
     updateCurrentBook(
       (existingBook) => {
         return existingBook.map((node) => {
@@ -857,10 +891,6 @@ const RemixerDashboard: React.FC = () => {
           const previousTitle = node.title || node["@title"] || "";
           const nextTitle = page.title || page["@title"] || "";
           const renamed = previousTitle !== nextTitle;
-          const nextOverride = page.formattedPathOverride === true;
-          const nextFormattedPath = nextOverride
-            ? (page.formattedPath ?? "").trim()
-            : undefined;
           const saved = {
             ...node,
             ...page,
@@ -999,7 +1029,7 @@ const RemixerDashboard: React.FC = () => {
         editPanelOpen: true,
       }));
     } else if (action === "delete") {
-      if (isMatterBranchNode(nodeId)) return;
+      if (isDefaultMatterItem(nodeId)) return;
       updateCurrentBook(
         (existingBookNodes) => applyBookNodeDeletion(existingBookNodes, nodeId),
         { trackHistory: true },
