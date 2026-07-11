@@ -943,6 +943,8 @@ class StoreService {
             let limit = params?.limit ? parseInt(params.limit.toString(), 10) : 25;
             let filter: any = { $and: [] };
 
+            const trimmedQuery = params?.query?.trim();
+
             if (params?.starting_after) {
                 // ensure mongoID is properly formatted
                 filter.$and.push({ _id: { $lt: params.starting_after } });
@@ -953,9 +955,9 @@ class StoreService {
             if (params?.lulu_status) {
                 filter.$and.push({ luluJobStatus: params?.lulu_status });
             }
-            if (params?.query && params?.query.trim() !== '') {
+            if (trimmedQuery && trimmedQuery.length > 0) {
                 filter.$and.push(
-                    { id: new RegExp(escapeRegExp(params.query), 'i') },
+                    { id: new RegExp(escapeRegExp(trimmedQuery), 'i') },
                 );
             }
 
