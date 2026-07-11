@@ -850,8 +850,8 @@ const runRemixerJob = async ({
   projectID,
   subdomain,
 }: RunRemixerJobParams) => {
-  const job = await PrejectRemixerJob.findOne({ jobID }).sort({ _id: -1 });
-  const remixerState = await PrejectRemixer.findOne({ projectID }).sort({
+  const job = await PrejectRemixerJob.findOne({ jobID: { $eq: jobID } }).sort({ _id: -1 });
+  const remixerState = await PrejectRemixer.findOne({ projectID: { $eq: projectID } }).sort({
     _id: -1,
   });
   let finalBook: RemixerSubPageState[] = [];
