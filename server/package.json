@@ -24,7 +24,7 @@
     "@types/sanitize-html": "2.16.1",
     "adm-zip": "0.5.17",
     "async": "3.2.6",
-    "axios": "1.15.2",
+    "axios": "1.18.1",
     "base-64": "1.0.0",
     "base62-random": "0.3.5",
     "bcryptjs": "2.4.3",
