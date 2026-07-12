@@ -213,6 +213,16 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                   </Button>
                 }
               />
+              <Button
+                onClick={() =>
+                  window.open(`/projects/${projectID}/restacker`, "_blank")
+                }
+                color="blue"
+                size="small"
+              >
+                License Restacker
+                <Icon name="external alternate" className="!ml-2" />
+              </Button>
               {
                 user.isSuperAdmin && (
                   <>
@@ -224,16 +234,6 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                       size="small"
                     >
                       Glossary Manager (Admin Only)
-                      <Icon name="external alternate" className="!ml-2" />
-                    </Button>
-                    <Button
-                      onClick={() =>
-                        window.open(`/projects/${projectID}/restacker`, "_blank")
-                      }
-                      color="blue"
-                      size="small"
-                    >
-                      License Restacker (Admin Only)
                       <Icon name="external alternate" className="!ml-2" />
                     </Button>
                   </>
