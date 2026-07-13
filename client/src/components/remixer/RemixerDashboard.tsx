@@ -77,14 +77,6 @@ const RemixerDashboard: React.FC = () => {
   const { addNotification } = useNotifications();
   const { id } = useParams<{ id: string }>();
 
-  // Gate Remixer V3 to super admins only until stable
-  useEffect(() => {
-    if (!user || !user.uuid) return;
-    if (!user.isSuperAdmin) {
-      window.location.href = '/home';
-    }
-  }, [user]);
-
   /** Below `md` (~768px): book toolbar actions collapse into a dropdown (Tailwind `sm` + `xs`). */
   const isBookToolbarNarrow = useMediaQuery({ maxWidth: 767 });
 
