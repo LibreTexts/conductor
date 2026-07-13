@@ -3215,7 +3215,7 @@ router
   .route("/remixer/:id/project")
   .get(
     authAPI.verifyRequest,
-    authAPI.getUserAttributes ,
+    authAPI.getUserAttributes,
     remixerAPI.getRemixerProject
   )
   .put(

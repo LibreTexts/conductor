@@ -58,15 +58,7 @@ const getRemixerProject = async (
 ) => {
   const { id } = req.params;
   
-  // Only select specific fields for remixer: libreCoverID, libreLibrary, projectID, and title
-  const projection = {
-    libreCoverID: 1,
-    libreLibrary: 1,
-    projectID: 1,
-    title: 1,
-    _id: 0,
-  };
-  const project = await Project.findOne({ projectID: id }, projection);
+  const project = await Project.findOne({ projectID: { $eq: id } });
   
   if (!project) {
     return res.status(404).send({
@@ -74,15 +66,36 @@ const getRemixerProject = async (
       errMsg: "Project not found",
     });
   }
-  if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+
+  const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
+
+  // TODO: Remove these console logs after testing
+  console.log("[getRemixerProject] project:", project.projectID);
+  console.log("[getRemixerProject] user:", JSON.stringify(req.user));
+  console.log("[getRemixerProject] canAccess:", canAccess);
+
+  if (!canAccess) {
     return res.status(403).send({
       err: true,
       errMsg: "You do not have permission to access this project",
     });
   }
+
+  /**
+   * We need to load the full project to check permissions, but we only want to return this
+   * to the client side.
+   */ 
+
+  const projectDataToReturn = {
+    libreCoverID: project.libreCoverID,
+    libreLibrary: project.libreLibrary,
+    projectID: project.projectID,
+    title: project.title,
+  };
+
   res.send({
     err: false,
-    project: project,
+    project: projectDataToReturn,
   });
 };
 
@@ -96,7 +109,7 @@ const saveRemixerProjectState = async (
   const actorUUID = req.user.decoded.uuid;
 
   const project = await Project.findOne(
-    { projectID: id },
+    { projectID: { $eq: id } },
     { projectID: 1, _id: 0 },
   );
 
@@ -106,7 +119,15 @@ const saveRemixerProjectState = async (
       errMsg: "Project not found",
     });
   }
-  if(!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+
+  const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
+
+  // TODO: Remove these console logs after testing
+  console.log("[saveRemixerProjectState] project:", project.projectID);
+  console.log("[saveRemixerProjectState] user:", JSON.stringify(req.user));
+  console.log("[saveRemixerProjectState] canAccess:", canAccess);
+
+  if(!canAccess) {
     return res.status(403).send({
       err: true,
       errMsg: "You do not have permission to access this project",
@@ -114,7 +135,7 @@ const saveRemixerProjectState = async (
   }
   // Check for an existing pending or running remixer job before allowing state save
   const existingJob = await PrejectRemixerJob.findOne({
-    projectID: id,
+    projectID: { $eq: id },
     status: { $in: ["pending", "running"] },
   });
   if (existingJob) {
@@ -125,7 +146,7 @@ const saveRemixerProjectState = async (
   }
 
   const remixerState = await PrejectRemixer.findOneAndUpdate(
-    { projectID: id, archived: false },
+    { projectID: { $eq: id }, archived: false },
     {
       $set: {
         remixerCurrentBook: currentBook,
@@ -185,23 +206,28 @@ const publishRemixerProject = async (
     });
   }
 
-  const project = await Project.findOne(
-    { projectID: id },
-    { projectID: 1, libreLibrary: 1, libreCoverID: 1, _id: 0 },
-  );
-
+  const project = await Project.findOne({ projectID: { $eq: id } });
   if (!project) {
     return res.status(404).send({
       err: true,
       errMsg: "Project not found",
     });
   }
-  if(!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+
+  const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
+
+  // TODO: Remove these console logs after testing
+  console.log("[publishRemixerProject] project:", project.projectID);
+  console.log("[publishRemixerProject] user:", JSON.stringify(req.user));
+  console.log("[publishRemixerProject] canAccess:", canAccess);
+
+  if(!canAccess) {
     return res.status(403).send({
       err: true,
       errMsg: "You do not have permission to access this project",
     });
   }
+
   const subdomain = project.libreLibrary;
   if (!subdomain) {
     return res.status(400).send({
@@ -307,7 +333,15 @@ const getRemixerProjectState = async (
       errMsg: "Project not found",
     });
   }
-  if(!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+
+  const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
+
+  // TODO: Remove these console logs after testing
+  console.log("[getRemixerProjectState] project:", project.projectID);
+  console.log("[getRemixerProjectState] user:", JSON.stringify(req.user));
+  console.log("[getRemixerProjectState] canAccess:", canAccess);
+
+  if(!canAccess) {
     return res.status(403).send({
       err: true,
       errMsg: "You do not have permission to access this project",
@@ -357,25 +391,30 @@ const deleteRemixerProjectState = async (
   res: Response,
 ) => {
   const { id } = req.params;
-  const project = await Project.findOne(
-    { projectID: id },
-    { projectID: 1, _id: 0 },
-  );
-
+  
+  const project = await Project.findOne({ projectID: { $eq: id } });
   if (!project) {
     return res.status(404).send({
       err: true,
       errMsg: "Project not found",
     });
   }
-  if(!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+
+  const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
+
+  // TODO: Remove these console logs after testing
+  console.log("[deleteRemixerProjectState] project:", project.projectID);
+  console.log("[deleteRemixerProjectState] user:", JSON.stringify(req.user));
+  console.log("[deleteRemixerProjectState] canAccess:", canAccess);
+
+  if(!canAccess) {
     return res.status(403).send({
       err: true,
       errMsg: "You do not have permission to access this project",
     });
   }
 
-  await PrejectRemixer.deleteOne({ projectID: id });
+  await PrejectRemixer.deleteOne({ projectID: { $eq: id } });
 
   return res.send({
     err: false,
