@@ -299,13 +299,7 @@ const getRemixerProjectState = async (
   res: Response,
 ) => {
   const { id } = req.params;
-  const project = await Project.findOne(
-    { projectID: id },
-    {
-      projectID: 1,
-      _id: 0,
-    },
-  );
+  const project = await Project.findOne({ projectID: { $eq: id } });
 
   if (!project) {
     return res.status(404).send({
