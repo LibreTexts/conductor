@@ -93,7 +93,7 @@ const GlossaryList = ({
             className={`flex items-center gap-1 break-words whitespace-normal text-xs${missingFromToc ? " text-amber-600" : ""}`}
             title={missingFromToc ? "This page is not in the book table of contents" : undefined}
           >
-            {"Removed Page"}
+            {missingFromToc?"Removed Page":findTocNodeById(toc!, pageID)?.title}
             {missingFromToc && (
               <IconAlertTriangle size={12} className="shrink-0" />
             )}

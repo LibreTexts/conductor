@@ -7,7 +7,7 @@ import { TableOfContents } from "../../../types/Book";
 
 import api from "../../../api";
 import { Button, Card, Grid, Link, Stack } from "@libretexts/davis-react";
-import { IconPlus, IconTableImport } from "@tabler/icons-react";
+import { IconFoldDown, IconFoldUp, IconPlus, IconTableImport } from "@tabler/icons-react";
 import TOCTreeView from "./TOCTreeView";
 import GlossaryForm from "./manager";
 import "./Glossary.css";
@@ -59,6 +59,7 @@ const GlossaryManager: React.FC = () => {
   const coverID = useMemo(() => bookTOC?.id ?? "", [bookTOC?.id]);
 
   const [editingUsageID, setEditingUsageID] = useState<string | null>(null);
+  const [tocExpandAll, setTocExpandAll] = useState(false);
 
   const handleEditUsageID = (usageID: string) => {
     setEditingUsageID(usageID);
@@ -237,7 +238,20 @@ const GlossaryManager: React.FC = () => {
       </div>
       <div className="glossary-page__column commons-glossary">
         <div className="glossary-page__column-header">
-          <h4 className="text-2xl font-semibold">Table of Contents</h4>
+          <Stack direction="horizontal" align="center" justify="between">
+            <h4 className="text-2xl font-semibold">Table of Contents</h4>
+            {bookTOC && bookTOC.children.length > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={tocExpandAll ? <IconFoldUp size={16} /> : <IconFoldDown size={16} />}
+                iconPosition="left"
+                onClick={() => setTocExpandAll((v) => !v)}
+              >
+                {tocExpandAll ? "Collapse All" : "Expand All"}
+              </Button>
+            )}
+          </Stack>
           <p className="text-sm text-neutral-600">
             {bookTOC && (
               <Link href={bookTOC.url} external={true} showExternalIcon={true}>
@@ -247,15 +261,8 @@ const GlossaryManager: React.FC = () => {
           </p>
         </div>
         <Card padding="sm" className="glossary-page__card">
-          <Stack
-            direction="horizontal"
-            gap="sm"
-            align="center"
-            justify="between"
-            className="shrink-0"
-          ></Stack>
           {bookTOC && bookTOC.children.length > 0 ? (
-            <TOCTreeView items={bookTOC.children} onNodeClick={onNodeClick} />
+            <TOCTreeView items={bookTOC.children} expandAll={tocExpandAll} onNodeClick={onNodeClick} />
           ) : (
             <p>
               <em>Table of contents unavailable.</em>
