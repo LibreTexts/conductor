@@ -9,6 +9,7 @@ import MindTouch from "./CXOne/index.js";
 import { License } from "../types";
 import Author, { AuthorInterface } from "../models/author";
 import sanitizeHtml from "sanitize-html";
+import * as cheerio from "cheerio";
 
 const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
 
@@ -275,6 +276,13 @@ function sanitizePressbooks(html: string): string {
   return sanitizeHtml(html, PRESSBOOKS_SANITIZE_OPTIONS);
 }
 
+interface GlossaryTerm {
+  id: number;
+  slug?: string;
+  term: string;
+  definition: string;
+}
+
 interface TocNode {
   id: number;
   title: string;
@@ -437,7 +445,8 @@ export class PressBookScraper {
     this.title = title;
     this.subdomain = subdomain;
     this.pbHeaders = {
-      "User-Agent": "Mozilla/5.0 (compatible; LibreTexts-Conductor/1.0; +https://libretexts.org)",
+      "User-Agent":
+        "Mozilla/5.0 (compatible; LibreTexts-Conductor/1.0; +https://libretexts.org)",
       Accept: "application/json",
     };
   }
@@ -456,7 +465,10 @@ export class PressBookScraper {
       headers,
       signal: AbortSignal.timeout(30_000),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}-${res.statusText}-${res.body} for ${url}`);
+    if (!res.ok)
+      throw new Error(
+        `HTTP ${res.status}-${res.statusText}-${res.body} for ${url}`,
+      );
     return res.json();
   }
 
@@ -671,6 +683,110 @@ export class PressBookScraper {
     return bestURL;
   }
 
+  private cleanHtml = (html: string): string => {
+    const $ = cheerio.load(html);
+    return $.root()
+      .text()
+      .replace(/\s+/g, " ")
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201c\u201d]/g, '"')
+      .trim();
+  };
+
+  private extractFromDefinitionList = (
+    $: cheerio.CheerioAPI,
+    $content: cheerio.Cheerio<any>,
+  ): GlossaryTerm[] => {
+    const items: GlossaryTerm[] = [];
+    let nextId = 1;
+
+    $content.find("dl").each((_, dl) => {
+      const $dl = $(dl);
+      const terms = $dl.find("dt");
+      const defs = $dl.find("dd");
+
+      terms.each((i, dt) => {
+        const term = this.cleanHtml($.html($(dt)) ?? "");
+        const termText = $(dt).text().replace(/\s+/g, " ").trim();
+        const definition = defs.eq(i).length
+          ? defs.eq(i).text().replace(/\s+/g, " ").trim()
+          : "";
+        if (termText) items.push({ id: nextId++, term: termText, definition });
+      });
+    });
+
+    return items;
+  };
+
+  private extractFromParagraphPairs = (
+    $: cheerio.CheerioAPI,
+    $content: cheerio.Cheerio<any>,
+  ): GlossaryTerm[] | void => {
+    const items: GlossaryTerm[] = [];
+    const paragraphs = $content.find("p").toArray();
+    let nextId = 1;
+
+    for (let i = 0; i < paragraphs.length; i++) {
+      const $p = $(paragraphs[i]);
+      const $emphasis = $p.find("em, strong, b, i").first();
+
+      const pText = $p.text().replace(/\s+/g, " ").trim();
+      const emphasisText = $emphasis.length
+        ? $emphasis.text().replace(/\s+/g, " ").trim()
+        : "";
+
+      const looksLikeTerm =
+        emphasisText.length > 0 && emphasisText === pText && pText.length < 120;
+
+      if (looksLikeTerm) {
+        const $next = $(paragraphs[i + 1]);
+        const nextText = $next.length
+          ? $next.text().replace(/\s+/g, " ").trim()
+          : "";
+        const nextEmphasis = $next.find("em, strong, b, i").first();
+        const nextIsAlsoTerm =
+          nextEmphasis.length > 0 &&
+          nextEmphasis.text().replace(/\s+/g, " ").trim() === nextText;
+
+        items.push({
+          id: nextId++,
+          term: emphasisText,
+          definition: nextIsAlsoTerm ? "" : nextText,
+        });
+      }
+    }
+
+    return items;
+  };
+
+  private async fetchGlossary(
+    bookUrl: string,
+    node: TocNode,
+    auth?: { username: string; password: string },
+  ): Promise<GlossaryTerm[]> {
+    const glossaryContent = await this.fetchNodeContent(
+      bookUrl,
+      "back-matter",
+      node.id,
+      auth,
+    );
+    const $ = cheerio.load(glossaryContent.html);
+
+    const contentSelector =
+      "#main-content, .entry-content, .textbook-content, article, main";
+
+    const $content = $(contentSelector).first().length
+      ? $(contentSelector).first()
+      : $("body");
+
+    const fromDl = this.extractFromDefinitionList($, $content);
+    if (fromDl.length > 0) return fromDl;
+
+    const x = this.extractFromParagraphPairs($, $content);
+    if (x && x.length > 0) return x;
+    return [];
+  }
+
   async publishBook(options: PublishOptions): Promise<PublishResult> {
     const encodePbURL = this.pbBookURL.replace(/\/+$/, "");
     const auth = options.auth;
@@ -719,26 +835,20 @@ export class PressBookScraper {
     let metadataV2: any = {};
     try {
       const url = this.pbApi(encodePbURL) + "/metadata";
-      metadata = await this.getJson(
-        url,
-        auth,
-      );
-    } catch(e) {
+      metadata = await this.getJson(url, auth);
+    } catch (e) {
       console.error("Error fetching metadata from Pressbooks", e);
       try {
         const url = encodePbURL + "/wp-json/";
         metadata = await this.getJson(url, auth);
-      } catch(e) {
+      } catch (e) {
         throw new Error("Error fetching metadata from Pressbooks");
       }
     }
 
     try {
       const v2Url = this.pbApi(encodePbURL) + "/metadata";
-      metadataV2 = await this.getJson(
-        v2Url,
-        auth,
-      );
+      metadataV2 = await this.getJson(v2Url, auth);
     } catch {
       throw new Error(conductorErrors.err8);
     }
@@ -836,12 +946,17 @@ export class PressBookScraper {
       log(`[*] contributorAuthorTags: ${contributorAuthorTags.join(", ")}`);
     }
 
-
     await this.createAuthors(contributors.authors);
-    result.authorsName = contributors.authors.map((c) => this.resolveContributorCleanName(c)).join(", ");
+    result.authorsName = contributors.authors
+      .map((c) => this.resolveContributorCleanName(c))
+      .join(", ");
 
     // ── 4. Create the CXOne book root ─────────────────────────────────────────
-    const bookContent = metadataV2.disambiguatingDescription ? MindTouch.Templates.POST_CreateBookWithDescription(metadataV2.disambiguatingDescription) : MindTouch.Templates.POST_CreateBook;
+    const bookContent = metadataV2.disambiguatingDescription
+      ? MindTouch.Templates.POST_CreateBookWithDescription(
+          metadataV2.disambiguatingDescription,
+        )
+      : MindTouch.Templates.POST_CreateBook;
     const createBookRes = await CXOneFetch({
       scope: "page",
       path: bookPath,
@@ -1164,6 +1279,16 @@ export class PressBookScraper {
     }
     for (let i = 0; i < extraBackMatter.length; i++) {
       const node = extraBackMatter[i];
+      if (node?.title?.toLowerCase().includes("glossary")) {
+        // todo: add glossary to the conductor glossaryUsage from scraping the glossary page
+        log("  [BM glossary] ${node.title}");
+        const glossary = await this.fetchGlossary(encodePbURL, node, auth);
+        if (glossary && glossary.length > 0) {
+          // todo: add glossary to the conductor glossaryUsage
+        }
+
+        continue;
+      }
       // Continue the 00-based sequence after the TOC items.
       const seq = String(i).padStart(2, "0");
       const pagePath = `${backMatterContainerPath}/${seq}:_${this.slugifyNode(node)}`;
@@ -1249,6 +1374,42 @@ export class PressBookScraper {
     // console.log(raw);
     result.bookID = newBookID;
     return result;
+  }
+
+  async testGlossary(): Promise<GlossaryTerm[] | undefined> {
+    const encodePbURL = this.pbBookURL.replace(/\/+$/, "");
+    // fetch toc
+    const auth = {
+      username: process.env.PRESSBOOKS_USERNAME!,
+      password: process.env.PRESSBOOKS_PASSWORD!,
+    };
+    let toc: TocShape;
+    try {
+      toc = (await this.getJson(
+        this.pbApi(encodePbURL) + "/toc",
+        auth,
+      )) as TocShape;
+    } catch(error) {
+      console.error(error);
+      throw new Error(conductorErrors.err8);
+    }
+    // go to backend
+    // find glossary page
+    // fetch glossary
+    // show it on the console
+    const backmatter = toc["back-matter"];
+    const glossaryPage = backmatter?.find((chapter) =>
+      chapter.title.toLowerCase().includes("glossary"),
+    );
+    if (glossaryPage) {
+      const glossary = await this.fetchGlossary(
+        encodePbURL,
+        glossaryPage,
+        auth,
+      );
+      console.log(glossary);
+      return glossary;
+    }
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
