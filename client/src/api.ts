@@ -36,6 +36,9 @@ import {
   RestackerEntry,
   RestackerTocLicense,
   User,
+  UXAcknowledgmentEntry,
+  UXAcknowledgmentMap,
+  UXAcknowledgmentStatus,
   UserSearchParams,
   BaseInvitation,
   Sender,
@@ -1522,6 +1525,37 @@ class API {
     const res = await axios.patch<ConductorBaseResponse>(
       "/user/projects/pinned",
       data,
+    );
+    return res;
+  }
+
+  /**
+   * Per-user UX record-keeping: fetch which one-off UI prompts (banners,
+   * welcome dialogs, tours) the current user has seen/dismissed/completed.
+   */
+  async getUserUXAcknowledgments() {
+    const res = await axios.get<
+      { acknowledgments: UXAcknowledgmentMap } & ConductorBaseResponse
+    >("/user/ux-acknowledgments");
+    return res;
+  }
+
+  async recordUserUXAcknowledgment(
+    key: string,
+    data?: { status?: UXAcknowledgmentStatus; data?: Record<string, unknown> },
+  ) {
+    const res = await axios.post<
+      {
+        key: string;
+        acknowledgment: UXAcknowledgmentEntry | null;
+      } & ConductorBaseResponse
+    >(`/user/ux-acknowledgments/${key}`, data ?? {});
+    return res;
+  }
+
+  async deleteUserUXAcknowledgment(key: string) {
+    const res = await axios.delete<{ key: string } & ConductorBaseResponse>(
+      `/user/ux-acknowledgments/${key}`,
     );
     return res;
   }

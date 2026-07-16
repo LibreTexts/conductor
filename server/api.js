@@ -17,6 +17,7 @@ import storeAPI from "./api/store.js";
 import centralIdentityAPI from "./api/central-identity.js";
 import clientConfigAPI from "./api/client-config.js";
 import usersAPI from "./api/users.js";
+import * as uxAcknowledgmentsAPI from "./api/uxAcknowledgments.js";
 import orgsAPI from "./api/organizations.js";
 import alertsAPI from "./api/alerts.js";
 import adoptionReportAPI from "./api/adoptionreports.js";
@@ -1607,6 +1608,29 @@ router
     middleware.validateZod(UserValidators.UpdateUserPinnedProjectsSchema),
     usersAPI.updateUserPinnedProjects
   )
+
+// Per-user UX record-keeping (dismissible banners, welcome dialogs, tours).
+// Current-user only, no role check — verifyRequest alone.
+router
+  .route("/user/ux-acknowledgments")
+  .get(
+    authAPI.verifyRequest,
+    middleware.validateZod(UserValidators.GetUserUXAcknowledgmentsSchema),
+    uxAcknowledgmentsAPI.getUserUXAcknowledgments
+  );
+
+router
+  .route("/user/ux-acknowledgments/:key")
+  .post(
+    authAPI.verifyRequest,
+    middleware.validateZod(UserValidators.RecordUserUXAcknowledgmentSchema),
+    uxAcknowledgmentsAPI.recordUserUXAcknowledgment
+  )
+  .delete(
+    authAPI.verifyRequest,
+    middleware.validateZod(UserValidators.DeleteUserUXAcknowledgmentSchema),
+    uxAcknowledgmentsAPI.deleteUserUXAcknowledgment
+  );
 
 router
   .route("/users")

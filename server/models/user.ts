@@ -1,5 +1,23 @@
 import { model, Schema, Document } from "mongoose";
 
+export type UXAcknowledgmentStatus = "seen" | "dismissed" | "completed";
+
+/**
+ * A record of a single one-off UI prompt (banner, welcome dialog, tour, hint)
+ * that a user has seen, dismissed, or completed. Keyed by a stable
+ * acknowledgment id from the shared key registry (util/uxAcknowledgmentKeys).
+ */
+export type UXAcknowledgmentEntry = {
+  status: UXAcknowledgmentStatus;
+  firstSeenAt: Date;
+  lastSeenAt: Date;
+  dismissedAt?: Date;
+  completedAt?: Date;
+  viewCount: number;
+  dismissCount: number;
+  data?: Record<string, unknown>; // flexible meta (tour step, variant, etc.)
+};
+
 export type UserInterface = Document & {
   centralID: string;
   uuid: string;
@@ -28,6 +46,12 @@ export type UserInterface = Document & {
     facultyURL?: string;
   };
   verifiedInstructor?: boolean;
+  /**
+   * Generic per-user record of one-off UI prompts (banners, tours, welcome
+   * dialogs) the user has seen, dismissed, or completed. Keyed by a stable
+   * acknowledgment id from the shared key registry.
+   */
+  uxAcknowledgments?: Map<string, UXAcknowledgmentEntry>;
 };
 
 export type SanitizedUserInterface = Omit<
@@ -41,7 +65,7 @@ export type SanitizedUserInterface = Omit<
  * Query SELECT params to ignore sensitive data
  */
 export const SanitizedUserSelectQuery =
-  "-password -customAvatar -authType -roles -isSystem -salt -hash -pinnedProjects -authorizedApps -lastResetAttempt -resetToken -tokenExpiry";
+  "-password -customAvatar -authType -roles -isSystem -salt -hash -pinnedProjects -authorizedApps -lastResetAttempt -resetToken -tokenExpiry -uxAcknowledgments";
 
 export const SanitizedUserSelectProjection = {
   _id: 0,
@@ -52,7 +76,8 @@ export const SanitizedUserSelectProjection = {
   isSystem: 0,
   salt: 0,
   hash: 0,
-}
+  uxAcknowledgments: 0,
+};
 
 export const DEFAULT_PINNED_PROJECTS = [
   {
@@ -60,6 +85,24 @@ export const DEFAULT_PINNED_PROJECTS = [
     projects: [],
   },
 ]
+
+const UXAcknowledgmentEntrySchema = new Schema<UXAcknowledgmentEntry>(
+  {
+    status: {
+      type: String,
+      enum: ["seen", "dismissed", "completed"],
+      required: true,
+    },
+    firstSeenAt: { type: Date, required: true },
+    lastSeenAt: { type: Date, required: true },
+    dismissedAt: { type: Date },
+    completedAt: { type: Date },
+    viewCount: { type: Number, required: true, default: 0 },
+    dismissCount: { type: Number, required: true, default: 0 },
+    data: { type: Schema.Types.Mixed },
+  },
+  { _id: false }
+);
 
 const UserSchema = new Schema<UserInterface>(
   {
@@ -156,6 +199,18 @@ const UserSchema = new Schema<UserInterface>(
      * at an academic institution.
      */
     verifiedInstructor: Boolean,
+    /**
+     * Generic per-user record of one-off UI prompts (dismissible banners,
+     * welcome dialogs, tours, hints) the user has seen, dismissed, or
+     * completed. Keyed by a stable acknowledgment id from the shared key
+     * registry (util/uxAcknowledgmentKeys). Persisted here so it survives
+     * across devices and browsers.
+     */
+    uxAcknowledgments: {
+      type: Map,
+      of: UXAcknowledgmentEntrySchema,
+      default: undefined, // don't auto-create an empty map on every user
+    },
   },
   {
     timestamps: true,
