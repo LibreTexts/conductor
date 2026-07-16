@@ -43,6 +43,7 @@ interface TreeNodeContainerProps {
   onSelect: () => void;
   onDoubleClick?: () => void;
   onContextMenu?: (event: React.MouseEvent) => void;
+  hideExpandIcon?: boolean;
   children?: React.ReactNode;
 }
 
@@ -73,6 +74,7 @@ const TreeNodeContainer: React.FC<TreeNodeContainerProps> = ({
   onSelect,
   onDoubleClick,
   onContextMenu,
+  hideExpandIcon = false,
   children,
 }) => {
   return (
@@ -114,7 +116,7 @@ const TreeNodeContainer: React.FC<TreeNodeContainerProps> = ({
           textDecoration: isDeleted ? "line-through" : "none",
         }}
       >
-        {isFolder ? (
+        {isFolder && !hideExpandIcon ? (
           <span
             style={{ cursor: "pointer", width: 12 }}
             onClick={(event) => {
