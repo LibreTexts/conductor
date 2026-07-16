@@ -6,7 +6,6 @@ import {
   NUMBERING_TYPE_OPTIONS,
   NumberingType,
   PathLevelFormat,
-  PrefixOption,
 } from "./model";
 import { getStartToken, joinLeveledPathParts } from "./services";
 import {
@@ -43,9 +42,6 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
   } = props;
 
   const [levelFormats, setLevelFormats] = useState<PathLevelFormat[]>([]);
-  const [prefixOptions, setPrefixOptions] = useState<PrefixOption[]>(
-    DEFAULT_PREFIX_OPTIONS,
-  );
   const [localAutoNumbering, setLocalAutoNumbering] =
     useState<boolean>(autoNumbering);
 
@@ -72,15 +68,6 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
       },
     );
     setLevelFormats(normalized);
-    setPrefixOptions((prev) => {
-      const next = [...prev];
-      normalized.forEach((format) => {
-        if (!next.some((option) => option.value === format.prefix)) {
-          next.push(toPrefixOption(format.prefix));
-        }
-      });
-      return next;
-    });
   }, [open, depth, pathLevelFormats, autoNumbering]);
 
   const previewByLevel = useMemo(() => {
@@ -128,16 +115,6 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
     );
   };
 
-  const toPrefixOption = (rawPrefix: string): PrefixOption => {
-    const trimmed = rawPrefix.trim();
-    const label = trimmed || "None";
-    return {
-      key: `custom-${label.toLowerCase().replace(/\s+/g, "-")}`,
-      text: label,
-      value: rawPrefix,
-    };
-  };
-
   const buildDefaultFormats = () =>
     Array.from({ length: Math.max(0, depth) }, (_, index) => ({
       level: index + 1,
@@ -150,7 +127,6 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
 
   const handleReset = () => {
     setLevelFormats(buildDefaultFormats());
-    setPrefixOptions(DEFAULT_PREFIX_OPTIONS);
     setLocalAutoNumbering(true);
   };
 
@@ -194,12 +170,11 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
             <Table.Header>
               <Table.Row>
                 <Table.HeaderCell width={1}>Level</Table.HeaderCell>
-                <Table.HeaderCell width={1}>Exclude Parent </Table.HeaderCell>
+                <Table.HeaderCell width={3}>Label</Table.HeaderCell>
+                <Table.HeaderCell width={3}>Index Designation</Table.HeaderCell>
                 <Table.HeaderCell width={1}>Delimiter</Table.HeaderCell>
-                <Table.HeaderCell width={3}>Prefix</Table.HeaderCell>
-                <Table.HeaderCell width={3}>Type</Table.HeaderCell>
-                <Table.HeaderCell width={3}>Starting</Table.HeaderCell>
-
+                <Table.HeaderCell width={3}>index start</Table.HeaderCell>
+                <Table.HeaderCell width={1}>Exclude Parent</Table.HeaderCell>
                 <Table.HeaderCell width={2}>Preview</Table.HeaderCell>
               </Table.Row>
             </Table.Header>
@@ -208,60 +183,25 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                 <Table.Row key={format.level} verticalAlign="top">
                   <Table.Cell>{format.level}</Table.Cell>
                   <Table.Cell>
-                    <Checkbox
-                      name="excludeParent"
-                      label=""
-                      checked={format.excludeParent ?? false}
-                      onChange={() =>
-                        updateLevelFormat(
-                          index,
-                          "excludeParent",
-                          !format.excludeParent,
-                        )
-                      }
-                    />
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Select
-                      options={DELIMITER_OPTIONS.map((option) => ({
-                        label: option.text,
-                        value: option.value,
-                      }))}
-                      name="delimiter"
-                      label=""
-                      value={format.delimiter ?? "."}
-                      placeholder="Delimiter"
-                      className="w-full"
-                      onChange={(e) =>
-                        updateLevelFormat(
-                          index,
-                          "delimiter",
-                          String(e.target.value ?? "."),
-                        )
-                      }
-                    />
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Select
-                      options={prefixOptions.map((option) => ({
-                        label: option.text,
-                        value: option.value,
-                      }))}
+                    <datalist id={`prefix-options-${index}`} hidden>
+                      {DEFAULT_PREFIX_OPTIONS.filter(
+                        (opt) => opt.value !== "",
+                      ).map((opt) => (
+                        <option key={opt.key} value={opt.value} />
+                      ))}
+                    </datalist>
+                    <Input
+                      list={`prefix-options-${index}`}
                       name="prefix"
                       label=""
                       value={format.prefix}
-                      placeholder="Select or type a prefix"
-                      className="w-full"
+                      placeholder="Type or choose a prefix…"
+                      className="w-full mt-1.5"
                       onChange={(e) =>
-                        updateLevelFormat(
-                          index,
-                          "prefix",
-                          String(e.target.value ?? ""),
-                        )
+                        updateLevelFormat(index, "prefix", e.target.value)
                       }
                     />
-
-                    <Text size="xs" className="mt-1  text-neutral-500">
+                    <Text size="xs" className="mt-1 text-neutral-500">
                       Example:{" "}
                       {`${format.prefix}${getStartToken(format.start, format.type)}`}
                     </Text>
@@ -287,6 +227,28 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                     />
                   </Table.Cell>
                   <Table.Cell>
+                    {index > 0  ?(
+                      <Select
+                        options={DELIMITER_OPTIONS.map((option) => ({
+                          label: option.text,
+                          value: option.value,
+                        }))}
+                        name="delimiter"
+                        label=""
+                        value={format.delimiter ?? "."}
+                        placeholder="Delimiter"
+                        className="w-full"
+                        onChange={(e) =>
+                          updateLevelFormat(
+                            index,
+                            "delimiter",
+                            String(e.target.value ?? "."),
+                          )
+                        }
+                      />
+                    ):"N/A"}
+                  </Table.Cell>
+                  <Table.Cell>
                     <Input
                       type="number"
                       name="start"
@@ -302,9 +264,25 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                         )
                       }
                     />
-                    <Text size="xs" className="mt-1   text-neutral-500">
+                    <Text size="xs" className="mt-1 text-neutral-500">
                       Based on type: {getStartToken(format.start, format.type)}
                     </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    {index > 0 ? (
+                      <Checkbox
+                        name="excludeParent"
+                        label=""
+                        checked={format.excludeParent ?? false}
+                        onChange={() =>
+                          updateLevelFormat(
+                            index,
+                            "excludeParent",
+                            !format.excludeParent,
+                          )
+                        }
+                      />
+                    ):"N/A"}
                   </Table.Cell>
                   <Table.Cell>
                     <Text size="sm" className="mt-3 text-gray-500">
