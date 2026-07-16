@@ -90,7 +90,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             gap: "12px",
           }}
         >
-
           <div
             style={{
               display: "flex",
@@ -123,16 +122,15 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             />
           </div>
 
-          {isAdmin && (
-            <div
-              style={{
-                flex: 1,
-                display: "flex",
-                justifyContent: "center",
-                minWidth: 0,
-              }}
-            >
-              {/* <Dropdown
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              justifyContent: "center",
+              minWidth: 0,
+            }}
+          >
+            {/* <Dropdown
                 options={copyModeStates.map((state) => ({
                   key: state.value,
                   text: isToolbarNarrow ? state.title.length > 10 ? state.title.substring(0, 10) + "..." : state.title : state.title,
@@ -149,6 +147,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                 placeholder="Copy Mode..."
                 style={{ minWidth: 180, zIndex: 20, minHeight: 40 }}
               /> */}
+            {isAdmin && (
               <Select
                 name="copyMode"
                 label=""
@@ -159,13 +158,32 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                 placeholder="Copy Mode..."
                 value={copyModeState ?? defaultCopyModeState.value}
                 onChange={(e) => {
-                  const next = copyModeStates.find((s) => s.value === e.target.value);
+                  const next = copyModeStates.find(
+                    (s) => s.value === e.target.value,
+                  );
                   if (next) onCopyModeChange?.(next.value);
                 }}
               />
+            )}
+            <Popup
+              content="Autonumbering settings"
+              position="bottom center"
+              trigger={
+                <Button
+                  style={buttonStyle}
+                  onClick={onPathNameFormat}
+                  className={
+                    autoNumbering
+                      ? `${DAVIS_REMIXER_BTN_CLASS.success} ${CP_CONTROL_H}`
+                      : cpTextBtn(DAVIS_REMIXER_BTN_CLASS.neutral)
+                  }
+                >
+                  Autonumber
+                </Button>
+              }
+            />
+          </div>
 
-            </div>
-          )}
           <div
             style={{
               display: "flex",
@@ -197,40 +215,34 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                     text="Path Name Format"
                     onClick={onPathNameFormat}
                     className={
-                      autoNumbering ? DAVIS_REMIXER_BTN_CLASS.menuSuccess : undefined
+                      autoNumbering
+                        ? DAVIS_REMIXER_BTN_CLASS.menuSuccess
+                        : undefined
                     }
                   />
                   <Dropdown.Divider />
-                  <Dropdown.Item icon="save" text="Save as a draft" onClick={onSave} />
-                  <Dropdown.Item icon="upload" text="Save to Library" onClick={onPublish} />
+                  <Dropdown.Item
+                    icon="save"
+                    text="Save as a draft"
+                    onClick={onSave}
+                  />
+                  <Dropdown.Item
+                    icon="upload"
+                    text="Save to Library"
+                    onClick={onPublish}
+                  />
                 </Dropdown.Menu>
               </Dropdown>
             ) : (
               <>
                 <Popup
-                  content="Autonumbering settings"
-                  position="bottom center"
-                  trigger={
-
-
-                    <Button
-                    style={buttonStyle}
-                      onClick={onPathNameFormat}
-                      className={autoNumbering ? `${DAVIS_REMIXER_BTN_CLASS.success} ${CP_CONTROL_H}` : cpTextBtn(DAVIS_REMIXER_BTN_CLASS.neutral)}
-                    >
-                      Autonumber
-                    </Button>
-
-
-                  }
-                />
-
-                <Popup
                   content="Save as a draft"
                   position="bottom center"
                   aria-label="Save as a draft"
                   trigger={
-                    <span className={`inline-flex items-center ${CP_CONTROL_H}`}>
+                    <span
+                      className={`inline-flex items-center ${CP_CONTROL_H}`}
+                    >
                       <IconButton
                         icon={<Icon name="save" />}
                         onClick={onSave}
@@ -245,7 +257,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                   position="bottom center"
                   aria-label="Save to Library"
                   trigger={
-                    <span className={`inline-flex items-center ${CP_CONTROL_H}`}>
+                    <span
+                      className={`inline-flex items-center ${CP_CONTROL_H}`}
+                    >
                       <IconButton
                         icon={<Icon name="upload" />}
                         onClick={onPublish}
@@ -273,11 +287,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           cannot be undone.
         </Modal.Content>
         <Modal.Actions>
-          <Stack
-            direction="horizontal"
-            gap="md"
-            justify="end"
-          >
+          <Stack direction="horizontal" gap="md" justify="end">
             <Button
               className={CP_CONTROL_H}
               onClick={() => setConfirmStartOverOpen(false)}
@@ -294,7 +304,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               Confirm
             </Button>
           </Stack>
-
         </Modal.Actions>
       </Modal>
     </Grid.Row>

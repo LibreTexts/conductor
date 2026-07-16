@@ -101,7 +101,7 @@ export interface CopyModeState {
 
 export const copyModeStates: CopyModeState[] = [
     { title: "Copy-Transclude (Recommended)", value: "Transclude", isAdminOnly: false },
-    { title: "Copy-Fork", value: "Fork", isAdminOnly: false },
+    { title: "Copy-Fork (Admin Only)", value: "Fork", isAdminOnly: true },
     { title: "Copy-Full (Admin Only)", value: "Full", isAdminOnly: true },
 ];
 
