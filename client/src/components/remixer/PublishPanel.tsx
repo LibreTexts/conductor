@@ -5,6 +5,7 @@ import {
   Progress,
 } from "semantic-ui-react";
 import { RemixerSubPage } from "./model";
+import { appendSiblingTitleSuffix } from "./services";
 import { Accordion, Button, Modal, Text } from "@libretexts/davis-react";
 interface PublishPanelProps {
   open: boolean;
@@ -207,7 +208,10 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
                   <ul className="list-disc space-y-1 pl-5">
                     {section.items.map((item) => (
                       <li key={item["@id"]} className="text-sm text-gray-800">
-                        {item["@title"] || item.title}
+                        {appendSiblingTitleSuffix(
+                          item["@title"] || item.title || "",
+                          item,
+                        )}
                       </li>
                     ))}
                   </ul>

@@ -44,6 +44,7 @@ import {
   DropPosition,
   applyBookNodeDeletion,
   applyDefaultBookArticleTypes,
+  applySiblingDuplicateTitleSuffixes,
   buildBookPaths,
   clearLocalDraft,
   cloneBook,
@@ -57,6 +58,7 @@ import {
   isLibrary,
   isMatterBranchNode as isMatterBranchNodePure,
   isRestrictedLibraryShelfNode,
+  isBackMatterNode,
   isRootBookNode,
   reorderBookNodes,
   setLocalDraft,
@@ -276,8 +278,7 @@ const RemixerDashboard: React.FC = () => {
       ).map((page) => {
         const seedPathOriginals = initializeOriginalPathNumber;
         const seedFormattedOriginals =
-          !page.addedItem &&
-          page.originalFormattedPathOverride === undefined;
+          !page.addedItem && page.originalFormattedPathOverride === undefined;
         if (!seedPathOriginals && !seedFormattedOriginals) return page;
         return {
           ...page,
@@ -285,8 +286,7 @@ const RemixerDashboard: React.FC = () => {
             originalPathNumber: page.pathNumber ? [...page.pathNumber] : [],
           }),
           ...(seedFormattedOriginals && {
-            originalFormattedPathOverride:
-              page.formattedPathOverride === true,
+            originalFormattedPathOverride: page.formattedPathOverride === true,
             originalFormattedPath:
               page.formattedPathOverride === true
                 ? (page.formattedPath ?? "").trim()
@@ -294,8 +294,9 @@ const RemixerDashboard: React.FC = () => {
           }),
         };
       });
+      const withSiblingTitles = applySiblingDuplicateTitleSuffixes(withPaths);
       const withRenamed = syncRenamedItemFromAutonumberTitle(
-        withPaths,
+        withSiblingTitles,
         remixerData.autoNumbering ?? true,
         uiState.pathLevelFormats ?? [],
       );
@@ -771,16 +772,37 @@ const RemixerDashboard: React.FC = () => {
       "uri.ui": "#",
       addedItem: true,
     };
-
-    updateCurrentBook(
-      (existingBookNodes) => [
-        ...existingBookNodes.map((node) =>
-          node["@id"] === parentId ? { ...node, "@subpages": true } : node,
-        ),
-        newNode,
-      ],
-      { trackHistory: true },
-    );
+    const isRoot_item = newNode.parentID === remixerData.liberCoverID;
+    if (isRoot_item) {
+      updateCurrentBook(
+        (existingBookNodes) => {
+          const updated = existingBookNodes.map((node) =>
+            node["@id"] === parentId ? { ...node, "@subpages": true } : node,
+          );
+          const backMatterIdx = updated.findIndex(
+            (n) =>
+              n.parentID === remixerData.liberCoverID && isBackMatterNode(n),
+          );
+          if (backMatterIdx === -1) {
+            return [...updated, newNode];
+          }
+          const result = [...updated];
+          result.splice(backMatterIdx, 0, newNode);
+          return result;
+        },
+        { trackHistory: true },
+      );
+    } else {
+      updateCurrentBook(
+        (existingBookNodes) => [
+          ...existingBookNodes.map((node) =>
+            node["@id"] === parentId ? { ...node, "@subpages": true } : node,
+          ),
+          newNode,
+        ],
+        { trackHistory: true },
+      );
+    }
     setUiState((prev) => ({ ...prev, selectedBookNodeId: newNodeId }));
     const folderToExpand = uiState.selectedBookNodeId;
     if (folderToExpand) {
@@ -894,9 +916,7 @@ const RemixerDashboard: React.FC = () => {
           return {
             ...saved,
             renamedItem:
-              node.renamedItem ||
-              renamed ||
-              hasFormattedPathChanged(saved),
+              node.renamedItem || renamed || hasFormattedPathChanged(saved),
           };
         });
       },

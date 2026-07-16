@@ -49,13 +49,14 @@ type RemixerPathNumbering = {
 export const buildRemixerPagePathSegment = (
   page: RemixerPathNumbering,
   rawTitle: string,
+  siblingTitleIndex: number|undefined,
 ): string => {
   const titleSegment = titleToRemixerPathSegment(rawTitle);
+  const siblingTitleIndexPostfix = siblingTitleIndex  ? `_${siblingTitleIndex.toString()}` : "";
   const numbering =
     page.formattedPath?.trim() || page.numberedPath?.trim() || "";
-  return numbering ? `${numbering.padStart(2, "0")}:_${titleSegment}` : titleSegment;
-};
-
+  return numbering ? `${numbering.padStart(2, "0")}:_${titleSegment}${siblingTitleIndexPostfix}` : titleSegment;
+}
 export const generatePagePath = (parent: string, title: string): string => {
   const slug = slugifyNode(title);
   return encodeURIComponent(`${parent}/${slug}`);
