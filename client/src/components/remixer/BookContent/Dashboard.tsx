@@ -645,21 +645,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
                 cursor: isInteractionLocked ? "not-allowed" : "pointer",
               }}
             >
-              {/* Root is always expandable if it has subpages */}
-              {root["@subpages"] ? (
-                <span
-                  style={{ cursor: "pointer", width: 12 }}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    expandFolder(root);
-                  }}
-                  onDoubleClick={(event) => event.stopPropagation()}
-                >
-                  <Icon name="caret down" />
-                </span>
-              ) : (
-                <span style={{ width: 12 }} />
-              )}
+              <span style={{ width: 12 }} />
 
               <Icon name="folder" color="grey" />
               <span
