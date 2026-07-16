@@ -1709,7 +1709,14 @@ const RemixerDashboard: React.FC = () => {
         // Non-critical; ignore errors checking job status on load
       }
 
-      const localDraft = getLocalDraft(id);
+      const isPostPublishReload =
+        sessionStorage.getItem("remixer_post_publish_reload") === "1";
+      if (isPostPublishReload) {
+        sessionStorage.removeItem("remixer_post_publish_reload");
+        clearLocalDraft(id);
+      }
+
+      const localDraft = isPostPublishReload ? null : getLocalDraft(id);
 
       let serverBook: RemixerSubPage[] | null = null;
       let serverSettings: {
@@ -1931,7 +1938,10 @@ const RemixerDashboard: React.FC = () => {
           type: "success",
           duration: 4000,
         });
-        setTimeout(() => window.location.reload(), 4000);
+        setTimeout(() => {
+          sessionStorage.setItem("remixer_post_publish_reload", "1");
+          window.location.reload();
+        }, 4000);
       } else if (job.status === "error") {
         setPublishPolling(false);
         addNotification({
