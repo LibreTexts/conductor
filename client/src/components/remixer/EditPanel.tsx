@@ -10,7 +10,8 @@ interface EditPanelProps {
   onClose: () => void;
   currentPage?: RemixerSubPage;
   handleSave: (page: RemixerSubPage) => void;
-  formattedPathDefault?: string;
+  /** Auto-numbered prefix/index pieces used as placeholders/defaults when override is first enabled. */
+  formattedPathPartsDefault?: { prefix: string; index: string };
   library:Library;
 }
 
@@ -34,7 +35,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
     onClose,
     currentPage,
     handleSave,
-    formattedPathDefault,
+    formattedPathPartsDefault,
     library
   } = props;
   const [page, setPage] = useState<RemixerSubPage | undefined>(currentPage);
@@ -42,15 +43,17 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
   const handleSaveClick = () => {
     if (!page) return;
     const title = sanitizeRemixerTitle(page.title ?? page["@title"] ?? "");
+    const overridden = page.formattedPathOverride === true;
+    const prefix = overridden ? (page.formattedPathPrefix ?? "") : undefined;
+    const index = overridden ? (page.formattedPathIndex ?? "") : undefined;
     const normalizedPage: RemixerSubPage = {
       ...page,
       title,
       "@title": title,
-      formattedPathOverride: page.formattedPathOverride === true,
-      formattedPath:
-        page.formattedPathOverride === true
-          ? (page.formattedPath ?? "")
-          : undefined,
+      formattedPathOverride: overridden,
+      formattedPathPrefix: prefix,
+      formattedPathIndex: index,
+      formattedPath: overridden ? `${prefix}${index}`.trim() : undefined,
     };
     handleSave(normalizedPage);
   };
@@ -70,6 +73,66 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
     <Modal open={open} onClose={onClose} dimmer={dimmer}>
       <Modal.Header>Edit Page</Modal.Header>
       <Modal.Content>
+      
+      <Checkbox
+          name="formattedPathOverride"
+          label="Override Prefix"
+          className={DAVIS_REMIXER_CHECKBOX_CLASS.labelLeft}
+          labelClassName="font-bold text-md"
+          checked={page?.formattedPathOverride ?? false}
+          onChange={(checked) =>
+            setPage((prev) => {
+              if (!prev) return prev;
+              const enabled = checked === true;
+              return {
+                ...prev,
+                formattedPathOverride: enabled,
+                formattedPathPrefix: enabled
+                  ? (prev.formattedPathPrefix ?? formattedPathPartsDefault?.prefix ?? "")
+                  : undefined,
+                formattedPathIndex: enabled
+                  ? (prev.formattedPathIndex ?? formattedPathPartsDefault?.index ?? "")
+                  : undefined,
+              };
+            })
+          }
+        />
+        <Stack direction="horizontal" gap="md">
+        <Input
+          name="formattedPathPrefix"
+          label="Prefix"
+          placeholder="Custom prefix (leave blank to hide prefix)"
+          value={
+            page?.formattedPathOverride
+              ? (page?.formattedPathPrefix ?? "")
+              : (formattedPathPartsDefault?.prefix ?? "")
+          }
+          disabled={page?.formattedPathOverride !== true}
+          onChange={(e) =>
+            setPage((prev) =>
+              prev ? { ...prev, formattedPathPrefix: e.target.value } : prev,
+            )
+          }
+          className="flex-1"
+        />
+        <Input
+          type="text"
+          name="formattedPathIndex"
+          label="Index"
+          placeholder="Custom index (e.g. 2.1)"
+          className="flex-1"
+          disabled={page?.formattedPathOverride !== true}
+          value={
+            page?.formattedPathOverride
+              ? (page?.formattedPathIndex ?? "")
+              : (formattedPathPartsDefault?.index ?? "")
+          }
+          onChange={(e) =>
+            setPage((prev) =>
+              prev ? { ...prev, formattedPathIndex: e.target.value } : prev,
+            )
+          }
+        />
         <Input
           name="title"
           label="Title"
@@ -81,42 +144,10 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
               prev ? { ...prev, title: next, "@title": next } : prev,
             );
           }}
+          className="flex-7"
         />
-        <Checkbox
-          name="formattedPathOverride"
-          label="Override Prefix"
-          className={DAVIS_REMIXER_CHECKBOX_CLASS.labelLeft}
-          checked={page?.formattedPathOverride ?? false}
-          onChange={(checked) =>
-            setPage((prev) => {
-              if (!prev) return prev;
-              const enabled = checked === true;
-              return {
-                ...prev,
-                formattedPathOverride: enabled,
-                formattedPath: enabled
-                  ? (prev.formattedPath ?? formattedPathDefault ?? "")
-                  : undefined,
-              };
-            })
-          }
-        />
-        <Input
-          name="formattedPath"
-          label="Prefix"
-          placeholder="Custom prefix (leave blank to hide prefix)"
-          value={
-            page?.formattedPathOverride
-              ? (page?.formattedPath ?? "")
-              : (formattedPathDefault ?? "")
-          }
-          disabled={page?.formattedPathOverride !== true}
-          onChange={(e) =>
-            setPage((prev) =>
-              prev ? { ...prev, formattedPath: e.target.value } : prev,
-            )
-          }
-        />
+       
+        </Stack>
         {!currentPage?.["@id"].startsWith("new-") && (
           <a
             href={currentPage?.["uri.ui"] && currentPage?.["uri.ui"] !== "" ? currentPage?.["uri.ui"] : `https://${library}.libretexts.org/@go/page/${currentPage?.["@id"]}`}

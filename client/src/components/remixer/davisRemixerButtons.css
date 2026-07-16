@@ -110,3 +110,9 @@
   flex-direction: row-reverse;
   display: inline-flex;
 }
+
+
+.davis-remixer-checkbox--label-left label {
+  font-weight: bold;
+  font-size: text-md;
+}

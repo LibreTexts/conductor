@@ -63,6 +63,8 @@ import {
   reorderBookNodes,
   setLocalDraft,
   hasFormattedPathChanged,
+  splitFormattedPathParts,
+  splitStoredFormattedPath,
   syncRenamedItemFromAutonumberTitle,
   withDerivedStatusFlags,
 } from "./services";
@@ -236,12 +238,16 @@ const RemixerDashboard: React.FC = () => {
     ? getNodeTypeLabelForDepth(getContextNodeDepth(contextMenu.nodeId))
     : "Item";
 
-  /** Auto-numbered default path prefix for the selected node (edit-panel placeholder). */
-  const selectedBookDefaultFormattedPath = useCallback((): string => {
-    if (remixerData.autoNumbering === false) return "";
+  /** Auto-numbered default prefix/index pieces for the selected node (edit-panel placeholders). */
+  const selectedBookDefaultFormattedPathParts = useCallback((): {
+    prefix: string;
+    index: string;
+  } => {
+    const empty = { prefix: "", index: "" };
+    if (remixerData.autoNumbering === false) return empty;
     const selectedId = uiState.selectedBookNodeId;
     const book = remixerData.currentBook ?? [];
-    if (!selectedId || book.length === 0) return "";
+    if (!selectedId || book.length === 0) return empty;
     const normalizedBook = buildBookPaths(
       book,
       uiState.pathLevelFormats ?? [],
@@ -249,9 +255,12 @@ const RemixerDashboard: React.FC = () => {
         ignoreOverrides: true,
       },
     );
-    return (
-      normalizedBook.find((node) => node["@id"] === selectedId)
-        ?.formattedPath ?? ""
+    const node = normalizedBook.find((n) => n["@id"] === selectedId);
+    if (!node) return empty;
+    return splitFormattedPathParts(
+      node.pathNumber ?? [],
+      uiState.pathLevelFormats ?? [],
+      1,
     );
   }, [
     remixerData.autoNumbering,
@@ -278,7 +287,16 @@ const RemixerDashboard: React.FC = () => {
         const seedPathOriginals = initializeOriginalPathNumber;
         const seedFormattedOriginals =
           !page.addedItem && page.originalFormattedPathOverride === undefined;
-        if (!seedPathOriginals && !seedFormattedOriginals) return page;
+        // Backfill the split edit-panel fields for overrides that only carry the
+        // combined `formattedPath` (e.g. round-tripped through the backend on publish/reload).
+        const seedSplitParts =
+          page.formattedPathOverride === true &&
+          typeof page.formattedPath === "string" &&
+          page.formattedPath.trim().length > 0 &&
+          (page.formattedPathPrefix === undefined ||
+            page.formattedPathIndex === undefined);
+        if (!seedPathOriginals && !seedFormattedOriginals && !seedSplitParts)
+          return page;
         return {
           ...page,
           ...(seedPathOriginals && {
@@ -291,6 +309,13 @@ const RemixerDashboard: React.FC = () => {
                 ? (page.formattedPath ?? "").trim()
                 : undefined,
           }),
+          ...(seedSplitParts && (() => {
+            const { prefix, index } = splitStoredFormattedPath(
+              page.formattedPath!.trim(),
+              uiState.pathLevelFormats ?? [],
+            );
+            return { formattedPathPrefix: prefix, formattedPathIndex: index };
+          })()),
         };
       });
       const withSiblingTitles = applySiblingDuplicateTitleSuffixes(withPaths);
@@ -871,8 +896,14 @@ const RemixerDashboard: React.FC = () => {
     setUiState((prev) => ({ ...prev, editPanelOpen: false }));
 
     const nextOverride = page.formattedPathOverride === true;
+    const nextFormattedPathPrefix = nextOverride
+      ? (page.formattedPathPrefix ?? "")
+      : undefined;
+    const nextFormattedPathIndex = nextOverride
+      ? (page.formattedPathIndex ?? "")
+      : undefined;
     const nextFormattedPath = nextOverride
-      ? (page.formattedPath ?? "").trim()
+      ? `${nextFormattedPathPrefix ?? ""}${nextFormattedPathIndex ?? ""}`.trim()
       : undefined;
 
     if (isDefaultMatterItem(page["@id"])) {
@@ -885,6 +916,8 @@ const RemixerDashboard: React.FC = () => {
               ...node,
               formattedPathOverride: nextOverride,
               formattedPath: nextFormattedPath,
+              formattedPathPrefix: nextFormattedPathPrefix,
+              formattedPathIndex: nextFormattedPathIndex,
             };
             return {
               ...saved,
@@ -910,6 +943,8 @@ const RemixerDashboard: React.FC = () => {
             "@title": nextTitle,
             formattedPathOverride: nextOverride,
             formattedPath: nextFormattedPath,
+            formattedPathPrefix: nextFormattedPathPrefix,
+            formattedPathIndex: nextFormattedPathIndex,
           };
           return {
             ...saved,
@@ -2356,7 +2391,7 @@ const RemixerDashboard: React.FC = () => {
           onClose={() =>
             setUiState((prev) => ({ ...prev, editPanelOpen: false }))
           }
-          formattedPathDefault={selectedBookDefaultFormattedPath()}
+          formattedPathPartsDefault={selectedBookDefaultFormattedPathParts()}
           currentPage={selectedBookNode}
           handleSave={handleSaveEdit}
           library={remixerData.libreLibrary as Library}
