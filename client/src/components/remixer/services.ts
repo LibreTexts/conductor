@@ -64,6 +64,104 @@ export const stripDefaultTitlePrefixBeforeColon = (value: string): string => {
   return value.trim();
 };
 
+/**
+ * Title used to detect duplicate siblings. The raw title is kept as-is (including any
+ * literal "(n)" the user typed) so that a manually-typed "(1)" is never stripped away —
+ * it's treated as part of that node's real identity, not an auto-generated suffix.
+ */
+const normalizedSiblingTitleForDuplicateCheck = (
+  node: RemixerSubPage,
+): string => {
+  const raw = (node["@title"] || node.title || "").trim();
+  return node.formattedPathOverride === true
+    ? stripLeadingNumbering(raw).toLowerCase()
+    : stripDefaultTitlePrefixBeforeColon(stripLeadingNumbering(raw)).toLowerCase();
+};
+
+/**
+ * When siblings under the same parent share the exact same title (case-insensitive),
+ * sets `siblingTitleIndex` on duplicates: 0 for the first, 1+ for the rest.
+ * Only index > 0 is shown in the UI as (n). Deleted nodes are excluded.
+ *
+ * Candidate indices that would make a generated display (`${title} (n)`) collide with
+ * another sibling's literal title are skipped, so a manually-typed "(n)" title never
+ * conflicts with an auto-generated one.
+ */
+export const applySiblingDuplicateTitleSuffixes = (
+  book: RemixerSubPage[],
+): RemixerSubPage[] => {
+  const indexById = new Map<string, number>();
+  const byParent = new Map<string, RemixerSubPage[]>();
+  const isDeletedNode = (node: RemixerSubPage): boolean =>
+    node.deletedItem === true || node.isDeleted === true;
+
+  book.forEach((node) => {
+    if (isDeletedNode(node)) return;
+    const parentKey = node.parentID ?? "-1";
+    const siblings = byParent.get(parentKey) ?? [];
+    siblings.push(node);
+    byParent.set(parentKey, siblings);
+  });
+
+  byParent.forEach((siblings) => {
+    const normalizedByNodeId = new Map<string, string>();
+    siblings.forEach((node) => {
+      normalizedByNodeId.set(
+        node["@id"],
+        normalizedSiblingTitleForDuplicateCheck(node),
+      );
+    });
+    const takenTitles = new Set(normalizedByNodeId.values());
+
+    const byTitle = new Map<string, RemixerSubPage[]>();
+    siblings.forEach((node) => {
+      const normalized = normalizedByNodeId.get(node["@id"]);
+      if (!normalized) return;
+      const group = byTitle.get(normalized) ?? [];
+      group.push(node);
+      byTitle.set(normalized, group);
+    });
+
+    byTitle.forEach((group, baseTitle) => {
+      if (group.length <= 1) return;
+      let candidateIndex = 1;
+      group.forEach((node, position) => {
+        if (position === 0) {
+          indexById.set(node["@id"], 0);
+          return;
+        }
+        while (takenTitles.has(`${baseTitle} (${candidateIndex})`)) {
+          candidateIndex += 1;
+        }
+        indexById.set(node["@id"], candidateIndex);
+        takenTitles.add(`${baseTitle} (${candidateIndex})`);
+        candidateIndex += 1;
+      });
+    });
+  });
+
+  return book.map((node) => {
+    const nextIndex = indexById.get(node["@id"]) ?? 0;
+    const currentIndex = node.siblingTitleIndex ?? 0;
+    if (nextIndex === currentIndex) return node;
+    if (nextIndex === 0) {
+      if (node.siblingTitleIndex === undefined) return node;
+      const { siblingTitleIndex: _removed, ...rest } = node;
+      return rest;
+    }
+    return { ...node, siblingTitleIndex: nextIndex };
+  });
+};
+
+export const appendSiblingTitleSuffix = (
+  displayTitle: string,
+  page: RemixerSubPage,
+): string => {
+  const index = page.siblingTitleIndex ?? 0;
+  if (index === 0) return displayTitle;
+  return `${displayTitle} (${index})`;
+};
+
 const normalizedMatterTitle = (node: RemixerSubPage): string =>
   stripLeadingNumbering(node["@title"] || node.title || "").toLowerCase();
 

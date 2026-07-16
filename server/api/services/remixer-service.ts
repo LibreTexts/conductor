@@ -272,6 +272,17 @@ const isMatterNode = (page: {
   return uri.includes("front_matter") || uri.includes("back_matter");
 };
 
+// Disambiguates duplicate sibling titles set by applySiblingDuplicateTitleSuffixes
+// on the client; 0/undefined is hidden, 1+ is shown as a "(n)" suffix.
+const appendSiblingTitleSuffix = (
+  displayTitle: string,
+  page: RemixerSubPageState,
+): string => {
+  const index = page.siblingTitleIndex ?? 0;
+  if (index === 0) return displayTitle;
+  return `${displayTitle} (${index})`;
+};
+
 const getDisplayTitle = (
   page: RemixerSubPageState,
   inMatterBranch: boolean,
@@ -283,15 +294,19 @@ const getDisplayTitle = (
     stripLeadingNumbering(rawTitle),
   );
 
-  if (!autoNumbering || inDeletedBranch || inMatterBranch) return cleanTitle;
+  if (!autoNumbering || inDeletedBranch || inMatterBranch)
+    return appendSiblingTitleSuffix(cleanTitle, page);
 
   // Empty pathNumber means this is the book root — no numbering
   const numberPath = page.pathNumber ?? [];
-  if (numberPath.length === 0) return cleanTitle;
+  if (numberPath.length === 0) return appendSiblingTitleSuffix(cleanTitle, page);
 
   // formattedPath is pre-computed by buildBookPaths (already handles formattedPathOverride)
   const formattedPath = page.formattedPath?.trim() ?? "";
-  return formattedPath ? `${formattedPath}: ${cleanTitle}` : cleanTitle;
+  const titleWithPath = formattedPath
+    ? `${formattedPath}: ${cleanTitle}`
+    : cleanTitle;
+  return appendSiblingTitleSuffix(titleWithPath, page);
 };
 
 type PageStatus = "unchaned" | "modeified" | "new" | "imported" | "deleted";
@@ -333,15 +348,16 @@ const handleNewPage = async (
   parent: RemixerSubPageState,
   title: string,
   subdomain: string,
+  coverId?: string ,
 ): Promise<{ pageID: string; pageURI: string }> => {
   const content =
-    page["@subpages"] === true
+    page["@subpages"] === true || parent["@id"] === coverId 
       ? RemixerTemplates.POST_CreateBlankTopicGuide
       : RemixerTemplates.POST_CreateBlankPage("topic");
   const rawTitle = page["@title"] || page.title || title;
   // segment must be un-encoded here — we double-encode the full path below,
   // matching CXOneFetch's encodeURIComponent(encodeURIComponent(path)) convention.
-  const segment = buildRemixerPagePathSegment(page, rawTitle);
+  const segment = buildRemixerPagePathSegment(page, rawTitle, page.siblingTitleIndex);
 
   const parentUri = await resolveUiUri(parent, subdomain);
   // uri.ui already has %3A-encoded colons; decode once so the combined path
@@ -397,7 +413,7 @@ const remixerPagePaddedSlug = (
   displayTitle: string,
 ): string => {
   const rawTitle = page["@title"] || page.title || displayTitle;
-  return buildRemixerPagePathSegment(page, rawTitle);
+  return buildRemixerPagePathSegment(page, rawTitle, page.siblingTitleIndex);
 };
 
 const handleDeletedPage = async (
@@ -746,6 +762,7 @@ interface RunRemixerJobParams {
   jobID: string;
   projectID: string;
   subdomain: string;
+  coverId:string;
 }
 
 /** Plain snapshot of a remixer page for persistence (avoids spreading Mongoose subdocs). */
@@ -849,6 +866,7 @@ const runRemixerJob = async ({
   jobID,
   projectID,
   subdomain,
+  coverId,
 }: RunRemixerJobParams) => {
   const job = await PrejectRemixerJob.findOne({ jobID: { $eq: jobID } }).sort({ _id: -1 });
   const remixerState = await PrejectRemixer.findOne({ projectID: { $eq: projectID } }).sort({
@@ -969,7 +987,7 @@ const runRemixerJob = async ({
         if (parent) {
           const oldPageId = page["@id"];
           const { pageID, pageURI } = await withRetryOnTransient(
-            () => handleNewPage(page, parent, title, subdomain),
+            () => handleNewPage(page, parent, title, subdomain,coverId ),
             { onRetry: logRetry },
           );
           page["@id"] = pageID;

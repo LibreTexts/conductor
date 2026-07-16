@@ -2,11 +2,10 @@ import { Icon, List } from "semantic-ui-react";
 import { Dispatch, DragEvent, SetStateAction, useMemo, useState } from "react";
 import { PathLevelFormat, RemixerSubPage } from "../model";
 import {
+  appendSiblingTitleSuffix,
   computeRemixerOrdinalPathsMap,
   getRemixerDisplayTitle,
   isMatterNode,
-  stripDefaultTitlePrefixBeforeColon,
-  stripLeadingNumbering,
 } from "../services";
 import TreeNodeContainer from "./TreeNodeContainer";
 import { STATUS_PALETTE } from "../style";
@@ -90,45 +89,6 @@ const TreeDnd: React.FC<TreeDndProps> = ({
     if (!isBookTree) return new Map<string, string[]>();
     return computeRemixerOrdinalPathsMap(currentBook);
   }, [isBookTree, currentBook]);
-
-  /**
-   * Maps each node id to a display suffix like " (1)", " (2)", ... when two or
-   * more siblings under the same parent share the same title (case-insensitive).
-   * The stored title is never modified; the suffix is visual-only.
-   */
-  const siblingDisplaySuffixById = useMemo(() => {
-    const result = new Map<string, string>();
-    const byParent = new Map<string, RemixerSubPage[]>();
-    currentBook.forEach((node) => {
-      const parentKey = node.parentID ?? "-1";
-      const siblings = byParent.get(parentKey) ?? [];
-      siblings.push(node);
-      byParent.set(parentKey, siblings);
-    });
-    byParent.forEach((siblings) => {
-      const byTitle = new Map<string, RemixerSubPage[]>();
-      siblings.forEach((node) => {
-        const raw = (node["@title"] || node.title || "").trim();
-        const normalized =
-          node.formattedPathOverride === true
-            ? stripLeadingNumbering(raw).toLowerCase()
-            : stripDefaultTitlePrefixBeforeColon(
-                stripLeadingNumbering(raw),
-              ).toLowerCase();
-        if (!normalized) return;
-        const group = byTitle.get(normalized) ?? [];
-        group.push(node);
-        byTitle.set(normalized, group);
-      });
-      byTitle.forEach((group) => {
-        if (group.length <= 1) return;
-        group.forEach((node, index) => {
-          result.set(node["@id"], ` (${index + 1})`);
-        });
-      });
-    });
-    return result;
-  }, [currentBook]);
 
   const getDisplayedParentId = (page: RemixerSubPage): string =>
     page.parentID ?? "-1";
@@ -378,15 +338,16 @@ const TreeDnd: React.FC<TreeDndProps> = ({
           isInteractionLocked={isInteractionLocked}
           isVisualLocked={isInteractionLocked}
           itemLink={itemLink}
-          displayTitle={
+          displayTitle={appendSiblingTitleSuffix(
             getRemixerDisplayTitle(
               page,
               numberPath,
               inMatterNoNumberSubtree,
               inDeletedBranch,
               displayTitleOptions,
-            ) + (siblingDisplaySuffixById.get(page["@id"]) ?? "")
-          }
+            ),
+            page,
+          )}
           isDropInside={isDropInside}
           isDropBefore={isDropBefore}
           isDropAfter={isDropAfter}
@@ -710,13 +671,16 @@ const TreeDnd: React.FC<TreeDndProps> = ({
                 }}
               >
                 
-                {getRemixerDisplayTitle(
+                {appendSiblingTitleSuffix(
+                  getRemixerDisplayTitle(
+                    root,
+                    numberPath,
+                    inMatterNoNumberSubtree,
+                    inDeletedBranch,
+                    displayTitleOptions,
+                  ),
                   root,
-                  numberPath,
-                  inMatterNoNumberSubtree,
-                  inDeletedBranch,
-                  displayTitleOptions,
-                ) + (siblingDisplaySuffixById.get(root["@id"]) ?? "")}
+                )}
               </span>
               {!isBookTree && itemLink ? (
                 <a

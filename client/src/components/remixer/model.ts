@@ -54,6 +54,8 @@ export interface RemixerSubPage {
     renamedItem?: boolean;
     deletedItem?: boolean;
     sourceID?: string;
+    /** Disambiguates duplicate sibling titles; 0 is hidden, 1+ shown as (n). */
+    siblingTitleIndex?: number;
 }
 
 export type RemixerLibrary = Partial<Record<Library, RemixerSubPage[]>>;

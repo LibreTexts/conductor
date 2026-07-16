@@ -293,6 +293,7 @@ const publishRemixerProject = async (
       jobID: job.jobID,
       projectID: id,
       subdomain,
+      coverId: project.libreCoverID ?? "",
     })
     .catch((error: unknown) => {
       console.error("Failed to run remixer job", error);
