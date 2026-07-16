@@ -470,6 +470,7 @@ const handleModifiedPage = async (
   parent: RemixerSubPageState | undefined,
   title: string,
   subdomain: string,
+  coverId?: string,
 ): Promise<void> => {
   if (!page.renamedItem && !page.movedItem && !page.isPlacementChanged) {
     return;
@@ -552,6 +553,22 @@ const handleModifiedPage = async (
 
   if (!response.ok) {
     throwForMindTouchResponse(response, "Error moving/renaming page");
+  }
+
+  // Match handleNewPage article types based on placement under the cover.
+  if (isMoved && coverId && parent) {
+    const bookService = new BookService({
+      bookID: `${subdomain}-${coverId}`,
+    });
+    if (parent["@id"] === coverId) {
+      await bookService.updatePageDetails(pageId, undefined, [
+        "article:topic-guide",
+      ]);
+      page.article = "topic-guide";
+    } else {
+      await bookService.updatePageDetails(pageId, undefined, ["article:topic"]);
+      page.article = "article";
+    }
   }
 };
 
@@ -1110,7 +1127,7 @@ const runRemixerJob = async ({
           const parentId = page.parentID ?? "-1";
           const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
           await withRetryOnTransient(
-            () => handleModifiedPage(page, parent, title, subdomain),
+            () => handleModifiedPage(page, parent, title, subdomain, coverId),
             { onRetry: logRetry },
           );
           const pid = parseInt(page["@id"], 10);
