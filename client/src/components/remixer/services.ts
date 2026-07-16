@@ -272,6 +272,52 @@ export const joinLeveledPathParts = (
 };
 
 /**
+ * Splits the auto-numbered path into its two independently-editable pieces:
+ * `prefix` (the deepest level's configured text label, e.g. "Section ") and
+ * `index` (the joined numeric/ordinal path, e.g. "2.1"). Matches `buildBookPaths`
+ * `toPaths` rules. `excludeParent` drops only the immediate parent's index from
+ * the chain (grandparents stay); this level's prefix still wraps the joined index.
+ */
+export const splitFormattedPathParts = (
+  segments: string[],
+  pathLevelFormats: PathLevelFormat[],
+  startLevel: number,
+): { prefix: string; index: string } => {
+  const parts: { level: number; token: string }[] = [];
+  let prefix = "";
+  let index = "";
+  segments.forEach((segment, i) => {
+    const level = startLevel + i;
+    const format = pathLevelFormats.find((item) => item.level === level);
+    const start = Math.max(1, format?.start ?? 1);
+    const type: NumberingType = format?.type ?? "numeric";
+    const value = start + parsePathSegmentOrdinal(segment) - 1;
+    const token = getFormattedTokenByType(value, type);
+    const tokenExists = token.trim().length > 0;
+    const levelPrefix = format?.prefix ?? "";
+
+    if (format?.excludeParent) {
+      if (tokenExists) {
+        if (parts.length > 0) parts.pop();
+        parts.push({ level, token });
+      } else {
+        parts.length = 0;
+      }
+      index = joinLeveledPathParts(parts, pathLevelFormats);
+      prefix = levelPrefix;
+      return;
+    }
+
+    if (tokenExists) {
+      parts.push({ level, token });
+      index = joinLeveledPathParts(parts, pathLevelFormats);
+      prefix = levelPrefix;
+    }
+  });
+  return { prefix, index };
+};
+
+/**
  * Formatted display path from ordinal segments — matches `buildBookPaths` `toPaths` rules.
  * `excludeParent` drops only the immediate parent's index from the chain (grandparents stay);
  * this level's prefix still wraps the joined numeric path.
@@ -281,37 +327,35 @@ export const formatOrdinalSegmentsToFormattedPath = (
   pathLevelFormats: PathLevelFormat[],
   startLevel: number,
 ): string => {
-  const parts: { level: number; token: string }[] = [];
-  let formattedPath = "";
-  segments.forEach((segment, index) => {
-    const level = startLevel + index;
-    const format = pathLevelFormats.find((item) => item.level === level);
-    const start = Math.max(1, format?.start ?? 1);
-    const type: NumberingType = format?.type ?? "numeric";
-    const value = start + parsePathSegmentOrdinal(segment) - 1;
-    const token = getFormattedTokenByType(value, type);
-    const tokenExists = token.trim().length > 0;
-    const prefix = format?.prefix ?? "";
+  const { prefix, index } = splitFormattedPathParts(
+    segments,
+    pathLevelFormats,
+    startLevel,
+  );
+  return prefix ? `${prefix}${index}` : index;
+};
 
-    if (format?.excludeParent) {
-      if (tokenExists) {
-        if (parts.length > 0) parts.pop();
-        parts.push({ level, token });
-      } else {
-        parts.length = 0;
-      }
-      const numericPath = joinLeveledPathParts(parts, pathLevelFormats);
-      formattedPath = prefix ? `${prefix}${numericPath}` : numericPath;
-      return;
-    }
-
-    if (tokenExists) {
-      parts.push({ level, token });
-      const numericPath = joinLeveledPathParts(parts, pathLevelFormats);
-      formattedPath = prefix ? `${prefix}${numericPath}` : numericPath;
-    }
-  });
-  return formattedPath;
+/**
+ * Backfills `formattedPathPrefix`/`formattedPathIndex` for a stored combined `formattedPath`
+ * override that predates the split fields (e.g. round-tripped through the backend on
+ * publish/reload, which only persists the combined string). Matches against configured
+ * level prefixes (longest match wins); falls back to putting the whole string in `index`.
+ */
+export const splitStoredFormattedPath = (
+  formattedPath: string,
+  pathLevelFormats: PathLevelFormat[],
+): { prefix: string; index: string } => {
+  const candidatePrefixes = pathLevelFormats
+    .map((format) => format.prefix ?? "")
+    .filter((prefix) => prefix.length > 0)
+    .sort((a, b) => b.length - a.length);
+  const matched = candidatePrefixes.find((prefix) =>
+    formattedPath.startsWith(prefix),
+  );
+  if (matched) {
+    return { prefix: matched, index: formattedPath.slice(matched.length) };
+  }
+  return { prefix: "", index: formattedPath };
 };
 
 /** Builds the path prefix string from ordinal segments (same rules as book `formattedPath`). */

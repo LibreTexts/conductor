@@ -45,6 +45,9 @@ export interface RemixerSubPage {
     numberedPath?: string;
     formattedPath?: string;
     formattedPathOverride?: boolean;
+    /** Editable pieces of `formattedPath` when overridden — kept in sync so the edit panel can round-trip them. */
+    formattedPathPrefix?: string;
+    formattedPathIndex?: string;
     isDeleted?: boolean;
     isImported?: boolean;
     isRenamed?: boolean;
