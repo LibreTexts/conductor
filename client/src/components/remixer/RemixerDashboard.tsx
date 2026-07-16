@@ -84,7 +84,6 @@ const RemixerDashboard: React.FC = () => {
 
   const [remixerData, setRemixerData] = useState<RemixerData>(remixerDataInit);
   const [uiState, setUiState] = useState<RemixerUiState>(remixerUiStateInit);
-  const [libraryLoading, setLibraryLoading] = useState<boolean>(false);
 
   const [expandedNodeIdsBook, setExpandedNodeIdsBook] = useState<Set<string>>(
     new Set(),
@@ -612,7 +611,6 @@ const RemixerDashboard: React.FC = () => {
       ...prev,
       catalogListOpen: false,
     }));
-    setLibraryLoading(false);
     const targetNodeId = bookID.split("-")[1];
     setTimeout(() => {
       skipLibraryAutoLoadRef.current = false;
@@ -1778,11 +1776,22 @@ const RemixerDashboard: React.FC = () => {
   }, [id]);
 
   // Auto-load the library tree when the selected library changes (skipped when catalog-driven).
-  const selectedLibraryQuery = useQuery({
+  // Only fetch when we have no pages yet — background refetches would overwrite lazily expanded
+  // children and remount/re-render the tree (e.g. on window focus).
+  const hasSelectedLibraryPages = !!(
+    remixerData.selectedLibrary &&
+    remixerData.library?.[remixerData.selectedLibrary]?.length
+  );
+  useQuery({
     queryKey: ["remixer-selected-library", id, remixerData.selectedLibrary],
-    enabled: !!id && !!remixerData.selectedLibrary,
+    enabled:
+      !!id &&
+      !!remixerData.selectedLibrary &&
+      !hasSelectedLibraryPages &&
+      !skipLibraryAutoLoadRef.current,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity,
     queryFn: async () => {
-      if (skipLibraryAutoLoadRef.current) return null;
       const library = remixerData.selectedLibrary as Library;
       const resLibraryDetails = await api.getRemixerPage(
         id,
@@ -1807,19 +1816,19 @@ const RemixerDashboard: React.FC = () => {
     },
     onSuccess: (data) => {
       if (!data) return;
-      setRemixerData((prev) => ({
-        ...prev,
-        library: {
-          ...(prev.library ?? {}),
-          [data.library]: data.nodes,
-        },
-      }));
+      setRemixerData((prev) => {
+        // Preserve any pages already present (catalog ancestry / expandLibraryTree).
+        if (prev.library?.[data.library]?.length) return prev;
+        return {
+          ...prev,
+          library: {
+            ...(prev.library ?? {}),
+            [data.library]: data.nodes,
+          },
+        };
+      });
     },
   });
-
-  useEffect(() => {
-    setLibraryLoading(selectedLibraryQuery.isFetching);
-  }, [selectedLibraryQuery.isFetching]);
 
   // Clear the selected-book-node id when the node no longer exists (e.g. after delete/undo).
   useEffect(() => {
@@ -2096,9 +2105,7 @@ const RemixerDashboard: React.FC = () => {
               )}
             </div>
 
-            {!libraryLoading &&
-            selectedLibraryPages &&
-            remixerData.selectedLibrary ? (
+            {selectedLibraryPages && remixerData.selectedLibrary ? (
               <TreeDnd
                 expandedNodeIds={expandedNodeIdsLibrary}
                 setExpandedNodeIds={setExpandedNodeIdsLibrary}
