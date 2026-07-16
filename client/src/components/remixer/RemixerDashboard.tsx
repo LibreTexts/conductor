@@ -826,7 +826,7 @@ const RemixerDashboard: React.FC = () => {
         { trackHistory: true },
       );
     }
-    setUiState((prev) => ({ ...prev, selectedBookNodeId: newNodeId }));
+    // setUiState((prev) => ({ ...prev, selectedBookNodeId: newNodeId }));
     const folderToExpand = uiState.selectedBookNodeId;
     if (folderToExpand) {
       setExpandedNodeIdsBook((prev) => {
