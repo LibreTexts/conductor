@@ -9,7 +9,6 @@ import {
   addPageProperty,
   CXOneFetch,
   generateAPIRequestHeaders,
-  generateBookPathAndURL,
   getPage,
 } from "../../util/librariesclient";
 import MindTouch from "../../util/CXOne/index.js";
@@ -125,6 +124,23 @@ class TransientMindTouchError extends Error {
   }
 }
 
+/**
+ * Thrown when MindTouch rejects a create/move/rename with 409 Conflict
+ * because the target title or URL path is already occupied. This is not
+ * retried with backoff (retrying the same request won't help) — callers
+ * instead defer the page and reprocess it later, once other pages in the
+ * same run have had a chance to vacate the conflicting title/path.
+ */
+class TitleConflictError extends Error {
+  constructor(
+    message: string,
+    public cause?: unknown,
+  ) {
+    super(message);
+    this.name = "TitleConflictError";
+  }
+}
+
 const isTransientStatus = (status: number): boolean =>
   status === 408 || status === 425 || status === 429 || status >= 500;
 
@@ -134,6 +150,9 @@ const throwForMindTouchResponse = (
   prefix: string,
 ): never => {
   const message = `${prefix}: ${response.status} ${response.statusText}`;
+  if (response.status === 409) {
+    throw new TitleConflictError(message);
+  }
   if (isTransientStatus(response.status)) {
     throw new TransientMindTouchError(message);
   }
@@ -533,6 +552,50 @@ const handleModifiedPage = async (
 
   if (!response.ok) {
     throwForMindTouchResponse(response, "Error moving/renaming page");
+  }
+};
+
+/**
+ * Moves an existing page to a throwaway, guaranteed-unique title/path
+ * under its current parent, without touching our local record of its
+ * intended final title. Used to break title/URL swap deadlocks: relocating
+ * one page out of the way frees the slot another pending page needs; the
+ * relocated page keeps its real target and is simply retried again on a
+ * later scheduling pass, by which point its target should be vacated.
+ */
+const temporarilyRelocatePage = async (
+  page: RemixerSubPageState,
+  subdomain: string,
+): Promise<void> => {
+  const pid = parseInt(page["@id"], 10);
+  if (Number.isNaN(pid)) return;
+
+  const dekiHeaders = await generateAPIRequestHeaders(subdomain);
+  if (!dekiHeaders) {
+    throw new Error(
+      "Error generating library API headers for temporary relocation.",
+    );
+  }
+
+  const tempName = `remixer-swap-tmp-${pid}-${base62(8)}`;
+  const nameEnc = encodeURIComponent(tempName);
+  const titleEnc = encodeURIComponent(tempName);
+  const moveUrl = `https://${subdomain}.libretexts.org/@api/deki/pages/${pid}/move?title=${titleEnc}&name=${nameEnc}&allow=deleteredirects&dream.out.format=json`;
+
+  const response = await fetch(moveUrl, {
+    method: "POST",
+    body: "",
+    headers: {
+      "Content-Type": "text/plain",
+      ...dekiHeaders,
+    },
+  });
+
+  if (!response.ok) {
+    throwForMindTouchResponse(
+      response,
+      "Error temporarily relocating page to break a title/URL conflict",
+    );
   }
 };
 
@@ -956,7 +1019,17 @@ const runRemixerJob = async ({
 
     const autoNumbering = remixerState.autoNumbering === true;
 
-    for (const { page, inMatterBranch, inDeletedBranch } of ordered) {
+    /**
+     * Processes a single ordered page (create/import/move-rename/delete).
+     * Returns "conflict" when MindTouch responds 409 — i.e. the title or
+     * URL path this page needs is currently occupied — so the caller can
+     * defer it and retry after other pages have had a chance to move.
+     * Any other error propagates to the caller and fails the job.
+     */
+    const processOrderedEntry = async (
+      entry: OrderedEntry,
+    ): Promise<"success" | "conflict"> => {
+      const { page, inMatterBranch, inDeletedBranch } = entry;
       const title = getDisplayTitle(
         page,
         inMatterBranch,
@@ -981,79 +1054,91 @@ const runRemixerJob = async ({
         await job.save();
       };
 
-      if (status === "new") {
-        const parentId = page.parentID ?? "-1";
-        const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
-        if (parent) {
-          const oldPageId = page["@id"];
-          const { pageID, pageURI } = await withRetryOnTransient(
-            () => handleNewPage(page, parent, title, subdomain,coverId ),
-            { onRetry: logRetry },
-          );
-          page["@id"] = pageID;
-          setRemixerPageUriUi(page, pageURI || getRemixerPageUriUi(page));
-          page["@href"] = pageURI || page["@href"];
+      try {
+        if (status === "new") {
+          const parentId = page.parentID ?? "-1";
+          const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
+          if (parent) {
+            const oldPageId = page["@id"];
+            const { pageID, pageURI } = await withRetryOnTransient(
+              () => handleNewPage(page, parent, title, subdomain, coverId),
+              { onRetry: logRetry },
+            );
+            page["@id"] = pageID;
+            setRemixerPageUriUi(page, pageURI || getRemixerPageUriUi(page));
+            page["@href"] = pageURI || page["@href"];
 
-          // Keep references coherent for upcoming items in the same run.
-          byId.delete(oldPageId);
-          byId.set(pageID, page);
-          pages.forEach((candidate) => {
-            if (candidate.parentID === oldPageId) {
-              candidate.parentID = pageID;
-            }
-          });
-        }
-      } else if (status === "imported") {
-        const parentId = page.parentID ?? "-1";
-        const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
-        if (parent) {
-          const oldPageId = page["@id"];
-          const { pageID, pageURI } = await withRetryOnTransient(
-            () =>
-              handleImportedPage(
-                page,
-                parent,
-                title,
-                subdomain,
-                copyModeState,
-                hasSubpages(page, pages),
-              ),
-            { onRetry: logRetry },
-          );
-          page["@id"] = pageID;
-          setRemixerPageUriUi(page, pageURI || getRemixerPageUriUi(page));
-          page["@href"] = pageURI || page["@href"];
-
-          byId.delete(oldPageId);
-          byId.set(pageID, page);
-          pages.forEach((candidate) => {
-            if (candidate.parentID === oldPageId) {
-              candidate.parentID = pageID;
-            }
-          });
-        }
-      } else if (status === "modeified") {
-        const parentId = page.parentID ?? "-1";
-        const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
-        await withRetryOnTransient(
-          () => handleModifiedPage(page, parent, title, subdomain),
-          { onRetry: logRetry },
-        );
-        const pid = parseInt(page["@id"], 10);
-        if (!Number.isNaN(pid)) {
-          const info = await getPage(pid, subdomain);
-          const uriUiVal = info?.["uri.ui"];
-          if (typeof uriUiVal === "string" && uriUiVal.length > 0) {
-            setRemixerPageUriUi(page, uriUiVal);
-            page["uri.ui"] = uriUiVal as string;
+            // Keep references coherent for upcoming items in the same run.
+            byId.delete(oldPageId);
+            byId.set(pageID, page);
+            pages.forEach((candidate) => {
+              if (candidate.parentID === oldPageId) {
+                candidate.parentID = pageID;
+              }
+            });
           }
+        } else if (status === "imported") {
+          const parentId = page.parentID ?? "-1";
+          const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
+          if (parent) {
+            const oldPageId = page["@id"];
+            const { pageID, pageURI } = await withRetryOnTransient(
+              () =>
+                handleImportedPage(
+                  page,
+                  parent,
+                  title,
+                  subdomain,
+                  copyModeState,
+                  hasSubpages(page, pages),
+                ),
+              { onRetry: logRetry },
+            );
+            page["@id"] = pageID;
+            setRemixerPageUriUi(page, pageURI || getRemixerPageUriUi(page));
+            page["@href"] = pageURI || page["@href"];
+
+            byId.delete(oldPageId);
+            byId.set(pageID, page);
+            pages.forEach((candidate) => {
+              if (candidate.parentID === oldPageId) {
+                candidate.parentID = pageID;
+              }
+            });
+          }
+        } else if (status === "modeified") {
+          const parentId = page.parentID ?? "-1";
+          const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
+          await withRetryOnTransient(
+            () => handleModifiedPage(page, parent, title, subdomain),
+            { onRetry: logRetry },
+          );
+          const pid = parseInt(page["@id"], 10);
+          if (!Number.isNaN(pid)) {
+            const info = await getPage(pid, subdomain);
+            const uriUiVal = info?.["uri.ui"];
+            if (typeof uriUiVal === "string" && uriUiVal.length > 0) {
+              setRemixerPageUriUi(page, uriUiVal);
+              page["uri.ui"] = uriUiVal as string;
+            }
+          }
+        } else if (status === "deleted") {
+          try {
+            await withRetryOnTransient(
+              () => handleDeletedPage(page, subdomain),
+              { onRetry: logRetry },
+            );
+          } catch (error) {}
         }
-      } else if (status === "deleted") {
-        try {
-          await withRetryOnTransient(() => handleDeletedPage(page, subdomain), {
-            onRetry: logRetry,
-          });
-        } catch (error) {}
+      } catch (error) {
+        if (error instanceof TitleConflictError) {
+          job.messages.push(
+            `${title} - title/URL already in use; deferring for reprocessing.`,
+          );
+          await job.save();
+          return "conflict";
+        }
+        throw error;
       }
 
       // Include everything that still exists in the book in the final
@@ -1073,6 +1158,102 @@ const runRemixerJob = async ({
       );
       job.messages.push(message);
       await job.save();
+      return "success";
+    };
+
+    // Pages are processed parent-before-child, but a create/rename/move can
+    // hit a 409 from CXOne when the title or URL path it needs is currently
+    // occupied — typically by another page in this same run that hasn't
+    // been moved out of the way yet (e.g. two or more pages swapping
+    // titles/URLs with each other). Rather than failing the whole job on
+    // the first conflict, push conflicting pages onto a stack and reprocess
+    // them once the rest of the run has had a chance to make progress.
+    let deferredStack: OrderedEntry[] = [];
+    for (const entry of ordered) {
+      const outcome = await processOrderedEntry(entry);
+      if (outcome === "conflict") {
+        deferredStack.push(entry);
+      }
+    }
+
+    const maxRetryPasses = pages.length + 10;
+    let retryPass = 0;
+    while (deferredStack.length > 0 && retryPass < maxRetryPasses) {
+      retryPass++;
+      const beforeCount = deferredStack.length;
+      const stillStuck: OrderedEntry[] = [];
+
+      // Retry most-recently-deferred first: whatever a page just gave up
+      // its slot to is the one most likely to be unblocked now.
+      while (deferredStack.length > 0) {
+        const entry = deferredStack.pop()!;
+        const outcome = await processOrderedEntry(entry);
+        if (outcome === "conflict") {
+          stillStuck.push(entry);
+        }
+      }
+
+      if (stillStuck.length === beforeCount) {
+        // No page in the deferred set made progress this pass — every
+        // pending page is blocked by another pending page's *current*
+        // title/URL, a cyclic swap that's a dead end for plain retries.
+        // Break the cycle by relocating one already-existing page (one
+        // with a real MindTouch id, not a not-yet-created "new" page) to a
+        // throwaway temporary title/path. That frees the slot the next
+        // page in the cycle needs; the relocated page keeps its real
+        // target and gets retried again on a later pass, once whichever
+        // page is ahead of it in the cycle has vacated that target.
+        const relocatable = stillStuck.find(
+          (entry) => !Number.isNaN(parseInt(entry.page["@id"], 10)),
+        );
+        if (!relocatable) {
+          const stuckTitles = stillStuck
+            .map((entry) =>
+              getDisplayTitle(
+                entry.page,
+                entry.inMatterBranch,
+                entry.inDeletedBranch,
+                autoNumbering,
+              ),
+            )
+            .join(", ");
+          throw new Error(
+            `Title/URL conflict for: ${stuckTitles} — the conflicting title/path belongs to a page outside this remix and must be resolved manually.`,
+          );
+        }
+
+        const victimTitle = getDisplayTitle(
+          relocatable.page,
+          relocatable.inMatterBranch,
+          relocatable.inDeletedBranch,
+          autoNumbering,
+        );
+        job.messages.push(
+          `${victimTitle} - detected a title/URL swap deadlock among ${stillStuck.length} page(s); temporarily relocating to break the cycle.`,
+        );
+        await job.save();
+        await withRetryOnTransient(() =>
+          temporarilyRelocatePage(relocatable.page, subdomain),
+        );
+      }
+
+      deferredStack = stillStuck;
+    }
+
+    if (deferredStack.length > 0) {
+      const remainingTitles = deferredStack
+        .map((entry) =>
+          getDisplayTitle(
+            entry.page,
+            entry.inMatterBranch,
+            entry.inDeletedBranch,
+            autoNumbering,
+          ),
+        )
+        .join(", ");
+      throw new Error(
+        `Unable to resolve title/URL conflicts for: ${remainingTitles}`,
+      );
     }
     const bookURL = remixerState.remixerCurrentBook[0]["@href"];
     // ── Trigger Mindtouch TOC update ─────────────────────────────────────────
