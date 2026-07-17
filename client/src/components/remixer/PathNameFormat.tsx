@@ -175,6 +175,7 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                 <Table.HeaderCell width={1}>Delimiter</Table.HeaderCell>
                 <Table.HeaderCell width={3}>index start</Table.HeaderCell>
                 <Table.HeaderCell width={1}>Exclude Parent</Table.HeaderCell>
+                <Table.HeaderCell width={1}>continue</Table.HeaderCell>
                 <Table.HeaderCell width={2}>Preview</Table.HeaderCell>
               </Table.Row>
             </Table.Header>
@@ -227,7 +228,7 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                     />
                   </Table.Cell>
                   <Table.Cell>
-                    {index > 0  ?(
+                    {index > 0 ? (
                       <Select
                         options={DELIMITER_OPTIONS.map((option) => ({
                           label: option.text,
@@ -246,7 +247,9 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                           )
                         }
                       />
-                    ):"N/A"}
+                    ) : (
+                      "N/A"
+                    )}
                   </Table.Cell>
                   <Table.Cell>
                     <Input
@@ -282,7 +285,23 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                           )
                         }
                       />
-                    ):"N/A"}
+                    ) : (
+                      "N/A"
+                    )}
+                  </Table.Cell>
+                  <Table.Cell>
+                    {index > 0 ? (
+                      <Checkbox
+                        name="continue"
+                        label=""
+                        checked={format.continue ?? false}
+                        onChange={() =>
+                          updateLevelFormat(index, "continue", !format.continue)
+                        }
+                      />
+                    ) : (
+                      "N/A"
+                    )}
                   </Table.Cell>
                   <Table.Cell>
                     <Text size="sm" className="mt-3 text-gray-500">

@@ -87,8 +87,8 @@ const TreeDnd: React.FC<TreeDndProps> = ({
 
   const ordinalPathById = useMemo(() => {
     if (!isBookTree) return new Map<string, string[]>();
-    return computeRemixerOrdinalPathsMap(currentBook);
-  }, [isBookTree, currentBook]);
+    return computeRemixerOrdinalPathsMap(currentBook, pathLevelFormats);
+  }, [isBookTree, currentBook, pathLevelFormats]);
 
   const getDisplayedParentId = (page: RemixerSubPage): string =>
     page.parentID ?? "-1";

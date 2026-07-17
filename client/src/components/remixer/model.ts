@@ -26,6 +26,7 @@ export interface PathLevelFormat {
     prefix: string;
     start: number;
     type: NumberingType;
+    continue?: boolean;
 }
 
 export interface RemixerSubPage {

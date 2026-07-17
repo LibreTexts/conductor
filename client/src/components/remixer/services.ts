@@ -474,6 +474,7 @@ const isDeletedForPath = (node: RemixerSubPage): boolean =>
  */
 export const computeRemixerOrdinalPathsMap = (
   book: RemixerSubPage[],
+  pathLevelFormats: PathLevelFormat[] = [],
 ): Map<string, string[]> => {
   const nodesById = new Map(book.map((node) => [node["@id"], node]));
   const childrenByParent = new Map<string, RemixerSubPage[]>();
@@ -496,6 +497,9 @@ export const computeRemixerOrdinalPathsMap = (
   const ordinalPathById = new Map<string, string[]>();
   const visited = new Set<string>();
 
+  /** Global running counter per level when `continue` is enabled for that level. */
+  const continuedOrdinalByLevel = new Map<number, number>();
+
   const rootRow = childrenByParent.get("-1") ?? [];
   const singletonBookRootId =
     rootRow.length === 1 ? rootRow[0]["@id"] : null;
@@ -516,6 +520,7 @@ export const computeRemixerOrdinalPathsMap = (
     parentId: string,
     parentPath: string[],
     parentInDeletedBranch: boolean,
+    parentInMatterBranch: boolean = false,
   ) => {
     const children = childrenByParent.get(parentId) ?? [];
 
@@ -533,10 +538,11 @@ export const computeRemixerOrdinalPathsMap = (
           const path = [...parentPath];
           ordinalPathById.set(child["@id"], path);
           visited.add(child["@id"]);
-          assignUnderParent(child["@id"], path, true);
+          assignUnderParent(child["@id"], path, true, false);
           continue;
         }
         let nextPath: string[];
+        const childIsMatter = isFrontMatterNode(child) || isBackMatterNode(child);
         if (isFrontMatterNode(child)) {
           nextPath = [...parentPath, "0"];
         } else if (isBackMatterNode(child)) {
@@ -548,25 +554,37 @@ export const computeRemixerOrdinalPathsMap = (
         }
         ordinalPathById.set(child["@id"], nextPath);
         visited.add(child["@id"]);
-        assignUnderParent(child["@id"], nextPath, false);
+        assignUnderParent(child["@id"], nextPath, false, childIsMatter);
       }
       return;
     }
 
-    let ordinal = 0;
+    const childLevel = parentPath.length + 1;
+    const levelFormat = pathLevelFormats.find((f) => f.level === childLevel);
+    // matter subtrees are excluded from the global continue counter
+    const shouldContinue = !parentInMatterBranch && levelFormat?.continue === true;
+
+    let ordinal = shouldContinue
+      ? (continuedOrdinalByLevel.get(childLevel) ?? 0)
+      : 0;
+
     for (const child of children) {
       if (isDeletedForPath(child) || parentInDeletedBranch) {
         const path = [...parentPath];
         ordinalPathById.set(child["@id"], path);
         visited.add(child["@id"]);
-        assignUnderParent(child["@id"], path, true);
+        assignUnderParent(child["@id"], path, true, parentInMatterBranch);
         continue;
       }
       ordinal += 1;
       const nextPath = [...parentPath, String(ordinal)];
       ordinalPathById.set(child["@id"], nextPath);
       visited.add(child["@id"]);
-      assignUnderParent(child["@id"], nextPath, false);
+      assignUnderParent(child["@id"], nextPath, false, parentInMatterBranch);
+    }
+
+    if (shouldContinue) {
+      continuedOrdinalByLevel.set(childLevel, ordinal);
     }
   };
 
@@ -597,7 +615,7 @@ export const buildBookPaths = (
   if (book.length === 0) return book;
 
   const nodesById = new Map(book.map((n) => [n["@id"], n]));
-  const ordinalPathById = computeRemixerOrdinalPathsMap(book);
+  const ordinalPathById = computeRemixerOrdinalPathsMap(book, pathLevelFormats);
 
   const toPaths = (ordinalPath: string[]) => {
     const formattedPath = formatOrdinalSegmentsToFormattedPath(
@@ -784,7 +802,7 @@ export const syncRenamedItemFromAutonumberTitle = (
 ): RemixerSubPage[] => {
   if (book.length === 0) return book;
   const nodesById = new Map(book.map((n) => [n["@id"], n]));
-  const ordinalPathById = computeRemixerOrdinalPathsMap(book);
+  const ordinalPathById = computeRemixerOrdinalPathsMap(book, pathLevelFormats);
 
   const displayOptions: GetRemixerDisplayTitleOptions = {
     isBookTree: true,

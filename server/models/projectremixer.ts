@@ -35,6 +35,7 @@ export interface PathLevelFormatState {
   prefix: string;
   start: number;
   type: "numeric" | "alphabetic" | "roman" | "none";
+  continue?: boolean;
 }
 
 export interface PrejectRemixerInterface extends Document {
@@ -91,6 +92,7 @@ const PathLevelFormatSchema = new Schema<PathLevelFormatState>(
     prefix: { type: String, default: "" },
     start: { type: Number, required: true, default: 1 },
     type: { type: String, required: true, default: "numeric" },
+    continue: { type: Boolean },
   },
   { _id: false },
 );

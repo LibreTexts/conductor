@@ -3246,6 +3246,10 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes ,
     middleware.validateZod(RemixerValidators.SaveRemixerProjectStateSchema),
+    (req, res, next) => {
+      console.log("saveRemixerProjectState", req.body.pathLevelFormats);
+      next();
+    },
     remixerAPI.saveRemixerProjectState
   )
   .post(

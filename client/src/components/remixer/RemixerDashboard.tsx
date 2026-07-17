@@ -2038,7 +2038,7 @@ const RemixerDashboard: React.FC = () => {
             <div
               style={{ display: "flex", alignItems: "center", gap: "0.5em" }}
             >
-              <Text size="base" color="default">
+              <Text color="default" className="font-bold text-lg">
                 Library
               </Text>
 
@@ -2178,7 +2178,7 @@ const RemixerDashboard: React.FC = () => {
             <div
               style={{ display: "flex", alignItems: "center", gap: "0.5em" }}
             >
-              <Text size="base" color="default">
+              <Text className="font-bold text-lg" color="default">
                 Text
               </Text>
               <div
