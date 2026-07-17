@@ -134,6 +134,7 @@ const TreeNodeContainer: React.FC<TreeNodeContainerProps> = ({
         <Icon name={isFolder ? "folder" : "file alternate"} color="grey" />
 
         <span
+          className="text-lg"
           style={{
             whiteSpace: "nowrap",
             fontStyle: isVisualLocked ? "italic" : "normal",
