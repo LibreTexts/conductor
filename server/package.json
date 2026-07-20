@@ -22,7 +22,7 @@
     "@qdrant/js-client-rest": "1.17.0",
     "@types/adm-zip": "0.5.8",
     "@types/sanitize-html": "2.16.1",
-    "adm-zip": "0.5.17",
+    "adm-zip": "0.6.0",
     "async": "3.2.6",
     "axios": "1.18.1",
     "base-64": "1.0.0",
