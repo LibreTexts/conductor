@@ -21,6 +21,7 @@ import {
   IconSitemap,
   IconTags,
 } from "@tabler/icons-react";
+import useDocumentTitle from "../../../hooks/useDocumentTitle";
 
 type ControlPanelListItem = {
   url: string;
@@ -31,12 +32,9 @@ type ControlPanelListItem = {
 };
 
 const ControlPanel = () => {
+  useDocumentTitle("LibreTexts Conductor | Control Panel");
   const user = useTypedSelector((state) => state.user);
   const org = useTypedSelector((state) => state.org);
-
-  useEffect(() => {
-    document.title = "LibreTexts Conductor | Control Panel";
-  }, []);
 
   useEffect(() => {
     if (!user || !user.uuid) return;
@@ -137,14 +135,14 @@ const ControlPanel = () => {
   const campusAdminTools: ControlPanelListItem[] = [
     ...(org.FEAT_AssetTagsManager
       ? [
-          {
-            url: "/controlpanel/assettagsmanager",
-            icon: <IconTags size={20} />,
-            title: "Asset Tags Manager",
-            description:
-              "Manage templates for metadata tags that can be applied to assets in Conductor projects",
-          },
-        ]
+        {
+          url: "/controlpanel/assettagsmanager",
+          icon: <IconTags size={20} />,
+          title: "Asset Tags Manager",
+          description:
+            "Manage templates for metadata tags that can be applied to assets in Conductor projects",
+        },
+      ]
       : []),
     {
       url: "/controlpanel/booksmanager",
@@ -226,8 +224,8 @@ const ControlPanel = () => {
 
   return (
     <div className="mx-[1%] mt-5 w-[98%]">
-      <div className="flex flex-col mt-8 mb-4">
-        <Heading level={1} className="!font-bold !text-gray-900 !mb-4">
+      <div className="flex flex-col my-8">
+        <Heading level={1}>
           Control Panel
         </Heading>
       </div>

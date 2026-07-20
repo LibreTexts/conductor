@@ -20,6 +20,7 @@ const MasterCatalogPlainView = lazy(() => import('./screens/conductor/controlpan
 const IndexManager = lazy(() => import('./screens/conductor/controlpanel/IndexManager'));
 const CampusSettings = lazy(() => import('./components/controlpanel/CampusSettings'));
 const CollectionsManager = lazy(() => import('./screens/conductor/controlpanel/CollectionsManager'));
+const CollectionDetail = lazy(() => import('./screens/conductor/controlpanel/CollectionsManager/CollectionDetail'));
 const QRCodeGenerator = lazy(() => import('./screens/conductor/controlpanel/QRCodeGenerator'));
 const CentralIdentityOrganizationView = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityOrganizationView'));
 const CentralIdentitySystemView = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentitySystemView'));
@@ -144,6 +145,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/indexmanager' component={IndexManager} />
           <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
           <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />
+          <PrivateRoute exact path='/controlpanel/collectionsmanager/:collID' component={CollectionDetail} />
           <PrivateRoute exact path='/controlpanel/qr-code-generator' component={QRCodeGenerator} />
           <PrivateRoute exact path='/controlpanel/eventsmanager' component={EventsManager} />
           <PrivateRoute exact path='/controlpanel/eventsmanager/:mode/:eventID?' component={ManageEvent} />

@@ -1,5 +1,6 @@
 import { useState, FC, ReactElement } from "react";
-import { Modal, Button, Icon } from "semantic-ui-react";
+import { Modal, Button, Text, Stack } from "@libretexts/davis-react";
+import { IconTrash } from "@tabler/icons-react";
 import axios from "axios";
 import useGlobalError from "../../error/ErrorHooks";
 import { Collection } from "../../../types";
@@ -39,22 +40,33 @@ const DeleteCollection: FC<DeleteCollectionProps> = ({
   };
 
   return (
-    <Modal open={show} closeOnDimmerClick={false}>
-      <Modal.Header>Delete Collection</Modal.Header>
-      <Modal.Content scrolling>
-        <p>
+    <Modal open={show} onClose={onCloseFunc}>
+      <Modal.Header>
+        <Modal.Title>Delete Collection</Modal.Title>
+        <Modal.Close />
+      </Modal.Header>
+      <Modal.Body>
+        <Text>
           Are you sure you want to delete{" "}
           <strong>{collectionToDelete?.title}</strong>{" "}
-          <span className="muted-text">({collectionToDelete?.collID})</span>?
-        </p>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onCloseFunc}>Cancel</Button>
-        <Button color="red" loading={loading} onClick={handleDeleteCollection}>
-          <Icon name="delete" />
-          Delete
-        </Button>
-      </Modal.Actions>
+          <span className="text-gray-500">({collectionToDelete?.collID})</span>?
+        </Text>
+      </Modal.Body>
+      <Modal.Footer>
+        <Stack direction="horizontal" gap="md" justify="end">
+          <Button variant="outline" onClick={onCloseFunc} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            icon={<IconTrash size={16} />}
+            loading={loading}
+            onClick={handleDeleteCollection}
+          >
+            Delete
+          </Button>
+        </Stack>
+      </Modal.Footer>
     </Modal>
   );
 };
