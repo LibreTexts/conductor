@@ -23,7 +23,7 @@ const CollectionsManager = lazy(() => import('./screens/conductor/controlpanel/C
 const QRCodeGenerator = lazy(() => import('./screens/conductor/controlpanel/QRCodeGenerator'));
 const CentralIdentityOrganizationView = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityOrganizationView'));
 const CentralIdentitySystemView = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentitySystemView'));
-const ControlPanel = lazy(() => import('./components/controlpanel/ControlPanel'));
+const ControlPanel = lazy(() => import('./screens/conductor/controlpanel'));
 import EventsManager from './screens/conductor/controlpanel/EventsManager';
 import EventRegistration from './screens/conductor/OrgEvents/EventRegistration';
 const FallbackAuth = lazy(() => import('./screens/conductor/FallbackAuth'));

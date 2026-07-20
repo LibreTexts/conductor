@@ -1,8 +1,10 @@
 import { useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { useTypedSelector } from "../../state/hooks";
+import { Card, Divider, Heading, Text } from "@libretexts/davis-react";
+import { useTypedSelector } from "../../../state/hooks";
 import {
   IconAddressBook,
+  IconArrowsShuffle,
   IconBook,
   IconCalendar,
   IconChartLine,
@@ -110,7 +112,7 @@ const ControlPanel = () => {
     },
     {
       url: "/controlpanel/shapeshift",
-      icon: "shuffle",
+      icon: <IconArrowsShuffle size={20} />,
       title: "Shapeshift Admin Console",
       description: "View and manage Shapeshift export processing jobs.",
       roles: ["superAdmin"],
@@ -186,58 +188,63 @@ const ControlPanel = () => {
     <Link
       to={item.url}
       key={idx}
-      className="flex items-center justify-between px-4 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
+      className="flex items-center justify-between px-2 py-4 hover:bg-gray-50! transition-colors border-b border-gray-100 last:border-b-0 first:rounded-t last:rounded-b"
     >
       <div className="flex items-center gap-3">
-        <span className="text-gray-500 shrink-0">{item.icon}</span>
+        <span className="text-gray-500 shrink-0" aria-hidden="true">
+          {item.icon}
+        </span>
         <div className="flex flex-col">
-          <span className="font-semibold text-gray-800 text-sm">{item.title}</span>
-          <span className="text-gray-500 text-sm">{item.description}</span>
+          <Heading level={3} className="!text-base !font-semibold !text-gray-900 !mb-0">
+            {item.title}
+          </Heading>
+          <Text size="sm" className="text-gray-600">
+            {item.description}
+          </Text>
         </div>
       </div>
-      <IconChevronRight size={18} className="text-gray-400 shrink-0" />
+      <IconChevronRight size={18} className="text-gray-400 shrink-0" aria-hidden="true" />
     </Link>
+  );
+
+  const renderSection = (
+    title: string,
+    items: ControlPanelListItem[]
+  ) => (
+    <div className="mb-8">
+      <Heading
+        level={2}
+        className="!text-xl !font-semibold !mb-3"
+      >
+        {title}
+      </Heading>
+      <Card variant="elevated" className="overflow-hidden !p-4">
+        {items.map((item, idx) => renderListItem(item, idx))}
+      </Card>
+    </div>
   );
 
   return (
     <div className="mx-[1%] mt-5 w-[98%]">
-      <div className="flex flex-col mb-4">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">Control Panel</h1>
-        <div className="border-b border-gray-200 w-full" />
+      <div className="flex flex-col mt-8 mb-4">
+        <Heading level={1} className="!font-bold !text-gray-900 !mb-4">
+          Control Panel
+        </Heading>
       </div>
-      <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-200">
-          <span className="text-sm text-gray-700 font-medium">Control Panel</span>
-        </div>
-        <div className="px-4 py-4">
-          <p className="text-gray-700 mb-4">
+      <Card variant="elevated">
+        <Card.Body>
+          <Text className="mb-4 text-gray-700">
             Welcome to Control Panel. Here, you will find several tools to manage your
             Campus Conductor instance.
-          </p>
-          <div className="px-2">
-            {(user.isSuperAdmin || user.isSupport) && org.orgID === "libretexts" && (
-              <div className="mb-6">
-                <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 pb-1 border-b border-gray-200">
-                  LibreTexts Master Tools
-                </h5>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  {masterToolsToRender.map((item, idx) => renderListItem(item, idx))}
-                </div>
-              </div>
-            )}
-            {(user.isCampusAdmin || user.isSuperAdmin) && (
-              <div className="mb-6">
-                <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 pb-1 border-b border-gray-200">
-                  Campus Admin Tools
-                </h5>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  {campusAdminTools.map((item, idx) => renderListItem(item, idx))}
-                </div>
-              </div>
-            )}
+          </Text>
+          <div className="mt-4">
+            {(user.isSuperAdmin || user.isSupport) && org.orgID === "libretexts" &&
+              renderSection("LibreTexts Master Tools", masterToolsToRender)}
+            {(user.isCampusAdmin || user.isSuperAdmin) &&
+              renderSection("Campus Admin Tools", campusAdminTools)}
           </div>
-        </div>
-      </div>
+        </Card.Body>
+      </Card>
     </div>
   );
 };
