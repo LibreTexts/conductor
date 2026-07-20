@@ -742,11 +742,12 @@ const CommonsCatalog = () => {
             {org.commonsHeader && org.commonsHeader !== "" && (
               <Heading
                 level={1}
+                className="text-2xl! md:text-3xl! font-bold"
               >
                 {org.commonsHeader}
               </Heading>
             )}
-            <Text>
+            <Text className="md:max-w-3/4 mx-auto">
               {org.commonsMessage}
             </Text>
           </Stack>

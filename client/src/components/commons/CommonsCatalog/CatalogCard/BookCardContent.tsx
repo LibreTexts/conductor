@@ -54,7 +54,7 @@ const BookCardContent: React.FC<BookCardContentProps> = ({
       </div>
       <Card.Body>
         <Stack direction="vertical" gap="sm" className="py-4">
-          <Heading level={headingLevel} className="line-clamp-2 !text-2xl">
+          <Heading level={headingLevel} className="line-clamp-3 !text-lg">
             <Link to={linkTo} className="commons-card-title-link">
               {book.title}
             </Link>

@@ -45,7 +45,7 @@ const VisualMode = ({
           as="ul"
           role="list"
           gap="lg"
-          className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 list-none m-0 p-0"
+          className="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 list-none m-0 p-0"
         >
           {items.map((item) => (
             <li key={crypto.randomUUID()} className="h-full">

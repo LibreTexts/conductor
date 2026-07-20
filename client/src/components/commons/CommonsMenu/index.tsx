@@ -48,7 +48,7 @@ const CommonsMenu = ({ activeItem = "catalog" }: { activeItem?: string }) => {
                 aria-current={isActive ? "page" : undefined}
                 className={[
                   "inline-flex items-center px-6 py-3",
-                  "!text-white text-xl font-medium no-underline",
+                  "!text-white text-lg! font-medium no-underline",
                   "border-b-2 transition-colors duration-150",
                   "focus-visible:outline-none focus-visible:ring-2",
                   "focus-visible:ring-white focus-visible:ring-inset focus-visible:rounded-sm",
