@@ -5,7 +5,6 @@
 
 import express from "express";
 import cors from "cors";
-import bodyParser from "body-parser";
 import { catchInternal } from "./util/helpers.js";
 import { rateLimitMiddleware } from "./util/rateLimitHelpers.js";
 import middleware from "./middleware.js"; // Route middleware
@@ -131,10 +130,19 @@ permalinkRouter.route("/:projectID/:fileID").get(
 // Handle standard API routes (with /api/v1 prefix)
 const router = express.Router();
 router.use(corsMiddleware);
-router.use(
-  middleware.middlewareFilter(["/payments/webhook", "/store/webhooks/stripe", "/store/webhooks/lulu"], bodyParser.json())
-);
-router.use(bodyParser.urlencoded({ extended: false }));
+const globalJsonParser = express.json();
+const rawBodyPaths = ["/payments/webhook", "/store/webhooks/stripe", "/store/webhooks/lulu"];
+router.use((req, res, next) => {
+  const pathname = req._parsedUrl.pathname;
+  // Raw-body webhooks parse their own payload with express.raw at the route level.
+  if (rawBodyPaths.includes(pathname)) return next();
+  // Remixer writes are parsed after auth with a 2mb limit (see the /remixer route defs).
+  if (pathname.startsWith("/remixer/") && (req.method === "POST" || req.method === "PUT")) {
+    return next();
+  }
+  return globalJsonParser(req, res, next);
+});
+router.use(express.urlencoded({ extended: false }));
 router.use(middleware.authSanitizer);
 
 /** Globally resolve user identity (if token present) for rate limiting
@@ -3245,6 +3253,7 @@ router
   .put(
     authAPI.verifyRequest,
     authAPI.getUserAttributes ,
+    express.json({ limit: "2mb" }),
     middleware.validateZod(RemixerValidators.SaveRemixerProjectStateSchema),
     (req, res, next) => {
       console.log("saveRemixerProjectState", req.body.pathLevelFormats);
@@ -3255,6 +3264,7 @@ router
   .post(
     authAPI.verifyRequest,
     authAPI.getUserAttributes ,
+    express.json({ limit: "2mb" }),
     middleware.validateZod(RemixerValidators.GetRemixerProjectStateSchema),
     remixerAPI.getRemixerProjectState
   )
@@ -3270,6 +3280,7 @@ router
   .post(
     authAPI.verifyRequest,
     authAPI.getUserAttributes ,
+    express.json({ limit: "2mb" }),
     middleware.validateZod(RemixerValidators.GetRemixerPageSchema),
     remixerAPI.fetchPage
   );
@@ -3279,6 +3290,7 @@ router
   .post(
     authAPI.verifyRequest,
     authAPI.getUserAttributes ,
+    express.json({ limit: "2mb" }),
     middleware.validateZod(RemixerValidators.SaveRemixerProjectStateSchema),
     remixerAPI.publishRemixerProject
   )
