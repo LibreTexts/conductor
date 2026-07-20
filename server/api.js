@@ -133,7 +133,11 @@ router.use(corsMiddleware);
 const globalJsonParser = express.json();
 const rawBodyPaths = ["/payments/webhook", "/store/webhooks/stripe", "/store/webhooks/lulu"];
 router.use((req, res, next) => {
-  const pathname = req._parsedUrl.pathname;
+  const pathname = req.path ?? req._parsedUrl?.pathname;
+
+  // If we can't reliably determine the path, fall back to normal JSON parsing.
+  if (!pathname) return globalJsonParser(req, res, next);
+
   // Raw-body webhooks parse their own payload with express.raw at the route level.
   if (rawBodyPaths.includes(pathname)) return next();
   // Remixer writes are parsed after auth with a 2mb limit (see the /remixer route defs).
