@@ -62,7 +62,7 @@
     "mongodb": "6.21.0",
     "mongoose": "8.23.1",
     "multer": "2.2.0",
-    "newrelic": "14.1.0",
+    "newrelic": "14.1.2",
     "node-cache": "5.1.2",
     "openai": "6.35.0",
     "path": "0.12.7",
