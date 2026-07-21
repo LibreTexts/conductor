@@ -27,6 +27,7 @@ const CXOnePageAPIEndpoints = {
   GET_page_RawContents: `contents?mode=raw&${DREAM_OUT_FORMAT}`,
   DREAM_OUT_FORMAT: `?${DREAM_OUT_FORMAT}`,
   DREAM_OUT_FORMAT_LIMIT: (limit: number):string => `?${DREAM_OUT_FORMAT}&limit=${limit}`,
+  ORDER_PAGES:(afterId:string):string=> `order?${DREAM_OUT_FORMAT}&origin=mt-web&afterid=${afterId}`,
 };
 
 export default CXOnePageAPIEndpoints;

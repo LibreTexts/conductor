@@ -213,6 +213,8 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
         query,
         queryIsFirst
       )}`;
+
+      // https://dev.libretexts.org/@api/deki/pages/7137/order?dream.out.format=json&origin=mt-web&afterId=8654
    
       request = fetch(url, finalOptions);
     }
