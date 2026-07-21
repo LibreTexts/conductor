@@ -291,6 +291,72 @@ const isMatterNode = (page: {
   return uri.includes("front_matter") || uri.includes("back_matter");
 };
 
+const isBackMatterNode = (page: {
+  "@title": string;
+  title: string;
+  "uri.ui": string;
+  "@href": string;
+}): boolean => {
+  const normalized = stripLeadingNumbering(
+    page["@title"] || page.title || "",
+  ).toLowerCase();
+  if (normalized === "back matter") return true;
+  const uri = getRemixerPageUriUi(page as RemixerSubPageState).toLowerCase();
+  return uri.includes("back_matter") && uri.includes("zz");
+};
+
+/**
+ * Moves Back Matter to the end of its sibling list via CXOne's page order API.
+ *
+ * PUT /pages/{lastSiblingId}/order?afterid={backMatterId}
+ * — path is the last page on the same level; afterid is the Back Matter page.
+ * @returns true when an order request was issued.
+ */
+const orderBackMatterLast = async (
+  book: RemixerSubPageState[],
+  subdomain: string,
+): Promise<boolean> => {
+  const backMatter = book.find((p) => isBackMatterNode(p));
+  if (!backMatter) return false;
+
+  const backMatterId = parseInt(backMatter["@id"], 10);
+  if (Number.isNaN(backMatterId)) return false;
+
+  const parentId = backMatter.parentID ?? "-1";
+  const siblings = book.filter((p) => {
+    if ((p.parentID ?? "-1") !== parentId) return false;
+    if (p["@id"] === backMatter["@id"]) return false;
+    return !Number.isNaN(parseInt(p["@id"], 10));
+  });
+  if (siblings.length === 0) return false;
+
+  const lastSibling = [...siblings].sort((a, b) => {
+    const aPath = (a.pathNumber ?? []).join(".");
+    const bPath = (b.pathNumber ?? []).join(".");
+    return aPath.localeCompare(bPath, undefined, { numeric: true });
+  }).at(-1)!;
+  const lastSiblingId = parseInt(lastSibling["@id"], 10);
+  if (Number.isNaN(lastSiblingId)) return false;
+
+  const response = await CXOneFetch({
+    scope: "page",
+    path: backMatterId,
+    api: CXOnePageAPIEndpoints.ORDER_PAGES(String(lastSiblingId)),
+    subdomain,
+    options: {
+      method: "PUT",
+    },
+  });
+
+  if (!response.ok) {
+    throwForMindTouchResponse(
+      response,
+      "Error ordering Back Matter as the last chapter",
+    );
+  }
+  return true;
+};
+
 // Disambiguates duplicate sibling titles set by applySiblingDuplicateTitleSuffixes
 // on the client; 0/undefined is hidden, 1+ is shown as a "(n)" suffix.
 const appendSiblingTitleSuffix = (
@@ -1273,6 +1339,17 @@ const runRemixerJob = async ({
       );
     }
     const bookURL = remixerState.remixerCurrentBook[0]["@href"];
+
+    // Ensure Back Matter is the last chapter among its siblings.
+    log("[*] Ordering Back Matter as last chapter...");
+    const orderedBackMatter = await withRetryOnTransient(() =>
+      orderBackMatterLast(finalBook, subdomain),
+    );
+    if (orderedBackMatter) {
+      job.messages.push("Back Matter ordered as last chapter.");
+      await job.save();
+    }
+
     // ── Trigger Mindtouch TOC update ─────────────────────────────────────────
     log("[*] Triggering MindMap TOC update...");
     await fetch(`https://batch.libretexts.org/print/Libretext=${bookURL}`, {
