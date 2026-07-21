@@ -133,57 +133,65 @@ const TreeNodeContainer: React.FC<TreeNodeContainerProps> = ({
 
         <Icon name={isFolder ? "folder" : "file alternate"} color="grey" />
 
-        <span
-          className="text-lg"
-          style={{
-            whiteSpace: "nowrap",
-            fontStyle: isVisualLocked ? "italic" : "normal",
-            color: isVisualLocked ? "#6b7280" : "inherit",
-          }}
-        >
-          {displayTitle}
-          {isDeleted && (
-            <Icon
-              name="trash"
-              color="grey"
-              style={{ marginLeft: 6,  size: "small" }}
-              title="Deleted"
-            />
-          )}
-          {(isRenamed ||
-            isPlacementChanged ||
-            page.movedItem) && (
-              <Icon
-                name="sync"
-                color="grey"
-                style={{
-                  marginLeft: 6,
-                  // verticalAlign: "middle",
-                  size: "small",
-                }}
-                title="Modified, moved, renamed"
-              />
-            )}
-          {isImported && (
-            <Icon
-              name="add circle"
-              color="grey"
-              style={{ marginLeft: 6,  size: "small" }}
-              title="Imported, added"
-            />
-          )}
-        </span>
         {!isBookTree && itemLink ? (
           <a
             href={itemLink}
             target="_blank"
             rel="noreferrer"
-            style={{ marginLeft: 8, color: "#1e70bf" }}
+            className="text-lg"
+            style={{
+              whiteSpace: "nowrap",
+              fontStyle: isVisualLocked ? "italic" : "normal",
+              // color: "#1e70bf",
+              textDecoration: "none",
+            }}
             onClick={(event) => event.stopPropagation()}
           >
-            <Icon name="linkify" />
+            {displayTitle}
+            <Icon name="linkify" style={{ marginLeft: 8, color: "#1e70bf" }} />
           </a>
-        ) : null}
+        ) : (
+          <span
+            className="text-lg"
+            style={{
+              whiteSpace: "nowrap",
+              fontStyle: isVisualLocked ? "italic" : "normal",
+              color: isVisualLocked ? "#6b7280" : "inherit",
+            }}
+          >
+            {displayTitle}
+          </span>
+        )}
+        {isDeleted && (
+          <Icon
+            name="trash"
+            color="grey"
+            style={{ marginLeft: 6,  size: "small" }}
+            title="Deleted"
+          />
+        )}
+        {(isRenamed ||
+          isPlacementChanged ||
+          page.movedItem) && (
+            <Icon
+              name="sync"
+              color="grey"
+              style={{
+                marginLeft: 6,
+                // verticalAlign: "middle",
+                size: "small",
+              }}
+              title="Modified, moved, renamed"
+            />
+          )}
+        {isImported && (
+          <Icon
+            name="add circle"
+            color="grey"
+            style={{ marginLeft: 6,  size: "small" }}
+            title="Imported, added"
+          />
+        )}
       </List.Item>
       {children}
     </div>

@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { useMediaQuery } from "react-responsive";
 import {
+  Card,
   Container,
   Dimmer,
   Dropdown,
@@ -70,7 +71,8 @@ import {
 } from "./services";
 import { DAVIS_REMIXER_BTN_CLASS } from "./style";
 
-import { IconButton, Select, Text } from "@libretexts/davis-react";
+import { Breadcrumb, Heading, IconButton, Select, Stack, Text } from "@libretexts/davis-react";
+import useProject from "../../hooks/useProject";
 
 const RemixerDashboard: React.FC = () => {
   // ==========================================================================
@@ -110,6 +112,8 @@ const RemixerDashboard: React.FC = () => {
     hasServer: false,
     hasServerDraft: false,
   });
+
+  const { project, isLoading: isLoadingProject } = useProject(id ?? "");
 
   const [contextMenu, setContextMenu] = useState<{
     nodeId: string;
@@ -895,6 +899,13 @@ const RemixerDashboard: React.FC = () => {
   const handleSaveEdit = (page: RemixerSubPage) => {
     setUiState((prev) => ({ ...prev, editPanelOpen: false }));
 
+    const normalizeEditTitle = (value: string) => {
+      let s = value;
+      const colonIndex = s.indexOf(":");
+      if (colonIndex !== -1) s = s.slice(colonIndex + 1);
+      return s.replace(/:/g, "").trim();
+    };
+
     const nextOverride = page.formattedPathOverride === true;
     const nextFormattedPathPrefix = nextOverride
       ? (page.formattedPathPrefix ?? "")
@@ -905,6 +916,30 @@ const RemixerDashboard: React.FC = () => {
     const nextFormattedPath = nextOverride
       ? `${nextFormattedPathPrefix ?? ""}${nextFormattedPathIndex ?? ""}`.trim()
       : undefined;
+
+    const existingNode = (remixerData.currentBook ?? []).find(
+      (node) => node["@id"] === page["@id"],
+    );
+    if (!existingNode) return;
+
+    const previousTitle = normalizeEditTitle(
+      existingNode.title || existingNode["@title"] || "",
+    );
+    const nextTitle = normalizeEditTitle(page.title || page["@title"] || "");
+    const titleChanged = previousTitle !== nextTitle;
+    const prevOverride = existingNode.formattedPathOverride === true;
+    const pathChanged =
+      prevOverride !== nextOverride ||
+      (nextOverride &&
+        ((existingNode.formattedPathPrefix ?? "") !==
+          (nextFormattedPathPrefix ?? "") ||
+          (existingNode.formattedPathIndex ?? "") !==
+            (nextFormattedPathIndex ?? "") ||
+          (existingNode.formattedPath ?? "").trim() !==
+            (nextFormattedPath ?? "").trim()));
+
+    // Save with no edits should not mark the node modified or push history.
+    if (!titleChanged && !pathChanged) return;
 
     if (isDefaultMatterItem(page["@id"])) {
       // For default matter items only the path-prefix override can be changed.
@@ -933,9 +968,6 @@ const RemixerDashboard: React.FC = () => {
       (existingBook) => {
         return existingBook.map((node) => {
           if (node["@id"] !== page["@id"]) return node;
-          const previousTitle = node.title || node["@title"] || "";
-          const nextTitle = page.title || page["@title"] || "";
-          const renamed = previousTitle !== nextTitle;
           const saved = {
             ...node,
             ...page,
@@ -949,7 +981,9 @@ const RemixerDashboard: React.FC = () => {
           return {
             ...saved,
             renamedItem:
-              node.renamedItem || renamed || hasFormattedPathChanged(saved),
+              node.renamedItem ||
+              titleChanged ||
+              hasFormattedPathChanged(saved),
           };
         });
       },
@@ -2007,6 +2041,23 @@ const RemixerDashboard: React.FC = () => {
         marginRight: 0,
       }}
     >
+      <Grid.Row>
+        <Grid.Column >
+       <Stack direction="vertical" gap="xs" className="mb-2">
+        <Heading level={2}>
+          Remixer
+        </Heading>
+        {
+          !isLoadingProject && project?.title && (
+            <Breadcrumb className="ml-1">
+              <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
+              <Breadcrumb.Item href={`/projects/${id}`}>{project?.title}</Breadcrumb.Item>
+              <Breadcrumb.Item isCurrent>Remixer</Breadcrumb.Item>
+            </Breadcrumb>
+          )
+        }
+      </Stack></Grid.Column></Grid.Row>
+     
       <ControlPanel
         onStartOver={handleStartOver}
         onLoadVersion={openRecoveryModal}

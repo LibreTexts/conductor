@@ -168,7 +168,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/store' component={StoreManager} />
           <PrivateRoute exact path='/controlpanel/store/orders/:order_id' component={StoreManagerOrderView} />
           <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
-          <PrivateRoute exact path='/remixer/:id' component={RemixerDashboard} />
+          <PrivateRoute exact path='/projects/:id/remixer' component={RemixerDashboard} />
           <PrivateRoute exact path='/glossary/book/:id' component={GlossaryManager} />
           <PrivateRoute exact path='/glossary/project/:id' component={GlossaryManager} />
           <Route exact path="/download/:projectID/:fileID" component={PermanentLinkDownload} />

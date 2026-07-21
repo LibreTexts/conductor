@@ -68,6 +68,7 @@ import * as RemixerValidators from "./api/validators/remixer.js";
 
 import * as RestackerValidators from "./api/validators/Restacker.js";
 import restackerAPI from "./api/restacker.js";
+import { generateAPIRequestHeaders } from "./util/librariesclient.js";
 
 const corsMiddleware = cors({
   origin(origin, callback) {
@@ -3262,8 +3263,8 @@ router
   )
   .put(
     authAPI.verifyRequest,
-    authAPI.getUserAttributes ,
-    express.json({ limit: "2mb" }),
+    authAPI.getUserAttributes,
+    middleware.streamJsonBody,
     middleware.validateZod(RemixerValidators.SaveRemixerProjectStateSchema),
     (req, res, next) => {
       console.log("saveRemixerProjectState", req.body.pathLevelFormats);
@@ -3299,14 +3300,14 @@ router
   .route("/remixer/:id/publish")
   .post(
     authAPI.verifyRequest,
-    authAPI.getUserAttributes ,
-    express.json({ limit: "2mb" }),
+    authAPI.getUserAttributes,
+    middleware.streamJsonBody,
     middleware.validateZod(RemixerValidators.SaveRemixerProjectStateSchema),
     remixerAPI.publishRemixerProject
   )
   .get(
     authAPI.verifyRequest,
-    authAPI.getUserAttributes ,
+    authAPI.getUserAttributes,
     remixerAPI.getRemixerJobStatus
   );
 

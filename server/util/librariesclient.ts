@@ -213,6 +213,7 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
         query,
         queryIsFirst
       )}`;
+   
       request = fetch(url, finalOptions);
     }
 

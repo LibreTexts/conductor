@@ -352,6 +352,36 @@ const isSelfOrSupport = async (
   }
 };
 
+/**
+ * Reads the incoming request body as a Node.js readable stream — no size
+ * ceiling — then parses it as JSON and assigns the result to `req.body`.
+ *
+ * Use this instead of the global `bodyParser.json()` on routes that must
+ * accept arbitrarily large JSON payloads (e.g. remixer book-state save and
+ * publish). The calling route must be excluded from the global body-parser
+ * middleware so the stream is not consumed before this runs.
+ */
+const streamJsonBody = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.headers["content-type"]?.startsWith("application/json")) {
+    return next();
+  }
+  const chunks: Buffer[] = [];
+  req.on("data", (chunk: unknown) => {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string, "utf-8"));
+  });
+  req.on("end", () => {
+    try {
+      req.body = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+      next();
+    } catch {
+      res.status(400).json({ err: true, errMsg: "Invalid or malformed JSON body" });
+    }
+  });
+  req.on("error", () => {
+    res.status(400).json({ err: true, errMsg: "Error reading request body" });
+  });
+};
+
 const validateZod = (schema: ZodObject<any>) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     let validationErrors: string[] = [];
@@ -397,5 +427,6 @@ export default {
   authLibreOneRequest,
   canAccessSupportTicket,
   isSelfOrSupport,
+  streamJsonBody,
   validateZod,
 };
