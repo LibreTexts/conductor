@@ -664,19 +664,21 @@ const TreeDnd: React.FC<TreeDndProps> = ({
                   href={itemLink}
                   target="_blank"
                   rel="noreferrer"
+                  className="text-lg"
                   style={{
                     whiteSpace: "nowrap",
                     fontStyle: isInteractionLocked ? "italic" : "normal",
-                    color: "#1e70bf",
+                    
                     textDecoration: isDeleted ? "line-through" : "none",
                   }}
                   onClick={(event) => event.stopPropagation()}
                 >
                   {displayTitle}
-                  <Icon name="linkify" style={{ marginLeft: 8 }} />
+                  <Icon name="linkify" style={{ marginLeft: 8 ,color: "#1e70bf",} } />
                 </a>
               ) : (
                 <span
+                  className="text-lg"
                   style={{
                     whiteSpace: "nowrap",
                     fontStyle: isInteractionLocked ? "italic" : "normal",
