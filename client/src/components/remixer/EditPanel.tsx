@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {    Icon, Modal } from "semantic-ui-react";
 import { Library, RemixerSubPage } from "./model";
 import { Button, Checkbox, Input, Stack } from "@libretexts/davis-react";
@@ -39,6 +39,8 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
     library
   } = props;
   const [page, setPage] = useState<RemixerSubPage | undefined>(currentPage);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleSaveClick = () => {
     if (!page) return;
@@ -69,8 +71,17 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
     setPage({ ...currentPage, title, "@title": title });
   }, [currentPage, open]);
 
+  useEffect(() => {
+    if (!open) return;
+    // After Semantic UI Modal finishes its own focus management
+    const id = window.setTimeout(() => {
+      titleInputRef.current?.focus();
+    }, 0);
+    return () => clearTimeout(id);
+  }, [open]);
+
   return (
-    <Modal open={open} onClose={onClose} dimmer={dimmer}>
+    <Modal open={open} onClose={onClose} dimmer={dimmer} autofocus={false} closeIcon>
       <Modal.Header>Edit Page</Modal.Header>
       <Modal.Content>
       
@@ -134,6 +145,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
           }
         />
         <Input
+          ref={titleInputRef}
           name="title"
           label="Title"
           placeholder="Loading title..."
@@ -144,7 +156,13 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
               prev ? { ...prev, title: next, "@title": next } : prev,
             );
           }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            saveButtonRef.current?.focus();
+          }}
           className="flex-7"
+          tabIndex={1}
         />
        
         </Stack>
@@ -162,10 +180,14 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
       </Modal.Content>
       <Modal.Actions>
         <Stack direction="horizontal" gap="md" justify="end">
-        <Button  onClick={onClose} className={DAVIS_REMIXER_BTN_CLASS.base}>
-          Cancel
-        </Button>
-        <Button  onClick={handleSaveClick} disabled={!page} className={DAVIS_REMIXER_BTN_CLASS.success}>
+
+        <Button
+          ref={saveButtonRef}
+          onClick={handleSaveClick}
+          disabled={!page}
+          className={DAVIS_REMIXER_BTN_CLASS.success}
+          tabIndex={2}
+        >
           Save
         </Button>
         </Stack>

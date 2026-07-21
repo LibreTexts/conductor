@@ -122,6 +122,41 @@ class API {
       ? `${import.meta.env.VITE_DEV_BASE_URL}/api/v1`
       : "/api/v1";
 
+  /**
+   * Streams a JSON payload to the server using a `ReadableStream` fetch body.
+   * This bypasses Express's `bodyParser.json()` size ceiling — the server reads
+   * the body from the raw stream with no limit. Auth is handled by the session
+   * cookie (`credentials: "include"` mirrors `axios.defaults.withCredentials`).
+   *
+   * Returns the parsed JSON response, or throws with a shape compatible with
+   * the Axios error format so callers can handle it uniformly.
+   */
+  private async streamJson<T>(method: "PUT" | "POST", path: string, data: unknown): Promise<T> {
+    const response = await fetch(`${this.BASE_URL}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        // Mirror the header axios sets globally so the server treats this
+        // identically to other authenticated AJAX requests.
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      body: JSON.stringify(data),
+      credentials: "include",
+    });
+
+    const text = await response.text().catch(() => "");
+    let parsed: Record<string, unknown> = {};
+    try { parsed = JSON.parse(text); } catch { /* non-JSON error body */ }
+
+    if (!response.ok) {
+      throw Object.assign(
+        new Error(String(parsed.errMsg ?? parsed.message ?? `HTTP ${response.status}`)),
+        { response: { status: response.status, data: parsed } },
+      );
+    }
+    return parsed as T;
+  }
+
   // ANNOUNCEMENTS
   async getSystemAnnouncement() {
     const res = await axios.get<
@@ -2662,7 +2697,7 @@ class API {
     currentBook: unknown[],
     settings?: { autoNumbering?: boolean; copyModeState?: string; pathLevelFormats?: unknown[] },
   ) {
-    const res = await axios.put<
+    return this.streamJson<
       {
         projectID: string;
         currentBook: unknown[];
@@ -2670,11 +2705,7 @@ class API {
         copyModeState?: string;
         pathLevelFormats?: unknown[];
       } & ConductorBaseResponse
-    >(`/remixer/${id}/project`, {
-      currentBook,
-      ...settings,
-    });
-    return res.data;
+    >("PUT", `/remixer/${id}/project`, { currentBook, ...settings });
   }
 
   async publishRemixerProject(
@@ -2682,13 +2713,12 @@ class API {
     currentBook: unknown[],
     settings?: { autoNumbering?: boolean; copyModeState?: string; pathLevelFormats?: unknown[] },
   ) {
-    const res = await axios.post<
+    return this.streamJson<
       {
         projectID: string;
         currentBook: unknown[];
       } & ConductorBaseResponse
-    >(`/remixer/${id}/publish`, { currentBook, ...settings });
-    return res.data;
+    >("POST", `/remixer/${id}/publish`, { currentBook, ...settings });
   }
 
   async getRemixerPublishJobStatus(id: string) {

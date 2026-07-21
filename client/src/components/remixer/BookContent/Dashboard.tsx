@@ -507,6 +507,16 @@ const TreeDnd: React.FC<TreeDndProps> = ({
             isMatterBranchNode(root["@id"]) &&
             !root.addedItem &&
             !isMatterNode(root);
+          const displayTitle = appendSiblingTitleSuffix(
+            getRemixerDisplayTitle(
+              root,
+              numberPath,
+              inMatterNoNumberSubtree,
+              inDeletedBranch,
+              displayTitleOptions,
+            ),
+            root,
+          );
 
           return (
             <div key={root["@id"]} data-node-id={root["@id"]}>
@@ -600,6 +610,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
                   }
                   onSelectNode?.(isSelected ? undefined : root["@id"]);
                 }
+                
               }}
               onDoubleClick={() => {
                 if (isBookTree && !isInteractionLocked) {
@@ -648,37 +659,34 @@ const TreeDnd: React.FC<TreeDndProps> = ({
               <span style={{ width: 12 }} />
 
               <Icon name="folder" color="grey" />
-              <span
-                style={{
-                  whiteSpace: "nowrap",
-                  fontStyle: isInteractionLocked ? "italic" : "normal",
-                  color: isInteractionLocked ? "#6b7280" : "inherit",
-                  textDecoration: isDeleted ? "line-through" : "none",
-                }}
-              >
-                
-                {appendSiblingTitleSuffix(
-                  getRemixerDisplayTitle(
-                    root,
-                    numberPath,
-                    inMatterNoNumberSubtree,
-                    inDeletedBranch,
-                    displayTitleOptions,
-                  ),
-                  root,
-                )}
-              </span>
               {!isBookTree && itemLink ? (
                 <a
                   href={itemLink}
                   target="_blank"
                   rel="noreferrer"
-                  style={{ marginLeft: 8, color: "#1e70bf" }}
+                  style={{
+                    whiteSpace: "nowrap",
+                    fontStyle: isInteractionLocked ? "italic" : "normal",
+                    color: "#1e70bf",
+                    textDecoration: isDeleted ? "line-through" : "none",
+                  }}
                   onClick={(event) => event.stopPropagation()}
                 >
-                  <Icon name="linkify" />
+                  {displayTitle}
+                  <Icon name="linkify" style={{ marginLeft: 8 }} />
                 </a>
-              ) : null}
+              ) : (
+                <span
+                  style={{
+                    whiteSpace: "nowrap",
+                    fontStyle: isInteractionLocked ? "italic" : "normal",
+                    color: isInteractionLocked ? "#6b7280" : "inherit",
+                    textDecoration: isDeleted ? "line-through" : "none",
+                  }}
+                >
+                  {displayTitle}
+                </span>
+              )}
             </List.Item>
             {renderNodes(
               root["@id"],

@@ -127,6 +127,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               flex: 1,
               display: "flex",
               justifyContent: "center",
+              alignItems: "center",
+              gap: "8px",
               minWidth: 0,
             }}
           >
@@ -149,6 +151,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               /> */}
             {isAdmin && (
               <Select
+                title="Copy Mode"
                 name="copyMode"
                 label=""
                 options={copyModeStates.map((state) => ({
@@ -157,6 +160,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                 }))}
                 placeholder="Copy Mode..."
                 value={copyModeState ?? defaultCopyModeState.value}
+                labelClassName="hidden"
+                className="min-w-[11rem] shrink-0 [&>div]:!mt-0"
+                selectClassName={`!pr-10 !box-border ${CP_CONTROL_H}`}
                 onChange={(e) => {
                   const next = copyModeStates.find(
                     (s) => s.value === e.target.value,
@@ -169,17 +175,19 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               content="Autonumbering settings"
               position="bottom center"
               trigger={
-                <Button
-                  style={buttonStyle}
-                  onClick={onPathNameFormat}
-                  className={
-                    autoNumbering
-                      ? `${DAVIS_REMIXER_BTN_CLASS.success} ${CP_CONTROL_H}`
-                      : cpTextBtn(DAVIS_REMIXER_BTN_CLASS.neutral)
-                  }
-                >
-                  Autonumber
-                </Button>
+                <span className={`inline-flex items-center ${CP_CONTROL_H}`}>
+                  <Button
+                    style={buttonStyle}
+                    onClick={onPathNameFormat}
+                    className={
+                      autoNumbering
+                        ? `${DAVIS_REMIXER_BTN_CLASS.success} ${CP_CONTROL_H}`
+                        : cpTextBtn(DAVIS_REMIXER_BTN_CLASS.neutral)
+                    }
+                  >
+                    Autonumber
+                  </Button>
+                </span>
               }
             />
           </div>
@@ -225,20 +233,22 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                     icon="save"
                     text="Save as a draft"
                     onClick={onSave}
+                    title="Save Remixing Map draft to Conductor"
                   />
                   <Dropdown.Item
                     icon="upload"
                     text="Save to Library"
                     onClick={onPublish}
+                    title="Save Book to Library"
                   />
                 </Dropdown.Menu>
               </Dropdown>
             ) : (
               <>
                 <Popup
-                  content="Save as a draft"
+                  content="Save Remixing Map draft to Conductor"
                   position="bottom center"
-                  aria-label="Save as a draft"
+                  aria-label="Save Remixing Map draft to Conductor"
                   trigger={
                     <span
                       className={`inline-flex items-center ${CP_CONTROL_H}`}
@@ -247,15 +257,16 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                         icon={<Icon name="save" />}
                         onClick={onSave}
                         className={cpIconBtn(DAVIS_REMIXER_BTN_CLASS.neutral)}
-                        aria-label="Save as a draft"
+                        aria-label="Save Remixing Map draft to Conductor"
                       />
                     </span>
                   }
                 />
                 <Popup
-                  content="Save on Library"
+                  content="Save Book to Library"
                   position="bottom center"
-                  aria-label="Save to Library"
+                  aria-label="Save Book to Library"
+                  word
                   trigger={
                     <span
                       className={`inline-flex items-center ${CP_CONTROL_H}`}
@@ -264,7 +275,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                         icon={<Icon name="upload" />}
                         onClick={onPublish}
                         className={cpIconBtn(DAVIS_REMIXER_BTN_CLASS.neutral)}
-                        aria-label="Save to Library"
+                        aria-label="Save Book to Library"
                       />
                     </span>
                   }

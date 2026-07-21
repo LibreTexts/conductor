@@ -202,7 +202,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                 content="This link will open the book in the LibreTexts OER Remixer v3."
                 trigger={
                   <Button
-                    onClick={() => window.open(`/remixer/${projectID}`, "_blank")}
+                    onClick={() => window.open(`/projects/${projectID}/remixer`, "_blank")}
                     color="blue"
                     size="small"
                   >
