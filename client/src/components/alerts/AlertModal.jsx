@@ -28,7 +28,7 @@ const AlertModal = ({ open, onClose, query, mode, alertData }) => {
     book: false,
     homework: false,
   };
-  const projLocationDefault = 'global';
+  const projLocationDefault = "global";
 
   const { handleGlobalError } = useGlobalError();
 
@@ -45,7 +45,7 @@ const AlertModal = ({ open, onClose, query, mode, alertData }) => {
     if (typeof query === 'string' && query.length > 0 && query.length <= 150) {
       setAlertQuery(query);
     }
-  }, [query, setAlertQuery]);
+  }, [query]);
 
   const resetCreateForm = () => {
     setQueryError(false);
@@ -53,7 +53,7 @@ const AlertModal = ({ open, onClose, query, mode, alertData }) => {
   };
 
   const closeModalInternal = () => {
-    setAlertQuery('');
+    setAlertQuery("");
     setResources(resourcesDefault);
     setProjLocation(projLocationDefault);
     setTiming(alertTimingOptions[0].value);

@@ -227,7 +227,17 @@ export async function addProjectFile(
     }
 
     // Add a file
-    const storageClient = new S3Client({ region: process.env.AWS_PROJECTFILES_REGION || process.env.AWS_REGION });
+    const storageClient = new S3Client({
+      region: process.env.AWS_PROJECTFILES_REGION || process.env.AWS_REGION,
+      ...(process.env.AWS_PROJECTFILES_ACCESS_KEY && process.env.AWS_PROJECTFILES_SECRET_KEY
+        ? {
+            credentials: {
+              accessKeyId: process.env.AWS_PROJECTFILES_ACCESS_KEY,
+              secretAccessKey: process.env.AWS_PROJECTFILES_SECRET_KEY,
+            },
+          }
+        : {}),
+    });
     const providedFiles = Array.isArray(req.files) && req.files.length > 0;
     const filesToCreate: RawProjectFileInterface[] = [];
 
@@ -648,7 +658,17 @@ async function bulkDownloadProjectFiles(
       throw new Error("retrieveerror");
     }
 
-    const storageClient = new S3Client({ region: process.env.AWS_PROJECTFILES_REGION || process.env.AWS_REGION });
+    const storageClient = new S3Client({
+      region: process.env.AWS_PROJECTFILES_REGION || process.env.AWS_REGION,
+      ...(process.env.AWS_PROJECTFILES_ACCESS_KEY && process.env.AWS_PROJECTFILES_SECRET_KEY
+        ? {
+            credentials: {
+              accessKeyId: process.env.AWS_PROJECTFILES_ACCESS_KEY,
+              secretAccessKey: process.env.AWS_PROJECTFILES_SECRET_KEY,
+            },
+          }
+        : {}),
+    });
     const downloadCommands: any[] = [];
 
     if (foundFiles.length === 0) {
@@ -963,7 +983,17 @@ async function updateProjectFile(
       };
     }
 
-    const storageClient = new S3Client({ region: process.env.AWS_PROJECTFILES_REGION || process.env.AWS_REGION });
+    const storageClient = new S3Client({
+      region: process.env.AWS_PROJECTFILES_REGION || process.env.AWS_REGION,
+      ...(process.env.AWS_PROJECTFILES_ACCESS_KEY && process.env.AWS_PROJECTFILES_SECRET_KEY
+        ? {
+            credentials: {
+              accessKeyId: process.env.AWS_PROJECTFILES_ACCESS_KEY,
+              secretAccessKey: process.env.AWS_PROJECTFILES_SECRET_KEY,
+            },
+          }
+        : {}),
+    });
 
     const isPhysicalFile =
       file.storageType === "file" && !file.isURL && !file.url && !file.isVideo;
@@ -1332,7 +1362,17 @@ async function removeProjectFilesInternal(projectID: string, fileIDs: string[]) 
     .filter((obj) => obj !== null);
 
   if (filesToDelete.length > 0) {
-    const storageClient = new S3Client({ region: process.env.AWS_PROJECTFILES_REGION || process.env.AWS_REGION });
+    const storageClient = new S3Client({
+      region: process.env.AWS_PROJECTFILES_REGION || process.env.AWS_REGION,
+      ...(process.env.AWS_PROJECTFILES_ACCESS_KEY && process.env.AWS_PROJECTFILES_SECRET_KEY
+        ? {
+            credentials: {
+              accessKeyId: process.env.AWS_PROJECTFILES_ACCESS_KEY,
+              secretAccessKey: process.env.AWS_PROJECTFILES_SECRET_KEY,
+            },
+          }
+        : {}),
+    });
     const deleteRes = await storageClient.send(
       new DeleteObjectsCommand({
         Bucket: process.env.AWS_PROJECTFILES_BUCKET,

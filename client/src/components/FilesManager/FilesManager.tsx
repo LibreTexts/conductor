@@ -1,19 +1,29 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
+  Alert,
+  Breadcrumb as DavisBreadcrumb,
   Button,
-  Loader,
-  Icon,
-  Breadcrumb,
-  Table,
-  Segment,
-  Grid,
-  Header,
-  SegmentProps,
-  SemanticWIDTHS,
-  Popup,
-  Dropdown,
-  Message,
-} from "semantic-ui-react";
+  Menu,
+  Spinner,
+  Tooltip,
+} from "@libretexts/davis-react";
+import { DataTable, ColumnDef } from "@libretexts/davis-react-table";
+import {
+  IconArrowsMove,
+  IconBook,
+  IconCode,
+  IconDownload,
+  IconEdit,
+  IconFolder,
+  IconInfoCircle,
+  IconLock,
+  IconDotsVertical,
+  IconPlus,
+  IconShare,
+  IconTags,
+  IconTrash,
+  IconUpload,
+} from "@tabler/icons-react";
 const AddFolder = React.lazy(() => import("./AddFolder"));
 const ChangeAccess = React.lazy(() => import("./ChangeAccess"));
 const DeleteFiles = React.lazy(() => import("./DeleteFiles"));
@@ -41,28 +51,22 @@ import api from "../../api";
 import { saveAs } from "file-saver";
 import { useTypedSelector } from "../../state/hooks";
 import { base64ToBlob, copyToClipboard } from "../../utils/misc";
-import { useMediaQuery } from "react-responsive";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import PermanentLinkModal from "./PermanentLinkModal";
 import { useModals } from "../../context/ModalContext";
 import BulkTagModal from "./BulkTagModal";
 
-interface FilesManagerProps extends SegmentProps {
+interface FilesManagerProps {
   projectID: string;
   toggleFilesManager: () => void;
   canViewDetails: boolean;
-  allowBulkDownload?: boolean; 
+  allowBulkDownload?: boolean;
   projectHasDefaultLicense?: boolean;
   projectVisibility?: string;
 }
 
-type FileEntry = ProjectFile & {
-  checked: boolean;
-};
+type FileEntry = ProjectFile;
 
-/**
- * Modal tool to manage Files set for a Project
- */
 const FilesManager: React.FC<FilesManagerProps> = ({
   projectID,
   toggleFilesManager,
@@ -74,7 +78,6 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
-  const isTailwindLg = useMediaQuery({ minWidth: 1024 }, undefined);
   const { openModal, closeAllModals } = useModals();
 
   const [showUploader, setShowUploader] = useState(false);
@@ -94,6 +97,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
       name: "",
     },
   ]);
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 
   const [editID, setEditID] = useState<string>("");
   const [moveFiles, setMoveFiles] = useState<FileEntry[]>([]);
@@ -104,207 +108,79 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   const { data: files, isFetching: filesLoading } = useQuery<FileEntry[]>({
     queryKey: FILES_QUERY_KEY,
     queryFn: () => getFiles(),
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   });
+
+  useEffect(() => {
+    setRowSelection({});
+  }, [currDirectory]);
 
   const hasAnyTags = useMemo(() => {
     if (!files || files.length === 0) return false;
     return files.some((file) => file.tags && file.tags.length > 0);
   }, [files]);
 
-  const TABLE_COLS: {
-    key: string;
-    text: string;
-    width: SemanticWIDTHS;
-    collapsing?: boolean;
-  }[] = useMemo(() => {
-    const baseCols = [
-      {
-        key: "name",
-        text: "Name",
-        width: hasAnyTags ? 5 : (7 as SemanticWIDTHS),
-      },
-      {
-        key: "access",
-        text: "Access",
-        width: hasAnyTags ? 3 : (5 as SemanticWIDTHS),
-      },
-      {
-        key: "actions",
-        text: "",
-        width: hasAnyTags ? 1 : (4 as SemanticWIDTHS),
-        collapsing: true,
-      },
-    ];
+  const selectedFiles = useMemo(
+    () => files?.filter((f) => rowSelection[f.fileID]) || [],
+    [files, rowSelection]
+  );
 
-    if (hasAnyTags) {
-      // Insert tags column before actions
-      baseCols.splice(-1, 0, { key: "tags", text: "Tags", width: 9 });
-    }
+  const itemsChecked = selectedFiles.length;
 
-    return baseCols;
-  }, [hasAnyTags]);
+  const allItemsChecked = useMemo(
+    () => !!files && files.length > 0 && files.every((f) => rowSelection[f.fileID]),
+    [files, rowSelection]
+  );
+
+  const canBulkTag = useMemo(
+    () =>
+      selectedFiles.length >= 1 &&
+      !selectedFiles.some((f) => f.storageType !== "file"),
+    [selectedFiles]
+  );
 
   async function getFiles() {
     try {
       const fileRes = await api.getProjectFiles(projectID, currDirectory);
-      if (fileRes.data.err) {
-        throw new Error(fileRes.data.errMsg);
-      }
-
-      if (
-        !Array.isArray(fileRes.data.files) ||
-        !Array.isArray(fileRes.data.path)
-      ) {
+      if (fileRes.data.err) throw new Error(fileRes.data.errMsg);
+      if (!Array.isArray(fileRes.data.files) || !Array.isArray(fileRes.data.path)) {
         throw new Error("Unable to fetch files. Please try again later.");
       }
-
-      const withChecked = fileRes.data.files.map((item: ProjectFile) => ({
-        ...item,
-        checked: false,
-      }));
       setCurrDirPath(fileRes.data.path);
-
-      return withChecked;
+      return fileRes.data.files as FileEntry[];
     } catch (err) {
       handleGlobalError(err);
       return [];
     }
   }
 
-  const itemsChecked = useMemo(() => {
-    if (!files) return 0;
-    return files.filter((item) => item.checked).length;
-  }, [files]);
-
-  const allItemsChecked = useMemo(() => {
-    if (!files) return false;
-    return files.length > 0 && files.every((item) => item.checked);
-  }, [files]);
-
-  const canBulkTag = useMemo(() => {
-    if (!files) return false;
-    if (files.filter((item) => item.checked).length < 1) return false;
-    // If any of the checked files are not of storageType 'file', disable bulk tag
-    return !files.some((item) => item.checked && item.storageType !== "file");
-  }, [files]);
-
-  const handleEntryCheckedMutation = useMutation({
-    mutationFn: ({ id }: { id: string }) => _handleEntryChecked(id),
-    onSuccess(data, variables, context) {
-      if (!data) return;
-      queryClient.setQueryData(FILES_QUERY_KEY, data);
-    },
-  });
-
-  const handleToggleAllCheckedMutation = useMutation<FileEntry[]>({
-    mutationFn: _handleToggleAllChecked,
-    onSuccess(data, variables, context) {
-      if (!data) return;
-      queryClient.setQueryData(FILES_QUERY_KEY, data);
-    },
-  });
-
-  /**
-   * Update state when a File entry is checked/unchecked.
-   */
-  async function _handleEntryChecked(id: string): Promise<FileEntry[]> {
-    if (!id || typeof id !== "string") {
-      if (files) return files; // no change
-      return [];
-    }
-
-    if (!files) return [];
-    const newMapped = files.map((item) => {
-      if (item.fileID === id) {
-        return {
-          ...item,
-          checked: !item.checked,
-        };
-      }
-      return item;
-    });
-    return newMapped;
-  }
-
-  /**
-   * Toggles the checked status of all entries in the list.
-   */
-  async function _handleToggleAllChecked(): Promise<FileEntry[]> {
-    if (!files) return [];
-
-    const foundChecked = files.find((item) => item.checked);
-    if (foundChecked) {
-      // one checked, uncheck all
-      const newMapped = files.map((item) => {
-        return {
-          ...item,
-          checked: false,
-        };
-      });
-
-      return newMapped;
-    }
-
-    // none checked, check all
-    const newMapped = files.map((item) => {
-      return {
-        ...item,
-        checked: true,
-      };
-    });
-    return newMapped;
-  }
-
-  /**
-   * Closes the Files Uploader tool and refreshes the Files list after new upload(s).
-   */
   function handleUploadFinished() {
     setShowUploader(false);
     queryClient.invalidateQueries(FILES_QUERY_KEY);
   }
 
-  /**
-   * Closes the Add Folder tool and refreshes the Files list after addition.
-   */
   function handleAddFolderFinished() {
     setShowAddFolder(false);
     queryClient.invalidateQueries(FILES_QUERY_KEY);
   }
 
-  /**
-   * Gathers the File entry to be edited, enters its information into state,
-   * and opens the Edit File tool.
-   *
-   * @param {string} fileID - Identifier of the entry to work on.
-   */
   function handleEditFile(fileID: string) {
     if (!fileID) return;
     setEditID(fileID);
     setShowEdit(true);
   }
 
-  /**
-   * Closes the Edit File tool and resets its state.
-   */
   function handleEditClose() {
     setShowEdit(false);
     setEditID("");
   }
 
-  /**
-   * Closes the Edit File tool and refreshes the list of Files after successful edit.
-   */
   function handleEditFinished() {
     handleEditClose();
     queryClient.invalidateQueries(FILES_QUERY_KEY);
   }
 
-  /**
-   * Gathers the Files to be moved, enters them into state,
-   * and opens the Move Files tool.
-   */
   function handleMoveFiles(toMove: FileEntry[]) {
     if (toMove.length > 0) {
       setMoveFiles(toMove);
@@ -312,26 +188,16 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     }
   }
 
-  /**
-   * Closes the Move Files tool and resets its state.
-   */
   function handleMoveClose() {
     setShowMove(false);
     setMoveFiles([]);
   }
 
-  /**
-   * Closes the Move Files tool and refreshes the list of Files upon successful move.
-   */
   function handleMoveFinished() {
     handleMoveClose();
-    queryClient.invalidateQueries(["project-files", projectID]); // invalidate entire project as we don't know where it moved
+    queryClient.invalidateQueries(["project-files", projectID]);
   }
 
-  /**
-   * Gathers the Files to be modified, enters them into state,
-   * and opens the Change Access tool.
-   */
   function handleChangeAccess(toChange: FileEntry[]) {
     if (!canViewDetails) return;
     if (toChange.length > 0) {
@@ -340,27 +206,16 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     }
   }
 
-  /**
-   * Closes the Change Access tool and resets its state.
-   */
   function handleAccessClose() {
     setShowChangeAccess(false);
     setAccessFiles([]);
   }
 
-  /**
-   * Closes the Change Access tool and refreshes the list of Files
-   * upon successful modification.
-   */
   function handleAccessFinished() {
     handleAccessClose();
     queryClient.invalidateQueries(FILES_QUERY_KEY);
   }
 
-  /**
-   * Gathers the Files to be deleted, enters them into state,
-   * and opens the Delete Files tool.
-   */
   function handleDeleteFiles(toDelete: FileEntry[]) {
     if (toDelete.length > 0) {
       setDeleteFiles(toDelete);
@@ -368,26 +223,19 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     }
   }
 
-  /**
-   * Closes the Delete Files tool and resets its state.
-   */
   function handleDeleteClose() {
     setShowDelete(false);
     setDeleteFiles([]);
   }
 
-  /**
-   * Closes the Delete Files tool and refreshes the list of Files upon successful deletion.
-   */
   function handleDeleteFinished() {
     handleDeleteClose();
     queryClient.invalidateQueries(FILES_QUERY_KEY);
   }
 
   function handleDownloadRequest() {
-    if (!files) return;
-    const requested = files.filter(
-      (obj) => obj.checked && obj.storageType === "file" && !obj.isVideo // filter out videos for now
+    const requested = selectedFiles.filter(
+      (obj) => obj.storageType === "file" && !obj.isVideo
     );
     if (requested.length === 0) return;
     if (requested.length === 1) {
@@ -402,8 +250,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
       try {
         const response = await api.getPermanentLink(projectID, fileID);
         if (!response.data.err) {
-          const permanentUrl = response.data.url;
-          setPermanentLink(permanentUrl);
+          setPermanentLink(response.data.url);
           setShowPermanentLinkModal(true);
         } else {
           handleGlobalError(response.data.errMsg);
@@ -420,20 +267,14 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     setPermanentLink("");
   }, []);
 
-  function handleDownloadFile(
-    projectID: string,
-    fileID: string,
-    isVideo?: boolean
-  ) {
+  function handleDownloadFile(projectID: string, fileID: string, isVideo?: boolean) {
     if (isVideo) {
       window.open(`/file/${projectID}/${fileID}`, "_blank");
       return;
     }
     const success = downloadFile(projectID, fileID);
     if (!success) {
-      handleGlobalError(
-        new Error("Unable to download file. Please try again later.")
-      );
+      handleGlobalError(new Error("Unable to download file. Please try again later."));
     }
   }
 
@@ -441,647 +282,450 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     try {
       setDownloadLoading(true);
       const res = await api.bulkDownloadFiles(projectID, ids);
-
       if (!res.data || res.data.err) {
         throw new Error("Unable to download files. Please try again later.");
       }
-
       if (!res.data.file) {
         setShowLargeDownload(true);
       } else {
-        const b64Data = res.data.file;
-        const blob = base64ToBlob(b64Data, "application/zip");
-        if (!blob) {
-          throw new Error("Unable to download files. Please try again later.");
-        }
+        const blob = base64ToBlob(res.data.file, "application/zip");
+        if (!blob) throw new Error("Unable to download files. Please try again later.");
         saveAs(blob, `${projectID}.zip`);
       }
     } catch (err) {
       handleGlobalError(err);
     } finally {
       setDownloadLoading(false);
-      handleToggleAllCheckedMutation.mutate();
+      setRowSelection({});
     }
   }
 
-  async function handleGetEmbedCode(
-    videoID: string,
-    type: "html" | "url" = "html"
-  ): Promise<void> {
+  async function handleGetEmbedCode(videoID: string, type: "html" | "url" = "html"): Promise<void> {
     try {
       const res = await api.getProjectFileEmbedHTML(projectID, videoID);
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-
+      if (res.data.err) throw new Error(res.data.errMsg);
       if (!res.data.embed_html || !res.data.embed_url) {
         throw new Error("Unable to get embed code. Please try again later.");
       }
-
-      const code =
-        type === "html"
-          ? res.data.embed_html
-          : type === "url"
-          ? res.data.embed_url
-          : res.data.media_id;
-
-      if (!code) {
-        throw new Error("Unable to get embed code. Please try again later.");
-      }
-
+      const code = type === "html" ? res.data.embed_html : res.data.embed_url;
+      if (!code) throw new Error("Unable to get embed code. Please try again later.");
       const msg =
         type === "html"
           ? "Embed code copied to clipboard. NOTE: This code is only valid on libretexts.org or libretexts.net domains."
           : "Embed URL copied to clipboard. Paste this URL into the ADAPT editor.";
-
       await copyToClipboard(code, msg);
     } catch (err) {
       handleGlobalError(err);
     }
   }
 
-  /**
-   * Updates state with the a new directory to bring into view.
-   *
-   * @param {string} directoryID - Identifier of the directory entry.
-   */
   function handleDirectoryClick(directoryID: string) {
     setCurrDirectory(directoryID);
   }
 
   function handleBulkTagFiles() {
-    if (!files || files.length === 0) return;
-    const toTag = files.filter(
-      (obj) => obj.checked && obj.storageType === "file"
-    );
+    if (selectedFiles.length === 0) return;
+    const toTag = selectedFiles.filter((obj) => obj.storageType === "file");
     if (toTag.length === 0) return;
-
     openModal(
       <BulkTagModal
         projectID={projectID}
         fileIds={toTag.map((f) => f.fileID)}
         onCancel={() => closeAllModals()}
         onSave={() => {
-          queryClient.invalidateQueries({
-            queryKey: FILES_QUERY_KEY,
-          });
+          queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
           closeAllModals();
         }}
       />
     );
   }
 
-  /**
-   * Generates path breadcrumbs based on the current directory in view.
-   *
-   * @returns {React.ReactElement} The generated breadcrumbs.
-   */
   function DirectoryBreadcrumbs() {
-    const nodes: React.ReactElement[] = [];
-    currDirPath.forEach((item, idx) => {
-      let shouldLink = true;
-      let name = item.name;
-      if (item.name === "" && item.fileID === "") {
-        name = "Files";
-      } else {
-        nodes.push(
-          <Breadcrumb.Divider
-            key={`divider-${item.fileID}`}
-            icon="right chevron"
-          />
-        );
-      }
-      if (idx === currDirPath.length - 1) {
-        shouldLink = false; // don't click active directory
-      }
-      nodes.push(
-        <span
-          key={`section-${item.fileID}`}
-          onClick={
-            shouldLink ? () => handleDirectoryClick(item.fileID) : undefined
-          }
-          className={shouldLink ? "text-link" : ""}
-        >
-          {name}
-        </span>
-      );
-    });
-    return <Breadcrumb>{nodes}</Breadcrumb>;
+    return (
+      <DavisBreadcrumb>
+        {currDirPath.map((item, idx) => {
+          const isLast = idx === currDirPath.length - 1;
+          const name = item.name === "" && item.fileID === "" ? "Files" : item.name;
+          return (
+            <DavisBreadcrumb.Item key={item.fileID || "root"} isCurrent={isLast}>
+              {!isLast ? (
+                <span
+                  className="cursor-pointer hover:underline text-blue-600"
+                  onClick={() => handleDirectoryClick(item.fileID)}
+                >
+                  {name}
+                </span>
+              ) : (
+                name
+              )}
+            </DavisBreadcrumb.Item>
+          );
+        })}
+      </DavisBreadcrumb>
+    );
   }
 
   const RowMenu = (item: FileEntry) => {
     return (
-      <Dropdown
-        icon={null}
-        trigger={<Icon name="ellipsis vertical" size="large" />}
-        direction="left"
-      >
-        <Dropdown.Menu>
+      <Menu>
+        <Menu.Button
+          className="!bg-transparent !border-0 !text-gray-400 hover:!bg-gray-100 !p-1 [&>*:last-child]:!hidden"
+          aria-label="File actions"
+        >
+          <IconDotsVertical size={18} />
+        </Menu.Button>
+        <Menu.Items>
           {canViewDetails && (
             <>
-              <Dropdown.Item
-                icon="edit"
-                text="Edit"
-                onClick={() => handleEditFile(item.fileID)}
-              />
-              <Dropdown.Item
-                icon="move"
-                text="Move"
-                onClick={() => handleMoveFiles([item])}
-              />
-              <Dropdown.Item
-                icon="trash"
-                text="Delete"
-                onClick={() => handleDeleteFiles([item])}
-              />
+              <Menu.Item onClick={() => handleEditFile(item.fileID)}>
+                <span className="flex items-center gap-2">
+                  <IconEdit size={15} /> Edit
+                </span>
+              </Menu.Item>
+              <Menu.Item onClick={() => handleMoveFiles([item])}>
+                <span className="flex items-center gap-2">
+                  <IconArrowsMove size={15} /> Move
+                </span>
+              </Menu.Item>
+              <Menu.Item onClick={() => handleDeleteFiles([item])}>
+                <span className="flex items-center gap-2 text-red-600">
+                  <IconTrash size={15} /> Delete
+                </span>
+              </Menu.Item>
             </>
           )}
           {item.storageType === "file" && !item.isURL && (
-            <Dropdown.Item
-              icon="download"
-              text="Download"
-              onClick={() =>
-                handleDownloadFile(projectID, item.fileID, item.isVideo)
-              }
-            />
+            <Menu.Item onClick={() => handleDownloadFile(projectID, item.fileID, item.isVideo)}>
+              <span className="flex items-center gap-2">
+                <IconDownload size={15} /> Download
+              </span>
+            </Menu.Item>
           )}
-          {item.storageType === "file" &&
-            !item.isURL &&
-            item.access === "public" && (
-              <Dropdown.Item
-                icon="share"
-                text="Permanent Link"
-                onClick={() => handlePermanentLinkClick(projectID, item.fileID)}
-              />
+          {item.storageType === "file" && !item.isURL && item.access === "public" && (
+            <Menu.Item onClick={() => handlePermanentLinkClick(projectID, item.fileID)}>
+              <span className="flex items-center gap-2">
+                <IconShare size={15} /> Permanent Link
+              </span>
+            </Menu.Item>
+          )}
+          {item.storageType === "file" && item.isVideo && item.videoStorageID &&
+            item.access === "public" && projectVisibility === "public" && (
+              <Menu.Item onClick={async () => { await handleGetEmbedCode(item.fileID, "html"); }}>
+                <span className="flex items-center gap-2">
+                  <IconCode size={15} /> Embed
+                </span>
+              </Menu.Item>
             )}
-          {item.storageType === "file" &&
-            item.isVideo &&
-            item.videoStorageID &&
-            item.access === "public" &&
-            projectVisibility === "public" && (
-              <Dropdown.Item
-                icon="code"
-                text="Embed"
-                onClick={async () => {
-                  await handleGetEmbedCode(item.fileID, "html");
-                }}
-              />
+          {item.storageType === "file" && item.isVideo && item.videoStorageID &&
+            item.access === "public" && projectVisibility === "public" && (
+              <Menu.Item onClick={async () => { await handleGetEmbedCode(item.fileID, "url"); }}>
+                <span className="flex items-center gap-2">
+                  <IconBook size={15} /> Copy to ADAPT
+                </span>
+              </Menu.Item>
             )}
-          {item.storageType === "file" &&
-            item.isVideo &&
-            item.videoStorageID &&
-            item.access === "public" &&
-            projectVisibility === "public" && (
-              <Dropdown.Item
-                icon="student"
-                text="Copy to ADAPT"
-                onClick={async () => {
-                  await handleGetEmbedCode(item.fileID, "url");
-                }}
-              />
-            )}
-        </Dropdown.Menu>
-      </Dropdown>
+        </Menu.Items>
+      </Menu>
     );
   };
 
-  const MobileTableRow = (item: FileEntry) => {
+  const fileInfoTooltip = (item: FileEntry) => {
+    const lines: string[] = [
+      `License: ${getFilesLicenseText(item.license)}`,
+    ];
+    if (item.storageType === "file") {
+      lines.push(`Size: ${fileSizePresentable(item.size)}`);
+    }
+    if (item.createdDate) {
+      const creator = item.uploader ? ` by ${getPrettyUploader(item.uploader)}` : "";
+      lines.push(`Created: ${getPrettyCreatedDate(item.createdDate)}${creator}`);
+    }
+    // Stacked as separate lines (rather than one long joined string) so the
+    // tooltip stays narrow and doesn't run past the edge of the page/panel —
+    // davis-react's Tooltip is centered on its trigger with no edge collision
+    // detection, so a long single line is the thing that overflows.
     return (
-      <Table.Row key={item.fileID}>
-        <Table.Cell colSpan={TABLE_COLS.length}>
-          <div className="flex flex-row w-full">
-            <div className="flex flex-col w-full">
-              <p>
-                {item.storageType === "folder" ? (
-                  <Icon name="folder outline" />
-                ) : (
-                  <Icon name={getFileTypeIcon(item)} />
+      <div className="flex flex-col gap-0.5 text-left">
+        {lines.map((line) => (
+          <span key={line}>{line}</span>
+        ))}
+      </div>
+    );
+  };
+
+  const tableColumns = useMemo<ColumnDef<FileEntry>[]>(() => {
+    const baseCols: ColumnDef<FileEntry>[] = [
+      {
+        id: "name",
+        header: "Name",
+        cell: ({ row }) => {
+          const item = row.original;
+          return (
+            <div>
+              <div className="flex items-center gap-1">
+                {item.storageType === "folder" && (
+                  <IconFolder size={16} className="text-gray-500 flex-shrink-0" />
                 )}
                 {item.storageType === "folder" ? (
                   <span
-                    className="text-link text-lg break-all"
-                    onClick={() => handleDirectoryClick(item.fileID)}
+                    className="text-link break-all cursor-pointer"
+                    onClick={(e) => { e.stopPropagation(); handleDirectoryClick(item.fileID); }}
                   >
                     {item.name}
                   </span>
                 ) : (
                   <a
-                    onClick={() =>
-                      handleDownloadFile(projectID, item.fileID, item.isVideo)
-                    }
-                    className="text-lg cursor-pointer break-all"
+                    onClick={(e) => { e.stopPropagation(); handleDownloadFile(projectID, item.fileID, item.isVideo); }}
+                    className="cursor-pointer break-all"
                   >
                     {item.name}
                   </a>
                 )}
-              </p>
-              <p>{item.description}</p>
-              {hasAnyTags && item.tags && item.tags.length > 0 && (
-                <div>
-                  <RenderAssetTags file={item} popupDisabled spreadArray />
-                </div>
+                <Tooltip content={fileInfoTooltip(item)}>
+                  <button
+                    className="ml-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <IconInfoCircle size={15} />
+                  </button>
+                </Tooltip>
+              </div>
+              {item.description && (
+                <span className="text-sm text-gray-500 block">
+                  {truncateString(item.description, 100)}
+                </span>
               )}
             </div>
-            <div className="flex flex-col">{RowMenu(item)}</div>
-          </div>
-        </Table.Cell>
-      </Table.Row>
-    );
-  };
+          );
+        },
+      },
+      {
+        id: "access",
+        header: "Access",
+        cell: ({ row }) => {
+          const item = row.original;
+          return canViewDetails ? (
+            <button
+              className="hover:underline text-blue-600 text-left text-sm"
+              onClick={(e) => { e.stopPropagation(); handleChangeAccess([item]); }}
+            >
+              {getFilesAccessText(item.access)}
+            </button>
+          ) : (
+            <span className="text-sm">{getFilesAccessText(item.access)}</span>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => RowMenu(row.original),
+      },
+    ];
+
+    if (hasAnyTags) {
+      baseCols.splice(2, 0, {
+        id: "tags",
+        header: "Tags",
+        cell: ({ row }) => {
+          const item = row.original;
+          return item.tags && item.tags.length > 0 ? (
+            <RenderAssetTags file={item} popupDisabled spreadArray />
+          ) : null;
+        },
+      });
+    }
+
+    return baseCols;
+  }, [hasAnyTags, canViewDetails, projectID]);
+
+  const allTableColumns = tableColumns;
 
   return (
-    <Grid.Column className="!w-full">
-      <Header as="h2" dividing>
-        Assets
-        <Button compact floated="right" onClick={toggleFilesManager}>
+    <div className="w-full">
+      <div className="flex items-center justify-between mb-3 border-b border-gray-200 pb-2">
+        <h2 className="text-xl font-bold text-gray-900 leading-tight">Assets</h2>
+        <Button variant="outline" size="sm" onClick={toggleFilesManager}>
           Hide
         </Button>
-      </Header>
+      </div>
+
       {projectVisibility === "private" && files && files.length > 0 && (
-        <Message size="small" color="blue" style={{ backgroundColor: "#fff" }}>
-          <Message.Content>
-            Heads up! Your project's visibility is set to 'Private', so assets
-            shown here won't be visible in Commons even if their access is set
-            to 'Public'.
-          </Message.Content>
-        </Message>
+        <Alert
+          variant="info"
+          message="Heads up! Your project's visibility is set to 'Private', so assets shown here won't be visible in Commons even if their access is set to 'Public'."
+          className="mb-3"
+        />
       )}
-      <Segment.Group size="large" raised className="mb-4">
+
+      {/* !overflow-visible: the Name column's info Tooltip needs to escape this container's
+          bounds — davis-react's Tooltip isn't portaled, so ancestor overflow-hidden clips it. */}
+      <div className="border border-gray-200 rounded-lg !overflow-visible mb-4">
         {(canViewDetails || allowBulkDownload) && (
-          <Segment>
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
             {canViewDetails && (
-              <p style={{ fontSize: "0.9em" }} className="mb-4">
-                If your project has supporting files, use this tool to upload and
-                organize them.
+              <p className="text-sm text-gray-600 mb-3">
+                If your project has supporting files, use this tool to upload and organize them.
               </p>
             )}
-            <Button.Group
-              fluid
-              widths="7"
-              className={
-                itemsChecked === 0
-                  ? "max-w-[34rem]"
-                  : itemsChecked === 1
-                  ? "max-w-[46rem]"
-                  : ""
-              }
-            >
+            <div className="flex flex-wrap gap-2">
               {canViewDetails && (
                 <>
-                  <Button color="green" onClick={() => setShowUploader(true)}>
-                    <Icon name="upload" />
+                  <Button
+                    variant="primary"
+                    icon={<IconUpload size={15} />}
+                    onClick={() => setShowUploader(true)}
+                  >
                     Upload
                   </Button>
                   <Button
-                    color="green"
-                    className="!bg-green-600"
+                    variant="primary"
+                    icon={<IconPlus size={15} />}
                     onClick={() => setShowAddFolder(true)}
                   >
-                    <Icon name="add" />
                     New Folder
                   </Button>
                 </>
               )}
               {itemsChecked > 1 && (
                 <Button
-                  color="blue"
+                  variant="outline"
+                  icon={!downloadLoading ? <IconDownload size={15} /> : undefined}
+                  loading={downloadLoading}
                   onClick={handleDownloadRequest}
                   disabled={downloadLoading}
                 >
-                  {!downloadLoading && (
-                    <>
-                      <Icon name="download" />
-                      Download (ZIP)
-                    </>
-                  )}
-                  {downloadLoading && (
-                    <>
-                      <Icon name="spinner" loading />
-                      This may take a moment...
-                    </>
-                  )}
+                  {downloadLoading ? "This may take a moment..." : "Download (ZIP)"}
                 </Button>
               )}
               {canViewDetails && itemsChecked > 1 && (
                 <Button
-                  color="teal"
-                  disabled={itemsChecked < 1}
-                  onClick={() => {
-                    handleMoveFiles(files?.filter((obj) => obj.checked) || []);
-                  }}
+                  variant="outline"
+                  icon={<IconArrowsMove size={15} />}
+                  onClick={() => handleMoveFiles(selectedFiles)}
                 >
-                  <Icon name="move" />
                   Move
                 </Button>
               )}
               {canViewDetails && itemsChecked > 0 && (
                 <Button
-                  color="yellow"
-                  disabled={itemsChecked < 1}
-                  onClick={() => {
-                    handleChangeAccess(
-                      files?.filter((obj) => obj.checked) || []
-                    );
-                  }}
+                  variant="outline"
+                  icon={<IconLock size={15} />}
+                  onClick={() => handleChangeAccess(selectedFiles)}
                 >
-                  <Icon name="lock" />
                   Change Access
                 </Button>
               )}
               {canViewDetails && canBulkTag && (
                 <Button
-                  color="purple"
-                  disabled={itemsChecked < 1}
-                  onClick={() => {
-                    handleBulkTagFiles();
-                  }}
+                  variant="outline"
+                  icon={<IconTags size={15} />}
+                  onClick={handleBulkTagFiles}
                 >
-                  <Icon name="tags" />
                   Bulk Tag
                 </Button>
               )}
               {canViewDetails && itemsChecked > 1 && (
                 <Button
-                  color="red"
-                  disabled={itemsChecked < 1}
-                  onClick={() => {
-                    handleDeleteFiles(
-                      files?.filter((obj) => obj.checked) || []
-                    );
-                  }}
+                  variant="outline"
+                  icon={<IconTrash size={15} />}
+                  onClick={() => handleDeleteFiles(selectedFiles)}
                 >
-                  <Icon name="trash" />
                   Delete
                 </Button>
               )}
-            </Button.Group>
-          </Segment>
+            </div>
+          </div>
         )}
-        {!filesLoading ? (
-          <>
-            {currDirectory !== "" && (
-              <Segment attached="top">
-                <DirectoryBreadcrumbs />
-              </Segment>
-            )}
-            <Table basic attached="bottom">
-              <Table.Header>
-                <Table.Row>
-                  {(canViewDetails || allowBulkDownload) && (
-                    <Table.HeaderCell key="check" collapsing={true}>
-                      <input
-                        type="checkbox"
-                        checked={allItemsChecked}
-                        onChange={() => {
-                          handleToggleAllCheckedMutation.mutate();
-                        }}
-                        aria-label={`${
-                          allItemsChecked ? "Uncheck" : "Check"
-                        } all`}
-                      />
-                    </Table.HeaderCell>
-                  )}
-                  {/* {TABLE_COLS.map((item) => (
-                    <Table.HeaderCell
-                      key={item.key}
-                      collapsing={item.collapsing}
-                      width={item.width}
-                    >
-                      {item.text}
-                    </Table.HeaderCell>
-                  ))} */}
-                  {isTailwindLg ? (
-                    // Desktop: Show all columns
-                    TABLE_COLS.map((item) => (
-                      <Table.HeaderCell
-                        key={item.key}
-                        collapsing={item.collapsing}
-                        width={item.width}
-                      >
-                        {item.text}
-                      </Table.HeaderCell>
-                    ))
-                  ) : (
-                    // Mobile: Just show a single "Files" header
-                    <Table.HeaderCell>Files</Table.HeaderCell>
-                  )}
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {files?.map((item) => {
-                  if (!isTailwindLg) return MobileTableRow(item);
-                  return (
-                    <Table.Row className="h-[60px]" key={item.fileID}>
-                      {(canViewDetails || allowBulkDownload) && (
-                        <Table.Cell>
-                          <input
-                            type="checkbox"
-                            checked={item.checked}
-                            onChange={(e) =>
-                              handleEntryCheckedMutation.mutate({
-                                id: item.fileID,
-                              })
-                            }
-                            value={item.fileID}
-                          />
-                        </Table.Cell>
-                      )}
-                      <Table.Cell>
-                        <div className="flex items-center justify-between">
-                          <div className="w-full">
-                            <div
-                              className={`flex flex-row justify-between ${
-                                item.description ? "mb-05e" : ""
-                              }`}
-                            >
-                              <div>
-                                {item.storageType === "folder" ? (
-                                  <Icon name="folder outline" />
-                                ) : (
-                                  <Icon name={getFileTypeIcon(item)} />
-                                )}
-                                {item.storageType === "folder" ? (
-                                  <span
-                                    className="text-link text-lg break-all"
-                                    onClick={() =>
-                                      handleDirectoryClick(item.fileID)
-                                    }
-                                  >
-                                    {item.name}
-                                  </span>
-                                ) : (
-                                  <a
-                                    onClick={() =>
-                                      handleDownloadFile(
-                                        projectID,
-                                        item.fileID,
-                                        item.isVideo
-                                      )
-                                    }
-                                    className="text-lg cursor-pointer break-all"
-                                  >
-                                    {item.name}
-                                  </a>
-                                )}
-                              </div>
-                              <Popup
-                                content={
-                                  <div>
-                                    <p>
-                                      <span className="font-semibold">
-                                        License:
-                                      </span>{" "}
-                                      {getFilesLicenseText(item.license)}
-                                    </p>
-                                    {item.storageType === "file" && (
-                                      <p>
-                                        <span className="font-semibold">
-                                          Size:
-                                        </span>{" "}
-                                        {fileSizePresentable(item.size)}
-                                      </p>
-                                    )}
-                                    {item.createdDate && (
-                                      <p>
-                                        <span className="font-semibold">
-                                          Created:
-                                        </span>{" "}
-                                        {getPrettyCreatedDate(item.createdDate)}{" "}
-                                        {item.uploader && (
-                                          <span>
-                                            {" "}
-                                            by{" "}
-                                            {getPrettyUploader(item.uploader)}
-                                          </span>
-                                        )}
-                                      </p>
-                                    )}
-                                  </div>
-                                }
-                                trigger={
-                                  <Icon name="info circle" className="ml-1e" />
-                                }
-                              />
-                            </div>
-                            {item.description && (
-                              <span className="muted-text ml-1e">
-                                {truncateString(item.description, 100)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </Table.Cell>
-                      <Table.Cell>
-                        {canViewDetails ? (
-                          <button
-                            className="hover:underline text-blue-600 text-left"
-                            onClick={() => handleChangeAccess([item])}
-                            disabled={!canViewDetails}
-                          >
-                            {getFilesAccessText(item.access)}
-                          </button>
-                        ) : (
-                          getFilesAccessText(item.access)
-                        )}
-                      </Table.Cell>
-                      <Table.Cell>
-                        {item.tags && item.tags.length > 0 && (
-                          <RenderAssetTags
-                            file={item}
-                            popupDisabled
-                            spreadArray
-                          />
-                        )}
-                      </Table.Cell>
-                      <Table.Cell>{RowMenu(item)}</Table.Cell>
-                    </Table.Row>
-                  );
-                })}
-                {(!files || files.length === 0) && (
-                  <Table.Row>
-                    <Table.Cell colSpan={TABLE_COLS.length}>
-                      <p className="text-muted text-center mt-1p mb-1p">
-                        <em>No files found.</em>
-                      </p>
-                    </Table.Cell>
-                  </Table.Row>
-                )}
-              </Table.Body>
-              <Table.Footer>
-                <Table.Row>
-                  <Table.Cell colSpan={TABLE_COLS.length}>
-                    <p className="text-center text-sm text-gray-500 italic !-mt-3">
-                      Use caution when opening files/links from unknown sources.
-                      LibreTexts is not responsible for the content of the
-                      files/links above.
-                    </p>
-                  </Table.Cell>
-                </Table.Row>
-              </Table.Footer>
-            </Table>
-          </>
-        ) : (
-          <Loader active inline="centered" className="mt-2r mb-2r" />
+
+        {currDirectory !== "" && (
+          <div className="px-4 py-2 border-b border-gray-200 bg-gray-50">
+            <DirectoryBreadcrumbs />
+          </div>
         )}
-        <FilesUploader
-          show={showUploader}
-          onClose={() => setShowUploader(false)}
-          directory={currDirPath[currDirPath.length - 1].name}
+
+        <DataTable
+          data={files || []}
+          columns={allTableColumns}
+          enableRowSelection={canViewDetails || allowBulkDownload}
+          loading={filesLoading}
+          density="compact"
+          striped
+          emptyState={<em className="text-gray-400">No files found.</em>}
+          tableOptions={{
+            getRowId: (row) => row.fileID,
+            state: { rowSelection },
+            onRowSelectionChange: setRowSelection,
+          }}
+          // DataTable's own wrapper slot bakes in overflow-auto, which clips the
+          // Name column's info Tooltip whenever it renders near the top row
+          // (davis-react's Tooltip isn't portaled). Let it overlap instead.
+          classNames={{ wrapper: "!overflow-visible" }}
+        />
+        <p className="text-center text-xs text-gray-400 italic p-3 border-t border-gray-100">
+          Use caution when opening files/links from unknown sources.
+          LibreTexts is not responsible for the content of the files/links above.
+        </p>
+      </div>
+
+      <FilesUploader
+        show={showUploader}
+        onClose={() => setShowUploader(false)}
+        directory={currDirPath[currDirPath.length - 1].name}
+        projectID={projectID}
+        uploadPath={currDirectory}
+        onFinishedUpload={handleUploadFinished}
+        projectHasDefaultLicense={projectHasDefaultLicense}
+        mode="add"
+      />
+      <AddFolder
+        show={showAddFolder}
+        onClose={() => setShowAddFolder(false)}
+        projectID={projectID}
+        parentDirectory={currDirPath[currDirPath.length - 1].fileID}
+        onFinishedAdd={handleAddFolderFinished}
+      />
+      <ChangeAccess
+        show={showChangeAccess}
+        onClose={handleAccessClose}
+        projectID={projectID}
+        files={accessFiles}
+        onFinishedChange={handleAccessFinished}
+      />
+      {editID && (
+        <EditFile
+          show={showEdit}
+          onClose={handleEditClose}
           projectID={projectID}
-          uploadPath={currDirectory}
-          onFinishedUpload={handleUploadFinished}
-          projectHasDefaultLicense={projectHasDefaultLicense}
-          mode="add"
+          fileID={editID}
+          onFinishedEdit={handleEditFinished}
         />
-        <AddFolder
-          show={showAddFolder}
-          onClose={() => setShowAddFolder(false)}
-          projectID={projectID}
-          parentDirectory={currDirPath[currDirPath.length - 1].fileID}
-          onFinishedAdd={handleAddFolderFinished}
-        />
-        <ChangeAccess
-          show={showChangeAccess}
-          onClose={handleAccessClose}
-          projectID={projectID}
-          files={accessFiles}
-          onFinishedChange={handleAccessFinished}
-        />
-        {editID && (
-          <EditFile
-            show={showEdit}
-            onClose={handleEditClose}
-            projectID={projectID}
-            fileID={editID}
-            onFinishedEdit={handleEditFinished}
-          />
-        )}
-        <MoveFiles
-          show={showMove}
-          onClose={handleMoveClose}
-          projectID={projectID}
-          files={moveFiles}
-          currentDirectory={currDirectory}
-          onFinishedMove={handleMoveFinished}
-        />
-        <DeleteFiles
-          show={showDelete}
-          onClose={handleDeleteClose}
-          projectID={projectID}
-          files={deleteFiles}
-          onFinishedDelete={handleDeleteFinished}
-        />
-        <LargeDownloadModal
-          show={showLargeDownload}
-          onClose={() => setShowLargeDownload(false)}
-        />
-        <PermanentLinkModal
-          open={showPermanentLinkModal}
-          link={permanentLink}
-          onClose={closePermanentLinkModal}
-        />
-      </Segment.Group>
-    </Grid.Column>
+      )}
+      <MoveFiles
+        show={showMove}
+        onClose={handleMoveClose}
+        projectID={projectID}
+        files={moveFiles}
+        currentDirectory={currDirectory}
+        onFinishedMove={handleMoveFinished}
+      />
+      <DeleteFiles
+        show={showDelete}
+        onClose={handleDeleteClose}
+        projectID={projectID}
+        files={deleteFiles}
+        onFinishedDelete={handleDeleteFinished}
+      />
+      <LargeDownloadModal
+        show={showLargeDownload}
+        onClose={() => setShowLargeDownload(false)}
+      />
+      <PermanentLinkModal
+        open={showPermanentLinkModal}
+        link={permanentLink}
+        onClose={closePermanentLinkModal}
+      />
+    </div>
   );
 };
 

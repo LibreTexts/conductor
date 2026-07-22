@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Form, Button, Icon, ModalProps } from "semantic-ui-react";
+import { Button, Modal, Select } from "@libretexts/davis-react";
+import { IconTool } from "@tabler/icons-react";
 import useGlobalError from "../error/ErrorHooks";
 import { AssetTagFramework } from "../../types";
 import api from "../../api";
+import LoadingSpinner from "../LoadingSpinner";
 
-interface SelectFrameworkProps extends ModalProps {
+interface SelectFrameworkProps {
   show: boolean;
   onClose: () => void;
   onSelected: (framework: string) => void;
@@ -17,7 +19,6 @@ const SelectFramework: React.FC<SelectFrameworkProps> = ({
   show,
   onClose,
   onSelected,
-  rest,
 }) => {
   // Global State & Hooks
   const { handleGlobalError } = useGlobalError();
@@ -67,44 +68,46 @@ const SelectFramework: React.FC<SelectFrameworkProps> = ({
   }
 
   return (
-    <Modal open={show} onClose={onClose} {...rest}>
-      <Modal.Header>Edit File</Modal.Header>
-      <Modal.Content scrolling>
-        <Form
+    <Modal open={show} onClose={() => onClose()} size="xl">
+      <Modal.Header>
+        <Modal.Title>Edit File</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {loading && <LoadingSpinner />}
+        <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSelectFramework();
           }}
           className="pb-20"
-          loading={loading}
         >
-          <Form.Field required={true}>
-            <label>Select Framework</label>
-            <Form.Select
-              labeled={true}
-              placeholder="Select Framework"
-              onChange={(e, { value }) =>
-                setSelectedId((value as string) || "")
-              }
-              options={frameworks.map((f) => {
-                return { key: f.uuid, text: f.name, value: f.uuid };
-              })}
-              fluid
-            />
-          </Form.Field>
-        </Form>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
+          <Select
+            name="framework"
+            label="Select Framework"
+            placeholder="Select Framework"
+            required
+            onChange={(e) => setSelectedId(e.target.value)}
+            options={frameworks.map((f) => ({
+              label: f.name,
+              value: f.uuid,
+            }))}
+            value={selectedId}
+          />
+        </form>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
         <Button
-          color="blue"
+          variant="primary"
           onClick={() => handleSelectFramework()}
           loading={loading}
+          icon={<IconTool size={16} />}
         >
-          <Icon name="wrench" />
           Select Framework
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };

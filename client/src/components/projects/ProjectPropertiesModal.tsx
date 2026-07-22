@@ -1,17 +1,13 @@
+import { Button, Heading, Modal, Select, Spinner, Tooltip } from "@libretexts/davis-react";
 import {
-  Accordion,
-  Button,
-  Divider,
-  Form,
-  Header,
-  Icon,
-  Modal,
-  ModalProps,
-  Popup,
-  Dropdown,
-  Card,
-  Message,
-} from "semantic-ui-react";
+  IconCopy,
+  IconDeviceFloppy,
+  IconExternalLink,
+  IconInfoCircle,
+  IconTrash,
+  IconUpload,
+} from "@tabler/icons-react";
+import { Dropdown } from "semantic-ui-react";
 import {
   AssetTagFramework,
   Author,
@@ -49,12 +45,11 @@ import { useModals } from "../../context/ModalContext";
 import AdminChangeURL from "./AdminChangeURL";
 import CtlDateInput from "../ControlledInputs/CtlDateInput";
 import languageCodes from "../../utils/languageCodes";
-import Tooltip from "../util/Tooltip";
 import AboutProjectClassificationsModal from "./AboutProjectClassificationsModal";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
 
-interface ProjectPropertiesModalProps extends ModalProps {
+interface ProjectPropertiesModalProps {
   show: boolean;
   onClose: () => void;
   projectID: string;
@@ -679,11 +674,13 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
   const [copied, setCopied] = useState(false);
 
   return (
-    <Modal open={show} closeOnDimmerClick={false} size="fullscreen">
-      <Modal.Header>Edit Project Properties</Modal.Header>
-      <Modal.Content scrolling>
-        <Form noValidate className="flex flex-col">
-          <Header as="h3">Project Properties</Header>
+    <Modal open={show} onClose={() => {}}>
+      <Modal.Header>
+        <Modal.Title>Edit Project Properties</Modal.Title>
+      </Modal.Header>
+      <Modal.Body className="overflow-y-auto max-h-[calc(100dvh-8rem)]">
+        <div className="flex flex-col">
+          <Heading level={3}>Project Properties</Heading>
           <CtlTextInput
             control={control}
             name="title"
@@ -692,146 +689,109 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             rules={required}
             required
           />
-          <div className="flex flex-row justify-between mt-4">
-            <div className="w-full mr-6">
-              <label htmlFor="projectStatus" className="form-field-label">
-                Status
-              </label>
+          <div className="flex flex-row justify-between mt-4 gap-4">
+            <div className="w-full">
               <Controller
                 name="status"
                 control={control}
                 render={({ field }) => (
-                  <Dropdown
-                    id="projectStatus"
-                    options={statusOptions}
-                    {...field}
-                    onChange={(e, data) => {
-                      field.onChange(data.value?.toString() ?? "text");
-                    }}
-                    fluid
-                    selection
+                  <Select
+                    name="projectStatus"
+                    label="Status"
                     placeholder="Status..."
-                  />
-                )}
-              />
-            </div>
-            <div className="w-full mr-6">
-              <label
-                htmlFor="projectClassification"
-                className="form-field-label flex flex-row"
-              >
-                <span className="mr-0.5">Classification</span>
-                <Tooltip text="Click to learn more about project classifications.">
-                  <Icon
-                    name="question circle"
-                    className="!ml-1 !mb-1"
-                    onClick={() =>
-                      openModal(
-                        <AboutProjectClassificationsModal
-                          show={true}
-                          onClose={() => closeAllModals()}
-                        />
-                      )
-                    }
-                  />
-                </Tooltip>
-              </label>
-              <Controller
-                name="classification"
-                control={control}
-                render={({ field }) => (
-                  <Dropdown
-                    id="projectClassification"
-                    options={classificationOptions}
-                    {...field}
-                    onChange={(e, data) => {
-                      field.onChange(data.value?.toString() ?? "text");
-                    }}
-                    fluid
-                    selection
-                    placeholder="Classification..."
+                    options={statusOptions.map((o) => ({ value: o.value, label: o.text }))}
+                    value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.value)}
                   />
                 )}
               />
             </div>
             <div className="w-full">
-              <label htmlFor="projectVisibility" className="form-field-label">
-                Visibility
-              </label>
+              <div className="flex items-center gap-1 mb-1">
+                <label className="form-field-label !mb-0">Classification</label>
+                <Tooltip content="Click to learn more about project classifications.">
+                  <button
+                    type="button"
+                    className="text-gray-400 hover:text-gray-600"
+                    onClick={() => openModal(<AboutProjectClassificationsModal show={true} onClose={() => closeAllModals()} />)}
+                  >
+                    <IconInfoCircle size={15} />
+                  </button>
+                </Tooltip>
+              </div>
+              <Controller
+                name="classification"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    name="projectClassification"
+                    label=""
+                    placeholder="Classification..."
+                    options={classificationOptions.map((o) => ({ value: o.value, label: o.text }))}
+                    value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
+                )}
+              />
+            </div>
+            <div className="w-full">
               <Controller
                 name="visibility"
                 control={control}
                 render={({ field }) => (
-                  <Dropdown
-                    id="projectVisibility"
-                    options={visibilityOptions}
-                    {...field}
-                    onChange={(e, data) => {
-                      field.onChange(data.value?.toString() ?? "text");
-                    }}
-                    fluid
-                    selection
+                  <Select
+                    name="projectVisibility"
+                    label="Visibility"
                     placeholder="Visibility..."
+                    options={visibilityOptions.map((o) => ({ value: o.value, label: o.text }))}
+                    value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.value)}
                   />
                 )}
               />
             </div>
           </div>
           {!getValues("didCreateWorkbench") ? (
-            <>
-              <Form.Field className="flex flex-col !mt-4">
-                <label htmlFor="projectURL">
-                  <span className="mr-05p">
-                    {org.orgID === "calearninglab" ? "Project" : "Textbook"} URL{" "}
-                    <span className="muted-text">(if applicable)</span>
-                  </span>
-                  <Popup
-                    trigger={<Icon name="info circle" />}
-                    position="top center"
-                    content={
-                      <span className="text-center">
-                        If a LibreText URL is entered, the Library, ID, and
-                        Bookshelf or Campus will be automatically retrieved.
-                      </span>
-                    }
-                  />
-                  <Icon
-                    name="copy"
-                    className="cursor-pointer text-gray-500 hover:text-black"
-                    onClick={async () => {
-                      const url = getValues("projectURL");
-                      if (url) {
-                        await navigator.clipboard.writeText(url);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                      }
-                    }}
-                  />
-                  {copied && (
-                    <span className="text-green-500 ml-2">Copied!</span>
-                  )}
+            <div className="flex flex-col mt-4">
+              <div className="flex items-center gap-1 mb-1">
+                <label htmlFor="projectURL" className="form-field-label !mb-0">
+                  {org.orgID === "calearninglab" ? "Project" : "Textbook"} URL{" "}
+                  <span className="text-gray-400">(if applicable)</span>
                 </label>
-                <CtlTextInput
-                  name="projectURL"
-                  control={control}
-                  placeholder={`Enter ${
-                    org.orgID === "calearninglab" ? "project" : "textbook"
-                  } URL...`}
-                  type="url"
-                  id="projectURL"
-                />
-              </Form.Field>
-            </>
+                <Tooltip content="If a LibreText URL is entered, the Library, ID, and Bookshelf or Campus will be automatically retrieved.">
+                  <IconInfoCircle size={15} className="text-gray-400" />
+                </Tooltip>
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-black ml-1"
+                  onClick={async () => {
+                    const url = getValues("projectURL");
+                    if (url) {
+                      await navigator.clipboard.writeText(url as string);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }
+                  }}
+                >
+                  <IconCopy size={15} />
+                </button>
+                {copied && <span className="text-green-500 text-sm">Copied!</span>}
+              </div>
+              <CtlTextInput
+                name="projectURL"
+                control={control}
+                placeholder={`Enter ${org.orgID === "calearninglab" ? "project" : "textbook"} URL...`}
+                type="url"
+                id="projectURL"
+              />
+            </div>
           ) : user.isSuperAdmin ? (
-            <p
-              className="text-blue-600 underline cursor-pointer"
-              onClick={handleOpenChangeURLModal}
-            >
+            <p className="text-blue-600 underline cursor-pointer mt-4" onClick={handleOpenChangeURLModal}>
               Change Textbook URL (Admin Only)
             </p>
           ) : null}
-          <Form.Field className="flex flex-col !mt-4">
-            <label htmlFor="projectDescription" className="mr-0.5">
+          <div className="flex flex-col mt-4">
+            <label htmlFor="projectDescription" className="form-field-label">
               Project Description
             </label>
             <CtlTextArea
@@ -844,9 +804,9 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               maxLength={DESCRIP_MAX_CHARS}
               showRemaining
             />
-          </Form.Field>
-          <Form.Field className="flex flex-col !mt-4">
-            <label htmlFor="principalInvestigators">
+          </div>
+          <div className="flex flex-col mt-4">
+            <label htmlFor="principalInvestigators" className="form-field-label">
               Principal Investigators
             </label>
             <Controller
@@ -856,12 +816,8 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                   placeholder="Search people..."
                   options={principalInvestigatorOpts}
                   {...field}
-                  onChange={(e, { value }) => {
-                    field.onChange(value);
-                  }}
-                  onSearchChange={(e, { searchQuery }) => {
-                    getPIsDebounced(searchQuery);
-                  }}
+                  onChange={(e, { value }) => { field.onChange(value); }}
+                  onSearchChange={(e, { searchQuery }) => { getPIsDebounced(searchQuery); }}
                   fluid
                   selection
                   multiple
@@ -872,9 +828,9 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               name="principalInvestigatorIDs"
               control={control}
             />
-          </Form.Field>
-          <Form.Field className="flex flex-col !mt-4">
-            <label htmlFor="coPrincipalInvestigators">
+          </div>
+          <div className="flex flex-col mt-4">
+            <label htmlFor="coPrincipalInvestigators" className="form-field-label">
               Co-Principal Investigators
             </label>
             <Controller
@@ -884,25 +840,18 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                   placeholder="Search people..."
                   options={coPrincipalInvestigatorOpts}
                   {...field}
-                  onChange={(e, { value }) => {
-                    field.onChange(value);
-                  }}
-                  onSearchChange={(e, { searchQuery }) => {
-                    getCoPIsDebounced(searchQuery);
-                  }}
-                  fluid
-                  selection
-                  multiple
-                  search
+                  onChange={(e, { value }) => { field.onChange(value); }}
+                  onSearchChange={(e, { searchQuery }) => { getCoPIsDebounced(searchQuery); }}
+                  fluid selection multiple search
                   loading={loadingCoPIOptions}
                 />
               )}
               name="coPrincipalInvestigatorIDs"
               control={control}
             />
-          </Form.Field>
-          <Form.Field className="flex flex-col !mt-4">
-            <label htmlFor="contentArea">Content Area</label>
+          </div>
+          <div className="flex flex-col mt-4">
+            <label htmlFor="contentArea" className="form-field-label">Content Area</label>
             <Controller
               render={({ field }) => (
                 <Dropdown
@@ -910,85 +859,51 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                   placeholder="Search options..."
                   options={contentAreaOptions}
                   {...field}
-                  onChange={(e, { value }) => {
-                    field.onChange(value as string);
-                  }}
-                  fluid
-                  selection
-                  loading={!loadedTags}
+                  onChange={(e, { value }) => { field.onChange(value as string); }}
+                  fluid selection loading={!loadedTags}
                 />
               )}
               name="contentArea"
               control={control}
             />
-          </Form.Field>
-          <Form.Field className="flex flex-col !mt-4">
-            <label htmlFor="projectTags">Project Tags</label>
+          </div>
+          <div className="flex flex-col mt-4">
+            <label htmlFor="projectTags" className="form-field-label">Project Tags</label>
             <Controller
               render={({ field }) => (
                 // @ts-expect-error
                 <Dropdown
                   id="projectTags"
                   placeholder="Search tags..."
-                  options={
-                    org.FEAT_PedagogyProjectTags ? pedagogyOptions : tagOptions
-                  }
+                  options={org.FEAT_PedagogyProjectTags ? pedagogyOptions : tagOptions}
                   {...field}
-                  onChange={(e, { value }) => {
-                    field.onChange(value as string);
-                  }}
-                  fluid
-                  selection
-                  multiple
-                  search
+                  onChange={(e, { value }) => { field.onChange(value as string); }}
+                  fluid selection multiple search
                   allowAdditions={!org.FEAT_PedagogyProjectTags}
                   loading={!loadedTags}
                   onAddItem={(e, { value }) => {
                     if (org.FEAT_PedagogyProjectTags) return;
                     if (value) {
-                      tagOptions.push({
-                        text: value.toString(),
-                        value: value.toString(),
-                        key: value.toString(),
-                      });
-                      field.onChange([
-                        ...(field.value as GenericKeyTextValueObj<string>[]),
-                        value.toString(),
-                      ]);
+                      tagOptions.push({ text: value.toString(), value: value.toString(), key: value.toString() });
+                      field.onChange([...(field.value as GenericKeyTextValueObj<string>[]), value.toString()]);
                     }
                   }}
-                  renderLabel={(tag) => ({
-                    color: "blue",
-                    content: tag.text,
-                  })}
+                  renderLabel={(tag) => ({ color: "blue", content: tag.text })}
                 />
               )}
               name="tags"
               control={control}
             />
-          </Form.Field>
-          <Form.Field className="flex flex-col !mt-4">
-            <label htmlFor="cidinput">
-              <span className="mr-05p">
-                C-ID <span className="muted-text">(if applicable)</span>
-              </span>
-              <Popup
-                trigger={<Icon name="info circle" />}
-                position="top center"
-                hoverable={true}
-                content={
-                  <span className="text-center">
-                    {
-                      "Use this field if your Project or resource pertains to content for a course registered with the "
-                    }
-                    <a href="https://c-id.net/" target="_blank" rel="noopener">
-                      California Course Identification Numbering System (C-ID)
-                    </a>
-                    .
-                  </span>
-                }
-              />
-            </label>
+          </div>
+          <div className="flex flex-col mt-4">
+            <div className="flex items-center gap-1 mb-1">
+              <label htmlFor="cidinput" className="form-field-label !mb-0">
+                C-ID <span className="text-gray-400">(if applicable)</span>
+              </label>
+              <Tooltip content="Use this field if your Project or resource pertains to content for a course registered with the California Course Identification Numbering System (C-ID).">
+                <IconInfoCircle size={15} className="text-gray-400" />
+              </Tooltip>
+            </div>
             <Controller
               name="cidDescriptors"
               control={control}
@@ -997,28 +912,19 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                 <Dropdown
                   id="cidinput"
                   {...field}
-                  onChange={(e, { value }) => {
-                    field.onChange(value);
-                  }}
-                  fluid
-                  deburr
-                  placeholder="Search C-IDs..."
-                  multiple
-                  search
-                  selection
+                  onChange={(e, { value }) => { field.onChange(value); }}
+                  fluid deburr placeholder="Search C-IDs..."
+                  multiple search selection
                   options={cidOptions}
                   loading={!loadedCIDs}
                   disabled={!loadedCIDs}
-                  renderLabel={(cid) => ({
-                    color: "blue",
-                    content: cid.key,
-                  })}
+                  renderLabel={(cid) => ({ color: "blue", content: cid.key })}
                 />
               )}
             />
-          </Form.Field>
-          <Form.Field className="flex flex-col !mt-4">
-            <label htmlFor="associatedOrgs">Associated Organizations</label>
+          </div>
+          <div className="flex flex-col mt-4">
+            <label htmlFor="associatedOrgs" className="form-field-label">Associated Organizations</label>
             <Controller
               render={({ field }) => (
                 <Dropdown
@@ -1026,163 +932,84 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                   placeholder="Search organizations..."
                   options={orgOptions}
                   {...field}
-                  onChange={(e, { value }) => {
-                    field.onChange(value as string);
-                  }}
-                  fluid
-                  selection
-                  multiple
-                  search
-                  onSearchChange={(e, { searchQuery }) => {
-                    getOrgsDebounced(searchQuery);
-                  }}
+                  onChange={(e, { value }) => { field.onChange(value as string); }}
+                  fluid selection multiple search
+                  onSearchChange={(e, { searchQuery }) => { getOrgsDebounced(searchQuery); }}
                   additionLabel="Add organization: "
                   allowAdditions
                   loading={!loadedOrgs}
                   onAddItem={(e, { value }) => {
                     if (value) {
-                      orgOptions.push({
-                        text: value.toString(),
-                        value: value.toString(),
-                        key: value.toString(),
-                      });
-                      field.onChange([
-                        ...(field.value as string[]),
-                        value.toString(),
-                      ]);
+                      orgOptions.push({ text: value.toString(), value: value.toString(), key: value.toString() });
+                      field.onChange([...(field.value as string[]), value.toString()]);
                     }
                   }}
-                  renderLabel={(tag) => ({
-                    color: "blue",
-                    content: tag.text,
-                  })}
+                  renderLabel={(tag) => ({ color: "blue", content: tag.text })}
                 />
               )}
               name="associatedOrgs"
               control={control}
             />
-          </Form.Field>
-          <div className="flex flex-col !mt-4">
-            <label htmlFor="thumbnail" className="form-field-label">
-              <span className="mr-05p">Thumbnail</span>
-              <Popup
-                trigger={<Icon name="info circle" />}
-                position="top center"
-                content={
-                  <span className="text-center">
-                    A thumbnail image for the project. This will be displayed in
-                    the project's card on the Commons page (if project is
-                    publicly visible). Project thumbnails are stored publicly
-                    (regardless of project visibility) and appear best with a
-                    16:9 aspect ratio. It may take a few minutes for a new
-                    thumbnail to propogate to all locations.
-                  </span>
-                }
-              />
-            </label>
-            <div className="flex flex-row justify-start mt-2">
+          </div>
+          <div className="flex flex-col mt-4">
+            <div className="flex items-center gap-1 mb-1">
+              <label htmlFor="thumbnail" className="form-field-label !mb-0">Thumbnail</label>
+              <Tooltip content="A thumbnail image for the project. Appears best with a 16:9 aspect ratio. May take a few minutes to propagate.">
+                <IconInfoCircle size={15} className="text-gray-400" />
+              </Tooltip>
+            </div>
+            <div className="flex gap-2 mt-1">
               {getValues("thumbnail") && (
                 <Button
-                  id="thumbnail-current"
-                  icon
-                  labelPosition="left"
-                  onClick={() =>
-                    window.open(getValues("thumbnail") as string, "_blank")
-                  }
+                  variant="outline"
+                  icon={<IconExternalLink size={14} />}
+                  onClick={() => window.open(getValues("thumbnail") as string, "_blank")}
                 >
-                  <Icon name="external square" />
                   View Current
                 </Button>
               )}
               <Button
-                id="thumbnail"
-                icon
-                labelPosition="left"
-                color="blue"
+                variant="primary"
+                icon={<IconUpload size={14} />}
                 onClick={handleOpenThumbnailUpload}
               >
-                <Icon name="upload" />
                 {getValues("thumbnail") ? "Replace" : "Upload"}
               </Button>
-              <input
-                id="thumbnail-hidden-input"
-                type="file"
-                hidden
-                accept="image/*"
-                max={1}
-                onChange={handleThumbnailUpload}
-              />
+              <input id="thumbnail-hidden-input" type="file" hidden accept="image/*" max={1} onChange={handleThumbnailUpload} />
             </div>
           </div>
-          <p>
-            <em>
-              For settings and properties related to Peer Reviews, please use
-              the Settings tool on this project's Peer Review page.
-            </em>
+          <p className="mt-4 text-sm text-gray-500">
+            <em>For settings and properties related to Peer Reviews, please use the Settings tool on this project's Peer Review page.</em>
           </p>
-          <Divider />
-          <Header as="h3" className="!mb-0">
-            Project Modules
-          </Header>
+          <hr className="my-4" />
+          <Heading level={3} className="!mb-0">Project Modules</Heading>
           <div className="mt-2">
-            <p className="mb-2">
-              Enable, disable, or re-order the display of modules in your
-              project's page.
-            </p>
-            <ProjectModulesControl
-              getValues={getValues}
-              setValue={setValue}
-              watch={watch}
-            />
+            <p className="mb-2">Enable, disable, or re-order the display of modules in your project's page.</p>
+            <ProjectModulesControl getValues={getValues} setValue={setValue} watch={watch} />
           </div>
-          <Divider />
-          <Header as="h3" className="!mb-0">
-            Homework and Assessments
-          </Header>
+          <hr className="my-4" />
+          <Heading level={3} className="!mb-0">Homework and Assessments</Heading>
           <p>
             <em>
               {`Use this section to link your project's Commons page (if applicable) to an `}
-              <a
-                href="https://adapt.libretexts.org"
-                target="_blank"
-                rel="noreferrer"
-              >
-                ADAPT
-              </a>
+              <a href="https://adapt.libretexts.org" target="_blank" rel="noreferrer">ADAPT</a>
               {` assessment system course. `}
               <strong>Ensure the course allows anonymous users.</strong>
             </em>
           </p>
-          <Form.Field>
-            <label htmlFor="adaptURL">
-              <span className="mr-05p">
-                ADAPT Course URL{" "}
-                <span className="muted-text">(if applicable)</span>
-              </span>
-              <Popup
-                trigger={<Icon name="info circle" />}
-                position="top center"
-                content={
-                  <span className="text-center">
-                    Paste the URL of your Course Dashboard (assignments list) or
-                    Course Properties page. The Course ID will be automatically
-                    determined.
-                  </span>
-                }
-              />
-            </label>
-            <CtlTextInput
-              name="adaptURL"
-              control={control}
-              placeholder="Enter ADAPT Course Dashboard URL..."
-              type="url"
-              id="adaptURL"
-            />
-          </Form.Field>
-          <Divider />
-          <Header as="h3" className="!mb-0">
-            Source Properties
-          </Header>
+          <div className="mt-2">
+            <div className="flex items-center gap-1 mb-1">
+              <label htmlFor="adaptURL" className="form-field-label !mb-0">
+                ADAPT Course URL <span className="text-gray-400">(if applicable)</span>
+              </label>
+              <Tooltip content="Paste the URL of your Course Dashboard (assignments list) or Course Properties page. The Course ID will be automatically determined.">
+                <IconInfoCircle size={15} className="text-gray-400" />
+              </Tooltip>
+            </div>
+            <CtlTextInput name="adaptURL" control={control} placeholder="Enter ADAPT Course Dashboard URL..." type="url" id="adaptURL" />
+          </div>
+          <hr className="my-4" />
+          <Heading level={3} className="!mb-0">Source Properties</Heading>
           <p>
             <em>
               Use this section if your project pertains to a particular resource
@@ -1256,87 +1083,58 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                 Language
               </label>
               <Controller
-                render={({ field }) => (
-                  <Dropdown
-                    id="selectSourceLanguage"
-                    options={languageCodes.map((l) => ({
-                      key: crypto.randomUUID(),
-                      value: l.code,
-                      text: l.name,
-                    }))}
-                    {...field}
-                    onChange={(e, data) => {
-                      field.onChange(data.value?.toString() ?? "");
-                    }}
-                    fluid
-                    selection
-                    placeholder="Select a language..."
-                    className="basis-1/2"
-                  />
-                )}
                 name="sourceLanguage"
                 control={control}
+                render={({ field }) => (
+                  <Select
+                    id="selectSourceLanguage"
+                    name="sourceLanguage"
+                    label="Language"
+                    options={languageCodes.map((l) => ({ value: l.code, label: l.name }))}
+                    value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                    placeholder="Select a language..."
+                  />
+                )}
               />
             </div>
           </div>
           <div className="w-1/2 mt-6">
-            <label
-              className="form-field-label"
-              htmlFor="selectSourceLicenseName"
-            >
-              License Name
-            </label>
+            <label className="form-field-label" htmlFor="selectSourceLicenseName">License Name</label>
             <Controller
+              name="license.name"
+              control={control}
               render={({ field }) => (
-                <Dropdown
+                <Select
                   id="selectSourceLicenseName"
-                  options={licenseOptions.map((l) => ({
-                    key: crypto.randomUUID(),
-                    value: l.name,
-                    text: l.name,
-                  }))}
-                  {...field}
-                  onChange={(e, data) => {
-                    field.onChange(data.value?.toString() ?? "");
-                  }}
-                  fluid
-                  selection
+                  name="license.name"
+                  label="License Name"
+                  options={licenseOptions.map((l) => ({ value: l.name, label: l.name }))}
+                  value={field.value ?? ""}
+                  onChange={(e) => field.onChange(e.target.value)}
                   placeholder="Select a license..."
                 />
               )}
-              name="license.name"
-              control={control}
             />
           </div>
           {selectedSourceLicenseVersions().length > 0 && (
             <div className="mt-2">
-              <label
-                className="form-field-label form-required"
-                htmlFor="selectSourceLicenseVersion"
-              >
-                License Version
-              </label>
+              <label className="form-field-label form-required" htmlFor="selectSourceLicenseVersion">License Version</label>
               <Controller
-                render={({ field }) => (
-                  <Dropdown
-                    id="selectSourceLicenseVersion"
-                    options={selectedSourceLicenseVersions().map((v) => ({
-                      key: crypto.randomUUID(),
-                      value: v,
-                      text: v,
-                    }))}
-                    {...field}
-                    onChange={(e, data) => {
-                      field.onChange(data.value?.toString() ?? "");
-                    }}
-                    fluid
-                    selection
-                    placeholder="Select license version"
-                  />
-                )}
                 name="license.version"
                 control={control}
                 rules={required}
+                render={({ field }) => (
+                  <Select
+                    id="selectSourceLicenseVersion"
+                    name="license.version"
+                    label="License Version"
+                    options={selectedSourceLicenseVersions().map((v) => ({ value: v, label: v }))}
+                    value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                    placeholder="Select license version"
+                  />
+                )}
               />
             </div>
           )}
@@ -1364,73 +1162,50 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             maxLength={DESCRIP_MAX_CHARS}
             showRemaining
           />
-          <Divider />
-          <Header as="h3">Asset Settings</Header>
-          <p className="!my-1">
+          <hr className="my-4" />
+          <Heading level={3} className="!mb-0">Asset Settings</Heading>
+          <p className="my-1">
             <strong>Default License</strong>
           </p>
-          <p className="!mt-0 !mb-3">
-            <em>
-              Use this section to set the default license information for
-              uploaded assets. Users will be able to override this setting on a
-              per-file basis.
-            </em>
+          <p className="mt-0 mb-3">
+            <em>Use this section to set the default license information for uploaded assets. Users will be able to override this setting on a per-file basis.</em>
           </p>
           <div>
-            <label className="form-field-label" htmlFor="selectFileLicenseName">
-              Name
-            </label>
+            <label className="form-field-label" htmlFor="selectFileLicenseName">Name</label>
             <Controller
+              name="defaultFileLicense.name"
+              control={control}
               render={({ field }) => (
-                <Dropdown
+                <Select
                   id="selectFileLicenseName"
-                  options={licenseOptions.map((l) => ({
-                    key: crypto.randomUUID(),
-                    value: l.name,
-                    text: l.name,
-                  }))}
-                  {...field}
-                  onChange={(e, data) => {
-                    field.onChange(data.value?.toString() ?? "");
-                  }}
-                  fluid
-                  selection
+                  name="defaultFileLicense.name"
+                  label="License Name"
+                  options={licenseOptions.map((l) => ({ value: l.name, label: l.name }))}
+                  value={field.value ?? ""}
+                  onChange={(e) => field.onChange(e.target.value)}
                   placeholder="Select a license..."
                 />
               )}
-              name="defaultFileLicense.name"
-              control={control}
             />
           </div>
           {selectedFileLicenseVersions().length > 0 && (
             <div className="mt-2">
-              <label
-                className="form-field-label form-required"
-                htmlFor="selectFileLicenseVersion"
-              >
-                Version
-              </label>
+              <label className="form-field-label form-required" htmlFor="selectFileLicenseVersion">Version</label>
               <Controller
-                render={({ field }) => (
-                  <Dropdown
-                    id="selectFileLicenseVersion"
-                    options={selectedFileLicenseVersions().map((v) => ({
-                      key: crypto.randomUUID(),
-                      value: v,
-                      text: v,
-                    }))}
-                    {...field}
-                    onChange={(e, data) => {
-                      field.onChange(data.value?.toString() ?? "");
-                    }}
-                    fluid
-                    selection
-                    placeholder="Select license version"
-                  />
-                )}
                 name="defaultFileLicense.version"
                 control={control}
                 rules={required}
+                render={({ field }) => (
+                  <Select
+                    id="selectFileLicenseVersion"
+                    name="defaultFileLicense.version"
+                    label="License Version"
+                    options={selectedFileLicenseVersions().map((v) => ({ value: v, label: v }))}
+                    value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                    placeholder="Select license version"
+                  />
+                )}
               />
             </div>
           )}
@@ -1539,89 +1314,60 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               />
             </Form.Field>
           </div> */}
-          <Divider />
-          <Header as="h3">Discussion Settings</Header>
-          <div className="w-1/4">
-            <label
-              htmlFor="defaultChatNotification"
-              className="form-field-label"
-            >
-              Default Message Notification Type
-            </label>
+          <hr className="my-4" />
+          <Heading level={3} className="!mb-0">Discussion Settings</Heading>
+          <div className="w-1/4 mt-2">
+            <label htmlFor="defaultChatNotification" className="form-field-label">Default Message Notification Type</label>
             <Controller
               name="defaultChatNotification"
               control={control}
               render={({ field }) => (
-                <Dropdown
+                <Select
                   id="defaultChatNotification"
-                  options={CHAT_NOTIFY_OPTS(true, () => {})}
-                  {...field}
-                  onChange={(e, data) => {
-                    field.onChange(data.value?.toString() ?? "all");
-                  }}
-                  fluid
-                  selection
-                  className="mr-8 mt-1"
+                  name="defaultChatNotification"
+                  label="Default Message Notification Type"
+                  options={CHAT_NOTIFY_OPTS(true, () => {}).map((o) => ({ value: String(o.value), label: o.text }))}
+                  value={field.value ?? "all"}
+                  onChange={(e) => field.onChange(e.target.value)}
                   placeholder="Notification type..."
                 />
               )}
             />
           </div>
-          <Divider />
-          <Header as="h3">Additional Information</Header>
+          <hr className="my-4" />
+          <Heading level={3} className="!mb-0">Additional Information</Heading>
           <CtlTextArea
             name="notes"
             control={control}
             label="Notes"
             placeholder="Enter additional notes here..."
           />
-        </Form>
-        <Accordion
-          className="mt-2p"
-          panels={[
-            {
-              key: "danger",
-              title: {
-                content: (
-                  <span className="color-semanticred">
-                    <strong>Danger Zone</strong>
-                  </span>
-                ),
-              },
-              content: {
-                content: (
-                  <div>
-                    <p className="color-semanticred">
-                      Use caution with the options in this area!
-                    </p>
-                    <Button
-                      color="red"
-                      fluid
-                      onClick={() => setShowDeleteModal(true)}
-                    >
-                      <Icon name="trash alternate" />
-                      Delete Project
-                    </Button>
-                  </div>
-                ),
-              },
-            },
-          ]}
-        />
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={() => onClose()}>Cancel</Button>
+        </div>
+        <details className="mt-4 border border-red-300 rounded p-3">
+          <summary className="cursor-pointer font-semibold text-red-600">Danger Zone</summary>
+          <div className="mt-3">
+            <p className="text-red-600 mb-2">Use caution with the options in this area!</p>
+            <Button
+              variant="destructive"
+              icon={<IconTrash size={14} />}
+              onClick={() => setShowDeleteModal(true)}
+            >
+              Delete Project
+            </Button>
+          </div>
+        </details>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline" onClick={() => onClose()}>Cancel</Button>
         <Button
-          icon
-          labelPosition="left"
-          color="green"
+          variant="primary"
           loading={loading}
+          icon={<IconDeviceFloppy size={14} />}
           onClick={submitEditInfoForm}
         >
-          <Icon name="save" />
           Save Changes
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
       <DeleteProjectModal
         show={showDeleteModal}
         projectID={projectID}
