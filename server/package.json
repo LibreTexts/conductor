@@ -7,9 +7,11 @@
   "scripts": {
     "dev": "tsx watch --clear-screen=false server.ts",
     "build": "tsup server.ts --format esm --dts --out-dir dist && tsc-alias",
-    "start:prod": "node --experimental-specifier-resolution=node dist/server.js"
+    "start:prod": "node --experimental-specifier-resolution=node dist/server.js",
+    "export:support": "tsx scripts/exportSanitizedSupportTickets.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-comprehend": "3.1039.0",
     "@aws-sdk/client-ecs": "3.1039.0",
     "@aws-sdk/client-s3": "3.1039.0",
     "@aws-sdk/client-ssm": "3.1039.0",
