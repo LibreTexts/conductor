@@ -29,8 +29,12 @@ const LicenseBadge: React.FC<LicenseBadgeProps> = (props) => {
         borderRadius: 3,
         fontSize: 12,
         fontWeight: 600,
+        lineHeight: "18px",
         whiteSpace: "nowrap",
-        display: "inline-block",
+        display: "inline-flex",
+        alignItems: "center",
+        boxSizing: "border-box",
+        minHeight: 22,
       }}
     >
       {text}

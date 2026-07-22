@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { IconButton, Select, Stack } from "@libretexts/davis-react";
 import { IconCheck, IconX } from "@tabler/icons-react";
-import { licenseOptions } from "../../util/LicenseOptions";
+import {
+  getLicenseVersionOptions,
+  licenseOptions,
+} from "../../util/LicenseOptions";
 import type { RestackerTocLicense } from "../../../types";
 import LicenseBadge from "./LicenseBadge";
 import {
-  LICENSE_VERSION_OPTIONS,
-  licenseNeedsVersion,
   parseLicenseKey,
   parseLicenseVersion,
   formatVersionDigits,
@@ -40,7 +41,10 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
 
   const [draftLicense, setDraftLicense] = useState(licenseKey);
   const [draftVersion, setDraftVersion] = useState(versionDigits ?? "");
-  const initialValuesRef = useRef({ license: licenseKey, version: versionDigits ?? "" });
+  const initialValuesRef = useRef({
+    license: licenseKey,
+    version: versionDigits ?? "",
+  });
   const wasEditingRef = useRef(false);
 
   useEffect(() => {
@@ -73,7 +77,12 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
           background: "transparent",
           border: 0,
           padding: 0,
+          margin: 0,
           textAlign: "left",
+          font: "inherit",
+          lineHeight: 0,
+          display: "inline-flex",
+          alignItems: "center",
         }}
         title={editable ? "Click to edit" : undefined}
         disabled={!editable}
@@ -84,13 +93,10 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
     );
   }
 
-  const showVersion = licenseNeedsVersion(draftLicense);
+  const showVersion =  getLicenseVersionOptions(draftLicense).length > 0;
 
   const handleSubmit = () => {
-    onSubmit(
-      draftLicense,
-      showVersion ? draftVersion || undefined : undefined,
-    );
+    onSubmit(draftLicense, showVersion ? draftVersion || undefined : undefined);
   };
 
   return (
@@ -110,8 +116,14 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
           onChange={(e) => {
             const nextLicense = e.target.value;
             setDraftLicense(nextLicense);
-            if (!licenseNeedsVersion(nextLicense)) {
+            if (getLicenseVersionOptions(nextLicense).length === 0) {
               setDraftVersion("");
+            } else {
+              const allowedVersions = getLicenseVersionOptions(nextLicense);
+              const allowed = allowedVersions.map((o: { key: string }) => o.key);
+              if (draftVersion && !allowed.includes(draftVersion)) {
+                setDraftVersion("");
+              }
             }
           }}
         />
@@ -121,10 +133,12 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
             label="Version"
             aria-label="License version"
             placeholder="Version..."
-            options={LICENSE_VERSION_OPTIONS.map((option) => ({
-              value: option.value,
-              label: option.label,
-            }))}
+            options={getLicenseVersionOptions(draftLicense).map(
+              (option: { key: string; label: string }) => ({
+                value: option.key,
+                label: option.label,
+              }),
+            )}  
             value={draftVersion}
             disabled={loading}
             onChange={(e) => setDraftVersion(e.target.value)}
