@@ -84,7 +84,7 @@ const ShapeshiftConsole = () => {
             <div className="flex items-center">
               <Button
                 as="a"
-                href={DOMPurify.sanitize(row.getValue('url'))}
+                href={DOMPurify.sanitize(row.original.url)}
                 variant="primary"
                 icon={<IconExternalLink />}
                 target="_blank"
