@@ -2,22 +2,38 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../../../api";
-import { Button, Card, Link, Spinner, Stack, Text, IconButton, Tooltip, Heading, Breadcrumb } from "@libretexts/davis-react";
-import { IconExternalLink, IconInfoCircle, IconRefresh } from "@tabler/icons-react";
 import {
-  DataTable,
-  createColumnHelper,
-} from "@libretexts/davis-react-table";
+  Button,
+  Card,
+  Link,
+  Spinner,
+  Stack,
+  Text,
+  IconButton,
+  Tooltip,
+  Heading,
+  Breadcrumb,
+} from "@libretexts/davis-react";
+import {
+  IconExternalLink,
+  IconInfoCircle,
+  IconRefresh,
+  IconTools,
+} from "@tabler/icons-react";
+import { DataTable, createColumnHelper } from "@libretexts/davis-react-table";
 import type {
   RestackerEntry,
   RestackerTocEntry,
   RestackerTocLicense,
 } from "../../../types";
 import {
+  areLicensesCompatible,
   isLicenseNonCompliant,
   getLicenseCompliance,
   getProposedLicenseCompliance,
+  parseLicenseKey,
   parseLicenseVersion,
+  formatVersionDigits,
   type LicenseComplianceResult,
 } from "./util";
 import ComplianceDetails from "./ComplianceDetails";
@@ -26,23 +42,22 @@ import LicenseEditor from "./LicenseEditor";
 import LicenseWarningModal from "./LicenseWarningModal";
 import { useNotifications } from "../../../context/NotificationContext";
 import useProject from "../../../hooks/useProject";
-import { capitalizeFirstLetter, truncateString } from "../../util/HelperFunctions";
+import {
+  capitalizeFirstLetter,
+  truncateString,
+} from "../../util/HelperFunctions";
 import { useModals } from "../../../context/ModalContext";
 
 type FlatRestackerRow = RestackerTocEntry & { depth: number };
 
 const columnHelper = createColumnHelper<FlatRestackerRow>();
 
-function flattenToc(
-  nodes: RestackerTocEntry[],
-  depth = 0,
-): FlatRestackerRow[] {
+function flattenToc(nodes: RestackerTocEntry[], depth = 0): FlatRestackerRow[] {
   return nodes.flatMap((node) => [
     { ...node, depth },
     ...flattenToc(node.children ?? [], depth + 1),
   ]);
 }
-
 
 /**
  * Recursively walks the TOC tree and overlays `license` → `pageLicense` and
@@ -139,13 +154,19 @@ function createColumns(
             }}
           >
             {getValue()}
-            <IconExternalLink size={12} style={{ flexShrink: 0, opacity: 0.6 }} />
+            <IconExternalLink
+              size={12}
+              style={{ flexShrink: 0, opacity: 0.6 }}
+            />
           </a>,
         ),
     }),
     columnHelper.accessor("bookLicense", {
       header: () => (
-        <Tooltip content="The overall license that applies to the whole book" placement="bottom">
+        <Tooltip
+          content="The overall license that applies to the whole book"
+          placement="bottom"
+        >
           <span>Book License</span>
         </Tooltip>
       ),
@@ -165,14 +186,23 @@ function createColumns(
             onCancel={onCancelLicenseEdit}
             onSubmit={(license, version) =>
               bookPageId &&
-              onLicenseSubmit?.(bookPageId, "book", row.original, license, version)
+              onLicenseSubmit?.(
+                bookPageId,
+                "book",
+                row.original,
+                license,
+                version,
+              )
             }
           />,
         ),
     }),
     columnHelper.accessor("pageLicense", {
       header: () => (
-        <Tooltip content="The license declared directly on this page" placement="bottom">
+        <Tooltip
+          content="The license declared directly on this page"
+          placement="bottom"
+        >
           <span>Page License</span>
         </Tooltip>
       ),
@@ -191,14 +221,23 @@ function createColumns(
             onStartEdit={() => onStartLicenseEdit?.(row.original.id, "page")}
             onCancel={onCancelLicenseEdit}
             onSubmit={(license, version) =>
-              onLicenseSubmit?.(row.original.id, "page", row.original, license, version)
+              onLicenseSubmit?.(
+                row.original.id,
+                "page",
+                row.original,
+                license,
+                version,
+              )
             }
           />,
         ),
     }),
     columnHelper.accessor("sourceLicense", {
       header: () => (
-        <Tooltip content="The license of the original source this page was transcluded from" placement="bottom">
+        <Tooltip
+          content="The license of the original source this page was transcluded from"
+          placement="bottom"
+        >
           <span>Source License</span>
         </Tooltip>
       ),
@@ -208,7 +247,10 @@ function createColumns(
     }),
     columnHelper.accessor("contentLicenses", {
       header: () => (
-        <Tooltip content="Licenses found within the embedded content of this page" placement="bottom">
+        <Tooltip
+          content="Licenses found within the embedded content of this page"
+          placement="bottom"
+        >
           <span>Content Licenses</span>
         </Tooltip>
       ),
@@ -222,7 +264,10 @@ function createColumns(
           ) : (
             <Stack direction="vertical" gap="xs">
               {licenses.map((l, i) => (
-                <LicenseBadge key={`${l.label}::${l.version ?? ""}::${i}`} license={l} />
+                <LicenseBadge
+                  key={`${l.label}::${l.version ?? ""}::${i}`}
+                  license={l}
+                />
               ))}
             </Stack>
           ),
@@ -253,6 +298,35 @@ function createColumns(
         wrap(
           row.original,
           <div className="flex w-full justify-end">
+            {editable &&
+              areLicensesCompatible(
+                row.original.pageLicense,
+                row.original.sourceLicense,
+              ) === false && (
+                <IconButton
+                  aria-label="Quick fix"
+                  title="Apply source license to the page"
+                  icon={<IconTools size={16} />}
+                  loading={updatingPageId === row.original.id}
+                  disabled={updatingPageId === row.original.id}
+                  onClick={() => {
+                    const source = row.original.sourceLicense;
+                    const license = parseLicenseKey(source);
+                    if (!license) return;
+                    const version = formatVersionDigits(
+                      parseLicenseVersion(source?.version) ?? source?.version,
+                    );
+                    onLicenseSubmit?.(
+                      row.original.id,
+                      "page",
+                      row.original,
+                      license,
+                      version,
+                    );
+                  }}
+                />
+              )}
+
             <IconButton
               aria-label="View compliance details"
               icon={<IconInfoCircle size={16} />}
@@ -281,11 +355,11 @@ const Restacker: React.FC = () => {
 
     const compliance = row
       ? getLicenseCompliance(
-        bookLicense ?? { label: "", raw: "" },
-        row?.pageLicense ?? { label: "", raw: "" },
-        row?.sourceLicense ?? { label: "", raw: "" },
-        row?.contentLicenses ?? [],
-      )
+          bookLicense ?? { label: "", raw: "" },
+          row?.pageLicense ?? { label: "", raw: "" },
+          row?.sourceLicense ?? { label: "", raw: "" },
+          row?.contentLicenses ?? [],
+        )
       : null;
 
     setDetailsOpen(true);
@@ -302,13 +376,17 @@ const Restacker: React.FC = () => {
         pageLicense={row?.pageLicense}
         sourceLicense={row?.sourceLicense}
         contentLicenses={row?.contentLicenses}
-      />
+      />,
     );
   };
 
   useLayoutEffect(() => {
     const restoreScroll = () => {
-      window.scrollTo({ top: savedScrollY.current, left: 0, behavior: "instant" });
+      window.scrollTo({
+        top: savedScrollY.current,
+        left: 0,
+        behavior: "instant",
+      });
     };
 
     if (detailsOpen) {
@@ -336,7 +414,7 @@ const Restacker: React.FC = () => {
     refetchOnMount: false,
     refetchInterval: false,
     refetchOnReconnect: false,
-    retry: 1
+    retry: 1,
   });
 
   // Poll the lightweight status endpoint while the server job is running. It reads persisted
@@ -354,10 +432,7 @@ const Restacker: React.FC = () => {
     ? progressData.status === "completed" || progressData.status === "failed"
     : tocData?.status === "completed";
 
-  const {
-    data: restackerData,
-    isFetching: restackerFetching,
-  } = useQuery({
+  const { data: restackerData, isFetching: restackerFetching } = useQuery({
     queryKey: ["restacker", id],
     queryFn: () => api.getRestacker(id),
     enabled: isCompleted,
@@ -368,7 +443,9 @@ const Restacker: React.FC = () => {
     onSuccess: async () => {
       // The reload endpoint recreates an all-pending doc and starts the job itself, so we just
       // resume polling; status flips to "pending" and the table repopulates when it completes.
-      await queryClient.invalidateQueries({ queryKey: ["restacker-status", id] });
+      await queryClient.invalidateQueries({
+        queryKey: ["restacker-status", id],
+      });
       await queryClient.invalidateQueries({ queryKey: ["restacker", id] });
     },
     onError: (err: unknown) => {
@@ -465,9 +542,9 @@ const Restacker: React.FC = () => {
             });
             closeAllModals();
           }}
-        />
+        />,
       );
-
+      return;
     }
 
     handleLicenseChange({ pageID, license, version });
@@ -504,27 +581,25 @@ const Restacker: React.FC = () => {
   const rows = flattenToc(
     isCompleted && restackerData?.restacker?.length
       ? mergeLicenseData(
-        tocChildren,
-        new Map(restackerData.restacker.map((e) => [e.id, e])),
-      )
+          tocChildren,
+          new Map(restackerData.restacker.map((e) => [e.id, e])),
+        )
       : tocChildren,
   );
 
   return (
     <Stack direction="vertical" gap="md" className="py-8 px-16">
       <Stack direction="vertical" gap="xs" className="mb-2">
-        <Heading level={2}>
-          License Restacker
-        </Heading>
-        {
-          !isLoadingProject && project?.title && (
-            <Breadcrumb className="ml-1">
-              <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
-              <Breadcrumb.Item href={`/projects/${id}`}>{project?.title}</Breadcrumb.Item>
-              <Breadcrumb.Item isCurrent>License Restacker</Breadcrumb.Item>
-            </Breadcrumb>
-          )
-        }
+        <Heading level={2}>License Restacker</Heading>
+        {!isLoadingProject && project?.title && (
+          <Breadcrumb className="ml-1">
+            <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
+            <Breadcrumb.Item href={`/projects/${id}`}>
+              {project?.title}
+            </Breadcrumb.Item>
+            <Breadcrumb.Item isCurrent>License Restacker</Breadcrumb.Item>
+          </Breadcrumb>
+        )}
       </Stack>
       <Card variant="elevated">
         <Card.Body>
@@ -550,7 +625,8 @@ const Restacker: React.FC = () => {
                 </Link>
               </Text>
               <Text size="sm">
-                Status: {capitalizeFirstLetter(progressData?.status ?? tocData?.status)}
+                Status:{" "}
+                {capitalizeFirstLetter(progressData?.status ?? tocData?.status)}
               </Text>
               {(() => {
                 if (!bookLicense?.label) return null;
@@ -560,24 +636,22 @@ const Restacker: React.FC = () => {
                   </Text>
                 );
               })()}
-              {
-                isProcessing && (
-                  <Stack
-                    direction="horizontal"
-                    gap="sm"
-                    align="center"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <Spinner size="sm" />
-                    <Text size="sm">
-                      {progressData && progressData.total > 0
-                        ? `Loading license data. This can take a few minutes… processed ${progressData.completed + progressData.failed} of ${progressData.total} pages. This page updates automatically when it's ready.`
-                        : "Loading license data… this can take a few minutes. This page updates automatically when it's ready."}
-                    </Text>
-                  </Stack>
-                )
-              }
+              {isProcessing && (
+                <Stack
+                  direction="horizontal"
+                  gap="sm"
+                  align="center"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <Spinner size="sm" />
+                  <Text size="sm">
+                    {progressData && progressData.total > 0
+                      ? `Loading license data. This can take a few minutes… processed ${progressData.completed + progressData.failed} of ${progressData.total} pages. This page updates automatically when it's ready.`
+                      : "Loading license data… this can take a few minutes. This page updates automatically when it's ready."}
+                  </Text>
+                </Stack>
+              )}
             </Stack>
             <Button
               variant="primary"
@@ -607,7 +681,7 @@ const Restacker: React.FC = () => {
           }}
         />
       </div>
-    </Stack >
+    </Stack>
   );
 };
 

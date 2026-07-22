@@ -276,20 +276,7 @@ export function getProposedLicenseCompliance(
   );
 }
 
-export const LICENSE_VERSION_OPTIONS = [
-  { value: "10", label: "1.0" },
-  { value: "20", label: "2.0" },
-  { value: "25", label: "2.5" },
-  { value: "30", label: "3.0" },
-  { value: "40", label: "4.0" },
-] as const;
 
-const LICENSES_WITHOUT_VERSION = new Set(["publicdomain", "arr", "ck12"]);
-
-export function licenseNeedsVersion(licenseKey?: string): boolean {
-  if (!licenseKey) return false;
-  return !LICENSES_WITHOUT_VERSION.has(licenseKey);
-}
 
 export function formatVersionDigits(version?: string): string | undefined {
   if (!version) return undefined;
