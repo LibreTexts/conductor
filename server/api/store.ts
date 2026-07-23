@@ -210,6 +210,8 @@ export async function validateAddress(req: z.infer<typeof ValidateAddressSchema>
           errMsg: result.reason,
           status: "invalid",
         });
+      default:
+        return conductor500Err(res);
     }
   } catch (error) {
     debugError(error);

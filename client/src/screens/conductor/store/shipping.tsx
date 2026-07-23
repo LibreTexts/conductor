@@ -21,7 +21,7 @@ import { useModals } from "../../../context/ModalContext";
 import ConfirmOrderModal from "../../../components/store/ConfirmOrderModal";
 import AddressSuggestionModal from "../../../components/store/AddressSuggestionModal";
 import ShippingTimeline from "../../../components/store/ShippingTimeline";
-import { Button, Stack, Text } from "@libretexts/davis-react";
+import { Button, Link, Stack, Text } from "@libretexts/davis-react";
 import { IconArrowRight, IconTruckDelivery } from "@tabler/icons-react";
 
 const STATE_CODES = [
@@ -424,6 +424,10 @@ export default function ShippingPage() {
   }
 
   async function handleGetShippingOptions() {
+    // Reentrancy guard: ignore repeat clicks while a validation (or its
+    // suggestion modal) is already in flight.
+    if (validatingAddress || shippingLoading) return;
+
     if (!cart || cart.items.length === 0) {
       setError("Cart is empty");
       return;
@@ -439,7 +443,11 @@ export default function ShippingPage() {
       return;
     }
 
+    // Keep validatingAddress true until the flow fully resolves. When we hand
+    // off to the suggestion modal, ownership of clearing the flag passes to
+    // onResolve so the button stays disabled while the modal is open.
     setValidatingAddress(true);
+    let handedOffToModal = false;
     try {
       const currentAddress = getCurrentAddressFields();
       const response = await api.validateAddress({ shipping_address: currentAddress });
@@ -454,24 +462,34 @@ export default function ShippingPage() {
       }
 
       if (status === "suggested_correction" && suggested_address) {
+        handedOffToModal = true;
         openModal(
           <AddressSuggestionModal
             isOpen
-            onClose={closeAllModals}
+            onClose={() => {
+              // Dismissing without choosing cancels the flow; release the flag
+              // so the button re-enables and the user can retry.
+              closeAllModals();
+              setValidatingAddress(false);
+            }}
             currentAddress={currentAddress}
             suggestedAddress={suggested_address}
             onResolve={async (accepted) => {
               closeAllModals();
-              if (accepted) {
-                applySuggestedAddress(suggested_address);
-                if (suggested_address.address_line_1.length > 30) {
-                  setError(
-                    'The suggested Address line 1 is longer than the 30-character limit. Please shorten it, then click "Get Shipping Options" again.'
-                  );
-                  return;
+              try {
+                if (accepted) {
+                  applySuggestedAddress(suggested_address);
+                  if (suggested_address.address_line_1.length > 30) {
+                    setError(
+                      'The suggested Address line 1 is longer than the 30-character limit. Please shorten it, then click "Get Shipping Options" again.'
+                    );
+                    return;
+                  }
                 }
+                await updateShippingOptions();
+              } finally {
+                setValidatingAddress(false);
               }
-              await updateShippingOptions();
             }}
           />
         );
@@ -485,7 +503,9 @@ export default function ShippingPage() {
       // Fail open: don't let a validation hiccup block the customer from ordering
       await updateShippingOptions();
     } finally {
-      setValidatingAddress(false);
+      // The modal path clears the flag in onResolve; don't clear it here or the
+      // button re-enables while the modal is still open.
+      if (!handedOffToModal) setValidatingAddress(false);
     }
   }
 
@@ -858,10 +878,12 @@ export default function ShippingPage() {
                   Get Shipping Options
                 </Button>
                 {cart && cart.items.length > 0 && !addressFormComplete && (
-                  <p className="mt-2 text-sm text-gray-500">
-                    Fill in all required fields above, then click "Get Shipping Options" to
-                    continue.
-                  </p>
+                  <div className="mt-4">
+                    <Text>
+                      Fill in all required fields above, then click "Get Shipping Options" to
+                      continue.
+                    </Text>
+                  </div>
                 )}
               </div>
               <ShippingOptions
@@ -1066,16 +1088,18 @@ export default function ShippingPage() {
             >
               Proceed to Payment
             </Button>
-            <p className="!mt-4 text-sm text-gray-500 text-center">
-              If you have any questions or concerns, please contact our{" "}
-              <a
-                href="https://support.libretexts.org"
-                className="text-primary hover:underline"
-              >
-                Support Center
-              </a>{" "}
-              before proceeding.
-            </p>
+            <div className="mt-4 text-center">
+              <Text>
+                If you have any questions or concerns, please contact our{" "}
+                <Link
+                  href="https://support.libretexts.org"
+                  className="text-primary hover:underline"
+                >
+                  Support Center
+                </Link>{" "}
+                before proceeding.
+              </Text>
+            </div>
             {error && (
               <div role="alert" className="mt-4 text-red-700 text-center flex items-center justify-center text-lg font-medium">
                 <Icon name="exclamation triangle" className="!mb-1 !mr-2" aria-hidden="true" />

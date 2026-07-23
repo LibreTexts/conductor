@@ -6,7 +6,7 @@
 import express from "express";
 import cors from "cors";
 import { catchInternal } from "./util/helpers.js";
-import { rateLimitMiddleware } from "./util/rateLimitHelpers.js";
+import { limitAddressValidation, rateLimitMiddleware } from "./util/rateLimitHelpers.js";
 import middleware from "./middleware.js"; // Route middleware
 import assetTagFrameworkAPI from "./api/assettagframeworks.js";
 import authorsAPI from "./api/authors.js";
@@ -889,6 +889,7 @@ router.route("/store/checkout/session/:order_id").get(
 router.route("/store/checkout/shipping-options").post(
   authAPI.optionalVerifyRequest,
   authAPI.optionalGetUserAttributes,
+  limitAddressValidation, // Tighter rate limit for address validation and shipping options
   middleware.validateZod(storeValidators.GetShippingOptionsSchema),
   storeAPI.getShippingOptions
 )
@@ -896,6 +897,7 @@ router.route("/store/checkout/shipping-options").post(
 router.route("/store/checkout/validate-address").post(
   authAPI.optionalVerifyRequest,
   authAPI.optionalGetUserAttributes,
+  limitAddressValidation, // Tighter rate limit for address validation and shipping options
   middleware.validateZod(storeValidators.ValidateAddressSchema),
   storeAPI.validateAddress
 )

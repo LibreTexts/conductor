@@ -30,7 +30,8 @@ const AddressSuggestionModal: React.FC<AddressSuggestionModalProps> = ({
   suggestedAddress,
   onResolve,
 }) => {
-  const suggestionExceedsLimit = suggestedAddress.address_line_1.length > 30;
+  const address1ExceedsLimit = suggestedAddress.address_line_1.length > 30;
+  const address2ExceedsLimit = (suggestedAddress.address_line_2?.length || 0) > 30;
 
   return (
     <Modal open={isOpen} onClose={onClose} size="md">
@@ -52,7 +53,7 @@ const AddressSuggestionModal: React.FC<AddressSuggestionModalProps> = ({
               <AddressDisplay address={currentAddress} />
             </Card.Body>
           </Card>
-          <Card variant="outline" padding="md">
+          <Card variant="outline" padding="md" className="border-primary">
             <Card.Header>
               <Text weight="semibold">Suggested address</Text>
             </Card.Header>
@@ -61,7 +62,7 @@ const AddressSuggestionModal: React.FC<AddressSuggestionModalProps> = ({
             </Card.Body>
           </Card>
         </div>
-        {suggestionExceedsLimit && (
+        {address1ExceedsLimit && (
           <Alert
             className="mt-4"
             variant="warning"
@@ -69,10 +70,18 @@ const AddressSuggestionModal: React.FC<AddressSuggestionModalProps> = ({
             message="The suggested Address line 1 is longer than the 30-character limit our print partner allows. If you use this suggestion, you'll need to shorten it before shipping options can be fetched."
           />
         )}
+        {address2ExceedsLimit && (
+          <Alert
+            className="mt-4"
+            variant="warning"
+            title="Address line 2 is too long"
+            message="The suggested Address line 2 is longer than the 30-character limit our print partner allows. If you use this suggestion, you'll need to shorten it before shipping options can be fetched."
+          />
+        )}
       </Modal.Body>
       <Modal.Footer>
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" icon={<IconX size={16} />} onClick={() => onResolve(false)}>
+          <Button variant="outline" icon={<IconX size={16} />} onClick={() => onResolve(false)}>
             Keep my entry
           </Button>
           <Button variant="primary" icon={<IconCheck size={16} />} onClick={() => onResolve(true)}>

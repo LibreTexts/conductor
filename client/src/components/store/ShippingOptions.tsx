@@ -1,6 +1,7 @@
 import { StoreGetShippingOptionsRes, StoreShippingOption } from "../../types";
 import { Radio, RadioGroup } from "@headlessui/react";
 import { formatPrice } from "../../utils/storeHelpers";
+import { Text } from "@libretexts/davis-react";
 
 interface ShippingOptionsProps {
   shippingCalculated: React.MutableRefObject<boolean>;
@@ -20,10 +21,12 @@ const ShippingOptions: React.FC<ShippingOptionsProps> = ({
   const OptionsDisplay = () => {
     if (!shippingCalculated.current) {
       return (
-        <p className="mt-2 text-sm text-gray-500">
-          Complete your address details above, then click "Get Shipping Options" to calculate
-          shipping options.
-        </p>
+        <div className="mt-2">
+          <Text>
+            Complete your address details above, then click "Get Shipping Options" to calculate
+            shipping options.
+          </Text>
+        </div>
       );
     } else if (shippingOptions === "digital_delivery_only") {
       return (
@@ -75,12 +78,11 @@ const ShippingOptions: React.FC<ShippingOptionsProps> = ({
                     key={deliveryMethod.id}
                     value={deliveryMethod}
                     aria-label={deliveryMethod.title}
-                    aria-description={`${deliveryMethod.total_days_min} - ${
-                      deliveryMethod.total_days_max
-                    } business days for ${formatPrice(
-                      deliveryMethod.cost_excl_tax,
-                      false
-                    )}`}
+                    aria-description={`${deliveryMethod.total_days_min} - ${deliveryMethod.total_days_max
+                      } business days for ${formatPrice(
+                        deliveryMethod.cost_excl_tax,
+                        false
+                      )}`}
                     className="group relative flex cursor-pointer rounded-md border border-gray-300 bg-white p-4 shadow-sm focus:outline-none data-[checked]:border-transparent data-[focus]:ring-2 data-[focus]:ring-indigo-500"
                   >
                     <span className="flex flex-1">
@@ -122,7 +124,7 @@ const ShippingOptions: React.FC<ShippingOptionsProps> = ({
   };
 
   return (
-    <div className="mt-10 border-t border-gray-200 pt-10 col-span-2">
+    <div className="mt-8 border-t border-gray-200 pt-10 col-span-2">
       <p className="text-lg font-medium text-gray-900">Shipping options</p>
       <OptionsDisplay />
     </div>
