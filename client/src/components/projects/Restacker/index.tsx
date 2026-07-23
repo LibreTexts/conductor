@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../../../api";
 import {
@@ -15,6 +15,9 @@ import {
   Breadcrumb,
 } from "@libretexts/davis-react";
 import {
+  IconAlertTriangle,
+  IconArrowDown,
+  IconBolt,
   IconExternalLink,
   IconInfoCircle,
   IconRefresh,
@@ -37,6 +40,7 @@ import {
   type LicenseComplianceResult,
 } from "./util";
 import ComplianceDetails from "./ComplianceDetails";
+import FixAllPreviewModal, { type FixAllEntry } from "./FixAllPreviewModal";
 import LicenseBadge from "./LicenseBadge";
 import LicenseEditor from "./LicenseEditor";
 import LicenseWarningModal from "./LicenseWarningModal";
@@ -47,6 +51,39 @@ import {
   truncateString,
 } from "../../util/HelperFunctions";
 import { useModals } from "../../../context/ModalContext";
+
+/** URL substrings that identify structural pages which must always be Public Domain. */
+const PUBLIC_DOMAIN_PAGE_SUFFIXES = [
+  "zz%3A_Back_Matter/10%3A_Index",
+  "00%3A_Front_Matter/03%3A_Table_of_Contents",
+];
+
+function getAutoFix(
+  row: RestackerTocEntry,
+): { license: string; version?: string } | null {
+  // Structural pages must be publicdomain; if already correct, skip entirely
+  if (PUBLIC_DOMAIN_PAGE_SUFFIXES.some((s) => row.url?.includes(s))) {
+    if (parseLicenseKey(row.pageLicense) !== "publicdomain") {
+      return { license: "publicdomain", version: undefined };
+    }
+    return null;
+  }
+  // Page must match its source exactly
+  const sourceKey = parseLicenseKey(row.sourceLicense);
+  if (sourceKey) {
+    const pageKey = parseLicenseKey(row.pageLicense);
+    const sourceVersion = formatVersionDigits(
+      parseLicenseVersion(row.sourceLicense?.version) ?? row.sourceLicense?.version,
+    );
+    const pageVersion = formatVersionDigits(
+      parseLicenseVersion(row.pageLicense?.version) ?? row.pageLicense?.version,
+    );
+    if (pageKey !== sourceKey || (pageVersion ?? "") !== (sourceVersion ?? "")) {
+      return { license: sourceKey, version: sourceVersion };
+    }
+  }
+  return null;
+}
 
 type FlatRestackerRow = RestackerTocEntry & { depth: number };
 
@@ -138,7 +175,9 @@ function createColumns(
 
   return [
     columnHelper.accessor("title", {
-      header: "Page",
+      header: "Page Title",
+      size: 280,
+      minSize: 120,
       cell: ({ getValue, row }) =>
         wrap(
           row.original,
@@ -146,17 +185,16 @@ function createColumns(
             href={row.original.url}
             target="_blank"
             rel="noopener noreferrer"
+            className="block max-w-full min-w-0 break-words [overflow-wrap:anywhere]"
             style={{
               paddingLeft: row.original.depth * 20,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
             }}
           >
             {getValue()}
             <IconExternalLink
               size={12}
-              style={{ flexShrink: 0, opacity: 0.6 }}
+              className="ml-1 inline align-middle opacity-60"
+              style={{ flexShrink: 0 }}
             />
           </a>,
         ),
@@ -171,6 +209,7 @@ function createColumns(
         </Tooltip>
       ),
       enableSorting: false,
+      size: 130,
       cell: ({ row }) =>
         wrap(
           row.original,
@@ -207,30 +246,78 @@ function createColumns(
         </Tooltip>
       ),
       enableSorting: false,
-      cell: ({ getValue, row }) =>
-        wrap(
+      size: 160,
+      cell: ({ getValue, row }) => {
+        const isStructural = PUBLIC_DOMAIN_PAGE_SUFFIXES.some((s) =>
+          row.original.url?.includes(s),
+        );
+        const hasSource = !!parseLicenseKey(row.original.sourceLicense);
+        const isLocked = isStructural || hasSource;
+
+        const pageLicenseKey = parseLicenseKey(getValue());
+        const sourceLicenseKey = parseLicenseKey(row.original.sourceLicense);
+        const pageLicenseVersion = parseLicenseVersion(getValue()?.version);
+        const sourceLicenseVersion = parseLicenseVersion(row.original.sourceLicense?.version);
+        const pageSourceMismatch =
+          hasSource &&
+          (pageLicenseKey !== sourceLicenseKey ||
+            pageLicenseVersion !== sourceLicenseVersion);
+
+        return wrap(
           row.original,
-          <LicenseEditor
-            license={getValue()}
-            editable={editable}
-            isEditing={
-              editingLicense?.rowId === row.original.id &&
-              editingLicense?.field === "page"
-            }
-            loading={updatingPageId === row.original.id}
-            onStartEdit={() => onStartLicenseEdit?.(row.original.id, "page")}
-            onCancel={onCancelLicenseEdit}
-            onSubmit={(license, version) =>
-              onLicenseSubmit?.(
-                row.original.id,
-                "page",
-                row.original,
-                license,
-                version,
-              )
-            }
-          />,
-        ),
+          isLocked ? (
+            <div className="flex items-center gap-1">
+              <LicenseBadge license={getValue()} />
+              {editable && pageSourceMismatch && (
+                <Tooltip content="Apply source license to this page" placement="top">
+                  <IconButton
+                    aria-label="Apply source license to this page"
+                    icon={<IconTools size={14} />}
+                    loading={updatingPageId === row.original.id}
+                    disabled={updatingPageId === row.original.id}
+                    onClick={() => {
+                      const source = row.original.sourceLicense;
+                      const license = parseLicenseKey(source);
+                      if (!license) return;
+                      const version = formatVersionDigits(
+                        parseLicenseVersion(source?.version) ?? source?.version,
+                      );
+                      onLicenseSubmit?.(
+                        row.original.id,
+                        "page",
+                        row.original,
+                        license,
+                        version,
+                      );
+                    }}
+                  />
+                </Tooltip>
+              )}
+            </div>
+          ) : (
+            <LicenseEditor
+              license={getValue()}
+              editable={editable}
+              isEditing={
+                editingLicense?.rowId === row.original.id &&
+                editingLicense?.field === "page"
+              }
+              loading={updatingPageId === row.original.id}
+              onStartEdit={() => onStartLicenseEdit?.(row.original.id, "page")}
+              onCancel={onCancelLicenseEdit}
+              onSubmit={(license, version) =>
+                onLicenseSubmit?.(
+                  row.original.id,
+                  "page",
+                  row.original,
+                  license,
+                  version,
+                )
+              }
+            />
+          ),
+        );
+      },
     }),
     columnHelper.accessor("sourceLicense", {
       header: () => (
@@ -242,6 +329,7 @@ function createColumns(
         </Tooltip>
       ),
       enableSorting: false,
+      size: 130,
       cell: ({ getValue, row }) =>
         wrap(row.original, <LicenseBadge license={getValue()} />),
     }),
@@ -255,6 +343,7 @@ function createColumns(
         </Tooltip>
       ),
       enableSorting: false,
+      size: 130,
       cell: ({ getValue, row }) => {
         const licenses = getValue();
         return wrap(
@@ -277,6 +366,7 @@ function createColumns(
     columnHelper.accessor("quotation", {
       header: "Remixing %",
       enableSorting: false,
+      size: 90,
       cell: ({ getValue, row }) => {
         const quotation = getValue();
         return wrap(
@@ -293,40 +383,11 @@ function createColumns(
       id: "details",
       header: () => <div className="w-full text-right">Details</div>,
       enableSorting: false,
-      size: 20,
+      size: 72,
       cell: ({ row }) =>
         wrap(
           row.original,
           <div className="flex w-full justify-end">
-            {editable &&
-              areLicensesCompatible(
-                row.original.pageLicense,
-                row.original.sourceLicense,
-              ) === false && (
-                <IconButton
-                  aria-label="Quick fix"
-                  title="Apply source license to the page"
-                  icon={<IconTools size={16} />}
-                  loading={updatingPageId === row.original.id}
-                  disabled={updatingPageId === row.original.id}
-                  onClick={() => {
-                    const source = row.original.sourceLicense;
-                    const license = parseLicenseKey(source);
-                    if (!license) return;
-                    const version = formatVersionDigits(
-                      parseLicenseVersion(source?.version) ?? source?.version,
-                    );
-                    onLicenseSubmit?.(
-                      row.original.id,
-                      "page",
-                      row.original,
-                      license,
-                      version,
-                    );
-                  }}
-                />
-              )}
-
             <IconButton
               aria-label="View compliance details"
               icon={<IconInfoCircle size={16} />}
@@ -345,10 +406,13 @@ const Restacker: React.FC = () => {
   const { project, isLoading: isLoadingProject } = useProject(id ?? "");
   const queryClient = useQueryClient();
   const savedScrollY = useRef(0);
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const conflictCursorRef = useRef(-1);
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [editingLicense, setEditingLicense] =
     useState<EditingLicenseCell>(null);
+  const [fixAllPreview, setFixAllPreview] = useState<FixAllEntry[] | null>(null);
 
   const handleShowDetails = (row: FlatRestackerRow) => {
     savedScrollY.current = window.scrollY;
@@ -490,6 +554,23 @@ const Restacker: React.FC = () => {
     },
   });
 
+  const { mutate: fixAll, isPending: fixAllPending } = useMutation({
+    mutationFn: async (fixes: { pageID: string; license: string; version?: string }[]) => {
+      for (const fix of fixes) {
+        await api.updateRestackerLicense(id!, { ...fix, force: true });
+      }
+      return fixes.length;
+    },
+    onSuccess: async (count) => {
+      await queryClient.invalidateQueries({ queryKey: ["restacker", id] });
+      addNotification({ type: "success", message: `Fixed ${count} license issue(s).` });
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ["restacker", id] });
+      addNotification({ type: "error", message: "Failed to fix all license issues." });
+    },
+  });
+
   const bookPageId = tocData?.toc?.id;
   const bookLicense = restackerData?.restacker?.find(
     (r) => r.id === bookPageId,
@@ -573,9 +654,6 @@ const Restacker: React.FC = () => {
     ],
   );
 
-  if (tocLoading) return <Spinner />;
-  if (tocError) return <div>Error loading table of contents.</div>;
-
   const tocChildren = tocData?.toc?.children ?? [];
 
   const rows = flattenToc(
@@ -586,6 +664,48 @@ const Restacker: React.FC = () => {
         )
       : tocChildren,
   );
+
+  const nonCompliantCount = useMemo(
+    () =>
+      rows.filter((r) =>
+        isLicenseNonCompliant(
+          bookLicense,
+          r.pageLicense,
+          r.sourceLicense,
+          r.contentLicenses,
+        ),
+      ).length,
+    [rows, bookLicense],
+  );
+
+  const fixableRows = useMemo(
+    () =>
+      rows
+        .map((r) => ({ row: r, fix: getAutoFix(r) }))
+        .filter((x): x is { row: FlatRestackerRow; fix: NonNullable<ReturnType<typeof getAutoFix>> } =>
+          x.fix !== null,
+        ),
+    [rows],
+  );
+
+  const handleNextConflict = useCallback(() => {
+    if (!tableContainerRef.current) return;
+    const conflictRows = Array.from(
+      tableContainerRef.current.querySelectorAll<HTMLTableRowElement>(
+        "tr:has([data-non-compliant])",
+      ),
+    );
+    if (!conflictRows.length) return;
+    conflictCursorRef.current =
+      (conflictCursorRef.current + 1) % conflictRows.length;
+    conflictRows[conflictCursorRef.current].scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }, []);
+
+  if (tocLoading) return <Spinner />;
+  if (tocError) return <div>Error loading table of contents.</div>;
 
   return (
     <Stack direction="vertical" gap="md" className="py-8 px-16">
@@ -653,6 +773,7 @@ const Restacker: React.FC = () => {
                 </Stack>
               )}
             </Stack>
+            <Stack direction="vertical" gap="sm">
             <Button
               variant="primary"
               onClick={() => handleReload()}
@@ -662,11 +783,69 @@ const Restacker: React.FC = () => {
             >
               Refresh License Data
             </Button>
+            {nonCompliantCount > 0 && (
+              <Button
+                variant="secondary"
+                onClick={handleNextConflict}
+                icon={<IconArrowDown size={16} />}
+              >
+                <span className="flex items-center gap-1">
+                  <IconAlertTriangle size={14} className="text-red-600" />
+                  {`Next Conflict (${nonCompliantCount})`}
+                </span>
+              </Button>
+            )}
+            {fixableRows.length > 0 && (
+              <Button
+                variant="secondary"
+                loading={fixAllPending}
+                disabled={fixAllPending || !isCompleted}
+                icon={<IconBolt size={16} />}
+                onClick={() => {
+                  const entries: FixAllEntry[] = fixableRows.map(({ row, fix }) => {
+                    const isStructural = PUBLIC_DOMAIN_PAGE_SUFFIXES.some((s) =>
+                      row.url?.includes(s),
+                    );
+                    return {
+                      pageID: row.id,
+                      title: row.title,
+                      currentLicense: row.pageLicense,
+                      license: fix.license,
+                      version: fix.version,
+                      reason: isStructural
+                        ? "Structural page must be Public Domain"
+                        : "Page license must match source license",
+                    };
+                  });
+                  setFixAllPreview(entries);
+                }}
+              >
+                {`Fix All (${fixableRows.length})`}
+              </Button>
+            )}</Stack>
           </Stack>
         </Card.Body>
       </Card>
 
-      <div className="[&_tbody_tr:has([data-non-compliant=true])]:!bg-[#fee2e2] [&_tbody_tr:has([data-non-compliant=true])_td]:!bg-[#fee2e2] [&_tbody_tr:has([data-non-compliant=true])_td]:!text-[#991b1b]">
+      <FixAllPreviewModal
+        open={fixAllPreview !== null}
+        entries={fixAllPreview ?? []}
+        loading={fixAllPending}
+        onCancel={() => setFixAllPreview(null)}
+        onConfirm={() => {
+          if (!fixAllPreview) return;
+          fixAll(
+            fixAllPreview.map((e) => ({
+              pageID: e.pageID,
+              license: e.license,
+              version: e.version,
+            })),
+          );
+          setFixAllPreview(null);
+        }}
+      />
+
+      <div ref={tableContainerRef} className="[&_tbody_tr:has([data-non-compliant=true])]:!bg-[#fee2e2] [&_tbody_tr:has([data-non-compliant=true])_td]:!bg-[#fee2e2] [&_tbody_tr:has([data-non-compliant=true])_td]:!text-[#991b1b]">
         <DataTable<FlatRestackerRow>
           data={rows}
           columns={columns}
@@ -676,7 +855,8 @@ const Restacker: React.FC = () => {
           bordered
           density="compact"
           classNames={{
-            cell: "!py-0 relative",
+            table: "table-fixed w-full",
+            cell: "!py-0 relative !whitespace-normal min-w-0 break-words",
             headerCell: "!py-0",
           }}
         />
