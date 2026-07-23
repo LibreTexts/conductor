@@ -74,7 +74,7 @@
     "stripe": "18.5.0",
     "swagger-ui-express": "4.6.3",
     "util": "0.12.5",
-    "uuid": "8.3.2",
+    "uuid": "14.0.0",
     "world-countries": "5.1.0",
     "zod": "4.4.1",
     "zod-form-data": "2.0.8"
