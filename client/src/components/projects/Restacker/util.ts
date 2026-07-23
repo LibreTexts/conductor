@@ -130,30 +130,21 @@ export function areLicensesCompatible(
   return CC_COMPATIBILITY_MATRIX[ccKeyA][ccKeyB];
 }
 
-function collectLicensedEntries(
-  bookLicense: RestackerTocLicense,
-  pageLicense: RestackerTocLicense,
-  sourceLicense: RestackerTocLicense,
-  contentLicenses: RestackerTocLicense[],
-): { role: LicenseRole; license: RestackerTocLicense }[] {
-  const entries: { role: LicenseRole; license: RestackerTocLicense }[] = [];
 
-  if (parseLicenseKey(bookLicense)) {
-    entries.push({ role: "book", license: bookLicense });
-  }
-  if (parseLicenseKey(pageLicense)) {
-    entries.push({ role: "page", license: pageLicense });
-  }
-  if (parseLicenseKey(sourceLicense)) {
-    entries.push({ role: "source", license: sourceLicense });
-  }
-  contentLicenses.forEach((license, index) => {
-    if (parseLicenseKey(license)) {
-      entries.push({ role: `content:${index}`, license });
-    }
-  });
-
-  return entries;
+function makePair(
+  roleA: LicenseRole,
+  licenseA: RestackerTocLicense,
+  roleB: LicenseRole,
+  licenseB: RestackerTocLicense,
+): LicensePairCompliance | null {
+  const keyA = parseLicenseKey(licenseA);
+  const keyB = parseLicenseKey(licenseB);
+  if (!keyA || !keyB) return null;
+  return {
+    licenseA: { role: roleA, key: keyA },
+    licenseB: { role: roleB, key: keyB },
+    compatible: areLicensesCompatible(licenseA, licenseB),
+  };
 }
 
 export const getLicenseCompliance = (
@@ -162,29 +153,32 @@ export const getLicenseCompliance = (
   sourceLicense: RestackerTocLicense,
   contentLicenses: RestackerTocLicense[],
 ): LicenseComplianceResult => {
-  const entries = collectLicensedEntries(
-    bookLicense,
-    pageLicense,
-    sourceLicense,
-    contentLicenses,
-  );
-
   const pairs: LicensePairCompliance[] = [];
 
-  for (let i = 0; i < entries.length; i += 1) {
-    for (let j = i + 1; j < entries.length; j += 1) {
-      const entryA = entries[i];
-      const entryB = entries[j];
-      const keyA = parseLicenseKey(entryA.license)!;
-      const keyB = parseLicenseKey(entryB.license)!;
+  // 1. Book ↔ Page
+  const bookPage = makePair("book", bookLicense, "page", pageLicense);
+  if (bookPage) pairs.push(bookPage);
 
-      pairs.push({
-        licenseA: { role: entryA.role, key: keyA },
-        licenseB: { role: entryB.role, key: keyB },
-        compatible: areLicensesCompatible(entryA.license, entryB.license),
-      });
-    }
+  // 2. Page ↔ Source — must be an exact license+version match
+  const pageKey = parseLicenseKey(pageLicense);
+  const sourceKey = parseLicenseKey(sourceLicense);
+  const pageVersion = parseLicenseVersion(pageLicense.version);
+  const sourceVersion = parseLicenseVersion(sourceLicense.version);
+  if (sourceKey) {
+    const compatible = pageKey?.toLowerCase() === sourceKey?.toLowerCase() && (pageVersion ?? "") === (sourceVersion ?? "")
+    pairs.push({
+      licenseA: { role: "page", key: pageKey ?? "" },
+      licenseB: { role: "source", key: sourceKey },
+      compatible
+      
+    });
   }
+
+  // 3. Page ↔ each Content license
+  contentLicenses.forEach((contentLicense, index) => {
+    const pageContent = makePair("page", pageLicense, `content:${index}`, contentLicense);
+    if (pageContent) pairs.push(pageContent);
+  });
 
   const incompatiblePairs = pairs.filter((pair) => pair.compatible === false);
   const unknownPairs = pairs.filter((pair) => pair.compatible === null);
