@@ -2810,113 +2810,88 @@ const updateA11YReviewSectionItem = (req, res) => {
 };
 
 
-const importA11YSectionsFromTOC = (req, res) => {
+const importA11YSectionsFromTOC = async (req, res) => {
     const recurseBuildPagesArray = (pages) => {
-        if (Array.isArray(pages)) {
-            let processed = [];
-            pages.forEach((item) => {
-                let children = item.children;
-                delete item.children;
-                processed.push(item);
-                if (Array.isArray(children) && children.length > 0) {
-                    processed = [...processed, ...recurseBuildPagesArray(children)];
-                }
-            });
-            return processed;
-        }
-        return [];
+        if (!Array.isArray(pages)) return [];
+        let processed = [];
+        pages.forEach((item) => {
+            const children = item.children;
+            delete item.children;
+            processed.push(item);
+            if (Array.isArray(children) && children.length > 0) {
+                processed = [...processed, ...recurseBuildPagesArray(children)];
+            }
+        });
+        return processed;
     };
 
-    let projectData = {};
-    Project.findOne({
-        projectID: req.body.projectID
-    }).lean().then(async (project) => {
-        if (project) {
-            projectData = project;
-            // check user has permission to import TOC
-            if (checkProjectMemberPermission(projectData, req.user)) {
-              const bookData = await Book.findOne({
-                library: projectData.libreLibrary,
-              }).lean();
-                if (
-                    !isEmptyString(projectData.libreLibrary)
-                    && !isEmptyString(projectData.libreCoverID)
-                    && !isEmptyString(projectData.projectURL)
-                ) return getBookTOCFromAPI(bookData.bookID, projectData.projectURL);
-                else throw (new Error('bookid'));
-            } else {
-                throw (new Error('unauth'));
+    try {
+        const projectData = await Project.findOne({
+            projectID: req.body.projectID
+        }).lean();
+        if (!projectData) throw new Error('notfound');
+
+        // check user has permission to import TOC
+        if (!checkProjectMemberPermission(projectData, req.user)) throw new Error('unauth');
+
+        // The project must be fully associated with a specific Book before we can fetch its TOC.
+        const bookID = getBookLinkedToProject(projectData);
+        if (!bookID) throw new Error('bookid');
+
+        // getBookTOCFromAPI validates the ID and resolves the Book itself.
+        const toc = await getBookTOCFromAPI(bookID, projectData.projectURL);
+        if (!toc) throw new Error('notoc'); // handle as generic error below
+
+        const pages = recurseBuildPagesArray(toc.children);
+        let pageObjs = pages.map((page) => ({
+            sectionTitle: page.title,
+            sectionURL: page.url
+        }));
+
+        let resMsg = 'No pages found to import.';
+        if (pageObjs.length > 0) {
+            if (req.body.merge === true && Array.isArray(projectData.a11yReview)) {
+                const currentState = projectData.a11yReview;
+                pageObjs = pageObjs.map((page) => {
+                    let foundIndex = -1;
+                    const foundExisting = projectData.a11yReview.find((existing, index) => {
+                        if (existing.sectionTitle === page.sectionTitle) {
+                            foundIndex = index;
+                            return existing;
+                        }
+                        return null;
+                    });
+                    if (foundExisting !== undefined) {
+                        if (foundIndex !== -1) {
+                            currentState.splice(foundIndex, 1);
+                        }
+                        return foundExisting;
+                    }
+                    return page;
+                });
             }
-        } else {
-            throw (new Error('notfound'));
-        }
-    }).then((toc) => {
-        if (toc) {
-            let pages = recurseBuildPagesArray(toc.children);
-            let pageObjs = pages.map((page) => {
-                return {
-                    sectionTitle: page.title,
-                    sectionURL: page.url
+
+            const updateRes = await Project.updateOne({
+                projectID: projectData.projectID
+            }, {
+                $set: {
+                    a11yReview: pageObjs
                 }
             });
-            if (pageObjs.length > 0) {
-                if (req.body.merge === true && Array.isArray(projectData.a11yReview)) {
-                    let currentState = projectData.a11yReview;
-                    pageObjs = pageObjs.map((page) => {
-                        let foundIndex = -1;
-                        let foundExisting = projectData.a11yReview.find((existing, index) => {
-                            if (existing.sectionTitle === page.sectionTitle) {
-                                foundIndex = index;
-                                return existing;
-                            }
-                            return null;
-                        });
-                        if (foundExisting !== undefined) {
-                            if (foundIndex !== -1) {
-                                currentState.splice(foundIndex, 1);
-                            }
-                            return foundExisting;
-                        } else {
-                            return page;
-                        }
-                    });
-                }
-                // need to update project
-                return Project.updateOne({
-                    projectID: projectData.projectID
-                }, {
-                    $set: {
-                        a11yReview: pageObjs
-                    }
-                });
-            } else {
-                // no pages, don't need to update
-                return {};
-            }
-        } else {
-            throw (new Error('notoc')); // handle as generic error below
+            if (updateRes.modifiedCount !== 1) throw new Error('updatefail'); // handle as generic error below
+            resMsg = req.body.merge === true
+                ? 'LibreText sections successfully imported and merged.'
+                : 'LibreText sections successfully imported.';
         }
-    }).then((updateRes) => {
-        let resMsg = 'No pages found to import.';
-        if (Object.keys(updateRes).length > 0) { // update performed
-            if (updateRes.modifiedCount === 1) {
-                if (req.body.merge === true) {
-                    resMsg = 'LibreText sections successfully imported and merged.';
-                } else {
-                    resMsg = 'LibreText sections successfully imported.';
-                }
-            } else {
-                throw (new Error('updatefail')); // handle as generic error below
-            }
-        }
+
         return res.send({
             err: false,
             projectID: projectData.projectID,
             msg: resMsg
         });
-    }).catch((err) => {
+    } catch (err) {
         debugError(err);
-        var errMsg = conductorErrors.err6;
+        let errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'bookid') errMsg = conductorErrors.err28;
@@ -2926,7 +2901,7 @@ const importA11YSectionsFromTOC = (req, res) => {
             err: true,
             errMsg: errMsg
         });
-    });
+    }
 };
 
 
