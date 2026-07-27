@@ -162,39 +162,7 @@ export default class AuthorService {
                 {
                     $match: {
                         $expr: {
-                            $or: [
-                                {
-                                    $eq: ["$defaultPrimaryAuthorID", "$$authorID"],
-                                },
-                                {
-                                    $in: [
-                                        "$$authorID",
-                                        {
-                                            $cond: {
-                                                if: {
-                                                    $isArray: "$principalInvestigatorIDs",
-                                                },
-                                                then: "$principalInvestigatorIDs",
-                                                else: [],
-                                            },
-                                        },
-                                    ],
-                                },
-                                {
-                                    $in: [
-                                        "$$authorID",
-                                        {
-                                            $cond: {
-                                                if: {
-                                                    $isArray: "$coPrincipalInvestigatorIDs",
-                                                },
-                                                then: "$coPrincipalInvestigatorIDs",
-                                                else: [],
-                                            },
-                                        },
-                                    ],
-                                },
-                            ],
+                            $eq: ["$defaultPrimaryAuthorID", "$$authorID"],
                         },
                     },
                 },

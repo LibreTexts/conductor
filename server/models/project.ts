@@ -113,8 +113,6 @@ export interface ProjectInterface extends Document {
   // thumbnailVersion?: number;
   projectModules?: ProjectModuleSettings;
   defaultPrimaryAuthorID?: string;
-  principalInvestigatorIDs?: string[];
-  coPrincipalInvestigatorIDs?: string[];
   description?: string;
   contentArea: string;
   isbns?: ISBNFormat[];
@@ -410,24 +408,6 @@ const ProjectSchema = new Schema<ProjectInterface>(
       },
     },
     /**
-     * Principal Investigators.
-     */
-    principalInvestigatorIDs: {
-      type: {
-        ref: "Author",
-        type: Schema.Types.ObjectId,
-      },
-    },
-    /**
-     * Co-Principal Investigators.
-     */
-    coPrincipalInvestigatorIDs: {
-      type: {
-        ref: "Author",
-        type: Schema.Types.ObjectId,
-      },
-    },
-    /**
      * Project description.
      */
     description: String,
@@ -550,8 +530,6 @@ ProjectSchema.index({
   projectID: 1,
 });
 ProjectSchema.index({ libreCoverID: 1, libreLibrary: 1, visibility: 1 });
-ProjectSchema.index({ principalInvestigatorIDs: 1 });
-ProjectSchema.index({ coPrincipalInvestigatorIDs: 1 });
 
 ProjectSchema.virtual("defaultPrimaryAuthor", {
   ref: "Author",

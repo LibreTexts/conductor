@@ -71,9 +71,6 @@ async function projectsSearch(
     const sort = req.query.sort || "relevance";
     const includeLeads =
       req.query.leads === true || req.query.leads?.toString() === "true";
-    const includePIs =
-      req.query.principalInvestigators === true ||
-      req.query.principalInvestigators?.toString() === "true";
 
     const query = req.query.searchQuery;
 
@@ -139,7 +136,6 @@ async function projectsSearch(
           },
         ]
         : []),
-      ...(includePIs ? projectAPI.LOOKUP_PROJECT_PI_STAGES(false) : []),
       {
         $project: {
           _id: 0,
@@ -156,8 +152,6 @@ async function projectsSearch(
           contentArea: 1,
           associatedOrgs: 1,
           description: 1,
-          principalInvestigators: 1,
-          coPrincipalInvestigators: 1,
           updatedAt: 1,
         },
       },
@@ -287,8 +281,6 @@ async function miniReposSearch(
           contentArea: 1,
           associatedOrgs: 1,
           description: 1,
-          principalInvestigators: 1,
-          coPrincipalInvestigators: 1,
           updatedAt: 1,
         },
       },

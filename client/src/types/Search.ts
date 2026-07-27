@@ -80,7 +80,6 @@ export type ProjectSearchParams = {
   status?: string;
   visibility?: "public" | "private";
   leads?: boolean;
-  principalInvestigators?: boolean;
   sort?: "relevance" | "title" | "progress" | "classification" | "visibility" | "updated";
 } & _commonSearchParams;
 
