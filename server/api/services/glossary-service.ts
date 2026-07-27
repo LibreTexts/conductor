@@ -338,12 +338,12 @@ export default class GlossaryService {
               link: entry.link || undefined,
               source: entry.source || undefined,
             });
-            if(auxGlossaryID || auxGlossaryParentID) {
+            if (auxGlossaryID || auxGlossaryParentID) {
               const pages = [];
-              if(auxGlossaryID) {
+              if (auxGlossaryID) {
                 pages.push(parseInt(auxGlossaryID));
               }
-              if(auxGlossaryParentID) {
+              if (auxGlossaryParentID) {
                 pages.push(parseInt(auxGlossaryParentID));
               }
               // ADD PAGE TO USAGE
@@ -530,6 +530,7 @@ export default class GlossaryService {
       throw error;
     }
   }
+  
 
   async getGlossaryPage(
     pageID: number,
@@ -545,8 +546,9 @@ export default class GlossaryService {
       if (!coverID) {
         throw new Error("No glossary found");
       }
+      const candidateCoverIDs = await this.getCandidateCoverIDs(pageID, library);
 
-      const glossary = await GlossaryUsage.find({ coverID, library });
+      const glossary = await GlossaryUsage.find({ coverID:{$in: candidateCoverIDs}, library });
       const response: GlossayResponse = {
         coverID,
         glossaryID,
@@ -593,33 +595,61 @@ export default class GlossaryService {
     }
   }
 
+  /**
+   * Fetches the page from MindTouch and returns numeric IDs for the page itself
+   * and every ancestor in the `parent` chain. Falls back to `[pageID]` on error.
+   * Used by both getGlossaryPage and getGlossaryDetails to widen their DB match.
+   */
+  private async getCandidateCoverIDs(
+    pageID: number,
+    library: string,
+  ): Promise<number[]> {
+    try {
+      const res = await CXOneFetch({
+        scope: "page",
+        path: pageID,
+        api: CXOnePageAPIEndpoints.GET_Page,
+        subdomain: library,
+      });
+      if (!res.ok) return [pageID];
+      const info = await res.json();
+      const ids: number[] = [];
+      const selfId = parseInt(info?.["@id"], 10);
+      if (!Number.isNaN(selfId)) ids.push(selfId);
+      let cursor = info?.["page.parent"];
+      while (cursor) {
+        const pid = parseInt(cursor["@id"], 10);
+        if (!Number.isNaN(pid)) ids.push(pid);
+        cursor = cursor?.["page.parent"] ?? cursor?.["page.parent"];
+      }
+      return ids.length > 0 ? ids : [pageID];
+    } catch {
+      return [pageID];
+    }
+  }
+
   async getGlossaryDetails(
     pageID: number,
     library: string,
   ): Promise<GlossaryDetails> {
+    const candidateIds = await this.getCandidateCoverIDs(pageID, library);
+    const candidateStrs = candidateIds.map(String);
+
     const pipeline = [
       {
         $match: {
-          library: library,
+          library,
           $or: [
-            {
-              "pages.pageID": pageID.toString(),
-            },
-            {
-              glossaryID: pageID.toString(),
-            },
-            {
-              coverID: pageID,
-            },
+            { "pages.pageID": { $in: candidateStrs } },
+            { glossaryID: { $in: candidateStrs } },
+            { coverID: { $in: candidateIds } },
           ],
         },
       },
       {
         $group: {
           _id: "$coverID",
-          latestUpdatedAt: {
-            $max: "$updatedAt",
-          },
+          latestUpdatedAt: { $max: "$updatedAt" },
         },
       },
     ];
@@ -642,26 +672,28 @@ export default class GlossaryService {
     glossaryID: string;
     library: string;
   }> {
-    try {
-      const pageIDStr = pageID.toString();
-      const glossary = await GlossaryUsage.findOne(
-        {
-          library,
-          $or: [{ "pages.pageID": pageIDStr }, { glossaryID: pageIDStr }],
-        },
-        { coverID: 1, glossaryID: 1, library: 1, _id: 0 },
-      );
-      if (!glossary) {
-        throw new Error("No glossary found");
-      }
-      return {
-        coverID: glossary.coverID,
-        glossaryID: glossary.glossaryID || "",
-        library: glossary.library || "",
-      };
-    } catch (error) {
-      throw error;
+    const candidateIds = await this.getCandidateCoverIDs(pageID, library);
+    const candidateStrs = candidateIds.map(String);
+
+    const glossary = await GlossaryUsage.findOne(
+      {
+        library,
+        $or: [
+          { "pages.pageID": { $in: candidateStrs } },
+          { glossaryID: { $in: candidateStrs } },
+          { coverID: { $in: candidateIds } },
+        ],
+      },
+      { coverID: 1, glossaryID: 1, library: 1, _id: 0 },
+    );
+    if (!glossary) {
+      throw new Error("No glossary found");
     }
+    return {
+      coverID: glossary.coverID,
+      glossaryID: glossary.glossaryID || "",
+      library: glossary.library || "",
+    };
   }
 
   async getGlossaryUsageImage(
