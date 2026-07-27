@@ -68,10 +68,10 @@ const ComplianceDetails: React.FC<ComplianceDetailsProps> = ({
         ) : (
           <ul className="space-y-2 text-sm">
             {pairs.map((pair, index) => {
-              const labelA = formatLicenseRole(pair.licenseA.role);
-              const labelB = formatLicenseRole(pair.licenseB.role);
-              const licenseA = getLicenseByRole(pair.licenseA.role, licenseContext);
-              const licenseB = getLicenseByRole(pair.licenseB.role, licenseContext);
+              const labelA = formatLicenseRole(pair.licenseAdption.role);
+              const labelB = formatLicenseRole(pair.licenseOrigin.role);
+              const licenseA = getLicenseByRole(pair.licenseAdption.role, licenseContext);
+              const licenseB = getLicenseByRole(pair.licenseOrigin.role, licenseContext);
 
               let statusText = "Unknown compatibility";
               let statusClass = "text-neutral-600";
@@ -86,7 +86,7 @@ const ComplianceDetails: React.FC<ComplianceDetailsProps> = ({
 
               return (
                 <li
-                  key={`${pair.licenseA.role}-${pair.licenseB.role}-${index}`}
+                  key={`${pair.licenseAdption.role}-${pair.licenseOrigin.role}-${index}`}
                   className="rounded border border-neutral-200 px-3 py-2"
                 >
                   <span className={statusClass}>{statusText}</span>
