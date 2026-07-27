@@ -901,7 +901,96 @@ const handleImportedPage = async (
   }
 
   await applyDefaultRemixerPageProperties(subdomain, pageID);
+
+  // Copy thumbnail and overview (summary) from the source page — non-fatal.
+  await copyPageThumbnailAndOverview({
+    sourceSubdomain,
+    sourceId,
+    targetSubdomain: subdomain,
+    targetId: pageID,
+  });
+
   return { pageID, pageURI };
+};
+
+/**
+ * Copies the thumbnail image and the overview/summary property from a source
+ * page to a target page. Both operations are best-effort — failures are logged
+ * but do not abort the import.
+ */
+const copyPageThumbnailAndOverview = async ({
+  sourceSubdomain,
+  sourceId,
+  targetSubdomain,
+  targetId,
+}: {
+  sourceSubdomain: string;
+  sourceId: number;
+  targetSubdomain: string;
+  targetId: string;
+}): Promise<void> => {
+  const [sourceHeaders, targetHeaders] = await Promise.all([
+    generateAPIRequestHeaders(sourceSubdomain),
+    generateAPIRequestHeaders(targetSubdomain),
+  ]);
+
+  // ── Thumbnail ────────────────────────────────────────────────────────────
+  try {
+    const thumbRes = await CXOneFetch({
+      scope: "page",
+      path: sourceId,
+      api: MindTouch.API.Page.PUT_File_Default_Thumbnail,
+      subdomain: sourceSubdomain,
+      options: {
+        method: "GET",
+        headers: { ...sourceHeaders },
+      },
+    });
+    if (thumbRes.ok) {
+      const thumbBlob = await thumbRes.blob();
+      const contentType =
+        thumbRes.headers.get("content-type") ?? "image/png";
+      const putRes = await CXOneFetch({
+        scope: "page",
+        path: parseInt(targetId, 10),
+        api: MindTouch.API.Page.PUT_File_Default_Thumbnail,
+        subdomain: targetSubdomain,
+        options: {
+          method: "PUT",
+          body: thumbBlob,
+          headers: {
+            "Content-Type": contentType,
+            ...targetHeaders,
+          },
+        },
+      });
+      if (!putRes.ok) {
+        console.warn(
+          `[Remixer] Could not copy thumbnail to page ${targetId}: ${putRes.status}`,
+        );
+      }
+    }
+  } catch (err) {
+    console.warn("[Remixer] Non-fatal error copying thumbnail:", err);
+  }
+
+  // ── Overview / Summary ───────────────────────────────────────────────────
+  try {
+    const sourceService = new BookService({
+      bookID: `${sourceSubdomain}-${sourceId}`,
+    });
+    const { overview } = await sourceService.getPageOverview(
+      sourceId.toString(),
+    );
+    if (overview) {
+      const targetService = new BookService({
+        bookID: `${targetSubdomain}-${targetId}`,
+      });
+      await targetService.updatePageDetails(targetId, overview);
+    }
+  } catch (err) {
+    console.warn("[Remixer] Non-fatal error copying overview:", err);
+  }
 };
 
 interface RunRemixerJobParams {
