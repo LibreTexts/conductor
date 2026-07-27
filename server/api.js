@@ -2387,6 +2387,17 @@ router
   )
 
 router
+  .route("/project/:projectID/files/bulk/metadata")
+  .patch(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(
+      ProjectFileValidators.bulkUpdateProjectFileMetadataSchema
+    ),
+    projectfilesAPI.bulkUpdateProjectFileMetadata
+  );
+
+router
   .route("/project/:projectID/files/:fileID/access")
   .put(
     authAPI.verifyRequest,

@@ -110,6 +110,21 @@ export const bulkUpdateProjectFilesSchema = z.object({
   })
 })
 
+export const bulkUpdateProjectFileMetadataSchema = z.object({
+  params: z.object({
+    projectID: _projectIDSchema,
+  }),
+  body: z.object({
+    // Selected items; folders are allowed and expanded to their descendant files server-side.
+    fileIDs: z.array(z.string().uuid()).min(1).max(50),
+    license: projectFileSchema.shape.license,
+    primaryAuthor: projectFileSchema.shape.primaryAuthor,
+    authors: projectFileSchema.shape.authors,
+    correspondingAuthor: projectFileSchema.shape.correspondingAuthor,
+    publisher: projectFileSchema.shape.publisher,
+  }),
+});
+
 export const updateProjectFileAccessSchema = z.object({
   params: _projectFileParams,
   body: z.object({

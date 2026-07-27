@@ -66,6 +66,7 @@ import {
   OrderSession,
   CentralIdentityOrgAdminResult,
   AssetTag,
+  License,
   SupportQueue,
   SupportQueueAutoAssignConfig,
   SupportQueueMetrics,
@@ -1720,6 +1721,30 @@ class API {
         ...data,
       },
     );
+  }
+
+  /**
+   * Bulk-updates licensing, authorship, and publisher metadata on the given files.
+   * Only include fields the user set — omitted fields are left unchanged on each file.
+   * Selected folder IDs are expanded to their descendant files server-side.
+   */
+  async bulkUpdateProjectFileMetadata(
+    projectID: string,
+    fileIDs: string[],
+    data: {
+      license?: Partial<License>;
+      primaryAuthor?: string;
+      authors?: string[];
+      correspondingAuthor?: string;
+      publisher?: { name?: string; url?: string };
+    },
+  ) {
+    return await axios.patch<
+      { updatedCount: number } & ConductorBaseResponse
+    >(`/project/${projectID}/files/bulk/metadata`, {
+      fileIDs,
+      ...data,
+    });
   }
 
   async getPublicProjectFiles(params?: { page?: number; limit?: number }) {

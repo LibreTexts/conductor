@@ -62,6 +62,7 @@ import {
   getProjectFileCaptionsSchema,
   getProjectFileEmbedHTMLSchema,
   bulkUpdateProjectFilesSchema,
+  bulkUpdateProjectFileMetadataSchema,
 } from "./validators/projectfiles.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import { ZodReqWithFiles } from "../types/Express";
@@ -1094,6 +1095,156 @@ async function bulkUpdateProjectFiles(
 }
 
 /**
+ * Bulk-updates licensing, authorship, and publisher metadata on a set of Project Files.
+ *
+ * Only the fields provided in the request body are applied to each target file; blank/omitted
+ * fields leave the existing value untouched (non-empty overwrite). When a folder is among the
+ * selected fileIDs, its descendant files (at all nesting levels) are included; folders themselves
+ * are skipped since they carry no license/author/publisher metadata.
+ */
+async function bulkUpdateProjectFileMetadata(
+  req: ZodReqWithUser<z.infer<typeof bulkUpdateProjectFileMetadataSchema>>,
+  res: Response
+) {
+  try {
+    const { projectID } = req.params;
+    const { fileIDs, license, primaryAuthor, authors, correspondingAuthor, publisher } =
+      req.body;
+
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const hasAnyField =
+      license !== undefined ||
+      primaryAuthor !== undefined ||
+      authors !== undefined ||
+      correspondingAuthor !== undefined ||
+      publisher !== undefined;
+    if (!hasAnyField) {
+      return res.send({
+        err: false,
+        msg: "No fields provided, nothing to update.",
+        updatedCount: 0,
+      });
+    }
+
+    const files = await retrieveAllProjectFiles(
+      projectID,
+      false,
+      req.user.decoded.uuid
+    );
+    if (!files) {
+      throw new Error("retrieveerror");
+    }
+
+    // Resolve author fields once and reuse across every target file so we don't
+    // create duplicate Author records or repeat lookups per file.
+    const resolvedPrimary =
+      primaryAuthor !== undefined
+        ? (await _parseAndSaveAuthors([primaryAuthor]))[0] ?? undefined
+        : undefined;
+    const resolvedAuthors =
+      authors !== undefined ? await _parseAndSaveAuthors(authors) : undefined;
+    const resolvedCorresponding =
+      correspondingAuthor !== undefined
+        ? (await _parseAndSaveAuthors([correspondingAuthor]))[0] ?? undefined
+        : undefined;
+
+    // Collect target files, expanding any selected folder into its descendant files.
+    const targets = new Map<
+      string,
+      RawProjectFileInterface | ProjectFileInterface
+    >();
+    const addFileTarget = (
+      obj: RawProjectFileInterface | ProjectFileInterface
+    ) => {
+      if (obj.storageType === "file") targets.set(obj.fileID, obj);
+    };
+    const collectFolderFiles = (parentID: string) => {
+      files.forEach((obj) => {
+        if (obj.parent !== parentID) return;
+        if (obj.storageType === "folder") {
+          collectFolderFiles(obj.fileID);
+        } else {
+          addFileTarget(obj);
+        }
+      });
+    };
+
+    for (const id of fileIDs) {
+      const found = files.find((obj) => obj.fileID === id);
+      if (!found) continue;
+      if (found.storageType === "folder") {
+        collectFolderFiles(found.fileID);
+      } else {
+        addFileTarget(found);
+      }
+    }
+
+    if (targets.size === 0) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err63,
+      });
+    }
+
+    // Keep only defined, non-empty-string entries so we never overwrite an existing
+    // value with a blank. Booleans (e.g. modifiedFromSource: false) are preserved.
+    const pickProvided = <T extends Record<string, any>>(obj: T) =>
+      Object.fromEntries(
+        Object.entries(obj).filter(
+          ([, v]) => v !== undefined && v !== ""
+        )
+      );
+
+    const licensePatch = license ? pickProvided(license) : undefined;
+    const publisherPatch = publisher ? pickProvided(publisher) : undefined;
+
+    const updated = Array.from(targets.values()).map((file) => {
+      const next: RawProjectFileInterface | ProjectFileInterface = { ...file };
+      if (licensePatch) {
+        next.license = { ...(file.license ?? {}), ...licensePatch };
+      }
+      if (publisherPatch) {
+        next.publisher = { ...(file.publisher ?? {}), ...publisherPatch };
+      }
+      if (primaryAuthor !== undefined) {
+        next.primaryAuthor = resolvedPrimary;
+      }
+      if (authors !== undefined) {
+        next.authors = resolvedAuthors;
+      }
+      if (correspondingAuthor !== undefined) {
+        next.correspondingAuthor = resolvedCorresponding;
+      }
+      return next;
+    });
+
+    const didUpdate = await updateProjectFilesUtil(projectID, updated);
+    if (!didUpdate) {
+      throw new Error("updatefail");
+    }
+
+    return res.send({
+      err: false,
+      msg: "Successfully updated files!",
+      updatedCount: updated.length,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
  * Updates the access/visibility setting of a Project File.
  *
  */
@@ -1914,6 +2065,7 @@ export default {
   getProjectFile,
   updateProjectFile,
   bulkUpdateProjectFiles,
+  bulkUpdateProjectFileMetadata,
   updateProjectFileAccess,
   moveProjectFile,
   removeProjectFilesInternal,

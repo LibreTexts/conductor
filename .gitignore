@@ -41,4 +41,8 @@ server/temp
 
 # Agents
 agents/
+.agents/
+.claude/
+.codegraph/
+.mcp.json
 CLAUDE.md
