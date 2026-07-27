@@ -247,7 +247,15 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               <>
                 <Popup
                   content="Save Remixing Map draft to Conductor"
-                  position="bottom center"
+                  position="bottom right"
+                  offset={[0, 8]}
+                  popperModifiers={[
+                    {
+                      name: "preventOverflow",
+                      enabled: true,
+                      options: { boundary: "viewport", padding: 8 },
+                    },
+                  ]}
                   aria-label="Save Remixing Map draft to Conductor"
                   trigger={
                     <span
@@ -264,9 +272,16 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                 />
                 <Popup
                   content="Save Book to Library"
-                  position="bottom center"
+                  position="bottom right"
+                  offset={[0, 8]}
+                  popperModifiers={[
+                    {
+                      name: "preventOverflow",
+                      enabled: true,
+                      options: { boundary: "viewport", padding: 8 },
+                    },
+                  ]}
                   aria-label="Save Book to Library"
-                  word
                   trigger={
                     <span
                       className={`inline-flex items-center ${CP_CONTROL_H}`}
