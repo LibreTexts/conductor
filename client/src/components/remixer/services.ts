@@ -386,9 +386,7 @@ export const resolveInheritedFormattedPathPrefix = (
     const ancestor = nodesById.get(parentId);
     if (!ancestor) break;
     if (
-      ancestor.formattedPathOverride === true &&
-      typeof ancestor.formattedPath === "string" &&
-      ancestor.formattedPath.trim().length > 0
+      ancestor.formattedPathOverride === true
     ) {
       const ancestorDepth = (ordinalPathById.get(parentId) ?? []).length;
       const relative = numberPath.slice(ancestorDepth);
@@ -400,12 +398,14 @@ export const resolveInheritedFormattedPathPrefix = (
         pathLevelFormats,
         firstRelLevel,
       );
-      const prefix = ancestor.formattedPath.trim();
-      if (!suffix) return prefix;
+      const prefix = (ancestor.formattedPath ?? "").trim();
+      if (!suffix) return prefix || null;
       // excludeParent on first relative level: restart display (no inherited prefix), same as non-inherited tree.
       if (firstRelFormat?.excludeParent) {
         return suffix;
       }
+      // Empty override prefix means "no prefix" — children keep only their relative suffix.
+      if (!prefix) return suffix;
       const joinDelim = firstRelFormat?.delimiter ?? ".";
       return `${prefix}${joinDelim}${suffix}`;
     }
@@ -436,14 +436,14 @@ export const getRemixerDisplayTitle = (
   if (inDeletedBranch || numberPath.length === 0 || inMatterNoNumberSubtree) {
     return cleanTitle;
   }
-  const overriddenFormattedPath =
-    page.formattedPathOverride === true &&
-    typeof page.formattedPath === "string" &&
-    page.formattedPath.trim().length > 0
-      ? page.formattedPath.trim()
-      : "";
-  if (overriddenFormattedPath) {
-    return `${overriddenFormattedPath}: ${cleanTitle}`;
+  const overridden =
+    page.formattedPathOverride === true;
+  if (overridden) {
+    const overriddenFormattedPath = (page.formattedPath ?? "").trim();
+    // Empty override prefix/index means show title only (no autonumber prefix).
+    return overriddenFormattedPath
+      ? `${overriddenFormattedPath}: ${cleanTitle}`
+      : cleanTitle;
   }
   const inherited =
     remixerPathLookup &&
@@ -653,10 +653,7 @@ export const buildBookPaths = (
     const { numberedPath, formattedPath: computedFormattedPath } = toPaths(ordinalPath);
 
     const hasOverride =
-      ignoreOverrides !== true &&
-      node.formattedPathOverride === true &&
-      typeof node.formattedPath === "string" &&
-      node.formattedPath.trim().length > 0;
+      ignoreOverrides !== true && node.formattedPathOverride === true;
     const inheritedPrefix =
       !hasOverride
         ? resolveInheritedFormattedPathPrefix(
@@ -668,7 +665,7 @@ export const buildBookPaths = (
           )
         : null;
     const formattedPath = hasOverride
-      ? node.formattedPath
+      ? (node.formattedPath ?? "")
       : inheritedPrefix ?? computedFormattedPath;
     return {
       ...node,
