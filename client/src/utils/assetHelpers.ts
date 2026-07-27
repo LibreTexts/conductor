@@ -103,25 +103,9 @@ export function getPrettyUploader(uploader: User) {
 }
 
 export function getPrettyAuthorsList(
-  primaryAuthor?: ProjectFile["primaryAuthor"],
-  authors?: ProjectFile["authors"],
-  correspondingAuthor?: ProjectFile["correspondingAuthor"]
+  primaryAuthor?: ProjectFile["primaryAuthor"]
 ) {
-  if (!primaryAuthor && (!authors || !authors.length) && !correspondingAuthor)
-    return "Unknown";
-  if (!authors || !authors.length) return "Unknown";
-
-  const authorList =
-    authors
-      .filter((a) => a?.name)
-      .map((a) => a.name)
-      .join(", ") || "Unknown";
-
-  return primaryAuthor
-    ? `${primaryAuthor.name} et al.`
-    : correspondingAuthor
-    ? `${correspondingAuthor.name}, ${authorList}`
-    : authorList;
+  return primaryAuthor?.name || "Unknown";
 }
 
 /**

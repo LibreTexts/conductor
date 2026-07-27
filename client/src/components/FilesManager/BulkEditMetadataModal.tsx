@@ -33,7 +33,7 @@ type BulkMetaForm = {
     sourceURL: string;
     additionalTerms: string;
   };
-  publisher: {
+  originalPublisher: {
     name: string;
     url: string;
   };
@@ -68,7 +68,7 @@ const BulkEditMetadataModal: React.FC<BulkEditMetadataModalProps> = ({
           sourceURL: "",
           additionalTerms: "",
         },
-        publisher: { name: "", url: "" },
+        originalPublisher: { name: "", url: "" },
       },
       mode: "onChange",
     });
@@ -139,21 +139,18 @@ const BulkEditMetadataModal: React.FC<BulkEditMetadataModalProps> = ({
       license.modifiedFromSource = modifiedFromSource === "true";
     }
 
-    const publisher: { name?: string; url?: string } = {};
-    if (vals.publisher.name) publisher.name = vals.publisher.name;
-    if (vals.publisher.url) publisher.url = vals.publisher.url;
+    const originalPublisher: { name?: string; url?: string } = {};
+    if (vals.originalPublisher.name)
+      originalPublisher.name = vals.originalPublisher.name;
+    if (vals.originalPublisher.url)
+      originalPublisher.url = vals.originalPublisher.url;
 
     const data: Parameters<typeof api.bulkUpdateProjectFileMetadata>[2] = {};
     if (Object.keys(license).length > 0) data.license = license;
-    if (Object.keys(publisher).length > 0) data.publisher = publisher;
+    if (Object.keys(originalPublisher).length > 0)
+      data.originalPublisher = originalPublisher;
     if (authorsData?.primaryAuthor?._id)
       data.primaryAuthor = authorsData.primaryAuthor._id;
-    if (authorsData?.correspondingAuthor?._id)
-      data.correspondingAuthor = authorsData.correspondingAuthor._id;
-    const secondary = (authorsData?.authors ?? [])
-      .map((a) => a._id)
-      .filter((id): id is string => Boolean(id));
-    if (secondary.length > 0) data.authors = secondary;
 
     if (Object.keys(data).length === 0) return null;
     return data;
@@ -325,16 +322,16 @@ const BulkEditMetadataModal: React.FC<BulkEditMetadataModalProps> = ({
             <span className="font-semibold mb-2">Author & Publisher Info</span>
             <AuthorsForm ref={authorsFormRef} mode="file" />
             <CtlTextInput
-              name="publisher.name"
+              name="originalPublisher.name"
               control={control}
-              label="Publisher Name"
+              label="Original Publisher Name"
               placeholder="John Doe"
               className="mt-4"
             />
             <CtlTextInput
-              name="publisher.url"
+              name="originalPublisher.url"
               control={control}
-              label="Publisher URL"
+              label="Original Publisher URL"
               placeholder="https://example.com"
               className="mt-2"
             />

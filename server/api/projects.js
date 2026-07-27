@@ -979,22 +979,6 @@ async function updateProject(req, res) {
 
       updateObj.defaultPrimaryAuthorID = parsed[0]
     }
-    if(req.body.hasOwnProperty('defaultSecondaryAuthors')){
-      const parsed = await projectFilesAPI._parseAndSaveAuthors(req.body.defaultSecondaryAuthors);
-      if(!parsed || !Array.isArray(parsed)){
-        throw new Error('Error parsing secondary authors');
-      }
-
-      updateObj.defaultSecondaryAuthorIDs = parsed;
-    }
-    if(req.body.hasOwnProperty('defaultCorrespondingAuthor')){
-      const parsed = await projectFilesAPI._parseAndSaveAuthors([req.body.defaultCorrespondingAuthor]);
-      if(!parsed || !Array.isArray(parsed) || parsed.length < 1){
-        throw new Error('Error parsing corresponding author');
-      }
-
-      updateObj.defaultCorrespondingAuthorID = parsed[0];
-    }
 
     if(req.body.hasOwnProperty('principalInvestigators')){
       const parsed = await projectFilesAPI._parseAndSaveAuthors(req.body.principalInvestigators);
@@ -3654,29 +3638,6 @@ const LOOKUP_PROJECT_PI_STAGES = (includeAuthors = false) => {
           },
         },
       },
-      {
-        $lookup: {
-          from: "authors",
-          localField: "defaultCorrespondingAuthorID",
-          foreignField: "_id",
-          as: "defaultCorrespondingAuthor",
-        },
-      },
-      {
-        $set: {
-          defaultCorrespondingAuthor: {
-            $arrayElemAt: ["$defaultCorrespondingAuthor", 0],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
-          localField: "defaultSecondaryAuthorIDs",
-          foreignField: "_id",
-          as: "defaultSecondaryAuthors",
-        }
-      },
     ]: []),
     {
       $lookup: {
@@ -3950,8 +3911,6 @@ const validate = (method) => {
           body('defaultFileLicense', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateDefaultFileLicense),
           body('projectModules', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateProjectModules),
           body('defaultPrimaryAuthor', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateAuthor),
-          body('defaultSecondaryAuthors', conductorErrors.err1).optional({ checkFalsy: true }).isArray().custom(validateAuthorArray),
-          body('defaultCorrespondingAuthor', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateAuthor),
           body('principalInvestigators', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
           body('coPrincipalInvestigators', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
           body('description', conductorErrors.err1).optional({ checkFalsy: true }).isString(),

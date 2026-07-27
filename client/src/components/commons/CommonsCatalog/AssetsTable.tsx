@@ -68,7 +68,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({
           const file = row.original;
           return (
             <p>
-              {getPrettyAuthorsList(file.primaryAuthor, file.authors)}
+              {getPrettyAuthorsList(file.primaryAuthor)}
             </p>
           );
         }

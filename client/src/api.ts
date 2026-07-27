@@ -1734,9 +1734,7 @@ class API {
     data: {
       license?: Partial<License>;
       primaryAuthor?: string;
-      authors?: string[];
-      correspondingAuthor?: string;
-      publisher?: { name?: string; url?: string };
+      originalPublisher?: { name?: string; url?: string };
     },
   ) {
     return await axios.patch<

@@ -44,9 +44,7 @@ export interface RawProjectFileInterface {
   downloadCount?: number;
   license?: License;
   primaryAuthor?: Schema.Types.ObjectId;
-  authors?: (Schema.Types.ObjectId)[];
-  correspondingAuthor?: Schema.Types.ObjectId;
-  publisher?: ProjectFilePublisher;
+  originalPublisher?: ProjectFilePublisher;
   mimeType?: string;
   version?: number;
   tags?: (Schema.Types.ObjectId)[];
@@ -158,23 +156,9 @@ const ProjectFileSchema = new Schema<ProjectFileInterface>({
     required: false,
   },
   /**
-   * Author information for the entry.
+   * Original publisher information for the entry.
    */
-  authors: {
-    type: [Schema.Types.ObjectId],
-    required: false,
-  },
-  /**
-   * Corresponding author information for the entry.
-   */
-  correspondingAuthor: {
-    type: Schema.Types.ObjectId,
-    required: false,
-  },
-  /**
-   * Publisher information for the entry.
-   */
-  publisher: {
+  originalPublisher: {
     name: String,
     url: String,
   },

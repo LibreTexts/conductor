@@ -1000,14 +1000,6 @@ export async function assetsSearch(
       {
         $lookup: {
           from: "authors",
-          localField: "authors",
-          foreignField: "_id",
-          as: "authors",
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
           localField: "primaryAuthor",
           foreignField: "_id",
           as: "primaryAuthor",
@@ -1017,21 +1009,6 @@ export async function assetsSearch(
         $set: {
           primaryAuthor: {
             $arrayElemAt: ["$primaryAuthor", 0],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
-          localField: "correspondingAuthor",
-          foreignField: "_id",
-          as: "correspondingAuthor",
-        },
-      },
-      {
-        $set: {
-          correspondingAuthor: {
-            $arrayElemAt: ["$correspondingAuthor", 0],
           },
         },
       },
@@ -1156,14 +1133,6 @@ export async function assetsSearch(
       {
         $lookup: {
           from: "authors",
-          localField: "authors",
-          foreignField: "_id",
-          as: "authors",
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
           localField: "primaryAuthor",
           foreignField: "_id",
           as: "primaryAuthor",
@@ -1173,21 +1142,6 @@ export async function assetsSearch(
         $set: {
           primaryAuthor: {
             $arrayElemAt: ["$primaryAuthor", 0],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
-          localField: "correspondingAuthor",
-          foreignField: "_id",
-          as: "correspondingAuthor",
-        },
-      },
-      {
-        $set: {
-          correspondingAuthor: {
-            $arrayElemAt: ["$correspondingAuthor", 0],
           },
         },
       },
@@ -1228,15 +1182,8 @@ export async function assetsSearch(
             {
               $match: {
                 $expr: {
-                  $or: [
-                    {
-                      $in: ["$$authorId", "$authors"],
-                    }, // Check if the author id is in the authors array
-                    {
-                      $eq: ["$$authorId", "$primaryAuthor"],
-                    }, // Check if the author id is equal to the primary author
-                  ],
-                },
+                  $eq: ["$$authorId", "$primaryAuthor"],
+                }, // Check if the author id is equal to the primary author
               },
             },
           ],
@@ -1340,14 +1287,6 @@ export async function assetsSearch(
       {
         $lookup: {
           from: "authors",
-          localField: "authors",
-          foreignField: "_id",
-          as: "authors",
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
           localField: "primaryAuthor",
           foreignField: "_id",
           as: "primaryAuthor",
@@ -1357,21 +1296,6 @@ export async function assetsSearch(
         $set: {
           primaryAuthor: {
             $arrayElemAt: ["$primaryAuthor", 0],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
-          localField: "correspondingAuthor",
-          foreignField: "_id",
-          as: "correspondingAuthor",
-        },
-      },
-      {
-        $set: {
-          correspondingAuthor: {
-            $arrayElemAt: ["$correspondingAuthor", 0],
           },
         },
       },
@@ -1450,14 +1374,6 @@ export async function assetsSearch(
       {
         $lookup: {
           from: "authors",
-          localField: "authors",
-          foreignField: "_id",
-          as: "authors",
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
           localField: "primaryAuthor",
           foreignField: "_id",
           as: "primaryAuthor",
@@ -1467,21 +1383,6 @@ export async function assetsSearch(
         $set: {
           primaryAuthor: {
             $arrayElemAt: ["$primaryAuthor", 0],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
-          localField: "correspondingAuthor",
-          foreignField: "_id",
-          as: "correspondingAuthor",
-        },
-      },
-      {
-        $set: {
-          correspondingAuthor: {
-            $arrayElemAt: ["$correspondingAuthor", 0],
           },
         },
       },
@@ -1529,19 +1430,9 @@ export async function assetsSearch(
       allResults = allResults.filter((file) => {
         const primaryAuthor =
           `${file.primaryAuthor?.firstName} ${file.primaryAuthor?.lastName}`.toLowerCase();
-        const correspondingAuthor =
-          `${file.correspondingAuthor?.firstName} ${file.correspondingAuthor?.lastName}`.toLowerCase();
 
-        // Check if the person is in authors array, primary author, or corresponding author
-        return (
-          file.authors.find((author: any) => {
-            return `${author.firstName} ${author.lastName}`
-              .toLowerCase()
-              .includes(lowercased);
-          }) ||
-          primaryAuthor.includes(lowercased) ||
-          correspondingAuthor.includes(lowercased)
-        );
+        // Check if the person is the primary author
+        return primaryAuthor.includes(lowercased);
       });
     }
 
@@ -2572,20 +2463,6 @@ function _boostExactMatches(file: any, query: string) {
   const searchQuery = query.toLowerCase().split(" ");
   const name = file.name?.toLowerCase() ?? "";
   const description = file.description?.toLowerCase() ?? "";
-  const authorFirsts =
-    file.authors?.map((a: any) => {
-      if (!a || typeof a !== "object") return null;
-      if (!a.firstName) return null;
-      if (typeof a.firstName === "string") return a.firstName.toLowerCase();
-      return null;
-    }) ?? [];
-  const authorLasts =
-    file.authors?.map((a: any) => {
-      if (!a || typeof a !== "object") return null;
-      if (!a.lastName) return null;
-      if (typeof a.lastName === "string") return a.lastName.toLowerCase();
-      return null;
-    }) ?? [];
   const tags =
     (file.tags?.map((t: any) => {
       if (!t || typeof t !== "object") return null;
@@ -2604,34 +2481,13 @@ function _boostExactMatches(file: any, query: string) {
   ) {
     file.score = file.score * 2;
   }
-  if (
-    authorFirsts.some((firstName: string) => searchQuery.includes(firstName))
-  ) {
-    file.score = file.score * 2;
-  }
-  if (authorLasts.some((lastName: string) => searchQuery.includes(lastName))) {
-    file.score = file.score * 2;
-  }
 
-  const boostByPrimaryOrCorresponding = () => {
-    if (file.primaryAuthor) {
-      const primaryAuthor = `${file.primaryAuthor.firstName} ${file.primaryAuthor.lastName}`;
-      if (searchQuery.some((s) => primaryAuthor.toLowerCase().includes(s))) {
-        file.score = file.score * 2;
-        return; // don't boost corresponding author if primary author is a match
-      }
+  if (file.primaryAuthor) {
+    const primaryAuthor = `${file.primaryAuthor.firstName} ${file.primaryAuthor.lastName}`;
+    if (searchQuery.some((s) => primaryAuthor.toLowerCase().includes(s))) {
+      file.score = file.score * 2;
     }
-    if (file.correspondingAuthor) {
-      const correspondingAuthor = `${file.correspondingAuthor.firstName} ${file.correspondingAuthor.lastName}`;
-      if (
-        searchQuery.some((s) => correspondingAuthor.toLowerCase().includes(s))
-      ) {
-        file.score = file.score * 2;
-      }
-    }
-  };
-
-  boostByPrimaryOrCorresponding();
+  }
 
   if (tags.length > 0) {
     const flattened = tags.flat();

@@ -167,23 +167,6 @@ export default class AuthorService {
                                     $eq: ["$defaultPrimaryAuthorID", "$$authorID"],
                                 },
                                 {
-                                    $eq: ["$defaultCorrespondingAuthorID", "$$authorID"],
-                                },
-                                {
-                                    $in: [
-                                        "$$authorID",
-                                        {
-                                            $cond: {
-                                                if: {
-                                                    $isArray: "$defaultSecondaryAuthorIDs",
-                                                },
-                                                then: "$defaultSecondaryAuthorIDs",
-                                                else: [],
-                                            },
-                                        },
-                                    ],
-                                },
-                                {
                                     $in: [
                                         "$$authorID",
                                         {

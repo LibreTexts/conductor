@@ -206,8 +206,6 @@ export async function addProjectFile(
 
     // Set default authors if present
     const defaultPrimary = project.defaultPrimaryAuthorID;
-    const defaultSecondary = project.defaultSecondaryAuthorIDs;
-    const defaultCorresponding = project.defaultCorrespondingAuthorID;
 
     const files = await retrieveAllProjectFiles(
       projectID,
@@ -263,13 +261,7 @@ export async function addProjectFile(
           primaryAuthor: defaultPrimary
             ? (defaultPrimary as unknown as Schema.Types.ObjectId)
             : undefined,
-          authors: defaultSecondary
-            ? (defaultSecondary as unknown as Schema.Types.ObjectId[])
-            : undefined,
-          correspondingAuthor: defaultCorresponding
-            ? (defaultCorresponding as unknown as Schema.Types.ObjectId)
-            : undefined,
-          publisher: req.body.publisher,
+          originalPublisher: req.body.originalPublisher,
           isVideo: true,
           videoStorageID: videoData.videoID,
           version: 1, // initial version
@@ -334,13 +326,7 @@ export async function addProjectFile(
           primaryAuthor: defaultPrimary
             ? (defaultPrimary as unknown as Schema.Types.ObjectId)
             : undefined,
-          authors: defaultSecondary
-            ? (defaultSecondary as unknown as Schema.Types.ObjectId[])
-            : undefined,
-          correspondingAuthor: defaultCorresponding
-            ? (defaultCorresponding as unknown as Schema.Types.ObjectId)
-            : undefined,
-          publisher: req.body.publisher,
+          originalPublisher: req.body.originalPublisher,
           version: 1, // initial version
         });
       });
@@ -368,8 +354,7 @@ export async function addProjectFile(
             sourceURL: req.body.fileURL, // Set Source url as url
           },
         primaryAuthor: defaultPrimary,
-        authors: defaultSecondary,
-        publisher: req.body.publisher,
+        originalPublisher: req.body.originalPublisher,
       });
     } else if (!providedFiles && !req.body.isURL && !parsedVideoData) {
       // If not file, URL, or video data, return error
@@ -881,9 +866,7 @@ async function updateProjectFile(
       description,
       license,
       primaryAuthor,
-      authors,
-      correspondingAuthor,
-      publisher,
+      originalPublisher,
       tags,
       isURL,
       fileURL,
@@ -955,16 +938,8 @@ async function updateProjectFile(
       const parsed = await _parseAndSaveAuthors([primaryAuthor]);
       updateObj.primaryAuthor = parsed[0] ?? undefined;
     }
-    if (authors) {
-      const parsedAuthors = await _parseAndSaveAuthors(authors);
-      updateObj.authors = parsedAuthors;
-    }
-    if (correspondingAuthor) {
-      const parsed = await _parseAndSaveAuthors([correspondingAuthor]);
-      updateObj.correspondingAuthor = parsed[0] ?? undefined;
-    }
-    if (publisher) {
-      updateObj.publisher = publisher;
+    if (originalPublisher) {
+      updateObj.originalPublisher = originalPublisher;
     }
     if (req.files && req.files[0]) {
       updateObj.version = file.version ? file.version + 1 : 1; // increment version
@@ -1152,8 +1127,7 @@ async function bulkUpdateProjectFileMetadata(
 ) {
   try {
     const { projectID } = req.params;
-    const { fileIDs, license, primaryAuthor, authors, correspondingAuthor, publisher } =
-      req.body;
+    const { fileIDs, license, primaryAuthor, originalPublisher } = req.body;
 
     const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
@@ -1173,9 +1147,7 @@ async function bulkUpdateProjectFileMetadata(
     const hasAnyField =
       license !== undefined ||
       primaryAuthor !== undefined ||
-      authors !== undefined ||
-      correspondingAuthor !== undefined ||
-      publisher !== undefined;
+      originalPublisher !== undefined;
     if (!hasAnyField) {
       return res.send({
         err: false,
@@ -1198,12 +1170,6 @@ async function bulkUpdateProjectFileMetadata(
     const resolvedPrimary =
       primaryAuthor !== undefined
         ? (await _parseAndSaveAuthors([primaryAuthor]))[0] ?? undefined
-        : undefined;
-    const resolvedAuthors =
-      authors !== undefined ? await _parseAndSaveAuthors(authors) : undefined;
-    const resolvedCorresponding =
-      correspondingAuthor !== undefined
-        ? (await _parseAndSaveAuthors([correspondingAuthor]))[0] ?? undefined
         : undefined;
 
     // Collect target files, expanding any selected folder into its descendant files.
@@ -1254,7 +1220,9 @@ async function bulkUpdateProjectFileMetadata(
       );
 
     const licensePatch = license ? pickProvided(license) : undefined;
-    const publisherPatch = publisher ? pickProvided(publisher) : undefined;
+    const publisherPatch = originalPublisher
+      ? pickProvided(originalPublisher)
+      : undefined;
 
     const updated = Array.from(targets.values()).map((file) => {
       const next: RawProjectFileInterface | ProjectFileInterface = { ...file };
@@ -1262,16 +1230,13 @@ async function bulkUpdateProjectFileMetadata(
         next.license = { ...(file.license ?? {}), ...licensePatch };
       }
       if (publisherPatch) {
-        next.publisher = { ...(file.publisher ?? {}), ...publisherPatch };
+        next.originalPublisher = {
+          ...(file.originalPublisher ?? {}),
+          ...publisherPatch,
+        };
       }
       if (primaryAuthor !== undefined) {
         next.primaryAuthor = resolvedPrimary;
-      }
-      if (authors !== undefined) {
-        next.authors = resolvedAuthors;
-      }
-      if (correspondingAuthor !== undefined) {
-        next.correspondingAuthor = resolvedCorresponding;
       }
       return next;
     });
@@ -1905,14 +1870,6 @@ async function getPublicProjectFiles(
       {
         $lookup: {
           from: "authors",
-          localField: "authors",
-          foreignField: "_id",
-          as: "authors",
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
           localField: "primaryAuthor",
           foreignField: "_id",
           as: "primaryAuthor",
@@ -1922,21 +1879,6 @@ async function getPublicProjectFiles(
         $set: {
           primaryAuthor: {
             $arrayElemAt: ["$primaryAuthor", 0],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
-          localField: "correspondingAuthor",
-          foreignField: "_id",
-          as: "correspondingAuthor",
-        },
-      },
-      {
-        $set: {
-          correspondingAuthor: {
-            $arrayElemAt: ["$correspondingAuthor", 0],
           },
         },
       },
