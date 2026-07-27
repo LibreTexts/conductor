@@ -186,11 +186,18 @@ export async function addProjectFile(
 ) {
   try {
     const projectID = req.params.projectID;
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
       });
     }
 
@@ -394,11 +401,18 @@ export async function addProjectFileFolder(
 ) {
   try {
     const projectID = req.params.projectID;
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
       });
     }
 
@@ -459,7 +473,7 @@ async function getProjectFileDownloadURL(
   try {
     const { projectID, fileID } = req.params;
     const { shouldIncrement = true } = req.query;
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
@@ -505,7 +519,7 @@ async function getPermanentLink(
 ) {
   try {
     const { projectID, fileID } = req.params;
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
@@ -847,6 +861,21 @@ async function updateProjectFile(
   try {
     const { projectID, fileID } = req.params;
 
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
     const {
       name,
       description,
@@ -1054,6 +1083,21 @@ async function bulkUpdateProjectFiles(
     const { projectID } = req.params;
     const { fileIDs, tags, tagMode } = req.body;
 
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
     const files = await getProjectFiles(
       projectID,
       fileIDs,
@@ -1111,11 +1155,18 @@ async function bulkUpdateProjectFileMetadata(
     const { fileIDs, license, primaryAuthor, authors, correspondingAuthor, publisher } =
       req.body;
 
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
       });
     }
 
@@ -1255,11 +1306,18 @@ async function updateProjectFileAccess(
   try {
     const { projectID, fileID } = req.params;
     const newAccess = req.body.newAccess;
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
       });
     }
 
@@ -1348,11 +1406,18 @@ async function moveProjectFile(
 ) {
   try {
     const projectID = req.params.projectID;
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
       });
     }
 
@@ -1531,7 +1596,24 @@ async function removeProjectFile(
   res: Response
 ) {
   try {
-    await removeProjectFilesInternal(req.params.projectID, [req.params.fileID]);
+    const { projectID, fileID } = req.params;
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    await removeProjectFilesInternal(projectID, [fileID]);
+
     return res.send({
       err: false,
       msg: `Successfully deleted files!`,
@@ -1673,9 +1755,19 @@ async function updateProjectFileCaptions(
     const captionFile = req.files[0];
     const { projectID, fileID } = req.params;
 
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
-      return conductor404Err(res);
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
     }
 
     const file = await ProjectFile.findOne({ projectID, fileID }).lean();
