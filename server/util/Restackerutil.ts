@@ -1,6 +1,7 @@
 import BookService from "../api/services/book-service";
 import Restacker, { RestackerInterface, RestackerStatus } from "../models/restacker";
 import { PageTag } from "../types/Book";
+import { sleep } from "./helpers";
 import { libraryKeys } from "./libraries";
 import * as cheerio from "cheerio";
 
@@ -23,6 +24,39 @@ class RestackerService {
   // Persist progress every N pages so a pollable status endpoint reflects near-real-time
   // progress instead of a single all-or-nothing write at the end of the run.
   private static readonly PERSIST_BATCH_SIZE = 10;
+
+  /**
+   * Retries on transient MindTouch/destination failures with incremental delay.
+   * The remote may stay unresponsive for a while; waits between attempts and
+   * gives up after 3 tries (~3 minutes of backoff total).
+   */
+  private async withRetryOnTransient<T>(fn: () => Promise<T>): Promise<T> {
+    const ATTEMPTS = 3;
+    // Incremental waits between attempts: 60s + 120s ≈ 3 minutes total backoff
+    const DELAYS_MS = [60_000, 120_000] as const;
+
+    const isTransientError = (error: unknown): boolean =>
+      error instanceof Error && error.message.includes("Transient error");
+
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
+        if (attempt >= ATTEMPTS || !isTransientError(error)) {
+          throw error;
+        }
+        const delayMs = DELAYS_MS[attempt - 1] ?? DELAYS_MS[DELAYS_MS.length - 1];
+        console.warn(
+          `[Restacker] Transient error on attempt ${attempt}/${ATTEMPTS}; retrying in ${Math.round(delayMs / 1000)}s…`,
+          error instanceof Error ? error.message : error,
+        );
+        await sleep(delayMs);
+      }
+    }
+    throw lastError;
+  }
 
   async runRestacker(projectID: string, library: string, coverID: string) {
     const restacker = await Restacker.findOne({
@@ -54,13 +88,13 @@ class RestackerService {
 
         try {
           if (page.status === "pending") {
-            const license = await this.getPagelicense(page.id, library, coverID);
-            page.license = license;
-            const contentLicense = await this.getContentLicense(
+            const license = await this.withRetryOnTransient(async () => await this.getPagelicense(page.id, library, coverID));  
+            page.license =  license;
+            const contentLicense = await this.withRetryOnTransient(async () => await this.getContentLicense(
               page.id,
               library,
               coverID,
-            );
+            ));  
             page.contentLicense = contentLicense.contentLicenses;
             page.quotation = contentLicense.quotationRate;
             page.sourceLicense = contentLicense.sourceLicense;
