@@ -361,13 +361,23 @@ const isSelfOrSupport = async (
  * publish). The calling route must be excluded from the global body-parser
  * middleware so the stream is not consumed before this runs.
  */
+const STREAM_JSON_MAX_BYTES = 5 * 1024 * 1024; // 10 MB
+
 const streamJsonBody = (req: Request, res: Response, next: NextFunction) => {
   if (!req.headers["content-type"]?.startsWith("application/json")) {
     return next();
   }
   const chunks: Buffer[] = [];
+  let totalBytes = 0;
   req.on("data", (chunk: unknown) => {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string, "utf-8"));
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string, "utf-8");
+    totalBytes += buf.byteLength;
+    if (totalBytes > STREAM_JSON_MAX_BYTES) {
+      req.destroy();
+      res.status(413).json({ err: true, errMsg: "Request body exceeds the 5 MB limit" });
+      return;
+    }
+    chunks.push(buf);
   });
   req.on("end", () => {
     try {
