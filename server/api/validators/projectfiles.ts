@@ -48,17 +48,7 @@ export const projectFileSchema = z.object({
   primaryAuthor: projectFileAuthorSchema
     .or(z.string().refine((val: string) => isMongoIDValidator(val)))
     .optional(),
-  authors: z
-    .array(
-      projectFileAuthorSchema.or(
-        z.string().refine((val: string) => isMongoIDValidator(val))
-      )
-    )
-    .optional(),
-  correspondingAuthor: projectFileAuthorSchema
-    .or(z.string().refine((val: string) => isMongoIDValidator(val)))
-    .optional(),
-  publisher: z
+  originalPublisher: z
     .object({
       name: z.string().trim().max(255).optional().or(z.literal("")),
       url: z.string().url().optional().or(z.literal("")),
@@ -119,9 +109,7 @@ export const bulkUpdateProjectFileMetadataSchema = z.object({
     fileIDs: z.array(z.string().uuid()).min(1).max(50),
     license: projectFileSchema.shape.license,
     primaryAuthor: projectFileSchema.shape.primaryAuthor,
-    authors: projectFileSchema.shape.authors,
-    correspondingAuthor: projectFileSchema.shape.correspondingAuthor,
-    publisher: projectFileSchema.shape.publisher,
+    originalPublisher: projectFileSchema.shape.originalPublisher,
   }),
 });
 

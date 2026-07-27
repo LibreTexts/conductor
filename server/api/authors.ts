@@ -153,19 +153,7 @@ async function getAuthorAssets(
         $match: {
           access: "public",
           storageType: "file",
-          $or: [
-            {
-              authors: {
-                $in: [author._id],
-              },
-            },
-            {
-              primaryAuthor: author._id,
-            },
-            {
-              correspondingAuthor: author._id,
-            },
-          ],
+          primaryAuthor: author._id,
         },
       },
       {
@@ -231,14 +219,6 @@ async function getAuthorAssets(
       {
         $lookup: {
           from: "authors",
-          localField: "authors",
-          foreignField: "_id",
-          as: "authors",
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
           localField: "primaryAuthor",
           foreignField: "_id",
           as: "primaryAuthor",
@@ -248,21 +228,6 @@ async function getAuthorAssets(
         $set: {
           primaryAuthor: {
             $arrayElemAt: ["$primaryAuthor", 0],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
-          localField: "correspondingAuthor",
-          foreignField: "_id",
-          as: "correspondingAuthor",
-        },
-      },
-      {
-        $set: {
-          correspondingAuthor: {
-            $arrayElemAt: ["$correspondingAuthor", 0],
           },
         },
       },

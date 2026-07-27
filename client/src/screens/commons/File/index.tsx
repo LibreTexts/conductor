@@ -81,17 +81,13 @@ const CommonsFile: React.FC<CommonsFileProps> = () => {
                   </dd>
                 </div>
                 <div className="mt-2">
-                  <dt className="sr-only">Authors</dt>
+                  <dt className="sr-only">Author</dt>
                   <dd className="inline m-0">
                     <Icon name="user" color="blue" className="!mr-2" aria-hidden="true" />
-                    {file?.authors && file?.authors.length > 0 ? (
-                      <span>
-                        {file.authors
-                          .map((a) => a.name)
-                          .join(", ")}
-                      </span>
+                    {file?.primaryAuthor?.name ? (
+                      <span>{file.primaryAuthor.name}</span>
                     ) : (
-                      <span className="muted-text">No authors provided</span>
+                      <span className="muted-text">No author provided</span>
                     )}
                   </dd>
                 </div>

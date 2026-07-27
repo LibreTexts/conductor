@@ -123,8 +123,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
         additionalTerms: "",
       },
       defaultPrimaryAuthorID: "",
-      defaultSecondaryAuthorIDs: [],
-      defaultCorrespondingAuthorID: "",
       principalInvestigatorIDs: [],
       coPrincipalInvestigatorIDs: [],
       principalInvestigators: [],
@@ -554,11 +552,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       const authorData = authorsFormRef.current?.getAuthors();
       if (authorData) {
         setValue("defaultPrimaryAuthor", authorData.primaryAuthor ?? undefined);
-        setValue("defaultSecondaryAuthors", authorData.authors);
-        setValue(
-          "defaultCorrespondingAuthor",
-          authorData.correspondingAuthor ?? undefined
-        );
       }
 
       if (!(await triggerValidation())) {
@@ -1463,82 +1456,8 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             currentPrimaryAuthor={
               getValues("defaultPrimaryAuthor") ?? undefined
             }
-            currentAuthors={getValues("defaultSecondaryAuthors") ?? []}
-            currentCorrespondingAuthor={
-              getValues("defaultCorrespondingAuthor") ?? undefined
-            }
             ref={authorsFormRef}
           />
-          {/* <div className="mt-4">
-            <label className="form-field-label">Primary Author</label>
-            <Form.Field className="flex flex-col">
-              <Controller
-                name="defaultPrimaryAuthorID"
-                control={control}
-                render={({ field }) => (
-                  <Dropdown
-                    id="primaryAuthorSelect"
-                    options={authorOptions.map((a) => ({
-                      key: crypto.randomUUID(),
-                      value: a._id ?? "",
-                      text: `${a.firstName} ${a.lastName}`,
-                    }))}
-                    {...field}
-                    onChange={(e, data) => {
-                      field.onChange(data.value?.toString() ?? "");
-
-                      const _secondaryAuthors = getValues('defaultSecondaryAuthorIDs') ?? [];
-                      if(_secondaryAuthors.includes(data.value?.toString() ?? "")) {
-                        const _filtered = _secondaryAuthors.filter((a) => a !== (data.value?.toString() ?? ""));
-                        setValue('defaultSecondaryAuthorIDs', _filtered);
-                      }
-                    }}
-                    fluid
-                    selection
-                    search
-                    placeholder="Seach authors..."
-                    loading={loadingAuthors}
-                  />
-                )}
-              />
-            </Form.Field>
-          </div>
-          <div className="mt-4">
-            <label className="form-field-label">Secondary Author(s)</label>
-            <Form.Field className="flex flex-col">
-              <Controller
-                name="defaultSecondaryAuthorIDs"
-                control={control}
-                render={({ field }) => (
-                  <Dropdown
-                    id="secondaryAuthorSelect"
-                    placeholder="Search authors..."
-                    options={authorOptions
-                      .filter(
-                        (a) => a._id !== watch("defaultPrimaryAuthorID")
-                      )
-                      .map((a) => ({
-                        key: crypto.randomUUID(),
-                        value: a._id ?? "",
-                        text: `${a.firstName} ${a.lastName}`,
-                      }))}
-                    {...field}
-                    onChange={(e, { value }) => {
-                      field.onChange(value as string[]);
-                    }}
-                    multiple
-                    fluid
-                    selection
-                    search
-                    onSearchChange={(e, { searchQuery }) => {
-                      getAuthorsDebounced(searchQuery);
-                    }}
-                    loading={loadingAuthors}
-                  />
-                )}
-              />
-            </Form.Field>
-          </div> */}
           <Divider />
           <Header as="h3">Discussion Settings</Header>
           <div className="w-1/4">

@@ -113,8 +113,6 @@ export interface ProjectInterface extends Document {
   // thumbnailVersion?: number;
   projectModules?: ProjectModuleSettings;
   defaultPrimaryAuthorID?: string;
-  defaultSecondaryAuthorIDs?: string[];
-  defaultCorrespondingAuthorID?: string;
   principalInvestigatorIDs?: string[];
   coPrincipalInvestigatorIDs?: string[];
   description?: string;
@@ -412,26 +410,6 @@ const ProjectSchema = new Schema<ProjectInterface>(
       },
     },
     /**
-     * Default secondary authors.
-     */
-    defaultSecondaryAuthorIDs: {
-      type: [
-        {
-          ref: "Author",
-          type: Schema.Types.ObjectId,
-        },
-      ],
-    },
-    /**
-     * Default corresponding author.
-     */
-    defaultCorrespondingAuthorID: {
-      type: {
-        ref: "Author",
-        type: Schema.Types.ObjectId,
-      },
-    },
-    /**
      * Principal Investigators.
      */
     principalInvestigatorIDs: {
@@ -580,12 +558,6 @@ ProjectSchema.virtual("defaultPrimaryAuthor", {
   localField: "defaultPrimaryAuthor",
   foreignField: "_id",
   justOne: true,
-});
-
-ProjectSchema.virtual("defaultSecondaryAuthors", {
-  ref: "Author",
-  localField: "defaultSecondaryAuthors",
-  foreignField: "_id",
 });
 
 const Project = model<ProjectInterface>("Project", ProjectSchema);

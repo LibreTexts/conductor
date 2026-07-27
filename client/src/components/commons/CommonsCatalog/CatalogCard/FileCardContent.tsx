@@ -25,12 +25,9 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
 
-  const prettyAuthors = getPrettyAuthorsList(file.primaryAuthor, file.authors);
+  const prettyAuthors = getPrettyAuthorsList(file.primaryAuthor);
 
-  const allAuthors =
-    [file.primaryAuthor, ...(file.authors ?? [])]
-      .map((a) => a?.name)
-      .join(", ") || "Unknown";
+  const allAuthors = file.primaryAuthor?.name || "Unknown";
 
   async function handleFileDownload(file: ConductorSearchResponseFile) {
     let success = false;
