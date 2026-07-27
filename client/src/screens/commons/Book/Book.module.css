@@ -1,7 +1,3 @@
-.meta_largefont {
-  font-size: 1.07em;
-}
-
 .clr_wrapper {
   display: grid;
   padding: 0 1em 2em;
@@ -20,14 +16,6 @@
 .clr_chart {
   grid-column: 2 / 3;
   grid-row: 1 / 2;
-}
-
-.project_file_title {
-  font-size: 0.8em !important;
-}
-
-.project_file_descrip {
-  font-size: 0.7em !important;
 }
 
 @media only screen and (max-width: 1024px) {

@@ -1258,6 +1258,19 @@ class API {
     );
   }
 
+  /**
+   * Gets a download URL for a file in the Commons.
+   * At some point we should determine if this can be
+   * replace entirely with @link getFileDownloadURL from the
+   * Projects API, but for now this is a separate endpoint.
+   */
+  async getCommonsDownloadFileURL(bookID: string, fileID: string) {
+    const res = await axios.get<{ url: string } & ConductorBaseResponse>(
+      `/commons/book/${bookID}/files/${fileID}/download`
+    );
+    return res;
+  }
+
   // Harvest Requests
   async createHarvestRequest(data: HarvestRequest) {
     const res = await axios.post<ConductorBaseResponse>(
