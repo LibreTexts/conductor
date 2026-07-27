@@ -623,9 +623,8 @@ const RemixerDashboard: React.FC = () => {
       ...prev,
       library: {
         ...(prev.library ?? {}),
-        [lib]: fetchingLibarary.sort(
-          (a, b) => parseInt(a["@id"]) - parseInt(b["@id"]),
-        ),
+        [lib]: fetchingLibarary
+        
       },
       // selectedLibrary: lib as Library,
     }));
