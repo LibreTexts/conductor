@@ -2616,11 +2616,11 @@ class API {
     library: string;
     coverID: string;
     glossaryID: string;
-    auxGlossaryID?:string,  augGlossaryParentID?:string;
+    auxGlossaryID?:string,  auxGlossaryParentID?:string;
   }) {
-    const { library, coverID, glossaryID, auxGlossaryID, augGlossaryParentID } = props;
+    const { library, coverID, glossaryID, auxGlossaryID, auxGlossaryParentID } = props;
     const res = await axios.patch<ConductorBaseResponse>(
-      `/commons/book/${library}/${coverID}/glossary`, { glossaryID, auxGlossaryID, augGlossaryParentID });
+      `/commons/book/${library}/${coverID}/glossary`, { glossaryID, auxGlossaryID, auxGlossaryParentID });
     return res.data;
   }
   async getExistingGlossary(library: string, coverID: string) {

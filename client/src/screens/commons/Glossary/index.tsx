@@ -154,7 +154,7 @@ const GlossaryManager: React.FC = () => {
   const importGlossaryTermsMutation = useMutation({
     mutationFn: async (vars?: {
       auxGlossaryID?: string;
-      augGlossaryParentID?: string;
+      auxGlossaryParentID?: string;
     }) => {
       if (!glossaryID) {
         throw new Error("No glossary ID found.");
@@ -164,7 +164,7 @@ const GlossaryManager: React.FC = () => {
         coverID: coverID,
         glossaryID: glossaryID,
         auxGlossaryID: vars?.auxGlossaryID,
-        augGlossaryParentID: vars?.augGlossaryParentID,
+        auxGlossaryParentID: vars?.auxGlossaryParentID,
       });
       if (res.err) {
         throw new Error(
@@ -206,7 +206,7 @@ const GlossaryManager: React.FC = () => {
                     <Breadcrumb.Item href={`/projects/${id}`}>
                       {project?.title}
                     </Breadcrumb.Item>
-                    <Breadcrumb.Item isCurrent>Remixer</Breadcrumb.Item>
+                    <Breadcrumb.Item isCurrent>Glossary</Breadcrumb.Item>
                   </Breadcrumb>
                 )}
             </Stack>
@@ -313,10 +313,10 @@ const GlossaryManager: React.FC = () => {
               storageKey={id ? `glossary-toc-expanded:${resourceType}:${id}` : undefined}
               onNodeClick={onNodeClick}
               bookId={bookTOC?.id}
-              onImportGlossary={(auxGlossaryID, augGlossaryParentID) =>
+              onImportGlossary={(auxGlossaryID, auxGlossaryParentID) =>
                 importGlossaryTermsMutation.mutate({
                   auxGlossaryID,
-                  augGlossaryParentID,
+                  auxGlossaryParentID,
                 })
               }
               importingGlossary={importGlossaryTermsMutation.isLoading}

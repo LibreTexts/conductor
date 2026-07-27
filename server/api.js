@@ -68,7 +68,6 @@ import * as RemixerValidators from "./api/validators/remixer.js";
 
 import * as RestackerValidators from "./api/validators/Restacker.js";
 import restackerAPI from "./api/restacker.js";
-import { generateAPIRequestHeaders } from "./util/librariesclient.js";
 
 const corsMiddleware = cors({
   origin(origin, callback) {
@@ -3266,10 +3265,6 @@ router
     authAPI.getUserAttributes,
     middleware.streamJsonBody,
     middleware.validateZod(RemixerValidators.SaveRemixerProjectStateSchema),
-    (req, res, next) => {
-      console.log("saveRemixerProjectState", req.body.pathLevelFormats);
-      next();
-    },
     remixerAPI.saveRemixerProjectState
   )
   .post(

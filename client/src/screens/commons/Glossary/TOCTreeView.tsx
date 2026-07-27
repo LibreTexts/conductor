@@ -9,7 +9,7 @@ interface TOCTreeViewProps {
   storageKey?: string;
   onNodeClick: (nodeId: string) => void;
   bookId?: string;
-  onImportGlossary?: (auxGlossaryID: string, augGlossaryParentID?: string) => void;
+  onImportGlossary?: (auxGlossaryID: string, auxGlossaryParentID?: string) => void;
   importingGlossary?: boolean;
 }
 
@@ -20,7 +20,7 @@ interface TOC {
   expandedIds: Set<string>;
   onToggle: (nodeId: string) => void;
   onNodeClick: (nodeId: string) => void;
-  onImportGlossary?: (auxGlossaryID: string, augGlossaryParentID?: string) => void;
+  onImportGlossary?: (auxGlossaryID: string, auxGlossaryParentID?: string) => void;
   importingGlossary?: boolean;
 }
 
