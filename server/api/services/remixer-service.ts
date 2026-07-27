@@ -357,6 +357,72 @@ const orderBackMatterLast = async (
   return true;
 };
 
+/**
+ * Places a newly created/imported page right after its nearest preceding
+ * sibling (by pathNumber) using the MindTouch page-order API.
+ * Non-fatal: logs a warning if the call fails so the rest of the job continues.
+ */
+const orderPageAfterPreviousSibling = async (
+  newPageId: string,
+  page: RemixerSubPageState,
+  pages: RemixerSubPageState[],
+  subdomain: string,
+): Promise<void> => {
+  const newPid = parseInt(newPageId, 10);
+  if (Number.isNaN(newPid)) return;
+
+  const parentId = page.parentID ?? "-1";
+  const currentPath = (page.pathNumber ?? []).join(".");
+
+  // Siblings with a real, resolved numeric ID (excludes still-pending new- pages)
+  const siblings = pages.filter((p) => {
+    if (p["@id"] === newPageId) return false;
+    if ((p.parentID ?? "-1") !== parentId) return false;
+    return !Number.isNaN(parseInt(p["@id"], 10));
+  });
+
+  if (siblings.length === 0) return; // First child — MindTouch orders it first automatically
+
+  // Sort ascending by pathNumber so we can find the nearest predecessor
+  const sorted = [...siblings].sort((a, b) =>
+    (a.pathNumber ?? [])
+      .join(".")
+      .localeCompare((b.pathNumber ?? []).join("."), undefined, { numeric: true }),
+  );
+
+  // Nearest sibling whose pathNumber is strictly less than ours
+  const prevSibling = [...sorted]
+    .reverse()
+    .find(
+      (s) =>
+        (s.pathNumber ?? [])
+          .join(".")
+          .localeCompare(currentPath, undefined, { numeric: true }) < 0,
+    );
+
+  if (!prevSibling) return; // Page is first in position; no ordering call needed
+
+  const prevSiblingPid = parseInt(prevSibling["@id"], 10);
+  if (Number.isNaN(prevSiblingPid)) return;
+
+  try {
+    const response = await CXOneFetch({
+      scope: "page",
+      path: newPid,
+      api: CXOnePageAPIEndpoints.ORDER_PAGES(String(prevSiblingPid)),
+      subdomain,
+      options: { method: "PUT" },
+    });
+    if (!response.ok) {
+      console.warn(
+        `[Remixer] Could not order page ${newPageId} after ${prevSibling["@id"]}: ${response.status}`,
+      );
+    }
+  } catch (err) {
+    console.warn("[Remixer] Non-fatal error ordering new page:", err);
+  }
+};
+
 // Disambiguates duplicate sibling titles set by applySiblingDuplicateTitleSuffixes
 // on the client; 0/undefined is hidden, 1+ is shown as a "(n)" suffix.
 const appendSiblingTitleSuffix = (
@@ -1248,6 +1314,8 @@ const runRemixerJob = async ({
                 candidate.parentID = pageID;
               }
             });
+
+            await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
           }
         } else if (status === "imported") {
           const parentId = page.parentID ?? "-1";
@@ -1277,6 +1345,8 @@ const runRemixerJob = async ({
                 candidate.parentID = pageID;
               }
             });
+
+            await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
           }
         } else if (status === "modeified") {
           const parentId = page.parentID ?? "-1";
