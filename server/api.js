@@ -1441,13 +1441,6 @@ router
     searchAPI.assetsSearch
   );
 router
-  .route("/search/books")
-  .get(
-    authAPI.optionalVerifyRequest,
-    middleware.validateZod(SearchValidators.bookSearchSchema),
-    searchAPI.booksSearch
-  );
-router
   .route("/search/books-v2")
   .get(
     authAPI.optionalVerifyRequest,
@@ -1467,13 +1460,6 @@ router
     authAPI.optionalVerifyRequest,
     middleware.validateZod(SearchValidators.miniReposSearchSchema),
     searchAPI.miniReposSearch
-  );
-router
-  .route("/search/projects")
-  .get(
-    authAPI.optionalVerifyRequest,
-    middleware.validateZod(SearchValidators.projectSearchSchema),
-    searchAPI.projectsSearch
   );
 router
   .route("/search/projects-v2")

@@ -1354,17 +1354,6 @@ class API {
     return res;
   }
 
-  async booksSearch(params: BookSearchParams) {
-    const res = await axios.get<
-      ConductorSearchResponse<"books"> & ConductorBaseResponse
-    >("/search/books", {
-      params: {
-        ...params,
-      },
-    });
-    return res;
-  }
-
   async booksSearchV2(params: BookSearchParams) {
     const res = await axios.get<
       ConductorSearchResponse<"books"> & ConductorBaseResponse
@@ -1391,17 +1380,6 @@ class API {
     const res = await axios.get<
       ConductorSearchResponse<"minirepos"> & ConductorBaseResponse
     >("/search/minirepos", {
-      params: {
-        ...params,
-      },
-    });
-    return res;
-  }
-
-  async projectsSearch(params: ProjectSearchParams) {
-    const res = await axios.get<
-      ConductorSearchResponse<"projects"> & ConductorBaseResponse
-    >("/search/projects", {
       params: {
         ...params,
       },
