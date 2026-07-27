@@ -576,6 +576,16 @@ const Restacker: React.FC = () => {
     (r) => r.id === bookPageId,
   )?.license;
 
+  const tocChildren = tocData?.toc?.children ?? [];
+  const rows = flattenToc(
+    isCompleted && restackerData?.restacker?.length
+      ? mergeLicenseData(
+          tocChildren,
+          new Map(restackerData.restacker.map((e) => [e.id, e])),
+        )
+      : tocChildren,
+  );
+
   const handleLicenseSubmit = (
     pageID: string,
     field: "book" | "page",
@@ -589,6 +599,7 @@ const Restacker: React.FC = () => {
       bookLicense,
       license,
       version,
+      field === "book" ? rows : undefined,
     );
 
     if (compliance.incompatiblePairs.length > 0) {
@@ -597,7 +608,7 @@ const Restacker: React.FC = () => {
         license,
         version,
         field,
-        rowTitle: row.title,
+        rowTitle: field === "book" ? undefined : row.title,
         compliance,
       };
 
@@ -651,18 +662,8 @@ const Restacker: React.FC = () => {
       editingLicense,
       licenseUpdatePending,
       licenseUpdateVariables?.pageID,
+      rows,
     ],
-  );
-
-  const tocChildren = tocData?.toc?.children ?? [];
-
-  const rows = flattenToc(
-    isCompleted && restackerData?.restacker?.length
-      ? mergeLicenseData(
-          tocChildren,
-          new Map(restackerData.restacker.map((e) => [e.id, e])),
-        )
-      : tocChildren,
   );
 
   const nonCompliantCount = useMemo(

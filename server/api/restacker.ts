@@ -28,18 +28,78 @@ type CcLicenseKey = (typeof CC_LICENSE_KEYS)[number];
 
 /**
  * Creative Commons license compatibility matrix.
- * Rows = source license, columns = destination (new) license.
  * Mirrors client/src/components/projects/Restacker/util.ts
  */
-const CC_COMPATIBILITY_MATRIX: Record<CcLicenseKey, Record<CcLicenseKey, boolean>> = {
-  publicdomain: { publicdomain: true, ccby: true, ccbysa: true, ccbync: true, ccbynd: false, ccbyncsa: true, ccbyncnd: false },
-  ccby: { publicdomain: true, ccby: true, ccbysa: true, ccbync: true, ccbynd: false, ccbyncsa: true, ccbyncnd: false },
-  ccbysa: { publicdomain: true, ccby: true, ccbysa: true, ccbync: false, ccbynd: false, ccbyncsa: false, ccbyncnd: false },
-  ccbync: { publicdomain: true, ccby: true, ccbysa: false, ccbync: true, ccbynd: false, ccbyncsa: true, ccbyncnd: false },
-  ccbynd: { publicdomain: false, ccby: false, ccbysa: false, ccbync: false, ccbynd: false, ccbyncsa: false, ccbyncnd: false },
-  ccbyncsa: { publicdomain: true, ccby: true, ccbysa: false, ccbync: true, ccbynd: false, ccbyncsa: true, ccbyncnd: false },
-  ccbyncnd: { publicdomain: false, ccby: false, ccbysa: false, ccbync: false, ccbynd: false, ccbyncsa: false, ccbyncnd: false },
+const CC_COMPATIBILITY_MATRIX: Record<
+  CcLicenseKey,
+  Record<CcLicenseKey, boolean>
+> = {
+  publicdomain: {
+    publicdomain: true,
+    ccby: true,
+    ccbysa: false,
+    ccbync: true,
+    ccbynd: false,
+    ccbyncsa: false,
+    ccbyncnd: false,
+  },
+  ccby: {
+    publicdomain: true,
+    ccby: true,
+    ccbysa: false,
+    ccbync: true,
+    ccbynd: false,
+    ccbyncsa: false,
+    ccbyncnd: false,
+  },
+  ccbysa: {
+    publicdomain: true,
+    ccby: true,
+    ccbysa: true,
+    ccbync: true,
+    ccbynd: false,
+    ccbyncsa: false,
+    ccbyncnd: false,
+  },
+  ccbync: {
+    publicdomain: true,
+    ccby: true,
+    ccbysa: false,
+    ccbync: true,
+    ccbynd: false,
+    ccbyncsa: false,
+    ccbyncnd: false,
+  },
+  ccbynd: {
+    publicdomain: true,
+    ccby: true,
+    ccbysa: false,
+    ccbync: true,
+    ccbynd: false,
+    ccbyncsa: false,
+    ccbyncnd: false,
+  },
+  ccbyncsa: {
+    publicdomain: true,
+    ccby: true,
+    ccbysa: false,
+    ccbync: true,
+    ccbynd: false,
+    ccbyncsa: true,
+    ccbyncnd: false,
+  },
+  ccbyncnd: {
+    publicdomain: true,
+    ccby: true,
+    ccbysa: false,
+    ccbync: true,
+    ccbynd: false,
+    ccbyncsa: false,
+    ccbyncnd: false,
+  },
 };
+
+const EMPTY_LICENSE: RestackerLicenseLike = { label: "", raw: "" };
 
 /** Strips the "license:" prefix the API adds → "license:ccby" → "ccby" */
 function parseLicenseKey(license?: RestackerLicenseLike): string | undefined {
@@ -47,47 +107,33 @@ function parseLicenseKey(license?: RestackerLicenseLike): string | undefined {
   return license.label.replace(/^license:/, "");
 }
 
+function parseLicenseVersion(version?: string): string | undefined {
+  if (!version) return undefined;
+  const v = version.replace(/^licenseversion:/, "");
+  return v.replace(/^(\d)(\d)$/, "$1.$2");
+}
+
 function toCcLicenseKey(key: string): CcLicenseKey | undefined {
   return CC_LICENSE_KEYS.find((license) => license === key);
 }
 
-/** Returns true/false if compatibility is known, or null if either license is unrecognized. */
-function areLicensesCompatible(
-  licenseA?: RestackerLicenseLike,
-  licenseB?: RestackerLicenseLike,
-): boolean | null {
-  const keyA = parseLicenseKey(licenseA);
-  const keyB = parseLicenseKey(licenseB);
-  if (!keyA || !keyB) return null;
-
-  const ccKeyA = toCcLicenseKey(keyA);
-  const ccKeyB = toCcLicenseKey(keyB);
-  if (!ccKeyA || !ccKeyB) return null;
-
-  return CC_COMPATIBILITY_MATRIX[ccKeyA][ccKeyB];
-}
-
 /**
- * Checks a proposed license against a page's known source/content licenses
- * and returns the roles it is definitively incompatible with.
+ * Returns true/false if compatibility is known, or null if either license is
+ * unrecognized. Mirrors client areLicensesCompatible(licenseAdption, licenseOrigin).
  */
-function findLicenseConflicts(
-  proposedLicense: RestackerLicenseLike,
-  sourceLicense?: RestackerLicenseLike,
-  contentLicenses?: RestackerLicenseLike[],
-): { role: string; license: RestackerLicenseLike }[] {
-  const conflicts: { role: string; license: RestackerLicenseLike }[] = [];
+function areLicensesCompatible(
+  licenseAdption?: RestackerLicenseLike,
+  licenseOrigin?: RestackerLicenseLike,
+): boolean | null {
+  const keyAdption = parseLicenseKey(licenseAdption);
+  const keyOrigin = parseLicenseKey(licenseOrigin);
+  if (!keyAdption || !keyOrigin) return null;
 
-  if (sourceLicense && areLicensesCompatible(proposedLicense, sourceLicense) === false) {
-    conflicts.push({ role: "source", license: sourceLicense });
-  }
-  (contentLicenses ?? []).forEach((license, index) => {
-    if (areLicensesCompatible(proposedLicense, license) === false) {
-      conflicts.push({ role: `content ${index + 1}`, license });
-    }
-  });
+  const ccKeyAdption = toCcLicenseKey(keyAdption);
+  const ccKeyOrigin = toCcLicenseKey(keyOrigin);
+  if (!ccKeyAdption || !ccKeyOrigin) return null;
 
-  return conflicts;
+  return CC_COMPATIBILITY_MATRIX[ccKeyAdption][ccKeyOrigin];
 }
 
 function formatVersionDigits(version?: string): string | undefined {
@@ -97,6 +143,102 @@ function formatVersionDigits(version?: string): string | undefined {
     return `${major}${minor}`;
   }
   return version;
+}
+
+/** Same shape as client buildLicenseFromDraft — used for proposed-license checks. */
+function buildLicenseFromDraft(
+  license: string,
+  version?: string,
+): RestackerLicenseLike {
+  if (!license) return EMPTY_LICENSE;
+  const versionDigits = formatVersionDigits(version);
+  return {
+    label: license,
+    raw: versionDigits ?? "",
+    version: versionDigits,
+  };
+}
+
+type LicenseConflict = {
+  role: string;
+  license: RestackerLicenseLike;
+  pageTitle?: string;
+};
+
+/**
+ * Mirrors client getProposedLicenseCompliance for a page (or book-cover) license change.
+ * Returns only definitive incompatibilities (compatible === false).
+ */
+function findLicenseConflicts(params: {
+  field: "book" | "page";
+  proposedLicense: RestackerLicenseLike;
+  bookLicense?: RestackerLicenseLike;
+  sourceLicense?: RestackerLicenseLike;
+  contentLicenses?: RestackerLicenseLike[];
+  /** Required for book-wide checks: other pages' current page licenses. */
+  allPages?: { title: string; pageLicense?: RestackerLicenseLike }[];
+}): LicenseConflict[] {
+  const {
+    field,
+    proposedLicense,
+    bookLicense,
+    sourceLicense,
+    contentLicenses,
+    allPages,
+  } = params;
+  const conflicts: LicenseConflict[] = [];
+
+  // Book license applies book-wide: proposed book ↔ each page license
+  if (field === "book") {
+    for (const page of allPages ?? []) {
+      if (
+        areLicensesCompatible(
+          proposedLicense,
+          page.pageLicense ?? EMPTY_LICENSE,
+        ) === false
+      ) {
+        conflicts.push({
+          role: "page",
+          license: page.pageLicense ?? EMPTY_LICENSE,
+          pageTitle: page.title,
+        });
+      }
+    }
+    return conflicts;
+  }
+
+  const pageLicense = proposedLicense;
+  const effectiveBookLicense = bookLicense ?? EMPTY_LICENSE;
+
+  // 1. Book (adapting) ↔ Page (original)
+  if (
+    areLicensesCompatible(effectiveBookLicense, pageLicense) === false
+  ) {
+    conflicts.push({ role: "book", license: effectiveBookLicense });
+  }
+
+  // 2. Page ↔ Source — exact license+version match (client behavior)
+  const pageKey = parseLicenseKey(pageLicense);
+  const sourceKey = parseLicenseKey(sourceLicense);
+  if (sourceKey) {
+    const pageVersion = parseLicenseVersion(pageLicense.version);
+    const sourceVersion = parseLicenseVersion(sourceLicense?.version);
+    const compatible =
+      pageKey?.toLowerCase() === sourceKey.toLowerCase() &&
+      (pageVersion ?? "") === (sourceVersion ?? "");
+    if (!compatible && sourceLicense) {
+      conflicts.push({ role: "source", license: sourceLicense });
+    }
+  }
+
+  // 3. Page ↔ each Content license
+  (contentLicenses ?? []).forEach((license, index) => {
+    if (areLicensesCompatible(pageLicense, license) === false) {
+      conflicts.push({ role: `content ${index + 1}`, license });
+    }
+  });
+
+  return conflicts;
 }
 
 function buildLicenseTags(
@@ -424,23 +566,50 @@ const updateRestackerLicense = async (
   const pageBeforeUpdate = restackerBeforeUpdate?.restackerCurrentBook.find(
     (entry) => entry.id === pageID,
   );
+  const bookCoverId = project.libreCoverID;
+  const bookLicense = restackerBeforeUpdate?.restackerCurrentBook.find(
+    (entry) => entry.id === bookCoverId,
+  )?.license;
   if (!force) {
-    const proposedLicense = toRestackerLicense(license, version);
-    const conflicts = proposedLicense
-      ? findLicenseConflicts(
+    const proposedLicense = buildLicenseFromDraft(license, version);
+    const field: "book" | "page" =
+      pageID === bookCoverId ? "book" : "page";
+    const conflicts = parseLicenseKey(proposedLicense)
+      ? findLicenseConflicts({
+          field,
           proposedLicense,
-          pageBeforeUpdate?.sourceLicense,
-          pageBeforeUpdate?.contentLicense,
-        )
+          bookLicense,
+          sourceLicense: pageBeforeUpdate?.sourceLicense,
+          // Model field is singular `contentLicense` but stores an array
+          // (client maps it to `contentLicenses`).
+          contentLicenses: pageBeforeUpdate?.contentLicense,
+          allPages:
+            field === "book"
+              ? (restackerBeforeUpdate?.restackerCurrentBook ?? [])
+                  .filter((entry) => entry.id !== bookCoverId)
+                  .map((entry) => ({
+                    title: entry.title,
+                    pageLicense: entry.license,
+                  }))
+              : undefined,
+        })
       : [];
     if (conflicts.length > 0) {
       const conflictSummary = conflicts
-        .map((c) => `${c.role} (${parseLicenseKey(c.license)})`)
+        .map((c) => {
+          const key = parseLicenseKey(c.license) ?? "unknown";
+          return c.pageTitle
+            ? `${c.role} "${c.pageTitle}" (${key})`
+            : `${c.role} (${key})`;
+        })
         .join(", ");
       return res.send({
         err: false,
         warning: true,
-        warningMsg: `The selected license may be incompatible with this page's ${conflictSummary}. Apply anyway?`,
+        warningMsg:
+          field === "book"
+            ? `The selected book license may be incompatible with: ${conflictSummary}. Apply anyway?`
+            : `The selected license may be incompatible with this page's ${conflictSummary}. Apply anyway?`,
         conflicts,
       });
     }
