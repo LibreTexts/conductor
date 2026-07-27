@@ -3407,18 +3407,21 @@ async function addExternalGlossaryToGlossaryUsage(
   res: Response,
 ) {
   try {
-  const { glossaryID } = req.body;
-  const {  library, coverID } = req.params;
-  const { auxGlossaryID,  augGlossaryParentID } = req.body;
-  const glossaryService = new GlossaryService();
-  if (!auxGlossaryID && !augGlossaryParentID) {
-    const result = await glossaryService.addExternalGlossaryToGlossaryUsage(glossaryID.toString(), coverID.toString(), library, req.user.decoded.uuid);
-    return res.send({ err: false, msg: "External glossary added to glossary usage successfully.", data: result });
-  }
-  else {
-    const result = await glossaryService.addExternalAuxGlossaryToGlossaryUsage(glossaryID.toString(), coverID.toString(), library, req.user.decoded.uuid, auxGlossaryID?.toString(), augGlossaryParentID?.toString());
-    return res.send({ err: false, msg: "External glossary added to glossary usage successfully.", data: result });
-  }
+    const { glossaryID } = req.body;
+    const {  library, coverID } = req.params;
+    const { auxGlossaryID,  auxGlossaryParentID } = req.body;
+    const glossaryService = new GlossaryService();
+    if (!auxGlossaryID && !auxGlossaryParentID) {
+      const result = await glossaryService.addExternalGlossaryToGlossaryUsage(glossaryID.toString(), coverID.toString(), library, req.user.decoded.uuid);
+      return res.send({ err: false, msg: "External glossary added to glossary usage successfully.", data: result });
+    }
+    else if (auxGlossaryID) {
+      const result = await glossaryService.addExternalAuxGlossaryToGlossaryUsage(glossaryID.toString(), coverID.toString(), library, req.user.decoded.uuid, auxGlossaryID.toString(), auxGlossaryParentID?.toString());
+      return res.send({ err: false, msg: "External glossary added to glossary usage successfully.", data: result });
+    }
+    else{
+      throw new Error("Invalid request.");
+    }
   }
   catch (err) {
     debugError(err);

@@ -318,7 +318,7 @@ export const readFromCxOneGlossaryAndAddToGlossaryUsageSchema = z.object({
     // Page to extract glossary from and add to glossary usage
     auxGlossaryID: z.coerce.number().int().positive().max(999999999999).optional(),
     // Page to add to glossary usage
-    augGlossaryParentID: z.coerce.number().int().positive().max(999999999999).optional(),
+    auxGlossaryParentID: z.coerce.number().int().positive().max(999999999999).optional(),
   }),
 });
 
