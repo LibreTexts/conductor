@@ -22,26 +22,26 @@ const CC_COMPATIBILITY_MATRIX: Record<CcLicenseKey, Record<CcLicenseKey, boolean
   publicdomain: {
     publicdomain: true,
     ccby: true,
-    ccbysa: true,
+    ccbysa: false,
     ccbync: true,
     ccbynd: false,
-    ccbyncsa: true,
+    ccbyncsa: false,
     ccbyncnd: false,
   },
   ccby: {
     publicdomain: true,
     ccby: true,
-    ccbysa: true,
+    ccbysa: false,
     ccbync: true,
     ccbynd: false,
-    ccbyncsa: true,
+    ccbyncsa: false,
     ccbyncnd: false,
   },
   ccbysa: {
     publicdomain: true,
     ccby: true,
     ccbysa: true,
-    ccbync: false,
+    ccbync: true,
     ccbynd: false,
     ccbyncsa: false,
     ccbyncnd: false,
@@ -52,14 +52,14 @@ const CC_COMPATIBILITY_MATRIX: Record<CcLicenseKey, Record<CcLicenseKey, boolean
     ccbysa: false,
     ccbync: true,
     ccbynd: false,
-    ccbyncsa: true,
+    ccbyncsa: false,
     ccbyncnd: false,
   },
   ccbynd: {
-    publicdomain: false,
-    ccby: false,
+    publicdomain: true,
+    ccby: true,
     ccbysa: false,
-    ccbync: false,
+    ccbync: true,
     ccbynd: false,
     ccbyncsa: false,
     ccbyncnd: false,
@@ -74,10 +74,10 @@ const CC_COMPATIBILITY_MATRIX: Record<CcLicenseKey, Record<CcLicenseKey, boolean
     ccbyncnd: false,
   },
   ccbyncnd: {
-    publicdomain: false,
-    ccby: false,
+    publicdomain: true,
+    ccby: true,
     ccbysa: false,
-    ccbync: false,
+    ccbync: true,
     ccbynd: false,
     ccbyncsa: false,
     ccbyncnd: false,
@@ -91,8 +91,8 @@ export type LicenseRole =
   | `content:${number}`;
 
 export type LicensePairCompliance = {
-  licenseA: { role: LicenseRole; key: string };
-  licenseB: { role: LicenseRole; key: string };
+  licenseAdption: { role: LicenseRole; key: string; version?: string };
+  licenseOrigin: { role: LicenseRole; key: string; version?: string };
   compatible: boolean | null;
 };
 
@@ -114,20 +114,20 @@ function toCcLicenseKey(key: string): CcLicenseKey | undefined {
 }
 
 export function areLicensesCompatible(
-  licenseA?: RestackerTocLicense,
-  licenseB?: RestackerTocLicense,
+  licenseAdption?: RestackerTocLicense,
+  licenseOrigin?: RestackerTocLicense,
 ): boolean | null {
-  const keyA = parseLicenseKey(licenseA);
-  const keyB = parseLicenseKey(licenseB);
+  const keyAdption = parseLicenseKey(licenseAdption);
+  const keyOrigin = parseLicenseKey(licenseOrigin);
 
-  if (!keyA || !keyB) return null;
+  if (!keyAdption || !keyOrigin) return null;
 
-  const ccKeyA = toCcLicenseKey(keyA);
-  const ccKeyB = toCcLicenseKey(keyB);
+  const ccKeyAdption = toCcLicenseKey(keyAdption);
+  const ccKeyOrigin = toCcLicenseKey(keyOrigin);
 
-  if (!ccKeyA || !ccKeyB) return null;
+  if (!ccKeyAdption || !ccKeyOrigin) return null;
 
-  return CC_COMPATIBILITY_MATRIX[ccKeyA][ccKeyB];
+  return CC_COMPATIBILITY_MATRIX[ccKeyAdption][ccKeyOrigin];
 }
 
 
@@ -141,8 +141,16 @@ function makePair(
   const keyB = parseLicenseKey(licenseB);
   if (!keyA || !keyB) return null;
   return {
-    licenseA: { role: roleA, key: keyA },
-    licenseB: { role: roleB, key: keyB },
+    licenseAdption: {
+      role: roleA,
+      key: keyA,
+      version: parseLicenseVersion(licenseA.version) ?? licenseA.version,
+    },
+    licenseOrigin: {
+      role: roleB,
+      key: keyB,
+      version: parseLicenseVersion(licenseB.version) ?? licenseB.version,
+    },
     compatible: areLicensesCompatible(licenseA, licenseB),
   };
 }
@@ -165,12 +173,21 @@ export const getLicenseCompliance = (
   const pageVersion = parseLicenseVersion(pageLicense.version);
   const sourceVersion = parseLicenseVersion(sourceLicense.version);
   if (sourceKey) {
-    const compatible = pageKey?.toLowerCase() === sourceKey?.toLowerCase() && (pageVersion ?? "") === (sourceVersion ?? "")
+    const compatible =
+      pageKey?.toLowerCase() === sourceKey?.toLowerCase() &&
+      (pageVersion ?? "") === (sourceVersion ?? "");
     pairs.push({
-      licenseA: { role: "page", key: pageKey ?? "" },
-      licenseB: { role: "source", key: sourceKey },
-      compatible
-      
+      licenseAdption: {
+        role: "page",
+        key: pageKey ?? "",
+        version: pageVersion,
+      },
+      licenseOrigin: {
+        role: "source",
+        key: sourceKey,
+        version: sourceVersion,
+      },
+      compatible,
     });
   }
 

@@ -54,21 +54,21 @@ const LicenseWarningModal: React.FC<LicenseWarningModalProps> = ({
           <ul className="space-y-2 text-sm">
             {incompatiblePairs.map((pair, index) => {
               const changedRole = field === "book" ? "book" : "page";
-              const otherRole =
-                pair.licenseA.role === changedRole
-                  ? pair.licenseB.role
-                  : pair.licenseA.role;
-              const otherKey =
-                pair.licenseA.role === changedRole
-                  ? pair.licenseB.key
-                  : pair.licenseA.key;
+              const other =
+                pair.licenseAdption.role === changedRole
+                  ? pair.licenseOrigin
+                  : pair.licenseAdption;
+              const otherLabel = getLicenseText(
+                other.key,
+                other.version ?? "",
+              );
 
               return (
                 <li
-                  key={`${pair.licenseA.role}-${pair.licenseB.role}-${index}`}
+                  key={`${pair.licenseAdption.role}-${pair.licenseOrigin.role}-${index}`}
                   className="rounded border border-red-200 bg-red-50 px-3 py-2 text-red-900"
                 >
-                  {formatLicenseRole(otherRole)} ({otherKey})
+                  {formatLicenseRole(other.role)}: {otherLabel}
                 </li>
               );
             })}
