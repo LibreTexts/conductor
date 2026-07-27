@@ -99,7 +99,6 @@ export const projectSearchSchema = z.object({
     status: z.string().default("any"),
     classification: z.string().default("any"),
     leads: z.coerce.boolean().optional(),
-    principalInvestigators: z.coerce.boolean().optional(),
     sort: z
       .enum([
         "relevance",

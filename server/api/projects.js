@@ -468,7 +468,7 @@ async function getProject(req, res) {
           },
         },
       },
-      ...LOOKUP_PROJECT_PI_STAGES(true),
+      ...LOOKUP_PROJECT_PRIMARY_AUTHOR_STAGES(true),
       {
         $project: {
           _id: 0,
@@ -978,23 +978,6 @@ async function updateProject(req, res) {
       }
 
       updateObj.defaultPrimaryAuthorID = parsed[0]
-    }
-
-    if(req.body.hasOwnProperty('principalInvestigators')){
-      const parsed = await projectFilesAPI._parseAndSaveAuthors(req.body.principalInvestigators);
-      if(!parsed || !Array.isArray(parsed)){
-        throw new Error('Error parsing principal investigators');
-      }
-      updateObj.principalInvestigatorIDs = parsed;
-    }
-
-    if(req.body.hasOwnProperty('coPrincipalInvestigators')){
-      const parsed = await projectFilesAPI._parseAndSaveAuthors(req.body.coPrincipalInvestigators);
-      if(!parsed || !Array.isArray(parsed)){
-        throw new Error('Error parsing co-principal investigators');
-      }
-
-      updateObj.coPrincipalInvestigatorIDs = parsed;
     }
 
     if(req.body.hasOwnProperty('description')){
@@ -1665,7 +1648,7 @@ async function getPublicProjects(req, res) {
               visibility: "public",
             },
           },
-          ...LOOKUP_PROJECT_PI_STAGES(false),
+          ...LOOKUP_PROJECT_PRIMARY_AUTHOR_STAGES(false),
           {
             $lookup: {
               from: "projectfiles",
@@ -1718,8 +1701,6 @@ async function getPublicProjects(req, res) {
               projectURL: 1,
               contentArea: 1,
               description: 1,
-              principalInvestigators: 1,
-              coPrincipalInvestigators: 1,
               associatedOrgs: 1,
               publicAssets: 1,
               instructorAssets: 1
@@ -3620,7 +3601,7 @@ const constructProjectTeamMemberQuery = (uuid) => {
     throw (new Error('uuid')); // for security, do not allow unrestricted aggregation
 };
 
-const LOOKUP_PROJECT_PI_STAGES = (includeAuthors = false) => {
+const LOOKUP_PROJECT_PRIMARY_AUTHOR_STAGES = (includeAuthors = false) => {
     return [
     ...(includeAuthors ? [
       {
@@ -3639,22 +3620,6 @@ const LOOKUP_PROJECT_PI_STAGES = (includeAuthors = false) => {
         },
       },
     ]: []),
-    {
-      $lookup: {
-        from: "authors",
-        localField: "principalInvestigatorIDs",
-        foreignField: "_id",
-        as: "principalInvestigators",
-      }
-    },
-    {
-      $lookup: {
-        from: "authors",
-        localField: "coPrincipalInvestigatorIDs",
-        foreignField: "_id",
-        as: "coPrincipalInvestigators",
-      }
-    },
   ]
 }
 
@@ -3911,8 +3876,6 @@ const validate = (method) => {
           body('defaultFileLicense', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateDefaultFileLicense),
           body('projectModules', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateProjectModules),
           body('defaultPrimaryAuthor', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateAuthor),
-          body('principalInvestigators', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
-          body('coPrincipalInvestigators', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
           body('description', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('contentArea', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('isbn', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 5, max: 50 }),
@@ -4093,7 +4056,7 @@ export default {
     checkProjectAdminPermission,
     constructProjectTeam,
     constructProjectTeamMemberQuery,
-    LOOKUP_PROJECT_PI_STAGES,
+    LOOKUP_PROJECT_PRIMARY_AUTHOR_STAGES,
     syncWithSearchIndex,
     syncProjectsInBackground,
     validate,

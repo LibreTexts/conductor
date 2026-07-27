@@ -185,10 +185,6 @@ export type Project = {
   updatedAt?: string;
   defaultPrimaryAuthorID?: string;
   defaultPrimaryAuthor?: ProjectFileAuthor;
-  principalInvestigatorIDs?: string[];
-  coPrincipalInvestigatorIDs?: string[];
-  principalInvestigators?: ProjectFileAuthor[];
-  coPrincipalInvestigators?: ProjectFileAuthor[];
   description?: string;
   contentArea?: string;
   isbns?: {
