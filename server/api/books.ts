@@ -2818,6 +2818,18 @@ export async function syncBooksInBackground() {
         break;
       }
 
+      // Attach public/instructor asset counts so the search index can filter on them.
+      // Reuse _getBookPublicOrInstructorAssetsCount as the single source of truth so the
+      // counts stored here always match what the v1 booksSearch computes at query time.
+      const assetCounts = await _getBookPublicOrInstructorAssetsCount(
+        books.map((book) => book.bookID),
+      );
+      books.forEach((book) => {
+        const found = assetCounts.find((c) => c.bookID === book.bookID);
+        book.publicAssets = found?.publicAssets ?? 0;
+        book.instructorAssets = found?.instructorAssets ?? 0;
+      });
+
       await searchService.addDocuments("books", books);
       totalSynced += books.length;
       debugServer(

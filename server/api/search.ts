@@ -2266,7 +2266,8 @@ async function bookSearchV2(
       affiliation: req.query.affiliation,
     });
 
-    let combinedFilter: FilterObject = filterMap;
+    const filterClauses: FilterInput[] = [filterMap];
+
     if (process.env.ORG_ID !== "libretexts") {
       const [orgData, customCatalog] = await Promise.all([
         Organization.findOne({ orgID: process.env.ORG_ID }),
@@ -2285,10 +2286,18 @@ async function bookSearchV2(
         campusNames,
       });
 
-      combinedFilter = {
-        $and: [filterMap, catalogAccessFilter],
-      };
+      filterClauses.push(catalogAccessFilter);
     }
+
+    // Filter by attached public/instructor assets (indexed as numeric counts during sync).
+    if (req.query.assets === "public") {
+      filterClauses.push({ publicAssets: { $gt: 0 } });
+    } else if (req.query.assets === "instructors") {
+      filterClauses.push({ instructorAssets: { $gt: 0 } });
+    }
+
+    const combinedFilter: FilterObject =
+      filterClauses.length > 1 ? { $and: filterClauses } : filterMap;
 
     const page = parseInt(req.query.page?.toString()) || 1;
     const limit = parseInt(req.query.limit?.toString()) || 25;

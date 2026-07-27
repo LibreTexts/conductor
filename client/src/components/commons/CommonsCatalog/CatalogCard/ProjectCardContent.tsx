@@ -108,12 +108,6 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
               {getLibraryName(project.libreLibrary)}
             </div>
           )}
-          {assetString ? (
-            <p className="commons-content-card-affiliation !mt-3">
-              <Icon name="file alternate outline" />
-              {assetString}
-            </p>
-          ) : null}
         </Stack>
       </Card.Body>
     </>
