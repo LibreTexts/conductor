@@ -58,7 +58,7 @@ const AccessibilityStatement = () => {
             <ul className="list-disc pl-6">
               <li><Text size="base">Academy Online (coming soon)</Text></li>
               <li><Text size="base">ADAPT: </Text><Link
-                href="https://chem.libretexts.org/Courses/Remixer_University/LibreVerse_Accessibility_Conformance_Reports/ADAPT_for_Students_Accessibility_Conformance_Report?readerView=">ADAPT
+                href="https://chem.libretexts.org/Courses/Remixer_University/LibreVerse_Accessibility_Conformance_Reports/ADAPT_for_Students_Accessibility_Conformance_Report_August_2026?readerView">ADAPT
                 for Students ACR</Link></li>
               <li><Text size="base">Commons: </Text><Link
                 href="https://chem.libretexts.org/Courses/Remixer_University/LibreVerse_Accessibility_Conformance_Reports/Commons_Accessibility_Conformance_Report_July_2026?readerView">LibreCommons
