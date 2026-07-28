@@ -133,7 +133,14 @@ function areLicensesCompatible(
   const ccKeyOrigin = toCcLicenseKey(keyOrigin);
   if (!ccKeyAdption || !ccKeyOrigin) return null;
 
-  return CC_COMPATIBILITY_MATRIX[ccKeyAdption][ccKeyOrigin];
+  const compatibility = CC_COMPATIBILITY_MATRIX[ccKeyAdption][ccKeyOrigin];
+  if (!compatibility) return false;
+  const versionAdption = parseLicenseVersion(licenseAdption?.version);
+  const versionOrigin = parseLicenseVersion(licenseOrigin?.version);
+  if (versionAdption && versionOrigin) {
+    return versionAdption >= versionOrigin;
+  }
+  return compatibility;
 }
 
 function formatVersionDigits(version?: string): string | undefined {
