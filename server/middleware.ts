@@ -361,7 +361,7 @@ const isSelfOrSupport = async (
  * publish). The calling route must be excluded from the global body-parser
  * middleware so the stream is not consumed before this runs.
  */
-const STREAM_JSON_MAX_BYTES = 5 * 1024 * 1024; // 10 MB
+const STREAM_JSON_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 
 const streamJsonBody = (req: Request, res: Response, next: NextFunction) => {
   if (!req.headers["content-type"]?.startsWith("application/json")) {
@@ -369,27 +369,77 @@ const streamJsonBody = (req: Request, res: Response, next: NextFunction) => {
   }
   const chunks: Buffer[] = [];
   let totalBytes = 0;
-  req.on("data", (chunk: unknown) => {
+  // Single latch guaranteeing exactly one terminal action (a response OR
+  // next()). Without it, `data` can fire multiple times before req.destroy()
+  // takes effect, and destroy/end/error can overlap — each path would try to
+  // send again on an already-flushed response, throwing ERR_HTTP_HEADERS_SENT
+  // inside the event callback and crashing the process.
+  let settled = false;
+
+  const onData = (chunk: unknown) => {
     const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string, "utf-8");
     totalBytes += buf.byteLength;
     if (totalBytes > STREAM_JSON_MAX_BYTES) {
-      req.destroy();
-      res.status(413).json({ err: true, errMsg: "Request body exceeds the 5 MB limit" });
+      fail(413, "Request body exceeds the 5 MB limit");
       return;
     }
     chunks.push(buf);
-  });
-  req.on("end", () => {
+  };
+
+  const onEnd = () => {
+    if (settled) return;
+    settled = true;
+    cleanup();
+    let parsed: unknown;
     try {
-      req.body = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
-      next();
+      parsed = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
     } catch {
-      res.status(400).json({ err: true, errMsg: "Invalid or malformed JSON body" });
+      if (!res.headersSent) {
+        res.status(400).json({ err: true, errMsg: "Invalid or malformed JSON body" });
+      }
+      return;
     }
-  });
-  req.on("error", () => {
-    res.status(400).json({ err: true, errMsg: "Error reading request body" });
-  });
+    req.body = parsed;
+    next();
+  };
+
+  const onError = () => fail(400, "Error reading request body");
+
+  // Detach only the consumption listeners on settle. The `error` listener must
+  // stay attached until the request is fully torn down: fail() keeps `req`
+  // alive to flush the response, and next() hands off to async downstream work
+  // — in either window an unhandled 'error' (client abort, ECONNRESET) would be
+  // rethrown as an uncaught exception and crash the process. onError is
+  // idempotent under `settled`, so leaving it bound simply swallows late errors.
+  function cleanup() {
+    req.removeListener("data", onData);
+    req.removeListener("end", onEnd);
+  }
+
+  function fail(status: number, errMsg: string) {
+    if (settled) return;
+    settled = true;
+    cleanup();
+    if (!res.headersSent) {
+      res.status(status).json({ err: true, errMsg });
+    }
+    // Stop reading now, but defer socket teardown until the response has
+    // flushed. req and res share one socket, so destroying it synchronously
+    // would reset the connection before the client receives the error body.
+    // writableFinished (not writableEnded) is only true once the bytes have
+    // actually left for the socket.
+    req.pause();
+    if (res.writableFinished) {
+      req.destroy();
+    } else {
+      res.once("finish", () => req.destroy());
+      res.once("close", () => req.destroy());
+    }
+  }
+
+  req.on("data", onData);
+  req.on("end", onEnd);
+  req.on("error", onError);
 };
 
 const validateZod = (schema: ZodObject<any>) => {
