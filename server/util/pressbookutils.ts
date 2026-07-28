@@ -10,6 +10,7 @@ import { License } from "../types";
 import Author, { AuthorInterface } from "../models/author";
 import sanitizeHtml from "sanitize-html";
 import * as cheerio from "cheerio";
+import GlossaryService from "../api/services/glossary-service.js";
 
 const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
 
@@ -683,108 +684,48 @@ export class PressBookScraper {
     return bestURL;
   }
 
-  private cleanHtml = (html: string): string => {
-    const $ = cheerio.load(html);
-    return $.root()
-      .text()
-      .replace(/\s+/g, " ")
-      .replace(/[\u2018\u2019]/g, "'")
-      .replace(/[\u201c\u201d]/g, '"')
-      .trim();
-  };
-
-  private extractFromDefinitionList = (
-    $: cheerio.CheerioAPI,
-    $content: cheerio.Cheerio<any>,
-  ): GlossaryTerm[] => {
-    const items: GlossaryTerm[] = [];
-    let nextId = 1;
-
-    $content.find("dl").each((_, dl) => {
-      const $dl = $(dl);
-      const terms = $dl.find("dt");
-      const defs = $dl.find("dd");
-
-      terms.each((i, dt) => {
-        const term = this.cleanHtml($.html($(dt)) ?? "");
-        const termText = $(dt).text().replace(/\s+/g, " ").trim();
-        const definition = defs.eq(i).length
-          ? defs.eq(i).text().replace(/\s+/g, " ").trim()
-          : "";
-        if (termText) items.push({ id: nextId++, term: termText, definition });
-      });
-    });
-
-    return items;
-  };
-
-  private extractFromParagraphPairs = (
-    $: cheerio.CheerioAPI,
-    $content: cheerio.Cheerio<any>,
-  ): GlossaryTerm[] | void => {
-    const items: GlossaryTerm[] = [];
-    const paragraphs = $content.find("p").toArray();
-    let nextId = 1;
-
-    for (let i = 0; i < paragraphs.length; i++) {
-      const $p = $(paragraphs[i]);
-      const $emphasis = $p.find("em, strong, b, i").first();
-
-      const pText = $p.text().replace(/\s+/g, " ").trim();
-      const emphasisText = $emphasis.length
-        ? $emphasis.text().replace(/\s+/g, " ").trim()
-        : "";
-
-      const looksLikeTerm =
-        emphasisText.length > 0 && emphasisText === pText && pText.length < 120;
-
-      if (looksLikeTerm) {
-        const $next = $(paragraphs[i + 1]);
-        const nextText = $next.length
-          ? $next.text().replace(/\s+/g, " ").trim()
-          : "";
-        const nextEmphasis = $next.find("em, strong, b, i").first();
-        const nextIsAlsoTerm =
-          nextEmphasis.length > 0 &&
-          nextEmphasis.text().replace(/\s+/g, " ").trim() === nextText;
-
-        items.push({
-          id: nextId++,
-          term: emphasisText,
-          definition: nextIsAlsoTerm ? "" : nextText,
-        });
-      }
-    }
-
-    return items;
-  };
-
   private async fetchGlossary(
     bookUrl: string,
-    node: TocNode,
     auth?: { username: string; password: string },
   ): Promise<GlossaryTerm[]> {
-    const glossaryContent = await this.fetchNodeContent(
-      bookUrl,
-      "back-matter",
-      node.id,
-      auth,
-    );
-    const $ = cheerio.load(glossaryContent.html);
+    const terms: GlossaryTerm[] = [];
+    const perPage = 100;
+    let page = 1;
 
-    const contentSelector =
-      "#main-content, .entry-content, .textbook-content, article, main";
+    while (page <= PressBookScraper.MAX_PAGING_PAGES) {
+      const url =
+        `${this.pbApi(bookUrl)}/glossary` +
+        `?per_page=${perPage}&page=${page}` +
+        `&_fields=id,slug,title,content`;
+      let items: any[];
+      try {
+        items = await this.getJson(url, auth);
+      } catch {
+        // 400 / 404 ("page out of bounds") means we have everything.
+        break;
+      }
+      if (!Array.isArray(items) || items.length === 0) break;
 
-    const $content = $(contentSelector).first().length
-      ? $(contentSelector).first()
-      : $("body");
+      for (const item of items) {
+        terms.push({
+          id: item.id,
+          slug: item.slug,
+          term: item.title?.raw ?? item.title?.rendered ?? "",
+          definition: item.content?.raw ?? item.content?.rendered ?? "",
+        });
+      }
 
-    const fromDl = this.extractFromDefinitionList($, $content);
-    if (fromDl.length > 0) return fromDl;
+      if (items.length < perPage) break;
+      page++;
+    }
 
-    const x = this.extractFromParagraphPairs($, $content);
-    if (x && x.length > 0) return x;
-    return [];
+    if (page > PressBookScraper.MAX_PAGING_PAGES) {
+      console.warn(
+        `[PressBookScraper] fetchGlossary: reached page-cap (${PressBookScraper.MAX_PAGING_PAGES}) — truncating results for ${bookUrl}`,
+      );
+    }
+
+    return terms;
   }
 
   async publishBook(options: PublishOptions): Promise<PublishResult> {
@@ -1279,14 +1220,7 @@ export class PressBookScraper {
     }
     for (let i = 0; i < extraBackMatter.length; i++) {
       const node = extraBackMatter[i];
-      if (node?.title?.toLowerCase().includes("glossary")) {
-        // todo: add glossary to the conductor glossaryUsage from scraping the glossary page
-        log("  [BM glossary] ${node.title}");
-        const glossary = await this.fetchGlossary(encodePbURL, node, auth);
-        if (glossary && glossary.length > 0) {
-          // todo: add glossary to the conductor glossaryUsage
-        }
-
+      if (/glossary/i.test(node?.title ?? "")) {
         continue;
       }
       // Continue the 00-based sequence after the TOC items.
@@ -1310,7 +1244,48 @@ export class PressBookScraper {
         ...bmExtraContribTags,
       ]);
     }
+    // region Glossary
+    
 
+
+    const coverID = bookRootID ?? (await getPageID(bookPath, this.subdomain));
+    const glossary = await this.fetchGlossary(encodePbURL, auth);
+    if (glossary && glossary.length > 0 && coverID) {
+      // make the glossary page 20%3A_Glossary
+      const glossaryPagePath = `${backMatterContainerPath}/20%3A_Glossary`;
+      await this.upsertCXOnePage(glossaryPagePath, "Glossary", "<p>{{template.Glossary()}}</p>", false, [
+        ...bookLicenseTags,
+      ]);
+      const glossaryPageID = await getPageID(glossaryPagePath, this.subdomain);
+      try {
+        const glossaryService = new GlossaryService();
+        const imported = await glossaryService.addGlossaryEntries(
+          glossary.map((g) => ({
+            term: g.term,
+            // Pressbooks definitions are HTML; store plain text.
+            definition: cheerio.load(g.definition || "").text().trim(),
+          })),
+          coverID,
+          this.subdomain,
+          "pressbooks-import",
+          glossaryPageID ?? undefined,
+        );
+        log(
+          `  [BM glossary] Imported ${imported} term(s) into GlossaryUsage (cover ${coverID})`,
+        );
+      } catch (err) {
+        log(
+          `  [BM glossary] Failed to import glossary terms (non-fatal): ${(err as Error).message}`,
+        );
+      }
+    } else if (!coverID) {
+      log(
+        "  [BM glossary] Skipping GlossaryUsage import — cover page ID unavailable",
+      );
+    }
+
+
+    // endregion
     await Promise.all([
       addPageProperty(
         this.subdomain,
@@ -1376,40 +1351,25 @@ export class PressBookScraper {
     return result;
   }
 
-  async testGlossary(): Promise<GlossaryTerm[] | undefined> {
+  async testGlossary(): Promise<any | undefined> {
     const encodePbURL = this.pbBookURL.replace(/\/+$/, "");
     // fetch toc
     const auth = {
       username: process.env.PRESSBOOKS_USERNAME!,
       password: process.env.PRESSBOOKS_PASSWORD!,
     };
-    let toc: TocShape;
-    try {
-      toc = (await this.getJson(
-        this.pbApi(encodePbURL) + "/toc",
-        auth,
-      )) as TocShape;
-    } catch(error) {
-      console.error(error);
-      throw new Error(conductorErrors.err8);
-    }
+   
     // go to backend
     // find glossary page
     // fetch glossary
     // show it on the console
-    const backmatter = toc["back-matter"];
-    const glossaryPage = backmatter?.find((chapter) =>
-      chapter.title.toLowerCase().includes("glossary"),
-    );
-    if (glossaryPage) {
+    
       const glossary = await this.fetchGlossary(
         encodePbURL,
-        glossaryPage,
         auth,
       );
       console.log(glossary);
-      return glossary;
-    }
+      return {glossary: glossary, length:glossary.length};
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
