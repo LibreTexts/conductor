@@ -282,6 +282,9 @@ interface GlossaryTerm {
   slug?: string;
   term: string;
   definition: string;
+  author?: string;
+  source?: string;
+  link?: string;
 }
 
 interface TocNode {
@@ -691,12 +694,43 @@ export class PressBookScraper {
     const terms: GlossaryTerm[] = [];
     const perPage = 100;
     let page = 1;
+    // Cache WP user ID → display name so each author is fetched at most once.
+    const authorNameById = new Map<number, string>();
+
+    const resolveAuthorName = async (
+      author: unknown,
+    ): Promise<string | undefined> => {
+      if (typeof author === "string" && author.trim()) return author.trim();
+      const authorId =
+        typeof author === "number"
+          ? author
+          : typeof author === "string" && /^\d+$/.test(author)
+            ? parseInt(author, 10)
+            : NaN;
+      if (Number.isNaN(authorId)) return undefined;
+      if (authorNameById.has(authorId)) return authorNameById.get(authorId);
+
+      try {
+        const userUrl =
+          `${bookUrl.replace(/\/+$/, "")}/wp-json/wp/v2/users/${authorId}` +
+          `?_fields=id,name`;
+        const user = await this.getJson(userUrl, auth);
+        const name =
+          typeof user?.name === "string" && user.name.trim()
+            ? user.name.trim()
+            : undefined;
+        if (name) authorNameById.set(authorId, name);
+        return name;
+      } catch {
+        return undefined;
+      }
+    };
 
     while (page <= PressBookScraper.MAX_PAGING_PAGES) {
       const url =
         `${this.pbApi(bookUrl)}/glossary` +
         `?per_page=${perPage}&page=${page}` +
-        `&_fields=id,slug,title,content`;
+        `&_fields=id,slug,title,content,author,link`;
       let items: any[];
       try {
         items = await this.getJson(url, auth);
@@ -711,7 +745,14 @@ export class PressBookScraper {
           id: item.id,
           slug: item.slug,
           term: item.title?.raw ?? item.title?.rendered ?? "",
-          definition: item.content?.raw ?? item.content?.rendered ?? "",
+          definition: cheerio
+            .load(item.content?.raw ?? item.content?.rendered ?? "")
+            .text()
+            .replace(/\s+/g, " ")
+            .trim(),
+          author: await resolveAuthorName(item.author),
+          source: "Pressbooks",
+          link: item?.link,
         });
       }
 
@@ -1220,7 +1261,7 @@ export class PressBookScraper {
     }
     for (let i = 0; i < extraBackMatter.length; i++) {
       const node = extraBackMatter[i];
-      if (/glossary/i.test(node?.title ?? "")) {
+      if (/glossary/i.test(node?.title.toLowerCase() ?? "")) {
         continue;
       }
       // Continue the 00-based sequence after the TOC items.
@@ -1264,6 +1305,9 @@ export class PressBookScraper {
             term: g.term,
             // Pressbooks definitions are HTML; store plain text.
             definition: cheerio.load(g.definition || "").text().trim(),
+            author: g.author,
+            source: g.source,
+            link: g.link,
           })),
           coverID,
           this.subdomain,
@@ -1318,15 +1362,17 @@ export class PressBookScraper {
     // and the import job potentially exits. Matches the pattern in
     // `api/books.ts` exactly.
     log("[*] Triggering default matter creation + MindMap TOC update...");
+    if (process.env.NODE_ENV === "production") {
     fetch(`https://batch.libretexts.org/print/Libretext=${bookURL}`, {
       headers: { origin: "commons.libretexts.org" },
-    }).catch((e) => {
-      console.warn(
-        "[PressBookScraper] Matter / MindMap trigger failed (non-fatal):",
-        (e as Error).message,
-      );
-    });
-    await sleep(1500);
+      }).catch((e) => {
+        console.warn(
+          "[PressBookScraper] Matter / MindMap trigger failed (non-fatal):",
+          (e as Error).message,
+        );
+      });
+      await sleep(1500);
+    }
 
     // ── 9. Verify book ID ─────────────────────────────────────────────────────
     const newBookID = await getPageID(bookPath, this.subdomain);

@@ -364,7 +364,13 @@ export default class GlossaryService {
    * rows are upserted via `_addGlossaryUsageToDatabase`.
    */
   async addGlossaryEntries(
-    entries: { term: string; definition: string }[],
+    entries: {
+      term: string;
+      definition: string;
+      author?: string;
+      source?: string;
+      link?: string;
+    }[],
     coverID: string,
     library: string,
     addedBy: string,
@@ -386,6 +392,9 @@ export default class GlossaryService {
           library,
           addedBy,
           glossaryID,
+          author: entry.author,
+          source: entry.source,
+          link: entry.link,
         });
       }),
     );
