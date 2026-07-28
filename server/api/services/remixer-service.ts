@@ -16,6 +16,8 @@ import {
   buildRemixerPagePathSegment,
   extractLibretextsSubdomain,
   extractPagePath,
+  findUnownedRemixerPageIDs,
+  getPageStatus,
 } from "../../util/remixerutils";
 import * as cheerio from "cheerio";
 import { log } from "debug";
@@ -458,25 +460,6 @@ const getDisplayTitle = (
     ? `${formattedPath}: ${cleanTitle}`
     : cleanTitle;
   return appendSiblingTitleSuffix(titleWithPath, page);
-};
-
-type PageStatus = "unchaned" | "modeified" | "new" | "imported" | "deleted";
-
-const getPageStatus = (page: RemixerSubPageState): PageStatus => {
-  if (page.isDeleted) return "deleted";
-  if (page.addedItem && !page.isDeleted && page["@id"].startsWith("new-"))
-    return "new";
-
-  if (page.isImported || page.addedItem) return "imported";
-  if (
-    page.movedItem ||
-    page.isPlacementChanged ||
-    page.movedItem ||
-    page.renamedItem
-  )
-    return "modeified";
-
-  return "unchaned";
 };
 
 const applyDefaultRemixerPageProperties = async (
@@ -1189,6 +1172,51 @@ const runRemixerJob = async ({
     }
 
     const pages = remixerState.remixerCurrentBook;
+
+    // ── Ownership gate ───────────────────────────────────────────────────────
+    // Every mutation this job performs is keyed on client-supplied page IDs.
+    // Before touching the library, confirm that no page outside THIS project's
+    // book is moved/renamed/deleted, and that no new/imported content is
+    // grafted onto a page the project doesn't own. Fail closed on any breach.
+    // Book identity is `${subdomain}-${coverId}` (server-derived from the
+    // project), the definitive source of truth per redirect/path caveats.
+    let ownedPageIDs: string[];
+    try {
+      const bookService = new BookService({ bookID: `${subdomain}-${coverId}` });
+      ownedPageIDs = await bookService.getBookPageIDs();
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Unable to resolve the project's book contents for authorization; refusing to publish (${detail}).`,
+      );
+    }
+    if (ownedPageIDs.length === 0) {
+      // A published book always resolves at least its cover page. An empty set
+      // means the TOC lookup failed silently — do not treat "nothing owned" as
+      // permission to skip the check.
+      throw new Error(
+        "Could not resolve any pages for the project's book; refusing to publish.",
+      );
+    }
+    const ownedIDs = new Set(ownedPageIDs);
+    const { mutated, grafted } = findUnownedRemixerPageIDs(pages, ownedIDs);
+    if (mutated.length > 0 || grafted.length > 0) {
+      const parts: string[] = [];
+      if (mutated.length > 0) {
+        parts.push(
+          `${mutated.length} page(s) outside this book flagged for edit/delete (${mutated.join(", ")})`,
+        );
+      }
+      if (grafted.length > 0) {
+        parts.push(
+          `${grafted.length} new/imported page(s) not anchored in this book (${grafted.join(", ")})`,
+        );
+      }
+      throw new Error(
+        `Refusing to publish: the remix references content outside this project's book — ${parts.join("; ")}.`,
+      );
+    }
+
     const copyModeState = normalizeRemixerCopyMode(remixerState.copyModeState);
     const byId = new Map(pages.map((p) => [p["@id"], p]));
 

@@ -13,12 +13,14 @@ import PrejectRemixerJob from "../models/projectremixerjob.js";
 import base62 from "base62-random";
 import CXOnePageAPIEndpoints from "../util/CXOne/CXOnePageAPIEndpoints.js";
 import {
-  extractPagePath,
+  findUnownedRemixerPageIDs,
   getUserWorkbenchProjects,
 } from "../util/remixerutils";
 import { generateAPIRequestHeaders } from "../util/librariesclient.js";
 import User from "../models/user.js";
 import projectsAPI from "./projects.js";
+import BookService from "./services/book-service.js";
+import type { RemixerSubPageState } from "../models/projectremixer.js";
 
 class FetchPageError extends Error {
   statusCode: number;
@@ -52,6 +54,49 @@ const normalizeUpstreamErrorMessage = (message: string): string => {
   return trimmedMessage.slice(0, 300);
 };
 
+/**
+ * Verifies that a proposed remixer book only touches pages belonging to the
+ * project's own book (`${libreLibrary}-${libreCoverID}`). Returns a
+ * user-facing error message when the payload references content outside the
+ * book, or `null` when it is clean. Resolving the owned page set requires a
+ * live TOC lookup, so callers should treat a thrown/failed lookup as a reason
+ * to refuse (fail closed) rather than proceed.
+ */
+const validateRemixerBookOwnership = async (
+  libreLibrary: string | undefined,
+  libreCoverID: string | undefined,
+  currentBook: unknown,
+): Promise<string | null> => {
+  if (!libreLibrary || !libreCoverID) {
+    return "Project is not attached to a library book; cannot verify remixer permissions.";
+  }
+  const pages = (Array.isArray(currentBook) ? currentBook : []) as RemixerSubPageState[];
+  if (pages.length === 0) return null;
+
+  let ownedPageIDs: string[];
+  try {
+    const bookService = new BookService({
+      bookID: `${libreLibrary}-${libreCoverID}`,
+    });
+    ownedPageIDs = await bookService.getBookPageIDs();
+  } catch (error) {
+    console.error("[remixer] failed to resolve owned book pages:", error);
+    return "Unable to verify remixer permissions against the project's book.";
+  }
+  if (ownedPageIDs.length === 0) {
+    return "Unable to verify remixer permissions against the project's book.";
+  }
+
+  const { mutated, grafted } = findUnownedRemixerPageIDs(
+    pages,
+    new Set(ownedPageIDs),
+  );
+  if (mutated.length === 0 && grafted.length === 0) return null;
+
+  const count = mutated.length + grafted.length;
+  return `This remix references ${count} page(s) that do not belong to this project's book and cannot be saved or published.`;
+};
+
 const getRemixerProject = async (
   req: ZodReqWithUser<z.infer<typeof GetRemixerProjectStateSchema>>,
   res: Response,
@@ -68,11 +113,6 @@ const getRemixerProject = async (
   }
 
   const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
-
-  // TODO: Remove these console logs after testing
-  console.log("[getRemixerProject] project:", project.projectID);
-  console.log("[getRemixerProject] user:", JSON.stringify(req.user));
-  console.log("[getRemixerProject] canAccess:", canAccess);
 
   if (!canAccess) {
     return res.status(403).send({
@@ -110,7 +150,7 @@ const saveRemixerProjectState = async (
 
   const project = await Project.findOne(
     { projectID: { $eq: id } },
-    { projectID: 1, _id: 0 },
+    { projectID: 1, libreLibrary: 1, libreCoverID: 1, _id: 0 },
   );
 
   if (!project) {
@@ -122,17 +162,23 @@ const saveRemixerProjectState = async (
 
   const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
 
-  // TODO: Remove these console logs after testing
-  console.log("[saveRemixerProjectState] project:", project.projectID);
-  console.log("[saveRemixerProjectState] user:", JSON.stringify(req.user));
-  console.log("[saveRemixerProjectState] canAccess:", canAccess);
-
   if(!canAccess) {
     return res.status(403).send({
       err: true,
       errMsg: "You do not have permission to access this project",
     });
   }
+
+  // Never persist a book that references pages outside this project's book.
+  const ownershipError = await validateRemixerBookOwnership(
+    project.libreLibrary,
+    project.libreCoverID,
+    currentBook,
+  );
+  if (ownershipError) {
+    return res.status(403).send({ err: true, errMsg: ownershipError });
+  }
+
   // Check for an existing pending or running remixer job before allowing state save
   const existingJob = await PrejectRemixerJob.findOne({
     projectID: { $eq: id },
@@ -216,11 +262,6 @@ const publishRemixerProject = async (
 
   const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
 
-  // TODO: Remove these console logs after testing
-  console.log("[publishRemixerProject] project:", project.projectID);
-  console.log("[publishRemixerProject] user:", JSON.stringify(req.user));
-  console.log("[publishRemixerProject] canAccess:", canAccess);
-
   if(!canAccess) {
     return res.status(403).send({
       err: true,
@@ -234,6 +275,18 @@ const publishRemixerProject = async (
       err: true,
       errMsg: "Project libreLibrary is missing",
     });
+  }
+
+  // Refuse before creating any state/job if the payload touches pages outside
+  // this project's book. runRemixerJob re-checks this authoritatively; doing it
+  // here gives immediate feedback and avoids spawning a doomed job.
+  const ownershipError = await validateRemixerBookOwnership(
+    subdomain,
+    project.libreCoverID,
+    currentBook,
+  );
+  if (ownershipError) {
+    return res.status(403).send({ err: true, errMsg: ownershipError });
   }
 
   const remixerState = await PrejectRemixer.findOneAndUpdate(
@@ -269,24 +322,6 @@ const publishRemixerProject = async (
     status: "pending",
     messages: ["Remixer job created."],
   });
-  const bookAPIURL: string = `https://${subdomain}.libretexts.org/@api/deki/pages/${project.libreCoverID ?? "home"}/${CXOnePageAPIEndpoints.GET_Page_Info}`;
-  const bookDetailsResponse = await fetch(bookAPIURL, {
-    headers: {
-      ...((await generateAPIRequestHeaders(subdomain)) ?? {}),
-    },
-  });
-  const bookDetails = await bookDetailsResponse.json();
-
-  let bookURL = bookDetails["uri.ui"];
-  bookURL = bookURL.replace(/\/+$/, "");
-  if (!bookURL) {
-    return res.status(400).send({
-      err: true,
-      errMsg: "Book URL not found",
-    });
-  }
-
-  const bookPath = extractPagePath(bookURL);
 
   remixerService
     .runRemixerJob({
@@ -336,11 +371,6 @@ const getRemixerProjectState = async (
   }
 
   const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
-
-  // TODO: Remove these console logs after testing
-  console.log("[getRemixerProjectState] project:", project.projectID);
-  console.log("[getRemixerProjectState] user:", JSON.stringify(req.user));
-  console.log("[getRemixerProjectState] canAccess:", canAccess);
 
   if(!canAccess) {
     return res.status(403).send({
@@ -402,11 +432,6 @@ const deleteRemixerProjectState = async (
   }
 
   const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
-
-  // TODO: Remove these console logs after testing
-  console.log("[deleteRemixerProjectState] project:", project.projectID);
-  console.log("[deleteRemixerProjectState] user:", JSON.stringify(req.user));
-  console.log("[deleteRemixerProjectState] canAccess:", canAccess);
 
   if(!canAccess) {
     return res.status(403).send({
