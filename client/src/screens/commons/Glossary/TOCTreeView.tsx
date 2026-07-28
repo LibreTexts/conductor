@@ -97,33 +97,39 @@ const TOCTreeNode: React.FC<TOC> = ({
             onNodeClick(item.id);
           }}
         >
-          <span className="group/node inline-flex items-center gap-1 cursor-pointer hover:underline">
+          <span className="group/node inline-flex items-center gap-1 cursor-pointer hover:underline focus-within:underline">
             {item.title}
             <IconPlus
               size={20}
-              className="opacity-0 group-hover/node:opacity-100 transition-opacity shrink-0 text-info-500"
+              className="opacity-0 group-hover/node:opacity-100 group-focus-within/node:opacity-100 transition-opacity shrink-0 text-info-500"
               aria-hidden
             />
-            <IconExternalLink
-              size={20}
-              className="opacity-0 group-hover/node:opacity-100 transition-opacity shrink-0 text-info-500"
-              aria-hidden
-              onClick={(e: React.MouseEvent) => {
+            <button
+              type="button"
+              className="inline-flex shrink-0 rounded p-0.5 text-info-500 opacity-0 transition-opacity group-hover/node:opacity-100 group-focus-within/node:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500"
+              aria-label={`Open “${item.title}” in a new tab`}
+              onClick={(e) => {
                 e.stopPropagation();
-                window.open(item.url, "_blank");
+                window.open(item.url, "_blank", "noopener,noreferrer");
               }}
-            />
-            <IconDownload
-              size={20}
-              className={`opacity-0 group-hover/node:opacity-100 transition-opacity shrink-0 text-info-500 ${
-                importingGlossary ? "pointer-events-none opacity-40" : ""
-              }`}
-              aria-hidden
-              onClick={(e: React.MouseEvent) => {
-                e.stopPropagation();
-                onImportGlossary?.(item.id, parentId);
-              }}
-            />
+            >
+              <IconExternalLink size={20} aria-label="Open in a new tab" />
+            </button>
+            {onImportGlossary && (
+              <button
+                type="button"
+                className="inline-flex shrink-0 rounded p-0.5 text-info-500 opacity-0 transition-opacity group-hover/node:opacity-100 group-focus-within/node:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 disabled:pointer-events-none disabled:opacity-40"
+                aria-label={`Import glossary terms from “${item.title}”`}
+                disabled={importingGlossary}
+                aria-busy={importingGlossary || undefined}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onImportGlossary(item.id, parentId);
+                }}
+              >
+                <IconDownload size={20} aria-label="Import glossary terms" />
+              </button>
+            )}
           </span>
         </List.Header>
         {hasChildren && expanded && (

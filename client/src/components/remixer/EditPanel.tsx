@@ -81,7 +81,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
   }, [open]);
 
   return (
-    <Modal open={open} onClose={onClose} dimmer={dimmer} autofocus={false} closeIcon>
+    <Modal open={open} onClose={onClose} dimmer={dimmer} autoFocus={false} closeIcon>
       <Modal.Header>Edit Page</Modal.Header>
       <Modal.Content>
       
