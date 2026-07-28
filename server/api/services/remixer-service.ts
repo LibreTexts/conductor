@@ -1146,6 +1146,16 @@ const toFinalBookEntry = (
   };
 };
 
+/**
+ * Renders a bounded preview of offending page IDs for an error/log message.
+ * A malicious payload can carry thousands of out-of-book IDs; we always report
+ * the full count but cap the enumerated list so the message can't blow up logs.
+ */
+const previewPageIDs = (ids: string[], limit = 20): string => {
+  if (ids.length <= limit) return ids.join(", ");
+  return `${ids.slice(0, limit).join(", ")}, …and ${ids.length - limit} more`;
+};
+
 const runRemixerJob = async ({
   jobID,
   projectID,
@@ -1204,12 +1214,12 @@ const runRemixerJob = async ({
       const parts: string[] = [];
       if (mutated.length > 0) {
         parts.push(
-          `${mutated.length} page(s) outside this book flagged for edit/delete (${mutated.join(", ")})`,
+          `${mutated.length} page(s) outside this book flagged for edit/delete (${previewPageIDs(mutated)})`,
         );
       }
       if (grafted.length > 0) {
         parts.push(
-          `${grafted.length} new/imported page(s) not anchored in this book (${grafted.join(", ")})`,
+          `${grafted.length} new/imported page(s) not anchored in this book (${previewPageIDs(grafted)})`,
         );
       }
       throw new Error(

@@ -112,12 +112,7 @@ export const getPageStatus = (page: RemixerSubPageState): RemixerPageStatus => {
     return "new";
 
   if (page.isImported || page.addedItem) return "imported";
-  if (
-    page.movedItem ||
-    page.isPlacementChanged ||
-    page.movedItem ||
-    page.renamedItem
-  )
+  if (page.movedItem || page.isPlacementChanged || page.renamedItem)
     return "modeified";
 
   return "unchaned";
