@@ -731,9 +731,27 @@ const temporarilyRelocatePage = async (
   }
 };
 
+// Matches CrossTransclude/Web template — captures Library (group 1) and PageID (group 2)
 const CROSS_TRANSLUDE_SOURCE_RE =
   /template\(\s*['"]CrossTransclude\/Web['"]\s*,\s*\{[\s\S]*?['"]Library['"]\s*:\s*['"]([^'"]+)['"][\s\S]*?['"]PageID['"]\s*:\s*(\d+)/i;
 
+// Matches rendered HTML form of content-reuse widget — captures data-page value (group 1)
+const CONTENT_REUSE_WIDGET_RE =
+  /<div[^>]+class=["'][^"']*mt-contentreuse-widget[^"']*["'][^>]+data-page=["']([^"']+)["']/i;
+
+// Matches raw wikitext wiki.page() call — captures path argument (group 1)
+const WIKI_PAGE_REUSE_RE =
+  /wiki\.page\s*\(\s*(?:["']|&quot;)([^"'&]+)/i;
+
+/**
+ * Resolves the true source of a transcluded/reused page by inspecting its raw
+ * wikitext. Handles three cases:
+ *   1. CrossTransclude/Web template — cross-library; extracts Library + PageID directly.
+ *   2. Content-reuse widget HTML (data-page attribute) — same-library path reference.
+ *   3. wiki.page() raw wikitext — same-library path reference.
+ * Recursively follows the chain (e.g. a reuse that itself points at another
+ * reuse) until reaching a page with no transclusion, or returns the fallback.
+ */
 const resolveTranscludeSource = async ({
   subdomain,
   pageId,
@@ -747,73 +765,83 @@ const resolveTranscludeSource = async ({
   sourceId: number;
   sourceUri: string;
 }> => {
+  const fallback = { sourceSubdomain: subdomain, sourceId: pageId, sourceUri: fallbackUri };
+
   const sourceHeaders = await generateAPIRequestHeaders(subdomain);
   const rawRes = await CXOneFetch({
     scope: "page",
     path: pageId,
     api: MindTouch.API.Page.GET_page_RawContents,
     subdomain,
-    options: {
-      headers: {
-        ...sourceHeaders,
-      },
-    },
+    options: { headers: { ...sourceHeaders } },
   });
 
-  if (!rawRes.ok) {
-    return {
-      sourceSubdomain: subdomain,
-      sourceId: pageId,
-      sourceUri: fallbackUri,
-    };
-  }
+  if (!rawRes.ok) return fallback;
 
   const rawContents = await rawRes.text();
-  const match = rawContents.match(CROSS_TRANSLUDE_SOURCE_RE);
-  if (!match) {
-    return {
-      sourceSubdomain: subdomain,
-      sourceId: pageId,
-      sourceUri: fallbackUri,
-    };
-  }
 
-  const nestedSubdomain = match[1];
-  const nestedId = parseInt(match[2] ?? "", 10);
-  if (!nestedSubdomain || Number.isNaN(nestedId)) {
-    return {
-      sourceSubdomain: subdomain,
-      sourceId: pageId,
-      sourceUri: fallbackUri,
-    };
-  }
+  // ── Case 1: CrossTransclude/Web (cross-library) ───────────────────────────
+  const crossMatch = rawContents.match(CROSS_TRANSLUDE_SOURCE_RE);
+  if (crossMatch) {
+    const nestedSubdomain = crossMatch[1];
+    const nestedId = parseInt(crossMatch[2], 10);
+    if (!nestedSubdomain || Number.isNaN(nestedId)) return fallback;
 
-  const nestedHeaders = await generateAPIRequestHeaders(nestedSubdomain);
-  const nestedPageRes = await CXOneFetch({
-    scope: "page",
-    path: nestedId,
-    api: MindTouch.API.Page.GET_Page,
-    subdomain: nestedSubdomain,
-    options: {
-      headers: {
-        ...nestedHeaders,
-      },
-    },
-  });
+    const nestedHeaders = await generateAPIRequestHeaders(nestedSubdomain);
+    const nestedPageRes = await CXOneFetch({
+      scope: "page",
+      path: nestedId,
+      api: MindTouch.API.Page.GET_Page,
+      subdomain: nestedSubdomain,
+      options: { headers: { ...nestedHeaders } },
+    });
 
-  let nestedUri = fallbackUri;
-  if (nestedPageRes.ok) {
-    const nestedPage = (await nestedPageRes.json()) as Record<string, unknown>;
-    const resolvedUri = nestedPage["uri.ui"];
-    if (typeof resolvedUri === "string" && resolvedUri.length > 0) {
-      nestedUri = resolvedUri;
+    let nestedUri = fallbackUri;
+    if (nestedPageRes.ok) {
+      const nestedPage = (await nestedPageRes.json()) as Record<string, unknown>;
+      const resolvedUri = nestedPage["uri.ui"];
+      if (typeof resolvedUri === "string" && resolvedUri.length > 0) {
+        nestedUri = resolvedUri;
+      }
     }
+
+    return resolveTranscludeSource({
+      subdomain: nestedSubdomain,
+      pageId: nestedId,
+      fallbackUri: nestedUri,
+    });
   }
+
+  // ── Cases 2 & 3: same-library content-reuse widget or wiki.page() ─────────
+  // data-page and wiki.page() both carry a URL path whose first segment is the
+  // library subdomain: /<subdomain>/<...rest>  OR  <subdomain>/<...rest>
+  const dataPageMatch = rawContents.match(CONTENT_REUSE_WIDGET_RE);
+  const wikiPageMatch = rawContents.match(WIKI_PAGE_REUSE_RE);
+  const rawSourcePath =
+    dataPageMatch?.[1] != null
+      ? decodeURIComponent(dataPageMatch[1])
+      : wikiPageMatch?.[1] != null
+        ? decodeURIComponent(wikiPageMatch[1])
+        : null;
+
+  if (!rawSourcePath) return fallback;
+
+  // Resolve the path to a real page ID on MindTouch
+  const pageInfo = await getPage(rawSourcePath, subdomain);
+  if (!pageInfo) return fallback;
+
+  const resolvedId = parseInt(pageInfo["@id"]?.toString() ?? "", 10);
+  if (Number.isNaN(resolvedId)) return fallback;
+
+  const resolvedUri =
+    typeof pageInfo["uri.ui"] === "string" && pageInfo["uri.ui"].length > 0
+      ? (pageInfo["uri.ui"] as string)
+      : fallbackUri;
 
   return resolveTranscludeSource({
-    subdomain: nestedSubdomain,
-    pageId: nestedId,
-    fallbackUri: nestedUri,
+    subdomain,
+    pageId: resolvedId,
+    fallbackUri: resolvedUri,
   });
 };
 
@@ -869,12 +897,19 @@ const handleImportedPage = async (
       pageId: sourceId,
       fallbackUri: sourceUri,
     });
-    contentsBody = RemixerTemplates.POST_TranscludeCrossLibrary(
-      resolvedSource.sourceSubdomain,
-      resolvedSource.sourceId,
-      resolvedSource.sourceUri,
-      [],
-    );
+    if (resolvedSource.sourceSubdomain === sourceSubdomain) {
+      contentsBody = RemixerTemplates.POST_TranscludeSameLibrary(
+        resolvedSource.sourceUri,
+        [],
+      );
+    } else {
+      contentsBody = RemixerTemplates.POST_TranscludeCrossLibrary(
+        resolvedSource.sourceSubdomain,
+        resolvedSource.sourceId,
+        resolvedSource.sourceUri,
+        [],
+      );
+    }
     postComment = "Remixer transclude";
   } else {
     const targetLibarayDekiHeaders =
