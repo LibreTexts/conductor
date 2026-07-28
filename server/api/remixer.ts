@@ -70,8 +70,30 @@ const validateRemixerBookOwnership = async (
   if (!libreLibrary || !libreCoverID) {
     return "Project is not attached to a library book; cannot verify remixer permissions.";
   }
-  const pages = (Array.isArray(currentBook) ? currentBook : []) as RemixerSubPageState[];
-  if (pages.length === 0) return null;
+  if (!Array.isArray(currentBook)) {
+    return "Malformed remixer book payload; cannot verify remixer permissions.";
+  }
+  if (currentBook.length === 0) return null;
+
+  // The Zod schema accepts `record<string, any>` entries, so the shape the
+  // ownership check relies on is not yet guaranteed. Validate it here (rather
+  // than trusting the cast) so a malformed node fails closed with a clear
+  // authorization error instead of throwing a 500 deep inside the check.
+  const isValidNode = (node: unknown): node is RemixerSubPageState => {
+    if (typeof node !== "object" || node === null) return false;
+    const record = node as Record<string, unknown>;
+    if (typeof record["@id"] !== "string" || record["@id"].length === 0) {
+      return false;
+    }
+    if (record.parentID !== undefined && typeof record.parentID !== "string") {
+      return false;
+    }
+    return true;
+  };
+  if (!currentBook.every(isValidNode)) {
+    return "Remixer book contains malformed pages; cannot verify remixer permissions.";
+  }
+  const pages = currentBook as RemixerSubPageState[];
 
   let ownedPageIDs: string[];
   try {
