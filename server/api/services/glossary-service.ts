@@ -357,6 +357,41 @@ export default class GlossaryService {
     }
   }
 
+  /**
+   * Bulk-import glossary term/definition pairs (e.g. from a Pressbooks
+   * `/glossary` REST response) into Glossary + GlossaryUsage for a book.
+   * Skips entries missing a term or definition. Non-unique term+cover+library
+   * rows are upserted via `_addGlossaryUsageToDatabase`.
+   */
+  async addGlossaryEntries(
+    entries: { term: string; definition: string }[],
+    coverID: string,
+    library: string,
+    addedBy: string,
+    glossaryID?: string,
+  ): Promise<number> {
+    const valid = entries.filter(
+      (e) => e.term?.trim() && e.definition?.trim(),
+    );
+    await Promise.all(
+      valid.map(async (entry) => {
+        const term = entry.term.trim();
+        const definition = entry.definition.trim();
+        const { termID } = await this._addGlossaryToDatabase(term, definition);
+        await this._addGlossaryUsageToDatabase({
+          termID,
+          term,
+          definition,
+          coverID,
+          library,
+          addedBy,
+          glossaryID,
+        });
+      }),
+    );
+    return valid.length;
+  }
+
   async addGlossary(params: AddGlossaryParams): Promise<string> {
     try {
       const { term, definition } = params;
