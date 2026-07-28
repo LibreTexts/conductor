@@ -1,6 +1,5 @@
 import base62 from "base62-random";
 import * as cheerio from "cheerio";
-import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -347,7 +346,7 @@ export default class GlossaryService {
                 pages.push(parseInt(auxGlossaryParentID));
               }
               // ADD PAGE TO USAGE
-              this.addPageToGlossaryUsage(pages, [usageID], coverID, library);
+              await this.addPageToGlossaryUsage(pages, [usageID], coverID, library);
             }
           }),
       );
@@ -664,7 +663,7 @@ export default class GlossaryService {
       while (cursor) {
         const pid = parseInt(cursor["@id"], 10);
         if (!Number.isNaN(pid)) ids.push(pid);
-        cursor = cursor?.["page.parent"] ?? cursor?.["page.parent"];
+        cursor = cursor?.["page.parent"];
       }
       return ids.length > 0 ? ids : [pageID];
     } catch {

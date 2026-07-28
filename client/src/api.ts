@@ -123,10 +123,11 @@ class API {
       : "/api/v1";
 
   /**
-   * Streams a JSON payload to the server using a `ReadableStream` fetch body.
-   * This bypasses Express's `bodyParser.json()` size ceiling — the server reads
-   * the body from the raw stream with no limit. Auth is handled by the session
-   * cookie (`credentials: "include"` mirrors `axios.defaults.withCredentials`).
+   * Sends a JSON payload via `fetch` with `JSON.stringify(data)` as the body.
+   * Used for remixer save/publish routes that bypass Express's default
+   * `bodyParser.json()` limit and instead use server `streamJsonBody`
+   * middleware (capped at 5 MB). Auth uses the session cookie
+   * (`credentials: "include"` mirrors `axios.defaults.withCredentials`).
    *
    * Returns the parsed JSON response, or throws with a shape compatible with
    * the Axios error format so callers can handle it uniformly.

@@ -310,7 +310,7 @@ const isBackMatterNode = (page: {
 /**
  * Moves Back Matter to the end of its sibling list via CXOne's page order API.
  *
- * PUT /pages/{lastSiblingId}/order?afterid={backMatterId}
+ * PUT /pages/{backMatterId}/order?afterid={lastSiblingId}
  * — path is the last page on the same level; afterid is the Back Matter page.
  * @returns true when an order request was issued.
  */

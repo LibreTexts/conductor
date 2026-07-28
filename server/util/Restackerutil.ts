@@ -35,8 +35,23 @@ class RestackerService {
     // Incremental waits between attempts: 60s + 120s ≈ 3 minutes total backoff
     const DELAYS_MS = [60_000, 120_000] as const;
 
-    const isTransientError = (error: unknown): boolean =>
-      error instanceof Error && error.message.includes("Transient error");
+    const isTransientError = (error: unknown): boolean => {
+      if (!(error instanceof Error)) return false;
+      const msg = error.message.toLowerCase();
+      if (msg.includes("transient error")) return true;
+      if (
+        msg.includes("timeout") ||
+        msg.includes("timed out") ||
+        msg.includes("etimedout") ||
+        msg.includes("econnreset") ||
+        msg.includes("socket hang up")
+      )
+        return true;
+      // HTTP status codes embedded in error messages (e.g. "Error 400", "400 Bad Request")
+      if (/\b400\b/.test(error.message) || /\b404\b/.test(error.message))
+        return true;
+      return false;
+    };
 
     let lastError: unknown;
     for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
