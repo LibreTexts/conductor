@@ -55,7 +55,7 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
   const progressInfo = useMemo(() => {
     if (publishStatus === "idle") return null;
     const total = currentBook.length;
-    const processed = publishMessages.filter((m) => m.endsWith("- processed") || m.endsWith("- skipped")).length;
+    const processed = publishMessages.filter((m) => m.endsWith("- processed") || m.endsWith("- skipped") || m.endsWith("- modified")).length;
     let percent: number;
     if (publishStatus === "success") {
       percent = 100;
