@@ -68,7 +68,6 @@ import * as RemixerValidators from "./api/validators/remixer.js";
 
 import * as RestackerValidators from "./api/validators/Restacker.js";
 import restackerAPI from "./api/restacker.js";
-import { PressBookScraper } from "./util/pressbookutils.js";
 
 const corsMiddleware = cors({
   origin(origin, callback) {
@@ -3341,21 +3340,6 @@ router.route('/projects/:projectID/restacker/license').patch(
   restackerAPI.updateRestackerLicense
 );
 
-// todo: remove this route before PR and its dendencies
-router.route('/test-glossary').get(
-  // authAPI.verifyRequest,
-  // authAPI.getUserAttributes,
-  // authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
-  async (req, res) => {
-    try {
-    // const pbUtils = new PressBookScraper("https://cod.pressbooks.pub/physics1100/","dev","Physics 1100");
-      const pbUtils = new PressBookScraper("https://cod.pressbooks.pub/crimj1165/","dev","Physics 1100");
-      const glossary = await pbUtils.testGlossary();
-      res.send(glossary);
-    } catch (error) {
-      res.status(500).send(error.message);
-    }
-  }
-);
+
 
 export default router;
