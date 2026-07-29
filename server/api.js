@@ -73,6 +73,8 @@ import * as WhatsNewValidators from "./api/validators/whatsnew.js";
 
 import * as RestackerValidators from "./api/validators/Restacker.js";
 import restackerAPI from "./api/restacker.js";
+import * as ReferenceValidators from "./api/validators/Reference.js";
+import referenceAPI from "./api/reference.js";
 
 const corsMiddleware = cors({
   origin(origin, callback) {
@@ -3613,6 +3615,18 @@ router.route('/projects/:projectID/restacker/license/bulk').patch(
   restackerAPI.bulkUpdateRestackerLicense
 );
 
-
+router.route('/projects/:projectID/reference')
+.get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.GetReferencePageSchema),
+  referenceAPI.getReferenceFormat
+)
+.post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.UpdateReferenceFormatSchema),
+  referenceAPI.updateReferenceFormat
+);
 
 export default router;
