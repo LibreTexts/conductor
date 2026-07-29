@@ -9,6 +9,7 @@ import {
   emptyBibtexForm,
   formToBibtex,
   formatCitationPreview,
+  generateCitationKey,
   getBibtexFieldLabel,
   ReferenceFormatType,
 } from "./model";
@@ -55,7 +56,10 @@ const AddContent: React.FC<AddContentProps> = ({
   };
 
   const handleAdd = () => {
-    const content = formToBibtex(form).trim();
+    const withKey = form.citationKey.trim()
+      ? form
+      : { ...form, citationKey: generateCitationKey(form) };
+    const content = formToBibtex(withKey).trim();
     if (!content) return;
     onAdd(content);
     onClose();
@@ -66,6 +70,11 @@ const AddContent: React.FC<AddContentProps> = ({
     () => formatCitationPreview(form, referenceFormat),
     [form, referenceFormat],
   );
+  const canAdd =
+    !!form.citationKey.trim() ||
+    !!form.author?.trim() ||
+    !!form.title?.trim() ||
+    !!form.year?.trim();
 
   return (
     <>
@@ -124,7 +133,7 @@ const AddContent: React.FC<AddContentProps> = ({
                       onChange={(e) => updateField(key, e.target.value)}
                       placeholder={
                         key === "citationKey"
-                          ? "e.g. author2026title"
+                          ? "Auto-generated from author, year, title if left blank"
                           : undefined
                       }
                     />
@@ -156,11 +165,7 @@ const AddContent: React.FC<AddContentProps> = ({
           <Button variant="outline" onClick={handleClear}>
             Clear
           </Button>
-          <Button
-            variant="primary"
-            onClick={handleAdd}
-            disabled={!form.citationKey.trim()}
-          >
+          <Button variant="primary" onClick={handleAdd} disabled={!canAdd}>
             Add
           </Button>
         </Modal.Footer>

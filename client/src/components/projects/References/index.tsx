@@ -6,10 +6,13 @@ import { BookReferencesData, ReferenceFormatType, ReferenceFormatTypes } from '.
 import AddContent from './AddContent';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../../../api';
+import { useNotifications } from '../../../context/NotificationContext';
+
 
 const  ReferenceManager:React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const queryClient = useQueryClient();
+    const { addNotification } = useNotifications();
     const [bookReferencesFormat, setBookReferencesFormat] = useState<BookReferencesData>();
     const [showAddContentModal, setShowAddContentModal] = useState(false);
     
@@ -21,6 +24,13 @@ const  ReferenceManager:React.FC = () => {
         enabled: !!id,
         onSuccess: (data) => {
             setBookReferencesFormat(data.data);
+            
+        },
+        onError: () => {
+            addNotification({
+                type: "error",
+                message: "Error loading book references format",
+            });
         },
     })
 
@@ -30,9 +40,22 @@ const  ReferenceManager:React.FC = () => {
         onMutate: (format) => {
             setBookReferencesFormat({ format });
         },
-        onSuccess: (data) => {
+        onSuccess: (data, format) => {
             setBookReferencesFormat(data.data);
             queryClient.setQueryData(["bookReferencesFormat", id], data);
+            addNotification({
+                type: "success",
+                message: "Book references format updated successfully with format: " + format,
+            });
+        },
+        onError: () => {
+            addNotification({
+                type: "error",
+                message: "Error updating book references format",
+            });
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ["bookReferencesFormat", id] });
         },
     });
 
