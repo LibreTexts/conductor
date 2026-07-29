@@ -1,16 +1,41 @@
 import React, { useState } from 'react'
-import { Breadcrumb, Button, Card, Heading, Select, Stack } from '@libretexts/davis-react';
+import { Alert, Breadcrumb, Button, Card, Heading, Select, Stack } from '@libretexts/davis-react';
 import useProject from '../../../hooks/useProject';
 import { useParams } from 'react-router-dom';
 import { BookReferencesData, ReferenceFormatType, ReferenceFormatTypes } from './model';
 import AddContent from './AddContent';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import api from '../../../api';
 
 const  ReferenceManager:React.FC = () => {
     const { id } = useParams<{ id: string }>();
+    const queryClient = useQueryClient();
     const [bookReferencesFormat, setBookReferencesFormat] = useState<BookReferencesData>();
     const [showAddContentModal, setShowAddContentModal] = useState(false);
     
-    const {project, isLoading: isLoadingProject} = useProject(id ?? "");
+    const {project, isLoading: isLoadingProject, isError: isErrorProject} = useProject(id ?? "");
+
+    const {data: bookReferencesFormatData, isLoading: isLoadingBookReferencesFormat, isError: isErrorBookReferencesFormat} = useQuery({
+        queryKey: ["bookReferencesFormat", id],
+        queryFn: () => api.getBookReference(id ?? ""),
+        enabled: !!id,
+        onSuccess: (data) => {
+            setBookReferencesFormat(data.data);
+        },
+    })
+
+    const { mutate: updateFormat, isPending: isUpdatingFormat } = useMutation({
+        mutationFn: (format: ReferenceFormatType) =>
+            api.updateBookReferenceFormat(id ?? "", { format }),
+        onMutate: (format) => {
+            setBookReferencesFormat({ format });
+        },
+        onSuccess: (data) => {
+            setBookReferencesFormat(data.data);
+            queryClient.setQueryData(["bookReferencesFormat", id], data);
+        },
+    });
+
   return (
     <Stack direction="vertical" gap="md" className="py-8 px-16">
     <Stack direction="vertical" gap="xs" className="mb-2">
@@ -25,7 +50,8 @@ const  ReferenceManager:React.FC = () => {
       </Breadcrumb>
     )}
   </Stack>
-  
+  {isErrorProject && <Alert variant="error" message="Error loading project" />}
+  {!isLoadingProject && !isErrorProject && (
   <Card variant="elevated">
     <Card.Body>
       <Stack direction="vertical" gap="xs">
@@ -38,16 +64,17 @@ const  ReferenceManager:React.FC = () => {
         }))}
         placeholder="Select a format"
         value={bookReferencesFormat?.format ?? undefined}
-        onChange={(e) =>
-          setBookReferencesFormat({
-            format: (e.target.value || undefined) as ReferenceFormatType | undefined,
-          })
-        }
+        disabled={isUpdatingFormat || !id}
+        onChange={(e) => {
+          const format = e.target.value as ReferenceFormatType;
+          if (!format || !id) return;
+          updateFormat(format);
+        }}
         />
         <Button onClick={() => setShowAddContentModal(true)}>Add Content</Button>
       </Stack>
     </Card.Body>
-  </Card>
+  </Card>)}
   <AddContent
     open={showAddContentModal}
     onClose={() => setShowAddContentModal(false)}

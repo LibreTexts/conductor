@@ -127,6 +127,7 @@ import {
   GlossaryConfigMode,
   GlossaryConfigGroup,
 } from "./screens/commons/Glossary/model";
+import { ReferenceFormatType } from "./components/projects/References/model";
 
 /**
  * @fileoverview
@@ -3313,6 +3314,29 @@ class API {
         skipped: { pageID: string; reason: string }[];
       } & ConductorBaseResponse
     >(`/projects/${projectID}/restacker/license/bulk`, data);
+    return res.data;
+  }
+
+  async updateBookReferenceFormat(
+    projectID: string,
+    data: { format: ReferenceFormatType },
+  ) {
+    const res = await axios.post<
+      {
+        data: {
+          format: ReferenceFormatType;
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, data);
+    return res.data;
+  }
+
+  async getBookReference(projectID: string) {
+    const res = await axios.get<
+      {
+        data: { format: ReferenceFormatType };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`);
     return res.data;
   }
 }
