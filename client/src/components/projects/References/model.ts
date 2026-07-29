@@ -182,6 +182,62 @@ export function emptyBibtexForm(
   return { entryType, citationKey: "" };
 }
 
+function sanitizeCitationKeyPart(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "");
+}
+
+function firstAuthorLastName(author: string): string {
+  const first = author.split(/\s+and\s+/i)[0]?.trim() ?? "";
+  if (!first) return "";
+  if (first.includes(",")) {
+    return first.split(",")[0]?.trim() ?? "";
+  }
+  const parts = first.split(/\s+/).filter(Boolean);
+  return parts[parts.length - 1] ?? "";
+}
+
+const TITLE_STOP_WORDS = new Set([
+  "a",
+  "an",
+  "the",
+  "and",
+  "or",
+  "of",
+  "in",
+  "on",
+  "for",
+  "to",
+  "with",
+]);
+
+function firstTitleWord(title: string): string {
+  const words = title
+    .split(/\s+/)
+    .map((w) => w.replace(/[^a-zA-Z0-9]/g, ""))
+    .filter(Boolean);
+  const meaningful = words.find((w) => !TITLE_STOP_WORDS.has(w.toLowerCase()));
+  return meaningful ?? words[0] ?? "";
+}
+
+/**
+ * Build a BibTeX citation key from filled fields when the user left key blank.
+ * Prefer `AuthorYearTitle` (e.g. `Smith2026First`).
+ */
+export function generateCitationKey(form: BibtexFormData): string {
+  const author = sanitizeCitationKeyPart(
+    firstAuthorLastName(form.author?.trim() ?? ""),
+  );
+  const year = (form.year?.trim() ?? "").match(/\d{4}/)?.[0] ?? "";
+  const title = sanitizeCitationKeyPart(
+    firstTitleWord(form.title?.trim() ?? ""),
+  );
+  const key = `${author}${year}${title}`;
+  return key || "untitled";
+}
+
 const VALID_ENTRY_TYPES = new Set<string>(
   BibtexEntryTypes.map((t) => t.value),
 );
@@ -301,7 +357,7 @@ export function formToBibtex(form: BibtexFormData): string {
     })
     .filter(Boolean);
 
-  const key = form.citationKey.trim() || "untitled";
+  const key = form.citationKey.trim() || generateCitationKey(form);
   return `@${form.entryType}{${key},\n${lines.join(",\n")}\n}`;
 }
 
