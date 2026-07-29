@@ -3645,6 +3645,11 @@ router.route('/projects/:projectID/reference')
   authAPI.getUserAttributes,
   middleware.validateZod(ReferenceValidators.UpdateReferenceFormatSchema),
   referenceAPI.updateReferenceFormat
+).put(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.updateReferenceEntrySchema),
+  referenceAPI.updateReferenceFormat
 );
 
 export default router;
