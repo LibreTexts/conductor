@@ -1,0 +1,518 @@
+type ReferenceFormatType =
+  | "APA"
+  | "MLA"
+  | "Chicago"
+  | "Harvard"
+  | "Vancouver"
+  | "AMA"
+  | "IEEE"
+  | "CSM"
+  | "ASN"
+  | "ANSI";
+export type { ReferenceFormatType };
+export const ReferenceFormatTypes: ReferenceFormatType[] = [
+  "APA",
+  "MLA",
+  "Chicago",
+  "Harvard",
+  "Vancouver",
+  "AMA",
+  "IEEE",
+  "CSM",
+  "ASN",
+  "ANSI",
+];
+
+export type BookReferencesData = {
+  format: ReferenceFormatType | undefined;
+};
+
+/** Supported BibTeX entry kinds. */
+export type BibtexEntryType =
+  | "article"
+  | "inproceedings"
+  | "book"
+  | "incollection"
+  | "mastersthesis"
+  | "phdthesis"
+  | "misc";
+
+export const BibtexEntryTypes: { value: BibtexEntryType; label: string }[] = [
+  { value: "article", label: "Article" },
+  { value: "inproceedings", label: "Conference paper" },
+  { value: "book", label: "Book" },
+  { value: "incollection", label: "Book chapter" },
+  { value: "mastersthesis", label: "Master's thesis" },
+  { value: "phdthesis", label: "PhD thesis" },
+  { value: "misc", label: "Misc / website" },
+];
+
+export type BibtexFieldKey =
+  | "citationKey"
+  | "author"
+  | "title"
+  | "journal"
+  | "booktitle"
+  | "year"
+  | "volume"
+  | "number"
+  | "pages"
+  | "doi"
+  | "url"
+  | "month"
+  | "note"
+  | "publisher"
+  | "address"
+  | "edition"
+  | "isbn"
+  | "editor"
+  | "chapter"
+  | "school"
+  | "type"
+  | "urldate";
+
+export type BibtexFormData = Partial<Record<BibtexFieldKey, string>> & {
+  entryType: BibtexEntryType;
+  citationKey: string;
+};
+
+const FIELD_LABELS: Record<BibtexFieldKey, string> = {
+  citationKey: "Citation key",
+  author: "Author(s)",
+  title: "Title",
+  journal: "Journal",
+  booktitle: "Book / proceedings title",
+  year: "Year",
+  volume: "Volume",
+  number: "Number",
+  pages: "Pages",
+  doi: "DOI",
+  url: "URL",
+  month: "Month",
+  note: "Note",
+  publisher: "Publisher",
+  address: "Address",
+  edition: "Edition",
+  isbn: "ISBN",
+  editor: "Editor(s)",
+  chapter: "Chapter",
+  school: "School / university",
+  type: "Type",
+  urldate: "URL date (accessed)",
+};
+
+/** Fields shown (and serialized) for each entry type, in display order. */
+export const BIBTEX_FIELDS_BY_TYPE: Record<BibtexEntryType, BibtexFieldKey[]> = {
+  article: [
+    "citationKey",
+    "author",
+    "title",
+    "journal",
+    "year",
+    "volume",
+    "number",
+    "pages",
+    "doi",
+    "url",
+    "month",
+    "note",
+  ],
+  inproceedings: [
+    "citationKey",
+    "author",
+    "title",
+    "booktitle",
+    "year",
+    "pages",
+    "publisher",
+    "address",
+    "doi",
+  ],
+  book: [
+    "citationKey",
+    "author",
+    "title",
+    "publisher",
+    "year",
+    "edition",
+    "address",
+    "isbn",
+  ],
+  incollection: [
+    "citationKey",
+    "author",
+    "title",
+    "booktitle",
+    "editor",
+    "publisher",
+    "year",
+    "pages",
+    "chapter",
+  ],
+  mastersthesis: [
+    "citationKey",
+    "author",
+    "title",
+    "school",
+    "year",
+    "address",
+    "type",
+  ],
+  phdthesis: ["citationKey", "author", "title", "school", "year", "address"],
+  misc: [
+    "citationKey",
+    "author",
+    "title",
+    "year",
+    "month",
+    "publisher",
+    "url",
+    "urldate",
+    "note",
+  ],
+};
+
+export function getBibtexFieldLabel(key: BibtexFieldKey): string {
+  return FIELD_LABELS[key];
+}
+
+export function emptyBibtexForm(
+  entryType: BibtexEntryType = "article",
+): BibtexFormData {
+  return { entryType, citationKey: "" };
+}
+
+const VALID_ENTRY_TYPES = new Set<string>(
+  BibtexEntryTypes.map((t) => t.value),
+);
+
+/** Extract a `{...}` value with nested braces starting at `start` (`s[start] === '{'`). */
+function extractBalancedBraces(
+  s: string,
+  start: number,
+): { value: string; end: number } | null {
+  if (s[start] !== "{") return null;
+  let depth = 0;
+  for (let i = start; i < s.length; i += 1) {
+    const ch = s[i];
+    if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return { value: s.slice(start + 1, i), end: i + 1 };
+      }
+    }
+  }
+  return null;
+}
+
+/** Unwrap BibTeX case-protection braces: `{First}` → `First`. */
+function unwrapBibtexBraces(value: string): string {
+  let prev = "";
+  let next = value;
+  while (prev !== next) {
+    prev = next;
+    next = next.replace(/\{([^{}]*)\}/g, "$1");
+  }
+  return next.trim();
+}
+
+/**
+ * Parse field assignments from a BibTeX entry body.
+ * Supports nested braces, quoted strings, and bare numbers.
+ */
+function parseBibtexFields(
+  body: string,
+): Partial<Record<BibtexFieldKey, string>> {
+  const fields: Partial<Record<BibtexFieldKey, string>> = {};
+  let i = 0;
+  while (i < body.length) {
+    const keyMatch = body.slice(i).match(/^[\s,]*(\w+)\s*=\s*/);
+    if (!keyMatch) {
+      i += 1;
+      continue;
+    }
+    i += keyMatch[0].length;
+    const key = keyMatch[1].toLowerCase() as BibtexFieldKey;
+    let value = "";
+
+    if (body[i] === "{") {
+      const extracted = extractBalancedBraces(body, i);
+      if (!extracted) break;
+      value = unwrapBibtexBraces(extracted.value);
+      i = extracted.end;
+    } else if (body[i] === '"') {
+      const end = body.indexOf('"', i + 1);
+      if (end === -1) break;
+      value = unwrapBibtexBraces(body.slice(i + 1, end));
+      i = end + 1;
+    } else {
+      const numMatch = body.slice(i).match(/^(\d+)/);
+      if (!numMatch) {
+        i += 1;
+        continue;
+      }
+      value = numMatch[1];
+      i += numMatch[1].length;
+    }
+
+    if (key !== "citationKey") {
+      fields[key] = value;
+    }
+  }
+  return fields;
+}
+
+/** Parse the first BibTeX entry found in raw text into form data. */
+export function parseBibtexToForm(raw: string): BibtexFormData | null {
+  const header = raw.match(/@(\w+)\s*\{\s*([^,\s}]+)\s*,/);
+  if (!header || header.index === undefined) return null;
+
+  const entryTypeRaw = header[1].toLowerCase();
+  const entryType = (
+    VALID_ENTRY_TYPES.has(entryTypeRaw) ? entryTypeRaw : "misc"
+  ) as BibtexEntryType;
+  const citationKey = header[2].trim();
+
+  // Find the matching closing brace of the entry, then take fields after the key.
+  const openBrace = raw.indexOf("{", header.index);
+  if (openBrace === -1) return null;
+  const entryClose = extractBalancedBraces(raw, openBrace);
+  if (!entryClose) return null;
+  // entryClose.value is `citationKey, fields...`
+  const comma = entryClose.value.indexOf(",");
+  const body =
+    comma === -1 ? "" : entryClose.value.slice(comma + 1);
+
+  const fields = parseBibtexFields(body);
+  return { entryType, citationKey, ...fields };
+}
+
+/** Serialize form data back to a BibTeX entry string. */
+export function formToBibtex(form: BibtexFormData): string {
+  const keys = BIBTEX_FIELDS_BY_TYPE[form.entryType].filter(
+    (k) => k !== "citationKey",
+  );
+  const lines = keys
+    .map((key) => {
+      const value = form[key]?.trim();
+      if (!value) return null;
+      return `  ${key} = {${value}}`;
+    })
+    .filter(Boolean);
+
+  const key = form.citationKey.trim() || "untitled";
+  return `@${form.entryType}{${key},\n${lines.join(",\n")}\n}`;
+}
+
+function field(form: BibtexFormData, key: BibtexFieldKey): string {
+  return form[key]?.trim() ?? "";
+}
+
+function joinParts(parts: (string | false | undefined | null)[]): string {
+  return parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+}
+
+/** Rough author formatting: "First Last and A B" → APA-ish "Last, F., & B, A." when possible. */
+function formatAuthorsApa(author: string): string {
+  if (!author) return "";
+  const names = author.split(/\s+and\s+/i).map((n) => n.trim()).filter(Boolean);
+  return names
+    .map((name, i) => {
+      const parts = name.split(/\s+/);
+      if (parts.length === 1) return parts[0];
+      const last = parts[parts.length - 1];
+      const initials = parts
+        .slice(0, -1)
+        .map((p) => `${p[0]?.toUpperCase()}.`)
+        .join(" ");
+      const formatted = `${last}, ${initials}`;
+      if (names.length > 1 && i === names.length - 1) return `& ${formatted}`;
+      return formatted;
+    })
+    .join(", ");
+}
+
+function formatAuthorsMla(author: string): string {
+  if (!author) return "";
+  const names = author.split(/\s+and\s+/i).map((n) => n.trim()).filter(Boolean);
+  if (names.length === 0) return "";
+  const firstParts = names[0].split(/\s+/);
+  const firstFormatted =
+    firstParts.length === 1
+      ? firstParts[0]
+      : `${firstParts[firstParts.length - 1]}, ${firstParts.slice(0, -1).join(" ")}`;
+  if (names.length === 1) return firstFormatted;
+  if (names.length === 2) return `${firstFormatted}, and ${names[1]}`;
+  return `${firstFormatted}, et al.`;
+}
+
+/**
+ * Builds a human-readable citation preview for the selected book reference format.
+ * Approximate style guides for UI preview only (not a full CSL engine).
+ */
+export function formatCitationPreview(
+  form: BibtexFormData,
+  format?: ReferenceFormatType,
+): string {
+  const author = field(form, "author");
+  const title = field(form, "title");
+  const year = field(form, "year");
+  const journal = field(form, "journal");
+  const booktitle = field(form, "booktitle");
+  const publisher = field(form, "publisher");
+  const pages = field(form, "pages");
+  const volume = field(form, "volume");
+  const number = field(form, "number");
+  const doi = field(form, "doi");
+  const url = field(form, "url");
+  const school = field(form, "school");
+  const address = field(form, "address");
+  const edition = field(form, "edition");
+  const editor = field(form, "editor");
+  const chapter = field(form, "chapter");
+  const isbn = field(form, "isbn");
+  const note = field(form, "note");
+  const urldate = field(form, "urldate");
+
+  if (!author && !title) return "";
+
+  const style = format ?? "APA";
+
+  if (style === "MLA") {
+    const a = formatAuthorsMla(author);
+    if (form.entryType === "article") {
+      return joinParts([
+        a && `${a}.`,
+        title && `“${title}.”`,
+        journal && `${journal},`,
+        volume && `vol. ${volume},`,
+        number && `no. ${number},`,
+        year && `${year},`,
+        pages && `pp. ${pages}.`,
+      ]);
+    }
+    return joinParts([
+      a && `${a}.`,
+      title && `“${title}.”`,
+      booktitle && `${booktitle}.`,
+      publisher && `${publisher},`,
+      year && `${year}.`,
+      pages && `pp. ${pages}.`,
+      url && `${url}.`,
+    ]);
+  }
+
+  if (style === "Chicago") {
+    const a = formatAuthorsMla(author);
+    return joinParts([
+      a && `${a}.`,
+      title && `“${title}.”`,
+      journal && `${journal}`,
+      volume && `${volume}`,
+      number && `(no. ${number})`,
+      year && `(${year}):`,
+      pages && `${pages}.`,
+      booktitle && `In ${booktitle}.`,
+      publisher && `${publisher}.`,
+      doi && `https://doi.org/${doi}.`,
+      !doi && url && `${url}.`,
+    ]);
+  }
+
+  if (style === "Harvard") {
+    const a = formatAuthorsApa(author).replace(/&/g, "and");
+    return joinParts([
+      a,
+      year && `(${year})`,
+      title && `'${title}',`,
+      journal && `${journal},`,
+      volume,
+      number && `(${number}),`,
+      pages && `pp. ${pages}.`,
+      publisher && `${publisher}.`,
+      school && `${school}.`,
+      url && `Available at: ${url}`,
+      urldate && `(Accessed: ${urldate}).`,
+    ]);
+  }
+
+  if (style === "Vancouver" || style === "AMA" || style === "IEEE") {
+    const a = author.replace(/\s+and\s+/gi, ", ");
+    return joinParts([
+      a && `${a}.`,
+      title && `${title}.`,
+      journal && `${journal}.`,
+      booktitle && `${booktitle}.`,
+      year && `${year};`,
+      volume,
+      number && `(${number}):`,
+      pages && `${pages}.`,
+      publisher && `${publisher};`,
+      school && `${school}.`,
+      doi && `doi:${doi}`,
+      url,
+    ]);
+  }
+
+  // APA and related (CSM, ASN, ANSI) — APA-like preview
+  const a = formatAuthorsApa(author);
+  if (form.entryType === "article") {
+    return joinParts([
+      a,
+      year && `(${year}).`,
+      title && `${title}.`,
+      journal && `${journal},`,
+      volume,
+      number && `(${number}),`,
+      pages && `${pages}.`,
+      doi && `https://doi.org/${doi}`,
+      !doi && url,
+    ]);
+  }
+  if (form.entryType === "book") {
+    return joinParts([
+      a,
+      year && `(${year}).`,
+      title && `${title}`,
+      edition && `(${edition} ed.).`,
+      address && `${address}:`,
+      publisher && `${publisher}.`,
+      isbn && `ISBN ${isbn}.`,
+    ]);
+  }
+  if (form.entryType === "inproceedings" || form.entryType === "incollection") {
+    return joinParts([
+      a,
+      year && `(${year}).`,
+      title && `${title}.`,
+      editor && `In ${editor} (Ed.),`,
+      booktitle && `${booktitle}`,
+      chapter && `(Chapter ${chapter})`,
+      pages && `(pp. ${pages}).`,
+      publisher && `${publisher}.`,
+    ]);
+  }
+  if (form.entryType === "mastersthesis" || form.entryType === "phdthesis") {
+    return joinParts([
+      a,
+      year && `(${year}).`,
+      title && `${title}`,
+      form.entryType === "phdthesis"
+        ? "[Doctoral dissertation]."
+        : "[Master's thesis].",
+      school && `${school}.`,
+      address && `${address}.`,
+    ]);
+  }
+  return joinParts([
+    a,
+    year && `(${year}).`,
+    title && `${title}.`,
+    note && `${note}.`,
+    url,
+    urldate && `(Accessed ${urldate}).`,
+  ]);
+}
+
+
