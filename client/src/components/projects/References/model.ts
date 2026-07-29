@@ -28,7 +28,7 @@ export type BookReferencesData = {
 };
 
 /** Supported BibTeX entry kinds. */
-export type BibtexEntryType =
+export type EntryType =
   | "article"
   | "inproceedings"
   | "book"
@@ -37,7 +37,7 @@ export type BibtexEntryType =
   | "phdthesis"
   | "misc";
 
-export const BibtexEntryTypes: { value: BibtexEntryType; label: string }[] = [
+export const EntryTypes: { value: EntryType; label: string }[] = [
   { value: "article", label: "Article" },
   { value: "inproceedings", label: "Conference paper" },
   { value: "book", label: "Book" },
@@ -47,7 +47,7 @@ export const BibtexEntryTypes: { value: BibtexEntryType; label: string }[] = [
   { value: "misc", label: "Misc / website" },
 ];
 
-export type BibtexFieldKey =
+export type ReferenceFieldKey =
   | "citationKey"
   | "author"
   | "title"
@@ -71,12 +71,12 @@ export type BibtexFieldKey =
   | "type"
   | "urldate";
 
-export type BibtexFormData = Partial<Record<BibtexFieldKey, string>> & {
-  entryType: BibtexEntryType;
+export type ReferenceFormData = Partial<Record<ReferenceFieldKey, string>> & {
+  entryType: EntryType;
   citationKey: string;
 };
 
-const FIELD_LABELS: Record<BibtexFieldKey, string> = {
+const FIELD_LABELS: Record<ReferenceFieldKey, string> = {
   citationKey: "Citation key",
   author: "Author(s)",
   title: "Title",
@@ -102,7 +102,7 @@ const FIELD_LABELS: Record<BibtexFieldKey, string> = {
 };
 
 /** Fields shown (and serialized) for each entry type, in display order. */
-export const BIBTEX_FIELDS_BY_TYPE: Record<BibtexEntryType, BibtexFieldKey[]> = {
+export const BIBTEX_FIELDS_BY_TYPE: Record<EntryType, ReferenceFieldKey[]> = {
   article: [
     "citationKey",
     "author",
@@ -172,13 +172,13 @@ export const BIBTEX_FIELDS_BY_TYPE: Record<BibtexEntryType, BibtexFieldKey[]> = 
   ],
 };
 
-export function getBibtexFieldLabel(key: BibtexFieldKey): string {
+export function getBibtexFieldLabel(key: ReferenceFieldKey): string {
   return FIELD_LABELS[key];
 }
 
-export function emptyBibtexForm(
-  entryType: BibtexEntryType = "article",
-): BibtexFormData {
+export function emptyReferenceForm(
+  entryType: EntryType = "article",
+): ReferenceFormData {
   return { entryType, citationKey: "" };
 }
 
@@ -226,7 +226,7 @@ function firstTitleWord(title: string): string {
  * Build a BibTeX citation key from filled fields when the user left key blank.
  * Prefer `AuthorYearTitle` (e.g. `Smith2026First`).
  */
-export function generateCitationKey(form: BibtexFormData): string {
+export function generateCitationKey(form: ReferenceFormData): string {
   const author = sanitizeCitationKeyPart(
     firstAuthorLastName(form.author?.trim() ?? ""),
   );
@@ -239,7 +239,7 @@ export function generateCitationKey(form: BibtexFormData): string {
 }
 
 const VALID_ENTRY_TYPES = new Set<string>(
-  BibtexEntryTypes.map((t) => t.value),
+  EntryTypes.map((t) => t.value),
 );
 
 /** Extract a `{...}` value with nested braces starting at `start` (`s[start] === '{'`). */
@@ -279,8 +279,8 @@ function unwrapBibtexBraces(value: string): string {
  */
 function parseBibtexFields(
   body: string,
-): Partial<Record<BibtexFieldKey, string>> {
-  const fields: Partial<Record<BibtexFieldKey, string>> = {};
+): Partial<Record<ReferenceFieldKey, string>> {
+  const fields: Partial<Record<ReferenceFieldKey, string>> = {};
   let i = 0;
   while (i < body.length) {
     const keyMatch = body.slice(i).match(/^[\s,]*(\w+)\s*=\s*/);
@@ -289,7 +289,7 @@ function parseBibtexFields(
       continue;
     }
     i += keyMatch[0].length;
-    const key = keyMatch[1].toLowerCase() as BibtexFieldKey;
+    const key = keyMatch[1].toLowerCase() as ReferenceFieldKey;
     let value = "";
 
     if (body[i] === "{") {
@@ -320,14 +320,14 @@ function parseBibtexFields(
 }
 
 /** Parse the first BibTeX entry found in raw text into form data. */
-export function parseBibtexToForm(raw: string): BibtexFormData | null {
+export function parseBibtexToForm(raw: string): ReferenceFormData | null {
   const header = raw.match(/@(\w+)\s*\{\s*([^,\s}]+)\s*,/);
   if (!header || header.index === undefined) return null;
 
   const entryTypeRaw = header[1].toLowerCase();
   const entryType = (
     VALID_ENTRY_TYPES.has(entryTypeRaw) ? entryTypeRaw : "misc"
-  ) as BibtexEntryType;
+  ) as EntryType;
   const citationKey = header[2].trim();
 
   // Find the matching closing brace of the entry, then take fields after the key.
@@ -345,7 +345,7 @@ export function parseBibtexToForm(raw: string): BibtexFormData | null {
 }
 
 /** Serialize form data back to a BibTeX entry string. */
-export function formToBibtex(form: BibtexFormData): string {
+export function formToBibtex(form: ReferenceFormData): string {
   const keys = BIBTEX_FIELDS_BY_TYPE[form.entryType].filter(
     (k) => k !== "citationKey",
   );
@@ -361,7 +361,7 @@ export function formToBibtex(form: BibtexFormData): string {
   return `@${form.entryType}{${key},\n${lines.join(",\n")}\n}`;
 }
 
-function field(form: BibtexFormData, key: BibtexFieldKey): string {
+function field(form: ReferenceFormData, key: ReferenceFieldKey): string {
   return form[key]?.trim() ?? "";
 }
 
@@ -408,7 +408,7 @@ function formatAuthorsMla(author: string): string {
  * Approximate style guides for UI preview only (not a full CSL engine).
  */
 export function formatCitationPreview(
-  form: BibtexFormData,
+  form: ReferenceFormData,
   format?: ReferenceFormatType,
 ): string {
   const author = field(form, "author");

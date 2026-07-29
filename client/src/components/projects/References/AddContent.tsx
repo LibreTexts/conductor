@@ -2,16 +2,16 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Button, Input, Modal, Select, Stack, Text } from "@libretexts/davis-react";
 import {
   BIBTEX_FIELDS_BY_TYPE,
-  BibtexEntryType,
-  BibtexEntryTypes,
-  BibtexFieldKey,
-  BibtexFormData,
-  emptyBibtexForm,
+  EntryType,
+  ReferenceFieldKey,
+  ReferenceFormData,
+  emptyReferenceForm,
   formToBibtex,
   formatCitationPreview,
   generateCitationKey,
   getBibtexFieldLabel,
   ReferenceFormatType,
+  EntryTypes,
 } from "./model";
 import ImportBibtexDialog from "./ImportBibtexDialog";
 
@@ -29,29 +29,29 @@ const AddContent: React.FC<AddContentProps> = ({
   onAdd,
   referenceFormat,
 }) => {
-  const [form, setForm] = useState<BibtexFormData>(emptyBibtexForm());
+  const [form, setForm] = useState<ReferenceFormData>(emptyReferenceForm());
   const [importOpen, setImportOpen] = useState(false);
   const [fromBibtex, setFromBibtex] = useState(false);
 
   useEffect(() => {
     if (!open) {
-      setForm(emptyBibtexForm());
+      setForm(emptyReferenceForm());
       setImportOpen(false);
       setFromBibtex(false);
     }
   }, [open]);
 
-  const updateField = (key: BibtexFieldKey, value: string) => {
+  const updateField = (key: ReferenceFieldKey, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleTypeChange = (entryType: BibtexEntryType) => {
+  const handleTypeChange = (entryType: EntryType) => {
     if (fromBibtex) return;
     setForm((prev) => ({ ...prev, entryType }));
   };
 
   const handleClear = () => {
-    setForm(emptyBibtexForm());
+    setForm(emptyReferenceForm());
     setFromBibtex(false);
   };
 
@@ -92,14 +92,14 @@ const AddContent: React.FC<AddContentProps> = ({
                     name="entryType"
                     label="Entry type"
                     placeholder="Select entry type…"
-                    options={BibtexEntryTypes.map((t) => ({
+                    options={EntryTypes.map((t) => ({
                       label: t.label,
                       value: t.value,
                     }))}
                     value={form.entryType}
                     disabled={fromBibtex}
                     onChange={(e) =>
-                      handleTypeChange(e.target.value as BibtexEntryType)
+                      handleTypeChange(e.target.value as EntryType)
                     }
                   />
                 </div>

@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { Button, Input, Modal, Stack, Textarea } from "@libretexts/davis-react";
-import { parseBibtexToForm, type BibtexFormData } from "./model";
+import { parseBibtexToForm, type ReferenceFormData } from "./model";
 
 interface ImportBibtexDialogProps {
   open: boolean;
   onClose: () => void;
   /** Called with parsed form data when the user confirms import. */
-  onImport: (form: BibtexFormData, rawText: string) => void;
+  onImport: (form: ReferenceFormData, rawText: string) => void;
 }
 
 const ImportBibtexDialog: React.FC<ImportBibtexDialogProps> = ({
