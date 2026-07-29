@@ -1261,7 +1261,7 @@ export class PressBookScraper {
     }
     for (let i = 0; i < extraBackMatter.length; i++) {
       const node = extraBackMatter[i];
-      if (/glossary/i.test(node?.title.toLowerCase() ?? "")) {
+      if (/glossary/i.test(node?.title ?? "")) {
         continue;
       }
       // Continue the 00-based sequence after the TOC items.
@@ -1285,7 +1285,7 @@ export class PressBookScraper {
         ...bmExtraContribTags,
       ]);
     }
-    // region Glossary
+
     
 
 
@@ -1303,8 +1303,7 @@ export class PressBookScraper {
         const imported = await glossaryService.addGlossaryEntries(
           glossary.map((g) => ({
             term: g.term,
-            // Pressbooks definitions are HTML; store plain text.
-            definition: cheerio.load(g.definition || "").text().trim(),
+            definition: g.definition,
             author: g.author,
             source: g.source,
             link: g.link,
@@ -1329,7 +1328,7 @@ export class PressBookScraper {
     }
 
 
-    // endregion
+  
     await Promise.all([
       addPageProperty(
         this.subdomain,
@@ -1362,17 +1361,15 @@ export class PressBookScraper {
     // and the import job potentially exits. Matches the pattern in
     // `api/books.ts` exactly.
     log("[*] Triggering default matter creation + MindMap TOC update...");
-    if (process.env.NODE_ENV === "production") {
     fetch(`https://batch.libretexts.org/print/Libretext=${bookURL}`, {
       headers: { origin: "commons.libretexts.org" },
-      }).catch((e) => {
-        console.warn(
-          "[PressBookScraper] Matter / MindMap trigger failed (non-fatal):",
-          (e as Error).message,
-        );
-      });
-      await sleep(1500);
-    }
+    }).catch((e) => {
+      console.warn(
+        "[PressBookScraper] Matter / MindMap trigger failed (non-fatal):",
+        (e as Error).message,
+      );
+    });
+    await sleep(1500);
 
     // ── 9. Verify book ID ─────────────────────────────────────────────────────
     const newBookID = await getPageID(bookPath, this.subdomain);
@@ -1397,27 +1394,7 @@ export class PressBookScraper {
     return result;
   }
 
-  async testGlossary(): Promise<any | undefined> {
-    const encodePbURL = this.pbBookURL.replace(/\/+$/, "");
-    // fetch toc
-    const auth = {
-      username: process.env.PRESSBOOKS_USERNAME!,
-      password: process.env.PRESSBOOKS_PASSWORD!,
-    };
-   
-    // go to backend
-    // find glossary page
-    // fetch glossary
-    // show it on the console
-    
-      const glossary = await this.fetchGlossary(
-        encodePbURL,
-        auth,
-      );
-      console.log(glossary);
-      return {glossary: glossary, length:glossary.length};
-  }
-
+  
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   /**
