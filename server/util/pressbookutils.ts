@@ -687,6 +687,17 @@ export class PressBookScraper {
     return bestURL;
   }
 
+  /**
+   * Neutralize scraped Pressbooks content before it is persisted. The Commons
+   * glossary renders term/definition through `innerHTML`, so a stored value
+   * must be safe in that sink. Stripping every tag and re-escaping stray markup
+   * prevents stored XSS from a malicious or compromised source book (including
+   * the double-encoding case where entity-decoded text would re-parse as HTML).
+   */
+  private static sanitizeToText(value: string): string {
+    return sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} });
+  }
+
   private async fetchGlossary(
     bookUrl: string,
     auth?: { username: string; password: string },
@@ -744,10 +755,14 @@ export class PressBookScraper {
         terms.push({
           id: item.id,
           slug: item.slug,
-          term: item.title?.raw ?? item.title?.rendered ?? "",
-          definition: cheerio
-            .load(item.content?.raw ?? item.content?.rendered ?? "")
-            .text()
+          term: PressBookScraper.sanitizeToText(
+            item.title?.raw ?? item.title?.rendered ?? "",
+          ).trim(),
+          definition: PressBookScraper.sanitizeToText(
+            cheerio
+              .load(item.content?.raw ?? item.content?.rendered ?? "")
+              .text(),
+          )
             .replace(/\s+/g, " ")
             .trim(),
           author: await resolveAuthorName(item.author),
