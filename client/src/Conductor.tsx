@@ -1,6 +1,5 @@
 import { Suspense, lazy } from 'react';
 import { Route, Switch } from 'react-router-dom';
-import { useSelector } from 'react-redux';
 import { SkipLink } from '@libretexts/davis-react';
 
 import AnonRoute from './components/util/AnonRoute';
@@ -96,6 +95,7 @@ import LibreTextsRoute from './components/util/LibreTextsRoute';
 import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
 import SupportCenterDataLoader from './providers/SupportCenterDataLoader';
 import Restacker from './components/projects/Restacker';
+import { useTypedSelector } from './state/hooks';
 
 /**
  * The project planning and internal tools system. Requires authentication to access most pages.
@@ -103,7 +103,7 @@ import Restacker from './components/projects/Restacker';
 const Conductor = () => {
 
   // Global State and Location
-  const org = useSelector((state) => state.org);
+  const org = useTypedSelector((state) => state.org);
 
   return (
     <div className='flex flex-col min-h-screen'>
