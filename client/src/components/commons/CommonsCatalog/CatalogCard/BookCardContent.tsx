@@ -4,7 +4,7 @@ import { truncateString } from "../../../util/HelperFunctions";
 import { getLibGlyphAltText, getLibGlyphURL } from "../../../util/LibraryOptions";
 import { Heading, Card, Text, Stack } from "@libretexts/davis-react";
 import PausableImage from "../../../util/PausableImage";
-import { IconFile, IconFileDescription } from "@tabler/icons-react";
+import { IconFileDescription, IconSchoolFilled } from "@tabler/icons-react";
 
 interface BookCardContentProps {
   book: Book;
@@ -17,18 +17,8 @@ const BookCardContent: React.FC<BookCardContentProps> = ({
   linkTo,
   headingLevel = 2,
 }) => {
-  const buildAssetString = () => {
-    let assetString = "";
-    if (book.publicAssets) {
-      assetString += `${book.publicAssets} public asset${book.publicAssets > 1 ? "s" : ""}`;
-    }
-    if (book.instructorAssets) {
-      assetString += `${book.publicAssets ? ", " : ""}${book.instructorAssets} instructor asset${book.instructorAssets > 1 ? "s" : ""}`;
-    }
-    return assetString;
-  };
-
-  const assetString = buildAssetString();
+  const publicAssets = book.publicAssets || 0;
+  const instructorAssets = book.instructorAssets || 0;
 
   return (
     <>
@@ -65,12 +55,26 @@ const BookCardContent: React.FC<BookCardContentProps> = ({
           <Text >
             <em>{truncateString(book.affiliation, 30)}</em>
           </Text>
-          {assetString ? (
-            <Stack direction="horizontal" gap="xs" align="center">
-              <IconFileDescription className="!mr-1" size={16} />
-              <Text>
-                {assetString}
-              </Text>
+          {(publicAssets > 0 || instructorAssets > 0) ? (
+            <Stack direction="vertical" gap="xs">
+              {
+                instructorAssets > 0 && (
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconSchoolFilled size={16} className="text-primary" />
+                    <Text>
+                      {instructorAssets} instructor asset{instructorAssets > 1 ? "s" : ""}
+                    </Text>
+                  </Stack>
+                )}
+              {
+                publicAssets > 0 && (
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconFileDescription size={16} />
+                    <Text>
+                      {publicAssets} public asset{publicAssets > 1 ? "s" : ""}
+                    </Text>
+                  </Stack>
+                )}
             </Stack>
           ) : null}
         </Stack>

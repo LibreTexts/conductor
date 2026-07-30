@@ -1684,7 +1684,14 @@ async function bookSearchV2(
     }
 
     // Filter by attached public/instructor assets (indexed as numeric counts during sync).
-    if (req.query.assets === "public") {
+    if (req.query.assets === "any") {
+      filterClauses.push({
+        $or: [
+          { publicAssets: { $gt: 0 } },
+          { instructorAssets: { $gt: 0 } }, 
+        ]
+      });
+    } else if (req.query.assets === "public") {
       filterClauses.push({ publicAssets: { $gt: 0 } });
     } else if (req.query.assets === "instructors") {
       filterClauses.push({ instructorAssets: { $gt: 0 } });
