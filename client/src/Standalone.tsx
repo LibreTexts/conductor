@@ -1,5 +1,5 @@
 import { Switch, Route } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useTypedSelector } from "./state/hooks";
 import AdoptionReportPage from "./components/adoptionreport/AdoptionReportPage";
 import AccessibilityStatement from "./components/util/AccessibilityStatement";
 import TranslationFeedbackExport from "./components/util/TranslationFeedbackExport";
@@ -14,7 +14,7 @@ import PageNotFound from "./components/util/PageNotFound";
  */
 const Standalone = () => {
   // Global State
-  const org = useSelector((state) => state.org);
+  const org = useTypedSelector((state) => state.org);
 
   return (
     <div className="standalone">

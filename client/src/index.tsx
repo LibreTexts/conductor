@@ -8,7 +8,7 @@ import "./styles/index.css";
  * Main React entrypoint
  */
 const container = document.getElementById("root");
-const root = createRoot(container);
+const root = createRoot(container!);
 root.render(
   <React.StrictMode>
     <Platform />
