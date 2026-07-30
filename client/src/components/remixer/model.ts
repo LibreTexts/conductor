@@ -81,10 +81,10 @@ export interface RemixerData {
 export const remixerDataInit:RemixerData = { autoNumbering: true } as RemixerData;
 
 export interface RemixerUiState {
-    catalogListOpen: boolean;
-    publishPanelOpen: boolean;
-    pathNameFormatOpen: boolean;
-    editPanelOpen: boolean;
+    catalogListOpen: boolean; // TODO: remove this when switching to new Remixer UI (not used in new UI)
+    publishPanelOpen: boolean; // TODO: remove this when switching to new Remixer UI (not used in new UI)
+    pathNameFormatOpen: boolean; // TODO: remove this when switching to new Remixer UI (not used in new UI)
+    editPanelOpen: boolean; // TODO: remove this when switching to new Remixer UI (not used in new UI)
     selectedBookNodeId?: string;
     pathNameFormatDepth: number;
     pathLevelFormats?: PathLevelFormat[];

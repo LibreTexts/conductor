@@ -87,6 +87,7 @@ const BatchRun = lazy(() => import('./screens/conductor/Projects/TextbookCuratio
 const AcceptProjectInviteScreen = lazy(() => import('./screens/conductor/Projects/AcceptProjectInviteScreen'));
 const PermanentLinkDownload = lazy(() => import('./components/FilesManager/PermanentLinkDownload'));
 const RemixerDashboard = lazy(()=> import('./components/remixer/RemixerDashboard'));
+const RemixerDashboardNewUITemp = lazy(()=> import('./components/remixer/RemixerDashboardNewUITemp'));
 const GlossaryManager =lazy(() => import('./screens/commons/Glossary'));
 
 /* 404 */
@@ -128,6 +129,8 @@ const Conductor = () => {
           <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
           <PrivateRoute exact path='/projects/:id/ai-co-author' component={TextbookCuration} />
           <PrivateRoute exact path='/projects/:id/ai-co-author/batch' component={BatchRun} />
+          <PrivateRoute exact path='/projects/:id/remixer' component={RemixerDashboard} />
+          <PrivateRoute exact path='/projects/:id/remixer-new-ui' component={RemixerDashboardNewUITemp} />
           <PrivateRoute exact path='/projects/:id/restacker' component={Restacker} />
           <Route exact path='/projects/:id/analytics' component={ProjectAnalytics} /> {/* Auth handled at page level. Can be private or public*/}
           <PrivateRoute exact path='/projects/accept-invite/:id' component={AcceptProjectInviteScreen} />
@@ -168,7 +171,6 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/store' component={StoreManager} />
           <PrivateRoute exact path='/controlpanel/store/orders/:order_id' component={StoreManagerOrderView} />
           <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
-          <PrivateRoute exact path='/projects/:id/remixer' component={RemixerDashboard} />
           <PrivateRoute exact path='/glossary/book/:id' component={GlossaryManager} />
           <PrivateRoute exact path='/glossary/project/:id' component={GlossaryManager} />
           <Route exact path="/download/:projectID/:fileID" component={PermanentLinkDownload} />
