@@ -3,6 +3,7 @@ import {
   CustomFormPrompt,
   CustomFormTextBlock,
 } from "./CustomForm";
+import { Organization } from "./Organization";
 
 export type PeerReviewRubric = {
   orgID: string;
@@ -12,4 +13,7 @@ export type PeerReviewRubric = {
   headings: CustomFormHeading[];
   textBlocks: CustomFormTextBlock[];
   prompts: CustomFormPrompt[];
+  organization?: Organization;
+  updatedAt?: string;
+  createdAt?: string;
 };
