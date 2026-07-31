@@ -82,150 +82,141 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
 
   return (
     <div>
-      <Header as="span" sub>
+      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
         Important Actions:{" "}
-      </Header>
+      </span>
       {projectClassification === ProjectClassification.MINI_REPO ? null : (
         <div className="flex flex-row flex-wrap gap-2">
           {!projectLink && !didCreateWorkbench && isProjectMemberOrAdmin && (<>
             <Button
-              color="green"
+              variant="primary"
+              size="sm"
+              icon={<IconPlus size={14} />}
               onClick={() => setShowCreateWorkbenchModal(true)}
             >
-              <Icon name="plus" />
               Create Book
             </Button>
             {user.isSuperAdmin && (
               <Button
-                color="green"
+                variant="primary"
+                size="sm"
+                icon={<IconPlus size={14} />}
                 onClick={() => setShowImportWorkbenchModal(true)}
               >
-                <Icon name="plus" />
                 Import Book (Admin Only)
               </Button>
             )}
           </>
           )}
           {(projectLink || validBook) && (
-            <>
-              <Popup
-                content={
+            <Tooltip
+              content={
+                validBook
+                  ? "This link will take you to the book's page in the LibreTexts libraries."
+                  : projectLink
+                    ? "This link will take you to the project's linked URL. This may be a book in the LibreTexts library or a third-party resource."
+                    : "This project does not have a linked URL."
+              }
+            >
+              <Button
+                onClick={() =>
                   validBook
-                    ? "This link will take you to the book's page in the LibreTexts libraries."
+                    ? window.open(
+                      buildLibraryPageGoURL(libreLibrary, libreCoverID),
+                      "_blank"
+                    )
                     : projectLink
-                      ? "This link will take you to the project's linked URL. This may be a book in the LibreTexts library or a third-party resource."
-                      : "This project does not have a linked URL."
+                      ? window.open(normalizeURL(projectLink ?? ""), "_blank")
+                      : undefined
                 }
-                trigger={
-                  <Button
-                    onClick={() =>
-                      validBook
-                        ? window.open(
-                          buildLibraryPageGoURL(libreLibrary, libreCoverID),
-                          "_blank"
-                        )
-                        : projectLink
-                          ? window.open(normalizeURL(projectLink ?? ""), "_blank")
-                          : ""
-                    }
-                    color="blue"
-                    size="small"
-                  >
-                    Open Project Link
-                    <Icon name="external alternate" className="!ml-2" />
-                  </Button>
-                }
-              />
-            </>
-
+                variant="secondary"
+                size="sm"
+                icon={<IconExternalLink size={14} />}
+                iconPosition="right"
+              >
+                Open Project Link
+              </Button>
+            </Tooltip>
           )}
           {hasCommonsBook && libreCoverID && libreLibrary && (
-            <Popup
-              content="This link will take you to the book's page on the Commons."
-              trigger={
-                <Button
-                  onClick={() =>
-                    window.open(
-                      buildCommonsUrl(libreLibrary, libreCoverID),
-                      "_blank",
-                    )
-                  }
-                  color="blue"
-                  size="small"
-                >
-                  View Textbook on Commons
-                  <Icon name="external alternate" className="!ml-2" />
-                </Button>
-              }
-            />
+            <Tooltip content="This link will take you to the book's page on the Commons.">
+              <Button
+                onClick={() =>
+                  window.open(
+                    buildCommonsUrl(libreLibrary, libreCoverID),
+                    "_blank",
+                  )
+                }
+                variant="secondary"
+                size="sm"
+                icon={<IconExternalLink size={14} />}
+                iconPosition="right"
+              >
+                View Textbook on Commons
+              </Button>
+            </Tooltip>
           )}
           {projectVisibility === "public" && (
-            <Popup
-              content="This link will take you to the project's page on the Commons."
-              trigger={
-                <Button
-                  onClick={() =>
-                    window.open(`/commons-project/${projectID}`, "_blank")
-                  }
-                  color="blue"
-                  size="small"
-                >
-                  View Project on Commons
-                  <Icon name="external alternate" className="!ml-2" />
-                </Button>
-              }
-            />
+            <Tooltip content="This link will take you to the project's page on the Commons.">
+              <Button
+                onClick={() =>
+                  window.open(`/commons-project/${projectID}`, "_blank")
+                }
+                variant="secondary"
+                size="sm"
+                icon={<IconExternalLink size={14} />}
+                iconPosition="right"
+              >
+                View Project on Commons
+              </Button>
+            </Tooltip>
           )}
           {(validBook || hasCommonsBook) &&
             libreCoverID &&
             libreLibrary &&
             isProjectMemberOrAdmin && (<>
               {user.isSuperAdmin && (
-                <Popup
-                  content="This link will open the book in the LibreTexts OER Remixer Version 3."
-                  trigger={
-                    <Button
-                      onClick={() => window.open(`/remixer/${projectID}`, "_blank")}
-                      color="blue"
-                      size="small"
-                    >
-                      Open OER Remixer Version 3 (Admin Only)
-                      <Icon name="external alternate" className="!ml-2" />
-                    </Button>
-                  }
-                />
-              )}
-              <Popup
-                content="This link will open the book in the LibreTexts OER Remixer."
-                trigger={
+                <Tooltip content="This link will open the book in the LibreTexts OER Remixer Version 3.">
                   <Button
-                    onClick={() =>
-                      window.open(
-                        buildRemixerURL(
-                          libreLibrary ?? "chem",
-                          libreLibrary && libreCoverID
-                            ? buildLibraryPageGoURL(libreLibrary, libreCoverID)
-                            : "",
-                        ),
-                        "_blank",
-                      )
-                    }
-                    color="blue"
-                    size="small"
+                    onClick={() => window.open(`/remixer/${projectID}`, "_blank")}
+                    variant="secondary"
+                    size="sm"
+                    icon={<IconExternalLink size={14} />}
+                    iconPosition="right"
                   >
-                    Open OER Remixer
-                    <Icon name="external alternate" className="!ml-2" />
+                    Open OER Remixer Version 3 (Admin Only)
                   </Button>
-                }
-              />
+                </Tooltip>
+              )}
+              <Tooltip content="This link will open the book in the LibreTexts OER Remixer.">
+                <Button
+                  onClick={() =>
+                    window.open(
+                      buildRemixerURL(
+                        libreLibrary ?? "chem",
+                        libreLibrary && libreCoverID
+                          ? buildLibraryPageGoURL(libreLibrary, libreCoverID)
+                          : "",
+                      ),
+                      "_blank",
+                    )
+                  }
+                  variant="secondary"
+                  size="sm"
+                  icon={<IconExternalLink size={14} />}
+                  iconPosition="right"
+                >
+                  Open OER Remixer
+                </Button>
+              </Tooltip>
               {
                 user.isSuperAdmin && (
                   <Button
                     onClick={() =>
                       window.open(`/glossary/project/${projectID}`, "_blank")
                     }
-                    color="blue"
-                    size="small"
+                    variant="secondary"
+                    size="sm"
                   >
                     Glossary Manager
                   </Button>
@@ -241,18 +232,6 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
               onSuccess={() => window.location.reload()}
               project={project}
             />
-          )}
-          {projectID && projectTitle && (
-            <CreateWorkbenchModal
-              show={showCreateWorkbenchModal}
-              projectID={projectID}
-              projectTitle={projectTitle}
-              onClose={() => setShowCreateWorkbenchModal(false)}
-              onSuccess={() => window.location.reload()}
-              project={project}
-            />
-
-
           )}
           {projectID && projectTitle && user.isSuperAdmin && (
             <ImportWorkbenchModal
