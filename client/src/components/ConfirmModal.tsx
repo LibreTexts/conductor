@@ -8,6 +8,7 @@ interface ConfirmModalProps {
   cancelText?: string;
   confirmColor?: "green" | "red";
   open?: boolean;
+  loading?: boolean;
   /**
    * When false, Esc and clicking outside do nothing, so the user must pick
    * one of the buttons. Use when Cancel is itself an action (e.g. "Skip").
@@ -23,6 +24,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   cancelText = "Cancel",
   confirmColor = "green",
   open = true,
+  loading = false,
   dismissible = true,
 }) => {
   const confirmVariant = confirmColor === "red" ? "destructive" : "primary";
@@ -42,10 +44,10 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
         <p className="text-gray-700">{text}</p>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="outline" onClick={onCancel}>
+        <Button variant="outline" onClick={onCancel} disabled={loading}>
           {cancelText}
         </Button>
-        <Button variant={confirmVariant} onClick={onConfirm}>
+        <Button variant={confirmVariant} onClick={onConfirm} loading={loading}>
           {confirmText}
         </Button>
       </Modal.Footer>
