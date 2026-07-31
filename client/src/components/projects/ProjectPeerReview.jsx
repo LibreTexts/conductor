@@ -41,7 +41,6 @@ import {
 } from '../util/ProjectHelpers';
 
 import Messaging from '../Messaging';
-import PeerReview from '../peerreview/PeerReview.jsx';
 import PeerReviewView from '../peerreview/PeerReviewView.jsx';
 
 const reviewsSortOptions = [
@@ -80,8 +79,6 @@ const ProjectPeerReview = (props) => {
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsRubrics, setSettingsRubrics] = useState([]);
   const [settingsRubricsLoading, setSettingsRubricsLoading] = useState(false);
-  const [settingsShowPreview, setSettingsShowPreview] = useState(false);
-  const [settingsPreviewID, setSettingsPreviewID] = useState('');
   const [settingsUnsaved, setSettingsUnsaved] = useState(false);
 
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -194,6 +191,15 @@ const ProjectPeerReview = (props) => {
 
   const handleCloseReviewView = () => { setPRViewShow(false); setPRViewData({}); };
 
+  // Reopen Peer Review Settings when returning from the rubric preview page.
+  useEffect(() => {
+    const urlParams = new URLSearchParams(props.location.search);
+    if (urlParams.get('returnTo') === 'settings' && project.projectID) {
+      handleOpenSettingsModal();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.location.search, project.projectID]);
+
   const handleOpenSettingsModal = () => {
     if (project.hasOwnProperty('allowAnonPR')) setSettingsAllowAnon(project.allowAnonPR ? 'true' : 'false');
     if (project.hasOwnProperty('preferredPRRubric')) setSettingsPreferred(project.preferredPRRubric);
@@ -223,16 +229,9 @@ const ProjectPeerReview = (props) => {
 
   const handleOpenRubricPreviewModal = (rubricID) => {
     if (typeof rubricID === 'string' && rubricID.length > 0) {
-      setSettingsPreviewID(rubricID);
       setShowSettingsModal(false);
-      setSettingsShowPreview(true);
+      props.history.push(`/projects/${props.match.params.id}/preview-peer-review/${rubricID}`);
     }
-  };
-
-  const handleCloseRubricPreviewModal = () => {
-    setSettingsShowPreview(false);
-    setSettingsPreviewID('');
-    setShowSettingsModal(true);
   };
 
   const savePeerReviewSettings = () => {
@@ -696,14 +695,6 @@ const ProjectPeerReview = (props) => {
           </Button>
         </Modal.Footer>
       </Modal>
-
-      {/* Rubric Preview */}
-      <PeerReview
-        open={settingsShowPreview}
-        onClose={handleCloseRubricPreviewModal}
-        rubricID={settingsPreviewID}
-        demoView={true}
-      />
 
       <PeerReviewView
         open={prViewShow}
