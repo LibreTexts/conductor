@@ -1,14 +1,13 @@
-import "./ControlPanel.css";
 import { useRef, useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import {
   Breadcrumb,
   Button,
-  Grid,
-  Header,
-  Icon,
-  Segment,
-} from "semantic-ui-react";
+  Card,
+  Heading,
+  Spinner,
+  Stack,
+} from "@libretexts/davis-react";
+import { IconCircleCheck, IconDeviceFloppy } from "@tabler/icons-react";
 import CampusSettingsForm from "./OrgsManager/CampusSettingsForm.js";
 import { useTypedSelector } from "../../state/hooks";
 
@@ -32,46 +31,52 @@ const CampusSettings = () => {
   const [savedData, setSavedData] = useState(false);
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">Campus Settings</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>Campus Settings</Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment raised loading={!loadedData}>
-              <CampusSettingsForm
-                ref={settingsFormRef}
-                orgID={org.orgID}
-                showCatalogSettings={false}
-                onUpdateLoadedData={(newVal) => setLoadedData(newVal)}
-                onUpdateSavedData={(newVal) => setSavedData(newVal)}
-              />
-              <Button
-                color="green"
-                className="mt-2p"
-                fluid
-                onClick={() => settingsFormRef.current?.requestSave()}
-              >
-                <Icon name={savedData ? "check" : "save"} />
-                {!savedData && <span>Save Changes</span>}
-              </Button>
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+    <div className="bg-white h-full px-8 pt-8">
+      <Stack direction="vertical" gap="md" className="mb-4">
+        <Heading level={2}>Campus Settings</Heading>
+      </Stack>
+
+      <Card>
+        <Card.Header>
+          <Breadcrumb aria-label="Page navigation">
+            <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+            <Breadcrumb.Item isCurrent>Campus Settings</Breadcrumb.Item>
+          </Breadcrumb>
+        </Card.Header>
+        <Card.Body>
+          {!loadedData && (
+            <div className="flex justify-center py-12">
+              <Spinner size="md" />
+            </div>
+          )}
+          <div className={!loadedData ? "hidden" : undefined}>
+            <CampusSettingsForm
+              ref={settingsFormRef}
+              orgID={org.orgID}
+              showCatalogSettings={false}
+              onUpdateLoadedData={(newVal) => setLoadedData(newVal)}
+              onUpdateSavedData={(newVal) => setSavedData(newVal)}
+            />
+          </div>
+        </Card.Body>
+        <Card.Footer>
+          <Button
+            variant="primary"
+            fullWidth
+            icon={
+              savedData ? (
+                <IconCircleCheck size={16} />
+              ) : (
+                <IconDeviceFloppy size={16} />
+              )
+            }
+            onClick={() => settingsFormRef.current?.requestSave()}
+          >
+            {!savedData && "Save Changes"}
+          </Button>
+        </Card.Footer>
+      </Card>
+    </div>
   );
 };
 
