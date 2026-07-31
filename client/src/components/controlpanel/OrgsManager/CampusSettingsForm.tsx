@@ -7,10 +7,11 @@ import {
   useImperativeHandle,
   lazy,
 } from "react";
-import { Controller } from "react-hook-form";
+import { Controller, FieldPath } from "react-hook-form";
 import {
   Alert,
   Button,
+  Input,
   Popover,
   Switch,
 } from "@libretexts/davis-react";
@@ -21,7 +22,6 @@ import {
   IconInfoCircle,
   IconUpload,
 } from "@tabler/icons-react";
-import CtlTextInput from "../../ControlledInputs/CtlTextInput";
 import {
   DEFAULT_COMMONS_MODULES,
   sanitizeCustomColor,
@@ -361,6 +361,39 @@ const CampusSettingsForm = forwardRef(
       }
     }
 
+    function CtlInput({
+      id,
+      name,
+      rules,
+      placeholder,
+    }: {
+      id: string;
+      name: FieldPath<CampusSettingsOpts>;
+      rules?: Parameters<typeof Controller<CampusSettingsOpts>>[0]["rules"];
+      placeholder?: string;
+    }) {
+      return (
+        <Controller
+          control={control}
+          name={name}
+          rules={rules}
+          render={({ field, fieldState: { error } }) => (
+            <Input
+              name={id}
+              label={id}
+              labelClassName="sr-only"
+              value={(field.value as string) ?? ""}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              placeholder={placeholder}
+              error={!!error?.message}
+              errorMessage={error?.message}
+            />
+          )}
+        />
+      );
+    }
+
     function InfoPopover({ content }: { content: string }) {
       return (
         <Popover>
@@ -618,12 +651,7 @@ const CampusSettingsForm = forwardRef(
                     About Link
                     <InfoPopover content="A standard link to the organization's About page, or the main page if one is not provisioned." />
                   </label>
-                  <CtlTextInput
-                    id="campusAbout"
-                    name="aboutLink"
-                    control={control}
-                    rules={required}
-                  />
+                  <CtlInput id="campusAbout" name="aboutLink" rules={required} />
                 </div>
               </div>
 
@@ -636,22 +664,14 @@ const CampusSettingsForm = forwardRef(
                       Campus Commons Header
                       <InfoPopover content="An emphasized string of text placed at the top of the Catalog Search interface, used to welcome users to the Campus Commons. This text is optional." />
                     </label>
-                    <CtlTextInput
-                      id="campusCommonsHeader"
-                      name="commonsHeader"
-                      control={control}
-                    />
+                    <CtlInput id="campusCommonsHeader" name="commonsHeader" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Campus Commons Message
                       <InfoPopover content="A block of text placed at the top of the Catalog Search interface, used to welcome users to the Campus Commons. This text is optional." />
                     </label>
-                    <CtlTextInput
-                      id="campusCommonsMessage"
-                      name="commonsMessage"
-                      control={control}
-                    />
+                    <CtlInput id="campusCommonsMessage" name="commonsMessage" />
                   </div>
                   <div className="flex items-center gap-3">
                     <label className="text-sm font-medium text-gray-700">
@@ -681,10 +701,9 @@ const CampusSettingsForm = forwardRef(
                         Collections Display Label
                         <InfoPopover content="An alternate name for Collections (eg. Departments, Colleges, etc.). This text is optional." />
                       </label>
-                      <CtlTextInput
+                      <CtlInput
                         id="collectionsDisplayLabel"
                         name="collectionsDisplayLabel"
-                        control={control}
                       />
                     </div>
                     <div>
@@ -692,11 +711,7 @@ const CampusSettingsForm = forwardRef(
                         Collections Message
                         <InfoPopover content="A block of text placed at the top of the Collections interface, used to welcome users to the Collections. This text is optional." />
                       </label>
-                      <CtlTextInput
-                        id="collectionsMessage"
-                        name="collectionsMessage"
-                        control={control}
-                      />
+                      <CtlInput id="collectionsMessage" name="collectionsMessage" />
                     </div>
                   </div>
                 </div>
@@ -717,11 +732,7 @@ const CampusSettingsForm = forwardRef(
                       Campus Primary Color
                       <InfoPopover content="A custom hex color code string (e.g. #FFF000) that will change the color of various regions in Commons. This is optional." />
                     </label>
-                    <CtlTextInput
-                      id="primaryColor"
-                      name="primaryColor"
-                      control={control}
-                    />
+                    <CtlInput id="primaryColor" name="primaryColor" />
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-sm text-gray-600">
                         Primary Color Preview
@@ -749,11 +760,7 @@ const CampusSettingsForm = forwardRef(
                       Campus Footer Color
                       <InfoPopover content="A custom hex color code string (e.g. #FFF000) that will change the page footer in Commons. This should be a lighter color than your Primary Color. This is optional." />
                     </label>
-                    <CtlTextInput
-                      id="footerColor"
-                      name="footerColor"
-                      control={control}
-                    />
+                    <CtlInput id="footerColor" name="footerColor" />
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-sm text-gray-600">
                         Footer Color Preview
