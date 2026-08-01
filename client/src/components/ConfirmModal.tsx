@@ -8,6 +8,7 @@ interface ConfirmModalProps {
   cancelText?: string;
   confirmColor?: "green" | "red";
   open?: boolean;
+  loading?: boolean;
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -18,6 +19,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   cancelText = "Cancel",
   confirmColor = "green",
   open = true,
+  loading = false,
 }) => {
   const confirmVariant = confirmColor === "red" ? "destructive" : "primary";
 
@@ -30,10 +32,10 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
         <p className="text-gray-700">{text}</p>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="outline" onClick={onCancel}>
+        <Button variant="outline" onClick={onCancel} disabled={loading}>
           {cancelText}
         </Button>
-        <Button variant={confirmVariant} onClick={onConfirm}>
+        <Button variant={confirmVariant} onClick={onConfirm} loading={loading}>
           {confirmText}
         </Button>
       </Modal.Footer>
