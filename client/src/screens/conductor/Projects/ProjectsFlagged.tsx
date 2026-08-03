@@ -107,7 +107,7 @@ const ProjectsFlagged = () => {
 
   return (
     <div className="bg-white h-full px-8 pt-8">
-      <Stack direction="row" className="justify-between items-center mb-6">
+      <Stack direction="horizontal" className="justify-between items-center mb-6">
         <Heading level={2}>Flagged Projects</Heading>
       </Stack>
 
@@ -149,6 +149,9 @@ const ProjectsFlagged = () => {
       <div className="border border-gray-200 rounded-lg overflow-hidden">
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <Input
+            name="flagged-projects-search"
+            label="Search flagged projects"
+            labelClassName="sr-only"
             placeholder="Search flagged projects..."
             value={searchString}
             onChange={(e) => setSearchString(e.target.value)}
@@ -160,6 +163,10 @@ const ProjectsFlagged = () => {
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">Displaying</span>
             <Select
+              name="flagged-projects-items-per-page"
+              label="Items per page"
+              labelClassName="sr-only"
+              placeholder="Items per page"
               options={ITEMS_OPTIONS}
               value={String(itemsPerPage)}
               onChange={(e) => {
@@ -199,6 +206,10 @@ const ProjectsFlagged = () => {
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">Displaying</span>
             <Select
+              name="flagged-projects-items-per-page"
+              label="Items per page"
+              labelClassName="sr-only"
+              placeholder="Items per page"
               options={ITEMS_OPTIONS}
               value={String(itemsPerPage)}
               onChange={(e) => {
