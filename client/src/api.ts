@@ -427,6 +427,13 @@ class API {
     return res;
   }
 
+  async getPeerReview(peerReviewID: string) {
+    const res = await axios.get<
+      { review: PeerReview } & ConductorBaseResponse
+    >("/peerreview", { params: { peerReviewID } });
+    return res;
+  }
+
   async submitPeerReview(data: Record<string, unknown>) {
     const res = await axios.post<ConductorBaseResponse>("/peerreview", data);
     return res;
