@@ -117,7 +117,7 @@ const ProjectsCompleted = () => {
 
   return (
     <div className="bg-white h-full px-8 pt-8">
-      <Stack direction="row" className="justify-between items-center mb-6">
+      <Stack direction="horizontal" className="justify-between items-center mb-6">
         <Heading level={2}>Completed Projects</Heading>
       </Stack>
 
@@ -166,6 +166,9 @@ const ProjectsCompleted = () => {
       <div className="border border-gray-200 rounded-lg overflow-hidden">
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <Input
+            name="completed-projects-search"
+            label="Search completed projects"
+            labelClassName="sr-only"
             placeholder="Search completed projects..."
             value={searchString}
             onChange={(e) => setSearchString(e.target.value)}
@@ -177,6 +180,10 @@ const ProjectsCompleted = () => {
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">Displaying</span>
             <Select
+              name="completed-projects-items-per-page"
+              label="Items per page"
+              labelClassName="sr-only"
+              placeholder="Items per page"
               options={ITEMS_OPTIONS}
               value={String(itemsPerPage)}
               onChange={(e) => {
@@ -216,6 +223,10 @@ const ProjectsCompleted = () => {
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">Displaying</span>
             <Select
+              name="completed-projects-items-per-page"
+              label="Items per page"
+              labelClassName="sr-only"
+              placeholder="Items per page"
               options={ITEMS_OPTIONS}
               value={String(itemsPerPage)}
               onChange={(e) => {

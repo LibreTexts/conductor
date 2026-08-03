@@ -50,6 +50,7 @@ const MyProjects = lazyWithRetry(() => import('./screens/conductor/Projects'));
 const ProjectAnalytics = lazyWithRetry(() => import('./screens/conductor/Projects/Analytics'));
 const ProjectPeerReviewSubmit = lazyWithRetry(() => import('./screens/conductor/Projects/PeerReview/submit'));
 const ProjectPeerReviewPreview = lazyWithRetry(() => import('./screens/conductor/Projects/PeerReview/preview'));
+const ProjectPeerReviewView = lazyWithRetry(() => import('./screens/conductor/Projects/PeerReview/view'));
 const ProjectsAvailable = lazyWithRetry(() => import('./screens/conductor/Projects/ProjectsAvailable'));
 const ProjectsCompleted = lazyWithRetry(() => import('./screens/conductor/Projects/ProjectsCompleted'));
 const ProjectsFlagged = lazyWithRetry(() => import('./screens/conductor/Projects/ProjectsFlagged'));
@@ -134,6 +135,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/projects/:id' component={ProjectView} />
           <PrivateRoute exact path='/projects/:id/accessibility' component={ProjectAccessibility} />
           <PrivateRoute exact path='/projects/:id/peerreview' component={ProjectPeerReview} />
+          <PrivateRoute exact path='/projects/:id/peerreview/:peerReviewID' component={ProjectPeerReviewView} />
           <PrivateRoute exact path='/projects/:id/submit-peer-review' component={ProjectPeerReviewSubmit} />
           <PrivateRoute exact path='/projects/:id/preview-peer-review/:rubricID' component={ProjectPeerReviewPreview} />
           <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />

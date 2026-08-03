@@ -41,7 +41,6 @@ import {
 } from '../util/ProjectHelpers';
 
 import Messaging from '../Messaging';
-import PeerReviewView from '../peerreview/PeerReviewView.jsx';
 
 const reviewsSortOptions = [
   { value: 'author', label: 'Sort by Reviewer Name' },
@@ -69,9 +68,6 @@ const ProjectPeerReview = (props) => {
 
   const [canViewDetails, setCanViewDetails] = useState(false);
   const [userProjectMember, setUserProjectMember] = useState(false);
-
-  const [prViewShow, setPRViewShow] = useState(false);
-  const [prViewData, setPRViewData] = useState({});
 
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsAllowAnon, setSettingsAllowAnon] = useState('true');
@@ -181,15 +177,6 @@ const ProjectPeerReview = (props) => {
     setShowDiscussion(!showDiscussion);
     localStorage.setItem('conductor_show_peerdiscussion', !showDiscussion);
   };
-
-  const openReviewViewModal = (peerReview) => {
-    if (typeof peerReview === 'object') {
-      setPRViewData(peerReview);
-      setPRViewShow(true);
-    }
-  };
-
-  const handleCloseReviewView = () => { setPRViewShow(false); setPRViewData({}); };
 
   // Reopen Peer Review Settings when returning from the rubric preview page.
   useEffect(() => {
@@ -443,7 +430,7 @@ const ProjectPeerReview = (props) => {
                                 size="sm"
                                 icon={<IconEye size={15} />}
                                 title="View Review"
-                                onClick={() => openReviewViewModal(item)}
+                                onClick={() => props.history.push(`/projects/${props.match.params.id}/peerreview/${item.peerReviewID}`)}
                               />
                             </div>
                           </li>
@@ -695,13 +682,6 @@ const ProjectPeerReview = (props) => {
           </Button>
         </Modal.Footer>
       </Modal>
-
-      <PeerReviewView
-        open={prViewShow}
-        onClose={handleCloseReviewView}
-        peerReviewData={prViewData}
-        publicView={false}
-      />
     </div>
   );
 };
