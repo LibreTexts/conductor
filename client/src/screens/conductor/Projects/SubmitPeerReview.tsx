@@ -45,7 +45,7 @@ const SubmitPeerReviewPage = () => {
         projectID={projectID}
         resourceTitle={project?.title}
         isPublicView={project?.visibility === "public" && project?.allowAnonPR !== false}
-        redirectPath={projectViewPath}
+        onSuccess={() => history.push(projectViewPath)}
         onCancel={() => history.push(projectViewPath)}
       />
     </div>
