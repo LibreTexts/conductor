@@ -15,6 +15,12 @@
 
   --navbar-height: 3.75rem;
   --footer-height: 5.5rem;
+
+  /* Navbar desktop/mobile switch. Wider than `xl` (1280px) on purpose — the
+     full desktop nav row (logo + 4 links + search + 3 action buttons) needs
+     ~1450px+ to lay out on one line without wrapping/clipping; below that it
+     should already be the hamburger drawer instead of a squeezed desktop row. */
+  --breakpoint-nav: 93.75rem; /* 1500px */
   --main-bottom-padding: 2rem;
   --height-screen-content: calc(100dvh - var(--navbar-height));
   --height-app-viewport: calc(

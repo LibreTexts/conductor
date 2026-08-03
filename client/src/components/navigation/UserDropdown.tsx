@@ -20,7 +20,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
 
   return (
     <Menu>
-      <Menu.Button className="!max-h-[36px] !w-full xl:!w-auto">
+      <Menu.Button className="!max-h-[36px] !w-full nav:!w-auto">
         {showAvatar && <Avatar src={`${user.avatar}`} name={`${user.firstName} ${user.lastName}`} size="xs" />}
         <Text size="sm" className="text-white">
           {user.firstName} {user.lastName}
