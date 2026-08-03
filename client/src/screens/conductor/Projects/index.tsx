@@ -98,7 +98,7 @@ const ProjectsPortal = () => {
 
   return (
     <div className="bg-white h-full px-8 pt-8">
-      <Stack direction="row" className="justify-between items-center mb-6">
+      <Stack direction="horizontal" className="justify-between items-center mb-6">
         <Heading level={2}>My Projects</Heading>
         <Button
           variant="primary"
@@ -110,14 +110,10 @@ const ProjectsPortal = () => {
       </Stack>
 
       {projectCreated && (
-        <Alert variant="success" className="mb-4">
-          Project successfully created!
-        </Alert>
+        <Alert variant="success" message="Project successfully created!" className="mb-4" />
       )}
       {projectDeleted && (
-        <Alert variant="info" className="mb-4">
-          Project successfully deleted.
-        </Alert>
+        <Alert variant="info" message="Project successfully deleted." className="mb-4" />
       )}
 
       {(() => {
@@ -158,6 +154,9 @@ const ProjectsPortal = () => {
       <div className="border border-gray-200 rounded-lg overflow-hidden">
         <div className="flex items-center gap-3 p-4 border-b border-gray-200 bg-gray-50">
           <Input
+            name="my-projects-search"
+            label="Search current projects"
+            labelClassName="sr-only"
             placeholder="Search current projects..."
             value={searchString}
             onChange={(e) => setSearchString(e.target.value)}
