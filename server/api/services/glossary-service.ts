@@ -949,7 +949,7 @@ export default class GlossaryService {
       if (!coverID) {
         throw new GlossaryNotFoundError();
       }
-      const candidateCoverIDs = await this.getCandidateCoverIDs(pageID, library);
+      const candidateCoverIDs = await GlossaryService.getCandidateCoverIDs(pageID, library);
 
       const [glossaryUnsorted, config] = await Promise.all([
         GlossaryUsage.find({
@@ -1024,7 +1024,7 @@ export default class GlossaryService {
    * and every ancestor in the `parent` chain. Falls back to `[pageID]` on error.
    * Used by both getGlossaryPage and getGlossaryDetails to widen their DB match.
    */
-  private async getCandidateCoverIDs(
+  static async getCandidateCoverIDs(
     pageID: number,
     library: string,
   ): Promise<number[]> {
@@ -1056,7 +1056,7 @@ export default class GlossaryService {
     pageID: number,
     library: string,
   ): Promise<GlossaryDetails> {
-    const candidateIds = await this.getCandidateCoverIDs(pageID, library);
+    const candidateIds = await GlossaryService.getCandidateCoverIDs(pageID, library);
     const candidateStrs = candidateIds.map(String);
 
     const pipeline = [
@@ -1108,7 +1108,7 @@ export default class GlossaryService {
     glossaryID: string;
     library: string;
   }> {
-    const candidateIds = await this.getCandidateCoverIDs(pageID, library);
+    const candidateIds = await    GlossaryService.getCandidateCoverIDs(pageID, library);
     const candidateStrs = candidateIds.map(String);
 
     const glossary = await GlossaryUsage.findOne(

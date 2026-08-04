@@ -1,50 +1,71 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Breadcrumb,
   Button,
   Card,
+  Checkbox,
   Heading,
+  IconButton,
+  Modal,
   Select,
+  Spinner,
   Stack,
+  Text,
 } from "@libretexts/davis-react";
 import useProject from "../../../hooks/useProject";
 import { useParams } from "react-router-dom";
 import {
-  BookReferencesData,
+  ReferenceEntry,
   ReferenceFormatType,
   ReferenceFormatTypes,
+  ReferenceFormData,
+  generateCitationKey,
 } from "./model";
-import AddContent from "./AddContent";
+import AddContent from "./ReferenceEntry/AddContent";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../../../api";
 import { useNotifications } from "../../../context/NotificationContext";
+import {
+  DataTable,
+  createColumnHelper,
+} from "@libretexts/davis-react-table";
+import { IconCopy, IconTrash } from "@tabler/icons-react";
+
+const columnHelper = createColumnHelper<ReferenceEntry>();
+const BOOK_REFERENCES_QUERY_KEY = "bookReferencesFormat";
+
+type BookReferencesQueryData = Awaited<
+  ReturnType<typeof api.getBookReferenceDetails>
+>;
 
 const ReferenceManager: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const { addNotification } = useNotifications();
-  const [bookReferencesFormat, setBookReferencesFormat] =
-    useState<BookReferencesData>();
   const [showAddContentModal, setShowAddContentModal] = useState(false);
-
+  const [pendingDelete, setPendingDelete] = useState<ReferenceEntry | null>(
+    null,
+  );
+  const [deleteFromReferences, setDeleteFromReferences] = useState(false);
+  
   const {
     project,
     isLoading: isLoadingProject,
     isError: isErrorProject,
   } = useProject(id ?? "");
 
+  const bookReferencesQueryKey = [BOOK_REFERENCES_QUERY_KEY, id] as const;
+
   const {
-    data: bookReferencesFormatData,
+    data: bookReferencesDetails,
     isLoading: isLoadingBookReferencesFormat,
-    isError: isErrorBookReferencesFormat,
   } = useQuery({
-    queryKey: ["bookReferencesFormat", id],
-    queryFn: () => api.getBookReference(id ?? ""),
+    queryKey: bookReferencesQueryKey,
+    queryFn: () => api.getBookReferenceDetails(id ?? ""),
     enabled: !!id,
-    onSuccess: (data) => {
-      setBookReferencesFormat(data.data);
-    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
     onError: () => {
       addNotification({
         type: "error",
@@ -53,31 +74,322 @@ const ReferenceManager: React.FC = () => {
     },
   });
 
+  const referenceFormat = bookReferencesDetails?.data?.format;
+  const entries = bookReferencesDetails?.data?.entries ?? [];
+
+  const updateBookReferencesCache = (
+    updater: (current: BookReferencesQueryData) => BookReferencesQueryData,
+  ) => {
+    queryClient.setQueryData<BookReferencesQueryData>(
+      bookReferencesQueryKey,
+      (current) => (current ? updater(current) : current),
+    );
+  };
+
   const { mutate: updateFormat, isPending: isUpdatingFormat } = useMutation({
     mutationFn: (format: ReferenceFormatType) =>
       api.updateBookReferenceFormat(id ?? "", { format }),
-    onMutate: (format) => {
-      setBookReferencesFormat({ format });
+    onMutate: async (format) => {
+      await queryClient.cancelQueries({ queryKey: bookReferencesQueryKey });
+      const previous = queryClient.getQueryData<BookReferencesQueryData>(
+        bookReferencesQueryKey,
+      );
+      updateBookReferencesCache((current) => ({
+        ...current,
+        data: { ...current.data, format },
+      }));
+      return { previous };
     },
     onSuccess: (data, format) => {
-      setBookReferencesFormat(data.data);
-      queryClient.setQueryData(["bookReferencesFormat", id], data);
+      updateBookReferencesCache((current) => ({
+        ...current,
+        data: { ...current.data, format: data.data.format },
+      }));
       addNotification({
         type: "success",
         message:
           "Book references format updated successfully with format: " + format,
       });
     },
-    onError: () => {
+    onError: (_error, _format, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(bookReferencesQueryKey, context.previous);
+      }
       addNotification({
         type: "error",
         message: "Error updating book references format",
       });
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["bookReferencesFormat", id] });
+  });
+
+  const appendEntriesToCache = (entriesToAdd: ReferenceEntry[]) => {
+    if (entriesToAdd.length === 0) return;
+
+    updateBookReferencesCache((current) => {
+      const existing = current.data.entries ?? [];
+      const existingIds = new Set(existing.map((entry) => entry.referenceID));
+      return {
+        ...current,
+        data: {
+          ...current.data,
+          entries: [
+            ...existing,
+            ...entriesToAdd.filter(
+              (entry) => !existingIds.has(entry.referenceID),
+            ),
+          ],
+        },
+      };
+    });
+  };
+
+  const removeEntryFromCache = (referenceID: string) => {
+    updateBookReferencesCache((current) => ({
+      ...current,
+      data: {
+        ...current.data,
+        entries: (current.data.entries ?? []).filter(
+          (entry) => entry.referenceID !== referenceID,
+        ),
+      },
+    }));
+  };
+
+  const { mutateAsync: addReference } = useMutation({
+    mutationFn: (data: ReferenceFormData) =>
+      api.addBookReference(id ?? "", data),
+    onSuccess: (response, data) => {
+      if (response.err || !response.data) return;
+      appendEntriesToCache([
+        {
+          ...data,
+          referenceID: response.data.referenceID,
+          citationKey: response.data.citationKey,
+          projectID: id,
+        },
+      ]);
+      addNotification({
+        type: "success",
+        message: "Reference added successfully",
+      });
+    },
+    onError: () => {
+      addNotification({
+        type: "error",
+        message: "Error adding reference",
+      });
     },
   });
+
+  const { mutateAsync: addExistingReferencesMutation } = useMutation({
+    mutationFn: (entries: ReferenceEntry[]) =>
+      api.addReferencesToProject(
+        id ?? "",
+        entries.map((entry) => entry.referenceID),
+      ),
+    onSuccess: (response, entries) => {
+      if (response.err) return;
+      appendEntriesToCache(entries);
+      addNotification({
+        type: "success",
+        message: "References added successfully",
+      });
+    },
+    onError: () => {
+      addNotification({
+        type: "error",
+        message: "Error adding references",
+      });
+    },
+  });
+
+  const { mutate: deleteReference, isPending: isDeleting } = useMutation({
+    mutationFn: ({
+      referenceID,
+      deleteFromReferences: permanentlyDelete,
+    }: {
+      referenceID: string;
+      deleteFromReferences: boolean;
+    }) =>
+      api.deleteBookReference(id ?? "", referenceID, permanentlyDelete),
+    onSuccess: (_data, variables) => {
+      removeEntryFromCache(variables.referenceID);
+      setPendingDelete(null);
+      setDeleteFromReferences(false);
+      addNotification({
+        type: "success",
+        message: variables.deleteFromReferences
+          ? "Reference permanently deleted"
+          : "Reference removed from project",
+      });
+    },
+    onError: () => {
+      addNotification({
+        type: "error",
+        message: "Error deleting reference",
+      });
+    },
+  });
+
+  const handleAddReference = async (
+    data: ReferenceFormData,
+  ): Promise<boolean> => {
+    if (!id) {
+      addNotification({
+        type: "error",
+        message: "Project ID is required",
+      });
+      return false;
+    }
+    try {
+      const entry = data.citationKey.trim()
+        ? data
+        : { ...data, citationKey: generateCitationKey(data) };
+      const response = await addReference(entry);
+      return !response.err;
+    } catch {
+      return false;
+    }
+  };
+
+  const { mutateAsync: addBookPageAsReferenceMutation } = useMutation({
+    mutationFn: (data: { bookID: string; pageID: string }) =>
+      api.addBookPageAsReference(id ?? "", data),
+    onSuccess: (response) => {
+      if (response.err || !response.data) return;
+      appendEntriesToCache([
+        {
+          referenceID: response.data.referenceID,
+          citationKey: response.data.citationKey,
+          entryType: "misc",
+          author: response.data.author,
+          title: response.data.title,
+          year: response.data.year,
+          url: response.data.url,
+          projectID: id,
+        },
+      ]);
+      addNotification({
+        type: "success",
+        message: "Reference added successfully",
+      });
+    },
+    onError: () => {
+      addNotification({ type: "error", message: "Error adding reference" });
+    },
+  });
+
+  const handleAddBookPageAsReference = async (data: {
+    bookID: string;
+    pageID: string;
+  }): Promise<boolean> => {
+    if (!id) {
+      addNotification({
+        type: "error",
+        message: "Project ID is required",
+      });
+      return false;
+    }
+    try {
+      const response = await addBookPageAsReferenceMutation(data);
+      return !response.err;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleAddExistingReferences = async (
+    entries: ReferenceEntry[],
+  ): Promise<boolean> => {
+    if (!id) {
+      addNotification({
+        type: "error",
+        message: "Project ID is required",
+      });
+      return false;
+    }
+    try {
+      const response = await addExistingReferencesMutation(entries);
+      return !response.err;
+    } catch {
+      return false;
+    }
+  };
+
+  const openDeleteDialog = (entry: ReferenceEntry) => {
+    setPendingDelete(entry);
+    setDeleteFromReferences(false);
+  };
+
+  const confirmDelete = () => {
+    if (!pendingDelete || !id) return;
+    const isOwned = pendingDelete.projectID === id;
+    deleteReference({
+      referenceID: pendingDelete.referenceID,
+      deleteFromReferences: isOwned ? deleteFromReferences : false,
+    });
+  };
+
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor("citationKey", {
+        header: "Citation key",
+        size: 160,
+      }),
+      columnHelper.accessor("entryType", {
+        header: "Type",
+        size: 120,
+      }),
+      columnHelper.accessor("author", {
+        header: "Author",
+        size: 180,
+        cell: (info) => info.getValue() || "—",
+      }),
+      columnHelper.accessor("title", {
+        header: "Title",
+        size: 280,
+        cell: (info) => info.getValue() || "—",
+      }),
+      columnHelper.accessor("year", {
+        header: "Year",
+        size: 80,
+        cell: (info) => info.getValue() || "—",
+      }),
+      columnHelper.display({
+        id: "actions",
+        header: () => <span className="block w-full text-right">Actions</span>,
+        size: 80,
+        cell: ({ row }) => (
+          <Stack direction="horizontal" gap="xs" className="justify-end">
+            <IconButton
+              name="copy-citation-key"
+              title="Copy citation key to clipboard"
+              aria-label={`Copy citation key to clipboard as \librecite{${row.original.citationKey}}`}
+              variant="primary"
+              size="sm"
+              icon={<IconCopy />}
+              onClick={() => {
+                navigator.clipboard.writeText(`\\librecite{${row.original.citationKey}}`);
+                addNotification({ type: "success", message: "Citation key copied to clipboard" });
+              }}
+            />
+            <IconButton
+              name="Delete"
+              title="Remove reference"
+              aria-label={`Remove ${row.original.citationKey}`}
+              variant="primary"
+              size="sm"
+              icon={<IconTrash />}
+              onClick={() => openDeleteDialog(row.original)}
+            />
+          </Stack>
+        ),
+      }),
+    ],
+    [],
+  );
+
+  const pendingIsOwned = !!pendingDelete && pendingDelete.projectID === id;
 
   return (
     <Stack direction="vertical" gap="md" className="py-8 px-16">
@@ -99,45 +411,125 @@ const ReferenceManager: React.FC = () => {
       {!isLoadingProject && !isErrorProject && (
         <Card variant="elevated">
           <Card.Body>
-            <Stack direction="horizontal" gap="md" align="end">
-              <Select 
-                className="w-full"
-                name="bookReferencesFormat"
-                label="Book References Format"
-                labelClassName="w-full"
-                options={ReferenceFormatTypes.map((format) => ({
-                  label: format,
-                  value: format,
-                }))}
-                placeholder="Select a format"
-                value={bookReferencesFormat?.format ?? undefined}
-                disabled={isUpdatingFormat || !id}
-                onChange={(e) => {
-                  const format = e.target.value as ReferenceFormatType;
-                  if (!format || !id) return;
-                  updateFormat(format);
-                }}
-              />
-              <Button
-                onClick={() => setShowAddContentModal(true)}
-                disabled={
-                  isUpdatingFormat || !id || !bookReferencesFormat?.format
-                }
-                variant="primary"
-                className="shrink-0"
-              >
-                Add Entry
-              </Button>
+            <Stack direction="vertical" gap="md">
+              <Stack direction="horizontal" gap="md" align="end">
+                <Select
+                  className="w-full"
+                  name="bookReferencesFormat"
+                  label="Book References Format"
+                  labelClassName="w-full"
+                  options={ReferenceFormatTypes.map((format) => ({
+                    label: format,
+                    value: format,
+                  }))}
+                  placeholder="Select a format"
+                  value={referenceFormat ?? ""}
+                  disabled={isUpdatingFormat || !id}
+                  onChange={(e) => {
+                    const format = e.target.value as ReferenceFormatType;
+                    if (!format || !id || format === referenceFormat) return;
+                    updateFormat(format);
+                  }}
+                />
+                <Button
+                  onClick={() => setShowAddContentModal(true)}
+                  disabled={isUpdatingFormat || !id || !referenceFormat}
+                  variant="primary"
+                  className="shrink-0"
+                >
+                  Add Reference
+                </Button>
+              </Stack>
+
+             
             </Stack>
           </Card.Body>
         </Card>
       )}
+       {isLoadingBookReferencesFormat ? (
+                <Spinner />
+              ) : entries.length === 0 ? (
+                <Text size="sm" className="text-neutral-500">
+                  No references yet. Add an entry to get started.
+                </Text>
+              ) : (
+                <DataTable<ReferenceEntry>
+                  data={entries}
+                  columns={columns}
+                  stickyHeader
+                  striped
+                  bordered
+                  density="compact"
+                  maxHeight="calc(100vh - 320px)"
+                  classNames={{
+                    table: "table-fixed w-full",
+                    cell: "!whitespace-normal min-w-0 break-words",
+                  }}
+                />
+              )}
       <AddContent
         open={showAddContentModal}
         onClose={() => setShowAddContentModal(false)}
-        onAdd={() => {}}
-        referenceFormat={bookReferencesFormat?.format}
+        onAdd={handleAddReference}
+        addExistingReferences={handleAddExistingReferences}
+        onAddBookPageAsReference={handleAddBookPageAsReference}
+        referenceFormat={referenceFormat}
+        projectID={id ?? ""}
       />
+
+      <Modal
+        open={!!pendingDelete}
+        onClose={() => {
+          if (isDeleting) return;
+          setPendingDelete(null);
+          setDeleteFromReferences(false);
+        }}
+        size="sm"
+      >
+        <Modal.Header>
+          <Modal.Title>Remove reference</Modal.Title>
+          <Modal.Close aria-label="Close" />
+        </Modal.Header>
+        <Modal.Body>
+          <Stack direction="vertical" gap="md">
+            <Text size="sm">
+              Remove{" "}
+              <span className="font-semibold">
+                {pendingDelete?.citationKey}
+              </span>{" "}
+              from this project?
+            </Text>
+            {pendingIsOwned && (
+              <Checkbox
+                name="deleteFromReferences"
+                label="Also permanently delete this reference (owned by this project)"
+                checked={deleteFromReferences}
+                onChange={(checked) => setDeleteFromReferences(checked === true)}
+              />
+            )}
+          </Stack>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setPendingDelete(null);
+              setDeleteFromReferences(false);
+            }}
+            disabled={isDeleting}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={confirmDelete}
+            loading={isDeleting}
+            disabled={isDeleting}
+          >
+            Remove
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Stack>
   );
 };
