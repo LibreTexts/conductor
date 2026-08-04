@@ -123,7 +123,7 @@ import {
   GlossaryConfigMode,
   GlossaryConfigGroup,
 } from "./screens/commons/Glossary/model";
-import { ReferenceFormatType } from "./components/projects/References/model";
+import { BookSearchProps, ReferenceEntry, ReferenceFormatType, ReferenceFormData } from "./components/projects/References/model";
 
 /**
  * @fileoverview
@@ -3299,12 +3299,91 @@ class API {
     return res.data;
   }
 
-  async getBookReference(projectID: string) {
+  async getBookReferenceDetails(projectID: string) {
     const res = await axios.get<
       {
-        data: { format: ReferenceFormatType };
+        data: {
+          format: ReferenceFormatType;
+          entries: ReferenceEntry[];
+        };
       } & ConductorBaseResponse
     >(`/projects/${projectID}/reference`);
+    return res.data;
+  }
+
+  async addBookReference(projectID: string, data: ReferenceFormData) {
+    const res = await axios.put<
+      {
+        data: { referenceID: string; citationKey: string };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, { entry: data });
+    return res.data;
+  }
+
+  async getSearchReferences(projectID: string, query: string) {
+    const res = await axios.get<
+      {
+        data: { references: ReferenceEntry[] };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/search`, {
+      params: { query },
+    });
+    return res.data;
+  }
+
+  async deleteBookReference(
+    projectID: string,
+    referenceID: string,
+    deleteFromReferences: boolean,
+  ) {
+    const res = await axios.delete<
+      {
+        data: { referenceID: string; citationKey: string };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, {
+      data: { referenceID, deleteFromReferences },
+    });
+    return res.data;
+  }
+
+  async addReferencesToProject(projectID: string, referenceIDs: string[]) {
+    const res = await axios.patch<
+      {
+        data: { status: boolean; added: ReferenceEntry[] };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, { referenceIDs });
+    return res.data;
+  }
+
+  async addExistingReferencesToProject(projectID: string, referenceIDs: string[]) {
+    const res = await axios.patch<
+      {
+        data: { status: boolean; added: ReferenceEntry[] };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/existing`, { referenceIDs });
+    return res.data;
+  }
+
+  async getReferenceTOC(
+    projectID: string,
+    query: { toc: boolean; bookID: string },
+  ) {
+    const res = await axios.get<
+      {
+        toc: TableOfContents;
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/book`, {
+      params: query,
+    });
+    return res.data;
+  }
+
+  async addBookPageAsReference(projectID: string, data: { bookID: string; pageID: string }) {
+    const res = await axios.post<
+      {
+        data: { referenceID: string; citationKey: string, author: string, title: string, year: string, url: string , };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/book`, { ...data });
     return res.data;
   }
 }

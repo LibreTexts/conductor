@@ -23,8 +23,14 @@ export const ReferenceFormatTypes: ReferenceFormatType[] = [
   "ANSI",
 ];
 
+export type SelectedReference = {
+  referenceID: string;
+  citationKey: string;
+} ;
+
 export type BookReferencesData = {
   format: ReferenceFormatType | undefined;
+  entries?: ReferenceEntry[];
 };
 
 /** Supported BibTeX entry kinds. */
@@ -70,6 +76,14 @@ export type ReferenceFieldKey =
   | "school"
   | "type"
   | "urldate";
+
+/** A saved bibliographic reference returned by the project references API. */
+export type ReferenceEntry = {
+  referenceID: string;
+  citationKey: string;
+  entryType: EntryType;
+  projectID?: string;
+} & Partial<Omit<Record<ReferenceFieldKey, string>, "citationKey">>;
 
 export type ReferenceFormData = Partial<Record<ReferenceFieldKey, string>> & {
   entryType: EntryType;
@@ -572,3 +586,11 @@ export function formatCitationPreview(
 }
 
 
+export type BookSearchProps = {
+  searchQuery: string;
+  self:boolean;
+};
+export const defaultBookSearchProps: BookSearchProps = {
+  searchQuery: "",
+  self: false,
+};

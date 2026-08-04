@@ -75,6 +75,7 @@ import * as RestackerValidators from "./api/validators/Restacker.js";
 import restackerAPI from "./api/restacker.js";
 import * as ReferenceValidators from "./api/validators/Reference.js";
 import referenceAPI from "./api/reference.js";
+import { generateAPIRequestHeaders } from "./util/librariesclient.js";
 
 const corsMiddleware = cors({
   origin(origin, callback) {
@@ -3620,7 +3621,7 @@ router.route('/projects/:projectID/reference')
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   middleware.validateZod(ReferenceValidators.GetReferencePageSchema),
-  referenceAPI.getReferenceFormat
+  referenceAPI.getReferenceDetails
 )
 .post(
   authAPI.verifyRequest,
@@ -3630,8 +3631,52 @@ router.route('/projects/:projectID/reference')
 ).put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  middleware.validateZod(ReferenceValidators.updateReferenceEntrySchema),
-  referenceAPI.updateReferenceFormat
+  middleware.validateZod(ReferenceValidators.UpdateReferenceEntrySchema),
+  referenceAPI.updateReferenceEntry
+).delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.DeleteReferenceEntrySchema),
+  referenceAPI.deleteReferenceEntry
+)
+.patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.AddReferenceEntrySchema),
+  referenceAPI.addReferenceEntry
 );
+
+
+
+router.route('/projects/:projectID/reference/search').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.SearchReferencesValidator),
+  referenceAPI.searchReferences
+);
+
+router.route('/projects/:projectID/reference/book').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.tocValidator),
+  referenceAPI.getBookToc
+).post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.BookAsReferenceValidator),
+  referenceAPI.addBookPageAsReference
+);
+
+router.route("/reference/page/:pageID/library/:library").get(
+
+  middleware.validateZod(ReferenceValidators.GetReferencePageByPageIDAndLibrarySchema),
+  referenceAPI.getReferancePageDetails
+);
+
+router.route("/reference/projects/:projectID").get(
+  middleware.validateZod(ReferenceValidators.GetReferenceProjectsSchema),
+  referenceAPI.getReferenceItems
+);
+
 
 export default router;
