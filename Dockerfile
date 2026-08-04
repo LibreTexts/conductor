@@ -5,9 +5,12 @@ WORKDIR /usr/src/conductor/client
 # Install git (needed for git dependencies in package.json)
 RUN apk add --no-cache git
 
-# Copy package.json only (let npm resolve dependencies for Linux)
-COPY client/package.json ./
-RUN npm install --no-audit
+# Copy manifest + lockfile and install the exact, committed tree.
+# npm install (no lockfile) crashes here on this image's npm 10.9.8 while
+# resolving peers from scratch; npm ci follows the committed lockfile and avoids
+# that resolver path entirely (and gives reproducible builds).
+COPY client/package.json client/package-lock.json ./
+RUN npm ci --no-audit
 
 # Copy source and build
 COPY client/ ./
@@ -17,9 +20,9 @@ RUN npm run build
 FROM node:22-alpine3.22 AS server-builder
 WORKDIR /usr/src/conductor/server
 
-# Copy package.json only (let npm resolve dependencies for Linux)
-COPY server/package.json ./
-RUN npm install --no-audit
+# Copy manifest + lockfile and install the exact, committed tree (see client note)
+COPY server/package.json server/package-lock.json ./
+RUN npm ci --no-audit
 
 # Copy source and build
 COPY server/ ./
@@ -48,9 +51,9 @@ LABEL org.opencontainers.image.title="LibreTexts Conductor" \
 
 WORKDIR /usr/src/conductor/server
 
-# Copy package.json only and install ONLY production dependencies
-COPY server/package.json ./
-RUN npm install --no-audit --omit=dev && \
+# Copy manifest + lockfile and install ONLY production dependencies (see client note)
+COPY server/package.json server/package-lock.json ./
+RUN npm ci --no-audit --omit=dev && \
     npm cache clean --force
 
 # Copy built artifacts from previous stages
