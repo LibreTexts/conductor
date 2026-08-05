@@ -555,7 +555,8 @@ const handleDeletedPage = async (
   subdomain: string,
 ): Promise<void> => {
   const pageId = page["@id"];
-  if (!pageId || pageId.startsWith("new-")) return;
+  const isImported = pageId?.split("-").length === 3;
+  if (!pageId || pageId.startsWith("new-") || isImported) return;
 
   const pid = parseInt(pageId, 10);
   if (Number.isNaN(pid)) return;
@@ -679,9 +680,11 @@ const handleModifiedPage = async (
       await bookService.updatePageDetails(pageId, undefined, [
         "article:topic-guide",
       ]);
+      await bookService.activateShowOrg(pageId, true);
       page.article = "topic-guide";
     } else {
       await bookService.updatePageDetails(pageId, undefined, ["article:topic"]);
+      await bookService.activateShowOrg(pageId, false);
       page.article = "article";
     }
   }
@@ -859,6 +862,7 @@ const handleImportedPage = async (
   subdomain: string,
   copyModeState: RemixerCopyMode,
   hasChildren: boolean,
+  coverId?: string,
 ): Promise<{ pageID: string; pageURI: string }> => {
   const sourceUri = getRemixerPageUriUi(page);
   const sourceSubdomain = extractLibretextsSubdomain(sourceUri);
@@ -878,6 +882,7 @@ const handleImportedPage = async (
     parent,
     title,
     subdomain,
+    coverId,
   );
 
   let contentsBody: string;
@@ -897,12 +902,15 @@ const handleImportedPage = async (
       pageId: sourceId,
       fallbackUri: sourceUri,
     });
-    if (resolvedSource.sourceSubdomain === sourceSubdomain) {
+
+    if (resolvedSource.sourceSubdomain === subdomain) {
+      const trimmedSourceUri = extractPagePath(resolvedSource.sourceUri);
       contentsBody = RemixerTemplates.POST_TranscludeSameLibrary(
-        resolvedSource.sourceUri,
+        trimmedSourceUri,
         [],
       );
-    } else {
+    }
+    else{
       contentsBody = RemixerTemplates.POST_TranscludeCrossLibrary(
         resolvedSource.sourceSubdomain,
         resolvedSource.sourceId,
@@ -1404,6 +1412,7 @@ const runRemixerJob = async ({
                   subdomain,
                   copyModeState,
                   hasSubpages(page, pages),
+                  coverId,
                 ),
               { onRetry: logRetry },
             );
