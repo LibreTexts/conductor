@@ -759,16 +759,26 @@ const resolveTranscludeSource = async ({
   subdomain,
   pageId,
   fallbackUri,
+  visited = new Set<string>(),
 }: {
   subdomain: string;
   pageId: number;
   fallbackUri: string;
+  /** Guards against cyclic transclusion chains (A→B→A, or a page reusing itself). */
+  visited?: Set<string>;
 }): Promise<{
   sourceSubdomain: string;
   sourceId: number;
   sourceUri: string;
 }> => {
   const fallback = { sourceSubdomain: subdomain, sourceId: pageId, sourceUri: fallbackUri };
+
+  // Stop if we've already resolved this page in the current chain (cycle) or
+  // the chain is unreasonably deep — either way, treat the current page as the
+  // source rather than recursing forever.
+  const visitKey = `${subdomain}:${pageId}`;
+  if (visited.has(visitKey) || visited.size >= 20) return fallback;
+  visited.add(visitKey);
 
   const sourceHeaders = await generateAPIRequestHeaders(subdomain);
   const rawRes = await CXOneFetch({
@@ -812,6 +822,7 @@ const resolveTranscludeSource = async ({
       subdomain: nestedSubdomain,
       pageId: nestedId,
       fallbackUri: nestedUri,
+      visited,
     });
   }
 
@@ -845,6 +856,7 @@ const resolveTranscludeSource = async ({
     subdomain,
     pageId: resolvedId,
     fallbackUri: resolvedUri,
+    visited,
   });
 };
 
