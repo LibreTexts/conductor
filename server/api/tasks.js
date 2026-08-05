@@ -373,7 +373,7 @@ const updateTask = (req, res) => {
         if (Object.keys(updateObj).length > 0) {
             doUpdate = true;
             return Task.updateOne({
-                taskID: task.taskID
+                taskID: { $eq: task.taskID }
             }, updateObj);
         } else return {};
     }).then((updateRes) => {
@@ -1281,13 +1281,13 @@ const getTaskProjectAndCheckPermission = (taskID, user) => {
     let project = {};
     return new Promise((resolve, reject) => {
         resolve(Task.findOne({
-            taskID: taskID
+            taskID: { $eq: taskID }
         }).lean());
     }).then((taskData) => {
         if (taskData) {
             task = taskData;
             return Project.findOne({
-                projectID: taskData.projectID
+                projectID: { $eq: taskData.projectID }
             }).lean();
         } else throw(new Error('notfound'));
     }).then((projectData) => {

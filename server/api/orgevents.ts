@@ -424,7 +424,7 @@ async function submitRegistration(
 
     // This should always be found because even registering for self will have registeredBy populated
     const foundRegisteredBy = await User.findOne({
-      uuid: registeredBy,
+      uuid: { $eq: registeredBy },
     })
       .lean()
       .orFail({ name: "Not Found", message: "Registering user not found." });
@@ -1244,7 +1244,7 @@ async function _syncOrgEventParticipantsToProject(
 
     const foundEvent = await OrgEvent.findOne({
       orgID: process.env.ORG_ID,
-      eventID,
+      eventID: { $eq: eventID },
     }).orFail();
 
     // If no projectSyncID, then no need to sync
@@ -1298,7 +1298,7 @@ async function _syncOrgEventParticipantsToProject(
 
     // Add users to project
     const updateRes = await Project.updateOne(
-      { projectID: foundProject.projectID },
+      { projectID: { $eq: foundProject.projectID } },
       { $addToSet: { members: [...filteredUUIDs] } }
     );
     if (updateRes.modifiedCount !== 1) {

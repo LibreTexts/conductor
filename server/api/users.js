@@ -18,7 +18,7 @@ import { getPaginationOffset } from '../util/helpers.js';
  */
 const getBasicUserInfo = (req, res) => {
     User.findOne({
-        uuid: req.decoded.uuid
+        uuid: { $eq: req.decoded.uuid }
     }, {
         _id: 0,
         uuid: 1,
@@ -205,7 +205,7 @@ async function getUserFromCentralID(req, res) {
  */
 async function checkVerifiedInstructorStatus(uuid) {
     if (uuid) {
-        const user = await User.findOne({ uuid }).lean();
+        const user = await User.findOne({ uuid: { $eq: uuid } }).lean();
         const verified = !!user.verifiedInstructor;
         let isSuperAdmin = false;
         if (Array.isArray(user.roles)) {
@@ -609,7 +609,7 @@ async function getAuthorizedApplications(req, res) {
  */
 async function addUserAuthorizedApplication(uuid, clientID) {
   if (uuid && clientID) {
-    const foundUser = await User.findOne({ uuid }).lean();
+    const foundUser = await User.findOne({ uuid: { $eq: uuid } }).lean();
     if (foundUser) {
       let authorized = [];
       if (Array.isArray(foundUser.authorizedApps)) {
@@ -628,7 +628,7 @@ async function addUserAuthorizedApplication(uuid, clientID) {
           authorizedAt: now,
         });
       }
-      const updated = await User.updateOne({ uuid }, {
+      const updated = await User.updateOne({ uuid: { $eq: uuid } }, {
         authorizedApps: authorized,
       });
       if (updated.modifiedCount === 1) {
@@ -649,7 +649,7 @@ async function removeUserAuthorizedApplication(req, res) {
     try {
         const { clientID } = req.params;
         await User.updateOne(
-            { uuid: req.user.decoded.uuid },
+            { uuid: { $eq: req.user.decoded.uuid } },
             { $pull: { authorizedApps: { clientID } } },
         );
         return res.send({

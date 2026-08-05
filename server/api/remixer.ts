@@ -264,7 +264,7 @@ const publishRemixerProject = async (
     req.body;
   const actorUUID = req.user?.decoded?.uuid ?? "";
   const existingJob = await PrejectRemixerJob.findOne({
-    projectID: id,
+    projectID: { $eq: id },
     status: { $in: ["pending", "running"] },
   });
   if (existingJob) {
@@ -419,7 +419,7 @@ const getRemixerProjectState = async (
     .exec();
   // find user by updatedBy
   const updatedByUser = await User.findOne(
-    { uuid: remixerState?.updatedBy },
+    { uuid: { $eq: remixerState?.updatedBy } },
     { name: 1, email: 1, _id: 0 },
   );
 

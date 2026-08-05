@@ -249,8 +249,8 @@ const getAlert = (req, res) => {
  */
 const deleteAlert = (req, res) => {
   return Alert.deleteOne({
-    alertID: req.body.alertID,
-    user: req.decoded.uuid
+    alertID: { $eq: req.body.alertID },
+    user: { $eq: req.decoded.uuid }
   }).then((deleteRes) => {
     if (deleteRes.deletedCount === 1) {
       return res.send({

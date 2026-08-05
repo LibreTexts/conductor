@@ -281,7 +281,7 @@ async function createAnalyticsInvite(req, res) {
     }
 
     const sender = await User.findOne(
-      { uuid: req.user.decoded.uuid },
+      { uuid: { $eq: req.user.decoded.uuid } },
       { firstName: 1, lastName: 1 },
     ).lean();
 
@@ -1135,7 +1135,7 @@ async function completeAnalyticsAccessRequest(req, res) {
       });
     }
 
-    const analyticsCourse = await AnalyticsCourse.findOne({ courseID: foundRequest.courseID }).lean();
+    const analyticsCourse = await AnalyticsCourse.findOne({ courseID: { $eq: foundRequest.courseID } }).lean();
     if (!analyticsCourse) {
       return res.status(400).send({
         err: true,
@@ -1143,7 +1143,7 @@ async function completeAnalyticsAccessRequest(req, res) {
       });
     }
 
-    const requester = await User.findOne({ uuid: foundRequest.requester }, {
+    const requester = await User.findOne({ uuid: { $eq: foundRequest.requester } }, {
       email: 1,
       firstName: 1,
     }).lean();
@@ -1173,7 +1173,7 @@ async function completeAnalyticsAccessRequest(req, res) {
     };
     const requestUpdateObj = { status: isApproved ? 'approved' : 'denied' };
 
-    const courseUpdate = await AnalyticsCourse.updateOne({ courseID: foundRequest.courseID }, courseUpdateObj);
+    const courseUpdate = await AnalyticsCourse.updateOne({ courseID: { $eq: foundRequest.courseID } }, courseUpdateObj);
     if (!courseUpdate.acknowledged) {
       throw (new Error('Course update failed.'));
     }
@@ -1272,7 +1272,7 @@ async function acceptAnalyticsInvite(req, res) {
     }
 
     const courseUpdate = await AnalyticsCourse.updateOne(
-      { courseID: invite.courseID },
+      { courseID: { $eq: invite.courseID } },
       { instructors, viewers },
     );
     if (!courseUpdate.acknowledged) {
@@ -1288,8 +1288,8 @@ async function acceptAnalyticsInvite(req, res) {
     }
 
     const [sender, invitee] = await Promise.all([
-      User.findOne({ uuid: invite.sender }).lean(),
-      User.findOne({ uuid: invite.invitee }).lean(),
+      User.findOne({ uuid: { $eq: invite.sender } }).lean(),
+      User.findOne({ uuid: { $eq: invite.invitee } }).lean(),
     ]);
     mailAPI.sendAnalyticsInviteAccepted(
       { firstName: sender.firstName, email: sender.email },
@@ -1454,13 +1454,13 @@ async function deleteAnalyticsAccessRequest(req, res) {
     }
 
     if (deleteCourse) {
-      const courseDeletion = await AnalyticsCourse.deleteOne({ courseID: foundRequest.courseID });
+      const courseDeletion = await AnalyticsCourse.deleteOne({ courseID: { $eq: foundRequest.courseID } });
       if (courseDeletion.deletedCount !== 1) {
         console.warn(`Error occurred deleting course ${foundRequest.courseID}`);
       }
     }
 
-    const deletion = await AnalyticsRequest.deleteOne({ _id: requestID });
+    const deletion = await AnalyticsRequest.deleteOne({ _id: { $eq: requestID } });
     if (!deletion.acknowledged) {
       throw (new Error('Error deleting request.'));
     }
@@ -1505,7 +1505,7 @@ async function deleteAnalyticsInvite(req, res) {
 
     // Check user has permission to delete invite, if not invitee
     if (req.user.decoded.uuid !== invite.invitee) {
-      const course = await AnalyticsCourse.findOne({ courseID: invite.courseID }).lean();
+      const course = await AnalyticsCourse.findOne({ courseID: { $eq: invite.courseID } }).lean();
       if (!course) {
         return res.status(400).send({
           err: true,

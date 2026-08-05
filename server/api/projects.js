@@ -177,7 +177,7 @@ async function _createProjectInternal(projectData) {
 async function deleteProjectInternal(projectID) {
   try {
     const proj = await Project.findOneAndDelete({
-      projectID,
+      projectID: { $eq: projectID },
     });
     if (!proj) {
       // findOneAndDelete returns deleted document
@@ -188,12 +188,12 @@ async function deleteProjectInternal(projectID) {
     const threads = await Thread.find({ project: projectID }).lean();
     if (threads.length > 0) {
       await Promise.allSettled(threads.map((t) => Message.deleteMany({
-        thread: t.threadID,
+        thread: { $eq: t.threadID },
       })));
     }
     // </delete threads and messages>
 
-    await Task.deleteMany({ projectID });
+    await Task.deleteMany({ projectID: { $eq: projectID } });
 
     // <delete files>
     const allFiles = await ProjectFile.find({
@@ -489,7 +489,7 @@ async function getProject(req, res) {
     and pass it to the permission check */
     let foundUser;
     if(req.user?.decoded?.uuid){
-      foundUser = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+      foundUser = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } }).lean();
     }
 
     if (!checkProjectGeneralPermission(projResult, foundUser ?? undefined)) {
@@ -1253,7 +1253,7 @@ const getUserFlaggedProjects = (req, res) => {
         }]
     }];
     User.findOne({
-        uuid: req.decoded.uuid
+        uuid: { $eq: req.decoded.uuid }
     }).lean().then((user) => {
         if (user) {
             if (user.roles && Array.isArray(user.roles)) {
@@ -1444,7 +1444,7 @@ const getUserPinnedProjects = async (req, res) => {
  * @param {express.Response} res - Outgoing response object.
  */
 async function getRecentProjects(req, res) {
-  const user = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+  const user = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } }).lean();
   if (!user) {
     return res.send({
       err: true,
@@ -1880,7 +1880,7 @@ async function addMemberToProject(req, res) {
     }
 
     const updateRes = await Project.updateOne(
-      { projectID },
+      { projectID: { $eq: projectID } },
       { $addToSet: { members: uuid } },
     );
     if (updateRes.modifiedCount !== 1) {
@@ -2275,11 +2275,18 @@ async function removeMemberFromProject(req, res) {
       await updateTeamWorkbenchPermissions(projectID, subdomain, project.libreCoverID)
     }
 
-    const user = await User.findOne({ uuid }); 
+    const user = await User.findOne({ uuid: { $eq: uuid } }).lean(); 
+    if (!user) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err7,
+      });
+    }
+    
     // Delete the invitation for the removed user from the project
     await ProjectInvitation.deleteOne({
-      projectID,
-      email: user.email,
+      projectID: { $eq: projectID },
+      email: { $eq: user.email },
     });
 
     return res.send({
@@ -2837,7 +2844,7 @@ const importA11YSectionsFromTOC = async (req, res) => {
             }
 
             const updateRes = await Project.updateOne({
-                projectID: projectData.projectID
+                projectID: { $eq: projectData.projectID }
             }, {
                 $set: {
                     a11yReview: pageObjs
@@ -3063,7 +3070,7 @@ async function updateProjectBookReaderResources(req, res) {
   try {
     const newResources = req.body.readerResources;
     const projectID = req.params.projectID;
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
@@ -3976,7 +3983,7 @@ const getProjectToc = async (req, res) => {
   try {
     const projectID = req.params.projectID;
     const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: userID }).orFail();
+    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
     const project = await Project.findOne({ projectID :{$eq: projectID}}).lean();
     if (!project) {
       return res.status(404).send({

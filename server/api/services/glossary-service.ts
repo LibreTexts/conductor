@@ -138,7 +138,7 @@ export default class GlossaryService {
       }
       const project = await Project.findOne({
         libreCoverID: glossary.coverID.toString(),
-        libreLibrary: glossary.library,
+        libreLibrary: { $eq: glossary.library },
       });
       return project;
     } catch (error) {

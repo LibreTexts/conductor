@@ -355,7 +355,7 @@ async function completeLogin(req: Request, res: Response) {
 
     // Check if user exists locally and sync
     // If validUUID, search by centralID, else we may have received an external subject id, so search by email
-    const existUser = await User.findOne(validUUID ? { centralID: authSub } : { email: centralAttr.email });
+    const existUser = await User.findOne(validUUID ? { centralID: { $eq: authSub } } : { email: { $eq: centralAttr.email } });
     if (existUser) {
       authUser = existUser;
       // Sync data that may have been changed in a delegated IdP

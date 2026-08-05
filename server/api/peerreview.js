@@ -347,7 +347,7 @@ const getPeerReview = (req, res) => {
     PeerReview.aggregate(buildPeerReviewAggregation(req.query.peerReviewID, true)).then((peerReviews) => {
         if (peerReviews.length > 0) {
             peerReview = peerReviews[0];
-            return Project.findOne({ projectID: peerReview.projectID }).lean();
+            return Project.findOne({ projectID: { $eq: peerReview.projectID } }).lean();
         }
         throw (new Error('notfound'));
     }).then((project) => {
@@ -694,7 +694,7 @@ const deletePeerReview = (req, res) => {
     }).lean().then((peerReviewData) => {
         if (peerReviewData) {
             peerReview = peerReviewData;
-            return Project.findOne({ projectID: peerReview.projectID }).lean();
+            return Project.findOne({ projectID: { $eq: peerReview.projectID } }).lean();
         }
         throw (new Error('notfound'));
     }).then((projectData) => {
@@ -954,7 +954,7 @@ const updateProjectAverageRating = (projectID) => {
     let newAverage = 0;
     let updateBook = false;
     return Project.findOne({
-        projectID: projectID
+        projectID: { $eq: projectID }
     }).lean().then((projectData) => {
         if (projectData) {
             project = projectData;
@@ -988,7 +988,7 @@ const updateProjectAverageRating = (projectID) => {
         } else {
             newAverage = 0;
         }
-        return Project.updateOne({ projectID: projectID }, {
+        return Project.updateOne({ projectID: { $eq: projectID } }, {
             rating: newAverage
         });
     }).then((updateRes) => {

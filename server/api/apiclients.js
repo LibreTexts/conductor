@@ -17,7 +17,7 @@ import conductorErrors from '../conductor-errors.js';
  * @returns {Promise<object|null>} API Client information, or null if not found.
  */
 async function getAPIClientInternal(clientID) {
-  const foundClient = await APIClient.findOne({ clientID }).lean();
+  const foundClient = await APIClient.findOne({ clientID: { $eq: clientID } }).lean();
   if (!foundClient) {
     return null;
   }

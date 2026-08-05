@@ -211,7 +211,7 @@ const canAccessSupportTicket = async (
     // We check this first in case a user is logged in, but was added as a CC to the ticket and is accessing the ticket via the accessKey
     if (req.query && req.query.accessKey && req.params.uuid) {
       const ticket = await SupportTicket.findOne({
-        uuid: req.params.uuid,
+        uuid: { $eq: req.params.uuid },
       });
 
       if (!ticket || !ticket.uuid) {

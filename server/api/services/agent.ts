@@ -68,7 +68,7 @@ export class AgentService {
    * Load chat history from database
    */
   private async loadChatHistory(sessionId: string): Promise<BaseMessage[]> {
-    const session = await AgentHistory.findOne({ sessionId });
+    const session = await AgentHistory.findOne({ sessionId: { $eq: sessionId } });
 
     if (!session || !session.messages || session.messages.length === 0) {
       return [];
@@ -88,7 +88,7 @@ export class AgentService {
    */
   private async saveMessages(sessionId: string, userMessage: string, aiMessage: string) {
     await AgentHistory.updateOne(
-      { sessionId },
+      { sessionId: { $eq: sessionId } },
       {
         $push: {
           messages: [

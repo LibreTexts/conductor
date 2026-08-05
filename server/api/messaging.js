@@ -84,7 +84,7 @@ const deleteDiscussionThread = (req, res) => {
     }).lean().then((thread) => {
         if (thread) {
             return Project.findOne({
-                projectID: thread.project
+                projectID: { $eq: thread.project }
             }).lean();
         } else {
             throw(new Error('notfound'));
@@ -104,7 +104,7 @@ const deleteDiscussionThread = (req, res) => {
     }).then((threadDeleteRes) => {
         if (threadDeleteRes.deletedCount === 1) {
             return Message.deleteMany({
-                thread: req.body.threadID
+                thread: { $eq: req.body.threadID }
             });
         } else {
             throw(new Error('deletefail'));
@@ -140,7 +140,7 @@ const getProjectThreads = (req, res) => {
         threadKind = req.query.kind;
     }
     Project.findOne({
-        projectID: req.query.projectID
+        projectID: { $eq: req.query.projectID }
     }).lean().then((project) => {
         if (project) {
             if (projectsAPI.checkProjectMemberPermission(project, req.user)) {
@@ -269,7 +269,7 @@ async function createThreadMessage(req, res) {
             });
         }
 
-        const project = await Project.findOne({ projectID: thread.project }).lean();
+        const project = await Project.findOne({ projectID: { $eq: thread.project } }).lean();
         if (!project) {
             return res.status(404).send({
                 err: true,
@@ -293,7 +293,7 @@ async function createThreadMessage(req, res) {
         }).save();
 
         const user = await User.findOne(
-            { uuid: req.user.decoded.uuid },
+            { uuid: { $eq: req.user.decoded.uuid } },
             { firstName: 1, lastName: 1 },
         ).lean();
 
@@ -329,7 +329,7 @@ async function createThreadMessage(req, res) {
                 `${user.firstName} ${user.lastName}`,
             ).catch((e) => debugError(e));
 
-            Thread.updateOne({ threadID }, { lastNotifSent: new Date() }).catch((e) => {
+            Thread.updateOne({ threadID: { $eq: threadID } }, { lastNotifSent: new Date() }).catch((e) => {
                 debugError(e);
             });
         }
@@ -368,7 +368,7 @@ async function createTaskMessage(req, res) {
             });
         }
 
-        const project = await Project.findOne({ projectID: task.projectID }).lean();
+        const project = await Project.findOne({ projectID: { $eq: task.projectID } }).lean();
         if (!project) {
             return res.status(404).send({
                 err: true,
@@ -392,7 +392,7 @@ async function createTaskMessage(req, res) {
         }).save();
 
         const user = await User.findOne(
-            { uuid: req.user.decoded.uuid },
+            { uuid: { $eq: req.user.decoded.uuid } },
             { firstName: 1, lastName: 1 },
         ).lean();
 
@@ -407,7 +407,7 @@ async function createTaskMessage(req, res) {
             // send email notifications
             let taskTitle = task.title;
             if (task.parent) {
-                const parent = await Task.findOne({ taskID: task.parent }).lean();
+                const parent = await Task.findOne({ taskID: { $eq: task.parent } }).lean();
                 if (parent) {
                     taskTitle = `${parent.title}/${task.title}`;
                 }
@@ -468,7 +468,7 @@ const deleteMessage = (req, res) => {
             if (msgData.thread && msgData.thread.length > 0) {
                 return Thread.findOne({ threadID: msgData.thread }).lean();
             } else if (msgData.task && msgData.task.length > 0) {
-                return Task.findOne({ taskID: msgData.task }).lean();
+                return Task.findOne({ taskID: { $eq: msgData.task } }).lean();
             } else {
                 throw (new Error('missingparent'));
             }
@@ -530,7 +530,7 @@ const getThreadMessages = (req, res) => {
     }).lean().then((thread) => {
         if (thread) {
             return Project.findOne({
-                projectID: thread.project
+                projectID: { $eq: thread.project }
             }).lean();
         } else {
             throw(new Error('notfound'));
@@ -623,7 +623,7 @@ const getTaskMessages = (req, res) => {
     }).lean().then((task) => {
         if (task) {
             return Project.findOne({
-                projectID: task.projectID
+                projectID: { $eq: task.projectID }
             }).lean();
         } else {
             throw(new Error('notfound'));
