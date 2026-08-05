@@ -174,8 +174,9 @@ export const findUnownedRemixerPageIDs = (
     if (status === "modeified" || status === "deleted") {
       const id = page["@id"];
       // `new-` ids are never mutated in place by the job handlers.
-      if (id.startsWith("new-") || id.split("-").length === 3 ) continue;
-      if (!ownedIDs.has(id)) mutated.push(id);
+      if (id.startsWith("new-")) continue;
+      const numericId = id.split("-")[0]; // what handleModifiedPage will actually act on
+      if (!ownedIDs.has(numericId)) mutated.push(id);
     } else if (status === "new" || status === "imported") {
       if (!isAnchoredInBook(page)) grafted.push(page["@id"]);
     }
