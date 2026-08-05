@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Message, Table } from "semantic-ui-react";
+import { Table } from "semantic-ui-react";
 import {
   DEFAULT_PREFIX_OPTIONS,
   DELIMITER_OPTIONS,
@@ -9,6 +9,7 @@ import {
 } from "./model";
 import { getStartToken, joinLeveledPathParts } from "./services";
 import {
+  Alert,
   Button,
   Checkbox,
   Heading,
@@ -17,6 +18,7 @@ import {
   Select,
   Text,
 } from "@libretexts/davis-react";
+import { IconDeviceFloppy, IconRestore } from "@tabler/icons-react";
 
 interface PathNameFormatProps {
   open: boolean;
@@ -161,9 +163,9 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
           Configure how each level of hierarchy numbering should be displayed.
         </p>
         {depth <= 0 ? (
-          <Message
-            info
-            content="No nested levels detected in the current book."
+          <Alert
+            variant="info"
+            message="No nested levels detected in the current book."
           />
         ) : (
           <Table celled compact>
@@ -318,21 +320,20 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
         <Button
           onClick={onClose}
           variant="outline"
-          className="bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
         >
           Cancel
         </Button>
         <Button
           onClick={handleReset}
-          variant="outline"
-          className="bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+          variant="tertiary"
+          icon={<IconRestore size={16} />}
         >
           Reset to Defaults
         </Button>
         <Button
           onClick={handleSave}
           variant="primary"
-          className="bg-primary text-white hover:bg-primary-dark"
+          icon={<IconDeviceFloppy size={16} />}
         >
           Apply
         </Button>

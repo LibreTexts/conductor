@@ -5,6 +5,7 @@
 import { Button, IconButton, Menu, Select, Tooltip, type ButtonProps, type IconButtonProps } from "@libretexts/davis-react";
 import { CopyMode } from "./model";
 import { IconClockEdit, IconDeviceFloppy, IconPencilPause, IconRefresh, IconSettings } from "@tabler/icons-react";
+import ConsultInsightButton from "../NextGenComponents/ConsultInsightButton";
 
 interface ControlPanelNewUITempProps {
     isNarrowScreen: boolean;
@@ -34,7 +35,7 @@ type ControlPanelAction = {
     icon: React.ReactNode;
     group: 'left' | 'right';
     onClick: () => void;
-} & ({ title: string; variant: ButtonProps['variant']; } | { tooltip: string; variant: IconButtonProps['variant'];});
+} & ({ title: string; variant: ButtonProps['variant']; } | { tooltip: string; variant: IconButtonProps['variant']; });
 
 const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
     isNarrowScreen,
@@ -51,7 +52,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
     const actions: ControlPanelAction[] = [
         {
             tooltip: "Start over",
-            icon: <IconRefresh size={16} />,
+            icon: <IconRefresh size={18} />,
             variant: "destructive",
             group: 'left',
             onClick: () => {
@@ -60,7 +61,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
         },
         {
             tooltip: "Load Saved Draft",
-            icon: <IconClockEdit size={16} />,
+            icon: <IconClockEdit size={18} />,
             variant: "secondary",
             group: 'left',
             onClick: () => {
@@ -69,7 +70,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
         },
         {
             tooltip: "Auto Numbering Settings",
-            icon: <IconSettings size={16} />,
+            icon: <IconSettings size={18} />,
             variant: "secondary",
             group: 'left',
             onClick: () => {
@@ -78,7 +79,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
         },
         {
             title: "Save as Draft",
-            icon: <IconPencilPause size={16} />,
+            icon: <IconPencilPause size={18} />,
             variant: "outline",
             group: 'right',
             onClick: () => {
@@ -87,7 +88,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
         },
         {
             title: "Save Changes",
-            icon: <IconDeviceFloppy size={16} />,
+            icon: <IconDeviceFloppy size={18} />,
             variant: "primary",
             group: 'right',
             onClick: () => {
@@ -146,6 +147,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                                                     icon={action.icon}
                                                     onClick={action.onClick}
                                                     title={action.tooltip}
+                                                    className="m-0!" // This is a temp fix until Semantic UI is removed from the project. It's applying a margin to the button that isn't needed
                                                 />
                                             </Tooltip>
                                         )
@@ -160,11 +162,11 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                                             {action.title}
                                         </Button>
                                     )
-
-                                }
-
-                                )
+                                })
                             }
+                            <Tooltip content="Consult the Insight Knowledge Base for more information about the Remixer">
+                                <ConsultInsightButton href="https://commons.libretexts.org/insight/the-remixer" />
+                            </Tooltip>
                         </div>
                         <div className="flex items-center gap-2">
                             {

@@ -17,7 +17,7 @@ import ContextMenu from "./BookContent/ContextMenu";
 import TreeDnd from "./BookContent/DashboardNewUITemp";
 import TreeSkeleton from "./BookContent/TreeSkeleton";
 import CatalogList from "./CatalogBook/CatalogList";
-import EditPanel from "./EditPanel";
+import EditPanel from "./EditPanelNewUITemp";
 import PathNameFormat from "./PathNameFormat";
 import PublishPanel from "./PublishPanel";
 import RecoveryModal from "./RecoveryModal";
@@ -66,8 +66,7 @@ import {
   Heading,
   Stack,
   Text,
-  Grid,
-  Spinner
+  Grid
 } from "@libretexts/davis-react";
 import useProject from "../../hooks/useProject";
 import { useModals } from "../../context/ModalContext";
@@ -243,13 +242,13 @@ const RemixerDashboard: React.FC = () => {
     : "Item";
 
   /** Auto-numbered default prefix/index pieces for the selected node (edit-panel placeholders). */
-  const selectedBookDefaultFormattedPathParts = useCallback((): {
+  const selectedBookDefaultFormattedPathParts = useCallback((nodeId?: string): {
     prefix: string;
     index: string;
   } => {
     const empty = { prefix: "", index: "" };
     if (remixerData.autoNumbering === false) return empty;
-    const selectedId = uiState.selectedBookNodeId;
+    const selectedId = nodeId ?? uiState.selectedBookNodeId;
     const book = remixerData.currentBook ?? [];
     if (!selectedId || book.length === 0) return empty;
     const normalizedBook = buildBookPaths(
@@ -892,7 +891,9 @@ const RemixerDashboard: React.FC = () => {
 
   /** Persist edits from the edit panel onto the current book (also toggles `renamedItem`). */
   const handleSaveEdit = (page: RemixerSubPage) => {
-    setUiState((prev) => ({ ...prev, editPanelOpen: false }));
+    // The edit panel is an imperative modal in the new UI, so close it explicitly.
+    // (`editPanelOpen` drives nothing here; it's a leftover from the old declarative UI.)
+    closeAllModals();
 
     const normalizeEditTitle = (value: string) => {
       let s = value;
@@ -1097,11 +1098,8 @@ const RemixerDashboard: React.FC = () => {
     setContextMenu(null);
 
     if (action === "modify") {
-      setUiState((prev) => ({
-        ...prev,
-        selectedBookNodeId: nodeId,
-        editPanelOpen: true,
-      }));
+      setUiState((prev) => ({ ...prev, selectedBookNodeId: nodeId }));
+      openEditPanelForSelectedBookNode(nodeId);
     } else if (action === "delete") {
       if (isDefaultMatterItem(nodeId)) return;
       updateCurrentBook(
@@ -1146,20 +1144,36 @@ const RemixerDashboard: React.FC = () => {
     }
   };
 
-  const openEditPanelForSelectedBookNode = () => {
+  const openEditPanelForSelectedBookNode = (nodeId?: string) => {
     if (!remixerData.library) return;
+    // Resolve the target node from the passed id (fresh) rather than relying on
+    // `uiState.selectedBookNodeId`, which may not have committed yet when this is
+    // called right after a `setUiState` (e.g. the double-click handler). Reading
+    // state here would snapshot the previous selection into the modal element.
+    const targetId = nodeId ?? uiState.selectedBookNodeId;
+    const targetNode = targetId
+      ? remixerData.currentBook?.find((node) => node["@id"] === targetId)
+      : undefined;
     openModal(
       <EditPanel
         open={true}
-        dimmer="blurring"
         onClose={closeAllModals}
-        formattedPathPartsDefault={selectedBookDefaultFormattedPathParts()}
-        currentPage={selectedBookNode}
+        formattedPathPartsDefault={selectedBookDefaultFormattedPathParts(targetId)}
+        currentPage={targetNode}
         handleSave={handleSaveEdit}
         library={remixerData.libreLibrary as Library}
       />
     )
   }
+
+  /**
+   * Persisted-closure guard (see `handleLoadSourceRef`): the F2 key handler is
+   * registered in an effect keyed only on the selection, so a directly-captured
+   * opener could reference a stale `currentBook`. Route through this ref so the
+   * handler always invokes the latest closure.
+   */
+  const openEditPanelRef = useRef(openEditPanelForSelectedBookNode);
+  openEditPanelRef.current = openEditPanelForSelectedBookNode;
 
   // ==========================================================================
   // Library → Book import
@@ -2107,7 +2121,7 @@ const RemixerDashboard: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F2" && uiState.selectedBookNodeId) {
         e.preventDefault();
-        setUiState((prev) => ({ ...prev, editPanelOpen: true }));
+        openEditPanelRef.current(uiState.selectedBookNodeId);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -2251,7 +2265,7 @@ const RemixerDashboard: React.FC = () => {
                       ...prev,
                       selectedBookNodeId: nodeId,
                     }));
-                    openEditPanelForSelectedBookNode();
+                    openEditPanelForSelectedBookNode(nodeId);
                   }}
                   onNodeContextMenu={(nodeId, event) => {
                     setUiState((prev) => ({

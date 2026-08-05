@@ -1,32 +1,48 @@
-import Button, { ButtonProps } from "./Button";
+import { Button, IconButton } from "@libretexts/davis-react";
+import { IconInfoCircle } from "@tabler/icons-react";
 
-type ConsultInsightButtonProps = ButtonProps & {
+type ConsultInsightButtonProps = {
   href: string;
   iconOnly?: boolean;
 };
 
 const ConsultInsightButton: React.FC<ConsultInsightButtonProps> = ({
   href,
-  iconOnly = false,
-  ...props
+  iconOnly = true,
 }) => {
+
+  if (iconOnly) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="h-full "
+      >
+        <IconButton
+          icon={<IconInfoCircle size={18} />}
+          variant="secondary"
+          aria-label="Consult Insight Knowledge Base"
+          title="Consult Insight Knowledge Base"
+          className="m-0" // This is a temp fix until Semantic UI is removed from the project. It's applying a margin to the button that isn't needed
+        />
+      </a>
+    );
+  }
+
   return (
-    <a
+    <Button
+      as="a"
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="h-full "
+      icon={<IconInfoCircle size={16} />}
+      variant="secondary"
+      aria-label="Consult Insight Knowledge Base"
+      title="Consult Insight Knowledge Base"
     >
-      <Button
-        {...props}
-        icon="IconInfoCircle"
-        variant="secondary"
-        title="Consult Insight Knowledge Base"
-        iconClassName="!size-6"
-      >
-        {iconOnly ? undefined : "Consult Insight"}
-      </Button>
-    </a>
+      {iconOnly ? undefined : "Consult Insight"}
+    </Button>
   );
 };
 

@@ -47,7 +47,7 @@ const BookActions: React.FC<BookActionsProps> = ({
     const actions: BookAction[] = [
         {
             title: "Add",
-            icon: <IconPlus size={16} />,
+            icon: <IconPlus size={18} />,
             variant: "primary",
             onClick: () => {
                 onAddItem();
@@ -55,7 +55,7 @@ const BookActions: React.FC<BookActionsProps> = ({
         },
         {
             title: "Delete",
-            icon: <IconTrash size={16} />,
+            icon: <IconTrash size={18} />,
             variant: "destructive",
             onClick: () => {
                 onDeleteItem();
@@ -63,7 +63,7 @@ const BookActions: React.FC<BookActionsProps> = ({
         },
         {
             title: "Undo",
-            icon: <IconArrowBackUp size={16} />,
+            icon: <IconArrowBackUp size={18} />,
             variant: "outline",
             disabled: !canUndo,
             onClick: () => {
@@ -72,7 +72,7 @@ const BookActions: React.FC<BookActionsProps> = ({
         },
         {
             title: "Redo",
-            icon: <IconArrowForwardUp size={16} />,
+            icon: <IconArrowForwardUp size={18} />,
             variant: "outline",
             disabled: !canRedo,
             onClick: () => {
@@ -81,7 +81,7 @@ const BookActions: React.FC<BookActionsProps> = ({
         },
         {
             title: isAllExpanded ? "Collapse all" : "Expand all",
-            icon: isAllExpanded ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />,
+            icon: isAllExpanded ? <IconChevronUp size={18} /> : <IconChevronDown size={18} />,
             variant: "outline",
             onClick: () => {
                 onToggleExpandCollapse();
@@ -125,6 +125,7 @@ const BookActions: React.FC<BookActionsProps> = ({
                             icon={action.icon}
                             onClick={action.onClick}
                             disabled={action.disabled ?? false}
+                            className="m-0" // This is a temp fix until Semantic UI is removed from the project. It's applying a margin to the button that isn't needed
                         />
                     </Tooltip>
                 ))
