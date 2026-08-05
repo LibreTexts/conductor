@@ -471,10 +471,11 @@ const TreeDnd: React.FC<TreeDndProps> = ({
       style={{
         padding: 12,
         background: "#f9f9f9",
+        border: `1px solid ${STATUS_PALETTE.neutral}`,
         borderRadius: 8,
         width: "100%",
         boxSizing: "border-box",
-        height: 600,
+        height: 800,
         overflowY: "auto",
         overflowX: "auto",
         marginTop: 12,
@@ -664,7 +665,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
                   href={itemLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-lg"
+                  className="text-base"
                   style={{
                     whiteSpace: "nowrap",
                     fontStyle: isInteractionLocked ? "italic" : "normal",
@@ -678,7 +679,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
                 </a>
               ) : (
                 <span
-                  className="text-lg"
+                  className="text-base"
                   style={{
                     whiteSpace: "nowrap",
                     fontStyle: isInteractionLocked ? "italic" : "normal",

@@ -1,18 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
-import {    Icon, Modal } from "semantic-ui-react";
 import { Library, RemixerSubPage } from "./model";
-import { Button, Checkbox, Input, Stack } from "@libretexts/davis-react";
-import { DAVIS_REMIXER_BTN_CLASS, DAVIS_REMIXER_CHECKBOX_CLASS, DAVIS_REMIXER_LINK_CLASS } from "./style";
+import { Button, Checkbox, Input, Stack, Modal, Link } from "@libretexts/davis-react";
+import { IconDeviceFloppy } from "@tabler/icons-react";
 
 interface EditPanelProps {
   open: boolean;
-  dimmer: string;
   onClose: () => void;
   currentPage?: RemixerSubPage;
   handleSave: (page: RemixerSubPage) => void;
   /** Auto-numbered prefix/index pieces used as placeholders/defaults when override is first enabled. */
   formattedPathPartsDefault?: { prefix: string; index: string };
-  library:Library;
+  library: Library;
 }
 
 /** Colons are not allowed. If present, drop the prefix before the first ":" and any remaining ":". */
@@ -31,7 +29,6 @@ function sanitizeRemixerTitle(value: string, trim: boolean = true): string {
 const EditPanel: React.FC<EditPanelProps> = (props) => {
   const {
     open,
-    dimmer,
     onClose,
     currentPage,
     handleSave,
@@ -40,7 +37,6 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
   } = props;
   const [page, setPage] = useState<RemixerSubPage | undefined>(currentPage);
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const saveButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleSaveClick = () => {
     if (!page) return;
@@ -73,7 +69,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
 
   useEffect(() => {
     if (!open) return;
-    // After Semantic UI Modal finishes its own focus management
+    // After Modal finishes its own focus management
     const id = window.setTimeout(() => {
       titleInputRef.current?.focus();
     }, 0);
@@ -81,117 +77,127 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
   }, [open]);
 
   return (
-    <Modal open={open} onClose={onClose} dimmer={dimmer} autoFocus={false} closeIcon>
-      <Modal.Header>Edit Page</Modal.Header>
-      <Modal.Content>
-      
-      <Checkbox
-          name="formattedPathOverride"
-          label="Override Prefix"
-          className={DAVIS_REMIXER_CHECKBOX_CLASS.labelLeft}
-          labelClassName="font-bold text-md"
-          checked={page?.formattedPathOverride ?? false}
-          onChange={(checked) =>
-            setPage((prev) => {
-              if (!prev) return prev;
-              const enabled = checked === true;
-              return {
-                ...prev,
-                formattedPathOverride: enabled,
-                formattedPathPrefix: enabled
-                  ? (prev.formattedPathPrefix ?? formattedPathPartsDefault?.prefix ?? "")
-                  : undefined,
-                formattedPathIndex: enabled
-                  ? (prev.formattedPathIndex ?? formattedPathPartsDefault?.index ?? "")
-                  : undefined,
-              };
-            })
-          }
-        />
-        <Stack direction="horizontal" gap="md">
-        <Input
-          name="formattedPathPrefix"
-          label="Prefix"
-          placeholder="Custom prefix (leave blank to hide prefix)"
-          value={
-            page?.formattedPathOverride
-              ? (page?.formattedPathPrefix ?? "")
-              : (formattedPathPartsDefault?.prefix ?? "")
-          }
-          disabled={page?.formattedPathOverride !== true}
-          onChange={(e) =>
-            setPage((prev) =>
-              prev ? { ...prev, formattedPathPrefix: e.target.value } : prev,
-            )
-          }
-          className="flex-1"
-        />
-        <Input
-          type="text"
-          name="formattedPathIndex"
-          label="Index"
-          placeholder="Custom index (e.g. 2.1)"
-          className="flex-1"
-          disabled={page?.formattedPathOverride !== true}
-          value={
-            page?.formattedPathOverride
-              ? (page?.formattedPathIndex ?? "")
-              : (formattedPathPartsDefault?.index ?? "")
-          }
-          onChange={(e) =>
-            setPage((prev) =>
-              prev ? { ...prev, formattedPathIndex: e.target.value } : prev,
-            )
-          }
-        />
-        <Input
-          ref={titleInputRef}
-          name="title"
-          label="Title"
-          placeholder="Loading title..."
-          value={page?.title ?? page?.["@title"] ?? ""}
-          onChange={(e) => {
-            const next = sanitizeRemixerTitle(e.target.value,false);
-            setPage((prev) =>
-              prev ? { ...prev, title: next, "@title": next } : prev,
-            );
-          }}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            e.preventDefault();
-            saveButtonRef.current?.focus();
-          }}
-          className="flex-7"
-          tabIndex={1}
-        />
-       
-        </Stack>
-        {!currentPage?.["@id"].startsWith("new-") && (
-          <a
-            href={currentPage?.["uri.ui"] && currentPage?.["uri.ui"] !== "" ? currentPage?.["uri.ui"] : `https://${library}.libretexts.org/@go/page/${currentPage?.["@id"]}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={DAVIS_REMIXER_LINK_CLASS.external}
-          >
-            Link to this page in the library
-            <Icon name="external alternate" className="!ml-2" />
-          </a>
-        )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Stack direction="horizontal" gap="md" justify="end">
+    <Modal
+      open={open}
+      size="md"
+      onClose={onClose}
+    >
+      <Modal.Header>
+        <Modal.Title>
+          Edit Page
+        </Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Stack direction="vertical" gap="md" align="start" className="w-full">
+          <Checkbox
+            name="formattedPathOverride"
+            label="Override Prefix"
+            className="flex-row-reverse font-bold!"
+            labelClassName="font-bold! text-md!"
+            checked={page?.formattedPathOverride ?? false}
+            onChange={(checked) =>
+              setPage((prev) => {
+                if (!prev) return prev;
+                const enabled = checked === true;
+                return {
+                  ...prev,
+                  formattedPathOverride: enabled,
+                  formattedPathPrefix: enabled
+                    ? (prev.formattedPathPrefix ?? formattedPathPartsDefault?.prefix ?? "")
+                    : undefined,
+                  formattedPathIndex: enabled
+                    ? (prev.formattedPathIndex ?? formattedPathPartsDefault?.index ?? "")
+                    : undefined,
+                };
+              })
+            }
+          />
+          <Stack direction="horizontal" gap="md" className="w-full">
+            <Input
+              name="formattedPathPrefix"
+              label="Prefix"
+              placeholder="Custom prefix (leave blank to hide prefix)"
+              value={
+                page?.formattedPathOverride
+                  ? (page?.formattedPathPrefix ?? "")
+                  : (formattedPathPartsDefault?.prefix ?? "")
+              }
+              disabled={page?.formattedPathOverride !== true}
+              onChange={(e) =>
+                setPage((prev) =>
+                  prev ? { ...prev, formattedPathPrefix: e.target.value } : prev,
+                )
+              }
+              className="flex-1"
+            />
+            <Input
+              type="text"
+              name="formattedPathIndex"
+              label="Index"
+              placeholder="Custom index (e.g. 2.1)"
+              className="flex-1"
+              disabled={page?.formattedPathOverride !== true}
+              value={
+                page?.formattedPathOverride
+                  ? (page?.formattedPathIndex ?? "")
+                  : (formattedPathPartsDefault?.index ?? "")
+              }
+              onChange={(e) =>
+                setPage((prev) =>
+                  prev ? { ...prev, formattedPathIndex: e.target.value } : prev,
+                )
+              }
+            />
+            <Input
+              ref={titleInputRef}
+              name="title"
+              label="Title"
+              placeholder="Loading title..."
+              value={page?.title ?? page?.["@title"] ?? ""}
+              onChange={(e) => {
+                const next = sanitizeRemixerTitle(e.target.value, false);
+                setPage((prev) =>
+                  prev ? { ...prev, title: next, "@title": next } : prev,
+                );
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                e.preventDefault();
+                handleSaveClick();
+              }}
+              className="flex-7"
+            />
 
-        <Button
-          ref={saveButtonRef}
-          onClick={handleSaveClick}
-          disabled={!page}
-          className={DAVIS_REMIXER_BTN_CLASS.success}
-          tabIndex={2}
-        >
-          Save
-        </Button>
+          </Stack>
+          {!currentPage?.["@id"].startsWith("new-") && (
+            <Link
+              href={currentPage?.["uri.ui"] && currentPage?.["uri.ui"] !== "" ? currentPage?.["uri.ui"] : `https://${library}.libretexts.org/@go/page/${currentPage?.["@id"]}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Link to this page in the library
+            </Link>
+          )}
         </Stack>
-      </Modal.Actions>
+      </Modal.Body>
+      <Modal.Footer>
+        <Stack direction="horizontal" gap="md" justify="end">
+          <Button
+            variant="outline"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleSaveClick}
+            disabled={!page}
+            icon={<IconDeviceFloppy size={16} />}
+          >
+            Save
+          </Button>
+        </Stack>
+      </Modal.Footer>
     </Modal>
   );
 };

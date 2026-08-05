@@ -1,7 +1,3 @@
-/**
- * WHEN NEW UI IS APPROVED REPLACE ControlPanel WITH THE CONTENTS OF THIS
- * FILE AND DELETE ControlPanelNewUITemp.tsx (this file)
- */
 import { IconButton, Menu, Select, Stack, Tooltip } from "@libretexts/davis-react";
 import { IconCheck, IconSearch } from "@tabler/icons-react";
 import { RemixerData, libraryTitles } from "./model";

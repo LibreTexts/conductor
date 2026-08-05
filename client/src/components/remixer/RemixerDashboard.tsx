@@ -2,16 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { useMediaQuery } from "react-responsive";
-import {
-  Card,
-  Container,
-  Dimmer,
-  Dropdown,
-  Grid,
-  Icon,
-  Loader,
-  Popup,
-} from "semantic-ui-react";
 
 import api from "../../api";
 import { useNotifications } from "../../context/NotificationContext";
@@ -23,13 +13,11 @@ import ContextMenu from "./BookContent/ContextMenu";
 import TreeDnd from "./BookContent/Dashboard";
 import TreeSkeleton from "./BookContent/TreeSkeleton";
 import CatalogList from "./CatalogBook/CatalogList";
-import ControlPanel from "./ControlPanel";
 import EditPanel from "./EditPanel";
 import PathNameFormat from "./PathNameFormat";
 import PublishPanel from "./PublishPanel";
-import RecoveryModal, { type AvailableSources } from "./RecoveryModal";
+import RecoveryModal from "./RecoveryModal";
 import {
-  CopyMode,
   Library,
   PathLevelFormat,
   PublishJobStatus,
@@ -37,7 +25,6 @@ import {
   RemixerSubPage,
   RemixerUiState,
   libraries,
-  libraryTitles,
   remixerDataInit,
   remixerUiStateInit,
 } from "./model";
@@ -69,10 +56,21 @@ import {
   syncRenamedItemFromAutonumberTitle,
   withDerivedStatusFlags,
 } from "./services";
-import { DAVIS_REMIXER_BTN_CLASS } from "./style";
-
-import { Breadcrumb, Heading, IconButton, Select, Stack, Text } from "@libretexts/davis-react";
+import {
+  Breadcrumb,
+  Card,
+  Heading,
+  Stack,
+  Text,
+  Grid
+} from "@libretexts/davis-react";
 import useProject from "../../hooks/useProject";
+import { useModals } from "../../context/ModalContext";
+import ConfirmModal from "../ConfirmModal";
+import ControlPanelNewUITemp from "./ControlPanel";
+import { useDocumentTitle } from "usehooks-ts";
+import BookActions from "./BookActions";
+import LibraryActions from "./LibraryActions";
 
 const RemixerDashboard: React.FC = () => {
   // ==========================================================================
@@ -81,10 +79,13 @@ const RemixerDashboard: React.FC = () => {
   const user = useTypedSelector((state) => state.user);
   const isAdmin = user?.isSuperAdmin || user?.isCampusAdmin;
   const { addNotification } = useNotifications();
+  const { openModal, closeAllModals } = useModals();
   const { id } = useParams<{ id: string }>();
 
-  /** Below `md` (~768px): book toolbar actions collapse into a dropdown (Tailwind `sm` + `xs`). */
-  const isBookToolbarNarrow = useMediaQuery({ maxWidth: 767 });
+  /** Below `lg` (~1024px): book toolbar actions collapse into a dropdown (Tailwind `md` + `sm` + `xs`). */
+  const isNarrowScreen = useMediaQuery({ maxWidth: 1023 });
+  /** The header area is busier, so we break earlier on mid-sized screens (~1280px). */
+  const isMidSizedScreen = useMediaQuery({ maxWidth: 1279 });
 
   const [remixerData, setRemixerData] = useState<RemixerData>(remixerDataInit);
   const [uiState, setUiState] = useState<RemixerUiState>(remixerUiStateInit);
@@ -103,17 +104,11 @@ const RemixerDashboard: React.FC = () => {
   const [publishMessages, setPublishMessages] = useState<string[]>([]);
   const [publishPolling, setPublishPolling] = useState<boolean>(false);
 
-  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
-  const [recoveryModalDismissible, setRecoveryModalDismissible] =
-    useState(false);
   const [loadingRecovery, setLoadingRecovery] = useState(false);
-  const [availableSources, setAvailableSources] = useState<AvailableSources>({
-    hasLocal: false,
-    hasServer: false,
-    hasServerDraft: false,
-  });
 
   const { project, isLoading: isLoadingProject } = useProject(id ?? "");
+  useDocumentTitle(`Remixer | ${project?.title ?? ""} | LibreTexts Conductor`);
+
 
   const [contextMenu, setContextMenu] = useState<{
     nodeId: string;
@@ -166,8 +161,8 @@ const RemixerDashboard: React.FC = () => {
   /** The book node matching the current selection, if any. */
   const selectedBookNode = uiState.selectedBookNodeId
     ? remixerData.currentBook?.find(
-        (node) => node["@id"] === uiState.selectedBookNodeId,
-      )
+      (node) => node["@id"] === uiState.selectedBookNodeId,
+    )
     : undefined;
 
   /** True when a library node is a restricted shelf (cannot be imported). */
@@ -243,13 +238,13 @@ const RemixerDashboard: React.FC = () => {
     : "Item";
 
   /** Auto-numbered default prefix/index pieces for the selected node (edit-panel placeholders). */
-  const selectedBookDefaultFormattedPathParts = useCallback((): {
+  const selectedBookDefaultFormattedPathParts = useCallback((nodeId?: string): {
     prefix: string;
     index: string;
   } => {
     const empty = { prefix: "", index: "" };
     if (remixerData.autoNumbering === false) return empty;
-    const selectedId = uiState.selectedBookNodeId;
+    const selectedId = nodeId ?? uiState.selectedBookNodeId;
     const book = remixerData.currentBook ?? [];
     if (!selectedId || book.length === 0) return empty;
     const normalizedBook = buildBookPaths(
@@ -624,7 +619,7 @@ const RemixerDashboard: React.FC = () => {
       library: {
         ...(prev.library ?? {}),
         [lib]: fetchingLibarary
-        
+
       },
       // selectedLibrary: lib as Library,
     }));
@@ -635,10 +630,6 @@ const RemixerDashboard: React.FC = () => {
       ),
     );
 
-    setUiState((prev) => ({
-      ...prev,
-      catalogListOpen: false,
-    }));
     const targetNodeId = bookID.split("-")[1];
     setTimeout(() => {
       skipLibraryAutoLoadRef.current = false;
@@ -896,7 +887,9 @@ const RemixerDashboard: React.FC = () => {
 
   /** Persist edits from the edit panel onto the current book (also toggles `renamedItem`). */
   const handleSaveEdit = (page: RemixerSubPage) => {
-    setUiState((prev) => ({ ...prev, editPanelOpen: false }));
+    // The edit panel is an imperative modal in the new UI, so close it explicitly.
+    // (`editPanelOpen` drives nothing here; it's a leftover from the old declarative UI.)
+    closeAllModals();
 
     const normalizeEditTitle = (value: string) => {
       let s = value;
@@ -933,9 +926,9 @@ const RemixerDashboard: React.FC = () => {
         ((existingNode.formattedPathPrefix ?? "") !==
           (nextFormattedPathPrefix ?? "") ||
           (existingNode.formattedPathIndex ?? "") !==
-            (nextFormattedPathIndex ?? "") ||
+          (nextFormattedPathIndex ?? "") ||
           (existingNode.formattedPath ?? "").trim() !==
-            (nextFormattedPath ?? "").trim()));
+          (nextFormattedPath ?? "").trim()));
 
     // Save with no edits should not mark the node modified or push history.
     if (!titleChanged && !pathChanged) return;
@@ -1101,11 +1094,8 @@ const RemixerDashboard: React.FC = () => {
     setContextMenu(null);
 
     if (action === "modify") {
-      setUiState((prev) => ({
-        ...prev,
-        selectedBookNodeId: nodeId,
-        editPanelOpen: true,
-      }));
+      setUiState((prev) => ({ ...prev, selectedBookNodeId: nodeId }));
+      openEditPanelForSelectedBookNode(nodeId);
     } else if (action === "delete") {
       if (isDefaultMatterItem(nodeId)) return;
       updateCurrentBook(
@@ -1149,6 +1139,37 @@ const RemixerDashboard: React.FC = () => {
       setUiState((prev) => ({ ...prev, selectedBookNodeId: newNodeId }));
     }
   };
+
+  const openEditPanelForSelectedBookNode = (nodeId?: string) => {
+    if (!remixerData.library) return;
+    // Resolve the target node from the passed id (fresh) rather than relying on
+    // `uiState.selectedBookNodeId`, which may not have committed yet when this is
+    // called right after a `setUiState` (e.g. the double-click handler). Reading
+    // state here would snapshot the previous selection into the modal element.
+    const targetId = nodeId ?? uiState.selectedBookNodeId;
+    const targetNode = targetId
+      ? remixerData.currentBook?.find((node) => node["@id"] === targetId)
+      : undefined;
+    openModal(
+      <EditPanel
+        open={true}
+        onClose={closeAllModals}
+        formattedPathPartsDefault={selectedBookDefaultFormattedPathParts(targetId)}
+        currentPage={targetNode}
+        handleSave={handleSaveEdit}
+        library={remixerData.libreLibrary as Library}
+      />
+    )
+  }
+
+  /**
+   * Persisted-closure guard (see `handleLoadSourceRef`): the F2 key handler is
+   * registered in an effect keyed only on the selection, so a directly-captured
+   * opener could reference a stale `currentBook`. Route through this ref so the
+   * handler always invokes the latest closure.
+   */
+  const openEditPanelRef = useRef(openEditPanelForSelectedBookNode);
+  openEditPanelRef.current = openEditPanelForSelectedBookNode;
 
   // ==========================================================================
   // Library → Book import
@@ -1353,6 +1374,22 @@ const RemixerDashboard: React.FC = () => {
     );
   };
 
+  const handleOpenCatalogModal = () => {
+    openModal(
+      <CatalogList
+        open={true}
+        onClose={closeAllModals}
+        dimmer="blurring"
+        catalogBook={remixerData.catalogBook}
+        loadSelectedBook={(bookID, library) => {
+          loadSelectedBook(bookID, library);
+          closeAllModals();
+        }}
+        loading={skipLibraryAutoLoadRef.current}
+      />
+    )
+  }
+
   // ==========================================================================
   // Persistence / recovery
   // ==========================================================================
@@ -1361,7 +1398,6 @@ const RemixerDashboard: React.FC = () => {
   const handleLoadSource = async (
     source: "local" | "server" | "serverDraft" | "fresh",
   ) => {
-    setShowRecoveryModal(false);
     setLoadingRecovery(true);
     try {
       if (source === "local") {
@@ -1455,6 +1491,15 @@ const RemixerDashboard: React.FC = () => {
     }
   };
 
+  /**
+   * Persisted modal elements (via `openModal`) freeze the closure captured when
+   * they were created, so a stored `<RecoveryModal>` would call a stale
+   * `handleLoadSource` (bound to `remixerDataInit`, before the project loads).
+   * Route through this ref so the modal always invokes the latest closure.
+   */
+  const handleLoadSourceRef = useRef(handleLoadSource);
+  handleLoadSourceRef.current = handleLoadSource;
+
   /** Gather the set of available recovery sources (local/server) and open the recovery modal. */
   const openRecoveryModal = async () => {
     const localDraft = getLocalDraft(id);
@@ -1480,16 +1525,26 @@ const RemixerDashboard: React.FC = () => {
       }
     }
 
-    setAvailableSources({
-      hasLocal: !!localDraft,
-      hasServer: !!serverStateRef.current,
-      hasServerDraft: !!serverStateRef.current,
-      localTimestamp: localDraft?.savedAt,
-      serverUpdatedAt: serverStateRef.current?.settings.updatedAt,
-      serverUpdatedBy: serverStateRef.current?.settings.updatedBy,
-    });
-    setRecoveryModalDismissible(true);
-    setShowRecoveryModal(true);
+    openModal(
+      <RecoveryModal
+        open={true}
+        loading={loadingRecovery}
+        dismissible={true}
+        availableSources={{
+          hasLocal: !!localDraft,
+          hasServer: !!serverStateRef.current,
+          hasServerDraft: !!serverStateRef.current,
+          localTimestamp: localDraft?.savedAt,
+          serverUpdatedAt: serverStateRef.current?.settings.updatedAt,
+          serverUpdatedBy: serverStateRef.current?.settings.updatedBy,
+        }}
+        onLoadSource={(source) => {
+          handleLoadSourceRef.current(source);
+          closeAllModals();
+        }}
+        onClose={closeAllModals}
+      />
+    )
   };
 
   /** Persist the current book + settings to the server and clear any local draft. */
@@ -1566,7 +1621,6 @@ const RemixerDashboard: React.FC = () => {
         ...prev,
         selectedBookNodeId: undefined,
         editPanelOpen: false,
-        publishPanelOpen: false,
       }));
       setRemixerData((prev) => ({
         ...prev,
@@ -1592,7 +1646,43 @@ const RemixerDashboard: React.FC = () => {
     },
   });
 
-  const handleStartOver = () => startOverMutation.mutate();
+  const handleStartOverWithConfirmation = () => {
+    openModal(
+      <ConfirmModal
+        text="This will delete the save Remixer draft for this project. This action cannot be undone"
+        confirmColor="red"
+        confirmText="Start Over"
+        cancelText="Keep Changes"
+        onCancel={closeAllModals}
+        onConfirm={() => {
+          startOverMutation.mutate();
+          closeAllModals();
+        }}
+      />
+    );
+  };
+
+  const openAutoNumberingModal = () => {
+    openModal(
+      <PathNameFormat
+        open={true}
+        dimmer="blurring"
+        onClose={closeAllModals}
+        depth={highestPathLevel()}
+        pathLevelFormats={uiState.pathLevelFormats ?? []}
+        setPathLevelFormats={(pathLevelFormats) =>
+          setUiState((prev) => ({ ...prev, pathLevelFormats }))
+        }
+        autoNumbering={remixerData.autoNumbering ?? true}
+        onAutoNumberingChange={(checked) => {
+          setRemixerData((prev) => ({
+            ...prev,
+            autoNumbering: checked,
+          }));
+        }}
+      />
+    )
+  }
 
   // ==========================================================================
   // Publish
@@ -1641,6 +1731,21 @@ const RemixerDashboard: React.FC = () => {
         pathLevelFormats: uiState.pathLevelFormats,
       },
     });
+  };
+
+  const openPublishModal = () => {
+    openModal(
+      <PublishPanel
+        open={true}
+        dimmer="blurring"
+        handleClose={closeAllModals}
+        handlePublish={handlePublish}
+        currentBook={remixerData.currentBook}
+        publishInProgress={publishPolling}
+        publishStatus={publishStatus}
+        publishMessages={publishMessages}
+      />
+    );
   };
 
   // ==========================================================================
@@ -1736,7 +1841,7 @@ const RemixerDashboard: React.FC = () => {
           setPublishStatus(existingJob.status);
           setPublishMessages(existingJob.messages ?? []);
           setPublishPolling(true);
-          setUiState((prev) => ({ ...prev, publishPanelOpen: true }));
+          openPublishModal();
         }
       } catch {
         // Non-critical; ignore errors checking job status on load
@@ -1781,18 +1886,27 @@ const RemixerDashboard: React.FC = () => {
         console.error("Failed to load remixer saved state", error);
       }
 
-      setAvailableSources({
-        hasLocal: !!localDraft,
-        hasServer: !!serverBook,
-        hasServerDraft: !!serverBook,
-        localTimestamp: localDraft?.savedAt,
-        serverUpdatedAt: serverSettings?.updatedAt,
-        serverUpdatedBy: serverSettings?.updatedBy,
-      });
-
       if (localDraft && serverBook) {
-        setRecoveryModalDismissible(false);
-        setShowRecoveryModal(true);
+        openModal(
+          <RecoveryModal
+            open={true}
+            loading={loadingRecovery}
+            dismissible={false}
+            availableSources={{
+              hasLocal: !!localDraft,
+              hasServer: !!serverBook,
+              hasServerDraft: !!serverBook,
+              localTimestamp: localDraft?.savedAt,
+              serverUpdatedAt: serverSettings?.updatedAt,
+              serverUpdatedBy: serverSettings?.updatedBy,
+            }}
+            onLoadSource={(source) => {
+              handleLoadSourceRef.current(source);
+              closeAllModals();
+            }}
+            onClose={closeAllModals}
+          />
+        )
         return;
       }
 
@@ -2003,7 +2117,7 @@ const RemixerDashboard: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F2" && uiState.selectedBookNodeId) {
         e.preventDefault();
-        setUiState((prev) => ({ ...prev, editPanelOpen: true }));
+        openEditPanelRef.current(uiState.selectedBookNodeId);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -2028,362 +2142,101 @@ const RemixerDashboard: React.FC = () => {
   // ==========================================================================
   // Render
   // ==========================================================================
-
   return (
-    <Grid
-      className="component-container"
-      style={{
-        justifyContent: "center",
-        paddingTop: 72,
-        width: "100%",
-        marginLeft: 0,
-        marginRight: 0,
-      }}
-    >
-      <Grid.Row>
-        <Grid.Column >
-       <Stack direction="vertical" gap="xs" className="mb-2">
-        <Heading level={2}>
-          Remixer
-        </Heading>
-        {
-          !isLoadingProject && project?.title && (
-            <Breadcrumb className="ml-1">
-              <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
-              <Breadcrumb.Item href={`/projects/${id}`}>{project?.title}</Breadcrumb.Item>
-              <Breadcrumb.Item isCurrent>Remixer</Breadcrumb.Item>
-            </Breadcrumb>
-          )
-        }
-      </Stack></Grid.Column></Grid.Row>
-     
-      <ControlPanel
-        onStartOver={handleStartOver}
-        onLoadVersion={openRecoveryModal}
-        onPublish={() =>
-          setUiState((prev) => ({ ...prev, publishPanelOpen: true }))
-        }
-        onPathNameFormat={() =>
-          setUiState((prev) => ({ ...prev, pathNameFormatOpen: true }))
-        }
-        onSave={handleSaveDraft}
-        copyModeState={uiState.copyModeState as CopyMode | undefined}
-        onCopyModeChange={(value) =>
-          setUiState((prev) => ({ ...prev, copyModeState: value }))
-        }
-        isAdmin={isAdmin}
-        autoNumbering={remixerData.autoNumbering ?? false}
-      />
-
-      <Grid.Row>
-        <Grid.Column
-          width={8}
-          style={{
-            padding: "25px",
-            paddingRight: isBookToolbarNarrow ? "0px" : "25px",
-            paddingLeft: isBookToolbarNarrow ? "0px" : "25px",
-          }}
+    <div className="h-full! p-8!">
+      <Stack direction="vertical" gap="md" className="mb-4 w-full! h-full!">
+        <Stack
+          direction={isMidSizedScreen ? "vertical" : "horizontal"}
+          align={isMidSizedScreen ? "start" : "center"}
+          justify="between"
+          className="w-full"
         >
-          <Container fluid>
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.5em" }}
-            >
-              <Text color="default" className="font-bold text-lg">
-                Library
-              </Text>
-
-              {isBookToolbarNarrow ? (
-                <div
-                  style={{
-                    marginLeft: "auto",
-                    display: "flex",
-                    alignItems: "center",
-                    paddingTop: isBookToolbarNarrow ? "1.5em" : "0px",
-                  }}
-                >
-                  <Dropdown
-                    direction="left"
-                    icon={null}
-                    trigger={
-                      <IconButton
-                        aria-label="Dropdown"
-                        icon={<Icon name="ellipsis vertical" />}
-                      />
-                    }
-                  >
-                    <Dropdown.Menu>
-                      {(remixerData.libraries ?? []).map((library) => {
-                        const isSelected =
-                          remixerData.selectedLibrary === library;
-                        return (
-                          <Dropdown.Item
-                            key={library}
-                            text={
-                              isLibrary(library)
-                                ? libraryTitles[library]
-                                : library
-                            }
-                            icon={isSelected ? "check" : undefined}
-                            onClick={() =>
-                              setRemixerData((prev) => ({
-                                ...prev,
-                                selectedLibrary: isLibrary(library)
-                                  ? library
-                                  : undefined,
-                              }))
-                            }
-                          />
-                        );
-                      })}
-                      <Dropdown.Divider />
-                      <Dropdown.Item
-                        icon="search"
-                        text="Search Catalog Book"
-                        className={DAVIS_REMIXER_BTN_CLASS.menuPrimary}
-                        onClick={() =>
-                          setUiState((prev) => ({
-                            ...prev,
-                            catalogListOpen: true,
-                          }))
-                        }
-                      />
-                    </Dropdown.Menu>
-                  </Dropdown>
-                </div>
-              ) : (
-                <>
-                  {remixerData.libraries && (
-                    <Select
-                      id="remixer-library"
-                      className="w-full"
-                      name="remixer-library"
-                      label=""
-                      value={remixerData?.selectedLibrary ?? ""}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        const nextLibrary =
-                          raw && isLibrary(raw) ? raw : undefined;
-                        setRemixerData((prev) => ({
-                          ...prev,
-                          selectedLibrary: nextLibrary,
-                        }));
-                      }}
-                      options={remixerData.libraries?.map((library) => ({
-                        value: library,
-                        label: isLibrary(library)
-                          ? libraryTitles[library]
-                          : library,
-                      }))}
-                      placeholder="Library..."
-                      style={{ flex: 1, width: "100%" }}
-                    />
-                  )}
-
-                  <Popup
-                    content="Search Catalog Book"
-                    position="bottom center"
-                    trigger={
-                      <IconButton
-                        aria-label="Search Catalog Book"
-                        icon={<Icon name="search" />}
-                        onClick={() =>
-                          setUiState((prev) => ({
-                            ...prev,
-                            catalogListOpen: true,
-                          }))
-                        }
-                        className={DAVIS_REMIXER_BTN_CLASS.neutral}
-                      />
-                    }
-                  />
-                </>
-              )}
-            </div>
-
-            {selectedLibraryPages && remixerData.selectedLibrary ? (
-              <TreeDnd
-                expandedNodeIds={expandedNodeIdsLibrary}
-                setExpandedNodeIds={setExpandedNodeIdsLibrary}
-                currentBook={selectedLibraryPages}
-                autoNumbering={remixerData.autoNumbering ?? true}
-                pathLevelFormats={uiState.pathLevelFormats ?? []}
-                onExpand={expandLibraryTree}
-                treeId="library"
-              />
-            ) : (
-              <TreeSkeleton />
+          <div className="flex flex-col">
+            <Heading level={2}>Remixer</Heading>
+            {!isLoadingProject && project?.title && (
+              <Breadcrumb aria-label="Page navigation">
+                <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
+                <Breadcrumb.Item href={`/projects/${id}`}>{project?.title}</Breadcrumb.Item>
+                <Breadcrumb.Item isCurrent>Remixer</Breadcrumb.Item>
+              </Breadcrumb>
             )}
-          </Container>
-        </Grid.Column>
-        <Grid.Column
-          width={8}
-          style={{
-            padding: "25px",
-            display: "flex",
-            alignItems: "flex-start",
-            paddingLeft: isBookToolbarNarrow ? "0px" : "25px",
-          }}
-        >
-          <Container fluid style={{ width: "100%" }}>
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.5em" }}
-            >
-              <Text className="font-bold text-lg" color="default">
-                Text
-              </Text>
-              <div
-                style={{
-                  marginLeft: "auto",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.2em",
-                  paddingTop: isBookToolbarNarrow ? "1.5em" : "0px",
-                }}
-              >
-                {isBookToolbarNarrow ? (
-                  <Dropdown
-                    direction="left"
-                    icon={null}
-                    trigger={
-                      <IconButton
-                        aria-label="Dropdown"
-                        icon={<Icon name="ellipsis vertical" />}
-                        onClick={() => handleAddBookItem()}
-                      />
+          </div>
+          <ControlPanelNewUITemp
+            isNarrowScreen={isNarrowScreen}
+            isAdmin={isAdmin}
+            copyModeState={uiState.copyModeState ?? "default"}
+            onCopyModeChange={(newMode) => {
+              setUiState((prev) => ({ ...prev, copyModeState: newMode }));
+              addNotification({
+                message: `Copy mode changed to ${newMode}`,
+                type: "info",
+                duration: 3000,
+              });
+            }}
+            onStartOver={() => handleStartOverWithConfirmation()}
+            onLoadVersion={() => openRecoveryModal()}
+            onAutoNumberingSettings={() => openAutoNumberingModal()}
+            onSaveDraft={() => handleSaveDraft()}
+            onSaveChanges={() => openPublishModal()}
+          />
+        </Stack>
+      </Stack>
+      <Card className="h-[900px] w-full!">
+        <Grid cols={2} className="h-full w-full" gap="lg">
+          <Stack direction="horizontal" align="start">
+            <Stack direction="vertical" gap="sm" className="h-full w-full">
+              <Stack direction="horizontal" gap="md" className="w-full" align="center" justify="between">
+                <Text color="default" className="font-bold text-lg">
+                  Library
+                </Text>
+                <LibraryActions
+                  isNarrowScreen={isNarrowScreen}
+                  remixerData={remixerData}
+                  setRemixerData={setRemixerData}
+                  onOpenCatalogModal={() => handleOpenCatalogModal()}
+                />
+              </Stack>
+
+              {selectedLibraryPages && remixerData.selectedLibrary ? (
+                <TreeDnd
+                  expandedNodeIds={expandedNodeIdsLibrary}
+                  setExpandedNodeIds={setExpandedNodeIdsLibrary}
+                  currentBook={selectedLibraryPages}
+                  autoNumbering={remixerData.autoNumbering ?? true}
+                  pathLevelFormats={uiState.pathLevelFormats ?? []}
+                  onExpand={expandLibraryTree}
+                  treeId="library"
+                />
+              ) : (
+                <TreeSkeleton />
+              )}
+            </Stack>
+          </Stack>
+          <Stack direction="horizontal" align="start">
+            <Stack direction="vertical" gap="sm" className="h-full w-full">
+              <Stack direction="horizontal" className="w-full" align="center" justify="between">
+                <Text className="font-bold text-lg" color="default">
+                  Text
+                </Text>
+                <BookActions
+                  isNarrowScreen={isNarrowScreen}
+                  onAddItem={handleAddBookItem}
+                  onDeleteItem={handleDeleteSelectedBookNode}
+                  onUndo={handleUndo}
+                  onRedo={handleRedo}
+                  isAllExpanded={isExpandedAllCurrentBookNodes()}
+                  onToggleExpandCollapse={() => {
+                    if (isExpandedAllCurrentBookNodes()) {
+                      collapseAllCurrentBook();
+                    } else {
+                      expandAllCurrentBook();
                     }
-                  >
-                    <Dropdown.Menu>
-                      <Dropdown.Item
-                        icon="add"
-                        text="Add"
-                        className={DAVIS_REMIXER_BTN_CLASS.menuSuccess}
-                        onClick={() => handleAddBookItem()}
-                      />
-                      <Dropdown.Item
-                        icon="trash"
-                        text="Delete"
-                        className={DAVIS_REMIXER_BTN_CLASS.menuDanger}
-                        onClick={() => handleDeleteSelectedBookNode()}
-                      />
-                      <Dropdown.Divider />
-                      <Dropdown.Item
-                        icon="undo"
-                        text="Undo"
-                        disabled={undoStack.length === 0}
-                        onClick={() => handleUndo()}
-                      />
-                      <Dropdown.Item
-                        icon="redo"
-                        text="Redo"
-                        disabled={redoStack.length === 0}
-                        onClick={() => handleRedo()}
-                      />
-                      <Dropdown.Divider />
-                      <Dropdown.Item
-                        icon={
-                          isExpandedAllCurrentBookNodes()
-                            ? "chevron up"
-                            : "chevron down"
-                        }
-                        text={
-                          isExpandedAllCurrentBookNodes()
-                            ? "Collapse all (Current Book)"
-                            : "Expand all (Current Book)"
-                        }
-                        onClick={() =>
-                          void (isExpandedAllCurrentBookNodes()
-                            ? collapseAllCurrentBook()
-                            : expandAllCurrentBook())
-                        }
-                      />
-                    </Dropdown.Menu>
-                  </Dropdown>
-                ) : (
-                  <>
-                    <Popup
-                      content="Add"
-                      position="bottom center"
-                      trigger={
-                        <IconButton
-                          aria-label="Add"
-                          icon={<Icon name="add" />}
-                          onClick={handleAddBookItem}
-                          className={DAVIS_REMIXER_BTN_CLASS.success}
-                        />
-                      }
-                    />
-                    <Popup
-                      content="Delete"
-                      position="bottom center"
-                      trigger={
-                        <IconButton
-                          aria-label="Delete"
-                          icon={<Icon name="trash alternate" />}
-                          onClick={handleDeleteSelectedBookNode}
-                          className={DAVIS_REMIXER_BTN_CLASS.danger}
-                        />
-                      }
-                    />
-                    <Popup
-                      content="Undo"
-                      position="bottom center"
-                      trigger={
-                        <IconButton
-                          aria-label="Undo"
-                          icon={<Icon name="undo" />}
-                          onClick={handleUndo}
-                          disabled={undoStack.length === 0}
-                          className={DAVIS_REMIXER_BTN_CLASS.neutral}
-                        />
-                      }
-                    />
-                    <Popup
-                      content="Redo"
-                      position="bottom center"
-                      trigger={
-                        <IconButton
-                          aria-label="Redo"
-                          icon={<Icon name="redo" />}
-                          onClick={handleRedo}
-                          disabled={redoStack.length === 0}
-                          className={DAVIS_REMIXER_BTN_CLASS.neutral}
-                        />
-                      }
-                    />
-                    <Popup
-                      content={
-                        isExpandedAllCurrentBookNodes()
-                          ? "Collapse all (Current Book)"
-                          : "Expand all (Current Book)"
-                      }
-                      position="bottom center"
-                      trigger={
-                        <IconButton
-                          aria-label="Expand all (Current Book)"
-                          icon={
-                            <Icon
-                              name={
-                                isExpandedAllCurrentBookNodes()
-                                  ? "chevron up"
-                                  : "chevron down"
-                              }
-                            />
-                          }
-                          onClick={() =>
-                            void (isExpandedAllCurrentBookNodes()
-                              ? collapseAllCurrentBook()
-                              : expandAllCurrentBook())
-                          }
-                          className={DAVIS_REMIXER_BTN_CLASS.neutral}
-                        />
-                      }
-                    />
-                  </>
-                )}
-              </div>
-            </div>
-            {remixerData.currentBook ? (
-              <div style={{ position: "relative" }}>
+                  }}
+                  canUndo={undoStack.length > 0}
+                  canRedo={redoStack.length > 0}
+                />
+              </Stack>
+              {remixerData.currentBook ? (
                 <TreeDnd
                   expandedNodeIds={expandedNodeIdsBook}
                   setExpandedNodeIds={setExpandedNodeIdsBook}
@@ -2403,13 +2256,13 @@ const RemixerDashboard: React.FC = () => {
                       selectedBookNodeId: nodeId,
                     }))
                   }
-                  onNodeDoubleClick={(nodeId) =>
+                  onNodeDoubleClick={(nodeId) => {
                     setUiState((prev) => ({
                       ...prev,
                       selectedBookNodeId: nodeId,
-                      editPanelOpen: true,
-                    }))
-                  }
+                    }));
+                    openEditPanelForSelectedBookNode(nodeId);
+                  }}
                   onNodeContextMenu={(nodeId, event) => {
                     setUiState((prev) => ({
                       ...prev,
@@ -2422,78 +2275,13 @@ const RemixerDashboard: React.FC = () => {
                     });
                   }}
                 />
-                <Dimmer active={isImportingFromLibrary} inverted>
-                  <Loader size="medium">Importing from library…</Loader>
-                </Dimmer>
-              </div>
-            ) : (
-              <TreeSkeleton />
-            )}
-          </Container>
-        </Grid.Column>
-      </Grid.Row>
-      <PublishPanel
-        open={uiState.publishPanelOpen}
-        dimmer="blurring"
-        handleClose={() =>
-          setUiState((prev) => ({ ...prev, publishPanelOpen: false }))
-        }
-        handlePublish={handlePublish}
-        currentBook={remixerData.currentBook}
-        publishInProgress={publishPolling}
-        publishStatus={publishStatus}
-        publishMessages={publishMessages}
-      />
-      {remixerData.library && (
-        <EditPanel
-          open={uiState.editPanelOpen}
-          dimmer="blurring"
-          onClose={() =>
-            setUiState((prev) => ({ ...prev, editPanelOpen: false }))
-          }
-          formattedPathPartsDefault={selectedBookDefaultFormattedPathParts()}
-          currentPage={selectedBookNode}
-          handleSave={handleSaveEdit}
-          library={remixerData.libreLibrary as Library}
-        />
-      )}
-      <PathNameFormat
-        open={uiState.pathNameFormatOpen}
-        dimmer="blurring"
-        onClose={() =>
-          setUiState((prev) => ({ ...prev, pathNameFormatOpen: false }))
-        }
-        depth={highestPathLevel()}
-        pathLevelFormats={uiState.pathLevelFormats ?? []}
-        setPathLevelFormats={(pathLevelFormats) =>
-          setUiState((prev) => ({ ...prev, pathLevelFormats }))
-        }
-        autoNumbering={remixerData.autoNumbering ?? true}
-        onAutoNumberingChange={(checked) => {
-          setRemixerData((prev) => ({
-            ...prev,
-            autoNumbering: checked,
-          }));
-        }}
-      />
-      <CatalogList
-        open={uiState.catalogListOpen}
-        onClose={() =>
-          setUiState((prev) => ({ ...prev, catalogListOpen: false }))
-        }
-        dimmer="blurring"
-        catalogBook={remixerData.catalogBook}
-        loadSelectedBook={loadSelectedBook}
-        loading={skipLibraryAutoLoadRef.current}
-      />
-      <RecoveryModal
-        open={showRecoveryModal}
-        loading={loadingRecovery}
-        dismissible={recoveryModalDismissible}
-        availableSources={availableSources}
-        onLoadSource={handleLoadSource}
-        onClose={() => setShowRecoveryModal(false)}
-      />
+              ) : (
+                <TreeSkeleton />
+              )}
+            </Stack>
+          </Stack>
+        </Grid>
+      </Card>
       <BookImportModal
         open={pendingBookImport !== null}
         bookTitle={
@@ -2521,7 +2309,7 @@ const RemixerDashboard: React.FC = () => {
         addBelowLabel={`Add ${contextMenuSiblingTypeLabel} Below`}
         onAction={handleContextMenuAction}
       />
-    </Grid>
+    </div >
   );
 };
 

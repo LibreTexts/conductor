@@ -1,339 +1,205 @@
-import React, { useState } from "react";
-import { useMediaQuery } from "react-responsive";
-import { Dropdown, Grid, Header, Icon, Modal, Popup } from "semantic-ui-react";
-import {
-  DAVIS_REMIXER_BTN_CLASS,
-  buttonActiveStyle,
-  buttonStyle,
-  handleMouseEnter,
-  handleMouseLeave,
-} from "./style";
-import { CopyMode, copyModeStates, defaultCopyModeState } from "./model";
-import { Button, IconButton, Select, Stack } from "@libretexts/davis-react";
+import { Button, IconButton, Menu, Select, Tooltip, type ButtonProps, type IconButtonProps } from "@libretexts/davis-react";
+import { CopyMode } from "./model";
+import { IconClockEdit, IconDeviceFloppy, IconPencilPause, IconRefresh, IconSettings } from "@tabler/icons-react";
+import ConsultInsightButton from "../NextGenComponents/ConsultInsightButton";
 
-/** Matches davis IconButton `md` (`size-10` = 2.5rem) row height for toolbar + modal actions. */
-const CP_CONTROL_H = "h-10 min-h-10 shrink-0";
-const cpTextBtn = (surface: string) => `${surface} ${CP_CONTROL_H}`;
-const cpIconBtn = (surface: string) => `${surface} ${CP_CONTROL_H} size-10`;
-
-interface ControlPanelProps {
-  onStartOver?: () => void | Promise<void>;
-  onLoadVersion?: () => void;
-  onPublish?: () => void;
-  onPathNameFormat?: () => void;
-  onSave?: () => void;
-  copyModeState?: CopyMode;
-  onCopyModeChange?: (value: CopyMode) => void;
-  isAdmin?: boolean;
-  autoNumbering: boolean;
+interface ControlPanelNewUITempProps {
+    isNarrowScreen: boolean;
+    isAdmin: boolean;
+    copyModeState: string;
+    onCopyModeChange: (mode: string) => void;
+    onStartOver: () => void;
+    onLoadVersion: () => void;
+    onAutoNumberingSettings: () => void;
+    onSaveDraft: () => void;
+    onSaveChanges: () => void;
 }
 
-const ControlPanel: React.FC<ControlPanelProps> = ({
-  onStartOver,
-  onLoadVersion,
+interface CopyModeState {
+    title: string;
+    value: CopyMode;
+    isAdminOnly: boolean;
+}
 
-  onPublish,
-  onSave,
-  onPathNameFormat,
-  copyModeState,
-  onCopyModeChange,
-  isAdmin = false,
-  autoNumbering,
+const COPY_MODE_STATES: CopyModeState[] = [
+    { title: "Copy-Transclude", value: "Transclude", isAdminOnly: false },
+    { title: "Copy-Fork", value: "Fork", isAdminOnly: true },
+    { title: "Copy-Full", value: "Full", isAdminOnly: true },
+];
+
+type ControlPanelAction = {
+    icon: React.ReactNode;
+    group: 'left' | 'right';
+    onClick: () => void;
+} & ({ title: string; variant: ButtonProps['variant']; } | { tooltip: string; variant: IconButtonProps['variant']; });
+
+const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
+    isNarrowScreen,
+    isAdmin,
+    copyModeState,
+    onCopyModeChange,
+    onStartOver,
+    onLoadVersion,
+    onAutoNumberingSettings,
+    onSaveDraft,
+    onSaveChanges
 }) => {
-  const [confirmStartOverOpen, setConfirmStartOverOpen] = useState(false);
-  const [startOverLoading, setStartOverLoading] = useState(false);
-  const isToolbarNarrow = useMediaQuery({ maxWidth: 767 });
 
-  const handleStartOverConfirm = async () => {
-    if (!onStartOver) {
-      setConfirmStartOverOpen(false);
-      return;
-    }
-    setStartOverLoading(true);
-    try {
-      await onStartOver();
-      setConfirmStartOverOpen(false);
-    } finally {
-      setStartOverLoading(false);
-    }
-  };
+    const actions: ControlPanelAction[] = [
+        {
+            tooltip: "Start over",
+            icon: <IconRefresh size={18} />,
+            variant: "destructive",
+            group: 'left',
+            onClick: () => {
+                onStartOver();
+            }
+        },
+        {
+            tooltip: "Load Saved Draft",
+            icon: <IconClockEdit size={18} />,
+            variant: "secondary",
+            group: 'left',
+            onClick: () => {
+                onLoadVersion();
+            }
+        },
+        {
+            tooltip: "Auto Numbering Settings",
+            icon: <IconSettings size={18} />,
+            variant: "secondary",
+            group: 'left',
+            onClick: () => {
+                onAutoNumberingSettings();
+            }
+        },
+        {
+            title: "Save as Draft",
+            icon: <IconPencilPause size={18} />,
+            variant: "outline",
+            group: 'right',
+            onClick: () => {
+                onSaveDraft();
+            }
+        },
+        {
+            title: "Save Changes",
+            icon: <IconDeviceFloppy size={18} />,
+            variant: "primary",
+            group: 'right',
+            onClick: () => {
+                onSaveChanges();
+            }
+        }
+    ]
 
-  return (
-    <Grid.Row
-      style={{
-        position: "absolute",
-        top: 100,
-        // left: 0,
-        // right: 0,
-        // margin: 0,
-        padding: "25px",
-        zIndex: 10,
-        justifyContent: "center",
-      }}
-    >
-      <Grid.Column
-        width={16}
-        style={{
-          backgroundColor: "rgba(0, 0, 0, 0.80)",
-          minHeight: "56px",
-          padding: "8px 12px",
-          borderRadius: "10px",
-          border: "1px solid #000",
-          overflow: "visible",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "12px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "2px",
-            }}
-          >
-            <Button
-              onClick={() => setConfirmStartOverOpen(true)}
-              style={buttonStyle}
-              className={cpTextBtn(DAVIS_REMIXER_BTN_CLASS.neutral)}
-              icon={<Icon name="refresh" />}
-              iconPosition="left"
-            >
-              Start Over
-            </Button>
-            <Popup
-              content="Load a different version"
-              position="bottom center"
-              trigger={
-                <span className={`inline-flex items-center ${CP_CONTROL_H}`}>
-                  <IconButton
-                    onClick={onLoadVersion}
-                    icon={<Icon name="history" />}
-                    className={cpIconBtn(DAVIS_REMIXER_BTN_CLASS.neutral)}
-                    aria-label="Load a different version"
-                  />
-                </span>
-              }
-            />
-          </div>
-
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: "8px",
-              minWidth: 0,
-            }}
-          >
-            {/* <Dropdown
-                options={copyModeStates.map((state) => ({
-                  key: state.value,
-                  text: isToolbarNarrow ? state.title.length > 10 ? state.title.substring(0, 10) + "..." : state.title : state.title,
-                  value: state.value,
-                }))}
-                value={copyModeState ?? defaultCopyModeState.value}
-                onChange={(_e, { value }) => {
-                  const next = copyModeStates.find((s) => s.value === value);
-                  if (next) onCopyModeChange?.(next.value);
-                }}
-                selection
-                compact
-                upward={false}
-                placeholder="Copy Mode..."
-                style={{ minWidth: 180, zIndex: 20, minHeight: 40 }}
-              /> */}
-            {isAdmin && (
-              <Select
-                title="Copy Mode"
-                name="copyMode"
+    return (
+        <div className="flex items-center gap-2">
+            <Select
+                id="remixer-mode"
+                name="remixer-mode"
                 label=""
-                options={copyModeStates.map((state) => ({
-                  label: state.title,
-                  value: state.value,
-                }))}
-                placeholder="Copy Mode..."
-                value={copyModeState ?? defaultCopyModeState.value}
-                labelClassName="hidden"
-                className="min-w-[11rem] shrink-0 [&>div]:!mt-0"
-                selectClassName={`!pr-10 !box-border ${CP_CONTROL_H}`}
+                placeholder="Mode..."
+                className="w-48 mb-1"
+                value={copyModeState}
                 onChange={(e) => {
-                  const next = copyModeStates.find(
-                    (s) => s.value === e.target.value,
-                  );
-                  if (next) onCopyModeChange?.(next.value);
+                    onCopyModeChange(e.target.value);
                 }}
-              />
-            )}
-            <Popup
-              content="Autonumbering settings"
-              position="bottom center"
-              trigger={
-                <span className={`inline-flex items-center ${CP_CONTROL_H}`}>
-                  <Button
-                    style={buttonStyle}
-                    onClick={onPathNameFormat}
-                    className={
-                      autoNumbering
-                        ? `${DAVIS_REMIXER_BTN_CLASS.success} ${CP_CONTROL_H}`
-                        : cpTextBtn(DAVIS_REMIXER_BTN_CLASS.neutral)
-                    }
-                  >
-                    Autonumber
-                  </Button>
-                </span>
-              }
+                options={COPY_MODE_STATES.filter((mode) => isAdmin ? true : !mode.isAdminOnly).map((mode) => ({
+                    value: mode.value,
+                    label: mode.title,
+                }))}
             />
-          </div>
+            {
+                isNarrowScreen ? (
+                    <Menu>
+                        <Menu.Button>Menu</Menu.Button>
+                        <Menu.Items>
+                            {
+                                actions.map((action, index) => (
+                                    <Menu.Item
+                                        key={index}
+                                        icon={action.icon}
+                                        onClick={action.onClick}
+                                    >
+                                        {'title' in action ? action.title : action.tooltip}
+                                    </Menu.Item>
+                                ))
+                            }
+                        </Menu.Items>
+                    </Menu>
+                ) : (
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                            {
+                                actions.filter(action => action.group === 'left').map((action, index) => {
+                                    if ('tooltip' in action) {
+                                        return (
+                                            <Tooltip key={index} content={action.tooltip}>
+                                                <IconButton
+                                                    aria-label={action.tooltip}
+                                                    variant={action.variant}
+                                                    key={index}
+                                                    icon={action.icon}
+                                                    onClick={action.onClick}
+                                                    title={action.tooltip}
+                                                    className="m-0!" // This is a temp fix until Semantic UI is removed from the project. It's applying a margin to the button that isn't needed
+                                                />
+                                            </Tooltip>
+                                        )
+                                    }
+                                    return (
+                                        <Button
+                                            key={index}
+                                            variant={action.variant}
+                                            icon={action.icon}
+                                            onClick={action.onClick}
+                                        >
+                                            {action.title}
+                                        </Button>
+                                    )
+                                })
+                            }
+                            <Tooltip content="Consult the Insight Knowledge Base for more information about the Remixer">
+                                <ConsultInsightButton href="https://commons.libretexts.org/insight/the-remixer" />
+                            </Tooltip>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {
+                                actions.filter(action => action.group === 'right').map((action, index) => {
+                                    if ('tooltip' in action) {
+                                        return (
+                                            <Tooltip key={index} content={action.tooltip}>
+                                                <Button
+                                                    key={index}
+                                                    variant={action.variant}
+                                                    icon={action.icon}
+                                                    onClick={action.onClick}
+                                                    title={action.tooltip}
+                                                />
+                                            </Tooltip>
+                                        )
+                                    }
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-end",
-              gap: "2px",
-              flexWrap: "nowrap",
-              overflowX: "visible",
-              minWidth: 0,
-            }}
-          >
-            {isToolbarNarrow ? (
-              <Dropdown
-                direction="left"
-                icon={null}
-                trigger={
-                  <span className={`inline-flex items-center ${CP_CONTROL_H}`}>
-                    <IconButton
-                      icon={<Icon name="ellipsis vertical" />}
-                      className={cpIconBtn(DAVIS_REMIXER_BTN_CLASS.neutral)}
-                      aria-label="Control panel actions"
-                    />
-                  </span>
-                }
-              >
-                <Dropdown.Menu>
-                  <Dropdown.Item
-                    icon="options"
-                    text="Path Name Format"
-                    onClick={onPathNameFormat}
-                    className={
-                      autoNumbering
-                        ? DAVIS_REMIXER_BTN_CLASS.menuSuccess
-                        : undefined
-                    }
-                  />
-                  <Dropdown.Divider />
-                  <Dropdown.Item
-                    icon="save"
-                    text="Save as a draft"
-                    onClick={onSave}
-                    title="Save Remixing Map draft to Conductor"
-                  />
-                  <Dropdown.Item
-                    icon="upload"
-                    text="Save to Library"
-                    onClick={onPublish}
-                    title="Save Book to Library"
-                  />
-                </Dropdown.Menu>
-              </Dropdown>
-            ) : (
-              <>
-                <Popup
-                  content="Save Remixing Map draft to Conductor"
-                  position="bottom right"
-                  offset={[0, 8]}
-                  popperModifiers={[
-                    {
-                      name: "preventOverflow",
-                      enabled: true,
-                      options: { boundary: "viewport", padding: 8 },
-                    },
-                  ]}
-                  aria-label="Save Remixing Map draft to Conductor"
-                  trigger={
-                    <span
-                      className={`inline-flex items-center ${CP_CONTROL_H}`}
-                    >
-                      <IconButton
-                        icon={<Icon name="save" />}
-                        onClick={onSave}
-                        className={cpIconBtn(DAVIS_REMIXER_BTN_CLASS.neutral)}
-                        aria-label="Save Remixing Map draft to Conductor"
-                      />
-                    </span>
-                  }
-                />
-                <Popup
-                  content="Save Book to Library"
-                  position="bottom right"
-                  offset={[0, 8]}
-                  popperModifiers={[
-                    {
-                      name: "preventOverflow",
-                      enabled: true,
-                      options: { boundary: "viewport", padding: 8 },
-                    },
-                  ]}
-                  aria-label="Save Book to Library"
-                  trigger={
-                    <span
-                      className={`inline-flex items-center ${CP_CONTROL_H}`}
-                    >
-                      <IconButton
-                        icon={<Icon name="upload" />}
-                        onClick={onPublish}
-                        className={cpIconBtn(DAVIS_REMIXER_BTN_CLASS.neutral)}
-                        aria-label="Save Book to Library"
-                      />
-                    </span>
-                  }
-                />
-              </>
-            )}
-          </div>
-        </div>
-      </Grid.Column>
-      <Modal
-        open={confirmStartOverOpen}
-        size="small"
-        onClose={() => {
-          if (!startOverLoading) setConfirmStartOverOpen(false);
-        }}
-      >
-        <Modal.Header>Start Over?</Modal.Header>
-        <Modal.Content>
-          This will delete the saved remixer draft for this project. This action
-          cannot be undone.
-        </Modal.Content>
-        <Modal.Actions>
-          <Stack direction="horizontal" gap="md" justify="end">
-            <Button
-              className={CP_CONTROL_H}
-              onClick={() => setConfirmStartOverOpen(false)}
-              disabled={startOverLoading}
-            >
-              Cancel
-            </Button>
-            <Button
-              className={`${DAVIS_REMIXER_BTN_CLASS.success} ${CP_CONTROL_H}`}
-              onClick={handleStartOverConfirm}
-              loading={startOverLoading}
-              disabled={startOverLoading}
-            >
-              Confirm
-            </Button>
-          </Stack>
-        </Modal.Actions>
-      </Modal>
-    </Grid.Row>
-  );
-};
+                                    return (
+                                        <Button
+                                            key={index}
+                                            variant={action.variant}
+                                            icon={action.icon}
+                                            onClick={action.onClick}
+                                        >
+                                            {action.title}
+                                        </Button>
+                                    )
+                                })
+                            }
+                        </div>
 
-export default ControlPanel;
+                    </div>
+                )
+            }
+        </div >
+    )
+}
+
+export default ControlPanelNewUITemp;
