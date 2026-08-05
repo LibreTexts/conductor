@@ -669,7 +669,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
                   href={itemLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-lg"
+                  className="text-base"
                   style={{
                     whiteSpace: "nowrap",
                     fontStyle: isInteractionLocked ? "italic" : "normal",
@@ -683,7 +683,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
                 </a>
               ) : (
                 <span
-                  className="text-lg"
+                  className="text-base"
                   style={{
                     whiteSpace: "nowrap",
                     fontStyle: isInteractionLocked ? "italic" : "normal",

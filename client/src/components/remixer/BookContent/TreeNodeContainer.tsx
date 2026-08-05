@@ -138,7 +138,7 @@ const TreeNodeContainer: React.FC<TreeNodeContainerProps> = ({
             href={itemLink}
             target="_blank"
             rel="noreferrer"
-            className="text-lg"
+            className="text-base"
             style={{
               whiteSpace: "nowrap",
               fontStyle: isVisualLocked ? "italic" : "normal",
@@ -152,7 +152,7 @@ const TreeNodeContainer: React.FC<TreeNodeContainerProps> = ({
           </a>
         ) : (
           <span
-            className="text-lg"
+            className="text-base"
             style={{
               whiteSpace: "nowrap",
               fontStyle: isVisualLocked ? "italic" : "normal",

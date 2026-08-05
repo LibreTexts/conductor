@@ -59,7 +59,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
             }
         },
         {
-            tooltip: "Load Different Version",
+            tooltip: "Load Saved Draft",
             icon: <IconClockEdit size={16} />,
             variant: "secondary",
             group: 'left',
