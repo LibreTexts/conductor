@@ -7,11 +7,12 @@ const RemixerTemplates = {
     <a href="#">article:topic-category</a>
   </p>`,
 
-  POST_CreateBlankTopicGuide: `<p>{{template.ShowOrg()}}</p>
+  POST_CreateBlankTopicGuide: `
   <p class="template:tag-insert">
     <em>Tags recommended by the template: </em>
     <a href="#">article:topic-guide</a>
-  </p>`,
+  </p>
+  <p>{{template.ShowOrg()}}</p>`,
 
   POST_CreateBlankCoverPage: `<p>{{template.ShowOrg()}}</p>
   <p class="template:tag-insert">

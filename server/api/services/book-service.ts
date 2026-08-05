@@ -800,7 +800,8 @@ export default class BookService {
   }
 
   /**
-   * Add or remove `{{template.ShowOrg()}}` from a page body.
+   * Add or remove ShowOrg from a page body.
+   * Handles both `{{template.ShowOrg()}}` and `<span class="script">template.ShowOrg()</span>`.
    * @returns true if the page was updated (or already in the desired state)
    */
   async activateShowOrg(pageID: string, active: boolean): Promise<boolean> {
@@ -809,8 +810,25 @@ export default class BookService {
     }
 
     const SHOW_ORG_TOKEN = "{{template.ShowOrg()}}";
-    const SHOW_ORG_BLOCK_RE =
+    /** Curly-brace form, optionally wrapped in <p>. */
+    const SHOW_ORG_TEMPLATE_RE =
       /(?:<p>\s*)?\{\{template\.ShowOrg\(\)\}\}(?:\s*<\/p>)?/gi;
+    /** Raw/script span form, optionally wrapped in <p>. */
+    const SHOW_ORG_SCRIPT_RE =
+      /(?:<p>\s*)?<span\s+class=["']script["']\s*>\s*template\.ShowOrg\(\)\s*<\/span>(?:\s*<\/p>)?/gi;
+
+    const stripShowOrg = (body: string): string =>
+      body
+        .replace(SHOW_ORG_TEMPLATE_RE, "")
+        .replace(SHOW_ORG_SCRIPT_RE, "")
+        .replace(/\n{3,}/g, "\n\n")
+        .trimEnd();
+
+    const hasShowOrg = (body: string): boolean =>
+      /\{\{template\.ShowOrg\(\)\}\}/i.test(body) ||
+      /<span\s+class=["']script["']\s*>\s*template\.ShowOrg\(\)\s*<\/span>/i.test(
+        body,
+      );
 
     const rawContents = await this.getPageRawContent(pageID);
     let content = rawContents ?? "";
@@ -825,25 +843,16 @@ export default class BookService {
       // rawContents is already HTML/text
     }
 
-    const hasShowOrg = SHOW_ORG_BLOCK_RE.test(content);
-    // reset lastIndex after global test
-    SHOW_ORG_BLOCK_RE.lastIndex = 0;
-
     let nextContent = content;
     if (active) {
-      if (hasShowOrg) {
-        return true;
-      }
-      const trimmed = content.replace(/\s+$/, "");
-      nextContent = `${trimmed}\n<p>${SHOW_ORG_TOKEN}</p>`;
+      // Strip any existing form(s), then append the canonical template at the end.
+      const stripped = stripShowOrg(content);
+      nextContent = `${stripped}\n<p>${SHOW_ORG_TOKEN}</p>`;
     } else {
-      if (!hasShowOrg) {
+      if (!hasShowOrg(content)) {
         return true;
       }
-      nextContent = content
-        .replace(SHOW_ORG_BLOCK_RE, "")
-        .replace(/\n{3,}/g, "\n\n")
-        .trimEnd();
+      nextContent = stripShowOrg(content);
     }
 
     return this.updatePageContent(pageID, nextContent);
