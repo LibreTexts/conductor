@@ -895,7 +895,7 @@ const handleImportedPage = async (
   const sourceTags = await sourceService.getPageTags(sourceId.toString());
   const preservedTags = sourceTags.map((tag) => tag["@value"]);
 
-  const shouldTransclude = copyModeState === "Transclude" && !hasChildren;
+  const shouldTransclude = copyModeState === "Transclude" ;
   if (shouldTransclude) {
     const resolvedSource = await resolveTranscludeSource({
       subdomain: sourceSubdomain,
