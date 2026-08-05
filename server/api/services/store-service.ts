@@ -807,7 +807,7 @@ class StoreService {
             }
 
             const storeOrder = await StoreOrder.findOne({
-                id: checkout_session_id,
+                id: { $eq: checkout_session_id },
             });
 
             if (!storeOrder) {

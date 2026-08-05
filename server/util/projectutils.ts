@@ -283,7 +283,7 @@ export async function filterFilesByAccess(
   }
 
   if (userID) {
-    const user = await User.findOne({ uuid: userID });
+    const user = await User.findOne({ uuid: { $eq: userID } });
     if (user) {
       authorizedLevels.push("users");
 
