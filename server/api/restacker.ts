@@ -138,7 +138,7 @@ function areLicensesCompatible(
   const versionAdption = parseLicenseVersion(licenseAdption?.version);
   const versionOrigin = parseLicenseVersion(licenseOrigin?.version);
   if (versionAdption && versionOrigin) {
-    return versionAdption >= versionOrigin;
+    return parseFloat(versionAdption) >= parseFloat(versionOrigin);
   }
   return compatibility;
 }
