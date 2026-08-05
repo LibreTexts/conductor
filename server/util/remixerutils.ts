@@ -68,7 +68,7 @@ export const extractPagePath = (pagePath: string): string => {
     /^https?:\/\/[^/]*libretexts\.org\//i,
     "",
   );
-  return withoutHost.replace(/\/+$/, "");
+  return withoutHost;
 };
 
 /** Subdomain label from a LibreTexts page URL (e.g. dev from https://dev.libretexts.org/...). */
@@ -107,7 +107,7 @@ export type RemixerPageStatus =
  * ownership validator and the job can share one source of truth.
  */
 export const getPageStatus = (page: RemixerSubPageState): RemixerPageStatus => {
-  if (page.isDeleted) return "deleted";
+  if (page.isDeleted && (!page.addedItem || !page.isImported)) return "deleted";
   if (page.addedItem && !page.isDeleted && page["@id"].startsWith("new-"))
     return "new";
 
@@ -174,7 +174,7 @@ export const findUnownedRemixerPageIDs = (
     if (status === "modeified" || status === "deleted") {
       const id = page["@id"];
       // `new-` ids are never mutated in place by the job handlers.
-      if (id.startsWith("new-")) continue;
+      if (id.startsWith("new-") || id.split("-").length === 3 ) continue;
       if (!ownedIDs.has(id)) mutated.push(id);
     } else if (status === "new" || status === "imported") {
       if (!isAnchoredInBook(page)) grafted.push(page["@id"]);

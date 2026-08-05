@@ -798,4 +798,54 @@ export default class BookService {
 
     return [error, success];
   }
+
+  /**
+   * Add or remove `{{template.ShowOrg()}}` from a page body.
+   * @returns true if the page was updated (or already in the desired state)
+   */
+  async activateShowOrg(pageID: string, active: boolean): Promise<boolean> {
+    if (!pageID) {
+      throw new Error("Missing pageID");
+    }
+
+    const SHOW_ORG_TOKEN = "{{template.ShowOrg()}}";
+    const SHOW_ORG_BLOCK_RE =
+      /(?:<p>\s*)?\{\{template\.ShowOrg\(\)\}\}(?:\s*<\/p>)?/gi;
+
+    const rawContents = await this.getPageRawContent(pageID);
+    let content = rawContents ?? "";
+    try {
+      const parsed = JSON.parse(rawContents);
+      if (typeof parsed?.body === "string") {
+        content = parsed.body;
+      } else if (Array.isArray(parsed?.body) && parsed.body[0] != null) {
+        content = String(parsed.body[0]);
+      }
+    } catch {
+      // rawContents is already HTML/text
+    }
+
+    const hasShowOrg = SHOW_ORG_BLOCK_RE.test(content);
+    // reset lastIndex after global test
+    SHOW_ORG_BLOCK_RE.lastIndex = 0;
+
+    let nextContent = content;
+    if (active) {
+      if (hasShowOrg) {
+        return true;
+      }
+      const trimmed = content.replace(/\s+$/, "");
+      nextContent = `${trimmed}\n<p>${SHOW_ORG_TOKEN}</p>`;
+    } else {
+      if (!hasShowOrg) {
+        return true;
+      }
+      nextContent = content
+        .replace(SHOW_ORG_BLOCK_RE, "")
+        .replace(/\n{3,}/g, "\n\n")
+        .trimEnd();
+    }
+
+    return this.updatePageContent(pageID, nextContent);
+  }
 }
