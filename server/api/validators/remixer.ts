@@ -26,7 +26,26 @@ export const SaveRemixerProjectStateSchema = z.object({
   }),
   body: z.object({
     currentBook: z.array(z.record(z.string(), z.any())),
-    pathLevelFormats: z.array(z.record(z.string(), z.any())),
+    pathLevelFormats: z.array(
+      z
+        .object({
+          level: z.number(),
+          prefix: z.string().default(""),
+          start: z.number().default(1),
+          type: z.enum([
+            "numeric",
+            "alphabetic",
+            "alphabetic_lower",
+            "roman",
+            "roman_lower",
+            "none",
+          ]),
+          delimiter: z.string().optional(),
+          excludeParent: z.boolean().optional(),
+          continue: z.boolean().optional(),
+        })
+        .passthrough(),
+    ),
     autoNumbering: z.boolean().optional(),
     copyModeState: z.string().optional(),
   }),

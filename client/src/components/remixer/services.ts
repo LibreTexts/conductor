@@ -294,7 +294,7 @@ export const splitFormattedPathParts = (
     const value = start + parsePathSegmentOrdinal(segment) - 1;
     const token = getFormattedTokenByType(value, type);
     const tokenExists = token.trim().length > 0;
-    const levelPrefix = format?.prefix ?? "";
+    const levelPrefix = typeof format?.prefix === "string" ? format.prefix : "";
 
     if (format?.excludeParent) {
       if (tokenExists) {
