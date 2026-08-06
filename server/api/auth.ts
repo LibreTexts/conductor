@@ -928,7 +928,7 @@ const getUserAttributes = (
 
   if (req.user.decoded !== undefined) {
     return User.findOne({
-      uuid: req.user.decoded.uuid,
+      uuid: { $eq: req.user.decoded.uuid },
     })
       .then((user) => {
         if (user) {

@@ -1142,7 +1142,7 @@ export async function updateTeamWorkbenchPermissions(projectID: string, subdomai
       throw new Error("Invalid projectID passed to updateTeamWorkbenchPermissions");
     }
 
-    const project = await Project.findOne({ projectID }).orFail();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).orFail();
     const team = [
       ...project.leads ?? [],
       ...project.liaisons ?? [],

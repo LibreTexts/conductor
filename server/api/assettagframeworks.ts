@@ -160,8 +160,8 @@ async function getCampusDefaultFramework(
     }
 
     const framework = await AssetTagFramework.findOne({
-      uuid: defaultFramework,
-      orgID,
+      uuid: { $eq: defaultFramework },
+      orgID: { $eq: orgID },
     }).lean();
 
     if (!framework) {

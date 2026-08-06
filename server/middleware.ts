@@ -258,8 +258,8 @@ const canAccessSupportTicket = async (
       // if the user does not have the support role, check if the user is the owner of the ticket
       if (req.params && req.params.uuid) {
         const ticket = await SupportTicket.findOne({
-          uuid: req.params.uuid,
-          userUUID: user.uuid,
+          uuid: { $eq: req.params.uuid },
+          userUUID: { $eq: user.uuid },
         });
 
         // if the ticket is found and the user is the owner, allow access
@@ -311,7 +311,7 @@ const isSelfOrSupport = async (
       throw new Error("unauthorized");
     }
 
-    const user = await User.findOne({ uuid: req.user.decoded.uuid });
+    const user = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } });
     if (!user || !user.uuid) {
       throw new Error("unauthorized");
     }

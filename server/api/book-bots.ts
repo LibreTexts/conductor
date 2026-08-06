@@ -52,7 +52,7 @@ export async function submitEditorPreprocessJob(
 ) {
   try {
     const service = new BookBotService();
-    const user = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+    const user = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } }).lean();
     if (!user) {
       return res.status(404).json({ err: true, errMsg: "User not found." });
     }

@@ -136,7 +136,7 @@ async function _addMemberToProjectInternal(
     throw new Error('Project update failed.');
   }
 
-  const updatedProject = await Project.findOne({ projectID });
+  const updatedProject = await Project.findOne({ projectID: { $eq: projectID } });
   if (!updatedProject) {
     throw new Error('Error finding updated project.');
   }
@@ -420,7 +420,7 @@ export async function deleteProjectInvitation(req: ZodReqWithUser<z.infer<typeof
       }
 
       const { projectID } = invitation;
-      const project = await Project.findOne({ projectID, orgID }).lean();
+      const project = await Project.findOne({ projectID: { $eq: projectID }, orgID: { $eq: orgID } }).lean();
       if (!project) {
         return res.status(404).send({
           err: true,
@@ -540,7 +540,7 @@ export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof
      * so long as inviteID and token are valid (and user is authenticated).
      * Many people have multiple accounts/emails and may have been invited via a different one.
     */
-    const user = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+    const user = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } }).lean();
 
     if (!user) {
       return res.status(404).send({

@@ -300,7 +300,7 @@ async function batchUpdateBookMetadata(
             });
         }
 
-        const user = await User.findOne({ uuid: req.user.decoded.uuid }).orFail();
+        const user = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } }).orFail();
         if (!user || !user.email) {
             return res.status(400).send({
                 err: true,
@@ -1126,7 +1126,7 @@ async function _createBatchUpdateJob(projectID: string, props: Pick<ProjectBookB
 
     await Project.updateOne(
         {
-            projectID: projectID,
+            projectID: { $eq: projectID },
         },
         {
             $push: {

@@ -76,7 +76,7 @@ async function miniReposSearch(
     let isSuperAdmin = false;
 
     if (req.user?.decoded?.uuid) {
-      const user = await User.findOne({ uuid: req.user?.decoded?.uuid });
+      const user = await User.findOne({ uuid: { $eq: req.user?.decoded?.uuid } });
       if (user) {
         isSuperAdmin = authAPI.checkHasRole(
           user,

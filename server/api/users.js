@@ -143,7 +143,7 @@ async function getCentralID(req, res) {
             });
         }
 
-        const user = await User.findOne({ uuid }).lean();
+        const user = await User.findOne({ uuid: { $eq: uuid } }).lean();
 
         if (!user) {
             return res.status(400).send({
@@ -254,7 +254,7 @@ async function updateUserInstructorProfile(req, res) {
         }
 
         await User.updateOne(
-            { uuid: req.user.decoded.uuid },
+            { uuid: { $eq: req.user.decoded.uuid } },
             { instructorProfile: profileUpdate },
         );
         return res.send({
@@ -492,7 +492,7 @@ const getUserInfoAdmin = (req, res) => {
  */
 async function getUserAuthorizedApplications(uuid) {
   if (typeof (uuid) === 'string' || uuid.length > 0) {
-    const foundUser = await User.findOne({ uuid }).lean();
+    const foundUser = await User.findOne({ uuid: { $eq: uuid } }).lean();
     if (foundUser && Array.isArray(foundUser.authorizedApps)) {
       return foundUser.authorizedApps;
     }

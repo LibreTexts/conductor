@@ -1672,7 +1672,7 @@ class StoreService {
             });
 
             if (ticket?.uuid) {
-                await StoreOrder.updateOne({ id: storeOrder.id }, { supportTicketUUID: ticket.uuid });
+                await StoreOrder.updateOne({ id: { $eq: storeOrder.id } }, { supportTicketUUID: ticket.uuid });
                 return ticket.uuid;
             }
         } catch (err) {
