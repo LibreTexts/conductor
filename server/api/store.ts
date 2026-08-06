@@ -83,10 +83,11 @@ export async function getMostPopularStoreProducts(req: z.infer<typeof GetMostPop
 export async function createCheckoutSession(req: ZodReqWithOptionalUser<z.infer<typeof CreateCheckoutSessionSchema>>, res: Response) {
   try {
     const { items, shipping_option_id, shipping_address, digital_delivery_option } = req.body;
+    const userId = req.user?.decoded.uuid;
 
     const quantityCheck = await storeService.validateItemQuantities({
       items,
-      userId: req.user?.decoded.uuid,
+      userId,
     });
     if (!quantityCheck.ok) {
       return res.status(400).send({
@@ -117,9 +118,16 @@ export async function createCheckoutSession(req: ZodReqWithOptionalUser<z.infer<
 
     let digital_delivery_account: string | null = null;
     if (digital_delivery_option === 'apply_to_account') {
+      if (!userId) {
+        return res.status(401).send({
+          err: true,
+          message: "User must be logged in to apply digital delivery to account.",
+        });
+      }
+
       const user = await User.findOne({
-        uuid: { $eq: req.user?.decoded.uuid },
-      })
+        uuid: { $eq: userId },
+      });
 
       if (!user || !user.centralID) {
         return res.status(400).send({
