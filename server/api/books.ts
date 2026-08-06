@@ -3313,7 +3313,7 @@ async function deleteBookGlossary(
     library,
   });
   const { uuid: userID } = req.user.decoded;
-  const user = await User.findOne({ uuid: userID }).orFail();
+  const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
   const isSuperAdmin = authAPI.checkHasRole(
     req.user,
     "libretexts",

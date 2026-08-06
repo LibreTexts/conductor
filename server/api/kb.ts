@@ -233,7 +233,7 @@ async function createKBPage(
       req.body;
     const { decoded } = req.user;
 
-    const editor = await User.findOne({ uuid: decoded.uuid }).orFail();
+    const editor = await User.findOne({ uuid: { $eq: decoded.uuid } }).orFail();
 
     const safeSlug = _generatePageSlug(title, slug);
 

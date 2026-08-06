@@ -1523,7 +1523,7 @@ async function createUserNote(
   try {
     const userId = req.params.userId;
     const callingUserId = req.user.decoded.uuid;
-    const callingUser = await User.findOne({ uuid: callingUserId });
+    const callingUser = await User.findOne({ uuid: { $eq: callingUserId } });
     if (!userId || !callingUser || !callingUser.centralID) {
       return conductor400Err(res);
     }

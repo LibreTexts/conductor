@@ -230,7 +230,7 @@ const canAccessSupportTicket = async (
         return next();
       }
     } else if (req.user && req.user.decoded.uuid) {
-      const user = await User.findOne({ uuid: req.user.decoded.uuid });
+      const user = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } });
       if (!user || !user.uuid) {
         throw new Error("unauthorized");
       }

@@ -190,7 +190,7 @@ async function batchGenerateAIMetadata(
         });
         if (!project) return conductor404Err(res);
 
-        const user = await User.findOne({ uuid: req.user.decoded.uuid }).orFail();
+        const user = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } }).orFail();
         if (!user || !user.email) return conductor400Err(res);
 
         // Check if the user has access to the page and it actually exists in book's TOC.
