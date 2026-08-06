@@ -49,6 +49,7 @@ import {
   isBackMatterNode,
   isRootBookNode,
   reorderBookNodes,
+  sanitizePathLevelFormats,
   setLocalDraft,
   hasFormattedPathChanged,
   splitFormattedPathParts,
@@ -386,7 +387,9 @@ const RemixerDashboard: React.FC = () => {
           copyModeState: settings.copyModeState,
         }),
         ...(settings.pathLevelFormats !== undefined && {
-          pathLevelFormats: settings.pathLevelFormats as PathLevelFormat[],
+          pathLevelFormats: sanitizePathLevelFormats(
+            settings.pathLevelFormats as PathLevelFormat[],
+          ),
         }),
       }));
     }

@@ -7,7 +7,11 @@ import {
   NumberingType,
   PathLevelFormat,
 } from "./model";
-import { getStartToken, joinLeveledPathParts } from "./services";
+import {
+  getStartToken,
+  joinLeveledPathParts,
+  stripObjectObjectMarker,
+} from "./services";
 import {
   Alert,
   Button,
@@ -81,7 +85,7 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
         const level = format.level;
         const token = getStartToken(format.start, format.type);
         const tokenExists = token.trim().length > 0;
-        const prefix = typeof format.prefix === "string" ? format.prefix : "";
+        const prefix = stripObjectObjectMarker(format.prefix);
 
         if (format.excludeParent) {
           if (tokenExists) {
@@ -206,7 +210,7 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                     />
                     <Text size="xs" className="mt-1 text-neutral-500">
                       Example:{" "}
-                      {`${format.prefix}${getStartToken(format.start, format.type)}`}
+                      {`${stripObjectObjectMarker(format.prefix)}${getStartToken(format.start, format.type)}`}
                     </Text>
                   </Table.Cell>
                   <Table.Cell>

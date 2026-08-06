@@ -20,6 +20,14 @@ export function getLocalDraft(projectId: string): LocalDraft | null {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed.currentBook) || parsed.currentBook.length === 0)
       return null;
+    // Strip any persisted "[object Object]" marker — the server migration never touches localStorage.
+    parsed.pathLevelFormats = sanitizePathLevelFormats(parsed.pathLevelFormats);
+    parsed.currentBook = parsed.currentBook.map((node: RemixerSubPage) =>
+      typeof node.formattedPath === "string" &&
+      node.formattedPath.includes(OBJECT_OBJECT_MARKER)
+        ? { ...node, formattedPath: stripObjectObjectMarker(node.formattedPath) }
+        : node,
+    );
     return parsed as LocalDraft;
   } catch {
     return null;
@@ -45,6 +53,19 @@ export function clearLocalDraft(projectId: string): void {
 // ---------------------------------------------------------------------------
 // Path/number helpers
 // ---------------------------------------------------------------------------
+
+/** Literal Mongoose-coerced marker from a once-object prefix; see StripObjectObjectFromRemixerPaths migration. */
+export const OBJECT_OBJECT_MARKER = "[object Object]";
+
+/** Coerce to string and remove any persisted "[object Object]" marker (from prefix or formattedPath). */
+export const stripObjectObjectMarker = (value: unknown): string =>
+  typeof value === "string" ? value.split(OBJECT_OBJECT_MARKER).join("") : "";
+
+/** Return a new pathLevelFormats array with every prefix coerced to string and the marker stripped. */
+export const sanitizePathLevelFormats = (
+  formats: PathLevelFormat[] | undefined,
+): PathLevelFormat[] =>
+  (formats ?? []).map((f) => ({ ...f, prefix: stripObjectObjectMarker(f.prefix) }));
 
 export const stripLeadingNumbering = (value: string): string =>
   value.replace(/^\s*\d+(?:\.\d+)*\s*[:.\-]\s*/, "").trim();
@@ -294,7 +315,7 @@ export const splitFormattedPathParts = (
     const value = start + parsePathSegmentOrdinal(segment) - 1;
     const token = getFormattedTokenByType(value, type);
     const tokenExists = token.trim().length > 0;
-    const levelPrefix = typeof format?.prefix === "string" ? format.prefix : "";
+    const levelPrefix = stripObjectObjectMarker(format?.prefix);
 
     if (format?.excludeParent) {
       if (tokenExists) {
@@ -398,7 +419,7 @@ export const resolveInheritedFormattedPathPrefix = (
         pathLevelFormats,
         firstRelLevel,
       );
-      const prefix = (ancestor.formattedPath ?? "").trim();
+      const prefix = stripObjectObjectMarker(ancestor.formattedPath).trim();
       if (!suffix) return prefix || null;
       // excludeParent on first relative level: restart display (no inherited prefix), same as non-inherited tree.
       if (firstRelFormat?.excludeParent) {
@@ -439,7 +460,7 @@ export const getRemixerDisplayTitle = (
   const overridden =
     page.formattedPathOverride === true;
   if (overridden) {
-    const overriddenFormattedPath = (page.formattedPath ?? "").trim();
+    const overriddenFormattedPath = stripObjectObjectMarker(page.formattedPath).trim();
     // Empty override prefix/index means show title only (no autonumber prefix).
     return overriddenFormattedPath
       ? `${overriddenFormattedPath}: ${cleanTitle}`
@@ -665,7 +686,7 @@ export const buildBookPaths = (
           )
         : null;
     const formattedPath = hasOverride
-      ? (node.formattedPath ?? "")
+      ? stripObjectObjectMarker(node.formattedPath)
       : inheritedPrefix ?? computedFormattedPath;
     return {
       ...node,
