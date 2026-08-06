@@ -103,6 +103,7 @@ const RemixerDashboard: React.FC = () => {
   const [publishStatus, setPublishStatus] = useState<PublishJobStatus>("idle");
   const [publishMessages, setPublishMessages] = useState<string[]>([]);
   const [publishPolling, setPublishPolling] = useState<boolean>(false);
+  const [publishPanelOpen, setPublishPanelOpen] = useState<boolean>(false);
 
   const [loadingRecovery, setLoadingRecovery] = useState(false);
 
@@ -1733,20 +1734,11 @@ const RemixerDashboard: React.FC = () => {
     });
   };
 
-  const openPublishModal = () => {
-    openModal(
-      <PublishPanel
-        open={true}
-        dimmer="blurring"
-        handleClose={closeAllModals}
-        handlePublish={handlePublish}
-        currentBook={remixerData.currentBook}
-        publishInProgress={publishPolling}
-        publishStatus={publishStatus}
-        publishMessages={publishMessages}
-      />
-    );
-  };
+  // Rendered inline in the tree (see below) rather than pushed through
+  // `openModal`, which snapshots a static element and would freeze the panel's
+  // `publishStatus`/`publishMessages` at their open-time values — the polling
+  // updates would never reach it. Inline rendering keeps its props live.
+  const openPublishModal = () => setPublishPanelOpen(true);
 
   // ==========================================================================
   // Effects
@@ -2282,6 +2274,16 @@ const RemixerDashboard: React.FC = () => {
           </Stack>
         </Grid>
       </Card>
+      <PublishPanel
+        open={publishPanelOpen}
+        dimmer="blurring"
+        handleClose={() => setPublishPanelOpen(false)}
+        handlePublish={handlePublish}
+        currentBook={remixerData.currentBook}
+        publishInProgress={publishPolling}
+        publishStatus={publishStatus}
+        publishMessages={publishMessages}
+      />
       <BookImportModal
         open={pendingBookImport !== null}
         bookTitle={
