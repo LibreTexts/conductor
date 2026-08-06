@@ -107,5 +107,8 @@
     "extends": [
       "airbnb-base"
     ]
+  },
+  "overrides": {
+    "undici@<=7.29.0": "7.29.0"
   }
 }
