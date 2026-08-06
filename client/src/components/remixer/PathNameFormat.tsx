@@ -81,7 +81,7 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
         const level = format.level;
         const token = getStartToken(format.start, format.type);
         const tokenExists = token.trim().length > 0;
-        const prefix = format.prefix ?? "";
+        const prefix = typeof format.prefix === "string" ? format.prefix : "";
 
         if (format.excludeParent) {
           if (tokenExists) {
@@ -201,7 +201,7 @@ const PathNameFormat: React.FC<PathNameFormatProps> = (props) => {
                       placeholder="Type or choose a prefix…"
                       className="w-full mt-1.5"
                       onChange={(e) =>
-                        updateLevelFormat(index, "prefix", e.target.value)
+                        updateLevelFormat(index, "prefix", String(e.target.value ?? ""))
                       }
                     />
                     <Text size="xs" className="mt-1 text-neutral-500">
