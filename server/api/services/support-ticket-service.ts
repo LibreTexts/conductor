@@ -198,7 +198,7 @@ export default class SupportTicketService {
 
     async checkHarvesterAccessToTicket(ticketId: string, userId: string): Promise<boolean> {
         try {
-            const user = await User.findOne({ uuid: userId }).orFail();
+            const user = await User.findOne({ uuid: { $eq: userId } }).orFail();
             if (!user) return false;
 
             const ticket = await SupportTicket.findOne({ uuid: ticketId }).populate('queue').orFail();

@@ -1250,7 +1250,7 @@ async function acceptAnalyticsInvite(req, res) {
       });
     }
 
-    const course = await AnalyticsCourse.findOne({ courseID: invite.courseID }).lean();
+    const course = await AnalyticsCourse.findOne({ courseID: { $eq: invite.courseID } }).lean();
     if (!course) {
       return res.status(400).send({
         err: true,

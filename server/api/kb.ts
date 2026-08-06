@@ -124,7 +124,7 @@ async function getKBTree(
 
     // If user is logged in, check their KB roles
     if (req.user) {
-      const foundUser = await User.findOne({ uuid: req.user.decoded.uuid });
+      const foundUser = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } });
       if (
         foundUser &&
         authAPI.checkHasRole(foundUser, "libretexts", "superadmin")
@@ -378,7 +378,7 @@ async function updateKBPage(
 
     const safeURL = _generatePageSlug(title, slug);
 
-    const editor = await User.findOne({ uuid: decoded.uuid }).orFail();
+    const editor = await User.findOne({ uuid: { $eq: decoded.uuid } }).orFail();
     const kbPage = await KBPage.findOne({ uuid }).orFail();
 
     kbPage.title = title;

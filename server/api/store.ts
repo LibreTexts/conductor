@@ -118,7 +118,7 @@ export async function createCheckoutSession(req: ZodReqWithOptionalUser<z.infer<
     let digital_delivery_account: string | null = null;
     if (digital_delivery_option === 'apply_to_account') {
       const user = await User.findOne({
-        uuid: req.user?.decoded.uuid,
+        uuid: { $eq: req.user?.decoded.uuid },
       })
 
       if (!user || !user.centralID) {

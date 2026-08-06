@@ -1558,7 +1558,7 @@ async function updateUserNote(
   try {
     const { userId, noteId } = req.params;
     const callingUserId = req.user.decoded.uuid;
-    const callingUser = await User.findOne({ uuid: callingUserId });
+    const callingUser = await User.findOne({ uuid: { $eq: callingUserId } });
     if (!userId || !noteId || !callingUser || !callingUser.centralID) {
       return conductor400Err(res);
     }

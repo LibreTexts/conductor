@@ -3349,7 +3349,7 @@ async function deleteBookGlossaryUsage(
     const glossaryService = new GlossaryService();
     const project = await glossaryService.getProjectByUsageID(usageID.toString());
     const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: userID }).orFail();
+    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
     const isSuperAdmin = authAPI.checkHasRole(
       req.user,
       "libretexts",

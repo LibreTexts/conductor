@@ -339,7 +339,7 @@ async function updateBrandingImageAsset(req: Request, res: Response) {
       });
     }
 
-    const org = await Organization.findOne({ orgID }).lean();
+    const org = await Organization.findOne({ orgID: { $eq: orgID } }).lean();
     if (!org) {
       return res.status(404).send({
         err: true,

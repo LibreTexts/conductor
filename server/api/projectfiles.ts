@@ -730,7 +730,7 @@ async function getProjectFolderContents(
 
     let foundUser;
     if (req.user?.decoded?.uuid) {
-      foundUser = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+      foundUser = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } }).lean();
     }
 
     if (
@@ -1735,7 +1735,7 @@ async function updateProjectFileCaptions(
       });
     }
 
-    const file = await ProjectFile.findOne({ projectID, fileID }).lean();
+    const file = await ProjectFile.findOne({ projectID: { $eq: projectID }, fileID: { $eq: fileID } }).lean();
     if (!file || !file.videoStorageID) {
       return conductor404Err(res);
     }

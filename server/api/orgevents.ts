@@ -726,7 +726,7 @@ async function createFeeWaiver(
     // Check if event exists
     const orgEvent = await OrgEvent.findOne({
       orgID: process.env.ORG_ID,
-      eventID: req.params.eventID,
+      eventID: { $eq: req.params.eventID },
     }).lean();
 
     if (!orgEvent) {
@@ -869,8 +869,8 @@ async function setRegistrationPaidStatus(
     }
 
     const orgEvent = await OrgEvent.findOne({
-      orgID,
-      eventID,
+      orgID: { $eq: orgID },
+      eventID: { $eq: eventID },
     }).lean();
     if (!orgEvent) {
       return conductor404Err(res);
@@ -886,9 +886,9 @@ async function setRegistrationPaidStatus(
     }
 
     const participant = await OrgEventParticipant.findOne({
-      orgID,
-      eventID,
-      regID,
+      orgID: { $eq: orgID },
+      eventID: { $eq: eventID },
+      regID: { $eq: regID },
     })
       .populate<{
         registeredBy: SanitizedUserInterface;
@@ -1041,7 +1041,7 @@ async function downloadParticipantData(
 
     const foundEvent = await OrgEvent.findOne({
       orgID: process.env.ORG_ID,
-      eventID: eventID,
+      eventID: { $eq: eventID },
     }).lean();
     if (!foundEvent) {
       return conductor404Err(res);
