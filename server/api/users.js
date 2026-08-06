@@ -491,7 +491,7 @@ const getUserInfoAdmin = (req, res) => {
  * @returns {Promise<object[]>} The list of authorized apps, or an empty array if not found.
  */
 async function getUserAuthorizedApplications(uuid) {
-  if (typeof (uuid) === 'string' || uuid.length > 0) {
+  if (typeof (uuid) === 'string' && uuid.length > 0) {
     const foundUser = await User.findOne({ uuid: { $eq: uuid } }).lean();
     if (foundUser && Array.isArray(foundUser.authorizedApps)) {
       return foundUser.authorizedApps;
