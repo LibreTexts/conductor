@@ -170,10 +170,7 @@ const saveRemixerProjectState = async (
     req.body;
   const actorUUID = req.user.decoded.uuid;
 
-  const project = await Project.findOne(
-    { projectID: { $eq: id } },
-    { projectID: 1, libreLibrary: 1, libreCoverID: 1, _id: 0 },
-  );
+  const project = await Project.findOne({ projectID: { $eq: id } }); // return whole doc so we can check permissions
 
   if (!project) {
     return res.status(404).send({
