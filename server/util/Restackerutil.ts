@@ -1,4 +1,5 @@
 import BookService from "../api/services/book-service";
+import { debug } from "../debug";
 import Restacker, { RestackerInterface, RestackerStatus } from "../models/restacker";
 import { PageTag } from "../types/Book";
 import { sleep } from "./helpers";
@@ -99,7 +100,7 @@ class RestackerService {
     try {
       let sincePersist = 0;
       for (const page of pages) {
-        console.log(`Processing page ${page.id}`);
+        debug(`[restacker][runRestacker][${projectID}] Processing page ${page.id}`);
 
         try {
           if (page.status === "pending") {

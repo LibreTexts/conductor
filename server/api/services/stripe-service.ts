@@ -92,7 +92,6 @@ export default class StripeService {
                             return 'not_implemented';
                     }
                 default:
-                    debug(`Unhandled Stripe event type: ${event.type}`);
                     return 'not_implemented';
             }
         } catch (error) {

@@ -1163,7 +1163,6 @@ class StoreService {
                                             store_category: "books",
                                         }
                                     });
-                                    debug(`Price for ${product.name} with hardcover=${option.hardcover} and color=${option.color} updated.`);
                                     continue;
                                 }
 
