@@ -3420,6 +3420,7 @@ function getBookLinkedToProject(project) {
 
 
 /**
+ * @deprecated Use ProjectContext.canGeneral instead.
  * Checks if a user has permission to perform general actions on or view a
  * project.
  * @param {Object} project          - the project data object
@@ -3460,6 +3461,7 @@ const checkProjectGeneralPermission = (project, user) => {
 
 
 /**
+ * @deprecated Use ProjectContext.canMember instead.
  * Checks if a user has permission to perform member-only actions on a Project.
  * LibreTexts superadmins and support staff return true.
  * @param {Object} project - the project data object
@@ -3507,6 +3509,7 @@ const checkProjectMemberPermission = (project, user) => {
 
 
 /**
+ * @deprecated Use ProjectContext.canAdmin instead.
  * Checks if a user has permission to perform high-level actions on a Project.
  * @param {Object} project - the project data object
  * @param {Object|String} user - the current user context
@@ -3549,6 +3552,7 @@ const checkProjectAdminPermission = (project, user) => {
 
 
 /**
+ * @deprecated Use ProjectContext permissions check methods instead.
  * Construct an array of users in a project's team, with optional exclusion(s).
  * @param {Object} project - The Project data object.
  * @param {String|String[]} [exclude] - The UUID(s) to exclude from the array.
