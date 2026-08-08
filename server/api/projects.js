@@ -442,7 +442,7 @@ async function getProject(req, res) {
       },
       {
         $addFields: {
-          hasBookData: {
+          hasCommonsBook: {
             $cond: [
               {
                 $gt: [
@@ -3366,6 +3366,7 @@ export async function syncProjectsInBackground() {
           tags: 1,
           publicAssets: 1,
           instructorAssets: 1,
+          thumbnail: 1,
         },
       },
     ];

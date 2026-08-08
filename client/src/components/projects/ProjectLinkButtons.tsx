@@ -1,9 +1,8 @@
 import { Button, Header, Icon, Popup } from "semantic-ui-react";
-import { normalizeURL } from "../util/HelperFunctions";
+import {isEmptyString, normalizeURL} from "../util/HelperFunctions";
 import {
   buildCommonsUrl,
   buildLibraryPageGoURL,
-  buildRemixerURL,
 } from "../../utils/projectHelpers";
 import { lazy, useEffect, useState } from "react";
 import { ProjectClassification } from "../../types";
@@ -20,38 +19,43 @@ type ActiveImportJob = {
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 
 interface ProjectLinkButtonsProps {
-  libreLibrary?: string;
-  libreCoverID?: string;
-  projectLink?: string;
+  adaptCourseID?: string;
+  className?: string;
   didCreateWorkbench?: boolean;
+  didRequestPublish?: boolean;
   hasCommonsBook?: boolean;
-  projectID?: string;
-  projectTitle?: string;
-  projectClassification?: string;
-  projectVisibility?: string;
-  project: object;
   isProjectMemberOrAdmin?: boolean;
+  libreCoverID?: string;
+  libreLibrary?: string;
+  project: object;
+  projectClassification?: string;
+  projectID?: string;
+  projectLink?: string;
+  projectTitle?: string;
+  projectVisibility?: string;
 }
 
 const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
-  libreLibrary,
-  libreCoverID,
-  projectLink,
+  adaptCourseID,
+  className,
   didCreateWorkbench,
+  didRequestPublish,
   hasCommonsBook = false,
-  projectID,
-  projectTitle,
-  projectClassification,
-  projectVisibility,
-  project,
   isProjectMemberOrAdmin = false,
+  libreCoverID,
+  libreLibrary,
+  project,
+  projectClassification,
+  projectID,
+  projectLink,
+  projectTitle,
+  projectVisibility,
 }) => {
   const [showCreateWorkbenchModal, setShowCreateWorkbenchModal] =
     useState(false);
   const [showImportWorkbenchModal, setShowImportWorkbenchModal] =
     useState(false);
   const validBook = libreCoverID && libreLibrary;
-
   const user = useTypedSelector((state) => state.user);
 
   const { data: initialImportJob } = useQuery<ActiveImportJob | null>({
@@ -75,14 +79,14 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
     }
   }, [initialImportJob]);
 
+  if (projectClassification === ProjectClassification.MINI_REPO) return null;
   return (
-    <div>
+    <div className={className}>
       <Header as="span" sub>
         Important Actions:{" "}
       </Header>
-      {projectClassification === ProjectClassification.MINI_REPO ? null : (
-        <div className="flex flex-row flex-wrap gap-2">
-          {!projectLink && !didCreateWorkbench && isProjectMemberOrAdmin && (<>
+      <div className="flex flex-row flex-wrap gap-2 mt-2">
+        {!projectLink && !didCreateWorkbench && isProjectMemberOrAdmin && (<>
             <Button
               color="green"
               onClick={() => setShowCreateWorkbenchModal(true)}
@@ -100,175 +104,131 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
               </Button>
             )}
           </>
-          )}
-          {(projectLink || validBook) && (
-            <>
-              <Popup
-                content={
-                  validBook
-                    ? "This link will take you to the book's page in the LibreTexts libraries."
-                    : projectLink
-                      ? "This link will take you to the project's linked URL. This may be a book in the LibreTexts library or a third-party resource."
-                      : "This project does not have a linked URL."
-                }
-                trigger={
-                  <Button
-                    onClick={() =>
-                      validBook
-                        ? window.open(
-                          buildLibraryPageGoURL(libreLibrary, libreCoverID),
-                          "_blank"
-                        )
-                        : projectLink
-                          ? window.open(normalizeURL(projectLink ?? ""), "_blank")
-                          : ""
-                    }
-                    color="blue"
-                    size="small"
-                  >
-                    Open Project Link
-                    <Icon name="external alternate" className="!ml-2" />
-                  </Button>
-                }
-              />
-            </>
-
-          )}
-          {hasCommonsBook && libreCoverID && libreLibrary && (
+        )}
+        {(projectLink || validBook) && (
+          <>
             <Popup
-              content="This link will take you to the book's page on the Commons."
+              content={
+                validBook
+                  ? "This link will take you to the book's page in the LibreTexts libraries."
+                  : projectLink
+                    ? "This link will take you to the project's linked URL. This may be a book in the LibreTexts library or a third-party resource."
+                    : "This project does not have a linked URL."
+              }
               trigger={
                 <Button
                   onClick={() =>
-                    window.open(
-                      buildCommonsUrl(libreLibrary, libreCoverID),
-                      "_blank",
-                    )
-                  }
-                  color="blue"
-                  size="small"
-                >
-                  View Textbook on Commons
-                  <Icon name="external alternate" className="!ml-2" />
-                </Button>
-              }
-            />
-          )}
-          {projectVisibility === "public" && (
-            <Popup
-              content="This link will take you to the project's page on the Commons."
-              trigger={
-                <Button
-                  onClick={() =>
-                    window.open(`/commons-project/${projectID}`, "_blank")
-                  }
-                  color="blue"
-                  size="small"
-                >
-                  View Project on Commons
-                  <Icon name="external alternate" className="!ml-2" />
-                </Button>
-              }
-            />
-          )}
-          {(validBook || hasCommonsBook) &&
-            libreCoverID &&
-            libreLibrary &&
-            isProjectMemberOrAdmin && (<>
-              <Popup
-                content="This link will open the book in the LibreTexts OER Remixer."
-                trigger={
-                  <Button
-                    onClick={() =>
-                      window.open(
-                        buildRemixerURL(
-                          libreLibrary ?? "chem",
-                          libreLibrary && libreCoverID
-                            ? buildLibraryPageGoURL(libreLibrary, libreCoverID)
-                            : "",
-                        ),
-                        "_blank",
+                    validBook
+                      ? window.open(
+                        buildLibraryPageGoURL(libreLibrary, libreCoverID),
+                        "_blank"
                       )
-                    }
-                    color="blue"
-                    size="small"
-                  >
-                    Open OER Remixer (Legacy)
-                    <Icon name="external alternate" className="!ml-2" />
-                  </Button>
-                }
-              />
-              <Popup
-                content="This link will open the book in the LibreTexts OER Remixer v3."
-                trigger={
-                  <Button
-                    onClick={() => window.open(`/projects/${projectID}/remixer`, "_blank")}
-                    color="blue"
-                    size="small"
-                  >
-                    Open OER Remixer v3 (New)
-                    <Icon name="external alternate" className="!ml-2" />
-                  </Button>
-                }
-              />
+                      : projectLink
+                        ? window.open(normalizeURL(projectLink ?? ""), "_blank")
+                        : ""
+                  }
+                  color="blue"
+                  size="small"
+                >
+                  Open Project Link
+                  <Icon name="external alternate" className="!ml-2" />
+                </Button>
+              }
+            />
+          </>
+        )}
+        {projectVisibility === "public" && (
+          <Popup
+            content="This link will take you to the project's page on the Commons."
+            trigger={
               <Button
                 onClick={() =>
-                  window.open(`/projects/${projectID}/restacker`, "_blank")
+                  window.open(`/commons-project/${projectID}`, "_blank")
                 }
                 color="blue"
                 size="small"
               >
-                License Restacker
+                View Project on Commons
                 <Icon name="external alternate" className="!ml-2" />
               </Button>
+            }
+          />
+        )}
+        {hasCommonsBook && libreCoverID && libreLibrary && (
+          <Popup
+            content="This link will take you to the book's page on the Commons."
+            trigger={
               <Button
                 onClick={() =>
-                  window.open(`/glossary/project/${projectID}`, "_blank")
+                  window.open(
+                    buildCommonsUrl(libreLibrary, libreCoverID),
+                    "_blank",
+                  )
                 }
                 color="blue"
                 size="small"
               >
-                Glossary Manager
+                View Book on Commons
                 <Icon name="external alternate" className="!ml-2" />
               </Button>
-            </>
-            )}
-          {projectID && projectTitle && (
-            <CreateWorkbenchModal
-              show={showCreateWorkbenchModal}
-              projectID={projectID}
-              projectTitle={projectTitle}
-              onClose={() => setShowCreateWorkbenchModal(false)}
-              onSuccess={() => window.location.reload()}
-              project={project}
-            />
-          )}
-          {projectID && projectTitle && (
-            <CreateWorkbenchModal
-              show={showCreateWorkbenchModal}
-              projectID={projectID}
-              projectTitle={projectTitle}
-              onClose={() => setShowCreateWorkbenchModal(false)}
-              onSuccess={() => window.location.reload()}
-              project={project}
-            />
-
-
-          )}
-          {projectID && projectTitle && user.isSuperAdmin && (
-            <ImportWorkbenchModal
-              show={showImportWorkbenchModal}
-              projectID={projectID}
-              onClose={() => setShowImportWorkbenchModal(false)}
-              onSuccess={() => window.location.reload()}
-              project={project}
-              initialJobID={initialImportJob?.jobID ?? null}
-              initialJobStatus={initialImportJob?.status}
-              initialJobMessages={initialImportJob?.messages}
-            />
-          )}
-        </div>
-      )}
+            }
+          />
+        )}
+        {adaptCourseID && !isEmptyString(adaptCourseID) && (
+          <Button
+            onClick={() =>
+              window.open(
+                `https://adapt.libretexts.org/instructors/courses/${adaptCourseID}/assignments`,
+                "_blank"
+              )
+            }
+            color="blue"
+            size="small"
+          >
+            View Homework on ADAPT
+            <Icon name="external alternate" className="!ml-2" />
+          </Button>
+        )}
+        {isProjectMemberOrAdmin && !hasCommonsBook && didCreateWorkbench && (
+          <Button
+            color='blue'
+            compact
+            className='!w-48'
+            disabled={didRequestPublish}
+            {...(didRequestPublish
+              ? {}
+              : {
+                  as: 'a',
+                  href: `https://commons.libretexts.org/support/contact?queue=publishing&projectID=${projectID}&capturedURL=${encodeURIComponent(window.location.href)}`,
+                  target: '_blank',
+                })}
+          >
+            {didRequestPublish ? 'Publishing Requested' : 'Request to Publish'}
+          </Button>
+        )}
+        {projectID && projectTitle && (
+          <CreateWorkbenchModal
+            show={showCreateWorkbenchModal}
+            projectID={projectID}
+            projectTitle={projectTitle}
+            onClose={() => setShowCreateWorkbenchModal(false)}
+            onSuccess={() => window.location.reload()}
+            project={project}
+          />
+        )}
+        {projectID && projectTitle && user.isSuperAdmin && (
+          <ImportWorkbenchModal
+            show={showImportWorkbenchModal}
+            projectID={projectID}
+            onClose={() => setShowImportWorkbenchModal(false)}
+            onSuccess={() => window.location.reload()}
+            project={project}
+            initialJobID={initialImportJob?.jobID ?? null}
+            initialJobStatus={initialImportJob?.status}
+            initialJobMessages={initialImportJob?.messages}
+          />
+        )}
+      </div>
     </div>
   );
 };

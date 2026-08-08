@@ -94,6 +94,7 @@ import { useIsProjectPinned, useUnpinProjectMutation } from '../Home/PinnedProje
 import AddPinnedProjectModal from '../Home/PinnedProjects/AddPinnedProjectModal';
 import { ProjectClassification } from '../../types';
 import { checkIsUUID } from '../../utils/misc';
+import ProjectCoAuthoringToolsButtons from "./ProjectCoAuthoringToolsButtons";
 const ProjectPropertiesModal = lazy(() => import('./ProjectPropertiesModal'));
 const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
@@ -1825,60 +1826,30 @@ const ProjectView = (props) => {
                             </div>
                           }
                           <ProjectLinkButtons
-                            projectID={project.projectID}
+                            adaptCourseID={project.adaptCourseID}
+                            didCreateWorkbench={project.didCreateWorkbench}
+                            didRequestPublish={project.didRequestPublish}
+                            hasCommonsBook={project.hasCommonsBook}
+                            isProjectMemberOrAdmin={userProjectAdmin || userProjectMember}
                             libreCoverID={project.libreCoverID}
                             libreLibrary={project.libreLibrary}
+                            project={project}
+                            projectClassification={project.classification}
+                            projectID={project.projectID}
                             projectLink={project.projectURL}
                             projectTitle={project.title}
-                            didCreateWorkbench={project.didCreateWorkbench}
-                            hasCommonsBook={project.hasCommonsBook}
-                            projectClassification={project.classification}
                             projectVisibility={project.visibility}
-                            project={project}
-                            isProjectMemberOrAdmin={userProjectAdmin || userProjectMember}
                           />
-                          {(project.adaptCourseID && project.adaptCourseID !== '') && (
-                            <div className="mt-1e">
-                              <a
-                                href={`https://adapt.libretexts.org/instructors/courses/${project.adaptCourseID}/assignments`}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                View Course on ADAPT <Icon name="external" />
-                              </a>
-                            </div>
-                          )}
-                          {canViewDetails&& (
-                            <div className="mt-8 flex flex-col">
-                              <Header as='span' sub>Important Tools: </Header>
-                              {
-                                project.hasCommonsBook && (
-                                  <Button
-                                    color="blue"
-                                    compact
-                                    onClick={handleOpenReaderResourcesModal}
-                                    className='!w-64'
-                                  >
-                                    Manage Reader Resources
-                                  </Button>
-                              )}
-                              {
-                                !project.hasCommonsBook && project.didCreateWorkbench && (
-                                  <Button
-                                    color='blue'
-                                    compact
-                                    className='!w-64'
-                                    disabled={project.didRequestPublish}
-                                    as={'a'}
-                                    href={`https://commons.libretexts.org/support/contact?queue=publishing&projectID=${project.projectID}&capturedURL=${encodeURIComponent(window.location.href)}`}
-                                    target='_blank'
-                                  >
-                                    {project.didRequestPublish ? 'Publishing Requested' : 'Request to Publish'}
-                                  </Button>
-                                )
-                              }
-                            </div>
-                          )}
+                          <ProjectCoAuthoringToolsButtons
+                            className="mt-2"
+                            handleOpenReaderResourcesModal={handleOpenReaderResourcesModal}
+                            hasCommonsBook={project.hasCommonsBook}
+                            isProjectMemberOrAdmin={userProjectAdmin || userProjectMember}
+                            libreCoverID={project.libreCoverID}
+                            libreLibrary={project.libreLibrary}
+                            projectClassification={project.classification}
+                            projectID={project.projectID}
+                          />
                         </Grid.Column>
                         {hasResourceInfo &&
                           <Grid.Column>
