@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import type { Response } from "express";
 import { z } from "zod";
 import { ZodReqWithUser } from "../types/Express.js";
 import {
@@ -6,7 +6,6 @@ import {
   GetRemixerProjectStateSchema,
   SaveRemixerProjectStateSchema,
 } from "./validators/remixer.js";
-import Project from "../models/project.js";
 import PrejectRemixer from "../models/projectremixer.js";
 import remixerService from "./services/remixer-service.js";
 import PrejectRemixerJob from "../models/projectremixerjob.js";
@@ -18,9 +17,11 @@ import {
 } from "../util/remixerutils";
 import { generateAPIRequestHeaders } from "../util/librariesclient.js";
 import User from "../models/user.js";
-import projectsAPI from "./projects.js";
 import BookService from "./services/book-service.js";
 import type { RemixerSubPageState } from "../models/projectremixer.js";
+import { ProjectContext, ProjectError, returnProjectError } from "./services/project-context.js";
+import { debug } from "../debug.js";
+import { conductor500Err } from "../util/errorutils.js";
 
 class FetchPageError extends Error {
   statusCode: number;
@@ -123,349 +124,338 @@ const getRemixerProject = async (
   req: ZodReqWithUser<z.infer<typeof GetRemixerProjectStateSchema>>,
   res: Response,
 ) => {
-  const { id } = req.params;
-  
-  const project = await Project.findOne({ projectID: { $eq: id } });
-  
-  if (!project) {
-    return res.status(404).send({
-      err: true,
-      errMsg: "Project not found",
+  try {
+    const { id } = req.params;
+
+    const ctx = await ProjectContext.load(id, { select: ["libreCoverID", "libreLibrary", "projectID", "title"] });
+    if (!ctx.canMember(req.user)) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
+    }
+
+    // Extract the fields we want to return
+    const { libreCoverID, libreLibrary, projectID, title } = ctx.doc;
+
+    res.send({
+      err: false,
+      project: {
+        libreCoverID,
+        libreLibrary,
+        projectID,
+        title,
+      },
     });
+  } catch (error) {
+    if (error instanceof ProjectError) {
+      return returnProjectError(res, error);
+    }
+
+    debug("[remixer] getRemixerProject unexpected error:", error);
+    return conductor500Err(res);
   }
-
-  const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
-
-  if (!canAccess) {
-    return res.status(403).send({
-      err: true,
-      errMsg: "You do not have permission to access this project",
-    });
-  }
-
-  /**
-   * We need to load the full project to check permissions, but we only want to return this
-   * to the client side.
-   */ 
-
-  const projectDataToReturn = {
-    libreCoverID: project.libreCoverID,
-    libreLibrary: project.libreLibrary,
-    projectID: project.projectID,
-    title: project.title,
-  };
-
-  res.send({
-    err: false,
-    project: projectDataToReturn,
-  });
 };
 
 const saveRemixerProjectState = async (
   req: ZodReqWithUser<z.infer<typeof SaveRemixerProjectStateSchema>>,
   res: Response,
 ) => {
-  const { id } = req.params;
-  const { currentBook, autoNumbering, copyModeState, pathLevelFormats } =
-    req.body;
-  const actorUUID = req.user.decoded.uuid;
+  try {
+    const { id } = req.params;
+    const { currentBook, autoNumbering, copyModeState, pathLevelFormats } =
+      req.body;
+    const actorUUID = req.user.decoded.uuid;
 
-  const project = await Project.findOne({ projectID: { $eq: id } }); // return whole doc so we can check permissions
+    const ctx = await ProjectContext.load(id);
+    const project = ctx.doc;
 
-  if (!project) {
-    return res.status(404).send({
-      err: true,
-      errMsg: "Project not found",
+    if (!ctx.canMember(req.user)) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
+    }
+
+    // Never persist a book that references pages outside this project's book.
+    const ownershipError = await validateRemixerBookOwnership(
+      project.libreLibrary,
+      project.libreCoverID,
+      currentBook,
+    );
+    if (ownershipError) {
+      return res.status(403).send({ err: true, errMsg: ownershipError });
+    }
+
+    // Check for an existing pending or running remixer job before allowing state save
+    const existingJob = await PrejectRemixerJob.findOne({
+      projectID: { $eq: id },
+      status: { $in: ["pending", "running"] },
     });
-  }
+    if (existingJob) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "A remixer job is already pending or running for this project.",
+      });
+    }
 
-  const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
+    const remixerState = await PrejectRemixer.findOneAndUpdate(
+      { projectID: { $eq: id }, archived: false },
+      {
+        $set: {
+          remixerCurrentBook: currentBook,
+          ...(autoNumbering !== undefined && { autoNumbering }),
+          ...(copyModeState !== undefined && { copyModeState }),
+          ...(pathLevelFormats !== undefined && { pathLevelFormats }),
+          updatedBy: actorUUID,
+        },
+        $setOnInsert: {
+          remixerID: base62(10),
+          createdBy: actorUUID,
+          archived: false,
+          projectID: project.projectID,
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+        projection: {
+          projectID: 1,
+          remixerCurrentBook: 1,
+          remixerID: 1,
+          autoNumbering: 1,
+          copyModeState: 1,
+          pathLevelFormats: 1,
+          _id: 0,
+        },
+      },
+    );
 
-  if(!canAccess) {
-    return res.status(403).send({
-      err: true,
-      errMsg: "You do not have permission to access this project",
+    return res.send({
+      err: false,
+      projectID: project.projectID,
+      currentBook: remixerState?.remixerCurrentBook ?? [],
+      autoNumbering: remixerState?.autoNumbering,
+      copyModeState: remixerState?.copyModeState,
+      pathLevelFormats: remixerState?.pathLevelFormats ?? [],
     });
+  } catch (err) {
+    if (err instanceof ProjectError) {
+      return returnProjectError(res, err);
+    }
+
+    debug("[remixer] saveRemixerProjectState unexpected error:", err);
+    return conductor500Err(res);
   }
-
-  // Never persist a book that references pages outside this project's book.
-  const ownershipError = await validateRemixerBookOwnership(
-    project.libreLibrary,
-    project.libreCoverID,
-    currentBook,
-  );
-  if (ownershipError) {
-    return res.status(403).send({ err: true, errMsg: ownershipError });
-  }
-
-  // Check for an existing pending or running remixer job before allowing state save
-  const existingJob = await PrejectRemixerJob.findOne({
-    projectID: { $eq: id },
-    status: { $in: ["pending", "running"] },
-  });
-  if (existingJob) {
-    return res.status(400).send({
-      err: true,
-      errMsg: "A remixer job is already pending or running for this project.",
-    });
-  }
-
-  const remixerState = await PrejectRemixer.findOneAndUpdate(
-    { projectID: { $eq: id }, archived: false },
-    {
-      $set: {
-        remixerCurrentBook: currentBook,
-        ...(autoNumbering !== undefined && { autoNumbering }),
-        ...(copyModeState !== undefined && { copyModeState }),
-        ...(pathLevelFormats !== undefined && { pathLevelFormats }),
-        updatedBy: actorUUID,
-      },
-      $setOnInsert: {
-        remixerID: base62(10),
-        createdBy: actorUUID,
-        archived: false,
-        projectID: project.projectID,
-      },
-    },
-    {
-      new: true,
-      upsert: true,
-      projection: {
-        projectID: 1,
-        remixerCurrentBook: 1,
-        remixerID: 1,
-        autoNumbering: 1,
-        copyModeState: 1,
-        pathLevelFormats: 1,
-        _id: 0,
-      },
-    },
-  );
-
-  return res.send({
-    err: false,
-    projectID: project.projectID,
-    currentBook: remixerState?.remixerCurrentBook ?? [],
-    autoNumbering: remixerState?.autoNumbering,
-    copyModeState: remixerState?.copyModeState,
-    pathLevelFormats: remixerState?.pathLevelFormats ?? [],
-  });
 };
 
 const publishRemixerProject = async (
   req: ZodReqWithUser<z.infer<typeof SaveRemixerProjectStateSchema>>,
   res: Response,
 ) => {
-  const { id } = req.params;
-  const { currentBook, autoNumbering, copyModeState, pathLevelFormats } =
-    req.body;
-  const actorUUID = req.user?.decoded?.uuid ?? "";
-  const existingJob = await PrejectRemixerJob.findOne({
-    projectID: { $eq: id },
-    status: { $in: ["pending", "running"] },
-  });
-  if (existingJob) {
-    return res.status(400).send({
-      err: true,
-      errMsg: "A remixer job is already pending or running for this project.",
+  try {
+    const { id } = req.params;
+    const { currentBook, autoNumbering, copyModeState, pathLevelFormats } =
+      req.body;
+    const actorUUID = req.user?.decoded?.uuid ?? "";
+
+    const ctx = await ProjectContext.load(id);
+    const project = ctx.doc;
+
+    if (!ctx.canMember(req.user)) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
+    }
+
+    const existingJob = await PrejectRemixerJob.findOne({
+      projectID: { $eq: id },
+      status: { $in: ["pending", "running"] },
     });
-  }
+    if (existingJob) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "A remixer job is already pending or running for this project.",
+      });
+    }
 
-  const project = await Project.findOne({ projectID: { $eq: id } });
-  if (!project) {
-    return res.status(404).send({
-      err: true,
-      errMsg: "Project not found",
-    });
-  }
+    const subdomain = project.libreLibrary;
+    if (!subdomain) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "Project libreLibrary is missing",
+      });
+    }
 
-  const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
-
-  if(!canAccess) {
-    return res.status(403).send({
-      err: true,
-      errMsg: "You do not have permission to access this project",
-    });
-  }
-
-  const subdomain = project.libreLibrary;
-  if (!subdomain) {
-    return res.status(400).send({
-      err: true,
-      errMsg: "Project libreLibrary is missing",
-    });
-  }
-
-  // Refuse before creating any state/job if the payload touches pages outside
-  // this project's book. runRemixerJob re-checks this authoritatively; doing it
-  // here gives immediate feedback and avoids spawning a doomed job.
-  const ownershipError = await validateRemixerBookOwnership(
-    subdomain,
-    project.libreCoverID,
-    currentBook,
-  );
-  if (ownershipError) {
-    return res.status(403).send({ err: true, errMsg: ownershipError });
-  }
-
-  const remixerState = await PrejectRemixer.findOneAndUpdate(
-    { projectID: id, archived: false },
-    {
-      $set: {
-        remixerCurrentBook: currentBook,
-        ...(autoNumbering !== undefined && { autoNumbering }),
-        ...(copyModeState !== undefined && { copyModeState }),
-        ...(pathLevelFormats !== undefined && { pathLevelFormats }),
-        updatedBy: actorUUID,
-        archived: true,
-        updatedAt: new Date(),
-      },
-      $setOnInsert: {
-        createdBy: actorUUID,
-        remixerID: base62(10),
-        createdAt: new Date(),
-        projectID: project.projectID,
-      },
-    },
-    {
-      new: true,
-      upsert: true,
-      projection: { projectID: 1, remixerCurrentBook: 1, remixerID: 1, _id: 0 },
-    },
-  );
-  const job = await PrejectRemixerJob.create({
-    jobID: base62(10),
-    projectID: id,
-    userID: actorUUID,
-    remixerID: remixerState?.remixerID ?? "",
-    status: "pending",
-    messages: ["Remixer job created."],
-  });
-
-  remixerService
-    .runRemixerJob({
-      jobID: job.jobID,
-      projectID: id,
+    // Refuse before creating any state/job if the payload touches pages outside
+    // this project's book. runRemixerJob re-checks this authoritatively; doing it
+    // here gives immediate feedback and avoids spawning a doomed job.
+    const ownershipError = await validateRemixerBookOwnership(
       subdomain,
-      coverId: project.libreCoverID ?? "",
-    })
-    .catch((error: unknown) => {
-      console.error("Failed to run remixer job", error);
+      project.libreCoverID,
+      currentBook,
+    );
+    if (ownershipError) {
+      return res.status(403).send({ err: true, errMsg: ownershipError });
+    }
+
+    const remixerState = await PrejectRemixer.findOneAndUpdate(
+      { projectID: id, archived: false },
+      {
+        $set: {
+          remixerCurrentBook: currentBook,
+          ...(autoNumbering !== undefined && { autoNumbering }),
+          ...(copyModeState !== undefined && { copyModeState }),
+          ...(pathLevelFormats !== undefined && { pathLevelFormats }),
+          updatedBy: actorUUID,
+          archived: true,
+          updatedAt: new Date(),
+        },
+        $setOnInsert: {
+          createdBy: actorUUID,
+          remixerID: base62(10),
+          createdAt: new Date(),
+          projectID: project.projectID,
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+        projection: { projectID: 1, remixerCurrentBook: 1, remixerID: 1, _id: 0 },
+      },
+    );
+    const job = await PrejectRemixerJob.create({
+      jobID: base62(10),
+      projectID: id,
+      userID: actorUUID,
+      remixerID: remixerState?.remixerID ?? "",
+      status: "pending",
+      messages: ["Remixer job created."],
     });
 
-  return res.send({
-    err: false,
-    projectID: project.projectID,
-    currentBook: remixerState?.remixerCurrentBook ?? [],
-  });
+    remixerService
+      .runRemixerJob({
+        jobID: job.jobID,
+        projectID: id,
+        subdomain,
+        coverId: project.libreCoverID ?? "",
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to run remixer job", error);
+      });
+
+    return res.send({
+      err: false,
+      projectID: project.projectID,
+      currentBook: remixerState?.remixerCurrentBook ?? [],
+    });
+  } catch (err) {
+    if (err instanceof ProjectError) {
+      return returnProjectError(res, err);
+    }
+
+    debug("[remixer] publishRemixerProject unexpected error:", err);
+    return conductor500Err(res);
+  }
 };
 
 const getRemixerJobStatus = async (
   req: ZodReqWithUser<z.infer<typeof GetRemixerProjectStateSchema>>,
   res: Response,
 ) => {
-  const { id } = req.params;
-  const job = await PrejectRemixerJob.findOne(
-    { projectID: id },
-    { status: 1, messages: 1, errorMessage: 1, _id: 0 },
-  ).sort({ _id: -1 });
-  return res.send({
-    err: false,
-    job: job,
-  });
+  try {
+    const { id } = req.params;
+    const job = await PrejectRemixerJob.findOne(
+      { projectID: id },
+      { status: 1, messages: 1, errorMessage: 1, _id: 0 },
+    ).sort({ _id: -1 });
+    return res.send({
+      err: false,
+      job: job,
+    });
+  } catch (err) {
+    debug("[remixer] getRemixerJobStatus unexpected error:", err);
+    return conductor500Err(res);
+  }
 };
 
 const getRemixerProjectState = async (
   req: ZodReqWithUser<z.infer<typeof GetRemixerProjectStateSchema>>,
   res: Response,
 ) => {
-  const { id } = req.params;
-  const project = await Project.findOne({ projectID: { $eq: id } });
+  try {
+    const { id } = req.params;
 
-  if (!project) {
-    return res.status(404).send({
-      err: true,
-      errMsg: "Project not found",
+    const ctx = await ProjectContext.load(id);
+    if (!ctx.canMember(req.user)) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
+    }
+
+    const remixerState = await PrejectRemixer.findOne(
+      { projectID: id },
+      {
+        projectID: 1,
+        archived: 1,
+        remixerCurrentBook: 1,
+        autoNumbering: 1,
+        copyModeState: 1,
+        pathLevelFormats: 1,
+        updatedAt: 1,
+        updatedBy: 1,
+        _id: 0,
+      },
+    )
+      .sort({ updatedAt: -1 })
+      .exec();
+    // find user by updatedBy
+    const updatedByUser = await User.findOne(
+      { uuid: { $eq: remixerState?.updatedBy } },
+      { name: 1, email: 1, _id: 0 },
+    );
+
+    return res.send({
+      err: false,
+      projectID: id,
+      currentBook: remixerState?.archived
+        ? []
+        : (remixerState?.remixerCurrentBook ?? []),
+      autoNumbering: remixerState?.autoNumbering,
+      copyModeState: remixerState?.copyModeState,
+      pathLevelFormats: remixerState?.pathLevelFormats ?? [],
+      updatedAt: remixerState?.updatedAt,
+      updatedBy: updatedByUser
+        ? `${updatedByUser.firstName ? updatedByUser.firstName : ""} ${updatedByUser?.lastName ? updatedByUser.lastName : ""} ${updatedByUser?.email ? updatedByUser.email : ""}`
+        : "",
     });
+  } catch (err) {
+    if (err instanceof ProjectError) {
+      return returnProjectError(res, err);
+    }
+
+    debug("[remixer] getRemixerProjectState unexpected error:", err);
+    return conductor500Err(res);
   }
-
-  const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
-
-  if(!canAccess) {
-    return res.status(403).send({
-      err: true,
-      errMsg: "You do not have permission to access this project",
-    });
-  }
-
-  const remixerState = await PrejectRemixer.findOne(
-    { projectID: id },
-    {
-      projectID: 1,
-      archived: 1,
-      remixerCurrentBook: 1,
-      autoNumbering: 1,
-      copyModeState: 1,
-      pathLevelFormats: 1,
-      updatedAt: 1,
-      updatedBy: 1,
-      _id: 0,
-    },
-  )
-    .sort({ updatedAt: -1 })
-    .exec();
-  // find user by updatedBy
-  const updatedByUser = await User.findOne(
-    { uuid: { $eq: remixerState?.updatedBy } },
-    { name: 1, email: 1, _id: 0 },
-  );
-
-  return res.send({
-    err: false,
-    projectID: project.projectID,
-    currentBook: remixerState?.archived
-      ? []
-      : (remixerState?.remixerCurrentBook ?? []),
-    autoNumbering: remixerState?.autoNumbering,
-    copyModeState: remixerState?.copyModeState,
-    pathLevelFormats: remixerState?.pathLevelFormats ?? [],
-    updatedAt: remixerState?.updatedAt,
-    updatedBy: updatedByUser
-      ? `${updatedByUser.firstName ? updatedByUser.firstName : ""} ${updatedByUser?.lastName ? updatedByUser.lastName : ""} ${updatedByUser?.email ? updatedByUser.email : ""}`
-      : "",
-  });
 };
 
 const deleteRemixerProjectState = async (
   req: ZodReqWithUser<z.infer<typeof GetRemixerProjectStateSchema>>,
   res: Response,
 ) => {
-  const { id } = req.params;
-  
-  const project = await Project.findOne({ projectID: { $eq: id } });
-  if (!project) {
-    return res.status(404).send({
-      err: true,
-      errMsg: "Project not found",
+  try {
+    const { id } = req.params;
+
+    const ctx = await ProjectContext.load(id);
+    if (!ctx.canMember(req.user)) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
+    }
+
+    await PrejectRemixer.deleteOne({ projectID: { $eq: id } });
+
+    return res.send({
+      err: false,
+      projectID: id,
+      currentBook: [],
     });
+  } catch (err) {
+    if (err instanceof ProjectError) {
+      return returnProjectError(res, err);
+    }
+
+    debug("[remixer] deleteRemixerProjectState unexpected error:", err);
+    return conductor500Err(res);
   }
-
-  const canAccess = projectsAPI.checkProjectMemberPermission(project, req.user);
-
-  if(!canAccess) {
-    return res.status(403).send({
-      err: true,
-      errMsg: "You do not have permission to access this project",
-    });
-  }
-
-  await PrejectRemixer.deleteOne({ projectID: { $eq: id } });
-
-  return res.send({
-    err: false,
-    projectID: project.projectID,
-    currentBook: [],
-  });
 };
 
 const fetchPage = async (
@@ -496,9 +486,8 @@ const fetchPage = async (
     const isHomePath = String(normalizedPath).toLowerCase() === "home";
     const pathPrefix = isNumber || isHomePath ? "" : "=";
 
-    const url = `https://${subdomain}.libretexts.org/@api/deki/pages/${
-      pathPrefix
-    }${normalizedPath}${pageDetails ? pageDetailsApi : subpageApi}`;
+    const url = `https://${subdomain}.libretexts.org/@api/deki/pages/${pathPrefix
+      }${normalizedPath}${pageDetails ? pageDetailsApi : subpageApi}`;
 
     const options = {
       headers: {
@@ -547,9 +536,8 @@ const fetchPage = async (
     let parentID: string | undefined = isNumber ? path : undefined;
 
     if (!parentID) {
-      const detailsUrl = `https://${subdomain}.libretexts.org/@api/deki/pages/${
-        pathPrefix
-      }${normalizedPath}${pageDetailsApi}`;
+      const detailsUrl = `https://${subdomain}.libretexts.org/@api/deki/pages/${pathPrefix
+        }${normalizedPath}${pageDetailsApi}`;
       const detailsRes = await fetch(detailsUrl, options);
       if (detailsRes.ok) {
         const detailsData = (await detailsRes.json()) as Record<
