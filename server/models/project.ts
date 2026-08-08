@@ -57,7 +57,7 @@ export type ProjectBookBatchUpdateJob = {
   };
 };
 
-export interface ProjectInterface extends Document {
+export interface ProjectInterfaceRaw {
   orgID: string;
   projectID: string;
   title: string;
@@ -123,6 +123,8 @@ export interface ProjectInterface extends Document {
   sourceLanguage?: string;
   batchUpdateJobs?: ProjectBookBatchUpdateJob[];
 }
+
+export interface ProjectInterface extends ProjectInterfaceRaw, Document {};
 
 const ProjectSchema = new Schema<ProjectInterface>(
   {
