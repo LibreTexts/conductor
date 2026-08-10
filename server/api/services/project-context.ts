@@ -82,9 +82,16 @@ export class ProjectContext<T = ProjectInterfaceRaw> {
         const id = String(projectID ?? "");
         if (!id) throw new ProjectError("notfound");
 
-        const projection = opts?.select
-            ? Array.from(new Set([...PERMISSION_FIELDS, ...opts.select])).join(" ")
-            : undefined;
+        /**
+         * If opts.hydrate is true, we always load the full doc, regardless of opt.select.
+         * If opts.hydrate is false and opts.select is specified, we load only the fields specified in opts.select, plus PERMISSION_FIELDS.
+         * If opts.select is not specificed, we load all fields (but don't hydrate with Mongoose methods AKA lean query).
+         */
+        const projection = opts?.hydrate
+            ? undefined
+            : opts?.select
+                ? Array.from(new Set([...PERMISSION_FIELDS, ...opts.select])).join(" ")
+                : undefined;
 
         const query = Project.findOne({ projectID: { $eq: id } }, projection);
 
