@@ -1,6 +1,6 @@
 {
   "name": "conductor",
-  "version": "2.142.3",
+  "version": "2.143.0",
   "description": "The LibreTexts Conductor Platform.",
   "main": "server/server.js",
   "author": "LibreTexts <info@libretexts.org>",
