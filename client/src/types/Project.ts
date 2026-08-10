@@ -167,7 +167,7 @@ export type Project = {
   rdmpReqRemix: Boolean;
   rdmpCurrentStep: string;
   a11yReview: a11ySectionReviewSchema[];
-  harvestReqID: string;
+  harvestReqID?: string;
   flag: "libretexts" | "campusadmin" | "lead" | "liaison";
   flagDescrip: string;
   defaultChatNotification?: string;

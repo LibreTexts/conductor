@@ -15,8 +15,8 @@ import PageLastEditor from "./PageLastEditor";
 import { required } from "../../utils/formRules";
 import useQueryParam from "../../utils/useQueryParam";
 import PageStatusLabel from "./PageStatusLabel";
-import { checkIsUUID, getKBSharingObj } from "../../utils/kbHelpers";
 import { useQueryClient } from "@tanstack/react-query";
+import { checkIsUUID } from "../../utils/misc";
 
 const KBCKEditor = lazy(() => import("./KBCKEditor"));
 const PreviewPageModal = lazy(() => import("./PreviewPageModal"));
