@@ -442,7 +442,10 @@ const getDisplayTitle = (
   inDeletedBranch: boolean,
   autoNumbering: boolean,
 ): string => {
-  const rawTitle = page["@title"] || page.title || "Untitled";
+  const rawTitle =  page.title|| page["@title"] || "Untitled";
+  if(page.parentID === "-1" && page.article === "topic-category") {
+    return rawTitle;
+  }
   const cleanTitle = stripDefaultTitlePrefixBeforeColon(
     stripLeadingNumbering(rawTitle),
   );
@@ -545,8 +548,12 @@ const handleNewPage = async (
 const remixerPagePaddedSlug = (
   page: RemixerSubPageState,
   displayTitle: string,
+  isBookRoot: boolean = false,
 ): string => {
   const rawTitle = page["@title"] || page.title || displayTitle;
+  if(isBookRoot && page.article === "topic-category") {
+    return rawTitle.toLowerCase().replace(/ /g, "-").replace(/[\:\.\-]/g, "");
+  }
   return buildRemixerPagePathSegment(page, rawTitle, page.siblingTitleIndex);
 };
 
@@ -592,6 +599,8 @@ const handleModifiedPage = async (
     return;
   }
 
+  const isBookRoot = page?.["@id"] === "-1" || page?.["@id"] === coverId;
+
   const pageId = page["@id"];
   if (!pageId || pageId.startsWith("new-")) return;
 
@@ -635,7 +644,7 @@ const handleModifiedPage = async (
     const leaf =
       currentPathSegments.length > 0
         ? safeDecPath(currentPathSegments[currentPathSegments.length - 1]!)
-        : remixerPagePaddedSlug(page, title);
+        : remixerPagePaddedSlug(page, title, isBookRoot);
     const parentPath = safeDecPath(
       extractPagePath(await resolveUiUri(parent!, subdomain)),
     );
@@ -643,14 +652,14 @@ const handleModifiedPage = async (
     const toEnc = encodeURIComponent(encodeURIComponent(newPathRaw));
     moveUrl = `${base}/move?title=${titleEnc}&to=${toEnc}&allow=deleteredirects&dream.out.format=json`;
   } else if (isRenamed && !isMoved) {
-    const padded = remixerPagePaddedSlug(page, title);
+    const padded = remixerPagePaddedSlug(page, title, isBookRoot);
     const nameEnc = encodeURIComponent(padded);
     moveUrl = `${base}/move?title=${titleEnc}&name=${nameEnc}&allow=deleteredirects&dream.out.format=json`;
   } else if (isMoved && isRenamed) {
     const parentPath = safeDecPath(
       extractPagePath(await resolveUiUri(parent!, subdomain)),
     );
-    const padded = remixerPagePaddedSlug(page, title);
+    const padded = remixerPagePaddedSlug(page, title, isBookRoot);
     const newPathRaw = `${parentPath}/${padded}`;
     const toEnc = encodeURIComponent(encodeURIComponent(newPathRaw));
     moveUrl = `${base}/move?title=${titleEnc}&to=${toEnc}&allow=deleteredirects&dream.out.format=json`;
