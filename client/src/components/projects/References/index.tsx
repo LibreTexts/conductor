@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Breadcrumb,
@@ -21,6 +21,7 @@ import {
   ReferenceFormatTypes,
   ReferenceFormData,
   generateCitationKey,
+  EntryTypes,
 } from "./model";
 import AddContent from "./ReferenceEntry/AddContent";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -30,7 +31,9 @@ import {
   DataTable,
   createColumnHelper,
 } from "@libretexts/davis-react-table";
-import { IconCopy, IconTrash } from "@tabler/icons-react";
+import { IconCopy, IconSettings, IconTrash } from "@tabler/icons-react";
+import Configure, { type ConfigureSettings } from "./Configure";
+import Populate, { hasPopulateJobData } from "./Populate";
 
 const columnHelper = createColumnHelper<ReferenceEntry>();
 const BOOK_REFERENCES_QUERY_KEY = "bookReferencesFormat";
@@ -44,6 +47,8 @@ const ReferenceManager: React.FC = () => {
   const queryClient = useQueryClient();
   const { addNotification } = useNotifications();
   const [showAddContentModal, setShowAddContentModal] = useState(false);
+  const [showConfigureModal, setShowConfigureModal] = useState(false);
+  const [showPopulateModal, setShowPopulateModal] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ReferenceEntry | null>(
     null,
   );
@@ -75,7 +80,36 @@ const ReferenceManager: React.FC = () => {
   });
 
   const referenceFormat = bookReferencesDetails?.data?.format;
+  const displayLocation = bookReferencesDetails?.data?.displayLocation;
+  const pageTitle = bookReferencesDetails?.data?.pageTitle;
   const entries = bookReferencesDetails?.data?.entries ?? [];
+
+  const { data: populateDetails } = useQuery({
+    queryKey: ["populateReferences", id],
+    queryFn: () => api.populateReferencesDetails(id ?? ""),
+    enabled: !!id,
+    refetchOnWindowFocus: false,
+    retry: false,
+    refetchInterval: (data, query) => {
+      if (query.state.status === "error" || data?.err) return false;
+      const job = data?.data;
+      if (!hasPopulateJobData(job)) return 2000;
+      if (job.status === "pending") return 2000;
+      // Stop on completed, failed, or any other terminal status.
+      return false;
+    },
+  });
+
+  const populateJob = hasPopulateJobData(populateDetails?.data)
+    ? populateDetails.data
+    : null;
+  const hasPopulateJob = !!populateJob;
+
+  useEffect(() => {
+    if (hasPopulateJob) {
+      setShowPopulateModal(true);
+    }
+  }, [hasPopulateJob]);
 
   const updateBookReferencesCache = (
     updater: (current: BookReferencesQueryData) => BookReferencesQueryData,
@@ -87,37 +121,49 @@ const ReferenceManager: React.FC = () => {
   };
 
   const { mutate: updateFormat, isPending: isUpdatingFormat } = useMutation({
-    mutationFn: (format: ReferenceFormatType) =>
-      api.updateBookReferenceFormat(id ?? "", { format }),
-    onMutate: async (format) => {
+    mutationFn: (settings: ConfigureSettings) =>
+      api.updateBookReferenceFormat(id ?? "", settings),
+    onMutate: async (settings) => {
       await queryClient.cancelQueries({ queryKey: bookReferencesQueryKey });
       const previous = queryClient.getQueryData<BookReferencesQueryData>(
         bookReferencesQueryKey,
       );
       updateBookReferencesCache((current) => ({
         ...current,
-        data: { ...current.data, format },
+        data: {
+          ...current.data,
+          format: settings.format,
+          displayLocation: settings.displayLocation,
+          pageTitle: settings.pageTitle,
+        },
       }));
       return { previous };
     },
-    onSuccess: (data, format) => {
+    onSuccess: (data, settings) => {
       updateBookReferencesCache((current) => ({
         ...current,
-        data: { ...current.data, format: data.data.format },
+        data: {
+          ...current.data,
+          format: data.data.format,
+          displayLocation:
+            data.data.displayLocation ?? settings.displayLocation,
+          pageTitle: data.data.pageTitle ?? settings.pageTitle,
+        },
       }));
       addNotification({
         type: "success",
         message:
-          "Book references format updated successfully with format: " + format,
+          "Book references settings updated successfully with format: " +
+          settings.format,
       });
     },
-    onError: (_error, _format, context) => {
+    onError: (_error, _settings, context) => {
       if (context?.previous) {
         queryClient.setQueryData(bookReferencesQueryKey, context.previous);
       }
       addNotification({
         type: "error",
-        message: "Error updating book references format",
+        message: "Error updating book references settings",
       });
     },
   });
@@ -335,10 +381,13 @@ const ReferenceManager: React.FC = () => {
       columnHelper.accessor("citationKey", {
         header: "Citation key",
         size: 160,
+        enableSorting: true,
+        enableColumnFilter: false,
       }),
       columnHelper.accessor("entryType", {
         header: "Type",
         size: 120,
+        cell: (info) => EntryTypes.find((type) => type.value === info.getValue())?.label || info.getValue() || "—",
       }),
       columnHelper.accessor("author", {
         header: "Author",
@@ -359,6 +408,8 @@ const ReferenceManager: React.FC = () => {
         id: "actions",
         header: () => <span className="block w-full text-right">Actions</span>,
         size: 80,
+        enableSorting: false,
+        enableColumnFilter: false,
         cell: ({ row }) => (
           <Stack direction="horizontal" gap="xs" className="justify-end">
             <IconButton
@@ -413,24 +464,48 @@ const ReferenceManager: React.FC = () => {
           <Card.Body>
             <Stack direction="vertical" gap="md">
               <Stack direction="horizontal" gap="md" align="end">
-                <Select
-                  className="w-full"
-                  name="bookReferencesFormat"
-                  label="Book References Format"
-                  labelClassName="w-full"
-                  options={ReferenceFormatTypes.map((format) => ({
-                    label: format,
-                    value: format,
-                  }))}
-                  placeholder="Select a format"
-                  value={referenceFormat ?? ""}
-                  disabled={isUpdatingFormat || !id}
-                  onChange={(e) => {
-                    const format = e.target.value as ReferenceFormatType;
-                    if (!format || !id || format === referenceFormat) return;
-                    updateFormat(format);
-                  }}
-                />
+                <div className="w-full min-w-0">
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <Text
+                      as="label"
+                      htmlFor="bookReferencesFormat"
+                      className="text-base/6 font-medium text-gray-700"
+                    >
+                      Book References Format
+                    </Text>
+                    <IconButton
+                      name="configure"
+                      title="Configure references"
+                      aria-label="Configure references"
+                      variant="ghost"
+                      size="sm"
+                      icon={<IconSettings />}
+                      onClick={() => setShowConfigureModal(true)}
+                    />
+                  </div>
+                  <Select
+                    className="w-full"
+                    name="bookReferencesFormat"
+                    label=""
+                    labelClassName="sr-only"
+                    options={ReferenceFormatTypes.map((format) => ({
+                      label: format,
+                      value: format,
+                    }))}
+                    placeholder="Select a format"
+                    value={referenceFormat ?? ""}
+                    disabled={isUpdatingFormat || !id}
+                    onChange={(e) => {
+                      const format = e.target.value as ReferenceFormatType;
+                      if (!format || !id || format === referenceFormat) return;
+                      updateFormat({
+                        format,
+                        displayLocation: displayLocation ?? "endOfPage",
+                        pageTitle: pageTitle ?? "",
+                      });
+                    }}
+                  />
+                </div>
                 <Button
                   onClick={() => setShowAddContentModal(true)}
                   disabled={isUpdatingFormat || !id || !referenceFormat}
@@ -438,6 +513,15 @@ const ReferenceManager: React.FC = () => {
                   className="shrink-0"
                 >
                   Add Reference
+                </Button>
+
+                <Button
+                  onClick={() => setShowPopulateModal(true)}
+                  disabled={isUpdatingFormat || !id || !referenceFormat}
+                  variant="primary"
+                  className="shrink-0"
+                >
+                  Populate
                 </Button>
               </Stack>
 
@@ -461,12 +545,29 @@ const ReferenceManager: React.FC = () => {
                   bordered
                   density="compact"
                   maxHeight="calc(100vh - 320px)"
+                  enableSorting
+                  enableGlobalFilter
+                  enableColumnFilters
+                  toolbar={{
+                    globalSearch: true,
+                    globalSearchPlaceholder: "Search references…",
+                  }}
+                  emptyState="No references match your search."
                   classNames={{
                     table: "table-fixed w-full",
                     cell: "!whitespace-normal min-w-0 break-words",
                   }}
                 />
               )}
+      <Configure
+        open={showConfigureModal}
+        onClose={() => setShowConfigureModal(false)}
+        format={referenceFormat}
+        displayLocation={displayLocation}
+        pageTitle={pageTitle}
+        onSubmit={(settings) => updateFormat(settings)}
+        submitDisabled={isUpdatingFormat || !id}
+      />
       <AddContent
         open={showAddContentModal}
         onClose={() => setShowAddContentModal(false)}
@@ -475,6 +576,12 @@ const ReferenceManager: React.FC = () => {
         onAddBookPageAsReference={handleAddBookPageAsReference}
         referenceFormat={referenceFormat}
         projectID={id ?? ""}
+      />
+      <Populate
+        open={showPopulateModal}
+        onClose={() => setShowPopulateModal(false)}
+        projectID={id ?? ""}
+        job={populateJob}
       />
 
       <Modal

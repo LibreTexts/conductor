@@ -11,6 +11,7 @@ import {
   BookAsReferenceValidator,
   GetReferencePageByPageIDAndLibrarySchema,
   GetReferenceProjectsSchema,
+  PopulateReferenceSchema,
 } from "./validators/Reference.js";
 import { Response } from "express";
 import Project from "../models/project.js";
@@ -26,9 +27,11 @@ import {
   addReferencesToUsage,
   createReferenceFromBookPage,
   getReferenceItemsService,
+  createReferencePopulateJob,
 } from "./services/references-service.js";
 import BookService from "./services/book-service.js";
 import GlossaryService from "./services/glossary-service.js";
+import { ReferencePopulateJob } from "../models/referencepopulatejosb.js";
 
 async function updateReferenceFormat(
   req: ZodReqWithUser<z.infer<typeof UpdateReferenceFormatSchema>>,
@@ -36,7 +39,7 @@ async function updateReferenceFormat(
 ) {
   try {
     const { projectID } = req.params;
-    const { format } = req.body;
+    const { format, displayLocation, pageTitle } = req.body;
     const actorUUID = req.user?.decoded?.uuid ?? "";
 
     const project = await Project.findOne({ projectID: { $eq: projectID } });
@@ -71,11 +74,19 @@ async function updateReferenceFormat(
       projectID,
       format,
       actorUUID,
+      {
+        ...(displayLocation !== undefined ? { displayLocation } : {}),
+        ...(pageTitle !== undefined ? { pageTitle } : {}),
+      },
     );
 
     return res.send({
       err: false,
-      data: { format: referenceUsage.format },
+      data: {
+        format: referenceUsage.format,
+        displayLocation: referenceUsage.displayLocation,
+        pageTitle: referenceUsage.pageTitle,
+      },
     });
   } catch (error) {
     return res.status(500).send({
@@ -435,7 +446,9 @@ async function addBookPageAsReference(
 }
 
 async function getReferancePageDetails(
-  req: ZodReqWithOptionalUser<z.infer<typeof GetReferencePageByPageIDAndLibrarySchema>>,
+  req: ZodReqWithOptionalUser<
+    z.infer<typeof GetReferencePageByPageIDAndLibrarySchema>
+  >,
   res: Response,
 ) {
   try {
@@ -475,6 +488,10 @@ async function getReferancePageDetails(
         projectID: project.projectID,
         lastUpdatedAt,
         format: referenceUsage?.format ?? null,
+        displayLocation: referenceUsage?.displayLocation ?? null,
+        pageTitle: referenceUsage?.pageTitle ?? null,
+        backmatterPageID: referenceUsage?.backmatterPageID ?? null,
+        backmatterReferenceList: referenceUsage?.backmatterReferenceList ?? [],
       },
     });
   } catch (error) {
@@ -492,7 +509,7 @@ async function getReferancePageDetails(
 }
 
 async function getReferenceItems(
-  req: ZodReqWithUser<z.infer<typeof GetReferenceProjectsSchema>>,
+  req: ZodReqWithOptionalUser<z.infer<typeof GetReferenceProjectsSchema>>,
   res: Response,
 ) {
   try {
@@ -521,8 +538,127 @@ async function getReferenceItems(
       errMsg: "Internal server error",
     });
   }
-  
-}   
+}
+
+async function populateReferenceDetails(
+  req: ZodReqWithUser<z.infer<typeof PopulateReferenceSchema>>,
+  res: Response,
+) {
+  try {
+    const { projectID } = req.params;
+    const project = await Project.findOne({ projectID: { $eq: projectID } });
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: "Project not found",
+      });
+    }
+    // check canaccess
+    const canAccess = projectsAPI.checkProjectMemberPermission(
+      project,
+      req.user,
+    );
+    if (!canAccess) {
+      return res.status(403).send({
+        err: true,
+        errMsg: "You do not have permission to access this project",
+      });
+    }
+    // get Latest ReferencePopulateJob
+    const latestReferencePopulateJob = await ReferencePopulateJob.findOne({
+      projectID: { $eq: projectID }, status: { $eq: "pending" }
+    })
+      .sort({ createdAt: -1 })
+      .limit(1);
+    if (!latestReferencePopulateJob) {
+      return res.status(404).send({
+        err: false,
+        data: {},
+      });
+    }
+    return res.send({
+      err: false,
+      data: {
+        status: latestReferencePopulateJob.status,
+        message: latestReferencePopulateJob.message,
+        totalPages: latestReferencePopulateJob.totalPages,
+        completedPages: latestReferencePopulateJob.completedPages,
+      },
+    });
+    //
+  } catch (error) {
+    return res.status(500).send({
+      err: true,
+      errMsg: "Internal server error",
+    });
+  }
+}
+
+async function startReferencePopulateJob(
+  req: ZodReqWithUser<z.infer<typeof PopulateReferenceSchema>>,
+  res: Response,
+) {
+  try {
+    const { projectID } = req.params;
+    // check canaccess
+    const project = await Project.findOne({ projectID: { $eq: projectID } });
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: "Project not found",
+      });
+    }
+    const canAccess = projectsAPI.checkProjectMemberPermission(
+      project,
+      req.user,
+    );
+    if (!canAccess) {
+      return res.status(403).send({
+        err: true,
+        errMsg: "You do not have permission to access this project",
+      });
+    }
+    try {
+      // check if there is a pending reference populate job
+      const pendingReferencePopulateJob = await ReferencePopulateJob.findOne({
+        projectID: { $eq: projectID, status: { $eq: "pending" } },
+      })
+        .sort({ createdAt: -1 })
+        .limit(1);
+
+      if (pendingReferencePopulateJob) {
+        return res.status(400).send({
+          err: true,
+          errMsg: "A reference populate job is already pending",
+        });
+      }
+    } catch (error) {}
+
+    // create a new reference populate job
+    const referencePopulateJob = await createReferencePopulateJob(
+      projectID,
+      req.user?.decoded?.uuid ?? "",
+      project,
+    );
+    if (!referencePopulateJob) {
+      return res.status(500).send({
+        err: true,
+        errMsg: "Failed to create reference populate job",
+      });
+    }
+    return res.send({
+      err: false,
+      success: true,
+    });
+  } catch (error) {
+    if (error instanceof ReferenceServiceError) {
+      return res.status(error.statusCode).send({
+        err: true,
+        errMsg: error.message,
+      });
+    }
+  }
+}
 
 export default {
   getReferenceDetails,
@@ -534,5 +670,7 @@ export default {
   getBookToc,
   addBookPageAsReference,
   getReferancePageDetails,
-  getReferenceItems
+  getReferenceItems,
+  populateReferenceDetails,
+  startReferencePopulateJob,
 };
