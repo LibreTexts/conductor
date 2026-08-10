@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { Route, Switch } from 'react-router-dom';
+import { Route, Switch, useLocation } from 'react-router-dom';
 import { SkipLink } from '@libretexts/davis-react';
 
 import AnonRoute from './components/util/AnonRoute';
@@ -103,12 +103,20 @@ const Conductor = () => {
 
   // Global State and Location
   const org = useTypedSelector((state) => state.org);
+  const location = useLocation();
+
+  // Support queue data is only needed on the support/insight routes; mount the
+  // loader here (not around the routes) so it doesn't fire an API call app-wide.
+  const isSupportRoute =
+    location.pathname.startsWith('/support') ||
+    location.pathname.startsWith('/insight');
 
   return (
     <div className='flex flex-col min-h-screen'>
       <SkipLink targetId="main-content" />
       <Navbar />
       <main id="main-content" className='flex-1 bg-surface-muted pb-8'>
+        {isSupportRoute && <SupportCenterDataLoader />}
         <Suspense fallback={<LoadingSpinner />}>
           <Switch>
           <AnonRoute exact path='/login' component={Login} />
@@ -183,18 +191,16 @@ const Conductor = () => {
           <LibreTextsRoute exact path='/store/checkout/success' key='storesuccess' org={org} component={StoreSuccess} />
           <LibreTextsRoute exact path='/store/order/:order_id' key='storeorder' org={org} component={StoreOrder} />
           <LibreTextsRoute exact path='/store/product/:product_id' key='storeproduct' org={org} component={StoreProduct} />
-          <SupportCenterDataLoader>
-            <LibreTextsRoute exact path='/insight' key='insight' component={KnowledgeBase} org={org}/>
-            <LibreTextsRoute exact path='/insight/search' key='insightsearchresults' component={KBSearchResults} org={org}/>
-            <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
-            <LibreTextsRoute exact path='/insight/:slug' key='insightpageview' org={org} component={KBPage} />
-            <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
-            <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
-            <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} />
-            {/*LibreTexts org private routes */}
-            <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
-            <LibreTextsPrivateRoute exact path='/support/closed' key='supportclosedtickets' org={org} component={SupportClosedTickets} />
-          </SupportCenterDataLoader>
+          <LibreTextsRoute exact path='/insight' key='insight' component={KnowledgeBase} org={org}/>
+          <LibreTextsRoute exact path='/insight/search' key='insightsearchresults' component={KBSearchResults} org={org}/>
+          <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
+          <LibreTextsRoute exact path='/insight/:slug' key='insightpageview' org={org} component={KBPage} />
+          <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
+          <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
+          <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} />
+          {/*LibreTexts org private routes */}
+          <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
+          <LibreTextsPrivateRoute exact path='/support/closed' key='supportclosedtickets' org={org} component={SupportClosedTickets} />
           {/* 404 */}
           <Route component={PageNotFound} />
           </Switch>
