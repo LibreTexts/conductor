@@ -452,9 +452,17 @@ export const getRemixerDisplayTitle = (
   const rawTitle = page["@title"] || page.title || "";
   if (!isBookTree) return rawTitle;
   if (!autoNumbering) return rawTitle;
+  // Book root (numberPath.length === 0) has no autonumber prefix to strip —
+  // its title is the book title and may legitimately contain ":".
+  if (numberPath.length === 0 || page.parentID === "-1" )
+    {
+      return rawTitle;
+
+    } 
+      
   let cleanTitle = stripLeadingNumbering(rawTitle);
   cleanTitle = stripDefaultTitlePrefixBeforeColon(cleanTitle);
-  if (inDeletedBranch || numberPath.length === 0 || inMatterNoNumberSubtree) {
+  if (inDeletedBranch || inMatterNoNumberSubtree) {
     return cleanTitle;
   }
   const overridden =
@@ -843,6 +851,11 @@ export const syncRenamedItemFromAutonumberTitle = (
     }
 
     const numberPath = ordinalPathById.get(page["@id"]) ?? [];
+
+    // Book root has no autonumber prefix — its title is authoritative as-is.
+    // Leave renamedItem as whatever handleSaveEdit already set it to.
+    if (numberPath.length === 0) return page;
+
     const inDeletedBranch = isInDeletedBranchForAutonumber(page, nodesById);
     const inMatterNoNumberSubtree = isInMatterNoNumberSubtreeForAutonumber(
       page,

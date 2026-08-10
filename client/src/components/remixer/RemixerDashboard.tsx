@@ -895,13 +895,6 @@ const RemixerDashboard: React.FC = () => {
     // (`editPanelOpen` drives nothing here; it's a leftover from the old declarative UI.)
     closeAllModals();
 
-    const normalizeEditTitle = (value: string) => {
-      let s = value;
-      const colonIndex = s.indexOf(":");
-      if (colonIndex !== -1) s = s.slice(colonIndex + 1);
-      return s.replace(/:/g, "").trim();
-    };
-
     const nextOverride = page.formattedPathOverride === true;
     const nextFormattedPathPrefix = nextOverride
       ? (page.formattedPathPrefix ?? "")
@@ -917,6 +910,15 @@ const RemixerDashboard: React.FC = () => {
       (node) => node["@id"] === page["@id"],
     );
     if (!existingNode) return;
+
+    const isBookRoot = !existingNode.parentID || existingNode.parentID === "-1";
+    const normalizeEditTitle = (value: string) => {
+      if (isBookRoot) return value.trim();
+      let s = value;
+      const colonIndex = s.indexOf(":");
+      if (colonIndex !== -1) s = s.slice(colonIndex + 1);
+      return s.replace(/:/g, "").trim();
+    };
 
     const previousTitle = normalizeEditTitle(
       existingNode.title || existingNode["@title"] || "",
@@ -1162,6 +1164,7 @@ const RemixerDashboard: React.FC = () => {
         currentPage={targetNode}
         handleSave={handleSaveEdit}
         library={remixerData.libreLibrary as Library}
+        coverPageId={remixerData.liberCoverID ?? remixerData.currentBook?.[0]?.["@id"] ?? ""}
       />
     )
   }
