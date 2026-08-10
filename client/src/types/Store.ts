@@ -5,6 +5,7 @@ export type Cart = {
     id: string;
     items: CartItem[];
     subtotal: number;
+    cart_first_created?: string; // ISO 8601 UTC timestamp, set when the cart is first created
     promotions?: Array<{
         code: string;
         description: string;

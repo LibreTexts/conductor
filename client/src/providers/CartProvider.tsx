@@ -1,8 +1,17 @@
 import { CartContext } from "../context/CartContext";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useLocation } from "react-router-dom";
 import { StoreProduct, StoreProductPrice, Cart } from "../types";
+import { useNotifications } from "../context/NotificationContext";
 
 const CART_STORAGE_KEY = "libretexts_store_cart";
+const CART_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const getCartFromStorage = (): Cart | null => {
   const cartData = localStorage.getItem(CART_STORAGE_KEY);
@@ -33,15 +42,19 @@ const calculateSubtotal = (items: Cart["items"]): number => {
   }, 0);
 };
 
-const EMPTY_CART: Cart = {
+const createEmptyCart = (): Cart => ({
   id: crypto.randomUUID(),
   items: [],
   subtotal: 0,
-};
+  cart_first_created: new Date().toISOString(), // UTC
+});
 
 const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const { addNotification } = useNotifications();
+  const freshnessCheckedRef = useRef(false);
 
   useEffect(() => {
     const storedCart = getCartFromStorage();
@@ -50,6 +63,37 @@ const CartProvider = ({ children }: { children: React.ReactNode }) => {
     }
     setLoading(false);
   }, []);
+
+  // On entering any /store/* route, discard carts that are missing a creation
+  // timestamp or older than 7 days so visitors never act on stale data.
+  useEffect(() => {
+    if (!location.pathname.startsWith("/store")) {
+      freshnessCheckedRef.current = false; // re-arm for next store visit
+      return;
+    }
+    if (freshnessCheckedRef.current) return; // once per store session
+    freshnessCheckedRef.current = true;
+
+    const stored = getCartFromStorage();
+    if (!stored) return; // no cart to check
+
+    const created = stored.cart_first_created
+      ? Date.parse(stored.cart_first_created)
+      : NaN;
+    const now = Date.now();
+    const isFresh =
+      Number.isFinite(created) && created <= now && now - created < CART_MAX_AGE_MS;
+
+    if (!isFresh) {
+      localStorage.removeItem(CART_STORAGE_KEY);
+      setCart(null);
+      addNotification({
+        type: "info",
+        message:
+          "We cleared your cart to ensure you have the most up-to-date information",
+      });
+    }
+  }, [location.pathname, addNotification]);
 
   // Save cart on change
   useEffect(() => {
@@ -71,12 +115,10 @@ const CartProvider = ({ children }: { children: React.ReactNode }) => {
     setLoading(false);
   };
 
-  const clearAndCreateCart = useCallback(() => {
-    setLoading(true);
-    setCart(EMPTY_CART);
-    saveCartToStorage(EMPTY_CART);
-    setLoading(false);
-  }, []);
+  // Fully removes the cart from storage. The [cart] effect calls
+  // localStorage.removeItem when cart is null, so the storage key (and its
+  // cart_first_created timestamp) is deleted rather than reused.
+  const clearCart = useCallback(() => setCart(null), []);
 
   const addToCart = useCallback(
     (
@@ -85,7 +127,7 @@ const CartProvider = ({ children }: { children: React.ReactNode }) => {
       quantity: number = 1
     ) => {
       setCart((prevCart) => {
-        const currentCart = prevCart || EMPTY_CART;
+        const currentCart = prevCart || createEmptyCart();
         const existingItemIndex = currentCart.items.findIndex(
           (item) => item.product.id === product.id && item.price.id === price.id
         );
@@ -200,7 +242,7 @@ const CartProvider = ({ children }: { children: React.ReactNode }) => {
         numInCart,
         hasDigitalProducts,
         hasPhysicalProducts,
-        clearAndCreateCart,
+        clearCart,
         addToCart,
         removeFromCart,
         updateQuantity,
