@@ -93,13 +93,15 @@ const ProjectCoAuthoringToolsButtons: React.FC<ProjectCoAuthoringToolsButtonsPro
                 Glossary Manager
                 <Icon name="external alternate" className="!ml-2" />
               </Button>
-              <Button
-                onClick={handleOpenReaderResourcesModal}
-                color="blue"
-                size="small"
-              >
-                Manage Reader Resources
-              </Button>
+              {hasCommonsBook && (
+                <Button
+                  onClick={handleOpenReaderResourcesModal}
+                  color="blue"
+                  size="small"
+                >
+                  Manage Reader Resources
+                </Button>
+              )}
             </>
           )}
       </div>
