@@ -7,13 +7,14 @@ import { Icon } from "semantic-ui-react";
 
 export default function OrderSuccessPage() {
   const [searchParams] = useSearchParams();
-  const { cart, clearAndCreateCart } = useCart();
+  const { cart, clearCart } = useCart();
   const clearCartDidRun = useRef(false);
 
   useEffect(() => {
     if (!cart || clearCartDidRun.current) return;
-    // Clear the cart after the order is confirmed
-    clearAndCreateCart();
+    // Delete the cart entirely after the order is confirmed so its
+    // cart_first_created timestamp is never reused.
+    clearCart();
     clearCartDidRun.current = true;
   }, [cart]);
 
