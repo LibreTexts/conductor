@@ -4,7 +4,7 @@ import { truncateString } from "../../../util/HelperFunctions";
 import { getLibGlyphAltText, getLibGlyphURL } from "../../../util/LibraryOptions";
 import { Heading, Card, Text, Stack } from "@libretexts/davis-react";
 import PausableImage from "../../../util/PausableImage";
-import { IconFileDescription, IconSchoolFilled } from "@tabler/icons-react";
+import { IconFileDescription, IconSchoolFilled, IconUsersGroup } from "@tabler/icons-react";
 
 interface BookCardContentProps {
   book: Book;
@@ -62,14 +62,14 @@ const BookCardContent: React.FC<BookCardContentProps> = ({
                   <Stack direction="horizontal" gap="sm" align="center">
                     <IconSchoolFilled size={16} className="text-primary" />
                     <Text>
-                      {instructorAssets} instructor asset{instructorAssets > 1 ? "s" : ""}
+                      {instructorAssets} instructor only asset{instructorAssets > 1 ? "s" : ""}
                     </Text>
                   </Stack>
                 )}
               {
                 publicAssets > 0 && (
                   <Stack direction="horizontal" gap="sm" align="center">
-                    <IconFileDescription size={16} />
+                    <IconUsersGroup size={16} />
                     <Text>
                       {publicAssets} public asset{publicAssets > 1 ? "s" : ""}
                     </Text>

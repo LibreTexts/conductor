@@ -1,5 +1,5 @@
 import { Breadcrumb, Button, Card, Stack, Heading, Text, IconButton, Input } from "@libretexts/davis-react";
-import { IconDownload, IconFileDescription, IconFolder, IconFolderOpen, IconSchool, IconSearch } from "@tabler/icons-react";
+import { IconDownload, IconFileDescription, IconFolder, IconFolderOpen, IconSchool, IconSchoolFilled, IconSearch, IconUsersGroup } from "@tabler/icons-react";
 import { useCallback, useMemo, useState } from "react";
 import { List, Popup } from "semantic-ui-react";
 import { truncateString } from "../../util/HelperFunctions";
@@ -212,6 +212,10 @@ const AssetsSection: React.FC<AssetsSectionProps> = ({
                                                         <div className={file.description ? "mb-1" : ""}>
                                                             {file.storageType === "folder" ? (
                                                                 <IconFolder size={16} className="inline mr-1 shrink-0 mb-1" aria-hidden="true" />
+                                                            ) : file.access === 'instructors' ? (
+                                                                <IconSchoolFilled size={16} className="inline mr-1 shrink-0 mb-1 text-primary" aria-hidden="true" />
+                                                            ) : file.access === 'public' ? (
+                                                                <IconUsersGroup size={16} className="inline mr-1 shrink-0 mb-1" aria-hidden="true" />
                                                             ) : (
                                                                 <IconFileDescription size={16} className="inline mr-1 shrink-0 mb-1" aria-hidden="true" />
                                                             )}

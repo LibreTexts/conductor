@@ -137,12 +137,12 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
         },
         {
           key: "public",
-          text: "Public",
+          text: "Public Assets",
           value: "public",
         },
         {
           key: "instructors",
-          text: "Instructors Only",
+          text: "Instructor Only Assets",
           value: "instructors",
         },
       ];
