@@ -7,6 +7,7 @@ import {
   ReferenceInterface,
 } from "../../models/reference.js";
 import {
+  ReferenceDisplayLocation,
   ReferenceUsage,
   ReferenceUsageInterface,
 } from "../../models/referenceusage.js";
@@ -15,8 +16,17 @@ import { z } from "zod";
 import BookService from "./book-service.js";
 import AuthorService from "./author-service.js";
 import Author from "../../models/author.js";
-import { getPage } from "../../util/librariesclient.js";
-import { escapeRegEx } from "../../util/helpers.js";
+import {
+  CXOneFetch,
+  generateAPIRequestHeaders,
+  getPage,
+} from "../../util/librariesclient.js";
+import { escapeRegEx, sleep } from "../../util/helpers.js";
+import { ReferencePopulateJob } from "../../models/referencepopulatejosb.js";
+import { ProjectInterface } from "../../models/project.js";
+import MindTouch from "../../util/CXOne/index.js";
+import RemixerTemplates from "../../util/CXOne/CXOneRemixerTemplates.js";
+import { titleToRemixerPathSegment } from "../../util/remixerutils.js";
 
 export class ReferenceServiceError extends Error {
   constructor(
@@ -32,7 +42,14 @@ type ReferenceEntryInput = z.infer<typeof ReferenceEntrySchema>;
 
 export const getReferencesUsage = async (
   projectID: string,
-): Promise<{ format: string; entries: ReferenceInterface[] } | null> => {
+): Promise<{
+  format: string;
+  displayLocation?: ReferenceDisplayLocation;
+  pageTitle?: string;
+  entries: ReferenceInterface[];
+  backmatterPageID?: string;
+  backmatterReferenceList: string[];
+} | null> => {
   const referenceUsage = await ReferenceUsage.findOne({
     projectID: { $eq: projectID },
   });
@@ -46,7 +63,11 @@ export const getReferencesUsage = async (
 
   return {
     format: referenceUsage.format,
+    displayLocation: referenceUsage.displayLocation ?? undefined,
+    pageTitle: referenceUsage.pageTitle,
     entries: entries.map((entry) => entry.toObject()),
+    backmatterPageID: referenceUsage.backmatterPageID ?? undefined,
+    backmatterReferenceList: referenceUsage.backmatterReferenceList ?? [],
   };
 };
 
@@ -55,13 +76,29 @@ export const upsertReferenceFormat = async (
   projectID: string,
   format: string,
   actorUUID: string,
+  options?: {
+    displayLocation?: "endOfPage" | "endOfChapter" | "backmatter";
+    pageTitle?: string;
+  },
 ): Promise<ReferenceUsageInterface> => {
+  const optionalSet: {
+    displayLocation?: "endOfPage" | "endOfChapter" | "backmatter";
+    pageTitle?: string;
+  } = {};
+  if (options?.displayLocation !== undefined) {
+    optionalSet.displayLocation = options.displayLocation;
+  }
+  if (options?.pageTitle !== undefined) {
+    optionalSet.pageTitle = options.pageTitle;
+  }
+
   const referenceUsage = await ReferenceUsage.findOneAndUpdate(
     { projectID: { $eq: projectID } },
     {
       $set: {
         format,
         updatedBy: actorUUID,
+        ...optionalSet,
       },
       $setOnInsert: {
         projectID,
@@ -478,6 +515,7 @@ export const createReferenceFromBookPage = async (
 
 export const getReferenceItemsService = async (
   projectID: string,
+  showReferenceID: boolean = false,
 ): Promise<ReferenceInterface[]> => {
   try {
     const pipeline: PipelineStage[] = [
@@ -528,9 +566,9 @@ export const getReferenceItemsService = async (
           "output.isFork": 0,
           "output.createdAt": 0,
           "output.updatedAt": 0,
-          "output.referenceID": 0,
           "output.updatedBy": 0,
           "output.__v": 0,
+          ...(!showReferenceID ? { "output.referenceID": 0 } : {}),
         },
       },
     ];
@@ -541,4 +579,419 @@ export const getReferenceItemsService = async (
   } catch (error) {
     throw new ReferenceServiceError("Internal server error", 500);
   }
+};
+
+/** Extract unique citation keys from `\librecite{key}` markers in page content. */
+const extractReferenceFromContent = (content: string): string[] => {
+  const regex = /\\librecite\{([^}]+)\}/g;
+  const keys = new Set<string>();
+  for (const match of content.matchAll(regex)) {
+    const key = match[1]?.trim();
+    if (key) {
+      for (const part of key.split(",")) {
+        const trimmed = part.trim();
+        if (trimmed) {
+          keys.add(trimmed);
+        }
+      }
+    }
+  }
+  return [...keys];
+};
+
+const BIBLIO_SCRIPT_URL =
+  "https://cdn.jsdelivr.net/gh/yghaemi/biblizer@0dac851/script.js";
+
+/** Any biblizer script.js CDN URL (any @ref / version). Fresh instance each use — avoid /g lastIndex bugs. */
+const biblizerScriptSrcRe = (): RegExp =>
+  /https?:\/\/cdn\.jsdelivr\.net\/gh\/yghaemi\/biblizer@[A-Za-z0-9._-]+\/script\.js/gi;
+
+const buildReferenceScriptBlock = (): string =>
+  `<pre class="script" style="display: none;">var pageId = page.id;
+&lt;script src="${BIBLIO_SCRIPT_URL}"&gt;&lt;/script&gt;
+
+&lt;section id="reference-output"&gt;&lt;/section&gt;
+&lt;input type="hidden" id="pageID" name="pageID" value="{{ pageId }}" /&gt;
+</pre>`;
+
+/** Normalize MindTouch contents JSON body (string or string[]). */
+const normalizePageBody = (rawOrBody: unknown): string => {
+  if (typeof rawOrBody === "string") {
+    const trimmed = rawOrBody.trim();
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      try {
+        return normalizePageBody(JSON.parse(trimmed));
+      } catch {
+        return rawOrBody;
+      }
+    }
+    return rawOrBody;
+  }
+  if (rawOrBody && typeof rawOrBody === "object") {
+    const body = (rawOrBody as { body?: unknown }).body;
+    if (typeof body === "string") return body;
+    if (Array.isArray(body) && body[0] != null) return String(body[0]);
+  }
+  if (Array.isArray(rawOrBody) && rawOrBody[0] != null) {
+    return String(rawOrBody[0]);
+  }
+  return "";
+};
+
+/**
+ * Ensure page content uses the current biblizer script URL.
+ * - no biblizer script → append block
+ * - outdated/different biblizer src → replace with BIBLIO_SCRIPT_URL
+ * - already current → unchanged
+ */
+const ensureReferenceScript = (
+  content: unknown,
+): { content: string; action: "none" | "added" | "updated" } => {
+  const body = normalizePageBody(content);
+  const matches = [...body.matchAll(biblizerScriptSrcRe())].map(
+    (match) => match[0],
+  );
+
+  if (!matches.length) {
+    return {
+      content: `${body.trimEnd()}\n${buildReferenceScriptBlock()}`,
+      action: "added",
+    };
+  }
+
+  const needsUpdate = matches.some(
+    (src) => src.toLowerCase() !== BIBLIO_SCRIPT_URL.toLowerCase(),
+  );
+  if (!needsUpdate) {
+    return { content: body, action: "none" };
+  }
+
+  return {
+    // Fresh regex so replace visits every occurrence.
+    content: body.replace(biblizerScriptSrcRe(), BIBLIO_SCRIPT_URL),
+    action: "updated",
+  };
+};
+
+/** Matches LibreTexts Back Matter references slot: `/zz:_Back_Matter/31:...`. */
+const BACKMATTER_REFS_URL_RE =
+  /\/zz(?:%3A|:)[_]?Back_Matter\/31(?:%3A|:)/i;
+
+const resolveMindTouchPath = (pageInfo: unknown): string | null => {
+  if (!pageInfo || typeof pageInfo !== "object") return null;
+  const path = (pageInfo as { path?: unknown }).path;
+  if (typeof path === "string" && path.length > 0) return path;
+  if (
+    path &&
+    typeof path === "object" &&
+    typeof (path as { "#text"?: unknown })["#text"] === "string"
+  ) {
+    return (path as { "#text": string })["#text"];
+  }
+  return null;
+};
+
+const renamePageTitle = async (
+  library: string,
+  pageID: string,
+  title: string,
+): Promise<void> => {
+  const dekiHeaders = await generateAPIRequestHeaders(library);
+  if (!dekiHeaders) {
+    throw new Error("Error generating library API headers for page rename.");
+  }
+  const url = `https://${library}.libretexts.org/@api/deki/pages/${encodeURIComponent(
+    pageID,
+  )}/move?title=${encodeURIComponent(title)}&allow=deleteredirects&dream.out.format=json`;
+  const response = await fetch(url, {
+    method: "POST",
+    body: "",
+    headers: {
+      "Content-Type": "text/plain",
+      ...dekiHeaders,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Failed to rename backmatter page ${pageID} to "${title}" (${response.status})`,
+    );
+  }
+};
+
+/**
+ * Ensure the backmatter References page exists at
+ * `{book}/zz:_Back_Matter/31:_…`, rename if title differs, and persist
+ * `backmatterPageID` on ReferenceUsage.
+ */
+const ensureBackmatterReferencesPage = async ({
+  projectID,
+  toc,
+  bookService,
+  coverID,
+  pageTitle,
+}: {
+  projectID: string;
+  toc: { id: string; title: string; url: string }[];
+  bookService: BookService;
+  coverID: string;
+  pageTitle?: string;
+}): Promise<string> => {
+  const library = bookService.library;
+  const desiredTitle = pageTitle?.trim() || "References";
+
+  const existing = toc.find((page) => BACKMATTER_REFS_URL_RE.test(page.url));
+  if (existing) {
+    if (existing.title.trim() !== desiredTitle) {
+      await renamePageTitle(library, existing.id, desiredTitle);
+    }
+    await ReferenceUsage.updateOne(
+      { projectID: { $eq: projectID } },
+      { $set: { backmatterPageID: existing.id } },
+    );
+    return existing.id;
+  }
+
+  const coverInfo = await getPage(Number(coverID), library);
+  const bookPath = resolveMindTouchPath(coverInfo);
+  if (!bookPath) {
+    throw new Error("Could not resolve book path for backmatter page creation");
+  }
+
+  const backMatterContainerPath = `${bookPath}/zz:_Back_Matter`;
+  const containerInfo = await getPage(backMatterContainerPath, library);
+  if (!containerInfo?.["@id"]) {
+    const createContainerRes = await CXOneFetch({
+      scope: "page",
+      path: backMatterContainerPath,
+      api: MindTouch.API.Page.POST_Contents_Title("Back Matter"),
+      subdomain: library,
+      options: {
+        method: "POST",
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        body: RemixerTemplates.POST_CreateBlankTopicGuide,
+      },
+    });
+    if (!createContainerRes.ok) {
+      throw new Error(
+        `Failed to create Back Matter container (${createContainerRes.status})`,
+      );
+    }
+  }
+
+  const refsPath = `${backMatterContainerPath}/31:_${titleToRemixerPathSegment(desiredTitle)}`;
+  const createRes = await CXOneFetch({
+    scope: "page",
+    path: refsPath,
+    api: MindTouch.API.Page.POST_Contents_Title(desiredTitle),
+    subdomain: library,
+    options: {
+      method: "POST",
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+      body: `${RemixerTemplates.POST_CreateBlankPage("topic")}\n${buildReferenceScriptBlock()}`,
+    },
+  });
+  if (!createRes.ok) {
+    throw new Error(
+      `Failed to create backmatter references page (${createRes.status})`,
+    );
+  }
+
+  const created = await getPage(refsPath, library);
+  const pageID = created?.["@id"]?.toString();
+  if (!pageID) {
+    throw new Error("Created backmatter page but could not resolve page ID");
+  }
+
+  await ReferenceUsage.updateOne(
+    { projectID: { $eq: projectID } },
+    { $set: { backmatterPageID: pageID } },
+  );
+  return pageID;
+};
+
+const runJob = async ({
+  jobID,
+  toc,
+  bookService,
+  coverID,
+  projectID,
+}: {
+  jobID: string;
+  toc: { id: string; title: string; url: string }[];
+  bookService: BookService;
+  coverID: string;
+  library?: string;
+  projectID: string;
+}): Promise<void> => {
+  try {
+    const references = await getReferenceItemsService(projectID, true);
+    const referenceUsage = await ReferenceUsage.findOne(
+      { projectID: { $eq: projectID } },
+      { displayLocation: 1, pageTitle: 1 },
+    );
+    if (!referenceUsage) {
+      throw new ReferenceServiceError("ReferenceUsage not found", 404);
+    }
+
+    const isBackmatter = referenceUsage.displayLocation === "backmatter";
+    let backmatterPageID: string | undefined;
+    if (isBackmatter) {
+      // Ensure backmatter References page before processing every content page.
+      backmatterPageID = await ensureBackmatterReferencesPage({
+        projectID,
+        toc,
+        bookService,
+        coverID,
+        pageTitle: referenceUsage.pageTitle,
+      });
+    }
+
+    const backmatterReferenceList: Set<string> = new Set();
+
+    for (let index = 0; index < toc.length; index++) {
+      const page = toc[index];
+      if (page.id === coverID) continue;
+      if (backmatterPageID && page.id === backmatterPageID) continue;
+
+      // wait for a second between pages
+      const content = await bookService.getPageContent(page.id, "json");
+      // extract \librecite{*} from content
+      const referenceKeys = extractReferenceFromContent(content);
+      for (const key of referenceKeys) {
+        backmatterReferenceList.add(key);
+      }
+
+      let scriptAction: "none" | "added" | "updated" = "none";
+      // Per-page biblizer script only when NOT using a shared backmatter page.
+      if (!isBackmatter) {
+        const rawContent = await bookService.getPageRawContent(page.id);
+        const ensured = ensureReferenceScript(rawContent);
+        scriptAction = ensured.action;
+        if (scriptAction !== "none") {
+          const updated = await bookService.updatePageContent(
+            page.id,
+            ensured.content,
+          );
+          if (!updated) {
+            console.error(
+              `Failed to ${scriptAction === "added" ? "add" : "update"} reference script for ${page.title}`,
+            );
+          }
+        }
+      }
+
+      await ReferencePopulateJob.updateOne(
+        { jobID: { $eq: jobID } },
+        {
+          $push: {
+            message: `Processed ${page.title}${
+              referenceKeys.length
+                ? ` (${referenceKeys.length} cite${referenceKeys.length === 1 ? "" : "s"})`
+                : ""
+            }${
+              scriptAction === "added"
+                ? "; added biblizer script"
+                : scriptAction === "updated"
+                  ? "; updated biblizer script"
+                  : ""
+            }`,
+          },
+          $set: { completedPages: index + 1 },
+        },
+      );
+      // update pageRefrences
+      const refs = referenceKeys.map((key) => ({
+        key,
+        refID:
+          references.find((reference) => reference.citationKey === key)
+            ?.referenceID || "",
+      }));
+      await ReferenceUsage.updateOne(
+        { projectID: { $eq: projectID } },
+        {
+          $push: {
+            pageRefrences: {
+              pageID: page.id,
+              refrences: refs,
+            },
+          },
+          $set: { backmatterReferenceList: [...backmatterReferenceList] },
+        },
+      );
+    }
+
+    // Put / refresh biblizer script on the shared backmatter page after scanning all pages.
+    if (isBackmatter && backmatterPageID) {
+      const rawContent = await bookService.getPageRawContent(backmatterPageID);
+      const { content: nextContent, action: scriptAction } =
+        ensureReferenceScript(rawContent);
+      if (scriptAction !== "none") {
+        const updated = await bookService.updatePageContent(
+          backmatterPageID,
+          nextContent,
+        );
+        if (!updated) {
+          console.error(
+            `Failed to ${scriptAction === "added" ? "add" : "update"} reference script on backmatter page`,
+          );
+        }
+      }
+      await ReferencePopulateJob.updateOne(
+        { jobID: { $eq: jobID } },
+        {
+          $push: {
+            message: `Backmatter references page ready (${backmatterReferenceList.size} unique cite${backmatterReferenceList.size === 1 ? "" : "s"})`,
+          },
+        },
+      );
+    }
+
+    await ReferencePopulateJob.updateOne(
+      { jobID: { $eq: jobID } },
+      { $set: { status: "completed" } },
+    );
+  } catch (error) {
+    console.error(error);
+    await ReferencePopulateJob.updateOne(
+      { jobID: { $eq: jobID } },
+      { $set: { status: "failed" } },
+    );
+  }
+};
+
+export const createReferencePopulateJob = async (
+  projectID: string,
+  actorUUID: string,
+  project: ProjectInterface,
+): Promise<any> => {
+  // fetch Toc
+  const bookService = new BookService({
+    bookID: `${project.libreLibrary}-${project.libreCoverID}`,
+  });
+  const toc: { id: string; title: string; url: string }[] =
+    await bookService.getBookTOCFlat();
+  // create a new job
+  const populateJob = await ReferencePopulateJob.create({
+    jobID: base62(10),
+    projectID,
+    createdBy: actorUUID,
+    status: "pending",
+    totalPages: toc.length,
+    completedPages: 0,
+    message: ["Reference populate job created"],
+  });
+
+  // run the job
+  runJob({
+    jobID: populateJob.jobID,
+    toc,
+    bookService,
+    coverID: project.libreCoverID,
+    library: project.libreLibrary,
+    projectID,
+  });
+
+  //
+
+  return populateJob;
 };

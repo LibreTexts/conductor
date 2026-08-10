@@ -127,7 +127,7 @@ import {
   GlossaryConfigMode,
   GlossaryConfigGroup,
 } from "./screens/commons/Glossary/model";
-import { BookSearchProps, ReferenceEntry, ReferenceFormatType, ReferenceFormData } from "./components/projects/References/model";
+import { BookSearchProps, ReferenceDisplayLocation, ReferenceEntry, ReferenceFormatType, ReferenceFormData } from "./components/projects/References/model";
 
 /**
  * @fileoverview
@@ -3319,12 +3319,18 @@ class API {
 
   async updateBookReferenceFormat(
     projectID: string,
-    data: { format: ReferenceFormatType },
+    data: {
+      format: ReferenceFormatType;
+      displayLocation?: ReferenceDisplayLocation;
+      pageTitle?: string;
+    },
   ) {
     const res = await axios.post<
       {
         data: {
           format: ReferenceFormatType;
+          displayLocation?: ReferenceDisplayLocation;
+          pageTitle?: string;
         };
       } & ConductorBaseResponse
     >(`/projects/${projectID}/reference`, data);
@@ -3336,6 +3342,8 @@ class API {
       {
         data: {
           format: ReferenceFormatType;
+          displayLocation?: ReferenceDisplayLocation;
+          pageTitle?: string;
           entries: ReferenceEntry[];
         };
       } & ConductorBaseResponse
@@ -3416,6 +3424,41 @@ class API {
         data: { referenceID: string; citationKey: string, author: string, title: string, year: string, url: string , };
       } & ConductorBaseResponse
     >(`/projects/${projectID}/reference/book`, { ...data });
+    return res.data;
+  }
+
+  async populateReferencesDetails(projectID: string) {
+    try {
+      const res = await axios.get<
+        {
+          data: {
+            status?: string;
+            message?: string[];
+            totalPages?: number;
+            completedPages?: number;
+          };
+        } & ConductorBaseResponse
+      >(`/reference/projects/${projectID}/populate`);
+      return res.data;
+    } catch (error) {
+      // Server returns 404 with empty data when no populate job exists.
+      if (axios.isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 500)) {
+        return (
+          error.response.data ?? {
+            err: false,
+            data: {},
+          }
+        );
+      }
+      throw error;
+    }
+  }
+  async createPopulateJob(projectID: string) {
+    const res = await axios.post<
+      {
+        data: { status: boolean; };
+      } & ConductorBaseResponse
+    >(`/reference/projects/${projectID}/populate`);
     return res.data;
   }
 }

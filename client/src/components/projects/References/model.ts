@@ -28,8 +28,26 @@ export type SelectedReference = {
   citationKey: string;
 } ;
 
+/** Where generated references are shown in the book. */
+export type ReferenceDisplayLocation =
+  | "endOfPage"
+  | "endOfChapter"
+  | "backmatter";
+
+export const ReferenceDisplayLocations: {
+  value: ReferenceDisplayLocation;
+  label: string;
+}[] = [
+  { value: "endOfPage", label: "End of page" },
+  { value: "endOfChapter", label: "Reference page at end of chapter" },
+  { value: "backmatter", label: "Reference page in backmatter" },
+];
+
 export type BookReferencesData = {
   format: ReferenceFormatType | undefined;
+  displayLocation?: ReferenceDisplayLocation;
+  /** Page title when displayLocation is endOfChapter or backmatter. */
+  pageTitle?: string;
   entries?: ReferenceEntry[];
 };
 

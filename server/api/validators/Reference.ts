@@ -51,7 +51,10 @@ const OPTIONAL_REFERENCE_FIELDS = [
 
 const optionalReferenceFieldSchema = Object.fromEntries(
   OPTIONAL_REFERENCE_FIELDS.map((key) => [key, z.string().optional()]),
-) as Record<(typeof OPTIONAL_REFERENCE_FIELDS)[number], z.ZodOptional<z.ZodString>>;
+) as Record<
+  (typeof OPTIONAL_REFERENCE_FIELDS)[number],
+  z.ZodOptional<z.ZodString>
+>;
 
 export const ReferenceEntrySchema = z.object({
   entryType: EntryTypeEnum,
@@ -60,53 +63,45 @@ export const ReferenceEntrySchema = z.object({
   ...optionalReferenceFieldSchema,
 });
 
-export const GetReferencePageSchema = z.object({
+/** Shared route params for project-scoped reference endpoints. */
+const ProjectIDParamsSchema = z.object({
   params: z.object({
     projectID: z.string().length(10),
   }),
 });
 
-export const UpdateReferenceFormatSchema = z.object({
-  params: z.object({
-    projectID: z.string().length(10),
-  }),
+export const GetReferencePageSchema = ProjectIDParamsSchema;
+
+export const UpdateReferenceFormatSchema = ProjectIDParamsSchema.extend({
   body: z.object({
     format: ReferenceFormatTypeEnum,
+    displayLocation: z
+      .enum(["endOfPage", "endOfChapter", "backmatter"])
+      .optional(),
+    pageTitle: z.string().optional(),
   }),
 });
 
-export const UpdateReferenceEntrySchema = z.object({
-  params: z.object({
-    projectID: z.string().length(10),
-  }),
+export const UpdateReferenceEntrySchema = ProjectIDParamsSchema.extend({
   body: z.object({
     entry: ReferenceEntrySchema,
   }),
 });
 
-export const SearchReferencesValidator = z.object({
-  params: z.object({
-    projectID: z.string().length(10),
-  }),
+export const SearchReferencesValidator = ProjectIDParamsSchema.extend({
   query: z.object({
     query: z.string().min(1),
   }),
 });
 
-export const DeleteReferenceEntrySchema = z.object({
-  params: z.object({
-    projectID: z.string().length(10),
-  }),
+export const DeleteReferenceEntrySchema = ProjectIDParamsSchema.extend({
   body: z.object({
     referenceID: z.string().length(10),
     deleteFromReferences: z.boolean().optional().default(false),
   }),
 });
 
-export const AddReferenceEntrySchema = z.object({
-  params: z.object({
-    projectID: z.string().length(10),
-  }),
+export const AddReferenceEntrySchema = ProjectIDParamsSchema.extend({
   body: z.object({
     referenceIDs: z
       .array(z.string().length(10))
@@ -114,20 +109,14 @@ export const AddReferenceEntrySchema = z.object({
   }),
 });
 
-export const tocValidator = z.object({
-  params: z.object({
-    projectID: z.string().length(10),
-  }),
+export const tocValidator = ProjectIDParamsSchema.extend({
   query: z.object({
     toc: z.coerce.boolean().optional(),
     bookID: z.string().optional(),
   }),
 });
 
-export const BookAsReferenceValidator = z.object({
-  params: z.object({
-    projectID: z.string().length(10),
-  }),
+export const BookAsReferenceValidator = ProjectIDParamsSchema.extend({
   body: z.object({
     bookID: z.string().refine(checkBookIDFormat, {
       message: conductorErrors.err1,
@@ -143,12 +132,10 @@ export const GetReferencePageByPageIDAndLibrarySchema = z.object({
     pageID: z.string().refine((pageID) => !isNumber(pageID), {
       message: conductorErrors.err1,
     }),
-    library: z.string()
+    library: z.string(),
   }),
 });
 
-export const GetReferenceProjectsSchema = z.object({
-  params: z.object({
-    projectID: z.string().length(10),
-  }),
-});
+export const GetReferenceProjectsSchema = ProjectIDParamsSchema;
+
+export const PopulateReferenceSchema = ProjectIDParamsSchema;
