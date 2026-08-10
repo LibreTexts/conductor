@@ -1612,6 +1612,70 @@ const runRemixerJob = async ({
       await job.save();
     }
 
+    // ── Final ordering pass: enforce sibling order for every group ────────────
+    // BFS over finalBook; for each sibling group, call ORDER_PAGES in sequence
+    // so MindTouch reflects the exact intended order even if individual
+    // create/move calls placed pages in the wrong slot.
+    log("[*] Final sibling ordering pass...");
+    {
+      const finalById = new Map(finalBook.map((p) => [p["@id"], p]));
+      const finalChildrenOf = new Map<string, string[]>();
+      const finalRoots: string[] = [];
+      for (const p of finalBook) {
+        const pid = p.parentID ?? "-1";
+        if (pid === "-1" || !finalById.has(pid)) {
+          finalRoots.push(p["@id"]);
+        } else {
+          const siblings = finalChildrenOf.get(pid) ?? [];
+          siblings.push(p["@id"]);
+          finalChildrenOf.set(pid, siblings);
+        }
+      }
+
+      // BFS: process each parent's children group in pathNumber order,
+      // delegating the actual placement to `orderPageAfterPreviousSibling`
+      // (same helper used during create/import) so every page ends up
+      // exactly where its pathNumber says it should be, group by group.
+      const bfsQueue: string[] = [...finalRoots];
+      const bfsVisited = new Set<string>();
+      while (bfsQueue.length > 0) {
+        const parentId = bfsQueue.shift()!;
+        if (bfsVisited.has(parentId)) continue;
+        bfsVisited.add(parentId);
+
+        const children = finalChildrenOf.get(parentId) ?? [];
+        if (children.length > 0) {
+          // Sort by pathNumber ascending so each page is ordered after an
+          // already-placed predecessor within its sibling group.
+          const sortedChildren = [...children]
+            .map((id) => finalById.get(id)!)
+            .filter(Boolean)
+            .sort((a, b) =>
+              (a.pathNumber ?? [])
+                .join(".")
+                .localeCompare(
+                  (b.pathNumber ?? []).join("."),
+                  undefined,
+                  { numeric: true },
+                ),
+            );
+
+          for (const child of sortedChildren) {
+            await orderPageAfterPreviousSibling(
+              child["@id"],
+              child,
+              finalBook,
+              subdomain,
+            );
+            bfsQueue.push(child["@id"]);
+          }
+        }
+      }
+
+      job.messages.push("Final sibling ordering pass complete.");
+      await job.save();
+    }
+
     // ── Trigger Mindtouch TOC update ─────────────────────────────────────────
     log("[*] Triggering MindMap TOC update...");
     await fetch(`https://batch.libretexts.org/print/Libretext=${bookURL}`, {
