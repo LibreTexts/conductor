@@ -93,6 +93,7 @@ import RequestToPublishModal from './RequestToPublishModal';
 import { useIsProjectPinned, useUnpinProjectMutation } from '../Home/PinnedProjects/hooks';
 import AddPinnedProjectModal from '../Home/PinnedProjects/AddPinnedProjectModal';
 import { ProjectClassification } from '../../types';
+import { checkIsUUID } from '../../utils/misc';
 const ProjectPropertiesModal = lazy(() => import('./ProjectPropertiesModal'));
 const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
@@ -1904,6 +1905,13 @@ const ProjectView = (props) => {
                               <div className='mt-1p'>
                                 <a href={normalizeURL(project.license.sourceURL)} target='_blank' rel='noopener noreferrer'>Resource Link<Icon name='external' className='ml-1p' /></a>
                               </div>
+                            }
+                            {
+                              project.harvestReqID && checkIsUUID(project.harvestReqID) && (
+                                <div className='mt-1p'>
+                                  <a href={`https://commons.libretexts.org/support/ticket/${project.harvestReqID}`} target='_blank' rel='noopener noreferrer'>View Harvest Request<Icon name='external' className='ml-1p' /></a>
+                                </div>
+                              )
                             }
                           </Grid.Column>
                         }

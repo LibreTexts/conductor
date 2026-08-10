@@ -7,8 +7,8 @@ import KBRenderer from "./KBRenderer";
 import PageLastEditor from "./PageLastEditor";
 import KBFooter from "./KBFooter";
 import PageStatusLabel from "./PageStatusLabel";
-import { checkIsUUID } from "../../utils/kbHelpers";
 import { useQuery } from "@tanstack/react-query";
+import { checkIsUUID } from "../../utils/misc";
 
 type TOCItem = {
   id: string;

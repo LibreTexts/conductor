@@ -311,8 +311,8 @@ const ProjectSchema = new Schema<ProjectInterface>(
      */
     a11yReview: [a11ySectionReviewSchema],
     /**
-     * The original _id of the Harvesting Request the Project was generated
-     * from, if applicable.
+     * The uuid of the Harvesting Request (SupportTicket) that generated this Project, if applicable.
+     * Note: on some very old Projects, this may be the legacy Harvest Request Mongo _id (before Harvesting Requests were converted to SupportTickets).
      */
     harvestReqID: String,
     /**

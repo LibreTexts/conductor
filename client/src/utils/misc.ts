@@ -317,3 +317,10 @@ export const bookIDSchema = z.string().regex(/^[a-zA-Z]{2,12}-\d{1,12}$/, {
 export const numberIsNotNullOrUndefined = (value: any): boolean => {
   return typeof value === "number" && !isNaN(value);
 };
+
+export const checkIsUUID = (str?: string | null) => {
+  if (!str) return false;
+  const parsed = z.string().uuid().safeParse(str);
+  const isUUID = parsed.success;
+  return isUUID;
+};
