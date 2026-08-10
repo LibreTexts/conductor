@@ -1,14 +1,13 @@
 import Project from "../models/project";
 import type { RemixerSubPageState } from "../models/projectremixer";
 
-export const slugifyNode =(title:string): string =>{
- 
-    const cleaned = title
-      .trim()
-      .replace(/\s+/g, "_")
-      .replace(/[^A-Za-z0-9_\-]/g, "");
-    return cleaned.length > 0 ? cleaned : "Section";
-  }
+export const slugifyNode = (title: string): string => {
+  const cleaned = title
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Za-z0-9_\-]/g, "");
+  return cleaned.length > 0 ? cleaned : "Section";
+};
 
 const stripLeadingNumbering = (value: string): string =>
   value.replace(/^\s*\d+(?:\.\d+)*\s*[:.\-]\s*/, "").trim();
@@ -29,7 +28,9 @@ const stripDefaultTitlePrefixBeforeColon = (value: string): string => {
 
 /** LibreTexts-style title slug for a path segment (e.g. `New Page` → `New_Page`). */
 export const titleToRemixerPathSegment = (title: string): string => {
-  const cleaned = stripDefaultTitlePrefixBeforeColon(stripLeadingNumbering(title))
+  const cleaned = stripDefaultTitlePrefixBeforeColon(
+    stripLeadingNumbering(title),
+  )
     .trim()
     .replace(/\s+/g, "_")
     .replace(/[^A-Za-z0-9_\-()]/g, "")
@@ -50,18 +51,22 @@ type RemixerPathNumbering = {
 export const buildRemixerPagePathSegment = (
   page: RemixerPathNumbering,
   rawTitle: string,
-  siblingTitleIndex: number|undefined,
+  siblingTitleIndex: number | undefined,
 ): string => {
   const titleSegment = titleToRemixerPathSegment(rawTitle);
-  const siblingTitleIndexPostfix = siblingTitleIndex  ? `_${siblingTitleIndex.toString()}` : "";
+  const siblingTitleIndexPostfix = siblingTitleIndex
+    ? `_${siblingTitleIndex.toString()}`
+    : "";
   const numbering =
-    page.formattedPath?.trim() || page.numberedPath?.trim() || "";
-  return numbering ? `${numbering.padStart(2, "0")}:_${titleSegment}${siblingTitleIndexPostfix}` : titleSegment;
-}
+    page.numberedPath?.trim() || page.formattedPath?.trim() || "";
+  return numbering
+    ? `${numbering.padStart(2, "0")}:_${titleSegment}${siblingTitleIndexPostfix}`
+    : titleSegment;
+};
 export const generatePagePath = (parent: string, title: string): string => {
   const slug = slugifyNode(title);
   return encodeURIComponent(`${parent}/${slug}`);
-}
+};
 
 export const extractPagePath = (pagePath: string): string => {
   const withoutHost = pagePath.replace(
@@ -77,8 +82,10 @@ export const extractLibretextsSubdomain = (uri: string): string | null => {
   return m?.[1] ?? null;
 };
 
-
-export const getUserWorkbenchProjects = async (subdomain: string, userId: string): Promise<string[]> => {
+export const getUserWorkbenchProjects = async (
+  subdomain: string,
+  userId: string,
+): Promise<string[]> => {
   const projects = await Project.find({
     $or: [
       { leads: userId },
@@ -92,7 +99,7 @@ export const getUserWorkbenchProjects = async (subdomain: string, userId: string
   }).lean();
 
   return projects.map((project) => project.libreCoverID);
-}
+};
 
 export type RemixerPageStatus =
   | "unchaned"
