@@ -27,6 +27,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
         </Text>
       </Menu.Button>
       <Menu.Items className="z-[10000]!">
+        <Menu.Label>Signed in as {user.email}</Menu.Label>
         <Menu.Item
           onClick={() => window.open(
             `${centralIdentityBaseUrl}/profile`,
@@ -37,7 +38,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
             <Stack direction="horizontal" gap="sm" align="center">
               <IconUser />
               <Text>
-                Profile ({user.email})
+                Profile
               </Text>
             </Stack>
           )}
