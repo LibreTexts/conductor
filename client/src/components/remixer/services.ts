@@ -274,7 +274,7 @@ export const getFormattedTokenByType = (
 
 export const getStartToken = (start: number, type: NumberingType): string => {
   if (type === "none") return "";
-  return getFormattedTokenByType(Math.max(1, start || 1), type);
+  return getFormattedTokenByType(Number.isFinite(start) ? start : 1, type);
 };
 
 /** Join per-level tokens using the delimiter configured for each segment's own level. */
@@ -310,7 +310,7 @@ export const splitFormattedPathParts = (
   segments.forEach((segment, i) => {
     const level = startLevel + i;
     const format = pathLevelFormats.find((item) => item.level === level);
-    const start = Math.max(1, format?.start ?? 1);
+    const start = Number.isFinite(format?.start) ? (format!.start) : 1;
     const type: NumberingType = format?.type ?? "numeric";
     const value = start + parsePathSegmentOrdinal(segment) - 1;
     const token = getFormattedTokenByType(value, type);
