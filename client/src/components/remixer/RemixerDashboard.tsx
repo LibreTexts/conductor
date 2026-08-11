@@ -2311,6 +2311,7 @@ const RemixerDashboard: React.FC = () => {
           currentPage={selectedBookNode}
           handleSave={handleSaveEdit}
           library={remixerData.libreLibrary as Library}
+          coverID={remixerData.liberCoverID}
         />
       )}
       <PathNameFormat
