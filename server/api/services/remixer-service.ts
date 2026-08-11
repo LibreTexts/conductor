@@ -1451,7 +1451,7 @@ const runRemixerJob = async ({
 
             await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
           }
-        } else if (status === "modeified") {
+        } else if (status === "modified") {
           const parentId = page.parentID ?? "-1";
           const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
           await withRetryOnTransient(

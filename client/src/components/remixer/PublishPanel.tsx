@@ -1,9 +1,5 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import {
-  Icon,
-  List,
-  Progress,
-} from "semantic-ui-react";
+import { Icon, List, Progress } from "semantic-ui-react";
 import { RemixerSubPage } from "./model";
 import { appendSiblingTitleSuffix } from "./services";
 import { Accordion, Button, Modal, Text } from "@libretexts/davis-react";
@@ -19,12 +15,7 @@ interface PublishPanelProps {
 }
 
 interface SummarySection {
-  key:
-    | "added"
-    | "moved"
-    | "renamed"
-    | "deleted"
-    | "unchanged";
+  key: "added" | "moved" | "renamed" | "deleted" | "unchanged";
   label: string;
   color: string;
   items: RemixerSubPage[];
@@ -55,7 +46,14 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
   const progressInfo = useMemo(() => {
     if (publishStatus === "idle") return null;
     const total = currentBook.length;
-    const processed = publishMessages.filter((m) => m.endsWith("- processed") || m.endsWith("- skipped") || m.endsWith("- modified")).length;
+    const processed = publishMessages.filter(
+      (m) =>
+        m.endsWith("- processed") ||
+        m.endsWith("- skipped") ||
+        m.endsWith(" modified") ||
+        m.endsWith("- deleted") ||
+        m.endsWith("- new"),
+    ).length;
     let percent: number;
     if (publishStatus === "success") {
       percent = 100;
@@ -140,12 +138,20 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
               border: "1px solid #dfe3e8",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 8,
+              }}
+            >
               <span style={{ fontWeight: 700 }}>
                 Status:{" "}
                 {publishStatus === "error"
                   ? "Failed"
-                  : publishStatus.charAt(0).toUpperCase() + publishStatus.slice(1)}
+                  : publishStatus.charAt(0).toUpperCase() +
+                    publishStatus.slice(1)}
               </span>
               {progressInfo && (
                 <span style={{ fontSize: 12, color: "#555" }}>
@@ -222,9 +228,21 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
         </Accordion>
       </Modal.Body>
       <Modal.Footer>
-        <Button onClick={handleClose} disabled={!canClose} variant="outline" className="bg-neutral-100 text-neutral-700 hover:bg-neutral-200">Close</Button>
-        <Button variant="primary" onClick={publish} loading={publishInProgress} disabled={publishInProgress}>
-          <Icon name="save" /> Save 
+        <Button
+          onClick={handleClose}
+          disabled={!canClose}
+          variant="outline"
+          className="bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+        >
+          Close
+        </Button>
+        <Button
+          variant="primary"
+          onClick={publish}
+          loading={publishInProgress}
+          disabled={publishInProgress}
+        >
+          <Icon name="save" /> Save
         </Button>
       </Modal.Footer>
     </Modal>

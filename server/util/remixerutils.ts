@@ -103,7 +103,7 @@ export const getUserWorkbenchProjects = async (
 
 export type RemixerPageStatus =
   | "unchaned"
-  | "modeified"
+  | "modified"
   | "new"
   | "imported"
   | "deleted";
@@ -125,7 +125,7 @@ export const getPageStatus = (page: RemixerSubPageState): RemixerPageStatus => {
     page.movedItem ||
     page.renamedItem
   )
-    return "modeified";
+    return "modified";
 
   return "unchaned";
 };
@@ -178,7 +178,7 @@ export const findUnownedRemixerPageIDs = (
 
   for (const page of pages) {
     const status = getPageStatus(page);
-    if (status === "modeified" || status === "deleted") {
+    if (status === "modified" || status === "deleted") {
       const id = page["@id"];
       // `new-` ids are never mutated in place by the job handlers.
       if (id.startsWith("new-")) continue;
