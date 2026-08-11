@@ -5,6 +5,7 @@ import {
   appendSiblingTitleSuffix,
   computeRemixerOrdinalPathsMap,
   getRemixerDisplayTitle,
+  isBackMatterNode,
   isMatterNode,
 } from "../services";
 import TreeNodeContainer from "./TreeNodeContainer";
@@ -93,8 +94,15 @@ const TreeDnd: React.FC<TreeDndProps> = ({
   const getDisplayedParentId = (page: RemixerSubPage): string =>
     page.parentID ?? "-1";
 
-  const getChildrenByParent = (parentId: string): RemixerSubPage[] =>
-    currentBook.filter((p) => (p.parentID ?? "-1") === parentId);
+  const getChildrenByParent = (parentId: string): RemixerSubPage[] => {
+    const children = currentBook.filter((p) => (p.parentID ?? "-1") === parentId);
+    // Back matter must always be the last sibling at every level.
+    return children.sort((a, b) => {
+      const aBack = isBackMatterNode(a) ? 1 : 0;
+      const bBack = isBackMatterNode(b) ? 1 : 0;
+      return aBack - bBack;
+    });
+  };
 
   const hasChildren = (pageId: string): boolean =>
     getChildrenByParent(pageId).length > 0;
