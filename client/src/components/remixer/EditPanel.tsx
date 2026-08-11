@@ -46,10 +46,8 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
   const isBookRoot =
     currentPage?.parentID === "-1" || currentPage?.["@id"] === coverPageId;
 
-  console.log("isBookRoot", isBookRoot);
   const handleSaveClick = () => {
     if (!page) return;
-    console.log("page", page);
     const title = sanitizeRemixerTitle(
       page.title ?? page["@title"] ?? "",
       true,

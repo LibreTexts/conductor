@@ -158,3 +158,27 @@ export interface GetRemixerDisplayTitleOptions {
     ordinalPathById: Map<string, string[]>;
   };
 }
+
+export const matterNodesUrlEndings = [
+  "zz%3A_Back_Matter/10%3A_Index",
+  "zz%3A_Back_Matter/20%3A_Glossary",
+  "zz%3A_Back_Matter/30%3A_Detailed_Licensing",
+  "0%3A_Front_Matter/01%3A_TitlePage",
+  "00%3A_Front_Matter/03%3A_Table_of_Contents",
+  "00%3A_Front_Matter/02%3A_InfoPage",
+  "00%3A_Front_Matter/04%3A_Licensing",
+  "zz%3A_Back_Matter",
+  "0%3A_Front_Matter",
+];
+
+export const matterNodeValidTitles = [
+  "Index",
+  "Glossary",
+  "Detailed Licensing",
+  "TitlePage",
+  "Table of Contents",
+  "InfoPage",
+  "Licensing",
+  "Front Matter",
+  "Back Matter",
+];

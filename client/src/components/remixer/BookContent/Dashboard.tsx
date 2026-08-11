@@ -1,10 +1,16 @@
 import { Icon, List } from "semantic-ui-react";
 import { Dispatch, DragEvent, SetStateAction, useMemo, useState } from "react";
-import { PathLevelFormat, RemixerSubPage } from "../model";
+import {
+  matterNodesUrlEndings,
+  matterNodeValidTitles,
+  PathLevelFormat,
+  RemixerSubPage,
+} from "../model";
 import {
   appendSiblingTitleSuffix,
   computeRemixerOrdinalPathsMap,
   getRemixerDisplayTitle,
+  getRemixerPageUriUi,
   isBackMatterNode,
   isMatterNode,
 } from "../services";
@@ -13,8 +19,6 @@ import { STATUS_PALETTE } from "../style";
 
 type DropPosition = "before" | "inside" | "after";
 type TreeId = "library" | "book";
-
-
 
 interface ExternalDropPayload {
   sourceTreeId: TreeId;
@@ -95,7 +99,9 @@ const TreeDnd: React.FC<TreeDndProps> = ({
     page.parentID ?? "-1";
 
   const getChildrenByParent = (parentId: string): RemixerSubPage[] => {
-    const children = currentBook.filter((p) => (p.parentID ?? "-1") === parentId);
+    const children = currentBook.filter(
+      (p) => (p.parentID ?? "-1") === parentId,
+    );
     // Back matter must always be the last sibling at every level.
     return children.sort((a, b) => {
       const aBack = isBackMatterNode(a) ? 1 : 0;
@@ -111,13 +117,27 @@ const TreeDnd: React.FC<TreeDndProps> = ({
     if (!isBookTree) return false;
     let currentId: string | undefined = nodeId;
     const visited = new Set<string>();
-    while (currentId && currentId !== "-1" && !visited.has(currentId)) {
-      visited.add(currentId);
-      const node = pagesById.get(currentId);
-      if (!node) return false;
-      if (isMatterNode(node)) return true;
-      currentId = getDisplayedParentId(node);
+    const currentNode = pagesById.get(currentId);
+    const nodeUri = getRemixerPageUriUi(currentNode).toLowerCase();
+  
+    const isURLMatch = matterNodesUrlEndings.some((ending: string) =>
+      nodeUri.toLowerCase().includes(ending.toLowerCase()),
+    );
+    const nodetitle = currentNode?.["@title"];
+
+    const isTitleMatch = matterNodeValidTitles.some(
+      (title: string) => nodetitle?.toLowerCase() === title.toLowerCase(),
+    );
+    if (isURLMatch && isTitleMatch) { 
+      return true;
     }
+    // while (currentId && currentId !== "-1" && !visited.has(currentId)) {
+    //   visited.add(currentId);
+    //   const node = pagesById.get(currentId);
+    //   if (!node) return false;
+    //   if (isMatterNode(node)) return true;
+    //   currentId = getDisplayedParentId(node);
+    // }
     return false;
   };
 
@@ -132,9 +152,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
     return false;
   };
 
-  const getDropPosition = (
-    event: DragEvent<HTMLDivElement>,
-  ): DropPosition => {
+  const getDropPosition = (event: DragEvent<HTMLDivElement>): DropPosition => {
     const rect = event.currentTarget.getBoundingClientRect();
     const relativeY = (event.clientY - rect.top) / rect.height;
     if (relativeY < 0.25) return "before";
@@ -319,9 +337,8 @@ const TreeDnd: React.FC<TreeDndProps> = ({
       // Lock default matter items (non-added descendants) but keep the
       // matter roots themselves and any user-added children interactive.
       const isInteractionLocked =
-        isMatterBranchNode(page["@id"]) &&
-        !page.addedItem &&
-        !isMatterNode(page);
+        isMatterBranchNode(page["@id"])
+     
       const isDropInside =
         dropIndicator?.targetId === page["@id"] &&
         dropIndicator.position === "inside";
@@ -529,183 +546,193 @@ const TreeDnd: React.FC<TreeDndProps> = ({
 
           return (
             <div key={root["@id"]} data-node-id={root["@id"]}>
-            <List.Item
-              draggable={!isInteractionLocked}
-              onDragStart={(event: DragEvent<HTMLDivElement>) => {
-                if (isInteractionLocked) return;
-                setDraggingId(root["@id"]);
-                event.dataTransfer.setData("text/plain", root["@id"]);
-                event.dataTransfer.setData(
-                  "application/x-remixer-node",
-                  JSON.stringify({
-                    sourceTreeId: treeId,
-                    node: root,
-                  } as ExternalDropPayload),
-                );
-              }}
-              onDragEnd={() => {
-                setDraggingId(null);
-                setDropIndicator(null);
-              }}
-              onDragOver={(event: DragEvent<HTMLDivElement>) => {
-                if (!isBookTree || isInteractionLocked) return;
-                const draggedNodeId =
-                  draggingId || event.dataTransfer.getData("text/plain");
-                // Some browsers only expose transfer payload at drop time.
-                // Always allow dragover so cross-tree drop can complete.
-                if (draggedNodeId && draggedNodeId === root["@id"]) return;
-                event.preventDefault();
-                setDropIndicator({
-                  targetId: root["@id"],
-                  position: getDropPosition(event),
-                });
-              }}
-              onDragLeave={() => {
-                if (dropIndicator?.targetId === root["@id"]) {
+              <List.Item
+                draggable={!isInteractionLocked}
+                onDragStart={(event: DragEvent<HTMLDivElement>) => {
+                  if (isInteractionLocked) return;
+                  setDraggingId(root["@id"]);
+                  event.dataTransfer.setData("text/plain", root["@id"]);
+                  event.dataTransfer.setData(
+                    "application/x-remixer-node",
+                    JSON.stringify({
+                      sourceTreeId: treeId,
+                      node: root,
+                    } as ExternalDropPayload),
+                  );
+                }}
+                onDragEnd={() => {
+                  setDraggingId(null);
                   setDropIndicator(null);
-                }
-              }}
-              onDrop={(event: DragEvent<HTMLDivElement>) => {
-                if (!isBookTree || isInteractionLocked) return;
-                event.preventDefault();
-                const draggedNodeId =
-                  draggingId || event.dataTransfer.getData("text/plain");
-                const targetNodeId = root["@id"];
-                const position = dropIndicator?.position ?? getDropPosition(event);
-                const effectivePosition = getEffectiveDropPosition(
-                  position,
-                  targetLevel,
-                );
-                const externalPayload = parseExternalDropPayload(event);
+                }}
+                onDragOver={(event: DragEvent<HTMLDivElement>) => {
+                  if (!isBookTree || isInteractionLocked) return;
+                  const draggedNodeId =
+                    draggingId || event.dataTransfer.getData("text/plain");
+                  // Some browsers only expose transfer payload at drop time.
+                  // Always allow dragover so cross-tree drop can complete.
+                  if (draggedNodeId && draggedNodeId === root["@id"]) return;
+                  event.preventDefault();
+                  setDropIndicator({
+                    targetId: root["@id"],
+                    position: getDropPosition(event),
+                  });
+                }}
+                onDragLeave={() => {
+                  if (dropIndicator?.targetId === root["@id"]) {
+                    setDropIndicator(null);
+                  }
+                }}
+                onDrop={(event: DragEvent<HTMLDivElement>) => {
+                  if (!isBookTree || isInteractionLocked) return;
+                  event.preventDefault();
+                  const draggedNodeId =
+                    draggingId || event.dataTransfer.getData("text/plain");
+                  const targetNodeId = root["@id"];
+                  const position =
+                    dropIndicator?.position ?? getDropPosition(event);
+                  const effectivePosition = getEffectiveDropPosition(
+                    position,
+                    targetLevel,
+                  );
+                  const externalPayload = parseExternalDropPayload(event);
 
-                setDropIndicator(null);
-                setDraggingId(null);
+                  setDropIndicator(null);
+                  setDraggingId(null);
 
-                if (draggedNodeId && pagesById.has(draggedNodeId)) {
-                  moveNode(draggedNodeId, targetNodeId, effectivePosition);
-                  return;
-                }
-
-              if (!externalPayload || externalPayload.sourceTreeId === treeId) {
-                if (draggedNodeId) {
-                    tryImportById(
-                      draggedNodeId,
-                      targetNodeId,
-                      position,
-                      targetLevel,
-                    );
-                }
-                return;
-              }
-                const targetParentId = getTargetParentId(
-                  targetNodeId,
-                  effectivePosition,
-                );
-                if (!targetParentId) return;
-                onImportNode?.({
-                  sourceTreeId: externalPayload.sourceTreeId,
-                  targetTreeId: treeId,
-                  node: externalPayload.node,
-                  targetNodeId,
-                  position: effectivePosition,
-                  targetParentId,
-                });
-              }}
-              onClick={() => {
-                if (isBookTree) {
-                  if (isInteractionLocked) {
-                    onSelectNode?.(undefined);
+                  if (draggedNodeId && pagesById.has(draggedNodeId)) {
+                    moveNode(draggedNodeId, targetNodeId, effectivePosition);
                     return;
                   }
-                  onSelectNode?.(isSelected ? undefined : root["@id"]);
-                }
-                
-              }}
-              onDoubleClick={() => {
-                if (isBookTree && !isInteractionLocked) {
-                  onNodeDoubleClick?.(root["@id"]);
-                }
-              }}
-              onContextMenu={(event: React.MouseEvent) => {
-                if (isBookTree && !isInteractionLocked) {
-                  event.preventDefault();
-                  onNodeContextMenu?.(root["@id"], event);
-                }
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "4px 0",
-                opacity: isInteractionLocked ? 0.6 : 1,
-                background:
-                  dropIndicator?.targetId === root["@id"] &&
-                  dropIndicator.position === "inside"
-                    ? STATUS_PALETTE.infoBg
-                    : isDeleted
-                      ? STATUS_PALETTE.errorBg
-                      : isImported
-                      ? STATUS_PALETTE.successBg
-                      : isRenamed || isPlacementChanged || root.movedItem === true
-                        ? STATUS_PALETTE.warningBg
-                      : "transparent",
-                
-                borderTop:
-                  dropIndicator?.targetId === root["@id"] &&
-                  dropIndicator.position === "before"
-                    ? `2px solid ${STATUS_PALETTE.info}`
-                    : "2px solid transparent",
-                borderBottom:
-                  dropIndicator?.targetId === root["@id"] &&
-                  dropIndicator.position === "after"
-                    ? `2px solid ${STATUS_PALETTE.info}`
-                    : "2px solid transparent",
-                borderRadius: 4,
-                outline: isSelected ? `2px solid ${STATUS_PALETTE.info}` : "none",
-                cursor: isInteractionLocked ? "not-allowed" : "pointer",
-              }}
-            >
-              <span style={{ width: 12 }} />
 
-              <Icon name="folder" color="grey" />
-              {!isBookTree && itemLink ? (
-                <a
-                  href={itemLink}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-base"
-                  style={{
-                    whiteSpace: "nowrap",
-                    fontStyle: isInteractionLocked ? "italic" : "normal",
-                    
-                    textDecoration: isDeleted ? "line-through" : "none",
-                  }}
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  {displayTitle}
-                  <Icon name="linkify" style={{ marginLeft: 8 ,color: "#1e70bf",} } />
-                </a>
-              ) : (
-                <span
-                  className="text-base"
-                  style={{
-                    whiteSpace: "nowrap",
-                    fontStyle: isInteractionLocked ? "italic" : "normal",
-                    color: isInteractionLocked ? "#6b7280" : "inherit",
-                    textDecoration: isDeleted ? "line-through" : "none",
-                  }}
-                >
-                  {displayTitle}
-                </span>
+                  if (
+                    !externalPayload ||
+                    externalPayload.sourceTreeId === treeId
+                  ) {
+                    if (draggedNodeId) {
+                      tryImportById(
+                        draggedNodeId,
+                        targetNodeId,
+                        position,
+                        targetLevel,
+                      );
+                    }
+                    return;
+                  }
+                  const targetParentId = getTargetParentId(
+                    targetNodeId,
+                    effectivePosition,
+                  );
+                  if (!targetParentId) return;
+                  onImportNode?.({
+                    sourceTreeId: externalPayload.sourceTreeId,
+                    targetTreeId: treeId,
+                    node: externalPayload.node,
+                    targetNodeId,
+                    position: effectivePosition,
+                    targetParentId,
+                  });
+                }}
+                onClick={() => {
+                  if (isBookTree) {
+                    if (isInteractionLocked) {
+                      onSelectNode?.(undefined);
+                      return;
+                    }
+                    onSelectNode?.(isSelected ? undefined : root["@id"]);
+                  }
+                }}
+                onDoubleClick={() => {
+                  if (isBookTree && !isInteractionLocked) {
+                    onNodeDoubleClick?.(root["@id"]);
+                  }
+                }}
+                onContextMenu={(event: React.MouseEvent) => {
+                  if (isBookTree && !isInteractionLocked) {
+                    event.preventDefault();
+                    onNodeContextMenu?.(root["@id"], event);
+                  }
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 0",
+                  opacity: isInteractionLocked ? 0.6 : 1,
+                  background:
+                    dropIndicator?.targetId === root["@id"] &&
+                    dropIndicator.position === "inside"
+                      ? STATUS_PALETTE.infoBg
+                      : isDeleted
+                        ? STATUS_PALETTE.errorBg
+                        : isImported
+                          ? STATUS_PALETTE.successBg
+                          : isRenamed ||
+                              isPlacementChanged ||
+                              root.movedItem === true
+                            ? STATUS_PALETTE.warningBg
+                            : "transparent",
+
+                  borderTop:
+                    dropIndicator?.targetId === root["@id"] &&
+                    dropIndicator.position === "before"
+                      ? `2px solid ${STATUS_PALETTE.info}`
+                      : "2px solid transparent",
+                  borderBottom:
+                    dropIndicator?.targetId === root["@id"] &&
+                    dropIndicator.position === "after"
+                      ? `2px solid ${STATUS_PALETTE.info}`
+                      : "2px solid transparent",
+                  borderRadius: 4,
+                  outline: isSelected
+                    ? `2px solid ${STATUS_PALETTE.info}`
+                    : "none",
+                  cursor: isInteractionLocked ? "not-allowed" : "pointer",
+                }}
+              >
+                <span style={{ width: 12 }} />
+
+                <Icon name="folder" color="grey" />
+                {!isBookTree && itemLink ? (
+                  <a
+                    href={itemLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-base"
+                    style={{
+                      whiteSpace: "nowrap",
+                      fontStyle: isInteractionLocked ? "italic" : "normal",
+
+                      textDecoration: isDeleted ? "line-through" : "none",
+                    }}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {displayTitle}
+                    <Icon
+                      name="linkify"
+                      style={{ marginLeft: 8, color: "#1e70bf" }}
+                    />
+                  </a>
+                ) : (
+                  <span
+                    className="text-base"
+                    style={{
+                      whiteSpace: "nowrap",
+                      fontStyle: isInteractionLocked ? "italic" : "normal",
+                      color: isInteractionLocked ? "#6b7280" : "inherit",
+                      textDecoration: isDeleted ? "line-through" : "none",
+                    }}
+                  >
+                    {displayTitle}
+                  </span>
+                )}
+              </List.Item>
+              {renderNodes(
+                root["@id"],
+                1,
+                inDeletedBranch,
+                inMatterNoNumberSubtree,
               )}
-            </List.Item>
-            {renderNodes(
-              root["@id"],
-              1,
-              inDeletedBranch,
-              inMatterNoNumberSubtree,
-            )}
-          </div>
+            </div>
           );
         })}
       </List>
