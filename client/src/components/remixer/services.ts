@@ -186,15 +186,29 @@ export const appendSiblingTitleSuffix = (
 const normalizedMatterTitle = (node: RemixerSubPage): string =>
   stripLeadingNumbering(node["@title"] || node.title || "").toLowerCase();
 
+/**
+ * CXOne / flat JSON use `"uri.ui"`; Mongoose toObject() expands that path to
+ * nested `{ uri: { ui } }`, so bracket access on `"uri.ui"` can miss the value.
+ */
+export const getRemixerPageUriUi = (
+  page: RemixerSubPage | undefined,
+): string => {
+  if (!page) return "";
+  const flat = page["uri.ui"];
+  if (typeof flat === "string" && flat.length > 0) return flat;
+  const nested = (page as unknown as { uri?: { ui?: unknown } }).uri?.ui;
+  return typeof nested === "string" ? nested : "";
+};
+
 export const isFrontMatterNode = (node: RemixerSubPage): boolean => {
   if (normalizedMatterTitle(node) === "front matter") return true;
-  const uri = (node["uri.ui"] || node["@href"] || "").toLowerCase();
+  const uri = (getRemixerPageUriUi(node) || node["@href"] || "").toLowerCase();
   return uri.includes("front_matter");
 };
 
 export const isBackMatterNode = (node: RemixerSubPage): boolean => {
   if (normalizedMatterTitle(node) === "back matter") return true;
-  const uri = (node["uri.ui"] || node["@href"] || "").toLowerCase();
+  const uri = (getRemixerPageUriUi(node) || node["@href"] || "").toLowerCase();
   return uri.includes("back_matter");
 };
 
