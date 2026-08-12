@@ -77,6 +77,10 @@ import { useDocumentTitle } from "usehooks-ts";
 import BookActions from "./BookActions";
 import LibraryActions from "./LibraryActions";
 
+/** Stable empty fallback so `pathLevelFormats ?? EMPTY_PATH_LEVEL_FORMATS`
+ * doesn't hand a fresh `[]` to the memoized <TreeDnd> on every render. */
+const EMPTY_PATH_LEVEL_FORMATS: PathLevelFormat[] = [];
+
 const RemixerDashboard: React.FC = () => {
   // ==========================================================================
   // State
@@ -1862,6 +1866,71 @@ const RemixerDashboard: React.FC = () => {
   const openPublishModal = () => setPublishPanelOpen(true);
 
   // ==========================================================================
+  // Stable <TreeDnd> prop identities
+  // ==========================================================================
+  // TreeDnd is memoized; these give it referentially-stable callbacks so
+  // unrelated re-renders (publish polling, context menu, media-query flips)
+  // don't rebuild the tree. The drag/import/expand handlers close over
+  // frequently-changing state, so we route them through refs (the same pattern
+  // as openEditPanelRef / handleLoadSourceRef) rather than depend on that state.
+  const expandBookTreeRef = useRef(expandBookTree);
+  expandBookTreeRef.current = expandBookTree;
+  const expandLibraryTreeRef = useRef(expandLibraryTree);
+  expandLibraryTreeRef.current = expandLibraryTree;
+  const importLibraryNodeToBookRef = useRef(importLibraryNodeToBook);
+  importLibraryNodeToBookRef.current = importLibraryNodeToBook;
+  const importLibraryNodeToBookByIdRef = useRef(importLibraryNodeToBookById);
+  importLibraryNodeToBookByIdRef.current = importLibraryNodeToBookById;
+  const handleReorderBookNodeRef = useRef(handleReorderBookNode);
+  handleReorderBookNodeRef.current = handleReorderBookNode;
+  const handleMarkMovedNodesRef = useRef(handleMarkMovedNodes);
+  handleMarkMovedNodesRef.current = handleMarkMovedNodes;
+
+  const handleBookExpand = useCallback(
+    (nodeId: string) => expandBookTreeRef.current(nodeId),
+    [],
+  );
+  const handleLibraryExpand = useCallback(
+    (nodeId: string) => expandLibraryTreeRef.current(nodeId),
+    [],
+  );
+  const handleImportNode = useCallback(
+    (params: Parameters<typeof importLibraryNodeToBook>[0]) =>
+      importLibraryNodeToBookRef.current(params),
+    [],
+  );
+  const handleImportNodeById = useCallback(
+    (params: Parameters<typeof importLibraryNodeToBookById>[0]) =>
+      importLibraryNodeToBookByIdRef.current(params),
+    [],
+  );
+  const handleReorderNode = useCallback(
+    (params: Parameters<typeof handleReorderBookNode>[0]) =>
+      handleReorderBookNodeRef.current(params),
+    [],
+  );
+  const handleMarkMoved = useCallback(
+    (nodeIds: string[]) => handleMarkMovedNodesRef.current(nodeIds),
+    [],
+  );
+  const handleSelectBookNode = useCallback(
+    (nodeId?: string) =>
+      setUiState((prev) => ({ ...prev, selectedBookNodeId: nodeId })),
+    [],
+  );
+  const handleNodeDoubleClick = useCallback((nodeId: string) => {
+    setUiState((prev) => ({ ...prev, selectedBookNodeId: nodeId }));
+    openEditPanelRef.current(nodeId);
+  }, []);
+  const handleNodeContextMenu = useCallback(
+    (nodeId: string, event: React.MouseEvent) => {
+      setUiState((prev) => ({ ...prev, selectedBookNodeId: nodeId }));
+      setContextMenu({ nodeId, x: event.clientX, y: event.clientY });
+    },
+    [],
+  );
+
+  // ==========================================================================
   // Effects
   // ==========================================================================
 
@@ -2316,8 +2385,8 @@ const RemixerDashboard: React.FC = () => {
                   setExpandedNodeIds={setExpandedNodeIdsLibrary}
                   currentBook={selectedLibraryPages}
                   autoNumbering={remixerData.autoNumbering ?? true}
-                  pathLevelFormats={uiState.pathLevelFormats ?? []}
-                  onExpand={expandLibraryTree}
+                  pathLevelFormats={uiState.pathLevelFormats ?? EMPTY_PATH_LEVEL_FORMATS}
+                  onExpand={handleLibraryExpand}
                   treeId="library"
                 />
               ) : (
@@ -2355,38 +2424,17 @@ const RemixerDashboard: React.FC = () => {
                   setExpandedNodeIds={setExpandedNodeIdsBook}
                   currentBook={remixerData.currentBook}
                   autoNumbering={remixerData.autoNumbering ?? true}
-                  pathLevelFormats={uiState.pathLevelFormats ?? []}
-                  onExpand={expandBookTree}
+                  pathLevelFormats={uiState.pathLevelFormats ?? EMPTY_PATH_LEVEL_FORMATS}
+                  onExpand={handleBookExpand}
                   treeId="book"
-                  onImportNode={importLibraryNodeToBook}
-                  onImportNodeById={importLibraryNodeToBookById}
-                  onReorderNode={handleReorderBookNode}
-                  onMarkMovedNodes={handleMarkMovedNodes}
+                  onImportNode={handleImportNode}
+                  onImportNodeById={handleImportNodeById}
+                  onReorderNode={handleReorderNode}
+                  onMarkMovedNodes={handleMarkMoved}
                   selectedNodeId={uiState.selectedBookNodeId}
-                  onSelectNode={(nodeId) =>
-                    setUiState((prev) => ({
-                      ...prev,
-                      selectedBookNodeId: nodeId,
-                    }))
-                  }
-                  onNodeDoubleClick={(nodeId) => {
-                    setUiState((prev) => ({
-                      ...prev,
-                      selectedBookNodeId: nodeId,
-                    }));
-                    openEditPanelForSelectedBookNode(nodeId);
-                  }}
-                  onNodeContextMenu={(nodeId, event) => {
-                    setUiState((prev) => ({
-                      ...prev,
-                      selectedBookNodeId: nodeId,
-                    }));
-                    setContextMenu({
-                      nodeId,
-                      x: event.clientX,
-                      y: event.clientY,
-                    });
-                  }}
+                  onSelectNode={handleSelectBookNode}
+                  onNodeDoubleClick={handleNodeDoubleClick}
+                  onNodeContextMenu={handleNodeContextMenu}
                 />
               ) : (
                 <TreeSkeleton />
