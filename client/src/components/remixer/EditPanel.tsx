@@ -46,7 +46,8 @@ function truncateMiddle(value: string, maxLen: number): string {
 /** Path-segment-safe characters only — no `/`, spaces, `?`, `#`, etc. */
 function sanitizeUriEnding(value: string | undefined): string | undefined {
   if (!value) return undefined;
-  return value.replace(/[^A-Za-z0-9._~%-]/g, "");
+  const cleaned = value.replace(/[^A-Za-z0-9._~%-]/g, "");
+  return cleaned.length > 0 ? cleaned : undefined; // return undefined if nothing remains after sanitization
 }
 
 const EditPanel: React.FC<EditPanelProps> = (props) => {
