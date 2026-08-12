@@ -287,9 +287,13 @@ const resolveUiUri = async (
  * creation, further moves, the final published snapshot) see the real,
  * current URL instead of a now-incorrect cached one — without an extra
  * MindTouch fetch per descendant.
+ *
+ * `childrenByParent` is the parentID → child-nodes index; the caller builds it
+ * once per job (parentID relationships are fixed for the run) and reuses it
+ * across every modified page.
  */
 const remapDescendantUriPaths = (
-  pages: RemixerSubPageState[],
+  childrenByParent: Map<string, RemixerSubPageState[]>,
   changedPageId: string,
   oldUri: string,
   newUri: string,
@@ -298,14 +302,6 @@ const remapDescendantUriPaths = (
   const oldPath = extractPagePath(oldUri).replace(/\/+$/, "");
   const newPath = extractPagePath(newUri).replace(/\/+$/, "");
   if (!oldPath || oldPath === newPath) return;
-
-  const childrenByParent = new Map<string, RemixerSubPageState[]>();
-  pages.forEach((p) => {
-    const pid = p.parentID ?? "-1";
-    const siblings = childrenByParent.get(pid) ?? [];
-    siblings.push(p);
-    childrenByParent.set(pid, siblings);
-  });
 
   const queue: RemixerSubPageState[] = [
     ...(childrenByParent.get(changedPageId) ?? []),
@@ -1377,6 +1373,16 @@ const runRemixerJob = async ({
     const copyModeState = normalizeRemixerCopyMode(remixerState.copyModeState);
     const byId = new Map(pages.map((p) => [p["@id"], p]));
 
+    // parentID → child nodes, built once and reused by remapDescendantUriPaths
+    // for every modified page (parentID relationships are fixed for the run).
+    const childrenByParent = new Map<string, RemixerSubPageState[]>();
+    pages.forEach((p) => {
+      const pid = p.parentID ?? "-1";
+      const siblings = childrenByParent.get(pid) ?? [];
+      siblings.push(p);
+      childrenByParent.set(pid, siblings);
+    });
+
     // Topological sort: parents before children (BFS from roots)
     const childrenOf = new Map<string, string[]>();
     const roots: string[] = [];
@@ -1556,7 +1562,7 @@ const runRemixerJob = async ({
               // creation, further moves, the final snapshot) use the real,
               // current URL instead of the now-stale cached one.
               remapDescendantUriPaths(
-                pages,
+                childrenByParent,
                 page["@id"],
                 oldUri,
                 uriUiVal,
