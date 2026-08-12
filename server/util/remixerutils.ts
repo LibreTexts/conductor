@@ -1,5 +1,6 @@
 import Project from "../models/project";
 import type { RemixerSubPageState } from "../models/projectremixer";
+import type { RemixerPageStatus } from "../types/Remixer";
 
 export const slugifyNode = (title: string): string => {
   const cleaned = title
@@ -102,13 +103,6 @@ export const getUserWorkbenchProjects = async (
   return projects.map((project) => project.libreCoverID);
 };
 
-export type RemixerPageStatus =
-  | "unchaned"
-  | "modified"
-  | "new"
-  | "imported"
-  | "deleted";
-
 /**
  * Classifies what the remixer job will do with a page, from the client-supplied
  * change-tracking flags. Lives here (rather than in remixer-service) so the
@@ -120,15 +114,21 @@ export const getPageStatus = (page: RemixerSubPageState): RemixerPageStatus => {
     return "new";
 
   if (page.isImported || page.addedItem) return "imported";
+  
   if (
     page.movedItem ||
     page.isPlacementChanged ||
-    page.movedItem ||
     page.renamedItem
   )
     return "modified";
 
-  return "unchaned";
+  return "unchanged";
+};
+
+export const shouldSkipPage = (page: RemixerSubPageState, inMatterBranch: boolean, status: RemixerPageStatus): boolean => {
+  const pathLen = page.pathNumber?.length ?? 0;
+  const isBookRoot = pathLen === 0;
+  return isBookRoot || inMatterBranch || status === "unchanged";
 };
 
 /**

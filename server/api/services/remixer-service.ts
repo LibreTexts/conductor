@@ -18,6 +18,7 @@ import {
   extractPagePath,
   findUnownedRemixerPageIDs,
   getPageStatus,
+  shouldSkipPage,
 } from "../../util/remixerutils";
 import * as cheerio from "cheerio";
 import { log } from "debug";
@@ -1466,14 +1467,14 @@ const runRemixerJob = async ({
         autoNumbering,
       );
 
-      const pathLen = page.pathNumber?.length ?? 0;
-      const isBookRoot = pathLen === 0;
       const status = getPageStatus(page);
-      const shouldSkip = isBookRoot || inMatterBranch || status === "unchaned";
+      const shouldSkip = shouldSkipPage(page, inMatterBranch, status);
+
       const message = shouldSkip
         ? `${title} - skipped`
         : `${title} - processed, status: ${status}`;
-      // Retry MindTouch-facing work on transient failures (timeouts, 5xx,
+      
+        // Retry MindTouch-facing work on transient failures (timeouts, 5xx,
       // rate limits, network blips). Non-transient errors propagate.
       const logRetry = async (attempt: number, error: unknown) => {
         const msg = error instanceof Error ? error.message : String(error);
