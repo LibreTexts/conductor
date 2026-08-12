@@ -1,24 +1,28 @@
 import * as tus from "tus-js-client";
 
+/**
+ * Uploads a file directly to a pre-authorized tus upload URL.
+ *
+ * The URL must already have been created by the server (see
+ * `api.createStreamUploadURL`), which is also where upload metadata such as
+ * `maxDurationSeconds` is set. Because `uploadUrl` is supplied, tus skips its
+ * creation request entirely and talks only to the upload host — no request in
+ * this flow reaches the Conductor API.
+ *
+ * @param file - The file to upload.
+ * @param uploadUrl - The pre-authorized upload URL returned by the server.
+ * @param onProgressFunc - Optional callback receiving upload percentage.
+ * @param abortSignal - Optional signal used to cancel the upload.
+ */
 export default async function tusUpload(
   file: File,
-  endpoint: string,
+  uploadUrl: string,
   onProgressFunc?: (percentage: number) => void,
-  abortSignal?: AbortSignal,
-  options?: {
-    maxDurationSeconds?: number;
-    expiry?: Date;
-  }
-): Promise<string | null> {
-  let mediaId: string | null = null;
-
-  const userOptions = options || {};
-  const defaultExpiry = new Date();
-  defaultExpiry.setHours(defaultExpiry.getHours() + 1); // Set default expiry to 1 hour from now
-
+  abortSignal?: AbortSignal
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const options: tus.UploadOptions = {
-      endpoint,
+      uploadUrl,
       /**
        * https://developers.cloudflare.com/stream/uploading-videos/upload-video-file/#resumable-uploads-with-tus-for-large-files
        * Important: Cloudflare Stream requires a minimum chunk size of 5,242,880 bytes when using TUS, unless the entire file is less than this amount.
@@ -27,13 +31,6 @@ export default async function tusUpload(
        */
       chunkSize: 5242880,
       retryDelays: [0, 3000],
-      metadata: {
-        name: file.name,
-        maxDurationSeconds:
-          userOptions?.maxDurationSeconds?.toString() || "1800", // Fall back to 30 minutes
-        expiry:
-          userOptions?.expiry?.toISOString() || defaultExpiry.toISOString(),
-      },
       onProgress: (bytesUploaded, bytesTotal) => {
         const percentage = ((bytesUploaded / bytesTotal) * 100).toFixed(2);
         const parsed = parseFloat(percentage);
@@ -43,17 +40,10 @@ export default async function tusUpload(
       },
       onError: (error) => {
         console.error("Video upload failed with error: ", error);
-        reject("Video upload failed");
+        reject(new Error("Video upload failed"));
       },
-      // This happens after the initial request to get the upload URL
-      onAfterResponse: (req, res) => {
-        const mediaIdHeader = res.getHeader("Stream-Media-Id");
-        if (!mediaIdHeader) reject("No media id found in response header");
-        mediaId = mediaIdHeader ?? null;
-      },
-      // This happens after the upload is actually finished
       onSuccess: () => {
-        resolve(mediaId);
+        resolve();
       },
     };
 
@@ -62,7 +52,8 @@ export default async function tusUpload(
     if (abortSignal) {
       abortSignal.addEventListener("abort", () => {
         upload.abort();
-        reject("Upload aborted");
+        // Matches the message callers check for to silently ignore cancellation.
+        reject(new Error("canceled"));
       });
     }
 
