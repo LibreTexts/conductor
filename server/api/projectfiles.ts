@@ -2067,16 +2067,31 @@ async function createProjectFileStreamUploadURL(
       throw new Error("Failed to get Cloudflare uploadURL");
     }
 
-    await VideoUploadGrant.create({
-      videoID: streamMediaId,
-      projectID,
-      createdBy: req.user.decoded.uuid,
-      maxDurationSeconds,
-      uploadLength: size,
-      claimed: false,
-      createdAt: now,
-      expiresAt: new Date(now.getTime() + VIDEO_UPLOAD_GRANT_RETENTION_MS),
-    });
+    try {
+      await VideoUploadGrant.create({
+        videoID: streamMediaId,
+        projectID,
+        createdBy: req.user.decoded.uuid,
+        maxDurationSeconds,
+        uploadLength: size,
+        claimed: false,
+        createdAt: now,
+        expiresAt: new Date(now.getTime() + VIDEO_UPLOAD_GRANT_RETENTION_MS),
+      });
+    } catch (dbErr) {
+      // Best-effort cleanup: avoid leaving an untracked Cloudflare video billed indefinitely.
+      const cleanupEndpoint = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream/${streamMediaId}`;
+      try {
+        await axios.delete(cleanupEndpoint, {
+          headers: {
+            Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
+          },
+        });
+      } catch (cleanupErr) {
+        debugError(cleanupErr);
+      }
+      throw dbErr;
+    }
 
     return res.send({
       err: false,
