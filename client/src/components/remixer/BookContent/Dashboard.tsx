@@ -1,5 +1,14 @@
 import { Icon, List } from "semantic-ui-react";
-import { Dispatch, DragEvent, SetStateAction, useMemo, useState } from "react";
+import {
+  Dispatch,
+  DragEvent,
+  SetStateAction,
+  memo,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { PathLevelFormat, RemixerSubPage } from "../model";
 import {
   appendSiblingTitleSuffix,
@@ -56,6 +65,46 @@ interface TreeDndProps {
   setExpandedNodeIds: Dispatch<SetStateAction<Set<string>>>;
 }
 
+// Pure drag helpers — hoisted to module scope so they never appear in the
+// component's callback dependency lists (keeps row handlers referentially stable).
+const getDisplayedParentId = (page: RemixerSubPage): string =>
+  page.parentID ?? "-1";
+
+const getDropPosition = (event: DragEvent<HTMLDivElement>): DropPosition => {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const relativeY = (event.clientY - rect.top) / rect.height;
+  if (relativeY < 0.25) return "before";
+  if (relativeY > 0.75) return "after";
+  return "inside";
+};
+
+const getEffectiveDropPosition = (
+  position: DropPosition,
+  targetLevel: number,
+): DropPosition => {
+  // Match legacy Remixer behavior: drops on top-level nodes are always "inside".
+  if (targetLevel <= 1) {
+    return "inside";
+  }
+  return position;
+};
+
+const parseExternalDropPayload = (
+  event: DragEvent<HTMLDivElement>,
+): ExternalDropPayload | null => {
+  const rawPayload = event.dataTransfer.getData("application/x-remixer-node");
+  if (!rawPayload) return null;
+  try {
+    const parsedPayload = JSON.parse(rawPayload) as ExternalDropPayload;
+    if (!parsedPayload?.node?.["@id"] || !parsedPayload?.sourceTreeId) {
+      return null;
+    }
+    return parsedPayload;
+  } catch {
+    return null;
+  }
+};
+
 const TreeDnd: React.FC<TreeDndProps> = ({
   currentBook,
   autoNumbering = true,
@@ -81,6 +130,18 @@ const TreeDnd: React.FC<TreeDndProps> = ({
     position: DropPosition;
   } | null>(null);
 
+  // Mirror transient/selection state into refs so the stable row handlers below
+  // (useCallback) can read the latest value without depending on it. Assigning
+  // during render is safe here: these refs are only read inside event handlers.
+  const draggingIdRef = useRef(draggingId);
+  draggingIdRef.current = draggingId;
+  const dropIndicatorRef = useRef(dropIndicator);
+  dropIndicatorRef.current = dropIndicator;
+  const expandedNodeIdsRef = useRef(expandedNodeIds);
+  expandedNodeIdsRef.current = expandedNodeIds;
+  const selectedNodeIdRef = useRef(selectedNodeId);
+  selectedNodeIdRef.current = selectedNodeId;
+
   const pagesById = useMemo(
     () => new Map(currentBook.map((page) => [page["@id"], page])),
     [currentBook],
@@ -91,163 +152,171 @@ const TreeDnd: React.FC<TreeDndProps> = ({
     return computeRemixerOrdinalPathsMap(currentBook, pathLevelFormats);
   }, [isBookTree, currentBook, pathLevelFormats]);
 
-  const getDisplayedParentId = (page: RemixerSubPage): string =>
-    page.parentID ?? "-1";
-
-  const getChildrenByParent = (parentId: string): RemixerSubPage[] => {
-    const children = currentBook.filter(
-      (p) => (p.parentID ?? "-1") === parentId,
-    );
-    const parent = pagesById.get(parentId);
+  // Index children by parent once per book instead of filtering the whole flat
+  // array on every lookup. `renderNodes`/`hasChildren` call this per node, so
+  // the old per-call `currentBook.filter` was O(n²) for the tree build.
+  const childrenByParent = useMemo(() => {
+    const map = new Map<string, RemixerSubPage[]>();
+    for (const page of currentBook) {
+      const parentKey = page.parentID ?? "-1";
+      const siblings = map.get(parentKey);
+      if (siblings) siblings.push(page);
+      else map.set(parentKey, [page]);
+    }
+    // Apply the same per-parent sort semantics as before, once each.
     // Front matter: defaults then customs. Back matter: customs then defaults.
     // At book root level, back matter is always last among siblings.
-    if (parent && isMatterRootNode(parent)) {
-      return sortMatterSiblings(children, parent);
-    }
-    return children.sort((a, b) => {
-      const aBack = isBackMatterNode(a) ? 1 : 0;
-      const bBack = isBackMatterNode(b) ? 1 : 0;
-      return aBack - bBack;
+    map.forEach((children, parentId) => {
+      const parent = pagesById.get(parentId);
+      if (parent && isMatterRootNode(parent)) {
+        map.set(parentId, sortMatterSiblings(children, parent));
+      } else {
+        children.sort((a, b) => {
+          const aBack = isBackMatterNode(a) ? 1 : 0;
+          const bBack = isBackMatterNode(b) ? 1 : 0;
+          return aBack - bBack;
+        });
+      }
     });
-  };
+    return map;
+  }, [currentBook, pagesById]);
+
+  const getChildrenByParent = (parentId: string): RemixerSubPage[] =>
+    childrenByParent.get(parentId) ?? [];
 
   const hasChildren = (pageId: string): boolean =>
-    getChildrenByParent(pageId).length > 0;
+    (childrenByParent.get(pageId)?.length ?? 0) > 0;
 
-  const isDescendant = (nodeId: string, ancestorId: string): boolean => {
-    let currentParentId = pagesById.get(nodeId)?.parentID;
-    while (currentParentId && currentParentId !== "-1") {
-      if (currentParentId === ancestorId) {
-        return true;
+  const isDescendant = useCallback(
+    (nodeId: string, ancestorId: string): boolean => {
+      let currentParentId = pagesById.get(nodeId)?.parentID;
+      while (currentParentId && currentParentId !== "-1") {
+        if (currentParentId === ancestorId) {
+          return true;
+        }
+        currentParentId = pagesById.get(currentParentId)?.parentID;
       }
-      currentParentId = pagesById.get(currentParentId)?.parentID;
-    }
-    return false;
-  };
+      return false;
+    },
+    [pagesById],
+  );
 
-  const getDropPosition = (event: DragEvent<HTMLDivElement>): DropPosition => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const relativeY = (event.clientY - rect.top) / rect.height;
-    if (relativeY < 0.25) return "before";
-    if (relativeY > 0.75) return "after";
-    return "inside";
-  };
-
-  const getEffectiveDropPosition = (
-    position: DropPosition,
-    targetLevel: number,
-  ): DropPosition => {
-    // Match legacy Remixer behavior: drops on top-level nodes are always "inside".
-    if (targetLevel <= 1) {
-      return "inside";
-    }
-    return position;
-  };
-
-  const moveNode = (
-    draggedNodeId: string,
-    targetNodeId: string,
-    position: DropPosition,
-  ) => {
-    if (!isBookTree) return;
-    if (draggedNodeId === targetNodeId) return;
-
-    const targetNode = pagesById.get(targetNodeId);
-    const draggedNode = pagesById.get(draggedNodeId);
-    if (!targetNode || !draggedNode) return;
-
-    let nextParentId = targetNodeId;
-    if (position !== "inside") {
-      nextParentId = getDisplayedParentId(targetNode);
-    }
-
-    if (!nextParentId || nextParentId === draggedNodeId) return;
-    if (isDescendant(nextParentId, draggedNodeId)) return;
-
-    const draggedNodeIsNative = draggedNode.addedItem !== true;
-    if (treeId === "book" && draggedNodeIsNative) {
-      onMarkMovedNodes?.([draggedNodeId]);
-    }
-
-    onReorderNode?.({
-      draggedNodeId,
-      targetNodeId,
-      position,
-    });
-
-    setExpandedNodeIds((prev: Set<string>) => {
-      const next = new Set(prev);
-      next.add(nextParentId);
-      return next;
-    });
-    if (position === "inside") {
-      onExpand?.(targetNodeId);
-    }
-  };
-
-  const getTargetParentId = (
-    targetNodeId: string,
-    position: DropPosition,
-  ): string | null => {
-    const targetNode = pagesById.get(targetNodeId);
-    if (!targetNode) return null;
-    if (position === "inside") return targetNodeId;
-    return getDisplayedParentId(targetNode);
-  };
-
-  const parseExternalDropPayload = (
-    event: DragEvent<HTMLDivElement>,
-  ): ExternalDropPayload | null => {
-    const rawPayload = event.dataTransfer.getData("application/x-remixer-node");
-    if (!rawPayload) return null;
-    try {
-      const parsedPayload = JSON.parse(rawPayload) as ExternalDropPayload;
-      if (!parsedPayload?.node?.["@id"] || !parsedPayload?.sourceTreeId) {
-        return null;
+  /** Depth of a node (root = 1, its children = 2, …) — matches the old `depth + 1`. */
+  const getNodeLevel = useCallback(
+    (page: RemixerSubPage): number => {
+      let level = 1;
+      let parentId = page.parentID;
+      while (parentId && parentId !== "-1") {
+        level += 1;
+        parentId = pagesById.get(parentId)?.parentID;
       }
-      return parsedPayload;
-    } catch {
-      return null;
-    }
-  };
+      return level;
+    },
+    [pagesById],
+  );
 
-  const tryImportById = (
-    draggedNodeId: string,
-    targetNodeId: string,
-    position: DropPosition,
-    targetLevel: number,
-  ) => {
-    const effectivePosition = getEffectiveDropPosition(position, targetLevel);
-    const targetParentId = getTargetParentId(targetNodeId, effectivePosition);
-    if (!targetParentId) return;
-    onImportNodeById?.({
-      nodeId: draggedNodeId,
-      targetTreeId: treeId,
-      targetNodeId,
-      position: effectivePosition,
-      targetParentId,
-    });
-  };
+  const moveNode = useCallback(
+    (draggedNodeId: string, targetNodeId: string, position: DropPosition) => {
+      if (!isBookTree) return;
+      if (draggedNodeId === targetNodeId) return;
 
-  const toggleFolder = (page: RemixerSubPage) => {
-    const pageId = page["@id"];
-    const isExpanded = expandedNodeIds.has(pageId);
+      const targetNode = pagesById.get(targetNodeId);
+      const draggedNode = pagesById.get(draggedNodeId);
+      if (!targetNode || !draggedNode) return;
 
-    setExpandedNodeIds((prev: Set<string>) => {
-      const next = new Set(prev);
-      if (isExpanded) {
-        next.delete(pageId);
-      } else {
-        next.add(pageId);
+      let nextParentId = targetNodeId;
+      if (position !== "inside") {
+        nextParentId = getDisplayedParentId(targetNode);
       }
-      return next;
-    });
 
-    // Keep lazy-loading behavior when a folder is expanded.
-    if (!isExpanded && page["@subpages"]) {
-      onExpand?.(pageId);
-    }
-  };
+      if (!nextParentId || nextParentId === draggedNodeId) return;
+      if (isDescendant(nextParentId, draggedNodeId)) return;
+
+      const draggedNodeIsNative = draggedNode.addedItem !== true;
+      if (treeId === "book" && draggedNodeIsNative) {
+        onMarkMovedNodes?.([draggedNodeId]);
+      }
+
+      onReorderNode?.({
+        draggedNodeId,
+        targetNodeId,
+        position,
+      });
+
+      setExpandedNodeIds((prev: Set<string>) => {
+        const next = new Set(prev);
+        next.add(nextParentId);
+        return next;
+      });
+      if (position === "inside") {
+        onExpand?.(targetNodeId);
+      }
+    },
+    [
+      isBookTree,
+      pagesById,
+      isDescendant,
+      treeId,
+      onMarkMovedNodes,
+      onReorderNode,
+      setExpandedNodeIds,
+      onExpand,
+    ],
+  );
+
+  const getTargetParentId = useCallback(
+    (targetNodeId: string, position: DropPosition): string | null => {
+      const targetNode = pagesById.get(targetNodeId);
+      if (!targetNode) return null;
+      if (position === "inside") return targetNodeId;
+      return getDisplayedParentId(targetNode);
+    },
+    [pagesById],
+  );
+
+  const tryImportById = useCallback(
+    (
+      draggedNodeId: string,
+      targetNodeId: string,
+      position: DropPosition,
+      targetLevel: number,
+    ) => {
+      const effectivePosition = getEffectiveDropPosition(position, targetLevel);
+      const targetParentId = getTargetParentId(targetNodeId, effectivePosition);
+      if (!targetParentId) return;
+      onImportNodeById?.({
+        nodeId: draggedNodeId,
+        targetTreeId: treeId,
+        targetNodeId,
+        position: effectivePosition,
+        targetParentId,
+      });
+    },
+    [getTargetParentId, onImportNodeById, treeId],
+  );
+
+  const toggleFolder = useCallback(
+    (page: RemixerSubPage) => {
+      const pageId = page["@id"];
+      const isExpanded = expandedNodeIdsRef.current.has(pageId);
+
+      setExpandedNodeIds((prev: Set<string>) => {
+        const next = new Set(prev);
+        if (isExpanded) {
+          next.delete(pageId);
+        } else {
+          next.add(pageId);
+        }
+        return next;
+      });
+
+      // Keep lazy-loading behavior when a folder is expanded.
+      if (!isExpanded && page["@subpages"]) {
+        onExpand?.(pageId);
+      }
+    },
+    [setExpandedNodeIds, onExpand],
+  );
 
   const expandFolder = (page: RemixerSubPage) => {
     const pageId = page["@id"];
@@ -265,19 +334,148 @@ const TreeDnd: React.FC<TreeDndProps> = ({
     }
   };
 
-  const displayTitleOptions = {
-    isBookTree,
-    autoNumbering: autoNumbering ?? false,
-    pathLevelFormats,
-    ...(isBookTree
-      ? {
-          remixerPathLookup: {
-            nodesById: pagesById,
-            ordinalPathById,
-          },
+  const displayTitleOptions = useMemo(
+    () => ({
+      isBookTree,
+      autoNumbering: autoNumbering ?? false,
+      pathLevelFormats,
+      ...(isBookTree
+        ? {
+            remixerPathLookup: {
+              nodesById: pagesById,
+              ordinalPathById,
+            },
+          }
+        : {}),
+    }),
+    [isBookTree, autoNumbering, pathLevelFormats, pagesById, ordinalPathById],
+  );
+
+  // Stable per-row handlers. Each receives the row's `page`, so a single
+  // identity serves every row and the memoized `TreeNodeContainer` only
+  // re-renders rows whose own (primitive) props actually changed. Transient
+  // drag/selection state is read through refs to keep these referentially stable.
+  const handleRowDragStart = useCallback(
+    (page: RemixerSubPage, event: DragEvent<HTMLDivElement>) => {
+      if (isDefaultMatterPage(page)) return;
+      setDraggingId(page["@id"]);
+      event.dataTransfer.setData("text/plain", page["@id"]);
+      event.dataTransfer.setData(
+        "application/x-remixer-node",
+        JSON.stringify({
+          sourceTreeId: treeId,
+          node: page,
+        } as ExternalDropPayload),
+      );
+    },
+    [treeId],
+  );
+
+  const handleRowDragEnd = useCallback(() => {
+    setDraggingId(null);
+    setDropIndicator(null);
+  }, []);
+
+  const handleRowDragOver = useCallback(
+    (page: RemixerSubPage, event: DragEvent<HTMLDivElement>) => {
+      if (!isBookTree || isDefaultMatterPage(page)) return;
+      const draggedNodeId =
+        draggingIdRef.current || event.dataTransfer.getData("text/plain");
+      // Some browsers only expose transfer payload at drop time.
+      // Always allow dragover so cross-tree drop can complete.
+      if (draggedNodeId && draggedNodeId === page["@id"]) return;
+      event.preventDefault();
+      setDropIndicator({
+        targetId: page["@id"],
+        position: getDropPosition(event),
+      });
+    },
+    [isBookTree],
+  );
+
+  const handleRowDragLeave = useCallback((page: RemixerSubPage) => {
+    if (dropIndicatorRef.current?.targetId === page["@id"]) {
+      setDropIndicator(null);
+    }
+  }, []);
+
+  const handleRowDrop = useCallback(
+    (page: RemixerSubPage, event: DragEvent<HTMLDivElement>) => {
+      if (!isBookTree || isDefaultMatterPage(page)) return;
+      event.preventDefault();
+      const draggedNodeId =
+        draggingIdRef.current || event.dataTransfer.getData("text/plain");
+      const targetNodeId = page["@id"];
+      const targetLevel = getNodeLevel(page);
+      const position =
+        dropIndicatorRef.current?.position ?? getDropPosition(event);
+      const effectivePosition = getEffectiveDropPosition(position, targetLevel);
+      const externalPayload = parseExternalDropPayload(event);
+
+      setDropIndicator(null);
+      setDraggingId(null);
+
+      if (draggedNodeId && pagesById.has(draggedNodeId)) {
+        moveNode(draggedNodeId, targetNodeId, effectivePosition);
+        return;
+      }
+
+      if (!externalPayload || externalPayload.sourceTreeId === treeId) {
+        if (draggedNodeId) {
+          tryImportById(draggedNodeId, targetNodeId, position, targetLevel);
         }
-      : {}),
-  };
+        return;
+      }
+      const targetParentId = getTargetParentId(targetNodeId, effectivePosition);
+      if (!targetParentId) return;
+      onImportNode?.({
+        sourceTreeId: externalPayload.sourceTreeId,
+        targetTreeId: treeId,
+        node: externalPayload.node,
+        targetNodeId,
+        position: effectivePosition,
+        targetParentId,
+      });
+    },
+    [
+      isBookTree,
+      getNodeLevel,
+      pagesById,
+      moveNode,
+      tryImportById,
+      getTargetParentId,
+      onImportNode,
+      treeId,
+    ],
+  );
+
+  const handleRowSelect = useCallback(
+    (page: RemixerSubPage) => {
+      if (!isBookTree) return;
+      const isSelected = selectedNodeIdRef.current === page["@id"];
+      onSelectNode?.(isSelected ? undefined : page["@id"]);
+    },
+    [isBookTree, onSelectNode],
+  );
+
+  const handleRowDoubleClick = useCallback(
+    (page: RemixerSubPage) => {
+      if (isBookTree) {
+        onNodeDoubleClick?.(page["@id"]);
+      }
+    },
+    [isBookTree, onNodeDoubleClick],
+  );
+
+  const handleRowContextMenu = useCallback(
+    (page: RemixerSubPage, event: React.MouseEvent) => {
+      if (isBookTree && !isDefaultMatterPage(page)) {
+        event.preventDefault();
+        onNodeContextMenu?.(page["@id"], event);
+      }
+    },
+    [isBookTree, onNodeContextMenu],
+  );
 
   const renderNodes = (
     parentId: string,
@@ -307,7 +505,6 @@ const TreeDnd: React.FC<TreeDndProps> = ({
         page.isPlacementChanged ?? page.movedItem === true;
       const isSelected = selectedNodeId === page["@id"];
       const itemLink = page["uri.ui"] || page["@href"];
-      const targetLevel = depth + 1;
       const isInteractionLocked = isDefaultMatterPage(page);
       const isDropInside =
         dropIndicator?.targetId === page["@id"] &&
@@ -348,102 +545,14 @@ const TreeDnd: React.FC<TreeDndProps> = ({
           isDropAfter={isDropAfter}
           palette={STATUS_PALETTE}
           onToggleFolder={toggleFolder}
-          onDragStart={(event: DragEvent<HTMLDivElement>) => {
-            if (isInteractionLocked) return;
-            setDraggingId(page["@id"]);
-            event.dataTransfer.setData("text/plain", page["@id"]);
-            event.dataTransfer.setData(
-              "application/x-remixer-node",
-              JSON.stringify({
-                sourceTreeId: treeId,
-                node: page,
-              } as ExternalDropPayload),
-            );
-          }}
-          onDragEnd={() => {
-            setDraggingId(null);
-            setDropIndicator(null);
-          }}
-          onDragOver={(event: DragEvent<HTMLDivElement>) => {
-            if (!isBookTree || isInteractionLocked) return;
-            const draggedNodeId =
-              draggingId || event.dataTransfer.getData("text/plain");
-            // Some browsers only expose transfer payload at drop time.
-            // Always allow dragover so cross-tree drop can complete.
-            if (draggedNodeId && draggedNodeId === page["@id"]) return;
-            event.preventDefault();
-            setDropIndicator({
-              targetId: page["@id"],
-              position: getDropPosition(event),
-            });
-          }}
-          onDragLeave={() => {
-            if (dropIndicator?.targetId === page["@id"]) {
-              setDropIndicator(null);
-            }
-          }}
-          onDrop={(event: DragEvent<HTMLDivElement>) => {
-            if (!isBookTree || isInteractionLocked) return;
-            event.preventDefault();
-            const draggedNodeId =
-              draggingId || event.dataTransfer.getData("text/plain");
-            const targetNodeId = page["@id"];
-            const position = dropIndicator?.position ?? getDropPosition(event);
-            const effectivePosition = getEffectiveDropPosition(
-              position,
-              targetLevel,
-            );
-            const externalPayload = parseExternalDropPayload(event);
-
-            setDropIndicator(null);
-            setDraggingId(null);
-
-            if (draggedNodeId && pagesById.has(draggedNodeId)) {
-              moveNode(draggedNodeId, targetNodeId, effectivePosition);
-              return;
-            }
-
-            if (!externalPayload || externalPayload.sourceTreeId === treeId) {
-              if (draggedNodeId) {
-                tryImportById(
-                  draggedNodeId,
-                  targetNodeId,
-                  position,
-                  targetLevel,
-                );
-              }
-              return;
-            }
-            const targetParentId = getTargetParentId(
-              targetNodeId,
-              effectivePosition,
-            );
-            if (!targetParentId) return;
-            onImportNode?.({
-              sourceTreeId: externalPayload.sourceTreeId,
-              targetTreeId: treeId,
-              node: externalPayload.node,
-              targetNodeId,
-              position: effectivePosition,
-              targetParentId,
-            });
-          }}
-          onSelect={() => {
-            if (isBookTree) {
-              onSelectNode?.(isSelected ? undefined : page["@id"]);
-            }
-          }}
-          onDoubleClick={() => {
-            if (isBookTree) {
-              onNodeDoubleClick?.(page["@id"]);
-            }
-          }}
-          onContextMenu={(event: React.MouseEvent) => {
-            if (isBookTree && !isInteractionLocked) {
-              event.preventDefault();
-              onNodeContextMenu?.(page["@id"], event);
-            }
-          }}
+          onDragStart={handleRowDragStart}
+          onDragEnd={handleRowDragEnd}
+          onDragOver={handleRowDragOver}
+          onDragLeave={handleRowDragLeave}
+          onDrop={handleRowDrop}
+          onSelect={handleRowSelect}
+          onDoubleClick={handleRowDoubleClick}
+          onContextMenu={handleRowContextMenu}
         >
           {isExpanded
             ? renderNodes(
@@ -705,4 +814,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
   );
 };
 
-export default TreeDnd;
+// Memoized so unrelated `RemixerDashboard` re-renders (media-query flips,
+// context menu, publish polling) don't rebuild the whole tree. Only pays off
+// while the props passed in are referentially stable (see RemixerDashboard).
+export default memo(TreeDnd);

@@ -34,20 +34,22 @@ interface TreeNodeContainerProps {
   isDropBefore: boolean;
   isDropAfter: boolean;
   palette: StatusPalette;
+  // Handlers receive the row's `page` so a single stable handler can serve
+  // every row (keeps this memoized component's props referentially stable).
   onToggleFolder: (page: RemixerSubPage) => void;
-  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+  onDragStart: (page: RemixerSubPage, event: DragEvent<HTMLDivElement>) => void;
   onDragEnd: () => void;
-  onDragOver: (event: DragEvent<HTMLDivElement>) => void;
-  onDragLeave: () => void;
-  onDrop: (event: DragEvent<HTMLDivElement>) => void;
-  onSelect: () => void;
-  onDoubleClick?: () => void;
-  onContextMenu?: (event: React.MouseEvent) => void;
+  onDragOver: (page: RemixerSubPage, event: DragEvent<HTMLDivElement>) => void;
+  onDragLeave: (page: RemixerSubPage) => void;
+  onDrop: (page: RemixerSubPage, event: DragEvent<HTMLDivElement>) => void;
+  onSelect: (page: RemixerSubPage) => void;
+  onDoubleClick?: (page: RemixerSubPage) => void;
+  onContextMenu?: (page: RemixerSubPage, event: React.MouseEvent) => void;
   hideExpandIcon?: boolean;
   children?: React.ReactNode;
 }
 
-const TreeNodeContainer: React.FC<TreeNodeContainerProps> = ({
+const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
   page,
   isFolder,
   isExpanded,
@@ -81,14 +83,18 @@ const TreeNodeContainer: React.FC<TreeNodeContainerProps> = ({
     <div key={page["@id"]} data-node-id={page["@id"]} style={{ marginLeft: TREE_LEVEL_INDENT_PX }}>
       <List.Item
         draggable={!isInteractionLocked}
-        onDragStart={onDragStart}
+        onDragStart={(event: DragEvent<HTMLDivElement>) => onDragStart(page, event)}
         onDragEnd={onDragEnd}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        onClick={onSelect}
-        onDoubleClick={onDoubleClick}
-        onContextMenu={onContextMenu}
+        onDragOver={(event: DragEvent<HTMLDivElement>) => onDragOver(page, event)}
+        onDragLeave={() => onDragLeave(page)}
+        onDrop={(event: DragEvent<HTMLDivElement>) => onDrop(page, event)}
+        onClick={() => onSelect(page)}
+        onDoubleClick={onDoubleClick ? () => onDoubleClick(page) : undefined}
+        onContextMenu={
+          onContextMenu
+            ? (event: React.MouseEvent) => onContextMenu(page, event)
+            : undefined
+        }
         style={{
           display: "flex",
           alignItems: "center",
@@ -197,5 +203,10 @@ const TreeNodeContainer: React.FC<TreeNodeContainerProps> = ({
     </div>
   );
 };
+
+// Memoized: rows only re-render when their own props change (e.g. this row
+// becomes the drop target or the selection). Without this, every drag-hover
+// state change in the parent tree re-rendered the entire node list.
+const TreeNodeContainer = React.memo(TreeNodeContainerComponent);
 
 export default TreeNodeContainer;
