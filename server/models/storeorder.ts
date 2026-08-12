@@ -13,6 +13,8 @@ export interface RawStoreOrder {
     status: "pending" | "completed" | "failed" | "canceled";
     error: string; // Error message if the order fails
     customerEmail?: string; // Marked optional for backwards compatibility, but should be set when creating a new order
+    amountTotal?: number; // Order total in the smallest currency unit (e.g. cents), mirrored from the Stripe checkout session so the admin list never needs a live Stripe call
+    currency?: string; // ISO currency code for amountTotal (e.g. "usd")
     luluJobID?: string;
     luluJobStatus?: string;
     luluJobStatusMessage?: string; // Error message if the Lulu job fails
@@ -44,6 +46,8 @@ const StoreOrderSchema = new Schema<RawStoreOrder>({
         default: "pending",
     },
     customerEmail: String, // Optional for backwards compatibility, but should be set when creating a new order
+    amountTotal: Number, // Smallest currency unit (e.g. cents), mirrored from the Stripe checkout session
+    currency: String, // ISO currency code for amountTotal (e.g. "usd")
     error: String,
     luluJobID: String,
     luluJobStatus: String,

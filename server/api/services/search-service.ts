@@ -4,7 +4,7 @@ import { debugServer, debugError } from "../../debug";
 import Organization from "../../models/organization";
 import { FilterInput, FilterValue } from "../../types";
 
-export const INDEXES = ["books", "projects", "supportTickets", "users"] as const;
+export const INDEXES = ["books", "projects", "supportTickets", "users", "storeOrders"] as const;
 
 // Popular-search-terms index. Kept outside INDEXES so its (different) document shape and
 // looser typing do not leak into addDocuments/search/getIndexStats, which are tuple-typed.
@@ -32,6 +32,7 @@ export const INDEX_PRIMARY_KEYS: Record<(typeof INDEXES)[number], string> = {
   projects: "projectID",
   supportTickets: "uuid",
   users: "uuid",
+  storeOrders: "id",
 };
 
 export const INDEX_FILTERABLE_ATTRIBUTES = {
@@ -39,6 +40,7 @@ export const INDEX_FILTERABLE_ATTRIBUTES = {
   projects: ["status", "classification", "visibility", "orgID"],
   supportTickets: ["queue_id", "status", "priority", "category", "assignedUUIDs"],
   users: ["uuid", "emailDomain"],
+  storeOrders: ["status", "luluJobStatus", "createdAtTimestamp"],
 };
 
 export const INDEX_SORTABLE_ATTRIBUTES = {
@@ -46,13 +48,17 @@ export const INDEX_SORTABLE_ATTRIBUTES = {
   projects: ["status", "classification", "visibility", "orgID"],
   supportTickets: ["status", "category", "timeOpened"],
   users: ["firstName", "lastName"],
+  storeOrders: ["createdAtTimestamp", "amountTotal"],
 };
 
 // Per-index searchable-attribute overrides. Indexes absent from this map use the
 // Meilisearch default (all fields searchable). The users index opts in explicitly so a
 // query can only ever match a name — never the opaque uuid/centralID or the emailDomain.
+// storeOrders opts in explicitly so the single admin search box matches only the order id,
+// customer email, or Lulu job id — never internal fields like error text.
 export const INDEX_SEARCHABLE_ATTRIBUTES: Partial<Record<(typeof INDEXES)[number], string[]>> = {
   users: ["firstName", "lastName"],
+  storeOrders: ["id", "customerEmail", "luluJobID"],
 };
 
 export default class SearchService {

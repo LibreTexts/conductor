@@ -47,7 +47,7 @@ import {
   EditAcademyOnlineAccessFormValues,
   CentralIdentityUserLicenseResult,
   CentralIdentityAppLicense,
-  StoreDigitalDeliveryOption, StoreOrderWithStripeSession,
+  StoreDigitalDeliveryOption, StoreOrderWithStripeSession, StoreOrderListItem,
   OrderCharge,
   OrderSession,
   CentralIdentityOrgAdminResult,
@@ -762,7 +762,7 @@ class API {
     query?: string;
   }) {
     const res = await axios.get<
-      ConductorInfiniteScrollResponse<StoreOrderWithStripeSession>
+      ConductorInfiniteScrollResponse<StoreOrderListItem>
     >("/store/admin/orders", {
       params,
     });

@@ -17,7 +17,10 @@ import mailAPI from "../mail"
 import User from "../../models/user";
 import authAPI from "../../api/auth.js";
 import SupportTicketService from "./support-ticket-service";
-import { escapeRegExp } from "es-toolkit/string";
+import SearchService from "./search-service.js";
+import { upsertStoreOrderToSearchIndex } from "./store-order-search-service.js";
+import { FilterObject } from "../../types/Search.js";
+import { StoreOrderListItem } from "../../types/Store.js";
 
 const BASE_COST = 1.80;
 const PAGE_MULTIPLIER = 0.032;
@@ -703,7 +706,10 @@ class StoreService {
                     throw new Error("MISSING_EMAIL");
                 }
                 storeOrder.customerEmail = email;
-                await storeOrder.save(); // Save the email to the order now in case processing fails later
+                // Mirror the order total from Stripe so the admin list never needs a live Stripe call.
+                storeOrder.amountTotal = checkout_session.amount_total ?? undefined;
+                storeOrder.currency = checkout_session.currency ?? undefined;
+                await storeOrder.save(); // Save the email/amount to the order now in case processing fails later
 
                 const lineItems = this._parseLineItemsFromCheckoutSession(checkout_session);
                 if (!lineItems || lineItems.length === 0) {
@@ -779,6 +785,9 @@ class StoreService {
                     await mailAPI.sendStoreOrderConfirmation(checkout_session.customer_details?.email, checkout_session.id)
                 }
 
+                // Best-effort: mirror the finished order into the search index. Fire-and-forget so a
+                // Meilisearch hiccup can never affect order processing.
+                void upsertStoreOrderToSearchIndex(storeOrder.id);
                 return storeOrder;
             } catch (error: any) {
                 await this._failStoreOrder(storeOrder, error.toString());
@@ -855,6 +864,9 @@ class StoreService {
             storeOrder.luluJobStatusMessage = data.status?.message || "";
             storeOrder.luluJobStatusUpdates = [...(storeOrder.luluJobStatusUpdates || []), data];
             await storeOrder.save();
+
+            // Best-effort: keep the search index in step with the new Lulu status (fire-and-forget).
+            void upsertStoreOrderToSearchIndex(storeOrder.id);
         } catch (error) {
             debug("Error processing Lulu order update:", error);
         }
@@ -923,6 +935,8 @@ class StoreService {
             store_order.luluJobStatusMessage = printJob.status["message"] || "";
             await store_order.save();
 
+            // Best-effort: reflect the resubmitted Lulu job in the search index (fire-and-forget).
+            void upsertStoreOrderToSearchIndex(store_order.id);
             return printJob;
         } catch (error) {
             debug("Error retrying Lulu job:", error);
@@ -932,7 +946,7 @@ class StoreService {
     }
 
     public async adminGetStoreOrders(params: z.infer<typeof AdminGetStoreOrdersSchema>['query']): Promise<{
-        items: StoreOrderWithStripeSession[];
+        items: StoreOrderListItem[];
         meta: {
             total_count: number;
             has_more: boolean;
@@ -940,59 +954,39 @@ class StoreService {
         };
     }> {
         try {
-            let limit = params?.limit ? parseInt(params.limit.toString(), 10) : 25;
-            let filter: any = { $and: [] };
+            const limit = params?.limit ? parseInt(params.limit.toString(), 10) : 25;
+            // `starting_after` carries the Meilisearch offset for the next page (as a string).
+            const offset = params?.starting_after ? Math.max(parseInt(params.starting_after, 10) || 0, 0) : 0;
+            const query = params?.query?.trim() || "";
 
-            const trimmedQuery = params?.query?.trim();
+            // Retain the two existing filters, translated to the storeOrders index attributes.
+            const filters: FilterObject = {};
+            if (params?.status) filters.status = params.status;
+            if (params?.lulu_status) filters.luluJobStatus = params.lulu_status;
+            const hasFilters = Object.keys(filters).length > 0;
 
-            if (params?.starting_after) {
-                // ensure mongoID is properly formatted
-                filter.$and.push({ _id: { $lt: params.starting_after } });
-            }
-            if (params?.status) {
-                filter.$and.push({ status: params?.status });
-            }
-            if (params?.lulu_status) {
-                filter.$and.push({ luluJobStatus: params?.lulu_status });
-            }
-            if (trimmedQuery && trimmedQuery.length > 0) {
-                filter.$and.push(
-                    { id: new RegExp(escapeRegExp(trimmedQuery), 'i') },
-                );
-            }
+            const searchService = await SearchService.getInstance();
+            const result: any = await searchService.search(
+                "storeOrders",
+                query,
+                hasFilters ? filters : undefined,
+                // With a text query, let Meilisearch rank by relevance; otherwise show newest first.
+                query ? undefined : [{ field: "createdAtTimestamp", order: "desc" }],
+                { offset, limit },
+            );
 
-            const orders = await StoreOrder.find(filter).sort({ _id: -1 }).limit(limit).exec();
-            if (!orders || orders.length === 0) {
-                return {
-                    items: [],
-                    meta: {
-                        total_count: 0,
-                        has_more: false,
-                        next_page: null
-                    }
-                };
-            }
+            const items: StoreOrderListItem[] = result?.hits || [];
+            const total_count = result?.estimatedTotalHits ?? items.length;
+            const nextOffset = offset + items.length;
+            const has_more = nextOffset < total_count;
 
-            const order_data: StoreOrderWithStripeSession[] = [];
-            for (const order of orders) {
-                const { session } = await this._fetchCheckoutSession(order.id);
-                order_data.push({
-                    ...order.toObject(), // Convert Mongoose document to plain object
-                    stripe_session: session
-                });
-            }
-
-            const total_count = await StoreOrder.countDocuments(filter);
-            const previously_fetched_count = params?.starting_after ? await StoreOrder.countDocuments({ _id: { $gt: params.starting_after } }) : 0;
-            const has_more = total_count > (previously_fetched_count + orders.length);
-            const next_page = (orders.length === limit ? orders[orders.length - 1]._id?.toString() : null) || null;
             return {
-                items: order_data,
+                items,
                 meta: {
                     total_count,
                     has_more,
-                    next_page
-                }
+                    next_page: has_more ? nextOffset.toString() : null,
+                },
             };
         } catch (error) {
             debug("Error fetching store orders:", error);
@@ -1626,6 +1620,8 @@ class StoreService {
             message: error,
         });
 
+        // Best-effort: reflect the failed status in the search index (fire-and-forget).
+        void upsertStoreOrderToSearchIndex(storeOrder.id);
         return result;
     }
 
