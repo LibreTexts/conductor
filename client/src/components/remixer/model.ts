@@ -60,6 +60,7 @@ export interface RemixerSubPage {
     sourceID?: string;
     /** Disambiguates duplicate sibling titles; 0 is hidden, 1+ shown as (n). */
     siblingTitleIndex?: number;
+    overrideUriUiEnding?: string;
 }
 
 export type RemixerLibrary = Partial<Record<Library, RemixerSubPage[]>>;

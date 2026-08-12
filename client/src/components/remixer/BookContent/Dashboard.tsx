@@ -1,18 +1,14 @@
 import { Icon, List } from "semantic-ui-react";
 import { Dispatch, DragEvent, SetStateAction, useMemo, useState } from "react";
-import {
-  matterNodesUrlEndings,
-  matterNodeValidTitles,
-  PathLevelFormat,
-  RemixerSubPage,
-} from "../model";
+import { PathLevelFormat, RemixerSubPage } from "../model";
 import {
   appendSiblingTitleSuffix,
   computeRemixerOrdinalPathsMap,
   getRemixerDisplayTitle,
-  getRemixerPageUriUi,
   isBackMatterNode,
-  isMatterNode,
+  isDefaultMatterPage,
+  isMatterRootNode,
+  sortMatterSiblings,
 } from "../services";
 import TreeNodeContainer from "./TreeNodeContainer";
 import { STATUS_PALETTE } from "../style";
@@ -102,7 +98,12 @@ const TreeDnd: React.FC<TreeDndProps> = ({
     const children = currentBook.filter(
       (p) => (p.parentID ?? "-1") === parentId,
     );
-    // Back matter must always be the last sibling at every level.
+    const parent = pagesById.get(parentId);
+    // Front matter: defaults then customs. Back matter: customs then defaults.
+    // At book root level, back matter is always last among siblings.
+    if (parent && isMatterRootNode(parent)) {
+      return sortMatterSiblings(children, parent);
+    }
     return children.sort((a, b) => {
       const aBack = isBackMatterNode(a) ? 1 : 0;
       const bBack = isBackMatterNode(b) ? 1 : 0;
@@ -112,34 +113,6 @@ const TreeDnd: React.FC<TreeDndProps> = ({
 
   const hasChildren = (pageId: string): boolean =>
     getChildrenByParent(pageId).length > 0;
-
-  const isMatterBranchNode = (nodeId: string): boolean => {
-    if (!isBookTree) return false;
-    let currentId: string | undefined = nodeId;
-    const visited = new Set<string>();
-    const currentNode = pagesById.get(currentId);
-    const nodeUri = getRemixerPageUriUi(currentNode).toLowerCase();
-  
-    const isURLMatch = matterNodesUrlEndings.some((ending: string) =>
-      nodeUri.toLowerCase().includes(ending.toLowerCase()),
-    );
-    const nodetitle = currentNode?.["@title"];
-
-    const isTitleMatch = matterNodeValidTitles.some(
-      (title: string) => nodetitle?.toLowerCase() === title.toLowerCase(),
-    );
-    if (isURLMatch && isTitleMatch) { 
-      return true;
-    }
-    // while (currentId && currentId !== "-1" && !visited.has(currentId)) {
-    //   visited.add(currentId);
-    //   const node = pagesById.get(currentId);
-    //   if (!node) return false;
-    //   if (isMatterNode(node)) return true;
-    //   currentId = getDisplayedParentId(node);
-    // }
-    return false;
-  };
 
   const isDescendant = (nodeId: string, ancestorId: string): boolean => {
     let currentParentId = pagesById.get(nodeId)?.parentID;
@@ -315,8 +288,9 @@ const TreeDnd: React.FC<TreeDndProps> = ({
     const children = getChildrenByParent(parentId);
 
     return children.map((page) => {
+      // Matter subtree titles never show autonumber prefixes (path still numbered).
       const inMatterNoNumberSubtree =
-        parentInMatterNoNumberSubtree || isMatterNode(page);
+        parentInMatterNoNumberSubtree || isMatterRootNode(page);
       const inDeletedBranch =
         parentInDeletedBranch ||
         page.isDeleted === true ||
@@ -334,11 +308,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
       const isSelected = selectedNodeId === page["@id"];
       const itemLink = page["uri.ui"] || page["@href"];
       const targetLevel = depth + 1;
-      // Lock default matter items (non-added descendants) but keep the
-      // matter roots themselves and any user-added children interactive.
-      const isInteractionLocked =
-        isMatterBranchNode(page["@id"])
-     
+      const isInteractionLocked = isDefaultMatterPage(page);
       const isDropInside =
         dropIndicator?.targetId === page["@id"] &&
         dropIndicator.position === "inside";
@@ -512,7 +482,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
 
       <List style={{ minWidth: "max-content" }}>
         {roots.map((root) => {
-          const inMatterNoNumberSubtree = isMatterNode(root);
+          const inMatterNoNumberSubtree = isMatterRootNode(root);
           const inDeletedBranch =
             root.isDeleted === true || root.deletedItem === true;
           const numberPath = isBookTree
@@ -527,12 +497,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
           const isSelected = selectedNodeId === root["@id"];
           const itemLink = root["uri.ui"] || root["@href"];
           const targetLevel = 1;
-          // Matter root nodes are interactive so users can right-click to
-          // add children; only their non-added descendants stay locked.
-          const isInteractionLocked =
-            isMatterBranchNode(root["@id"]) &&
-            !root.addedItem &&
-            !isMatterNode(root);
+          const isInteractionLocked = isDefaultMatterPage(root);
           const displayTitle = appendSiblingTitleSuffix(
             getRemixerDisplayTitle(
               root,
