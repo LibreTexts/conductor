@@ -1,20 +1,22 @@
 import { Link } from "react-router-dom";
-import { Badge, Breadcrumb, Button, Heading, Select, Stack } from "@libretexts/davis-react";
+import { Badge, Breadcrumb, Button, Heading, Input, Select, Stack } from "@libretexts/davis-react";
 import type { BadgeVariant } from "@libretexts/davis-react";
-import { StoreOrderWithStripeSession } from "../../../../types";
+import { StoreOrderListItem } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import SupportCenterTable from "../../../../components/support/SupportCenterTable";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import api from "../../../../api";
 import useDocumentTitle from "../../../../hooks/useDocumentTitle";
+import useDebounce from "../../../../hooks/useDebounce";
 import {
   IconCloudComputing,
   IconDownload,
   IconEye,
+  IconSearch,
 } from "@tabler/icons-react";
 import { useNotifications } from "../../../../context/NotificationContext";
 import { formatPrice, truncateOrderId } from "../../../../utils/storeHelpers";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 function luluStatusVariant(status?: string | null): BadgeVariant {
   if (!status) return "default";
@@ -36,12 +38,21 @@ const StoreManager = () => {
   const limit = 25;
   const { addNotification } = useNotifications();
   const { handleGlobalError } = useGlobalError();
+  const { debounce } = useDebounce();
   const [statusFilter, setStatusFilter] = useState("all");
   const [luluStatusFilter, setLuluStatusFilter] = useState("all");
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Debounce the value that actually drives the query so each keystroke doesn't refetch.
+  const debouncedSetQuery = useMemo(
+    () => debounce((value: string) => setSearchQuery(value.trim()), 400),
+    []
+  );
 
   const { data, isFetching, isInitialLoading, fetchNextPage } =
     useInfiniteQuery({
-      queryKey: ["store-orders", limit, statusFilter, luluStatusFilter],
+      queryKey: ["store-orders", limit, statusFilter, luluStatusFilter, searchQuery],
       queryFn: async ({ pageParam = null }) => {
         const response = await api.adminGetStoreOrders({
           limit,
@@ -49,6 +60,7 @@ const StoreManager = () => {
           status: statusFilter === "all" ? undefined : statusFilter,
           lulu_status:
             luluStatusFilter === "all" ? undefined : luluStatusFilter,
+          query: searchQuery || undefined,
         });
 
         if (response.data.err) {
@@ -82,7 +94,21 @@ const StoreManager = () => {
       </Stack>
 
       <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <div className="flex items-center gap-4 px-4 py-3 bg-gray-50 border-b border-gray-200">
+        <div className="flex flex-wrap items-end gap-4 px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <div className="grow min-w-[16rem]">
+            <Input
+              name="orderSearch"
+              type="search"
+              label="Search Orders"
+              placeholder="Search by order ID, customer email, or Lulu job ID"
+              value={searchInput}
+              leftIcon={<IconSearch size={16} />}
+              onChange={(e) => {
+                setSearchInput(e.target.value);
+                debouncedSetQuery(e.target.value);
+              }}
+            />
+          </div>
           <Select
             name="luluStatusFilter"
             label="Lulu Job Status"
@@ -113,7 +139,7 @@ const StoreManager = () => {
           />
         </div>
 
-        <SupportCenterTable<StoreOrderWithStripeSession & { actions?: string }>
+        <SupportCenterTable<StoreOrderListItem & { actions?: string }>
           loading={isInitialLoading}
           data={allData || []}
           columns={[
@@ -143,21 +169,21 @@ const StoreManager = () => {
               },
             },
             {
-              accessor: "stripe_session",
+              accessor: "customerEmail",
               title: "Customer Email",
               copyButton: true,
               render(record) {
-                return record.stripe_session?.customer_email || "Unknown";
+                return record.customerEmail || "Unknown";
               },
             },
             {
-              accessor: "stripe_session",
+              accessor: "amountTotal",
               title: "Total Amount",
               render(record) {
                 return (
                   <span>
-                    {record.stripe_session?.amount_total
-                      ? formatPrice(record.stripe_session.amount_total, true)
+                    {record.amountTotal
+                      ? formatPrice(record.amountTotal, true)
                       : "$0.00"}
                   </span>
                 );

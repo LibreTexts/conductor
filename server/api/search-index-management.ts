@@ -6,6 +6,7 @@ import SupportTicketService from "./services/support-ticket-service.js";
 import booksAPI from "./books.js";
 import projectsAPI from "./projects.js";
 import { syncUsersInBackground } from "./services/user-search-service.js";
+import { syncStoreOrdersInBackground } from "./services/store-order-search-service.js";
 
 // Indexes valid for the reinitialize-settings endpoint. Includes search-queries
 // alongside the tuple-typed core indexes.
@@ -189,6 +190,9 @@ async function resyncIndexInBackground(indexName: typeof INDEXES[number]) {
         break;
       case "users":
         await syncUsersInBackground();
+        break;
+      case "storeOrders":
+        await syncStoreOrdersInBackground();
         break;
       default:
         throw new Error(`Unknown index: ${indexName}`);

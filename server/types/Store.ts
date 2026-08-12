@@ -58,3 +58,21 @@ export type StoreOrderWithStripeSession = Prettify<RawStoreOrder & {
     stripe_session: Stripe.Checkout.Session | null;
     stripe_charge?: Stripe.Charge | null
 }>
+
+/**
+ * Flat, Stripe-free shape of a store order as returned by the admin list endpoint
+ * (served from the "storeOrders" Meilisearch index). Contains only what the Store
+ * Management table renders — no live Stripe session is fetched for the list view.
+ */
+export type StoreOrderListItem = {
+    id: string;
+    status: RawStoreOrder["status"];
+    customerEmail?: string;
+    amountTotal?: number;
+    currency?: string;
+    luluJobID?: string;
+    luluJobStatus?: string;
+    supportTicketUUID?: string;
+    createdAt?: string; // ISO string as stored in the index
+    createdAtTimestamp?: number; // epoch millis (sortable in Meilisearch)
+}
