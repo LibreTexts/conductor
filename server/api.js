@@ -111,9 +111,6 @@ const corsMiddleware = cors({
     "Content-Type",
     "Authorization",
     "X-Requested-With",
-    "upload-length",
-    "tus-resumable",
-    "upload-metadata",
   ],
   credentials: true,
   maxAge: 7200,
@@ -2442,6 +2439,17 @@ router
   );
 
 router
+  .route("/project/:projectID/files/stream-upload-url")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(
+      ProjectFileValidators.createProjectFileStreamUploadURLSchema
+    ),
+    projectfilesAPI.createProjectFileStreamUploadURL
+  );
+
+router
   .route("/project/:projectID/files/folder")
   .post(
     authAPI.verifyRequest,
@@ -3076,16 +3084,12 @@ router.route("/support/sync-with-search-index").post(
   supportAPI.syncWithSearchIndex
 )
 
-router.route("/cloudflare/stream-url").post(
-  // authAPI.verifyRequest,
-  // authAPI.getUserAttributes,
-  // middleware.validateZod(ProjectFileValidators.createCloudflareStreamURLSchema),
-  projectfilesAPI.createProjectFileStreamUploadURL
-);
-
 router
-  .route("/cloudflare/stream-url")
-  .options(projectfilesAPI.createProjectFileStreamUploadURLOptions);
+  .route("/cloudflare/cleanup-orphaned-videos")
+  .post(
+    middleware.checkEventBridgeAPIKey,
+    projectfilesAPI.cleanupOrphanedStreamVideos
+  );
 
 router
   .route("/project-invitations/:projectID")

@@ -158,12 +158,14 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
         (file) => !file.type.startsWith("video")
       );
 
-      const videoCheckPromises = videoFiles.map((file) => {
-        return calculateVideoLength(file);
-      });
+      const videoCheckResults = await Promise.allSettled(
+        videoFiles.map((file) => calculateVideoLength(file))
+      );
 
-      const videoCheckResults = await Promise.allSettled(videoCheckPromises);
-      videoCheckResults.forEach((result) => {
+      // Pair each video with its measured duration; the server re-checks the
+      // limit independently, this is a fast-fail for the user.
+      const videosWithDuration = videoFiles.map((file, idx) => {
+        const result = videoCheckResults[idx];
         if (result.status === "rejected" || !result.value) {
           throw new Error("Failed to calculate video length");
         }
@@ -172,35 +174,47 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
             `Video length exceeds the organization's limit of ${org.videoLengthLimit} minutes.`
           );
         }
+        return { file, durationSeconds: result.value };
       });
 
       // Handle video files with Cloudflare Stream
       const videoData: { videoID: string; videoName: string }[] = [];
-      const videoPromises = videoFiles.map((file) => {
-        return (async () => {
-          const uploadId = await tusUpload(
-            file,
-            api.cloudflareStreamUploadURL,
-            (progress) => {
-              setPercentUploaded(progress / videoFiles.length);
-              if (
-                progress / videoFiles.length === 100 &&
-                standardFiles.length === 0
-              ) {
-                // If this is the last file to upload, set finished to true
-                setFinishedFileTransfer(true);
-              }
-            },
-            abortControllerRef.current.signal,
-            {
-              maxDurationSeconds: org.videoLengthLimit * 60,
-            }
-          );
+      const videoPromises = videosWithDuration.map(
+        ({ file, durationSeconds }) => {
+          return (async () => {
+            const urlRes = await api.createStreamUploadURL(projectID, {
+              name: file.name,
+              size: file.size,
+              durationSeconds,
+            });
 
-          if (!uploadId) throw new Error("Failed to upload video file");
-          videoData.push({ videoID: uploadId, videoName: file.name });
-        })();
-      });
+            if (urlRes.data.err) {
+              throw new Error(urlRes.data.errMsg);
+            }
+
+            await tusUpload(
+              file,
+              urlRes.data.uploadURL,
+              (progress) => {
+                setPercentUploaded(progress / videoFiles.length);
+                if (
+                  progress / videoFiles.length === 100 &&
+                  standardFiles.length === 0
+                ) {
+                  // If this is the last file to upload, set finished to true
+                  setFinishedFileTransfer(true);
+                }
+              },
+              abortControllerRef.current.signal
+            );
+
+            videoData.push({
+              videoID: urlRes.data.videoID,
+              videoName: file.name,
+            });
+          })();
+        }
+      );
 
       await Promise.all(videoPromises);
 

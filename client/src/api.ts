@@ -337,11 +337,24 @@ class API {
     return res;
   }
 
-  public cloudflareStreamUploadURL: string = `${
-    import.meta.env.MODE === "development"
-      ? import.meta.env.VITE_DEV_BASE_URL
-      : ""
-  }/api/v1/cloudflare/stream-url`;
+  /**
+   * Requests a pre-authorized Cloudflare Stream upload URL for a project. The
+   * server enforces project membership and the organization's video length
+   * limit before creating the slot; the returned URL is then uploaded to
+   * directly via tus.
+   */
+  async createStreamUploadURL(
+    projectID: string,
+    body: { name: string; size: number; durationSeconds: number },
+  ) {
+    const res = await axios.post<
+      {
+        uploadURL: string;
+        videoID: string;
+      } & ConductorBaseResponse
+    >(`/project/${projectID}/files/stream-upload-url`, body);
+    return res;
+  }
 
   async getPermanentLink(projectID: string, fileID: string) {
     const res = await axios.get<

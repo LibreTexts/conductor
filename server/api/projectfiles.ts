@@ -56,7 +56,7 @@ import {
   updateProjectFileAccessSchema,
   updateProjectFileSchema,
   addProjectFileFolderSchema,
-  createCloudflareStreamURLSchema,
+  createProjectFileStreamUploadURLSchema,
   videoDataSchema,
   updateProjectFileCaptionsSchema,
   getProjectFileCaptionsSchema,
@@ -70,6 +70,7 @@ import Author from "../models/author.js";
 import { isAuthorObject } from "../util/typeHelpers.js";
 import { Schema } from "mongoose";
 import User from "../models/user.js";
+import VideoUploadGrant from "../models/videoUploadGrant.js";
 import { generateVideoStreamURL } from "../util/videoutils.js";
 import axios from "axios";
 import mime from "mime";
@@ -78,6 +79,16 @@ const filesStorage = multer.memoryStorage();
 const MAX_UPLOAD_FILES = 20;
 const MAX_UPLOAD_FILE_SIZE = 100000000; // 100mb
 const LIBRETEXTS_ALLOWED_ORIGINS = ["*.libretexts.org", "*.libretexts.net"];
+/** How long a Cloudflare Stream upload slot stays valid before it can be swept. */
+const VIDEO_UPLOAD_GRANT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+/**
+ * How long the grant record itself is retained. Deliberately much longer than
+ * VIDEO_UPLOAD_GRANT_TTL_MS so Mongo's TTL index cannot reap a record before the
+ * cleanup job has had the chance to delete its Cloudflare video.
+ */
+const VIDEO_UPLOAD_GRANT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+/** Maximum number of orphaned videos deleted in a single cleanup run. */
+const ORPHANED_VIDEO_CLEANUP_BATCH_SIZE = 200;
 const ALLOWED_MIME_TYPES = [
   "application/msword", // .doc
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
@@ -243,6 +254,28 @@ export async function addProjectFile(
         : req.body.videoData;
 
     if (parsedVideoData && parsedVideoData.length) {
+      // Only videos this user was granted an upload slot for, on this project, may be attached.
+      const submittedVideoIDs = parsedVideoData.map(
+        (videoData: z.infer<typeof videoDataSchema>) => videoData.videoID
+      );
+      const grants = await VideoUploadGrant.find({
+        videoID: { $in: submittedVideoIDs },
+        projectID,
+        createdBy: req.user.decoded.uuid,
+        claimed: false,
+      }).lean();
+
+      const grantedVideoIDs = new Set(grants.map((grant) => grant.videoID));
+      const hasUnknownVideo = submittedVideoIDs.some(
+        (videoID: string) => !grantedVideoIDs.has(videoID)
+      );
+      if (hasUnknownVideo) {
+        return res.status(400).send({
+          err: true,
+          errMsg: conductorErrors.err2,
+        });
+      }
+
       const cloudflareUpdates: Promise<any>[] = [];
       parsedVideoData.forEach((videoData: z.infer<typeof videoDataSchema>) => {
         const newID = v4();
@@ -288,6 +321,16 @@ export async function addProjectFile(
       await Promise.all(cloudflareUpdates);
 
       await ProjectFile.insertMany(filesToCreate);
+
+      await VideoUploadGrant.updateMany(
+        {
+          videoID: { $in: submittedVideoIDs },
+          projectID,
+          createdBy: req.user.decoded.uuid,
+        },
+        { $set: { claimed: true } }
+      );
+
       filesToCreate.length = 0; // clear array for use by standard files below
     }
 
@@ -1921,9 +1964,32 @@ async function getPublicProjectFiles(
   }
 }
 
-async function createProjectFileStreamUploadURL(req: Request, res: Response) {
+/**
+ * Encodes a set of key/value pairs as a tus `Upload-Metadata` header value.
+ * Per the tus protocol, values are base64-encoded and pairs are comma-separated.
+ *
+ * @param entries - The metadata keys and their (plaintext) values.
+ * @returns The encoded header value.
+ */
+function _encodeTusMetadata(entries: Record<string, string>): string {
+  return Object.entries(entries)
+    .map(([key, value]) => `${key} ${Buffer.from(value).toString("base64")}`)
+    .join(",");
+}
+
+/**
+ * Creates a Cloudflare Stream direct-creator upload slot for an authenticated
+ * project member. The caller uploads the video straight to the returned URL via
+ * tus; this endpoint is the only point at which our Cloudflare credentials are
+ * used, so all authorization and quota enforcement happens here.
+ *
+ * @see https://developers.cloudflare.com/stream/uploading-videos/direct-creator-uploads/
+ */
+async function createProjectFileStreamUploadURL(
+  req: ZodReqWithUser<z.infer<typeof createProjectFileStreamUploadURLSchema>>,
+  res: Response
+) {
   try {
-    // https://developers.cloudflare.com/stream/uploading-videos/direct-creator-uploads/#step-1-create-your-own-api-endpoint-that-returns-an-upload-url
     if (
       !process.env.CLOUDFLARE_STREAM_ACCOUNT_ID ||
       !process.env.CLOUDFLARE_STREAM_API_TOKEN ||
@@ -1932,20 +1998,62 @@ async function createProjectFileStreamUploadURL(req: Request, res: Response) {
       throw new Error("Missing Cloudflare credentials");
     }
 
-    if (!req.headers["upload-length"] || !req.headers["upload-metadata"]) {
-      return res.status(400).send({
+    const { projectID } = req.params;
+    const { name, size, durationSeconds } = req.body;
+
+    const project = await Project.findOne({
+      projectID: { $eq: projectID },
+    }).lean();
+    if (!project) {
+      return res.status(404).send({
         err: true,
-        errMsg: conductorErrors.err1,
+        errMsg: conductorErrors.err11,
       });
     }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const org = await Organization.findOne({
+      orgID: process.env.ORG_ID,
+    }).lean();
+    if (!org) {
+      throw new Error("Failed to resolve organization");
+    }
+
+    // Authoritative video length check. The client performs the same check for
+    // UX, but it cannot be trusted — this is what actually caps billable minutes.
+    const maxDurationSeconds = org.videoLengthLimit * 60;
+    if (durationSeconds > maxDurationSeconds) {
+      return res.status(400).send({
+        err: true,
+        errMsg: `Video length exceeds the organization's limit of ${org.videoLengthLimit} minutes.`,
+      });
+    }
+
+    const now = new Date();
+    const uploadExpiry = new Date(now.getTime() + 60 * 60 * 1000); // Cloudflare upload URL valid for 1 hour
+
+    // Metadata is built here, never forwarded from the client, so maxDurationSeconds
+    // cannot be inflated by the caller.
+    const uploadMetadata = _encodeTusMetadata({
+      name,
+      maxDurationSeconds: maxDurationSeconds.toString(),
+      expiry: uploadExpiry.toISOString(),
+    });
 
     const ENDPOINT = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream?direct_user=true`;
     const cloudFlareRes = await axios.post(ENDPOINT, undefined, {
       headers: {
         Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
         "Tus-Resumable": "1.0.0",
-        "Upload-Length": req.headers["upload-length"],
-        "Upload-Metadata": req.headers["upload-metadata"],
+        "Upload-Length": size.toString(),
+        "Upload-Metadata": uploadMetadata,
+        "Upload-Creator": req.user.decoded.uuid,
       },
     });
 
@@ -1954,25 +2062,26 @@ async function createProjectFileStreamUploadURL(req: Request, res: Response) {
     }
 
     const streamMediaId = cloudFlareRes.headers["stream-media-id"];
-
     const destination = cloudFlareRes.headers["location"];
-    if (!destination) {
+    if (!streamMediaId || !destination) {
       throw new Error("Failed to get Cloudflare uploadURL");
     }
 
-    // https://developers.cloudflare.com/stream/uploading-videos/direct-creator-uploads/#step-1-create-your-own-api-endpoint-that-returns-an-upload-url
-    res.setHeader("Access-Control-Expose-Headers", [
-      "Location",
-      "Stream-Media-Id",
-    ]);
-    res.setHeader("Access-Control-Allow-Headers", "*");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Location", destination);
-    res.setHeader("Stream-Media-Id", streamMediaId);
+    await VideoUploadGrant.create({
+      videoID: streamMediaId,
+      projectID,
+      createdBy: req.user.decoded.uuid,
+      maxDurationSeconds,
+      uploadLength: size,
+      claimed: false,
+      createdAt: now,
+      expiresAt: new Date(now.getTime() + VIDEO_UPLOAD_GRANT_RETENTION_MS),
+    });
 
     return res.send({
       err: false,
-      destination,
+      uploadURL: destination,
+      videoID: streamMediaId,
     });
   } catch (err) {
     debugError(err);
@@ -1980,23 +2089,80 @@ async function createProjectFileStreamUploadURL(req: Request, res: Response) {
   }
 }
 
-async function createProjectFileStreamUploadURLOptions(
-  req: Request,
-  res: Response
-) {
-  res.setHeader("Access-Control-Allow-Headers", "*");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Max-Age", "86400");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Expose-Headers", [
-    "Location",
-    "Stream-Media-Id",
-  ]);
-  return res.send({
-    err: false,
-  });
+/**
+ * Deletes Cloudflare Stream videos whose upload slot was never claimed by a
+ * Project File. Without this, an abandoned upload is billed indefinitely.
+ * Intended to be invoked on a schedule via EventBridge.
+ */
+async function cleanupOrphanedStreamVideos(req: Request, res: Response) {
+  try {
+    if (
+      !process.env.CLOUDFLARE_STREAM_ACCOUNT_ID ||
+      !process.env.CLOUDFLARE_STREAM_API_TOKEN
+    ) {
+      throw new Error("Missing Cloudflare credentials");
+    }
+
+    const cutoff = new Date(Date.now() - VIDEO_UPLOAD_GRANT_TTL_MS);
+    const orphaned = await VideoUploadGrant.find({
+      claimed: false,
+      createdAt: { $lt: cutoff },
+    })
+      .limit(ORPHANED_VIDEO_CLEANUP_BATCH_SIZE)
+      .lean();
+
+    if (orphaned.length === 0) {
+      return res.send({ err: false, deleted: 0, failed: 0 });
+    }
+
+    const results = await Promise.allSettled(
+      orphaned.map(async (grant) => {
+        const ENDPOINT = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream/${grant.videoID}`;
+        try {
+          await axios.delete(ENDPOINT, {
+            headers: {
+              Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
+            },
+          });
+        } catch (err: any) {
+          // Already gone from Cloudflare — the grant record can still be cleared.
+          if (err?.response?.status !== 404) throw err;
+        }
+        return grant.videoID;
+      })
+    );
+
+    const deletedIDs = results
+      .filter(
+        (result): result is PromiseFulfilledResult<string> =>
+          result.status === "fulfilled"
+      )
+      .map((result) => result.value);
+
+    // Log failures rather than throwing so one bad id doesn't stall the sweep.
+    results
+      .filter((result) => result.status === "rejected")
+      .forEach((result) =>
+        debugError(
+          `Failed to delete orphaned Cloudflare Stream video: ${
+            (result as PromiseRejectedResult).reason
+          }`
+        )
+      );
+
+    if (deletedIDs.length > 0) {
+      await VideoUploadGrant.deleteMany({ videoID: { $in: deletedIDs } });
+    }
+
+    return res.send({
+      err: false,
+      deleted: deletedIDs.length,
+      failed: results.length - deletedIDs.length,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
 }
 
 async function _parseAndSaveAuthors(
@@ -2110,7 +2276,7 @@ export default {
   updateProjectFileCaptions,
   getPublicProjectFiles,
   createProjectFileStreamUploadURL,
-  createProjectFileStreamUploadURLOptions,
+  cleanupOrphanedStreamVideos,
   _parseAndSaveAuthors,
   getPermanentLink,
   redirectPermanentLink,

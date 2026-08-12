@@ -183,9 +183,16 @@ export const getPublicProjectFilesSchema = z.object({
   query: PaginationSchema,
 });
 
-export const createCloudflareStreamURLSchema = z.object({
-  //params: _projectFileParams,
+/** Maximum size of a single video accepted for Cloudflare Stream upload (100mb). */
+export const MAX_VIDEO_UPLOAD_BYTES = 100000000;
+
+export const createProjectFileStreamUploadURLSchema = z.object({
+  params: z.object({
+    projectID: _projectIDSchema,
+  }),
   body: z.object({
-    contentLength: z.coerce.number(),
+    name: z.string().trim().min(1).max(255),
+    size: z.coerce.number().int().positive().max(MAX_VIDEO_UPLOAD_BYTES),
+    durationSeconds: z.coerce.number().positive(),
   }),
 });
