@@ -269,8 +269,50 @@ export async function addProjectFile(
       const hasUnknownVideo = submittedVideoIDs.some(
         (videoID: string) => !grantedVideoIDs.has(videoID)
       );
-      if (hasUnknownVideo) {
+      const hasDuplicateVideo =
+        new Set<string>(submittedVideoIDs).size !== submittedVideoIDs.length;
+      if (hasUnknownVideo || hasDuplicateVideo) {
         return res.status(400).send({
+          err: true,
+          errMsg: conductorErrors.err2,
+        });
+      }
+
+      // Claim the grants before the Project Files are written, and roll the
+      // claim back if any downstream step fails. Claiming afterwards leaves a
+      // live video looking abandoned to the cleanup sweep whenever the claim
+      // write is the thing that fails. Grants are claimed one at a time, with
+      // `claimed: false` as the concurrency latch, so the rollback targets
+      // exactly the slots this request won and never one a concurrent request
+      // is legitimately holding.
+      const claimedVideoIDs: string[] = [];
+      const releaseClaims = async () => {
+        if (claimedVideoIDs.length === 0) return;
+        await VideoUploadGrant.updateMany(
+          { videoID: { $in: claimedVideoIDs } },
+          { $set: { claimed: false } }
+        );
+      };
+
+      for (const videoID of submittedVideoIDs as string[]) {
+        const claimed = await VideoUploadGrant.findOneAndUpdate(
+          {
+            videoID,
+            projectID,
+            createdBy: req.user.decoded.uuid,
+            claimed: false,
+          },
+          { $set: { claimed: true } }
+        ).lean();
+        if (!claimed) break;
+        claimedVideoIDs.push(videoID);
+      }
+
+      if (claimedVideoIDs.length !== submittedVideoIDs.length) {
+        // A concurrent request took one of these slots between the find above
+        // and the claim, so the batch is no longer trustworthy.
+        await releaseClaims();
+        return res.status(409).send({
           err: true,
           errMsg: conductorErrors.err2,
         });
@@ -318,18 +360,22 @@ export async function addProjectFile(
         );
       });
 
-      await Promise.all(cloudflareUpdates);
-
-      await ProjectFile.insertMany(filesToCreate);
-
-      await VideoUploadGrant.updateMany(
-        {
-          videoID: { $in: submittedVideoIDs },
-          projectID,
-          createdBy: req.user.decoded.uuid,
-        },
-        { $set: { claimed: true } }
-      );
+      try {
+        await Promise.all(cloudflareUpdates);
+        await ProjectFile.insertMany(filesToCreate);
+      } catch (err) {
+        // Hand the slots back to the cleanup sweep rather than stranding a
+        // billed upload. A partially-applied insertMany would release a slot
+        // whose Project File does exist; the sweep re-checks Project Files
+        // before deleting anything, so that case reconciles instead of losing
+        // the video.
+        await releaseClaims().catch((releaseErr) =>
+          debugError(
+            `Failed to release video upload grants after a failed attach: ${releaseErr}`
+          )
+        );
+        throw err;
+      }
 
       filesToCreate.length = 0; // clear array for use by standard files below
     }
@@ -2107,7 +2153,9 @@ async function createProjectFileStreamUploadURL(
 /**
  * Deletes Cloudflare Stream videos whose upload slot was never claimed by a
  * Project File. Without this, an abandoned upload is billed indefinitely.
- * Intended to be invoked on a schedule via EventBridge.
+ * Candidates are re-checked against Project Files before deletion so a lost
+ * claim write can never take a live video with it; those grants are marked
+ * claimed instead. Intended to be invoked on a schedule via EventBridge.
  */
 async function cleanupOrphanedStreamVideos(req: Request, res: Response) {
   try {
@@ -2126,7 +2174,12 @@ async function cleanupOrphanedStreamVideos(req: Request, res: Response) {
       .limit(ORPHANED_VIDEO_CLEANUP_BATCH_SIZE)
       .lean();
 
+    if (orphaned.length === 0) {
+      return res.send({ err: false, deleted: 0, failed: 0, reconciled: 0 });
+    }
+
     // Defensive check: do not delete a Stream video if it's already referenced by a Project File.
+    // Cloudflare deletion is irreversible, so the Project Files are the authority here, not the flag.
     const referenced = await ProjectFile.find(
       { isVideo: true, videoStorageID: { $in: orphaned.map((g) => g.videoID) } },
       { videoStorageID: 1 }
@@ -2134,8 +2187,25 @@ async function cleanupOrphanedStreamVideos(req: Request, res: Response) {
     const referencedIDs = new Set(referenced.map((f) => f.videoStorageID));
     const toDelete = orphaned.filter((g) => !referencedIDs.has(g.videoID));
 
+    if (referencedIDs.size > 0) {
+      // Mark them claimed so the grants stop resurfacing on every sweep.
+      const reconciledIDs = [...referencedIDs];
+      await VideoUploadGrant.updateMany(
+        { videoID: { $in: reconciledIDs } },
+        { $set: { claimed: true } }
+      );
+      debugError(
+        `Reconciled ${reconciledIDs.length} video upload grant(s) still referenced by a Project File: ${reconciledIDs.join(", ")}`
+      );
+    }
+
     if (toDelete.length === 0) {
-      return res.send({ err: false, deleted: 0, failed: 0 });
+      return res.send({
+        err: false,
+        deleted: 0,
+        failed: 0,
+        reconciled: referencedIDs.size,
+      });
     }
 
     const results = await Promise.allSettled(
@@ -2181,6 +2251,7 @@ async function cleanupOrphanedStreamVideos(req: Request, res: Response) {
       err: false,
       deleted: deletedIDs.length,
       failed: results.length - deletedIDs.length,
+      reconciled: referencedIDs.size,
     });
   } catch (err) {
     debugError(err);
