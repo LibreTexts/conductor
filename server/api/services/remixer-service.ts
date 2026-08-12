@@ -278,6 +278,63 @@ const resolveUiUri = async (
   return uri;
 };
 
+/**
+ * After a page is renamed or moved, its cached `uri.ui` is refreshed — but
+ * every descendant's cached `uri.ui` still embeds that page's *old* path
+ * segment as a prefix (MindTouch renames/moves an entire subtree's URLs in
+ * one operation). Rewrite each descendant's cached URL in place by swapping
+ * the old path prefix for the new one, so later steps in this run (new-page
+ * creation, further moves, the final published snapshot) see the real,
+ * current URL instead of a now-incorrect cached one — without an extra
+ * MindTouch fetch per descendant.
+ */
+const remapDescendantUriPaths = (
+  pages: RemixerSubPageState[],
+  changedPageId: string,
+  oldUri: string,
+  newUri: string,
+  subdomain: string,
+): void => {
+  const oldPath = extractPagePath(oldUri).replace(/\/+$/, "");
+  const newPath = extractPagePath(newUri).replace(/\/+$/, "");
+  if (!oldPath || oldPath === newPath) return;
+
+  const childrenByParent = new Map<string, RemixerSubPageState[]>();
+  pages.forEach((p) => {
+    const pid = p.parentID ?? "-1";
+    const siblings = childrenByParent.get(pid) ?? [];
+    siblings.push(p);
+    childrenByParent.set(pid, siblings);
+  });
+
+  const queue: RemixerSubPageState[] = [
+    ...(childrenByParent.get(changedPageId) ?? []),
+  ];
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    const id = node["@id"];
+    if (visited.has(id)) continue;
+    visited.add(id);
+
+    const currentUri = getRemixerPageUriUi(node);
+    const currentPath = extractPagePath(currentUri);
+    const isApiUrl =
+      currentUri.includes("/@api/deki/") || currentUri.startsWith("@api/deki/");
+    if (
+      !isApiUrl &&
+      (currentPath === oldPath || currentPath.startsWith(`${oldPath}/`))
+    ) {
+      const remappedPath = `${newPath}${currentPath.slice(oldPath.length)}`;
+      setRemixerPageUriUi(
+        node,
+        `https://${subdomain}.libretexts.org/${remappedPath}`,
+      );
+    }
+    queue.push(...(childrenByParent.get(id) ?? []));
+  }
+};
+
 const isMatterNode = (page: {
   "@title": string;
   title: string;
@@ -332,11 +389,13 @@ const orderBackMatterLast = async (
   });
   if (siblings.length === 0) return false;
 
-  const lastSibling = [...siblings].sort((a, b) => {
-    const aPath = (a.pathNumber ?? []).join(".");
-    const bPath = (b.pathNumber ?? []).join(".");
-    return aPath.localeCompare(bPath, undefined, { numeric: true });
-  }).at(-1)!;
+  const lastSibling = [...siblings]
+    .sort((a, b) => {
+      const aPath = (a.pathNumber ?? []).join(".");
+      const bPath = (b.pathNumber ?? []).join(".");
+      return aPath.localeCompare(bPath, undefined, { numeric: true });
+    })
+    .at(-1)!;
   const lastSiblingId = parseInt(lastSibling["@id"], 10);
   if (Number.isNaN(lastSiblingId)) return false;
 
@@ -389,7 +448,9 @@ const orderPageAfterPreviousSibling = async (
   const sorted = [...siblings].sort((a, b) =>
     (a.pathNumber ?? [])
       .join(".")
-      .localeCompare((b.pathNumber ?? []).join("."), undefined, { numeric: true }),
+      .localeCompare((b.pathNumber ?? []).join("."), undefined, {
+        numeric: true,
+      }),
   );
 
   // Nearest sibling whose pathNumber is strictly less than ours
@@ -442,8 +503,8 @@ const getDisplayTitle = (
   inDeletedBranch: boolean,
   autoNumbering: boolean,
 ): string => {
-  const rawTitle =  page.title|| page["@title"] || "Untitled";
-  if(page.parentID === "-1" && page.article === "topic-category") {
+  const rawTitle = page.title || page["@title"] || "Untitled";
+  if (page.parentID === "-1" && page.article === "topic-category") {
     return rawTitle;
   }
   const cleanTitle = stripDefaultTitlePrefixBeforeColon(
@@ -455,7 +516,8 @@ const getDisplayTitle = (
 
   // Empty pathNumber means this is the book root — no numbering
   const numberPath = page.pathNumber ?? [];
-  if (numberPath.length === 0) return appendSiblingTitleSuffix(cleanTitle, page);
+  if (numberPath.length === 0)
+    return appendSiblingTitleSuffix(cleanTitle, page);
 
   // formattedPath is pre-computed by buildBookPaths (already handles formattedPathOverride)
   const formattedPath = page.formattedPath?.trim() ?? "";
@@ -485,16 +547,20 @@ const handleNewPage = async (
   parent: RemixerSubPageState,
   title: string,
   subdomain: string,
-  coverId?: string ,
+  coverId?: string,
 ): Promise<{ pageID: string; pageURI: string }> => {
   const content =
-    page["@subpages"] === true || parent["@id"] === coverId 
+    page["@subpages"] === true || parent["@id"] === coverId
       ? RemixerTemplates.POST_CreateBlankTopicGuide
       : RemixerTemplates.POST_CreateBlankPage("topic");
   const rawTitle = page["@title"] || page.title || title;
   // segment must be un-encoded here — we double-encode the full path below,
   // matching CXOneFetch's encodeURIComponent(encodeURIComponent(path)) convention.
-  const segment = buildRemixerPagePathSegment(page, rawTitle, page.siblingTitleIndex);
+  const segment = buildRemixerPagePathSegment(
+    page,
+    rawTitle,
+    page.siblingTitleIndex,
+  );
 
   const parentUri = await resolveUiUri(parent, subdomain);
   // uri.ui already has %3A-encoded colons; decode once so the combined path
@@ -551,8 +617,11 @@ const remixerPagePaddedSlug = (
   isBookRoot: boolean = false,
 ): string => {
   const rawTitle = page["@title"] || page.title || displayTitle;
-  if(isBookRoot && page.article === "topic-category") {
-    return rawTitle.toLowerCase().replace(/ /g, "-").replace(/[\:\.\-]/g, "");
+  if (isBookRoot && page.article === "topic-category") {
+    return rawTitle
+      .toLowerCase()
+      .replace(/ /g, "-")
+      .replace(/[\:\.\-]/g, "");
   }
   return buildRemixerPagePathSegment(page, rawTitle, page.siblingTitleIndex);
 };
@@ -654,6 +723,7 @@ const handleModifiedPage = async (
   } else if (isRenamed && !isMoved) {
     const padded = remixerPagePaddedSlug(page, title, isBookRoot);
     const nameEnc = encodeURIComponent(padded);
+
     moveUrl = `${base}/move?title=${titleEnc}&name=${nameEnc}&allow=deleteredirects&dream.out.format=json`;
   } else if (isMoved && isRenamed) {
     const parentPath = safeDecPath(
@@ -752,8 +822,7 @@ const CONTENT_REUSE_WIDGET_RE =
   /<div[^>]+class=["'][^"']*mt-contentreuse-widget[^"']*["'][^>]+data-page=["']([^"']+)["']/i;
 
 // Matches raw wikitext wiki.page() call — captures path argument (group 1)
-const WIKI_PAGE_REUSE_RE =
-  /wiki\.page\s*\(\s*(?:["']|&quot;)([^"'&]+)/i;
+const WIKI_PAGE_REUSE_RE = /wiki\.page\s*\(\s*(?:["']|&quot;)([^"'&]+)/i;
 
 /**
  * Resolves the true source of a transcluded/reused page by inspecting its raw
@@ -780,7 +849,11 @@ const resolveTranscludeSource = async ({
   sourceId: number;
   sourceUri: string;
 }> => {
-  const fallback = { sourceSubdomain: subdomain, sourceId: pageId, sourceUri: fallbackUri };
+  const fallback = {
+    sourceSubdomain: subdomain,
+    sourceId: pageId,
+    sourceUri: fallbackUri,
+  };
 
   // Stop if we've already resolved this page in the current chain (cycle) or
   // the chain is unreasonably deep — either way, treat the current page as the
@@ -820,7 +893,10 @@ const resolveTranscludeSource = async ({
 
     let nestedUri = fallbackUri;
     if (nestedPageRes.ok) {
-      const nestedPage = (await nestedPageRes.json()) as Record<string, unknown>;
+      const nestedPage = (await nestedPageRes.json()) as Record<
+        string,
+        unknown
+      >;
       const resolvedUri = nestedPage["uri.ui"];
       if (typeof resolvedUri === "string" && resolvedUri.length > 0) {
         nestedUri = resolvedUri;
@@ -930,8 +1006,7 @@ const handleImportedPage = async (
         trimmedSourceUri,
         [],
       );
-    }
-    else{
+    } else {
       contentsBody = RemixerTemplates.POST_TranscludeCrossLibrary(
         resolvedSource.sourceSubdomain,
         resolvedSource.sourceId,
@@ -946,7 +1021,7 @@ const handleImportedPage = async (
     const htmlRes = await CXOneFetch({
       scope: "page",
       path: sourceId,
-      api: MindTouch.API.Page.GET_Page_Contents("html"),
+      api: MindTouch.API.Page.GET_Page_Contents("json"),
       subdomain: sourceSubdomain,
       options: {
         headers: {
@@ -957,7 +1032,12 @@ const handleImportedPage = async (
     if (!htmlRes.ok) {
       throwForMindTouchResponse(htmlRes, "Error reading source page contents");
     }
-    const rawHtml = await htmlRes.text();
+    const htmlJson = await htmlRes.json();
+    // `body` is the main HTML string; when it's an array, later entries are
+    // non-content extras (e.g. `{"@target":"toc", ...}`) — only [0] is the page body.
+    const rawHtml = Array.isArray(htmlJson?.body)
+      ? (htmlJson.body[0]?.toString() ?? "")
+      : (htmlJson?.body?.toString() ?? "");
     const $ = cheerio.load(rawHtml);
     $(".mt-guide-content").remove();
     const cleanedRawHtml = $.html();
@@ -995,16 +1075,14 @@ const handleImportedPage = async (
     bookID: `${subdomain}-${pageID}`,
   });
   try {
-    if (shouldTransclude){
+    if (shouldTransclude) {
       // make sure transcluded:yes is in the tags
-      if (!preservedTags.includes("transcluded:yes")){
+      if (!preservedTags.includes("transcluded:yes")) {
         preservedTags.push("transcluded:yes");
       }
-
-    }
-    else{
+    } else {
       // make sure transcluded:no is in the tags
-      if (!preservedTags.includes("transcluded:no")){
+      if (!preservedTags.includes("transcluded:no")) {
         preservedTags.push("transcluded:no");
       }
     }
@@ -1061,8 +1139,7 @@ const copyPageThumbnailAndOverview = async ({
     });
     if (thumbRes.ok) {
       const thumbBlob = await thumbRes.blob();
-      const contentType =
-        thumbRes.headers.get("content-type") ?? "image/png";
+      const contentType = thumbRes.headers.get("content-type") ?? "image/png";
       const putRes = await CXOneFetch({
         scope: "page",
         path: parseInt(targetId, 10),
@@ -1084,7 +1161,7 @@ const copyPageThumbnailAndOverview = async ({
       }
     }
   } catch (err) {
-    console.warn("[Remixer] Non-fatal error copying thumbnail:", err);
+    console.warn("[Remixer] Non-fatal error copying thumbnail:", err instanceof Error ? err.message : "");
   }
 
   // ── Overview / Summary ───────────────────────────────────────────────────
@@ -1102,7 +1179,7 @@ const copyPageThumbnailAndOverview = async ({
       await targetService.updatePageDetails(targetId, overview);
     }
   } catch (err) {
-    console.warn("[Remixer] Non-fatal error copying overview:", err);
+    console.warn("[Remixer] Non-fatal error copying Summary:", err instanceof Error ? err.message : "");
   }
 };
 
@@ -1110,7 +1187,7 @@ interface RunRemixerJobParams {
   jobID: string;
   projectID: string;
   subdomain: string;
-  coverId:string;
+  coverId: string;
 }
 
 /** Plain snapshot of a remixer page for persistence (avoids spreading Mongoose subdocs). */
@@ -1226,8 +1303,12 @@ const runRemixerJob = async ({
   subdomain,
   coverId,
 }: RunRemixerJobParams) => {
-  const job = await PrejectRemixerJob.findOne({ jobID: { $eq: jobID } }).sort({ _id: -1 });
-  const remixerState = await PrejectRemixer.findOne({ projectID: { $eq: projectID } }).sort({
+  const job = await PrejectRemixerJob.findOne({ jobID: { $eq: jobID } }).sort({
+    _id: -1,
+  });
+  const remixerState = await PrejectRemixer.findOne({
+    projectID: { $eq: projectID },
+  }).sort({
     _id: -1,
   });
   let finalBook: RemixerSubPageState[] = [];
@@ -1256,7 +1337,9 @@ const runRemixerJob = async ({
     // project), the definitive source of truth per redirect/path caveats.
     let ownedPageIDs: string[];
     try {
-      const bookService = new BookService({ bookID: `${subdomain}-${coverId}` });
+      const bookService = new BookService({
+        bookID: `${subdomain}-${coverId}`,
+      });
       ownedPageIDs = await bookService.getBookPageIDs();
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
@@ -1454,6 +1537,7 @@ const runRemixerJob = async ({
         } else if (status === "modified") {
           const parentId = page.parentID ?? "-1";
           const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
+          const oldUri = await resolveUiUri(page, subdomain);
           await withRetryOnTransient(
             () => handleModifiedPage(page, parent, title, subdomain, coverId),
             { onRetry: logRetry },
@@ -1465,6 +1549,19 @@ const runRemixerJob = async ({
             if (typeof uriUiVal === "string" && uriUiVal.length > 0) {
               setRemixerPageUriUi(page, uriUiVal);
               page["uri.ui"] = uriUiVal as string;
+              // The rename/move above just changed this page's own path
+              // segment (e.g. renaming the book root changes its slug),
+              // which shifts the URL of every descendant too — rewrite
+              // their cached uri.ui so later steps in this run (new-page
+              // creation, further moves, the final snapshot) use the real,
+              // current URL instead of the now-stale cached one.
+              remapDescendantUriPaths(
+                pages,
+                page["@id"],
+                oldUri,
+                uriUiVal,
+                subdomain,
+              );
             }
           }
         } else if (status === "deleted") {
@@ -1653,11 +1750,9 @@ const runRemixerJob = async ({
             .sort((a, b) =>
               (a.pathNumber ?? [])
                 .join(".")
-                .localeCompare(
-                  (b.pathNumber ?? []).join("."),
-                  undefined,
-                  { numeric: true },
-                ),
+                .localeCompare((b.pathNumber ?? []).join("."), undefined, {
+                  numeric: true,
+                }),
             );
 
           for (const child of sortedChildren) {
