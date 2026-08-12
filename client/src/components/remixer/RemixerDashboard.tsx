@@ -47,7 +47,11 @@ import {
   isMatterBranchNode as isMatterBranchNodePure,
   isRestrictedLibraryShelfNode,
   isBackMatterNode,
+  isDefaultMatterPage,
+  isFrontMatterNode,
+  isMatterRootNode,
   isRootBookNode,
+  sortMatterSiblings,
   reorderBookNodes,
   sanitizePathLevelFormats,
   setLocalDraft,
@@ -195,7 +199,7 @@ const RemixerDashboard: React.FC = () => {
     const book = remixerData.currentBook ?? [];
     const node = book.find((n) => n["@id"] === nodeId);
     if (!node) return false;
-    return isMatterBranchNodePure(nodeId, book) && !node.addedItem;
+    return isDefaultMatterPage(node);
   };
 
   /** Deepest path level present in the current book (drives the path-format modal). */
@@ -220,10 +224,26 @@ const RemixerDashboard: React.FC = () => {
       stopAtParentId: remixerData.liberCoverID,
     });
 
+  const contextMenuTargetNode =
+    contextMenu != null
+      ? (remixerData.currentBook ?? []).find(
+          (n) => n["@id"] === contextMenu.nodeId,
+        )
+      : undefined;
+  const contextMenuParentNode = contextMenuTargetNode?.parentID
+    ? (remixerData.currentBook ?? []).find(
+        (n) => n["@id"] === contextMenuTargetNode.parentID,
+      )
+    : undefined;
+  const contextMenuUnderMatterRoot =
+    contextMenuParentNode != null && isMatterRootNode(contextMenuParentNode);
+
+  // Sibling add is allowed under matter roots (insert is clamped: front after
+  // defaults, back before defaults). Other default matter pages stay blocked.
   const contextMenuCanAddSibling =
     contextMenu != null &&
     !isRootBookNode(remixerData.currentBook ?? [], contextMenu.nodeId) &&
-    !isDefaultMatterItem(contextMenu.nodeId);
+    (contextMenuUnderMatterRoot || !isDefaultMatterItem(contextMenu.nodeId));
 
   const contextMenuCanDuplicate =
     contextMenu != null &&
@@ -926,6 +946,7 @@ const RemixerDashboard: React.FC = () => {
     const nextTitle = normalizeEditTitle(page.title || page["@title"] || "");
     const titleChanged = previousTitle !== nextTitle;
     const prevOverride = existingNode.formattedPathOverride === true;
+    const nextOverrideUriUiEnding = page.overrideUriUiEnding || existingNode.overrideUriUiEnding;
     const pathChanged =
       prevOverride !== nextOverride ||
       (nextOverride &&
@@ -951,6 +972,9 @@ const RemixerDashboard: React.FC = () => {
               formattedPath: nextFormattedPath,
               formattedPathPrefix: nextFormattedPathPrefix,
               formattedPathIndex: nextFormattedPathIndex,
+              ...(nextOverrideUriUiEnding
+                ? { overrideUriUiEnding: nextOverrideUriUiEnding }
+                : {}),
             };
             return {
               ...saved,
@@ -975,6 +999,9 @@ const RemixerDashboard: React.FC = () => {
             formattedPath: nextFormattedPath,
             formattedPathPrefix: nextFormattedPathPrefix,
             formattedPathIndex: nextFormattedPathIndex,
+            ...(nextOverrideUriUiEnding
+              ? { overrideUriUiEnding: nextOverrideUriUiEnding }
+              : {}),
           };
           return {
             ...saved,
@@ -987,6 +1014,112 @@ const RemixerDashboard: React.FC = () => {
       },
       { trackHistory: true },
     );
+  };
+
+  /**
+   * Insert `newNode` under `parentId`, clamping position for matter roots:
+   * front matter → after default children; back matter → before default children.
+   */
+  const insertNodeUnderParent = (
+    existingBookNodes: RemixerSubPage[],
+    newNode: RemixerSubPage,
+    parentId: string,
+    mode: "above" | "below" | "inside",
+    targetNodeId: string,
+  ): RemixerSubPage[] => {
+    const parent = existingBookNodes.find((n) => n["@id"] === parentId);
+    const siblings = existingBookNodes.filter(
+      (n) => (n.parentID ?? "-1") === parentId,
+    );
+    const ordered = sortMatterSiblings(siblings, parent);
+
+    let insertAfterId: string | undefined;
+    let insertBeforeId: string | undefined;
+
+    if (parent && isMatterRootNode(parent)) {
+      const defaults = ordered.filter((n) => isDefaultMatterPage(n));
+      const customs = ordered.filter((n) => !isDefaultMatterPage(n));
+      if (isFrontMatterNode(parent) || parent["@title"]?.toLowerCase() === "front matter") {
+        // Customs must sit after all defaults.
+        if (customs.length === 0) {
+          insertAfterId = defaults[defaults.length - 1]?.["@id"];
+        } else if (mode === "inside") {
+          insertAfterId = customs[customs.length - 1]?.["@id"]
+            ?? defaults[defaults.length - 1]?.["@id"];
+        } else {
+          const targetIsCustom = customs.some((n) => n["@id"] === targetNodeId);
+          if (targetIsCustom) {
+            const targetIndex = customs.findIndex((n) => n["@id"] === targetNodeId);
+            const afterIndex = mode === "above" ? targetIndex - 1 : targetIndex;
+            insertAfterId =
+              afterIndex >= 0
+                ? customs[afterIndex]?.["@id"]
+                : defaults[defaults.length - 1]?.["@id"];
+            if (afterIndex < 0 && !insertAfterId) {
+              insertBeforeId = customs[0]?.["@id"];
+            }
+          } else {
+            insertAfterId = defaults[defaults.length - 1]?.["@id"];
+          }
+        }
+      } else if (isBackMatterNode(parent) || parent["@title"]?.toLowerCase() === "back matter") {
+        // Customs must sit before all defaults.
+        if (customs.length === 0) {
+          insertBeforeId = defaults[0]?.["@id"];
+        } else if (mode === "inside") {
+          insertBeforeId = defaults[0]?.["@id"];
+          if (!insertBeforeId) {
+            insertAfterId = customs[customs.length - 1]?.["@id"];
+          }
+        } else {
+          const targetIsCustom = customs.some((n) => n["@id"] === targetNodeId);
+          if (targetIsCustom) {
+            const targetIndex = customs.findIndex((n) => n["@id"] === targetNodeId);
+            const afterIndex = mode === "above" ? targetIndex - 1 : targetIndex;
+            if (afterIndex >= 0) {
+              insertAfterId = customs[afterIndex]?.["@id"];
+            } else {
+              insertBeforeId = customs[0]?.["@id"];
+            }
+          } else {
+            insertBeforeId = defaults[0]?.["@id"];
+          }
+        }
+      }
+    } else {
+      const targetIndex = siblings.findIndex((n) => n["@id"] === targetNodeId);
+      const insertAfterIndex =
+        mode === "above" ? targetIndex - 1 : targetIndex;
+      insertAfterId = siblings[insertAfterIndex]?.["@id"];
+      if (!insertAfterId && mode === "above") {
+        insertBeforeId = siblings[0]?.["@id"];
+      }
+    }
+
+    const result: RemixerSubPage[] = [];
+    let inserted = false;
+    for (const n of existingBookNodes) {
+      if (insertBeforeId && n["@id"] === insertBeforeId) {
+        result.push(newNode);
+        inserted = true;
+      }
+      result.push(n);
+      if (insertAfterId && n["@id"] === insertAfterId) {
+        result.push(newNode);
+        inserted = true;
+      }
+    }
+    if (!inserted) {
+      const firstSiblingIndex = result.findIndex(
+        (n) => (n.parentID ?? "-1") === parentId,
+      );
+      if (firstSiblingIndex >= 0) {
+        result.splice(firstSiblingIndex, 0, newNode);
+      } else {
+        result.push(newNode);
+      }
+    }
+    return result;
   };
 
   /** Insert a new node above/below `targetNodeId` (as a sibling) or inside it (as a child). */
@@ -1019,12 +1152,16 @@ const RemixerDashboard: React.FC = () => {
         addedItem: true,
       };
       updateCurrentBook(
-        (existingBookNodes) => [
-          ...existingBookNodes.map((n) =>
-            n["@id"] === targetNodeId ? { ...n, "@subpages": true } : n,
+        (existingBookNodes) =>
+          insertNodeUnderParent(
+            existingBookNodes.map((n) =>
+              n["@id"] === targetNodeId ? { ...n, "@subpages": true } : n,
+            ),
+            newNode,
+            targetNodeId,
+            "inside",
+            targetNodeId,
           ),
-          newNode,
-        ],
         { trackHistory: true },
       );
       setExpandedNodeIdsBook((prev) => {
@@ -1049,36 +1186,14 @@ const RemixerDashboard: React.FC = () => {
         addedItem: true,
       };
       updateCurrentBook(
-        (existingBookNodes) => {
-          const siblings = existingBookNodes.filter(
-            (n) => (n.parentID ?? "-1") === parentId,
-          );
-          const targetIndex = siblings.findIndex(
-            (n) => n["@id"] === targetNodeId,
-          );
-          const insertAfterIndex =
-            mode === "above" ? targetIndex - 1 : targetIndex;
-          const insertAfterId = siblings[insertAfterIndex]?.["@id"];
-
-          const result: RemixerSubPage[] = [];
-          for (const n of existingBookNodes) {
-            result.push(n);
-            if (insertAfterId && n["@id"] === insertAfterId) {
-              result.push(newNode);
-            }
-          }
-          if (!insertAfterId) {
-            const firstSiblingIndex = result.findIndex(
-              (n) => (n.parentID ?? "-1") === parentId,
-            );
-            if (firstSiblingIndex >= 0) {
-              result.splice(firstSiblingIndex, 0, newNode);
-            } else {
-              result.push(newNode);
-            }
-          }
-          return result;
-        },
+        (existingBookNodes) =>
+          insertNodeUnderParent(
+            existingBookNodes,
+            newNode,
+            parentId,
+            mode,
+            targetNodeId,
+          ),
         { trackHistory: true },
       );
     }

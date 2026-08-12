@@ -57,8 +57,9 @@ export const buildRemixerPagePathSegment = (
   const siblingTitleIndexPostfix = siblingTitleIndex
     ? `_${siblingTitleIndex.toString()}`
     : "";
+  // Prefer formattedPath so autoNumbering `start` (incl. 0 → `00%3A_…`) is honored.
   const numbering =
-    page.numberedPath?.trim() || page.formattedPath?.trim() || "";
+    page.formattedPath?.trim() || page.numberedPath?.trim() || "";
   return numbering
     ? `${numbering.padStart(2, "0")}:_${titleSegment}${siblingTitleIndexPostfix}`
     : titleSegment;

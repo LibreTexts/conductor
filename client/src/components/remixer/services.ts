@@ -1,5 +1,14 @@
 import { Book } from "../../types";
-import { GetRemixerDisplayTitleOptions, libraries, Library, NumberingType, PathLevelFormat, RemixerSubPage } from "./model";
+import {
+  GetRemixerDisplayTitleOptions,
+  libraries,
+  Library,
+  matterNodesUrlEndings,
+  matterNodeValidTitles,
+  NumberingType,
+  PathLevelFormat,
+  RemixerSubPage,
+} from "./model";
 
 export type DropPosition = "before" | "inside" | "after";
 
@@ -210,6 +219,44 @@ export const isBackMatterNode = (node: RemixerSubPage): boolean => {
   if (normalizedMatterTitle(node) === "back matter") return true;
   const uri = (getRemixerPageUriUi(node) || node["@href"] || "").toLowerCase();
   return uri.includes("back_matter");
+};
+
+/** True for the Front Matter / Back Matter container pages (not their children). */
+export const isMatterRootNode = (node: RemixerSubPage): boolean => {
+  const title = normalizedMatterTitle(node);
+  return title === "front matter" || title === "back matter";
+};
+
+/**
+ * Structural default pages under front/back matter that stay locked and
+ * unnumbered (TitlePage, Index, etc.). Matter roots are not included.
+ */
+export const isDefaultMatterPage = (node: RemixerSubPage): boolean => {
+  if (node.addedItem) return false;
+  if (isMatterRootNode(node)) return false;
+  const uri = getRemixerPageUriUi(node).toLowerCase();
+  const title = (node["@title"] || node.title || "").trim().toLowerCase();
+  const isURLMatch = matterNodesUrlEndings.some((ending) =>
+    uri.includes(ending.toLowerCase()),
+  );
+  const isTitleMatch = matterNodeValidTitles.some(
+    (t) => title === t.toLowerCase(),
+  );
+  return isURLMatch && isTitleMatch;
+};
+
+/** Sort siblings under a matter root: front = defaults then customs; back = customs then defaults. */
+export const sortMatterSiblings = (
+  siblings: RemixerSubPage[],
+  parent: RemixerSubPage | undefined,
+): RemixerSubPage[] => {
+  if (!parent || !isMatterRootNode(parent)) return siblings;
+  const defaults = siblings.filter((n) => isDefaultMatterPage(n));
+  const customs = siblings.filter((n) => !isDefaultMatterPage(n));
+  if (isFrontMatterNode(parent) || normalizedMatterTitle(parent) === "front matter") {
+    return [...defaults, ...customs];
+  }
+  return [...customs, ...defaults];
 };
 
 /** Path segment as integer for formatting ("0" → 0, "3" → 3). */
@@ -452,7 +499,7 @@ export const resolveInheritedFormattedPathPrefix = (
 export const getRemixerDisplayTitle = (
   page: RemixerSubPage,
   numberPath: string[],
-  /** True on front/back matter nodes and all descendants — no numeric path prefix. */
+  /** True on front/back matter nodes and all descendants — no title autonumber prefix. */
   inMatterNoNumberSubtree: boolean,
   inDeletedBranch: boolean,
   options: GetRemixerDisplayTitleOptions,
@@ -602,6 +649,45 @@ export const computeRemixerOrdinalPathsMap = (
       return;
     }
 
+    const parentNode = nodesById.get(parentId);
+    const parentIsMatterRoot = parentNode ? isMatterRootNode(parentNode) : false;
+
+    // Under front/back matter roots: defaults stay unnumbered in pathNumber;
+    // custom pages get leaf-only ordinals used for publish slugs (`05%3A_…`).
+    if (parentIsMatterRoot) {
+      /** LibreTexts reserves 01–04 under Front Matter (TitlePage…Licensing). */
+      const FRONT_MATTER_RESERVED_SLOTS = 4;
+      const ordered = sortMatterSiblings(children, parentNode);
+      const numberable = ordered.filter(
+        (c) => !isDeletedForPath(c) && !isDefaultMatterPage(c),
+      );
+      for (const child of ordered) {
+        if (isDeletedForPath(child) || parentInDeletedBranch) {
+          const path = [...parentPath];
+          ordinalPathById.set(child["@id"], path);
+          visited.add(child["@id"]);
+          assignUnderParent(child["@id"], path, true, true);
+          continue;
+        }
+        let nextPath: string[];
+        if (isDefaultMatterPage(child)) {
+          nextPath = [...parentPath];
+        } else {
+          const idx = numberable.indexOf(child);
+          // Back matter: 1..n (display/slug offset by autoNumbering start → 00, 01…).
+          // Front matter: continue after reserved 01–04 → 5, 6, 7… → `05%3A_…`.
+          const isBack = parentNode ? isBackMatterNode(parentNode) : false;
+          nextPath = isBack
+            ? [String(idx + 1)]
+            : [String(FRONT_MATTER_RESERVED_SLOTS + idx + 1)];
+        }
+        ordinalPathById.set(child["@id"], nextPath);
+        visited.add(child["@id"]);
+        assignUnderParent(child["@id"], nextPath, false, true);
+      }
+      return;
+    }
+
     const childLevel = parentPath.length + 1;
     const levelFormat = pathLevelFormats.find((f) => f.level === childLevel);
     // matter subtrees are excluded from the global continue counter
@@ -693,7 +779,8 @@ export const buildBookPaths = (
 
   return book.map((node) => {
     const ordinalPath = ordinalPathById.get(node["@id"]) ?? [];
-    const { numberedPath, formattedPath: computedFormattedPath } = toPaths(ordinalPath);
+    const { numberedPath: computedNumberedPath, formattedPath: computedFormattedPath } =
+      toPaths(ordinalPath);
 
     const hasOverride =
       ignoreOverrides !== true && node.formattedPathOverride === true;
@@ -707,9 +794,26 @@ export const buildBookPaths = (
             ordinalPathById,
           )
         : null;
+
+    const parent = nodesById.get(node.parentID ?? "");
+    // Front-matter customs: path slots are literal 5,6,7… (after reserved 01–04).
+    // Do not apply autoNumbering start offset or they can collide with 01–04.
+    const isFrontMatterCustom =
+      parent != null &&
+      isMatterRootNode(parent) &&
+      (isFrontMatterNode(parent) ||
+        normalizedMatterTitle(parent) === "front matter") &&
+      !isDefaultMatterPage(node) &&
+      ordinalPath.length === 1;
+
+    const leafSlot = isFrontMatterCustom ? (ordinalPath[0] ?? "") : "";
+    const numberedPath = isFrontMatterCustom ? leafSlot : computedNumberedPath;
     const formattedPath = hasOverride
       ? stripObjectObjectMarker(node.formattedPath)
-      : inheritedPrefix ?? computedFormattedPath;
+      : isFrontMatterCustom
+        ? leafSlot
+        : inheritedPrefix ?? computedFormattedPath;
+
     return {
       ...node,
       originalPathNumber: node.originalPathNumber,
@@ -785,13 +889,15 @@ const isInMatterNoNumberSubtreeForAutonumber = (
   page: RemixerSubPage,
   nodesById: Map<string, RemixerSubPage>,
 ): boolean => {
+  // Titles under front/back matter never show an autonumber prefix; path
+  // ordinals for custom matter children are still computed separately.
   let id: string | undefined = page["@id"];
   const visited = new Set<string>();
   while (id && id !== "-1" && !visited.has(id)) {
     visited.add(id);
     const n = nodesById.get(id);
     if (!n) break;
-    if (isMatterNode(n)) return true;
+    if (isMatterRootNode(n) || isMatterNode(n)) return true;
     id = n.parentID ?? "-1";
   }
   return false;

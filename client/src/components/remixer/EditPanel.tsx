@@ -7,8 +7,11 @@ import {
   Stack,
   Modal,
   Link,
+  Text,
+  IconButton,
 } from "@libretexts/davis-react";
-import { IconDeviceFloppy } from "@tabler/icons-react";
+import { IconDeviceFloppy, IconEdit } from "@tabler/icons-react";
+import { getRemixerPageUriUi } from "./services";
 
 interface EditPanelProps {
   open: boolean;
@@ -31,6 +34,21 @@ function sanitizeRemixerTitle(
   return trim ? s.trim() : s;
 }
 
+/** Truncate to `maxLen` characters with "..." in the middle (e.g. 25 → "abcdefghij...opqrstuvwxy"). */
+function truncateMiddle(value: string, maxLen: number): string {
+  if (value.length <= maxLen) return value;
+  const keep = maxLen - 3;
+  const front = Math.ceil(keep / 2);
+  const back = Math.floor(keep / 2);
+  return `${value.slice(0, front)}...${value.slice(-back)}`;
+}
+
+/** Path-segment-safe characters only — no `/`, spaces, `?`, `#`, etc. */
+function sanitizeUriEnding(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  return value.replace(/[^A-Za-z0-9._~%-]/g, "");
+}
+
 const EditPanel: React.FC<EditPanelProps> = (props) => {
   const {
     open,
@@ -42,9 +60,20 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
     coverPageId,
   } = props;
   const [page, setPage] = useState<RemixerSubPage | undefined>(currentPage);
+
+  const currentPageUri = getRemixerPageUriUi(currentPage);
+  const currentPageParentPath = currentPageUri
+    ? currentPageUri.split("/").slice(0, -1).join("/")
+    : "";
+ 
   const titleInputRef = useRef<HTMLInputElement>(null);
   const isBookRoot =
     currentPage?.parentID === "-1" || currentPage?.["@id"] === coverPageId;
+  const [overrideUriUiEnding, setOverrideUriUiEnding] = useState<string|undefined>(
+    sanitizeUriEnding(currentPage?.overrideUriUiEnding ||currentPageUri?.split("/").slice(-1)[0]  ||undefined),
+  );
+  const [enableOverrideUriUiEnding, setEnableOverrideUriUiEnding] =
+    useState(false);
 
   const handleSaveClick = () => {
     if (!page) return;
@@ -64,6 +93,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
       formattedPathPrefix: prefix,
       formattedPathIndex: index,
       formattedPath: overridden ? `${prefix}${index}`.trim() : undefined,
+      overrideUriUiEnding: enableOverrideUriUiEnding ? overrideUriUiEnding : undefined,
     };
     handleSave(normalizedPage);
   };
@@ -79,6 +109,11 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
       isBookRoot,
     );
     setPage({ ...currentPage, title, "@title": title });
+    const uri = getRemixerPageUriUi(currentPage);
+    setOverrideUriUiEnding(
+      sanitizeUriEnding(uri.split("/").slice(-1)[0] ?? ""),
+    );
+    setEnableOverrideUriUiEnding(false);
   }, [currentPage, open]);
 
   useEffect(() => {
@@ -194,11 +229,46 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
               className="flex-7"
             />
           </Stack>
+          {currentPageUri && (
+            <Stack direction="horizontal" gap="sm" align="center" className="w-full">
+              <Text className="text-sm text-gray-500 shrink-0">
+                <span title={currentPageParentPath}>
+                  {truncateMiddle(currentPageParentPath, 25)}
+                </span>{" "}
+                /
+              </Text>
+              {enableOverrideUriUiEnding ? (
+                <Input
+                  name="overrideUriUiEnding"
+                  label=""
+                  aria-label="URL ending"
+                  value={overrideUriUiEnding}
+                  onChange={(e) =>
+                    setOverrideUriUiEnding(sanitizeUriEnding(e.target.value))
+                  }
+                  className="flex-1"
+                />
+              ) : (
+                <Text className="text-sm text-gray-500">{overrideUriUiEnding}</Text>
+              )}
+              {/* <IconButton
+                icon={<IconEdit size={16} />}
+                aria-label={
+                  enableOverrideUriUiEnding
+                    ? "Stop editing URL ending"
+                    : "Edit URL ending"
+                }
+                onClick={() =>
+                  setEnableOverrideUriUiEnding((prev) => !prev)
+                }
+              /> */}
+            </Stack>
+          )}
           {!currentPage?.["@id"].startsWith("new-") && (
             <Link
               href={
-                currentPage?.["uri.ui"] && currentPage?.["uri.ui"] !== ""
-                  ? currentPage?.["uri.ui"]
+                currentPageUri && currentPageUri !== ""
+                  ? currentPageUri
                   : `https://${library}.libretexts.org/@go/page/${currentPage?.["@id"]}`
               }
               target="_blank"
