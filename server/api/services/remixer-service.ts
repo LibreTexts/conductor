@@ -300,8 +300,15 @@ const remapDescendantUriPaths = (
   newUri: string,
   subdomain: string,
 ): void => {
-  const oldPath = extractPagePath(oldUri).replace(/\/+$/, "");
-  const newPath = extractPagePath(newUri).replace(/\/+$/, "");
+  // extractPagePath only strips the host; the inputs may also arrive as
+  // already-relative paths or `@href` values that carry a leading and/or
+  // trailing slash. Trim both ends so the prefix comparison and the sliced
+  // remap below stay aligned (and the rebuilt URL never doubles its slash).
+  const toNormalizedPagePath = (value: string): string =>
+    extractPagePath(value).replace(/^\/+|\/+$/g, "");
+
+  const oldPath = toNormalizedPagePath(oldUri);
+  const newPath = toNormalizedPagePath(newUri);
   if (!oldPath || oldPath === newPath) return;
 
   const queue: RemixerSubPageState[] = [
@@ -314,10 +321,9 @@ const remapDescendantUriPaths = (
     if (visited.has(id)) continue;
     visited.add(id);
 
-    const currentUri = getRemixerPageUriUi(node);
-    const currentPath = extractPagePath(currentUri);
-    const isApiUrl =
-      currentUri.includes("/@api/deki/") || currentUri.startsWith("@api/deki/");
+    const currentPath = toNormalizedPagePath(getRemixerPageUriUi(node));
+    // API-form URLs (@api/deki/…) are never human-readable UI paths — skip them.
+    const isApiUrl = currentPath.startsWith("@api/deki/");
     if (
       !isApiUrl &&
       (currentPath === oldPath || currentPath.startsWith(`${oldPath}/`))
