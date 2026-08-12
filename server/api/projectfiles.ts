@@ -2126,12 +2126,20 @@ async function cleanupOrphanedStreamVideos(req: Request, res: Response) {
       .limit(ORPHANED_VIDEO_CLEANUP_BATCH_SIZE)
       .lean();
 
-    if (orphaned.length === 0) {
+    // Defensive check: do not delete a Stream video if it's already referenced by a Project File.
+    const referenced = await ProjectFile.find(
+      { isVideo: true, videoStorageID: { $in: orphaned.map((g) => g.videoID) } },
+      { videoStorageID: 1 }
+    ).lean();
+    const referencedIDs = new Set(referenced.map((f) => f.videoStorageID));
+    const toDelete = orphaned.filter((g) => !referencedIDs.has(g.videoID));
+
+    if (toDelete.length === 0) {
       return res.send({ err: false, deleted: 0, failed: 0 });
     }
 
     const results = await Promise.allSettled(
-      orphaned.map(async (grant) => {
+      toDelete.map(async (grant) => {
         const ENDPOINT = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream/${grant.videoID}`;
         try {
           await axios.delete(ENDPOINT, {
