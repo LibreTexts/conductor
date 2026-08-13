@@ -1,4 +1,4 @@
-import { Breadcrumb, Heading, Stack } from "@libretexts/davis-react";
+import { Breadcrumb, Heading, Stack, Text } from "@libretexts/davis-react";
 import {
   IconBuilding,
   IconChevronRight,
@@ -7,9 +7,9 @@ import {
   IconServer,
   IconUsers,
 } from "@tabler/icons-react";
-import { useEffect } from "react";
 import { useHistory } from "react-router-dom";
 import { useTypedSelector } from "../../../../state/hooks";
+import { useDocumentTitle } from "usehooks-ts";
 
 type CentralIdentityListItem = {
   url: string;
@@ -23,13 +23,7 @@ const CentralIdentity = () => {
   const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
   const org = useTypedSelector((state) => state.org);
   const history = useHistory();
-
-  /**
-   * Set page title on initial load.
-   */
-  useEffect(() => {
-    document.title = "LibreTexts Conductor | LibreOne Management";
-  }, []);
+  useDocumentTitle("LibreTexts Conductor | LibreOne Management");
 
   const listItems: CentralIdentityListItem[] = [
     {
@@ -66,7 +60,7 @@ const CentralIdentity = () => {
   ];
 
   return (
-    <div className="bg-white h-full px-8 pt-8">
+    <div className="h-full px-8 pt-8">
       <Stack direction="vertical" gap="md" className="mb-4">
         <Heading level={2}>LibreOne Admin Consoles</Heading>
         <Breadcrumb aria-label="Page navigation">
@@ -75,17 +69,14 @@ const CentralIdentity = () => {
         </Breadcrumb>
       </Stack>
 
-      <p className="text-gray-700 mb-6">
+      <Text className="">
         Welcome to the LibreOne Admin Consoles. Here, you will find several
         tools to manage users throughout the LibreVerse via the LibreOne CAS.
-      </p>
+      </Text>
 
       {isSuperAdmin && org.orgID === "libretexts" && (
-        <div>
-          <h3 className="text-sm font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-2">
-            LibreOne Admin Consoles
-          </h3>
-          <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
+        <div className="mt-6">
+          <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
             {listItems.map((item) => (
               <button
                 key={item.url}
