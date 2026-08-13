@@ -1,10 +1,12 @@
 import axios, { AxiosRequestConfig } from "axios";
 import {
-  Announcement, AssetSearchParams,
+  Announcement,
+  AssetSearchParams,
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
   Author,
-  Book, BookSearchParams,
+  Book,
+  BookSearchParams,
   CentralIdentityApp,
   CentralIdentityLicense,
   CentralIdentityOrg,
@@ -19,7 +21,8 @@ import {
   Homework,
   HomeworkSearchParams,
   Library,
-  PageDetailsResponse, PeerReview,
+  PageDetailsResponse,
+  PeerReview,
   PeerReviewRubric,
   Project,
   ProjectFile,
@@ -36,13 +39,15 @@ import {
   BaseInvitation,
   Sender,
   ProjectSummary,
-  InvitationsResponse, TableOfContentsDetailed,
+  InvitationsResponse,
+  TableOfContentsDetailed,
   Note,
   StoreProduct,
   StoreCheckoutSessionItem,
   ClientConfig,
   StoreGetShippingOptionsRes,
-  StoreCheckoutForm, StoreAddressFields,
+  StoreCheckoutForm,
+  StoreAddressFields,
   StoreValidateAddressRes,
   EditAcademyOnlineAccessFormValues,
   CentralIdentityUserLicenseResult,
@@ -62,7 +67,7 @@ import {
   BookWithAutoMatched,
   Organization,
   GetCampusAdminResponse,
-  UserTask
+  UserTask,
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -118,7 +123,11 @@ class API {
    * Returns the parsed JSON response, or throws with a shape compatible with
    * the Axios error format so callers can handle it uniformly.
    */
-  private async streamJson<T>(method: "PUT" | "POST", path: string, data: unknown): Promise<T> {
+  private async streamJson<T>(
+    method: "PUT" | "POST",
+    path: string,
+    data: unknown,
+  ): Promise<T> {
     const response = await fetch(`${this.BASE_URL}${path}`, {
       method,
       headers: {
@@ -133,11 +142,17 @@ class API {
 
     const text = await response.text().catch(() => "");
     let parsed: Record<string, unknown> = {};
-    try { parsed = JSON.parse(text); } catch { /* non-JSON error body */ }
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      /* non-JSON error body */
+    }
 
     if (!response.ok) {
       throw Object.assign(
-        new Error(String(parsed.errMsg ?? parsed.message ?? `HTTP ${response.status}`)),
+        new Error(
+          String(parsed.errMsg ?? parsed.message ?? `HTTP ${response.status}`),
+        ),
         { response: { status: response.status, data: parsed } },
       );
     }
@@ -745,12 +760,11 @@ class API {
   }: {
     shipping_address: StoreAddressFields;
   }) {
-    const res = await axios.post<StoreValidateAddressRes & ConductorBaseResponse>(
-      "/store/checkout/validate-address",
-      {
-        shipping_address,
-      }
-    );
+    const res = await axios.post<
+      StoreValidateAddressRes & ConductorBaseResponse
+    >("/store/checkout/validate-address", {
+      shipping_address,
+    });
     return res;
   }
 
@@ -1301,7 +1315,7 @@ class API {
    */
   async getCommonsDownloadFileURL(bookID: string, fileID: string) {
     const res = await axios.get<{ url: string } & ConductorBaseResponse>(
-      `/commons/book/${bookID}/files/${fileID}/download`
+      `/commons/book/${bookID}/files/${fileID}/download`,
     );
     return res;
   }
@@ -1763,12 +1777,13 @@ class API {
       originalPublisher?: { name?: string; url?: string };
     },
   ) {
-    return await axios.patch<
-      { updatedCount: number } & ConductorBaseResponse
-    >(`/project/${projectID}/files/bulk/metadata`, {
-      fileIDs,
-      ...data,
-    });
+    return await axios.patch<{ updatedCount: number } & ConductorBaseResponse>(
+      `/project/${projectID}/files/bulk/metadata`,
+      {
+        fileIDs,
+        ...data,
+      },
+    );
   }
 
   async getPublicProjectFiles(params?: { page?: number; limit?: number }) {
@@ -1835,7 +1850,7 @@ class API {
 
   async updateQueueAutoAssignConfig(
     id: string,
-    config: { auto_assign_enabled: boolean; auto_assign_uuids: string[] }
+    config: { auto_assign_enabled: boolean; auto_assign_uuids: string[] },
   ) {
     const res = await axios.put<
       {
@@ -2072,11 +2087,11 @@ class API {
       autoCloseSilenced?: boolean;
       category?: string;
       queue?: string; // queue slug
-    }
+    },
   ) {
     return await axios.patch<{ ticket: SupportTicket } & ConductorBaseResponse>(
       `/support/ticket/${ticketID}`,
-      payload
+      payload,
     );
   }
 
@@ -2558,8 +2573,8 @@ class API {
     aliases?: string[];
     imageSource?: string;
   }) {
-
-    const { coverID, library, imageFile, removeImage, aliases, ...rest } = props;
+    const { coverID, library, imageFile, removeImage, aliases, ...rest } =
+      props;
     const formData = new FormData();
     Object.entries(rest).forEach(([key, value]) => {
       if (value !== undefined && value !== "") {
@@ -2616,35 +2631,36 @@ class API {
     library: string;
     coverID: string;
     glossaryID: string;
-    auxGlossaryID?:string,  auxGlossaryParentID?:string;
+    auxGlossaryID?: string;
+    auxGlossaryParentID?: string;
   }) {
-    const { library, coverID, glossaryID, auxGlossaryID, auxGlossaryParentID } = props;
+    const { library, coverID, glossaryID, auxGlossaryID, auxGlossaryParentID } =
+      props;
     const res = await axios.patch<ConductorBaseResponse>(
-      `/commons/book/${library}/${coverID}/glossary`, { glossaryID, auxGlossaryID, auxGlossaryParentID });
+      `/commons/book/${library}/${coverID}/glossary`,
+      { glossaryID, auxGlossaryID, auxGlossaryParentID },
+    );
     return res.data;
   }
   async getExistingGlossary(library: string, coverID: string) {
-    const res = await axios.put<
-      ConductorBaseResponse
-    >(`/commons/book/${library}/${coverID}/glossary/existing`);
+    const res = await axios.put<ConductorBaseResponse>(
+      `/commons/book/${library}/${coverID}/glossary/existing`,
+    );
     return res.data;
   }
-  async removePageFromGlossary(props: {
-    pageId: string;
-    usageId: string;
-  }) {
-    const { pageId, usageId, } = props;
+  async removePageFromGlossary(props: { pageId: string; usageId: string }) {
+    const { pageId, usageId } = props;
     const res = await axios.delete<ConductorBaseResponse>(
-      `/commons/glossary/usage/${usageId}/page/${pageId}`);
+      `/commons/glossary/usage/${usageId}/page/${pageId}`,
+    );
     return res.data;
   }
 
-  async removeGlossaryTerm(props: {
-    usageId: string;
-  }) {
+  async removeGlossaryTerm(props: { usageId: string }) {
     const { usageId } = props;
     const res = await axios.delete<ConductorBaseResponse>(
-      `/commons/glossary/usage/${usageId}`);
+      `/commons/glossary/usage/${usageId}`,
+    );
     return res.data;
   }
 
@@ -2696,7 +2712,11 @@ class API {
   async saveRemixerProjectState(
     id: string,
     currentBook: unknown[],
-    settings?: { autoNumbering?: boolean; copyModeState?: string; pathLevelFormats?: unknown[] },
+    settings?: {
+      autoNumbering?: boolean;
+      copyModeState?: string;
+      pathLevelFormats?: unknown[];
+    },
   ) {
     return this.streamJson<
       {
@@ -2712,7 +2732,11 @@ class API {
   async publishRemixerProject(
     id: string,
     currentBook: unknown[],
-    settings?: { autoNumbering?: boolean; copyModeState?: string; pathLevelFormats?: unknown[] },
+    settings?: {
+      autoNumbering?: boolean;
+      copyModeState?: string;
+      pathLevelFormats?: unknown[];
+    },
   ) {
     return this.streamJson<
       {
@@ -2773,13 +2797,21 @@ class API {
     currentbook: boolean = true,
     option: { includeMatter: boolean; linkTitle: boolean; full: boolean },
   ) {
-
     const res = await axios.post(`/remixer/${id}/page`, {
       path,
       subdomain,
       pageDetails,
       currentbook,
       option,
+    });
+    return res.data;
+  }
+
+  async getRemixerTreeFlattened(id: string, path: string, subdomain: string) {
+    const res = await axios.post(`/remixer/${id}/page/tree`, {
+      path,
+      subdomain,
+      flatten: true,
     });
     return res.data;
   }
@@ -2794,41 +2826,54 @@ class API {
 
   async getRestackerToc(id: string) {
     // /projects/:projectID/restacker/toc
-    const res = await axios.get<{
-      toc: TableOfContents;
-    } & ConductorBaseResponse & { status: "pending" | "completed" | "failed" }>(`/projects/${id}/restacker/toc`);
+    const res = await axios.get<
+      {
+        toc: TableOfContents;
+      } & ConductorBaseResponse & { status: "pending" | "completed" | "failed" }
+    >(`/projects/${id}/restacker/toc`);
     return res.data;
   }
 
   async getRestacker(id: string) {
-    const res = await axios.get<{
-      restacker: RestackerEntry[];
-    } & ConductorBaseResponse>(`/projects/${id}/restacker`);
+    const res = await axios.get<
+      {
+        restacker: RestackerEntry[];
+      } & ConductorBaseResponse
+    >(`/projects/${id}/restacker`);
     return res.data;
   }
 
   async getRestackerStatus(id: string) {
-    const res = await axios.get<{
-      status: "pending" | "completed" | "failed" | "notfound";
-      processing: boolean;
-      total: number;
-      completed: number;
-      failed: number;
-      pending: number;
-    } & ConductorBaseResponse>(`/projects/${id}/restacker/status`);
+    const res = await axios.get<
+      {
+        status: "pending" | "completed" | "failed" | "notfound";
+        processing: boolean;
+        total: number;
+        completed: number;
+        failed: number;
+        pending: number;
+      } & ConductorBaseResponse
+    >(`/projects/${id}/restacker/status`);
     return res.data;
   }
 
   async reloadRestacker(id: string) {
-    const res = await axios.post<{
-      toc: TableOfContents;
-    } & ConductorBaseResponse & { status: "pending" | "completed" | "failed" }>(`/projects/${id}/restacker/toc`);
+    const res = await axios.post<
+      {
+        toc: TableOfContents;
+      } & ConductorBaseResponse & { status: "pending" | "completed" | "failed" }
+    >(`/projects/${id}/restacker/toc`);
     return res.data;
   }
 
   async updateRestackerLicense(
     projectID: string,
-    data: { pageID: string; license: string; version?: string; force?: boolean },
+    data: {
+      pageID: string;
+      license: string;
+      version?: string;
+      force?: boolean;
+    },
   ) {
     const res = await axios.patch<
       {
@@ -2839,8 +2884,6 @@ class API {
     >(`/projects/${projectID}/restacker/license`, data);
     return res.data;
   }
-
-
 }
 
 export default new API();

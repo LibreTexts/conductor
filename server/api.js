@@ -3295,6 +3295,14 @@ router
     remixerAPI.fetchPage
   );
 
+router.route('/remixer/:id/page/tree').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  express.json({ limit: "2mb" }),
+  middleware.validateZod(RemixerValidators.GetRemixerPageTreeSchema),
+  remixerAPI.getRemixerPageTree
+);
+
 router
   .route("/remixer/:id/publish")
   .post(
