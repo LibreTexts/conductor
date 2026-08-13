@@ -20,6 +20,17 @@ export const GetRemixerPageSchema = z.object({
   query: z.object({}).optional(),
 });
 
+export const GetRemixerPageTreeSchema = z.object({
+  params: z.object({
+    id: z.string(),
+  }),
+  body: z.object({
+    path: z.string().min(1),
+    subdomain: z.string().min(1),
+    flatten: z.boolean().default(true),
+  }),
+});
+
 export const SaveRemixerProjectStateSchema = z.object({
   params: z.object({
     id: z.string(),

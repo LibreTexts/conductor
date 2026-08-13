@@ -1,8 +1,9 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { ZodReqWithUser } from "../types/Express.js";
+import {  ZodReqWithUser } from "../types/Express.js";
 import {
   GetRemixerPageSchema,
+  GetRemixerPageTreeSchema,
   GetRemixerProjectStateSchema,
   SaveRemixerProjectStateSchema,
 } from "./validators/remixer.js";
@@ -581,6 +582,25 @@ const fetchPage = async (
   }
 };
 
+const getRemixerPageTree = async (
+  req: ZodReqWithUser<z.infer<typeof GetRemixerPageTreeSchema>>,
+  res: Response,
+) => {
+  try {
+    const { subdomain, path, flatten } = req.body;
+    const bookService = new BookService({
+      bookID: `${subdomain}-${path}`,
+    });
+    const tree = await bookService.getBookTreeFull({ flatten });
+    return res.send({
+      err: false,
+      response: tree,
+    });
+  } catch (error) {
+    debug("[remixer] getRemixerPageTree unexpected error:", error);
+    return conductor500Err(res);
+  }
+};
 export default {
   getRemixerProject,
   saveRemixerProjectState,
@@ -589,4 +609,5 @@ export default {
   getRemixerProjectState,
   deleteRemixerProjectState,
   fetchPage,
+  getRemixerPageTree,
 };

@@ -457,119 +457,46 @@ const RemixerDashboard: React.FC = () => {
   // API loaders & tree expansion
   // ==========================================================================
 
-  /** BFS-load the entire remote book (cover + every descendant) into a flat node list. */
+  /** Load the entire remote book (cover + every descendant) in one request. */
   const loadEntireBook = async (
     projectId: string,
     coverPageId: string,
     libreLibrary: string,
   ): Promise<RemixerSubPage[]> => {
-    const nodesById = new Map<string, RemixerSubPage>();
-    const fetchedParentIds = new Set<string>();
-    const queue: string[] = [];
-
-    const rootDetails = await api.getRemixerPage(
+    const res = await api.getRemixerTreeFlattened(
       projectId,
       coverPageId,
       libreLibrary,
-      true,
-      true,
-      { includeMatter: false, linkTitle: true, full: false },
     );
-    const rootNode: RemixerSubPage = {
-      ...rootDetails.response,
+    const nodes: RemixerSubPage[] = res.response ?? [];
+    return nodes.map((node) => ({
+      ...node,
       addedItem: false,
-    };
-    nodesById.set(rootNode["@id"], rootNode);
-    queue.push(rootNode["@id"]);
-
-    while (queue.length > 0) {
-      const parentId = queue.shift();
-      if (!parentId || fetchedParentIds.has(parentId)) {
-        continue;
-      }
-      fetchedParentIds.add(parentId);
-
-      const response = await api.getRemixerPage(
-        projectId,
-        parentId,
-        libreLibrary,
-        false,
-        true,
-        { includeMatter: false, linkTitle: true, full: false },
-      );
-
-      const children: RemixerSubPage[] = (response.response ?? []).map(
-        (node: RemixerSubPage) => ({
-          ...node,
-          addedItem: false,
-        }),
-      );
-
-      children.forEach((child) => {
-        nodesById.set(child["@id"], child);
-        if (child["@subpages"]) {
-          queue.push(child["@id"]);
-        }
-      });
-    }
-
-    return Array.from(nodesById.values());
+    }));
   };
 
-  /** BFS-load a library subtree rooted at `rootNode` (used for catalog-book extract imports). */
+  /** Load a library subtree rooted at `rootNode` (used for catalog-book extract imports). */
   const loadLibrarySubtree = useCallback(
     async (
       projectId: string,
       rootNode: RemixerSubPage,
       libreLibrary: string,
     ): Promise<RemixerSubPage[]> => {
-      const nodesById = new Map<string, RemixerSubPage>();
-      const fetchedParentIds = new Set<string>();
-      const queue: string[] = [];
-
-      nodesById.set(rootNode["@id"], {
-        ...rootNode,
-        addedItem: false,
-      });
-      queue.push(rootNode["@id"]);
-
-      while (queue.length > 0) {
-        const parentId = queue.shift();
-        if (!parentId || fetchedParentIds.has(parentId)) {
-          continue;
-        }
-        fetchedParentIds.add(parentId);
-
-        const parentNode = nodesById.get(parentId);
-        if (!parentNode?.["@subpages"]) {
-          continue;
-        }
-
-        const response = await api.getRemixerPage(
-          projectId,
-          parentId,
-          libreLibrary,
-          false,
-          true,
-          { includeMatter: false, linkTitle: true, full: false },
-        );
-
-        const children: RemixerSubPage[] = (response.response ?? []).map(
-          (node: RemixerSubPage) => ({
-            ...node,
-            addedItem: false,
-          }),
-        );
-
-        children.forEach((child) => {
-          nodesById.set(child["@id"], child);
-          if (child["@subpages"]) {
-            queue.push(child["@id"]);
-          }
-        });
+      const res = await api.getRemixerTreeFlattened(
+        projectId,
+        rootNode["@id"],
+        libreLibrary,
+      );
+      const nodes: RemixerSubPage[] = (res.response ?? []).map(
+        (node: RemixerSubPage) => ({
+          ...node,
+          addedItem: false,
+        }),
+      );
+      if (!nodes.some((node) => node["@id"] === rootNode["@id"])) {
+        nodes.unshift({ ...rootNode, addedItem: false });
       }
-
-      return Array.from(nodesById.values());
+      return nodes;
     },
     [],
   );
@@ -579,77 +506,95 @@ const RemixerDashboard: React.FC = () => {
    * then scroll-reveal the target node with a brief highlight.
    */
   const loadSelectedBook = async (bookID: string, lib: string) => {
+    if (!id) return;
     skipLibraryAutoLoadRef.current = true;
-    let expandedNodeIds = new Set<string>();
     setRemixerData((prev) => ({ ...prev, selectedLibrary: lib as Library }));
-    // fetch bookCoverID
-    let pageId = bookID.split("-")[1];
-    const fetchingLibarary = [] as RemixerSubPage[];
 
-    while (true) {
-      if (fetchingLibarary.find((c) => c["@id"] === pageId)) {
-        expandedNodeIds.add(pageId);
-        const parent = fetchingLibarary.find((c) => c["@id"] === pageId);
-        pageId = parent?.parentID ?? "";
-        if (!pageId || pageId === "-1") break;
-        continue;
-      }
-      const res = await api.getRemixerPage(id, pageId, lib, false, false, {
-        includeMatter: false,
-        linkTitle: true,
-        full: false,
+    const targetNodeId = bookID.split("-")[1];
+    const pageOptions = {
+      includeMatter: false,
+      linkTitle: true,
+      full: false,
+    };
+    const nodesById = new Map<string, RemixerSubPage>();
+    const expandedNodeIds = new Set<string>([targetNodeId]);
+
+    const upsert = (node: RemixerSubPage, idOverride?: string) => {
+      const nodeId = idOverride ?? node["@id"];
+      if (!nodeId) return;
+      nodesById.set(nodeId, {
+        ...(nodesById.get(nodeId) ?? {}),
+        ...node,
+        "@id": nodeId,
       });
-      const pagedetails = await api.getRemixerPage(
+    };
+
+    // Selected book's descendants in one request.
+    const treeRes = await api.getRemixerTreeFlattened(id, targetNodeId, lib);
+    for (const node of (treeRes.response ?? []) as RemixerSubPage[]) {
+      upsert(node);
+    }
+
+    // Walk the ancestry with page details so the library tree can expand to the book.
+    let pageId: string | undefined = targetNodeId;
+    const visited = new Set<string>();
+    while (pageId && pageId !== "-1" && !visited.has(pageId)) {
+      visited.add(pageId);
+      expandedNodeIds.add(pageId);
+
+      const details = await api.getRemixerPage(
         id,
         pageId,
         lib,
         true,
         false,
-        {
-          includeMatter: false,
-          linkTitle: true,
-          full: false,
-        },
+        pageOptions,
       );
+      if (details.err || !details.response) break;
 
-      if (res.err === false) {
-        fetchingLibarary.push(...res.response);
-        expandedNodeIds.add(pageId);
+      const node = details.response as RemixerSubPage;
+      upsert(node, node["@id"] || pageId);
+
+      const parentId = node.parentID;
+      if (!parentId || parentId === "-1") break;
+
+      // Direct children of each ancestor (siblings of the path) — one level only.
+      const siblings = await api.getRemixerPage(
+        id,
+        parentId,
+        lib,
+        false,
+        false,
+        pageOptions,
+      );
+      if (siblings.err === false) {
+        for (const child of (siblings.response ?? []) as RemixerSubPage[]) {
+          upsert(child);
+        }
       }
 
-      pageId = pagedetails.response["parentID"];
-      if (!pageId || pageId === "-1") {
-        console.debug("pageId not found", pageId);
-        break;
-      }
+      pageId = parentId;
     }
-    const libsubpages = await api.getRemixerPage(id, "0", lib, false, false, {
-      includeMatter: false,
-      linkTitle: true,
-      full: false,
-    });
-    const libdetails = await api.getRemixerPage(id, "0", lib, true, false, {
-      includeMatter: false,
-      linkTitle: true,
-      full: false,
-    });
-    try {
-      fetchingLibarary.push(...(libsubpages.response as RemixerSubPage[]), {
-        ...libdetails.response,
-        ["@id"]: "0",
-      });
-    } catch {
-      console.debug("wrong push");
+
+    const [libsubpages, libdetails] = await Promise.all([
+      api.getRemixerPage(id, "0", lib, false, false, pageOptions),
+      api.getRemixerPage(id, "0", lib, true, false, pageOptions),
+    ]);
+    if (libdetails.err === false && libdetails.response) {
+      upsert(libdetails.response as RemixerSubPage, "0");
+    }
+    if (libsubpages.err === false) {
+      for (const child of (libsubpages.response ?? []) as RemixerSubPage[]) {
+        upsert(child);
+      }
     }
 
     setRemixerData((prev) => ({
       ...prev,
       library: {
         ...(prev.library ?? {}),
-        [lib]: fetchingLibarary
-
+        [lib]: Array.from(nodesById.values()),
       },
-      // selectedLibrary: lib as Library,
     }));
 
     setExpandedNodeIdsLibrary(
@@ -658,7 +603,6 @@ const RemixerDashboard: React.FC = () => {
       ),
     );
 
-    const targetNodeId = bookID.split("-")[1];
     setTimeout(() => {
       skipLibraryAutoLoadRef.current = false;
       const el = document.querySelector<HTMLElement>(
