@@ -599,20 +599,17 @@ const extractReferenceFromContent = (content: string): string[] => {
   return [...keys];
 };
 
-const BIBLIO_SCRIPT_URL =
-  "https://cdn.jsdelivr.net/gh/yghaemi/biblizer@0dac851/script.js";
+const REFERENCE_CITE_BLOCK = "<p>{{template.ReferenceCite()}}</p>";
 
-/** Any biblizer script.js CDN URL (any @ref / version). Fresh instance each use — avoid /g lastIndex bugs. */
-const biblizerScriptSrcRe = (): RegExp =>
-  /https?:\/\/cdn\.jsdelivr\.net\/gh\/yghaemi\/biblizer@[A-Za-z0-9._-]+\/script\.js/gi;
+/** Matches `{{template.ReferenceCite()}}` with optional whitespace. Fresh instance each use. */
+const referenceCiteTemplateRe = (): RegExp =>
+  /\{\{\s*template\.ReferenceCite\s*\(\s*\)\s*\}\}/i;
 
-const buildReferenceScriptBlock = (): string =>
-  `<pre class="script" style="display: none;">var pageId = page.id;
-&lt;script src="${BIBLIO_SCRIPT_URL}"&gt;&lt;/script&gt;
+/** Legacy biblizer `<pre class="script">…</pre>` block (any CDN @ref / version). */
+const biblizerScriptBlockRe = (): RegExp =>
+  /<pre\b[^>]*class=["'][^"']*\bscript\b[^"']*["'][^>]*>[\s\S]*?biblizer[\s\S]*?<\/pre>/gi;
 
-&lt;section id="reference-output"&gt;&lt;/section&gt;
-&lt;input type="hidden" id="pageID" name="pageID" value="{{ pageId }}" /&gt;
-</pre>`;
+const buildReferenceCiteBlock = (): string => REFERENCE_CITE_BLOCK;
 
 /** Normalize MindTouch contents JSON body (string or string[]). */
 const normalizePageBody = (rawOrBody: unknown): string => {
@@ -639,37 +636,30 @@ const normalizePageBody = (rawOrBody: unknown): string => {
 };
 
 /**
- * Ensure page content uses the current biblizer script URL.
- * - no biblizer script → append block
- * - outdated/different biblizer src → replace with BIBLIO_SCRIPT_URL
- * - already current → unchanged
+ * Ensure page content includes `{{template.ReferenceCite()}}`.
+ * - no template → append `<p>{{template.ReferenceCite()}}</p>`
+ * - leftover biblizer script block → replace with the template
+ * - already present → unchanged
  */
 const ensureReferenceScript = (
   content: unknown,
 ): { content: string; action: "none" | "added" | "updated" } => {
   const body = normalizePageBody(content);
-  const matches = [...body.matchAll(biblizerScriptSrcRe())].map(
-    (match) => match[0],
-  );
-
-  if (!matches.length) {
-    return {
-      content: `${body.trimEnd()}\n${buildReferenceScriptBlock()}`,
-      action: "added",
-    };
-  }
-
-  const needsUpdate = matches.some(
-    (src) => src.toLowerCase() !== BIBLIO_SCRIPT_URL.toLowerCase(),
-  );
-  if (!needsUpdate) {
+  if (referenceCiteTemplateRe().test(body)) {
     return { content: body, action: "none" };
   }
 
+  const withLegacyReplaced = body.replace(
+    biblizerScriptBlockRe(),
+    REFERENCE_CITE_BLOCK,
+  );
+  if (withLegacyReplaced !== body) {
+    return { content: withLegacyReplaced, action: "updated" };
+  }
+
   return {
-    // Fresh regex so replace visits every occurrence.
-    content: body.replace(biblizerScriptSrcRe(), BIBLIO_SCRIPT_URL),
-    action: "updated",
+    content: `${body.trimEnd()}\n${buildReferenceCiteBlock()}`,
+    action: "added",
   };
 };
 
@@ -787,7 +777,7 @@ const ensureBackmatterReferencesPage = async ({
     options: {
       method: "POST",
       headers: { "Content-Type": "text/plain; charset=utf-8" },
-      body: `${RemixerTemplates.POST_CreateBlankPage("topic")}\n${buildReferenceScriptBlock()}`,
+      body: `${RemixerTemplates.POST_CreateBlankPage("topic")}\n${buildReferenceCiteBlock()}`,
     },
   });
   if (!createRes.ok) {
@@ -862,7 +852,7 @@ const runJob = async ({
       }
 
       let scriptAction: "none" | "added" | "updated" = "none";
-      // Per-page biblizer script only when NOT using a shared backmatter page.
+      // Per-page ReferenceCite template only when NOT using a shared backmatter page.
       if (!isBackmatter) {
         const rawContent = await bookService.getPageRawContent(page.id);
         const ensured = ensureReferenceScript(rawContent);
@@ -890,9 +880,9 @@ const runJob = async ({
                 : ""
             }${
               scriptAction === "added"
-                ? "; added biblizer script"
+                ? "; added ReferenceCite template"
                 : scriptAction === "updated"
-                  ? "; updated biblizer script"
+                  ? "; replaced biblizer script with ReferenceCite template"
                   : ""
             }`,
           },
@@ -920,7 +910,7 @@ const runJob = async ({
       );
     }
 
-    // Put / refresh biblizer script on the shared backmatter page after scanning all pages.
+    // Put / refresh ReferenceCite template on the shared backmatter page after scanning all pages.
     if (isBackmatter && backmatterPageID) {
       const rawContent = await bookService.getPageRawContent(backmatterPageID);
       const { content: nextContent, action: scriptAction } =

@@ -232,7 +232,7 @@ const AddContent: React.FC<AddContentProps> = ({
 
               <Tabs.Tab>Search and Import</Tabs.Tab>
               <Tabs.Tab>New Reference</Tabs.Tab>
-              <Tabs.Tab>Libretexts Books</Tabs.Tab>
+              <Tabs.Tab>Internal References</Tabs.Tab>
             </Tabs.List>
             <Tabs.Panel>
               <Stack direction="vertical" gap="md">
