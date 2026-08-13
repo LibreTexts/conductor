@@ -588,6 +588,12 @@ const getRemixerPageTree = async (
 ) => {
   try {
     const { subdomain, path, flatten } = req.body;
+
+    const ctx = await ProjectContext.load(req.params.id);
+    if (!ctx.canMember(req.user)) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
+    }
+
     const bookService = new BookService({
       bookID: `${subdomain}-${path}`,
     });
@@ -597,6 +603,10 @@ const getRemixerPageTree = async (
       response: tree,
     });
   } catch (error) {
+    if (error instanceof ProjectError) {
+      return returnProjectError(res, error);
+    }
+
     debug("[remixer] getRemixerPageTree unexpected error:", error);
     return conductor500Err(res);
   }
