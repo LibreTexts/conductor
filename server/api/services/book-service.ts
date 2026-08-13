@@ -267,10 +267,16 @@ export default class BookService {
         method: "GET",
       },
     });
+    
     if (!res.ok) {
       throw new Error(`Error fetching tree: ${res.statusText}`);
     }
+    
     const rawTree = (await res.json()) as GetPageSubPagesResponse;
+    if(!rawTree?.page) {
+      throw new Error("No page data found in tree response");
+    }
+
     const structured = this._buildHierarchy(rawTree?.page);
 
     if (flatten) {
