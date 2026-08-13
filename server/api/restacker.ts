@@ -1,13 +1,13 @@
 import { z } from "zod";
-import Project from "../models/project";
 import { ZodReqWithUser } from "../types";
 import * as RestackerValidators from "./validators/Restacker";
-import projectsAPI from "./projects";
 import { Response } from "express";
 import BookService from "./services/book-service";
 import Restacker from "../models/restacker";
 import RestackerService from "../util/Restackerutil";
-import { debugServer } from "../debug";
+import { debug } from "../debug";
+import { ProjectContext, ProjectError, returnProjectError } from "./services/project-context";
+import { conductor500Err } from "../util/errorutils";
 
 const LICENSES_WITHOUT_VERSION = new Set(["publicdomain", "arr", "ck12"]);
 
@@ -286,90 +286,95 @@ const getRestackerToc = async (
   >,
   res: Response,
 ) => {
-  const { projectID } = req.params;
-  const project = await Project.findOne({ projectID: { $eq: projectID } });
-  if (!project) {
-    return res.status(404).send({
-      err: true,
-      errMsg: "Project not found",
-    });
-  }
-  if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
-    return res.status(403).send({
-      err: true,
-      errMsg: "You do not have permission to access this project",
-    });
-  }
-  if (!project.libreLibrary || !project.libreCoverID) {
-    return res.status(400).send({
-      err: true,
-      errMsg: "Project does not have access to a LibreTexts book",
-    });
-  }
-  const bookService = new BookService({
-    bookID: `${project.libreLibrary}-${project.libreCoverID}`,
-  });
-  const toc = await bookService.getBookTOCNew();
-  var restacker = await Restacker.findOne({ projectID: { $eq: projectID } });
-  if (!restacker) {
-    type RestackerPage = {
-      id: string;
-      title: string;
-      url: string;
-      license: undefined;
-      contentLicense: undefined;
-      quotation: undefined;
-    };
-    const flattenPages = (pages: typeof toc.children): RestackerPage[] => {
-      return (
-        pages?.flatMap((page) => [
-          {
-            id: page.id,
-            title: page.title,
-            url: page.url,
-            license: undefined,
-            contentLicense: undefined,
-            quotation: undefined,
-          },
-          ...flattenPages(page.children ?? []),
-        ]) ?? []
-      );
-    };
-    const restackerCurrentBook = flattenPages(toc?.children ?? []);
-    const bookpage = {
-      id: toc?.id,
-      title: toc?.title,
-      url: toc?.url,
-      license: undefined,
-      contentLicense: undefined,
-      quotation: undefined,
-    };
-    restackerCurrentBook.unshift(bookpage);
-    restacker = await Restacker.create({
-      projectID: projectID,
-      createdBy: req.user.decoded.uuid,
-      updatedBy: req.user.decoded.uuid,
-      restackerCurrentBook: restackerCurrentBook,
-    });
-  }
+  const projectID = req.params.projectID;
+  try {
 
-  const restackerService = new RestackerService();
-  const restackerStatus = await restackerService.getRestackerStatus(restacker);
+    const ctx = await ProjectContext.load(projectID);
+    if (!ctx.canMember(req.user)) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
+    }
 
-  if (restackerStatus.allPending && !restacker.processing) {
-    restackerService.runRestacker(
-      projectID,
-      project.libreLibrary,
-      project.libreCoverID,
-    ).catch((err) => {
-      debugServer(`Error running restacker for project ${projectID}: ${err.message}`,)
-    })
+    const bookIDRes = ctx.getBookIDAttachedToProject();
+
+    if (!bookIDRes) {
+      return returnProjectError(res, new ProjectError("invalidbookid"));
+    }
+
+    const bookService = new BookService({
+      bookID: bookIDRes.bookID,
+    });
+
+    const toc = await bookService.getBookTOCNew();
+    var restacker = await Restacker.findOne({ projectID: { $eq: projectID } });
+    
+    if (!restacker) {
+      type RestackerPage = {
+        id: string;
+        title: string;
+        url: string;
+        license: undefined;
+        contentLicense: undefined;
+        quotation: undefined;
+      };
+      const flattenPages = (pages: typeof toc.children): RestackerPage[] => {
+        return (
+          pages?.flatMap((page) => [
+            {
+              id: page.id,
+              title: page.title,
+              url: page.url,
+              license: undefined,
+              contentLicense: undefined,
+              quotation: undefined,
+            },
+            ...flattenPages(page.children ?? []),
+          ]) ?? []
+        );
+      };
+      const restackerCurrentBook = flattenPages(toc?.children ?? []);
+      const bookpage = {
+        id: toc?.id,
+        title: toc?.title,
+        url: toc?.url,
+        license: undefined,
+        contentLicense: undefined,
+        quotation: undefined,
+      };
+      restackerCurrentBook.unshift(bookpage);
+      restacker = await Restacker.create({
+        projectID: projectID,
+        createdBy: req.user.decoded.uuid,
+        updatedBy: req.user.decoded.uuid,
+        restackerCurrentBook: restackerCurrentBook,
+      });
+    }
+
+    const restackerService = new RestackerService();
+    const restackerStatus = await restackerService.getRestackerStatus(restacker);
+
+    if (restackerStatus.allPending && !restacker.processing) {
+      restackerService.runRestacker(
+        projectID,
+        bookIDRes.library,
+        bookIDRes.coverID,
+      ).catch((err) => {
+        debug(`Error running restacker for project ${projectID}: ${err.message}`);
+      });
+    }
+
+    return res.send({
+      err: false,
+      toc: toc,
+      status: restackerStatus.statusCode,
+    });
+  } catch (err: any) {
+    if (err instanceof ProjectError) {
+      return returnProjectError(res, err);
+    }
+    
+    debug(`Error getting restacker for project ${projectID}: ${err.message}`);
+    return conductor500Err(res);
   }
-  return res.send({
-    err: false,
-    toc: toc,
-    status: restackerStatus.statusCode,
-  });
 };
 
 const restackerReload = async (
@@ -378,113 +383,111 @@ const restackerReload = async (
   >,
   res: Response,
 ) => {
+  const projectID = req.params.projectID;
+  try {
+    const ctx = await ProjectContext.load(projectID);
 
-  const { projectID } = req.params;
-  const project = await Project.findOne({ projectID: { $eq: projectID } });
-  if (!project) {
-    return res.status(404).send({
-      err: true,
-      errMsg: "Project not found",
+    if (!ctx.canMember(req.user)) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
+    }
+
+    const bookIDRes = ctx.getBookIDAttachedToProject();
+    if (!bookIDRes) {
+      return returnProjectError(res, new ProjectError("invalidbookid"));
+    }
+
+    const restackerService = new RestackerService();
+    const status = await restackerService.getRestackerStatus(projectID);
+
+    if (status.statusCode === "notfound") {
+      return res.status(404).send({
+        err: true,
+        errMsg: "Restacker not found",
+      });
+    }
+
+    if (status.statusCode === "pending") {
+      return res.status(400).send({
+        err: true,
+        errMsg: "Restacker is already processing",
+      });
+    }
+    // delete current restacker
+    await Restacker.deleteOne({ projectID: { $eq: projectID } });
+
+    // add new restacker same as getRestackerToc function
+    const bookService = new BookService({ bookID: bookIDRes.bookID });
+    const toc = await bookService.getBookTOCNew();
+
+    var restacker = await Restacker.findOne({ projectID: { $eq: projectID } });
+    if (!restacker) {
+      type RestackerPage = {
+        id: string;
+        title: string;
+        url: string;
+        license: undefined;
+        contentLicense: undefined;
+        quotation: undefined;
+      };
+      const flattenPages = (pages: typeof toc.children): RestackerPage[] => {
+        return (
+          pages?.flatMap((page) => [
+            {
+              id: page.id,
+              title: page.title,
+              url: page.url,
+              license: undefined,
+              contentLicense: undefined,
+              quotation: undefined,
+            },
+            ...flattenPages(page.children ?? []),
+          ]) ?? []
+        );
+      };
+      const restackerCurrentBook = flattenPages(toc?.children ?? []);
+      const bookpage = {
+        id: toc?.id,
+        title: toc?.title,
+        url: toc?.url,
+        license: undefined,
+        contentLicense: undefined,
+        quotation: undefined,
+      };
+      restackerCurrentBook.unshift(bookpage);
+      restacker = await Restacker.create({
+        projectID,
+        createdBy: req.user.decoded.uuid,
+        updatedBy: req.user.decoded.uuid,
+        restackerCurrentBook: restackerCurrentBook,
+      });
+    }
+
+    const restackerStatus = await restackerService.getRestackerStatus(projectID);
+
+    // Kick off the reload job here (fire-and-forget) so the client doesn't have to make a
+    // follow-up /toc call to start it; the client polls /restacker/status for progress.
+    restackerService.runRestacker(
+      projectID,
+      bookIDRes.library,
+      bookIDRes.coverID,
+    ).catch((err) => {
+      debug(`Error running restacker for project ${projectID}: ${err.message}`);
     });
+
+    // send response
+    return res.send({
+      err: false,
+      toc: toc,
+      status: restackerStatus.statusCode,
+    });
+  } catch (err) {
+    if (err instanceof ProjectError) {
+      return returnProjectError(res, err);
+    }
+
+    debug(`[restackerReload] Error reloading restacker for project ${projectID}:`, err);
+    return conductor500Err(res);
   }
- 
-
-  if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
-    return res.status(403).send({
-      err: true,
-      errMsg: "You do not have permission to access this project",
-    });
-  }
-  if (!project.libreLibrary || !project.libreCoverID) {
-    return res.status(400).send({
-      err: true,
-      errMsg: "Project does not have access to a LibreTexts book",
-    });
-  }
-  const restackerService = new RestackerService();
-  const status = await restackerService.getRestackerStatus(projectID);
-
-  if (status.statusCode === "notfound"){
-    return res.status(404).send({
-      err: true,
-      errMsg: "Restacker not found",
-    });
-  } 
-
-  if (status.statusCode === "pending") {
-    return res.status(400).send({
-      err: true,
-      errMsg: "Restacker is already processing",
-    });
-  }
-  // delete current restacker
-  await Restacker.deleteOne({ projectID: { $eq: projectID } });
-  // add new restacker same as getRestackerToc function
-  const bookService = new BookService({
-    bookID: `${project.libreLibrary}-${project.libreCoverID}`,
-  });
-  const toc = await bookService.getBookTOCNew();
-  var restacker = await Restacker.findOne({ projectID: { $eq: projectID } });
-  if (!restacker) {
-    type RestackerPage = {
-      id: string;
-      title: string;
-      url: string;
-      license: undefined;
-      contentLicense: undefined;
-      quotation: undefined;
-    };
-    const flattenPages = (pages: typeof toc.children): RestackerPage[] => {
-      return (
-        pages?.flatMap((page) => [
-          {
-            id: page.id,
-            title: page.title,
-            url: page.url,
-            license: undefined,
-            contentLicense: undefined,
-            quotation: undefined,
-          },
-          ...flattenPages(page.children ?? []),
-        ]) ?? []
-      );
-    };
-    const restackerCurrentBook = flattenPages(toc?.children ?? []);
-    const bookpage = {
-      id: toc?.id,
-      title: toc?.title,
-      url: toc?.url,
-      license: undefined,
-      contentLicense: undefined,
-      quotation: undefined,
-    };
-    restackerCurrentBook.unshift(bookpage);
-    restacker = await Restacker.create({
-      projectID: projectID,
-      createdBy: req.user.decoded.uuid,
-      updatedBy: req.user.decoded.uuid,
-      restackerCurrentBook: restackerCurrentBook,
-    });
-  }
-  
-  const restackerStatus = await restackerService.getRestackerStatus(projectID);
-
-  // Kick off the reload job here (fire-and-forget) so the client doesn't have to make a
-  // follow-up /toc call to start it; the client polls /restacker/status for progress.
-  restackerService.runRestacker(
-    projectID,
-    project.libreLibrary,
-    project.libreCoverID,
-  ).catch((err) => {
-    debugServer(`Error running restacker for project ${projectID}: ${err.message}`,)
-  });
-
-  // send response
-  return res.send({
-    err: false,
-    toc: toc,
-    status: restackerStatus.statusCode,
-  });
 };
 
 const getRestacker = async (
@@ -493,48 +496,51 @@ const getRestacker = async (
   >,
   res: Response,
 ) => {
-  const { projectID } = req.params;
-  const project = await Project.findOne({ projectID: { $eq: projectID } });
-  if (!project) {
-    return res.status(404).send({
-      err: true,
-      errMsg: "Project not found",
-    });
-  }
-  if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
-    return res.status(403).send({
-      err: true,
-      errMsg: "You do not have permission to access this project",
-    });
-  }
-  const restacker = await Restacker.findOne({ projectID: { $eq: projectID } });
-  if (!restacker) {
-    return res.status(404).send({
-      err: true,
-      errMsg: "Restacker not found",
-    });
-  }
-  return res.send({
-    err: false,
-    restacker: restacker.restackerCurrentBook.map((page) => {
-      const licenseMap = new Map<string, { label: string; raw: string; version?: string }>();
-      for (const license of page.contentLicense ?? []) {
-        licenseMap.set(`${license.label}::${license.version}`, license);
-      }
+  try {
+    const ctx = await ProjectContext.load(req.params.projectID);
 
-      return {
-      id: page.id,
-      license: {
-        label: page.license?.label.split(":")[1],
-        raw: page.license?.raw.split(":")[1],
-        version: page.license?.version?.split(":")[1],
-      },
-      contentLicense: licenseMap.size > 0 ? Array.from(licenseMap.values()) : undefined,
-      sourceLicense: page.sourceLicense,
-      quotation: page.quotation,
-      status: page.status,
-    }}),
-  });
+    if (!ctx.canMember(req.user)) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
+    }
+
+    const restacker = await Restacker.findOne({ projectID: { $eq: req.params.projectID } });
+    if (!restacker) {
+      return res.status(404).send({
+        err: true,
+        errMsg: "Restacker not found",
+      });
+    }
+
+    return res.send({
+      err: false,
+      restacker: restacker.restackerCurrentBook.map((page) => {
+        const licenseMap = new Map<string, { label: string; raw: string; version?: string }>();
+        for (const license of page.contentLicense ?? []) {
+          licenseMap.set(`${license.label}::${license.version}`, license);
+        }
+
+        return {
+          id: page.id,
+          license: {
+            label: page.license?.label.split(":")[1],
+            raw: page.license?.raw.split(":")[1],
+            version: page.license?.version?.split(":")[1],
+          },
+          contentLicense: licenseMap.size > 0 ? Array.from(licenseMap.values()) : undefined,
+          sourceLicense: page.sourceLicense,
+          quotation: page.quotation,
+          status: page.status,
+        }
+      }),
+    });
+  } catch (err: any) {
+    if (err instanceof ProjectError) {
+      return returnProjectError(res, err);
+    }
+
+    debug(`[getRestacker] Error getting restacker for project ${req.params.projectID}: ${err.message}`);
+    return conductor500Err(res);
+  }
 };
 
 const updateRestackerLicense = async (
@@ -543,46 +549,41 @@ const updateRestackerLicense = async (
   >,
   res: Response,
 ) => {
-  const { projectID } = req.params;
-  const { pageID, license, version, force } = req.body;
+  try {
+    const { projectID } = req.params;
+    const { pageID, license, version, force } = req.body;
 
-  const project = await Project.findOne({ projectID: { $eq: projectID } });
-  if (!project) {
-    return res.status(404).send({
-      err: true,
-      errMsg: "Project not found",
-    });
-  }
-  if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
-    
-    return res.status(403).send({
-      err: true,
-      errMsg: "You do not have permission to access this project",
-    });
-  }
-  if (!project.libreLibrary || !project.libreCoverID) {
-    return res.status(400).send({
-      err: true,
-      errMsg: "Project does not have access to a LibreTexts book",
-    });
-  }
+    const ctx = await ProjectContext.load(projectID);
+    if (!ctx.canMember(req.user)) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
+    }
 
-  const restackerBeforeUpdate = await Restacker.findOne({
-    projectID: { $eq: projectID },
-  });
-  const pageBeforeUpdate = restackerBeforeUpdate?.restackerCurrentBook.find(
-    (entry) => entry.id === pageID,
-  );
-  const bookCoverId = project.libreCoverID;
-  const bookLicense = restackerBeforeUpdate?.restackerCurrentBook.find(
-    (entry) => entry.id === bookCoverId,
-  )?.license;
-  if (!force) {
-    const proposedLicense = buildLicenseFromDraft(license, version);
-    const field: "book" | "page" =
-      pageID === bookCoverId ? "book" : "page";
-    const conflicts = parseLicenseKey(proposedLicense)
-      ? findLicenseConflicts({
+    const bookIDRes = ctx.getBookIDAttachedToProject();
+    if (!bookIDRes) {
+      return returnProjectError(res, new ProjectError("invalidbookid"));
+    }
+
+    const { coverID, bookID } = bookIDRes;
+
+    const restackerBeforeUpdate = await Restacker.findOne({
+      projectID: { $eq: projectID },
+    });
+
+    const pageBeforeUpdate = restackerBeforeUpdate?.restackerCurrentBook.find(
+      (entry) => entry.id === pageID,
+    );
+
+    const bookLicense = restackerBeforeUpdate?.restackerCurrentBook.find(
+      (entry) => entry.id === coverID,
+    )?.license;
+
+    if (!force) {
+      const proposedLicense = buildLicenseFromDraft(license, version);
+      const field: "book" | "page" =
+        pageID === coverID ? "book" : "page";
+
+      const conflicts = parseLicenseKey(proposedLicense)
+        ? findLicenseConflicts({
           field,
           proposedLicense,
           bookLicense,
@@ -593,94 +594,93 @@ const updateRestackerLicense = async (
           allPages:
             field === "book"
               ? (restackerBeforeUpdate?.restackerCurrentBook ?? [])
-                  .filter((entry) => entry.id !== bookCoverId)
-                  .map((entry) => ({
-                    title: entry.title,
-                    pageLicense: entry.license,
-                  }))
+                .filter((entry) => entry.id !== coverID)
+                .map((entry) => ({
+                  title: entry.title,
+                  pageLicense: entry.license,
+                }))
               : undefined,
         })
-      : [];
-    if (conflicts.length > 0) {
-      const conflictSummary = conflicts
-        .map((c) => {
-          const key = parseLicenseKey(c.license) ?? "unknown";
-          return c.pageTitle
-            ? `${c.role} "${c.pageTitle}" (${key})`
-            : `${c.role} (${key})`;
-        })
-        .join(", ");
-      return res.send({
-        err: false,
-        warning: true,
-        warningMsg:
-          field === "book"
-            ? `The selected book license may be incompatible with: ${conflictSummary}. Apply anyway?`
-            : `The selected license may be incompatible with this page's ${conflictSummary}. Apply anyway?`,
-        conflicts,
+        : [];
+      if (conflicts.length > 0) {
+        const conflictSummary = conflicts
+          .map((c) => {
+            const key = parseLicenseKey(c.license) ?? "unknown";
+            return c.pageTitle
+              ? `${c.role} "${c.pageTitle}" (${key})`
+              : `${c.role} (${key})`;
+          })
+          .join(", ");
+        return res.send({
+          err: false,
+          warning: true,
+          warningMsg:
+            field === "book"
+              ? `The selected book license may be incompatible with: ${conflictSummary}. Apply anyway?`
+              : `The selected license may be incompatible with this page's ${conflictSummary}. Apply anyway?`,
+          conflicts,
+        });
+      }
+    }
+
+    const bookService = new BookService({ bookID });
+
+    const currentTags = await bookService.getPageTags(pageID);
+    const preservedTags = currentTags
+      .map((tag) => tag["@value"])
+      .filter(
+        (tag) =>
+          !tag.startsWith("license:") && !tag.startsWith("licenseversion:"),
+      );
+
+    const licenseTags = buildLicenseTags(license, version);
+    const tags = [...preservedTags, ...licenseTags];
+
+    const [error, success] = await bookService.updatePageDetails(
+      pageID,
+      undefined,
+      tags,
+    );
+
+    if (error || !success) {
+      return res.status(500).send({
+        err: true,
+        errMsg: "Failed to update page license",
       });
     }
-  }
 
-  const bookService = new BookService({
-    bookID: `${project.libreLibrary}-${project.libreCoverID}`,
-  });
-  
-  const canAccess = await bookService.canAccessPage(req.user.decoded.uuid, pageID);
-  if (!canAccess) {
-    return res.status(403).send({
-      err: true,
-      errMsg: "You do not have permission to update this page",
-    });
-  }
-
-  const currentTags = await bookService.getPageTags(pageID);
-  const preservedTags = currentTags
-    .map((tag) => tag["@value"])
-    .filter(
-      (tag) =>
-        !tag.startsWith("license:") && !tag.startsWith("licenseversion:"),
-    );
-  const licenseTags = buildLicenseTags(license, version);
-  const tags = [...preservedTags, ...licenseTags];
-
-  const [error, success] = await bookService.updatePageDetails(
-    pageID,
-    undefined,
-    tags,
-  );
-
-  if (error || !success) {
-    return res.status(500).send({
-      err: true,
-      errMsg: "Failed to update page license",
-    });
-  }
-
-  const restacker = await Restacker.findOne({ projectID: { $eq: projectID } });
-  if (restacker) {
-    const page = restacker.restackerCurrentBook.find((entry) => entry.id === pageID);
-    if (page) {
-      page.license = toRestackerLicense(license, version);
-      await Restacker.updateOne(
-        { projectID: { $eq: projectID } },
-        { $set: { restackerCurrentBook: restacker.restackerCurrentBook } },
-      );
+    const restacker = await Restacker.findOne({ projectID: { $eq: projectID } });
+    if (restacker) {
+      const page = restacker.restackerCurrentBook.find((entry) => entry.id === pageID);
+      if (page) {
+        page.license = toRestackerLicense(license, version);
+        await Restacker.updateOne(
+          { projectID: { $eq: projectID } },
+          { $set: { restackerCurrentBook: restacker.restackerCurrentBook } },
+        );
+      }
     }
-  }
 
-  const updatedLicense = toRestackerLicense(license, version);
+    const updatedLicense = toRestackerLicense(license, version);
 
-  return res.send({
-    err: false,
-    license: updatedLicense
-      ? {
+    return res.send({
+      err: false,
+      license: updatedLicense
+        ? {
           label: license,
           raw: formatVersionDigits(version) ?? "",
           version: formatVersionDigits(version),
         }
-      : undefined,
-  });
+        : undefined,
+    });
+  } catch (err: any) {
+    if (err instanceof ProjectError) {
+      return returnProjectError(res, err);
+    }
+
+    debug(`[updateRestackerLicense] Error updating restacker license for project ${req.params.projectID}: ${err.message}`);
+    return conductor500Err(res);
+  }
 };
 
 /**
@@ -693,33 +693,32 @@ const getRestackerProgress = async (
   >,
   res: Response,
 ) => {
-  const { projectID } = req.params;
-  const project = await Project.findOne({ projectID: { $eq: projectID } });
-  if (!project) {
-    return res.status(404).send({
-      err: true,
-      errMsg: "Project not found",
-    });
-  }
-  if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
-    return res.status(403).send({
-      err: true,
-      errMsg: "You do not have permission to access this project",
-    });
-  }
+  try {
+    const ctx = await ProjectContext.load(req.params.projectID);
+    if (!ctx.canMember(req.user)) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
+    }
 
-  const restackerService = new RestackerService();
-  const status = await restackerService.getRestackerStatus(projectID);
+    const restackerService = new RestackerService();
+    const status = await restackerService.getRestackerStatus(req.params.projectID);
 
-  return res.send({
-    err: false,
-    status: status.statusCode,
-    processing: status.processing ?? false,
-    total: status.total ?? 0,
-    completed: status.completed ?? 0,
-    failed: status.failed ?? 0,
-    pending: status.pending ?? 0,
-  });
+    return res.send({
+      err: false,
+      status: status.statusCode,
+      processing: status.processing ?? false,
+      total: status.total ?? 0,
+      completed: status.completed ?? 0,
+      failed: status.failed ?? 0,
+      pending: status.pending ?? 0,
+    });
+  } catch (err: any) {
+    if (err instanceof ProjectError) {
+      return returnProjectError(res, err);
+    }
+
+    debug(`[getRestackerProgress] Error fetching restacker progress for project ${req.params.projectID}: ${err.message}`);
+    return conductor500Err(res);
+  }
 };
 
 export default {

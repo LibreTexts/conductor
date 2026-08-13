@@ -16,9 +16,8 @@ import * as cheerio from "cheerio";
 import Book, { BookInterface } from "../../models/book";
 import { encodeXML } from "entities";
 import Project from "../../models/project";
-import projectsAPI from "../projects";
 import NodeCache from "node-cache";
-import User from "../../models/user";
+import { ProjectContext } from "./project-context";
 
 export interface BookServiceParams {
   bookID: string;
@@ -101,26 +100,24 @@ export default class BookService {
       const project = await Project.findOne({
         libreLibrary: this._library,
         libreCoverID: this._coverID,
-      });
+      }, {
+        projectID: 1,
+        libreLibrary: 1,
+        libreCoverID: 1,
+      }).lean().exec();
 
       if (!project) {
         return false;
       }
 
-      // Todo: move the user lookup and permission check into a single function in projectsAPI for cleanliness.
-      const user = await User.findOne({ uuid: { $eq: userID } });
-      if (!user) {
-        return false;
-      }
-      const canAccessProject = projectsAPI.checkProjectMemberPermission(project, user);
-
-      // If the user can't access the project in general, they can't access the page. Fail-fast.
-      if (!canAccessProject) {
+      const projectCtx = await ProjectContext.load(project.projectID);
+      if (!projectCtx.canMember(userID)) {
         return false;
       }
 
       // Load all page ID's from the book's TOC and check if the requested pageID is in that list
       const toc = await this.getBookPageIDs();
+
       return toc.includes(pageID.toString());
     } catch (err) {
       console.error(err);
@@ -267,13 +264,13 @@ export default class BookService {
         method: "GET",
       },
     });
-    
+
     if (!res.ok) {
       throw new Error(`Error fetching tree: ${res.statusText}`);
     }
-    
+
     const rawTree = (await res.json()) as GetPageSubPagesResponse;
-    if(!rawTree?.page) {
+    if (!rawTree?.page) {
       throw new Error("No page data found in tree response");
     }
 
@@ -293,7 +290,7 @@ export default class BookService {
    */
   async getBookTOCFlat(): Promise<{ id: string; title: string; url: string }[]> {
     const structured = await this.getBookTOCNew();
-    
+
     const flattenTOC = (toc: TableOfContents): { id: string; title: string; url: string }[] => {
       const result = [{ id: toc.id, title: toc.title, url: toc.url }];
       if (toc.children && toc.children.length > 0) {

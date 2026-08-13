@@ -588,15 +588,20 @@ const getRemixerPageTree = async (
 ) => {
   try {
     const { subdomain, path, flatten } = req.body;
+    const bookID = `${subdomain}-${path}`;
 
     const ctx = await ProjectContext.load(req.params.id);
     if (!ctx.canMember(req.user)) {
       return returnProjectError(res, new ProjectError("unauthorized"));
     }
 
-    const bookService = new BookService({
-      bookID: `${subdomain}-${path}`,
-    });
+    /**
+     * ctx.assertBookBelongsToProject(bookID) can't be enforced here because the remixer page tree
+     * can be requested for any book, not just the one attached to the project. The remixer service
+     * will handle permission checks when saving or publishing.
+     */
+    const bookService = new BookService({ bookID });
+
     const tree = await bookService.getBookTreeFull({ flatten });
     return res.send({
       err: false,

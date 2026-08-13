@@ -3,6 +3,8 @@ import type { HydratedDocument } from "mongoose";
 import type { Response } from "express";
 import { checkProjectGeneralPermission, checkProjectMemberPermission, checkProjectAdminPermission } from "../../util/project-permissions";
 import { Prettify } from "../../types";
+import { getLibraryAndPageFromBookID } from "../../util/bookutils";
+import { debug } from "../../debug";
 
 // `as const satisfies` keeps the literal tuple type (so PermissionField is a
 // precise union) while still validating every entry is a real Project key.
@@ -14,6 +16,8 @@ const PERMISSION_FIELDS = [
     "auditors",
     "visibility",
     "status",
+    "libreLibrary",
+    "libreCoverID"
 ] as const satisfies readonly (keyof ProjectInterfaceRaw)[];
 
 type PermissionField = (typeof PERMISSION_FIELDS)[number];
@@ -25,7 +29,7 @@ export type ProjectPermissionShape = Pick<ProjectInterfaceRaw, PermissionField>;
 type LoadedDoc<S extends keyof ProjectInterfaceRaw> = Prettify<Pick<ProjectInterfaceRaw, S | PermissionField>>;
 
 export class ProjectError extends Error {
-    constructor(public readonly code: "notfound" | "unauthorized") {
+    constructor(public readonly code: "notfound" | "unauthorized" | "invalidbookid") {
         super(code);
 
         let message = "";
@@ -36,8 +40,10 @@ export class ProjectError extends Error {
             case "unauthorized":
                 message = "Unauthorized access to project";
                 break;
+            case "invalidbookid":
+                message = "Requested book ID is invalid or does not belong to this project";
+                break;
         }
-
 
         this.name = "ProjectError";
         this.message = message;
@@ -50,6 +56,8 @@ export function returnProjectError(res: Response, err: ProjectError) {
             return res.status(404).send({ err: true, errMsg: err.message });
         case "unauthorized":
             return res.status(403).send({ err: true, errMsg: err.message });
+        case "invalidbookid":
+            return res.status(400).send({ err: true, errMsg: err.message });
         default:
             return res.status(500).send({ err: true, errMsg: "Internal server error" });
     }
@@ -111,5 +119,45 @@ export class ProjectContext<T = ProjectInterfaceRaw> {
 
     canAdmin(this: ProjectContext<ProjectPermissionShape>, user: unknown): boolean {
         return checkProjectAdminPermission(this.doc, user);
+    }
+
+    assertBookBelongsToProject(this: ProjectContext<ProjectPermissionShape>, bookID: string): boolean {
+        // Check that book ID can be parsed into a valid subdomain and path
+        const [subdomain, path] = getLibraryAndPageFromBookID(bookID);
+        if (!subdomain || !path) {
+            debug("[ProjectContext.assertBookBelongsToProject] Invalid bookID format:", bookID);
+            return false;
+        }
+
+        // Check that project has a book attached to it
+        if (!this.doc.libreLibrary || !this.doc.libreCoverID) {
+            debug("[ProjectContext.assertBookBelongsToProject] No book attached to project:", this.doc.projectID);
+            return false;
+        }
+
+        // Check that the book ID matches the project's attached book
+        if (subdomain !== this.doc.libreLibrary || path !== this.doc.libreCoverID) {
+            debug("[ProjectContext.assertBookBelongsToProject] Book ID does not match project's attached book:", bookID);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Returns the book ID attached to the project, or null if no book is attached.
+     * @param this The ProjectContext instance.
+     * @returns An object containing the library, coverID, and the composed bookID (library-bookID), or null if no book is attached.
+     */
+    getBookIDAttachedToProject(this: ProjectContext<ProjectPermissionShape>): { library: string; coverID: string; bookID: string } | null {
+        if (!this.doc.libreLibrary || !this.doc.libreCoverID) {
+            return null;
+        }
+
+        return {
+            library: this.doc.libreLibrary,
+            coverID: this.doc.libreCoverID,
+            bookID: `${this.doc.libreLibrary}-${this.doc.libreCoverID}`
+        }
     }
 }
