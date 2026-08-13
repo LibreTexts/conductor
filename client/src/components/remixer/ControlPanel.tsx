@@ -1,12 +1,20 @@
 import { Button, IconButton, Menu, Select, Tooltip, type ButtonProps, type IconButtonProps } from "@libretexts/davis-react";
+import { useEffect, useState } from "react";
 import { CopyMode } from "./model";
-import { IconClockEdit, IconDeviceFloppy, IconPencilPause, IconRefresh, IconSettings } from "@tabler/icons-react";
+import { IconClockEdit, IconDeviceFloppy, IconDownload, IconPencilPause, IconRefresh, IconSettings } from "@tabler/icons-react";
 import ConsultInsightButton from "../NextGenComponents/ConsultInsightButton";
+import {
+  dumpProjectToLocalStorageToJsonFile,
+  getLocalDraft,
+  LOCAL_DRAFT_CHANGE_EVENT,
+} from "./services";
 
 interface ControlPanelNewUITempProps {
     isNarrowScreen: boolean;
     isAdmin: boolean;
     copyModeState: string;
+    projectID: string;
+    projectName: string|undefined;
     onCopyModeChange: (mode: string) => void;
     onStartOver: () => void;
     onLoadVersion: () => void;
@@ -31,12 +39,15 @@ type ControlPanelAction = {
     icon: React.ReactNode;
     group: 'left' | 'right';
     onClick: () => void;
+    disabled?: boolean;
 } & ({ title: string; variant: ButtonProps['variant']; } | { tooltip: string; variant: IconButtonProps['variant']; });
 
 const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
     isNarrowScreen,
     isAdmin,
     copyModeState,
+    projectID,
+    projectName,
     onCopyModeChange,
     onStartOver,
     onLoadVersion,
@@ -44,6 +55,43 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
     onSaveDraft,
     onSaveChanges
 }) => {
+    const [hasLocalDraft, setHasLocalDraft] = useState(
+        () => getLocalDraft(projectID) != null,
+    );
+
+    useEffect(() => {
+        const refresh = () => {
+            setHasLocalDraft(getLocalDraft(projectID) != null);
+        };
+
+        refresh();
+
+        const onLocalDraftChange = (event: Event) => {
+            const detail = (event as CustomEvent<{ projectId?: string }>).detail;
+            if (detail?.projectId && detail.projectId !== projectID) return;
+            refresh();
+        };
+
+        const onStorage = (event: StorageEvent) => {
+            if (
+                event.key != null &&
+                event.key !== `remixer_draft_${projectID}`
+            ) {
+                return;
+            }
+            refresh();
+        };
+
+        window.addEventListener(LOCAL_DRAFT_CHANGE_EVENT, onLocalDraftChange);
+        window.addEventListener("storage", onStorage);
+        return () => {
+            window.removeEventListener(
+                LOCAL_DRAFT_CHANGE_EVENT,
+                onLocalDraftChange,
+            );
+            window.removeEventListener("storage", onStorage);
+        };
+    }, [projectID]);
 
     const actions: ControlPanelAction[] = [
         {
@@ -71,6 +119,16 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
             group: 'left',
             onClick: () => {
                 onAutoNumberingSettings();
+            }
+        },
+        {
+            tooltip: "Local storage download",
+            icon: <IconDownload size={18} />,
+            variant: "secondary",
+            group: 'left',
+            disabled: !hasLocalDraft,
+            onClick: () => {
+                dumpProjectToLocalStorageToJsonFile({projectID, projectName});
             }
         },
         {
@@ -121,6 +179,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                                         key={index}
                                         icon={action.icon}
                                         onClick={action.onClick}
+                                        disabled={action.disabled}
                                     >
                                         {'title' in action ? action.title : action.tooltip}
                                     </Menu.Item>
@@ -143,6 +202,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                                                     icon={action.icon}
                                                     onClick={action.onClick}
                                                     title={action.tooltip}
+                                                    disabled={action.disabled}
                                                     className="m-0!" // This is a temp fix until Semantic UI is removed from the project. It's applying a margin to the button that isn't needed
                                                 />
                                             </Tooltip>
@@ -154,6 +214,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                                             variant={action.variant}
                                             icon={action.icon}
                                             onClick={action.onClick}
+                                            disabled={action.disabled}
                                         >
                                             {action.title}
                                         </Button>
@@ -176,6 +237,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                                                     icon={action.icon}
                                                     onClick={action.onClick}
                                                     title={action.tooltip}
+                                                    disabled={action.disabled}
                                                 />
                                             </Tooltip>
                                         )
@@ -187,6 +249,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                                             variant={action.variant}
                                             icon={action.icon}
                                             onClick={action.onClick}
+                                            disabled={action.disabled}
                                         >
                                             {action.title}
                                         </Button>
