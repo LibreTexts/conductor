@@ -429,6 +429,7 @@ async function addBookPageAsReference(
         urldate: reference.urldate,
         note: reference.note,
         publisher: reference.publisher,
+        
       },
     });
   } catch (error) {

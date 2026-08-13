@@ -171,7 +171,7 @@ const BookDashboard: React.FC<BookDashboardProps> = ({
             }
           />
         </div>
-        <div className="shrink-0 sm:pb-1">
+        {/* <div className="shrink-0 sm:pb-1">
           <Checkbox
             name="self"
             label="Your books only"
@@ -180,7 +180,7 @@ const BookDashboard: React.FC<BookDashboardProps> = ({
               setSearchQuery((prev) => ({ ...prev, self: checked }))
             }
           />
-        </div>
+        </div> */}
       </div>
       <Text size="sm" className="text-neutral-500">
         Find books to cite
