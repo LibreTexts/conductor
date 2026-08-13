@@ -11,6 +11,7 @@ import {
   PageTag,
   TableOfContents,
 } from "../../types";
+import { RemixerSubPage } from "../../types/Remixer";
 import * as cheerio from "cheerio";
 import Book, { BookInterface } from "../../models/book";
 import { encodeXML } from "entities";
@@ -22,6 +23,13 @@ import User from "../../models/user";
 export interface BookServiceParams {
   bookID: string;
 }
+
+type HierarchyPage = (GetPageSubPagesResponse["page"] | PageBase) & {
+  id?: number;
+  url?: string;
+  parentID?: number;
+  subpages?: HierarchyPage[];
+};
 
 export default class BookService {
   private _bookID: string = "";
@@ -144,6 +152,60 @@ export default class BookService {
     }
   }
 
+  private _buildHierarchy(
+    page: GetPageSubPagesResponse["page"] | PageBase,
+    parentID?: number,
+  ): HierarchyPage {
+    const pageID = Number.parseInt(page["@id"], 10);
+    const subpages: HierarchyPage[] = [];
+
+    if ("subpages" in page) {
+      const nested = page.subpages?.page;
+      if (Array.isArray(nested)) {
+        nested.forEach((p) => subpages.push(this._buildHierarchy(p, pageID)));
+      } else if (typeof nested === "object" && nested) {
+        subpages.push(this._buildHierarchy(nested, pageID));
+      }
+    }
+
+    return {
+      ...page,
+      id: pageID,
+      url: page["uri.ui"],
+      ...(parentID ? { parentID } : {}),
+      ...(subpages.length ? { subpages } : {}),
+    } as HierarchyPage;
+  }
+
+  private _toRemixerSubPage(page: HierarchyPage): RemixerSubPage {
+    const children = Array.isArray(page.subpages) ? page.subpages : [];
+    return {
+      "@id": String(page["@id"] ?? page.id ?? ""),
+      "@title": page.title ?? "",
+      "@href": page["uri.ui"] ?? page.url ?? page["@href"] ?? "",
+      "@subpages": children.length > 0,
+      article: "article" in page && page.article ? String(page.article) : "",
+      namespace: page.namespace ?? this._library,
+      title: page.title ?? "",
+      "uri.ui": page["uri.ui"] ?? page.url ?? "",
+      parentID: page.parentID != null ? String(page.parentID) : "-1",
+    };
+  }
+
+  /** Breadth-first flatten of a hierarchy tree into RemixerSubPage rows. */
+  private _flattenHierarchyBfs(root: HierarchyPage): RemixerSubPage[] {
+    const result: RemixerSubPage[] = [];
+    const queue: HierarchyPage[] = [root];
+    while (queue.length > 0) {
+      const node = queue.shift()!;
+      result.push(this._toRemixerSubPage(node));
+      if (Array.isArray(node.subpages) && node.subpages.length > 0) {
+        queue.push(...node.subpages);
+      }
+    }
+    return result;
+  }
+
   async getBookTOCNew(): Promise<TableOfContents> {
     const cached = BookService._tocCacheByBookID.get<TableOfContents>(this._bookID);
     if (cached) {
@@ -166,43 +228,7 @@ export default class BookService {
         },
       });
       const rawTree = (await res.json()) as GetPageSubPagesResponse;
-
-      function _buildHierarchy(
-        page: GetPageSubPagesResponse["page"] | PageBase,
-        parentID?: number
-      ): (GetPageSubPagesResponse["page"] | PageBase) & {
-        parentID?: number;
-        subpages?: TableOfContents[];
-      } {
-        const pageID = Number.parseInt(page["@id"], 10);
-        const subpages = [];
-
-        // @ts-ignore
-        const processPage = (p) => ({
-          ...p,
-          id: pageID,
-          url: p["uri.ui"],
-        });
-
-        if ("subpages" in page) {
-          if (Array.isArray(page?.subpages?.page)) {
-            page.subpages.page.forEach((p) =>
-              subpages.push(_buildHierarchy(p, pageID))
-            );
-          } else if (typeof page?.subpages?.page === "object") {
-            // single page
-            subpages.push(_buildHierarchy(page.subpages.page, pageID));
-          }
-        }
-
-        return processPage({
-          ...page,
-          ...(parentID && { parentID }),
-          ...(subpages.length && { subpages }),
-        });
-      }
-
-      const structured = _buildHierarchy(rawTree?.page);
+      const structured = this._buildHierarchy(rawTree?.page);
       const buildStructure = (
         page: GetPageSubPagesResponse["page"] | PageBase
       ): TableOfContents => ({
@@ -227,6 +253,31 @@ export default class BookService {
     } finally {
       BookService._tocInFlightByBookID.delete(this._bookID);
     }
+  }
+
+  async getBookTreeFull(
+    { flatten = false }: { flatten?: boolean } = {},
+  ): Promise<HierarchyPage | RemixerSubPage[] | undefined> {
+    const res = await CXOneFetch({
+      scope: "page",
+      path: parseInt(this._coverID),
+      api: MindTouch.API.Page.GET_Page_Tree + "?include=uri.ui",
+      subdomain: this._library,
+      options: {
+        method: "GET",
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`Error fetching tree: ${res.statusText}`);
+    }
+    const rawTree = (await res.json()) as GetPageSubPagesResponse;
+    const structured = this._buildHierarchy(rawTree?.page);
+
+    if (flatten) {
+      return this._flattenHierarchyBfs(structured);
+    }
+
+    return structured;
   }
 
   /**
