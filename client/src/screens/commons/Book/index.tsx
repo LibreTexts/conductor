@@ -87,6 +87,7 @@ import { format, parseISO } from "date-fns";
 import { getLanguageName } from "../../../utils/languageCodes";
 import PausableImage from "../../../components/util/PausableImage";
 import AssetsSection from "../../../components/commons/Book/AssetsSection";
+import { useDocumentTitle } from "usehooks-ts";
 type CustomPieChartData = {
   value: number;
   title: string;
@@ -141,6 +142,7 @@ const CommonsBook = () => {
   });
 
   // General UI
+  useDocumentTitle(book.title ? `LibreCommons | ${book.title}` : "LibreCommons");
   const [showAdoptionReport, setShowAdoptionReport] = useState<boolean>(false);
   const [loadedData, setLoadedData] = useState<boolean>(false);
   const [loadedLicensing, setLoadedLicensing] = useState<boolean>(false);
@@ -197,7 +199,7 @@ const CommonsBook = () => {
     {
       key: "pdf",
       text: "Download PDF",
-      href: book.links?.pdf,
+      href: `https://downloads.libretexts.org/api/v1/download/${book.bookID}/pdf`,
       icon: <IconFileText size={16} />,
     },
     {
@@ -209,19 +211,19 @@ const CommonsBook = () => {
     {
       key: "zip",
       text: "Download Pages ZIP",
-      href: book.links?.zip,
+      href: `https://downloads.libretexts.org/api/v1/download/${book.bookID}/pages`,
       icon: <IconFileZip size={16} />,
     },
     {
       key: "files",
       text: "Download Print Files",
-      href: book.links?.files,
+      href: `https://downloads.libretexts.org/api/v1/download/${book.bookID}/publication`,
       icon: <IconDownload size={16} />,
     },
     {
       key: "lms",
-      text: "Download LMS File",
-      href: book.links?.lms,
+      text: "Download LMS File (Thin CC)",
+      href: `https://downloads.libretexts.org/api/v1/download/${book.bookID}/thincc`,
       icon: <IconDownload size={16} />,
     },
   ];
@@ -390,15 +392,6 @@ const CommonsBook = () => {
       setShowLicensing(true);
     }
   }, [getBook, setShowLicensing]);
-
-  /**
-   * Update page title when data is available.
-   */
-  useEffect(() => {
-    if (book.title && book.title !== "") {
-      document.title = "LibreCommons | " + book.title;
-    }
-  }, [book]);
 
   /**
    * Look for licensing report once book information is loaded.
