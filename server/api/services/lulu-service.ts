@@ -3,6 +3,7 @@ import { LuluPrintJob, LuluPrintJobParams, LuluShippingLineItem, LuluShippingOpt
 import { decodeJwt } from "jose"
 import { debug } from "../../debug";
 import { serializeError } from "../../util/errorutils";
+import { assembleUrl } from "../../util/helpers.js";
 
 export default class LuluService {
     private _authAxiosInstance: AxiosInstance;
@@ -101,16 +102,20 @@ export default class LuluService {
         return `0850X1100${color ? 'FC' : 'BW'}STD${hardcover ? 'CW' : 'PB'}060UW444MXX`
     }
 
-    getCoverFile({ pdf_url, hardcover }: { pdf_url: string, hardcover: boolean }): string {
-        return `${pdf_url}/Cover_${hardcover ? 'Casewrap' : 'PerfectBound'}.pdf`;
+    getDownloadsBaseUrl(bookID: string): string {
+        return `https://downloads.libretexts.org/api/v1/download/${bookID}`;
     }
 
-    getContentFile({ pdf_url }: { pdf_url: string }): string {
-        return `${pdf_url}/Content.pdf`;
+    getCoverFile(bookID: string, hardcover: boolean): string {
+        return assembleUrl([this.getDownloadsBaseUrl(bookID), `cover-${hardcover ? 'casewrap' : 'perfectbound'}`]);
+    }
+
+    getContentFile(bookID: string): string {
+        return assembleUrl([this.getDownloadsBaseUrl(bookID), 'content']);
     }
 
     getPDFFileUrl(bookID: string): string {
-        return `https://batch.libretexts.org/print/Finished/${bookID}/Publication`;
+        return assembleUrl([this.getDownloadsBaseUrl(bookID), 'pdf']);
     }
 
     async getShippingOptions({ line_items, shipping_address }: {
@@ -187,9 +192,8 @@ export default class LuluService {
 
             const pod_package_id = this.getPodPackageID({ hardcover, color });
 
-            const pdf_url = this.getPDFFileUrl(external_id);
-            const cover = this.getCoverFile({ pdf_url, hardcover });
-            const content = this.getContentFile({ pdf_url });
+            const cover = this.getCoverFile(external_id, hardcover);
+            const content = this.getContentFile(external_id);
 
             return {
                 external_id,
