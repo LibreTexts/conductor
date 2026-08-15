@@ -45,6 +45,10 @@ jobs:
             Suggest any improvements, potential bugs, or issues.
             Be concise and specific in your feedback.
 
+            For each finding, begin the line with a bolded severity in the form
+            **Severity: <level>** — where <level> is Critical, High, Medium, or
+            Low — judged by potential impact and relevance to the changes made.
+
   post_feedback:
     runs-on: ubuntu-latest
     needs: codex
