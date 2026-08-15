@@ -6,6 +6,8 @@ on:
 jobs:
   codex:
     runs-on: ubuntu-latest
+    # Only run for users with write access
+    if: contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
     permissions:
       contents: read
     outputs:
@@ -40,11 +42,6 @@ jobs:
 
             Suggest any improvements, potential bugs, or issues.
             Be concise and specific in your feedback.
-
-            Pull request title and body:
-            ----
-            ${{ github.event.pull_request.title }}
-            ${{ github.event.pull_request.body }}
 
   post_feedback:
     runs-on: ubuntu-latest
