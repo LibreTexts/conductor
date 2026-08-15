@@ -78,7 +78,9 @@ jobs:
               repo,
               issue_number,
             });
-            const previous = existing.find((c) => c.body?.startsWith(marker));
+            const previous = existing.find(
+              (c) => c.user?.login === 'github-actions[bot]' && c.body?.startsWith(marker),
+            );
 
             if (previous) {
               await github.rest.issues.updateComment({ owner, repo, comment_id: previous.id, body });
