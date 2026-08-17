@@ -723,7 +723,7 @@ class StoreService {
                         throw new Error("MISSING_SHIPPING_ITEM");
                     }
 
-                    const luluLineItems = this.luluService.buildPrintJobLineItems(bookItems);
+                    const luluLineItems = await this.luluService.buildPrintJobLineItems(bookItems);
                     const printJob = await this.luluService.createPrintJob({
                         external_id: storeOrder.id,
                         shipping_address: {
@@ -894,7 +894,7 @@ class StoreService {
                 return { error: `No valid shipping item found for StoreOrder ID: ${store_order.id}` };
             }
 
-            const luluLineItems = this.luluService.buildPrintJobLineItems(books);
+            const luluLineItems = await this.luluService.buildPrintJobLineItems(books);
             const printJob = await this.luluService.createPrintJob({
                 external_id: store_order.id,
                 shipping_address: {

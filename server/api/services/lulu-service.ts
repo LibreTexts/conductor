@@ -103,15 +103,67 @@ export default class LuluService {
     }
 
     getDownloadsBaseUrl(bookID: string): string {
-        return `https://downloads.libretexts.org/api/v1/download/${bookID}`;
+        const host = process.env.DOWNLOADS_BASE_URL || 'https://downloads.libretexts.org';
+        return assembleUrl([host, 'api/v1/download', bookID]);
     }
 
-    getCoverFile(bookID: string, hardcover: boolean): string {
-        return assembleUrl([this.getDownloadsBaseUrl(bookID), `cover-${hardcover ? 'casewrap' : 'perfectbound'}`]);
+    /**
+     * Resolves a downloads.libretexts.org URL to the direct storage URL it redirects to.
+     *
+     * The downloads API answers with a 302 whose body is a short `text/plain` "Found. Redirecting to..."
+     * document. Lulu normalizes whatever bytes it downloads and does not guarantee that it follows
+     * redirects, so handing it the redirecting URL produces a one-page job built from that text stub --
+     * surfacing as a "We found 1 pages in your PDF" rejection. Resolve the hop ourselves and give Lulu
+     * a URL that answers 200 with the PDF on the first request.
+     */
+    private async _resolveDirectUrl(url: string, maxHops = 3): Promise<string> {
+        let current = url;
+
+        for (let hop = 0; hop < maxHops; hop++) {
+            // Stream the response so we never buffer a body. Interior PDFs run to hundreds of MB, and
+            // if the endpoint ever stops redirecting we must not pull the whole file down just to
+            // discover that.
+            const response = await axios.get(current, {
+                maxRedirects: 0,
+                responseType: 'stream',
+                validateStatus: (status) => status < 400,
+            });
+            response.data?.destroy?.();
+
+            // Already served directly -- nothing to resolve.
+            if (response.status < 300) {
+                return current;
+            }
+
+            const location = response.headers['location'];
+            if (!location || typeof location !== 'string') {
+                throw new Error(`Redirect from ${current} is missing a Location header`);
+            }
+
+            // Resolve against the current URL so a relative Location is still usable.
+            current = new URL(location, current).toString();
+        }
+
+        throw new Error(`Exceeded ${maxHops} redirects while resolving ${url}`);
     }
 
-    getContentFile(bookID: string): string {
-        return assembleUrl([this.getDownloadsBaseUrl(bookID), 'content']);
+    private async _resolveAssetUrl(url: string): Promise<string> {
+        try {
+            return await this._resolveDirectUrl(url);
+        } catch (error) {
+            debug("[LuluService]: Error resolving print asset URL:", url, error);
+            throw new Error(`Failed to resolve print asset URL ${url}: ${serializeError(error)}`);
+        }
+    }
+
+    async getCoverFile(bookID: string, hardcover: boolean): Promise<string> {
+        return await this._resolveAssetUrl(
+            assembleUrl([this.getDownloadsBaseUrl(bookID), `cover-${hardcover ? 'casewrap' : 'perfectbound'}`])
+        );
+    }
+
+    async getContentFile(bookID: string): Promise<string> {
+        return await this._resolveAssetUrl(assembleUrl([this.getDownloadsBaseUrl(bookID), 'content']));
     }
 
     getPDFFileUrl(bookID: string): string {
@@ -179,12 +231,12 @@ export default class LuluService {
         }
     }
 
-    buildPrintJobLineItems(items: ResolvedProduct[]): LuluPrintJobLineItem[] {
+    async buildPrintJobLineItems(items: ResolvedProduct[]): Promise<LuluPrintJobLineItem[]> {
         if (items.length === 0) {
             return [];
         }
 
-        return items.map(item => {
+        return await Promise.all(items.map(async item => {
             const external_id = item.product.metadata['book_id'];
 
             const hardcover = item.price.metadata['hardcover'] === 'true';
@@ -192,8 +244,10 @@ export default class LuluService {
 
             const pod_package_id = this.getPodPackageID({ hardcover, color });
 
-            const cover = this.getCoverFile(external_id, hardcover);
-            const content = this.getContentFile(external_id);
+            const [cover, content] = await Promise.all([
+                this.getCoverFile(external_id, hardcover),
+                this.getContentFile(external_id),
+            ]);
 
             return {
                 external_id,
@@ -209,7 +263,7 @@ export default class LuluService {
                 },
                 quantity: item.quantity,
             };
-        });
+        }));
 
     }
 }
