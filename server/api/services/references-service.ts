@@ -7,6 +7,7 @@ import {
   ReferenceInterface,
 } from "../../models/reference.js";
 import {
+  PageReferences,
   ReferenceDisplayLocation,
   ReferenceUsage,
   ReferenceUsageInterface,
@@ -41,7 +42,7 @@ export class ReferenceServiceError extends Error {
 type ReferenceEntryInput = z.infer<typeof ReferenceEntrySchema>;
 
 export const getReferencesUsage = async (
-  projectID: string,
+ {projectID, showPageRefs = false}: {projectID: string, showPageRefs?: boolean},
 ): Promise<{
   format: string;
   displayLocation?: ReferenceDisplayLocation;
@@ -49,6 +50,7 @@ export const getReferencesUsage = async (
   entries: ReferenceInterface[];
   backmatterPageID?: string;
   backmatterReferenceList: string[];
+  pageRefrences: PageReferences[]|undefined;
 } | null> => {
   const referenceUsage = await ReferenceUsage.findOne({
     projectID: { $eq: projectID },
@@ -68,6 +70,7 @@ export const getReferencesUsage = async (
     entries: entries.map((entry) => entry.toObject()),
     backmatterPageID: referenceUsage.backmatterPageID ?? undefined,
     backmatterReferenceList: referenceUsage.backmatterReferenceList ?? [],
+    pageRefrences: showPageRefs ? referenceUsage.pageRefrences ?? [] : undefined,
   };
 };
 
@@ -173,7 +176,7 @@ export const upsertReferenceEntry = async (
   entry: ReferenceEntryInput,
   actorUUID: string,
 ): Promise<ReferenceInterface> => {
-  const usage = await getReferencesUsage(projectID);
+  const usage = await getReferencesUsage({projectID, showPageRefs: false});
   if (!usage) {
     throw new ReferenceServiceError(
       "ReferenceUsage not found — set a citation format first",
@@ -837,6 +840,12 @@ const runJob = async ({
     }
 
     const backmatterReferenceList: Set<string> = new Set();
+
+    // Rebuild per-page cites from this run; previous populate jobs $push'd extras.
+    await ReferenceUsage.updateOne(
+      { projectID: { $eq: projectID } },
+      { $set: { pageRefrences: [] } },
+    );
 
     for (let index = 0; index < toc.length; index++) {
       const page = toc[index];

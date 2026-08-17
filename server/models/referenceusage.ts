@@ -5,7 +5,7 @@ export type ReferenceDisplayLocation =
   | "endOfChapter"
   | "backmatter";
 
-export type pageRefrences = {
+export type PageReferences = {
   pageID: string;
   refrences: {
     key: string;
@@ -22,12 +22,12 @@ export interface ReferenceUsageInterface extends Document {
   pageTitle?: string;
   /** Reference document IDs (`referenceID`) belonging to this project. */
   entries: string[];
-  pageRefrences: pageRefrences[];
+  pageRefrences: PageReferences[];
   backmatterReferenceList: string[];
   backmatterPageID?: string;
 }
 
-const pageRefrencesSchema = new Schema<pageRefrences>(
+const pageRefrencesSchema = new Schema<PageReferences>(
   {
     pageID: { type: String, required: true },
     refrences: {

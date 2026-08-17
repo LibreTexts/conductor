@@ -28,6 +28,8 @@ export type SelectedReference = {
   citationKey: string;
 } ;
 
+
+
 /** Where generated references are shown in the book. */
 export type ReferenceDisplayLocation =
   | "endOfPage"
@@ -39,7 +41,7 @@ export const ReferenceDisplayLocations: {
   label: string;
 }[] = [
   { value: "endOfPage", label: "End of page" },
-  { value: "endOfChapter", label: "Reference page at end of chapter" },
+  { value: "endOfChapter", label: "Reference page at chapter level" },
   { value: "backmatter", label: "Reference page in backmatter" },
 ];
 
@@ -612,3 +614,6 @@ export const defaultBookSearchProps: BookSearchProps = {
   searchQuery: "",
   self: false,
 };
+
+export const bibScript = "{{template.ReferenceBib()}}";
+export const referenceScript = "{{template.ReferenceCite()}}";

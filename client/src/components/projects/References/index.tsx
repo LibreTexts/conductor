@@ -567,6 +567,7 @@ const ReferenceManager: React.FC = () => {
         pageTitle={pageTitle}
         onSubmit={(settings) => updateFormat(settings)}
         submitDisabled={isUpdatingFormat || !id}
+        addNotification={addNotification}
       />
       <AddContent
         open={showAddContentModal}

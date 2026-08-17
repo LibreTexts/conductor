@@ -15,7 +15,7 @@ import {
 } from "./validators/Reference.js";
 import { Response } from "express";
 import Project from "../models/project.js";
-import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
+import { TableOfContents, ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import projectsAPI from "./projects.js";
 import {
   getReferencesUsage,
@@ -32,6 +32,7 @@ import {
 import BookService from "./services/book-service.js";
 import GlossaryService from "./services/glossary-service.js";
 import { ReferencePopulateJob } from "../models/referencepopulatejosb.js";
+import { PageReferences } from "../models/referenceusage.js";
 
 async function updateReferenceFormat(
   req: ZodReqWithUser<z.infer<typeof UpdateReferenceFormatSchema>>,
@@ -474,7 +475,7 @@ async function getReferancePageDetails(
 
     // find reference usage by project id
     // return projectID and reference last UpdatedAt
-    const referenceUsage = await getReferencesUsage(project.projectID);
+    const referenceUsage = await getReferencesUsage({projectID: project.projectID, showPageRefs: false});
     const lastUpdatedAt =
       referenceUsage?.entries?.reduce<Date | null>((max, entry) => {
         const updated = entry.updatedAt ? new Date(entry.updatedAt) : null;
@@ -522,10 +523,31 @@ async function getReferenceItems(
         errMsg: "Project not found",
       });
     }
+    const bookService = new BookService({
+      bookID: `${project.libreLibrary}-${project.libreCoverID}`,
+    });
+
+    type TocIdTree = { id: string; children: TocIdTree[] , refs:string[] };
+    const mapToc = async (toc: TableOfContents, pageRefs: PageReferences[]): Promise<TocIdTree> => ({
+      id: toc.id,
+      refs: [
+        ...new Set(
+          [...pageRefs]
+            .reverse()
+            .find((pageRef) => pageRef.pageID === toc.id)
+            ?.refrences.map((entry) => entry.key) ?? [],
+        ),
+      ],
+      children: await Promise.all(toc.children.map((child) => mapToc(child, pageRefs))),
+    });
+ 
+
     const referenceItems = await getReferenceItemsService(projectID);
+    const usage = await getReferencesUsage({projectID, showPageRefs: true});
+    const toc = await mapToc(await bookService.getBookTOCNew(), usage?.pageRefrences ?? []);
     return res.send({
       err: false,
-      data: { referenceItems },
+      data: { referenceItems, toc },
     });
   } catch (error) {
     if (error instanceof ReferenceServiceError) {
