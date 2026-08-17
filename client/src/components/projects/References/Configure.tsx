@@ -9,11 +9,13 @@ import {
 } from "@libretexts/davis-react";
 import React, { useEffect, useState } from "react";
 import {
+  bibScript,
   ReferenceDisplayLocation,
   ReferenceDisplayLocations,
   ReferenceFormatType,
   ReferenceFormatTypes,
 } from "./model";
+import { Notification } from "../../../context/NotificationContext";
 
 export type ConfigureSettings = {
   format: ReferenceFormatType;
@@ -30,10 +32,11 @@ interface ConfigureProps {
   pageTitle?: string;
   onSubmit?: (settings: ConfigureSettings) => void | Promise<void>;
   submitDisabled?: boolean;
+  addNotification: (notification: Notification) => void;
 }
 
 const needsPageTitle = (location: ReferenceDisplayLocation) =>
-  location === "endOfChapter" || location === "backmatter";
+   location === "backmatter";
 
 const Configure: React.FC<ConfigureProps> = ({
   open,
@@ -43,6 +46,7 @@ const Configure: React.FC<ConfigureProps> = ({
   pageTitle: initialPageTitle = "",
   onSubmit,
   submitDisabled = false,
+  addNotification,
 }) => {
   const [format, setFormat] = useState<ReferenceFormatType | "">(
     initialFormat ?? "",
@@ -125,6 +129,19 @@ const Configure: React.FC<ConfigureProps> = ({
               </Text>
             </Stack>
           )}
+          {
+            displayLocation === "endOfChapter" && (
+             <Button variant="outline" onClick={() => {
+              navigator.clipboard.writeText(bibScript);
+              addNotification({
+                message: "Script copied to clipboard",
+                type: "success",
+              });
+             }}>
+              Bibliography script
+             </Button>
+            )
+          }
         </Stack>
       </Modal.Body>
       <Modal.Footer>
