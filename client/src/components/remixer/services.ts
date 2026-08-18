@@ -55,16 +55,30 @@ export function getLocalDraft(projectId: string): LocalDraft | null {
   }
 }
 
-export function dumpProjectToLocalStorageToJsonFile({projectID, projectName}: {projectID: string, projectName: string|undefined}): void {
-  const raw = localStorage.getItem(LOCAL_DRAFT_KEY(projectID));
-  // download it to a json file
-  const projectData = JSON.parse(raw ?? "{}");
-  const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${projectName||projectID}.json`;
-  a.click();
+export function dumpProjectToLocalStorageToJsonFile({
+  projectID,
+  projectName,
+}: {
+  projectID: string;
+  projectName: string | undefined;
+}): void {
+  try {
+    const draft = getLocalDraft(projectID);
+    if (!draft) return;
+
+    const safeName = (projectName ?? projectID).replace(/[\\/?:%*|"<>]/g, "_");
+    const blob = new Blob([JSON.stringify(draft, null, 2)], {
+      type: "application/json",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${safeName}.json`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  } catch {
+    // ignore (localStorage unavailable / invalid JSON)
+  }
 }
 
 export function setLocalDraft(projectId: string, draft: LocalDraft): void {
