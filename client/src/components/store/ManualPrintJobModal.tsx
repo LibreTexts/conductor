@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useId, useMemo, useState } from "react";
 import { Alert, Button, Modal } from "@libretexts/davis-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconClipboardFilled, IconSend } from "@tabler/icons-react";
+import { IconClipboardFilled, IconPlus, IconSend } from "@tabler/icons-react";
 import api from "../../api";
 import {
   ManualPrintJobPayload,
@@ -15,6 +15,26 @@ import { useNotifications } from "../../context/NotificationContext";
 // CodeMirror is a sizeable dependency and this modal is only reachable from a superadmin
 // screen, so keep it out of the main bundle.
 const JsonEditor = lazy(() => import("./JsonEditor"));
+
+/**
+ * A blank line item in the exact shape `LuluPrintJobLineItem` requires, so an operator adding
+ * a book by hand does not have to remember the structure. Operator-supplied values are left
+ * empty on purpose: the server schema rejects them, which is a clearer signal than a plausible
+ * placeholder that validates and then fails at Lulu. `pod_package_id` carries the black &
+ * white, perfect-bound default produced by `LuluService.getPodPackageID`.
+ */
+function createLineItemSkeleton() {
+  return {
+    external_id: "",
+    title: "",
+    quantity: 1,
+    printable_normalization: {
+      cover: { source_url: "" },
+      interior: { source_url: "" },
+      pod_package_id: "0850X1100.BW.STD.PB.060UW444.MXX",
+    },
+  };
+}
 
 interface ManualPrintJobModalProps {
   show: boolean;
@@ -44,6 +64,7 @@ const ManualPrintJobModal: React.FC<ManualPrintJobModalProps> = ({
 
   const editorLabelID = useId();
   const parseErrorID = useId();
+  const appendHintID = useId();
 
   const [draft, setDraft] = useState<string>("");
   const [parseError, setParseError] = useState<string | null>(null);
@@ -99,6 +120,45 @@ const ManualPrintJobModal: React.FC<ManualPrintJobModalProps> = ({
     } catch (e) {
       setParseError(e instanceof Error ? e.message : "Invalid JSON.");
     }
+  }
+
+  /**
+   * Appends a blank line item to the draft's `line_items`, creating the array if the generated
+   * payload had none (the common case when nothing resolved from the Stripe session).
+   */
+  function handleAppendLineItem() {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(draft || "{}");
+    } catch {
+      // Unreachable while the button is disabled on a parse error, but never silently no-op.
+      handleGlobalError(
+        new Error("The payload must be valid JSON before a line item can be appended.")
+      );
+      return;
+    }
+
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      handleGlobalError(
+        new Error("The payload must be a JSON object before a line item can be appended.")
+      );
+      return;
+    }
+
+    const current = parsed as Record<string, unknown>;
+    const existing = Array.isArray(current.line_items) ? current.line_items : [];
+    const next = {
+      ...current,
+      line_items: [...existing, createLineItemSkeleton()],
+    };
+
+    setDraft(JSON.stringify(next, null, 2));
+    setParseError(null);
+    addNotification({
+      message: "Blank line item appended. Fill in the book ID, title, and source URLs.",
+      type: "success",
+      duration: 4000,
+    });
   }
 
   const submitMutation = useMutation({
@@ -177,12 +237,31 @@ const ManualPrintJobModal: React.FC<ManualPrintJobModalProps> = ({
           </div>
         )}
 
-        <label
-          id={editorLabelID}
-          className="block text-sm font-medium text-gray-900 mb-1"
-        >
-          Lulu print job payload (JSON)
-        </label>
+        <div className="flex flex-row items-end justify-between mb-1">
+          <label
+            id={editorLabelID}
+            className="block text-sm font-medium text-gray-900"
+          >
+            Lulu print job payload (JSON)
+          </label>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<IconPlus size={16} />}
+            onClick={handleAppendLineItem}
+            disabled={isBusy || !!parseError || submitMutation.isLoading}
+            aria-describedby={appendHintID}
+          >
+            Append line item
+          </Button>
+        </div>
+        <p id={appendHintID} className="mb-1 text-xs text-gray-600">
+          Cover and interior <code>source_url</code>s must be direct links that
+          answer 200 with the PDF. A{" "}
+          <code>downloads.libretexts.org/api/v1/download/...</code> URL redirects,
+          and Lulu does not follow redirects &mdash; it will build a one-page job
+          from the redirect stub. Paste the resolved storage URL instead.
+        </p>
         {isBusy ? (
           <LoadingSpinner />
         ) : (

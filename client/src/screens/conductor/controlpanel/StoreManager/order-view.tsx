@@ -356,48 +356,72 @@ const OrderView = () => {
             </div>
           </section>
 
-          {data?.luluJobID && (
+          {data && (
             <section aria-labelledby="lulu-heading" className="mt-12">
               <h2
                 id="lulu-heading"
                 className="font-semibold text-lg text-gray-900 ml-1 mb-2"
               >
-                Lulu Job Information
+                Print Job
               </h2>
               <Card>
                 <Card.Body className="text-sm flex flex-row justify-between">
                   <div className="flex flex-col">
-                    <div>
-                      <dt className="font-medium text-gray-900">Lulu Job ID</dt>
-                      <dd className="mt-1 text-gray-500">
-                        <a
-                          href={`https://developers.lulu.com/print-jobs/detail/${data?.luluJobID}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block"
-                        >
-                          {data?.luluJobID}
-                        </a>
-                      </dd>
-                    </div>
-                    <div className="mt-4">
-                      <dt className="font-medium text-gray-900">
-                        Last Lulu Job Status
-                      </dt>
-                      <dd className="mt-1 text-gray-500">
-                        <span className="block">{data?.luluJobStatus}</span>
-                      </dd>
-                    </div>
-                    <div className="mt-4">
-                      <dt className="font-medium text-gray-900">
-                        Last Lulu Job Status Update
-                      </dt>
-                      <dd className="mt-1 text-gray-500">
-                        <span className="block">
-                          {data?.luluJobStatusMessage || "No status message"}
-                        </span>
-                      </dd>
-                    </div>
+                    {data.luluJobID ? (
+                      <>
+                        <div>
+                          <dt className="font-medium text-gray-900">
+                            Lulu Job ID
+                          </dt>
+                          <dd className="mt-1 text-gray-500">
+                            <a
+                              href={`https://developers.lulu.com/print-jobs/detail/${data.luluJobID}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block"
+                            >
+                              {data.luluJobID}
+                            </a>
+                          </dd>
+                        </div>
+                        <div className="mt-4">
+                          <dt className="font-medium text-gray-900">
+                            Last Lulu Job Status
+                          </dt>
+                          <dd className="mt-1 text-gray-500">
+                            <span className="block">{data.luluJobStatus}</span>
+                          </dd>
+                        </div>
+                        <div className="mt-4">
+                          <dt className="font-medium text-gray-900">
+                            Last Lulu Job Status Update
+                          </dt>
+                          <dd className="mt-1 text-gray-500">
+                            <span className="block">
+                              {data.luluJobStatusMessage || "No status message"}
+                            </span>
+                          </dd>
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <dt className="font-medium text-gray-900">
+                          No Lulu Print Job
+                        </dt>
+                        <dd className="mt-1 text-gray-500">
+                          <span className="block">
+                            No print job was ever created with Lulu for this
+                            order. Use Submit Order Details Manually to correct
+                            the order data and send it to Lulu.
+                          </span>
+                          {data.error && (
+                            <span className="block mt-2">
+                              Recorded error: {data.error}
+                            </span>
+                          )}
+                        </dd>
+                      </div>
+                    )}
                     {lastManualSubmission && (
                       <div className="mt-4">
                         <dt className="font-medium text-gray-900">
