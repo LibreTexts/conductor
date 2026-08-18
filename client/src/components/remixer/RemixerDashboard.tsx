@@ -2304,6 +2304,8 @@ const RemixerDashboard: React.FC = () => {
             onAutoNumberingSettings={() => openAutoNumberingModal()}
             onSaveDraft={() => handleSaveDraft()}
             onSaveChanges={() => openPublishModal()}
+            projectID={id}
+            projectName={project?.title}
           />
         </Stack>
       </Stack>

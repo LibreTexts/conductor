@@ -22,6 +22,18 @@ export interface LocalDraft {
 
 const LOCAL_DRAFT_KEY = (projectId: string) => `remixer_draft_${projectId}`;
 
+/** Fired in the same tab when a remixer local draft is written or cleared. */
+export const LOCAL_DRAFT_CHANGE_EVENT = "remixer-local-draft-change";
+
+function notifyLocalDraftChange(projectId: string): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(LOCAL_DRAFT_CHANGE_EVENT, {
+      detail: { projectId },
+    }),
+  );
+}
+
 export function getLocalDraft(projectId: string): LocalDraft | null {
   try {
     const raw = localStorage.getItem(LOCAL_DRAFT_KEY(projectId));
@@ -43,9 +55,36 @@ export function getLocalDraft(projectId: string): LocalDraft | null {
   }
 }
 
+export function dumpProjectToLocalStorageToJsonFile({
+  projectID,
+  projectName,
+}: {
+  projectID: string;
+  projectName: string | undefined;
+}): void {
+  try {
+    const draft = getLocalDraft(projectID);
+    if (!draft) return;
+
+    const safeName = (projectName ?? projectID).replace(/[\\/?:%*|"<>]/g, "_");
+    const blob = new Blob([JSON.stringify(draft, null, 2)], {
+      type: "application/json",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${safeName}.json`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  } catch {
+    // ignore (localStorage unavailable / invalid JSON)
+  }
+}
+
 export function setLocalDraft(projectId: string, draft: LocalDraft): void {
   try {
     localStorage.setItem(LOCAL_DRAFT_KEY(projectId), JSON.stringify(draft));
+    notifyLocalDraftChange(projectId);
   } catch {
     // localStorage quota exceeded or unavailable
   }
@@ -54,6 +93,7 @@ export function setLocalDraft(projectId: string, draft: LocalDraft): void {
 export function clearLocalDraft(projectId: string): void {
   try {
     localStorage.removeItem(LOCAL_DRAFT_KEY(projectId));
+    notifyLocalDraftChange(projectId);
   } catch {
     // ignore
   }
