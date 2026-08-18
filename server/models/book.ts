@@ -14,6 +14,8 @@ export interface BookInterface extends Document {
   license?: string;
   thumbnail?: string;
   summary?: string;
+  isCompiled?: boolean;
+  lastCompiled?: number;
   rating?: number;
   links?: {
     online?: string;
@@ -99,6 +101,14 @@ const BookSchema = new Schema<BookInterface>(
      * The Book's overview/description/summary.
      */
     summary: String,
+    /**
+     * Whether the Book has, at any point, been successfully compiled by Shapeshift.
+     */
+    isCompiled: Boolean,
+    /**
+     * Timestamp of the most recent successful compilation by Shapeshift (Unix timestamp in seconds).
+     */
+    lastCompiled: Number,
     /**
      * The overall quality, on a scale of 0-5. Value is the average of all Peer Review
      * overall ratings submitted on the Book.
