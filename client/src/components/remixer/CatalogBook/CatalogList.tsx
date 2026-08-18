@@ -51,6 +51,7 @@ const CatalogList: React.FC<CatalogListProps> = ({
         book.author,
         book.course,
         book.license,
+        book?.links?.online,
         getLicenseText(book.license),
       ]
         .map((s) => (s ?? "").toString().toLowerCase())
