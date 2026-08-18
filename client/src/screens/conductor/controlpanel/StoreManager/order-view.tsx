@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Badge, Breadcrumb, Button, Card, Heading, Stack } from "@libretexts/davis-react";
 import type { BadgeVariant } from "@libretexts/davis-react";
 import { formatPrice, truncateOrderId } from "../../../../utils/storeHelpers";
@@ -14,6 +14,7 @@ import {
   IconExternalLink,
   IconPackage,
   IconRefreshAlert,
+  IconCode,
 } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import useGlobalError from "../../../../components/error/ErrorHooks";
@@ -21,17 +22,18 @@ import ConfirmModal from "../../../../components/ConfirmModal";
 import { buildLibraryPageGoURL } from "../../../../utils/projectHelpers";
 import CopyButton from "../../../../components/util/CopyButton";
 import { useNotifications } from "../../../../context/NotificationContext";
+import ManualPrintJobModal from "../../../../components/store/ManualPrintJobModal";
 
 type PopulatedLineItem = Stripe.LineItem & {
   price:
-    | (Stripe.Price & {
-        product:
-          | (Stripe.Product & {
-              images: string[];
-            })
-          | null;
-      })
+  | (Stripe.Price & {
+    product:
+    | (Stripe.Product & {
+      images: string[];
+    })
     | null;
+  })
+  | null;
 };
 
 function orderStatusVariant(status?: string): BadgeVariant {
@@ -43,6 +45,8 @@ function orderStatusVariant(status?: string): BadgeVariant {
 type ModalState =
   | { type: "confirm_resubmit" }
   | { type: "success_resubmit" }
+  | { type: "manual_submit" }
+  | { type: "success_manual_submit" }
   | null;
 
 const OrderView = () => {
@@ -73,6 +77,12 @@ const OrderView = () => {
       console.error("Failed to parse shipping address:", error);
       return null;
     }
+  }, [data]);
+
+  const lastManualSubmission = useMemo(() => {
+    const submissions = data?.manualPrintJobSubmissions;
+    if (!submissions || submissions.length === 0) return null;
+    return submissions[submissions.length - 1];
   }, [data]);
 
   const foundShippingItem = useMemo(() => {
@@ -131,7 +141,7 @@ const OrderView = () => {
   }
 
   return (
-    <div className="bg-white min-h-screen px-8 pt-8 pb-8">
+    <div className="min-h-screen px-8 pt-8 pb-8">
       <ConfirmModal
         text="Are you sure you want to re-submit this print job?"
         onConfirm={() => {
@@ -148,38 +158,54 @@ const OrderView = () => {
         confirmText="OK"
         open={activeModal?.type === "success_resubmit"}
       />
-      <Stack direction="vertical" gap="md" className="mb-6">
+      {order_id && (
+        <ManualPrintJobModal
+          show={activeModal?.type === "manual_submit"}
+          orderID={order_id}
+          onClose={() => setActiveModal(null)}
+          onSuccess={() => setActiveModal({ type: "success_manual_submit" })}
+        />
+      )}
+      <ConfirmModal
+        text="Print job submitted to Lulu successfully. It may take some time for the status to update."
+        onConfirm={() => setActiveModal(null)}
+        onCancel={() => setActiveModal(null)}
+        confirmText="OK"
+        open={activeModal?.type === "success_manual_submit"}
+      />
+      <Stack direction="vertical" gap="md" className="mb-4">
         <Heading level={2}>LibreTexts Store Management</Heading>
+        <Breadcrumb aria-label="Page navigation">
+          <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+          <Breadcrumb.Item href="/controlpanel/store">
+            Store Management
+          </Breadcrumb.Item>
+          <Breadcrumb.Item isCurrent>
+            {truncateOrderId(order_id)}
+          </Breadcrumb.Item>
+        </Breadcrumb>
       </Stack>
 
-      <div className="border border-gray-200 rounded-lg">
+      <div className="bg-white border border-gray-200 rounded-lg">
         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-          <Breadcrumb aria-label="Page navigation">
-            <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
-            <Breadcrumb.Item href="/controlpanel/store">
-              Store Management
-            </Breadcrumb.Item>
-            <Breadcrumb.Item isCurrent>
-              <div className="flex items-center">
-                <span>{truncateOrderId(order_id)}</span>
-                <CopyButton val={order_id}>
-                  {({ copied, copy }) => (
-                    <IconClipboardFilled
-                      className="cursor-pointer !ml-1.5 w-5 h-5 text-primary"
-                      onClick={() => {
-                        copy();
-                        addNotification({
-                          message: "Order ID copied to clipboard",
-                          type: "success",
-                          duration: 2000,
-                        });
-                      }}
-                    />
-                  )}
-                </CopyButton>
-              </div>
-            </Breadcrumb.Item>
-          </Breadcrumb>
+          <div className="flex items-center">
+            <span>{order_id}</span>
+            <CopyButton val={order_id}>
+              {({ copied, copy }) => (
+                <IconClipboardFilled
+                  className="cursor-pointer !ml-1.5 w-5 h-5 text-primary"
+                  onClick={() => {
+                    copy();
+                    addNotification({
+                      message: "Order ID copied to clipboard",
+                      type: "success",
+                      duration: 2000,
+                    });
+                  }}
+                />
+              )}
+            </CopyButton>
+          </div>
           <div className="flex items-center text-sm gap-1">
             <span className="font-medium text-gray-700">Status:</span>
             <Badge
@@ -193,24 +219,26 @@ const OrderView = () => {
               Ordered{" "}
               {data?.createdAt
                 ? new Date(data.createdAt).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "2-digit",
-                    day: "2-digit",
-                  })
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit",
+                })
                 : ""}
             </div>
-            <div className="mx-2 text-gray-400">•</div>
             <div>
               {data?.stripe_charge?.receipt_url && (
-                <a
-                  href={data.stripe_charge.receipt_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-semibold text-primary hover:text-primary-hover"
-                >
-                  View receipt
-                  <span aria-hidden="true"> &rarr;</span>
-                </a>
+                <>
+                  <div className="mx-2 text-gray-400">•</div>
+                  <a
+                    href={data.stripe_charge.receipt_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-primary hover:text-primary-hover"
+                  >
+                    View receipt
+                    <span aria-hidden="true"> &rarr;</span>
+                  </a>
+                </>
               )}
             </div>
           </div>
@@ -232,96 +260,95 @@ const OrderView = () => {
                 return (
                   <Card key={lineItem.id}>
                     <Card.Body>
-                    <div className="flex flex-row items-center justify-between">
-                      <div className="flex flex-col">
-                        <div className="sm:flex lg:col-span-7">
-                          {lineItem.price?.product?.images &&
-                          lineItem.price?.product?.images.length > 0 ? (
-                            <img
-                              alt={
-                                lineItem.price?.product?.name || "Product Image"
-                              }
-                              src={lineItem.price?.product?.images[0] || ""}
-                              className="aspect-square w-full shrink-0 rounded-lg object-contain sm:size-40"
-                            />
-                          ) : (
-                            <IconPackage className="size-40 text-gray-400" />
-                          )}
+                      <div className="flex flex-row items-center justify-between">
+                        <div className="flex flex-col">
+                          <div className="sm:flex lg:col-span-7">
+                            {lineItem.price?.product?.images &&
+                              lineItem.price?.product?.images.length > 0 ? (
+                              <img
+                                alt={
+                                  lineItem.price?.product?.name || "Product Image"
+                                }
+                                src={lineItem.price?.product?.images[0] || ""}
+                                className="aspect-square w-full shrink-0 rounded-lg object-contain sm:size-40"
+                              />
+                            ) : (
+                              <IconPackage className="size-40 text-gray-400" />
+                            )}
 
-                          <div className="mt-6 sm:ml-6 sm:mt-0">
-                            <h3 className="text-base font-medium text-gray-900">
-                              <a
-                                href={`https://commons.libretexts.org/store/product/${
-                                  bookID ? bookID : lineItem.price?.product?.id
-                                }`}
-                              >
-                                {lineItem.price?.product?.name}{" "}
-                                {lineItem.price?.nickname ? (
-                                  <span className="text-gray-500">
-                                    ({lineItem.price?.nickname})
-                                  </span>
-                                ) : null}
-                              </a>
-                            </h3>
-                            <p className="mt-2 text-sm font-medium text-gray-900">
-                              {formatPrice(lineItem.price?.unit_amount, true)}
-                            </p>
-                            <p className="mt-3 text-sm text-gray-500">
-                              {lineItem.description}
-                            </p>
-                            <MetadataDisplay
-                              metadata={lineItem.price?.product?.metadata}
-                            />
-                            <div className="mt-4">
-                              {lineItem.price?.product?.metadata["book_id"] && (
-                                <div className="flex flex-row space-x-2">
-                                  <a
-                                    href={buildLibraryPageGoURL(
-                                      bookID.split("-")[0] || "unknown",
-                                      bookID.split("-")[1] || "unknown"
-                                    )}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    <Button
-                                      variant="primary"
-                                      icon={<IconExternalLink size={16} />}
-                                      size="sm"
+                            <div className="mt-6 sm:ml-6 sm:mt-0">
+                              <h3 className="text-base font-medium text-gray-900">
+                                <a
+                                  href={`https://commons.libretexts.org/store/product/${bookID ? bookID : lineItem.price?.product?.id
+                                    }`}
+                                >
+                                  {lineItem.price?.product?.name}{" "}
+                                  {lineItem.price?.nickname ? (
+                                    <span className="text-gray-500">
+                                      ({lineItem.price?.nickname})
+                                    </span>
+                                  ) : null}
+                                </a>
+                              </h3>
+                              <p className="mt-2 text-sm font-medium text-gray-900">
+                                {formatPrice(lineItem.price?.unit_amount, true)}
+                              </p>
+                              <p className="mt-3 text-sm text-gray-500">
+                                {lineItem.description}
+                              </p>
+                              <MetadataDisplay
+                                metadata={lineItem.price?.product?.metadata}
+                              />
+                              <div className="mt-4">
+                                {lineItem.price?.product?.metadata["book_id"] && (
+                                  <div className="flex flex-row space-x-2">
+                                    <a
+                                      href={buildLibraryPageGoURL(
+                                        bookID.split("-")[0] || "unknown",
+                                        bookID.split("-")[1] || "unknown"
+                                      )}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
                                     >
-                                      View Book in Library
-                                    </Button>
-                                  </a>
-                                  <a
-                                    href={`https://commons.libretexts.org/store/product/${bookID}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    <Button
-                                      variant="primary"
-                                      icon={<IconExternalLink size={16} />}
-                                      size="sm"
+                                      <Button
+                                        variant="primary"
+                                        icon={<IconExternalLink size={16} />}
+                                        size="sm"
+                                      >
+                                        View Book in Library
+                                      </Button>
+                                    </a>
+                                    <a
+                                      href={`https://commons.libretexts.org/store/product/${bookID}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
                                     >
-                                      View Book in Store
-                                    </Button>
-                                  </a>
-                                </div>
-                              )}
+                                      <Button
+                                        variant="primary"
+                                        icon={<IconExternalLink size={16} />}
+                                        size="sm"
+                                      >
+                                        View Book in Store
+                                      </Button>
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="mt-6 flex flex-col justify-end items-end self-start text-sm text-gray-500 sm:mt-0">
-                        <span className="font-medium text-gray-900">
-                          Quantity: {lineItem.quantity}
-                        </span>
-                        {digitalProduct ? (
-                          <span className="mt-2">
-                            <IconCloudComputing className="inline-block h-5 w-5 text-gray-500 mr-1" />
-                            Digital Product
+                        <div className="mt-6 flex flex-col justify-end items-end self-start text-sm text-gray-500 sm:mt-0">
+                          <span className="font-medium text-gray-900">
+                            Quantity: {lineItem.quantity}
                           </span>
-                        ) : null}
+                          {digitalProduct ? (
+                            <span className="mt-2">
+                              <IconCloudComputing className="inline-block h-5 w-5 text-gray-500 mr-1" />
+                              Digital Product
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
                     </Card.Body>
                   </Card>
                 );
@@ -338,54 +365,81 @@ const OrderView = () => {
                 Lulu Job Information
               </h2>
               <Card>
-              <Card.Body className="text-sm flex flex-row justify-between">
-                <div className="flex flex-col">
-                  <div>
-                    <dt className="font-medium text-gray-900">Lulu Job ID</dt>
-                    <dd className="mt-1 text-gray-500">
-                      <a
-                        href={`https://developers.lulu.com/print-jobs/detail/${data?.luluJobID}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block"
-                      >
-                        {data?.luluJobID}
-                      </a>
-                    </dd>
+                <Card.Body className="text-sm flex flex-row justify-between">
+                  <div className="flex flex-col">
+                    <div>
+                      <dt className="font-medium text-gray-900">Lulu Job ID</dt>
+                      <dd className="mt-1 text-gray-500">
+                        <a
+                          href={`https://developers.lulu.com/print-jobs/detail/${data?.luluJobID}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block"
+                        >
+                          {data?.luluJobID}
+                        </a>
+                      </dd>
+                    </div>
+                    <div className="mt-4">
+                      <dt className="font-medium text-gray-900">
+                        Last Lulu Job Status
+                      </dt>
+                      <dd className="mt-1 text-gray-500">
+                        <span className="block">{data?.luluJobStatus}</span>
+                      </dd>
+                    </div>
+                    <div className="mt-4">
+                      <dt className="font-medium text-gray-900">
+                        Last Lulu Job Status Update
+                      </dt>
+                      <dd className="mt-1 text-gray-500">
+                        <span className="block">
+                          {data?.luluJobStatusMessage || "No status message"}
+                        </span>
+                      </dd>
+                    </div>
+                    {lastManualSubmission && (
+                      <div className="mt-4">
+                        <dt className="font-medium text-gray-900">
+                          Manual Submissions
+                        </dt>
+                        <dd className="mt-1 text-gray-500">
+                          <span className="block">
+                            {data?.manualPrintJobSubmissions?.length} total. Last:{" "}
+                            {new Date(
+                              lastManualSubmission.submittedAt
+                            ).toLocaleString()}{" "}
+                            by {lastManualSubmission.submittedBy} &mdash;{" "}
+                            {lastManualSubmission.success
+                              ? `accepted (job ${lastManualSubmission.luluJobID})`
+                              : `failed: ${lastManualSubmission.error || "unknown error"}`}
+                          </span>
+                        </dd>
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-4">
-                    <dt className="font-medium text-gray-900">
-                      Last Lulu Job Status
-                    </dt>
-                    <dd className="mt-1 text-gray-500">
-                      <span className="block">{data?.luluJobStatus}</span>
-                    </dd>
+                  <div className="flex flex-row items-start gap-x-2">
+                    <Button
+                      variant="outline"
+                      icon={<IconCode size={16} />}
+                      onClick={() => setActiveModal({ type: "manual_submit" })}
+                      disabled={!order_id}
+                    >
+                      Submit Order Details Manually
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      icon={<IconRefreshAlert size={16} />}
+                      onClick={initResubmitPrintJob}
+                      disabled={
+                        resubmitPrintJobMutation.isLoading || !data?.luluJobID
+                      }
+                      loading={resubmitPrintJobMutation.isLoading}
+                    >
+                      Re-Submit Print Job
+                    </Button>
                   </div>
-                  <div className="mt-4">
-                    <dt className="font-medium text-gray-900">
-                      Last Lulu Job Status Update
-                    </dt>
-                    <dd className="mt-1 text-gray-500">
-                      <span className="block">
-                        {data?.luluJobStatusMessage || "No status message"}
-                      </span>
-                    </dd>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end">
-                  <Button
-                    variant="secondary"
-                    icon={<IconRefreshAlert size={16} />}
-                    onClick={initResubmitPrintJob}
-                    disabled={
-                      resubmitPrintJobMutation.isLoading || !data?.luluJobID
-                    }
-                    loading={resubmitPrintJobMutation.isLoading}
-                  >
-                    Re-Submit Print Job
-                  </Button>
-                </div>
-              </Card.Body>
+                </Card.Body>
               </Card>
             </section>
           )}
@@ -399,135 +453,135 @@ const OrderView = () => {
             </h2>
 
             <Card>
-            <Card.Body className="lg:grid lg:grid-cols-12 lg:gap-x-8">
-              <dl className="grid grid-cols-1 gap-6 text-sm sm:grid-cols-2 md:gap-x-8 lg:col-span-5 lg:pl-8">
-                <div>
-                  <dt className="font-medium text-gray-900">Shipping address</dt>
-                  <dd className="mt-3 text-gray-500">
-                    <span className="block">
-                      {shippingAddress?.first_name} {shippingAddress?.last_name}{" "}
-                      {shippingAddress?.company
-                        ? `(${shippingAddress?.company})`
-                        : null}
-                    </span>
-                    <span className="block">
-                      {shippingAddress?.address_line_1}
-                    </span>
-                    <span className="block">
-                      {shippingAddress?.address_line_2}
-                    </span>
-                    <span className="block">
-                      {shippingAddress?.city}, {shippingAddress?.state}{" "}
-                      {shippingAddress?.postal_code}{" "}
-                      {shippingAddress?.country &&
-                        `(${shippingAddress?.country})`}
-                    </span>
-                    <span className="block">
-                      {shippingAddress?.email || "No email provided"}
-                    </span>
-                    <span className="block">
-                      {shippingAddress?.phone || "No phone number provided"}
-                    </span>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-900">
-                    Payment information
-                  </dt>
-                  <dd className="mt-3 flex">
-                    <div>
-                      {data?.stripe_charge?.payment_method_details?.card
-                        ?.brand === "visa" && (
-                        <IconBrandVisa className="h-6 w-6 text-gray-900" />
-                      )}
-                      {data?.stripe_charge?.payment_method_details?.card
-                        ?.brand === "mastercard" && (
-                        <IconBrandMastercard className="h-6 w-6 text-gray-900" />
-                      )}
-                      <p className="sr-only">
-                        {
-                          data?.stripe_charge?.payment_method_details?.card
-                            ?.brand
-                        }
-                      </p>
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-gray-900">
-                        Ending with{" "}
-                        {
-                          data?.stripe_charge?.payment_method_details?.card
-                            ?.last4
-                        }
-                      </p>
-                      <p className="text-gray-600">
-                        Expires{" "}
-                        {
-                          data?.stripe_charge?.payment_method_details?.card
-                            ?.exp_month
-                        }{" "}
-                        /{" "}
-                        {
-                          data?.stripe_charge?.payment_method_details?.card
-                            ?.exp_year
-                        }
-                      </p>
-                      <p className="text-gray-600">
-                        Billing ZIP:{" "}
-                        {data?.stripe_charge?.billing_details?.address
-                          ?.postal_code || "Unknown"}
-                      </p>
-                    </div>
-                  </dd>
-                </div>
-              </dl>
+              <Card.Body className="lg:grid lg:grid-cols-12 lg:gap-x-8">
+                <dl className="grid grid-cols-1 gap-6 text-sm sm:grid-cols-2 md:gap-x-8 lg:col-span-5 lg:pl-8">
+                  <div>
+                    <dt className="font-medium text-gray-900">Shipping address</dt>
+                    <dd className="mt-3 text-gray-500">
+                      <span className="block">
+                        {shippingAddress?.first_name} {shippingAddress?.last_name}{" "}
+                        {shippingAddress?.company
+                          ? `(${shippingAddress?.company})`
+                          : null}
+                      </span>
+                      <span className="block">
+                        {shippingAddress?.address_line_1}
+                      </span>
+                      <span className="block">
+                        {shippingAddress?.address_line_2}
+                      </span>
+                      <span className="block">
+                        {shippingAddress?.city}, {shippingAddress?.state}{" "}
+                        {shippingAddress?.postal_code}{" "}
+                        {shippingAddress?.country &&
+                          `(${shippingAddress?.country})`}
+                      </span>
+                      <span className="block">
+                        {shippingAddress?.email || "No email provided"}
+                      </span>
+                      <span className="block">
+                        {shippingAddress?.phone || "No phone number provided"}
+                      </span>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-gray-900">
+                      Payment information
+                    </dt>
+                    <dd className="mt-3 flex">
+                      <div>
+                        {data?.stripe_charge?.payment_method_details?.card
+                          ?.brand === "visa" && (
+                            <IconBrandVisa className="h-6 w-6 text-gray-900" />
+                          )}
+                        {data?.stripe_charge?.payment_method_details?.card
+                          ?.brand === "mastercard" && (
+                            <IconBrandMastercard className="h-6 w-6 text-gray-900" />
+                          )}
+                        <p className="sr-only">
+                          {
+                            data?.stripe_charge?.payment_method_details?.card
+                              ?.brand
+                          }
+                        </p>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-gray-900">
+                          Ending with{" "}
+                          {
+                            data?.stripe_charge?.payment_method_details?.card
+                              ?.last4
+                          }
+                        </p>
+                        <p className="text-gray-600">
+                          Expires{" "}
+                          {
+                            data?.stripe_charge?.payment_method_details?.card
+                              ?.exp_month
+                          }{" "}
+                          /{" "}
+                          {
+                            data?.stripe_charge?.payment_method_details?.card
+                              ?.exp_year
+                          }
+                        </p>
+                        <p className="text-gray-600">
+                          Billing ZIP:{" "}
+                          {data?.stripe_charge?.billing_details?.address
+                            ?.postal_code || "Unknown"}
+                        </p>
+                      </div>
+                    </dd>
+                  </div>
+                </dl>
 
-              <dl className="mt-8 divide-y divide-gray-200 text-sm lg:col-span-7 lg:mt-0 lg:pr-8">
-                <div className="flex items-center justify-between pb-4">
-                  <dt className="text-gray-600">Subtotal</dt>
-                  <dd className="font-medium text-gray-900">
-                    {formatPrice(data?.stripe_session?.amount_subtotal, true)}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between py-4">
-                  <dt className="text-gray-600">Shipping</dt>
-                  <dd className="font-medium text-gray-900">
-                    {foundShippingItem && foundShippingItem.amount_total
-                      ? formatPrice(foundShippingItem.amount_total, true)
-                      : "$0.00"}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between py-4">
-                  <dt className="text-gray-600">Tax</dt>
-                  <dd className="font-medium text-gray-900">
-                    {data?.stripe_session?.total_details?.amount_tax
-                      ? formatPrice(
+                <dl className="mt-8 divide-y divide-gray-200 text-sm lg:col-span-7 lg:mt-0 lg:pr-8">
+                  <div className="flex items-center justify-between pb-4">
+                    <dt className="text-gray-600">Subtotal</dt>
+                    <dd className="font-medium text-gray-900">
+                      {formatPrice(data?.stripe_session?.amount_subtotal, true)}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between py-4">
+                    <dt className="text-gray-600">Shipping</dt>
+                    <dd className="font-medium text-gray-900">
+                      {foundShippingItem && foundShippingItem.amount_total
+                        ? formatPrice(foundShippingItem.amount_total, true)
+                        : "$0.00"}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between py-4">
+                    <dt className="text-gray-600">Tax</dt>
+                    <dd className="font-medium text-gray-900">
+                      {data?.stripe_session?.total_details?.amount_tax
+                        ? formatPrice(
                           data?.stripe_session?.total_details?.amount_tax,
                           true
                         )
-                      : "$0.00"}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between py-4">
-                  <dt className="text-gray-600">Discount</dt>
-                  <dd className="font-medium text-gray-900">
-                    {data?.stripe_session?.total_details?.amount_discount
-                      ? `(${formatPrice(
+                        : "$0.00"}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between py-4">
+                    <dt className="text-gray-600">Discount</dt>
+                    <dd className="font-medium text-gray-900">
+                      {data?.stripe_session?.total_details?.amount_discount
+                        ? `(${formatPrice(
                           data?.stripe_session?.total_details?.amount_discount,
                           true
                         )})`
-                      : "$0.00"}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between pt-4">
-                  <dt className="font-medium text-gray-900">Order total</dt>
-                  <dd className="font-semibold text-primary">
-                    {data?.stripe_session?.amount_total
-                      ? formatPrice(data?.stripe_session?.amount_total, true)
-                      : "$0.00"}
-                  </dd>
-                </div>
-              </dl>
-            </Card.Body>
+                        : "$0.00"}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between pt-4">
+                    <dt className="font-medium text-gray-900">Order total</dt>
+                    <dd className="font-semibold text-primary">
+                      {data?.stripe_session?.amount_total
+                        ? formatPrice(data?.stripe_session?.amount_total, true)
+                        : "$0.00"}
+                    </dd>
+                  </div>
+                </dl>
+              </Card.Body>
             </Card>
           </section>
         </div>

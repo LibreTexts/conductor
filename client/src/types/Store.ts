@@ -108,6 +108,15 @@ export type StoreOrderShippingData = {
     items: Record<string, StoreOrderShippingItemData>;
 }
 
+export type ManualPrintJobSubmission = {
+    submittedBy: string; // Central Identity UUID of the submitting superadmin
+    submittedAt: string;
+    payload: Record<string, any>;
+    luluJobID?: string;
+    success: boolean;
+    error?: string;
+}
+
 export type StoreOrder = {
     _id: string; // MongoDB ObjectID
     id: string; // Stripe checkout session ID
@@ -116,9 +125,57 @@ export type StoreOrder = {
     luluJobID?: string;
     luluJobStatus?: string;
     luluJobStatusMessage?: string;
+    manualPrintJobSubmissions?: ManualPrintJobSubmission[];
     createdAt?: Date;
     updatedAt?: Date;
 }
+
+/**
+ * The editable portion of a Lulu print job payload, as accepted by the manual submission
+ * endpoint. Hand-mirrored from `LuluPrintJobParams` in `server/types/Lulu.ts`, minus the
+ * server-owned fields (`external_id`, `contact_email`, `production_delay`).
+ */
+export type ManualPrintJobPayload = {
+    shipping_address: {
+        name: string;
+        street1: string;
+        street2?: string | null;
+        city: string;
+        state_code: string;
+        postcode: string;
+        country_code: string;
+        phone_number: string;
+        email: string;
+        is_business: boolean;
+    };
+    line_items: Array<{
+        external_id: string;
+        title: string;
+        quantity: number;
+        printable_normalization: {
+            cover: { source_url: string };
+            interior: { source_url: string };
+            pod_package_id: string;
+        };
+    }>;
+    shipping_level:
+        | "MAIL"
+        | "PRIORITY_MAIL"
+        | "GROUND_HD"
+        | "GROUND_BUS"
+        | "GROUND"
+        | "EXPEDITED"
+        | "EXPRESS";
+};
+
+/**
+ * Response of the print job payload builder: the derived payload (including the read-only
+ * `external_id`) plus any gaps the builder could not fill from the Stripe checkout session.
+ */
+export type ManualPrintJobPayloadResponse = {
+    params: ManualPrintJobPayload & { external_id: string };
+    warnings: string[];
+};
 
 export type StoreOrderWithStripeSession = StoreOrder & {
     stripe_session: Stripe.Checkout.Session;

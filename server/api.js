@@ -923,6 +923,22 @@ router.route("/store/admin/orders/:order_id/resubmit").post(
   storeAPI.adminResubmitPrintJob
 );
 
+router.route("/store/admin/orders/:order_id/print-job-payload").get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(storeValidators.AdminGetPrintJobPayloadSchema),
+  storeAPI.adminGetPrintJobPayload
+);
+
+router.route("/store/admin/orders/:order_id/print-job").post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(storeValidators.AdminSubmitManualPrintJobSchema),
+  storeAPI.adminSubmitManualPrintJob
+);
+
 router.route("/store/products").get(
   middleware.validateZod(storeValidators.GetStoreProductsSchema),
   storeAPI.getStoreProducts

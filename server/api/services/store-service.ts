@@ -3,12 +3,12 @@ import { debug } from "../../debug";
 import StripeService from "./stripe-service";
 import { getLibraryNameKeys } from "../libraries";
 import axios from "axios";
-import { BookPriceOption, StoreProduct, StoreShippingOption, DownloadCenterItem, LuluShippingLineItem, ResolvedProduct, LuluPrintJobLineItem, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession, LuluPrintJob } from "../../types";
+import { BookPriceOption, StoreProduct, StoreShippingOption, DownloadCenterItem, LuluShippingLineItem, ResolvedProduct, LuluPrintJobLineItem, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession, LuluPrintJob, LuluPrintJobParams } from "../../types";
 import { checkBookIDFormat } from "../../util/bookutils";
 import { CreateCheckoutSessionSchema, GetShippingOptionsSchema, AdminGetStoreOrdersSchema } from "../validators/store";
 import { z } from "zod";
 import LuluService from "./lulu-service";
-import StoreOrder, { RawStoreOrder, RawStoreOrderNotification, StoreOrderDocument } from "../../models/storeorder";
+import StoreOrder, { RawManualPrintJobSubmission, RawStoreOrder, RawStoreOrderNotification, StoreOrderDocument } from "../../models/storeorder";
 import centralIdentityAPI from "../central-identity"
 import Fuse from "fuse.js";
 import NodeCache from "node-cache";
@@ -872,76 +872,223 @@ class StoreService {
         }
     }
 
+    /**
+     * Rebuilds the Lulu print job payload for an existing order from its Stripe checkout session.
+     *
+     * This is deliberately BEST-EFFORT rather than fail-fast: the situations that most often need
+     * a manual print job submission (missing shipping line item, a book product whose Stripe
+     * metadata is wrong, an unreachable session) are exactly the ones a strict builder would
+     * refuse to produce anything for. Instead of bailing, each gap becomes a warning plus a safe
+     * default, so an admin can fill it in by hand in the editor.
+     *
+     * `external_id` is always the StoreOrder id (the Stripe checkout session id) — it is what lets
+     * the Lulu `PRINT_JOB_STATUS_CHANGED` webhook reattach the resulting job to this order, so it
+     * is never sourced from anywhere else.
+     *
+     * Returns `null` only when the order itself does not exist.
+     */
+    public async buildPrintJobParams(orderId: string): Promise<{
+        params: Omit<LuluPrintJobParams, 'contact_email' | 'production_delay'>;
+        warnings: string[];
+    } | null> {
+        const store_order = await StoreOrder.findOne({ id: { $eq: orderId } });
+        if (!store_order) {
+            debug(`No StoreOrder found for ID: ${orderId}`);
+            return null;
+        }
+
+        const warnings: string[] = [];
+
+        // Skip the session cache: this payload is often rebuilt immediately after an admin has
+        // corrected data in Stripe, and serving them an hour-old session would defeat the point.
+        const { session } = await this._fetchCheckoutSession(store_order.id, { skipCache: true });
+        if (!session || !session.id) {
+            warnings.push("The Stripe checkout session could not be fetched. The shipping address is a blank template and must be filled in manually.");
+        }
+
+        const lineItems = session ? this._parseLineItemsFromCheckoutSession(session) : [];
+        if (session && lineItems.length === 0) {
+            warnings.push("No line items were found on the Stripe checkout session. Line items must be entered manually.");
+        }
+
+        let books: ResolvedProduct[] = [];
+        let shipping: ResolvedProduct | null = null;
+        if (lineItems.length > 0) {
+            try {
+                const separated = await this._separateProductsByCategory(lineItems);
+                books = separated.books;
+                shipping = separated.shipping;
+            } catch (error) {
+                warnings.push(`The Stripe line items could not be resolved (${serializeError(error)}). Line items must be entered manually.`);
+            }
+        }
+
+        if (books.length === 0) {
+            warnings.push("No book line items resolved from the Stripe checkout session. `line_items` is empty and must be filled in manually.");
+        }
+
+        for (const book of books) {
+            if (!book.product.metadata['book_id']) {
+                warnings.push(`Product "${book.product.name}" has no \`book_id\` metadata in Stripe, so its cover/interior source URLs are malformed. Correct them before submitting.`);
+            }
+        }
+
+        if (!shipping) {
+            warnings.push("No shipping line item was found on the Stripe checkout session. `shipping_level` has been defaulted to MAIL.");
+        }
+
+        return {
+            params: {
+                external_id: store_order.id,
+                shipping_address: {
+                    name: session?.customer_details?.name || '',
+                    street1: session?.customer_details?.address?.line1 || '',
+                    street2: session?.customer_details?.address?.line2 || '',
+                    city: session?.customer_details?.address?.city || '',
+                    state_code: session?.customer_details?.address?.state || '',
+                    postcode: session?.customer_details?.address?.postal_code || '',
+                    country_code: session?.customer_details?.address?.country || '',
+                    phone_number: session?.customer_details?.phone || '',
+                    email: session?.customer_details?.email || store_order.customerEmail || '', // Will default to the contact email on Lulu account if not provided
+                    is_business: false,
+                },
+                line_items: this.luluService.buildPrintJobLineItems(books),
+                shipping_level: shipping?.product.metadata['lulu_shipping_option_level'] as LuluShippingLevel || 'MAIL',
+            },
+            warnings,
+        };
+    }
+
     public async resubmitLuluJob(orderId: string): Promise<LuluPrintJob | {
         error: string;
         detail?: string;
     }> {
         try {
-            const store_order = await StoreOrder.findOne({ id: orderId });
-            if (!store_order) {
-                debug(`No StoreOrder found for ID: ${orderId}`);
+            const built = await this.buildPrintJobParams(orderId);
+            if (!built) {
                 return { error: `No StoreOrder found for ID: ${orderId}` };
             }
 
-            const { session } = await this._fetchCheckoutSession(store_order.id);
-            if (!session || !session.id) {
-                debug(`No valid Stripe checkout session found for StoreOrder ID: ${store_order.id}`);
-                return { error: `No valid Stripe checkout session found for StoreOrder ID: ${store_order.id}` };
+            // A plain resubmit sends the derived payload verbatim, so it is only meaningful when the
+            // payload is complete. Any warning from the builder means it is not — surface it rather
+            // than pushing a knowingly-broken payload back to Lulu. Use "Submit Order Details
+            // Manually" to fix the payload by hand.
+            if (built.warnings.length > 0) {
+                debug(`Cannot resubmit Lulu job for StoreOrder ID: ${orderId}. ${built.warnings.join(' ')}`);
+                return {
+                    error: `Cannot resubmit the print job for order ${orderId} as-is`,
+                    detail: built.warnings.join(' '),
+                };
             }
 
-            const lineItems = this._parseLineItemsFromCheckoutSession(session);
-            if (!lineItems || lineItems.length === 0) {
-                debug(`No valid line items found for StoreOrder ID: ${store_order.id}`);
-                return { error: `No valid line items found for StoreOrder ID: ${store_order.id}` };
-            }
-
-            const { books, shipping } = await this._separateProductsByCategory(lineItems);
-            if (!books || books.length === 0) {
-                debug(`No valid book items found for StoreOrder ID: ${store_order.id}`);
-                return { error: `No valid book items found for StoreOrder ID: ${store_order.id}` };
-            }
-
-            if (!shipping) {
-                debug(`No valid shipping item found for StoreOrder ID: ${store_order.id}`);
-                return { error: `No valid shipping item found for StoreOrder ID: ${store_order.id}` };
-            }
-
-            const luluLineItems = await this.luluService.buildPrintJobLineItems(books);
-            const printJob = await this.luluService.createPrintJob({
-                external_id: store_order.id,
-                shipping_address: {
-                    name: session.customer_details?.name || '',
-                    street1: session.customer_details?.address?.line1 || '',
-                    street2: session.customer_details?.address?.line2 || '',
-                    city: session.customer_details?.address?.city || '',
-                    state_code: session.customer_details?.address?.state || '',
-                    postcode: session.customer_details?.address?.postal_code || '',
-                    country_code: session.customer_details?.address?.country || '',
-                    phone_number: session.customer_details?.phone || '',
-                    email: session.customer_details?.email || '', // Will default to the contact email on Lulu account if not provided
-                    is_business: false,
-                },
-                line_items: luluLineItems,
-                shipping_level: shipping.product.metadata['lulu_shipping_option_level'] as LuluShippingLevel || 'MAIL',
-            })
+            const printJob = await this.luluService.createPrintJob(built.params);
 
             if (!printJob || !printJob.id) {
-                debug(`Failed to create Lulu print job for StoreOrder ID: ${store_order.id}`);
-                return { error: `Failed to create Lulu print job for StoreOrder ID: ${store_order.id} with an internal error` };
+                debug(`Failed to create Lulu print job for StoreOrder ID: ${orderId}`);
+                return { error: `Failed to create Lulu print job for StoreOrder ID: ${orderId} with an internal error` };
             }
 
-            store_order.luluJobID = printJob.id.toString();
-            store_order.luluJobStatus = printJob.status["name"] || "unknown";
-            store_order.luluJobStatusMessage = printJob.status["message"] || "";
-            await store_order.save();
-
-            // Best-effort: reflect the resubmitted Lulu job in the search index (fire-and-forget).
-            void upsertStoreOrderToSearchIndex(store_order.id);
+            await this._recordLuluJobOnOrder(orderId, printJob);
             return printJob;
         } catch (error) {
             debug("Error retrying Lulu job:", error);
             const errorString = serializeError(error);
             return { error: "Failed to retry Lulu job", detail: errorString };
+        }
+    }
+
+    /**
+     * Submits a hand-edited Lulu print job payload for an existing order.
+     *
+     * `external_id` is forced to the StoreOrder id here regardless of what arrived on the wire, so
+     * the Lulu webhook always reattaches the resulting job to the correct order. `contact_email`
+     * and `production_delay` are likewise forced inside `LuluService.createPrintJob`.
+     *
+     * Every attempt — successful or not — is appended to `manualPrintJobSubmissions` for audit.
+     */
+    public async submitManualPrintJob({ orderId, params, submittedBy }: {
+        orderId: string;
+        params: Omit<LuluPrintJobParams, 'contact_email' | 'production_delay' | 'external_id'>;
+        submittedBy: string;
+    }): Promise<LuluPrintJob | {
+        error: string;
+        detail?: string;
+    }> {
+        const store_order = await StoreOrder.findOne({ id: { $eq: orderId } });
+        if (!store_order) {
+            debug(`No StoreOrder found for ID: ${orderId}`);
+            return { error: `No StoreOrder found for ID: ${orderId}` };
+        }
+
+        // external_id is server-owned: never trust the submitted body for it.
+        const finalParams = { ...params, external_id: store_order.id };
+
+        try {
+            const printJob = await this.luluService.createPrintJob(finalParams);
+
+            if (!printJob || !printJob.id) {
+                debug(`Failed to create manual Lulu print job for StoreOrder ID: ${orderId}`);
+                await this._recordManualPrintJobSubmission(orderId, {
+                    submittedBy,
+                    submittedAt: new Date(),
+                    payload: finalParams,
+                    success: false,
+                    error: "Lulu returned no print job",
+                });
+                return { error: `Failed to create Lulu print job for StoreOrder ID: ${orderId} with an internal error` };
+            }
+
+            await this._recordLuluJobOnOrder(orderId, printJob);
+            await this._recordManualPrintJobSubmission(orderId, {
+                submittedBy,
+                submittedAt: new Date(),
+                payload: finalParams,
+                luluJobID: printJob.id.toString(),
+                success: true,
+            });
+
+            return printJob;
+        } catch (error) {
+            debug("Error submitting manual Lulu job:", error);
+            const errorString = serializeError(error);
+            await this._recordManualPrintJobSubmission(orderId, {
+                submittedBy,
+                submittedAt: new Date(),
+                payload: finalParams,
+                success: false,
+                error: errorString,
+            });
+            return { error: "Failed to submit manual Lulu print job", detail: errorString };
+        }
+    }
+
+    /**
+     * Persists an accepted Lulu print job onto the order and mirrors it into the search index.
+     * Shared by the plain resubmit and the manual submission paths.
+     */
+    private async _recordLuluJobOnOrder(orderId: string, printJob: LuluPrintJob): Promise<void> {
+        await StoreOrder.updateOne({ id: { $eq: orderId } }, {
+            luluJobID: printJob.id.toString(),
+            luluJobStatus: printJob.status["name"] || "unknown",
+            luluJobStatusMessage: printJob.status["message"] || "",
+        });
+
+        // Best-effort: reflect the new Lulu job in the search index (fire-and-forget).
+        void upsertStoreOrderToSearchIndex(orderId);
+    }
+
+    /**
+     * Appends a manual submission audit entry. Best-effort: a failure to write the audit trail is
+     * logged and swallowed so it can never mask the outcome of the submission itself.
+     */
+    private async _recordManualPrintJobSubmission(orderId: string, entry: RawManualPrintJobSubmission): Promise<void> {
+        try {
+            await StoreOrder.updateOne(
+                { id: { $eq: orderId } },
+                { $push: { manualPrintJobSubmissions: entry } },
+            );
+        } catch (error) {
+            debug("Failed to record manual print job submission:", error);
         }
     }
 
@@ -1354,14 +1501,14 @@ class StoreService {
         return allProducts;
     }
 
-    private async _fetchCheckoutSession(sessionId: string, opts: { includeCharges?: boolean } = {}): Promise<{
+    private async _fetchCheckoutSession(sessionId: string, opts: { includeCharges?: boolean, skipCache?: boolean } = {}): Promise<{
         session: Stripe.Checkout.Session | null;
         charge?: Stripe.Charge | null;
     }> {
         const stripe = this.stripeService.getInstance();
         const cached = this.cache.get(sessionId);
 
-        if (cached && !opts.includeCharges) {
+        if (cached && !opts.includeCharges && !opts.skipCache) {
             return { session: cached as Stripe.Checkout.Session };
         }
 

@@ -53,6 +53,7 @@ import {
   CentralIdentityUserLicenseResult,
   CentralIdentityAppLicense,
   StoreDigitalDeliveryOption, StoreOrderWithStripeSession, StoreOrderListItem,
+  ManualPrintJobPayload, ManualPrintJobPayloadResponse,
   OrderCharge,
   OrderSession,
   CentralIdentityOrgAdminResult,
@@ -794,6 +795,24 @@ class API {
     const res = await axios.post<
       { data: StoreOrderWithStripeSession } & ConductorBaseResponse
     >(`/store/admin/orders/${order_id}/resubmit`);
+    return res;
+  }
+
+  async adminGetPrintJobPayload(order_id: string) {
+    const res = await axios.get<
+      { data: ManualPrintJobPayloadResponse } & ConductorBaseResponse
+    >(`/store/admin/orders/${order_id}/print-job-payload`);
+    return res;
+  }
+
+  async adminSubmitManualPrintJob(
+    order_id: string,
+    payload: ManualPrintJobPayload
+  ) {
+    const res = await axios.post<{ data: unknown } & ConductorBaseResponse>(
+      `/store/admin/orders/${order_id}/print-job`,
+      payload
+    );
     return res;
   }
 

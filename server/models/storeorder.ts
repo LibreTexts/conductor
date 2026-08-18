@@ -8,6 +8,23 @@ export type RawStoreOrderNotification = ({
     trackingURLs: string[];
 })
 
+/**
+ * Audit record of a print job submitted manually by a superadmin through the
+ * "Submit Order Details Manually" flow, where the Lulu payload was hand-edited
+ * rather than derived verbatim from the Stripe checkout session.
+ *
+ * `payload` contains customer PII (shipping address, email), exactly like the rest of
+ * this document. It must never be added to the storeOrders search index projection.
+ */
+export type RawManualPrintJobSubmission = {
+    submittedBy: string; // Central Identity UUID of the submitting superadmin
+    submittedAt: Date;
+    payload: Record<string, any>; // The params as submitted to Lulu, including the server-forced external_id
+    luluJobID?: string; // Set only when Lulu accepted the job
+    success: boolean;
+    error?: string; // Set only when the submission failed
+}
+
 export interface RawStoreOrder {
     id: string; // stripe checkout session id;
     status: "pending" | "completed" | "failed" | "canceled";
@@ -21,6 +38,7 @@ export interface RawStoreOrder {
     luluJobStatusUpdates?: Array<Record<string, any>>; // Array of status updates data from Lulu, if any
     notificationsSent?: Array<RawStoreOrderNotification>;
     supportTicketUUID?: string; // UUID of the system-generated support ticket, if one was opened for a failure/rejection
+    manualPrintJobSubmissions?: Array<RawManualPrintJobSubmission>; // Audit trail of hand-edited print job submissions
 
     createdAt?: Date; // Automatically set by Mongoose
     updatedAt?: Date; // Automatically set by Mongoose
@@ -59,6 +77,9 @@ const StoreOrderSchema = new Schema<RawStoreOrder>({
         type: [Object],
     },
     supportTicketUUID: String,
+    manualPrintJobSubmissions: {
+        type: [Object],
+    },
 }, {
     timestamps: true
 })

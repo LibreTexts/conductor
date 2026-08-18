@@ -2,13 +2,12 @@ import { Request, Response } from "express";
 import storeService from "./services/store-service";
 import AddressValidationService from "./services/address-validation-service";
 import { z } from "zod";
-import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema, AdminGetStoreOrdersSchema, AdminGetStoreOrderSchema, AdminResubmitPrintJobSchema, ValidateAddressSchema } from "./validators/store";
+import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema, AdminGetStoreOrdersSchema, AdminGetStoreOrderSchema, AdminResubmitPrintJobSchema, AdminGetPrintJobPayloadSchema, AdminSubmitManualPrintJobSchema, ValidateAddressSchema } from "./validators/store";
 import { conductor400Err, conductor404Err, conductor500Err } from "../util/errorutils";
 import { debug, debugError } from "../debug";
-import { LuluWebhookData, StoreShippingOption, ZodReqWithOptionalUser } from "../types";
+import { LuluWebhookData, StoreShippingOption, ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import StripeService from "./services/stripe-service";
 import User from "../models/user";
-import { data } from "cheerio/dist/commonjs/api/attributes";
 
 const addressValidationService = new AddressValidationService();
 
@@ -380,6 +379,62 @@ export async function adminResubmitPrintJob(req: z.infer<typeof AdminResubmitPri
     return conductor500Err(res);
   }
 }
+
+export async function adminGetPrintJobPayload(req: z.infer<typeof AdminGetPrintJobPayloadSchema>, res: Response) {
+  try {
+    const { order_id } = req.params;
+    if (!order_id) {
+      return conductor400Err(res);
+    }
+
+    const result = await storeService.buildPrintJobParams(order_id);
+    if (!result) {
+      return conductor404Err(res);
+    }
+
+    return res.status(200).send({
+      err: false,
+      message: "Print job payload built successfully.",
+      data: result,
+    });
+  } catch (error) {
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
+
+export async function adminSubmitManualPrintJob(req: ZodReqWithUser<z.infer<typeof AdminSubmitManualPrintJobSchema>>, res: Response) {
+  try {
+    const { order_id } = req.params;
+    const submittedBy = req.user?.decoded.uuid;
+    if (!order_id || !submittedBy) {
+      return conductor400Err(res);
+    }
+
+    const result = await storeService.submitManualPrintJob({
+      orderId: order_id,
+      params: req.body,
+      submittedBy,
+    });
+
+    if ('error' in result) {
+      return res.status(200).send({
+        err: true,
+        errMsg: `${result.error}. ${result.detail || ""}`,
+      });
+    }
+
+    return res.status(200).send({
+      err: false,
+      message: "Print job submitted to Lulu successfully.",
+      data: result,
+    });
+  } catch (error) {
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
+
 export async function getOrder(req: Request, res: Response) {
   try {
     const { order_id } = req.params;
@@ -423,5 +478,7 @@ export default {
   adminGetStoreOrder,
   adminGetStoreOrders,
   adminResubmitPrintJob,
+  adminGetPrintJobPayload,
+  adminSubmitManualPrintJob,
   getOrder
 };
