@@ -1671,7 +1671,7 @@ const RemixerDashboard: React.FC = () => {
   };
 
   /** Discard local/server drafts and reload the book from source. Resets undo/redo and UI panels. */
-  const startOverMutation = useMutation({
+  const {mutate: startOverMutation, isPending: isStartOverPending} = useMutation({
     mutationFn: async () => {
       clearLocalDraft(id);
       serverStateRef.current = null;
@@ -1725,7 +1725,7 @@ const RemixerDashboard: React.FC = () => {
         cancelText="Keep Changes"
         onCancel={closeAllModals}
         onConfirm={() => {
-          startOverMutation.mutate();
+          startOverMutation();
           closeAllModals();
         }}
       />
@@ -2364,7 +2364,7 @@ const RemixerDashboard: React.FC = () => {
                   canRedo={redoStack.length > 0}
                 />
               </Stack>
-              {remixerData.currentBook ? (
+              {(remixerData.currentBook && !isStartOverPending) ? (
                 <TreeDnd
                   expandedNodeIds={expandedNodeIdsBook}
                   setExpandedNodeIds={setExpandedNodeIdsBook}

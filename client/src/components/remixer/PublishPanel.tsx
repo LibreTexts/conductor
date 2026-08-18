@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon, List, Progress } from "semantic-ui-react";
 import { RemixerSubPage } from "./model";
 import { appendSiblingTitleSuffix } from "./services";
@@ -21,6 +21,8 @@ interface SummarySection {
   items: RemixerSubPage[];
 }
 
+const NEAR_BOTTOM_PX = 24;
+
 const PublishPanel: React.FC<PublishPanelProps> = ({
   open,
   dimmer,
@@ -32,10 +34,27 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
   publishMessages = [],
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
 
   useEffect(() => {
+    if (publishStatus === "idle" || publishMessages.length === 0) {
+      setAutoScroll(true);
+    }
+  }, [publishStatus, publishMessages.length]);
+
+  useEffect(() => {
+    if (!autoScroll) return;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [publishMessages]);
+  }, [publishMessages, autoScroll]);
+
+  const handleMessagesScroll = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight;
+    setAutoScroll(distanceFromBottom <= NEAR_BOTTOM_PX);
+  }, []);
 
   const publish = () => {
     handlePublish();
@@ -176,6 +195,8 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
             )}
             {publishMessages.length > 0 ? (
               <div
+                ref={messagesContainerRef}
+                onScroll={handleMessagesScroll}
                 style={{
                   maxHeight: 180,
                   overflowY: "auto",
