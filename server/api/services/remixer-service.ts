@@ -1472,7 +1472,7 @@ const runRemixerJob = async ({
         inDeletedBranch,
         autoNumbering,
       );
-
+      console.log("title", title);
       const status = getPageStatus(page);
       const shouldSkip = shouldSkipPage(page, inMatterBranch, status);
 
@@ -1492,6 +1492,9 @@ const runRemixerJob = async ({
 
       try {
         if (status === "new") {
+          if(shouldSkip) {
+            return "success";
+          }
           const parentId = page.parentID ?? "-1";
           const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
           if (parent) {
@@ -1516,6 +1519,9 @@ const runRemixerJob = async ({
             await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
           }
         } else if (status === "imported") {
+          if(shouldSkip) {
+            return "success";
+          }
           const parentId = page.parentID ?? "-1";
           const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
           if (parent) {
