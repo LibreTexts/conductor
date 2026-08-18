@@ -545,6 +545,56 @@ const applyDefaultRemixerPageProperties = async (
   await addPageProperty(subdomain, pageID, "WelcomeHidden", true);
 };
 
+/** Book root → topic-category; cover children → topic-guide; everyone else → topic. */
+type RemixerArticleKind = "topic-category" | "topic-guide" | "topic";
+
+const articleKindForPlacement = (
+  pageId: string | undefined,
+  parentId: string | undefined,
+  coverId?: string,
+): RemixerArticleKind => {
+  if (coverId && (pageId === coverId || pageId === "-1")) {
+    return "topic-category";
+  }
+  if (coverId && parentId === coverId) {
+    return "topic-guide";
+  }
+  return "topic";
+};
+
+const contentTemplateForArticleKind = (kind: RemixerArticleKind): string => {
+  if (kind === "topic-category") {
+    return RemixerTemplates.POST_CreateBlankTopicCategory;
+  }
+  if (kind === "topic-guide") {
+    return RemixerTemplates.POST_CreateBlankTopicGuide;
+  }
+  return RemixerTemplates.POST_CreateBlankPage("topic");
+};
+
+const localArticleField = (
+  kind: RemixerArticleKind,
+): RemixerSubPageState["article"] => (kind === "topic" ? "article" : kind);
+
+const applyArticleKindToPage = async (
+  page: RemixerSubPageState,
+  kind: RemixerArticleKind,
+  subdomain: string,
+  coverId: string,
+): Promise<void> => {
+  const bookService = new BookService({
+    bookID: `${subdomain}-${coverId}`,
+  });
+  const tag =
+    kind === "topic" ? "article:topic" : (`article:${kind}` as const);
+  await bookService.updatePageDetails(page["@id"], undefined, [tag]);
+  await bookService.activateShowOrg(
+    page["@id"],
+    kind === "topic-guide" || kind === "topic-category",
+  );
+  page.article = localArticleField(kind);
+};
+
 const handleNewPage = async (
   page: RemixerSubPageState,
   parent: RemixerSubPageState,
@@ -552,10 +602,9 @@ const handleNewPage = async (
   subdomain: string,
   coverId?: string,
 ): Promise<{ pageID: string; pageURI: string }> => {
-  const content =
-    page["@subpages"] === true || parent["@id"] === coverId
-      ? RemixerTemplates.POST_CreateBlankTopicGuide
-      : RemixerTemplates.POST_CreateBlankPage("topic");
+  const kind = articleKindForPlacement(page["@id"], parent["@id"], coverId);
+  const content = contentTemplateForArticleKind(kind);
+  page.article = localArticleField(kind);
   const rawTitle = page["@title"] || page.title || title;
   // segment must be un-encoded here — we double-encode the full path below,
   // matching CXOneFetch's encodeURIComponent(encodeURIComponent(path)) convention.
@@ -753,22 +802,10 @@ const handleModifiedPage = async (
     throwForMindTouchResponse(response, "Error moving/renaming page");
   }
 
-  // Match handleNewPage article types based on placement under the cover.
+  // Placement: cover children are topic-guide; nested pages are topic.
   if (isMoved && coverId && parent) {
-    const bookService = new BookService({
-      bookID: `${subdomain}-${coverId}`,
-    });
-    if (parent["@id"] === coverId) {
-      await bookService.updatePageDetails(pageId, undefined, [
-        "article:topic-guide",
-      ]);
-      await bookService.activateShowOrg(pageId, true);
-      page.article = "topic-guide";
-    } else {
-      await bookService.updatePageDetails(pageId, undefined, ["article:topic"]);
-      await bookService.activateShowOrg(pageId, false);
-      page.article = "article";
-    }
+    const kind = articleKindForPlacement(page["@id"], parent["@id"], coverId);
+    await applyArticleKindToPage(page, kind, subdomain, coverId);
   }
 };
 
@@ -1051,13 +1088,8 @@ const handleImportedPage = async (
     );
     postComment = "Remixer fork";
   }
-  // hasChildren is true if the page has any children
-  if (hasChildren) {
-    contentsBody = RemixerTemplates.POST_CreateBlankTopicGuide + contentsBody;
-  } else {
-    contentsBody =
-      RemixerTemplates.POST_CreateBlankPage("topic") + contentsBody;
-  }
+  const kind = articleKindForPlacement(page["@id"], parent["@id"], coverId);
+  contentsBody = contentTemplateForArticleKind(kind) + contentsBody;
   const postRes = await CXOneFetch({
     scope: "page",
     path: parseInt(pageID, 10),
