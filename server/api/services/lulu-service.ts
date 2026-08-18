@@ -8,11 +8,13 @@ import { assembleUrl } from "../../util/helpers.js";
 export default class LuluService {
     private _authAxiosInstance: AxiosInstance;
     private _axiosInstance: AxiosInstance;
+    private _downloadsAxiosInstance: AxiosInstance;
     private _accessToken: string | null = null;
     private _accessTokenExpiration: number | null = null;
     private _tokenFetchPromise: Promise<string> | null = null;
 
     private readonly EXPIRATION_BUFFER_SECONDS = 60; // Buffer to ensure token is refreshed before it expires
+    private readonly ASSET_RETRY_DELAY_MS = 500; // Backoff before the single retry of a transient asset resolve
 
     constructor() {
         const axiosConfig = {
@@ -24,6 +26,13 @@ export default class LuluService {
 
         this._authAxiosInstance = axios.create(axiosConfig); // Seperate instance for fetching access tokens without interceptors
         this._axiosInstance = axios.create(axiosConfig);
+
+        // Print asset resolution hits downloads.libretexts.org, not Lulu, and runs inside the Stripe
+        // webhook handler -- a stalled host there must never hang order processing, so it gets its
+        // own instance with an explicit timeout.
+        this._downloadsAxiosInstance = axios.create({
+            timeout: Number(process.env.LULU_ASSET_RESOLVE_TIMEOUT_MS) || 15000,
+        });
 
         this._axiosInstance.interceptors.request.use(async (config) => {
             try {
@@ -120,14 +129,16 @@ export default class LuluService {
         let current = url;
 
         for (let hop = 0; hop < maxHops; hop++) {
-            // Stream the response so we never buffer a body. Interior PDFs run to hundreds of MB, and
-            // if the endpoint ever stops redirecting we must not pull the whole file down just to
-            // discover that.
-            const response = await axios.get(current, {
-                maxRedirects: 0,
-                responseType: 'stream',
-                validateStatus: (status) => status < 400,
-            });
+            let response;
+            try {
+                response = await this._requestWithoutRedirect(current);
+            } catch (error) {
+                if (!this._isTransientResolveError(error)) {
+                    throw error;
+                }
+                await new Promise((resolve) => setTimeout(resolve, this.ASSET_RETRY_DELAY_MS));
+                response = await this._requestWithoutRedirect(current);
+            }
             response.data?.destroy?.();
 
             // Already served directly -- nothing to resolve.
@@ -147,12 +158,58 @@ export default class LuluService {
         throw new Error(`Exceeded ${maxHops} redirects while resolving ${url}`);
     }
 
+    /**
+     * Single non-following GET of a print asset URL, streamed so no body is ever buffered.
+     *
+     * On rejection axios hands back a live, undrained `IncomingMessage` on `response.data`; leaving
+     * it open leaks a socket per failed order, so it is destroyed before the error is rethrown.
+     */
+    private async _requestWithoutRedirect(url: string) {
+        try {
+            // Stream the response so we never buffer a body. Interior PDFs run to hundreds of MB, and
+            // if the endpoint ever stops redirecting we must not pull the whole file down just to
+            // discover that.
+            return await this._downloadsAxiosInstance.get(url, {
+                maxRedirects: 0,
+                responseType: 'stream',
+                validateStatus: (status) => status < 400,
+            });
+        } catch (error: any) {
+            error?.response?.data?.destroy?.();
+            throw error;
+        }
+    }
+
+    /**
+     * Whether a failed resolve is worth one retry. A 4xx is not: it means the asset genuinely is not
+     * there yet, and retrying only burns the downloads API rate limit.
+     */
+    private _isTransientResolveError(error: any): boolean {
+        if (!error?.isAxiosError) return false;
+        const status = error.response?.status;
+        if (typeof status === 'number') return status >= 500;
+        return ['ECONNRESET', 'ETIMEDOUT', 'ECONNABORTED', 'EAI_AGAIN'].includes(error.code);
+    }
+
+    /**
+     * One operator-readable line describing why a resolve failed. The URL and the status are the
+     * only two facts anyone triaging a failed order needs; a serialized axios error is noise.
+     */
+    private _describeResolveFailure(error: any): string {
+        if (error?.isAxiosError) {
+            const status = error.response?.status;
+            if (typeof status === 'number') return `HTTP ${status}`;
+            return error.code ? `${error.code} (${error.message})` : error.message;
+        }
+        return error instanceof Error ? error.message : String(error);
+    }
+
     private async _resolveAssetUrl(url: string): Promise<string> {
         try {
             return await this._resolveDirectUrl(url);
         } catch (error) {
             debug("[LuluService]: Error resolving print asset URL:", url, error);
-            throw new Error(`Failed to resolve print asset URL ${url}: ${serializeError(error)}`);
+            throw new Error(`Failed to resolve print asset URL ${url}: ${this._describeResolveFailure(error)}`);
         }
     }
 
@@ -211,7 +268,13 @@ export default class LuluService {
                 production_delay: 120
             }).catch((error) => {
                 debug("[LuluService]: Error creating print job on Lulu:", error);
-                throw new Error(serializeError(error.response?.data || error));
+                // Prefer Lulu's own error body, but only when it is a plain JSON payload -- a stream
+                // or an absent response must fall back to the axios error itself.
+                const luluErrorBody = error?.response?.data;
+                const usableBody = !!luluErrorBody
+                    && typeof luluErrorBody === 'object'
+                    && typeof luluErrorBody.pipe !== 'function';
+                throw new Error(serializeError(usableBody ? luluErrorBody : error));
             });
 
             return response.data;
