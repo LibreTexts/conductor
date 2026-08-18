@@ -507,7 +507,7 @@ const getDisplayTitle = (
   autoNumbering: boolean,
 ): string => {
   const rawTitle = page.title || page["@title"] || "Untitled";
-  if (page.parentID === "-1" && page.article === "topic-category") {
+  if (page.parentID === "-1"  ) {
     return rawTitle;
   }
   const cleanTitle = stripDefaultTitlePrefixBeforeColon(
@@ -620,11 +620,11 @@ const remixerPagePaddedSlug = (
   isBookRoot: boolean = false,
 ): string => {
   const rawTitle = page["@title"] || page.title || displayTitle;
-  if (isBookRoot && page.article === "topic-category") {
+  if (isBookRoot ) {
     return rawTitle
       .toLowerCase()
       .replace(/ /g, "-")
-      .replace(/[\:\.\-]/g, "");
+      .replace(/[\:\.\-]/g, "_");
   }
   return buildRemixerPagePathSegment(page, rawTitle, page.siblingTitleIndex);
 };

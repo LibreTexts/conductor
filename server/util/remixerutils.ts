@@ -60,9 +60,14 @@ export const buildRemixerPagePathSegment = (
     : "";
   // Prefer formattedPath so autoNumbering `start` (incl. 0 → `00%3A_…`) is honored.
   const numbering =
-    page.formattedPath?.trim() || page.numberedPath?.trim() || "";
-  return numbering
-    ? `${numbering.padStart(2, "0")}:_${titleSegment}${siblingTitleIndexPostfix}`
+  page.numberedPath?.trim() ||page.formattedPath?.trim() ||  "";
+  const parts = numbering.split(".");
+  if (parts.length > 0) {
+    parts[parts.length - 1] = parts[parts.length - 1]!.padStart(2, "0");
+  }
+  const paddedNumbering = numbering ? parts.join(".") : "";
+  return paddedNumbering
+    ? `${paddedNumbering}:_${titleSegment}${siblingTitleIndexPostfix}`
     : titleSegment;
 };
 export const generatePagePath = (parent: string, title: string): string => {
