@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { bookIDSchema } from "./book.js";
 
 export const CreateJobValidator = z.object({
   body: z.object({
@@ -18,5 +19,13 @@ export const GetJobsValidator = z.object({
         z.array(z.enum(['created', 'inprogress', 'failed', 'finished'])),
       )
       .optional(),
+  }),
+});
+
+
+export const WebhookValidator = z.object({
+  body: z.object({
+    bookID: bookIDSchema,
+    timestamp: z.number().int().nonnegative(), // Unix timestamp in seconds
   }),
 });

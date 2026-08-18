@@ -3219,6 +3219,12 @@ router.route('/shapeshift/job').post(
   catchInternal((req, res) => shapeshiftAPI.createJob(req, res)),
 );
 
+router.route("/shapeshift/webhook").post(
+  middleware.checkShapeshiftWebhookKey,
+  middleware.validateZod(ShapeshiftValidators.WebhookValidator),
+  catchInternal((req, res) => shapeshiftAPI.handleWebhook(req, res))
+);
+
 router.route('/book-bots/editor-preprocess').post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,

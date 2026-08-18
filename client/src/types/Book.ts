@@ -16,6 +16,8 @@ export type Book = {
   thumbnail: string;
   thumbnailIsAnimated?: boolean;
   summary: string;
+  isCompiled?: boolean;
+  lastCompiled?: number;
   rating: number;
   links: BookLinks;
   lastUpdated: string;
