@@ -99,7 +99,7 @@ export default class LuluService {
     }
 
     getPodPackageID({ hardcover, color }: { hardcover: boolean, color: boolean }): string {
-        return `0850X1100${color ? 'FC' : 'BW'}STD${hardcover ? 'CW' : 'PB'}060UW444MXX`
+        return `0850X1100.${color ? 'FC' : 'BW'}.STD.${hardcover ? 'CW' : 'PB'}.060UW444.MXX`
     }
 
     getDownloadsBaseUrl(bookID: string): string {
