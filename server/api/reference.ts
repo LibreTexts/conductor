@@ -122,7 +122,7 @@ async function getReferenceDetails(
       });
     }
 
-    const referenceUsage = await getReferencesUsage(projectID);
+    const referenceUsage = await getReferencesUsage({projectID, showPageRefs: false});
     if (!referenceUsage) {
       return res.status(404).send({
         err: true,
@@ -594,7 +594,7 @@ async function populateReferenceDetails(
       .sort({ createdAt: -1 })
       .limit(1);
     if (!latestReferencePopulateJob) {
-      return res.status(404).send({
+      return res.status(200).send({
         err: false,
         data: {},
       });

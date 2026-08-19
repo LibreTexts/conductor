@@ -27,13 +27,11 @@ import AddContent from "./ReferenceEntry/AddContent";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../../../api";
 import { useNotifications } from "../../../context/NotificationContext";
-import {
-  DataTable,
-  createColumnHelper,
-} from "@libretexts/davis-react-table";
+import { DataTable, createColumnHelper } from "@libretexts/davis-react-table";
 import { IconCopy, IconSettings, IconTrash } from "@tabler/icons-react";
-import Configure, { type ConfigureSettings } from "./Configure";
+import Configure, { type ConfigureSettings } from "./Config/Configure";
 import Populate, { hasPopulateJobData } from "./Populate";
+import { TableOfContents } from "../../../types";
 
 const columnHelper = createColumnHelper<ReferenceEntry>();
 const BOOK_REFERENCES_QUERY_KEY = "bookReferencesFormat";
@@ -53,14 +51,16 @@ const ReferenceManager: React.FC = () => {
     null,
   );
   const [deleteFromReferences, setDeleteFromReferences] = useState(false);
-  
+
   const {
     project,
     isLoading: isLoadingProject,
     isError: isErrorProject,
+    bookID,
   } = useProject(id ?? "");
 
   const bookReferencesQueryKey = [BOOK_REFERENCES_QUERY_KEY, id] as const;
+
 
   const {
     data: bookReferencesDetails,
@@ -79,6 +79,30 @@ const ReferenceManager: React.FC = () => {
     },
   });
 
+  const { data: bookToc } = useQuery({
+    queryKey: [
+      "referenceBookToc",
+      id,
+      project?.libreLibrary,
+      project?.libreCoverID,
+    ],
+    queryFn: () =>
+      api.getReferenceTOC(id ?? "", {
+        toc: true,
+        bookID: `${project?.libreLibrary}-${project?.libreCoverID}`,
+      }),
+    enabled: !!id && !!project?.libreLibrary && !!project?.libreCoverID,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    onError: () => {
+      addNotification({
+        type: "error",
+        message: "Error loading book TOC",
+      });
+    },
+  });
+
+
   const referenceFormat = bookReferencesDetails?.data?.format;
   const displayLocation = bookReferencesDetails?.data?.displayLocation;
   const pageTitle = bookReferencesDetails?.data?.pageTitle;
@@ -91,12 +115,15 @@ const ReferenceManager: React.FC = () => {
     refetchOnWindowFocus: false,
     retry: false,
     refetchInterval: (data, query) => {
-      if (query.state.status === "error" || data?.err) return false;
-      const job = data?.data;
-      if (!hasPopulateJobData(job)) return 2000;
-      if (job.status === "pending") return 2000;
-      // Stop on completed, failed, or any other terminal status.
-      return false;
+      try {
+        if (query.state.status === "error" || data?.err) return false;
+        const job = data?.data;
+        if (job.status === "pending") return 2000;
+        // Stop on completed, failed, or any other terminal status.
+        return false;
+      } catch (error) {
+        return false;
+      }
     },
   });
 
@@ -256,8 +283,7 @@ const ReferenceManager: React.FC = () => {
     }: {
       referenceID: string;
       deleteFromReferences: boolean;
-    }) =>
-      api.deleteBookReference(id ?? "", referenceID, permanentlyDelete),
+    }) => api.deleteBookReference(id ?? "", referenceID, permanentlyDelete),
     onSuccess: (_data, variables) => {
       removeEntryFromCache(variables.referenceID);
       setPendingDelete(null);
@@ -387,7 +413,10 @@ const ReferenceManager: React.FC = () => {
       columnHelper.accessor("entryType", {
         header: "Type",
         size: 120,
-        cell: (info) => EntryTypes.find((type) => type.value === info.getValue())?.label || info.getValue() || "—",
+        cell: (info) =>
+          EntryTypes.find((type) => type.value === info.getValue())?.label ||
+          info.getValue() ||
+          "—",
       }),
       columnHelper.accessor("author", {
         header: "Author",
@@ -420,8 +449,13 @@ const ReferenceManager: React.FC = () => {
               size="sm"
               icon={<IconCopy />}
               onClick={() => {
-                navigator.clipboard.writeText(`\\librecite{${row.original.citationKey}}`);
-                addNotification({ type: "success", message: "Citation key copied to clipboard" });
+                navigator.clipboard.writeText(
+                  `\\librecite{${row.original.citationKey}}`,
+                );
+                addNotification({
+                  type: "success",
+                  message: "Citation key copied to clipboard",
+                });
               }}
             />
             <IconButton
@@ -524,41 +558,39 @@ const ReferenceManager: React.FC = () => {
                   Populate
                 </Button>
               </Stack>
-
-             
             </Stack>
           </Card.Body>
         </Card>
       )}
-       {isLoadingBookReferencesFormat ? (
-                <Spinner />
-              ) : entries.length === 0 ? (
-                <Text size="sm" className="text-neutral-500">
-                  No references yet. Add an entry to get started.
-                </Text>
-              ) : (
-                <DataTable<ReferenceEntry>
-                  data={entries}
-                  columns={columns}
-                  stickyHeader
-                  striped
-                  bordered
-                  density="compact"
-                  maxHeight="calc(100vh - 320px)"
-                  enableSorting
-                  enableGlobalFilter
-                  enableColumnFilters
-                  toolbar={{
-                    globalSearch: true,
-                    globalSearchPlaceholder: "Search references…",
-                  }}
-                  emptyState="No references match your search."
-                  classNames={{
-                    table: "table-fixed w-full",
-                    cell: "!whitespace-normal min-w-0 break-words",
-                  }}
-                />
-              )}
+      {isLoadingBookReferencesFormat ? (
+        <Spinner />
+      ) : entries.length === 0 ? (
+        <Text size="sm" className="text-neutral-500">
+          No references yet. Add an entry to get started.
+        </Text>
+      ) : (
+        <DataTable<ReferenceEntry>
+          data={entries}
+          columns={columns}
+          stickyHeader
+          striped
+          bordered
+          density="compact"
+          maxHeight="calc(100vh - 320px)"
+          enableSorting
+          enableGlobalFilter
+          enableColumnFilters
+          toolbar={{
+            globalSearch: true,
+            globalSearchPlaceholder: "Search references…",
+          }}
+          emptyState="No references match your search."
+          classNames={{
+            table: "table-fixed w-full",
+            cell: "!whitespace-normal min-w-0 break-words",
+          }}
+        />
+      )}
       <Configure
         open={showConfigureModal}
         onClose={() => setShowConfigureModal(false)}
@@ -568,6 +600,8 @@ const ReferenceManager: React.FC = () => {
         onSubmit={(settings) => updateFormat(settings)}
         submitDisabled={isUpdatingFormat || !id}
         addNotification={addNotification}
+        bookToc={bookToc?.toc ?? undefined}
+
       />
       <AddContent
         open={showAddContentModal}
@@ -612,7 +646,9 @@ const ReferenceManager: React.FC = () => {
                 name="deleteFromReferences"
                 label="Also permanently delete this reference (owned by this project)"
                 checked={deleteFromReferences}
-                onChange={(checked) => setDeleteFromReferences(checked === true)}
+                onChange={(checked) =>
+                  setDeleteFromReferences(checked === true)
+                }
               />
             )}
           </Stack>
