@@ -26,6 +26,7 @@ export const GetJobsValidator = z.object({
 export const WebhookValidator = z.object({
   body: z.object({
     bookID: bookIDSchema,
-    timestamp: z.number().int().nonnegative(), // Unix timestamp in seconds
+    contentPageCount: z.number().int().nonnegative().optional(),
+    timestamp: z.number().int().nonnegative(), // Unix timestamp in milliseconds
   }),
 });

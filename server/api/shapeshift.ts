@@ -46,8 +46,7 @@ export async function handleWebhook(
   res: Response
 ) {
   const service = new ShapeshiftService();
-  const { bookID, timestamp } = req.body;
-  const result = await service.handleWebhook(bookID, timestamp);
+  const result = await service.handleWebhook(req.body);
 
   if (result === 'not_found') {
     return res.status(404).json({
@@ -60,6 +59,13 @@ export async function handleWebhook(
     return res.status(400).json({
       err: true,
       msg: 'Invalid timestamp for webhook.',
+    });
+  }
+
+  if (result === 'stale') {
+    return res.status(200).json({
+      err: false,
+      msg: 'Webhook ignored, newer compilation data already recorded.',
     });
   }
 
