@@ -2,6 +2,8 @@ import { ShapeshiftJob, ShapeshiftJobStatus } from "../../types/Shapeshift";
 import axios, { AxiosInstance } from "axios";
 import { debugError } from "../../debug";
 import Book from "../../models/book";
+import { z } from "zod";
+import { WebhookValidator } from "../validators/shapeshift";
 
 export default class ShapeshiftService {
   private instance: AxiosInstance;
@@ -69,14 +71,20 @@ export default class ShapeshiftService {
 
   /**
    * Handle a webhook from Shapeshift to update the book's compilation status.
-   * @param bookID - The ID of the book to update.
-   * @param timestamp - The timestamp of the webhook event.
-   * @returns - A string indicating the result of the operation: 'success', 'not_found', 'invalid_timestamp', or 'error'.
+   *
+   * The update is applied as a single conditional, atomic document operation, so concurrent
+   * deliveries cannot lose data: an older timestamp (or its page count) can never overwrite a
+   * newer one. A redelivery carrying the timestamp already stored is an idempotent 'success';
+   * a delivery older than what is stored is ignored and reported as 'stale'.
+   * @param params - The parameters from the webhook, including bookID, contentPageCount, and timestamp.
+   * @returns - A string indicating the result of the operation: 'success', 'stale', 'not_found', 'invalid_timestamp', or 'error'.
    */
-  public async handleWebhook(bookID: string, timestamp: number): Promise<'success' | 'not_found' | 'invalid_timestamp' | 'error'> {
+  public async handleWebhook(params: z.infer<typeof WebhookValidator>["body"]): Promise<'success' | 'stale' | 'not_found' | 'invalid_timestamp' | 'error'> {
     try {
       const acceptedSkew = 5 * 60 * 1000; // 5 minutes in milliseconds
       const currentTime = Date.now();
+
+      const { bookID, contentPageCount, timestamp } = params;
 
       // Accept the webhook if the timestamp is plus or minus 5 minutes from the current time
       if (Math.abs(currentTime - timestamp) > acceptedSkew) {
@@ -84,17 +92,39 @@ export default class ShapeshiftService {
         return 'invalid_timestamp';
       }
 
-      const book = await Book.updateOne({ bookID: { $eq: bookID } }, {
-        $set: { isCompiled: true },
-        $max: { lastCompiled: timestamp }, // Only update lastCompiled if the new timestamp is greater than the existing value
-      });
+      // Atomically apply the update only if no newer compilation has already been recorded.
+      // `$lte` (not `<`) makes a redelivery of the same timestamp an idempotent no-op write.
+      // Matching `null` covers both a missing `exportInfo` and a missing `lastCompiled`.
+      const result = await Book.updateOne(
+        {
+          bookID: { $eq: bookID },
+          $or: [
+            { "exportInfo.lastCompiled": null },
+            { "exportInfo.lastCompiled": { $lte: timestamp } },
+          ],
+        },
+        {
+          $set: {
+            "exportInfo.isCompiled": true,
+            "exportInfo.lastCompiled": timestamp,
+            ...(contentPageCount !== undefined
+              ? { "exportInfo.contentPageCount": contentPageCount }
+              : {}),
+          },
+        }
+      );
 
-      if (!book || book.matchedCount === 0) {
+      if (result.matchedCount > 0) return 'success';
+
+      // No match: either the book does not exist, or a newer compilation is already recorded.
+      const exists = await Book.exists({ bookID: { $eq: bookID } });
+      if (!exists) {
         debugError(`Book with bookID ${bookID} not found for Shapeshift webhook.`);
         return 'not_found';
       }
 
-      return 'success';
+      debugError(`Ignoring stale Shapeshift webhook for ${bookID}. Received timestamp ${timestamp}, newer compilation already recorded.`);
+      return 'stale';
     } catch (error) {
       debugError(error);
       return 'error';
