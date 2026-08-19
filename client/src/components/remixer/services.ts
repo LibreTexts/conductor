@@ -46,7 +46,10 @@ export function getLocalDraft(projectId: string): LocalDraft | null {
     parsed.currentBook = parsed.currentBook.map((node: RemixerSubPage) =>
       typeof node.formattedPath === "string" &&
       node.formattedPath.includes(OBJECT_OBJECT_MARKER)
-        ? { ...node, formattedPath: stripObjectObjectMarker(node.formattedPath) }
+        ? {
+            ...node,
+            formattedPath: stripObjectObjectMarker(node.formattedPath),
+          }
         : node,
     );
     return parsed as LocalDraft;
@@ -114,7 +117,10 @@ export const stripObjectObjectMarker = (value: unknown): string =>
 export const sanitizePathLevelFormats = (
   formats: PathLevelFormat[] | undefined,
 ): PathLevelFormat[] =>
-  (formats ?? []).map((f) => ({ ...f, prefix: stripObjectObjectMarker(f.prefix) }));
+  (formats ?? []).map((f) => ({
+    ...f,
+    prefix: stripObjectObjectMarker(f.prefix),
+  }));
 
 export const stripLeadingNumbering = (value: string): string =>
   value.replace(/^\s*\d+(?:\.\d+)*\s*[:.\-]\s*/, "").trim();
@@ -125,7 +131,11 @@ export const stripLeadingNumbering = (value: string): string =>
  * (one that still has non-whitespace text after it) as replaceable numbering/prefix metadata.
  */
 export const stripDefaultTitlePrefixBeforeColon = (value: string): string => {
-  for (let index = value.lastIndexOf(":"); index >= 0; index = value.lastIndexOf(":", index - 1)) {
+  for (
+    let index = value.lastIndexOf(":");
+    index >= 0;
+    index = value.lastIndexOf(":", index - 1)
+  ) {
     const remainder = value.slice(index + 1);
     if (remainder.trim().length > 0) {
       return remainder.trim();
@@ -145,7 +155,9 @@ const normalizedSiblingTitleForDuplicateCheck = (
   const raw = (node["@title"] || node.title || "").trim();
   return node.formattedPathOverride === true
     ? stripLeadingNumbering(raw).toLowerCase()
-    : stripDefaultTitlePrefixBeforeColon(stripLeadingNumbering(raw)).toLowerCase();
+    : stripDefaultTitlePrefixBeforeColon(
+        stripLeadingNumbering(raw),
+      ).toLowerCase();
 };
 
 /**
@@ -293,7 +305,10 @@ export const sortMatterSiblings = (
   if (!parent || !isMatterRootNode(parent)) return siblings;
   const defaults = siblings.filter((n) => isDefaultMatterPage(n));
   const customs = siblings.filter((n) => !isDefaultMatterPage(n));
-  if (isFrontMatterNode(parent) || normalizedMatterTitle(parent) === "front matter") {
+  if (
+    isFrontMatterNode(parent) ||
+    normalizedMatterTitle(parent) === "front matter"
+  ) {
     return [...defaults, ...customs];
   }
   return [...customs, ...defaults];
@@ -386,7 +401,9 @@ export const joinLeveledPathParts = (
   if (parts.length === 0) return "";
   let s = parts[0].token;
   for (let i = 1; i < parts.length; i++) {
-    const format = pathLevelFormats.find((item) => item.level === parts[i].level);
+    const format = pathLevelFormats.find(
+      (item) => item.level === parts[i].level,
+    );
     const delimiter = format?.delimiter ?? ".";
     s = `${s}${delimiter}${parts[i].token}`;
   }
@@ -411,7 +428,7 @@ export const splitFormattedPathParts = (
   segments.forEach((segment, i) => {
     const level = startLevel + i;
     const format = pathLevelFormats.find((item) => item.level === level);
-    const start = Number.isFinite(format?.start) ? (format!.start) : 1;
+    const start = Number.isFinite(format?.start) ? format!.start : 1;
     const type: NumberingType = format?.type ?? "numeric";
     const value = start + parsePathSegmentOrdinal(segment) - 1;
     const token = getFormattedTokenByType(value, type);
@@ -507,14 +524,14 @@ export const resolveInheritedFormattedPathPrefix = (
   while (parentId !== "-1") {
     const ancestor = nodesById.get(parentId);
     if (!ancestor) break;
-    if (
-      ancestor.formattedPathOverride === true
-    ) {
+    if (ancestor.formattedPathOverride === true) {
       const ancestorDepth = (ordinalPathById.get(parentId) ?? []).length;
       const relative = numberPath.slice(ancestorDepth);
       if (relative.length === 0) return null;
       const firstRelLevel = ancestorDepth + 1;
-      const firstRelFormat = pathLevelFormats.find((item) => item.level === firstRelLevel);
+      const firstRelFormat = pathLevelFormats.find(
+        (item) => item.level === firstRelLevel,
+      );
       const suffix = formatOrdinalSegmentsToFormattedPath(
         relative,
         pathLevelFormats,
@@ -555,21 +572,20 @@ export const getRemixerDisplayTitle = (
   if (!autoNumbering) return rawTitle;
   // Book root (numberPath.length === 0) has no autonumber prefix to strip —
   // its title is the book title and may legitimately contain ":".
-  if (numberPath.length === 0 || page.parentID === "-1" )
-    {
-      return rawTitle;
+  if (numberPath.length === 0 || page.parentID === "-1") {
+    return rawTitle;
+  }
 
-    } 
-      
   let cleanTitle = stripLeadingNumbering(rawTitle);
   cleanTitle = stripDefaultTitlePrefixBeforeColon(cleanTitle);
   if (inDeletedBranch || inMatterNoNumberSubtree) {
     return cleanTitle;
   }
-  const overridden =
-    page.formattedPathOverride === true;
+  const overridden = page.formattedPathOverride === true;
   if (overridden) {
-    const overriddenFormattedPath = stripObjectObjectMarker(page.formattedPath).trim();
+    const overriddenFormattedPath = stripObjectObjectMarker(
+      page.formattedPath,
+    ).trim();
     // Empty override prefix/index means show title only (no autonumber prefix).
     return overriddenFormattedPath
       ? `${overriddenFormattedPath}: ${cleanTitle}`
@@ -631,10 +647,12 @@ export const computeRemixerOrdinalPathsMap = (
   const continuedOrdinalByLevel = new Map<number, number>();
 
   const rootRow = childrenByParent.get("-1") ?? [];
-  const singletonBookRootId =
-    rootRow.length === 1 ? rootRow[0]["@id"] : null;
+  const singletonBookRootId = rootRow.length === 1 ? rootRow[0]["@id"] : null;
 
-  const isRootLevelLayout = (parentId: string, parentPath: string[]): boolean => {
+  const isRootLevelLayout = (
+    parentId: string,
+    parentPath: string[],
+  ): boolean => {
     if (parentId === "-1" && parentPath.length === 0) return true;
     if (
       singletonBookRootId &&
@@ -657,9 +675,7 @@ export const computeRemixerOrdinalPathsMap = (
     if (isRootLevelLayout(parentId, parentPath)) {
       const chapterSlotNodes = children.filter(
         (c) =>
-          !isFrontMatterNode(c) &&
-          !isBackMatterNode(c) &&
-          !isDeletedForPath(c),
+          !isFrontMatterNode(c) && !isBackMatterNode(c) && !isDeletedForPath(c),
       );
       const backMatterSegment = String(chapterSlotNodes.length + 1);
 
@@ -672,7 +688,8 @@ export const computeRemixerOrdinalPathsMap = (
           continue;
         }
         let nextPath: string[];
-        const childIsMatter = isFrontMatterNode(child) || isBackMatterNode(child);
+        const childIsMatter =
+          isFrontMatterNode(child) || isBackMatterNode(child);
         if (isFrontMatterNode(child)) {
           nextPath = [...parentPath, "0"];
         } else if (isBackMatterNode(child)) {
@@ -690,7 +707,9 @@ export const computeRemixerOrdinalPathsMap = (
     }
 
     const parentNode = nodesById.get(parentId);
-    const parentIsMatterRoot = parentNode ? isMatterRootNode(parentNode) : false;
+    const parentIsMatterRoot = parentNode
+      ? isMatterRootNode(parentNode)
+      : false;
 
     // Under front/back matter roots: defaults stay unnumbered in pathNumber;
     // custom pages get leaf-only ordinals used for publish slugs (`05%3A_…`).
@@ -731,7 +750,8 @@ export const computeRemixerOrdinalPathsMap = (
     const childLevel = parentPath.length + 1;
     const levelFormat = pathLevelFormats.find((f) => f.level === childLevel);
     // matter subtrees are excluded from the global continue counter
-    const shouldContinue = !parentInMatterBranch && levelFormat?.continue === true;
+    const shouldContinue =
+      !parentInMatterBranch && levelFormat?.continue === true;
 
     let ordinal = shouldContinue
       ? (continuedOrdinalByLevel.get(childLevel) ?? 0)
@@ -819,21 +839,22 @@ export const buildBookPaths = (
 
   return book.map((node) => {
     const ordinalPath = ordinalPathById.get(node["@id"]) ?? [];
-    const { numberedPath: computedNumberedPath, formattedPath: computedFormattedPath } =
-      toPaths(ordinalPath);
+    const {
+      numberedPath: computedNumberedPath,
+      formattedPath: computedFormattedPath,
+    } = toPaths(ordinalPath);
 
     const hasOverride =
       ignoreOverrides !== true && node.formattedPathOverride === true;
-    const inheritedPrefix =
-      !hasOverride
-        ? resolveInheritedFormattedPathPrefix(
-            node,
-            ordinalPath,
-            pathLevelFormats,
-            nodesById,
-            ordinalPathById,
-          )
-        : null;
+    const inheritedPrefix = !hasOverride
+      ? resolveInheritedFormattedPathPrefix(
+          node,
+          ordinalPath,
+          pathLevelFormats,
+          nodesById,
+          ordinalPathById,
+        )
+      : null;
 
     const parent = nodesById.get(node.parentID ?? "");
     // Front-matter customs: path slots are literal 5,6,7… (after reserved 01–04).
@@ -852,7 +873,7 @@ export const buildBookPaths = (
       ? stripObjectObjectMarker(node.formattedPath)
       : isFrontMatterCustom
         ? leafSlot
-        : inheritedPrefix ?? computedFormattedPath;
+        : (inheritedPrefix ?? computedFormattedPath);
 
     return {
       ...node,
@@ -866,7 +887,9 @@ export const buildBookPaths = (
   });
 };
 
-export const withDerivedStatusFlags = (book: RemixerSubPage[]): RemixerSubPage[] =>
+export const withDerivedStatusFlags = (
+  book: RemixerSubPage[],
+): RemixerSubPage[] =>
   book.map((page) => {
     const placementChanged =
       page.addedItem === true
@@ -894,9 +917,7 @@ export const applyDefaultBookArticleTypes = (
 ): RemixerSubPage[] => {
   if (!coverPageId) return book;
   return book.map((page) =>
-    page["@id"] === coverPageId
-      ? page
-      : { ...page, article: "topic-guide" },
+    page["@id"] === coverPageId ? page : { ...page, article: "topic-guide" },
   );
 };
 
@@ -962,16 +983,31 @@ const isInDeletedBranchForAutonumber = (
 
 /** True when override toggle or custom prefix differs from the loaded baseline. */
 export const hasFormattedPathChanged = (page: RemixerSubPage): boolean => {
+  // if it is matter default page, return false
+  if (isDefaultMatterPage(page)) return false;
+  if(isMatterRootNode(page)) return false;
   if (page.addedItem === true) return false;
+  const currPath = (page.formattedPath ?? "").trim();
+  const url = getRemixerPageUriUi(page);
+  if (url && currPath.length > 0) {
+    const section = url.split("/").pop();
+    const parts = currPath.split(".");
+    parts[parts.length - 1] = parts[parts.length - 1]!.padStart(2, "0");
+    const currPathWithSection = parts.join(".");
+    const started = section?.startsWith(currPathWithSection);
+    if (started === false) return true;
+  }
   if (page.originalFormattedPathOverride === undefined) {
     return false;
   }
+
   const origOverride = page.originalFormattedPathOverride === true;
   const currOverride = page.formattedPathOverride === true;
   if (origOverride !== currOverride) return true;
   if (!currOverride) return false;
   const origPath = (page.originalFormattedPath ?? "").trim();
-  const currPath = (page.formattedPath ?? "").trim();
+
+ 
   return origPath !== currPath;
 };
 
@@ -1122,7 +1158,11 @@ const isDescendant = (
 ): boolean => {
   let currentParentId = nodesById.get(nodeId)?.parentID ?? "-1";
   const visited = new Set<string>();
-  while (currentParentId && currentParentId !== "-1" && !visited.has(currentParentId)) {
+  while (
+    currentParentId &&
+    currentParentId !== "-1" &&
+    !visited.has(currentParentId)
+  ) {
     if (currentParentId === ancestorId) return true;
     visited.add(currentParentId);
     currentParentId = nodesById.get(currentParentId)?.parentID ?? "-1";
@@ -1148,12 +1188,15 @@ export const reorderBookNodes = ({
   if (!draggedNode || !targetNode) return existingBook;
 
   const targetParentId =
-    position === "inside" ? targetNodeId : targetNode.parentID ?? "-1";
+    position === "inside" ? targetNodeId : (targetNode.parentID ?? "-1");
   if (!targetParentId || targetParentId === draggedNodeId) return existingBook;
-  if (isDescendant(targetParentId, draggedNodeId, nodesById)) return existingBook;
+  if (isDescendant(targetParentId, draggedNodeId, nodesById))
+    return existingBook;
 
   const withUpdatedParent = existingBook.map((node) =>
-    node["@id"] === draggedNodeId ? { ...node, parentID: targetParentId } : node,
+    node["@id"] === draggedNodeId
+      ? { ...node, parentID: targetParentId }
+      : node,
   );
 
   const siblingNodes = withUpdatedParent.filter(
@@ -1239,11 +1282,7 @@ export const computeNodeDepth = (
   const nodesById = new Map(book.map((n) => [n["@id"], n]));
   let depth = 0;
   let currentId: string | undefined = nodeId;
-  while (
-    currentId &&
-    currentId !== stopAtParentId &&
-    currentId !== "-1"
-  ) {
+  while (currentId && currentId !== stopAtParentId && currentId !== "-1") {
     const node = nodesById.get(currentId);
     if (!node) break;
     depth += 1;
@@ -1286,9 +1325,8 @@ export const RESTRICTED_LIBRARY_SHELF_TITLES = [
   "campus bookshelves",
 ];
 
-export const getLibraryNodeTitle = (
-  node: RemixerSubPage | undefined,
-): string => (node?.["@title"] || node?.title || "").trim().toLowerCase();
+export const getLibraryNodeTitle = (node: RemixerSubPage | undefined): string =>
+  (node?.["@title"] || node?.title || "").trim().toLowerCase();
 
 /** Shelves themselves and their immediate children can't be imported into a book. */
 export const isRestrictedLibraryShelfNode = (
@@ -1359,8 +1397,7 @@ export const computeLibraryImportInsertion = ({
   idSuffix,
 }: ComputeLibraryImportInsertionParams): RemixerSubPage[] => {
   const suffix =
-    idSuffix ??
-    `-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    idSuffix ?? `-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   if (extractContent) {
     const allDescendantIds = new Set(
@@ -1455,7 +1492,7 @@ export const computeLibraryImportInsertion = ({
     parentID:
       subtreeNode["@id"] === originalRootId
         ? targetParentId
-        : idMap.get(subtreeNode.parentID ?? "") ?? subtreeNode.parentID,
+        : (idMap.get(subtreeNode.parentID ?? "") ?? subtreeNode.parentID),
   }));
 
   const nextBookNodes = [...existingBookNodes, ...copiedSubtreeNodes];
