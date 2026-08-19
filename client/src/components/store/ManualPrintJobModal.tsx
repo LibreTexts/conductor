@@ -256,11 +256,14 @@ const ManualPrintJobModal: React.FC<ManualPrintJobModalProps> = ({
           </Button>
         </div>
         <p id={appendHintID} className="mb-1 text-xs text-gray-600">
-          Cover and interior <code>source_url</code>s must be direct links that
-          answer 200 with the PDF. A{" "}
-          <code>downloads.libretexts.org/api/v1/download/...</code> URL redirects,
-          and Lulu does not follow redirects &mdash; it will build a one-page job
-          from the redirect stub. Paste the resolved storage URL instead.
+          Cover and interior <code>source_url</code>s should be{" "}
+          <code>
+            downloads.libretexts.org/api/v1/download/&lt;bookID&gt;/&lt;format&gt;
+          </code>{" "}
+          links. Lulu follows the redirect to storage when the print job is
+          created, so paste the stable downloads URL rather than a resolved{" "}
+          <code>storage.downloads.libretexts.org</code> link &mdash; a resolved
+          link pins one compiled version of the book.
         </p>
         {isBusy ? (
           <LoadingSpinner />

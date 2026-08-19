@@ -8,13 +8,11 @@ import { assembleUrl } from "../../util/helpers.js";
 export default class LuluService {
     private _authAxiosInstance: AxiosInstance;
     private _axiosInstance: AxiosInstance;
-    private _downloadsAxiosInstance: AxiosInstance;
     private _accessToken: string | null = null;
     private _accessTokenExpiration: number | null = null;
     private _tokenFetchPromise: Promise<string> | null = null;
 
     private readonly EXPIRATION_BUFFER_SECONDS = 60; // Buffer to ensure token is refreshed before it expires
-    private readonly ASSET_RETRY_DELAY_MS = 500; // Backoff before the single retry of a transient asset resolve
 
     constructor() {
         const axiosConfig = {
@@ -26,13 +24,6 @@ export default class LuluService {
 
         this._authAxiosInstance = axios.create(axiosConfig); // Seperate instance for fetching access tokens without interceptors
         this._axiosInstance = axios.create(axiosConfig);
-
-        // Print asset resolution hits downloads.libretexts.org, not Lulu, and runs inside the Stripe
-        // webhook handler -- a stalled host there must never hang order processing, so it gets its
-        // own instance with an explicit timeout.
-        this._downloadsAxiosInstance = axios.create({
-            timeout: Number(process.env.LULU_ASSET_RESOLVE_TIMEOUT_MS) || 15000,
-        });
 
         this._axiosInstance.interceptors.request.use(async (config) => {
             try {
@@ -116,111 +107,12 @@ export default class LuluService {
         return assembleUrl([host, 'api/v1/download', bookID]);
     }
 
-    /**
-     * Resolves a downloads.libretexts.org URL to the direct storage URL it redirects to.
-     *
-     * The downloads API answers with a 302 whose body is a short `text/plain` "Found. Redirecting to..."
-     * document. Lulu normalizes whatever bytes it downloads and does not guarantee that it follows
-     * redirects, so handing it the redirecting URL produces a one-page job built from that text stub --
-     * surfacing as a "We found 1 pages in your PDF" rejection. Resolve the hop ourselves and give Lulu
-     * a URL that answers 200 with the PDF on the first request.
-     */
-    private async _resolveDirectUrl(url: string, maxHops = 3): Promise<string> {
-        let current = url;
-
-        for (let hop = 0; hop < maxHops; hop++) {
-            let response;
-            try {
-                response = await this._requestWithoutRedirect(current);
-            } catch (error) {
-                if (!this._isTransientResolveError(error)) {
-                    throw error;
-                }
-                await new Promise((resolve) => setTimeout(resolve, this.ASSET_RETRY_DELAY_MS));
-                response = await this._requestWithoutRedirect(current);
-            }
-            response.data?.destroy?.();
-
-            // Already served directly -- nothing to resolve.
-            if (response.status < 300) {
-                return current;
-            }
-
-            const location = response.headers['location'];
-            if (!location || typeof location !== 'string') {
-                throw new Error(`Redirect from ${current} is missing a Location header`);
-            }
-
-            // Resolve against the current URL so a relative Location is still usable.
-            current = new URL(location, current).toString();
-        }
-
-        throw new Error(`Exceeded ${maxHops} redirects while resolving ${url}`);
+    getCoverFile(bookID: string, hardcover: boolean): string {
+        return assembleUrl([this.getDownloadsBaseUrl(bookID), `cover-${hardcover ? 'casewrap' : 'perfectbound'}`]);
     }
 
-    /**
-     * Single non-following GET of a print asset URL, streamed so no body is ever buffered.
-     *
-     * On rejection axios hands back a live, undrained `IncomingMessage` on `response.data`; leaving
-     * it open leaks a socket per failed order, so it is destroyed before the error is rethrown.
-     */
-    private async _requestWithoutRedirect(url: string) {
-        try {
-            // Stream the response so we never buffer a body. Interior PDFs run to hundreds of MB, and
-            // if the endpoint ever stops redirecting we must not pull the whole file down just to
-            // discover that.
-            return await this._downloadsAxiosInstance.get(url, {
-                maxRedirects: 0,
-                responseType: 'stream',
-                validateStatus: (status) => status < 400,
-            });
-        } catch (error: any) {
-            error?.response?.data?.destroy?.();
-            throw error;
-        }
-    }
-
-    /**
-     * Whether a failed resolve is worth one retry. A 4xx is not: it means the asset genuinely is not
-     * there yet, and retrying only burns the downloads API rate limit.
-     */
-    private _isTransientResolveError(error: any): boolean {
-        if (!error?.isAxiosError) return false;
-        const status = error.response?.status;
-        if (typeof status === 'number') return status >= 500;
-        return ['ECONNRESET', 'ETIMEDOUT', 'ECONNABORTED', 'EAI_AGAIN'].includes(error.code);
-    }
-
-    /**
-     * One operator-readable line describing why a resolve failed. The URL and the status are the
-     * only two facts anyone triaging a failed order needs; a serialized axios error is noise.
-     */
-    private _describeResolveFailure(error: any): string {
-        if (error?.isAxiosError) {
-            const status = error.response?.status;
-            if (typeof status === 'number') return `HTTP ${status}`;
-            return error.code ? `${error.code} (${error.message})` : error.message;
-        }
-        return error instanceof Error ? error.message : String(error);
-    }
-
-    private async _resolveAssetUrl(url: string): Promise<string> {
-        try {
-            return await this._resolveDirectUrl(url);
-        } catch (error) {
-            debug("[LuluService]: Error resolving print asset URL:", url, error);
-            throw new Error(`Failed to resolve print asset URL ${url}: ${this._describeResolveFailure(error)}`);
-        }
-    }
-
-    async getCoverFile(bookID: string, hardcover: boolean): Promise<string> {
-        return await this._resolveAssetUrl(
-            assembleUrl([this.getDownloadsBaseUrl(bookID), `cover-${hardcover ? 'casewrap' : 'perfectbound'}`])
-        );
-    }
-
-    async getContentFile(bookID: string): Promise<string> {
-        return await this._resolveAssetUrl(assembleUrl([this.getDownloadsBaseUrl(bookID), 'content']));
+    getContentFile(bookID: string): string {
+        return assembleUrl([this.getDownloadsBaseUrl(bookID), 'content']);
     }
 
     getPDFFileUrl(bookID: string): string {
@@ -294,12 +186,12 @@ export default class LuluService {
         }
     }
 
-    async buildPrintJobLineItems(items: ResolvedProduct[]): Promise<LuluPrintJobLineItem[]> {
+    buildPrintJobLineItems(items: ResolvedProduct[]): LuluPrintJobLineItem[] {
         if (items.length === 0) {
             return [];
         }
 
-        return await Promise.all(items.map(async item => {
+        return items.map(item => {
             const external_id = item.product.metadata['book_id'];
 
             const hardcover = item.price.metadata['hardcover'] === 'true';
@@ -307,10 +199,8 @@ export default class LuluService {
 
             const pod_package_id = this.getPodPackageID({ hardcover, color });
 
-            const [cover, content] = await Promise.all([
-                this.getCoverFile(external_id, hardcover),
-                this.getContentFile(external_id),
-            ]);
+            const cover = this.getCoverFile(external_id, hardcover);
+            const content = this.getContentFile(external_id);
 
             return {
                 external_id,
@@ -326,7 +216,7 @@ export default class LuluService {
                 },
                 quantity: item.quantity,
             };
-        }));
+        });
 
     }
 }

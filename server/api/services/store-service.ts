@@ -3,7 +3,7 @@ import { debug } from "../../debug";
 import StripeService from "./stripe-service";
 import { getLibraryNameKeys } from "../libraries";
 import axios from "axios";
-import { BookPriceOption, StoreProduct, StoreShippingOption, DownloadCenterItem, LuluShippingLineItem, ResolvedProduct, LuluPrintJobLineItem, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession, LuluPrintJob, LuluPrintJobParams } from "../../types";
+import { BookPriceOption, StoreProduct, StoreShippingOption, DownloadCenterItem, LuluShippingLineItem, ResolvedProduct, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession, LuluPrintJob, LuluPrintJobParams } from "../../types";
 import { checkBookIDFormat } from "../../util/bookutils";
 import { CreateCheckoutSessionSchema, GetShippingOptionsSchema, AdminGetStoreOrdersSchema } from "../validators/store";
 import { z } from "zod";
@@ -729,7 +729,7 @@ class StoreService {
                         throw new Error("MISSING_SHIPPING_ITEM");
                     }
 
-                    const luluLineItems = await this.luluService.buildPrintJobLineItems(bookItems);
+                    const luluLineItems = this.luluService.buildPrintJobLineItems(bookItems);
                     const printJob = await this.luluService.createPrintJob({
                         external_id: storeOrder.id,
                         shipping_address: {
@@ -937,16 +937,6 @@ class StoreService {
             warnings.push("No shipping line item was found on the Stripe checkout session. `shipping_level` has been defaulted to MAIL.");
         }
 
-        // Building the line items resolves each book's cover and interior download URL over the
-        // network, so it can fail on its own. This method is the escape hatch admins reach for when
-        // automatic submission already failed -- degrade to a warning rather than a 500.
-        let line_items: LuluPrintJobLineItem[] = [];
-        try {
-            line_items = await this.luluService.buildPrintJobLineItems(books);
-        } catch (error) {
-            warnings.push(`The print asset URLs could not be resolved (${serializeError(error)}). Line items must be entered manually.`);
-        }
-
         return {
             params: {
                 external_id: store_order.id,
@@ -962,7 +952,7 @@ class StoreService {
                     email: session?.customer_details?.email || store_order.customerEmail || '', // Will default to the contact email on Lulu account if not provided
                     is_business: false,
                 },
-                line_items,
+                line_items: this.luluService.buildPrintJobLineItems(books),
                 shipping_level: shipping?.product.metadata['lulu_shipping_option_level'] as LuluShippingLevel || 'MAIL',
             },
             warnings,
