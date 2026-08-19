@@ -42,46 +42,89 @@ class StoreService {
         this.cache = new NodeCache({ stdTTL: 60 * 5, checkperiod: 120 }); // Cache for 5 minutes
     }
 
-    private _redactPersonalInfo(text: string): string {
-        if (!text || typeof text !== 'string') return text;
+    // Cap mask length so we don't leak the exact length of a redacted token.
+    private static readonly MAX_MASK_LENGTH = 6;
 
-        const words = text.trim().split(/\s+/);
-
-        const redactedWords = words.map(word => {
-            if (word.length <= 1) return word;
-
-            if (word.length === 2) {
-                return word[0] + '*';
-            }
-
-            return word[0] + '*'.repeat(word.length - 1);
-        });
-
-        return redactedWords.join(' ');
+    /**
+     * Masks a single token, keeping `keep` leading characters.
+     * Tokens shorter than or equal to `keep` are reduced to a single character
+     * so we never echo a short token back verbatim.
+     */
+    private _maskToken(token: string, keep: number): string {
+        if (token.length <= keep) {
+            return token.length <= 1 ? token : token[0] + '*';
+        }
+        const maskLength = Math.min(token.length - keep, StoreService.MAX_MASK_LENGTH);
+        return token.slice(0, keep) + '*'.repeat(maskLength);
     }
 
+    /**
+     * Redacts a personal name. The first given name is left intact (it is the
+     * weakest identifier on its own and the strongest recognition cue for the
+     * customer), remaining tokens are reduced to an initial.
+     * e.g. "Jonathan Q Turner" -> "Jonathan Q T*****"
+     */
+    private _redactName(name: string): string {
+        if (!name || typeof name !== 'string') return name;
+
+        const tokens = name.trim().split(/\s+/);
+        if (tokens.length === 0) return name;
+
+        return [
+            tokens[0],
+            ...tokens.slice(1).map(token => this._maskToken(token, 1)),
+        ].join(' ');
+    }
+
+    /**
+     * Redacts a street address line. Non-alphabetic tokens (house/unit numbers,
+     * "#4B", "1/2") are preserved, alphabetic tokens keep two leading characters.
+     * The result is recognizable to the customer but is not a deliverable address.
+     * e.g. "1234 Maple Avenue Apt 5" -> "1234 Ma*** Av**** Ap* 5"
+     */
+    private _redactStreetAddress(line: string): string {
+        if (!line || typeof line !== 'string') return line;
+
+        return line
+            .trim()
+            .split(/\s+/)
+            .map(token => (/[a-z]/i.test(token) ? this._maskToken(token, 2) : token))
+            .join(' ');
+    }
+
+    /**
+     * Keeps the first two and last character of the local part plus the full
+     * domain, so the customer can confirm the account without the address being
+     * guessable. e.g. "jonathan.turner@example.edu" -> "jo************r@example.edu"
+     */
     private _redactEmail(email: string): string {
         if (!email || typeof email !== 'string' || !email.includes('@')) return email;
 
-        const [localPart, domain] = email.split('@');
-        if (localPart.length <= 1) return email;
+        const atIndex = email.lastIndexOf('@');
+        const localPart = email.slice(0, atIndex);
+        const domain = email.slice(atIndex + 1);
+        if (localPart.length <= 2) return `${this._maskToken(localPart, 1)}@${domain}`;
+        if (localPart.length <= 4) return `${localPart[0]}**${localPart.slice(-1)}@${domain}`;
 
-        const redactedLocal = localPart[0] + '*'.repeat(Math.max(localPart.length - 1, 1));
-        return `${redactedLocal}@${domain}`;
+        const maskLength = Math.min(localPart.length - 3, StoreService.MAX_MASK_LENGTH);
+        return `${localPart.slice(0, 2)}${'*'.repeat(maskLength)}${localPart.slice(-1)}@${domain}`;
     }
 
+    /**
+     * Keeps only the last four digits. The previous first-three-and-last-four
+     * rule left all but three digits of a US number visible.
+     */
     private _redactPhoneNumber(phone: string): string {
         if (!phone || typeof phone !== 'string') return phone;
 
-        // Keep first 3 and last 4 digits, redact the middle
-        const digits = phone.replace(/\D/g, '');
+        const digitCount = phone.replace(/\D/g, '').length;
+        if (digitCount <= 4) return phone;
 
-        // Preserve original formatting structure but with redacted digits
-        return phone.replace(/\d/g, (digit, index) => {
-            const digitIndex = phone.slice(0, index).replace(/\D/g, '').length;
-            if (digitIndex < 3) return digit;
-            if (digitIndex >= digits.length - 4) return digit;
-            return '*';
+        let seen = 0;
+        return phone.replace(/\d/g, digit => {
+            const isVisible = seen >= digitCount - 4;
+            seen += 1;
+            return isVisible ? digit : '*';
         });
     }
 
@@ -304,16 +347,16 @@ class StoreService {
                     })) || []
                 },
                 customer_details: session.customer_details ? {
-                    // Redact customer name
-                    name: session.customer_details.name ? this._redactPersonalInfo(session.customer_details.name) : undefined,
+                    // Redact customer name (first given name kept for recognition)
+                    name: session.customer_details.name ? this._redactName(session.customer_details.name) : undefined,
                     // Redact email
                     email: session.customer_details.email ? this._redactEmail(session.customer_details.email) : undefined,
                     // Redact phone
                     phone: session.customer_details.phone ? this._redactPhoneNumber(session.customer_details.phone) : undefined,
                     address: session.customer_details.address ? {
-                        // Redact line1 and line2 (street addresses)
-                        line1: session.customer_details.address.line1 ? this._redactPersonalInfo(session.customer_details.address.line1) : undefined,
-                        line2: session.customer_details.address.line2 ? this._redactPersonalInfo(session.customer_details.address.line2) : undefined,
+                        // Partially redact street lines: numbers kept, street names masked
+                        line1: session.customer_details.address.line1 ? this._redactStreetAddress(session.customer_details.address.line1) : undefined,
+                        line2: session.customer_details.address.line2 ? this._redactStreetAddress(session.customer_details.address.line2) : undefined,
                         // Keep city, state, postal_code visible
                         city: session.customer_details.address.city,
                         state: session.customer_details.address.state,
