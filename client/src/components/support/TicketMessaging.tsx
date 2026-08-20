@@ -7,7 +7,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTypedSelector } from "../../state/hooks";
 import TicketCommentsContainer from "./TicketCommentsContainer";
 import { Button, Card, Divider, Heading, Stack, Text, Textarea } from "@libretexts/davis-react";
-import { IconSend, IconTrash } from "@tabler/icons-react";
+import { IconSend, IconSparkles, IconTrash } from "@tabler/icons-react";
+import api from "../../api";
+import { useNotifications } from "../../context/NotificationContext";
 
 interface TicketMessagingProps {
   id: string;
@@ -24,6 +26,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
   const containerRef =
     useRef<React.ElementRef<typeof TicketCommentsContainer>>(null);
   const { handleGlobalError } = useGlobalError();
+  const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
   const { control, getValues, setValue, watch, trigger, register, reset } =
     useForm<SupportTicketMessage>({
@@ -116,6 +119,37 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
     },
   });
 
+  const aiAnswerMutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.answerSupportTicketWithAI(id);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      if (!data.hasContext || !data.answer) {
+        addNotification({
+          type: "info",
+          message:
+            data.message ||
+            "AI does not have enough relevant context to answer this ticket.",
+        });
+        return;
+      }
+
+      setValue("message", data.answer, { shouldDirty: true });
+      addNotification({
+        type: "success",
+        message: `AI drafted an answer using ${data.sources.length} relevant source${data.sources.length === 1 ? "" : "s"}. Review it before sending.`,
+      });
+    },
+    onError: (error: any) => {
+      addNotification({
+        type: "error",
+        message:
+          error.response?.data?.errMsg || "Unable to generate an AI answer.",
+      });
+    },
+  });
+
   return (
     <Card padding="sm" variant="default">
       <Card.Header>
@@ -169,6 +203,24 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
                 </Text>
               </Stack>
               <Stack direction="horizontal" gap="sm" className="mt-2 md:mt-0" justify="end" align="end">
+                {(user.isSupport || user.isHarvester) &&
+                  ticket.status !== "closed" && (
+                    <Button
+                      variant="outline"
+                      icon={
+                        <IconSparkles
+                          size={19}
+                          className="text-violet-600"
+                          aria-hidden="true"
+                        />
+                      }
+                      onClick={() => aiAnswerMutation.mutate()}
+                      loading={aiAnswerMutation.isLoading}
+                      className="!border-blue-400 !bg-gradient-to-r !from-blue-50 !to-violet-50 !text-blue-900 transition-all duration-200 hover:!border-blue-600 hover:!from-blue-100 hover:!to-violet-100 hover:!shadow-[0_0_0_3px_rgba(59,130,246,0.18),0_0_18px_rgba(99,102,241,0.28)] hover:animate-pulse focus-visible:!border-blue-600 focus-visible:!shadow-[0_0_0_3px_rgba(59,130,246,0.25)]"
+                    >
+                      Answer with AI
+                    </Button>
+                  )}
                 <Button
                   variant="outline"
                   icon={<IconTrash size={18} />}
