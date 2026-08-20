@@ -106,6 +106,7 @@ const ReferenceManager: React.FC = () => {
   const referenceFormat = bookReferencesDetails?.data?.format;
   const displayLocation = bookReferencesDetails?.data?.displayLocation;
   const pageTitle = bookReferencesDetails?.data?.pageTitle;
+  const selectedList = bookReferencesDetails?.data?.selectedList ?? [];
   const entries = bookReferencesDetails?.data?.entries ?? [];
 
   const { data: populateDetails } = useQuery({
@@ -162,6 +163,7 @@ const ReferenceManager: React.FC = () => {
           format: settings.format,
           displayLocation: settings.displayLocation,
           pageTitle: settings.pageTitle,
+          selectedList: settings.selectedList,
         },
       }));
       return { previous };
@@ -175,6 +177,7 @@ const ReferenceManager: React.FC = () => {
           displayLocation:
             data.data.displayLocation ?? settings.displayLocation,
           pageTitle: data.data.pageTitle ?? settings.pageTitle,
+          selectedList: data.data.selectedList ?? settings.selectedList,
         },
       }));
       addNotification({
@@ -536,6 +539,7 @@ const ReferenceManager: React.FC = () => {
                         format,
                         displayLocation: displayLocation ?? "endOfPage",
                         pageTitle: pageTitle ?? "",
+                        selectedList: [],
                       });
                     }}
                   />
@@ -597,11 +601,11 @@ const ReferenceManager: React.FC = () => {
         format={referenceFormat}
         displayLocation={displayLocation}
         pageTitle={pageTitle}
+        defaultSelectedList={selectedList}
         onSubmit={(settings) => updateFormat(settings)}
         submitDisabled={isUpdatingFormat || !id}
         addNotification={addNotification}
         bookToc={bookToc?.toc ?? undefined}
-
       />
       <AddContent
         open={showAddContentModal}

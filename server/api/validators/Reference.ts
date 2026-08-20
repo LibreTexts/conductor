@@ -79,6 +79,7 @@ export const UpdateReferenceFormatSchema = ProjectIDParamsSchema.extend({
       .enum(["endOfPage", "endOfChapter", "backmatter"])
       .optional(),
     pageTitle: z.string().optional(),
+    selectedList: z.array(z.string()).optional(),
   }),
 });
 

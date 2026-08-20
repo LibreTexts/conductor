@@ -25,6 +25,7 @@ export interface ReferenceUsageInterface extends Document {
   pageRefrences: PageReferences[];
   backmatterReferenceList: string[];
   backmatterPageID?: string;
+  selectedList?: string[];
 }
 
 const pageRefrencesSchema = new Schema<PageReferences>(
@@ -59,6 +60,7 @@ const ReferenceUsageSchema = new Schema<ReferenceUsageInterface>({
   pageRefrences: { type: [pageRefrencesSchema], default: () => [] },
   backmatterReferenceList: { type: [String], default: () => [] },
   backmatterPageID: { type: String, required: false },
+  selectedList: { type: [String], default: () => [] },
 });
 
 ReferenceUsageSchema.index({ projectID: 1 }, { unique: true });

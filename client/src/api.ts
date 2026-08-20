@@ -3291,6 +3291,7 @@ class API {
       format: ReferenceFormatType;
       displayLocation?: ReferenceDisplayLocation;
       pageTitle?: string;
+      selectedList?: string[];
     },
   ) {
     const res = await axios.post<
@@ -3298,7 +3299,8 @@ class API {
         data: {
           format: ReferenceFormatType;
           displayLocation?: ReferenceDisplayLocation;
-          pageTitle?: string;
+          pageTitle?: string;   
+          selectedList?: string[];
         };
       } & ConductorBaseResponse
     >(`/projects/${projectID}/reference`, data);
@@ -3312,6 +3314,7 @@ class API {
           format: ReferenceFormatType;
           displayLocation?: ReferenceDisplayLocation;
           pageTitle?: string;
+          selectedList?: string[];
           entries: ReferenceEntry[];
         };
       } & ConductorBaseResponse

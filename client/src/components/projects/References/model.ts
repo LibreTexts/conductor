@@ -50,6 +50,7 @@ export type BookReferencesData = {
   displayLocation?: ReferenceDisplayLocation;
   /** Page title when displayLocation is endOfChapter or backmatter. */
   pageTitle?: string;
+  selectedList?: string[];
   entries?: ReferenceEntry[];
 };
 
