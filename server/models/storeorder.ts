@@ -35,7 +35,8 @@ export interface RawStoreOrder {
     luluJobID?: string;
     luluJobStatus?: string;
     luluJobStatusMessage?: string; // Error message if the Lulu job fails
-    luluJobStatusUpdates?: Array<Record<string, any>>; // Array of status updates data from Lulu, if any
+    luluJobStatusUpdates?: Array<Record<string, any>>; // Array of status updates data from Lulu for the CURRENT job, if any
+    ignoredLuluJobStatusUpdates?: Array<Record<string, any>>; // Webhook payloads deliberately not applied (superseded job, or an out-of-order redelivery). Kept for forensics only — never a source of order or shipping state.
     notificationsSent?: Array<RawStoreOrderNotification>;
     supportTicketUUID?: string; // UUID of the system-generated support ticket, if one was opened for a failure/rejection
     manualPrintJobSubmissions?: Array<RawManualPrintJobSubmission>; // Audit trail of hand-edited print job submissions
@@ -71,6 +72,9 @@ const StoreOrderSchema = new Schema<RawStoreOrder>({
     luluJobStatus: String,
     luluJobStatusMessage: String,
     luluJobStatusUpdates: {
+        type: [Object],
+    },
+    ignoredLuluJobStatusUpdates: {
         type: [Object],
     },
     notificationsSent: {

@@ -3,7 +3,7 @@ import { debug } from "../../debug";
 import StripeService from "./stripe-service";
 import { getLibraryNameKeys } from "../libraries";
 import axios from "axios";
-import { BookPriceOption, StoreProduct, StoreShippingOption, DownloadCenterItem, LuluShippingLineItem, ResolvedProduct, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession, LuluPrintJob, LuluPrintJobParams } from "../../types";
+import { BookPriceOption, StoreProduct, StoreShippingOption, DownloadCenterItem, LuluShippingLineItem, ResolvedProduct, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession, LuluPrintJob, LuluPrintJobParams, LULU_HEALTHY_STATUSES, LULU_FAILURE_STATUSES } from "../../types";
 import { checkBookIDFormat } from "../../util/bookutils";
 import { CreateCheckoutSessionSchema, GetShippingOptionsSchema, AdminGetStoreOrdersSchema } from "../validators/store";
 import { z } from "zod";
@@ -283,9 +283,20 @@ class StoreService {
         }>;
     } | null> {
         const order = await StoreOrder.findOne({ id: { $eq: checkout_session_id } });
-        if (!order || !order.luluJobStatusUpdates?.length) return null;
+        if (!order?.luluJobStatusUpdates?.length) return null;
 
-        const latestUpdate = order.luluJobStatusUpdates[order.luluJobStatusUpdates.length - 1];
+        // Scope to the order's current Lulu job. `luluJobStatusUpdates` is an append-only event log,
+        // and on orders processed before superseded jobs were filtered out on ingest it can still
+        // hold events from a job that a resubmit has since replaced. Taking the tail unconditionally
+        // would then hand the customer a dead job's tracking numbers.
+        const updates = order.luluJobStatusUpdates;
+        const latestUpdate = order.luluJobID
+            // No match means the current job has not reported yet (e.g. straight after a resubmit).
+            // Returning nothing is right: any entry still in the log belongs to a superseded job.
+            ? updates.findLast((u) => u?.id?.toString() === order.luluJobID)
+            : updates[updates.length - 1]; // pre-`luluJobID` orders have nothing to scope by
+        if (!latestUpdate) return null;
+
         const lineItems: any[] = latestUpdate.line_items || [];
 
         const luluStatusToShipping = (statusName: string): "ORDER_PLACED" | "IN_PRODUCTION" | "SHIPPED" => {
@@ -867,46 +878,124 @@ class StoreService {
                 return;
             }
 
+            // `id` is unguarded elsewhere in this method's history; a payload without it used to throw
+            // into the swallow-all catch below and silently drop the entire update.
+            const incomingJobID = data.id?.toString();
+            if (!incomingJobID) {
+                debug(`Lulu webhook for order ${storeOrder.id} has no job id; ignoring.`);
+                return;
+            }
+
+            // A resubmit creates a NEW Lulu job, but the superseded job can still emit webhooks.
+            // Since this method joins on `external_id` alone, a late REJECTED/ERROR from the old job
+            // would otherwise overwrite the good job's ID and status and re-break a just-fixed order.
+            // Lulu job IDs increase monotonically, so a lower ID means the event is stale. Fail open
+            // when either ID isn't numeric: dropping real updates is worse than applying an odd one.
+            const incomingJobNumber = Number(incomingJobID);
+            const currentJobNumber = Number(storeOrder.luluJobID);
+            if (
+                storeOrder.luluJobID &&
+                storeOrder.luluJobID !== incomingJobID &&
+                Number.isFinite(incomingJobNumber) &&
+                Number.isFinite(currentJobNumber) &&
+                incomingJobNumber < currentJobNumber
+            ) {
+                debug(`Ignoring stale Lulu webhook for job ${incomingJobID}; order ${storeOrder.id} is on job ${storeOrder.luluJobID}.`);
+                // Kept for forensics, but held apart from `luluJobStatusUpdates`: that log is what
+                // `getShippingData` reads, so a superseded job must never be able to land in it.
+                storeOrder.ignoredLuluJobStatusUpdates = [...(storeOrder.ignoredLuluJobStatusUpdates || []), data];
+                await storeOrder.save();
+                return;
+            }
+
+            const incomingStatus = data.status?.name;
+
+            // Lulu emits a job's status changes in order, but does NOT guarantee ordered DELIVERY:
+            // a retried or delayed event can land after one that superseded it. When the incoming
+            // event belongs to the job already on file AND that job's last recorded status was a
+            // failure, a healthy event from it describes something that happened BEFORE the
+            // failure — it is a redelivery, never a recovery. Without this, a retried IN_PRODUCTION
+            // arriving after an ERROR would clear a real failure and close its ticket. Recovery is
+            // therefore only ever driven by a different (newer) job, or by a job whose own last
+            // status was healthy (the `_failStoreOrder` case, where the order failed for a reason
+            // outside the print job).
+            const isRedeliveryOfSupersededEvent = !!incomingStatus
+                && LULU_HEALTHY_STATUSES.has(incomingStatus)
+                && storeOrder.luluJobID === incomingJobID
+                && !!storeOrder.luluJobStatus
+                && LULU_FAILURE_STATUSES.has(storeOrder.luluJobStatus);
+
+            if (isRedeliveryOfSupersededEvent) {
+                debug(`Ignoring out-of-order Lulu webhook (${incomingStatus}) for job ${incomingJobID}; order ${storeOrder.id} already recorded ${storeOrder.luluJobStatus} for it.`);
+                // Same reasoning as the stale-job branch above: visible for forensics, but out of
+                // the log that feeds order and shipping state. Job-id scoping alone would not save
+                // us here — a redelivery carries the CURRENT job's id.
+                storeOrder.ignoredLuluJobStatusUpdates = [...(storeOrder.ignoredLuluJobStatusUpdates || []), data];
+                await storeOrder.save();
+                return;
+            }
+
+            // Captured before any mutation: it drives the recovery branch below.
+            const wasFailed = storeOrder.status === 'failed';
+
             const customerEmail = storeOrder.customerEmail || await this.stripeService.getCustomerEmailFromCheckoutSession(storeOrder.id);
 
             // If the order is now in production and we haven't sent a notification yet, send one
-            if (customerEmail && data.status?.name === 'IN_PRODUCTION' && !storeOrder.notificationsSent?.some((n) => n.status === 'IN_PRODUCTION')) {
+            if (customerEmail && incomingStatus === 'IN_PRODUCTION' && !storeOrder.notificationsSent?.some((n) => n.status === 'IN_PRODUCTION')) {
                 await mailAPI.sendStoreOrderInProductionUpdate(customerEmail, storeOrder.id).catch((err) => {
                     debug("Failed to send store order in production update email:", err);
                 });
                 storeOrder.notificationsSent = [...(storeOrder.notificationsSent || []), { status: 'IN_PRODUCTION' }];
             }
 
-            // If the order has shipped, consider it completed
-            if (data.status?.name === 'SHIPPED') {
-                if (customerEmail) {
-                    const notificationsSent = await this._processShippingUpdates(storeOrder, data, customerEmail);
-                    storeOrder.notificationsSent = [...(storeOrder.notificationsSent || []), ...notificationsSent];
+            // If the order has shipped, gather tracking notifications before the status write below.
+            if (incomingStatus === 'SHIPPED' && customerEmail) {
+                const notificationsSent = await this._processShippingUpdates(storeOrder, data, customerEmail);
+                storeOrder.notificationsSent = [...(storeOrder.notificationsSent || []), ...notificationsSent];
+            }
+
+            // Keep `status`/`error` in sync with the live print job in BOTH directions. Previously
+            // they were write-once: only `_failStoreOrder` set 'failed' and nothing ever cleared it,
+            // so a successfully resubmitted order stayed 'failed' until an admin edited MongoDB.
+            // An unrecognized status falls into neither set and deliberately leaves them untouched,
+            // so a status Lulu adds later can never silently fail or un-fail an order.
+            const recovered = wasFailed && !!incomingStatus && LULU_HEALTHY_STATUSES.has(incomingStatus);
+
+            if (incomingStatus && LULU_FAILURE_STATUSES.has(incomingStatus)) {
+                storeOrder.status = 'failed';
+                storeOrder.error = data.status?.message || `Lulu print job ${incomingStatus}`;
+
+                // A rejected, errored, or canceled print job needs manual resolution; open a ticket.
+                await this._createOrderFailureTicket(storeOrder, {
+                    trigger: incomingStatus === 'REJECTED' ? "lulu_rejected" : "lulu_error",
+                    message: data.status?.message || '',
+                });
+            } else if (incomingStatus && LULU_HEALTHY_STATUSES.has(incomingStatus)) {
+                if (incomingStatus === 'SHIPPED') {
+                    storeOrder.status = 'completed';
+                } else if (wasFailed) {
+                    storeOrder.status = 'pending';
                 }
 
-                storeOrder.status = 'completed';
+                if (recovered) {
+                    storeOrder.error = "";
+                    // `supportTicketUUID` is deliberately left in place here: it is only detached
+                    // once the ticket service confirms the close, in `_resolveOrderFailureTicket`.
+                }
             }
 
-            // A rejected or errored Lulu print job needs manual resolution; open a support ticket.
-            if (data.status?.name === 'REJECTED') {
-                await this._createOrderFailureTicket(storeOrder, {
-                    trigger: "lulu_rejected",
-                    message: data.status?.message || '',
-                });
-            }
-
-            if (data.status?.name === 'ERROR') {
-                await this._createOrderFailureTicket(storeOrder, {
-                    trigger: "lulu_error",
-                    message: data.status?.message || '',
-                });
-            }
-
-            storeOrder.luluJobID = data.id.toString(); // Update the Lulu job ID (e.g. on resubmits)
-            storeOrder.luluJobStatus = data.status?.name || "unknown";
+            storeOrder.luluJobID = incomingJobID; // Update the Lulu job ID (e.g. on resubmits)
+            storeOrder.luluJobStatus = incomingStatus || "unknown";
             storeOrder.luluJobStatusMessage = data.status?.message || "";
             storeOrder.luluJobStatusUpdates = [...(storeOrder.luluJobStatusUpdates || []), data];
             await storeOrder.save();
+
+            // After the save so ticket I/O never sits on the order write path. Re-reads the order
+            // rather than trusting the in-memory copy, because `_createOrderFailureTicket` attaches
+            // the UUID with its own `updateOne`.
+            if (recovered) {
+                await this._resolveOrderFailureTicket(storeOrder.id);
+            }
 
             // Best-effort: keep the search index in step with the new Lulu status (fire-and-forget).
             void upsertStoreOrderToSearchIndex(storeOrder.id);
@@ -1116,8 +1205,102 @@ class StoreService {
             luluJobStatusMessage: printJob.status["message"] || "",
         });
 
+        // Lulu accepted a new job, so any recorded failure is now stale. Because both the plain
+        // resubmit and the manual submission funnel through here, this one call clears the stuck
+        // 'failed' status for both without waiting on Lulu's next webhook.
+        await this._clearOrderFailureIfFailed(orderId);
+
         // Best-effort: reflect the new Lulu job in the search index (fire-and-forget).
         void upsertStoreOrderToSearchIndex(orderId);
+    }
+
+    /**
+     * Clears a recorded failure from an order that has recovered, and resolves its support ticket.
+     *
+     * The `status: "failed"` term in the filter does the real work: it makes the update a no-op for
+     * an order that isn't failed (so a manual resubmit of an already-`completed` order can never be
+     * knocked back to `pending`), and it makes concurrent callers race safely — only one update can
+     * match the transition.
+     */
+    private async _clearOrderFailureIfFailed(orderId: string): Promise<void> {
+        try {
+            const previous = await StoreOrder.findOneAndUpdate(
+                { id: { $eq: orderId }, status: "failed" },
+                { $set: { status: "pending", error: "" } },
+                { new: false },
+            );
+
+            // Best-effort: reflect the recovered status in the search index (fire-and-forget).
+            if (previous) void upsertStoreOrderToSearchIndex(orderId);
+        } catch (error) {
+            debug(`Failed to clear failure state on store order ${orderId}:`, error);
+        }
+
+        // Outside the try, and deliberately not gated on this call having been the one to clear the
+        // status: if an earlier recovery cleared the order but could not reach the ticket service,
+        // the UUID is still attached and this is what retries the close.
+        await this._resolveOrderFailureTicket(orderId);
+    }
+
+    /**
+     * Closes and detaches the system-generated failure ticket of an order that is no longer failed.
+     *
+     * The UUID is unset only once the ticket service confirms the close. A transient ticket-service
+     * or database error therefore leaves the reference on the order, where the next recovery attempt
+     * (another resubmit, or the next healthy webhook) retries it — rather than orphaning an open
+     * ticket that nothing points at.
+     *
+     * The `status: { $ne: "failed" }` term makes this a no-op for an order that has failed again in
+     * the meantime: that ticket is live and must stay open.
+     */
+    private async _resolveOrderFailureTicket(orderId: string): Promise<void> {
+        try {
+            const order = await StoreOrder.findOne({ id: { $eq: orderId }, status: { $ne: "failed" } });
+            if (!order?.supportTicketUUID) return;
+
+            const closed = await this._closeOrderFailureTicket(order.supportTicketUUID, orderId);
+            if (!closed) return; // reference retained on purpose so a later attempt can retry
+
+            // Detaching lifts the "one ticket per order, ever" dedupe in `_createOrderFailureTicket`,
+            // so a later genuine failure opens a fresh ticket. Matching on the same UUID means a
+            // ticket opened by a concurrent failure is never detached by this write.
+            await StoreOrder.updateOne(
+                { id: { $eq: orderId }, supportTicketUUID: { $eq: order.supportTicketUUID } },
+                { $unset: { supportTicketUUID: "" } },
+            );
+        } catch (error) {
+            debug(`Failed to resolve support ticket for store order ${orderId}:`, error);
+        }
+    }
+
+    /**
+     * Closes the system-generated failure ticket for an order that has recovered. Fully defensive:
+     * `changeTicketStatus` uses `.orFail()`, and a deleted or already-closed ticket must never
+     * disrupt order processing.
+     *
+     * Returns whether the close is known to have succeeded — callers use that to decide whether the
+     * order may stop tracking the ticket.
+     */
+    private async _closeOrderFailureTicket(ticketUUID: string, orderId: string): Promise<boolean> {
+        try {
+            await this.ticketService.changeTicketStatus({
+                uuid: ticketUUID,
+                status: "closed",
+                callingUserName: "Conductor (automated)",
+            });
+            return true;
+        } catch (error) {
+            // `changeTicketStatus` closes with `updateOne(...).orFail()`, so a ticket that no longer
+            // exists surfaces as DocumentNotFoundError. That is permanent, not transient: reporting
+            // it as unresolved would make the order retry forever and keep the dedupe in
+            // `_createOrderFailureTicket` wedged, so treat it as nothing left to close.
+            if ((error as { name?: string })?.name === "DocumentNotFoundError") {
+                debug(`Support ticket ${ticketUUID} for store order ${orderId} no longer exists; treating as closed.`);
+                return true;
+            }
+            debug(`Failed to close support ticket ${ticketUUID} for store order ${orderId}:`, error);
+            return false;
+        }
     }
 
     /**
