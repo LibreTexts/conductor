@@ -3,6 +3,32 @@ import logger from "../../logger.js";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import OpenAI from "openai";
 
+export type VectorSearchSource = "knowledge_base" | "closed_support_ticket";
+
+export interface VectorSearchResult {
+  id: string;
+  title: string;
+  content: string;
+  score: number;
+  source: VectorSearchSource;
+  url?: string;
+}
+
+export interface ClosedSupportTicketVector {
+  uuid: string;
+  title: string;
+  description?: string;
+  category?: string;
+  queueId: string;
+  timeOpened: string;
+  timeClosed?: string;
+  messages: Array<{
+    message: string;
+    senderIsStaff: boolean;
+    timeSent: string;
+  }>;
+}
+
 const qdrantUrl =
   process.env.QDRANT_URL || process.env.QDRANT_HOST || "http://localhost:6333";
 
@@ -31,44 +57,37 @@ async function testQdrantConnection() {
 
 export class QdrantService {
   private collectionName = "kb_pages";
+  private closedSupportTicketsCollection = "closed_support_tickets";
   private vectorSize = 1536; // OpenAI text-embedding-3-small dimension
+
+  private async ensureCollection(collectionName: string) {
+    const collections = await qdrantClient.getCollections();
+    const collectionExists = collections.collections.some(
+      (collection) => collection.name === collectionName,
+    );
+
+    if (!collectionExists) {
+      await qdrantClient.createCollection(collectionName, {
+        vectors: { size: this.vectorSize, distance: "Cosine" },
+        optimizers_config: { default_segment_number: 2 },
+        replication_factor: 1,
+      });
+    }
+  }
 
   // Initialize Qdrant collection
   async initializeCollection() {
     try {
-      // Check if collection exists
-      logger.info("Checking if collection exists ...");
-      const collections = await qdrantClient.getCollections();
-      logger.info({ detail: [collections] }, "collections");
-      const collectionExists = collections.collections.some(
-        (col) => col.name === this.collectionName,
-      );
-      logger.info({ detail: [collectionExists] }, "collectionExists");
-
-      if (!collectionExists) {
-        logger.info(`Creating Qdrant collection: ${this.collectionName}`);
-
-        await qdrantClient.createCollection(this.collectionName, {
-          vectors: {
-            size: this.vectorSize,
-            distance: "Cosine", // Use cosine similarity
-          },
-          optimizers_config: {
-            default_segment_number: 2,
-          },
-          replication_factor: 1,
-        });
-
-        logger.info("Collection created successfully");
-      } else {
-        logger.info("Collection already exists");
-      }
-
+      await this.ensureCollection(this.collectionName);
       return true;
     } catch (error) {
       logger.error({ err: error }, "Error initializing Qdrant collection");
       throw error;
     }
+  }
+
+  async initializeClosedSupportTicketsCollection() {
+    await this.ensureCollection(this.closedSupportTicketsCollection);
   }
 
   // Generate embeddings from text
@@ -199,6 +218,117 @@ export class QdrantService {
       logger.error({ err: error }, "Error searching Qdrant");
       throw error;
     }
+  }
+
+  private formatClosedTicketContent(ticket: ClosedSupportTicketVector) {
+    const conversation = ticket.messages
+      .map(
+        (message) =>
+          `${message.senderIsStaff ? "Support" : "Requester"}: ${message.message}`,
+      )
+      .join("\n");
+
+    const content = [
+      `Title: ${ticket.title}`,
+      ticket.category ? `Category: ${ticket.category}` : "",
+      `Request: ${ticket.description || "No description provided."}`,
+      conversation ? `Conversation:\n${conversation}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    // Preserve both the original request and the eventual resolution for long threads.
+    return content.length <= 24_000
+      ? content
+      : `${content.slice(0, 8_000)}\n\n[earlier conversation truncated]\n\n${content.slice(-16_000)}`;
+  }
+
+  async upsertClosedSupportTicket(ticket: ClosedSupportTicketVector) {
+    await this.initializeClosedSupportTicketsCollection();
+    const content = this.formatClosedTicketContent(ticket);
+    const vector = await this.generateEmbeddings(content);
+
+    await qdrantClient.upsert(this.closedSupportTicketsCollection, {
+      wait: true,
+      points: [
+        {
+          id: ticket.uuid,
+          vector,
+          payload: {
+            uuid: ticket.uuid,
+            title: ticket.title,
+            content,
+            category: ticket.category,
+            queueId: ticket.queueId,
+            status: "closed",
+            timeOpened: ticket.timeOpened,
+            timeClosed: ticket.timeClosed,
+          },
+        },
+      ],
+    });
+  }
+
+  async deleteClosedSupportTicket(uuid: string) {
+    await this.initializeClosedSupportTicketsCollection();
+    await qdrantClient.delete(this.closedSupportTicketsCollection, {
+      wait: true,
+      points: [uuid],
+    });
+  }
+
+  async searchSupportKnowledge(
+    query: string,
+    limitPerCollection: number = 3,
+    queueId?: string,
+  ): Promise<VectorSearchResult[]> {
+    const vector = await this.generateEmbeddings(query);
+    await Promise.all([
+      this.initializeCollection(),
+      this.initializeClosedSupportTicketsCollection(),
+    ]);
+
+    const [knowledgeBaseResults, closedTicketResults] = await Promise.all([
+      qdrantClient.search(this.collectionName, {
+        vector,
+        limit: limitPerCollection,
+        with_payload: true,
+        filter: {
+          must: [{ key: "status", match: { value: "published" } }],
+        },
+      }),
+      qdrantClient.search(this.closedSupportTicketsCollection, {
+        vector,
+        limit: limitPerCollection,
+        with_payload: true,
+        filter: {
+          must: [
+            { key: "status", match: { value: "closed" } },
+            ...(queueId
+              ? [{ key: "queueId", match: { value: queueId } }]
+              : []),
+          ],
+        },
+      }),
+    ]);
+
+    const kb: VectorSearchResult[] = knowledgeBaseResults.map((point) => ({
+      id: String(point.payload?.uuid || point.id),
+      title: String(point.payload?.title || "Knowledge base article"),
+      content: String(point.payload?.cleanText || point.payload?.body || ""),
+      score: point.score,
+      source: "knowledge_base",
+      url: point.payload?.slug ? `/insight/${String(point.payload.slug)}` : undefined,
+    }));
+    const tickets: VectorSearchResult[] = closedTicketResults.map((point) => ({
+      id: String(point.payload?.uuid || point.id),
+      title: String(point.payload?.title || "Resolved support ticket"),
+      content: String(point.payload?.content || ""),
+      score: point.score,
+      source: "closed_support_ticket",
+    }));
+
+    return [...kb, ...tickets].sort((a, b) => b.score - a.score);
   }
 
   // Get collection info
