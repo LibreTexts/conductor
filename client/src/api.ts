@@ -69,6 +69,7 @@ import {
   Organization,
   GetCampusAdminResponse,
   UserTask,
+  CreateMatterSelection,
 } from "./types";
 import {
   AddableProjectTeamMember,
@@ -2715,6 +2716,14 @@ class API {
         page: page ?? 1,
         limit: limit ?? 25,
       },
+    });
+    return res.data;
+  }
+
+  async createMatter(projectID: string, type: CreateMatterSelection, overwrite: boolean) {
+    const res = await axios.post<ConductorBaseResponse>(`/remixer/${projectID}/create-matter`, {
+      type,
+      overwrite,
     });
     return res.data;
   }

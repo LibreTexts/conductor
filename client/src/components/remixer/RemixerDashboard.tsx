@@ -76,6 +76,7 @@ import ControlPanelNewUITemp from "./ControlPanel";
 import { useDocumentTitle } from "usehooks-ts";
 import BookActions from "./BookActions";
 import LibraryActions from "./LibraryActions";
+import CreateMatterModal from "./CreateMatterModal";
 
 /** Stable empty fallback so `pathLevelFormats ?? EMPTY_PATH_LEVEL_FORMATS`
  * doesn't hand a fresh `[]` to the memoized <TreeDnd> on every render. */
@@ -231,13 +232,13 @@ const RemixerDashboard: React.FC = () => {
   const contextMenuTargetNode =
     contextMenu != null
       ? (remixerData.currentBook ?? []).find(
-          (n) => n["@id"] === contextMenu.nodeId,
-        )
+        (n) => n["@id"] === contextMenu.nodeId,
+      )
       : undefined;
   const contextMenuParentNode = contextMenuTargetNode?.parentID
     ? (remixerData.currentBook ?? []).find(
-        (n) => n["@id"] === contextMenuTargetNode.parentID,
-      )
+      (n) => n["@id"] === contextMenuTargetNode.parentID,
+    )
     : undefined;
   const contextMenuUnderMatterRoot =
     contextMenuParentNode != null && isMatterRootNode(contextMenuParentNode);
@@ -1671,7 +1672,7 @@ const RemixerDashboard: React.FC = () => {
   };
 
   /** Discard local/server drafts and reload the book from source. Resets undo/redo and UI panels. */
-  const {mutate: startOverMutation, isPending: isStartOverPending} = useMutation({
+  const { mutate: startOverMutation, isPending: isStartOverPending } = useMutation({
     mutationFn: async () => {
       clearLocalDraft(id);
       serverStateRef.current = null;
@@ -1719,7 +1720,7 @@ const RemixerDashboard: React.FC = () => {
   const handleStartOverWithConfirmation = () => {
     openModal(
       <ConfirmModal
-        text="This will delete the save Remixer draft for this project. This action cannot be undone"
+        text="This will delete the saved Remixer draft for this project. This action cannot be undone"
         confirmColor="red"
         confirmText="Start Over"
         cancelText="Keep Changes"
@@ -1753,6 +1754,24 @@ const RemixerDashboard: React.FC = () => {
       />
     )
   }
+
+  // ==========================================================================
+  // Create Matter
+  // ==========================================================================
+  const openCreateMatterModal = async () => {
+    if (!id) return;
+    openModal(
+      <CreateMatterModal
+        open={true}
+        onClose={closeAllModals}
+        onSuccess={() => {
+          startOverMutation(); // Reset all state and reload the book to reflect the new matter.
+          closeAllModals();
+        }}
+        projectId={id}
+      />
+    )
+  };
 
   // ==========================================================================
   // Publish
@@ -2299,6 +2318,7 @@ const RemixerDashboard: React.FC = () => {
                 duration: 3000,
               });
             }}
+            onCreateMatter={() => openCreateMatterModal()}
             onStartOver={() => handleStartOverWithConfirmation()}
             onLoadVersion={() => openRecoveryModal()}
             onAutoNumberingSettings={() => openAutoNumberingModal()}

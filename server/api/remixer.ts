@@ -2,6 +2,7 @@ import type { Response } from "express";
 import { z } from "zod";
 import { ZodReqWithUser } from "../types/Express.js";
 import {
+  CreateMatterSchema,
   GetRemixerPageSchema,
   GetRemixerPageTreeSchema,
   GetRemixerProjectStateSchema,
@@ -23,6 +24,7 @@ import type { RemixerSubPageState } from "../models/projectremixer.js";
 import { ProjectContext, ProjectError, returnProjectError } from "./services/project-context.js";
 import { debug } from "../debug.js";
 import { conductor500Err } from "../util/errorutils.js";
+import { parseLibreTextsURL } from "../util/helpers.js";
 
 class FetchPageError extends Error {
   statusCode: number;
@@ -611,6 +613,86 @@ const getRemixerPageTree = async (
     return conductor500Err(res);
   }
 };
+
+const createMatter = async (
+  req: ZodReqWithUser<z.infer<typeof CreateMatterSchema>>,
+  res: Response,
+) => {
+  try {
+    const { id } = req.params;
+    const { type, overwrite } = req.body;
+
+    const ctx = await ProjectContext.load(id);
+    if (!ctx.canMember(req.user)) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
+    }
+
+    if (!ctx.doc.libreLibrary || !ctx.doc.libreCoverID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "Project is not attached to a library book; cannot create matter.",
+      });
+    }
+
+    const bookService = new BookService({
+      bookID: `${ctx.doc.libreLibrary}-${ctx.doc.libreCoverID}`,
+    });
+
+    const coverPage = await bookService.getCoverPage();
+    if (!coverPage) {
+      throw new Error("Failed to retrieve cover page for the book.");
+    }
+
+    const coverPageFullURL = coverPage["uri.ui"];
+    if (!coverPageFullURL) {
+      throw new Error("Failed to retrieve cover page URL for the book.");
+    }
+
+    const parseResult = parseLibreTextsURL(coverPageFullURL);
+    if (!parseResult[0] || !parseResult[1]) {
+      throw new Error("Failed to parse cover page URL for the book.");
+    }
+
+    const coverPagePath = parseResult[1]; // Second element is the path part of the URL
+    const coverPageTitle = coverPage["title"];
+    const coverPageSummary = coverPage["summary"];
+
+    const toRun: Promise<void>[] = [];
+
+    if (type === "both" || type === "front") {
+      toRun.push(
+        bookService.createDefaultFrontMatter({
+          coverPagePath,
+          coverPageFullURL,
+          titlePageInfo: {
+            title: coverPageTitle ?? "",
+            summary: coverPageSummary ?? "",
+            author: "",
+          },
+          overwriteExisting: overwrite
+        }),
+      );
+    }
+
+    if (type === "both" || type === "back") {
+      toRun.push(bookService.createDefaultBackMatter({ coverPagePath, overwriteExisting: overwrite }));
+    }
+
+    await Promise.all(toRun);
+
+    return res.send({
+      err: false,
+      message: `Successfully created ${type} matter.`,
+    });
+  } catch (error) {
+    if (error instanceof ProjectError) {
+      return returnProjectError(res, error);
+    }
+    console.error(error);
+    return conductor500Err(res);
+  }
+};
+
 export default {
   getRemixerProject,
   saveRemixerProjectState,
@@ -620,4 +702,5 @@ export default {
   deleteRemixerProjectState,
   fetchPage,
   getRemixerPageTree,
+  createMatter,
 };

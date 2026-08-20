@@ -65,12 +65,10 @@ import {
   generateChapterOnePath,
   getPageID,
 } from "../util/librariesclient.js";
-import MindTouch from "../util/CXOne/index.js";
 import { conductor400Err, conductor500Err } from "../util/errorutils.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
 import User from "../models/user.js";
 import centralIdentity from "./central-identity.js";
-const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
 import { PipelineStage, Types } from "mongoose";
 import {
   createBookSchema,
@@ -103,6 +101,7 @@ import base62 from "base62-random";
 import Glossary from "../models/glossary.js";
 import GlossaryService from "./services/glossary-service.js";
 import GlossaryUsage from "../models/glossaryusage.js";
+import { ProjectContext, ProjectError, returnProjectError } from "./services/project-context.js";
 
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
@@ -854,24 +853,24 @@ async function getCommonsCatalog(
               ...(orgData.autoCatalogMatchingDisabled
                 ? []
                 : [
-                    {
-                      $expr: {
-                        $in: [{ $toLower: "$course" }, campusNames],
-                      },
+                  {
+                    $expr: {
+                      $in: [{ $toLower: "$course" }, campusNames],
                     },
-                  ]),
+                  },
+                ]),
             ],
           },
           // automatic matching exclusions only applied if autoCatalogMatchingDisabled is false
           ...(orgData.autoCatalogMatchingDisabled
             ? []
             : [
-                {
-                  bookID: {
-                    $nin: customCatalog?.automaticMatchingExclusions || [],
-                  },
+              {
+                bookID: {
+                  $nin: customCatalog?.automaticMatchingExclusions || [],
                 },
-              ]),
+              },
+            ]),
           { randomIndex: { $ne: null } },
         ],
       };
@@ -1360,7 +1359,6 @@ async function createBook(
     const { uuid: userID } = req.user.decoded;
 
     const user = await User.findOne({ uuid: userID }).orFail();
-    const project = await Project.findOne({ projectID }).orFail();
 
     const libraryApp = await centralIdentity.getApplicationById(library);
     if (!libraryApp) {
@@ -1372,10 +1370,9 @@ async function createBook(
       throw new Error("badlibrary");
     }
 
-    // Check project permissions
-    const canCreate = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canCreate) {
-      throw new Error(conductorErrors.err8);
+    const ctx = await ProjectContext.load(projectID, { hydrate: true });
+    if (!ctx.canMember(userID)) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
     }
 
     const hasLibAccess =
@@ -1389,104 +1386,62 @@ async function createBook(
 
     // Create book coverpage
     const [bookPath, bookURL] = generateBookPathAndURL(subdomain, title);
-    const createBookRes = await CXOneFetch({
-      scope: "page",
-      path: bookPath,
-      api: MindTouch.API.Page.POST_Contents_Title(title),
-      subdomain,
-      options: {
-        method: "POST",
-        body: MindTouch.Templates.POST_CreateBook,
-      },
-      query: { abort: "exists" },
+
+    const newCoverPageID = await BookService.createBookCoverPage({
+      library: subdomain,
+      coverPagePath: bookPath,
+      title,
     }).catch((e) => {
+      console.error(`[createBook] Error creating coverpage for "${title}":`, e);
       const err = new Error(conductorErrors.err86);
       err.name = "CreateBookError";
       throw err;
     });
 
-    // createBookRes didn't throw, but didn't return a successful response
-    if (!createBookRes.ok) {
-      throw new Error(`Error creating Workbench book: "${title}"`);
-    }
-
-    await Promise.all([
-      addPageProperty(subdomain, bookPath, "WelcomeHidden", true),
-      addPageProperty(subdomain, bookPath, "SubPageListing", "simple"),
-    ]);
-
-    const imageRes = await fetch(`${defaultImagesURL}/default.png`);
-    const defaultBookImage = await imageRes.blob();
-    await CXOneFetch({
-      scope: "page",
-      path: bookPath,
-      api: MindTouch.API.Page.PUT_File_Default_Thumbnail,
-      subdomain,
-      options: { method: "PUT", body: defaultBookImage },
-      //silentFail: true,
-    }).catch((e) => {
-      // Warn, but don't throw error
-      console.warn("[createBook] Error setting coverpage thumbnail:");
-      console.warn(e);
-    });
-
     // Create first chapter
     const chapterOnePath = generateChapterOnePath(bookPath);
-    await CXOneFetch({
-      scope: "page",
-      path: chapterOnePath,
-      api: MindTouch.API.Page.POST_Contents_Title("1: First Chapter"),
-      subdomain,
-      options: {
-        method: "POST",
-        body: MindTouch.Templates.POST_CreateBookChapter,
-      },
+    await BookService.createFirstChapter({
+      library: subdomain,
+      chapterPath: chapterOnePath,
     });
 
-    await Promise.all([
-      addPageProperty(subdomain, chapterOnePath, "WelcomeHidden", true),
-      addPageProperty(subdomain, chapterOnePath, "GuideDisplay", "single"),
-      addPageProperty(
-        subdomain,
-        chapterOnePath,
-        "GuideTabs",
-        MindTouch.Templates.PROP_GuideTabs,
-      ),
-    ]);
+    await sleep(1500); // let CXone catch up with page creations
 
-    await CXOneFetch({
-      scope: "page",
-      path: chapterOnePath,
-      api: MindTouch.API.Page.PUT_File_Default_Thumbnail,
-      subdomain,
-      options: { method: "PUT", body: defaultBookImage },
-      //silentFail: true,
-    }).catch((e) => {
-      // Warn, but don't throw error
-      console.warn("[createBook] Error setting Chapter 1 thumbnail:");
-      console.warn(e);
-    });
-
-    // Create Front & Back Matter
-    const matterRes = fetch(
-      `https://batch.libretexts.org/print/Libretext=${bookURL}?createMatterOnly=true`,
-      {
-        headers: { origin: "commons.libretexts.org" },
-      },
-    ); // Don't wait for response, no-op if fails
-
-    sleep(1500); // let CXone catch up with page creations
-
-    const newBookID = await getPageID(bookPath, subdomain);
-    if (!newBookID) {
+    if (!newCoverPageID) {
       throw new Error(`Error saving book ID for Workbench book: "${title}":`);
     }
 
+    const newBookID = `${subdomain}-${newCoverPageID}`;
+
+    // Front/back matter creation can take a while and is not critical to the book creation process,
+    // so we fire-and-forget it here. If it fails, the book will still be usable, but the front/back matter
+    // will need to be created manually.
+    try {
+      const bookService = new BookService({ bookID: newBookID });
+      // Fire-and-forget
+      bookService.createDefaultFrontMatter({
+        coverPagePath: bookPath,
+        coverPageFullURL: bookURL,
+        titlePageInfo: {
+          author: "",
+          title,
+          summary: "",
+        }
+      });
+
+      // Fire-and-forget
+      bookService.createDefaultBackMatter({
+        coverPagePath: bookPath,
+      });
+    } catch (err) {
+      console.error("[createBook] Error creating default front/back matter:", err);
+    }
+
     // Update Project with new book info
-    project.libreLibrary = subdomain;
-    project.libreCoverID = newBookID;
-    project.didCreateWorkbench = true;
-    await project.save();
+    ctx.doc.libreLibrary = subdomain;
+    ctx.doc.libreCoverID = newCoverPageID.toString();
+    ctx.doc.didCreateWorkbench = true;
+    await ctx.doc.save();
 
     const permsUpdated = await updateTeamWorkbenchPermissions(
       projectID,
@@ -1507,6 +1462,10 @@ async function createBook(
       url: bookURL,
     });
   } catch (err: any) {
+    if (err instanceof ProjectError) {
+      return returnProjectError(res, err);
+    }
+
     if (err.name === "DocumentNotFoundError" || err.name === "badlibrary") {
       return res.status(404).send({
         err: true,
@@ -2520,7 +2479,7 @@ const generateKBExport = () => {
                   let authorProcess = author.trim();
                   if (
                     authorProcess.toLowerCase() !==
-                      "no attribution by request" &&
+                    "no attribution by request" &&
                     authorProcess.length > 0
                   ) {
                     itemAuthors.push(authorProcess);
@@ -2915,7 +2874,7 @@ type PressbooksImportJobParams = {
   projectID: string;
   pbBookURL: string;
   userID: string;
-}; 
+};
 async function appendPressbooksJobMessages(jobID: string, messages: string[]) {
   if (!messages.length) return;
   await PressbooksImportJob.updateOne(
@@ -3192,7 +3151,7 @@ async function addBookGlossary(
   res: Response,
 ) {
   try {
-    const {glossaryID, term, definition, pageId, bookId, altText, caption, link, source, imageSource, imageAuthor, imageLicense, aliases, author, usageID, removeImage } = req.body;
+    const { glossaryID, term, definition, pageId, bookId, altText, caption, link, source, imageSource, imageAuthor, imageLicense, aliases, author, usageID, removeImage } = req.body;
     const { coverID, library } = req.params;
 
     const glossaryService = new GlossaryService();
@@ -3251,7 +3210,7 @@ async function addBookGlossary(
       imageFile: req.file,
       altText: altText?.trim() || undefined,
       caption: caption?.trim() || undefined,
-      aliases: aliases?.split(",").map((alias) => alias.trim()).filter((alias) => alias !== "")  || [],
+      aliases: aliases?.split(",").map((alias) => alias.trim()).filter((alias) => alias !== "") || [],
       author: author?.trim() || undefined,
       link: link?.trim() || undefined,
       source: source?.trim() || undefined,
@@ -3305,29 +3264,30 @@ async function addPageToGlossaryUsage(
 async function deleteBookGlossary(
   req: ZodReqWithUser<z.infer<typeof getWithCoverIDParamSchema>>,
   res: Response,
-) { try {
-  const { coverID, library } = req.params;
-  const glossaryService = new GlossaryService();
-  const project = await glossaryService.getProject({
-    coverID: coverID.toString(),
-    library,
-  });
-  const { uuid: userID } = req.user.decoded;
-  const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
-  const isSuperAdmin = authAPI.checkHasRole(
-    req.user,
-    "libretexts",
-    "superadmin",
-    true,
-  );
-  if (!project && !isSuperAdmin) {
-    return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
-  }
-  const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-  if (!canAccess && !isSuperAdmin) {
-    throw new Error(conductorErrors.err8);
-  }
- 
+) {
+  try {
+    const { coverID, library } = req.params;
+    const glossaryService = new GlossaryService();
+    const project = await glossaryService.getProject({
+      coverID: coverID.toString(),
+      library,
+    });
+    const { uuid: userID } = req.user.decoded;
+    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
+    const isSuperAdmin = authAPI.checkHasRole(
+      req.user,
+      "libretexts",
+      "superadmin",
+      true,
+    );
+    if (!project && !isSuperAdmin) {
+      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
+    }
+    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
+    if (!canAccess && !isSuperAdmin) {
+      throw new Error(conductorErrors.err8);
+    }
+
     await glossaryService.deleteBookGlossary({
       coverID: coverID.toString(),
       library,
@@ -3363,11 +3323,11 @@ async function deleteBookGlossaryUsage(
     if (!canAccess && !isSuperAdmin) {
       throw new Error(conductorErrors.err8);
     }
-    await glossaryService.deleteGlossaryUsage(  usageID, pageID?.toString() || undefined);
+    await glossaryService.deleteGlossaryUsage(usageID, pageID?.toString() || undefined);
     return res.send({ err: false, msg: "Glossary usage deleted successfully." });
   }
   catch (err) {
-   
+
     return res.status(500).send({ err: true, errMsg: "Failed to delete glossary usage." });
   }
 }
@@ -3395,7 +3355,7 @@ async function getGlossaryDetails(
   try {
     const glossaryService = new GlossaryService();
     const glossaryDetails = await glossaryService.getGlossaryDetails(pageID, library);
-    return res.send({err:false,...glossaryDetails})
+    return res.send({ err: false, ...glossaryDetails })
   }
   catch (err) {
     debugError(err);
@@ -3408,8 +3368,8 @@ async function addExternalGlossaryToGlossaryUsage(
 ) {
   try {
     const { glossaryID } = req.body;
-    const {  library, coverID } = req.params;
-    const { auxGlossaryID,  auxGlossaryParentID } = req.body;
+    const { library, coverID } = req.params;
+    const { auxGlossaryID, auxGlossaryParentID } = req.body;
     const glossaryService = new GlossaryService();
     if (!auxGlossaryID && !auxGlossaryParentID) {
       const result = await glossaryService.addExternalGlossaryToGlossaryUsage(glossaryID.toString(), coverID.toString(), library, req.user.decoded.uuid);
@@ -3419,7 +3379,7 @@ async function addExternalGlossaryToGlossaryUsage(
       const result = await glossaryService.addExternalAuxGlossaryToGlossaryUsage(glossaryID.toString(), coverID.toString(), library, req.user.decoded.uuid, auxGlossaryID.toString(), auxGlossaryParentID?.toString());
       return res.send({ err: false, msg: "External glossary added to glossary usage successfully.", data: result });
     }
-    else{
+    else {
       throw new Error("Invalid request.");
     }
   }

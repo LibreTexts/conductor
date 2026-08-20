@@ -2,6 +2,7 @@ import { getLibraryAndPageFromBookID } from "../../util/bookutils";
 import { CXOneFetch } from "../../util/librariesclient";
 import MindTouch from "../../util/CXOne";
 import {
+  BookMatterType,
   GetPageSubPagesResponse,
   PageBase,
   PageDetailsResponse,
@@ -19,6 +20,17 @@ import Project from "../../models/project";
 import projectsAPI from "../projects";
 import NodeCache from "node-cache";
 import User from "../../models/user";
+import { assembleUrl } from "../../util/helpers";
+import axios, { AxiosError } from "axios";
+import CXOne from "../../util/CXOne";
+import ExpertWithSSM from "../../util/ExpertWithSSM";
+import Expert, {
+  ExpertError,
+  GetPageResponse,
+  Subpages,
+} from "@libretexts/cxone-expert-node";
+import Library from "../../models/library";
+import LibraryService from "./library-service";
 
 export interface BookServiceParams {
   bookID: string;
@@ -29,6 +41,20 @@ type HierarchyPage = (GetPageSubPagesResponse["page"] | PageBase) & {
   url?: string;
   parentID?: number;
   subpages?: HierarchyPage[];
+};
+
+/**
+ * Actual runtime shape of a `POST /pages/{id}/contents` response.
+ *
+ * TODO(cxone-expert-node): the SDK's `PostPageContentsResponse` nests these fields under an
+ * `edit` key, but Deki returns them at the top level. Remove this and use the SDK type once
+ * that is corrected upstream.
+ */
+type PostPageContentsResult = {
+  "@status"?: "success" | "conflict";
+  page?: {
+    "@id"?: string | number;
+  };
 };
 
 export default class BookService {
@@ -46,6 +72,26 @@ export default class BookService {
     useClones: false,
   });
   private static _tocInFlightByBookID = new Map<string, Promise<TableOfContents>>();
+
+  private static readonly DEFAULT_THUMBNAILS = {
+    BACK_MATTER: 'https://cdn.libretexts.net/DefaultImages/Back%20matter.jpg',
+    DEFAULT: 'https://cdn.libretexts.net/DefaultImages/default.png',
+    FRONT_MATTER: 'https://cdn.libretexts.net/DefaultImages/Front%20Matter.jpg',
+  };
+
+  /** Guide tab template key used for the "Single (Topic hierarchy)" guide display. */
+  private static readonly GUIDE_TAB_TEMPLATE_KEY = 'Topic_hierarchy';
+
+  /**
+   * Deki stores a page's thumbnail as an attached file with this reserved name.
+   * Pass it raw: the SDK double-encodes filenames internally.
+   */
+  private static readonly THUMBNAIL_FILE_NAME = 'mindtouch.page#thumbnail';
+
+  /** Deki expects property values as plain text, not JSON. */
+  private static readonly PROPERTY_HEADERS = {
+    headers: { 'Content-Type': 'text/plain; charset=UTF-8' },
+  };
 
   constructor(params: BookServiceParams) {
     if (!params.bookID) {
@@ -96,6 +142,25 @@ export default class BookService {
     "printoptions:",
   ];
 
+  /**
+  * Helper to check if an error is a 409 Conflict (page already exists when using abort='exists').
+  * This is actually a success case when we're trying to create pages only if they don't exist.
+  */
+  private static is409Conflict(error: unknown): boolean {
+    // The CXOne SDK wraps every axios failure in an ExpertError before rejecting,
+    // so this is the shape we see in practice.
+    if (ExpertError.isExpertError(error)) {
+      return error.status === 409;
+    }
+    if (error instanceof AxiosError) {
+      return error.response?.status === 409 || error.status === 409;
+    }
+    // Fallback for anything else that carries an HTTP status
+    const err = error as any;
+    return err?.status === 409 || err?.response?.status === 409;
+  }
+
+
   async canAccessPage(userID: string, pageID: string | number): Promise<boolean> {
     try {
       const project = await Project.findOne({
@@ -127,8 +192,6 @@ export default class BookService {
       return false;
     }
   }
-
-
 
   async getBookRecord(): Promise<BookInterface | undefined> {
     try {
@@ -267,13 +330,13 @@ export default class BookService {
         method: "GET",
       },
     });
-    
+
     if (!res.ok) {
       throw new Error(`Error fetching tree: ${res.statusText}`);
     }
-    
+
     const rawTree = (await res.json()) as GetPageSubPagesResponse;
-    if(!rawTree?.page) {
+    if (!rawTree?.page) {
       throw new Error("No page data found in tree response");
     }
 
@@ -293,7 +356,7 @@ export default class BookService {
    */
   async getBookTOCFlat(): Promise<{ id: string; title: string; url: string }[]> {
     const structured = await this.getBookTOCNew();
-    
+
     const flattenTOC = (toc: TableOfContents): { id: string; title: string; url: string }[] => {
       const result = [{ id: toc.id, title: toc.title, url: toc.url }];
       if (toc.children && toc.children.length > 0) {
@@ -422,6 +485,30 @@ export default class BookService {
     }
 
     return pageTags;
+  }
+
+  async getCoverPage(): Promise<GetPageResponse | null> {
+    try {
+      const expert = await (ExpertWithSSM.getInstance()).forLibrary(this._library);
+      if (!expert) {
+        throw new Error("internal");
+      }
+
+      const pageIntID = parseInt(this._coverID);
+      if (isNaN(pageIntID)) {
+        throw new Error("Invalid cover ID");
+      }
+
+      const coverPageRes = await expert.pages.getPage(pageIntID);
+      if (!coverPageRes) {
+        throw new Error("Cover page not found");
+      }
+
+      return coverPageRes;
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
   }
 
   /**
@@ -707,31 +794,26 @@ export default class BookService {
     xmlEncodedContent: string
   ): Promise<boolean> {
     try {
-      const updatedContentRes = await CXOneFetch({
-        scope: "page",
-        path: parseInt(pageID),
-        api: MindTouch.API.Page.POST_Contents,
-        subdomain: this._library,
-        query: {
+      const expert = await (ExpertWithSSM.getInstance()).forLibrary(this._library);
+      if (!expert) {
+        throw new Error("internal");
+      }
+
+      const updatedContentRes = await expert.pages.postPageContents(
+        parseInt(pageID),
+        `<content><body>${xmlEncodedContent}</body></content>`,
+        {
           edittime: "now",
           comment: "Updated by LibreBot",
         },
-        options: {
-          method: "POST",
+        {
           headers: {
             "Content-Type": "application/xml",
-          },
-          body: `
-          <content>
-          <body>
-          ${xmlEncodedContent}
-          </body>
-          </content>
-          `,
-        },
-      });
+          }
+        }
+      )
 
-      if (!updatedContentRes.ok) {
+      if (updatedContentRes.edit?.["@status"] !== "success") {
         throw new Error("internal");
       }
 
@@ -913,5 +995,489 @@ export default class BookService {
     }
 
     return this.updatePageContent(pageID, nextContent);
+  }
+
+  public getMatterRootPagePath(basePath: string, matterType: BookMatterType): string {
+    // Page identifiers with colons (e.g., "00:Front_Matter") must have the colon URL-encoded
+    const rootPage = matterType === 'Front' ? '00%3AFront_Matter' : 'zz%3ABack_Matter';
+    return assembleUrl([basePath, rootPage]);
+  }
+
+  async _setMatterRootPageProperties(basePath: string, matterType: BookMatterType): Promise<void> {
+    try {
+      const expert = await ExpertWithSSM.getInstance().forLibrary(this._library);
+      if (!expert) {
+        throw new Error("internal");
+      }
+
+      const path = assembleUrl([basePath]);
+      const label = `${matterType} matter root page`;
+
+      const thumbnailURL = matterType === 'Front'
+        ? BookService.DEFAULT_THUMBNAILS.FRONT_MATTER
+        : BookService.DEFAULT_THUMBNAILS.BACK_MATTER;
+      const thumbnail = await BookService._fetchThumbnail(thumbnailURL);
+      if (thumbnail) {
+        await BookService._setPageThumbnail(expert, path, thumbnail, label);
+      }
+
+      await BookService._setGuidePageProperties(expert, this._library, path, label);
+    } catch (err) {
+      console.error(`Error setting ${matterType} matter root page properties:`, err);
+    }
+  }
+
+  /**
+   * Creates a single matter page, treating "page already exists" as a non-fatal outcome
+   * when `overwriteExisting` is false.
+   *
+   * Deki reports an existing page two different ways under `abort=exists`: an HTTP 409,
+   * or a 200 whose body carries `edit["@status"] === "conflict"`. Both mean "the author
+   * already has a page here, leave it alone"; anything else is a real failure and is
+   * re-thrown so the caller can abort.
+   *
+   * @param label - Human-readable page name used in log output (e.g. `'TitlePage'`).
+   * @returns The page ID when this call created or overwrote the page, or `null` on conflict.
+   */
+  private static async _createPage({
+    expert,
+    path,
+    contents,
+    title,
+    label,
+    overwriteExisting,
+  }: {
+    expert: Expert;
+    path: string;
+    contents: string;
+    title: string;
+    label: string;
+    overwriteExisting: boolean;
+  }): Promise<number | null> {
+    try {
+      const res = (await expert.pages.postPageContents(path, contents, {
+        title,
+        edittime: 'now',
+        abort: overwriteExisting ? 'never' : 'exists',
+      })) as unknown as PostPageContentsResult;
+
+      const status = res?.['@status'];
+      if (status === 'conflict') {
+        console.warn(`${label} already exists, skipping creation.`);
+        return null;
+      }
+      if (status !== 'success') {
+        throw new Error(
+          `Failed to create ${label}: unexpected response status "${status ?? 'none'}".`,
+        );
+      }
+
+      const pageID = Number(res.page?.['@id']);
+      return Number.isFinite(pageID) ? pageID : null;
+    } catch (error) {
+      if (!BookService.is409Conflict(error)) {
+        throw error; // Re-throw anything that isn't "page already exists"
+      }
+      console.warn(`${label} already exists, skipping creation.`);
+      return null;
+    }
+  }
+
+  /**
+   * Fetches a thumbnail image so it can be attached to a page.
+   *
+   * @returns The image bytes, or `null` if the fetch failed (never throws; a missing
+   * thumbnail must not fail page creation).
+   */
+  private static async _fetchThumbnail(url: string): Promise<Buffer | null> {
+    try {
+      const res = await axios.get(url, { responseType: 'arraybuffer' });
+      return Buffer.from(res.data);
+    } catch (error) {
+      console.warn(`Error fetching thumbnail "${url}":`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Attaches a thumbnail to a page. Best-effort: failures are logged, never thrown.
+   *
+   * @param label - Human-readable page name used in log output.
+   */
+  private static async _setPageThumbnail(
+    expert: Expert,
+    path: string,
+    thumbnail: Buffer,
+    label: string,
+  ): Promise<void> {
+    try {
+      await expert.pages.putPageFileName(path, BookService.THUMBNAIL_FILE_NAME, thumbnail);
+    } catch (error) {
+      console.error(`Error setting thumbnail for ${label}:`, error);
+    }
+  }
+
+  /**
+   * Writes page properties, skipping any whose value is missing.
+   *
+   * Property names must be the full Deki `namespace#key` form, so always pass values from
+   * {@link CXOne.PageProps} rather than string literals; a name Deki does not recognise is
+   * stored without complaint and then silently ignored by the renderer.
+   *
+   * Best-effort: failures are logged, never thrown.
+   *
+   * @param properties - `[propertyName, value]` pairs; entries with a nullish value are skipped.
+   * @param label - Human-readable page name used in log output.
+   */
+  private static async _setPageProperties(
+    expert: Expert,
+    path: string,
+    properties: Array<[string, string | undefined]>,
+    label: string,
+  ): Promise<void> {
+    try {
+      await Promise.all(
+        properties
+          .filter((entry): entry is [string, string] => entry[1] != null)
+          .map(([name, value]) =>
+            expert.pages.postPageProperties(
+              path,
+              name,
+              value,
+              { abort: 'never' },
+              BookService.PROPERTY_HEADERS,
+            ),
+          ),
+      );
+    } catch (error) {
+      console.error(`Error setting properties for ${label}:`, error);
+    }
+  }
+
+  /**
+   * Looks up the library's configured "Topic hierarchy" guide tab template.
+   *
+   * The template carries a library-specific `guid`, so it must be read from the Library
+   * record rather than hardcoded.
+   *
+   * @returns The template JSON, or `undefined` if the library has none configured.
+   */
+  private static async _getGuideTabTemplate(library: string): Promise<string | undefined> {
+    const libraryService = new LibraryService();
+    const template = await libraryService
+      .getGuideTabTemplate(library, BookService.GUIDE_TAB_TEMPLATE_KEY)
+      .catch((err) => {
+        console.error('Error fetching guide tab template:', err);
+        return undefined;
+      });
+
+    if (!template) {
+      console.warn(
+        `No "${BookService.GUIDE_TAB_TEMPLATE_KEY}" guide tab template configured for library "${library}"; ${CXOne.PageProps.GuideTabs} will not be set.`,
+      );
+    }
+    return template;
+  }
+
+  /**
+   * Applies the properties that make a page render as a "Single (Topic hierarchy)" guide:
+   * a hidden welcome block, `guideDisplay=single`, and the library's guide tab template.
+   *
+   * Best-effort: failures are logged, never thrown.
+   *
+   * @param label - Human-readable page name used in log output.
+   */
+  private static async _setGuidePageProperties(
+    expert: Expert,
+    library: string,
+    path: string,
+    label: string,
+  ): Promise<void> {
+    const guideTabTemplate = await BookService._getGuideTabTemplate(library);
+    await BookService._setPageProperties(
+      expert,
+      path,
+      [
+        [CXOne.PageProps.WelcomeHidden, 'true'],
+        [CXOne.PageProps.GuideDisplay, 'single'],
+        [CXOne.PageProps.GuideTabs, guideTabTemplate],
+      ],
+      label,
+    );
+  }
+
+  /**
+   * Creates a book's cover page and applies its default properties and thumbnail.
+   *
+   * Static because the cover page is what a book's ID is derived from, so callers cannot
+   * construct a {@link BookService} until after this resolves.
+   *
+   * @param library - Library subdomain (e.g. `chem`).
+   * @param coverPagePath - CXOne path of the cover page to create.
+   * @param overwriteExisting - When false (default), an existing cover page is left untouched.
+   * @throws If the cover page could not be created. Property and thumbnail failures are
+   * logged but do not throw, since the book is usable without them.
+   */
+  public static async createBookCoverPage({
+    library,
+    coverPagePath,
+    title,
+    overwriteExisting = false,
+  }: {
+    library: string;
+    coverPagePath: string;
+    title: string;
+    overwriteExisting?: boolean;
+  }): Promise<number | null> {
+    const expert = await ExpertWithSSM.getInstance().forLibrary(library);
+
+    const pageID = await BookService._createPage({
+      expert,
+      path: coverPagePath,
+      contents: CXOne.Templates.POST_CreateBook,
+      title,
+      label: `book cover page "${title}"`,
+      overwriteExisting,
+    });
+
+    await BookService._setPageProperties(
+      expert,
+      coverPagePath,
+      [
+        [CXOne.PageProps.WelcomeHidden, 'true'],
+        [CXOne.PageProps.SubPageListing, 'simple'],
+      ],
+      `book cover page "${title}"`,
+    );
+
+    const thumbnail = await BookService._fetchThumbnail(BookService.DEFAULT_THUMBNAILS.DEFAULT);
+    if (thumbnail) {
+      await BookService._setPageThumbnail(expert, coverPagePath, thumbnail, `book cover page "${title}"`);
+    }
+
+    return pageID;
+  }
+
+  /**
+   * Creates a book's first chapter and applies the guide properties and default thumbnail.
+   *
+   * Static for the same reason as {@link BookService.createBookCoverPage}: it runs before
+   * the book's ID is known.
+   *
+   * @param library - Library subdomain (e.g. `chem`).
+   * @param chapterPath - CXOne path of the chapter to create.
+   * @param overwriteExisting - When false (default), an existing chapter is left untouched.
+   * @throws If the chapter page could not be created. Property and thumbnail failures are
+   * logged but do not throw.
+   */
+  public static async createFirstChapter({
+    library,
+    chapterPath,
+    title = '1: First Chapter',
+    overwriteExisting = false,
+  }: {
+    library: string;
+    chapterPath: string;
+    title?: string;
+    overwriteExisting?: boolean;
+  }): Promise<number | null> {
+    const expert = await ExpertWithSSM.getInstance().forLibrary(library);
+
+    const pageID = await BookService._createPage({
+      expert,
+      path: chapterPath,
+      contents: CXOne.Templates.POST_CreateBookChapter,
+      title,
+      label: `first chapter "${title}"`,
+      overwriteExisting,
+    });
+
+    await BookService._setGuidePageProperties(expert, library, chapterPath, `first chapter "${title}"`);
+
+    const thumbnail = await BookService._fetchThumbnail(BookService.DEFAULT_THUMBNAILS.DEFAULT);
+    if (thumbnail) {
+      await BookService._setPageThumbnail(expert, chapterPath, thumbnail, `first chapter "${title}"`);
+    }
+
+    return pageID;
+  }
+
+  /**
+ * Creates the default LibreTexts front matter pages (Title Page, Info Page, Table of Contents, Licensing, etc.)
+ * as subpages of the given cover page. Provides an overwriteExisting option to control whether to only create pages if they don't already exist, or to overwrite existing pages,
+ * which is useful for ensuring the correct structure and content for PDF generation, but should be used with caution as some authors have customized their front matter pages.
+ * @param param0
+ */
+  public async createDefaultFrontMatter({
+    coverPagePath,
+    coverPageFullURL,
+    titlePageInfo,
+    overwriteExisting = false,
+  }: {
+    coverPagePath: string;
+    coverPageFullURL: string;
+    titlePageInfo: { title: string; author: string; summary: string; };
+    overwriteExisting?: boolean;
+  }) {
+    try {
+      const expert = await ExpertWithSSM.getInstance().forLibrary(this._library);
+      const basePath = this.getMatterRootPagePath(coverPagePath, 'Front');
+
+      const QRoptions = { errorCorrectionLevel: 'L', margin: 2, scale: 2 };
+
+      // Root page first, then its children. A conflict on any of them is expected when
+      // overwriteExisting is false and must not stop the remaining pages from being created.
+      const frontMatterRootPageId = await BookService._createPage({
+        expert,
+        path: assembleUrl([basePath]),
+        contents: CXOne.Templates.POST_MatterRootPage,
+        title: 'Front Matter',
+        label: 'Front Matter root page',
+        overwriteExisting,
+      });
+
+      const frontMatterPages = [
+        {
+          path: assembleUrl([basePath, '01%3A_TitlePage']),
+          contents: CXOne.Templates.POST_TitlePage(titlePageInfo.title, titlePageInfo.author, titlePageInfo.summary, coverPageFullURL, QRoptions),
+          title: 'TitlePage',
+          label: 'TitlePage',
+        },
+        {
+          path: assembleUrl([basePath, '02%3A_InfoPage']),
+          contents: CXOne.Templates.POST_InfoPage,
+          title: 'InfoPage',
+          label: 'InfoPage',
+        },
+        {
+          path: assembleUrl([basePath, '03%3A_Table_of_Contents']),
+          contents: CXOne.Templates.POST_DynamicTOCLayout,
+          title: 'Table of Contents',
+          label: 'Table of Contents',
+        },
+        {
+          path: assembleUrl([basePath, '04%3A_Licensing']),
+          contents: CXOne.Templates.POST_DynamicLicensingLayout,
+          title: 'Licensing',
+          label: 'Licensing page',
+        },
+      ];
+
+      // Sequential: Deki serialises writes under the same parent anyway, and ordering keeps log output readable.
+      for (const page of frontMatterPages) {
+        await BookService._createPage({ expert, overwriteExisting, ...page });
+      }
+
+      // If we have the front matter root page ID, try to order it to the front of the book
+      // if (frontMatterRootPageId) {
+      //   try {
+      //     await expert.pages.putPageOrder(frontMatterRootPageId, { afterid: 0 }); // afterId 0 means it will be the first page in the book
+      //   }
+      //   catch (error) {
+      //     console.error('Error ordering Front Matter root page to the front of the book:', error);
+      //   }
+      // }
+
+      // Set thumbnail and misc properties
+      await this._setMatterRootPageProperties(basePath, 'Front');
+    } catch (err) {
+      console.error('Fatal error creating default front matter pages:', err);
+      throw err;
+    }
+  }
+
+  /**
+ * Creates the default LibreTexts back matter pages (Index, Glossary, Detailed Licensing, etc.) as subpages of the given cover page.
+ * Provides an overwriteExisting option to control whether to only create pages if they don't already exist, or to overwrite existing pages,
+ * which is useful for ensuring the correct structure and content for PDF generation, but should be used with caution as some authors have customized their back matter pages.
+ * @param param0
+ */
+  public async createDefaultBackMatter({
+    coverPagePath,
+    overwriteExisting = false,
+  }: {
+    coverPagePath: string;
+    overwriteExisting?: boolean;
+  }) {
+    try {
+      const expert = await ExpertWithSSM.getInstance().forLibrary(this._library);
+      const basePath = this.getMatterRootPagePath(coverPagePath, 'Back');
+
+      // Root page first, then its children. A conflict on any of them is expected when
+      // overwriteExisting is false and must not stop the remaining pages from being created.
+      const backMatterRootPageId = await BookService._createPage({
+        expert,
+        path: assembleUrl([basePath]),
+        contents: CXOne.Templates.POST_MatterRootPage,
+        title: 'Back Matter',
+        label: 'Back Matter root page',
+        overwriteExisting,
+      });
+
+      const backMatterPages = [
+        {
+          path: assembleUrl([basePath, '10%3A_Index']),
+          contents: CXOne.Templates.POST_DynamicIndexLayout,
+          title: 'Index',
+          label: 'Index page',
+        },
+        {
+          path: assembleUrl([basePath, '20%3A_Glossary']),
+          contents: `
+        ${CXOne.Templates.POST_DynamicGlossaryLayout}
+        \n<p class="template:tag-insert"><em>Tags recommended by the template: </em><a href="#">article:topic</a><a href="#">showtoc:no</a><a href="#">printoptions:no-header</a><a href="#">columns:three</a></p>
+        `,
+          title: 'Glossary',
+          label: 'Glossary page',
+        },
+        {
+          path: assembleUrl([basePath, '30%3A_Detailed_Licensing']),
+          contents: CXOne.Templates.POST_DynamicDetailedLicensingLayout,
+          title: 'Detailed Licensing',
+          label: 'Detailed Licensing page',
+        },
+      ];
+
+      // Sequential: Deki serialises writes under the same parent anyway, and ordering keeps log output readable.
+      for (const page of backMatterPages) {
+        await BookService._createPage({ expert, overwriteExisting, ...page });
+      }
+
+      // If we have the back matter root page ID, try to order it to the back of the book
+      // if (backMatterRootPageId) {
+      //   try {
+      //     // We first have to get the last page ID in the book to use as afterid. Call the expert tree method directly to avoid caching issues with getBookTOCNew() and getBookTOCFlat().
+      //     const treeRes = await expert.pages.getPageTree(coverPagePath);
+      //     if (!treeRes || !treeRes.page || !treeRes.page.subpages) {
+      //       throw new Error('Failed to fetch book tree for ordering Back Matter root page');
+      //     }
+
+      //     const rootPages = treeRes.page.subpages;
+      //     const pagesArr = rootPages.page ? Array.isArray(rootPages.page) ? rootPages.page : [rootPages.page] : [];
+
+      //     const lastPage = pagesArr?.[pagesArr.length - 1];
+      //     if (!lastPage || !lastPage["@id"]) {
+      //       throw new Error('Could not determine last page in book for ordering Back Matter root page');
+      //     }
+
+      //     const afterid = lastPage?.["@id"] ? parseInt(lastPage["@id"]) : undefined;
+
+      //     if (afterid === undefined || isNaN(afterid)) {
+      //       console.warn('Could not determine last page ID for ordering Back Matter root page; skipping ordering.');
+      //     } else if (afterid === backMatterRootPageId) {
+      //       console.warn('Back Matter root page is already the last page; skipping ordering.');
+      //     } else {
+      //       await expert.pages.putPageOrder(backMatterRootPageId, { afterid });
+      //     }
+      //   } catch (error) {
+      //     console.error('Error ordering Back Matter root page to the back of the book:', error);
+      //   }
+      // }
+
+      // Set thumbnail and misc properties
+      await this._setMatterRootPageProperties(basePath, 'Back');
+    } catch (err) {
+      console.error('Fatal error creating default back matter pages:', err);
+    }
   }
 }

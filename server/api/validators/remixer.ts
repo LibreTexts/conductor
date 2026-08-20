@@ -70,3 +70,14 @@ export const GetRemixerProjectStateSchema = z.object({
   body: z.object({}).optional(),
   query: z.object({}).optional(),
 });
+
+
+export const CreateMatterSchema = z.object({
+  params: z.object({
+    id: z.string(),
+  }),
+  body: z.object({
+    type: z.enum(["front", "back", "both"]),
+    overwrite: z.boolean().default(false),
+  })
+});
