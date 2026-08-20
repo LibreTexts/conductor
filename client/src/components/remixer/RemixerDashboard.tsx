@@ -87,7 +87,7 @@ const RemixerDashboard: React.FC = () => {
   // State
   // ==========================================================================
   const user = useTypedSelector((state) => state.user);
-  const isAdmin = user?.isSuperAdmin || user?.isCampusAdmin;
+  const isSupportOrSuperAdmin = user?.isSupport || user?.isSuperAdmin;
   const { addNotification } = useNotifications();
   const { openModal, closeAllModals } = useModals();
   const { id } = useParams<{ id: string }>();
@@ -2308,7 +2308,7 @@ const RemixerDashboard: React.FC = () => {
           </div>
           <ControlPanelNewUITemp
             isNarrowScreen={isNarrowScreen}
-            isAdmin={isAdmin}
+            isAdmin={isSupportOrSuperAdmin}
             copyModeState={uiState.copyModeState ?? "default"}
             onCopyModeChange={(newMode) => {
               setUiState((prev) => ({ ...prev, copyModeState: newMode }));

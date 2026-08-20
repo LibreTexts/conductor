@@ -1113,7 +1113,7 @@ export default class BookService {
     try {
       await expert.pages.putPageFileName(path, BookService.THUMBNAIL_FILE_NAME, thumbnail);
     } catch (error) {
-      console.error(`Error setting thumbnail for ${label}:`, error);
+      console.error('Error setting thumbnail for %s:', label, error);
     }
   }
 
@@ -1150,7 +1150,7 @@ export default class BookService {
           ),
       );
     } catch (error) {
-      console.error(`Error setting properties for ${label}:`, error);
+      console.error('Error setting properties for %s:', label, error);
     }
   }
 
