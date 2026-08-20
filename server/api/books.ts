@@ -1392,7 +1392,7 @@ async function createBook(
       coverPagePath: bookPath,
       title,
     }).catch((e) => {
-      console.error(`[createBook] Error creating coverpage for "${title}":`, e);
+      console.error('[createBook] Error creating coverpage for "%s":', title, e);
       const err = new Error(conductorErrors.err86);
       err.name = "CreateBookError";
       throw err;
@@ -1427,14 +1427,18 @@ async function createBook(
           title,
           summary: "",
         }
+      }).catch((err) => {
+        debugError(`[createBook] Error creating default front matter: ${err instanceof Error ? err.message : err}`);
       });
 
       // Fire-and-forget
       bookService.createDefaultBackMatter({
         coverPagePath: bookPath,
+      }).catch((err) => {
+        debugError(`[createBook] Error creating default back matter: ${err instanceof Error ? err.message : err}`);
       });
     } catch (err) {
-      console.error("[createBook] Error creating default front/back matter:", err);
+      debugError(`[createBook] Error initializing BookService for front/back matter creation: ${err instanceof Error ? err.message : err}`);
     }
 
     // Update Project with new book info
@@ -1446,7 +1450,7 @@ async function createBook(
     const permsUpdated = await updateTeamWorkbenchPermissions(
       projectID,
       subdomain,
-      newBookID,
+      newCoverPageID.toString(),
     );
 
     if (!permsUpdated) {
