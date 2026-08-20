@@ -1,26 +1,41 @@
-import { useState, useEffect } from "react";
-import { Link, useParams, useHistory } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useHistory, useParams } from "react-router-dom";
 import {
-  Header,
-  Segment,
-  Grid,
+  Alert,
+  Avatar,
   Breadcrumb,
-  Image,
   Button,
-  Icon,
-  Message,
-  Dimmer,
-  Loader,
+  Card,
+  Heading,
   Input,
-  Table,
-} from "semantic-ui-react";
+  Spinner,
+  Stack,
+  Text,
+} from "@libretexts/davis-react";
+import { DataTable } from "@libretexts/davis-react-table";
+import type { ColumnDef, PaginationState } from "@libretexts/davis-react-table";
+import {
+  IconArrowLeft,
+  IconEdit,
+  IconPlus,
+  IconRotateClockwise,
+  IconDeviceFloppy,
+} from "@tabler/icons-react";
+import { format, parseISO } from "date-fns";
 import { CentralIdentitySystem, CentralIdentityOrg } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
-import { format, parseISO } from "date-fns";
 import { useTypedSelector } from "../../../../state/hooks";
 import CreateOrgModal from "../../../../components/controlpanel/CentralIdentity/CreateOrgModal";
-import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
 import api from "../../../../api";
+
+const DEFAULT_AVATAR_LOGO_URL =
+  "https://cdn.libretexts.net/DefaultImages/system_logo.png";
+
+const formatTimestamp = (value?: string) =>
+  value ? format(parseISO(value), "MM/dd/yyyy hh:mm aa") : "N/A";
+
+const formatDate = (value?: string) =>
+  value ? format(parseISO(value), "MM/dd/yyyy") : "N/A";
 
 const CentralIdentitySystemView = () => {
   const { systemId } = useParams<{ systemId: string }>();
@@ -28,43 +43,34 @@ const CentralIdentitySystemView = () => {
   const { handleGlobalError } = useGlobalError();
   const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
 
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [system, setSystem] = useState<CentralIdentitySystem | null>(null);
-  const DEFAULT_AVATAR_LOGO_URL = "https://cdn.libretexts.net/DefaultImages/system_logo.png";
-
-  const [editedName, setEditedName] = useState<string>("");
-  const [originalName, setOriginalName] = useState<string>("");
+  const [editedName, setEditedName] = useState("");
+  const [originalName, setOriginalName] = useState("");
   const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
-
-  // Pagination states
   const [orgsPage, setOrgsPage] = useState(1);
-  const [allOrganizations, setAllOrganizations] = useState<CentralIdentityOrg[]>([]);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
-    if (systemId && isSuperAdmin) {
-      loadSystem();
-    }
+    if (systemId && isSuperAdmin) void loadSystem();
   }, [systemId, isSuperAdmin]);
 
   async function loadSystem() {
     try {
-      if (!systemId) return;
       setLoading(true);
-      const res = await api.getCentralIdentitySystem(
-        {systemId: systemId}
-      );
+      const res = await api.getCentralIdentitySystem({ systemId });
       if (res.data.err || !res.data.system) {
         handleGlobalError("Failed to load system data.");
         setSystem(null);
         return;
       }
+
       setSystem(res.data.system);
       setEditedName(res.data.system.name || "");
       setOriginalName(res.data.system.name || "");
-      setAllOrganizations(res.data.system.organizations || []);
-    } catch (err) {
-      handleGlobalError(err);
+    } catch (error) {
+      handleGlobalError(error);
       setSystem(null);
     } finally {
       setLoading(false);
@@ -72,285 +78,251 @@ const CentralIdentitySystemView = () => {
   }
 
   async function handleSave() {
+    if (!system || !editedName.trim()) return;
+
     try {
-      if (!system) return;
-      const res = await api.putCentralIdentitySystem(
-        { 
-          systemId: systemId,
-          name: editedName,
-          logo: DEFAULT_AVATAR_LOGO_URL
-        }
-      );
+      setSaving(true);
+      const res = await api.putCentralIdentitySystem({
+        systemId,
+        name: editedName.trim(),
+        logo: system.logo || DEFAULT_AVATAR_LOGO_URL,
+      });
+
       if (res.data.err) {
         handleGlobalError(res.data.errMsg || "Failed to update system.");
-      } else {
-        setOriginalName(editedName);
-        loadSystem(); 
+        return;
       }
-    } catch (err) {
-      handleGlobalError(err);
+
+      await loadSystem();
+    } catch (error) {
+      handleGlobalError(error);
+    } finally {
+      setSaving(false);
     }
   }
 
-  function handleAddOrganization() {
-    setShowCreateOrgModal(true);
-  }
-
-  // Calculate paginated organizations
-  const paginatedOrganizations = allOrganizations.slice(
+  const organizations = system?.organizations || [];
+  const paginatedOrganizations = organizations.slice(
     (orgsPage - 1) * itemsPerPage,
     orgsPage * itemsPerPage
   );
 
+  const columns: ColumnDef<CentralIdentityOrg>[] = [
+    {
+      id: "logo",
+      header: "Logo",
+      cell: ({ row }) => (
+        <Avatar
+          src={row.original.logo || undefined}
+          name={row.original.name}
+          alt={`${row.original.name} logo`}
+          size="sm"
+        />
+      ),
+    },
+    { accessorKey: "name", header: "Name" },
+    {
+      accessorKey: "created_at",
+      header: "Created",
+      cell: ({ row }) => formatDate(row.original.created_at),
+    },
+    {
+      accessorKey: "updated_at",
+      header: "Updated",
+      cell: ({ row }) => formatDate(row.original.updated_at),
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          icon={<IconEdit size={16} aria-hidden="true" />}
+          onClick={() =>
+            history.push(`/controlpanel/libreone/orgs/org/${row.original.id}`)
+          }
+        >
+          Edit
+        </Button>
+      ),
+    },
+  ];
+
+  const paginationState: PaginationState = {
+    pageIndex: orgsPage - 1,
+    pageSize: itemsPerPage,
+  };
+
   if (!isSuperAdmin) {
     return (
-      <Message negative>
-        <Message.Header>Access Denied</Message.Header>
-        <p>You must be a Superadmin to access this page.</p>
-      </Message>
+      <div className="!p-8">
+        <Alert
+          variant="error"
+          title="Access denied"
+          message="You must be a Superadmin to access this page."
+        />
+      </div>
     );
   }
 
   if (loading && !system) {
     return (
-      <Segment style={{ minHeight: "200px" }}>
-        <Dimmer active inverted>
-          <Loader inverted content="Loading..." />
-        </Dimmer>
-      </Segment>
+      <div className="flex min-h-52 items-center justify-center">
+        <Spinner size="lg" />
+        <span className="sr-only">Loading system</span>
+      </div>
     );
   }
 
   if (!system) {
     return (
-      <Grid className="controlpanel-container" centered>
-        <Grid.Column width={16} textAlign="center">
-          <Segment placeholder>
-            <Header icon>
-              <Icon name="warning sign" />
-              System Not Found
-            </Header>
-            <p>The requested system could not be found or you do not have permission to view it.</p>
-            <Button as={Link} to="/controlpanel/libreone/orgs" primary style={{ marginTop: '2.5rem' }}>
-              Back to Organizations & Systems
+      <div className="!p-8">
+        <Card variant="outline" padding="lg">
+          <Stack direction="vertical" gap="md" align="center">
+            <Heading level={2}>System Not Found</Heading>
+            <Text as="p">
+              The requested system could not be found or you do not have
+              permission to view it.
+            </Text>
+            <Button
+              variant="primary"
+              icon={<IconArrowLeft size={16} />}
+              onClick={() => history.push("/controlpanel/libreone/orgs")}
+            >
+              Back to Organizations &amp; Systems
             </Button>
-          </Segment>
-        </Grid.Column>
-      </Grid>
+          </Stack>
+        </Card>
+      </div>
     );
   }
 
-  const { logo, created_at, updated_at } = system;
+  const hasChanges = editedName.trim() !== originalName;
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">
-            Edit System
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
-                  LibreOne Admin Console
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section as={Link} to="/controlpanel/libreone/orgs">
-                  Organizations & Systems
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>
-                  Edit System
-                </Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment loading={loading}>
-              <Grid columns={2} stackable>
-                <Grid.Column width={4}>
-                  <Image
-                    src={logo || DEFAULT_AVATAR_LOGO_URL}
-                    size="medium"
-                    bordered
-                    style={{ marginBottom: "1em" }}
-                  />
-                </Grid.Column>
-                <Grid.Column width={12}>
-                  <Header sub>Name</Header>
-                  <Input
-                    fluid
-                    placeholder="System Name"
-                    value={editedName}
-                    onChange={(e) => setEditedName(e.target.value)}
-                    style={{ marginBottom: "1em" }}
-                  />
+    <div className="controlpanel-container !h-full">
+      <Stack direction="vertical" gap="md" className="mb-4">
+        <Heading level={2}>Edit System</Heading>
 
-                  <Header sub>Created At</Header>
-                  <p>{created_at ? format(parseISO(created_at), "MM/dd/yyyy hh:mm aa") : "N/A"}</p>
+        <Card variant="outline" padding="none" className="overflow-hidden">
+          <div className="border-b border-gray-200 p-4">
+            <Breadcrumb>
+              <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+              <Breadcrumb.Item href="/controlpanel/libreone">
+                LibreOne Admin Console
+              </Breadcrumb.Item>
+              <Breadcrumb.Item href="/controlpanel/libreone/orgs">
+                Organizations &amp; Systems
+              </Breadcrumb.Item>
+              <Breadcrumb.Item isCurrent>Edit System</Breadcrumb.Item>
+            </Breadcrumb>
+          </div>
 
-                  <Header sub>Last Updated At</Header>
-                  <p>{updated_at ? format(parseISO(updated_at), "MM/dd/yyyy hh:mm aa") : "N/A"}</p>
-                </Grid.Column>
-              </Grid>
-            </Segment>
-            
-            <Segment>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1em" }}>
-                <Header as="h3" style={{ margin: 0 }}>
-                  Organizations in this System
-                </Header>
-                <Button
-                  color="blue"
-                  icon
-                  labelPosition="left"
-                  onClick={handleAddOrganization}
-                >
-                  <Icon name="plus" />
-                  Add Organization
-                </Button>
+          <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-4">
+            <img
+              src={system.logo || DEFAULT_AVATAR_LOGO_URL}
+              alt={`${system.name} logo`}
+              className="w-full max-w-[300px] rounded border border-gray-200 object-contain"
+            />
+            <Stack direction="vertical" gap="md" className="md:col-span-3">
+              <Input
+                name="system-name"
+                label="Name"
+                placeholder="System name"
+                value={editedName}
+                onChange={(event) => setEditedName(event.target.value)}
+                disabled={saving}
+              />
+              <div>
+                <Text as="p" weight="semibold">Created At</Text>
+                <Text as="p">{formatTimestamp(system.created_at)}</Text>
               </div>
-            </Segment>
-              <Segment>
-                {allOrganizations.length > 0 && (
-                  <PaginationWithItemsSelect
-                    itemsPerPage={itemsPerPage}
-                    setItemsPerPageFn={setItemsPerPage}
-                    activePage={orgsPage}
-                    setActivePageFn={setOrgsPage}
-                    totalPages={Math.ceil(allOrganizations.length / itemsPerPage)}
-                    totalLength={allOrganizations.length}
-                  />
-                )}
-              </Segment>
-              <Segment>
-              <Table celled>
-                <Table.Header>
-                  <Table.Row>
-                    <Table.HeaderCell width={2}>Logo</Table.HeaderCell>
-                    <Table.HeaderCell>Name</Table.HeaderCell>
-                    <Table.HeaderCell>Created</Table.HeaderCell>
-                    <Table.HeaderCell>Updated</Table.HeaderCell>
-                    <Table.HeaderCell>Actions</Table.HeaderCell>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {paginatedOrganizations.length > 0 ? (
-                    paginatedOrganizations.map((org: CentralIdentityOrg) => (
-                      <Table.Row key={org.id}>
-                        <Table.Cell textAlign="center">
-                            {org.logo ? (
-                            <a 
-                                href={org.logo} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                style={{ cursor: 'pointer' }}
-                            >
-                                <img
-                                src={org.logo}
-                                alt={`${org.name} logo`}
-                                style={{ 
-                                    width: 32, 
-                                    height: 32, 
-                                    objectFit: "contain",
-                                    display: "inline-block" 
-                                }}
-                                />
-                            </a>
-                            ) : (
-                            <Icon name="image outline" size="large" />
-                            )}
-                        </Table.Cell>
-                        <Table.Cell>{org.name}</Table.Cell>
-                        <Table.Cell>
-                          {org.created_at
-                            ? format(parseISO(org.created_at), "MM/dd/yyyy")
-                            : "N/A"}
-                        </Table.Cell>
-                        <Table.Cell>
-                          {org.updated_at
-                            ? format(parseISO(org.updated_at), "MM/dd/yyyy")
-                            : "N/A"}
-                        </Table.Cell>
-                        <Table.Cell>
-                          <Button
-                            as={Link}
-                            to={`/controlpanel/libreone/orgs/org/${org.id}`}
-                            icon
-                            color="blue"
-                            size="tiny"
-                          >
-                            <Icon name="edit" />
-                          </Button>
-                        </Table.Cell>
-                      </Table.Row>
-                    ))
-                  ) : (
-                    <Table.Row>
-                      <Table.Cell colSpan={4} textAlign="center">
-                        <em>No organizations in this system</em>
-                      </Table.Cell>
-                    </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
-              {allOrganizations.length > 0 && (
-                <PaginationWithItemsSelect
-                  itemsPerPage={itemsPerPage}
-                  setItemsPerPageFn={setItemsPerPage}
-                  activePage={orgsPage}
-                  setActivePageFn={setOrgsPage}
-                  totalPages={Math.ceil(allOrganizations.length / itemsPerPage)}
-                  totalLength={allOrganizations.length}
-                />
-              )}
-            </Segment>
-            
-            <Segment>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <Button onClick={() => history.goBack()}>
-                  <Icon name="arrow left" /> Back
-                </Button>
-                <div>
-                  <Button
-                    color="grey"
-                    onClick={() => setEditedName(originalName)}
-                    disabled={editedName === originalName}
-                    style={{ marginRight: "0.5em" }}
-                  >
-                    <Icon name="cancel" /> Cancel
-                  </Button>
-                  <Button
-                    color="green"
-                    onClick={handleSave}
-                    disabled={editedName === originalName}
-                  >
-                    <Icon name="save" /> Save
-                  </Button>
-                </div>
+              <div>
+                <Text as="p" weight="semibold">Last Updated At</Text>
+                <Text as="p">{formatTimestamp(system.updated_at)}</Text>
               </div>
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
+            </Stack>
+          </div>
+        </Card>
+
+        <Card
+          variant="outline"
+          padding="md"
+          className="flex flex-wrap items-center justify-between gap-3"
+        >
+          <Heading level={3}>Organizations in this System</Heading>
+          <Button
+            variant="primary"
+            icon={<IconPlus size={16} aria-hidden="true" />}
+            onClick={() => setShowCreateOrgModal(true)}
+          >
+            Add Organization
+          </Button>
+        </Card>
+
+        <DataTable<CentralIdentityOrg>
+          data={paginatedOrganizations}
+          columns={columns}
+          loading={loading}
+          density="compact"
+          enablePagination
+          pageSize={itemsPerPage}
+          pageSizeOptions={[10, 25, 50, 100]}
+          tableOptions={{
+            manualPagination: true,
+            rowCount: organizations.length,
+            state: { pagination: paginationState },
+            onPaginationChange: (updater) => {
+              const nextPagination =
+                typeof updater === "function"
+                  ? updater(paginationState)
+                  : updater;
+              setOrgsPage(nextPagination.pageIndex + 1);
+              setItemsPerPage(nextPagination.pageSize);
+            },
+          }}
+        />
+
+        <div className="flex flex-wrap justify-between gap-2">
+          <Button
+            variant="outline"
+            icon={<IconArrowLeft size={16} />}
+            onClick={() => history.goBack()}
+          >
+            Back
+          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              icon={<IconRotateClockwise size={16} />}
+              onClick={() => setEditedName(originalName)}
+              disabled={!hasChanges || saving}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              icon={<IconDeviceFloppy size={16} />}
+              onClick={handleSave}
+              disabled={!hasChanges || !editedName.trim()}
+              loading={saving}
+            >
+              Save
+            </Button>
+          </div>
+        </div>
+      </Stack>
 
       <CreateOrgModal
         show={showCreateOrgModal}
         onClose={() => setShowCreateOrgModal(false)}
         onCreated={() => {
           setShowCreateOrgModal(false);
-          loadSystem();
+          void loadSystem();
         }}
         systemId={system.id}
       />
-    </Grid>
+    </div>
   );
 };
 
