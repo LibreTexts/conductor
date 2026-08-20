@@ -1478,6 +1478,7 @@ export default class BookService {
       await this._setMatterRootPageProperties(basePath, 'Back');
     } catch (err) {
       console.error('Fatal error creating default back matter pages:', err);
+      throw err;
     }
   }
 }

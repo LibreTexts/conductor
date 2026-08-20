@@ -1,3 +1,23 @@
+/** Escape a value for interpolation into HTML text content or a double-quoted attribute. */
+const escapeHtml = (s: string | null | undefined): string =>
+  (s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+/**
+ * Escape a value for interpolation into a single-quoted JS string literal that
+ * itself lives inside an inline `<script>` block. `</` is broken up so the
+ * value cannot terminate the script element early.
+ */
+const escapeJsString = (s: string | null | undefined): string =>
+  JSON.stringify(s ?? "")
+    .slice(1, -1)
+    .replace(/'/g, "\\'")
+    .replace(/<\//g, "<\\/");
+
 const CXOneTemplates = {
   POST_CreateBook: `<p>{{template.ShowOrg()}}</p>
     <p class="template:tag-insert">
@@ -117,8 +137,8 @@ const CXOneTemplates = {
     </grants.added>
   </security>`,
   POST_InfoPage: `
-    <p class=\\"mt-script-comment\\">Cross Library Transclusion</p><pre class=\\"script\\">template('CrossTransclude/Web',{'Library':'chem','PageID':170365});</pre>
-    <p class=\\"template:tag-insert\\"><em>Tags recommended by the template: </em><a href=\\"#\\">article:topic</a><a href=\\"#\\">transcluded:yes</a><a href=\\"#\\">printoptions:no-header-title</a></p>
+    <p class="mt-script-comment">Cross Library Transclusion</p><pre class="script">template('CrossTransclude/Web',{'Library':'chem','PageID':170365});</pre>
+    <p class="template:tag-insert"><em>Tags recommended by the template: </em><a href="#">article:topic</a><a href="#">transcluded:yes</a><a href="#">printoptions:no-header-title</a></p>
   `,
   POST_MatterRootPage: `
     <p>{{template.ShowOrg()}}</p>
@@ -127,11 +147,11 @@ const CXOneTemplates = {
   POST_TitlePage: (title: string, author: string, institution: string, url: string, QRoptions = { errorCorrectionLevel: 'L', margin: 2, scale: 2 }) => `
     <div style="height:95vh; display:flex; flex-direction: column; position: relative; align-items: center">
     <div style=" display:flex; flex:1; flex-direction: column; justify-content: center">
-    <p class="pdf-title-text">${institution || ''}</p>
-    <p class="pdf-title-text">${title || ''}</p></div>
+    <p class="pdf-title-text">${escapeHtml(institution)}</p>
+    <p class="pdf-title-text">${escapeHtml(title)}</p></div>
     <p style="position: absolute; bottom: 0; right: 0"><canvas id="canvas"></canvas></p>
-    <p class="pdf-title-author" style="max-width: 70%">${author || ''}</p>
-    <script>QRCode.toCanvas(document.getElementById('canvas'), '${url}', ${JSON.stringify(QRoptions)})</script>
+    <p class="pdf-title-author" style="max-width: 70%">${escapeHtml(author)}</p>
+    <script>QRCode.toCanvas(document.getElementById('canvas'), '${escapeJsString(url)}', ${JSON.stringify(QRoptions)})</script>
     <p class="template:tag-insert"><em>Tags recommended by the template: </em><a href="#">article:topic</a><a href="#">printoptions:no-header-title</a></p></div>
   `,
   PUT_TeamAsContributors: (
