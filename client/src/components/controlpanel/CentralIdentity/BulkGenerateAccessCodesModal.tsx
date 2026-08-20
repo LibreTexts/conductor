@@ -1,22 +1,20 @@
 import { useEffect, useState } from "react";
-import { Modal, ModalProps } from "semantic-ui-react";
+import { Button, Input, Link, Modal, Select, Stack, Text } from "@libretexts/davis-react";
+import { IconDownload, IconX } from "@tabler/icons-react";
+import { useMutation } from "@tanstack/react-query";
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
-import { useMutation } from "@tanstack/react-query";
 import useCentralIdentityAppLicenses from "../../../hooks/useCentralIdentityAppLicenses";
-import Select from "../../NextGenInputs/Select";
-import Input from "../../NextGenInputs/Input";
-import Button from "../../NextGenComponents/Button";
 import { useNotifications } from "../../../context/NotificationContext";
 
-interface BulkGenerateAccessCodesModalProps extends ModalProps {
+interface BulkGenerateAccessCodesModalProps {
   show: boolean;
   onClose: () => void;
 }
 
 const BulkGenerateAccessCodesModal: React.FC<
   BulkGenerateAccessCodesModalProps
-> = ({ show, onClose, ...rest }) => {
+> = ({ show, onClose }) => {
   const { handleGlobalError } = useGlobalError();
   const { addNotification } = useNotifications();
   const { data, isLoading } = useCentralIdentityAppLicenses({
@@ -27,13 +25,11 @@ const BulkGenerateAccessCodesModal: React.FC<
   const [quantity, setQuantity] = useState<number>(1);
 
   useEffect(() => {
-    // Ensure state is reset when modal is opened/re-opened
     if (show) {
-      setAppLicense(data?.[0]?.uuid || ""); // Select first app license by default
+      setAppLicense(data?.[0]?.uuid || "");
       setQuantity(1);
     }
   }, [show, data]);
-
 
   const generateCodesMutation = useMutation({
     mutationFn: async () => {
@@ -56,10 +52,10 @@ const BulkGenerateAccessCodesModal: React.FC<
 
       const blob = new Blob([res.data], { type: "text/csv;charset=utf-8" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `access_codes_${new Date().getTime()}.csv`;
-      a.click();
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `access_codes_${new Date().getTime()}.csv`;
+      anchor.click();
       window.URL.revokeObjectURL(url);
     },
     onError(error) {
@@ -76,72 +72,76 @@ const BulkGenerateAccessCodesModal: React.FC<
   });
 
   return (
-    <Modal
-      open={show}
-      onClose={onClose}
-      {...rest}
-      size="small"
-      className="min-h-[25rem]"
-    >
-      <Modal.Header>Bulk Generate Access Codes</Modal.Header>
-      <Modal.Content className="min-h-[25rem]">
-        <p>
-          Generate multiple access codes for a specific app license. The
-          generated access codes will be downloaded as a CSV file.{" "}
-          <strong>NOTE: </strong>
-          Access codes cannot be viewed here after generation, so ensure you
-          store the CSV file safely!
-        </p>
-        <p className="mt-2">
-          If you want to grant access to an entire organization regardless of
-          quantity, you should do so through the{" "}
-          <a href="/controlpanel/libreone/orgs">
-            Organizations & Systems console
-          </a>
-          . Users can redeem these access codes by visiting{" "}
-          <a href="https://one.libretexts.org/redeem" target="_blank">
-            https://one.libretexts.org/redeem
-          </a>
-        </p>
-        <Select
-          name="app-license"
-          label="App License"
-          options={
-            data?.map((license) => ({
-              value: license.uuid || "unknown",
-              label: license.name,
-            })) || []
-          }
-          disabled={isLoading}
-          value={appLicense}
-          onChange={(e) => setAppLicense(e.target.value)}
-          className="mt-4"
-        />
-        <Input
-          name="quantity"
-          label="Quantity (1-1000)"
-          type="number"
-          min={1}
-          max={1000}
-          value={quantity}
-          onChange={(e) => setQuantity(Number(e.target.value))}
-          className="mt-4"
-        />
-      </Modal.Content>
-      <Modal.Actions className="">
-        <div className="flex flex-row justify-end gap-2 w-full">
-          <Button onClick={onClose} icon="IconCancel" variant="secondary">
+    <Modal open={show} onClose={onClose} size="sm">
+      <Modal.Header>
+        <Modal.Title>Bulk Generate Access Codes</Modal.Title>
+        <Modal.Close />
+      </Modal.Header>
+      <Modal.Body>
+        <Stack direction="vertical" gap="md">
+          <Text as="p">
+            Generate multiple access codes for a specific app license. The
+            generated access codes will be downloaded as a CSV file. <strong>Note:</strong>{" "}
+            Access codes cannot be viewed here after generation, so ensure you
+            store the CSV file safely.
+          </Text>
+          <Text as="p">
+            To grant access to an entire organization regardless of quantity,
+            use the{" "}
+            <Link href="/controlpanel/libreone/orgs">
+              Organizations &amp; Systems console
+            </Link>
+            . Users can redeem these access codes at{" "}
+            <Link href="https://one.libretexts.org/redeem" target="_blank" rel="noreferrer">
+              one.libretexts.org/redeem
+            </Link>
+            .
+          </Text>
+          <Select
+            name="app-license"
+            label="App License"
+            placeholder="Select an app license"
+            options={
+              data?.map((license) => ({
+                value: license.uuid || "unknown",
+                label: license.name,
+              })) || []
+            }
+            disabled={isLoading}
+            value={appLicense}
+            onChange={(event) => setAppLicense(event.target.value)}
+          />
+          <Input
+            name="quantity"
+            label="Quantity (1–1000)"
+            type="number"
+            min={1}
+            max={1000}
+            value={quantity}
+            onChange={(event) => setQuantity(Number(event.target.value))}
+          />
+        </Stack>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex w-full justify-end gap-2">
+          <Button
+            variant="outline"
+            icon={<IconX size={16} aria-hidden="true" />}
+            onClick={onClose}
+          >
             Cancel
           </Button>
           <Button
-            onClick={() => generateCodesMutation.mutateAsync()}
-            icon="IconDownload"
+            variant="primary"
+            icon={<IconDownload size={16} aria-hidden="true" />}
+            onClick={() => generateCodesMutation.mutate()}
             loading={generateCodesMutation.isLoading}
+            disabled={!appLicense || quantity < 1 || quantity > 1000}
           >
             Generate
           </Button>
         </div>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };
