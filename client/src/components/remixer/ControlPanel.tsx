@@ -1,12 +1,12 @@
 import { Button, IconButton, Menu, Select, Tooltip, type ButtonProps, type IconButtonProps } from "@libretexts/davis-react";
 import { useEffect, useState } from "react";
 import { CopyMode } from "./model";
-import { IconClockEdit, IconDeviceFloppy, IconDownload, IconPencilPause, IconRefresh, IconSettings } from "@tabler/icons-react";
+import { IconAtom, IconClockEdit, IconDeviceFloppy, IconDownload, IconPencilPause, IconRefresh, IconSettings } from "@tabler/icons-react";
 import ConsultInsightButton from "../NextGenComponents/ConsultInsightButton";
 import {
-  dumpProjectToLocalStorageToJsonFile,
-  getLocalDraft,
-  LOCAL_DRAFT_CHANGE_EVENT,
+    dumpProjectToLocalStorageToJsonFile,
+    getLocalDraft,
+    LOCAL_DRAFT_CHANGE_EVENT,
 } from "./services";
 
 interface ControlPanelNewUITempProps {
@@ -14,8 +14,9 @@ interface ControlPanelNewUITempProps {
     isAdmin: boolean;
     copyModeState: string;
     projectID: string;
-    projectName: string|undefined;
+    projectName: string | undefined;
     onCopyModeChange: (mode: string) => void;
+    onCreateMatter: () => void;
     onStartOver: () => void;
     onLoadVersion: () => void;
     onAutoNumberingSettings: () => void;
@@ -49,6 +50,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
     projectID,
     projectName,
     onCopyModeChange,
+    onCreateMatter,
     onStartOver,
     onLoadVersion,
     onAutoNumberingSettings,
@@ -128,9 +130,18 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
             group: 'left',
             disabled: !hasLocalDraft,
             onClick: () => {
-                dumpProjectToLocalStorageToJsonFile({projectID, projectName});
+                dumpProjectToLocalStorageToJsonFile({ projectID, projectName });
             }
         },
+        ...(isAdmin ? [{
+            tooltip: "Create Front or Back Matter (Admin Only)",
+            icon: <IconAtom size={18} />,
+            variant: "secondary",
+            group: 'left',
+            onClick: () => {
+                onCreateMatter();
+            }
+        } as ControlPanelAction] : []),
         {
             title: "Save as Draft",
             icon: <IconPencilPause size={18} />,

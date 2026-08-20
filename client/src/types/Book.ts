@@ -163,3 +163,6 @@ export type BooksManagerSortOptions =
   | "book_id_desc"
   | "library_asc"
   | "library_desc";
+
+
+export type CreateMatterSelection = "front" | "back" | "both";

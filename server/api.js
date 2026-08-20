@@ -3280,6 +3280,18 @@ router
   );
 
 router
+  .route("/remixer/:id/create-matter")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", ["support", "superadmin"]),
+    // Need to parse JSON body before validation because remixer paths are excluded from automatic JSON parsing
+    express.json({ limit: "2mb" }),
+    middleware.validateZod(RemixerValidators.CreateMatterSchema),
+    remixerAPI.createMatter
+  );
+
+router
   .route("/remixer/:id/project")
   .get(
     authAPI.verifyRequest,
