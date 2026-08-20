@@ -2150,6 +2150,24 @@ class API {
     );
   }
 
+  async answerSupportTicketWithAI(ticketID: string) {
+    return await axios.post<
+      {
+        hasContext: boolean;
+        answer?: string;
+        message?: string;
+        confidence: number;
+        sources: Array<{
+          id: string;
+          title: string;
+          source: "knowledge_base" | "closed_support_ticket";
+          score: number;
+          url?: string;
+        }>;
+      } & ConductorBaseResponse
+    >(`/support/ticket/${ticketID}/ai-answer`);
+  }
+
   async assignSupportTicket(ticketID: string, assigned: string[]) {
     return await axios.patch<ConductorBaseResponse>(
       `/support/ticket/${ticketID}/assign`,
