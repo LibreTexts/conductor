@@ -81,7 +81,7 @@ async function getKBPage(
         path: "lastEditedBy",
         select: "uuid firstName lastName avatar",
       })
-      .lean()
+      .lean({ virtuals: true })
       .orFail();
 
     // Internal-only pages are hidden from unauthorized users. Return 404 (not 403)

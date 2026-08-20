@@ -1,121 +1,95 @@
-import { Link } from "react-router-dom";
-import { Header, Segment, Grid, Breadcrumb } from "semantic-ui-react";
+import { Breadcrumb, Button, Heading, Stack } from "@libretexts/davis-react";
+import { DataTable } from "@libretexts/davis-react-table";
+import type { ColumnDef } from "@libretexts/davis-react-table";
+import { IconKey } from "@tabler/icons-react";
 import { CentralIdentityAppLicense } from "../../../../types";
 import { getPrettyAcademyOnlineAccessLevel } from "../../../../utils/centralIdentityHelpers";
-import SupportCenterTable from "../../../../components/support/SupportCenterTable";
-import Button from "../../../../components/NextGenComponents/Button";
 import useCentralIdentityAppLicenses from "../../../../hooks/useCentralIdentityAppLicenses";
 import { useModals } from "../../../../context/ModalContext";
 import BulkGenerateAccessCodesModal from "../../../../components/controlpanel/CentralIdentity/BulkGenerateAccessCodesModal";
+
+const columns: ColumnDef<CentralIdentityAppLicense>[] = [
+  {
+    accessorKey: "uuid",
+    header: "ID",
+  },
+  {
+    accessorKey: "name",
+    header: "Name",
+  },
+  {
+    accessorKey: "stripe_id",
+    header: "Stripe ID",
+  },
+  {
+    accessorKey: "perpetual",
+    header: "Perpetual",
+    cell: ({ getValue }) => (getValue<boolean>() ? "Yes" : "No"),
+  },
+  {
+    accessorKey: "trial",
+    header: "Trial",
+    cell: ({ getValue }) => (getValue<boolean>() ? "Yes" : "No"),
+  },
+  {
+    accessorKey: "is_academy_license",
+    header: "Is Academy License",
+    cell: ({ getValue }) => (getValue<boolean>() ? "Yes" : "No"),
+  },
+  {
+    accessorKey: "academy_level",
+    header: "Academy Level",
+    cell: ({ getValue }) => {
+      const academyLevel = getValue<number | null>();
+      return academyLevel === null
+        ? "N/A"
+        : getPrettyAcademyOnlineAccessLevel(academyLevel);
+    },
+  },
+  {
+    accessorKey: "duration_days",
+    header: "Duration (Days)",
+  },
+];
 
 const CentralIdentityAppLicenses = () => {
   const { data, isLoading } = useCentralIdentityAppLicenses();
   const { openModal, closeAllModals } = useModals();
 
+  const openBulkGenerateModal = () => {
+    openModal(
+      <BulkGenerateAccessCodesModal show onClose={closeAllModals} />
+    );
+  };
+
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">
-            LibreOne Admin Console: App Licenses
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <div className="flex flex-row justify-between !w-full items-center">
-                <Breadcrumb>
-                  <Breadcrumb.Section as={Link} to="/controlpanel">
-                    Control Panel
-                  </Breadcrumb.Section>
-                  <Breadcrumb.Divider icon="right chevron" />
-                  <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
-                    LibreOne Admin Consoles
-                  </Breadcrumb.Section>
-                  <Breadcrumb.Divider icon="right chevron" />
-                  <Breadcrumb.Section active>App Licenses</Breadcrumb.Section>
-                </Breadcrumb>
-                <Button
-                  icon="IconKey"
-                  onClick={() => {
-                    openModal(
-                      <BulkGenerateAccessCodesModal
-                        show={true}
-                        onClose={closeAllModals}
-                      />
-                    );
-                  }}
-                >
-                  Bulk Generate Access Codes
-                </Button>
-              </div>
-            </Segment>
-            <Segment>
-              <SupportCenterTable<CentralIdentityAppLicense>
-                data={data}
-                loading={isLoading}
-                columns={[
-                  {
-                    accessor: "uuid",
-                    title: "ID",
-                  },
-                  {
-                    accessor: "name",
-                  },
-                  {
-                    accessor: "stripe_id",
-                    title: "Stripe ID",
-                  },
-                  {
-                    accessor: "perpetual",
-                    render(record) {
-                      return <span>{record.perpetual ? "Yes" : "No"}</span>;
-                    },
-                  },
-                  {
-                    accessor: "trial",
-                    render(record) {
-                      return <span>{record.trial ? "Yes" : "No"}</span>;
-                    },
-                  },
-                  {
-                    accessor: "is_academy_license",
-                    title: "Is Academy License",
-                    render(record) {
-                      return (
-                        <span>{record.is_academy_license ? "Yes" : "No"}</span>
-                      );
-                    },
-                  },
-                  {
-                    accessor: "academy_level",
-                    title: "Academy Level",
-                    render(record) {
-                      if (record.academy_level === null) {
-                        return <span>N/A</span>;
-                      }
-                      return (
-                        <span>
-                          {getPrettyAcademyOnlineAccessLevel(
-                            record.academy_level
-                          )}
-                        </span>
-                      );
-                    },
-                  },
-                  {
-                    accessor: "duration_days",
-                    title: "Duration (Days)",
-                  },
-                ]}
-              />
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+    <div className="!h-full !p-8">
+      <Stack direction="vertical" gap="md" className="mb-4">
+        <Heading level={2}>LibreOne Admin Console: App Licenses</Heading>
+        <div className="flex w-full items-center justify-between gap-4">
+          <Breadcrumb>
+            <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+            <Breadcrumb.Item href="/controlpanel/libreone">
+              LibreOne Admin Consoles
+            </Breadcrumb.Item>
+            <Breadcrumb.Item isCurrent>App Licenses</Breadcrumb.Item>
+          </Breadcrumb>
+          <Button
+            variant="primary"
+            icon={<IconKey size={16} aria-hidden="true" />}
+            onClick={openBulkGenerateModal}
+          >
+            Bulk Generate Access Codes
+          </Button>
+        </div>
+        <DataTable<CentralIdentityAppLicense>
+          data={data || []}
+          columns={columns}
+          loading={isLoading}
+          density="compact"
+        />
+      </Stack>
+    </div>
   );
 };
 

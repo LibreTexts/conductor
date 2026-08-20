@@ -1,86 +1,70 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 import {
-  Header,
-  Segment,
-  Grid,
+  Alert,
   Breadcrumb,
-  Loader,
-  Table,
-  Icon,
   Button,
-  Dropdown,
+  Card,
+  Heading,
   Input,
-} from "semantic-ui-react";
-import { CentralIdentityService } from "../../../../types";
-import axios from "axios";
-import useGlobalError from "../../../../components/error/ErrorHooks";
-import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
+  Select,
+  Stack,
+} from "@libretexts/davis-react";
+import { DataTable } from "@libretexts/davis-react-table";
+import type { ColumnDef, PaginationState } from "@libretexts/davis-react-table";
+import { IconEye, IconSearch } from "@tabler/icons-react";
+import api from "../../../../api";
 import ViewServiceDetailsModal from "../../../../components/controlpanel/CentralIdentity/ViewServiceDetailsModal";
+import useGlobalError from "../../../../components/error/ErrorHooks";
 import useDebounce from "../../../../hooks/useDebounce";
 import { useTypedSelector } from "../../../../state/hooks";
-import api from "../../../../api";
+import { CentralIdentityService } from "../../../../types";
+
+const sortOptions = [
+  { label: "Sort by Name", value: "name" },
+  { label: "Sort by Service URL", value: "service_Id" },
+];
 
 const CentralIdentityServices = () => {
-  //Global State
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
+  const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
 
-  //UI
-  const [loading, setLoading] = useState<boolean>(false);
-  const [activePage, setActivePage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [searchInput, setSearchInput] = useState<string>(""); 
-  const [searchString, setSearchString] = useState<string>(""); 
-  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
-  const [showUserModal, setShowUserModal] = useState<boolean>(false);
-  const [sortChoice, setSortChoice] = useState<string>("name");
-  const TABLE_COLS = [
-    { key: "name", text: "Name" },
-    { key: "service_Id", text: "ID" },
-    { key: "actions", text: "Actions" },
-  ];
-  const sortOptions = [
-    { key: "name", text: "Sort by Name", value: "name" },
-    { key: "service_Id", text: "Sort by Service URL", value: "service_Id" },
-  ];
-
-  //Data
+  const [loading, setLoading] = useState(false);
+  const [activePage, setActivePage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchString, setSearchString] = useState("");
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [showServiceModal, setShowServiceModal] = useState(false);
+  const [sortChoice, setSortChoice] = useState("name");
   const [services, setServices] = useState<CentralIdentityService[]>([]);
   const [selectedService, setSelectedService] =
     useState<CentralIdentityService | null>(null);
 
-  //Permissions
-  const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
-
-  //Effects
   useEffect(() => {
-    if (isSuperAdmin){
-      getServices(searchString);
-    }
-  }, [activePage, itemsPerPage, searchString, sortChoice]);
+    if (isSuperAdmin) void getServices(searchString);
+  }, [activePage, itemsPerPage, searchString, sortChoice, isSuperAdmin]);
 
   const getServicesDebounced = debounce(
-    (searchVal: string) => setSearchString(searchVal),
+    (searchValue: string) => {
+      setActivePage(1);
+      setSearchString(searchValue);
+    },
     250
   );
 
-  function refreshServices() {
-    getServices(searchString);
-  }
-
-  async function getServices(searchString: string) {
+  async function getServices(query: string) {
     try {
       setLoading(true);
       const res = await api.getCentralIdentityServices({
         activePage,
         limit: itemsPerPage,
-        query: searchString,
-        sort: sortChoice
-      })
+        query,
+        sort: sortChoice,
+      });
+
       if (
         res.data.err ||
-        !res.data.services ||
         !Array.isArray(res.data.services) ||
         res.data.totalCount === undefined
       ) {
@@ -88,9 +72,9 @@ const CentralIdentityServices = () => {
       }
 
       setServices(res.data.services);
-      setTotalPages(Math.ceil(res.data.totalCount / itemsPerPage));
-    } catch (err) {
-      handleGlobalError(err);
+      setTotalCount(res.data.totalCount);
+    } catch (error) {
+      handleGlobalError(error);
     } finally {
       setLoading(false);
     }
@@ -98,152 +82,130 @@ const CentralIdentityServices = () => {
 
   function handleSelectService(service: CentralIdentityService) {
     setSelectedService(service);
-    setShowUserModal(true);
+    setShowServiceModal(true);
+  }
+
+  const columns: ColumnDef<CentralIdentityService>[] = [
+    { accessorKey: "name", header: "Name" },
+    {
+      accessorKey: "service_Id",
+      header: "ID",
+      cell: ({ row }) => (
+        <span className="break-all">{row.original.service_Id}</span>
+      ),
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          icon={<IconEye size={16} aria-hidden="true" />}
+          onClick={() => handleSelectService(row.original)}
+        >
+          View Service
+        </Button>
+      ),
+    },
+  ];
+
+  const paginationState: PaginationState = {
+    pageIndex: activePage - 1,
+    pageSize: itemsPerPage,
+  };
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="!p-8">
+        <Alert
+          variant="error"
+          title="Access denied"
+          message="You must be a Superadmin to access this page."
+        />
+      </div>
+    );
   }
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">
-            LibreOne Admin Console: Services
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
-                  LibreOne Admin Consoles
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>Services</Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment>
-               <Grid>
-                 <Grid.Row>
-                  <Grid.Column width={11}>
-                     <Dropdown
-                       placeholder="Sort by..."
-                       floating
-                       selection
-                       button
-                       options={sortOptions}
-                       onChange={(_e, { value }) => {
-                         setSortChoice(value as string);
-                       }}
-                       value={sortChoice}
-                     />
-                   </Grid.Column>
-                   <Grid.Column width={5}>
-                     <Input
-                       icon="search"
-                       placeholder="Search by Name or ID..."
-                       onChange={(e) => {
-                         setSearchInput(e.target.value);
-                         getServicesDebounced(e.target.value);
-                       }}
-                       value={searchInput}
-                       fluid
-                    />
-                  </Grid.Column>
-                </Grid.Row>
-              </Grid>
-            </Segment>
-            {loading && (
-              <Segment>
-                <Loader active inline="centered" />
-              </Segment>
-            )}
+    <div className="controlpanel-container !h-full">
+      <Stack direction="vertical" gap="md" className="mb-4">
+        <Heading level={2}>LibreOne Admin Console: Services</Heading>
 
-              <>
-                <Segment>
-                  <PaginationWithItemsSelect
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    itemsPerPage={itemsPerPage}
-                    setItemsPerPageFn={setItemsPerPage}
-                    setActivePageFn={setActivePage}
-                    totalLength={services.length}
-                  />
-                </Segment>
-                <Segment>
-                  <Table striped celled>
-                    <Table.Header>
-                      <Table.Row>
-                        {TABLE_COLS.map((item) => (
-                          <Table.HeaderCell key={item.key}>
-                            <span>{item.text}</span>
-                          </Table.HeaderCell>
-                        ))}
-                      </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                      {services.length > 0 &&
-                        services.map((s) => {
-                          return (
-                            <Table.Row
-                              key={s.service_Id}
-                              className="word-break-all"
-                            >
-                              <Table.Cell>
-                                <span>{s.name}</span>
-                              </Table.Cell>
-                              <Table.Cell>
-                                <span>{s.service_Id}</span>
-                              </Table.Cell>
-                              <Table.Cell>
-                                <Button
-                                  color="blue"
-                                  onClick={() => handleSelectService(s)}
-                                >
-                                  <Icon name="eye" />
-                                  View Service
-                                </Button>
-                              </Table.Cell>
-                            </Table.Row>
-                          );
-                        })}
-                      {services.length === 0 && (
-                        <Table.Row>
-                          <Table.Cell colSpan={TABLE_COLS.length + 1}>
-                            <p className="text-center">
-                              <em>No results found.</em>
-                            </p>
-                          </Table.Cell>
-                        </Table.Row>
-                      )}
-                    </Table.Body>
-                  </Table>
-                </Segment>
-                <Segment>
-                  <PaginationWithItemsSelect
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    itemsPerPage={itemsPerPage}
-                    setItemsPerPageFn={setItemsPerPage}
-                    setActivePageFn={setActivePage}
-                    totalLength={services.length}
-                  />
-                </Segment>
-              </>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
+        <Card variant="outline" padding="none" className="overflow-hidden">
+          <div className="border-b border-gray-200 p-4">
+            <Breadcrumb>
+              <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+              <Breadcrumb.Item href="/controlpanel/libreone">
+                LibreOne Admin Console
+              </Breadcrumb.Item>
+              <Breadcrumb.Item isCurrent>Services</Breadcrumb.Item>
+            </Breadcrumb>
+          </div>
+
+          <div className="flex flex-col gap-4 border-b border-gray-200 p-4 md:flex-row md:items-end md:justify-between">
+            <Select
+              name="service-sort"
+              label="Sort services"
+              placeholder="Sort by..."
+              options={sortOptions}
+              value={sortChoice}
+              onChange={(event) => {
+                setActivePage(1);
+                setSortChoice(event.target.value);
+              }}
+              className="w-full md:max-w-72"
+            />
+            <Input
+              name="service-search"
+              label="Search services"
+              placeholder="Search by Name or ID..."
+              value={searchInput}
+              rightIcon={<IconSearch size={18} aria-hidden="true" />}
+              onChange={(event) => {
+                setSearchInput(event.target.value);
+                getServicesDebounced(event.target.value);
+              }}
+              className="w-full md:max-w-xl"
+            />
+          </div>
+
+          <div className="p-4">
+            <DataTable<CentralIdentityService>
+              data={services}
+              columns={columns}
+              loading={loading}
+              density="compact"
+              striped
+              bordered
+              enablePagination
+              pageSize={itemsPerPage}
+              pageSizeOptions={[10, 25, 50, 100]}
+              emptyState="No results found."
+              tableOptions={{
+                manualPagination: true,
+                rowCount: totalCount,
+                state: { pagination: paginationState },
+                onPaginationChange: (updater) => {
+                  const nextPagination =
+                    typeof updater === "function"
+                      ? updater(paginationState)
+                      : updater;
+                  setActivePage(nextPagination.pageIndex + 1);
+                  setItemsPerPage(nextPagination.pageSize);
+                },
+              }}
+            />
+          </div>
+        </Card>
+      </Stack>
+
       <ViewServiceDetailsModal
-        open={showUserModal}
-        onClose={() => setShowUserModal(false)}
+        open={showServiceModal}
+        onClose={() => setShowServiceModal(false)}
         service={selectedService}
-        onServiceUpdated={refreshServices}
+        onServiceUpdated={() => void getServices(searchString)}
       />
-    </Grid>
+    </div>
   );
 };
 

@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { Modal, Button, Input, Icon } from "semantic-ui-react";
+import { useState } from "react";
+import { Button, Input, Modal, Stack, Text } from "@libretexts/davis-react";
+import { IconCheck, IconX } from "@tabler/icons-react";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import api from "../../../api";
 
@@ -16,26 +17,25 @@ const CreateOrgModal: React.FC<CreateOrgModalProps> = ({
   show,
   onClose,
   onCreated,
-  systemId
+  systemId,
 }) => {
-  const [newOrgName, setNewOrgName] = useState<string>("");
-  const [creating, setCreating] = useState<boolean>(false);
+  const [newOrgName, setNewOrgName] = useState("");
+  const [creating, setCreating] = useState(false);
   const { handleGlobalError } = useGlobalError();
 
   const handleSubmit = async () => {
-
-    if (!newOrgName.trim() || newOrgName.trim().length < 2 || newOrgName.trim().length > 100) {
+    const name = newOrgName.trim();
+    if (name.length < 2 || name.length > 100) {
       handleGlobalError("Organization name must be between 2 and 100 characters");
       return;
     }
 
     try {
       setCreating(true);
-
       const res = await api.postCentralIdentityOrg({
-        name: newOrgName,
+        name,
         logo: DEFAULT_AVATAR_LOGO_URL,
-        systemId: systemId
+        systemId,
       });
 
       if (res.data.err) {
@@ -45,8 +45,8 @@ const CreateOrgModal: React.FC<CreateOrgModalProps> = ({
 
       setNewOrgName("");
       onCreated();
-    } catch (err) {
-      handleGlobalError(err);
+    } catch (error) {
+      handleGlobalError(error);
     } finally {
       setCreating(false);
     }
@@ -58,31 +58,34 @@ const CreateOrgModal: React.FC<CreateOrgModalProps> = ({
   };
 
   return (
-    <Modal open={show} onClose={handleClose} size="tiny">
-      <Modal.Header>Create New Organization</Modal.Header>
-      <Modal.Content>
-        <p>Enter the name for the new organization:</p>
-        <Input
-          fluid
-          placeholder="Organization Name"
-          value={newOrgName}
-          onChange={(e) => setNewOrgName(e.target.value)}
-          disabled={creating}
-        />
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={handleClose} disabled={creating}>
-          Cancel
-        </Button>
-        <Button
-          color="green"
-          onClick={handleSubmit}
-          loading={creating}
-          disabled={!newOrgName.trim() || creating}
-        >
-          <Icon name="checkmark" /> Create
-        </Button>
-      </Modal.Actions>
+    <Modal open={show} onClose={handleClose} size="sm">
+      <Modal.Header>
+        <Modal.Title>Create New Organization</Modal.Title>
+        <Modal.Close />
+      </Modal.Header>
+      <Modal.Body>
+        <Stack direction="vertical" gap="sm">
+          <Text as="p">Enter the name for the new organization.</Text>
+          <Input
+            name="organization-name"
+            label="Organization Name"
+            placeholder="Enter organization name"
+            value={newOrgName}
+            onChange={(event) => setNewOrgName(event.target.value)}
+            disabled={creating}
+          />
+        </Stack>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex w-full justify-end gap-2">
+          <Button variant="outline" icon={<IconX size={16} />} onClick={handleClose} disabled={creating}>
+            Cancel
+          </Button>
+          <Button variant="primary" icon={<IconCheck size={16} />} onClick={handleSubmit} loading={creating} disabled={newOrgName.trim().length < 2 || newOrgName.trim().length > 100 || creating}>
+            Create
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };
