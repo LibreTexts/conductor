@@ -15,7 +15,11 @@ import {
 } from "./validators/Reference.js";
 import { Response } from "express";
 import Project from "../models/project.js";
-import { TableOfContents, ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
+import {
+  TableOfContents,
+  ZodReqWithOptionalUser,
+  ZodReqWithUser,
+} from "../types";
 import projectsAPI from "./projects.js";
 import {
   getReferencesUsage,
@@ -40,7 +44,7 @@ async function updateReferenceFormat(
 ) {
   try {
     const { projectID } = req.params;
-    const { format, displayLocation, pageTitle } = req.body;
+    const { format, displayLocation, pageTitle, selectedList } = req.body;
     const actorUUID = req.user?.decoded?.uuid ?? "";
 
     const project = await Project.findOne({ projectID: { $eq: projectID } });
@@ -78,6 +82,11 @@ async function updateReferenceFormat(
       {
         ...(displayLocation !== undefined ? { displayLocation } : {}),
         ...(pageTitle !== undefined ? { pageTitle } : {}),
+        ...(displayLocation === "endOfChapter" &&
+        selectedList !== undefined &&
+        selectedList?.length > 0
+          ? { selectedList }
+          : {}),
       },
     );
 
@@ -87,6 +96,7 @@ async function updateReferenceFormat(
         format: referenceUsage.format,
         displayLocation: referenceUsage.displayLocation,
         pageTitle: referenceUsage.pageTitle,
+        selectedList: referenceUsage.selectedList,
       },
     });
   } catch (error) {
@@ -122,7 +132,10 @@ async function getReferenceDetails(
       });
     }
 
-    const referenceUsage = await getReferencesUsage({projectID, showPageRefs: false});
+    const referenceUsage = await getReferencesUsage({
+      projectID,
+      showPageRefs: false,
+    });
     if (!referenceUsage) {
       return res.status(404).send({
         err: true,
@@ -430,7 +443,6 @@ async function addBookPageAsReference(
         urldate: reference.urldate,
         note: reference.note,
         publisher: reference.publisher,
-        
       },
     });
   } catch (error) {
@@ -475,7 +487,10 @@ async function getReferancePageDetails(
 
     // find reference usage by project id
     // return projectID and reference last UpdatedAt
-    const referenceUsage = await getReferencesUsage({projectID: project.projectID, showPageRefs: false});
+    const referenceUsage = await getReferencesUsage({
+      projectID: project.projectID,
+      showPageRefs: true,
+    });
     const lastUpdatedAt =
       referenceUsage?.entries?.reduce<Date | null>((max, entry) => {
         const updated = entry.updatedAt ? new Date(entry.updatedAt) : null;
@@ -494,6 +509,7 @@ async function getReferancePageDetails(
         pageTitle: referenceUsage?.pageTitle ?? null,
         backmatterPageID: referenceUsage?.backmatterPageID ?? null,
         backmatterReferenceList: referenceUsage?.backmatterReferenceList ?? [],
+        selectedList: referenceUsage?.selectedList ?? [],
       },
     });
   } catch (error) {
@@ -527,9 +543,13 @@ async function getReferenceItems(
       bookID: `${project.libreLibrary}-${project.libreCoverID}`,
     });
 
-    type TocIdTree = { id: string; children: TocIdTree[] , refs:string[] };
-    const mapToc = async (toc: TableOfContents, pageRefs: PageReferences[]): Promise<TocIdTree> => ({
+    type TocIdTree = { id: string; title: string; children: TocIdTree[]; refs: string[] };
+    const mapToc = async (
+      toc: TableOfContents,
+      pageRefs: PageReferences[],
+    ): Promise<TocIdTree> => ({
       id: toc.id,
+      title: toc.title,
       refs: [
         ...new Set(
           [...pageRefs]
@@ -538,13 +558,17 @@ async function getReferenceItems(
             ?.refrences.map((entry) => entry.key) ?? [],
         ),
       ],
-      children: await Promise.all(toc.children.map((child) => mapToc(child, pageRefs))),
+      children: await Promise.all(
+        toc.children.map((child) => mapToc(child, pageRefs)),
+      ),
     });
- 
 
     const referenceItems = await getReferenceItemsService(projectID);
-    const usage = await getReferencesUsage({projectID, showPageRefs: true});
-    const toc = await mapToc(await bookService.getBookTOCNew(), usage?.pageRefrences ?? []);
+    const usage = await getReferencesUsage({ projectID, showPageRefs: true });
+    const toc = await mapToc(
+      await bookService.getBookTOCNew(),
+      usage?.pageRefrences ?? [],
+    );
     return res.send({
       err: false,
       data: { referenceItems, toc },
@@ -589,7 +613,8 @@ async function populateReferenceDetails(
     }
     // get Latest ReferencePopulateJob
     const latestReferencePopulateJob = await ReferencePopulateJob.findOne({
-      projectID: { $eq: projectID }, status: { $eq: "pending" }
+      projectID: { $eq: projectID },
+      status: { $eq: "pending" },
     })
       .sort({ createdAt: -1 })
       .limit(1);

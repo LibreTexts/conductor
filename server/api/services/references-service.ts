@@ -41,16 +41,21 @@ export class ReferenceServiceError extends Error {
 
 type ReferenceEntryInput = z.infer<typeof ReferenceEntrySchema>;
 
-export const getReferencesUsage = async (
- {projectID, showPageRefs = false}: {projectID: string, showPageRefs?: boolean},
-): Promise<{
+export const getReferencesUsage = async ({
+  projectID,
+  showPageRefs = false,
+}: {
+  projectID: string;
+  showPageRefs?: boolean;
+}): Promise<{
   format: string;
   displayLocation?: ReferenceDisplayLocation;
   pageTitle?: string;
   entries: ReferenceInterface[];
   backmatterPageID?: string;
   backmatterReferenceList: string[];
-  pageRefrences: PageReferences[]|undefined;
+  pageRefrences: PageReferences[] | undefined;
+  selectedList?: string[];
 } | null> => {
   const referenceUsage = await ReferenceUsage.findOne({
     projectID: { $eq: projectID },
@@ -70,7 +75,10 @@ export const getReferencesUsage = async (
     entries: entries.map((entry) => entry.toObject()),
     backmatterPageID: referenceUsage.backmatterPageID ?? undefined,
     backmatterReferenceList: referenceUsage.backmatterReferenceList ?? [],
-    pageRefrences: showPageRefs ? referenceUsage.pageRefrences ?? [] : undefined,
+    pageRefrences: showPageRefs
+      ? (referenceUsage.pageRefrences ?? [])
+      : undefined,
+    selectedList: referenceUsage.selectedList ?? [],
   };
 };
 
@@ -82,17 +90,22 @@ export const upsertReferenceFormat = async (
   options?: {
     displayLocation?: "endOfPage" | "endOfChapter" | "backmatter";
     pageTitle?: string;
+    selectedList?: string[];
   },
 ): Promise<ReferenceUsageInterface> => {
   const optionalSet: {
     displayLocation?: "endOfPage" | "endOfChapter" | "backmatter";
     pageTitle?: string;
+    selectedList?: string[];
   } = {};
   if (options?.displayLocation !== undefined) {
     optionalSet.displayLocation = options.displayLocation;
   }
   if (options?.pageTitle !== undefined) {
     optionalSet.pageTitle = options.pageTitle;
+  }
+  if (options?.selectedList !== undefined) {
+    optionalSet.selectedList = options.selectedList;
   }
 
   const referenceUsage = await ReferenceUsage.findOneAndUpdate(
@@ -176,7 +189,7 @@ export const upsertReferenceEntry = async (
   entry: ReferenceEntryInput,
   actorUUID: string,
 ): Promise<ReferenceInterface> => {
-  const usage = await getReferencesUsage({projectID, showPageRefs: false});
+  const usage = await getReferencesUsage({ projectID, showPageRefs: false });
   if (!usage) {
     throw new ReferenceServiceError(
       "ReferenceUsage not found — set a citation format first",
@@ -603,16 +616,27 @@ const extractReferenceFromContent = (content: string): string[] => {
 };
 
 const REFERENCE_CITE_BLOCK = "<p>{{template.ReferenceCite()}}</p>";
+const REFERENCE_BIB_BLOCK = "<p>{{template.ReferenceBib()}}</p>";
 
 /** Matches `{{template.ReferenceCite()}}` with optional whitespace. Fresh instance each use. */
 const referenceCiteTemplateRe = (): RegExp =>
   /\{\{\s*template\.ReferenceCite\s*\(\s*\)\s*\}\}/i;
 
+const referenceBibTemplateRe = (): RegExp =>
+  /\{\{\s*template\.ReferenceBib\s*\(\s*\)\s*\}\}/i;
+
+const referenceCiteBlockRe = (): RegExp =>
+  /<p>\s*\{\{\s*template\.ReferenceCite\s*\(\s*\)\s*\}\}\s*<\/p>/gi;
+
+const referenceBibBlockRe = (): RegExp =>
+  /<p>\s*\{\{\s*template\.ReferenceBib\s*\(\s*\)\s*\}\}\s*<\/p>/gi;
+
 /** Legacy biblizer `<pre class="script">…</pre>` block (any CDN @ref / version). */
 const biblizerScriptBlockRe = (): RegExp =>
   /<pre\b[^>]*class=["'][^"']*\bscript\b[^"']*["'][^>]*>[\s\S]*?biblizer[\s\S]*?<\/pre>/gi;
 
-const buildReferenceCiteBlock = (): string => REFERENCE_CITE_BLOCK;
+const buildReferenceCiteBlock = (bib = false): string =>
+  bib ? REFERENCE_BIB_BLOCK : REFERENCE_CITE_BLOCK;
 
 /** Normalize MindTouch contents JSON body (string or string[]). */
 const normalizePageBody = (rawOrBody: unknown): string => {
@@ -639,36 +663,56 @@ const normalizePageBody = (rawOrBody: unknown): string => {
 };
 
 /**
- * Ensure page content includes `{{template.ReferenceCite()}}`.
- * - no template → append `<p>{{template.ReferenceCite()}}</p>`
- * - leftover biblizer script block → replace with the template
- * - already present → unchanged
+ * Ensure page content includes the right LibreTexts reference template.
+ * - `bib` → `{{template.ReferenceBib()}}`
+ * - otherwise → `{{template.ReferenceCite()}}`
+ * Leftover biblizer blocks or the opposite template are replaced.
  */
 const ensureReferenceScript = (
   content: unknown,
+  bib?: boolean,
 ): { content: string; action: "none" | "added" | "updated" } => {
   const body = normalizePageBody(content);
-  if (referenceCiteTemplateRe().test(body)) {
+  const targetBlock = buildReferenceCiteBlock(bib === true);
+  const hasTarget = (
+    bib === true ? referenceBibTemplateRe() : referenceCiteTemplateRe()
+  ).test(body);
+  if (hasTarget) {
     return { content: body, action: "none" };
   }
 
-  const withLegacyReplaced = body.replace(
-    biblizerScriptBlockRe(),
-    REFERENCE_CITE_BLOCK,
-  );
+  const otherBlockRe =
+    bib === true ? referenceCiteBlockRe() : referenceBibBlockRe();
+  const otherCallRe =
+    bib === true ? referenceCiteTemplateRe() : referenceBibTemplateRe();
+  const otherCallReplacement =
+    bib === true
+      ? "{{template.ReferenceBib()}}"
+      : "{{template.ReferenceCite()}}";
+
+  const withOtherBlockReplaced = body.replace(otherBlockRe, targetBlock);
+  if (withOtherBlockReplaced !== body) {
+    return { content: withOtherBlockReplaced, action: "updated" };
+  }
+
+  const withOtherCallReplaced = body.replace(otherCallRe, otherCallReplacement);
+  if (withOtherCallReplaced !== body) {
+    return { content: withOtherCallReplaced, action: "updated" };
+  }
+
+  const withLegacyReplaced = body.replace(biblizerScriptBlockRe(), targetBlock);
   if (withLegacyReplaced !== body) {
     return { content: withLegacyReplaced, action: "updated" };
   }
 
   return {
-    content: `${body.trimEnd()}\n${buildReferenceCiteBlock()}`,
+    content: `${body.trimEnd()}\n${targetBlock}`,
     action: "added",
   };
 };
 
 /** Matches LibreTexts Back Matter references slot: `/zz:_Back_Matter/31:...`. */
-const BACKMATTER_REFS_URL_RE =
-  /\/zz(?:%3A|:)[_]?Back_Matter\/31(?:%3A|:)/i;
+const BACKMATTER_REFS_URL_RE = /\/zz(?:%3A|:)[_]?Back_Matter\/31(?:%3A|:)/i;
 
 const resolveMindTouchPath = (pageInfo: unknown): string | null => {
   if (!pageInfo || typeof pageInfo !== "object") return null;
@@ -780,7 +824,7 @@ const ensureBackmatterReferencesPage = async ({
     options: {
       method: "POST",
       headers: { "Content-Type": "text/plain; charset=utf-8" },
-      body: `${RemixerTemplates.POST_CreateBlankPage("topic")}\n${buildReferenceCiteBlock()}`,
+      body: `${RemixerTemplates.POST_CreateBlankPage("topic")}\n${buildReferenceCiteBlock(true)}`,
     },
   });
   if (!createRes.ok) {
@@ -817,11 +861,13 @@ const runJob = async ({
   projectID: string;
 }): Promise<void> => {
   try {
-    const references = await getReferenceItemsService(projectID, true);
-    const referenceUsage = await ReferenceUsage.findOne(
-      { projectID: { $eq: projectID } },
-      { displayLocation: 1, pageTitle: 1 },
-    );
+    const [references, referenceUsage] = await Promise.all([
+      getReferenceItemsService(projectID, true),
+      ReferenceUsage.findOne(
+        { projectID: { $eq: projectID } },
+        { displayLocation: 1, pageTitle: 1, selectedList: 1 },
+      ),
+    ]);
     if (!referenceUsage) {
       throw new ReferenceServiceError("ReferenceUsage not found", 404);
     }
@@ -863,8 +909,11 @@ const runJob = async ({
       let scriptAction: "none" | "added" | "updated" = "none";
       // Per-page ReferenceCite template only when NOT using a shared backmatter page.
       if (!isBackmatter) {
+        const bib =
+          referenceUsage.selectedList?.some((item) => item === page.id) &&
+          referenceUsage.displayLocation === "endOfChapter" || referenceUsage.displayLocation === "endOfPage";
         const rawContent = await bookService.getPageRawContent(page.id);
-        const ensured = ensureReferenceScript(rawContent);
+        const ensured = ensureReferenceScript(rawContent, bib);
         scriptAction = ensured.action;
         if (scriptAction !== "none") {
           const updated = await bookService.updatePageContent(
@@ -923,7 +972,7 @@ const runJob = async ({
     if (isBackmatter && backmatterPageID) {
       const rawContent = await bookService.getPageRawContent(backmatterPageID);
       const { content: nextContent, action: scriptAction } =
-        ensureReferenceScript(rawContent);
+        ensureReferenceScript(rawContent, true);
       if (scriptAction !== "none") {
         const updated = await bookService.updatePageContent(
           backmatterPageID,
