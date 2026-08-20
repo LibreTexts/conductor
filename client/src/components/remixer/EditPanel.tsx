@@ -30,13 +30,7 @@ function sanitizeRemixerTitle(
   trim: boolean = true,
   allowColon = false,
 ): string {
-  let s = value;
-  if (!allowColon) {
-    const colonIdx = value.indexOf(":");
-    if (colonIdx !== -1) {
-      s = value.slice(colonIdx + 1);
-    }
-  }
+  const s = allowColon ? value : value.replace(/:/g, "-");
   return trim ? s.trim() : s;
 }
 
