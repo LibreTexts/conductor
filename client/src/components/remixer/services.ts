@@ -1068,8 +1068,6 @@ export const syncRenamedItemFromAutonumberTitle = (
 
     const rawTitle = (page["@title"] || page.title || "").trim();
     const titleMatches = rawTitle === expectedDisplay.trim();
-    // if(!titleMatches) console.log("titleMatches", titleMatches, rawTitle, expectedDisplay);
-   if(rawTitle.includes("Chapter I")) console.log("titleMatches", titleMatches, rawTitle, expectedDisplay);
     return {
       ...page,
       renamedItem: !titleMatches,
