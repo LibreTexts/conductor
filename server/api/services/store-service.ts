@@ -3,7 +3,7 @@ import { debug } from "../../debug";
 import StripeService from "./stripe-service";
 import { getLibraryNameKeys } from "../libraries";
 import axios from "axios";
-import { BookPriceOption, StoreProduct, StoreShippingOption, DownloadCenterItem, LuluShippingLineItem, ResolvedProduct, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession, LuluPrintJob, LuluPrintJobParams, LULU_HEALTHY_STATUSES, LULU_FAILURE_STATUSES } from "../../types";
+import { BookPriceOption, StoreProduct, StoreShippingOption, DownloadCenterItem, LuluShippingLineItem, ResolvedProduct, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession, LuluPrintJob, LuluPrintJobParams, LULU_HEALTHY_STATUSES, LULU_FAILURE_STATUSES, LULU_RECOVERY_CONFIRMED_STATUSES } from "../../types";
 import { checkBookIDFormat } from "../../util/bookutils";
 import { CreateCheckoutSessionSchema, GetShippingOptionsSchema, AdminGetStoreOrdersSchema } from "../validators/store";
 import { z } from "zod";
@@ -959,21 +959,38 @@ class StoreService {
             // so a successfully resubmitted order stayed 'failed' until an admin edited MongoDB.
             // An unrecognized status falls into neither set and deliberately leaves them untouched,
             // so a status Lulu adds later can never silently fail or un-fail an order.
-            const recovered = wasFailed && !!incomingStatus && LULU_HEALTHY_STATUSES.has(incomingStatus);
+            // Recovery is deliberately NOT every healthy status. A resubmitted job reports CREATED
+            // before Lulu has validated anything, and a tricky order can be REJECTED again from
+            // exactly that state. Treating CREATED as a recovery would clear the failure and close
+            // the ticket immediately, so the next rejection would find no ticket attached and open a
+            // second one. Waiting for PRODUCTION_DELAYED (see LULU_RECOVERY_CONFIRMED_STATUSES) keeps
+            // the original ticket open and deduping until Lulu has actually accepted the job.
+            const recoveryConfirmed = !!incomingStatus && LULU_RECOVERY_CONFIRMED_STATUSES.has(incomingStatus);
+            const recovered = wasFailed && recoveryConfirmed;
 
             if (incomingStatus && LULU_FAILURE_STATUSES.has(incomingStatus)) {
                 storeOrder.status = 'failed';
                 storeOrder.error = data.status?.message || `Lulu print job ${incomingStatus}`;
 
-                // A rejected, errored, or canceled print job needs manual resolution; open a ticket.
+                // A rejected, errored, or canceled print job needs manual resolution; open a ticket,
+                // or comment on the existing one if this order is already ticketed. Both `luluJobID`
+                // and `luluJobStatus` are still the previously recorded values here (the write is
+                // below), which is exactly what identifies a redelivered webhook: same job, same
+                // status, nothing new to say.
                 await this._createOrderFailureTicket(storeOrder, {
                     trigger: incomingStatus === 'REJECTED' ? "lulu_rejected" : "lulu_error",
                     message: data.status?.message || '',
+                    luluJobID: incomingJobID,
+                    repeatOfRecordedFailure: storeOrder.luluJobID === incomingJobID
+                        && storeOrder.luluJobStatus === incomingStatus,
                 });
             } else if (incomingStatus && LULU_HEALTHY_STATUSES.has(incomingStatus)) {
                 if (incomingStatus === 'SHIPPED') {
                     storeOrder.status = 'completed';
-                } else if (wasFailed) {
+                } else if (recovered) {
+                    // Gated on `recovered`, not `wasFailed`: an early healthy status from a job that
+                    // may still be rejected must leave the order 'failed', or the failure would be
+                    // cleared here and the next webhook would no longer see `wasFailed`.
                     storeOrder.status = 'pending';
                 }
 
@@ -993,7 +1010,11 @@ class StoreService {
             // After the save so ticket I/O never sits on the order write path. Re-reads the order
             // rather than trusting the in-memory copy, because `_createOrderFailureTicket` attaches
             // the UUID with its own `updateOne`.
-            if (recovered) {
+            // Gated on `recoveryConfirmed` rather than `recovered` so that every later confirmed
+            // status (IN_PRODUCTION, SHIPPED, ...) retries a close that a transient ticket-service
+            // error left outstanding. `_resolveOrderFailureTicket` no-ops when the order is still
+            // failed or has no ticket attached.
+            if (recoveryConfirmed) {
                 await this._resolveOrderFailureTicket(storeOrder.id);
             }
 
@@ -1205,41 +1226,14 @@ class StoreService {
             luluJobStatusMessage: printJob.status["message"] || "",
         });
 
-        // Lulu accepted a new job, so any recorded failure is now stale. Because both the plain
-        // resubmit and the manual submission funnel through here, this one call clears the stuck
-        // 'failed' status for both without waiting on Lulu's next webhook.
-        await this._clearOrderFailureIfFailed(orderId);
+        // The order deliberately stays 'failed' with its support ticket attached until Lulu confirms
+        // the new job (see LULU_RECOVERY_CONFIRMED_STATUSES). Lulu having *accepted* a submission
+        // says nothing about whether it will pass validation, and a job rejected again after the
+        // failure was cleared would open a second ticket for the same order. `processLuluOrderUpdate`
+        // clears the failure and closes the ticket once PRODUCTION_DELAYED or later arrives.
 
         // Best-effort: reflect the new Lulu job in the search index (fire-and-forget).
         void upsertStoreOrderToSearchIndex(orderId);
-    }
-
-    /**
-     * Clears a recorded failure from an order that has recovered, and resolves its support ticket.
-     *
-     * The `status: "failed"` term in the filter does the real work: it makes the update a no-op for
-     * an order that isn't failed (so a manual resubmit of an already-`completed` order can never be
-     * knocked back to `pending`), and it makes concurrent callers race safely — only one update can
-     * match the transition.
-     */
-    private async _clearOrderFailureIfFailed(orderId: string): Promise<void> {
-        try {
-            const previous = await StoreOrder.findOneAndUpdate(
-                { id: { $eq: orderId }, status: "failed" },
-                { $set: { status: "pending", error: "" } },
-                { new: false },
-            );
-
-            // Best-effort: reflect the recovered status in the search index (fire-and-forget).
-            if (previous) void upsertStoreOrderToSearchIndex(orderId);
-        } catch (error) {
-            debug(`Failed to clear failure state on store order ${orderId}:`, error);
-        }
-
-        // Outside the try, and deliberately not gated on this call having been the one to clear the
-        // status: if an earlier recovery cleared the order but could not reach the ticket service,
-        // the UUID is still attached and this is what retries the close.
-        await this._resolveOrderFailureTicket(orderId);
     }
 
     /**
@@ -1258,6 +1252,12 @@ class StoreService {
             const order = await StoreOrder.findOne({ id: { $eq: orderId }, status: { $ne: "failed" } });
             if (!order?.supportTicketUUID) return;
 
+            // Say why before closing, so the ticket carries the reason it went away rather than just
+            // a "closed by Conductor (automated)" feed entry. Posted on each attempt: if the close
+            // below fails and a later webhook retries it, a second note is a fair description of what
+            // happened and is far cheaper than tracking close attempts on the order.
+            await this._commentOnOrderRecovery(order.supportTicketUUID, order);
+
             const closed = await this._closeOrderFailureTicket(order.supportTicketUUID, orderId);
             if (!closed) return; // reference retained on purpose so a later attempt can retry
 
@@ -1271,6 +1271,32 @@ class StoreService {
         } catch (error) {
             debug(`Failed to resolve support ticket for store order ${orderId}:`, error);
         }
+    }
+
+    /**
+     * Notes on the ticket that the order has recovered, immediately before it is closed.
+     *
+     * The status named here is the one that earned the close: recovery is only declared once Lulu
+     * has taken the job into production (see LULU_RECOVERY_CONFIRMED_STATUSES), not merely accepted
+     * a submission, so this doubles as the record of which job finally stuck.
+     *
+     * Best-effort by construction: `createSystemMessage` swallows its own errors.
+     */
+    private async _commentOnOrderRecovery(ticketUUID: string, order: RawStoreOrder): Promise<void> {
+        const lines = [
+            `Lulu has taken this order's print job into production, so the order is no longer failed and this ticket is being closed automatically.`,
+            ``,
+            `Order ID: ${order.id}`,
+            order.luluJobID ? `Lulu Job ID: ${order.luluJobID}` : undefined,
+            order.luluJobStatus ? `Lulu Job Status: ${order.luluJobStatus}` : undefined,
+            ``,
+            `Reopen this ticket if the order still needs attention.`,
+        ].filter((l) => l !== undefined);
+
+        await this.ticketService.createSystemMessage({
+            ticketUUID,
+            message: lines.join("\n"),
+        });
     }
 
     /**
@@ -2005,10 +2031,36 @@ class StoreService {
      */
     private async _createOrderFailureTicket(
         storeOrder: RawStoreOrder,
-        { trigger, message }: { trigger: "order_failed" | "lulu_rejected" | "lulu_error"; message?: string },
+        { trigger, message, luluJobID, repeatOfRecordedFailure }: {
+            trigger: "order_failed" | "lulu_rejected" | "lulu_error";
+            message?: string;
+            /** The job that failed. Defaults to whatever is recorded on the order. */
+            luluJobID?: string;
+            /**
+             * Set when the incoming failure is the same job + status already recorded on the order,
+             * i.e. a redelivered webhook rather than a new failure. Suppresses the repeat-failure
+             * comment so a redelivery cannot spam the ticket.
+             */
+            repeatOfRecordedFailure?: boolean;
+        },
     ): Promise<string | undefined> {
         try {
-            if (storeOrder.supportTicketUUID) return storeOrder.supportTicketUUID; // already ticketed
+            const failingJobID = luluJobID || storeOrder.luluJobID;
+
+            if (storeOrder.supportTicketUUID) {
+                // Already ticketed. One ticket per order still stands — a resubmitted job that Lulu
+                // rejects again must not open a second ticket — but the ticket would otherwise still
+                // describe only the first failure, so record the new one on it as a comment.
+                if (!repeatOfRecordedFailure) {
+                    await this._commentOnOrderFailureTicket(storeOrder, {
+                        ticketUUID: storeOrder.supportTicketUUID,
+                        trigger,
+                        message,
+                        luluJobID: failingJobID,
+                    });
+                }
+                return storeOrder.supportTicketUUID;
+            }
 
             const shortID = storeOrder.id.slice(-6);
             const titleByTrigger: Record<typeof trigger, string> = {
@@ -2022,7 +2074,7 @@ class StoreService {
                 ``,
                 `Order ID: ${storeOrder.id}`,
                 storeOrder.customerEmail ? `Customer: ${storeOrder.customerEmail}` : undefined,
-                storeOrder.luluJobID ? `Lulu Job ID: ${storeOrder.luluJobID}` : undefined,
+                failingJobID ? `Lulu Job ID: ${failingJobID}` : undefined,
                 message ? `Details: ${message}` : undefined,
             ].filter(Boolean);
 
@@ -2047,6 +2099,47 @@ class StoreService {
             debug("Failed to create support ticket for store order:", err);
         }
         return undefined;
+    }
+
+    /**
+     * Records a repeat failure as a comment on an order's already-open failure ticket.
+     *
+     * Tricky orders can be rejected several times before an admin gets the payload right, and each
+     * of those rejections is real triage information. Holding to one ticket per order keeps that
+     * history in one place instead of scattering it across duplicates — but only if the later
+     * failures are actually written down, which is what this does.
+     *
+     * Best-effort by construction: `createSystemMessage` swallows its own errors.
+     */
+    private async _commentOnOrderFailureTicket(
+        storeOrder: RawStoreOrder,
+        { ticketUUID, trigger, message, luluJobID }: {
+            ticketUUID: string;
+            trigger: "order_failed" | "lulu_rejected" | "lulu_error";
+            message?: string;
+            luluJobID?: string;
+        },
+    ): Promise<void> {
+        const headlineByTrigger: Record<typeof trigger, string> = {
+            order_failed: "This order failed again while this ticket was still open.",
+            lulu_rejected: "Lulu rejected this order's print job again while this ticket was still open.",
+            lulu_error: "Lulu reported another error on this order's print job while this ticket was still open.",
+        };
+
+        const lines = [
+            headlineByTrigger[trigger],
+            ``,
+            `Order ID: ${storeOrder.id}`,
+            luluJobID ? `Lulu Job ID: ${luluJobID}` : undefined,
+            message ? `Details: ${message}` : undefined,
+            ``,
+            `The order is still failed, so this ticket stays open rather than a new one being created for the repeat failure.`,
+        ].filter((l) => l !== undefined);
+
+        await this.ticketService.createSystemMessage({
+            ticketUUID,
+            message: lines.join("\n"),
+        });
     }
 
     /**

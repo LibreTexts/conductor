@@ -441,6 +441,37 @@ export default class SupportTicketService {
         }
     }
 
+    /**
+     * Posts an internal, Conductor-authored comment on an existing ticket.
+     *
+     * Attribution mirrors `createSystemTicket`: there is no sender user, so the automation identifies
+     * itself through `senderEmail`, which is what the ticket UI falls back to for the display name.
+     * Messages are `internal` because these are operational notes for staff, not correspondence with
+     * a requester, and they deliberately skip the commenter/assignee email fan-out and the auto-close
+     * reset that a human comment triggers — automation must not keep a ticket alive or page people.
+     *
+     * Best-effort: returns whether the comment was written and never throws, so callers can treat
+     * commenting as a nicety that cannot break the path it is annotating.
+     */
+    async createSystemMessage({ ticketUUID, message }: { ticketUUID: string; message: string }): Promise<boolean> {
+        try {
+            await SupportTicketMessage.create({
+                uuid: v4(),
+                ticket: ticketUUID,
+                message,
+                attachments: [],
+                senderEmail: "Conductor (automated)",
+                senderIsStaff: true,
+                timeSent: new Date().toISOString(),
+                type: "internal",
+            });
+            return true;
+        } catch (err) {
+            debugError(`[SupportTicketService] Failed to add system message to ticket ${ticketUUID}: ${err}`);
+            return false;
+        }
+    }
+
     async createTicket(data: Partial<SupportTicketInterface> | Partial<Omit<SupportTicketInterface, "attachments"> & { attachments?: string[] }>): Promise<SupportTicketInterface> {
         try {
             const ticket = await SupportTicket.create(data);

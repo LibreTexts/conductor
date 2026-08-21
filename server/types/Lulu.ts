@@ -102,6 +102,24 @@ export const LULU_HEALTHY_STATUSES: ReadonlySet<string> = new Set<LuluPrintJobSt
 ]);
 
 /**
+ * Lulu job statuses that confirm a print job has actually cleared Lulu's validation.
+ *
+ * A newly created job reports CREATED/UNPAID/PAYMENT_IN_PROGRESS long before Lulu has looked at the
+ * files, so those statuses say nothing about whether a resubmit will stick — a tricky order can be
+ * REJECTED several times, each time from a job that briefly looked healthy. PRODUCTION_DELAYED is
+ * the first status Lulu only reaches after the job has been accepted for production, so recovery of
+ * a failed order (clearing `failed` and closing its support ticket) is gated on this set rather than
+ * on {@link LULU_HEALTHY_STATUSES}. Holding the failure open until then is also what keeps the
+ * one-ticket-per-order dedupe in place across repeated rejections.
+ */
+export const LULU_RECOVERY_CONFIRMED_STATUSES: ReadonlySet<string> = new Set<LuluPrintJobStatus>([
+    "PRODUCTION_DELAYED",
+    "PRODUCTION_READY",
+    "IN_PRODUCTION",
+    "SHIPPED",
+]);
+
+/**
  * Lulu job statuses that mean the print job needs manual resolution.
  */
 export const LULU_FAILURE_STATUSES: ReadonlySet<string> = new Set<LuluPrintJobStatus>([
