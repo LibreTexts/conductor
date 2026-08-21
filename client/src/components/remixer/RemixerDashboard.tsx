@@ -45,6 +45,7 @@ import {
   isBookLevelCatalogNode,
   isLibrary,
   isMatterBranchNode as isMatterBranchNodePure,
+  isRemixerBookRoot,
   isRestrictedLibraryShelfNode,
   isBackMatterNode,
   isDefaultMatterPage,
@@ -59,6 +60,7 @@ import {
   splitFormattedPathParts,
   splitStoredFormattedPath,
   syncRenamedItemFromAutonumberTitle,
+  toEditableRemixerTitle,
   withDerivedStatusFlags,
 } from "./services";
 import {
@@ -880,19 +882,19 @@ const RemixerDashboard: React.FC = () => {
     );
     if (!existingNode) return;
 
-    const isBookRoot = !existingNode.parentID || existingNode.parentID === "-1";
-    const normalizeEditTitle = (value: string) => {
-      if (isBookRoot) return value.trim();
-      let s = value;
-      const colonIndex = s.indexOf(":");
-      if (colonIndex !== -1) s = s.slice(colonIndex + 1);
-      return s.replace(/:/g, "").trim();
-    };
+    const isBookRoot = isRemixerBookRoot(existingNode, remixerData.liberCoverID);
 
-    const previousTitle = normalizeEditTitle(
+    // Both sides go through the same canonicalizer EditPanel seeds its field
+    // with, so a save with no edits compares equal instead of registering as
+    // a rename (which the job would replay as a real MindTouch move).
+    const previousTitle = toEditableRemixerTitle(
       existingNode.title || existingNode["@title"] || "",
+      isBookRoot,
     );
-    const nextTitle = normalizeEditTitle(page.title || page["@title"] || "");
+    const nextTitle = toEditableRemixerTitle(
+      page.title || page["@title"] || "",
+      isBookRoot,
+    );
     const titleChanged = previousTitle !== nextTitle;
     const prevOverride = existingNode.formattedPathOverride === true;
     const nextOverrideUriUiEnding = page.overrideUriUiEnding || existingNode.overrideUriUiEnding;
