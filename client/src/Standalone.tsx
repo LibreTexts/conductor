@@ -1,6 +1,5 @@
 import { Switch, Route } from "react-router-dom";
 import { useTypedSelector } from "./state/hooks";
-import AdoptionReportPage from "./components/adoptionreport/AdoptionReportPage";
 import AccessibilityStatement from "./components/util/AccessibilityStatement";
 import TranslationFeedbackExport from "./components/util/TranslationFeedbackExport";
 import PeerReviewSubmitPage from "./screens/commons/Book/PeerReview/submit";
@@ -23,12 +22,6 @@ const Standalone = () => {
         <Switch>
           <Route exact path="/book/:bookID/submit-peer-review" component={PeerReviewSubmitPage} />
           {org.orgID === "libretexts" && [
-            <Route
-              exact
-              path="/adopt"
-              key="adoptionreport"
-              component={AdoptionReportPage}
-            />,
             <Route
               exact
               path="/accessibility"

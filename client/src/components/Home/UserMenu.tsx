@@ -4,7 +4,6 @@ import {
   IconBriefcase,
   IconChevronDown,
   IconChevronUp,
-  IconClipboardCheck,
   IconDashboard,
   IconExternalLink,
   IconPlus,
@@ -69,11 +68,6 @@ const NavList: React.FC<{ showUserDetail: boolean }> = ({ showUserDetail }) => {
         label="Harvesting Request"
         icon={<IconPlus size={20} />}
         href="https://commons.libretexts.org/harvestrequest"
-      />
-      <NavItem
-        label="Adoption Report"
-        icon={<IconClipboardCheck size={20} />}
-        href="https://commons.libretexts.org/adopt"
       />
       {clientConfig?.instructor_verification_url && (
         <NavItem
