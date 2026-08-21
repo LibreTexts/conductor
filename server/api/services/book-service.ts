@@ -27,9 +27,7 @@ import ExpertWithSSM from "../../util/ExpertWithSSM";
 import Expert, {
   ExpertError,
   GetPageResponse,
-  Subpages,
 } from "@libretexts/cxone-expert-node";
-import Library from "../../models/library";
 import LibraryService from "./library-service";
 
 export interface BookServiceParams {
@@ -41,20 +39,6 @@ type HierarchyPage = (GetPageSubPagesResponse["page"] | PageBase) & {
   url?: string;
   parentID?: number;
   subpages?: HierarchyPage[];
-};
-
-/**
- * Actual runtime shape of a `POST /pages/{id}/contents` response.
- *
- * TODO(cxone-expert-node): the SDK's `PostPageContentsResponse` nests these fields under an
- * `edit` key, but Deki returns them at the top level. Remove this and use the SDK type once
- * that is corrected upstream.
- */
-type PostPageContentsResult = {
-  "@status"?: "success" | "conflict";
-  page?: {
-    "@id"?: string | number;
-  };
 };
 
 export default class BookService {
@@ -72,6 +56,11 @@ export default class BookService {
     useClones: false,
   });
   private static _tocInFlightByBookID = new Map<string, Promise<TableOfContents>>();
+
+  private static readonly MATTER_ROOT_PATHS = {
+    Front: "00%3A_Front_Matter",
+    Back: "zz%3A_Back_Matter",
+  }
 
   private static readonly DEFAULT_THUMBNAILS = {
     BACK_MATTER: 'https://cdn.libretexts.net/DefaultImages/Back%20matter.jpg',
@@ -813,7 +802,7 @@ export default class BookService {
         }
       )
 
-      if (updatedContentRes.edit?.["@status"] !== "success") {
+      if (updatedContentRes?.["@status"] !== "success") {
         throw new Error("internal");
       }
 
@@ -998,8 +987,7 @@ export default class BookService {
   }
 
   public getMatterRootPagePath(basePath: string, matterType: BookMatterType): string {
-    // Page identifiers with colons (e.g., "00:Front_Matter") must have the colon URL-encoded
-    const rootPage = matterType === 'Front' ? '00%3AFront_Matter' : 'zz%3ABack_Matter';
+    const rootPage = matterType === 'Front' ? BookService.MATTER_ROOT_PATHS.Front : BookService.MATTER_ROOT_PATHS.Back;
     return assembleUrl([basePath, rootPage]);
   }
 
@@ -1055,11 +1043,11 @@ export default class BookService {
     overwriteExisting: boolean;
   }): Promise<number | null> {
     try {
-      const res = (await expert.pages.postPageContents(path, contents, {
+      const res = await expert.pages.postPageContents(path, contents, {
         title,
         edittime: 'now',
         abort: overwriteExisting ? 'never' : 'exists',
-      })) as unknown as PostPageContentsResult;
+      })
 
       const status = res?.['@status'];
       if (status === 'conflict') {
