@@ -145,6 +145,53 @@ export const stripDefaultTitlePrefixBeforeColon = (value: string): string => {
 };
 
 /**
+ * Colons are the namespace/numbering separator in MindTouch page paths, so they
+ * must never survive into an individual page title. Book (cover) titles are
+ * exempt and keep colons verbatim.
+ */
+export const sanitizeRemixerPageTitle = (
+  value: string,
+  trim: boolean = true,
+): string => {
+  const s = value.replace(/:/g, "-");
+  return trim ? s.trim() : s;
+};
+
+/**
+ * Canonical editable form of a stored title: the autonumber prefix is removed
+ * (numbering is re-applied at render time by `getRemixerDisplayTitle`) and any
+ * remaining colons are hyphenated.
+ *
+ * This is the single source of truth for title normalization. `EditPanel` uses
+ * it to seed the title field and `handleSaveEdit` uses it on both sides of its
+ * change comparison, so opening a page and saving without edits is a genuine
+ * no-op rather than a phantom rename. Idempotent: canonical input is returned
+ * unchanged.
+ */
+export const toEditableRemixerTitle = (
+  value: string,
+  isBookRoot: boolean,
+): string => {
+  if (isBookRoot) return value.trim();
+  return sanitizeRemixerPageTitle(
+    stripDefaultTitlePrefixBeforeColon(stripLeadingNumbering(value)),
+  );
+};
+
+/**
+ * The book root is the cover page. `parentID` is normally "-1" for it, but match
+ * on the project's cover id too so both call sites agree on one definition.
+ */
+export const isRemixerBookRoot = (
+  page: Pick<RemixerSubPage, "@id" | "parentID"> | undefined,
+  coverPageId: string | undefined,
+): boolean => {
+  if (!page) return false;
+  if (!page.parentID || page.parentID === "-1") return true;
+  return !!coverPageId && page["@id"] === coverPageId;
+};
+
+/**
  * Title used to detect duplicate siblings. The raw title is kept as-is (including any
  * literal "(n)" the user typed) so that a manually-typed "(1)" is never stripped away —
  * it's treated as part of that node's real identity, not an auto-generated suffix.

@@ -11,7 +11,12 @@ import {
   IconButton,
 } from "@libretexts/davis-react";
 import { IconDeviceFloppy, IconEdit } from "@tabler/icons-react";
-import { getRemixerPageUriUi } from "./services";
+import {
+  getRemixerPageUriUi,
+  isRemixerBookRoot,
+  sanitizeRemixerPageTitle,
+  toEditableRemixerTitle,
+} from "./services";
 
 interface EditPanelProps {
   open: boolean;
@@ -21,17 +26,8 @@ interface EditPanelProps {
   /** Auto-numbered prefix/index pieces used as placeholders/defaults when override is first enabled. */
   formattedPathPartsDefault?: { prefix: string; index: string };
   library: Library;
-  /** True when editing the top-level book node; colons are allowed in book titles. */
+  /** Project cover page id; the book root allows colons in its title. */
   coverPageId: string;
-}
-
-function sanitizeRemixerTitle(
-  value: string,
-  trim: boolean = true,
-  allowColon = false,
-): string {
-  const s = allowColon ? value : value.replace(/:/g, "-");
-  return trim ? s.trim() : s;
 }
 
 /** Truncate to `maxLen` characters with "..." in the middle (e.g. 25 → "abcdefghij...opqrstuvwxy"). */
@@ -68,8 +64,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
     : "";
  
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const isBookRoot =
-    currentPage?.parentID === "-1" || currentPage?.["@id"] === coverPageId;
+  const isBookRoot = isRemixerBookRoot(currentPage, coverPageId);
   const [overrideUriUiEnding, setOverrideUriUiEnding] = useState<string|undefined>(
     sanitizeUriEnding(currentPage?.overrideUriUiEnding ||currentPageUri?.split("/").slice(-1)[0]  ||undefined),
   );
@@ -78,9 +73,8 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
 
   const handleSaveClick = () => {
     if (!page) return;
-    const title = sanitizeRemixerTitle(
+    const title = toEditableRemixerTitle(
       page.title ?? page["@title"] ?? "",
-      true,
       isBookRoot,
     );
     const overridden = page.formattedPathOverride === true;
@@ -104,9 +98,8 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
       setPage(undefined);
       return;
     }
-    const title = sanitizeRemixerTitle(
+    const title = toEditableRemixerTitle(
       currentPage.title ?? currentPage["@title"] ?? "",
-      true,
       isBookRoot,
     );
     setPage({ ...currentPage, title, "@title": title });
@@ -213,11 +206,11 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
               placeholder="Loading title..."
               value={page?.title ?? page?.["@title"] ?? ""}
               onChange={(e) => {
-                const next = sanitizeRemixerTitle(
-                  e.target.value,
-                  false,
-                  isBookRoot,
-                );
+                // Hyphenate colons as they are typed, but never strip a
+                // numbering prefix mid-edit — that happens on load/save only.
+                const next = isBookRoot
+                  ? e.target.value
+                  : sanitizeRemixerPageTitle(e.target.value, false);
                 setPage((prev) =>
                   prev ? { ...prev, title: next, "@title": next } : prev,
                 );
