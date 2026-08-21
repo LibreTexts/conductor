@@ -987,7 +987,7 @@ export const hasFormattedPathChanged = (page: RemixerSubPage): boolean => {
   if (isDefaultMatterPage(page)) return false;
   if(isMatterRootNode(page)) return false;
   if (page.addedItem === true) return false;
-  const currPath = (page.formattedPath ?? "").trim();
+  const currPath = ( page.pathNumber ? page.pathNumber.join(".") : (page.numberedPath ?? "")).trim();
   const url = getRemixerPageUriUi(page);
   if (url && currPath.length > 0) {
     const section = url.split("/").pop();
@@ -1068,7 +1068,6 @@ export const syncRenamedItemFromAutonumberTitle = (
 
     const rawTitle = (page["@title"] || page.title || "").trim();
     const titleMatches = rawTitle === expectedDisplay.trim();
-
     return {
       ...page,
       renamedItem: !titleMatches,
