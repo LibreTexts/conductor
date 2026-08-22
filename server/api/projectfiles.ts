@@ -1984,10 +1984,12 @@ async function getPublicProjectFiles(
       },
       {
         $match: {
-          // Filter where project was not public or does not exist, so projectInfo wasn't set
-          projectInfo: {
+          // Filter where project was not public or does not exist, so projectInfo wasn't set.
+          // Checked via a projected field: `projectInfo: { $ne: [null, {}] }` compares
+          // against the array literal [null, {}] and never excludes anything.
+          "projectInfo.title": {
             $exists: true,
-            $ne: [null, {}],
+            $ne: null,
           },
         },
       },

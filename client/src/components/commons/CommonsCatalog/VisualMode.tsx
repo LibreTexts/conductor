@@ -10,6 +10,7 @@ import PlaceholderCard from "./PlaceholderCard";
 import { useState } from "react";
 import DetailModal from "./DetailModal";
 import { Grid, Text } from "@libretexts/davis-react";
+import { ErrorBoundary } from "react-error-boundary";
 
 const VisualMode = ({
   items,
@@ -49,14 +50,24 @@ const VisualMode = ({
         >
           {items.map((item) => (
             <li key={crypto.randomUUID()} className="h-full">
-              <CatalogCard
-                item={item}
-                headingLevel={headingLevel}
-                onDetailClick={() => {
-                  setSelectedItem(item);
-                  setDetailModalOpen(true);
-                }}
-              />
+              {/* Per-card boundary: a single malformed record degrades to a
+                  placeholder tile instead of unmounting the whole catalog via
+                  the app-level ErrorBoundary in Platform.tsx. */}
+              <ErrorBoundary
+                fallback={<PlaceholderCard />}
+                onError={(error) =>
+                  console.error("CatalogCard failed to render item:", error, item)
+                }
+              >
+                <CatalogCard
+                  item={item}
+                  headingLevel={headingLevel}
+                  onDetailClick={() => {
+                    setSelectedItem(item);
+                    setDetailModalOpen(true);
+                  }}
+                />
+              </ErrorBoundary>
             </li>
           ))}
           {loading && (

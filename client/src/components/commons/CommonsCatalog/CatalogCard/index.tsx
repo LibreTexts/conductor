@@ -5,7 +5,12 @@ import {
   ConductorSearchResponseFile,
   Project,
 } from "../../../../types";
-import { isAuthor, isBook, isProject } from "../../../../utils/typeHelpers";
+import {
+  isAuthor,
+  isBook,
+  isConductorSearchResponseFile,
+  isProject,
+} from "../../../../utils/typeHelpers";
 import BookCardContent from "./BookCardContent";
 import FileCardContent from "./FileCardContent";
 import "../../Commons.css";
@@ -66,15 +71,23 @@ const CatalogCard: React.FC<CatalogCardProps> = ({
     );
   }
 
-  return (
-    <Card variant="elevated" className={CARD_CLASSNAME}>
-      <FileCardContent
-        file={item}
-        onDetailClick={onDetailClick}
-        headingLevel={headingLevel}
-      />
-    </Card>
-  );
+  if (isConductorSearchResponseFile(item)) {
+    return (
+      <Card variant="elevated" className={CARD_CLASSNAME}>
+        <FileCardContent
+          file={item}
+          onDetailClick={onDetailClick}
+          headingLevel={headingLevel}
+        />
+      </Card>
+    );
+  }
+
+  // File used to be the unconditional fallback, so any record the guards above
+  // failed to classify was rendered as a file and threw on its missing
+  // projectInfo, taking the whole catalog down. Drop the single card instead.
+  console.warn("CatalogCard: unclassifiable catalog item, skipping.", item);
+  return null;
 };
 
 export default CatalogCard;
