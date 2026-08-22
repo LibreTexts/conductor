@@ -17,6 +17,7 @@ export interface BookInterface extends Document {
   exportInfo?: {
     isCompiled?: boolean;
     lastCompiled?: number;
+    compiledBy?: string;
     contentPageCount?: number;
   };
   rating?: number;
@@ -120,8 +121,12 @@ const BookSchema = new Schema<BookInterface>(
        */
       lastCompiled: Number,
       /**
-       * The number of pages in the Book's content PDF, as reported by Shapeshift during compilation.
+       * The name of the system that last successfully compiled the Book. Currently only "shapeshift" is used but this allows for distinguishing between legacy compilations.
        */
+      compiledBy: String,
+      /**
+       * The number of pages in the Book's content PDF, as reported by Shapeshift during compilation.
+      */
       contentPageCount: Number,
     },
     /**

@@ -107,6 +107,7 @@ export default class ShapeshiftService {
         $set: {
           "exportInfo.isCompiled": true,
           "exportInfo.lastCompiled": timestamp,
+          "exportInfo.compiledBy": "shapeshift",
           ...(contentPageCount !== undefined
             ? { "exportInfo.contentPageCount": contentPageCount }
             : {}),
