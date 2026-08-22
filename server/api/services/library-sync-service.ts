@@ -96,6 +96,28 @@ function isExcludedLocation(page: FoundPage): boolean {
 }
 
 /**
+ * True if a page path sits at or beneath one of a library's sync roots.
+ *
+ * The bulk walk gets this for free — it only ever searches beneath
+ * `syncLocations`. A page fetched directly by ID has not been constrained that
+ * way, so the check has to be explicit: without it a coverpage in an unsynced
+ * subtree would be ingested and then silently filed as `location: "central"` by
+ * the record mapping.
+ *
+ * Compared segment-wise so `Coursework/X` does not match a `Courses` root.
+ */
+function isUnderSyncRoot(path: string, roots: string[]): boolean {
+  const segments = pathSegments(path);
+  return roots.some((root) => {
+    const rootSegments = pathSegments(root);
+    if (rootSegments.length === 0 || rootSegments.length > segments.length) {
+      return false;
+    }
+    return rootSegments.every((segment, i) => segments[i] === segment);
+  });
+}
+
+/**
  * CXOne restrictions whose pages are readable by an anonymous visitor, and so
  * belong on Commons. Verified live: `Semi-Public` coverpages return 200 to an
  * unauthenticated request on both the API and the public site.
@@ -250,21 +272,45 @@ export function describeLimits(limits: LibrarySyncLimits): string {
  *
  * Slots are reserved synchronously, so concurrent callers each get a distinct
  * start time rather than racing for the same one.
+ *
+ * Every library request in a run passes through here, which makes this the one
+ * place cancellation has to be honored: once `signal` aborts, no further
+ * request is issued and the in-flight ones unwind through their callers, so an
+ * abandoned run stops walking instead of grinding on unwatched.
  */
-function createThrottle(intervalMs: number) {
+function createThrottle(intervalMs: number, signal?: AbortSignal) {
   let nextStart = 0;
   return async <T>(task: () => Promise<T>): Promise<T> => {
+    signal?.throwIfAborted();
     const now = Date.now();
     const start = Math.max(now, nextStart);
     nextStart = start + intervalMs;
     if (start > now) {
       await new Promise((resolve) => setTimeout(resolve, start - now));
+      // The wait can outlast the abort, so re-check rather than firing a
+      // request the caller has already given up on.
+      signal?.throwIfAborted();
     }
     return task();
   };
 }
 
 type Throttle = ReturnType<typeof createThrottle>;
+
+/**
+ * Shared by every single-book sync in the process.
+ *
+ * Single-book syncs arrive from webhooks, so their rate is set by whatever is
+ * compiling books rather than by a loop this code controls. One module-level
+ * throttle keeps a burst of deliveries spaced the same way the bulk walk spaces
+ * its requests; a per-call throttle would space nothing at all.
+ */
+const singleFetchThrottle = createThrottle(SUMMARY_REQUEST_INTERVAL_MS);
+
+/** How long a single-book sync may reuse an already-built author index. */
+const AUTHOR_INDEX_TTL_MS = 5 * 60 * 1000;
+
+let cachedAuthorIndex: { index: AuthorIndex; builtAt: number } | null = null;
 
 /** Author/institution lookup, built once per sync run rather than per book. */
 type AuthorIndex = {
@@ -626,6 +672,111 @@ export default class LibrarySyncService {
   }
 
   /**
+   * The author index, reused across single-book syncs for a few minutes.
+   *
+   * A full walk builds one index and spends it over thousands of books, so the
+   * cost is irrelevant there and it keeps building its own. A single-book sync
+   * would otherwise read the whole Authors collection to enrich one record.
+   */
+  private async getCachedAuthorIndex(): Promise<AuthorIndex> {
+    const now = Date.now();
+    if (cachedAuthorIndex && now - cachedAuthorIndex.builtAt < AUTHOR_INDEX_TTL_MS) {
+      return cachedAuthorIndex.index;
+    }
+    const index = await this.buildAuthorIndex();
+    cachedAuthorIndex = { index, builtAt: now };
+    return index;
+  }
+
+  /**
+   * Fetches one coverpage live and applies the same eligibility rules the full
+   * walk applies, so a book ingested this way is indistinguishable from one the
+   * nightly sync would have produced.
+   *
+   * `find` supplies tags alongside each page; a direct fetch does not, so tags
+   * are read separately and merged back into the shape the rest of this class
+   * already understands.
+   *
+   * @param library - The library the coverpage belongs to.
+   * @param coverpageID - The page's numeric library ID.
+   */
+  async syncSingleCoverpage(
+    library: LibraryInterface,
+    coverpageID: string,
+  ): Promise<
+    | { ok: true; coverpage: LibraryCoverpage }
+    | { ok: false; reason: "not_found" | "ineligible" | "error" }
+  > {
+    const { subdomain } = library;
+
+    let merged: FoundPage;
+    let expert: ExpertClient;
+    try {
+      expert = await Expert.getInstance().forLibrary(subdomain);
+
+      const [page, tags] = await Promise.all([
+        singleFetchThrottle(() => expert.pages.getPage(coverpageID)),
+        singleFetchThrottle(() => expert.pages.getPageTags(coverpageID)),
+      ]);
+      if (!page || !page["@id"]) return { ok: false, reason: "not_found" };
+
+      // `tagTitles` reads both the flattened and the nested shape, so handing
+      // it the tags response under `tags` needs no further translation.
+      merged = { ...page, tags } as FoundPage;
+    } catch (err) {
+      if ((err as { response?: { status?: number } })?.response?.status === 404) {
+        return { ok: false, reason: "not_found" };
+      }
+      debugError(err);
+      return { ok: false, reason: "error" };
+    }
+
+    try {
+      if (!tagTitles(merged).includes(COVERPAGE_TAG)) {
+        debugCommonsSync(
+          `${subdomain} page ${coverpageID} is not tagged ${COVERPAGE_TAG}.`,
+        );
+        return { ok: false, reason: "ineligible" };
+      }
+
+      const path = merged.path ? merged.path["#text"] ?? "" : "";
+      const roots = library.syncLocations ?? [];
+      if (!isUnderSyncRoot(path, roots)) {
+        debugCommonsSync(
+          `${subdomain} page ${coverpageID} ("${path}") is not under a sync ` +
+          `location (${roots.join(", ") || "none configured"}).`,
+        );
+        return { ok: false, reason: "ineligible" };
+      }
+
+      if (isExcludedLocation(merged)) {
+        debugCommonsSync(
+          `${subdomain} page ${coverpageID} is in a scratch location.`,
+        );
+        return { ok: false, reason: "ineligible" };
+      }
+
+      if (!this.isSyncable(merged, subdomain)) {
+        return { ok: false, reason: "ineligible" };
+      }
+
+      const coverpage = this.toCoverpage(merged, await this.getCachedAuthorIndex());
+      if (!coverpage) return { ok: false, reason: "ineligible" };
+
+      coverpage.summary = await this.fetchSummary(
+        expert,
+        coverpage.id,
+        singleFetchThrottle,
+      );
+
+      return { ok: true, coverpage };
+    } catch (err) {
+      debugError(err);
+      return { ok: false, reason: "error" };
+    }
+  }
+
+  /**
    * Collects every coverpage in a library, across all of its sync locations.
    *
    * Pass `context` when syncing several libraries so the request throttle and
@@ -710,8 +861,14 @@ export default class LibrarySyncService {
    * Libraries run concurrently and each reports its own outcome, so one
    * unreachable library neither fails the run nor is mistaken for a library
    * that has no books.
+   *
+   * Aborting `signal` stops the walk at the next throttled request; libraries
+   * caught mid-flight come back as failures, which is what the caller wants —
+   * an abandoned run must never look authoritative about what a library holds.
    */
-  async syncAllLibraries(): Promise<LibrarySyncResult[]> {
+  async syncAllLibraries(
+    options?: { signal?: AbortSignal }
+  ): Promise<LibrarySyncResult[]> {
     const all = await Library.find({ hidden: false, syncSupported: true });
     const limits = getLibrarySyncLimits();
 
@@ -745,7 +902,10 @@ export default class LibrarySyncService {
     }
 
     const authorIndex = await this.buildAuthorIndex();
-    const throttle = createThrottle(SUMMARY_REQUEST_INTERVAL_MS);
+    const throttle = createThrottle(
+      SUMMARY_REQUEST_INTERVAL_MS,
+      options?.signal
+    );
 
     return Promise.all(
       libraries.map((library) =>
