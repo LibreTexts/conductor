@@ -37,6 +37,29 @@ export const collectionPrivacyOptions: GenericKeyTextValueObj<CollectionPrivacyO
     { key: "campus", text: "Campus", value: CollectionPrivacyOptions.CAMPUS },
   ];
 
+/**
+ * Builds the in-app link for a nested collection, or undefined for leaf
+ * resources (which link via getCollectionHref instead).
+ *
+ * @param item - The collection or collection resource being rendered.
+ * @param pathname - The current location pathname to nest beneath.
+ */
+export const getToLink = (
+  item: Collection | CollectionResource,
+  pathname: string
+): string | undefined => {
+  // checkIsCollection tolerates a missing resourceData; the `in` probe below
+  // still needs item itself to be an object.
+  if (!item || typeof item !== "object") return undefined;
+  if ("resourceData" in item && checkIsCollection(item.resourceData)) {
+    return (
+      (pathname.endsWith("/") ? pathname : `${pathname}/`) +
+      encodeURIComponent(item.resourceData.title)
+    );
+  }
+  return undefined;
+};
+
 export const getCollectionHref = (item: Collection | CollectionResource) => {
   const data = "resourceData" in item ? item.resourceData : item;
   // A resource whose parent record is gone has no resourceData; fall back to

@@ -36,8 +36,10 @@ import CollectionCard from "../../../components/Collections/CollectionCard";
 import CollectionTable from "../../../components/Collections/CollectionTable";
 import useDebounce from "../../../hooks/useDebounce";
 import { useJumpToBottom } from "../../../hooks/useJumpToBottom";
-import { checkIsCollection } from "../../../components/util/TypeHelpers";
-import { keyCollectionItems } from "../../../components/util/CollectionHelpers";
+import {
+  getToLink,
+  keyCollectionItems,
+} from "../../../components/util/CollectionHelpers";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 
@@ -59,23 +61,6 @@ const getDynamicPath = (path?: string): string => {
 };
 
 type CollectionGridItem = Collection | CollectionResource;
-
-/**
- * Builds the in-app link for a nested collection, or undefined for leaf
- * resources (which CollectionCard links via getCollectionHref instead).
- */
-const getToLink = (
-  item: CollectionGridItem,
-  pathname: string
-): string | undefined => {
-  if ("resourceData" in item && checkIsCollection(item.resourceData)) {
-    return (
-      (pathname.endsWith("/") ? pathname : `${pathname}/`) +
-      encodeURIComponent(item.resourceData.title)
-    );
-  }
-  return undefined;
-};
 
 // These three are declared at module scope, not inside CommonsCollection.
 // A component defined in a parent's render body is a brand-new type on every
