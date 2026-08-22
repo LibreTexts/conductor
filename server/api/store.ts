@@ -363,15 +363,19 @@ export async function adminResubmitPrintJob(req: z.infer<typeof AdminResubmitPri
     }
 
     if ('error' in result) {
+      // `code` and `warnings` are passed through alongside the flattened `errMsg` so the admin UI
+      // can tell an incomplete payload (which it offers to fix by hand) from a genuine failure.
       return res.status(200).send({
         err: true,
         errMsg: `${result.error}. ${result.detail || ""}`,
+        ...(result.code && { code: result.code }),
+        ...(result.warnings && { warnings: result.warnings }),
       });
     }
 
     return res.status(200).send({
       err: false,
-      message: "Store order print job resubmitted successfully.",
+      message: "Store order print job submitted successfully.",
       data: result,
     });
   } catch (error) {

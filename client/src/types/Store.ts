@@ -177,6 +177,20 @@ export type ManualPrintJobPayloadResponse = {
     warnings: string[];
 };
 
+/**
+ * Failure shape of the print job (re-)submission endpoint. `code: "INCOMPLETE_PAYLOAD"` means the
+ * server could build a payload from the Stripe checkout session but refused to send it because
+ * something was missing; `warnings` is the same list `ManualPrintJobPayloadResponse` carries, and
+ * is what the UI shows before handing the operator off to the manual editor. Any other failure is
+ * a plain error and goes to the global error handler.
+ */
+export type ResubmitPrintJobRefusal = {
+    err: true;
+    errMsg: string;
+    code?: "INCOMPLETE_PAYLOAD";
+    warnings?: string[];
+};
+
 export type StoreOrderWithStripeSession = StoreOrder & {
     stripe_session: Stripe.Checkout.Session;
     stripe_charge?: Stripe.Charge | null;

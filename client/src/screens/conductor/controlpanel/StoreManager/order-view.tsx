@@ -15,6 +15,7 @@ import {
   IconPackage,
   IconRefreshAlert,
   IconCode,
+  IconSend,
 } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import useGlobalError from "../../../../components/error/ErrorHooks";
@@ -23,6 +24,7 @@ import { buildLibraryPageGoURL } from "../../../../utils/projectHelpers";
 import CopyButton from "../../../../components/util/CopyButton";
 import { useNotifications } from "../../../../context/NotificationContext";
 import ManualPrintJobModal from "../../../../components/store/ManualPrintJobModal";
+import IncompletePrintJobModal from "../../../../components/store/IncompletePrintJobModal";
 
 type PopulatedLineItem = Stripe.LineItem & {
   price:
@@ -44,7 +46,10 @@ function orderStatusVariant(status?: string): BadgeVariant {
 
 type ModalState =
   | { type: "confirm_resubmit" }
-  | { type: "success_resubmit" }
+  // `wasResubmit` is captured when the submission is fired, not read from the order: the query is
+  // invalidated on success, so `luluJobID` may already have arrived by the time this renders.
+  | { type: "success_resubmit"; wasResubmit: boolean }
+  | { type: "incomplete_payload"; warnings: string[] }
   | { type: "manual_submit" }
   | { type: "success_manual_submit" }
   | null;
@@ -92,6 +97,26 @@ const OrderView = () => {
     });
   }, [data]);
 
+  /**
+   * Whether this order contains anything that would be sent to Lulu. Mirrors
+   * `_separateProductsByCategory` in `server/api/services/store-service.ts` -- `store_category:
+   * "books"` is what ends up in the print job's line items. This is presentation only: the server
+   * always re-derives the real payload from the Stripe session when a submission is made.
+   */
+  const hasPrintableItems = useMemo(() => {
+    return !!data?.stripe_session?.line_items?.data.some((item) => {
+      const lineItem = item as PopulatedLineItem;
+      return lineItem.price?.product?.metadata?.store_category === "books";
+    });
+  }, [data]);
+
+  const hasExistingJob = !!data?.luluJobID;
+
+  // Falls back to `hasExistingJob` deliberately: if the Stripe session could not be fetched,
+  // `hasPrintableItems` is false, and an order that already has a print job must still be
+  // re-submittable.
+  const canSubmitPrintJob = hasExistingJob || hasPrintableItems;
+
   const MetadataDisplay = ({
     metadata,
   }: {
@@ -112,20 +137,39 @@ const OrderView = () => {
   };
 
   const resubmitPrintJobMutation = useMutation({
-    mutationFn: async () => {
+    // `_vars` is unused here -- it exists to carry `wasResubmit` through to `onSuccess`, which
+    // cannot read it off the order (the query is invalidated before the success modal renders).
+    mutationFn: async (_vars: { wasResubmit: boolean }) => {
       if (!order_id)
-        throw new Error("Order ID is required to resubmit print job.");
+        throw new Error("Order ID is required to submit a print job.");
       const response = await api.adminResubmitPrintJob(order_id);
       if (response.data.err) {
-        throw new Error(
-          response.data.errMsg || "Failed to resubmit print job."
-        );
+        // An incomplete payload is an expected, recoverable outcome rather than a fault: nothing
+        // was sent to Lulu, and the operator is offered the manual editor. Everything else is a
+        // real error and goes to the global handler.
+        if (response.data.code === "INCOMPLETE_PAYLOAD") {
+          return {
+            kind: "incomplete" as const,
+            warnings: response.data.warnings ?? [],
+          };
+        }
+        throw new Error(response.data.errMsg || "Failed to submit print job.");
       }
-      return response.data.data;
+      return { kind: "submitted" as const };
     },
-    onSuccess: () => {
+    onSuccess: (result, variables) => {
+      if (result.kind === "incomplete") {
+        setActiveModal({
+          type: "incomplete_payload",
+          warnings: result.warnings,
+        });
+        return;
+      }
       queryClient.invalidateQueries(["store-order", order_id]);
-      setActiveModal({ type: "success_resubmit" });
+      setActiveModal({
+        type: "success_resubmit",
+        wasResubmit: variables.wasResubmit,
+      });
     },
     onError(error) {
       handleGlobalError(error);
@@ -133,8 +177,10 @@ const OrderView = () => {
   });
 
   function initResubmitPrintJob() {
-    if (!data?.luluJobID) {
-      handleGlobalError(new Error("No Lulu job ID found for this order."));
+    if (!canSubmitPrintJob) {
+      handleGlobalError(
+        new Error("This order has no items that can be sent to Lulu.")
+      );
       return;
     }
     setActiveModal({ type: "confirm_resubmit" });
@@ -143,20 +189,36 @@ const OrderView = () => {
   return (
     <div className="min-h-screen px-8 pt-8 pb-8">
       <ConfirmModal
-        text="Are you sure you want to re-submit this print job?"
+        text={
+          hasExistingJob
+            ? "Are you sure you want to re-submit this print job?"
+            : "Are you sure you want to submit this order to Lulu for printing? The order details recorded at checkout will be sent as-is."
+        }
         onConfirm={() => {
-          resubmitPrintJobMutation.mutate();
+          resubmitPrintJobMutation.mutate({ wasResubmit: hasExistingJob });
           setActiveModal(null);
         }}
         onCancel={() => setActiveModal(null)}
         open={activeModal?.type === "confirm_resubmit"}
       />
       <ConfirmModal
-        text="Print job resubmitted successfully. It may take some time for the status to update."
+        text={
+          activeModal?.type === "success_resubmit" && !activeModal.wasResubmit
+            ? "Print job submitted to Lulu successfully. It may take some time for the status to update."
+            : "Print job resubmitted successfully. It may take some time for the status to update."
+        }
         onConfirm={() => setActiveModal(null)}
         onCancel={() => setActiveModal(null)}
         confirmText="OK"
         open={activeModal?.type === "success_resubmit"}
+      />
+      <IncompletePrintJobModal
+        show={activeModal?.type === "incomplete_payload"}
+        warnings={
+          activeModal?.type === "incomplete_payload" ? activeModal.warnings : []
+        }
+        onClose={() => setActiveModal(null)}
+        onFixManually={() => setActiveModal({ type: "manual_submit" })}
       />
       {order_id && (
         <ManualPrintJobModal
@@ -406,13 +468,15 @@ const OrderView = () => {
                     ) : (
                       <div>
                         <dt className="font-medium text-gray-900">
-                          No Lulu Print Job
+                          {hasPrintableItems
+                            ? "No Lulu Print Job"
+                            : "No Printed Items"}
                         </dt>
                         <dd className="mt-1 text-gray-500">
                           <span className="block">
-                            No print job was ever created with Lulu for this
-                            order. Use Submit Order Details Manually to correct
-                            the order data and send it to Lulu.
+                            {hasPrintableItems
+                              ? "No print job was ever created with Lulu for this order. Use Submit Print Job to send the recorded order details to Lulu, or Submit Order Details Manually to correct them first."
+                              : "This order contains no printed books, so there is nothing to send to Lulu."}
                           </span>
                           {data.error && (
                             <span className="block mt-2">
@@ -447,20 +511,28 @@ const OrderView = () => {
                       variant="outline"
                       icon={<IconCode size={16} />}
                       onClick={() => setActiveModal({ type: "manual_submit" })}
-                      disabled={!order_id}
+                      disabled={!order_id || !canSubmitPrintJob}
                     >
                       Submit Order Details Manually
                     </Button>
                     <Button
                       variant="secondary"
-                      icon={<IconRefreshAlert size={16} />}
+                      icon={
+                        hasExistingJob ? (
+                          <IconRefreshAlert size={16} />
+                        ) : (
+                          <IconSend size={16} />
+                        )
+                      }
                       onClick={initResubmitPrintJob}
                       disabled={
-                        resubmitPrintJobMutation.isLoading || !data?.luluJobID
+                        resubmitPrintJobMutation.isLoading || !canSubmitPrintJob
                       }
                       loading={resubmitPrintJobMutation.isLoading}
                     >
-                      Re-Submit Print Job
+                      {hasExistingJob
+                        ? "Re-Submit Print Job"
+                        : "Submit Print Job"}
                     </Button>
                   </div>
                 </Card.Body>
