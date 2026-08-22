@@ -1099,7 +1099,10 @@ router
 
 router
   .route("/commons/syncwithlibs/automated")
-  .put(middleware.checkLibreAPIKey, booksAPI.runAutomatedSyncWithLibraries);
+  .put(
+    middleware.checkLibreAPIKey,
+    booksAPI.runAutomatedSyncWithLibraries
+  );
 
 router.route("/commons/sync-with-search-index").post(
   middleware.checkLibreAPIKey,

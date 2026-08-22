@@ -19,12 +19,14 @@ import {
   getRandomOffset,
   truncateString,
   getPaginationOffset,
-  sanitizeControlCharacters,
   escapeRegEx,
 } from "../util/helpers.js";
 import {
+  sanitizeLibraryText,
+  sanitizeOptionalLibraryText,
+} from "../util/sanitize-text.js";
+import {
   deleteBookFromAPI,
-  extractLibFromID,
   getLibraryAndPageFromBookID,
   genThumbnailLink,
   genPDFLink,
@@ -46,7 +48,7 @@ import authAPI from "./auth.js";
 import projectsAPI from "./projects.js";
 import alertsAPI from "./alerts.js";
 import collectionsAPI from "./collections.js";
-import axios, { AxiosResponse } from "axios";
+import axios from "axios";
 import {
   _generatePageImagesAltTextResObj,
   BookSortOption,
@@ -93,6 +95,15 @@ import {
   readFromCxOneGlossaryAndAddToGlossaryUsageSchema,
 } from "./validators/book.js";
 import BookService from "./services/book-service.js";
+import LibrarySyncService, {
+  describeLimits,
+  getLibrarySyncLimits,
+  isLimitedSync,
+  LibraryCoverpage,
+  LibrarySyncResult,
+} from "./services/library-sync-service.js";
+import type { MongoBulkWriteError } from "mongodb";
+import { mapWithConcurrency } from "../util/concurrency.js";
 import { normalizedSort } from "../util/searchutils.js";
 import SearchService from "./services/search-service.js";
 import { PressBookScraper } from "../util/pressbookutils.js";
@@ -111,30 +122,6 @@ const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   updatedAt: 0,
   randomIndex: 0,
   randomSort: 0,
-};
-
-/**
- * Accepts a library shortname and returns the LibreTexts API URL for the current
- * Bookshelves listings in that library.
- * @param {String} lib - the standard shortened library identifier
- * @returns {String} the URL of the library's Bookshelves listings
- */
-const generateBookshelvesURL = (lib: string) => {
-  if (lib !== "espanol") {
-    return `https://api.libretexts.org/DownloadsCenter/${lib}/Bookshelves.json`;
-  } else {
-    return `https://api.libretexts.org/DownloadsCenter/${lib}/home.json`;
-  }
-};
-
-/**
- * Accepts a library shortname and returns the LibreTexts API URL for the current
- * Courses listings in that library.
- * @param {String} lib - the standard shortened library identifier
- * @returns {String} the URL of the library's Courses listings
- */
-const generateCoursesURL = (lib: string) => {
-  return `https://api.libretexts.org/DownloadsCenter/${lib}/Courses.json`;
 };
 
 /**
@@ -178,44 +165,141 @@ function sortBooks(books: BookInterface[], sortChoice: BookSortOption) {
 }
 
 /**
- * Checks that a new book object has the required fields to be imported.
- * @param {Object} book - The information about the book to be imported.
+ * A Book as assembled from a library coverpage, ready for upsert.
+ */
+type SyncedBook = Pick<BookInterface, "bookID" | "title" | "library"> &
+  Partial<
+    Pick<
+      BookInterface,
+      | "author"
+      | "affiliation"
+      | "subject"
+      | "location"
+      | "course"
+      | "program"
+      | "license"
+      | "summary"
+      | "thumbnail"
+      | "thumbnailIsAnimated"
+      | "links"
+      | "lastUpdated"
+      | "libraryTags"
+    >
+  >;
+
+/**
+ * The library root a Book lives under determines where Commons files it.
+ */
+const LOCATION_BY_SYNC_ROOT: Record<string, string> = {
+  Bookshelves: "central",
+  Courses: "campus",
+};
+
+/**
+ * Turns a library path segment into a display label. Segments are underscored
+ * and occasionally percent-encoded.
+ */
+const readPathSegment = (segment: string) => {
+  const spaced = segment.replace(/_/g, " ");
+  try {
+    return decodeURIComponent(spaced);
+  } catch {
+    // A stray '%' that isn't a valid escape — use the segment as-is.
+    return spaced;
+  }
+};
+
+/**
+ * Maps a coverpage discovered by {@link LibrarySyncService} onto a Book.
+ *
+ * Subject/course come from the coverpage's `path`, which is host-free and
+ * already decoded — the legacy sync parsed them out of the full URL by string-
+ * replacing a reconstructed base URL.
+ */
+const toBookRecord = (
+  subdomain: string,
+  coverpage: LibraryCoverpage,
+): SyncedBook => {
+  const bookID = `${subdomain}-${coverpage.id}`;
+
+  let location = "";
+  let subject = "";
+  let course = "";
+
+  const segments = (coverpage.path ?? "").split("/").filter(Boolean);
+  const root = segments[0];
+  if (root && LOCATION_BY_SYNC_ROOT[root]) {
+    location = LOCATION_BY_SYNC_ROOT[root];
+    const label = segments[1] ? sanitizeLibraryText(readPathSegment(segments[1])) : "";
+    if (location === "central") {
+      subject = label;
+    } else {
+      course = label;
+    }
+  } else {
+    location = "central"; // If the root isn't recognized, default to central.
+  }
+
+  let license = "";
+  let program = "";
+  coverpage.tags.forEach((tag) => {
+    if (tag.startsWith("license:")) {
+      license = sanitizeLibraryText(tag.replace("license:", ""));
+    }
+    if (tag.startsWith("program:")) {
+      program = sanitizeLibraryText(tag.replace("program:", ""));
+    }
+  });
+
+  // Title, author, affiliation, and summary are sanitized by LibrarySyncService
+  // as it builds the coverpage. Re-running the sanitizer here is idempotent and
+  // keeps this mapping safe on its own terms.
+  return {
+    bookID,
+    title: sanitizeLibraryText(coverpage.title),
+    library: subdomain,
+    author: sanitizeOptionalLibraryText(coverpage.author),
+    affiliation: sanitizeOptionalLibraryText(coverpage.affiliation),
+    subject,
+    location,
+    course,
+    program,
+    license,
+    summary: sanitizeOptionalLibraryText(coverpage.summary),
+    thumbnail: genThumbnailLink(subdomain, coverpage.id),
+    links: {
+      online: coverpage.url,
+      pdf: genPDFLink(bookID),
+      buy: genBookstoreLink(bookID),
+      zip: genZIPLink(bookID),
+      files: genPubFilesLink(bookID),
+      lms: genLMSFileLink(bookID),
+    },
+    lastUpdated: coverpage.dateModified,
+    // Tags are rendered on Commons, so the stored copy is sanitized. The raw
+    // tags stay on the coverpage for the parsing above and in the service.
+    libraryTags: coverpage.tags
+      .map((tag) => sanitizeLibraryText(tag))
+      .filter(Boolean),
+  };
+};
+
+/**
+ * Checks that a mapped Book has the required fields to be imported.
  * @returns {Boolean} True if ready for import, false otherwise (logged).
  */
-const checkValidImport = (book: BookInterface) => {
-  var isValidImport = true;
-  var validationFails = [];
-  var expectedLib = extractLibFromID(book.zipFilename);
-  if (
-    book.zipFilename === undefined ||
-    book.zipFilename === null ||
-    isEmptyString(book.zipFilename)
-  ) {
-    isValidImport = false;
-    validationFails.push("bookID");
+const checkValidImport = (book: SyncedBook) => {
+  // NB: isEmptyString() returns false for undefined, so check truthiness too.
+  const missing = (["bookID", "title", "library"] as const).filter(
+    (field) => !book[field] || isEmptyString(book[field]),
+  );
+  if (missing.length > 0) {
+    debugCommonsSync(
+      `Not importing 1 book — missing fields: ${missing.join(",")}`,
+    );
+    return false;
   }
-  if (
-    book.title === undefined ||
-    book.title === null ||
-    isEmptyString(book.title)
-  ) {
-    isValidImport = false;
-    validationFails.push("title");
-  }
-  if (isEmptyString(expectedLib)) {
-    isValidImport = false;
-    validationFails.push("library");
-  }
-  if (book.id === undefined || book.id === null || isEmptyString(book.id)) {
-    isValidImport = false;
-    validationFails.push("coverPageID");
-  }
-  if (!isValidImport && validationFails.length > 0) {
-    var debugString =
-      "Not importing 1 book — missing fields: " + validationFails.join(",");
-    debugCommonsSync(debugString);
-  }
-  return isValidImport;
+  return true;
 };
 
 /**
@@ -336,404 +420,451 @@ const autoGenerateCollections = () => {
 };
 
 /**
- * Retrieve prepared books from the LibreTexts API and process &
- * import them to the Conductor database for use in Commons.
+ * How many thumbnail HEAD requests may be in flight at once.
+ *
+ * The reuse short-circuit below keeps steady-state runs almost free, but the
+ * first run after a deploy has no stored results to reuse and would otherwise
+ * open one request per book — thousands at once, against a handful of library
+ * hosts.
+ */
+const THUMBNAIL_HEAD_CONCURRENCY = 8;
+
+/**
+ * Detects animated thumbnails (GIFs and friends) via HEAD requests, with
+ * bounded concurrency. Server-side requests avoid the CORS restrictions that
+ * block client-side detection.
+ */
+const detectAnimatedThumbnails = async (
+  books: SyncedBook[],
+  existingBooks: Map<string, { thumbnail?: string; thumbnailIsAnimated?: boolean }>,
+) => {
+  const ANIMATED_TYPES = [
+    "image/gif",
+    "image/webp",
+    "image/apng",
+    "image/avif",
+  ];
+
+  await mapWithConcurrency(
+    books,
+    THUMBNAIL_HEAD_CONCURRENCY,
+    async (book) => {
+      if (!book.thumbnail) return;
+
+      // Short-circuit: URL clearly identifies a GIF
+      if (/\.gif(\?|$)/i.test(book.thumbnail)) {
+        book.thumbnailIsAnimated = true;
+        return;
+      }
+
+      // Skip the HEAD request if the thumbnail URL hasn't changed and we
+      // already have a detection result from a previous sync cycle
+      const existing = existingBooks.get(book.bookID);
+      if (
+        existing &&
+        existing.thumbnail === book.thumbnail &&
+        existing.thumbnailIsAnimated !== undefined
+      ) {
+        book.thumbnailIsAnimated = existing.thumbnailIsAnimated;
+        return;
+      }
+
+      try {
+        const headRes = await axios.head(book.thumbnail, { timeout: 5000 });
+        const contentType = headRes.headers["content-type"];
+        if (
+          typeof contentType === "string" &&
+          ANIMATED_TYPES.includes(contentType.toLowerCase())
+        ) {
+          book.thumbnailIsAnimated = true;
+        }
+      } catch {
+        // Request failed — leave thumbnailIsAnimated unset
+      }
+    },
+  );
+};
+
+/**
+ * Marks Books that have disappeared from their library.
+ *
+ * Absence is inferred from `lastSyncedAt`: every Book this run wrote carries the
+ * run's start time, so anything older than that was not seen. The alternative —
+ * `bookID: { $nin: [...everything the run saw] }` — ships several thousand
+ * strings per library in the query document and cannot use an index, where this
+ * is a bounded range scan on `{ library, lastSyncedAt }`.
+ *
+ * Books written before `lastSyncedAt` existed have no value for it at all, so
+ * the missing case is matched explicitly; type bracketing means `$lt` alone
+ * would skip exactly the stale legacy records this is meant to catch.
+ *
+ * Only libraries whose walk was exhaustive are passed in — see the `complete`
+ * flag on {@link LibrarySyncResult}. A truncated or capped walk returns real
+ * books, but its silence about a book means nothing.
+ *
+ * Nothing acts on the marker yet; it exists for a future reaper.
+ */
+const markMissingBooks = async (
+  subdomains: string[],
+  runStartedAt: Date,
+) => {
+  let marked = 0;
+
+  for (const subdomain of subdomains) {
+    const res = await Book.updateMany(
+      {
+        library: subdomain,
+        $or: [
+          { lastSyncedAt: { $lt: runStartedAt } },
+          { lastSyncedAt: { $exists: false } },
+        ],
+        syncMissingSince: { $exists: false },
+      },
+      { $set: { syncMissingSince: new Date() } },
+    );
+    marked += res.modifiedCount ?? 0;
+  }
+
+  return marked;
+};
+
+/**
+ * Walks every synced library and imports the LibreTexts it publishes into the
+ * Conductor database for use in Commons.
+ *
+ * @returns {Promise<string>} A human-readable summary of the run.
+ */
+const runLibrarySync = async (): Promise<string> => {
+  const limits = getLibrarySyncLimits();
+  const limited = isLimitedSync(limits);
+
+  /* Captured before the walk starts, so a Book written by this run is never
+     older than the cutoff missing-book detection compares against. */
+  const runStartedAt = new Date();
+
+  const results = await new LibrarySyncService().syncAllLibraries();
+  const succeeded = results.filter(
+    (r): r is Extract<LibrarySyncResult, { ok: true }> => r.ok,
+  );
+  const failed = results.filter(
+    (r): r is Extract<LibrarySyncResult, { ok: false }> => !r.ok,
+  );
+
+  if (succeeded.length === 0) {
+    throw new Error("All libraries failed to sync.");
+  }
+
+  /* Map coverpages onto Books, dropping invalid and duplicate entries.
+
+     A library only stays eligible for missing-book detection if its walk was
+     exhaustive AND every coverpage it returned mapped to a storable Book. A
+     record dropped here is one the library does publish, so leaving it out of
+     the run while still treating the run as authoritative would flag a live
+     book as gone. */
+  const byBookID = new Map<string, SyncedBook>();
+  const completeLibraries: string[] = [];
+  for (const { subdomain, complete, coverpages } of succeeded) {
+    let dropped = 0;
+    for (const coverpage of coverpages) {
+      const book = toBookRecord(subdomain, coverpage);
+      if (!checkValidImport(book)) {
+        dropped += 1;
+        continue;
+      }
+      if (byBookID.has(book.bookID)) continue;
+      byBookID.set(book.bookID, book);
+    }
+
+    if (!complete || dropped > 0 || coverpages.length === 0) {
+      debugCommonsSync(
+        `Skipping missing-book detection for ${subdomain}: ` +
+          (coverpages.length === 0
+            ? "sync returned no books."
+            : !complete
+              ? "the coverpage search was incomplete."
+              : `${dropped} coverpage(s) could not be mapped to a Book.`),
+      );
+      continue;
+    }
+    completeLibraries.push(subdomain);
+  }
+  const processedBooks = [...byBookID.values()];
+
+  /* Load what's already stored, for thumbnail reuse and project detection */
+  const [existingBooks, existingProjects] = await Promise.all([
+    Book.aggregate([
+      { $project: { _id: 0, bookID: 1, thumbnail: 1, thumbnailIsAnimated: 1 } },
+    ]),
+    Project.aggregate([
+      {
+        $match: {
+          $and: [
+            { libreLibrary: { $ne: null } },
+            { libreCoverID: { $ne: null } },
+          ],
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          projectID: 1,
+          projectURL: 1,
+          libreLibrary: 1,
+          libreCoverID: 1,
+        },
+      },
+    ]),
+  ]);
+
+  await detectAnimatedThumbnails(
+    processedBooks,
+    new Map(existingBooks.map((b) => [b.bookID, b])),
+  );
+
+  /* Assemble upserts and detect Books without a tracking Project */
+  const projectsToCreate: {
+    title: string;
+    library: string;
+    coverID: string;
+    url?: string;
+    author?: string;
+  }[] = [];
+  // Indexed rather than scanned: both sides run to several thousand entries,
+  // and a linear lookup per book made this quadratic.
+  const projectKeys = new Set(
+    existingProjects.map((p) => `${p.libreLibrary}-${p.libreCoverID}`),
+  );
+  const bookOps = processedBooks.map((book) => {
+    const [bookLib, bookCoverID] = getLibraryAndPageFromBookID(book.bookID);
+    if (typeof bookLib === "string" && typeof bookCoverID === "string") {
+      if (!projectKeys.has(`${bookLib}-${bookCoverID}`)) {
+        projectsToCreate.push({
+          title: book.title,
+          library: bookLib,
+          coverID: bookCoverID,
+          url: book.links?.online,
+          author: book.author,
+        });
+      }
+    }
+
+    return {
+      updateOne: {
+        filter: { bookID: book.bookID },
+        update: {
+          $setOnInsert: { bookID: book.bookID },
+          $set: {
+            title: book.title,
+            author: book.author,
+            affiliation: book.affiliation,
+            library: book.library,
+            subject: book.subject,
+            location: book.location,
+            course: book.course,
+            program: book.program,
+            license: book.license,
+            thumbnail: book.thumbnail,
+            thumbnailIsAnimated: !!book.thumbnailIsAnimated,
+            summary: book.summary,
+            links: book.links,
+            lastUpdated: book.lastUpdated,
+            libraryTags: book.libraryTags,
+            randomIndex: hashStringToFloat(book.bookID),
+            // Stamped with the run's start time so missing-book detection can
+            // find everything this run did not touch with a range query.
+            lastSyncedAt: runStartedAt,
+            // Marks this record as written by the direct library walk rather
+            // than the retired nodePrint DownloadsCenter import. Untouched
+            // Books keep an absent `syncedBy`, so the two are separable while
+            // their field values are being compared.
+            syncedBy: "conductor" as const,
+          },
+          // The Book is present in its library again.
+          $unset: { syncMissingSince: "" },
+        },
+        upsert: true,
+      },
+    };
+  });
+
+  /* Write Books */
+  let importCount = 0;
+  const newBookDBIds: object[] = [];
+  try {
+    const writeRes = await Book.bulkWrite(bookOps, { ordered: false });
+    importCount = (writeRes.matchedCount ?? 0) + (writeRes.upsertedCount ?? 0);
+    newBookDBIds.push(...Object.values(writeRes.upsertedIds ?? {}));
+  } catch (writeErr) {
+    debugError(writeErr);
+    /* An unordered bulkWrite reports per-operation failures by throwing once at
+       the end, with the successful writes still applied and summarized on
+       `error.result`. Salvage those rather than discarding a whole run over a
+       handful of bad records. */
+    const partial = (writeErr as MongoBulkWriteError)?.result;
+    const recovered =
+      (partial?.matchedCount ?? 0) + (partial?.upsertedCount ?? 0);
+    if (recovered > 0) {
+      importCount = recovered;
+      newBookDBIds.push(...Object.values(partial?.upsertedIds ?? {}));
+      debugCommonsSync(
+        `Wrote only ${importCount} books when ${processedBooks.length} were expected.`,
+      );
+    } else {
+      // Nothing landed — the write failed outright.
+      throw new Error("Failed to write any books to the database.", {
+        cause: writeErr,
+      });
+    }
+  }
+
+  /* Absence only means "gone from the library" when the run looked everywhere.
+     Under a limit it means "not looked for", so marking would flag thousands of
+     healthy books. */
+  const markedMissing = limited
+    ? 0
+    : await markMissingBooks(completeLibraries, runStartedAt);
+  if (limited) {
+    debugCommonsSync("Limited sync — skipping missing-book detection.");
+  }
+
+  /* Downstream jobs — each reports its own failure without sinking the sync */
+  const updatedCollections = await autoGenerateCollections();
+  const didGenExports = (await generateKBExport()) === true;
+
+  let generatedProjects: number | boolean = 0;
+  if (projectsToCreate.length > 0) {
+    generatedProjects = await projectsAPI.autoGenerateProjects(projectsToCreate);
+  } else {
+    debugCommonsSync("No new projects to create.");
+  }
+
+  if (newBookDBIds.length > 0) {
+    await alertsAPI.processInstantBookAlerts(newBookDBIds);
+  }
+
+  /* Summarize */
+  let msg = `Imported ${importCount} books from the Libraries.`;
+  if (failed.length > 0) {
+    msg += ` FAILED to sync ${failed.length} librar${
+      failed.length === 1 ? "y" : "ies"
+    }: ${failed.map((f) => `${f.subdomain} (${f.error})`).join("; ")}.`;
+  }
+  if (limited) {
+    msg = `LIMITED SYNC (${describeLimits(limits)}) — not a full catalog. ${msg}`;
+  }
+  if (markedMissing > 0) {
+    msg += ` ${markedMissing} books no longer found in their library were marked missing.`;
+  }
+  if (typeof updatedCollections === "number") {
+    msg += ` ${updatedCollections} system-managed Collections updated.`;
+  } else {
+    msg += ` FAILED to update system-managed collections. Check server logs.`;
+  }
+  if (didGenExports) {
+    msg += ` Successfully generated export files for 3rd-party content services.`;
+  } else {
+    msg += ` FAILED to generate export files for 3rd-party content services. Check server logs.`;
+  }
+  if (typeof generatedProjects === "number") {
+    msg += ` ${generatedProjects} new Projects were autogenerated.`;
+  } else {
+    msg += ` FAILED to autogenerate new Projects. Check server logs.`;
+  }
+
+  debugCommonsSync(msg);
+  return msg;
+};
+
+/**
+ * Guards against overlapping runs. The sync takes tens of minutes, so a
+ * scheduled trigger can easily arrive while the previous one is still working.
+ */
+let librarySyncRunning = false;
+
+/**
+ * How long a sync may run before it is treated as dead.
+ *
+ * The library requests carry no timeout of their own, so a socket that never
+ * settles leaves the run pending forever — and with it {@link librarySyncRunning},
+ * which would reject every later trigger until the process restarts. A full
+ * catalog walk lands well inside an hour, so anything past that is stuck rather
+ * than slow.
+ */
+const LIBRARY_SYNC_TIMEOUT_MS = 60 * 60 * 1000;
+
+/**
+ * Rejects if `work` has not settled within {@link LIBRARY_SYNC_TIMEOUT_MS}.
+ *
+ * Nothing here can cancel the abandoned run: its in-flight requests and pending
+ * writes continue until they settle on their own. The point is to free the
+ * overlap guard so a later trigger can start a healthy run, on the assumption
+ * that a sync past the ceiling is never coming back.
+ */
+const withSyncTimeout = async <T>(work: Promise<T>): Promise<T> => {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `Sync with Libraries exceeded its ${
+                  LIBRARY_SYNC_TIMEOUT_MS / 60000
+                }-minute ceiling and was abandoned. The run may still be ` +
+                  `holding open requests; check the server logs before ` +
+                  `starting another.`,
+              ),
+            ),
+          LIBRARY_SYNC_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
+/**
+ * Starts the Sync with Libraries job.
+ *
+ * The job makes one throttled request per book to read its overview property,
+ * which puts the runtime well past any proxy's connection timeout. The request
+ * is acknowledged immediately and the job runs detached; its outcome is
+ * reported through the Commons sync log.
+ *
  * @param {Object} req - The Express.js request object.
  * @param {Object} res - The Express.js response object.
  */
 const syncWithLibraries = async (_req: Request, res: Response) => {
-  let importCount = 0; // final count of imported books
-  let didGenExports = false; // If KB Export files were generated
-  let shelvesRequests: Promise<AxiosResponse>[] = []; // requests from Bookshelves
-  let coursesRequests: Promise<AxiosResponse>[] = []; // requests from Campus Bookshelves
-  let allRequests = []; // all requests to be made
-  let allBooks: BookInterface[] = []; // all books returned from LT API
-  let processedBooks: BookInterface[] = []; // all books processed for DB save
-  let bookOps = []; // update/insert operations to perform with Mongoose
-  let existingBooks = []; // existing books in the DB
-  let existingProjects = []; // existing projects (tied to books) in the DB
-  let bookIDs: string[] = []; // all (unique) bookIDs returned from LT API
-  let projectsToCreate = []; // projects to be created to track books from LT API
-  let newBookDBIds = []; // upserted MongoDb id's
-  let generatedProjects = false; // did create new projects
-  let updatedCollections = false; // did update auto-managed Collections
-
-  // Build list(s) of HTTP requests to be performed
-  const libs = await librariesAPI.getLibraryNameKeys(false, false);
-  if (Array.isArray(libs)) {
-    libs.forEach((l) => {
-      shelvesRequests.push(axios.get(generateBookshelvesURL(l)));
-      coursesRequests.push(axios.get(generateCoursesURL(l)));
-    });
-  } else {
-    return res.send({
+  if (librarySyncRunning) {
+    return res.status(409).send({
       err: true,
-      errMsg: conductorErrors.err16,
+      errMsg: "A sync with the Libraries is already in progress.",
     });
   }
 
-  allRequests = shelvesRequests.concat(coursesRequests);
+  librarySyncRunning = true;
+  debugCommonsSync("Starting sync with Libraries.");
 
-  // Execute requests
-  Promise.all(allRequests)
-    .then(async (booksRes) => {
-      // Extract books from responses
-      booksRes.forEach((axiosRes) => {
-        allBooks = allBooks.concat(axiosRes.data.items);
-      });
-      // Process books and prepare for DB save
-      allBooks.forEach((book) => {
-        // check if book is valid & unique, otherwise ignore
-        if (checkValidImport(book) && !bookIDs.includes(book.zipFilename)) {
-          let link = "";
-          let author = "";
-          let affiliation = "";
-          let license = "";
-          let summary = "";
-          let subject = "";
-          let course = "";
-          let location = "";
-          let program = "";
-          let lastUpdated = "";
-          let libraryTags = [];
-          if (Array.isArray(book.tags)) {
-            if (book.tags.includes("coverpage:nocommons")) {
-              return; // don't continue processing this entry
-            }
-            book.tags.forEach((tag) => {
-              if (tag.includes("license:")) {
-                license = tag.replace("license:", "");
-              }
-              if (tag.includes("program:")) {
-                program = tag.replace("program:", "");
-              }
-            });
-            libraryTags = book.tags;
-          }
-          if (book.link) {
-            link = book.link;
-            if (String(book.link).includes("/Bookshelves/")) {
-              location = "central";
-              let baseURL = `https://${extractLibFromID(
-                book.zipFilename,
-              )}.libretexts.org/Bookshelves/`;
-              let isolated = String(book.link).replace(baseURL, "");
-              let splitURL = isolated.split("/");
-              if (splitURL.length > 0) {
-                let shelfRaw = splitURL[0];
-                subject = shelfRaw.replace(/_/g, " ");
-              }
-            }
-            if (String(book.link).includes("/Courses/")) {
-              location = "campus";
-              let baseURL = `https://${extractLibFromID(
-                book.zipFilename,
-              )}.libretexts.org/Courses/`;
-              let isolated = String(book.link).replace(baseURL, "");
-              let splitURL = isolated.split("/");
-              if (splitURL.length > 0) {
-                let courseRaw = splitURL[0];
-                course = courseRaw.replace(/_/g, " ");
-                // url decode in case of special characters
-                course = decodeURIComponent(course);
-              }
-            }
-          }
-          if (book.author) author = book.author.trim();
-          if (typeof book.summary === "string") summary = book.summary;
-          if (book.institution) affiliation = book.institution; // Affiliation is referred to as "Institution" in LT API
-          if (typeof book.lastModified === "string")
-            lastUpdated = book.lastModified;
-
-          bookIDs.push(book.zipFilename); // duplicate mitigation
-          processedBooks.push({
-            author,
-            affiliation,
-            subject,
-            location,
-            course,
-            program,
-            license,
-            summary,
-            bookID: book.zipFilename,
-            title: sanitizeControlCharacters(book.title),
-            library: extractLibFromID(book.zipFilename),
-            thumbnail: genThumbnailLink(
-              extractLibFromID(book.zipFilename),
-              book.id,
-            ),
-            links: {
-              online: link,
-              pdf: genPDFLink(book.zipFilename),
-              buy: genBookstoreLink(book.zipFilename),
-              zip: genZIPLink(book.zipFilename),
-              files: genPubFilesLink(book.zipFilename),
-              lms: genLMSFileLink(book.zipFilename),
-            },
-            lastUpdated,
-            libraryTags,
-          });
-        }
-      });
-
-      let booksQuery = Book.aggregate([
-        {
-          $project: {
-            _id: 0,
-            bookID: 1,
-            thumbnail: 1,
-            thumbnailIsAnimated: 1,
-          },
-        },
-      ]);
-      let projsQuery = Project.aggregate([
-        {
-          $match: {
-            $and: [
-              { libreLibrary: { $ne: null } },
-              { libreCoverID: { $ne: null } },
-            ],
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            projectID: 1,
-            projectURL: 1,
-            libreLibrary: 1,
-            libreCoverID: 1,
-          },
-        },
-      ]);
-      return Promise.all([booksQuery, projsQuery]);
-    })
-    .then(async (queryResults) => {
-      if (queryResults.length === 2) {
-        if (Array.isArray(queryResults[0])) {
-          existingBooks = queryResults[0]
-            .map((existBook) => {
-              if (typeof existBook.bookID === "string") return existBook.bookID;
-              return null;
-            })
-            .filter((item) => item !== null);
-        }
-        if (Array.isArray(queryResults[1])) existingProjects = queryResults[1];
-      }
-
-      // Detect animated thumbnails (GIFs) via HEAD requests in parallel.
-      // Server-side requests avoid CORS restrictions that block client-side detection.
-      const existingBooksMap = new Map(
-        (queryResults[0] ?? []).map((b: any) => [b.bookID, b])
-      );
-      await Promise.all(
-        processedBooks.map(async (book) => {
-          if (!book.thumbnail) return;
-
-          // Short-circuit: URL clearly identifies a GIF
-          if (/\.gif(\?|$)/i.test(book.thumbnail)) {
-            (book as any).thumbnailIsAnimated = true;
-            return;
-          }
-
-          // Skip HEAD request if the thumbnail URL hasn't changed and we
-          // already have a detection result from a previous sync cycle
-          const existing = existingBooksMap.get(book.bookID);
-          if (
-            existing &&
-            existing.thumbnail === book.thumbnail &&
-            existing.thumbnailIsAnimated !== undefined
-          ) {
-            (book as any).thumbnailIsAnimated = existing.thumbnailIsAnimated;
-            return;
-          }
-
-          try {
-            const headRes = await axios.head(book.thumbnail, { timeout: 5000 });
-            const contentType = headRes.headers["content-type"];
-            if (typeof contentType === "string" && ["image/gif", "image/webp", "image/apng", "image/avif"].includes(contentType.toLowerCase())) {
-              (book as any).thumbnailIsAnimated = true;
-            }
-          } catch {
-            // Request failed — leave thumbnailIsAnimated unset
-          }
-        })
-      );
-
-      processedBooks.forEach((book) => {
-        /* check if project needs to be created */
-        let [bookLib, bookCoverID] = getLibraryAndPageFromBookID(book.bookID);
-        if (typeof bookLib === "string" && typeof bookCoverID === "string") {
-          let foundProject = existingProjects.find((project) => {
-            if (
-              project.libreLibrary === bookLib &&
-              project.libreCoverID === bookCoverID
-            ) {
-              return project;
-            }
-            return null;
-          });
-          if (foundProject === undefined) {
-            projectsToCreate.push({
-              title: book.title,
-              library: bookLib,
-              coverID: bookCoverID,
-              url: book.links?.online,
-              author: book.author,
-            });
-          }
-        }
-        /* insert or update books */
-        bookOps.push({
-          updateOne: {
-            filter: {
-              bookID: book.bookID,
-            },
-            update: {
-              $setOnInsert: {
-                bookID: book.bookID,
-              },
-              $set: {
-                title: book.title,
-                author: book.author,
-                affiliation: book.affiliation,
-                library: book.library,
-                subject: book.subject,
-                location: book.location,
-                course: book.course,
-                program: book.program,
-                license: book.license,
-                thumbnail: book.thumbnail,
-                thumbnailIsAnimated: !!(book as any).thumbnailIsAnimated,
-                summary: book.summary,
-                links: book.links,
-                lastUpdated: book.lastUpdated,
-                libraryTags: book.libraryTags,
-                randomIndex: hashStringToFloat(book.bookID),
-              },
-            },
-            upsert: true,
-          },
-        });
-      });
-      existingBooks.forEach((book) => {
-        /* check if book needs to be deleted */
-        let foundProcessed = processedBooks.find(
-          (processed) => book === processed.bookID,
-        );
-        if (foundProcessed === undefined) {
-          // book not found in new batch, needs to be deleted
-          bookOps.push({
-            deleteOne: {
-              filter: {
-                bookID: book,
-              },
-            },
-          });
-        }
-      });
-      return Book.bulkWrite(bookOps, {
-        ordered: false,
-      });
-    })
-    .catch((writeErr) => {
-      debugError(writeErr);
-      /* Catch intermediate errors with bulkWrite, try to recover */
-      if (writeErr.result?.nMatched > 0) {
-        // Some imports failed (silent)
-        debugCommonsSync(
-          `Updated only ${writeErr.result.nMatched} books when ${allBooks.length} books were expected.`,
-        );
-        return null; // Continue to auto-generate Program Collections
-      } else {
-        // All imports failed
-        throw new Error("bulkwrite");
-      }
-    })
-    .then((writeRes) => {
-      if (typeof writeRes.result?.nMatched === "number") {
-        importCount = writeRes.result.nMatched;
-      }
-      if (typeof writeRes.upsertedIds === "object") {
-        Object.keys(writeRes.upsertedIds).forEach((key) => {
-          newBookDBIds.push(writeRes.upsertedIds[key]);
-        });
-      }
-      // All imports succeeded, continue to update auto-managed Collections
-      return autoGenerateCollections();
-    })
-    .then((autoCollsRes) => {
-      updatedCollections = autoCollsRes;
-      // Program Collections updated, continue to generate KB Export files
-      return generateKBExport();
-    })
-    .then((generated) => {
-      if (generated === true) {
-        didGenExports = true;
-      }
-      if (projectsToCreate.length > 0) {
-        // Continue to autogenerate new Projects
-        return projectsAPI.autoGenerateProjects(projectsToCreate);
-      }
-      debugCommonsSync("No new projects to create.");
-      return 0;
-    })
-    .then((projectsGen) => {
-      generatedProjects = projectsGen;
-      if (newBookDBIds.length > 0) {
-        return alertsAPI.processInstantBookAlerts(newBookDBIds);
-      }
-      return true;
-    })
-    .then(() => {
-      // ignore return value of processing Alerts
-      let msg = `Imported ${importCount} books from the Libraries.`;
-      if (typeof updatedCollections == "number") {
-        msg += ` ${updatedCollections} system-managed Collections updated.`;
-      } else if (
-        typeof updatedCollections === "boolean" &&
-        !updatedCollections
-      ) {
-        msg += ` FAILED to update system-managed collections. Check server logs.`;
-      }
-      if (didGenExports) {
-        msg += ` Successfully generated export files for 3rd-party content services.`;
-      } else {
-        msg += ` FAILED to generate export files for 3rd-party content services. Check server logs.`;
-      }
-      if (typeof generatedProjects === "number") {
-        msg += ` ${generatedProjects} new Projects were autogenerated.`;
-      } else if (typeof generatedProjects === "boolean" && !generatedProjects) {
-        msg += ` FAILED to autogenerate new Projects. Check server logs.`;
-      }
-      debugCommonsSync(msg);
-      return res.send({
-        err: false,
-        msg: msg,
-      });
-    })
+  withSyncTimeout(runLibrarySync())
     .catch((err) => {
       debugError(err);
-      if (err.message === "bulkwrite") {
-        // all imports failed
-        return res.send({
-          err: true,
-          msg: conductorErrors.err13,
-        });
-      } else if (err.code === "ENOTFOUND") {
-        // issues connecting to LT API
-        return res.send({
-          err: true,
-          errMsg: conductorErrors.err16,
-        });
-      } else {
-        // other errors
-        debugError(err);
-        return res.send({
-          err: true,
-          errMsg: conductorErrors.err6,
-        });
-      }
+      debugCommonsSync(
+        err.message === "bulkwrite"
+          ? "Sync with Libraries failed: no books could be written."
+          : `Sync with Libraries failed: ${err.message}`,
+      );
+    })
+    .finally(() => {
+      librarySyncRunning = false;
     });
+
+  return res.status(202).send({
+    err: false,
+    msg: "Sync with Libraries started. Progress is reported in the server logs.",
+  });
 };
 
 /**
