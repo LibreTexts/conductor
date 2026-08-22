@@ -7,10 +7,11 @@ import {
 import CatalogCard from "./CatalogCard";
 import "../Commons.css";
 import PlaceholderCard from "./PlaceholderCard";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import DetailModal from "./DetailModal";
 import { Grid, Text } from "@libretexts/davis-react";
 import { ErrorBoundary } from "react-error-boundary";
+import { keyCatalogItems } from "../../../utils/misc";
 
 const VisualMode = ({
   items,
@@ -37,6 +38,11 @@ const VisualMode = ({
     | undefined
   >(undefined);
 
+  // Stable keys keyed off each record's server-side ID. Previously these were
+  // crypto.randomUUID(), which produced a new key on every render and remounted
+  // every card in the grid.
+  const keyedItems = useMemo(() => keyCatalogItems(items), [items]);
+
   if (items.length > 0) {
     return (
       <>
@@ -48,8 +54,8 @@ const VisualMode = ({
           gap="lg"
           className="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 list-none m-0 p-0"
         >
-          {items.map((item) => (
-            <li key={crypto.randomUUID()} className="h-full">
+          {keyedItems.map(({ item, key }) => (
+            <li key={key} className="h-full">
               {/* Per-card boundary: a single malformed record degrades to a
                   placeholder tile instead of unmounting the whole catalog via
                   the app-level ErrorBoundary in Platform.tsx. */}

@@ -20,6 +20,16 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ item, to }) => {
   };
 
   const resourceData = getResourceData();
+
+  // A CollectionResource whose parent record was deleted, made private, or
+  // filtered out by the server arrives with no resourceData. Dereferencing it
+  // below threw "Cannot read properties of undefined (reading 'thumbnail')"
+  // and took the whole collections grid down with it.
+  if (!resourceData) {
+    console.warn("CollectionCard: item has no resource data, skipping.", item);
+    return null;
+  }
+
   const isBook = checkIsBook(resourceData);
   const thumbnail = isBook ? resourceData.thumbnail : resourceData.coverPhoto;
 
