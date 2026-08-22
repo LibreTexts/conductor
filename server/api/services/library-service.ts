@@ -1,4 +1,4 @@
-import Library from "../../models/library";
+import Library from "../../models/library.js";
 
 
 export default class LibraryService {
@@ -33,6 +33,25 @@ export default class LibraryService {
             return template;
         } catch (error) {
             console.error(`Error fetching guide tab template for subdomain: ${subdomain}, templateKey: ${templateKey}`, error);
+            return undefined;
+        }
+    }
+
+    /**
+     * Fetches the sync locations for a given library subdomain.
+     * @param subdomain - The subdomain of the library for which to fetch the sync locations.
+     * @returns A promise that resolves to an array of sync locations if found, or undefined if not found or if an error occurs.
+     */
+    public async getSyncLocations(subdomain: string): Promise<string[] | undefined> {
+        try {
+            const library = await Library.findOne({ subdomain: { $eq: subdomain } }).lean();
+            if (!library) {
+                console.warn(`Library not found for subdomain: ${subdomain}`);
+                return undefined;
+            }
+            return library.syncLocations;
+        } catch (error) {
+            console.error(`Error fetching sync locations for subdomain: ${subdomain}`, error);
             return undefined;
         }
     }
