@@ -1,9 +1,21 @@
 import { ShapeshiftJob, ShapeshiftJobStatus } from "../../types/Shapeshift";
 import axios, { AxiosInstance } from "axios";
-import { debugError } from "../../debug";
+import { debugCommonsSync, debugError } from "../../debug";
 import Book from "../../models/book";
 import { z } from "zod";
 import { WebhookValidator } from "../validators/shapeshift";
+import { syncSingleBook } from "./book-sync-service";
+
+type WebhookParams = z.infer<typeof WebhookValidator>["body"];
+
+/**
+ * Books whose live sync is already running in this process.
+ *
+ * A compile can produce several deliveries for the same book in quick
+ * succession; without this, each would open its own set of library requests for
+ * a page whose data is already being fetched.
+ */
+const inFlightSyncs = new Set<string>();
 
 export default class ShapeshiftService {
   private instance: AxiosInstance;
@@ -70,21 +82,102 @@ export default class ShapeshiftService {
   }
 
   /**
+   * Writes compilation status, but only over older data.
+   *
+   * `$lte` (not `<`) makes a redelivery of the same timestamp an idempotent
+   * no-op write. Matching `null` covers both a missing `exportInfo` and a
+   * missing `lastCompiled`.
+   *
+   * @returns Whether a Book matched and therefore carries this data now.
+   */
+  private async applyCompileStatus({
+    bookID,
+    contentPageCount,
+    timestamp,
+  }: WebhookParams): Promise<boolean> {
+    const result = await Book.updateOne(
+      {
+        bookID: { $eq: bookID },
+        $or: [
+          { "exportInfo.lastCompiled": null },
+          { "exportInfo.lastCompiled": { $lte: timestamp } },
+        ],
+      },
+      {
+        $set: {
+          "exportInfo.isCompiled": true,
+          "exportInfo.lastCompiled": timestamp,
+          ...(contentPageCount !== undefined
+            ? { "exportInfo.contentPageCount": contentPageCount }
+            : {}),
+        },
+      }
+    );
+
+    return result.matchedCount > 0;
+  }
+
+  /**
+   * Runs a live library sync for the book, detached from the request.
+   *
+   * Nothing here can reject into the caller: a library that is slow, down, or
+   * returning nonsense must not affect the compilation status write that has
+   * already landed, nor the response the webhook sender is waiting on.
+   *
+   * When the sync creates a Book that did not exist a moment ago, the
+   * compilation data from this delivery is applied to it — it had nothing to
+   * attach to on the first attempt.
+   */
+  private queueLiveSync(params: WebhookParams): void {
+    const { bookID } = params;
+    if (inFlightSyncs.has(bookID)) {
+      debugCommonsSync(`Live sync for ${bookID} already running — skipping.`);
+      return;
+    }
+    inFlightSyncs.add(bookID);
+
+    void (async () => {
+      try {
+        const outcome = await syncSingleBook(bookID);
+        if (outcome.status === "ingested") {
+          await this.applyCompileStatus(params);
+        }
+        if ("reason" in outcome) {
+          debugCommonsSync(
+            `Live sync for ${bookID} finished as ${outcome.status}: ${outcome.reason}`
+          );
+        }
+      } catch (error) {
+        debugError(error);
+      } finally {
+        inFlightSyncs.delete(bookID);
+      }
+    })();
+  }
+
+  /**
    * Handle a webhook from Shapeshift to update the book's compilation status.
    *
    * The update is applied as a single conditional, atomic document operation, so concurrent
    * deliveries cannot lose data: an older timestamp (or its page count) can never overwrite a
    * newer one. A redelivery carrying the timestamp already stored is an idempotent 'success';
    * a delivery older than what is stored is ignored and reported as 'stale'.
+   *
+   * Every accepted delivery also queues a live library sync for the book, so a compile
+   * refreshes the book's catalog data instead of waiting for the nightly run — and so a book
+   * Commons has never seen can be ingested on the spot if it is eligible. That work runs after
+   * the response and its outcome is not reflected here; an unknown bookID reports 'accepted'
+   * whether or not the book turns out to be ingestable.
+   *
    * @param params - The parameters from the webhook, including bookID, contentPageCount, and timestamp.
-   * @returns - A string indicating the result of the operation: 'success', 'stale', 'not_found', 'invalid_timestamp', or 'error'.
+   * @returns - A string indicating the result of the operation: 'success', 'stale', 'accepted', 'invalid_timestamp', or 'error'.
    */
-  public async handleWebhook(params: z.infer<typeof WebhookValidator>["body"]): Promise<'success' | 'stale' | 'not_found' | 'invalid_timestamp' | 'error'> {
+  public async handleWebhook(params: WebhookParams): Promise<'success' | 'stale' | 'accepted' | 'invalid_timestamp' | 'error'> {
     try {
       const acceptedSkew = 5 * 60 * 1000; // 5 minutes in milliseconds
       const currentTime = Date.now();
 
-      const { bookID, contentPageCount, timestamp } = params;
+      const { bookID, timestamp } = params;
 
       // Accept the webhook if the timestamp is plus or minus 5 minutes from the current time
       if (Math.abs(currentTime - timestamp) > acceptedSkew) {
@@ -92,35 +185,19 @@ export default class ShapeshiftService {
         return 'invalid_timestamp';
       }
 
-      // Atomically apply the update only if no newer compilation has already been recorded.
-      // `$lte` (not `<`) makes a redelivery of the same timestamp an idempotent no-op write.
-      // Matching `null` covers both a missing `exportInfo` and a missing `lastCompiled`.
-      const result = await Book.updateOne(
-        {
-          bookID: { $eq: bookID },
-          $or: [
-            { "exportInfo.lastCompiled": null },
-            { "exportInfo.lastCompiled": { $lte: timestamp } },
-          ],
-        },
-        {
-          $set: {
-            "exportInfo.isCompiled": true,
-            "exportInfo.lastCompiled": timestamp,
-            ...(contentPageCount !== undefined
-              ? { "exportInfo.contentPageCount": contentPageCount }
-              : {}),
-          },
-        }
-      );
+      const applied = await this.applyCompileStatus(params);
 
-      if (result.matchedCount > 0) return 'success';
+      // Whatever the compilation write did, the library data behind this book is
+      // worth refreshing — that is the point of reacting to a compile at all.
+      this.queueLiveSync(params);
+
+      if (applied) return 'success';
 
       // No match: either the book does not exist, or a newer compilation is already recorded.
       const exists = await Book.exists({ bookID: { $eq: bookID } });
       if (!exists) {
-        debugError(`Book with bookID ${bookID} not found for Shapeshift webhook.`);
-        return 'not_found';
+        debugCommonsSync(`Book ${bookID} is unknown to Commons — queued a live library sync.`);
+        return 'accepted';
       }
 
       debugError(`Ignoring stale Shapeshift webhook for ${bookID}. Received timestamp ${timestamp}, newer compilation already recorded.`);

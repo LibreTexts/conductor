@@ -48,10 +48,10 @@ export async function handleWebhook(
   const service = new ShapeshiftService();
   const result = await service.handleWebhook(req.body);
 
-  if (result === 'not_found') {
-    return res.status(404).json({
-      err: true,
-      msg: 'Book not found for webhook.',
+  if (result === 'accepted') {
+    return res.status(202).json({
+      err: false,
+      msg: 'Webhook accepted. Book is not yet known to Commons; a library sync was queued.',
     });
   }
 

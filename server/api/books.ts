@@ -22,21 +22,10 @@ import {
   escapeRegEx,
 } from "../util/helpers.js";
 import {
-  sanitizeLibraryText,
-  sanitizeOptionalLibraryText,
-} from "../util/sanitize-text.js";
-import {
   deleteBookFromAPI,
   getLibraryAndPageFromBookID,
-  genThumbnailLink,
-  genPDFLink,
-  genBookstoreLink,
-  genZIPLink,
-  genPubFilesLink,
-  genLMSFileLink,
   genPermalink,
   checkIsCampusBook,
-  hashStringToFloat,
 } from "../util/bookutils.js";
 import {
   downloadProjectFiles,
@@ -102,8 +91,14 @@ import LibrarySyncService, {
   LibraryCoverpage,
   LibrarySyncResult,
 } from "./services/library-sync-service.js";
+import {
+  buildBookUpsertOp,
+  checkValidImport,
+  detectAnimatedThumbnails,
+  SyncedBook,
+  toBookRecord,
+} from "./services/book-sync-service.js";
 import type { MongoBulkWriteError } from "mongodb";
-import { mapWithConcurrency } from "../util/concurrency.js";
 import { normalizedSort } from "../util/searchutils.js";
 import SearchService from "./services/search-service.js";
 import { PressBookScraper } from "../util/pressbookutils.js";
@@ -163,144 +158,6 @@ function sortBooks(books: BookInterface[], sortChoice: BookSortOption) {
   }
   return books;
 }
-
-/**
- * A Book as assembled from a library coverpage, ready for upsert.
- */
-type SyncedBook = Pick<BookInterface, "bookID" | "title" | "library"> &
-  Partial<
-    Pick<
-      BookInterface,
-      | "author"
-      | "affiliation"
-      | "subject"
-      | "location"
-      | "course"
-      | "program"
-      | "license"
-      | "summary"
-      | "thumbnail"
-      | "thumbnailIsAnimated"
-      | "links"
-      | "lastUpdated"
-      | "libraryTags"
-    >
-  >;
-
-/**
- * The library root a Book lives under determines where Commons files it.
- */
-const LOCATION_BY_SYNC_ROOT: Record<string, string> = {
-  Bookshelves: "central",
-  Courses: "campus",
-};
-
-/**
- * Turns a library path segment into a display label. Segments are underscored
- * and occasionally percent-encoded.
- */
-const readPathSegment = (segment: string) => {
-  const spaced = segment.replace(/_/g, " ");
-  try {
-    return decodeURIComponent(spaced);
-  } catch {
-    // A stray '%' that isn't a valid escape — use the segment as-is.
-    return spaced;
-  }
-};
-
-/**
- * Maps a coverpage discovered by {@link LibrarySyncService} onto a Book.
- *
- * Subject/course come from the coverpage's `path`, which is host-free and
- * already decoded — the legacy sync parsed them out of the full URL by string-
- * replacing a reconstructed base URL.
- */
-const toBookRecord = (
-  subdomain: string,
-  coverpage: LibraryCoverpage,
-): SyncedBook => {
-  const bookID = `${subdomain}-${coverpage.id}`;
-
-  let location = "";
-  let subject = "";
-  let course = "";
-
-  const segments = (coverpage.path ?? "").split("/").filter(Boolean);
-  const root = segments[0];
-  if (root && LOCATION_BY_SYNC_ROOT[root]) {
-    location = LOCATION_BY_SYNC_ROOT[root];
-    const label = segments[1] ? sanitizeLibraryText(readPathSegment(segments[1])) : "";
-    if (location === "central") {
-      subject = label;
-    } else {
-      course = label;
-    }
-  } else {
-    location = "central"; // If the root isn't recognized, default to central.
-  }
-
-  let license = "";
-  let program = "";
-  coverpage.tags.forEach((tag) => {
-    if (tag.startsWith("license:")) {
-      license = sanitizeLibraryText(tag.replace("license:", ""));
-    }
-    if (tag.startsWith("program:")) {
-      program = sanitizeLibraryText(tag.replace("program:", ""));
-    }
-  });
-
-  // Title, author, affiliation, and summary are sanitized by LibrarySyncService
-  // as it builds the coverpage. Re-running the sanitizer here is idempotent and
-  // keeps this mapping safe on its own terms.
-  return {
-    bookID,
-    title: sanitizeLibraryText(coverpage.title),
-    library: subdomain,
-    author: sanitizeOptionalLibraryText(coverpage.author),
-    affiliation: sanitizeOptionalLibraryText(coverpage.affiliation),
-    subject,
-    location,
-    course,
-    program,
-    license,
-    summary: sanitizeOptionalLibraryText(coverpage.summary),
-    thumbnail: genThumbnailLink(subdomain, coverpage.id),
-    links: {
-      online: coverpage.url,
-      pdf: genPDFLink(bookID),
-      buy: genBookstoreLink(bookID),
-      zip: genZIPLink(bookID),
-      files: genPubFilesLink(bookID),
-      lms: genLMSFileLink(bookID),
-    },
-    lastUpdated: coverpage.dateModified,
-    // Tags are rendered on Commons, so the stored copy is sanitized. The raw
-    // tags stay on the coverpage for the parsing above and in the service.
-    libraryTags: coverpage.tags
-      .map((tag) => sanitizeLibraryText(tag))
-      .filter(Boolean),
-  };
-};
-
-/**
- * Checks that a mapped Book has the required fields to be imported.
- * @returns {Boolean} True if ready for import, false otherwise (logged).
- */
-const checkValidImport = (book: SyncedBook) => {
-  // NB: isEmptyString() returns false for undefined, so check truthiness too.
-  const missing = (["bookID", "title", "library"] as const).filter(
-    (field) => !book[field] || isEmptyString(book[field]),
-  );
-  if (missing.length > 0) {
-    debugCommonsSync(
-      `Not importing 1 book — missing fields: ${missing.join(",")}`,
-    );
-    return false;
-  }
-  return true;
-};
 
 /**
  * Updates system-managed Collections for specified OER programs.
@@ -420,72 +277,6 @@ const autoGenerateCollections = () => {
 };
 
 /**
- * How many thumbnail HEAD requests may be in flight at once.
- *
- * The reuse short-circuit below keeps steady-state runs almost free, but the
- * first run after a deploy has no stored results to reuse and would otherwise
- * open one request per book — thousands at once, against a handful of library
- * hosts.
- */
-const THUMBNAIL_HEAD_CONCURRENCY = 8;
-
-/**
- * Detects animated thumbnails (GIFs and friends) via HEAD requests, with
- * bounded concurrency. Server-side requests avoid the CORS restrictions that
- * block client-side detection.
- */
-const detectAnimatedThumbnails = async (
-  books: SyncedBook[],
-  existingBooks: Map<string, { thumbnail?: string; thumbnailIsAnimated?: boolean }>,
-) => {
-  const ANIMATED_TYPES = [
-    "image/gif",
-    "image/webp",
-    "image/apng",
-    "image/avif",
-  ];
-
-  await mapWithConcurrency(
-    books,
-    THUMBNAIL_HEAD_CONCURRENCY,
-    async (book) => {
-      if (!book.thumbnail) return;
-
-      // Short-circuit: URL clearly identifies a GIF
-      if (/\.gif(\?|$)/i.test(book.thumbnail)) {
-        book.thumbnailIsAnimated = true;
-        return;
-      }
-
-      // Skip the HEAD request if the thumbnail URL hasn't changed and we
-      // already have a detection result from a previous sync cycle
-      const existing = existingBooks.get(book.bookID);
-      if (
-        existing &&
-        existing.thumbnail === book.thumbnail &&
-        existing.thumbnailIsAnimated !== undefined
-      ) {
-        book.thumbnailIsAnimated = existing.thumbnailIsAnimated;
-        return;
-      }
-
-      try {
-        const headRes = await axios.head(book.thumbnail, { timeout: 5000 });
-        const contentType = headRes.headers["content-type"];
-        if (
-          typeof contentType === "string" &&
-          ANIMATED_TYPES.includes(contentType.toLowerCase())
-        ) {
-          book.thumbnailIsAnimated = true;
-        }
-      } catch {
-        // Request failed — leave thumbnailIsAnimated unset
-      }
-    },
-  );
-};
-
-/**
  * Marks Books that have disappeared from their library.
  *
  * Absence is inferred from `lastSyncedAt`: every Book this run wrote carries the
@@ -513,7 +304,7 @@ const markMissingBooks = async (
   for (const subdomain of subdomains) {
     const res = await Book.updateMany(
       {
-        library: subdomain,
+        library: { $eq: subdomain },
         $or: [
           { lastSyncedAt: { $lt: runStartedAt } },
           { lastSyncedAt: { $exists: false } },
@@ -532,9 +323,12 @@ const markMissingBooks = async (
  * Walks every synced library and imports the LibreTexts it publishes into the
  * Conductor database for use in Commons.
  *
+ * @param signal - Aborting this stops the library walk and prevents the run
+ * from writing anything, so an abandoned run cannot race the one that replaces
+ * it.
  * @returns {Promise<string>} A human-readable summary of the run.
  */
-const runLibrarySync = async (): Promise<string> => {
+const runLibrarySync = async (signal?: AbortSignal): Promise<string> => {
   const limits = getLibrarySyncLimits();
   const limited = isLimitedSync(limits);
 
@@ -542,7 +336,15 @@ const runLibrarySync = async (): Promise<string> => {
      older than the cutoff missing-book detection compares against. */
   const runStartedAt = new Date();
 
-  const results = await new LibrarySyncService().syncAllLibraries();
+  const results = await new LibrarySyncService().syncAllLibraries({ signal });
+
+  /* The walk yields whatever it managed to collect before the abort, which is
+     not a picture of the catalog. Bail before any write so an abandoned run
+     never competes with its replacement. */
+  if (signal?.aborted) {
+    throw new Error("Sync with Libraries was abandoned before writing.");
+  }
+
   const succeeded = results.filter(
     (r): r is Extract<LibrarySyncResult, { ok: true }> => r.ok,
   );
@@ -648,48 +450,18 @@ const runLibrarySync = async (): Promise<string> => {
       }
     }
 
-    return {
-      updateOne: {
-        filter: { bookID: book.bookID },
-        update: {
-          $setOnInsert: { bookID: book.bookID },
-          $set: {
-            title: book.title,
-            author: book.author,
-            affiliation: book.affiliation,
-            library: book.library,
-            subject: book.subject,
-            location: book.location,
-            course: book.course,
-            program: book.program,
-            license: book.license,
-            thumbnail: book.thumbnail,
-            thumbnailIsAnimated: !!book.thumbnailIsAnimated,
-            summary: book.summary,
-            links: book.links,
-            lastUpdated: book.lastUpdated,
-            libraryTags: book.libraryTags,
-            randomIndex: hashStringToFloat(book.bookID),
-            // Stamped with the run's start time so missing-book detection can
-            // find everything this run did not touch with a range query.
-            lastSyncedAt: runStartedAt,
-            // Marks this record as written by the direct library walk rather
-            // than the retired nodePrint DownloadsCenter import. Untouched
-            // Books keep an absent `syncedBy`, so the two are separable while
-            // their field values are being compared.
-            syncedBy: "conductor" as const,
-          },
-          // The Book is present in its library again.
-          $unset: { syncMissingSince: "" },
-        },
-        upsert: true,
-      },
-    };
+    // Stamped with the run's start time so missing-book detection can find
+    // everything this run did not touch with a range query.
+    return buildBookUpsertOp(book, runStartedAt);
   });
 
   /* Write Books */
   let importCount = 0;
   const newBookDBIds: object[] = [];
+  /* A book whose upsert failed keeps its previous `lastSyncedAt`, which is
+     exactly what missing-book detection reads as "the library dropped it". Any
+     library with a failed write is therefore out of the running below. */
+  const librariesWithFailedWrites = new Set<string>();
   try {
     const writeRes = await Book.bulkWrite(bookOps, { ordered: false });
     importCount = (writeRes.matchedCount ?? 0) + (writeRes.upsertedCount ?? 0);
@@ -701,6 +473,32 @@ const runLibrarySync = async (): Promise<string> => {
        `error.result`. Salvage those rather than discarding a whole run over a
        handful of bad records. */
     const partial = (writeErr as MongoBulkWriteError)?.result;
+
+    /* Attribute each failed operation back to its library. The driver reports
+       an unordered batch's errors against the caller's operation index, and
+       `bookOps` is built in `processedBooks` order, so the index identifies the
+       book. Anything that cannot be attributed makes every library suspect —
+       skipping detection costs a cycle, a false "missing" edits the catalog. */
+    const rawWriteErrors = (writeErr as MongoBulkWriteError)?.writeErrors;
+    const writeErrors = Array.isArray(rawWriteErrors)
+      ? rawWriteErrors
+      : rawWriteErrors
+        ? [rawWriteErrors]
+        : [];
+    let attributed = 0;
+    for (const opErr of writeErrors) {
+      const index = opErr?.index ?? opErr?.err?.index;
+      const book =
+        typeof index === "number" ? processedBooks[index] : undefined;
+      if (book?.library) {
+        librariesWithFailedWrites.add(book.library);
+        attributed += 1;
+      }
+    }
+    if (attributed < writeErrors.length || writeErrors.length === 0) {
+      completeLibraries.forEach((lib) => librariesWithFailedWrites.add(lib));
+    }
+
     const recovered =
       (partial?.matchedCount ?? 0) + (partial?.upsertedCount ?? 0);
     if (recovered > 0) {
@@ -720,11 +518,20 @@ const runLibrarySync = async (): Promise<string> => {
   /* Absence only means "gone from the library" when the run looked everywhere.
      Under a limit it means "not looked for", so marking would flag thousands of
      healthy books. */
+  const detectableLibraries = completeLibraries.filter(
+    (lib) => !librariesWithFailedWrites.has(lib),
+  );
   const markedMissing = limited
     ? 0
-    : await markMissingBooks(completeLibraries, runStartedAt);
+    : await markMissingBooks(detectableLibraries, runStartedAt);
   if (limited) {
     debugCommonsSync("Limited sync — skipping missing-book detection.");
+  } else if (detectableLibraries.length < completeLibraries.length) {
+    debugCommonsSync(
+      `Skipping missing-book detection for ${completeLibraries
+        .filter((lib) => librariesWithFailedWrites.has(lib))
+        .join(", ")}: some books could not be written this run.`,
+    );
   }
 
   /* Downstream jobs — each reports its own failure without sinking the sync */
@@ -788,37 +595,42 @@ let librarySyncRunning = false;
  * settles leaves the run pending forever — and with it {@link librarySyncRunning},
  * which would reject every later trigger until the process restarts. A full
  * catalog walk lands well inside an hour, so anything past that is stuck rather
- * than slow.
+ * than slow. Reaching the ceiling aborts the run rather than merely ignoring
+ * it; see {@link withSyncTimeout}.
  */
 const LIBRARY_SYNC_TIMEOUT_MS = 60 * 60 * 1000;
 
 /**
- * Rejects if `work` has not settled within {@link LIBRARY_SYNC_TIMEOUT_MS}.
+ * Rejects if `work` has not settled within {@link LIBRARY_SYNC_TIMEOUT_MS},
+ * aborting `controller` on the way out.
  *
- * Nothing here can cancel the abandoned run: its in-flight requests and pending
- * writes continue until they settle on their own. The point is to free the
- * overlap guard so a later trigger can start a healthy run, on the assumption
- * that a sync past the ceiling is never coming back.
+ * The abort is what makes the ceiling safe: the run stops at its next throttled
+ * request and never reaches its writes, so it cannot compete with the run that
+ * replaces it. The overlap guard is released by the run itself once it settles,
+ * not here — a job that ignores the abort still holds the lock, which is the
+ * conservative failure.
  */
-const withSyncTimeout = async <T>(work: Promise<T>): Promise<T> => {
+const withSyncTimeout = async <T>(
+  work: Promise<T>,
+  controller: AbortController,
+): Promise<T> => {
   let timer: NodeJS.Timeout | undefined;
   try {
     return await Promise.race([
       work,
       new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () =>
-            reject(
-              new Error(
-                `Sync with Libraries exceeded its ${
-                  LIBRARY_SYNC_TIMEOUT_MS / 60000
-                }-minute ceiling and was abandoned. The run may still be ` +
-                  `holding open requests; check the server logs before ` +
-                  `starting another.`,
-              ),
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(
+            new Error(
+              `Sync with Libraries exceeded its ${
+                LIBRARY_SYNC_TIMEOUT_MS / 60000
+              }-minute ceiling and was abandoned. It has been signalled to ` +
+                `stop and will not write; the next trigger is accepted once ` +
+                `it unwinds.`,
             ),
-          LIBRARY_SYNC_TIMEOUT_MS,
-        );
+          );
+        }, LIBRARY_SYNC_TIMEOUT_MS);
       }),
     ]);
   } finally {
@@ -848,18 +660,39 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
   librarySyncRunning = true;
   debugCommonsSync("Starting sync with Libraries.");
 
-  withSyncTimeout(runLibrarySync())
+  const controller = new AbortController();
+  const work = runLibrarySync(controller.signal);
+
+  /* The lock follows the job, not the timeout. Releasing it when the ceiling
+     fires would let the next trigger start while the abandoned run is still
+     unwinding, and two runs writing the catalog is the failure this guard
+     exists to prevent. */
+  void work
+    .then((msg) => {
+      if (controller.signal.aborted) {
+        debugCommonsSync(`Abandoned sync with Libraries settled: ${msg}`);
+      }
+    })
     .catch((err) => {
-      debugError(err);
-      debugCommonsSync(
-        err.message === "bulkwrite"
-          ? "Sync with Libraries failed: no books could be written."
-          : `Sync with Libraries failed: ${err.message}`,
-      );
+      if (controller.signal.aborted) {
+        debugError(err);
+        debugCommonsSync(
+          `Abandoned sync with Libraries has unwound: ${err.message}`,
+        );
+      }
     })
     .finally(() => {
       librarySyncRunning = false;
     });
+
+  withSyncTimeout(work, controller).catch((err) => {
+    debugError(err);
+    debugCommonsSync(
+      err.message === "bulkwrite"
+        ? "Sync with Libraries failed: no books could be written."
+        : `Sync with Libraries failed: ${err.message}`,
+    );
+  });
 
   return res.status(202).send({
     err: false,
