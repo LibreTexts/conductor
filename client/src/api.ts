@@ -53,7 +53,7 @@ import {
   CentralIdentityUserLicenseResult,
   CentralIdentityAppLicense,
   StoreDigitalDeliveryOption, StoreOrderWithStripeSession, StoreOrderListItem,
-  ManualPrintJobPayload, ManualPrintJobPayloadResponse,
+  ManualPrintJobPayload, ManualPrintJobPayloadResponse, ResubmitPrintJobRefusal,
   OrderCharge,
   OrderSession,
   CentralIdentityOrgAdminResult,
@@ -793,8 +793,11 @@ class API {
   }
 
   async adminResubmitPrintJob(order_id: string) {
+    // Success returns the created Lulu print job, not the order. The failure branch may carry a
+    // `code`/`warnings` pair when the server refused an incomplete payload -- see
+    // `ResubmitPrintJobRefusal`.
     const res = await axios.post<
-      { data: StoreOrderWithStripeSession } & ConductorBaseResponse
+      { err: false; data: unknown } | ResubmitPrintJobRefusal
     >(`/store/admin/orders/${order_id}/resubmit`);
     return res;
   }

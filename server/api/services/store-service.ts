@@ -1115,6 +1115,8 @@ class StoreService {
     public async resubmitLuluJob(orderId: string): Promise<LuluPrintJob | {
         error: string;
         detail?: string;
+        code?: 'INCOMPLETE_PAYLOAD';
+        warnings?: string[];
     }> {
         try {
             const built = await this.buildPrintJobParams(orderId);
@@ -1122,15 +1124,18 @@ class StoreService {
                 return { error: `No StoreOrder found for ID: ${orderId}` };
             }
 
-            // A plain resubmit sends the derived payload verbatim, so it is only meaningful when the
+            // This path sends the derived payload verbatim, so it is only meaningful when the
             // payload is complete. Any warning from the builder means it is not — surface it rather
-            // than pushing a knowingly-broken payload back to Lulu. Use "Submit Order Details
-            // Manually" to fix the payload by hand.
+            // than pushing a knowingly-broken payload to Lulu. Use "Submit Order Details Manually"
+            // to fix the payload by hand. The warnings are returned individually (not just joined
+            // into `detail`) so the UI can list them and offer that hand-off.
             if (built.warnings.length > 0) {
-                debug(`Cannot resubmit Lulu job for StoreOrder ID: ${orderId}. ${built.warnings.join(' ')}`);
+                debug(`Cannot submit Lulu job for StoreOrder ID: ${orderId}. ${built.warnings.join(' ')}`);
                 return {
-                    error: `Cannot resubmit the print job for order ${orderId} as-is`,
+                    error: `The print job for order ${orderId} cannot be submitted as-is`,
                     detail: built.warnings.join(' '),
+                    code: 'INCOMPLETE_PAYLOAD',
+                    warnings: built.warnings,
                 };
             }
 
