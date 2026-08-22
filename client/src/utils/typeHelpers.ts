@@ -21,6 +21,7 @@ import {
   Author,
   CommonsModule,
   MasterCatalogV2Response,
+  ConductorSearchResponseFile,
 } from "../types";
 import { COMMONS_MODULES } from "./constants";
 
@@ -213,26 +214,13 @@ export const isAssetTagKeyObject = (value: any): value is AssetTagKey => {
 };
 
 // Book
+// Only check the fields marked required in server/models/book.ts. Every other
+// Book field is optional there, and Mongo omits unset optional fields entirely,
+// so requiring them here made partially-populated books fail the guard.
 export const isBook = (obj: any): obj is Book => {
   if (!obj) return false;
   if (typeof obj !== "object") return false;
-  return (
-    "bookID" in obj &&
-    "title" in obj &&
-    "author" in obj &&
-    "affiliation" in obj &&
-    "library" in obj &&
-    "subject" in obj &&
-    "location" in obj &&
-    "course" in obj &&
-    "program" in obj &&
-    "license" in obj &&
-    "thumbnail" in obj &&
-    "summary" in obj &&
-    "links" in obj &&
-    "lastUpdated" in obj &&
-    "libraryTags" in obj
-  );
+  return "bookID" in obj && "title" in obj && "library" in obj;
 };
 
 // Project
@@ -245,6 +233,17 @@ export const isProject = (obj: any): obj is Project => {
     "visibility" in obj &&
     "status" in obj
   );
+};
+
+// Commons search response files (a ProjectFile joined with its parent's projectInfo).
+// Kept narrower than isProjectFile: only fields the search/browse aggregations
+// always return, so a partially-projected file still classifies correctly.
+export const isConductorSearchResponseFile = (
+  obj: any
+): obj is ConductorSearchResponseFile => {
+  if (!obj) return false;
+  if (typeof obj !== "object") return false;
+  return "fileID" in obj && "projectID" in obj && "storageType" in obj;
 };
 
 // Project Files

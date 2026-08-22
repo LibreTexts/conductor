@@ -47,7 +47,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
     <>
       <Card.Header
         image={{
-          src: file.projectInfo.thumbnail || '/project_icon.svg',
+          src: file.projectInfo?.thumbnail || '/project_icon.svg',
           alt: "" // Decorative only - leave blank alt-text
         }}
       />
