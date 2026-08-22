@@ -110,6 +110,9 @@ const ALLOWED_MIME_TYPES = [
   "model/stl", // .stl
   "application/zip", // .zip
   "application/x-zip-compressed", // .zip (sometimes used on Windows)
+  "application/vnd.ims.imsccv1p1+zip", // .imscc (Common Cartridge v1.1)
+  "application/vnd.ims.imsccv1p2+zip", // .imscc (Common Cartridge v1.2)
+  "application/vnd.ims.imsccv1p3+zip", // .imscc (Common Cartridge v1.3)
   "text/x-tex", // .tex
   "text/vtt", // .vtt
 ]
@@ -155,6 +158,14 @@ function fileUploadHandler(req: Request, res: Response, next: NextFunction) {
       }
       if (file.originalname.endsWith(".zip")) {
         file.mimetype = "application/zip"; // Normalize .zip to application/zip for consistency
+      }
+      // Browsers rarely report a type for .imscc, and the extension alone doesn't
+      // reveal the Common Cartridge version. Normalize unconditionally to the
+      // container's true type rather than trusting (or guessing) a versioned
+      // IMSCC type -- preserving a client-declared one would reject any version
+      // that isn't in ALLOWED_MIME_TYPES.
+      if (file.originalname.endsWith(".imscc")) {
+        file.mimetype = "application/zip";
       }
       const isAllowed = ALLOWED_MIME_TYPES.some((allowed) =>
         allowed.endsWith("/*")

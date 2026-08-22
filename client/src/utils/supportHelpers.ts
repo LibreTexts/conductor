@@ -147,6 +147,10 @@ export const supportTicketAttachmentAllowedTypes = [
   ".stl", // .stl (extension fallback; no MIME registered on Windows)
   "application/zip", // .zip
   "application/x-zip-compressed", // .zip (sometimes used on Windows)
+  "application/vnd.ims.imsccv1p1+zip", // .imscc (Common Cartridge v1.1)
+  "application/vnd.ims.imsccv1p2+zip", // .imscc (Common Cartridge v1.2)
+  "application/vnd.ims.imsccv1p3+zip", // .imscc (Common Cartridge v1.3)
+  ".imscc", // .imscc (extension fallback; browsers report no MIME for it)
   "text/x-tex", // .tex
   "text/vtt", // .vtt
 ]
