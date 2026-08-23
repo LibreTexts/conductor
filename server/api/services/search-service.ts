@@ -510,16 +510,99 @@ export default class SearchService {
     }
   }
 
-  async deleteDocuments(indexName: (typeof INDEXES)[number], ids: string[]) {
+  async deleteDocuments(
+    indexName: (typeof INDEXES)[number],
+    ids: string[],
+    { waitForCompletion = false, timeOutMs = 60_000 }: { waitForCompletion?: boolean; timeOutMs?: number } = {}
+  ) {
     try {
       const index = this.indexes.get(indexName);
       if (!index) {
         throw new Error(INDEX_NOT_FOUND_ERROR);
       }
-      return index.deleteDocuments(ids);
+      const enqueued = await index.deleteDocuments(ids);
+
+      if (!waitForCompletion) return enqueued;
+
+      // DELETE /indexes/{uid}/documents is asynchronous — the HTTP call only enqueues a task.
+      // A deletion that Meilisearch refuses is reported via task status, not the HTTP response,
+      // so a caller that does not wait cannot tell a dropped delete from a successful one.
+      const finished: any = await this._client.tasks.waitForTask(enqueued.taskUid, { timeout: timeOutMs });
+      if (finished.status === "failed" || finished.status === "canceled") {
+        const err: any = new Error(
+          `[Meilisearch] Delete task ${finished.uid} for index ${indexName} finished with status '${finished.status}': ` +
+          `${finished.error?.code ?? "unknown_code"} — ${finished.error?.message ?? "no message"} ` +
+          `(type=${finished.error?.type ?? "?"}, link=${finished.error?.link ?? "?"})`
+        );
+        err.meilisearchError = finished.error;
+        err.meilisearchTask = finished;
+        throw err;
+      }
+      return finished;
     } catch (error: any) {
       debugServer(
         `[SearchService] Error deleting documents from index ${indexName}: ${error}`
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Returns every primary key currently stored in an index.
+   *
+   * For reconciliation only (finding documents whose source record is gone) — it
+   * pages through the whole index, so never call it in a request path.
+   *
+   * Best-effort, not a snapshot: offset paging has no stable order, so documents
+   * written or removed while this is running can shift across a page boundary and
+   * be seen twice or not at all. Only ever use the result to find records that no
+   * longer exist in the source of truth — a missed id just defers that cleanup to
+   * the next run, whereas treating this as an exhaustive listing would not be safe.
+   */
+  async getAllDocumentIds(indexName: (typeof INDEXES)[number]): Promise<string[]> {
+    try {
+      const index = this.indexes.get(indexName);
+      if (!index) {
+        throw new Error(INDEX_NOT_FOUND_ERROR);
+      }
+
+      const primaryKey = INDEX_PRIMARY_KEYS[indexName];
+      const batchSize = 1000;
+      // Backstop only: the loop exits on a short page long before this. It exists so a
+      // server that keeps returning full pages cannot spin here indefinitely.
+      const maxPages = 10_000;
+      const ids: string[] = [];
+      let offset = 0;
+
+      for (let page_i = 0; page_i < maxPages; page_i += 1) {
+        const page: any = await index.getDocuments({
+          fields: [primaryKey],
+          limit: batchSize,
+          offset,
+        });
+        const results: any[] = page?.results ?? [];
+        if (results.length === 0) break;
+
+        for (const doc of results) {
+          const id = doc?.[primaryKey];
+          if (typeof id === "string" && id) ids.push(id);
+        }
+
+        if (results.length < batchSize) break;
+        offset += batchSize;
+
+        if (page_i === maxPages - 1) {
+          debugServer(
+            `[SearchService] Hit the ${maxPages}-page cap listing document ids for index ${indexName}; ` +
+            `returning a partial listing.`
+          );
+        }
+      }
+
+      return ids;
+    } catch (error: any) {
+      debugServer(
+        `[SearchService] Error listing document ids for index ${indexName}: ${error}`
       );
       throw error;
     }

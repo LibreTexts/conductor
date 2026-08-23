@@ -101,6 +101,14 @@ import {
 import type { MongoBulkWriteError } from "mongodb";
 import { normalizedSort } from "../util/searchutils.js";
 import SearchService from "./services/search-service.js";
+import {
+  attachAssetCounts,
+  bookSearchIndexAggregationStages,
+  buildBookSearchDocuments,
+  pruneDeletedBooksFromSearchIndex,
+  removeBookFromSearchIndex,
+  sanitizeForSearchIndex,
+} from "./services/book-search-service.js";
 import { PressBookScraper } from "../util/pressbookutils.js";
 import PressbooksImportJob from "../models/pressbooksimportjob.js";
 import base62 from "base62-random";
@@ -921,21 +929,9 @@ async function getCommonsCatalog(
       numTotal = totalCount;
     }
 
-    // Check if the associated project has any public or instructor only files
-    const publicOrInstructorSearch =
-      await _getBookPublicOrInstructorAssetsCount(
-        books.map((r) => r.bookID) || [],
-      );
-
-    // Add the publicOrInstructorAssets field to each book
-    books.forEach((book) => {
-      const bookID = book.bookID;
-      const found = publicOrInstructorSearch.find((b) => b.bookID === bookID);
-      // @ts-ignore
-      book.publicAssets = found?.publicAssets || 0;
-      // @ts-ignore
-      book.instructorAssets = found?.instructorAssets || 0;
-    });
+    // Attach the public/instructor asset counts of the associated project, via the
+    // same helper the search index uses, so both report identical numbers.
+    await attachAssetCounts(books);
 
     return res.send({
       err: false,
@@ -1512,6 +1508,12 @@ async function deleteBook(
     // </delete from central API>
 
     await Book.deleteOne({ bookID });
+
+    /* Fire-and-forget: an unpublish must not fail on a Meilisearch hiccup. The
+       book is gone from Mongo, so a dropped index write leaves a stale document
+       until the next full re-sync — not a failed delete. */
+    void removeBookFromSearchIndex(bookID);
+
     return res.send({
       err: false,
       msg: "Book successfully deleted.",
@@ -2502,116 +2504,6 @@ const retrieveKBExport = (_req: Request, res: Response) => {
     });
 };
 
-export async function _getBookPublicOrInstructorAssetsCount(
-  ids: string[],
-): Promise<
-  {
-    bookID: string;
-    publicAssets: number;
-    instructorAssets: number;
-  }[]
-> {
-  return Book.aggregate([
-    {
-      $match: {
-        bookID: { $in: ids },
-      },
-    },
-    {
-      $lookup: {
-        from: "projects",
-        let: {
-          bookIdParts: {
-            $split: ["$bookID", "-"],
-          },
-        },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  {
-                    $eq: [
-                      "$libreLibrary",
-                      {
-                        $arrayElemAt: ["$$bookIdParts", 0],
-                      },
-                    ],
-                  },
-                  {
-                    $eq: [
-                      "$libreCoverID",
-                      {
-                        $arrayElemAt: ["$$bookIdParts", 1],
-                      },
-                    ],
-                  },
-                ],
-              },
-            },
-          },
-          {
-            $project: {
-              projectID: 1,
-            },
-          },
-        ],
-        as: "projectDetails",
-      },
-    },
-    {
-      $addFields: {
-        project: {
-          $first: "$projectDetails",
-        },
-      },
-    },
-    {
-      $match: {
-        "project.projectID": {
-          $exists: true,
-          $ne: "",
-        },
-      },
-    },
-    {
-      $lookup: {
-        from: "projectfiles",
-        localField: "project.projectID",
-        foreignField: "projectID",
-        as: "projectFiles",
-      },
-    },
-    {
-      $project: {
-        bookID: "$bookID",
-        publicAssets: {
-          $size: {
-            $filter: {
-              input: "$projectFiles",
-              as: "file",
-              cond: {
-                $eq: ["$$file.access", "public"],
-              },
-            },
-          },
-        },
-        instructorAssets: {
-          $size: {
-            $filter: {
-              input: "$projectFiles",
-              as: "file",
-              cond: {
-                $eq: ["$$file.access", "instructors"],
-              },
-            },
-          },
-        },
-      },
-    },
-  ]);
-}
-
 export async function syncWithSearchIndex(req: Request, res: Response) {
   try {
     // Return response immediately to avoid timeout
@@ -2636,6 +2528,95 @@ export async function syncWithSearchIndex(req: Request, res: Response) {
   }
 }
 
+/* A 500-document Meilisearch task can outrun the SearchService default on a
+   loaded instance, and this is a background job — give it room. */
+const SEARCH_INDEX_TASK_TIMEOUT_MS = 120_000;
+
+/* Each catch-up pass covers a strictly shorter window than the last, so a small
+   budget is enough to converge. Anything still outstanding waits for the next
+   re-sync rather than holding this run open indefinitely. */
+const SEARCH_INDEX_CATCH_UP_PASSES = 3;
+
+/* The catch-up assumes only a handful of Books change while a re-sync runs. A
+   concurrent library walk breaks that assumption wholesale: `buildBookUpsertOp`
+   $sets `lastSyncedAt` on every Book it touches, so Mongoose stamps `updatedAt`
+   across the whole corpus whether or not any field actually changed. Past this
+   many hits the window is not a catch-up, it is a second full rebuild — skip it
+   and let the next re-sync cover the ground. */
+const SEARCH_INDEX_CATCH_UP_MAX = 5_000;
+
+/**
+ * Re-indexes every Book written since `since`, repeating until a pass finds
+ * nothing new or the pass budget (`SEARCH_INDEX_CATCH_UP_PASSES`) runs out.
+ * Returns the number of documents rewritten.
+ *
+ * The full walk pages through `Book.aggregate`, so a Book written after its page's
+ * snapshot was read gets indexed from stale data. Meilisearch is last-write-wins
+ * per document with no conditional update, so the walk's older payload silently
+ * overwrites whatever a concurrent incremental upsert (Shapeshift webhook, a Book
+ * edit, another instance) had just written. Reading Mongo again closes that window
+ * no matter which process opened it — an in-process lock could not, because every
+ * instance shares one Meilisearch.
+ */
+async function catchUpSearchIndexSince(
+  since: Date,
+  batchSize: number,
+): Promise<number> {
+  const searchService = await SearchService.getInstance();
+  let cursor = since;
+  let rewritten = 0;
+
+  for (let pass = 0; pass < SEARCH_INDEX_CATCH_UP_PASSES; pass += 1) {
+    /* Stamped before the read, so a write landing during this pass is caught by
+       the next one rather than falling through the gap. */
+    const passStartedAt = new Date();
+    const changed = await Book.find(
+      { updatedAt: { $gt: cursor } },
+      { bookID: 1, _id: 0 },
+    )
+      /* One over the cap, purely to tell "at the cap" from "over it". */
+      .limit(SEARCH_INDEX_CATCH_UP_MAX + 1)
+      .lean();
+    if (changed.length === 0) break;
+
+    if (changed.length > SEARCH_INDEX_CATCH_UP_MAX) {
+      debugServer(
+        `Catch-up window covers more than ${SEARCH_INDEX_CATCH_UP_MAX} books — a library ` +
+          `walk most likely overlapped this run and restamped every lastSyncedAt. ` +
+          `Skipping the catch-up; the next re-sync covers it.`,
+      );
+      break;
+    }
+
+    const bookIDs = changed.map((book) => book.bookID);
+    for (let i = 0; i < bookIDs.length; i += batchSize) {
+      /* Already applies attachAssetCounts and sanitizeForSearchIndex, so these
+         documents are shaped identically to the ones the walk writes. A Book
+         deleted mid-run simply drops out here; the prune removes it. */
+      const docs = await buildBookSearchDocuments(
+        bookIDs.slice(i, i + batchSize),
+      );
+      if (docs.length === 0) continue;
+
+      await searchService.addDocuments("books", docs, {
+        waitForCompletion: true,
+        timeOutMs: SEARCH_INDEX_TASK_TIMEOUT_MS,
+      });
+      rewritten += docs.length;
+    }
+
+    cursor = passStartedAt;
+  }
+
+  if (rewritten > 0) {
+    debugServer(
+      `Re-indexed ${rewritten} book(s) written while the re-sync was running.`,
+    );
+  }
+
+  return rewritten;
+}
+
 /**
  * Syncs all books to the search index in batches to avoid memory issues
  * and timeouts with large datasets. Runs in the background.
@@ -2651,91 +2632,13 @@ export async function syncBooksInBackground() {
     let hasMore = true;
     let totalSynced = 0;
 
-    /**
-     * Book data for search index should be in format:
-     * {
-     * bookID: string,
-     *  ...other Book fields,
-     *  projectTags: string[] // array of tag titles associated with the Book's Project
-     * }
-     */
-    const aggregationPipeline = [
-      {
-        // Add project data to each book (if any)
-        $lookup: {
-          from: "projects",
-          let: {
-            lib: "$library",
-            coverID: { $arrayElemAt: [{ $split: ["$bookID", "-"] }, 1] },
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$$lib", "$libreLibrary"] },
-                    { $eq: ["$$coverID", "$libreCoverID"] },
-                    { $eq: ["$visibility", "public"] },
-                  ],
-                },
-              },
-            },
-          ],
-          as: "project",
-        },
-      },
-      {
-        $addFields: {
-          project: {
-            $arrayElemAt: ["$project", 0],
-          },
-        },
-      },
-      // project.tags is a string array of tagID's; we need to load the actual tag.title values
-      {
-        $lookup: {
-          from: "tags",
-          localField: "project.tags",
-          foreignField: "tagID",
-          as: "projectTags",
-        },
-      },
-      {
-        $addFields: {
-          projectTags: {
-            $map: {
-              input: "$projectTags",
-              as: "tag",
-              in: "$$tag.title",
-            },
-          },
-          courseNormalized: {
-            $toLower: {
-              $trim: {
-                input: {
-                  $ifNull: ["$course", ""],
-                },
-              },
-            },
-          },
-        },
-      },
-      {
-        // Exclude fields that add no value to search index
-        $project: {
-          _id: 0,
-          __v: 0,
-          createdAt: 0,
-          updatedAt: 0,
-          randomIndex: 0,
-          project: 0,
-        },
-      },
-    ];
+    /* Any Book written from here on may be read by the walk below from a snapshot
+       taken before that write — see the catch-up pass that follows the loop. */
+    const syncStartedAt = new Date();
 
     while (hasMore) {
       const books = await Book.aggregate([
-        ...aggregationPipeline,
+        ...bookSearchIndexAggregationStages,
         { $skip: skip },
         { $limit: batchSize },
       ]);
@@ -2746,18 +2649,16 @@ export async function syncBooksInBackground() {
       }
 
       // Attach public/instructor asset counts so the search index can filter on them.
-      // Reuse _getBookPublicOrInstructorAssetsCount as the single source of truth so the
-      // counts stored here always match what the v1 booksSearch computes at query time.
-      const assetCounts = await _getBookPublicOrInstructorAssetsCount(
-        books.map((book) => book.bookID),
-      );
-      books.forEach((book) => {
-        const found = assetCounts.find((c) => c.bookID === book.bookID);
-        book.publicAssets = found?.publicAssets ?? 0;
-        book.instructorAssets = found?.instructorAssets ?? 0;
-      });
+      await attachAssetCounts(books);
 
-      await searchService.addDocuments("books", books);
+      /* Waited to completion, not just enqueued: document-level rejections are
+         reported through task status, never the HTTP response, so without this the
+         success logged below would be indistinguishable from a batch Meilisearch
+         threw away. It also keeps the loop from outrunning the task queue. */
+      await searchService.addDocuments("books", sanitizeForSearchIndex(books), {
+        waitForCompletion: true,
+        timeOutMs: SEARCH_INDEX_TASK_TIMEOUT_MS,
+      });
       totalSynced += books.length;
       debugServer(
         `Synced batch of ${books.length} books (${totalSynced} total)...`,
@@ -2771,8 +2672,16 @@ export async function syncBooksInBackground() {
       }
     }
 
+    const caughtUp = await catchUpSearchIndexSince(syncStartedAt, batchSize);
+
+    /* Upserts alone never remove anything, so a book deleted while Meilisearch was
+       unreachable would stay searchable forever. Reconcile now that every live Book
+       has been written — applied, not merely enqueued, so no stale document can
+       still be in flight and slip past the index read this performs. */
+    const pruned = await pruneDeletedBooksFromSearchIndex();
+
     debugServer(
-      `Commons Books search index sync completed. Total synced: ${totalSynced}`,
+      `Commons Books search index sync completed. Total synced: ${totalSynced}, caught up: ${caughtUp}, pruned: ${pruned}`,
     );
   } catch (e) {
     debugError("Error in syncBooksInBackground:", e);
@@ -3434,7 +3343,6 @@ export default {
   retrieveKBExport,
   syncWithSearchIndex,
   syncBooksInBackground,
-  _getBookPublicOrInstructorAssetsCount,
   getGlossaryTermSearch,
   addBookGlossary,
   getBookGlossary,

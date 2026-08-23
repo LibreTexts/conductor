@@ -1,10 +1,11 @@
-import { ShapeshiftJob, ShapeshiftJobStatus } from "../../types/Shapeshift";
+import { ShapeshiftJob, ShapeshiftJobStatus } from "../../types/Shapeshift.js";
 import axios, { AxiosInstance } from "axios";
-import { debugCommonsSync, debugError } from "../../debug";
-import Book from "../../models/book";
+import { debugCommonsSync, debugError } from "../../debug.js";
+import Book from "../../models/book.js";
 import { z } from "zod";
-import { WebhookValidator } from "../validators/shapeshift";
-import { syncSingleBook } from "./book-sync-service";
+import { WebhookValidator } from "../validators/shapeshift.js";
+import { syncSingleBook } from "./book-sync-service.js";
+import { upsertBookToSearchIndex } from "./book-search-service.js";
 
 type WebhookParams = z.infer<typeof WebhookValidator>["body"];
 
@@ -128,11 +129,21 @@ export default class ShapeshiftService {
    * When the sync creates a Book that did not exist a moment ago, the
    * compilation data from this delivery is applied to it — it had nothing to
    * attach to on the first attempt.
+   *
+   * The search index is refreshed last, once every write this delivery makes has
+   * landed. Indexing from inside `syncSingleBook` would be too early: on the
+   * `ingested` path the compilation status is written after it returns, so the
+   * document would go to Meilisearch without its `exportInfo`.
    */
   private queueLiveSync(params: WebhookParams): void {
     const { bookID } = params;
     if (inFlightSyncs.has(bookID)) {
       debugCommonsSync(`Live sync for ${bookID} already running — skipping.`);
+      /* The run already in flight will refresh the library data, but it may have
+         read the Book before this delivery's compilation status landed. That
+         write is already awaited by the caller, so indexing here is safe and
+         picks it up. */
+      void upsertBookToSearchIndex(bookID);
       return;
     }
     inFlightSyncs.add(bookID);
@@ -148,6 +159,12 @@ export default class ShapeshiftService {
             `Live sync for ${bookID} finished as ${outcome.status}: ${outcome.reason}`
           );
         }
+
+        /* Every Mongo write from this delivery has landed — publish the result to
+           Commons search now instead of waiting for the next full re-sync. Runs
+           even when the sync was skipped or errored, because the compilation
+           status write may still have changed the stored Book. Never throws. */
+        await upsertBookToSearchIndex(bookID);
       } catch (error) {
         debugError(error);
       } finally {
