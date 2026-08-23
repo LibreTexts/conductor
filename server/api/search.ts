@@ -28,7 +28,7 @@ import Author from "../models/author.js";
 import Fuse from "fuse.js";
 import Organization from "../models/organization.js";
 import AssetTagFramework from "../models/assettagframework.js";
-import { _getBookPublicOrInstructorAssetsCount, buildOrganizationNamesList } from "./books.js";
+import { buildOrganizationNamesList } from "./books.js";
 import CustomCatalog, { CustomCatalogInterface } from "../models/customcatalog.js";
 import SearchService from "./services/search-service.js";
 import { FilterInput, FilterObject } from "../types/Search.js";
