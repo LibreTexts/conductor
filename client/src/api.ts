@@ -74,6 +74,7 @@ import {
 import {
   AddableProjectTeamMember,
   CIDDescriptor,
+  CreateWorkbenchForm,
   ImportWorkbenchForm,
   ProjectBookBatchUpdateJob,
   ProjectFileAuthor,
@@ -2859,6 +2860,36 @@ class API {
       projectID,
     });
     return response;
+  }
+
+  async createWorkbench(values: CreateWorkbenchForm, projectID: string) {
+    return axios.post<
+      {
+        path: string;
+        url: string;
+        warnings?: string[];
+      } & ConductorBaseResponse
+    >("/commons/book", {
+      ...values,
+      projectID,
+    });
+  }
+
+  /**
+   * Advisory check used by the Create Book modal so a duplicate title surfaces
+   * while the field is still editable. `available: null` means the library could
+   * not be reached; treat it as available and let the server decide on submit.
+   */
+  async checkBookTitleAvailability(library: number | string, title: string) {
+    return axios.get<
+      {
+        available: boolean | null;
+        path: string;
+        url: string;
+      } & ConductorBaseResponse
+    >("/commons/book/title-availability", {
+      params: { library, title },
+    });
   }
 
   async getRestackerToc(id: string) {
