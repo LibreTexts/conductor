@@ -1887,51 +1887,148 @@ const runRemixerJob = async ({
   }
 };
 
+/**
+ * Reads the "the user has edited this page" flags off a stored remixer page.
+ *
+ * Two generations of flags coexist in saved state: the raw `renamedItem` /
+ * `movedItem` set by the editor, and the derived `isRenamed` /
+ * `isPlacementChanged` added later by `withDerivedStatusFlags` on the client.
+ * Both are optional, and older documents carry only the raw pair, so a check
+ * against just one form silently misses real user edits.
+ *
+ * These are treated as "edited if either form says so" on purpose. The caller
+ * uses them to decide whether upstream values may overwrite stored ones, so the
+ * conservative direction is to keep the local value: a stale title is a
+ * cosmetic problem, a discarded rename is data loss.
+ */
+const getRemixerPageEditFlags = (
+  page: RemixerSubPageState,
+): { isRenamed: boolean; isPlacementChanged: boolean } => ({
+  isRenamed: page.isRenamed === true || page.renamedItem === true,
+  isPlacementChanged:
+    page.isPlacementChanged === true || page.movedItem === true,
+});
+
+/**
+ * Locally-imported pages have not been created in MindTouch yet, so they never
+ * appear in the live TOC and must not be reconciled against it. The client
+ * mints their ids as `${sourceID}-${timestamp}-${random}` (see
+ * `computeLibraryImportInsertion` in `client/src/components/remixer/services.ts`),
+ * so the `-` is what separates them from a real MindTouch page id.
+ */
+const isLocallyImportedPageID = (pageID: string): boolean =>
+  pageID.includes("-");
+
+/**
+ * Reconciles a saved remixer book against the book's live TOC.
+ *
+ * - Pages the user has moved or renamed keep their local values; everything
+ *   else picks up the current upstream href/title.
+ * - Pages that no longer exist upstream are pulled out of the book and returned
+ *   as `untracked` so the caller can tell the user what disappeared.
+ * - Locally-imported children left orphaned by that removal are reparented to
+ *   the root rather than being dropped, and returned as `reparented`.
+ *
+ * `toc` may be null when the project has no book or the TOC lookup failed. In
+ * that case the saved book is returned untouched — reconciling against an
+ * absent TOC would report the entire book as untracked and delete it.
+ */
 const findDifference = (
   remixerCurrentBook: RemixerSubPageState[],
-  toc: any[],
-): { mutated: RemixerSubPageState[] , untracked: RemixerSubPageState[]} => {
-
-  const untracked: RemixerSubPageState[] = [];
-  
-  const mutated = remixerCurrentBook.map((item) => {
+  toc: RemixerSubPage[] | null,
+): {
+  mutated: RemixerSubPageState[];
+  untracked: RemixerSubPageState[];
+  reparented: RemixerSubPageState[];
+} => {
+  const normalize = (page: RemixerSubPageState): RemixerSubPageState => {
     try {
-      const plain = remixerSubPageToResponse(item);
-      const pageID = String(plain["@id"] ?? "");
-      if (pageID.includes("-")) {
-        return plain;
-      }
-
-      const tocItem = toc.find((tocItem) => tocItem["@id"] === pageID);
-      if (!tocItem) {
-        untracked.push(plain);
-        return undefined;
-      }
-
-      const pageURI = tocItem["@href"];
-      const pageURIUi = tocItem["uri.ui"];
-      const pageTitle = tocItem.title;
-      const currentHref = String(plain["@href"] ?? "");
-      const currentUriUi = plain["uri.ui"];
-
-      return {
-        ...plain,
-        "@href":
-          pageURI && plain.isPlacementChanged ? currentHref : pageURI,
-        "uri.ui":
-          pageURIUi && plain.isPlacementChanged ? currentUriUi : pageURIUi,
-        ...(!plain.isRenamed ? { title: pageTitle, "@title": pageTitle } : {}),
-      };
-    } catch {
-      return remixerSubPageToResponse(item);
+      return remixerSubPageToResponse(page);
+    } catch (err) {
+      log(
+        `[Remixer] findDifference: could not normalize page ${
+          page?.["@id"] ?? "(unknown)"
+        }: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return page;
     }
-  });
-  return {
-    mutated: mutated.filter(
-      (item): item is RemixerSubPageState => item !== undefined,
-    ),
-    untracked
   };
+
+  if (!toc) {
+    return {
+      mutated: remixerCurrentBook.map(normalize),
+      untracked: [],
+      reparented: [],
+    };
+  }
+
+  const tocByID = new Map<string, RemixerSubPage>();
+  for (const tocItem of toc) {
+    tocByID.set(String(tocItem["@id"] ?? ""), tocItem);
+  }
+
+  const mutated: RemixerSubPageState[] = [];
+  const untracked: RemixerSubPageState[] = [];
+
+  for (const item of remixerCurrentBook) {
+    const plain = normalize(item);
+    const pageID = String(plain["@id"] ?? "");
+
+    if (isLocallyImportedPageID(pageID)) {
+      mutated.push(plain);
+      continue;
+    }
+
+    const tocItem = tocByID.get(pageID);
+    if (!tocItem) {
+      untracked.push(plain);
+      continue;
+    }
+
+    const { isRenamed, isPlacementChanged } = getRemixerPageEditFlags(plain);
+    const tocHref = tocItem["@href"];
+    const tocURIUi = tocItem["uri.ui"];
+    const tocTitle = tocItem.title;
+
+    // An upstream value is only adopted when the user has not moved/renamed the
+    // page AND the TOC actually carries one. `BookService._toRemixerSubPage`
+    // defaults every one of these fields to "" when absent, so assigning
+    // unconditionally would blank the stored href/title.
+    mutated.push({
+      ...plain,
+      "@href":
+        !isPlacementChanged && tocHref ? tocHref : String(plain["@href"] ?? ""),
+      "uri.ui": !isPlacementChanged && tocURIUi ? tocURIUi : plain["uri.ui"],
+      ...(!isRenamed && tocTitle
+        ? { title: tocTitle, "@title": tocTitle }
+        : {}),
+    });
+  }
+
+  // Removing a page can orphan the locally-imported children kept above: their
+  // parentID now points at a page that is no longer in the book, which leaves
+  // the client with an unrenderable tree. Reparent them to the root so they
+  // stay visible and the user can re-place them, and mark them moved so a later
+  // reconciliation treats their placement as user-owned.
+  const reparented: RemixerSubPageState[] = [];
+  if (untracked.length > 0) {
+    const survivingIDs = new Set(mutated.map((p) => String(p["@id"] ?? "")));
+    for (let i = 0; i < mutated.length; i++) {
+      const parentID = mutated[i].parentID;
+      if (!parentID || parentID === "-1" || survivingIDs.has(parentID)) {
+        continue;
+      }
+      mutated[i] = {
+        ...mutated[i],
+        parentID: "-1",
+        isPlacementChanged: true,
+        movedItem: true,
+      };
+      reparented.push(mutated[i]);
+    }
+  }
+
+  return { mutated, untracked, reparented };
 };
 
 export default {

@@ -2805,7 +2805,12 @@ class API {
         pathLevelFormats?: unknown[];
         updatedAt?: Date;
         updatedBy?: string;
-        untracked:unknown[];
+        /** Pages that no longer exist in the live book and were dropped. */
+        untracked?: unknown[];
+        /** Kept pages whose parent was dropped; reparented to the book root. */
+        reparented?: unknown[];
+        /** False when the live TOC was unavailable, so `untracked` proves nothing. */
+        reconciled?: boolean;
       } & ConductorBaseResponse
     >(`/remixer/${id}/project`, {});
     return res.data;
