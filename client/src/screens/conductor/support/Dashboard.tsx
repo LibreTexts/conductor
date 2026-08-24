@@ -86,19 +86,24 @@ const SupportDashboard = () => {
 
   return (
     <AlternateLayout noPadding>
-      <div className="flex flex-row">
+      <div className="flex min-w-0 flex-row">
         <SupportQueuesSidebar
           showCounts={user.isSupport}
           showMetrics={user.isSupport}
         />
-        <div className="flex flex-col w-full p-8 bg-gray-100/50">
-          <div className="w-full overflow-x-auto">
+        <div className="flex min-w-0 flex-1 flex-col bg-gray-100/50 p-4 sm:p-6 lg:p-8">
+          <div className="w-full min-w-0">
             <div className="flex flex-col w-full">
-              <div className="flex justify-between w-full items-center">
+              <div className="flex w-full flex-wrap items-center justify-between gap-3">
                 <Heading level={2} className="mb-2 capitalize">
                   {selectedQueue}
                 </Heading>
-                <Stack direction="horizontal" gap="sm" align="center">
+                <Stack
+                  direction="horizontal"
+                  gap="sm"
+                  align="center"
+                  className="flex-wrap"
+                >
                   {user.isSuperAdmin && (
                     <IconButton
                       icon={<IconSettings size={18} />}
@@ -134,7 +139,12 @@ const SupportDashboard = () => {
                 </Stack>
               </div>
               <div className="flex flex-col w-full">
-                <Stack direction="horizontal" gap="md" align="end">
+                <Stack
+                  direction="horizontal"
+                  gap="md"
+                  align="end"
+                  className="flex-wrap"
+                >
                   <Input
                     name="search-tickets"
                     label="Search"
@@ -144,7 +154,7 @@ const SupportDashboard = () => {
                       setQueryInputString(e.target.value);
                       debouncedQueryUpdate(e.target.value);
                     }}
-                    className="min-w-80!"
+                    className="w-full! min-w-64! sm:w-80!"
                     leftIcon={<IconSearch className="size-5 text-gray-400" />}
                   />
                   {user.isSupport && (
@@ -152,7 +162,7 @@ const SupportDashboard = () => {
                       value={assigneeFilters}
                       onChange={(v) => setAssigneeFilters(v)}
                       multiple
-                      className="max-w-56!"
+                      className="w-56! max-w-full!"
                     >
                       <Listbox.Button
                         displayValue={(v) => {
@@ -180,7 +190,7 @@ const SupportDashboard = () => {
                       value={priorityFilters}
                       onChange={(v) => setPriorityFilters(v)}
                       multiple
-                      className="max-w-56!"
+                      className="w-56! max-w-full!"
                     >
                       <Listbox.Button
                         displayValue={(v) => {
@@ -207,7 +217,7 @@ const SupportDashboard = () => {
                     value={statusFilters}
                     onChange={(v) => setStatusFilters(v)}
                     multiple
-                    className="max-w-56!"
+                    className="w-56! max-w-full!"
                   >
                     <Listbox.Button
                       displayValue={(v) => {
@@ -234,7 +244,7 @@ const SupportDashboard = () => {
                       value={categoryFilters}
                       onChange={(v) => setCategoryFilters(v)}
                       multiple
-                      className="max-w-56!"
+                      className="w-56! max-w-full!"
                     >
                       <Listbox.Button
                         displayValue={(v) => {
