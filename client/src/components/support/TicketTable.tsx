@@ -115,8 +115,8 @@ const TicketTable: React.FC<TicketTableProps> = ({
   };
 
   return (
-    <div className="w-full h-screen overflow-auto border border-gray-200 rounded-lg !bg-white">
-      <table className="w-full text-left whitespace-nowrap !bg-white">
+    <div className="h-screen w-full max-w-full overflow-auto rounded-lg border border-gray-200 !bg-white">
+      <table className="w-full min-w-max text-left whitespace-nowrap !bg-white">
         <thead className="sticky top-0 border-b border-r border-slate-200 text-sm/6  text-gray-900 bg-gray-100 font-semibold shadow-sm">
           <tr className="">
             {showSelect && (
