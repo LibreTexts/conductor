@@ -21,6 +21,7 @@ import { generateAPIRequestHeaders } from "../util/librariesclient.js";
 import User from "../models/user.js";
 import BookService from "./services/book-service.js";
 import type { RemixerSubPageState } from "../models/projectremixer.js";
+import type { RemixerSubPage } from "../types/Remixer.js";
 import { ProjectContext, ProjectError, returnProjectError } from "./services/project-context.js";
 import { debug } from "../debug.js";
 import { conductor500Err } from "../util/errorutils.js";
@@ -386,30 +387,56 @@ const getRemixerProjectState = async (
       return returnProjectError(res, new ProjectError("unauthorized"));
     }
 
-    const bookService = new BookService({
-      bookID: `${ctx.doc.libreLibrary}-${ctx.doc.libreCoverID}`,
-    });
-    const [toc,remixerState] = await Promise.all([bookService.getBookTreeFull({ flatten: true }), PrejectRemixer.findOne(
-      { projectID: id },
-      {
-        projectID: 1,
-        archived: 1,
-        remixerCurrentBook: 1,
-        autoNumbering: 1,
-        copyModeState: 1,
-        pathLevelFormats: 1,
-        updatedAt: 1,
-        updatedBy: 1,
-        _id: 0,
-      },
-    ).sort({ updatedAt: -1 })
-    .exec(),
-  ]);
+    // Reconciling the saved book against the live TOC needs a MindTouch lookup,
+    // but reading saved state must not depend on it: a project with no book, or
+    // a transient upstream failure, has to still return the user's work rather
+    // than a 500 the client shows as an empty book. A null TOC means "could not
+    // check", and findDifference passes the saved book through untouched.
+    const canResolveTOC = Boolean(ctx.doc.libreLibrary && ctx.doc.libreCoverID);
+    const tocPromise: Promise<RemixerSubPage[] | null> = canResolveTOC
+      ? new BookService({
+          bookID: `${ctx.doc.libreLibrary}-${ctx.doc.libreCoverID}`,
+        })
+          .getBookTreeFull({ flatten: true })
+          .then((tree) => (Array.isArray(tree) ? tree : null))
+          .catch((err) => {
+            debug(
+              "[remixer] TOC lookup failed; serving unreconciled state:",
+              err,
+            );
+            return null;
+          })
+      : Promise.resolve(null);
 
-    // compare remixerCurrentBook against TOC and get the difference
-   
+    const [toc, remixerState] = await Promise.all([
+      tocPromise,
+      PrejectRemixer.findOne(
+        { projectID: id },
+        {
+          projectID: 1,
+          archived: 1,
+          remixerCurrentBook: 1,
+          autoNumbering: 1,
+          copyModeState: 1,
+          pathLevelFormats: 1,
+          updatedAt: 1,
+          updatedBy: 1,
+          _id: 0,
+        },
+      )
+        .sort({ updatedAt: -1 })
+        .exec(),
+    ]);
 
-    const {mutated,untracked} = remixerService.findDifference(remixerState?.remixerCurrentBook ?? [], toc as any[]);
+    // An archived state is never served as a book, so there is nothing to
+    // reconcile and nothing worth reporting as untracked.
+    const isArchived = Boolean(remixerState?.archived);
+    const { mutated, untracked, reparented } = isArchived
+      ? { mutated: [], untracked: [], reparented: [] }
+      : remixerService.findDifference(
+          remixerState?.remixerCurrentBook ?? [],
+          toc,
+        );
     // find user by updatedBy
     const updatedByUser = await User.findOne(
       { uuid: { $eq: remixerState?.updatedBy } },
@@ -419,7 +446,7 @@ const getRemixerProjectState = async (
     return res.send({
       err: false,
       projectID: id,
-      currentBook: remixerState?.archived ? [] : mutated,
+      currentBook: mutated,
       autoNumbering: remixerState?.autoNumbering,
       copyModeState: remixerState?.copyModeState,
       pathLevelFormats: remixerState?.pathLevelFormats ?? [],
@@ -427,7 +454,11 @@ const getRemixerProjectState = async (
       updatedBy: updatedByUser
         ? `${updatedByUser.firstName ? updatedByUser.firstName : ""} ${updatedByUser?.lastName ? updatedByUser.lastName : ""} ${updatedByUser?.email ? updatedByUser.email : ""}`
         : "",
-      untracked: untracked,
+      untracked,
+      reparented,
+      // Whether the book was actually checked against the live TOC. False means
+      // the lookup was unavailable, so an empty `untracked` proves nothing.
+      reconciled: toc !== null && !isArchived,
     });
   } catch (err) {
     if (err instanceof ProjectError) {
