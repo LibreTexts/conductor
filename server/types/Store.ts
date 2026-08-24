@@ -2,21 +2,6 @@ import Stripe from "stripe";
 import { RawStoreOrder } from "../models/storeorder";
 import { Prettify } from "./Misc";
 
-export type DownloadCenterItem = {
-    id: string;
-    title: string;
-    zipFilename: string;
-    author: string;
-    institution: string;
-    link: string;
-    tags: string[];
-    summary: string;
-    failed: boolean;
-    numPages: number;
-    lastModified: string;
-    license?: string;
-}
-
 export type BookPriceOption = {
     hardcover: boolean;
     color: boolean;

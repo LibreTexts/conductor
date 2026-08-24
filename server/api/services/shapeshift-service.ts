@@ -6,6 +6,7 @@ import { z } from "zod";
 import { WebhookValidator } from "../validators/shapeshift.js";
 import { syncSingleBook } from "./book-sync-service.js";
 import { upsertBookToSearchIndex } from "./book-search-service.js";
+import { syncBookToStripe } from "./store-book-sync-service.js";
 
 type WebhookParams = z.infer<typeof WebhookValidator>["body"];
 
@@ -17,6 +18,26 @@ type WebhookParams = z.infer<typeof WebhookValidator>["body"];
  * a page whose data is already being fetched.
  */
 const inFlightSyncs = new Set<string>();
+
+/**
+ * Books whose in-flight sync must reprice again before it finishes.
+ *
+ * A delivery landing while another is mid-write cannot reprice itself — two
+ * concurrent writers can each create a price for the same variant. It sets this
+ * flag instead, and the run already in flight drains it once its own write is
+ * done. Coalesced, so ten deliveries during one write cost one follow-up, not
+ * ten.
+ */
+const pendingResyncs = new Set<string>();
+
+/**
+ * How many follow-up repricings one run will absorb before giving up.
+ *
+ * Each one consumes a flag that only a fresh delivery can re-add, so this
+ * converges on its own; the bound exists so a redelivery storm cannot pin a
+ * worker indefinitely. Whatever is left over is caught by the nightly reconcile.
+ */
+const MAX_COALESCED_RESYNCS = 3;
 
 export default class ShapeshiftService {
   private instance: AxiosInstance;
@@ -130,19 +151,38 @@ export default class ShapeshiftService {
    * compilation data from this delivery is applied to it — it had nothing to
    * attach to on the first attempt.
    *
-   * The search index is refreshed last, once every write this delivery makes has
-   * landed. Indexing from inside `syncSingleBook` would be too early: on the
-   * `ingested` path the compilation status is written after it returns, so the
-   * document would go to Meilisearch without its `exportInfo`.
+   * The search index and the Stripe store catalog are refreshed last, once every
+   * write this delivery makes has landed. Doing either from inside
+   * `syncSingleBook` would be too early: on the `ingested` path the compilation
+   * status is written after it returns, so the document would go to Meilisearch
+   * without its `exportInfo` and the book would be priced off the previous
+   * compile's page count.
+   *
+   * A delivery that arrives while a run is already in flight does not start its
+   * own repricing — it queues exactly one follow-up, which the in-flight run
+   * performs after its own write. Racing the writer would let both create a price
+   * for the same variant; skipping it outright would leave Stripe holding the
+   * older page count, because the in-flight run may have read the Book seconds
+   * before this delivery landed.
    */
   private queueLiveSync(params: WebhookParams): void {
     const { bookID } = params;
     if (inFlightSyncs.has(bookID)) {
-      debugCommonsSync(`Live sync for ${bookID} already running — skipping.`);
+      debugCommonsSync(
+        `Live sync for ${bookID} already running — queued a follow-up repricing.`
+      );
       /* The run already in flight will refresh the library data, but it may have
          read the Book before this delivery's compilation status landed. That
          write is already awaited by the caller, so indexing here is safe and
-         picks it up. */
+         picks it up. Meilisearch tolerates a concurrent writer — an unconditional
+         last-write-wins on a single document.
+
+         Stripe does not: two concurrent runs can each create a price for the same
+         variant. So repricing is queued rather than started. The in-flight run
+         may already have read this book's page count before this delivery landed,
+         and it is mid-write for seconds afterwards, so the flag is the only thing
+         that guarantees this delivery's count reaches Stripe. */
+      pendingResyncs.add(bookID);
       void upsertBookToSearchIndex(bookID);
       return;
     }
@@ -165,10 +205,37 @@ export default class ShapeshiftService {
            even when the sync was skipped or errored, because the compilation
            status write may still have changed the stored Book. Never throws. */
         await upsertBookToSearchIndex(bookID);
+
+        /* Same reasoning, and the same ordering constraint: a compile changes the
+           page count, and the page count sets the print price. Reading it any
+           earlier would price the book off the previous compile. Store pricing is
+           a nicety — this never throws. */
+        await syncBookToStripe(bookID);
+
+        /* Deliveries that arrived while the write above was in progress queued a
+           flag rather than racing it. Drain it now: the read that priced this
+           book happened before those deliveries landed, so without this the book
+           keeps the previous compile's price until the nightly reconcile.
+           `Set.delete` reports whether the flag was set, so checking and clearing
+           it is one step and cannot lose a concurrent add. */
+        let followUps = 0;
+        while (pendingResyncs.delete(bookID)) {
+          if (followUps >= MAX_COALESCED_RESYNCS) {
+            debugCommonsSync(
+              `Live sync for ${bookID} hit the follow-up limit (${MAX_COALESCED_RESYNCS}) — leaving the rest to the next full sync.`
+            );
+            break;
+          }
+          followUps += 1;
+          await syncBookToStripe(bookID);
+        }
       } catch (error) {
         debugError(error);
       } finally {
+        /* Both flags clear together. There is no `await` between the loop's last
+           check and this point, so no delivery can slip in and be forgotten. */
         inFlightSyncs.delete(bookID);
+        pendingResyncs.delete(bookID);
       }
     })();
   }

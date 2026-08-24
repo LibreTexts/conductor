@@ -1,9 +1,7 @@
 import Stripe from "stripe";
 import { debug } from "../../debug";
 import StripeService from "./stripe-service";
-import { getLibraryNameKeys } from "../libraries";
-import axios from "axios";
-import { BookPriceOption, StoreProduct, StoreShippingOption, DownloadCenterItem, LuluShippingLineItem, ResolvedProduct, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession, LuluPrintJob, LuluPrintJobParams, LULU_HEALTHY_STATUSES, LULU_FAILURE_STATUSES, LULU_RECOVERY_CONFIRMED_STATUSES } from "../../types";
+import { BookPriceOption, StoreProduct, StoreShippingOption, LuluShippingLineItem, ResolvedProduct, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession, LuluPrintJob, LuluPrintJobParams, LULU_HEALTHY_STATUSES, LULU_FAILURE_STATUSES, LULU_RECOVERY_CONFIRMED_STATUSES } from "../../types";
 import { checkBookIDFormat } from "../../util/bookutils";
 import { CreateCheckoutSessionSchema, GetShippingOptionsSchema, AdminGetStoreOrdersSchema } from "../validators/store";
 import { z } from "zod";
@@ -1421,195 +1419,6 @@ class StoreService {
         }
     }
 
-    public async syncBooksToStripe(): Promise<{
-        sync_count: number;
-        failed_count: number;
-    } | undefined> {
-        try {
-            let sync_count = 0;
-            let failed_count = 0;
-            const stripe = this.stripeService.getInstance();
-
-            const alllibraries = await getLibraryNameKeys(false, false);
-            if (!alllibraries || alllibraries.length === 0) {
-                debug("No libraries found to sync books.");
-                return undefined;
-            }
-
-            for (const library of alllibraries) {
-                const bookshelf = await axios.get(`https://api.libretexts.org/DownloadsCenter/${library}/Bookshelves.json`).catch((err) => {
-                    debug(`Error fetching bookshelf for library ${library}:`, err);
-                    return null;
-                });
-                const courses = await axios.get(`https://api.libretexts.org/DownloadsCenter/${library}/Courses.json`).catch((err) => {
-                    debug(`Error fetching courses for library ${library}:`, err);
-                    return null;
-                });
-
-                if ((!bookshelf || !bookshelf.data) && (!courses || !courses.data)) {
-                    debug(`No books or courses found for library: ${library}`);
-                    continue;
-                }
-
-                const allItems = new Set<DownloadCenterItem>();
-                if (bookshelf && bookshelf.data && bookshelf.data.items) {
-                    for (const item of bookshelf.data.items) {
-                        allItems.add(item);
-                    }
-                }
-
-                if (courses && courses.data && courses.data.items) {
-                    for (const item of courses.data.items) {
-                        allItems.add(item);
-                    }
-                }
-
-                // filter out any malformed items (e.g. missing id or title
-                for (const item of Array.from(allItems)) {
-                    if (!item.id || !item.title) {
-                        debug(`Skipping malformed item in library ${library}:`, item);
-                        allItems.delete(item);
-                    }
-                    if (item.failed === true) {
-                        debug(`Skipping failed item in library ${library}:`, item);
-                        allItems.delete(item);
-                    }
-                }
-
-                for (const book of Array.from(allItems)) {
-                    try {
-                        // add a slight delay to avoid hitting API rate limits
-                        await new Promise(resolve => setTimeout(resolve, 100));
-
-                        // Check if the book already exists in Stripe as a product
-                        const existingProducts = await stripe.products.search({
-                            query: `metadata["book_id"]:"${library}-${book.id}"`,
-                            limit: 1,
-                        });
-
-                        let product: Stripe.Product | null = null;
-                        const thumbnailUrl = this.getBookThumbnailUrl({ library, id: book.id });
-
-                        let bookLicense = "";
-                        if (Array.isArray(book.tags)) {
-                            const licenseTag = book.tags.find((tag) => tag.includes("license:"));
-                            if (licenseTag) {
-                                bookLicense = licenseTag.replace("license:", "");
-                            }
-                        }
-
-                        if (existingProducts.data.length > 0) {
-                            // If the product exists, update it
-                            product = existingProducts.data[0];
-                            await stripe.products.update(product.id, {
-                                name: book.title,
-                                description: book.summary || "No description available",
-                                images: [thumbnailUrl],
-                                metadata: {
-                                    bookID: `${library}-${book.id}`,
-                                    store: "true",
-                                    store_category: "books",
-                                    book_author: book.author || "Anonymous",
-                                    book_institution: book.institution || "",
-                                    num_pages: book.numPages.toString(),
-                                    license: bookLicense,
-                                }
-                            });
-                        } else {
-                            // If the product does not exist, create it
-                            product = await stripe.products.create({
-                                name: book.title,
-                                description: book.summary || "No description available",
-                                images: [thumbnailUrl],
-                                metadata: {
-                                    book_id: `${library}-${book.id}`,
-                                    store: "true",
-                                    store_category: "books",
-                                    book_author: book.author || "Anonymous",
-                                    book_institution: book.institution || "",
-                                    num_pages: book.numPages.toString(),
-                                    license: bookLicense,
-                                }
-                            });
-                        }
-
-                        const priceOptions = this.calculateBookPrices({ num_pages: book.numPages });
-                        const existingPrices = await stripe.prices.list({
-                            product: product.id,
-                            active: true,
-                        });
-
-                        for (const option of priceOptions.options) {
-                            const existingPrice = existingPrices.data.find((p) => {
-                                return p.metadata["hardcover"] === String(option.hardcover) &&
-                                    p.metadata["color"] === String(option.color);
-                            })
-
-                            if (existingPrice) {
-                                // if the price already exists and is the same currency and amount, update it
-                                // otherwise, we must delete it and create a new one
-                                if (existingPrice.unit_amount === option.price && existingPrice.currency === 'usd') {
-                                    await stripe.prices.update(existingPrice.id, {
-                                        tax_behavior: 'exclusive',
-                                        nickname: this._buildBookPriceNickname({
-                                            hardcover: option.hardcover,
-                                            color: option.color,
-                                        }),
-                                        metadata: {
-                                            ...existingPrice.metadata,
-                                            store: "true",
-                                            store_category: "books",
-                                        }
-                                    });
-                                    continue;
-                                }
-
-                                await stripe.prices.update(existingPrice.id, { active: false }); // Archive the existing price
-                                debug(`Archived existing price ${existingPrice.id} for ${product.name} with hardcover=${option.hardcover} and color=${option.color}.`);
-                                // Proceed to create a new price
-                            }
-
-                            // Create new price
-                            const newPrice = await stripe.prices.create({
-                                product: product.id,
-                                unit_amount: option.price,
-                                currency: 'usd',
-                                tax_behavior: 'exclusive',
-                                nickname: this._buildBookPriceNickname({
-                                    hardcover: option.hardcover,
-                                    color: option.color
-                                }),
-                                metadata: {
-                                    store: "true",
-                                    store_category: "books",
-                                    book_id: `${library}-${book.id}`,
-                                    bookstore: "true",
-                                    hardcover: String(option.hardcover),
-                                    color: String(option.color),
-                                }
-                            });
-                            debug(`Created new price ${newPrice.id} for ${product.name} with hardcover=${option.hardcover} and color=${option.color}: ${option.formatted_price}`);
-                        }
-
-                        sync_count++;
-                    } catch (error) {
-                        failed_count++;
-                        debug(`Error processing book ${book.id} in library ${library}:`, error);
-                        continue; // Skip to the next book if there's an error
-                    }
-                }
-            }
-            return {
-                sync_count,
-                failed_count,
-            }
-        } catch (error) {
-            debug("Error syncing books:", error);
-            throw new Error("Failed to sync books");
-        }
-    }
-
-
     public calculateBookPrices({ num_pages }: { num_pages: number }): { num_pages: number; options: BookPriceOption[] } {
         try {
             const options: BookPriceOption[] = [];
@@ -1720,6 +1529,16 @@ class StoreService {
             debug("[StoreService] Error validating max quantity for user:", err);
             return { maxQuantity: DEFAULT_MAX_QUANTITY, reason: "Error validating user role, applying default max quantity." };
         }
+    }
+
+    /**
+     * Drops the cached product listings so a catalog change is visible before the
+     * 5-minute TTL expires. Called by `store-book-sync-service` after it writes
+     * to or archives anything in Stripe.
+     */
+    public invalidateProductCache(): void {
+        const keys = this.cache.keys().filter((key) => key.startsWith('store_products_'));
+        if (keys.length > 0) this.cache.del(keys);
     }
 
     private async _fetchAllProducts(category?: string): Promise<StoreProduct[]> {
@@ -2183,7 +2002,12 @@ class StoreService {
         }).filter(product => product.prices.length > 0); // Filter out products without prices
     }
 
-    private _buildBookPriceNickname({ hardcover, color }: { hardcover: boolean; color: boolean }): string {
+    /**
+     * Human-readable label for a print option, shown on the Stripe price and in
+     * the store. Public because `store-book-sync-service` writes the same labels
+     * when it reconciles a book's prices.
+     */
+    public buildBookPriceNickname({ hardcover, color }: { hardcover: boolean; color: boolean }): string {
         let nickname = '';
         if (hardcover) {
             nickname += 'Hardcover';

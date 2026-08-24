@@ -44,6 +44,12 @@ export const GetStoreProductSchema = z.object({
     }),
 });
 
+export const SyncSingleBookToStripeSchema = z.object({
+    params: z.object({
+        bookID: z.string().trim().min(1, "Book ID is required"),
+    }),
+});
+
 export const CreateCheckoutSessionSchema = z.object({
     body: z.object({
         items: z.array(_ProductPriceQuantity)

@@ -1504,7 +1504,6 @@ const runRemixerJob = async ({
         inDeletedBranch,
         autoNumbering,
       );
-      console.log("title", title);
       const status = getPageStatus(page);
       const shouldSkip = shouldSkipPage(page, inMatterBranch, status);
 
