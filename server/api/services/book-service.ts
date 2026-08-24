@@ -543,17 +543,21 @@ export default class BookService {
    * Retrieves the content of a page as a string with unicode escape sequences
    * @param pageID - The ID of the page to fetch content from
    * @param format - The format of the content to fetch (html or json)
+   * @param mode - The MindTouch content mode. Defaults to MindTouch's own default (`view`), which is
+   * *rendered* output. Callers that intend to write the content back must pass `edit` so authored
+   * DekiScript/template/transclusion source is preserved.
    * @returns {string} - The raw content of the page
    */
   async getPageContent(
     pageID: string,
-    format: "html" | "json"
+    format: "html" | "json",
+    mode?: "edit" | "view" | "raw"
   ): Promise<string> {
     try {
       const pageContentsRes = await CXOneFetch({
         scope: "page",
         path: parseInt(pageID),
-        api: MindTouch.API.Page.GET_Page_Contents(format),
+        api: MindTouch.API.Page.GET_Page_Contents(format, mode),
         subdomain: this._library,
       }).catch((err) => {
         console.error(err);
@@ -572,11 +576,17 @@ export default class BookService {
       }
 
       const rawContent = await pageContentsRes.json();
-      const body = rawContent.body?.[0]?.toString() || "";
-      if (!body) {
-        return "";
+      // MindTouch returns `body` as a bare string, an array whose first entry is the main body
+      // (later entries are section objects), or "" for an empty page. Indexing a string would yield
+      // a single character, so discriminate before extracting.
+      const rawBody = rawContent?.body;
+      if (typeof rawBody === "string") {
+        return rawBody;
       }
-      return body;
+      if (Array.isArray(rawBody) && typeof rawBody[0] === "string") {
+        return rawBody[0];
+      }
+      return "";
     } catch (err) {
       console.error(err);
       return "";
@@ -778,11 +788,21 @@ export default class BookService {
     }
   }
 
+  /**
+   * @param opts.allowEmpty - Permit writing an empty body. Only for callers whose intended result
+   * genuinely is a blank page (e.g. stripping a page whose entire body was a template). By default
+   * an empty payload is rejected, since for every other caller it means the content was lost.
+   */
   async updatePageContent(
     pageID: string,
-    xmlEncodedContent: string
+    xmlEncodedContent: string,
+    opts?: { allowEmpty?: boolean }
   ): Promise<boolean> {
     try {
+      if (!opts?.allowEmpty && !xmlEncodedContent?.trim()) {
+        throw new Error(`Refusing to write empty content to page ${pageID}`);
+      }
+
       const expert = await (ExpertWithSSM.getInstance()).forLibrary(this._library);
       if (!expert) {
         throw new Error("internal");
@@ -983,7 +1003,8 @@ export default class BookService {
       nextContent = stripShowOrg(content);
     }
 
-    return this.updatePageContent(pageID, nextContent);
+    // Stripping ShowOrg from a page whose body was only the template legitimately empties it.
+    return this.updatePageContent(pageID, nextContent, { allowEmpty: true });
   }
 
   public getMatterRootPagePath(basePath: string, matterType: BookMatterType): string {
