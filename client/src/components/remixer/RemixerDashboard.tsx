@@ -2015,6 +2015,7 @@ const RemixerDashboard: React.FC = () => {
       try {
         const savedState = await api.getRemixerProjectState(id);
         const savedBook = (savedState.currentBook ?? []) as RemixerSubPage[];
+        const untracked = (savedState.untracked ?? []) as RemixerSubPage[];
         if (Array.isArray(savedBook) && savedBook.length > 0) {
           serverBook = savedBook;
           serverSettings = {
@@ -2028,6 +2029,15 @@ const RemixerDashboard: React.FC = () => {
             book: savedBook,
             settings: serverSettings,
           };
+        }
+        if (untracked.length > 0) {
+          untracked.forEach((node) => {
+            addNotification({
+              message: `Failed to track page: ${node["@title"]}`,
+              type: "info",
+              duration: 4000,
+            });
+          });
         }
       } catch (error) {
         console.error("Failed to load remixer saved state", error);

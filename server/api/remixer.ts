@@ -386,7 +386,10 @@ const getRemixerProjectState = async (
       return returnProjectError(res, new ProjectError("unauthorized"));
     }
 
-    const remixerState = await PrejectRemixer.findOne(
+    const bookService = new BookService({
+      bookID: `${ctx.doc.libreLibrary}-${ctx.doc.libreCoverID}`,
+    });
+    const [toc,remixerState] = await Promise.all([bookService.getBookTreeFull({ flatten: true }), PrejectRemixer.findOne(
       { projectID: id },
       {
         projectID: 1,
@@ -399,9 +402,14 @@ const getRemixerProjectState = async (
         updatedBy: 1,
         _id: 0,
       },
-    )
-      .sort({ updatedAt: -1 })
-      .exec();
+    ).sort({ updatedAt: -1 })
+    .exec(),
+  ]);
+
+    // compare remixerCurrentBook against TOC and get the difference
+   
+
+    const {mutated,untracked} = remixerService.findDifference(remixerState?.remixerCurrentBook ?? [], toc as any[]);
     // find user by updatedBy
     const updatedByUser = await User.findOne(
       { uuid: { $eq: remixerState?.updatedBy } },
@@ -411,9 +419,7 @@ const getRemixerProjectState = async (
     return res.send({
       err: false,
       projectID: id,
-      currentBook: remixerState?.archived
-        ? []
-        : (remixerState?.remixerCurrentBook ?? []),
+      currentBook: remixerState?.archived ? [] : mutated,
       autoNumbering: remixerState?.autoNumbering,
       copyModeState: remixerState?.copyModeState,
       pathLevelFormats: remixerState?.pathLevelFormats ?? [],
@@ -421,6 +427,7 @@ const getRemixerProjectState = async (
       updatedBy: updatedByUser
         ? `${updatedByUser.firstName ? updatedByUser.firstName : ""} ${updatedByUser?.lastName ? updatedByUser.lastName : ""} ${updatedByUser?.email ? updatedByUser.email : ""}`
         : "",
+      untracked: untracked,
     });
   } catch (err) {
     if (err instanceof ProjectError) {
