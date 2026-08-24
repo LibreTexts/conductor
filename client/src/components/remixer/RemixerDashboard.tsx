@@ -84,6 +84,41 @@ import CreateMatterModal from "./CreateMatterModal";
  * doesn't hand a fresh `[]` to the memoized <TreeDnd> on every render. */
 const EMPTY_PATH_LEVEL_FORMATS: PathLevelFormat[] = [];
 
+/**
+ * Pages the server dropped from the saved book because they no longer exist in
+ * the live library book, plus any kept pages it had to reparent as a result.
+ */
+type UntrackedNotice = {
+  untracked: RemixerSubPage[];
+  reparented: RemixerSubPage[];
+};
+
+/**
+ * The server recomputes this on every load and cannot clear it, so the same
+ * removal would be announced on every visit until the user next saves (which is
+ * what actually persists the pruned book). Remember what we have already
+ * reported for this project so it is announced once per session, and again only
+ * if the set of missing pages actually changes.
+ */
+const shouldAnnounceUntracked = (
+  projectID: string,
+  notice: UntrackedNotice,
+): boolean => {
+  const signature = notice.untracked
+    .map((page) => page["@id"])
+    .sort()
+    .join(",");
+  if (!signature) return false;
+  const key = `remixer_untracked_notice_${projectID}`;
+  try {
+    if (sessionStorage.getItem(key) === signature) return false;
+    sessionStorage.setItem(key, signature);
+  } catch {
+    // Private-mode / storage-disabled: announcing twice beats staying silent.
+  }
+  return true;
+};
+
 const RemixerDashboard: React.FC = () => {
   // ==========================================================================
   // State
@@ -2012,10 +2047,13 @@ const RemixerDashboard: React.FC = () => {
         updatedBy?: string;
       } | null = null;
 
+      // Describes the server state, so it is only worth reporting once we know
+      // the user is actually keeping the server state (see `announceUntracked`).
+      let untrackedNotice: UntrackedNotice | null = null;
+
       try {
         const savedState = await api.getRemixerProjectState(id);
         const savedBook = (savedState.currentBook ?? []) as RemixerSubPage[];
-        const untracked = (savedState.untracked ?? []) as RemixerSubPage[];
         if (Array.isArray(savedBook) && savedBook.length > 0) {
           serverBook = savedBook;
           serverSettings = {
@@ -2030,18 +2068,45 @@ const RemixerDashboard: React.FC = () => {
             settings: serverSettings,
           };
         }
+        const untracked = Array.isArray(savedState.untracked)
+          ? (savedState.untracked as RemixerSubPage[])
+          : [];
+        const reparented = Array.isArray(savedState.reparented)
+          ? (savedState.reparented as RemixerSubPage[])
+          : [];
         if (untracked.length > 0) {
-          untracked.forEach((node) => {
-            addNotification({
-              message: `Failed to track page: ${node["@title"]}`,
-              type: "info",
-              duration: 4000,
-            });
-          });
+          untrackedNotice = { untracked, reparented };
         }
       } catch (error) {
         console.error("Failed to load remixer saved state", error);
       }
+
+      /**
+       * One summary rather than a toast per page: a deleted chapter can strip
+       * dozens of pages at once, and the notifications provider stacks every
+       * call. Uses `error` and a long duration because this reports content
+       * silently disappearing from the user's book.
+       */
+      const announceUntracked = () => {
+        if (!untrackedNotice) return;
+        if (!shouldAnnounceUntracked(id, untrackedNotice)) return;
+        const { untracked, reparented } = untrackedNotice;
+        const subject =
+          untracked.length === 1
+            ? `"${untracked[0]["@title"]}" is no longer in this book and was removed from your draft`
+            : `${untracked.length} pages are no longer in this book and were removed from your draft`;
+        const orphans =
+          reparented.length > 0
+            ? ` ${reparented.length} imported page${
+                reparented.length === 1 ? " was" : "s were"
+              } moved to the top level as a result.`
+            : "";
+        addNotification({
+          message: `${subject}.${orphans}`,
+          type: "error",
+          duration: 10000,
+        });
+      };
 
       if (localDraft && serverBook) {
         openModal(
@@ -2059,6 +2124,10 @@ const RemixerDashboard: React.FC = () => {
             }}
             onLoadSource={(source) => {
               handleLoadSourceRef.current(source);
+              // Only relevant when the server state is the one being kept.
+              if (source === "server" || source === "serverDraft") {
+                announceUntracked();
+              }
               closeAllModals();
             }}
             onClose={closeAllModals}
@@ -2082,8 +2151,14 @@ const RemixerDashboard: React.FC = () => {
           ...prev,
           currentBook: normalizeBookState(serverBook!),
         }));
+        announceUntracked();
         return;
       }
+
+      // Nothing usable was saved. If that is because reconciliation emptied the
+      // book, say so before silently reloading it from the library — otherwise
+      // the whole draft disappearing looks like it was never saved.
+      announceUntracked();
 
       const fullBook = await loadEntireBook(
         id,
