@@ -2,12 +2,14 @@ import { Request, Response } from "express";
 import storeService from "./services/store-service";
 import AddressValidationService from "./services/address-validation-service";
 import { z } from "zod";
-import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema, AdminGetStoreOrdersSchema, AdminGetStoreOrderSchema, AdminResubmitPrintJobSchema, AdminGetPrintJobPayloadSchema, AdminSubmitManualPrintJobSchema, ValidateAddressSchema } from "./validators/store";
+import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema, AdminGetStoreOrdersSchema, AdminGetStoreOrderSchema, AdminResubmitPrintJobSchema, AdminGetPrintJobPayloadSchema, AdminSubmitManualPrintJobSchema, ValidateAddressSchema, SyncSingleBookToStripeSchema } from "./validators/store";
 import { conductor400Err, conductor404Err, conductor500Err } from "../util/errorutils";
 import { debug, debugError } from "../debug";
 import { LuluWebhookData, StoreShippingOption, ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import StripeService from "./services/stripe-service";
 import User from "../models/user";
+import { syncAllBooksToStripe, syncBookToStripe } from "./services/store-book-sync-service";
+import { checkBookIDFormat } from "../util/bookutils";
 
 const addressValidationService = new AddressValidationService();
 
@@ -300,11 +302,45 @@ export async function processStripeWebhook(req: Request, res: Response) {
 export async function syncBooksToStripe(req: Request, res: Response) {
   try {
     // Don't await this, just start the sync process
-    storeService.syncBooksToStripe();
+    syncAllBooksToStripe().catch((error) => {
+      debugError(error);
+    });
 
     return res.status(200).send({
       err: false,
       message: "Book sync initiated successfully. This may take a while.",
+    });
+  } catch (error) {
+    debugError(error);
+    return conductor500Err(res);
+  }
+}
+
+/**
+ * Syncs one book to Stripe, creating, updating, or archiving its product as the
+ * book's current eligibility dictates.
+ *
+ * Unlike the full catalog sync this is awaited: a single book is a handful of
+ * Stripe calls, and the caller (an operator or an automation re-running a book
+ * that failed) needs the outcome rather than an acknowledgement.
+ */
+export async function syncSingleBookToStripe(req: z.infer<typeof SyncSingleBookToStripeSchema>, res: Response) {
+  try {
+    const { bookID } = req.params;
+    if (!checkBookIDFormat(bookID)) {
+      return conductor400Err(res);
+    }
+
+    const outcome = await syncBookToStripe(bookID);
+    if (outcome.status === "error") {
+      debugError(`Failed to sync ${bookID} to Stripe: ${outcome.reason}`);
+      return conductor500Err(res);
+    }
+
+    return res.status(200).send({
+      err: false,
+      message: `Book ${bookID} synced to Stripe (${outcome.status}).`,
+      outcome,
     });
   } catch (error) {
     debugError(error);
@@ -479,6 +515,7 @@ export default {
   processLuluWebhook,
   processStripeWebhook,
   syncBooksToStripe,
+  syncSingleBookToStripe,
   adminGetStoreOrder,
   adminGetStoreOrders,
   adminResubmitPrintJob,

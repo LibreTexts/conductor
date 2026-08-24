@@ -959,6 +959,12 @@ router.route("/store/sync").put(
   storeAPI.syncBooksToStripe
 );
 
+router.route("/store/sync/:bookID").put(
+  middleware.checkLibreAPIKey,
+  middleware.validateZod(storeValidators.SyncSingleBookToStripeSchema),
+  storeAPI.syncSingleBookToStripe
+);
+
 router.route("/store/webhooks/stripe").post(
   express.raw({ type: "application/json" }),
   storeAPI.processStripeWebhook

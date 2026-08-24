@@ -109,6 +109,7 @@ import {
   removeBookFromSearchIndex,
   sanitizeForSearchIndex,
 } from "./services/book-search-service.js";
+import { archiveBookInStripe } from "./services/store-book-sync-service.js";
 import { PressBookScraper } from "../util/pressbookutils.js";
 import PressbooksImportJob from "../models/pressbooksimportjob.js";
 import base62 from "base62-random";
@@ -1513,6 +1514,12 @@ async function deleteBook(
        book is gone from Mongo, so a dropped index write leaves a stale document
        until the next full re-sync — not a failed delete. */
     void removeBookFromSearchIndex(bookID);
+
+    /* Same contract for the store: pull the book off sale now rather than leaving
+       it purchasable until the nightly Stripe reconcile. The outcome is dropped
+       on purpose — the Book is already gone from Mongo, and the nightly pass
+       re-archives anything this misses. A delete must not fail on Stripe. */
+    void archiveBookInStripe(bookID);
 
     return res.send({
       err: false,
