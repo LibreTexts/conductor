@@ -48,6 +48,23 @@ function tagTitles(page: FoundPage): string[] {
 const COVERPAGE_TAG = "coverpage:yes";
 
 /**
+ * The CXOne article type that should be assigned to a book-level page. Section and chapter pages
+ * inside a book carry `article:topic`, `article:topic-guide`, etc. instead.
+ */
+const TOPIC_CATEGORY_TAG = "article:topic-category";
+
+/**
+ * Every tag a page must carry to be treated as a book.
+ *
+ * `tags=` on `/pages/{id}/find` is a request parameter, not a guarantee: the
+ * endpoint returns pages that do not carry the tag at all, so the filter has to
+ * be re-applied against the tags the response actually contains. Requiring the
+ * article type as well is what separates a coverpage from a section page that
+ * picked up a stray `coverpage:yes`.
+ */
+const REQUIRED_BOOK_TAGS = [COVERPAGE_TAG, TOPIC_CATEGORY_TAG] as const;
+
+/**
  * Path segments naming scratch content that must never reach Commons.
  *
  * These subtrees hold in-progress and personal drafts. They deny anonymous
@@ -93,6 +110,19 @@ function isExcludedLocation(page: FoundPage): boolean {
     ...pathSegments(page["uri.ui"] ?? ""),
   ];
   return segments.some((segment) => EXCLUDED_PATH_SEGMENTS.has(segment));
+}
+
+/**
+ * Which of the required book tags a page is missing.
+ *
+ * Returns the missing tags rather than a boolean so callers can log *why* a page
+ * was rejected. Enforcing this gate silently would hide a legitimately published
+ * book whose coverpage carries an unexpected article type, and that log is the
+ * only evidence that would surface it.
+ */
+function missingBookTags(page: FoundPage): string[] {
+  const tags = tagTitles(page);
+  return REQUIRED_BOOK_TAGS.filter((tag) => !tags.includes(tag));
 }
 
 /**
@@ -145,6 +175,13 @@ const UNLISTED_RESTRICTIONS = new Set(["Private", "Semi-Private"]);
  * campuses or shelves, which are individually well under the cap.
  */
 const MAX_FIND_SPLIT_DEPTH = 3;
+
+/**
+ * How many individually-logged rejections a single search may emit before the
+ * per-page detail gives way to one aggregate line. A library can return
+ * thousands of non-book pages; the detail is diagnostic, not an inventory.
+ */
+const REJECTION_LOG_LIMIT = 25;
 
 /** Delay between page-property requests. See {@link createThrottle}. */
 const SUMMARY_REQUEST_INTERVAL_MS = 500;
@@ -480,7 +517,7 @@ export default class LibrarySyncService {
 
     const count = Number(res["@count"] ?? 0);
     const total = Number(res["@totalcount"] ?? 0);
-    const kept = this.dropScratchLocations(
+    const kept = this.keepEligiblePages(
       toArray(res.page),
       `${subdomain}/${rootPath}`
     );
@@ -554,17 +591,72 @@ export default class LibrarySyncService {
   }
 
   /**
-   * Removes pages in scratch locations. Every coverpage passes through here
-   * before anything downstream can see it.
+   * Keeps only the pages that are actually books.
+   *
+   * Every page the bulk walk sees passes through here — on the direct path and
+   * on each split-recursion branch — before anything downstream can turn it into
+   * a coverpage. Two independent reasons to reject:
+   *
+   * - the page lives in a scratch location (see {@link EXCLUDED_PATH_SEGMENTS});
+   * - the page does not carry {@link REQUIRED_BOOK_TAGS}. `find` was asked to
+   *   filter on the coverpage tag and returns pages without it anyway, so this
+   *   is the check that actually holds.
+   *
+   * This is deliberately upstream of {@link toCoverpage} rather than in the
+   * record mapping in `book-sync-service`: `runLibrarySync` disqualifies a
+   * library from missing-book detection whenever a coverpage fails to map, so
+   * rejecting non-books there would disable that detection permanently.
    */
-  private dropScratchLocations(pages: FoundPage[], label: string): FoundPage[] {
-    const kept = pages.filter((page) => !isExcludedLocation(page));
-    if (kept.length < pages.length) {
+  private keepEligiblePages(pages: FoundPage[], label: string): FoundPage[] {
+    let scratch = 0;
+    const missingCounts = new Map<string, number>();
+    let logged = 0;
+
+    const kept = pages.filter((page) => {
+      if (isExcludedLocation(page)) {
+        scratch += 1;
+        return false;
+      }
+
+      const missing = missingBookTags(page);
+      if (missing.length === 0) return true;
+
+      for (const tag of missing) {
+        missingCounts.set(tag, (missingCounts.get(tag) ?? 0) + 1);
+      }
+
+      /* Log the first few in full — path, id, what it lacked and what it had.
+         That detail is what would reveal a real book excluded by an unexpected
+         article type. Past the cap it becomes noise: a library can return
+         thousands of these. */
+      if (logged < REJECTION_LOG_LIMIT) {
+        logged += 1;
+        const path = page.path ? page.path["#text"] ?? "" : "";
+        debugCommonsSync(
+          `Rejected ${label} page ${page["@id"] ?? "?"} ("${path}"): missing ` +
+          `${missing.join(", ")}. Has: ${tagTitles(page).join(", ") || "no tags"}.`
+        );
+      }
+      return false;
+    });
+
+    if (scratch > 0) {
       debugCommonsSync(
-        `Excluded ${pages.length - kept.length} page(s) in scratch locations ` +
-        `from ${label}.`
+        `Excluded ${scratch} page(s) in scratch locations from ${label}.`
       );
     }
+
+    const untagged = pages.length - scratch - kept.length;
+    if (untagged > 0) {
+      const breakdown = [...missingCounts.entries()]
+        .map(([tag, count]) => `${tag}: ${count}`)
+        .join(", ");
+      debugCommonsSync(
+        `Rejected ${untagged} page(s) from ${label} that are not books ` +
+        `(${breakdown}). ${kept.length} of ${pages.length} returned pages kept.`
+      );
+    }
+
     return kept;
   }
 
@@ -732,9 +824,13 @@ export default class LibrarySyncService {
     }
 
     try {
-      if (!tagTitles(merged).includes(COVERPAGE_TAG)) {
+      // Same definition of "book" the bulk walk applies in `keepEligiblePages`,
+      // so a webhook cannot introduce a page the full sync would reject.
+      const missing = missingBookTags(merged);
+      if (missing.length > 0) {
         debugCommonsSync(
-          `${subdomain} page ${coverpageID} is not tagged ${COVERPAGE_TAG}.`,
+          `${subdomain} page ${coverpageID} is not a book: missing ` +
+          `${missing.join(", ")}. Has: ${tagTitles(merged).join(", ") || "no tags"}.`,
         );
         return { ok: false, reason: "ineligible" };
       }
