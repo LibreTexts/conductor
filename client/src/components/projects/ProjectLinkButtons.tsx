@@ -86,7 +86,10 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
         Important Actions:{" "}
       </Header>
       <div className="flex flex-row flex-wrap gap-2 mt-2">
-        {!projectLink && !didCreateWorkbench && isProjectMemberOrAdmin && (<>
+        {/* `validBook` is checked too: a project can pick up libreLibrary/libreCoverID
+            from its projectURL without ever creating a Workbench book, and the server
+            refuses to create a second book for an already-linked project. */}
+        {!projectLink && !didCreateWorkbench && !validBook && isProjectMemberOrAdmin && (<>
             <Button
               color="green"
               onClick={() => setShowCreateWorkbenchModal(true)}

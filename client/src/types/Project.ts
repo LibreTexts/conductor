@@ -217,6 +217,11 @@ export type AuthenBrowser = {
   [key: string]: string;
 }
 
+export interface CreateWorkbenchForm {
+  library: number | string;
+  title: string;
+}
+
 export interface ImportWorkbenchForm {
   library: number | string;
   pbBookURL: string;

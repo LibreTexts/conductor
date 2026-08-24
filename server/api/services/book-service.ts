@@ -34,6 +34,23 @@ export interface BookServiceParams {
   bookID: string;
 }
 
+/**
+ * Raised when a page could not be created because the path is already taken.
+ *
+ * This is a recoverable, user-fixable condition (usually a duplicate book title),
+ * not an internal failure, so callers that create pages on a user's behalf can
+ * distinguish it from a genuine error and say so in the response.
+ */
+export class BookPageConflictError extends Error {
+  constructor(
+    public readonly path: string,
+    public readonly label: string,
+  ) {
+    super(`A page already exists at "${path}" (${label}).`);
+    this.name = "BookPageConflictError";
+  }
+}
+
 type HierarchyPage = (GetPageSubPagesResponse["page"] | PageBase) & {
   id?: number;
   url?: string;
@@ -136,17 +153,56 @@ export default class BookService {
   * This is actually a success case when we're trying to create pages only if they don't exist.
   */
   private static is409Conflict(error: unknown): boolean {
+    return BookService._httpStatusOf(error) === 409;
+  }
+
+  /**
+   * Extracts the HTTP status from an error thrown by the CXOne SDK, axios, or
+   * anything else that carries one. Returns `null` when no status is present.
+   */
+  private static _httpStatusOf(error: unknown): number | null {
     // The CXOne SDK wraps every axios failure in an ExpertError before rejecting,
     // so this is the shape we see in practice.
     if (ExpertError.isExpertError(error)) {
-      return error.status === 409;
+      return error.status ?? null;
     }
     if (error instanceof AxiosError) {
-      return error.response?.status === 409 || error.status === 409;
+      return error.response?.status ?? error.status ?? null;
     }
     // Fallback for anything else that carries an HTTP status
     const err = error as any;
-    return err?.status === 409 || err?.response?.status === 409;
+    return err?.status ?? err?.response?.status ?? null;
+  }
+
+  /**
+   * Reports whether a page already exists at `path` on `library`.
+   *
+   * Deliberately **throws** on anything other than a clean hit or a clean 404.
+   * A caller uses this to decide whether it is safe to write, so an unreachable
+   * library must not be reported as "available" — that is how you end up
+   * writing into somebody else's book.
+   *
+   * @throws If the library could not be reached or answered with anything other
+   * than a success or a 404.
+   */
+  public static async pageExists(library: string, path: string): Promise<boolean> {
+    const expert = await ExpertWithSSM.getInstance().forLibrary(library);
+    if (!expert) {
+      throw new Error(`Unable to reach library "${library}".`);
+    }
+
+    try {
+      const res = await expert.pages.getPage(path);
+      // A body without an id isn't a real page. Reading that as "taken" would
+      // block creation outright, whereas reading it as "free" is caught by the
+      // conflict guard on the create itself, so err toward free.
+      return !!res?.["@id"];
+    } catch (error) {
+      if (BookService._httpStatusOf(error) === 404) {
+        return false;
+      }
+      throw error;
+    }
   }
 
 
@@ -1055,6 +1111,7 @@ export default class BookService {
     title,
     label,
     overwriteExisting,
+    conflictBehavior = 'skip',
   }: {
     expert: Expert;
     path: string;
@@ -1062,7 +1119,16 @@ export default class BookService {
     title: string;
     label: string;
     overwriteExisting: boolean;
+    conflictBehavior?: 'skip' | 'throw';
   }): Promise<number | null> {
+    const onConflict = (): null => {
+      if (conflictBehavior === 'throw') {
+        throw new BookPageConflictError(path, label);
+      }
+      console.warn(`${label} already exists, skipping creation.`);
+      return null;
+    };
+
     try {
       const res = await expert.pages.postPageContents(path, contents, {
         title,
@@ -1072,8 +1138,7 @@ export default class BookService {
 
       const status = res?.['@status'];
       if (status === 'conflict') {
-        console.warn(`${label} already exists, skipping creation.`);
-        return null;
+        return onConflict();
       }
       if (status !== 'success') {
         throw new Error(
@@ -1084,11 +1149,13 @@ export default class BookService {
       const pageID = Number(res.page?.['@id']);
       return Number.isFinite(pageID) ? pageID : null;
     } catch (error) {
+      if (error instanceof BookPageConflictError) {
+        throw error;
+      }
       if (!BookService.is409Conflict(error)) {
         throw error; // Re-throw anything that isn't "page already exists"
       }
-      console.warn(`${label} already exists, skipping creation.`);
-      return null;
+      return onConflict();
     }
   }
 
@@ -1232,11 +1299,13 @@ export default class BookService {
     coverPagePath,
     title,
     overwriteExisting = false,
+    throwOnConflict = false,
   }: {
     library: string;
     coverPagePath: string;
     title: string;
     overwriteExisting?: boolean;
+    throwOnConflict?: boolean;
   }): Promise<number | null> {
     const expert = await ExpertWithSSM.getInstance().forLibrary(library);
 
@@ -1247,7 +1316,15 @@ export default class BookService {
       title,
       label: `book cover page "${title}"`,
       overwriteExisting,
+      conflictBehavior: throwOnConflict ? 'throw' : 'skip',
     });
+
+    // The page was already there and we didn't create it. Applying our properties
+    // and thumbnail here would overwrite whatever the existing book has set, so
+    // leave it untouched.
+    if (pageID === null) {
+      return null;
+    }
 
     await BookService._setPageProperties(
       expert,
@@ -1300,6 +1377,11 @@ export default class BookService {
       label: `first chapter "${title}"`,
       overwriteExisting,
     });
+
+    // Pre-existing page: don't overwrite its properties or thumbnail.
+    if (pageID === null) {
+      return null;
+    }
 
     await BookService._setGuidePageProperties(expert, library, chapterPath, `first chapter "${title}"`);
 

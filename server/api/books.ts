@@ -56,12 +56,17 @@ import {
   generateChapterOnePath,
   getPageID,
 } from "../util/librariesclient.js";
-import { conductor400Err, conductor500Err } from "../util/errorutils.js";
+import {
+  conductor400Err,
+  conductor500Err,
+  serializeError,
+} from "../util/errorutils.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
 import User from "../models/user.js";
 import centralIdentity from "./central-identity.js";
 import { PipelineStage, Types } from "mongoose";
 import {
+  bookTitleAvailabilitySchema,
   createBookSchema,
   deleteBookSchema,
   getCommonsCatalogSchema,
@@ -83,7 +88,7 @@ import {
   addPageWithCoverIDParamSchema,
   readFromCxOneGlossaryAndAddToGlossaryUsageSchema,
 } from "./validators/book.js";
-import BookService from "./services/book-service.js";
+import BookService, { BookPageConflictError } from "./services/book-service.js";
 import LibrarySyncService, {
   describeLimits,
   getLibrarySyncLimits,
@@ -1306,7 +1311,101 @@ async function getCatalogFilterOptions(_req: Request, res: Response) {
 }
 
 /**
+ * Machine-readable reasons a book operation could not proceed.
+ *
+ * The client branches on these rather than on `errMsg`, so a recoverable problem
+ * (a title that's already taken) can be shown inline on the offending field
+ * instead of being funneled into the generic error modal.
+ */
+type BookErrorCode =
+  | "bad_library"
+  | "already_linked"
+  | "no_library_access"
+  | "title_conflict";
+
+const ALREADY_LINKED_MSG =
+  "This project is already linked to a book. A project can only have one book.";
+
+function createBookErr(
+  res: Response,
+  status: number,
+  code: BookErrorCode,
+  errMsg: string,
+) {
+  return res.status(status).send({ err: true, code, errMsg });
+}
+
+/**
+ * Resolves a Central Identity application ID to its library subdomain.
+ *
+ * @returns The subdomain, or `null` if the application is unknown or has no
+ * resolvable subdomain.
+ */
+async function resolveLibrarySubdomain(
+  libraryAppID: number,
+): Promise<string | null> {
+  const libraryApp = await centralIdentity.getApplicationById(libraryAppID);
+  if (!libraryApp) return null;
+  return getSubdomainFromUrl(libraryApp.main_url) || null;
+}
+
+/**
+ * Reports whether a book title is still available on the given library.
+ *
+ * Backs the live check in the Create Book modal so a user finds out about a
+ * duplicate title while they can still edit the field, rather than after
+ * submitting. Advisory only: `createBook` re-checks and is the authority.
+ *
+ * `available: null` means the library could not be checked. Treat that as
+ * "proceed" — a library hiccup must not block book creation.
+ *
+ * @param {express.Request} req - Incoming request.
+ * @param {express.Response} res - Outgoing response.
+ */
+async function checkBookTitleAvailability(
+  req: ZodReqWithUser<z.infer<typeof bookTitleAvailabilitySchema>>,
+  res: Response,
+) {
+  try {
+    const { library, title } = req.query;
+
+    const subdomain = await resolveLibrarySubdomain(library);
+    if (!subdomain) {
+      return createBookErr(res, 404, "bad_library", conductorErrors.err11);
+    }
+
+    const [bookPath, bookURL] = generateBookPathAndURL(subdomain, title);
+
+    let available: boolean | null;
+    try {
+      available = !(await BookService.pageExists(subdomain, bookPath));
+    } catch (err) {
+      debugError(
+        `[checkBookTitleAvailability] Unable to check "${bookPath}" on ${subdomain}: ${serializeError(err)}`,
+      );
+      available = null;
+    }
+
+    return res.send({
+      err: false,
+      available,
+      path: bookPath,
+      url: bookURL,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+/**
  * Creates a new book with default features in a library Workbench area.
+ *
+ * Failures are separated into ones the user can fix (an unavailable title, a
+ * library they can't access, a project that already has a book) and genuine
+ * internal errors. Only the latter produce a 500. Steps that aren't required for
+ * a usable book — the first chapter, front/back matter, team permissions — are
+ * allowed to fail without failing the request.
  *
  * @param {express.Request} req - Incoming request.
  * @param {express.Response} res - Outgoing response.
@@ -1323,17 +1422,28 @@ async function createBook(
 
     const libraryApp = await centralIdentity.getApplicationById(library);
     if (!libraryApp) {
-      throw new Error("badlibrary");
+      return createBookErr(res, 404, "bad_library", conductorErrors.err11);
     }
 
     const subdomain = getSubdomainFromUrl(libraryApp.main_url);
     if (!subdomain) {
-      throw new Error("badlibrary");
+      return createBookErr(res, 404, "bad_library", conductorErrors.err11);
     }
 
     const ctx = await ProjectContext.load(projectID, { hydrate: true });
     if (!ctx.canMember(userID)) {
       return returnProjectError(res, new ProjectError("unauthorized"));
+    }
+
+    // Creating a second book would orphan the first one and silently relink the
+    // project, so refuse rather than half-succeed.
+    if (ctx.doc.libreLibrary && ctx.doc.libreCoverID) {
+      return createBookErr(
+        res,
+        409,
+        "already_linked",
+        ALREADY_LINKED_MSG,
+      );
     }
 
     const hasLibAccess =
@@ -1342,37 +1452,136 @@ async function createBook(
         libraryApp.id,
       );
     if (!hasLibAccess) {
-      throw new Error(conductorErrors.err8);
+      return createBookErr(res, 403, "no_library_access", conductorErrors.err8);
     }
 
-    // Create book coverpage
     const [bookPath, bookURL] = generateBookPathAndURL(subdomain, title);
+    const titleConflictMsg = `A book already exists at ${bookURL}. Please choose a different title.`;
 
-    const newCoverPageID = await BookService.createBookCoverPage({
-      library: subdomain,
-      coverPagePath: bookPath,
-      title,
-    }).catch((e) => {
-      console.error('[createBook] Error creating coverpage for "%s":', title, e);
-      const err = new Error(conductorErrors.err86);
-      err.name = "CreateBookError";
-      throw err;
-    });
+    // Pre-flight: a read is cheap and, unlike the create below, can't disturb an
+    // existing book. If the library itself can't be reached, fall through — the
+    // create is guarded too.
+    try {
+      if (await BookService.pageExists(subdomain, bookPath)) {
+        return createBookErr(res, 409, "title_conflict", titleConflictMsg);
+      }
+    } catch (err) {
+      debugError(
+        `[createBook] Unable to pre-check "${bookPath}" on ${subdomain}, continuing: ${serializeError(err)}`,
+      );
+    }
 
-    // Create first chapter
-    const chapterOnePath = generateChapterOnePath(bookPath);
-    await BookService.createFirstChapter({
-      library: subdomain,
-      chapterPath: chapterOnePath,
-    });
+    let newCoverPageID: number | null = null;
+    try {
+      newCoverPageID = await BookService.createBookCoverPage({
+        library: subdomain,
+        coverPagePath: bookPath,
+        title,
+        throwOnConflict: true,
+      });
+    } catch (err) {
+      // Lost the race between the pre-flight check and this write.
+      if (err instanceof BookPageConflictError) {
+        return createBookErr(res, 409, "title_conflict", titleConflictMsg);
+      }
+      debugError(
+        `[createBook] Error creating coverpage for "${title}": ${serializeError(err)}`,
+      );
+      return res.status(500).send({ err: true, errMsg: conductorErrors.err86 });
+    }
 
-    await sleep(1500); // let CXone catch up with page creations
+    // The page exists at this point, so bailing without an ID would leave it
+    // orphaned and make every retry conflict forever. Look the ID up instead.
+    if (!newCoverPageID) {
+      const recoveredID = await getPageID(bookPath, subdomain);
+      if (recoveredID && Number.isFinite(Number(recoveredID))) {
+        newCoverPageID = Number(recoveredID);
+        debugError(
+          `[createBook] No page ID returned for "${bookPath}"; recovered ${newCoverPageID} by path lookup.`,
+        );
+      }
+    }
 
     if (!newCoverPageID) {
-      throw new Error(`Error saving book ID for Workbench book: "${title}":`);
+      debugError(
+        `[createBook] Library reported success but returned no page ID for "${bookPath}", and it could not be recovered by path lookup.`,
+      );
+      return res.status(502).send({
+        err: true,
+        errMsg: `The book page was created at ${bookURL}, but the library did not return its ID, so it could not be linked to this project. Please contact support.`,
+      });
     }
 
+    // Link the project now, before anything else can fail. If this were left
+    // until the end, a later failure would leave a coverpage that exists but
+    // belongs to no project — and every retry would then conflict against it
+    // with no way for the user to recover.
+    //
+    // This is also the authoritative "already linked" guard: the check above is
+    // a cheap early bail, but it reads and writes in separate steps, so two
+    // concurrent creates on the same project can both pass it. The filter here
+    // repeats that condition inside a single-document update, which Mongo
+    // applies atomically, so exactly one request can claim the project. It
+    // mirrors the check exactly — a project counts as linked only when both
+    // fields are set — so a project carrying just one of them is still
+    // claimable, as before.
+    const claimed = await Project.findOneAndUpdate(
+      {
+        projectID: { $eq: projectID },
+        $or: [
+          { libreCoverID: { $in: [null, ""] } },
+          { libreLibrary: { $in: [null, ""] } },
+        ],
+      },
+      {
+        libreLibrary: subdomain,
+        libreCoverID: newCoverPageID.toString(),
+        didCreateWorkbench: true,
+      },
+      { new: true },
+    );
+
+    if (!claimed) {
+      // Another request linked this project while we were creating our page.
+      // Ours is now orphaned on the library; log it for manual cleanup rather
+      // than deleting from an error path we don't fully understand.
+      debugError(
+        `[createBook] Lost the link race for project ${projectID}; "${bookPath}" on ${subdomain} (page ${newCoverPageID}) is orphaned and needs manual cleanup.`,
+      );
+      return createBookErr(
+        res,
+        409,
+        "already_linked",
+        ALREADY_LINKED_MSG,
+      );
+    }
+
+    const warnings: string[] = [];
     const newBookID = `${subdomain}-${newCoverPageID}`;
+
+    // The first chapter is a convenience, not part of a valid book. Don't fail
+    // the request (and strand the coverpage) over it.
+    try {
+      const chapterOnePath = generateChapterOnePath(bookPath);
+      const chapterID = await BookService.createFirstChapter({
+        library: subdomain,
+        chapterPath: chapterOnePath,
+      });
+      if (!chapterID) {
+        warnings.push(
+          "The first chapter could not be created because a page already exists at that location. You can add chapters directly in the library.",
+        );
+      }
+    } catch (err) {
+      debugError(
+        `[createBook] Error creating first chapter for "${title}": ${serializeError(err)}`,
+      );
+      warnings.push(
+        "Your book was created, but its first chapter could not be added. You can add chapters directly in the library.",
+      );
+    }
+
+    await sleep(1500); // let CXone catch up with page creations
 
     // Front/back matter creation can take a while and is not critical to the book creation process,
     // so we fire-and-forget it here. If it fails, the book will still be usable, but the front/back matter
@@ -1402,12 +1611,6 @@ async function createBook(
       debugError(`[createBook] Error initializing BookService for front/back matter creation: ${err instanceof Error ? err.message : err}`);
     }
 
-    // Update Project with new book info
-    ctx.doc.libreLibrary = subdomain;
-    ctx.doc.libreCoverID = newCoverPageID.toString();
-    ctx.doc.didCreateWorkbench = true;
-    await ctx.doc.save();
-
     const permsUpdated = await updateTeamWorkbenchPermissions(
       projectID,
       subdomain,
@@ -1418,6 +1621,9 @@ async function createBook(
       console.log(
         `[createBook] Failed to update permissions for ${projectID}.`,
       ); // Silent fail
+      warnings.push(
+        "Your book was created, but team permissions could not be applied automatically. Team members may need to be granted access manually.",
+      );
     }
 
     console.log(`[createBook] Created ${bookPath}.`);
@@ -1425,25 +1631,21 @@ async function createBook(
       err: false,
       path: bookPath,
       url: bookURL,
+      warnings,
     });
   } catch (err: any) {
     if (err instanceof ProjectError) {
       return returnProjectError(res, err);
     }
 
-    if (err.name === "DocumentNotFoundError" || err.name === "badlibrary") {
+    if (err.name === "DocumentNotFoundError") {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
       });
     }
+
     debugError(err);
-    if (["CreateBookError", "badlibrary"].includes(err.name)) {
-      return res.status(400).send({
-        err: true,
-        errMsg: err.message,
-      });
-    }
     return conductor500Err(res);
   }
 }
@@ -3329,6 +3531,7 @@ export default {
   getCommonsCatalog,
   getMasterCatalog,
   getMasterCatalogV2,
+  checkBookTitleAvailability,
   createBook,
   importPressBooksBook,
   getPressBooksImportJobStatus,
