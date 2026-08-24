@@ -54,6 +54,10 @@ import { getLibraryNameKeys } from './libraries.js';
 import TrafficAnalyticsService from "./services/traffic-analytics-service.js";
 import ProjectInvitation from '../models/projectinvitation.js';
 import SearchService from './services/search-service.js';
+import {
+  pruneDeletedProjectsFromSearchIndex,
+  removeProjectFromSearchIndex,
+} from './services/project-search-service.js';
 import BookService from './services/book-service.js';
 
 const projectListingProjection = {
@@ -204,6 +208,12 @@ async function deleteProjectInternal(projectID) {
       await projectFilesAPI.removeProjectFilesInternal(projectID, allFiles.map((f) => f.fileID));
     }
     // </delete files>
+
+    /* Fire-and-forget: a delete must not fail on a Meilisearch hiccup. The
+       Project is already gone from Mongo, so a dropped index write leaves a
+       stale document until the next full re-sync prunes it — not a failed
+       delete. */
+    void removeProjectFromSearchIndex(projectID);
 
     return true;
   } catch (err) {
@@ -3383,7 +3393,15 @@ export async function syncProjectsInBackground() {
         break;
       }
 
-      await searchService.addDocuments("projects", projects);
+      /* Waited to completion, not just enqueued: document-level rejections are
+         reported through task status, never the HTTP response, so without this
+         a batch Meilisearch threw away would still be counted as synced. It
+         also keeps the loop from outrunning the task queue, and guarantees the
+         prune below reconciles against a settled index. */
+      await searchService.addDocuments("projects", projects, {
+        waitForCompletion: true,
+        timeOutMs: 300_000,
+      });
       totalSynced += projects.length;
       debugServer(`Synced batch of ${projects.length} projects (${totalSynced} total)...`);
 
@@ -3395,7 +3413,16 @@ export async function syncProjectsInBackground() {
       }
     }
 
-    debugServer(`Projects search index sync completed. Total synced: ${totalSynced}`);
+    /* Upserts alone never remove anything, so a project deleted while
+       Meilisearch was unreachable would stay searchable forever. Reconcile now
+       that every live Project has been written — applied, not merely enqueued,
+       so no stale document can still be in flight and slip past the index read
+       this performs. */
+    const pruned = await pruneDeletedProjectsFromSearchIndex();
+
+    debugServer(
+      `Projects search index sync completed. Total synced: ${totalSynced}, pruned: ${pruned}`
+    );
   } catch (e) {
     debugError("Error in syncProjectsInBackground:", e);
     throw e;

@@ -111,6 +111,7 @@ import {
   bookSearchIndexAggregationStages,
   buildBookSearchDocuments,
   pruneDeletedBooksFromSearchIndex,
+  reconcileBooksInSearchIndex,
   removeBookFromSearchIndex,
   sanitizeForSearchIndex,
 } from "./services/book-search-service.js";
@@ -307,15 +308,25 @@ const autoGenerateCollections = () => {
  * flag on {@link LibrarySyncResult}. A truncated or capped walk returns real
  * books, but its silence about a book means nothing.
  *
- * Nothing acts on the marker yet; it exists for a future reaper.
+ * Returns the bookIDs it marked, so the caller can drop them from the search
+ * index without waiting for the next full re-sync.
+ *
+ * Those ids are read back *after* the write, matched on the exact timestamp this
+ * call stamped, rather than read before it. Reading first would report books the
+ * write then skipped: a live book re-synced between the two queries gets a fresh
+ * `lastSyncedAt` and correctly falls out of the update, but would still be in the
+ * pre-read — and the caller would delete a healthy book from the search index.
  */
 const markMissingBooks = async (
   subdomains: string[],
   runStartedAt: Date,
-) => {
-  let marked = 0;
+): Promise<string[]> => {
+  const bookIDs: string[] = [];
 
   for (const subdomain of subdomains) {
+    // Stamped from a captured value, not `new Date()` inline, so the read-back
+    // below can identify exactly the documents this update touched.
+    const markedAt = new Date();
     const res = await Book.updateMany(
       {
         library: { $eq: subdomain },
@@ -325,12 +336,18 @@ const markMissingBooks = async (
         ],
         syncMissingSince: { $exists: false },
       },
-      { $set: { syncMissingSince: new Date() } },
+      { $set: { syncMissingSince: markedAt } },
     );
-    marked += res.modifiedCount ?? 0;
+    if ((res.modifiedCount ?? 0) === 0) continue;
+
+    const marked = await Book.find(
+      { library: { $eq: subdomain }, syncMissingSince: { $eq: markedAt } },
+      { bookID: 1, _id: 0 },
+    ).lean();
+    bookIDs.push(...marked.map((b: any) => b.bookID));
   }
 
-  return marked;
+  return bookIDs;
 };
 
 /**
@@ -535,9 +552,22 @@ const runLibrarySync = async (signal?: AbortSignal): Promise<string> => {
   const detectableLibraries = completeLibraries.filter(
     (lib) => !librariesWithFailedWrites.has(lib),
   );
-  const markedMissing = limited
-    ? 0
+  const markedIDs = limited
+    ? []
     : await markMissingBooks(detectableLibraries, runStartedAt);
+  const markedMissing = markedIDs.length;
+
+  /* Pull the newly-missing books out of the search index now rather than leaving
+     them searchable until the next re-sync. Reconciled rather than deleted
+     outright: this run keeps working for a while yet, and a book restored in the
+     meantime must not be deleted by a decision made before the restore. The
+     helper re-reads each book immediately before removing it.
+
+     Fire-and-forget, and it swallows its own errors: index upkeep must never
+     sink a sync run, and the prune at the end of `syncBooksInBackground` catches
+     anything dropped here. */
+  void reconcileBooksInSearchIndex(markedIDs);
+
   if (limited) {
     debugCommonsSync("Limited sync — skipping missing-book detection.");
   } else if (detectableLibraries.length < completeLibraries.length) {
