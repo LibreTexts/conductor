@@ -2805,6 +2805,7 @@ class API {
         pathLevelFormats?: unknown[];
         updatedAt?: Date;
         updatedBy?: string;
+        untracked:unknown[];
       } & ConductorBaseResponse
     >(`/remixer/${id}/project`, {});
     return res.data;

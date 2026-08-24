@@ -507,7 +507,7 @@ const getDisplayTitle = (
   autoNumbering: boolean,
 ): string => {
   const rawTitle = page.title || page["@title"] || "Untitled";
-  if (page.parentID === "-1"  ) {
+  if (page.parentID === "-1") {
     return rawTitle;
   }
   const cleanTitle = stripDefaultTitlePrefixBeforeColon(
@@ -585,8 +585,7 @@ const applyArticleKindToPage = async (
   const bookService = new BookService({
     bookID: `${subdomain}-${coverId}`,
   });
-  const tag =
-    kind === "topic" ? "article:topic" : (`article:${kind}` as const);
+  const tag = kind === "topic" ? "article:topic" : (`article:${kind}` as const);
   await bookService.updatePageDetails(page["@id"], undefined, [tag]);
   await bookService.activateShowOrg(
     page["@id"],
@@ -669,7 +668,7 @@ const remixerPagePaddedSlug = (
   isBookRoot: boolean = false,
 ): string => {
   const rawTitle = page["@title"] || page.title || displayTitle;
-  if (isBookRoot ) {
+  if (isBookRoot) {
     return rawTitle
       .toLowerCase()
       .replace(/ /g, "-")
@@ -1196,7 +1195,10 @@ const copyPageThumbnailAndOverview = async ({
       }
     }
   } catch (err) {
-    console.warn("[Remixer] Non-fatal error copying thumbnail:", err instanceof Error ? err.message : "");
+    console.warn(
+      "[Remixer] Non-fatal error copying thumbnail:",
+      err instanceof Error ? err.message : "",
+    );
   }
 
   // ── Overview / Summary ───────────────────────────────────────────────────
@@ -1214,7 +1216,10 @@ const copyPageThumbnailAndOverview = async ({
       await targetService.updatePageDetails(targetId, overview);
     }
   } catch (err) {
-    console.warn("[Remixer] Non-fatal error copying Summary:", err instanceof Error ? err.message : "");
+    console.warn(
+      "[Remixer] Non-fatal error copying Summary:",
+      err instanceof Error ? err.message : "",
+    );
   }
 };
 
@@ -1238,6 +1243,20 @@ const remixerSubPageToPlain = (
     return maybeDoc.toObject({ getters: true });
   }
   return { ...(page as unknown as RemixerSubPagePlain) };
+};
+
+/** Plain remixer page for API responses (flat `"uri.ui"`, no Mongoose internals). */
+const remixerSubPageToResponse = (
+  page: RemixerSubPageState,
+): RemixerSubPageState => {
+  const raw = remixerSubPageToPlain(page) as RemixerSubPagePlain & {
+    uri?: { ui?: string };
+  };
+  const { uri: _uri, ...rest } = raw;
+  return {
+    ...(rest as unknown as RemixerSubPageState),
+    "uri.ui": getRemixerPageUriUi(page),
+  };
 };
 
 const normalizeArticle = (value: unknown): RemixerSubPageState["article"] => {
@@ -1510,8 +1529,8 @@ const runRemixerJob = async ({
       const message = shouldSkip
         ? `${title} - skipped`
         : `${title} - processed, status: ${status}`;
-      
-        // Retry MindTouch-facing work on transient failures (timeouts, 5xx,
+
+      // Retry MindTouch-facing work on transient failures (timeouts, 5xx,
       // rate limits, network blips). Non-transient errors propagate.
       const logRetry = async (attempt: number, error: unknown) => {
         const msg = error instanceof Error ? error.message : String(error);
@@ -1523,7 +1542,7 @@ const runRemixerJob = async ({
 
       try {
         if (status === "new") {
-          if(shouldSkip) {
+          if (shouldSkip) {
             return "success";
           }
           const parentId = page.parentID ?? "-1";
@@ -1550,7 +1569,7 @@ const runRemixerJob = async ({
             await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
           }
         } else if (status === "imported") {
-          if(shouldSkip) {
+          if (shouldSkip) {
             return "success";
           }
           const parentId = page.parentID ?? "-1";
@@ -1868,7 +1887,55 @@ const runRemixerJob = async ({
   }
 };
 
+const findDifference = (
+  remixerCurrentBook: RemixerSubPageState[],
+  toc: any[],
+): { mutated: RemixerSubPageState[] , untracked: RemixerSubPageState[]} => {
+
+  const untracked: RemixerSubPageState[] = [];
+  
+  const mutated = remixerCurrentBook.map((item) => {
+    try {
+      const plain = remixerSubPageToResponse(item);
+      const pageID = String(plain["@id"] ?? "");
+      if (pageID.includes("-")) {
+        return plain;
+      }
+
+      const tocItem = toc.find((tocItem) => tocItem["@id"] === pageID);
+      if (!tocItem) {
+        untracked.push(plain);
+        return undefined;
+      }
+
+      const pageURI = tocItem["@href"];
+      const pageURIUi = tocItem["uri.ui"];
+      const pageTitle = tocItem.title;
+      const currentHref = String(plain["@href"] ?? "");
+      const currentUriUi = plain["uri.ui"];
+
+      return {
+        ...plain,
+        "@href":
+          pageURI && plain.isPlacementChanged ? currentHref : pageURI,
+        "uri.ui":
+          pageURIUi && plain.isPlacementChanged ? currentUriUi : pageURIUi,
+        ...(!plain.isRenamed ? { title: pageTitle, "@title": pageTitle } : {}),
+      };
+    } catch {
+      return remixerSubPageToResponse(item);
+    }
+  });
+  return {
+    mutated: mutated.filter(
+      (item): item is RemixerSubPageState => item !== undefined,
+    ),
+    untracked
+  };
+};
+
 export default {
+  findDifference: findDifference,
   mapToRemixerSubPageResponse: mapToRemixerSubPagesResponse,
   mapToRemixerPageDetailsResponse: mapToRemixerPageDetailsResponse,
   runRemixerJob: runRemixerJob,
