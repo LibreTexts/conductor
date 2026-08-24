@@ -21,6 +21,7 @@ import { mapWithConcurrency } from "../../util/concurrency.js";
 import LibrarySyncService, {
   LibraryCoverpage,
 } from "./library-sync-service.js";
+import { upsertBookToSearchIndex } from "./book-search-service.js";
 
 /**
  * A Book as assembled from a library coverpage, ready for upsert.
@@ -344,6 +345,13 @@ export const syncSingleBook = async (
         debugCommonsSync(
           `Marked ${bookID} missing — live fetch reported ${found.reason}.`,
         );
+        /* Upsert, not remove: it re-reads the Book and deletes only if the
+           aggregation still yields nothing, so a concurrent restore cannot be
+           undone by a delete decided a moment earlier. Fire-and-forget per the
+           contract on these helpers — the Book is already marked, so a
+           Meilisearch hiccup leaves a stale document until the next re-sync
+           prunes it, not a failed sync. */
+        void upsertBookToSearchIndex(bookID);
         return { status: "marked_missing", reason: found.reason };
       }
       return { status: "skipped", reason: found.reason };
@@ -377,6 +385,12 @@ export const syncSingleBook = async (
 
     const status = (res.upsertedCount ?? 0) > 0 ? "ingested" : "refreshed";
     debugCommonsSync(`Live sync ${status} ${bookID}.`);
+
+    /* Same fire-and-forget contract. This is also what puts a book that came
+       back — the upsert above `$unset`s `syncMissingSince` — into the index
+       again without waiting for the nightly walk. */
+    void upsertBookToSearchIndex(bookID);
+
     return { status };
   } catch (err) {
     debugError(err);
