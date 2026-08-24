@@ -969,59 +969,23 @@ async function _generateAndApplyPageImagesAltText(
             });
         }
 
-        // Get page content and parse for image elements
+        // Get page content and parse for image elements.
+        // "edit" mode returns the authored source. The MindTouch default ("view") returns *rendered*
+        // output with DekiScript/templates/transclusions already expanded, which would be baked into
+        // the page source when we write the modified content back.
         const pageContent = await bookService.getPageContent(
             pageID.toString(),
-            "json"
+            "json",
+            "edit"
         );
-        // const decodedContent = decodeURIComponent(pageContent);
-        const cheerioContent = cheerio.load(pageContent);
+        // Fragment mode (isDocument = false): parse5 would otherwise synthesize a full document, and
+        // serializing that emits an <html><head/><body> wrapper. MindTouch strips those tags from
+        // page content along with everything they contain, which blanks the page.
+        const cheerioContent = cheerio.load(pageContent, null, false);
         const imageElements = cheerioContent("img");
 
         if (!imageElements || imageElements.length === 0) {
             return [null, true, 0]; // If we couldn't detect any images, return success
-        }
-
-        // Need to update file properties
-        for (let i = 0; i < altTexts.length; i++) {
-            const file = altTexts[i];
-            if (file.error || !file.altText) {
-                debugError(`No alt text for image: ${file.fileID}, ${file.error}`);
-                continue;
-            }
-
-            if (!file.properties) continue;
-
-            const mappedProperties = file.properties.map((p) => ({
-                etag: p["@etag"],
-                name: p["@name"],
-                value: p.contents["#text"],
-            }));
-
-            const res = await CXOneFetch({
-                scope: "files",
-                path: file.fileID,
-                api: MindTouch.API.File.PUT_File_Properties,
-                subdomain: bookService.library,
-                options: {
-                    method: "PUT",
-                    body: MindTouch.Templates.PUT_FileProperties(mappedProperties),
-                    headers: {
-                        "Content-Type": "application/xml",
-                    },
-                },
-            }).catch((e) => {
-                console.error(
-                    "Error updating file properties for file: ",
-                    file.fileID,
-                    e
-                );
-                return { status: 500 };
-            });
-
-            if (res.status !== 200) {
-                debugError(`Error updating file properties for file: ${file.fileID}`);
-            }
         }
 
         let didModify = false;
@@ -1032,14 +996,10 @@ async function _generateAndApplyPageImagesAltText(
                 continue;
             }
 
-            // Query params may vary between the file response and what is actually in the content
-            // So we need to get the base src URL for comparison
-            const baseSrc = new URL(file.src).pathname;
-
             const found = imageElements.filter((_, el) => {
                 const src = cheerioContent(el).attr("src");
                 if (!src) return false;
-                return src.includes(baseSrc);
+                return _srcMatchesFile(src, file.fileID, file.src);
             });
 
             if (!found || found.length === 0) {
@@ -1048,11 +1008,14 @@ async function _generateAndApplyPageImagesAltText(
 
             // Set new alt text
             found.each((_, el) => {
-                const currElementAltText = el.attribs["alt"];
+                // Authored (edit-mode) source may omit the attribute entirely, in which case
+                // el.attribs["alt"] is undefined -- calling .endsWith() on it below would throw.
+                const currElementAltText = el.attribs["alt"] ?? "";
                 if (overwrite) {
                     cheerioContent(el).attr("alt", file.altText); // If overwrite is true, always update the alt text
-                } else if (["", " "].includes(currElementAltText)) {
-                    // If the alt text is empty, update it, regardless of overwrite (For some reason many img's have " " as alt text, so don't consider those as existing alt text)
+                } else if (!currElementAltText.trim()) {
+                    // Missing, empty, or whitespace-only alt is not real alt text, so fill it
+                    // regardless of overwrite (for some reason many img's carry " " as alt text)
                     cheerioContent(el).attr("alt", file.altText);
                 } else if (
                     aiService.supportedFileExtensions.some((ext) =>
@@ -1069,28 +1032,150 @@ async function _generateAndApplyPageImagesAltText(
             modifiedCount++;
         }
 
-        if (!didModify) {
-            return [null, true, 0]; // If we didn't modify any images, return success
+        // Skipped entirely when nothing matched: there is no content change to write, but the file
+        // properties below are still worth persisting.
+        if (didModify) {
+            // xmlMode serialization self-closes void elements (<img/>, <br/>) and escapes bare
+            // ampersands so the <content><body>...</body></content> envelope stays well-formed XML.
+            const modifiedContentXML = cheerioContent.html({ xmlMode: true });
+            if (!modifiedContentXML) {
+                return ["internal", false, 0];
+            }
+
+            // The regression this code replaced serialized a full <html><head/><body> document. That
+            // preserved every character of text, so the text comparison below cannot see it -- the
+            // content was destroyed by MindTouch, which strips these tags along with everything they
+            // contain. Assert the payload is a bare fragment before it can reach the library again.
+            if (/<\/?(?:html|head|body)[\s/>]/i.test(modifiedContentXML)) {
+                debugError(
+                    `Refusing to write alt text for page ${pageID}: serialized payload contains document wrapper tags`
+                );
+                return ["internal", false, 0];
+            }
+
+            // Separately, setting alt attributes only touches attributes, so the page's text must
+            // survive intact. This catches the parser dropping content rather than mis-wrapping it.
+            if (!_isContentPreserved(pageContent, modifiedContentXML)) {
+                debugError(
+                    `Refusing to write alt text for page ${pageID}: serialized content lost text (before: ${pageContent.length} chars, after: ${modifiedContentXML.length} chars)`
+                );
+                return ["internal", false, 0];
+            }
+
+            const updateSuccess = await bookService.updatePageContent(
+                pageID.toString(),
+                modifiedContentXML
+            );
+            if (!updateSuccess) {
+                throw new Error("internal");
+            }
         }
 
-        const modifiedContentXML = cheerioContent.xml();
-        if (!modifiedContentXML) {
-            return ["internal", false, 0];
-        }
-
-        const updateSuccess = await bookService.updatePageContent(
-            pageID.toString(),
-            modifiedContentXML
-        );
-        if (!updateSuccess) {
-            throw new Error("internal");
-        }
+        // Only now that the page content is safely written (or that there was no content change to
+        // make) is it safe to mark the files themselves as having alt text.
+        await _applyFileAltTextProperties(bookService, altTexts);
 
         success = true;
     } catch (err: any) {
         error = err.message ?? "internal";
     }
     return [error, success, modifiedCount];
+}
+
+/**
+ * Guards against the parser or serializer dropping content. Applying alt text only touches
+ * attributes, so the rendered text of the page must survive essentially intact.
+ *
+ * Note this cannot detect content that survives serialization but is rejected by MindTouch --
+ * the wrapper-tag assertion in the caller covers that case.
+ */
+function _isContentPreserved(before: string, after: string): boolean {
+    const textOf = (html: string) =>
+        cheerio.load(html, null, false).text().replace(/\s+/g, " ").trim();
+
+    const beforeText = textOf(before);
+    const afterText = textOf(after);
+
+    // Nothing to compare against; the write guard in updatePageContent still applies.
+    if (!beforeText.length) return true;
+
+    if (!afterText.length) return false;
+
+    return afterText.length >= beforeText.length * 0.5;
+}
+
+/**
+ * Determines whether a page's `<img src>` refers to the given file.
+ *
+ * MindTouch file URLs embed the file ID (`/@api/deki/files/{fileID}/{filename}`), which is stable
+ * across the files API href, the authored source, and rendered output. The rest of the path is not:
+ * the API href is percent-encoded (a filename containing a space arrives as `%20`) while the
+ * authored src may not be, and query params vary between the two.
+ */
+function _srcMatchesFile(src: string, fileID: string, fileHref: string): boolean {
+    // Trailing slash matters: it stops file 120296 from matching file 1202960.
+    if (src.includes(`/files/${fileID}/`)) return true;
+
+    // Fall back to path comparison for any URL shape that doesn't embed the ID.
+    try {
+        return src.includes(new URL(fileHref).pathname);
+    } catch {
+        // Relative or malformed href; skip this image rather than failing the whole page.
+        return false;
+    }
+}
+
+/**
+ * Persists generated alt text onto the MindTouch file records themselves.
+ *
+ * Call this only once the page content has been written. Doing it earlier means any later failure
+ * leaves the `alt` property set while the page HTML still lacks it, and _checkCanEditAltText then
+ * filters the image out of every future non-overwrite run.
+ */
+async function _applyFileAltTextProperties(
+    bookService: BookService,
+    altTexts: _generatePageImagesAltTextResObj[]
+): Promise<void> {
+    for (let i = 0; i < altTexts.length; i++) {
+        const file = altTexts[i];
+        if (file.error || !file.altText) {
+            debugError(`No alt text for image: ${file.fileID}, ${file.error}`);
+            continue;
+        }
+
+        if (!file.properties) continue;
+
+        const mappedProperties = file.properties.map((p) => ({
+            etag: p["@etag"],
+            name: p["@name"],
+            value: p.contents["#text"],
+        }));
+
+        const res = await CXOneFetch({
+            scope: "files",
+            path: file.fileID,
+            api: MindTouch.API.File.PUT_File_Properties,
+            subdomain: bookService.library,
+            options: {
+                method: "PUT",
+                body: MindTouch.Templates.PUT_FileProperties(mappedProperties),
+                headers: {
+                    "Content-Type": "application/xml",
+                },
+            },
+        }).catch((e) => {
+            console.error(
+                "Error updating file properties for file: ",
+                file.fileID,
+                e
+            );
+            return { status: 500 };
+        });
+
+        if (res.status !== 200) {
+            debugError(`Error updating file properties for file: ${file.fileID}`);
+        }
+    }
 }
 
 function _checkCanEditAltText(file: PageFile, overwrite: boolean): boolean {
