@@ -1178,14 +1178,6 @@ router
   );
 
 router
-  .route("/commons/book/title-availability")
-  .get(
-    authAPI.verifyRequest,
-    middleware.validateZod(BookValidators.bookTitleAvailabilitySchema),
-    booksAPI.checkBookTitleAvailability
-  );
-
-router
   .route("/commons/book/get-cover-id-by-url")
   .get(
     middleware.validateZod(BookValidators.getCoverIdByUrlSchema),

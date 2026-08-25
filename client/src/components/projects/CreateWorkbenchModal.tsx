@@ -12,7 +12,6 @@ import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
 import { Controller, useForm } from "react-hook-form";
 import { Input } from "@libretexts/davis-react";
-import { useQuery } from "@tanstack/react-query";
 import { required } from "../../utils/formRules";
 import { useEffect, useState } from "react";
 import { useTypedSelector } from "../../state/hooks";
@@ -37,9 +36,6 @@ interface TeamMemberWithoutAccess {
   lastName: string;
   avatar: string;
 }
-
-/** How long the title must sit still before we ask the library about it. */
-const TITLE_CHECK_DEBOUNCE_MS = 600;
 
 const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
   show,
@@ -93,10 +89,8 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
   const [selectedLibraryName, setSelectedLibraryName] = useState("");
   const [canAccessLibrary, setCanAccessLibrary] = useState(true);
   const [blockingNotice, setBlockingNotice] = useState<string | null>(null);
-  const [debouncedTitle, setDebouncedTitle] = useState("");
 
   const selectedLibrary = watch("library");
-  const title = watch("title");
 
   useEffect(() => {
     if (show) {
@@ -106,15 +100,6 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
       setValue("title", projectTitle);
     }
   }, [show]);
-
-  // Let the user finish typing before asking the library whether the title is taken.
-  useEffect(() => {
-    const timer = window.setTimeout(
-      () => setDebouncedTitle(title?.trim() ?? ""),
-      TITLE_CHECK_DEBOUNCE_MS
-    );
-    return () => window.clearTimeout(timer);
-  }, [title]);
 
   async function loadLibraries() {
     try {
@@ -151,49 +136,8 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
     }
   }, [selectedLibrary, libraryOptions]);
 
-  /**
-   * Advisory availability check so a duplicate title shows up while the field is
-   * still editable, rather than as a failed submission. `available: null` means
-   * the library couldn't be reached; the server re-checks on submit either way.
-   */
-  const { data: titleAvailability, isFetching: checkingTitle } = useQuery({
-    queryKey: ["book-title-availability", selectedLibrary, debouncedTitle],
-    queryFn: async () => {
-      const res = await api.checkBookTitleAvailability(
-        selectedLibrary,
-        debouncedTitle
-      );
-      if (res.data.err) throw new Error(res.data.errMsg);
-      return res.data;
-    },
-    enabled: show && !!selectedLibrary && !!debouncedTitle,
-    retry: false,
-  });
-
-  const titleTaken = titleAvailability?.available === false;
-  const canCreate = canAccessLibrary && !titleTaken && !loading;
-
-  const titleErrorMessage = (() => {
-    if (formState.errors.title?.message) return formState.errors.title.message;
-    if (titleTaken) {
-      return `A book titled "${debouncedTitle}" already exists on ${
-        selectedLibraryName || "this library"
-      }. Please choose a different title.`;
-    }
-    return undefined;
-  })();
-
-  /**
-   * Status text for the async check. Rendered in a live region so the result is
-   * announced rather than only being visible.
-   */
-  const availabilityStatus = (() => {
-    if (!selectedLibrary || !debouncedTitle) return "";
-    if (checkingTitle) return "Checking title availability...";
-    if (titleTaken) return "This title is already in use on the selected library.";
-    if (titleAvailability?.available === true) return "This title is available.";
-    return "";
-  })();
+  const canCreate = canAccessLibrary && !loading;
+  const titleErrorMessage = formState.errors.title?.message;
 
   async function checkLibraryAccess() {
     try {
@@ -385,13 +329,10 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
                     onChange={(e) => field.onChange(e.target.value)}
                     error={!!titleErrorMessage}
                     errorMessage={titleErrorMessage}
-                    helperText="Must be unique within the selected library."
+                    helperText="This is the title of your book. It does not need to be unique."
                   />
                 )}
               />
-              <p className="sr-only" aria-live="polite">
-                {availabilityStatus}
-              </p>
             </div>
             <p>
               <strong>CAUTION:</strong> Library cannot be changed after book is
