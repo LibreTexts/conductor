@@ -43,6 +43,7 @@ export const titleToRemixerPathSegment = (title: string): string => {
 type RemixerPathNumbering = {
   formattedPath?: string;
   numberedPath?: string;
+  pathNumber?: string[];
 };
 
 /**
@@ -61,7 +62,7 @@ export const buildRemixerPagePathSegment = (
   // Prefer formattedPath so autoNumbering `start` (incl. 0 → `00%3A_…`) is honored.
   const numbering =
   page.numberedPath?.trim() ||page.formattedPath?.trim() ||  "";
-  const parts = numbering.split(".");
+  const parts = page?.pathNumber|| numbering.split(".");
   if (parts.length > 0) {
     parts[parts.length - 1] = parts[parts.length - 1]!.padStart(2, "0");
   }
