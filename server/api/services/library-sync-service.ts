@@ -2,11 +2,13 @@ import logger, { childLogger } from "../../logger.js";
 import Library, { LibraryInterface } from "../../models/library.js";
 import { AuthorInterface } from "../../models/author.js";
 import Expert from "../../util/ExpertWithSSM.js";
-import type {
-  default as ExpertClient,
-  PageBase,
-  PageTag,
-  Tags,
+import {
+  many,
+  one,
+  text,
+  type default as ExpertClient,
+  type GetPageResponse as FoundPage,
+  type PageTag,
 } from "@libretexts/cxone-expert-node";
 import AuthorService from "./author-service.js";
 import CXOnePageProperties from "../../util/CXOne/CXOnePageProperties.js";
@@ -14,26 +16,18 @@ import { sanitizeOptionalLibraryText } from "../../util/sanitize-text.js";
 import { mapWithConcurrency } from "../../util/concurrency.js";
 const commonsSyncLog = childLogger("commons-sync");
 
-/** CXOne returns repeated elements as object | array | "" depending on cardinality. */
-function toArray<T>(value: T | T[] | "" | undefined | null): T[] {
-  if (!value) return [];
-  return Array.isArray(value) ? value : [value];
-}
-
-type FoundPage = Partial<PageBase> & Partial<Tags>;
-
-/**
- * Tag titles for a page returned by `/find?include=tags`. The SDK types the
- * result as `PageBase & Tags` (tags flattened onto the page), but the wire
- * format nests them under `tags`. Read both.
- */
 function tagTitles(page: FoundPage): string[] {
-  const nested = (page as { tags?: Partial<Tags> | "" }).tags;
-  const raw: (Partial<PageTag> | "")[] = [
-    ...toArray(page.tag),
-    ...toArray(nested ? nested.tag : undefined),
-  ];
-  return raw
+  const tags: Partial<PageTag>[] = []; 
+
+  if (page.tags && typeof page.tags === "object" && "tag" in page.tags) {
+    tags.push(...many(page.tags.tag));
+  }
+
+  if (tags.length === 0) {
+    return [];
+  }
+
+  return tags
     .map((t) => (t ? t.title : undefined))
     .filter((t): t is string => typeof t === "string");
 }
@@ -212,11 +206,11 @@ export type LibraryCoverpage = {
  */
 export type LibrarySyncResult =
   | {
-      ok: true;
-      subdomain: string;
-      complete: boolean;
-      coverpages: LibraryCoverpage[];
-    }
+    ok: true;
+    subdomain: string;
+    complete: boolean;
+    coverpages: LibraryCoverpage[];
+  }
   | { ok: false; subdomain: string; error: string };
 
 /** Coverpages found beneath one root, and whether that search was exhaustive. */
@@ -519,7 +513,7 @@ export default class LibrarySyncService {
     const count = Number(res["@count"] ?? 0);
     const total = Number(res["@totalcount"] ?? 0);
     const kept = this.keepEligiblePages(
-      toArray(res.page),
+      many(res.page),
       `${subdomain}/${rootPath}`
     );
 
@@ -531,20 +525,20 @@ export default class LibrarySyncService {
        child searches don't reach. */
     if (depth >= MAX_FIND_SPLIT_DEPTH) {
       logger.error(`Coverpage search for ${subdomain}/${rootPath} is still truncated at ` +
-                `${count} of ${total} after ${depth} splits. Some books were not synced.`);
+        `${count} of ${total} after ${depth} splits. Some books were not synced.`);
       return { pages: kept, complete: false };
     }
 
     const children = await this.childPaths(expert, rootPath, throttle);
     if (children.length === 0) {
       logger.error(`Coverpage search for ${subdomain}/${rootPath} returned ${count} of ` +
-                `${total} results and has no subpages to split on. ` +
-                `Some books were not synced.`);
+        `${total} results and has no subpages to split on. ` +
+        `Some books were not synced.`);
       return { pages: kept, complete: false };
     }
 
     commonsSyncLog.info(`Splitting ${subdomain}/${rootPath} across ${children.length} subtrees ` +
-            `(${count} of ${total} results returned).`);
+      `(${count} of ${total} results returned).`);
 
     const nested = await Promise.all(
       children.map((child) =>
@@ -579,7 +573,7 @@ export default class LibrarySyncService {
       expert.pages.getPageSubpages(path, { limit: "all" })
     );
 
-    return toArray(res["page.subpage"])
+    return many(res["page.subpage"])
       .filter((page) => !isExcludedLocation(page))
       .map((page) => (page.path ? page.path["#text"] : undefined))
       .filter((p): p is string => typeof p === "string" && p.length > 0);
@@ -628,7 +622,7 @@ export default class LibrarySyncService {
         logged += 1;
         const path = page.path ? page.path["#text"] ?? "" : "";
         commonsSyncLog.info(`Rejected ${label} page ${page["@id"] ?? "?"} ("${path}"): missing ` +
-                    `${missing.join(", ")}. Has: ${tagTitles(page).join(", ") || "no tags"}.`);
+          `${missing.join(", ")}. Has: ${tagTitles(page).join(", ") || "no tags"}.`);
       }
       return false;
     });
@@ -643,7 +637,7 @@ export default class LibrarySyncService {
         .map(([tag, count]) => `${tag}: ${count}`)
         .join(", ");
       commonsSyncLog.info(`Rejected ${untagged} page(s) from ${label} that are not books ` +
-                `(${breakdown}). ${kept.length} of ${pages.length} returned pages kept.`);
+        `(${breakdown}). ${kept.length} of ${pages.length} returned pages kept.`);
     }
 
     return kept;
@@ -662,17 +656,29 @@ export default class LibrarySyncService {
   private isSyncable(page: FoundPage, subdomain: string): boolean {
     if (page["@deleted"] === "true") return false;
 
-    const restriction = page.restriction;
+    const security = one(page.security);
+    if (!security) {
+      logger.error(`Skipping ${subdomain} page ${page["@id"]}: no security property.`);
+      return false;
+    }
+
+    const restriction = one(security["permissions.page"])?.restriction;
     if (!restriction) {
       logger.error(`Skipping ${subdomain} page ${page["@id"]}: no restriction property.`);
       return false;
     }
 
-    if (PUBLIC_RESTRICTIONS.has(restriction)) return true;
-    if (UNLISTED_RESTRICTIONS.has(restriction)) return false;
+    const restrictionText = text(restriction['#text']);
+    if (!restrictionText) {
+      logger.error(`Skipping ${subdomain} page ${page["@id"]}: restriction property has no text.`);
+      return false;
+    }
+
+    if (PUBLIC_RESTRICTIONS.has(restrictionText)) return true;
+    if (UNLISTED_RESTRICTIONS.has(restrictionText)) return false;
 
     logger.error(`Skipping ${subdomain} page ${page["@id"]}: unrecognized restriction ` +
-            `"${restriction}". Add it to PUBLIC_RESTRICTIONS if it is publicly readable.`);
+      `"${restrictionText}". Add it to PUBLIC_RESTRICTIONS if it is publicly readable.`);
     return false;
   }
 
@@ -788,20 +794,15 @@ export default class LibrarySyncService {
   > {
     const { subdomain } = library;
 
-    let merged: FoundPage;
+    let page: FoundPage;
     let expert: ExpertClient;
     try {
       expert = await Expert.getInstance().forLibrary(subdomain);
 
-      const [page, tags] = await Promise.all([
-        singleFetchThrottle(() => expert.pages.getPage(coverpageID)),
-        singleFetchThrottle(() => expert.pages.getPageTags(coverpageID)),
-      ]);
-      if (!page || !page["@id"]) return { ok: false, reason: "not_found" };
+      const _page = await singleFetchThrottle(() => expert.pages.getPage(coverpageID)); // getPage returns page `tags` also so no need to fetch them separately
+      if (!_page || !_page["@id"]) return { ok: false, reason: "not_found" };
 
-      // `tagTitles` reads both the flattened and the nested shape, so handing
-      // it the tags response under `tags` needs no further translation.
-      merged = { ...page, tags } as FoundPage;
+      page = _page;
     } catch (err) {
       if ((err as { response?: { status?: number } })?.response?.status === 404) {
         return { ok: false, reason: "not_found" };
@@ -813,31 +814,31 @@ export default class LibrarySyncService {
     try {
       // Same definition of "book" the bulk walk applies in `keepEligiblePages`,
       // so a webhook cannot introduce a page the full sync would reject.
-      const missing = missingBookTags(merged);
+      const missing = missingBookTags(page);
       if (missing.length > 0) {
         commonsSyncLog.info(`${subdomain} page ${coverpageID} is not a book: missing ` +
-                    `${missing.join(", ")}. Has: ${tagTitles(merged).join(", ") || "no tags"}.`);
+          `${missing.join(", ")}. Has: ${tagTitles(page).join(", ") || "no tags"}.`);
         return { ok: false, reason: "ineligible" };
       }
 
-      const path = merged.path ? merged.path["#text"] ?? "" : "";
+      const path = page.path ? page.path["#text"] ?? "" : "";
       const roots = library.syncLocations ?? [];
       if (!isUnderSyncRoot(path, roots)) {
         commonsSyncLog.info(`${subdomain} page ${coverpageID} ("${path}") is not under a sync ` +
-                    `location (${roots.join(", ") || "none configured"}).`);
+          `location (${roots.join(", ") || "none configured"}).`);
         return { ok: false, reason: "ineligible" };
       }
 
-      if (isExcludedLocation(merged)) {
+      if (isExcludedLocation(page)) {
         commonsSyncLog.info(`${subdomain} page ${coverpageID} is in a scratch location.`);
         return { ok: false, reason: "ineligible" };
       }
 
-      if (!this.isSyncable(merged, subdomain)) {
+      if (!this.isSyncable(page, subdomain)) {
         return { ok: false, reason: "ineligible" };
       }
 
-      const coverpage = this.toCoverpage(merged, await this.getCachedAuthorIndex());
+      const coverpage = this.toCoverpage(page, await this.getCachedAuthorIndex());
       if (!coverpage) return { ok: false, reason: "ineligible" };
 
       coverpage.summary = await this.fetchSummary(
@@ -889,8 +890,8 @@ export default class LibrarySyncService {
       let complete = found.every((f) => f.complete);
       if (!complete) {
         logger.error(`Coverpage search for ${subdomain} was truncated. Its books will be ` +
-                    `synced, but absence from this run proves nothing, so missing-book ` +
-                    `detection is skipped for this library.`);
+          `synced, but absence from this run proves nothing, so missing-book ` +
+          `detection is skipped for this library.`);
       }
 
       // Dedupe across roots: the Courses/Bookshelves subtrees can overlap via
@@ -955,7 +956,7 @@ export default class LibrarySyncService {
       );
       if (missing.length > 0) {
         logger.error(`LIBRARY_SYNC_ONLY names ${missing.join(", ")}, which ` +
-                    `${missing.length === 1 ? "is" : "are"} not a synced library.`);
+          `${missing.length === 1 ? "is" : "are"} not a synced library.`);
       }
     }
     if (limits.maxLibraries) {
@@ -964,8 +965,8 @@ export default class LibrarySyncService {
 
     if (isLimitedSync(limits)) {
       commonsSyncLog.info(`LIMITED SYNC (${describeLimits(limits)}) — ${libraries.length} of ` +
-                `${all.length} libraries. Books absent from this run will NOT be ` +
-                `marked missing.`);
+        `${all.length} libraries. Books absent from this run will NOT be ` +
+        `marked missing.`);
     } else {
       commonsSyncLog.info(`Syncing ${libraries.length} libraries.`);
     }

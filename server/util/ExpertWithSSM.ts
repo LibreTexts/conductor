@@ -1,7 +1,6 @@
 import logger from "../logger.js";
 import { SSMClient, GetParametersByPathCommand } from "@aws-sdk/client-ssm";
 import Expert from "@libretexts/cxone-expert-node";
-import { createHmac } from "crypto";
 import { LibraryTokenPair } from "../types";
 
 type LibraryCredentials = {
@@ -154,74 +153,6 @@ class ExpertWithSSM {
       refreshAfter: creds.refreshAfter,
     };
     return expert;
-  }
-
-  /**
-   * Sets one or more properties on a file.
-   *
-   * TODO(cxone-expert-node): the SDK's Files module does not yet expose a
-   * property-write endpoint, so this performs the request directly using the
-   * SSM-derived credentials. Remove this method once the SDK supports it.
-   *
-   * @param subdomain - Library subdomain (e.g. `chem`).
-   * @param fileID - Target file ID (or path).
-   * @param xmlBody - `<properties>...</properties>` XML payload.
-   * @returns True if the request succeeded, false otherwise.
-   */
-  public async putFileProperties(
-    subdomain: string,
-    fileID: string | number,
-    xmlBody: string
-  ): Promise<boolean> {
-    try {
-      const headers = await this.generateDekiHeaders(subdomain);
-      if (!headers) {
-        throw new Error(
-          `Unable to generate CXOne request headers for library "${subdomain}".`
-        );
-      }
-
-      const res = await fetch(
-        `https://${subdomain}.libretexts.org/@api/deki/files/${fileID}/properties?dream.out.format=json`,
-        {
-          method: "PUT",
-          headers: {
-            ...headers,
-            "Content-Type": "application/xml",
-          },
-          body: xmlBody,
-        }
-      );
-
-      return res.ok;
-    } catch (err) {
-      logger.error({ err }, "putFileProperties failed");
-      return false;
-    }
-  }
-
-  /**
-   * Mints the `X-Deki-Token` request headers for a library from its SSM
-   * credentials. Only used by {@link putFileProperties}; all other operations
-   * delegate token minting to the SDK.
-   */
-  private async generateDekiHeaders(
-    subdomain: string
-  ): Promise<Record<string, string> | null> {
-    const creds = await this.getLibraryCredentials(subdomain);
-    if (!creds) {
-      return null;
-    }
-
-    const epoch = Math.floor(Date.now() / 1000);
-    const hmac = createHmac("sha256", creds.keyPair.secret);
-    hmac.update(`${creds.keyPair.key}${epoch}=${creds.apiUsername}`);
-    return {
-      "X-Deki-Token": `${creds.keyPair.key}_${epoch}_=${
-        creds.apiUsername
-      }_${hmac.digest("hex")}`,
-      "X-Requested-With": "XMLHttpRequest",
-    };
   }
 }
 
