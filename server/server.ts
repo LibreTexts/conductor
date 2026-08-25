@@ -112,6 +112,17 @@ app.use(
   })
 );
 
+// Build identity endpoint. Used by the client to detect that a new release is live
+// so it can prompt for a reload instead of failing on a chunk that no longer exists.
+app.get("/api/v1/build", (_req, res) => {
+  res
+    .setHeader("Cache-Control", "no-store")
+    .json({
+      version: process.env.VERSION ?? "dev",
+      ref: process.env.VCS_REF ?? null,
+    });
+});
+
 // Serve API
 app.use("/api/v1", floodShield, api);
 app.use("/permalink", permalinkRouter);
@@ -153,12 +164,57 @@ if (process.env.NODE_ENV !== "production") {
   );
 }
 
+// The document must never be cached: it is the only thing that maps a client to the
+// current build's hashed chunk filenames. Stale HTML points at chunks that no longer exist.
+const sendIndexHtml = (res: express.Response) => {
+  res
+    .setHeader("Content-Type", "text/html")
+    .setHeader("Cache-Control", "no-cache, must-revalidate")
+    .send(indexHtml);
+};
+
 // Serve index.html from the in-memory copy so the conditional strip takes effect; static middleware handles other assets.
 app.get(["/", "/index.html"], (_req, res) => {
-  res.setHeader("Content-Type", "text/html").send(indexHtml);
+  sendIndexHtml(res);
 });
 
 app.use(sitemapRouter());
+
+// Vite content-hashes every filename under /assets, so a given URL's bytes never change:
+// cache it for a year. This also keeps a previous build's chunks alive at the edge long
+// after a deploy, which is what already-open tabs need.
+// fallthrough:false is load-bearing — without it a missing chunk falls through to the SPA
+// catch-all below and is answered with 200 text/html, which Cloudflare then caches under
+// the .js URL and serves to every user until the TTL expires.
+app.use(
+  "/assets",
+  express.static(path.join(clientDist, "assets"), {
+    index: false,
+    fallthrough: false,
+    immutable: true,
+    maxAge: "1y",
+  })
+);
+
+app.use(
+  "/assets",
+  (
+    err: any,
+    _req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+  ) => {
+    if (err?.status === 404 || err?.statusCode === 404) {
+      res
+        .status(404)
+        .setHeader("Cache-Control", "no-store")
+        .type("text/plain")
+        .send("Not found");
+      return;
+    }
+    next(err);
+  }
+);
 
 app.use(express.static(clientDist, { index: false }));
 
@@ -167,7 +223,7 @@ const appEnv = process.env.APP_ENV ?? "production";
 const envJs = `window.__APP_ENV__ = ${JSON.stringify(appEnv)};`;
 app.get("/env.js", (_req, res) => {
   res.setHeader("Content-Type", "application/javascript")
-    .setHeader("Cache-Control", "public, max-age=31536000, immutable") // Caching to improve performance since this doesn't change after initial load
+    .setHeader("Cache-Control", "no-cache, must-revalidate") // Built from env at boot, so it must revalidate across deploys
     .send(envJs);
 });
 
@@ -190,13 +246,29 @@ const matomoJS = matomoDomain && matomoSiteID ? `
 ` : '/* Matomo not configured */';
 app.get("/matomo-init.js", (_req, res) => {
   res.setHeader("Content-Type", "application/javascript")
-    .setHeader("Cache-Control", "public, max-age=31536000, immutable") // Caching to improve performance since this doesn't change after initial load
+    .setHeader("Cache-Control", "no-cache, must-revalidate") // Built from env at boot, so it must revalidate across deploys
     .send(matomoJS);
 });
 
+// Extensions of files this server ships. A request for one of these that reaches the SPA
+// fallback missed on disk. Kept to a known list rather than "any dot" so app routes whose
+// params contain a period still resolve.
+const STATIC_FILE_EXT =
+  /\.(js|mjs|cjs|css|map|json|webmanifest|png|jpe?g|gif|svg|ico|webp|avif|woff2?|ttf|otf|eot|txt|xml)$/i;
+
 let cliRouter = express.Router();
-cliRouter.route("*").get((_req, res) => {
-  res.setHeader("Content-Type", "text/html").send(indexHtml);
+cliRouter.route("*").get((req, res) => {
+  // A static asset request that missed. Answering it with the app shell produces a
+  // cacheable 200 of HTML under an asset URL, which poisons the CDN for every other client.
+  if (STATIC_FILE_EXT.test(req.path)) {
+    res
+      .status(404)
+      .setHeader("Cache-Control", "no-store")
+      .type("text/plain")
+      .send("Not found");
+    return;
+  }
+  sendIndexHtml(res);
 });
 app.use("/", cliRouter);
 

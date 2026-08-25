@@ -1,12 +1,13 @@
 import { useParams } from "react-router-dom";
 import DefaultLayoutWNavTree from "../../../components/kb/DefaultLayoutWNavTree";
-import { useEffect, useState, lazy } from "react";
+import { useEffect, useState } from "react";
+import lazyWithRetry from "../../../utils/lazyWithRetry";
 import KBPageViewMode from "../../../components/kb/KBPageViewMode";
 import { useTypedSelector } from "../../../state/hooks";
 import { Button } from "@libretexts/davis-react";
 import { IconPencil } from "@tabler/icons-react";
 import { canEditKB } from "../../../utils/kbHelpers";
-const KBPageEditMode = lazy(
+const KBPageEditMode = lazyWithRetry(
   () => import("../../../components/kb/KBPageEditMode")
 );
 

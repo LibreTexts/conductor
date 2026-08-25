@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback } from "react";
+import lazyWithRetry from "../../utils/lazyWithRetry";
 import {
   Button,
   Loader,
@@ -14,14 +15,14 @@ import {
   Dropdown,
   Message,
 } from "semantic-ui-react";
-const AddFolder = React.lazy(() => import("./AddFolder"));
-const ChangeAccess = React.lazy(() => import("./ChangeAccess"));
-const DeleteFiles = React.lazy(() => import("./DeleteFiles"));
-const FileIcon = React.lazy(() => import("../FileIcon"));
-const FilesUploader = React.lazy(() => import("./FilesUploader"));
-const MoveFiles = React.lazy(() => import("./MoveFiles"));
-const EditFile = React.lazy(() => import("./EditFile"));
-const LargeDownloadModal = React.lazy(() => import("./LargeDownloadModal"));
+const AddFolder = lazyWithRetry(() => import("./AddFolder"));
+const ChangeAccess = lazyWithRetry(() => import("./ChangeAccess"));
+const DeleteFiles = lazyWithRetry(() => import("./DeleteFiles"));
+const FileIcon = lazyWithRetry(() => import("../FileIcon"));
+const FilesUploader = lazyWithRetry(() => import("./FilesUploader"));
+const MoveFiles = lazyWithRetry(() => import("./MoveFiles"));
+const EditFile = lazyWithRetry(() => import("./EditFile"));
+const LargeDownloadModal = lazyWithRetry(() => import("./LargeDownloadModal"));
 import {
   getFilesLicenseText,
   getFilesAccessText,

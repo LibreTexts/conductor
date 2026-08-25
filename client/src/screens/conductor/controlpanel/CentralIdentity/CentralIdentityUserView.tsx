@@ -1,4 +1,5 @@
-import { useState, useEffect, lazy, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
+import lazyWithRetry from "../../../../utils/lazyWithRetry";
 import { Link, useHistory, useParams } from "react-router-dom";
 import {
   Header,
@@ -33,28 +34,28 @@ import CtlTextInput from "../../../../components/ControlledInputs/CtlTextInput";
 import CopyButton from "../../../../components/util/CopyButton";
 import { format, parseISO } from "date-fns";
 import { utcToZonedTime } from "date-fns-tz";
-const AddUserAppModal = lazy(
+const AddUserAppModal = lazyWithRetry(
   () =>
     import(
       "../../../../components/controlpanel/CentralIdentity/AddUserAppModal"
     )
 );
-const AddUserOrgModal = lazy(
+const AddUserOrgModal = lazyWithRetry(
   () =>
     import(
       "../../../../components/controlpanel/CentralIdentity/AddUserOrgModal"
     )
 );
-const ConfirmRemoveOrgOrAppModal = lazy(
+const ConfirmRemoveOrgOrAppModal = lazyWithRetry(
   () =>
     import(
       "../../../../components/controlpanel/CentralIdentity/ConfirmRemoveOrgOrAppModal"
     )
 );
-const InternalNotesSection = lazy(
+const InternalNotesSection = lazyWithRetry(
   () => import("../../../../components/Notes/InternalNotesSection")
 );
-const UserSupportTickets = lazy(
+const UserSupportTickets = lazyWithRetry(
   () =>
     import(
       "../../../../components/controlpanel/CentralIdentity/UserSupportTickets"

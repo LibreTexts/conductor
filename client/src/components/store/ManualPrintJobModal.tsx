@@ -1,4 +1,5 @@
-import { Suspense, lazy, useEffect, useId, useMemo, useState } from "react";
+import { Suspense, useEffect, useId, useMemo, useState } from "react";
+import lazyWithRetry from "../../utils/lazyWithRetry";
 import { Alert, Button, Modal } from "@libretexts/davis-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconClipboardFilled, IconPlus, IconSend } from "@tabler/icons-react";
@@ -14,7 +15,7 @@ import { useNotifications } from "../../context/NotificationContext";
 
 // CodeMirror is a sizeable dependency and this modal is only reachable from a superadmin
 // screen, so keep it out of the main bundle.
-const JsonEditor = lazy(() => import("./JsonEditor"));
+const JsonEditor = lazyWithRetry(() => import("./JsonEditor"));
 
 /**
  * A blank line item in the exact shape `LuluPrintJobLineItem` requires, so an operator adding
