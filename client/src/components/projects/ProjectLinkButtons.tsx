@@ -4,7 +4,8 @@ import {
   buildCommonsUrl,
   buildLibraryPageGoURL,
 } from "../../utils/projectHelpers";
-import { lazy, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import lazyWithRetry from "../../utils/lazyWithRetry";
 import { ProjectClassification } from "../../types";
 import { useTypedSelector } from "../../state/hooks";
 import axios from "axios";
@@ -16,7 +17,7 @@ type ActiveImportJob = {
   status: "pending" | "running" | "success" | "error";
   messages: string[];
 };
-const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
+const CreateWorkbenchModal = lazyWithRetry(() => import("./CreateWorkbenchModal"));
 
 interface ProjectLinkButtonsProps {
   adaptCourseID?: string;

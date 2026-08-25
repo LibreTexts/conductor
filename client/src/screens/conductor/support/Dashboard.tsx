@@ -1,5 +1,6 @@
 import AlternateLayout from "../../../components/navigation/AlternateLayout";
-import { useState, lazy, useEffect } from "react";
+import { useState, useEffect } from "react";
+import lazyWithRetry from "../../../utils/lazyWithRetry";
 import { IconBellZ, IconPencilBolt, IconPlus, IconRefresh, IconSearch, IconSettings } from "@tabler/icons-react";
 import { useTypedSelector } from "../../../state/hooks";
 import useDebounce from "../../../hooks/useDebounce";
@@ -15,7 +16,7 @@ import BulkChangeModal from "../../../components/support/BulkChangeModal";
 import { useDocumentTitle } from "usehooks-ts";
 import { Button, Heading, IconButton, Input, Listbox, Stack } from "@libretexts/davis-react";
 import QueueAutoAssignmentModal from "../../../components/support/QueueAutoAssignmentModal";
-const SupportCenterSettingsModal = lazy(
+const SupportCenterSettingsModal = lazyWithRetry(
   () => import("../../../components/support/SupportCenterSettingsModal")
 );
 

@@ -24,7 +24,8 @@ import {
   Checkbox,
 } from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
-import { useEffect, useState, useCallback, lazy, Suspense, useMemo } from 'react';
+import { useEffect, useState, useCallback, Suspense, useMemo } from "react";
+import lazyWithRetry from "../../utils/lazyWithRetry";
 import { useSelector } from 'react-redux';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
@@ -95,8 +96,8 @@ import AddPinnedProjectModal from '../Home/PinnedProjects/AddPinnedProjectModal'
 import { ProjectClassification } from '../../types';
 import { checkIsUUID } from '../../utils/misc';
 import ProjectCoAuthoringToolsButtons from "./ProjectCoAuthoringToolsButtons";
-const ProjectPropertiesModal = lazy(() => import('./ProjectPropertiesModal'));
-const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
+const ProjectPropertiesModal = lazyWithRetry(() => import('./ProjectPropertiesModal'));
+const ManageTeamModal = lazyWithRetry(() => import('./ManageTeamModal'));
 
 const ProjectView = (props) => {
 

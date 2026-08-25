@@ -1,9 +1,10 @@
 import "./FeaturedList.css";
-import { lazy, useState } from "react";
+import { useState } from "react";
+import lazyWithRetry from "../../../utils/lazyWithRetry";
 import { KBFeaturedPage } from "../../../types";
 import { Card } from "@libretexts/davis-react";
 import { IconTrash } from "@tabler/icons-react";
-const ConfirmDeleteFeaturedModal = lazy(() => import("./ConfirmDeleteFeaturedModal"));
+const ConfirmDeleteFeaturedModal = lazyWithRetry(() => import("./ConfirmDeleteFeaturedModal"));
 
 const FeaturedPageCard = ({
   page,

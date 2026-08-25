@@ -1,10 +1,11 @@
 import "./FeaturedList.css";
-import { lazy, useState } from "react";
+import { useState } from "react";
+import lazyWithRetry from "../../../utils/lazyWithRetry";
 import { KBFeaturedVideo } from "../../../types";
 import { Card } from "@libretexts/davis-react";
 import { IconTrash, IconVideo } from "@tabler/icons-react";
 import { truncateString } from "../../util/HelperFunctions";
-const ConfirmDeleteFeaturedModal = lazy(
+const ConfirmDeleteFeaturedModal = lazyWithRetry(
   () => import("./ConfirmDeleteFeaturedModal")
 );
 

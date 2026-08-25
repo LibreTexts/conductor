@@ -22,7 +22,8 @@ import {
 } from "../../types";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import useGlobalError from "../error/ErrorHooks";
-import { lazy, useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import lazyWithRetry from "../../utils/lazyWithRetry";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 import CtlTextArea from "../ControlledInputs/CtlTextArea";
@@ -50,8 +51,8 @@ import CtlDateInput from "../ControlledInputs/CtlDateInput";
 import languageCodes from "../../utils/languageCodes";
 import Tooltip from "../util/Tooltip";
 import AboutProjectClassificationsModal from "./AboutProjectClassificationsModal";
-const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
-const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
+const CreateWorkbenchModal = lazyWithRetry(() => import("./CreateWorkbenchModal"));
+const DeleteProjectModal = lazyWithRetry(() => import("./DeleteProjectModal"));
 
 interface ProjectPropertiesModalProps extends ModalProps {
   show: boolean;

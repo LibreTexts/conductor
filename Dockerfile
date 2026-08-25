@@ -62,6 +62,10 @@ COPY --from=server-builder /usr/src/conductor/server/util ./util
 COPY --from=server-builder /usr/src/conductor/server/public ./public
 COPY --from=client-builder /usr/src/conductor/client/dist ../client/dist
 
+# Surfaced at runtime by GET /api/v1/build so the client can detect a new release
+ENV VERSION=${VERSION}
+ENV VCS_REF=${VCS_REF}
+
 ENV NEW_RELIC_NO_CONFIG_FILE=true
 ENV NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true
 ENV NEW_RELIC_LOG=stdout

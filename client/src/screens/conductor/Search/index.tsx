@@ -2,7 +2,8 @@ import "./Search.css";
 import "../../../components/projects/Projects.css";
 
 import { Grid, Header, Segment } from "semantic-ui-react";
-import { useState, useEffect, useMemo, lazy } from "react";
+import { useState, useEffect, useMemo } from "react";
+import lazyWithRetry from "../../../utils/lazyWithRetry";
 import { useDocumentTitle } from "usehooks-ts";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import type { Homework, ProjectFile } from "../../../types";
@@ -18,8 +19,8 @@ import HomeworkTable from "../../../components/Search/HomeworkTable";
 import UsersTable from "../../../components/Search/UsersTable";
 import { SORT_OPTIONS } from "./searchConstants";
 
-const AlertModal = lazy(() => import("../../../components/alerts/AlertModal"));
-const PreviewHomework = lazy(
+const AlertModal = lazyWithRetry(() => import("../../../components/alerts/AlertModal"));
+const PreviewHomework = lazyWithRetry(
   () => import("../../../components/Search/PreviewHomework")
 );
 

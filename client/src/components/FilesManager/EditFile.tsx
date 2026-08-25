@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import lazyWithRetry from "../../utils/lazyWithRetry";
 import axios from "axios";
 import {
   Modal,
@@ -28,7 +29,7 @@ import ManageCaptionsModal from "./ManageCaptionsModal";
 import { useQuery } from "@tanstack/react-query";
 import useCentralIdentityLicenses from "../../hooks/useCentralIdentityLicenses";
 import RenderTagFields from "./RenderTagFields";
-const FilesUploader = React.lazy(() => import("./FilesUploader"));
+const FilesUploader = lazyWithRetry(() => import("./FilesUploader"));
 
 interface EditFileProps extends ModalProps {
   show: boolean;
