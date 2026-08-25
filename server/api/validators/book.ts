@@ -15,13 +15,6 @@ export const createBookSchema = z.object({
   }),
 });
 
-export const bookTitleAvailabilitySchema = z.object({
-  query: z.object({
-    library: z.coerce.number().positive().int(),
-    title: z.string().min(1).max(255),
-  }),
-});
-
 export const getCommonsCatalogSchema = z.object({
   query: z.object({
     activePage: z.coerce.number().min(1).default(1),

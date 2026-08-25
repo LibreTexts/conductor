@@ -66,7 +66,6 @@ import User from "../models/user.js";
 import centralIdentity from "./central-identity.js";
 import { PipelineStage, Types } from "mongoose";
 import {
-  bookTitleAvailabilitySchema,
   createBookSchema,
   deleteBookSchema,
   getCommonsCatalogSchema,
@@ -1355,67 +1354,6 @@ function createBookErr(
 }
 
 /**
- * Resolves a Central Identity application ID to its library subdomain.
- *
- * @returns The subdomain, or `null` if the application is unknown or has no
- * resolvable subdomain.
- */
-async function resolveLibrarySubdomain(
-  libraryAppID: number,
-): Promise<string | null> {
-  const libraryApp = await centralIdentity.getApplicationById(libraryAppID);
-  if (!libraryApp) return null;
-  return getSubdomainFromUrl(libraryApp.main_url) || null;
-}
-
-/**
- * Reports whether a book title is still available on the given library.
- *
- * Backs the live check in the Create Book modal so a user finds out about a
- * duplicate title while they can still edit the field, rather than after
- * submitting. Advisory only: `createBook` re-checks and is the authority.
- *
- * `available: null` means the library could not be checked. Treat that as
- * "proceed" — a library hiccup must not block book creation.
- *
- * @param {express.Request} req - Incoming request.
- * @param {express.Response} res - Outgoing response.
- */
-async function checkBookTitleAvailability(
-  req: ZodReqWithUser<z.infer<typeof bookTitleAvailabilitySchema>>,
-  res: Response,
-) {
-  try {
-    const { library, title } = req.query;
-
-    const subdomain = await resolveLibrarySubdomain(library);
-    if (!subdomain) {
-      return createBookErr(res, 404, "bad_library", conductorErrors.err11);
-    }
-
-    const [bookPath, bookURL] = generateBookPathAndURL(subdomain, title);
-
-    let available: boolean | null;
-    try {
-      available = !(await BookService.pageExists(subdomain, bookPath));
-    } catch (err) {
-      logger.error(`Unable to check "${bookPath}" on ${subdomain}: ${serializeError(err)}`);
-      available = null;
-    }
-
-    return res.send({
-      err: false,
-      available,
-      path: bookPath,
-      url: bookURL,
-    });
-  } catch (err) {
-    logger.error({ err }, "checkBookTitleAvailability failed");
-    return conductor500Err(res);
-  }
-}
-
-/**
  * Creates a new book with default features in a library Workbench area.
  *
  * Failures are separated into ones the user can fix (an unavailable title, a
@@ -1472,7 +1410,17 @@ async function createBook(
       return createBookErr(res, 403, "no_library_access", conductorErrors.err8);
     }
 
-    const [bookPath, bookURL] = generateBookPathAndURL(subdomain, title);
+    /**
+     * We pass projectID to `generateBookPathAndURL` so that the path is unique even if the title is the same as another book.
+     * CXOne enforces unique paths in a library, not page titles, so this avoids conflicts.
+     * When the book is published and moved to a permanent location (e.g. /Courses or /Bookshelves), the path can be changed to match the title,
+     * assuming there wouldn't be a conflict at that location. But, that is a publishing concern, not a creation concern, so we don't need to worry about it here.
+     * This just lets authors create their books with whatever title they prefer, without worrying about conflicts with other books that may have the same title.
+     * 
+     * Thus, a title conflict should never happen under normal circumstances, but if it does, we handle it gracefully and inform the user to choose a different title.
+     * This would usually mean a previous book creation attempt failed to link the project, leaving a coverpage orphaned in the library. The user can either choose a different title or contact support to have the orphaned page removed.
+     */
+    const [bookPath, bookURL] = generateBookPathAndURL(subdomain, title, projectID);
     const titleConflictMsg = `A book already exists at ${bookURL}. Please choose a different title.`;
 
     // Pre-flight: a read is cheap and, unlike the create below, can't disturb an
@@ -3526,7 +3474,6 @@ export default {
   getCommonsCatalog,
   getMasterCatalog,
   getMasterCatalogV2,
-  checkBookTitleAvailability,
   createBook,
   importPressBooksBook,
   getPressBooksImportJobStatus,
