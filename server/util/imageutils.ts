@@ -1,5 +1,5 @@
+import logger from "../logger.js";
 import sharp from "sharp";
-import { debugError } from "../debug";
 
 export async function convertBase64SVGToBase64PNG(base64SVG: string): Promise<string | null> {
   try {
@@ -7,7 +7,7 @@ export async function convertBase64SVGToBase64PNG(base64SVG: string): Promise<st
     const pngBuffer = await sharp(buffer).png().toBuffer();
     return pngBuffer.toString("base64");
   } catch (error) {
-    debugError(`Error converting SVG to PNG: ${error}`);
+    logger.error({ err: error }, "Error converting SVG to PNG");
     return null;
   }
 }
@@ -27,7 +27,7 @@ export async function resizeImageBase64(
 
     return resized.toString('base64');
   } catch (error) {
-    debugError(`Error resizing image: ${error}`);
+    logger.error({ err: error }, "Error resizing image");
     return null;
   }
 }

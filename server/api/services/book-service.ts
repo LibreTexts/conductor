@@ -1,3 +1,4 @@
+import logger from "../../logger.js";
 import { getLibraryAndPageFromBookID } from "../../util/bookutils";
 import { CXOneFetch } from "../../util/librariesclient";
 import MindTouch from "../../util/CXOne";
@@ -233,7 +234,7 @@ export default class BookService {
       const toc = await this.getBookPageIDs();
       return toc.includes(pageID.toString());
     } catch (err) {
-      console.error(err);
+      logger.error({ err }, "canAccessPage failed");
       return false;
     }
   }
@@ -242,7 +243,7 @@ export default class BookService {
     try {
       return (await Book.findOne({ bookID: this._bookID })) ?? undefined;
     } catch (err) {
-      console.error(err);
+      logger.error({ err }, "getBookRecord failed");
       return undefined;
     }
   }
@@ -255,7 +256,7 @@ export default class BookService {
       }
       return book?.summary || "";
     } catch (err) {
-      console.error(err);
+      logger.error({ err }, "getBookSummary failed");
       return undefined;
     }
   }
@@ -551,7 +552,7 @@ export default class BookService {
 
       return coverPageRes;
     } catch (err) {
-      console.error(err);
+      logger.error({ err }, "getCoverPage failed");
       return null;
     }
   }
@@ -577,7 +578,7 @@ export default class BookService {
         size,
       },
     }).catch((err) => {
-      console.error(err);
+      logger.error({ err }, "fileContentRes failed");
       throw new Error(`Error fetching file content: ${err}`);
     });
 
@@ -616,7 +617,7 @@ export default class BookService {
         api: MindTouch.API.Page.GET_Page_Contents(format, mode),
         subdomain: this._library,
       }).catch((err) => {
-        console.error(err);
+        logger.error({ err }, "pageContentsRes failed");
         throw new Error(`Error fetching page details: ${err}`);
       });
 
@@ -644,7 +645,7 @@ export default class BookService {
       }
       return "";
     } catch (err) {
-      console.error(err);
+      logger.error({ err }, "getPageContent failed");
       return "";
     }
   }
@@ -701,7 +702,7 @@ export default class BookService {
         },
       },
     }).catch((err) => {
-      console.error(err);
+      logger.error({ err }, "pagePropertiesRes failed");
       throw new Error(`Error fetching page details: ${err}`);
     });
 
@@ -742,7 +743,7 @@ export default class BookService {
         },
       },
     }).catch((err) => {
-      console.error(err);
+      logger.error({ err }, "pageTagsRes failed");
       throw new Error(`Error fetching page tags: ${err}`);
     });
 
@@ -777,7 +778,7 @@ export default class BookService {
 
       return pageText;
     } catch (err) {
-      console.error(err);
+      logger.error({ err }, "getPageTextContent failed");
       return "";
     }
   }
@@ -789,7 +790,7 @@ export default class BookService {
       api: MindTouch.API.Page.GET_Page_Images,
       subdomain: this._library,
     }).catch((err) => {
-      console.error(err);
+      logger.error({ err }, "pageImagesRes failed");
       throw new Error(`Error fetching page images: ${err}`);
     });
 
@@ -824,7 +825,7 @@ export default class BookService {
           }
         }
       }).catch((err) => {
-        console.error(err);
+        logger.error({ err }, "pageSecurityRes failed");
         throw new Error(`Error fetching page security: ${err}`);
       });
 
@@ -839,7 +840,7 @@ export default class BookService {
 
       return visibility;
     } catch (err) {
-      console.error(err);
+      logger.error({ err }, "getPageVisibility failed");
       throw new Error("internal");
     }
   }
@@ -884,7 +885,7 @@ export default class BookService {
 
       return true;
     } catch (err) {
-      console.error(err);
+      logger.error({ err }, "updatePageContent failed");
       return false;
     }
   }
@@ -1088,7 +1089,7 @@ export default class BookService {
 
       await BookService._setGuidePageProperties(expert, this._library, path, label);
     } catch (err) {
-      console.error(`Error setting ${matterType} matter root page properties:`, err);
+      logger.error({ err }, `Error setting ${matterType} matter root page properties`);
     }
   }
 
@@ -1125,7 +1126,7 @@ export default class BookService {
       if (conflictBehavior === 'throw') {
         throw new BookPageConflictError(path, label);
       }
-      console.warn(`${label} already exists, skipping creation.`);
+      logger.warn(`${label} already exists, skipping creation.`);
       return null;
     };
 
@@ -1170,7 +1171,7 @@ export default class BookService {
       const res = await axios.get(url, { responseType: 'arraybuffer' });
       return Buffer.from(res.data);
     } catch (error) {
-      console.warn(`Error fetching thumbnail "${url}":`, error);
+      logger.warn({ err: error }, `Error fetching thumbnail "${url}"`);
       return null;
     }
   }
@@ -1189,7 +1190,7 @@ export default class BookService {
     try {
       await expert.pages.putPageFileName(path, BookService.THUMBNAIL_FILE_NAME, thumbnail);
     } catch (error) {
-      console.error('Error setting thumbnail for %s:', label, error);
+      logger.error({ detail: [label, error] }, 'Error setting thumbnail for %s');
     }
   }
 
@@ -1226,7 +1227,7 @@ export default class BookService {
           ),
       );
     } catch (error) {
-      console.error('Error setting properties for %s:', label, error);
+      logger.error({ detail: [label, error] }, 'Error setting properties for %s');
     }
   }
 
@@ -1243,14 +1244,12 @@ export default class BookService {
     const template = await libraryService
       .getGuideTabTemplate(library, BookService.GUIDE_TAB_TEMPLATE_KEY)
       .catch((err) => {
-        console.error('Error fetching guide tab template:', err);
+        logger.error({ err }, 'Error fetching guide tab template');
         return undefined;
       });
 
     if (!template) {
-      console.warn(
-        `No "${BookService.GUIDE_TAB_TEMPLATE_KEY}" guide tab template configured for library "${library}"; ${CXOne.PageProps.GuideTabs} will not be set.`,
-      );
+      logger.warn(`No "${BookService.GUIDE_TAB_TEMPLATE_KEY}" guide tab template configured for library "${library}"; ${CXOne.PageProps.GuideTabs} will not be set.`);
     }
     return template;
   }
@@ -1465,14 +1464,14 @@ export default class BookService {
       //     await expert.pages.putPageOrder(frontMatterRootPageId, { afterid: 0 }); // afterId 0 means it will be the first page in the book
       //   }
       //   catch (error) {
-      //     console.error('Error ordering Front Matter root page to the front of the book:', error);
+      //     console.error({ err: error }, 'Error ordering Front Matter root page to the front of the book');
       //   }
       // }
 
       // Set thumbnail and misc properties
       await this._setMatterRootPageProperties(basePath, 'Front');
     } catch (err) {
-      console.error('Fatal error creating default front matter pages:', err);
+      logger.error({ err }, 'Fatal error creating default front matter pages');
       throw err;
     }
   }
@@ -1561,14 +1560,14 @@ export default class BookService {
       //       await expert.pages.putPageOrder(backMatterRootPageId, { afterid });
       //     }
       //   } catch (error) {
-      //     console.error('Error ordering Back Matter root page to the back of the book:', error);
+      //     console.error({ err: error }, 'Error ordering Back Matter root page to the back of the book');
       //   }
       // }
 
       // Set thumbnail and misc properties
       await this._setMatterRootPageProperties(basePath, 'Back');
     } catch (err) {
-      console.error('Fatal error creating default back matter pages:', err);
+      logger.error({ err }, 'Fatal error creating default back matter pages');
       throw err;
     }
   }

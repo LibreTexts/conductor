@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import Author from "../models/author.js";
 import mongoose from "mongoose";
 // import dotenv from "dotenv";
@@ -15,9 +16,9 @@ import mongoose from "mongoose";
 export async function runMigration() {
   const migrationTitle = "Transform Author Fields";
   try {
-    console.log(`Running migration "${migrationTitle}"...`);
+    logger.info(`Running migration "${migrationTitle}"...`);
 
-    console.log("Connecting to MongoDB...");
+    logger.info("Connecting to MongoDB...");
     if (!process.env.MONGOOSEURI) {
       throw new Error("MONGOOSEURI environment variable is not set.");
     }
@@ -27,7 +28,7 @@ export async function runMigration() {
       useUnifiedTopology: true,
     });
 
-    console.log("Connected to MongoDB.");
+    logger.info("Connected to MongoDB.");
 
     // Find all authors that haven't been migrated yet
     // (they still have firstName field, which indicates they need migration)
@@ -35,12 +36,10 @@ export async function runMigration() {
       firstName: { $exists: true },
     }).limit(100).lean();
 
-    console.log(`Found ${authorsToMigrate.length} authors to migrate.`);
+    logger.info(`Found ${authorsToMigrate.length} authors to migrate.`);
 
     if (authorsToMigrate.length === 0) {
-      console.log(
-        "No authors need migration. Migration already complete or no authors exist.",
-      );
+      logger.info("No authors need migration. Migration already complete or no authors exist.");
       return;
     }
 
@@ -61,9 +60,7 @@ export async function runMigration() {
       }
 
       if (!updateObj.$set.nameKey) {
-        console.warn(
-          `Author ${author._id} is missing both firstName and lastName. Skipping migration for this author.`,
-        );
+        logger.warn(`Author ${author._id} is missing both firstName and lastName. Skipping migration for this author.`);
         return collection.updateOne({ _id: author._id }, { $set: {} }); // No-op update to skip this author
       }
 
@@ -97,7 +94,7 @@ export async function runMigration() {
       updateObj.$unset.primaryInstitution = "";
       updateObj.$unset.isAdminEntry = "";
 
-      console.log(`Updating author ${author._id}:`, updateObj);
+      logger.info({ detail: [updateObj] }, `Updating author ${author._id}`);
 
       // Use native MongoDB collection.updateOne() to bypass Mongoose schema validation
       return collection.updateOne({ _id: author._id }, updateObj);
@@ -107,12 +104,10 @@ export async function runMigration() {
 
     const updatedCount = results.filter((r) => r.modifiedCount > 0).length;
 
-    console.log(`Updated ${updatedCount} authors successfully.`);
-    console.log(`Completed migration "${migrationTitle}".`);
+    logger.info(`Updated ${updatedCount} authors successfully.`);
+    logger.info(`Completed migration "${migrationTitle}".`);
   } catch (e) {
-    console.error(
-      `Fatal error during migration "${migrationTitle}": ${e.toString()}`,
-    );
+    logger.error({ err: e }, `Fatal error during migration "${migrationTitle}"`);
     throw e;
   } finally {
     await mongoose.disconnect();
@@ -141,6 +136,6 @@ function generateNameKey(firstName, lastName) {
 //     process.exit(0);
 //   })
 //   .catch((e) => {
-//     console.error(`Migration failed: ${e.toString()}`);
+//     console.error({ err: e }, "Migration failed");
 //     process.exit(1);
 //   });

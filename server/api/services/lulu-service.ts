@@ -1,9 +1,10 @@
+import logger, { childLogger } from "../../logger.js";
 import axios, { AxiosInstance } from "axios";
 import { LuluPrintJob, LuluPrintJobParams, LuluShippingLineItem, LuluShippingOption, LuluShippingCalculationAddress, ResolvedProduct, LuluPrintJobLineItem } from "../../types";
 import { decodeJwt } from "jose"
-import { debug } from "../../debug";
 import { serializeError } from "../../util/errorutils";
 import { assembleUrl } from "../../util/helpers.js";
+const luluLog = childLogger("lulu");
 
 export default class LuluService {
     private _authAxiosInstance: AxiosInstance;
@@ -38,7 +39,7 @@ export default class LuluService {
                 return Promise.reject(error);
             }
         }, (error) => {
-            debug("[LuluService]: Error in request interceptor:", error);
+            luluLog.error({ err: error }, "Error in request interceptor");
             return Promise.reject(error);
         });
     }
@@ -73,7 +74,7 @@ export default class LuluService {
 
             return this._accessToken || '';
         } catch (error) {
-            debug("Error fetching access token from Lulu:", error);
+            logger.error({ err: error }, "Error fetching access token from Lulu");
             this._accessToken = null;
             this._accessTokenExpiration = null;
             throw new Error("Failed to fetch access token from Lulu");
@@ -133,7 +134,7 @@ export default class LuluService {
             });
             return response.data;
         } catch (error) {
-            debug("[LuluService]: Error fetching shipping options from Lulu:", error);
+            luluLog.error({ err: error }, "Error fetching shipping options from Lulu");
             throw new Error("Failed to retrieve shipping options from Lulu");
         }
     }
@@ -159,7 +160,7 @@ export default class LuluService {
                 contact_email: process.env.BOOKSTORE_CONTACT_EMAIL,
                 production_delay: 120
             }).catch((error) => {
-                debug("[LuluService]: Error creating print job on Lulu:", error);
+                luluLog.error({ err: error }, "Error creating print job on Lulu");
                 // Prefer Lulu's own error body, but only when it is a plain JSON payload -- a stream
                 // or an absent response must fall back to the axios error itself.
                 const luluErrorBody = error?.response?.data;
@@ -180,7 +181,7 @@ export default class LuluService {
         try {
             return await this.createPrintJob(params);
         } catch (error) {
-            debug("[LuluService]: Error resubmitting print job on Lulu:", error);
+            luluLog.error({ err: error }, "Error resubmitting print job on Lulu");
             const errorString = serializeError(error);
             throw new Error("Failed to resubmit print job on Lulu: " + errorString);
         }

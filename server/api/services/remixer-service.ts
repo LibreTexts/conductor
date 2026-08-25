@@ -1,3 +1,4 @@
+import logger, { childLogger } from "../../logger.js";
 import base62 from "base62-random";
 import PrejectRemixerJob from "../../models/projectremixerjob";
 import PrejectRemixer, {
@@ -21,9 +22,9 @@ import {
   shouldSkipPage,
 } from "../../util/remixerutils";
 import * as cheerio from "cheerio";
-import { log } from "debug";
 import { RemixerSubPage } from "../../types/Remixer";
 import BookService from "./book-service";
+const remixerLog = childLogger("remixer");
 
 export type RemixerCopyMode = "Transclude" | "Fork" | "Full";
 
@@ -480,12 +481,10 @@ const orderPageAfterPreviousSibling = async (
       options: { method: "PUT" },
     });
     if (!response.ok) {
-      console.warn(
-        `[Remixer] Could not order page ${newPageId} after ${prevSibling["@id"]}: ${response.status}`,
-      );
+      remixerLog.warn(`Could not order page ${newPageId} after ${prevSibling["@id"]}: ${response.status}`);
     }
   } catch (err) {
-    console.warn("[Remixer] Non-fatal error ordering new page:", err);
+    remixerLog.warn({ err }, "Non-fatal error ordering new page");
   }
 };
 
@@ -1122,7 +1121,7 @@ const handleImportedPage = async (
     }
     await targetService.updatePageDetails(pageID, undefined, preservedTags);
   } catch (error) {
-    console.error(error);
+    logger.error({ err: error }, "handleImportedPage failed");
   }
 
   await applyDefaultRemixerPageProperties(subdomain, pageID);
@@ -1189,16 +1188,11 @@ const copyPageThumbnailAndOverview = async ({
         },
       });
       if (!putRes.ok) {
-        console.warn(
-          `[Remixer] Could not copy thumbnail to page ${targetId}: ${putRes.status}`,
-        );
+        remixerLog.warn(`Could not copy thumbnail to page ${targetId}: ${putRes.status}`);
       }
     }
   } catch (err) {
-    console.warn(
-      "[Remixer] Non-fatal error copying thumbnail:",
-      err instanceof Error ? err.message : "",
-    );
+    remixerLog.warn({ err }, "Non-fatal error copying thumbnail");
   }
 
   // ── Overview / Summary ───────────────────────────────────────────────────
@@ -1216,10 +1210,7 @@ const copyPageThumbnailAndOverview = async ({
       await targetService.updatePageDetails(targetId, overview);
     }
   } catch (err) {
-    console.warn(
-      "[Remixer] Non-fatal error copying Summary:",
-      err instanceof Error ? err.message : "",
-    );
+    remixerLog.warn({ err }, "Non-fatal error copying Summary");
   }
 };
 
@@ -1769,7 +1760,7 @@ const runRemixerJob = async ({
     const bookURL = remixerState.remixerCurrentBook[0]["@href"];
 
     // Ensure Back Matter is the last chapter among its siblings.
-    log("[*] Ordering Back Matter as last chapter...");
+    logger.info("[*] Ordering Back Matter as last chapter...");
     const orderedBackMatter = await withRetryOnTransient(() =>
       orderBackMatterLast(finalBook, subdomain),
     );
@@ -1782,7 +1773,7 @@ const runRemixerJob = async ({
     // BFS over finalBook; for each sibling group, call ORDER_PAGES in sequence
     // so MindTouch reflects the exact intended order even if individual
     // create/move calls placed pages in the wrong slot.
-    log("[*] Final sibling ordering pass...");
+    logger.info("[*] Final sibling ordering pass...");
     {
       const finalById = new Map(finalBook.map((p) => [p["@id"], p]));
       const finalChildrenOf = new Map<string, string[]>();
@@ -1841,16 +1832,13 @@ const runRemixerJob = async ({
     }
 
     // ── Trigger Mindtouch TOC update ─────────────────────────────────────────
-    log("[*] Triggering MindMap TOC update...");
+    logger.info("[*] Triggering MindMap TOC update...");
     await fetch(`https://batch.libretexts.org/print/Libretext=${bookURL}`, {
       headers: { origin: "commons.libretexts.org" },
     })
-      .then(() => console.log("MindMap TOC update done"))
+      .then(() => logger.info("MindMap TOC update done"))
       .catch((e) => {
-        console.warn(
-          "[PressBookScraper] MindMap trigger failed (non-fatal):",
-          (e as Error).message,
-        );
+        remixerLog.warn({ err: e }, "MindMap trigger failed (non-fatal)");
       });
 
     // Archive the remixer state that was just published and persist a fresh
@@ -1945,11 +1933,9 @@ const findDifference = (
     try {
       return remixerSubPageToResponse(page);
     } catch (err) {
-      log(
-        `[Remixer] findDifference: could not normalize page ${
-          page?.["@id"] ?? "(unknown)"
-        }: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      remixerLog.info(`findDifference: could not normalize page ${
+                  page?.["@id"] ?? "(unknown)"
+                }: ${err instanceof Error ? err.message : String(err)}`);
       return page;
     }
   };

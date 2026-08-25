@@ -1,3 +1,4 @@
+import logger, { childLogger } from "../logger.js";
 import type { Response } from "express";
 import { z } from "zod";
 import { ZodReqWithUser } from "../types/Express.js";
@@ -23,9 +24,9 @@ import BookService from "./services/book-service.js";
 import type { RemixerSubPageState } from "../models/projectremixer.js";
 import type { RemixerSubPage } from "../types/Remixer.js";
 import { ProjectContext, ProjectError, returnProjectError } from "./services/project-context.js";
-import { debug } from "../debug.js";
 import { conductor500Err } from "../util/errorutils.js";
 import { parseLibreTextsURL } from "../util/helpers.js";
+const remixerLog = childLogger("remixer");
 
 class FetchPageError extends Error {
   statusCode: number;
@@ -107,7 +108,7 @@ const validateRemixerBookOwnership = async (
     });
     ownedPageIDs = await bookService.getBookPageIDs();
   } catch (error) {
-    console.error("[remixer] failed to resolve owned book pages:", error);
+    remixerLog.error({ err: error }, "failed to resolve owned book pages");
     return "Unable to verify remixer permissions against the project's book.";
   }
   if (ownedPageIDs.length === 0) {
@@ -153,7 +154,7 @@ const getRemixerProject = async (
       return returnProjectError(res, error);
     }
 
-    debug("[remixer] getRemixerProject unexpected error:", error);
+    remixerLog.error({ err: error }, "getRemixerProject unexpected error");
     return conductor500Err(res);
   }
 };
@@ -242,7 +243,7 @@ const saveRemixerProjectState = async (
       return returnProjectError(res, err);
     }
 
-    debug("[remixer] saveRemixerProjectState unexpected error:", err);
+    remixerLog.error({ err }, "saveRemixerProjectState unexpected error");
     return conductor500Err(res);
   }
 };
@@ -337,7 +338,7 @@ const publishRemixerProject = async (
         coverId: project.libreCoverID ?? "",
       })
       .catch((error: unknown) => {
-        console.error("Failed to run remixer job", error);
+        logger.error({ err: error }, "Failed to run remixer job");
       });
 
     return res.send({
@@ -350,7 +351,7 @@ const publishRemixerProject = async (
       return returnProjectError(res, err);
     }
 
-    debug("[remixer] publishRemixerProject unexpected error:", err);
+    remixerLog.error({ err }, "publishRemixerProject unexpected error");
     return conductor500Err(res);
   }
 };
@@ -370,7 +371,7 @@ const getRemixerJobStatus = async (
       job: job,
     });
   } catch (err) {
-    debug("[remixer] getRemixerJobStatus unexpected error:", err);
+    remixerLog.error({ err }, "getRemixerJobStatus unexpected error");
     return conductor500Err(res);
   }
 };
@@ -400,10 +401,7 @@ const getRemixerProjectState = async (
           .getBookTreeFull({ flatten: true })
           .then((tree) => (Array.isArray(tree) ? tree : null))
           .catch((err) => {
-            debug(
-              "[remixer] TOC lookup failed; serving unreconciled state:",
-              err,
-            );
+            remixerLog.error({ err }, "TOC lookup failed; serving unreconciled state");
             return null;
           })
       : Promise.resolve(null);
@@ -465,7 +463,7 @@ const getRemixerProjectState = async (
       return returnProjectError(res, err);
     }
 
-    debug("[remixer] getRemixerProjectState unexpected error:", err);
+    remixerLog.error({ err }, "getRemixerProjectState unexpected error");
     return conductor500Err(res);
   }
 };
@@ -494,7 +492,7 @@ const deleteRemixerProjectState = async (
       return returnProjectError(res, err);
     }
 
-    debug("[remixer] deleteRemixerProjectState unexpected error:", err);
+    remixerLog.error({ err }, "deleteRemixerProjectState unexpected error");
     return conductor500Err(res);
   }
 };
@@ -647,7 +645,7 @@ const getRemixerPageTree = async (
       return returnProjectError(res, error);
     }
 
-    debug("[remixer] getRemixerPageTree unexpected error:", error);
+    remixerLog.error({ err: error }, "getRemixerPageTree unexpected error");
     return conductor500Err(res);
   }
 };
@@ -726,7 +724,7 @@ const createMatter = async (
     if (error instanceof ProjectError) {
       return returnProjectError(res, error);
     }
-    console.error(error);
+    logger.error({ err: error }, "createMatter failed");
     return conductor500Err(res);
   }
 };

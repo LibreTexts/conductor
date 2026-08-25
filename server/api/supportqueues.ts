@@ -1,7 +1,7 @@
+import logger from "../logger.js";
 import { Request, Response } from "express";
 import { z } from "zod";
 import { getMetricsSchema, getSupportQueuesSchema, updateAutoAssignConfigSchema } from "./validators/supportqueues";
-import { debugError } from "../debug";
 import { conductor500Err } from "../util/errorutils";
 import SupportQueueService from "./services/support-queue-service";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
@@ -26,7 +26,7 @@ async function getSupportQueues(req: ZodReqWithOptionalUser<z.infer<typeof getSu
         });
     }
     catch (error) {
-        debugError(error);
+        logger.error({ err: error }, "getSupportQueues failed");
         return conductor500Err(res);
     }
 }
@@ -40,7 +40,7 @@ async function getSupportQueueMetrics(req: ZodReqWithUser<z.infer<typeof getMetr
 
         return res.status(200).json({ err: false, metrics: { ...metrics } });
     } catch (error) {
-        debugError(error);
+        logger.error({ err: error }, "getSupportQueueMetrics failed");
         return conductor500Err(res);
     }
 }
@@ -51,7 +51,7 @@ async function getAutoAssignConfig(req: ZodReqWithUser<Request>, res: Response) 
         const queues = await service.getQueuesWithAutoAssignConfig();
         return res.status(200).json({ err: false, queues });
     } catch (error) {
-        debugError(error);
+        logger.error({ err: error }, "getAutoAssignConfig failed");
         return conductor500Err(res);
     }
 }
@@ -73,7 +73,7 @@ async function updateAutoAssignConfig(req: ZodReqWithUser<z.infer<typeof updateA
 
         return res.status(200).json({ err: false, queue: updated });
     } catch (error) {
-        debugError(error);
+        logger.error({ err: error }, "updateAutoAssignConfig failed");
         return conductor500Err(res);
     }
 }

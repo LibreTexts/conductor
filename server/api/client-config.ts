@@ -1,5 +1,5 @@
+import logger from "../logger.js";
 import { Request, Response } from "express";
-import { debugError } from "../debug";
 import { conductor500Err } from "../util/errorutils";
 import ClientConfigService from "./services/client-config-service";
 
@@ -18,7 +18,7 @@ async function getClientConfig(req: Request, res: Response) {
         });
     }
     catch (error) {
-        debugError(error);
+        logger.error({ err: error }, "getClientConfig failed");
         return conductor500Err(res);
     }
 }

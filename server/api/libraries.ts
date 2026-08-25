@@ -1,7 +1,7 @@
+import logger from "../logger.js";
 import Library from "../models/library.js";
 import { Request, Response } from "express";
 import { conductor500Err } from "../util/errorutils.js";
-import { debugError } from "../debug.js";
 import { z } from "zod";
 import { GetLibraryFromSubdomainSchema } from "./validators/libraries.js";
 
@@ -13,7 +13,7 @@ export async function getLibraries(req: Request, res: Response) {
       libraries,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getLibraries failed");
     return conductor500Err(res);
   }
 }
@@ -41,7 +41,7 @@ export async function getLibraryFromSubdomain(
       library,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getLibraryFromSubdomain failed");
     return conductor500Err(res);
   }
 }
@@ -58,7 +58,7 @@ export async function getLibraryNameKeys(
 
     return libraries?.map((l) => l.subdomain);
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getLibraryNameKeys failed");
     return undefined;
   }
 }

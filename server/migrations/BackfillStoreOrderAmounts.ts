@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import mongoose from "mongoose";
 import StoreOrder from "../models/storeorder.js";
 import StripeService from "../api/services/stripe-service.js";
@@ -31,7 +32,7 @@ export async function runMigration() {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     } as mongoose.ConnectOptions);
-    console.log("Connected to MongoDB.");
+    logger.info("Connected to MongoDB.");
 
     const stripeService = new StripeService();
 
@@ -39,7 +40,7 @@ export async function runMigration() {
       $or: [{ amountTotal: { $exists: false } }, { amountTotal: null }],
     }).lean();
 
-    console.log(`Found ${orders.length} store order(s) missing amountTotal.`);
+    logger.info(`Found ${orders.length} store order(s) missing amountTotal.`);
 
     let updated = 0;
     let skipped = 0;
@@ -49,7 +50,7 @@ export async function runMigration() {
       try {
         const session = await stripeService.getExpandedCheckoutSession(order.id);
         if (!session) {
-          console.warn(`No Stripe session for order ${order.id}; skipping.`);
+          logger.warn(`No Stripe session for order ${order.id}; skipping.`);
           skipped += 1;
           continue;
         }
@@ -75,19 +76,15 @@ export async function runMigration() {
         await StoreOrder.updateOne({ _id: order._id }, { $set: update });
         updated += 1;
       } catch (err) {
-        console.warn(`Error backfilling order ${order.id}:`, err);
+        logger.warn({ err }, `Error backfilling order ${order.id}`);
         skipped += 1;
       }
     }
 
-    console.log(
-      `Store order amount backfill complete. Updated: ${updated}, skipped: ${skipped}.`
-    );
-    console.log(
-      'Next step: trigger a "storeOrders" re-sync from the ControlPanel search-index page.'
-    );
+    logger.info(`Store order amount backfill complete. Updated: ${updated}, skipped: ${skipped}.`);
+    logger.info('Next step: trigger a "storeOrders" re-sync from the ControlPanel search-index page.');
   } catch (err) {
-    console.error("Error during migration: ", err);
+    logger.error({ err }, "Error during migration");
     throw err;
   } finally {
     await mongoose.disconnect();

@@ -1,7 +1,7 @@
+import logger from "../logger.js";
 import { SSMClient, GetParametersByPathCommand } from "@aws-sdk/client-ssm";
 import Expert from "@libretexts/cxone-expert-node";
 import { createHmac } from "crypto";
-import { debugError } from "../debug.js";
 import { LibraryTokenPair } from "../types";
 
 type LibraryCredentials = {
@@ -77,11 +77,11 @@ class ExpertWithSSM {
       );
 
       if (pairResponse.$metadata.httpStatusCode !== 200) {
-        console.error(pairResponse.$metadata);
+        logger.error({ err: pairResponse.$metadata }, "getLibraryCredentials failed");
         throw new Error("Error retrieving library token pair.");
       }
       if (!pairResponse.Parameters) {
-        console.error("No data returned from token pair retrieval. Lib: " + lib);
+        logger.error("No data returned from token pair retrieval. Lib: " + lib);
         throw new Error("Error retrieving library token pair.");
       }
 
@@ -92,7 +92,7 @@ class ExpertWithSSM {
         p.Name?.includes(`${lib}/secret`)
       );
       if (!libKey?.Value || !libSec?.Value) {
-        console.error("Key param not found in token pair retrieval. Lib: " + lib);
+        logger.error("Key param not found in token pair retrieval. Lib: " + lib);
         throw new Error("Error retrieving library token pair.");
       }
 
@@ -109,7 +109,7 @@ class ExpertWithSSM {
       this.credentialsCache[lib] = creds;
       return creds;
     } catch (err) {
-      debugError(err);
+      logger.error({ err }, "getLibraryCredentials failed");
       return null;
     }
   }
@@ -195,7 +195,7 @@ class ExpertWithSSM {
 
       return res.ok;
     } catch (err) {
-      debugError(err);
+      logger.error({ err }, "putFileProperties failed");
       return false;
     }
   }

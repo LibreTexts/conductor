@@ -7,7 +7,9 @@ if (process.env.NODE_ENV === "production") {
   await import("newrelic");
 }
 
+// Must precede ./logger.js — the logger reads NODE_ENV/LOG_LEVEL at module init.
 import "dotenv/config";
+import logger, { childLogger } from "./logger.js";
 import path from "path";
 import { exit } from "process";
 import { fileURLToPath } from "url";
@@ -17,14 +19,17 @@ import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
 import Promise from "bluebird";
 import helmet from "helmet";
-import { debug, debugServer, debugDB } from "./debug.js";
 import api, { permalinkRouter } from "./api.js";
+import { requestContext } from "./request-context.js";
+import { httpLogger } from "./http-logger.js";
 import { floodShield } from "./util/rateLimitHelpers.js";
 import { sitemapRouter } from "./static-endpoints/sitemap.js";
+const dbLog = childLogger("db");
 
 // Prevent startup without ORG_ID env variable
 if (!process.env.ORG_ID) {
-  debug("[FATAL ERROR]: The ORG_ID environment variable is missing.");
+  logger.fatal("The ORG_ID environment variable is missing.");
+  logger.flush();
   exit(1);
 }
 
@@ -124,8 +129,11 @@ app.get("/api/v1/build", (_req, res) => {
 });
 
 // Serve API
-app.use("/api/v1", floodShield, api);
-app.use("/permalink", permalinkRouter);
+// requestContext opens the AsyncLocalStorage scope that gives every log line beneath a
+// request its reqId; httpLogger emits the one access line per request. Both are mounted
+// here rather than globally so static asset and SPA-fallback traffic stays out of the logs.
+app.use("/api/v1", requestContext, httpLogger, floodShield, api);
+app.use("/permalink", requestContext, httpLogger, permalinkRouter);
 
 // Health endpoint that checks actual MongoDB connection status
 app.use("/health", (_req, res) => {
@@ -280,14 +288,28 @@ const server = app.listen(port, () => {
   } else {
     startupMsg = `Conductor (${process.env.ORG_ID}) is listening on ${port}`;
   }
-  debugServer(startupMsg);
+  logger.info(startupMsg);
 
   // Initiate MongoDB connection after server is listening
   connectToMongoDB();
 });
 
 server.on("error", (err: Error) => {
-  debugServer(err);
+  logger.error({ err }, "HTTP server error");
+});
+
+/* Without these, a crash leaves nothing behind — the process dies before anything is
+   written. `flush` is what gets the line out ahead of the exit. */
+process.on("uncaughtException", (err) => {
+  logger.fatal({ err }, "Uncaught exception — exiting");
+  logger.flush();
+  exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  logger.fatal({ err: reason }, "Unhandled promise rejection — exiting");
+  logger.flush();
+  exit(1);
 });
 
 /**
@@ -298,24 +320,27 @@ async function connectToMongoDB(retryCount = 0) {
   const retryDelay = 5000; // 5 seconds
 
   try {
-    debugDB(`Attempting to connect to MongoDB (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+    dbLog.info(`Attempting to connect to MongoDB (attempt ${retryCount + 1}/${maxRetries + 1})...`);
 
     await mongoose.connect(process.env.MONGOOSEURI ?? "", {
       maxPoolSize: process.env.ORG_ID === "libretexts" ? 100 : 25,
     });
 
-    debugDB("✓ Connected to MongoDB Atlas.");
+    dbLog.info("✓ Connected to MongoDB Atlas.");
   } catch (err) {
-    debugDB(`✗ Failed to connect to MongoDB (attempt ${retryCount + 1}/${maxRetries + 1}):`);
-    debugDB(err);
-
     if (retryCount < maxRetries) {
-      debugDB(`Retrying in ${retryDelay / 1000} seconds...`);
+      // Recoverable: another attempt is already scheduled.
+      dbLog.warn(
+        { err, attempt: retryCount + 1, maxAttempts: maxRetries + 1, retryInMs: retryDelay },
+        "Failed to connect to MongoDB — retrying"
+      );
       setTimeout(() => connectToMongoDB(retryCount + 1), retryDelay);
     } else {
-      debugDB("[FATAL ERROR]: Unable to connect to MongoDB after maximum retries.");
-      debugDB("Please check MongoDB connection string and network connectivity.");
-      debugDB("Exiting process.");
+      dbLog.fatal(
+        { err, attempts: maxRetries + 1 },
+        "Unable to connect to MongoDB after maximum retries — check the connection string and network connectivity"
+      );
+      dbLog.flush();
       // Exit the process if we can't connect to MongoDB after all retries
       exit(1);
     }
@@ -324,16 +349,15 @@ async function connectToMongoDB(retryCount = 0) {
 
 // Handle MongoDB connection events
 mongoose.connection.on("connected", () => {
-  debugDB("MongoDB connection established");
+  dbLog.info("MongoDB connection established");
 });
 
 mongoose.connection.on("error", (err) => {
-  debugDB("MongoDB connection error:");
-  debugDB(err);
+  dbLog.error({ err }, "MongoDB connection error");
 });
 
 mongoose.connection.on("disconnected", () => {
-  debugDB("MongoDB connection lost. Attempting to reconnect...");
+  dbLog.warn("MongoDB connection lost. Attempting to reconnect...");
 });
 
 /**
@@ -341,13 +365,12 @@ mongoose.connection.on("disconnected", () => {
  */
 function shutdown() {
   if (server.listening) {
-    console.log("\nConductor is shutting down...");
+    logger.info("Conductor is shutting down...");
     server.close(async () => {
-      await mongoose.disconnect().catch((e) => {
-        console.error("Error gracefully closing MongoDB connection:");
-        console.error(e);
+      await mongoose.disconnect().catch((err) => {
+        logger.error({ err }, "Error gracefully closing MongoDB connection");
       });
-      console.log("Conductor shutdown successfully.\n");
+      logger.info("Conductor shutdown successfully.");
     });
   }
 }

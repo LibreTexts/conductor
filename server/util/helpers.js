@@ -2,10 +2,10 @@
 // LibreTexts Conductor
 // helpers.js
 //
+import logger from "../logger.js";
 import { validate as uuidValidate } from 'uuid';
 import { format as formatDate, parseISO } from "date-fns";
 import { z } from "zod";
-import { debugError } from "../debug.js";
 import conductorErrors from "../conductor-errors.js";
 
 /**
@@ -203,7 +203,7 @@ export function parseAndFormatDate(date, formatString) {
       }
       return formatDate(parseISO(date), formatString);
     } catch (e) {
-      console.error(e);
+      logger.error({ err: e }, "parseAndFormatDate failed");
     }
     return "Unknown Date";
   }
@@ -409,7 +409,7 @@ export function maybeDecodeURIComponent(str) {
     // Only attempt decode if we see percent-encoding
     if (/%[0-9A-F]{2}/i.test(str)) return decodeURIComponent(str);
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "maybeDecodeURIComponent failed");
   }
   return str;
 }
@@ -426,7 +426,7 @@ export function catchInternal(fn) {
     try {
       return await fn(req, res);
     } catch (e) {
-      debugError(e);
+      logger.error({ err: e }, "catchInternal failed");
       return res.status(500).send({
         err: true,
         errMsg: conductorErrors.err6,

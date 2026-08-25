@@ -43,6 +43,7 @@
  * AWS_SSM_LIB_TOKEN_PAIR_PATH and LIBRARIES_API_USERNAME. `.env` is loaded.
  */
 
+import logger from "../logger.js";
 import "dotenv/config";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -192,11 +193,9 @@ async function loadPageRefs(filePath: string): Promise<PageRef[]> {
         });
     }
 
-    console.log(
-        `Loaded ${parsed.length} record(s) from ${filePath}: ${refs.length} unique page(s)` +
-        `${duplicates ? `, ${duplicates} duplicate(s) collapsed` : ""}` +
-        `${malformed ? `, ${malformed} skipped for a missing library/cover id` : ""}.`
-    );
+    logger.info(`Loaded ${parsed.length} record(s) from ${filePath}: ${refs.length} unique page(s)` +
+            `${duplicates ? `, ${duplicates} duplicate(s) collapsed` : ""}` +
+            `${malformed ? `, ${malformed} skipped for a missing library/cover id` : ""}.`);
 
     return refs;
 }
@@ -219,7 +218,7 @@ async function untagPage(ref: PageRef, dryRun: boolean): Promise<Outcome> {
         }
 
         if (!current.values.includes(TARGET_TAG)) {
-            console.log(`- ${label}: not tagged ${TARGET_TAG}, nothing to do.`);
+            logger.info(`- ${label}: not tagged ${TARGET_TAG}, nothing to do.`);
             return { status: "not-tagged", ref };
         }
 
@@ -227,7 +226,7 @@ async function untagPage(ref: PageRef, dryRun: boolean): Promise<Outcome> {
         const payload = buildTagsPayload(kept);
 
         if (dryRun) {
-            console.log(`- ${label}: would PUT ${payload}`);
+            logger.info(`- ${label}: would PUT ${payload}`);
             return { status: "dry-run", ref, kept, payload };
         }
 
@@ -260,13 +259,11 @@ async function untagPage(ref: PageRef, dryRun: boolean): Promise<Outcome> {
             );
         }
 
-        console.log(
-            `- ${label}: removed ${TARGET_TAG}, ${kept.length} tag(s) remain.`
-        );
+        logger.info(`- ${label}: removed ${TARGET_TAG}, ${kept.length} tag(s) remain.`);
         return { status: "updated", ref, kept };
     } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
-        console.error(`- ${label}: FAILED — ${error}`);
+        logger.error({ err: error }, `- ${label}: FAILED`);
         return { status: "failed", ref, error };
     }
 }
@@ -310,20 +307,16 @@ async function main() {
     const refs = Number.isFinite(limit) ? all.slice(0, limit) : all;
 
     if (refs.length < all.length) {
-        console.log(
-            `Limited to the first ${refs.length} of ${all.length} page(s). Pass "--limit 0" for the full batch.`
-        );
+        logger.info(`Limited to the first ${refs.length} of ${all.length} page(s). Pass "--limit 0" for the full batch.`);
     }
     if (!refs.length) {
-        console.log("Nothing to do.");
+        logger.info("Nothing to do.");
         return;
     }
 
-    console.log(
-        `${dryRun ? "DRY RUN" : "APPLYING"}: removing "${TARGET_TAG}" from ` +
-        `${refs.length} page(s) at concurrency ${CONCURRENCY}.` +
-        `${dryRun ? ' Pass "--apply" to write.' : ""}`
-    );
+    logger.info(`${dryRun ? "DRY RUN" : "APPLYING"}: removing "${TARGET_TAG}" from ` +
+            `${refs.length} page(s) at concurrency ${CONCURRENCY}.` +
+            `${dryRun ? ' Pass "--apply" to write.' : ""}`);
 
     const outcomes = await mapWithConcurrency(refs, CONCURRENCY, (ref) =>
         untagPage(ref, dryRun)
@@ -332,27 +325,23 @@ async function main() {
     const tally = (status: Outcome["status"]) =>
         outcomes.filter((outcome) => outcome.status === status).length;
 
-    console.log(
-        `\nDone. updated: ${tally("updated")}, would-update: ${tally("dry-run")}, ` +
-        `not-tagged: ${tally("not-tagged")}, failed: ${tally("failed")}.`
-    );
+    logger.info(`\nDone. updated: ${tally("updated")}, would-update: ${tally("dry-run")}, ` +
+            `not-tagged: ${tally("not-tagged")}, failed: ${tally("failed")}.`);
 
     const failures = outcomes.filter(
         (outcome): outcome is Extract<Outcome, { status: "failed" }> =>
             outcome.status === "failed"
     );
     if (failures.length) {
-        console.log("\nFailed pages (safe to re-run — this script is idempotent):");
+        logger.info("\nFailed pages (safe to re-run — this script is idempotent):");
         for (const failure of failures) {
-            console.log(
-                `  ${failure.ref.library}/${failure.ref.coverID} — ${failure.error}`
-            );
+            logger.info(`  ${failure.ref.library}/${failure.ref.coverID} — ${failure.error}`);
         }
         process.exitCode = 1;
     }
 }
 
 main().catch((err) => {
-    console.error("Fatal error:", err);
+    logger.error({ err }, "Fatal error");
     process.exit(1);
 });

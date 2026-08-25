@@ -1,10 +1,11 @@
+import logger, { childLogger } from "../logger.js";
 import BookService from "../api/services/book-service";
-import { debug } from "../debug";
 import Restacker, { RestackerInterface, RestackerStatus } from "../models/restacker";
 import { PageTag } from "../types/Book";
 import { sleep } from "./helpers";
 import { libraryKeys } from "./libraries";
 import * as cheerio from "cheerio";
+const restackerLog = childLogger("restacker");
 
 const CROSS_TRANSLUDE_SOURCE_RE =
   /template\(\s*['"]CrossTransclude\/Web['"]\s*,\s*\{[\s\S]*?['"]Library['"]\s*:\s*['"]([^'"]+)['"][\s\S]*?['"]PageID['"]\s*:\s*(\d+)/i;
@@ -64,10 +65,7 @@ class RestackerService {
           throw error;
         }
         const delayMs = DELAYS_MS[attempt - 1] ?? DELAYS_MS[DELAYS_MS.length - 1];
-        console.warn(
-          `[Restacker] Transient error on attempt ${attempt}/${ATTEMPTS}; retrying in ${Math.round(delayMs / 1000)}s…`,
-          error instanceof Error ? error.message : error,
-        );
+        restackerLog.warn({ err: error instanceof Error ? error.message : error }, `Transient error on attempt ${attempt}/${ATTEMPTS}; retrying in ${Math.round(delayMs / 1000)}s…`);
         await sleep(delayMs);
       }
     }
@@ -100,7 +98,7 @@ class RestackerService {
     try {
       let sincePersist = 0;
       for (const page of pages) {
-        debug(`[restacker][runRestacker][${projectID}] Processing page ${page.id}`);
+        restackerLog.info(`[runRestacker][${projectID}] Processing page ${page.id}`);
 
         try {
           if (page.status === "pending") {

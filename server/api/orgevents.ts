@@ -1,5 +1,5 @@
+import logger from "../logger.js";
 import conductorErrors from "../conductor-errors.js";
-import { debug, debugError } from "../debug.js";
 import OrgEvent, { OrgEventInterface } from "../models/orgevent.js";
 import { Response } from "express";
 import Stripe from "stripe";
@@ -90,7 +90,7 @@ async function getOrgEvents(
       orgEvents,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getOrgEvents failed");
     return conductor500Err(res);
   }
 }
@@ -121,7 +121,7 @@ async function getOrgEvent(
       orgEvent: foundOrgEvent,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getOrgEvent failed");
     return conductor500Err(res);
   }
 }
@@ -200,7 +200,7 @@ async function getOrgEventParticipants(
       totalCount: totalCount ?? 0,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getOrgEventParticipants failed");
     return conductor500Err(res);
   }
 }
@@ -231,7 +231,7 @@ async function getOrgEventFeeWaivers(
       feeWaivers: foundFeeWaivers || [],
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getOrgEventFeeWaivers failed");
     return conductor500Err(res);
   }
 }
@@ -279,7 +279,7 @@ async function createOrgEvent(
       orgEvent: newDoc,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "createOrgEvent failed");
     return conductor500Err(res);
   }
 }
@@ -345,7 +345,7 @@ async function updateOrgEvent(
       msg: "Event successfully updated.",
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updateOrgEvent failed");
     return conductor500Err(res);
   }
 }
@@ -383,7 +383,7 @@ async function cancelOrgEvent(
       err: false,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "cancelOrgEvent failed");
     return conductor500Err(res);
   }
 }
@@ -637,14 +637,12 @@ async function submitRegistration(
               : "Unknown",
           convertAndFormatStartDate()
         )
-        .catch((e: unknown) => debugError(e));
+        .catch((e: unknown) => logger.error({ err: e }, "submitRegistration failed"));
     }
 
     const syncRes = await _syncOrgEventParticipantsToProject(orgEvent.eventID);
     if (!syncRes || syncRes !== "success") {
-      debugError(
-        `Could not sync participants to project. Failed with error: ${syncRes}`
-      );
+      logger.error(`Could not sync participants to project. Failed with error: ${syncRes}`);
     }
 
     return res.send({
@@ -654,7 +652,7 @@ async function submitRegistration(
       ...(checkoutURL ? { checkoutURL } : {}),
     });
   } catch (err: any) {
-    debugError(err);
+    logger.error({ err }, "submitRegistration failed");
     return conductor500Err(res);
   }
 }
@@ -696,7 +694,7 @@ async function unregisterParticipants(
       msg: "Participant(s) successfully unregistered.",
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "unregisterParticipants failed");
     return conductor500Err(res);
   }
 }
@@ -757,7 +755,7 @@ async function createFeeWaiver(
     if (err.code === 11000) {
       return conductorErr(res, 400, "err83");
     }
-    debugError(err);
+    logger.error({ err }, "createFeeWaiver failed");
     return conductor500Err(res);
   }
 }
@@ -820,7 +818,7 @@ async function updateFeeWaiver(
       feeWaiverCode: foundWaiver.code,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updateFeeWaiver failed");
     return conductor500Err(res);
   }
 }
@@ -852,7 +850,7 @@ async function _validateFeeWaiver(
 
     return foundWaiver;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_validateFeeWaiver failed");
     return null;
   }
 }
@@ -876,9 +874,7 @@ async function setRegistrationPaidStatus(
       return conductor404Err(res);
     }
     if (!orgEvent.regFee) {
-      debug(
-        `Event ${orgEvent.eventID} does not require registration fee ${paymentIntent ? `but received PaymentIntent ${paymentIntent.id}.` : ''}`
-      );
+      logger.info(`Event ${orgEvent.eventID} does not require registration fee ${paymentIntent ? `but received PaymentIntent ${paymentIntent.id}.` : ''}`);
       return res.send({
         err: false,
         msg: "Event does not require registration fee.",
@@ -911,9 +907,7 @@ async function setRegistrationPaidStatus(
 
     // make idempotent: Stripe may send event multiple times
     if (participant.paymentStatus !== "unpaid") {
-      debug(
-        `Participant ${participant._id} does not require payment status update but received Checkout Session ${checkoutSession.id} and PaymentIntent ${paymentIntent?.id}.`
-      );
+      logger.info(`Participant ${participant._id} does not require payment status update but received Checkout Session ${checkoutSession.id} and PaymentIntent ${paymentIntent?.id}.`);
       return res.send({
         err: false,
         msg: "No registration status update necessary.",
@@ -921,9 +915,7 @@ async function setRegistrationPaidStatus(
     }
 
     if (!paymentIntent) {
-      debugError(
-        `Received Checkout Session ${checkoutSession.id} without PaymentIntent. Cannot update registration status.`
-      );
+      logger.error(`Received Checkout Session ${checkoutSession.id} without PaymentIntent. Cannot update registration status.`);
       return conductor500Err(res);
     }
 
@@ -951,14 +943,12 @@ async function setRegistrationPaidStatus(
       }
     );
     if (!updateRes.acknowledged) {
-      debugError(`Did not update OrgEventParticipant ${participant._id}`);
+      logger.error(`Did not update OrgEventParticipant ${participant._id}`);
       return conductor500Err(res);
     }
 
     if (!participant.registeredBy.email) {
-      debugError(
-        `Participant ${participant._id} does not have a registeredBy email address. Cannot send confirmation email.`
-      );
+      logger.error(`Participant ${participant._id} does not have a registeredBy email address. Cannot send confirmation email.`);
     }
 
     const emailAddresses = [];
@@ -1002,13 +992,11 @@ async function setRegistrationPaidStatus(
         participantName,
         convertAndFormatStartDate()
       )
-      .catch((e: unknown) => debugError(e));
+      .catch((e: unknown) => logger.error({ err: e }, "setRegistrationPaidStatus failed"));
 
     const syncRes = await _syncOrgEventParticipantsToProject(orgEvent.eventID);
     if (!syncRes || syncRes !== "success") {
-      debugError(
-        `Could not sync participants to project. Failed with error: ${syncRes}`
-      );
+      logger.error(`Could not sync participants to project. Failed with error: ${syncRes}`);
     }
 
     return res.send({
@@ -1016,7 +1004,7 @@ async function setRegistrationPaidStatus(
       msg: "Updated participant registration status.",
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "setRegistrationPaidStatus failed");
     return conductor500Err(res);
   }
 }
@@ -1155,7 +1143,7 @@ async function downloadParticipantData(
 
     return res.send(csv);
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "downloadParticipantData failed");
     return conductor500Err(res);
   }
 }
@@ -1208,7 +1196,7 @@ async function configureAutoSync(
     if (err.name === "DocumentNotFoundError") {
       return conductor404Err(res);
     }
-    debugError(err);
+    logger.error({ err }, "configureAutoSync failed");
     return conductor500Err(res);
   }
 }
@@ -1307,7 +1295,7 @@ async function _syncOrgEventParticipantsToProject(
 
     return "success";
   } catch (err: any) {
-    debugError(err);
+    logger.error({ err }, "_syncOrgEventParticipantsToProject failed");
     return err.message;
   }
 }
@@ -1356,7 +1344,7 @@ async function _runOrgEventPreflightChecks(
 
     return true;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_runOrgEventPreflightChecks failed");
     return false;
   }
 }

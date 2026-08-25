@@ -1,5 +1,6 @@
+import logger from "../logger.js";
 import Excel from "exceljs";
-import { debugError } from "../debug.js";
+
 export function createStandardWorkBook(): Excel.Workbook | null {
   try {
     const workbook = new Excel.Workbook();
@@ -10,7 +11,7 @@ export function createStandardWorkBook(): Excel.Workbook | null {
     workbook.lastPrinted = new Date();
     return workbook;
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "createStandardWorkBook failed");
     return null;
   }
 }

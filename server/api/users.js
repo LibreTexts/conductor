@@ -3,9 +3,9 @@
 // users.js
 
 'use strict';
+import logger from "../logger.js";
 import express from 'express';
 import { body, query, param } from 'express-validator';
-import { debugError } from '../debug.js';
 import User, { DEFAULT_PINNED_PROJECTS } from '../models/user.js';
 import conductorErrors from '../conductor-errors.js';
 import authAPI from './auth.js';
@@ -40,7 +40,7 @@ const getBasicUserInfo = (req, res) => {
     }).catch((err) => {
         let errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err7;
-        debugError(err);
+        logger.error({ err }, "getBasicUserInfo failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -125,7 +125,7 @@ const getBasicAccountInfo = (req, res) => {
     }).catch((err) => {
         let errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err7;
-        debugError(err);
+        logger.error({ err }, "getBasicAccountInfo failed");
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
@@ -157,7 +157,7 @@ async function getCentralID(req, res) {
             centralID: user.centralID || null,
         })
     } catch (err) {
-        debugError(err);
+        logger.error({ err }, "getCentralID failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -189,7 +189,7 @@ async function getUserFromCentralID(req, res) {
             uuid: user.uuid,
         })
     } catch (err) {
-        debugError(err);
+        logger.error({ err }, "getUserFromCentralID failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -262,7 +262,7 @@ async function updateUserInstructorProfile(req, res) {
             msg: 'Successfully updated user instructor profile!',
         });
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "updateUserInstructorProfile failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -324,7 +324,7 @@ const getUsersList = async (_req, res) => {
         })
 
     } catch (e){
-        debugError(e);
+        logger.error({ err: e }, "getUsersList failed");
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
@@ -363,7 +363,7 @@ const getBasicUsersList = (_req, res) => {
             users: users
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getBasicUsersList failed");
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
@@ -444,7 +444,7 @@ const getUserInfoAdmin = (req, res) => {
     }).catch((err) => {
         let errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err7;
-        debugError(err);
+        logger.error({ err }, "getUserInfoAdmin failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -592,7 +592,7 @@ async function getAuthorizedApplications(req, res) {
             apps: userApps,
         });
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "getAuthorizedApplications failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -696,7 +696,7 @@ async function getInstructorProfile(req, res) {
             uuid: foundUser.uuid,
         });
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "getInstructorProfile failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -799,7 +799,7 @@ async function updateUserPinnedProjects(req, res) {
             pinned: user.pinnedProjects
         })
     } catch (err) {
-        debugError(err);
+        logger.error({ err }, "updateUserPinnedProjects failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -869,7 +869,7 @@ const getUserRoles = (req, res) => {
     }).catch((err) => {
         let errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err7;
-        debugError(err);
+        logger.error({ err }, "getUserRoles failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -937,7 +937,7 @@ const updateUserRole = (req, res) => {
         else if (err.message === 'invalid') errMsg = conductorErrors.err2;
         else if (err.message === 'notfound') errMsg = conductorErrors.err7;
         else if (err.message === 'updatefail') errMsg = conductorErrors.err3;
-        debugError(err);
+        logger.error({ err }, "updateUserRole failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -994,7 +994,7 @@ const deleteUserRole = async (req, res) => {
         });
       }
     } catch (err) {
-      debugError(err);
+      logger.error({ err }, "deleteUserRole failed");
       return res.status(500).send({
         err: true,
         errMsg: conductorErrors.err6

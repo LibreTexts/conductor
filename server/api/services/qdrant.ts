@@ -1,4 +1,5 @@
 // server/services/qdrant.ts
+import logger from "../../logger.js";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import OpenAI from "openai";
 
@@ -17,14 +18,14 @@ const openai = new OpenAI({
 
 async function testQdrantConnection() {
   try {
-    console.log("Testing Qdrant connection Again...");
+    logger.info("Testing Qdrant connection Again...");
     // Test connection by listing collections
     const collections = await qdrantClient.getCollections();
-    console.log("✅ Qdrant connection OK");
+    logger.info("✅ Qdrant connection OK");
   } catch (error: any) {
-    console.error("❌ Failed to connect to Qdrant");
-    console.error("Error message:", error.message);
-    if (error.cause) console.error("Cause:", error.cause);
+    logger.error("❌ Failed to connect to Qdrant");
+    logger.error({ err: error.message }, "Error message");
+    if (error.cause) logger.error({ err: error.cause }, "Cause");
   }
 }
 
@@ -36,16 +37,16 @@ export class QdrantService {
   async initializeCollection() {
     try {
       // Check if collection exists
-      console.log("Checking if collection exists ...");
+      logger.info("Checking if collection exists ...");
       const collections = await qdrantClient.getCollections();
-      console.log("collections", collections);
+      logger.info({ detail: [collections] }, "collections");
       const collectionExists = collections.collections.some(
         (col) => col.name === this.collectionName,
       );
-      console.log("collectionExists", collectionExists);
+      logger.info({ detail: [collectionExists] }, "collectionExists");
 
       if (!collectionExists) {
-        console.log(`Creating Qdrant collection: ${this.collectionName}`);
+        logger.info(`Creating Qdrant collection: ${this.collectionName}`);
 
         await qdrantClient.createCollection(this.collectionName, {
           vectors: {
@@ -58,14 +59,14 @@ export class QdrantService {
           replication_factor: 1,
         });
 
-        console.log("Collection created successfully");
+        logger.info("Collection created successfully");
       } else {
-        console.log("Collection already exists");
+        logger.info("Collection already exists");
       }
 
       return true;
     } catch (error) {
-      console.error("Error initializing Qdrant collection:", error);
+      logger.error({ err: error }, "Error initializing Qdrant collection");
       throw error;
     }
   }
@@ -86,7 +87,7 @@ export class QdrantService {
 
       return response.data[0].embedding;
     } catch (error) {
-      console.error("Error generating embeddings:", error);
+      logger.error({ err: error }, "Error generating embeddings");
       throw error;
     }
   }
@@ -125,7 +126,7 @@ export class QdrantService {
 
       return { success: true, uuid: kbPage.uuid };
     } catch (error) {
-      console.error(`Error upserting KB page ${kbPage.uuid}:`, error);
+      logger.error({ err: error }, `Error upserting KB page ${kbPage.uuid}`);
       return {
         success: false,
         uuid: kbPage.uuid,
@@ -140,9 +141,7 @@ export class QdrantService {
 
     for (let i = 0; i < kbPages.length; i += batchSize) {
       const batch = kbPages.slice(i, i + batchSize);
-      console.log(
-        `Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(kbPages.length / batchSize)}`,
-      );
+      logger.info(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(kbPages.length / batchSize)}`);
 
       const batchPromises = batch.map((page) => this.upsertKBPage(page));
       const batchResults = await Promise.allSettled(batchPromises);
@@ -197,7 +196,7 @@ export class QdrantService {
         cleanText: point.payload?.cleanText,
       }));
     } catch (error) {
-      console.error("Error searching Qdrant:", error);
+      logger.error({ err: error }, "Error searching Qdrant");
       throw error;
     }
   }
@@ -208,7 +207,7 @@ export class QdrantService {
       const info = await qdrantClient.getCollection(this.collectionName);
       return info;
     } catch (error) {
-      console.error("Error getting collection info:", error);
+      logger.error({ err: error }, "Error getting collection info");
       throw error;
     }
   }
@@ -222,7 +221,7 @@ export class QdrantService {
       });
       return { success: true, uuid };
     } catch (error) {
-      console.error(`Error deleting KB page ${uuid}:`, error);
+      logger.error({ err: error }, `Error deleting KB page ${uuid}`);
       return { success: false, uuid, error: (error as Error).message };
     }
   }

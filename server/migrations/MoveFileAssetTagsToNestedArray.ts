@@ -1,4 +1,4 @@
-import { debugError } from "../debug.js";
+import logger from "../logger.js";
 import ProjectFile from "../models/projectfile.js";
 import FileAssetTags from "../models/fileassettags.js";
 
@@ -8,23 +8,23 @@ import FileAssetTags from "../models/fileassettags.js";
 export async function runMigration() {
   try {
     const fileAssetTags = await FileAssetTags.find();
-    console.log("Found fileAssetTags: ", fileAssetTags.length);
+    logger.info({ detail: [fileAssetTags.length] }, "Found fileAssetTags");
 
     for (const fileAssetTag of fileAssetTags) {
       if (!fileAssetTag.tags) continue;
       const fileID = fileAssetTag.fileID;
       const projectFile = await ProjectFile.findOne({ _id: fileID });
       if (!projectFile) {
-        console.log("ProjectFile not found, skipping...");
+        logger.info("ProjectFile not found, skipping...");
         continue;
       }
 
-      console.log("Migrating fileAssetTag: ", fileID);
+      logger.info({ detail: [fileID] }, "Migrating fileAssetTag");
       projectFile.tags = fileAssetTag.tags;
 
       await projectFile.save();
     }
   } catch (e: any) {
-    debugError(`Fatal error during migration: ${e.toString()}`);
+    logger.error({ err: e }, "Fatal error during migration");
   }
 }

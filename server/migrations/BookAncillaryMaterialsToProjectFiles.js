@@ -1,6 +1,6 @@
+import logger from "../logger.js";
 import async from 'async';
 import { S3Client, CopyObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
-import { debug, debugError } from '../debug.js';
 import Book from '../models/book.js';
 import Project from '../models/project.js';
 import { getLibraryAndPageFromBookID } from '../util/bookutils.js';
@@ -11,7 +11,7 @@ import { getLibraryAndPageFromBookID } from '../util/bookutils.js';
 export async function runMigration() {
   const migrationTitle = 'Book Ancillary Materials to Project Files';
   try {
-    debug(`Running migration "${migrationTitle}"...`);
+    logger.info(`Running migration "${migrationTitle}"...`);
     const storageClient = new S3Client({ region: process.env.AWS_MATERIALS_REGION || process.env.AWS_REGION });
     const libraries = new Set();
     const pageIDs = new Set();
@@ -99,9 +99,9 @@ export async function runMigration() {
     const bookUpdated = bookResults.reduce((acc, curr) => curr.acknowledged ? acc + 1 : acc, 0);
     const fileUpdated = fileResults.reduce((acc, curr) => curr.$metadata?.httpStatusCode === 200 ? acc + 1 : acc, 0);
 
-    debug(`Updated ${projUpdated.toLocaleString()} Projects, ${bookUpdated.toLocaleString()} Books, and ${fileUpdated.toLocaleString()} files.`);
-    debug(`Completed migration "${migrationTitle}".`);
+    logger.info(`Updated ${projUpdated.toLocaleString()} Projects, ${bookUpdated.toLocaleString()} Books, and ${fileUpdated.toLocaleString()} files.`);
+    logger.info(`Completed migration "${migrationTitle}".`);
   } catch (e) {
-    debugError(`Fatal error during migration "${migrationTitle}": ${e.toString()}`);
+    logger.error({ err: e }, `Fatal error during migration "${migrationTitle}"`);
   }
 }

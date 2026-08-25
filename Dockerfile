@@ -68,7 +68,15 @@ ENV VCS_REF=${VCS_REF}
 
 ENV NEW_RELIC_NO_CONFIG_FILE=true
 ENV NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true
-ENV NEW_RELIC_LOG=stdout
+# The agent's own diagnostics go to stderr so they don't interleave with the application's
+# JSON log lines on stdout, which CloudWatch Logs Insights parses.
+ENV NEW_RELIC_LOG=stderr
+ENV NEW_RELIC_LOG_LEVEL=warn
+# The agent instruments pino and would otherwise forward every log line to New Relic and
+# decorate each message with an NR-LINKING blob, which corrupts the JSON. CloudWatch is
+# the log destination; New Relic keeps APM only.
+ENV NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED=false
+ENV NEW_RELIC_APPLICATION_LOGGING_LOCAL_DECORATING_ENABLED=false
 
 EXPOSE 5000
 

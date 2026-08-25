@@ -1,7 +1,7 @@
+import logger, { childLogger } from "../logger.js";
 import { Request, Response, NextFunction } from "express";
 import multer, { memoryStorage, MulterError } from "multer";
 import fs from "fs-extra";
-import { debug, debugError, debugCommonsSync, debugServer } from "../debug.js";
 import AdoptionReport from "../models/adoptionreport.js";
 import Book, { BookInterface } from "../models/book.js";
 import Collection from "../models/collection.js";
@@ -123,6 +123,7 @@ import Glossary from "../models/glossary.js";
 import GlossaryService from "./services/glossary-service.js";
 import GlossaryUsage from "../models/glossaryusage.js";
 import { ProjectContext, ProjectError, returnProjectError } from "./services/project-context.js";
+const commonsSyncLog = childLogger("commons-sync");
 
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
@@ -286,7 +287,7 @@ const autoGenerateCollections = () => {
       return 0;
     })
     .catch((err) => {
-      console.error(err);
+      logger.error({ err }, "autoGenerateCollections failed");
       return false;
     });
 };
@@ -409,14 +410,12 @@ const runLibrarySync = async (signal?: AbortSignal): Promise<string> => {
     }
 
     if (!complete || dropped > 0 || coverpages.length === 0) {
-      debugCommonsSync(
-        `Skipping missing-book detection for ${subdomain}: ` +
-          (coverpages.length === 0
-            ? "sync returned no books."
-            : !complete
-              ? "the coverpage search was incomplete."
-              : `${dropped} coverpage(s) could not be mapped to a Book.`),
-      );
+      commonsSyncLog.info(`Skipping missing-book detection for ${subdomain}: ` +
+                  (coverpages.length === 0
+                    ? "sync returned no books."
+                    : !complete
+                      ? "the coverpage search was incomplete."
+                      : `${dropped} coverpage(s) could not be mapped to a Book.`));
       continue;
     }
     completeLibraries.push(subdomain);
@@ -498,7 +497,7 @@ const runLibrarySync = async (signal?: AbortSignal): Promise<string> => {
     importCount = (writeRes.matchedCount ?? 0) + (writeRes.upsertedCount ?? 0);
     newBookDBIds.push(...Object.values(writeRes.upsertedIds ?? {}));
   } catch (writeErr) {
-    debugError(writeErr);
+    logger.error({ err: writeErr }, "runLibrarySync failed");
     /* An unordered bulkWrite reports per-operation failures by throwing once at
        the end, with the successful writes still applied and summarized on
        `error.result`. Salvage those rather than discarding a whole run over a
@@ -535,9 +534,7 @@ const runLibrarySync = async (signal?: AbortSignal): Promise<string> => {
     if (recovered > 0) {
       importCount = recovered;
       newBookDBIds.push(...Object.values(partial?.upsertedIds ?? {}));
-      debugCommonsSync(
-        `Wrote only ${importCount} books when ${processedBooks.length} were expected.`,
-      );
+      commonsSyncLog.info(`Wrote only ${importCount} books when ${processedBooks.length} were expected.`);
     } else {
       // Nothing landed — the write failed outright.
       throw new Error("Failed to write any books to the database.", {
@@ -569,13 +566,11 @@ const runLibrarySync = async (signal?: AbortSignal): Promise<string> => {
   void reconcileBooksInSearchIndex(markedIDs);
 
   if (limited) {
-    debugCommonsSync("Limited sync — skipping missing-book detection.");
+    commonsSyncLog.info("Limited sync — skipping missing-book detection.");
   } else if (detectableLibraries.length < completeLibraries.length) {
-    debugCommonsSync(
-      `Skipping missing-book detection for ${completeLibraries
-        .filter((lib) => librariesWithFailedWrites.has(lib))
-        .join(", ")}: some books could not be written this run.`,
-    );
+    commonsSyncLog.info(`Skipping missing-book detection for ${completeLibraries
+              .filter((lib) => librariesWithFailedWrites.has(lib))
+              .join(", ")}: some books could not be written this run.`);
   }
 
   /* Downstream jobs — each reports its own failure without sinking the sync */
@@ -586,7 +581,7 @@ const runLibrarySync = async (signal?: AbortSignal): Promise<string> => {
   if (projectsToCreate.length > 0) {
     generatedProjects = await projectsAPI.autoGenerateProjects(projectsToCreate);
   } else {
-    debugCommonsSync("No new projects to create.");
+    commonsSyncLog.info("No new projects to create.");
   }
 
   if (newBookDBIds.length > 0) {
@@ -622,7 +617,7 @@ const runLibrarySync = async (signal?: AbortSignal): Promise<string> => {
     msg += ` FAILED to autogenerate new Projects. Check server logs.`;
   }
 
-  debugCommonsSync(msg);
+  commonsSyncLog.info(msg);
   return msg;
 };
 
@@ -702,7 +697,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
   }
 
   librarySyncRunning = true;
-  debugCommonsSync("Starting sync with Libraries.");
+  commonsSyncLog.info("Starting sync with Libraries.");
 
   const controller = new AbortController();
   const work = runLibrarySync(controller.signal);
@@ -714,15 +709,13 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
   void work
     .then((msg) => {
       if (controller.signal.aborted) {
-        debugCommonsSync(`Abandoned sync with Libraries settled: ${msg}`);
+        commonsSyncLog.info(`Abandoned sync with Libraries settled: ${msg}`);
       }
     })
     .catch((err) => {
       if (controller.signal.aborted) {
-        debugError(err);
-        debugCommonsSync(
-          `Abandoned sync with Libraries has unwound: ${err.message}`,
-        );
+        logger.error({ err }, "syncWithLibraries failed");
+        commonsSyncLog.info(`Abandoned sync with Libraries has unwound: ${err.message}`);
       }
     })
     .finally(() => {
@@ -730,12 +723,10 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
     });
 
   withSyncTimeout(work, controller).catch((err) => {
-    debugError(err);
-    debugCommonsSync(
-      err.message === "bulkwrite"
-        ? "Sync with Libraries failed: no books could be written."
-        : `Sync with Libraries failed: ${err.message}`,
-    );
+    logger.error({ err }, "syncWithLibraries failed");
+    commonsSyncLog.info(err.message === "bulkwrite"
+              ? "Sync with Libraries failed: no books could be written."
+              : `Sync with Libraries failed: ${err.message}`);
   });
 
   return res.status(202).send({
@@ -750,9 +741,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
  * @param {object} res - The Express.js response object.
  */
 const runAutomatedSyncWithLibraries = (req: Request, res: Response) => {
-  debugServer(
-    `Received automated request to sync Commons with Libraries ${new Date().toLocaleString()}`,
-  );
+  logger.info(`Received automated request to sync Commons with Libraries ${new Date().toLocaleString()}`);
   return syncWithLibraries(req, res);
 };
 
@@ -976,7 +965,7 @@ async function getCommonsCatalog(
       seed,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getCommonsCatalog failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1084,7 +1073,7 @@ const getMasterCatalog = (
       });
     })
     .catch((err) => {
-      debugError(err);
+      logger.error({ err }, "getMasterCatalog failed");
       return res.send({
         err: true,
         errMsg: conductorErrors.err6,
@@ -1194,7 +1183,7 @@ async function getMasterCatalogV2(_req: Request, res: Response) {
       libraries,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "getMasterCatalogV2 failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1410,9 +1399,7 @@ async function checkBookTitleAvailability(
     try {
       available = !(await BookService.pageExists(subdomain, bookPath));
     } catch (err) {
-      debugError(
-        `[checkBookTitleAvailability] Unable to check "${bookPath}" on ${subdomain}: ${serializeError(err)}`,
-      );
+      logger.error(`Unable to check "${bookPath}" on ${subdomain}: ${serializeError(err)}`);
       available = null;
     }
 
@@ -1423,7 +1410,7 @@ async function checkBookTitleAvailability(
       url: bookURL,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "checkBookTitleAvailability failed");
     return conductor500Err(res);
   }
 }
@@ -1496,9 +1483,7 @@ async function createBook(
         return createBookErr(res, 409, "title_conflict", titleConflictMsg);
       }
     } catch (err) {
-      debugError(
-        `[createBook] Unable to pre-check "${bookPath}" on ${subdomain}, continuing: ${serializeError(err)}`,
-      );
+      logger.error(`Unable to pre-check "${bookPath}" on ${subdomain}, continuing: ${serializeError(err)}`);
     }
 
     let newCoverPageID: number | null = null;
@@ -1514,9 +1499,7 @@ async function createBook(
       if (err instanceof BookPageConflictError) {
         return createBookErr(res, 409, "title_conflict", titleConflictMsg);
       }
-      debugError(
-        `[createBook] Error creating coverpage for "${title}": ${serializeError(err)}`,
-      );
+      logger.error(`Error creating coverpage for "${title}": ${serializeError(err)}`);
       return res.status(500).send({ err: true, errMsg: conductorErrors.err86 });
     }
 
@@ -1526,16 +1509,12 @@ async function createBook(
       const recoveredID = await getPageID(bookPath, subdomain);
       if (recoveredID && Number.isFinite(Number(recoveredID))) {
         newCoverPageID = Number(recoveredID);
-        debugError(
-          `[createBook] No page ID returned for "${bookPath}"; recovered ${newCoverPageID} by path lookup.`,
-        );
+        logger.error(`No page ID returned for "${bookPath}"; recovered ${newCoverPageID} by path lookup.`);
       }
     }
 
     if (!newCoverPageID) {
-      debugError(
-        `[createBook] Library reported success but returned no page ID for "${bookPath}", and it could not be recovered by path lookup.`,
-      );
+      logger.error(`Library reported success but returned no page ID for "${bookPath}", and it could not be recovered by path lookup.`);
       return res.status(502).send({
         err: true,
         errMsg: `The book page was created at ${bookURL}, but the library did not return its ID, so it could not be linked to this project. Please contact support.`,
@@ -1575,9 +1554,7 @@ async function createBook(
       // Another request linked this project while we were creating our page.
       // Ours is now orphaned on the library; log it for manual cleanup rather
       // than deleting from an error path we don't fully understand.
-      debugError(
-        `[createBook] Lost the link race for project ${projectID}; "${bookPath}" on ${subdomain} (page ${newCoverPageID}) is orphaned and needs manual cleanup.`,
-      );
+      logger.error(`Lost the link race for project ${projectID}; "${bookPath}" on ${subdomain} (page ${newCoverPageID}) is orphaned and needs manual cleanup.`);
       return createBookErr(
         res,
         409,
@@ -1603,9 +1580,7 @@ async function createBook(
         );
       }
     } catch (err) {
-      debugError(
-        `[createBook] Error creating first chapter for "${title}": ${serializeError(err)}`,
-      );
+      logger.error(`Error creating first chapter for "${title}": ${serializeError(err)}`);
       warnings.push(
         "Your book was created, but its first chapter could not be added. You can add chapters directly in the library.",
       );
@@ -1628,17 +1603,17 @@ async function createBook(
           summary: "",
         }
       }).catch((err) => {
-        debugError(`[createBook] Error creating default front matter: ${err instanceof Error ? err.message : err}`);
+        logger.error(`Error creating default front matter: ${err instanceof Error ? err.message : err}`);
       });
 
       // Fire-and-forget
       bookService.createDefaultBackMatter({
         coverPagePath: bookPath,
       }).catch((err) => {
-        debugError(`[createBook] Error creating default back matter: ${err instanceof Error ? err.message : err}`);
+        logger.error(`Error creating default back matter: ${err instanceof Error ? err.message : err}`);
       });
     } catch (err) {
-      debugError(`[createBook] Error initializing BookService for front/back matter creation: ${err instanceof Error ? err.message : err}`);
+      logger.error(`Error initializing BookService for front/back matter creation: ${err instanceof Error ? err.message : err}`);
     }
 
     const permsUpdated = await updateTeamWorkbenchPermissions(
@@ -1648,15 +1623,13 @@ async function createBook(
     );
 
     if (!permsUpdated) {
-      console.log(
-        `[createBook] Failed to update permissions for ${projectID}.`,
-      ); // Silent fail
+      logger.info(`Failed to update permissions for ${projectID}.`); // Silent fail
       warnings.push(
         "Your book was created, but team permissions could not be applied automatically. Team members may need to be granted access manually.",
       );
     }
 
-    console.log(`[createBook] Created ${bookPath}.`);
+    logger.info(`Created ${bookPath}.`);
     return res.send({
       err: false,
       path: bookPath,
@@ -1675,7 +1648,7 @@ async function createBook(
       });
     }
 
-    debugError(err);
+    logger.error({ err }, "createBook failed");
     return conductor500Err(res);
   }
 }
@@ -1712,7 +1685,7 @@ async function deleteBook(
       const projectID = attachedProject.projectID;
       await PeerReview.deleteMany({ projectID });
       if (deleteProject) {
-        debug(`[Delete Book]: Deleting project ${projectID}`);
+        logger.info(`Deleting project ${projectID}`);
         const projDelRes = await projectsAPI.deleteProjectInternal(projectID);
         if (!projDelRes) {
           return conductor500Err(res);
@@ -1730,12 +1703,12 @@ async function deleteBook(
     try {
       if (process.env.NODE_ENV === "production") {
         await deleteBookFromAPI(bookID);
-        debug(`Book ${bookID} deleted from API.`);
+        logger.info(`Book ${bookID} deleted from API.`);
       } else {
-        debug("Simulating book deletion from API.");
+        logger.info("Simulating book deletion from API.");
       }
     } catch (err: any) {
-      debugError(`[Delete Book] ${err.toString()}`);
+      logger.error({ err }, "deleteBook failed");
       return conductor500Err(res);
     }
     // </delete from central API>
@@ -1758,7 +1731,7 @@ async function deleteBook(
       msg: "Book successfully deleted.",
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteBook failed");
     return conductor500Err(res);
   }
 }
@@ -1988,7 +1961,7 @@ async function getBookDetail(
       book: bookRes[0],
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getBookDetail failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2046,7 +2019,7 @@ async function getBookPeerReviews(
       allowsAnon,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getBookPeerReviews failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2094,7 +2067,7 @@ const addBookToCustomCatalog = async (
       msg: "Resource successfully added to Catalog.",
     });
   } catch (err: any) {
-    debugError(err);
+    logger.error({ err }, "addBookToCustomCatalog failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2132,7 +2105,7 @@ const removeBookFromCustomCatalog = async (
       msg: "Resource successfully removed from Catalog.",
     });
   } catch (err: any) {
-    debugError(err);
+    logger.error({ err }, "removeBookFromCustomCatalog failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2177,7 +2150,7 @@ const excludeBookFromAutoMatch = async (
       msg: "Resource successfully excluded from Automatic Catalog Matching.",
     });
   } catch (err: any) {
-    debugError(err);
+    logger.error({ err }, "excludeBookFromAutoMatch failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2246,7 +2219,7 @@ async function downloadBookFile(
       url: downloadURLs[0], // only first index because only one file requested
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "downloadBookFile failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2274,7 +2247,7 @@ async function getBookTOC(
       toc,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getBookTOC failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2321,7 +2294,7 @@ async function getLicenseReport(
       data: licRep.data,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getLicenseReport failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2369,7 +2342,7 @@ async function getBookPagesDetails(
       toc: detailedToc,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getBookPagesDetails failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2411,7 +2384,7 @@ async function getPageDetail(
       tags: details.tags,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getPageDetail failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2470,7 +2443,7 @@ async function updatePageDetails(
       msg: "Page details updated successfully.",
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updatePageDetails failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2517,7 +2490,7 @@ async function bulkUpdatePageTags(
       processed,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "bulkUpdatePageTags failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2709,7 +2682,7 @@ const generateKBExport = () => {
     .then(() => fs.writeJson("./public/kbexport.json", kbExport))
     .then(() => true)
     .catch((err) => {
-      debugError(err);
+      logger.error({ err }, "generateKBExport failed");
       return false;
     });
 };
@@ -2735,7 +2708,7 @@ const retrieveKBExport = (_req: Request, res: Response) => {
       throw new Error("kbexport-notfound");
     })
     .catch((err) => {
-      debugError(err);
+      logger.error({ err }, "retrieveKBExport failed");
       return res.status(500).send({
         err: true,
         msg: conductorErrors.err45,
@@ -2753,10 +2726,10 @@ export async function syncWithSearchIndex(req: Request, res: Response) {
 
     // Run the actual sync in the background (don't await)
     syncBooksInBackground().catch((e) => {
-      debugError(`Error in background sync: ${e}`);
+      logger.error({ err: e }, "Error in background sync");
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "syncWithSearchIndex failed");
     // Only send error if response hasn't been sent yet
     if (!res.headersSent) {
       return res.status(500).send({
@@ -2819,11 +2792,9 @@ async function catchUpSearchIndexSince(
     if (changed.length === 0) break;
 
     if (changed.length > SEARCH_INDEX_CATCH_UP_MAX) {
-      debugServer(
-        `Catch-up window covers more than ${SEARCH_INDEX_CATCH_UP_MAX} books — a library ` +
-          `walk most likely overlapped this run and restamped every lastSyncedAt. ` +
-          `Skipping the catch-up; the next re-sync covers it.`,
-      );
+      logger.info(`Catch-up window covers more than ${SEARCH_INDEX_CATCH_UP_MAX} books — a library ` +
+                  `walk most likely overlapped this run and restamped every lastSyncedAt. ` +
+                  `Skipping the catch-up; the next re-sync covers it.`);
       break;
     }
 
@@ -2848,9 +2819,7 @@ async function catchUpSearchIndexSince(
   }
 
   if (rewritten > 0) {
-    debugServer(
-      `Re-indexed ${rewritten} book(s) written while the re-sync was running.`,
-    );
+    logger.info(`Re-indexed ${rewritten} book(s) written while the re-sync was running.`);
   }
 
   return rewritten;
@@ -2863,7 +2832,7 @@ async function catchUpSearchIndexSince(
  */
 export async function syncBooksInBackground() {
   try {
-    debugServer("Initiating Commons Books search index synchronization...");
+    logger.info("Initiating Commons Books search index synchronization...");
     const searchService = await SearchService.getInstance();
 
     const batchSize = 500; // Process 500 books at a time
@@ -2899,9 +2868,7 @@ export async function syncBooksInBackground() {
         timeOutMs: SEARCH_INDEX_TASK_TIMEOUT_MS,
       });
       totalSynced += books.length;
-      debugServer(
-        `Synced batch of ${books.length} books (${totalSynced} total)...`,
-      );
+      logger.info(`Synced batch of ${books.length} books (${totalSynced} total)...`);
 
       skip += batchSize;
 
@@ -2919,11 +2886,9 @@ export async function syncBooksInBackground() {
        still be in flight and slip past the index read this performs. */
     const pruned = await pruneDeletedBooksFromSearchIndex();
 
-    debugServer(
-      `Commons Books search index sync completed. Total synced: ${totalSynced}, caught up: ${caughtUp}, pruned: ${pruned}`,
-    );
+    logger.info(`Commons Books search index sync completed. Total synced: ${totalSynced}, caught up: ${caughtUp}, pruned: ${pruned}`);
   } catch (e) {
-    debugError("Error in syncBooksInBackground:", e);
+    logger.error({ err: e }, "Error in syncBooksInBackground");
     throw e;
   }
 }
@@ -3088,7 +3053,7 @@ async function runPressbooksImportJob(params: PressbooksImportJobParams) {
       "Pressbooks import completed successfully.",
     ]);
   } catch (err: any) {
-    debugError(err);
+    logger.error({ err }, "runPressbooksImportJob failed");
     await PressbooksImportJob.updateOne(
       { jobID },
       {
@@ -3139,7 +3104,7 @@ async function getPressBooksImportJobStatus(
       },
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getPressBooksImportJobStatus failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -3179,7 +3144,7 @@ async function getActivePressBooksImportJob(
       },
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getActivePressBooksImportJob failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -3198,7 +3163,7 @@ async function getCoverIdByUrl(req: Request, res: Response) {
     }
     return res.send({ err: false, id: result.id, bookID: result.bookID });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getCoverIdByUrl failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3217,7 +3182,7 @@ async function getGlossaryTermSearch(req: Request, res: Response) {
       data: results.map((entry) => entry.term),
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getGlossaryTermSearch failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3256,7 +3221,7 @@ async function getBookGlossary(
     });
     return res.send({ err: false, data: glossary });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getBookGlossary failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3337,7 +3302,7 @@ async function addBookGlossary(
     });
     return res.send({ err: false, pageId, termID });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "addBookGlossary failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3372,7 +3337,7 @@ async function addPageToGlossaryUsage(
     await glossaryService.addPageToGlossaryUsage(pageIds, usageIds, coverID.toString(), library);
     return res.send({ err: false, msg: "Page added to glossary usage successfully." });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "addPageToGlossaryUsage failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3410,7 +3375,7 @@ async function deleteBookGlossary(
     });
     return res.send({ err: false, msg: "Glossary deleted successfully." });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteBookGlossary failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3458,7 +3423,7 @@ async function getGlossaryPage(
     return res.send({ err: false, data: glossary });
   }
   catch (err) {
-    debugError(err);
+    logger.error({ err }, "getGlossaryPage failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3474,7 +3439,7 @@ async function getGlossaryDetails(
     return res.send({ err: false, ...glossaryDetails })
   }
   catch (err) {
-    debugError(err);
+    logger.error({ err }, "getGlossaryDetails failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3500,7 +3465,7 @@ async function addExternalGlossaryToGlossaryUsage(
     }
   }
   catch (err) {
-    debugError(err);
+    logger.error({ err }, "addExternalGlossaryToGlossaryUsage failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3549,7 +3514,7 @@ async function getGlossaryUsageImage(
     res.set("Cache-Control", "public, max-age=31536000");
     return res.send(data);
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getGlossaryUsageImage failed");
     return res.status(404).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }

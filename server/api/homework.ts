@@ -1,13 +1,14 @@
+import logger, { childLogger } from "../logger.js";
 import b62 from "base62-random";
 import axios from "axios";
 import Homework, { HomeworkInterface } from "../models/homework.js";
 import conductorErrors from "../conductor-errors.js";
-import { debugError, debugADAPTSync, debugServer } from "../debug.js";
 import alertsAPI from "./alerts.js";
 import { Request, Response } from "express";
 import { Subtract } from "../types/Misc.js";
 import { Document } from "mongoose";
 import { AnyBulkWriteOperation } from "mongodb";
+const adaptSyncLog = childLogger("adapt-sync");
 
 type RawHomeworkInterface = Subtract<HomeworkInterface, Document>;
 
@@ -40,7 +41,7 @@ const getAllHomework = async (_req: Request, res: Response) => {
       homework,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getAllHomework failed");
     return res.send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -79,7 +80,7 @@ const getADAPTCatalog = async (_req: Request, res: Response) => {
       courses,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getADAPTCatalog failed");
     return res.send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -184,9 +185,7 @@ const syncADAPTCommons = async (): Promise<{
       // bulkWrite errors
       if (err.result.nInserted > 0) {
         // Some succeeded
-        debugADAPTSync(
-          `Inserted only ${err.results.nInserted} courses when ${rawCourseCount} were expected.`
-        );
+        adaptSyncLog.info(`Inserted only ${err.results.nInserted} courses when ${rawCourseCount} were expected.`);
         return {
           err: false,
           msg: `Imported ${err.results.nInserted} courses and their assignments from ADAPT.`,
@@ -205,7 +204,7 @@ const syncADAPTCommons = async (): Promise<{
       };
     } else {
       // other errors
-      debugError(err);
+      logger.error({ err }, "syncADAPTCommons failed");
       return {
         err: true,
         errMsg: conductorErrors.err6,
@@ -224,7 +223,7 @@ const syncHomework = async (_req: Request, res: Response) => {
     const adaptRes = await syncADAPTCommons();
     return res.send(adaptRes);
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "syncHomework failed");
     return res.send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -238,9 +237,7 @@ const syncHomework = async (_req: Request, res: Response) => {
  * @param {object} res - The Express.js response object.
  */
 const runAutomatedHomeworkSync = (req: Request, res: Response) => {
-  debugServer(
-    `Received automated request to sync Commons with Homework systems ${new Date().toLocaleString()}`
-  );
+  logger.info(`Received automated request to sync Commons with Homework systems ${new Date().toLocaleString()}`);
   return syncHomework(req, res);
 };
 

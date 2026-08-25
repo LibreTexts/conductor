@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import { Response } from "express";
 import User, {
   UXAcknowledgmentEntry,
@@ -8,7 +9,6 @@ import {
   TypedReqParamsAndBodyWithUser,
 } from "../types/Express.js";
 import conductorErrors from "../conductor-errors.js";
-import { debugError } from "../debug.js";
 
 /**
  * Per-user UX record-keeping: stores which one-off UI prompts (dismissible
@@ -42,7 +42,7 @@ export async function getUserUXAcknowledgments(
       acknowledgments: user.uxAcknowledgments ?? {},
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getUserUXAcknowledgments failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -114,7 +114,7 @@ export async function recordUserUXAcknowledgment(
 
     return res.send({ err: false, key, acknowledgment });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "recordUserUXAcknowledgment failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -141,7 +141,7 @@ export async function deleteUserUXAcknowledgment(
 
     return res.send({ err: false, key });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "deleteUserUXAcknowledgment failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }

@@ -1,5 +1,5 @@
+import logger from "../../logger.js";
 import { Stripe } from 'stripe';
-import { debug } from '../../debug';
 
 export default class StripeService {
     private instance = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
@@ -37,7 +37,7 @@ export default class StripeService {
 
             return this.instance.webhooks.constructEvent(body, signature, signingSecret);
         } catch (error) {
-            console.error('Error processing Stripe webhook event:', error);
+            logger.error({ err: error }, 'Error processing Stripe webhook event');
             throw new Error('Failed to process Stripe webhook event');
         }
     }
@@ -88,14 +88,14 @@ export default class StripeService {
                                 payment_intent,
                             }
                         default:
-                            debug(`Unhandled Stripe application feature: ${checkout_session.metadata?.feature}`);
+                            logger.info(`Unhandled Stripe application feature: ${checkout_session.metadata?.feature}`);
                             return 'not_implemented';
                     }
                 default:
                     return 'not_implemented';
             }
         } catch (error) {
-            console.error('Error processing Stripe webhook event:', error);
+            logger.error({ err: error }, 'Error processing Stripe webhook event');
             throw new Error('Failed to process Stripe webhook event');
         }
     }
@@ -109,7 +109,7 @@ export default class StripeService {
             const paymentIntentId = typeof checkoutSession.payment_intent === 'string' ? checkoutSession.payment_intent : checkoutSession.payment_intent.id;
             return await this.instance.paymentIntents.retrieve(paymentIntentId);
         } catch (error) {
-            console.error('Error retrieving payment intent from checkout session:', error);
+            logger.error({ err: error }, 'Error retrieving payment intent from checkout session');
             return null;
         }
     }
@@ -130,7 +130,7 @@ export default class StripeService {
 
             return session as Stripe.Checkout.Session;
         } catch (error) {
-            console.error('Error retrieving expanded checkout session:', error);
+            logger.error({ err: error }, 'Error retrieving expanded checkout session');
             return null;
         }
     }
@@ -155,7 +155,7 @@ export default class StripeService {
 
             return customer.email;
         } catch (error) {
-            console.error('Error retrieving customer email from checkout session:', error);
+            logger.error({ err: error }, 'Error retrieving customer email from checkout session');
             return null;
         }
     }
@@ -178,7 +178,7 @@ export default class StripeService {
 
             return sessions.data[0] as Stripe.Checkout.Session;
         } catch (error) {
-            console.error('Error retrieving checkout session from payment intent:', error);
+            logger.error({ err: error }, 'Error retrieving checkout session from payment intent');
             return null;
         }
     }

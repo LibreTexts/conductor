@@ -1,3 +1,4 @@
+import logger from "../../logger.js";
 import Library from "../../models/library.js";
 
 
@@ -15,24 +16,24 @@ export default class LibraryService {
         try {
             const library = await Library.findOne({ subdomain: { $eq: subdomain } }).lean();
             if (!library) {
-                console.warn(`Library not found for subdomain: ${subdomain}`);
+                logger.warn(`Library not found for subdomain: ${subdomain}`);
                 return undefined;
             }
 
             if (!library.guideTabTemplates) {
-                console.warn(`No guide tab templates found for library with subdomain: ${subdomain}`);
+                logger.warn(`No guide tab templates found for library with subdomain: ${subdomain}`);
                 return undefined;
             }
 
             const template = library.guideTabTemplates[templateKey];
             if (!template) {
-                console.warn(`Guide tab template not found for subdomain: ${subdomain}, templateKey: ${templateKey}`);
+                logger.warn(`Guide tab template not found for subdomain: ${subdomain}, templateKey: ${templateKey}`);
                 return undefined;
             }
 
             return template;
         } catch (error) {
-            console.error(`Error fetching guide tab template for subdomain: ${subdomain}, templateKey: ${templateKey}`, error);
+            logger.error({ err: error }, `Error fetching guide tab template for subdomain: ${subdomain}, templateKey: ${templateKey}`);
             return undefined;
         }
     }
@@ -46,12 +47,12 @@ export default class LibraryService {
         try {
             const library = await Library.findOne({ subdomain: { $eq: subdomain } }).lean();
             if (!library) {
-                console.warn(`Library not found for subdomain: ${subdomain}`);
+                logger.warn(`Library not found for subdomain: ${subdomain}`);
                 return undefined;
             }
             return library.syncLocations;
         } catch (error) {
-            console.error(`Error fetching sync locations for subdomain: ${subdomain}`, error);
+            logger.error({ err: error }, `Error fetching sync locations for subdomain: ${subdomain}`);
             return undefined;
         }
     }

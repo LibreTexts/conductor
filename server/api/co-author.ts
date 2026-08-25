@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import { Request, Response } from "express";
 import { z } from "zod";
 import { _generatePageImagesAltTextResObj, PageFile, PageFileProperty, PageImagesRes, TableOfContents, ZodReqWithUser } from "../types";
@@ -7,7 +8,6 @@ import authAPI from "./auth";
 import mailAPI from "./mail";
 import conductorErrors from "../conductor-errors";
 import BookService from "./services/book-service";
-import { debugError } from "../debug";
 import Project, { ProjectBookBatchUpdateJob, ProjectInterface } from "../models/project";
 import User from "../models/user";
 import { randomUUID } from "node:crypto";
@@ -54,7 +54,7 @@ async function getPageAISummary(
             summary,
         });
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "getPageAISummary failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -92,7 +92,7 @@ async function getPageAITags(
             tags,
         });
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "getPageAITags failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -134,7 +134,7 @@ async function generatePageImagesAltText(
             modified_count,
         });
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "generatePageImagesAltText failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -232,7 +232,7 @@ async function batchGenerateAIMetadata(
 
         session = await createSession(req as unknown as IncomingMessage, res);
         session.on('disconnected', () => {
-            console.warn(`SSE client disconnected for batch AI metadata job ${job.jobID}. This is not necessarily an error.`);
+            logger.warn(`SSE client disconnected for batch AI metadata job ${job.jobID}. This is not necessarily an error.`);
         });
 
         await _runBulkUpdateJob(
@@ -251,13 +251,13 @@ async function batchGenerateAIMetadata(
         );
 
         if (!session.isConnected) {
-            console.warn(`SSE client disconnected before completion of batch AI metadata job ${job.jobID}. This is not necessarily an error.`);
+            logger.warn(`SSE client disconnected before completion of batch AI metadata job ${job.jobID}. This is not necessarily an error.`);
             return;
         }
 
         session.push('END');
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "batchGenerateAIMetadata failed");
         if (!res.headersSent) {
             return conductor500Err(res);
         }
@@ -265,7 +265,7 @@ async function batchGenerateAIMetadata(
             try {
                 session.push('ERROR');
             } catch (err) {
-                debugError(err);
+                logger.error({ err }, "batchGenerateAIMetadata failed");
             }
         }
     }
@@ -334,7 +334,7 @@ async function batchUpdateBookMetadata(
 
         session = await createSession(req as unknown as IncomingMessage, res);
         session.on('disconnected', () => {
-            console.warn(`SSE client disconnected for batch book metadata update job ${job.jobID}. This is not necessarily an error.`);
+            logger.warn(`SSE client disconnected for batch book metadata update job ${job.jobID}. This is not necessarily an error.`);
         });
 
         await _runBulkUpdateJob(
@@ -353,7 +353,7 @@ async function batchUpdateBookMetadata(
             session.push('END');
         }
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "batchUpdateBookMetadata failed");
         if (!res.headersSent) {
             return res.status(500).send({
                 err: true,
@@ -364,7 +364,7 @@ async function batchUpdateBookMetadata(
             try {
                 session.push('ERROR');
             } catch (err) {
-                debugError(err);
+                logger.error({ err }, "batchUpdateBookMetadata failed");
             }
         }
     }
@@ -490,7 +490,7 @@ async function _runBulkUpdateJob(
                                 page[0],
                                 generateResources.alttext.overwrite ?? false
                             ).catch((e) => {
-                                debugError(e);
+                                logger.error({ err: e }, "[errCode, success, modifiedCount] failed");
                                 return ["internal", false, 0];
                             });
                         if (!success) {
@@ -578,7 +578,7 @@ async function _runBulkUpdateJob(
                             generateResources.tags.overwrite ?? false,
                             page[1]
                         ).catch((e) => {
-                            debugError(e);
+                            logger.error({ err: e }, "result failed");
                             return ["internal", [] as string[]];
                         });
                         // @ts-ignore
@@ -736,7 +736,7 @@ async function _runBulkUpdateJob(
             });
         }
     } catch (err: any) {
-        debugError(err);
+        logger.error({ err }, "_runBulkUpdateJob failed");
     }
 }
 
@@ -1047,18 +1047,14 @@ async function _generateAndApplyPageImagesAltText(
             // content was destroyed by MindTouch, which strips these tags along with everything they
             // contain. Assert the payload is a bare fragment before it can reach the library again.
             if (/<\/?(?:html|head|body)[\s/>]/i.test(modifiedContentXML)) {
-                debugError(
-                    `Refusing to write alt text for page ${pageID}: serialized payload contains document wrapper tags`
-                );
+                logger.error(`Refusing to write alt text for page ${pageID}: serialized payload contains document wrapper tags`);
                 return ["internal", false, 0];
             }
 
             // Separately, setting alt attributes only touches attributes, so the page's text must
             // survive intact. This catches the parser dropping content rather than mis-wrapping it.
             if (!_isContentPreserved(pageContent, modifiedContentXML)) {
-                debugError(
-                    `Refusing to write alt text for page ${pageID}: serialized content lost text (before: ${pageContent.length} chars, after: ${modifiedContentXML.length} chars)`
-                );
+                logger.error(`Refusing to write alt text for page ${pageID}: serialized content lost text (before: ${pageContent.length} chars, after: ${modifiedContentXML.length} chars)`);
                 return ["internal", false, 0];
             }
 
@@ -1139,7 +1135,7 @@ async function _applyFileAltTextProperties(
     for (let i = 0; i < altTexts.length; i++) {
         const file = altTexts[i];
         if (file.error || !file.altText) {
-            debugError(`No alt text for image: ${file.fileID}, ${file.error}`);
+            logger.error(`No alt text for image: ${file.fileID}, ${file.error}`);
             continue;
         }
 
@@ -1164,16 +1160,12 @@ async function _applyFileAltTextProperties(
                 },
             },
         }).catch((e) => {
-            console.error(
-                "Error updating file properties for file: ",
-                file.fileID,
-                e
-            );
+            logger.error({ detail: [file.fileID, e] }, "Error updating file properties for file");
             return { status: 500 };
         });
 
         if (res.status !== 200) {
-            debugError(`Error updating file properties for file: ${file.fileID}`);
+            logger.error(`Error updating file properties for file: ${file.fileID}`);
         }
     }
 }
@@ -1304,13 +1296,13 @@ class BatchJobLogStream {
             });
 
             if (!this.session.isConnected) {
-                console.warn("Session disconnected, cannot send batch log messages. This is not necessarily an error.");
+                logger.warn("Session disconnected, cannot send batch log messages. This is not necessarily an error.");
                 return;
             }
 
             await this.session.batch(buffer);
         } catch (e) {
-            debugError(`Error sending batch log messages: ${e}`);
+            logger.error({ err: e }, "Error sending batch log messages");
         }
     }
 

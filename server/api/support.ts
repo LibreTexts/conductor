@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import { z } from "zod";
 import {
   AddTicketAttachementsValidator,
@@ -18,7 +19,6 @@ import {
   UpdateTicketValidator,
 } from "./validators/support";
 import { NextFunction, Request, Response } from "express";
-import { debugError } from "../debug.js";
 import { conductor404Err, conductor500Err } from "../util/errorutils.js";
 import User, {
   SanitizedUserSelectProjection,
@@ -135,7 +135,7 @@ async function getTicket(
     if (err.name === "DocumentNotFoundError") {
       return conductor404Err(res);
     }
-    debugError(err);
+    logger.error({ err }, "getTicket failed");
     return conductor500Err(res);
   }
 }
@@ -179,7 +179,7 @@ async function getUserTickets(
       total: results.total,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getUserTickets failed");
     return conductor500Err(res);
   }
 }
@@ -226,7 +226,7 @@ async function getRequestorOtherTickets(
       total: results.total,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getRequestorOtherTickets failed");
     return conductor500Err(res);
   }
 }
@@ -307,7 +307,7 @@ async function _getUserTickets({
       total,
     };
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_getUserTickets failed");
     return undefined;
   }
 }
@@ -370,7 +370,7 @@ async function getOpenInProgressTickets(
       total,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getOpenInProgressTickets failed");
     return conductor500Err(res);
   }
 }
@@ -422,7 +422,7 @@ async function getClosedTickets(
       total,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getClosedTickets failed");
     return conductor500Err(res);
   }
 }
@@ -439,7 +439,7 @@ async function getAssignableUsers(req: Request, res: Response) {
       users,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getAssignableUsers failed");
     return conductor500Err(res);
   }
 }
@@ -463,7 +463,7 @@ async function _getAssignableUsersInternal(): Promise<Pick<UserInterface, "uuid"
 
     return users;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_getAssignableUsersInternal failed");
     return undefined;
   }
 }
@@ -489,7 +489,7 @@ async function assignTicket(
       ticket: ticketService._removeAccessKeysFromResponse(ticket),
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "assignTicket failed");
     return conductor500Err(res);
   }
 }
@@ -566,7 +566,7 @@ async function addTicketCC(
       ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal),
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "addTicketCC failed");
     return conductor500Err(res);
   }
 }
@@ -603,7 +603,7 @@ async function removeTicketCC(
       ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal),
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "removeTicketCC failed");
     return conductor500Err(res);
   }
 }
@@ -765,7 +765,7 @@ async function createTicket(
       try {
         await ticketService.autoAssignNewTicket(ticket, supportQueue.auto_assign_uuids);
       } catch (err) {
-        debugError(err);
+        logger.error({ err }, "createTicket failed");
       }
     }
 
@@ -837,7 +837,7 @@ async function createTicket(
       ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal, true), // Allow guest access key to be returned here for attachments to be immediately uploaded
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "createTicket failed");
     return conductor500Err(res);
   }
 }
@@ -906,7 +906,7 @@ async function addTicketAttachments(
       ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal),
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "addTicketAttachments failed");
     return conductor500Err(res);
   }
 }
@@ -965,7 +965,7 @@ async function getTicketAttachmentURL(
       url: signedURL,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getTicketAttachmentURL failed");
     return conductor500Err(res);
   }
 }
@@ -1102,7 +1102,7 @@ async function updateTicket(
       ticket: ticketService._removeAccessKeysFromResponse(updatedTicket),
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updateTicket failed");
     return conductor500Err(res);
   }
 }
@@ -1130,7 +1130,7 @@ async function bulkUpdateTickets(
       updated_count: tickets.length,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "bulkUpdateTickets failed");
     return conductor500Err(res);
   }
 }
@@ -1165,7 +1165,7 @@ async function getGeneralMessages(
       messages,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getGeneralMessages failed");
     return conductor500Err(res);
   }
 }
@@ -1336,8 +1336,8 @@ async function createGeneralMessage(
       message: ticketMessage,
     });
   } catch (err) {
-    console.error(err);
-    debugError(err);
+    logger.error({ err }, "createGeneralMessage failed");
+    logger.error({ err }, "createGeneralMessage failed");
     return conductor500Err(res);
   }
 }
@@ -1377,7 +1377,7 @@ async function getInternalMessages(
       messages,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getInternalMessages failed");
     return conductor500Err(res);
   }
 }
@@ -1438,7 +1438,7 @@ async function createInternalMessage(
       message: ticketMessage,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "createInternalMessage failed");
     return conductor500Err(res);
   }
 }
@@ -1455,7 +1455,7 @@ async function deleteTicket(
       err: false,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteTicket failed");
     return conductor500Err(res);
   }
 }
@@ -1506,7 +1506,7 @@ async function getTicketFilters(req: ZodReqWithOptionalUser<{}>, res: Response) 
       }
     })
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getTicketFilters failed");
     return conductor500Err(res);
   }
 }
@@ -1604,7 +1604,7 @@ async function createAndAttachProjectFromHarvestingRequest(
       project: newProject,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "createAndAttachProjectFromHarvestingRequest failed");
     return conductor500Err(res);
   }
 }
@@ -1667,7 +1667,7 @@ async function findTicketsToInitAutoClose(req: Request, res: Response) {
 
     return res.send({ err: false });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "findTicketsToInitAutoClose failed");
     return conductor500Err(res);
   }
 }
@@ -1691,7 +1691,7 @@ async function autoCloseTickets(req: Request, res: Response) {
       err: false,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "autoCloseTickets failed");
     return conductor500Err(res);
   }
 }
@@ -1706,11 +1706,11 @@ async function syncWithSearchIndex(req: Request, res: Response) {
 
     const ticketService = new SupportTicketService();
     ticketService.syncWithSearchIndex().catch((err) => {
-      debugError(`Background ticket sync error: ${err}`);
+      logger.error({ err }, "Background ticket sync error");
     });
 
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "syncWithSearchIndex failed");
     if (!res.headersSent) {
       // Don't send an error response if the initial response has already been sent.
       return conductor500Err(res);
@@ -1801,7 +1801,7 @@ async function _uploadTicketAttachments(
 
     return savedFiles;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_uploadTicketAttachments failed");
     throw err;
   }
 }

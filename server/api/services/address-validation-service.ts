@@ -1,6 +1,7 @@
+import logger, { childLogger } from "../../logger.js";
 import axios from "axios";
-import { debug } from "../../debug";
 import { AddressValidationInput, AddressValidationResult, AddressValidationSuggestion } from "../../types";
+const addressValidationLog = childLogger("address-validation");
 
 const GOOGLE_ADDRESS_VALIDATION_URL = "https://addressvalidation.googleapis.com/v1:validateAddress";
 const REQUEST_TIMEOUT_MS = 5000;
@@ -14,7 +15,7 @@ export default class AddressValidationService {
     async validateAddress(address: AddressValidationInput): Promise<AddressValidationResult> {
         const apiKey = process.env.GOOGLE_MAPS_API_KEY;
         if (!apiKey) {
-            debug("[AddressValidationService]: GOOGLE_MAPS_API_KEY not set, skipping address validation");
+            addressValidationLog.info("GOOGLE_MAPS_API_KEY not set, skipping address validation");
             return { status: "not_configured" };
         }
 
@@ -40,7 +41,7 @@ export default class AddressValidationService {
 
             return this._interpretResponse(response.data, address);
         } catch (error) {
-            debug("[AddressValidationService]: Error validating address with Google, failing open:", error);
+            addressValidationLog.warn({ err: error }, "Error validating address with Google, failing open");
             return { status: "error" };
         }
     }
@@ -51,7 +52,7 @@ export default class AddressValidationService {
         const components: any[] = result?.address?.addressComponents || [];
 
         if (!verdict) {
-            debug("[AddressValidationService]: Unexpected response shape from Google, failing open");
+            addressValidationLog.info("Unexpected response shape from Google, failing open");
             return { status: "error" };
         }
 

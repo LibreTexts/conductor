@@ -1,8 +1,8 @@
+import logger, { childLogger } from "../../logger.js";
 import { PipelineStage } from "mongoose";
 import Book from "../../models/book.js";
 import SearchService from "./search-service.js";
-import { debugError, debugServer } from "../../debug.js";
-
+const bookSearchLog = childLogger("book-search");
 /**
  * Commons Books search index ("books").
  *
@@ -318,11 +318,9 @@ export async function upsertBookToSearchIndex(bookID: string): Promise<void> {
     await searchService.addDocuments("books", [doc], {
       waitForCompletion: true,
     });
-    debugServer(`[BookSearchService] Upserted ${bookID} to the books index.`);
+    bookSearchLog.info(`Upserted ${bookID} to the books index.`);
   } catch (err) {
-    debugError(
-      `[BookSearchService] Error upserting book ${bookID} to search index: ${err}`,
-    );
+    bookSearchLog.error({ err }, `Error upserting book ${bookID} to search index`);
   }
 }
 
@@ -338,11 +336,9 @@ export async function removeBookFromSearchIndex(bookID: string): Promise<void> {
     await searchService.deleteDocuments("books", [bookID], {
       waitForCompletion: true,
     });
-    debugServer(`[BookSearchService] Removed ${bookID} from the books index.`);
+    bookSearchLog.info(`Removed ${bookID} from the books index.`);
   } catch (err) {
-    debugError(
-      `[BookSearchService] Error removing book ${bookID} from search index: ${err}`,
-    );
+    bookSearchLog.error({ err }, `Error removing book ${bookID} from search index`);
   }
 }
 
@@ -428,14 +424,10 @@ export async function reconcileBooksInSearchIndex(
   try {
     if (bookIDs.length === 0) return;
     const { removed, restored } = await reconcileBookIDs(bookIDs);
-    debugServer(
-      `[BookSearchService] Reconciled ${bookIDs.length} book(s) against the books index: ` +
-        `${removed} removed, ${restored} still live and re-indexed.`,
-    );
+    bookSearchLog.info(`Reconciled ${bookIDs.length} book(s) against the books index: ` +
+              `${removed} removed, ${restored} still live and re-indexed.`);
   } catch (err) {
-    debugError(
-      `[BookSearchService] Error reconciling ${bookIDs.length} book(s) against the search index: ${err}`,
-    );
+    bookSearchLog.error({ err }, `Error reconciling ${bookIDs.length} book(s) against the search index`);
   }
 }
 
@@ -479,10 +471,8 @@ export async function pruneDeletedBooksFromSearchIndex(): Promise<number> {
      Mongo read that returned nothing is a failed or empty read, not a catalog
      that emptied itself — pruning off the back of that would wipe the index. */
   if (liveIDs.size === 0) {
-    debugError(
-      `[BookSearchService] Refusing to prune ${indexedIDs.length} document(s): Mongo ` +
-        `returned no live books. This looks like a failed read, not an empty catalog.`,
-    );
+    bookSearchLog.error(`Refusing to prune ${indexedIDs.length} document(s): Mongo ` +
+              `returned no live books. This looks like a failed read, not an empty catalog.`);
     return 0;
   }
 
@@ -495,14 +485,10 @@ export async function pruneDeletedBooksFromSearchIndex(): Promise<number> {
      that snapshot is re-indexed instead of dropped. */
   const { removed, restored } = await reconcileBookIDs(staleIDs);
 
-  debugServer(
-    `[BookSearchService] Pruned ${removed} deleted or missing book(s) from the books index.`,
-  );
+  bookSearchLog.info(`Pruned ${removed} deleted or missing book(s) from the books index.`);
   if (restored > 0) {
-    debugServer(
-      `[BookSearchService] ${restored} book(s) in the stale set were live again by the time ` +
-        `the prune reached them, and were re-indexed rather than removed.`,
-    );
+    bookSearchLog.info(`${restored} book(s) in the stale set were live again by the time ` +
+              `the prune reached them, and were re-indexed rather than removed.`);
   }
 
   return removed;

@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import {
   TypedReqBody,
   TypedReqParams,
@@ -7,7 +8,6 @@ import {
 import { Response } from "express";
 import { param, body, query } from "express-validator";
 import { getPaginationOffset } from "../util/helpers.js";
-import { debugError } from "../debug.js";
 import { conductor404Err, conductor500Err } from "../util/errorutils.js";
 import AssetTagFramework, {
   AssetTagFrameworkInterface,
@@ -95,7 +95,7 @@ async function getFrameworks(
       totalCount,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getFrameworks failed");
     return conductor500Err(res);
   }
 }
@@ -136,7 +136,7 @@ async function getFramework(
       framework,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getFramework failed");
     return conductor500Err(res);
   }
 }
@@ -193,7 +193,7 @@ async function getCampusDefaultFramework(
       framework,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getCampusDefaultFramework failed");
     return conductor500Err(res);
   }
 }
@@ -223,7 +223,7 @@ async function createFramework(
       framework,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "createFramework failed");
     return conductor500Err(res);
   }
 }
@@ -257,7 +257,7 @@ async function updateFramework(
       framework,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updateFramework failed");
     return conductor500Err(res);
   }
 }
@@ -267,7 +267,7 @@ async function _upsertTemplates(
   templates: AssetTagTemplateInterface[]
 ): Promise<AssetTagTemplateInterface[]> {
   try {
-    console.log(templates);
+    logger.info({ detail: templates }, "detail");
     const upsertedTemplates: AssetTagTemplateInterface[] = [];
     const existingKeyDocs = await AssetTagKey.find({
       orgID: process.env.ORG_ID,

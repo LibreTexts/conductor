@@ -1,6 +1,7 @@
+import logger, { childLogger } from "../../logger.js";
 import Project from "../../models/project.js";
 import SearchService from "./search-service.js";
-import { debugError, debugServer } from "../../debug.js";
+const projectSearchLog = childLogger("project-search");
 
 /**
  * Projects search index ("projects").
@@ -39,13 +40,9 @@ export async function removeProjectFromSearchIndex(
     await searchService.deleteDocuments("projects", [projectID], {
       waitForCompletion: true,
     });
-    debugServer(
-      `[ProjectSearchService] Removed ${projectID} from the projects index.`,
-    );
+    projectSearchLog.info(`Removed ${projectID} from the projects index.`);
   } catch (err) {
-    debugError(
-      `[ProjectSearchService] Error removing project ${projectID} from search index: ${err}`,
-    );
+    projectSearchLog.error({ err }, `Error removing project ${projectID} from search index`);
   }
 }
 
@@ -83,10 +80,8 @@ export async function pruneDeletedProjectsFromSearchIndex(): Promise<number> {
      database that emptied itself — pruning off the back of that would wipe the
      index. */
   if (liveIDs.size === 0) {
-    debugError(
-      `[ProjectSearchService] Refusing to prune ${indexedIDs.length} document(s): Mongo ` +
-        `returned no live projects. This looks like a failed read, not an empty database.`,
-    );
+    projectSearchLog.error(`Refusing to prune ${indexedIDs.length} document(s): Mongo ` +
+              `returned no live projects. This looks like a failed read, not an empty database.`);
     return 0;
   }
 
@@ -96,9 +91,7 @@ export async function pruneDeletedProjectsFromSearchIndex(): Promise<number> {
   await searchService.deleteDocuments("projects", staleIDs, {
     waitForCompletion: true,
   });
-  debugServer(
-    `[ProjectSearchService] Pruned ${staleIDs.length} deleted project(s) from the projects index.`,
-  );
+  projectSearchLog.info(`Pruned ${staleIDs.length} deleted project(s) from the projects index.`);
 
   return staleIDs.length;
 }

@@ -4,11 +4,11 @@
 //
 
 'use strict';
+import logger from "../logger.js";
 import { body, query } from 'express-validator';
 import AdoptionReport from '../models/adoptionreport.js';
 import conductorErrors from '../conductor-errors.js';
 import { isEmptyString } from '../util/helpers.js';
-import { debugError } from '../debug.js';
 import { threePartDateStringValidator } from '../validators.js';
 
 /**
@@ -31,7 +31,7 @@ const submitReport = (req, res) => {
             throw(conductorErrors.err3);
         }
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "submitReport failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6
@@ -85,7 +85,7 @@ const getReports = (req, res) => {
                     reports: reports
                 });
             }).catch((err) => {
-                debugError(err);
+                logger.error({ err }, "getReports failed");
                 return res.status(500).send({
                     err: true,
                     errMsg: conductorErrors.err6
@@ -95,7 +95,7 @@ const getReports = (req, res) => {
             throw('timeparse-err')
         }
     } catch (err) {
-        debugError(err);
+        logger.error({ err }, "getReports failed");
         return res.status(400).send({
             err: true,
             errMsg: emmErrors.err3
@@ -121,7 +121,7 @@ const deleteReport = (req, res) => {
             throw(conductorErrors.err3);
         }
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "deleteReport failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6

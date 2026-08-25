@@ -1,3 +1,4 @@
+import logger, { childLogger } from "../logger.js";
 import {
   addPageProperty,
   CXOneFetch,
@@ -11,6 +12,7 @@ import Author, { AuthorInterface } from "../models/author";
 import sanitizeHtml from "sanitize-html";
 import * as cheerio from "cheerio";
 import GlossaryService from "../api/services/glossary-service.js";
+const pressbookLog = childLogger("pressbook-scraper");
 
 const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
 
@@ -776,9 +778,7 @@ export class PressBookScraper {
     }
 
     if (page > PressBookScraper.MAX_PAGING_PAGES) {
-      console.warn(
-        `[PressBookScraper] fetchGlossary: reached page-cap (${PressBookScraper.MAX_PAGING_PAGES}) — truncating results for ${bookUrl}`,
-      );
+      pressbookLog.warn(`fetchGlossary: reached page-cap (${PressBookScraper.MAX_PAGING_PAGES}) — truncating results for ${bookUrl}`);
     }
 
     return terms;
@@ -800,7 +800,7 @@ export class PressBookScraper {
     const log = (message: string) => {
       // Always log to server console
       // eslint-disable-next-line no-console
-      console.log(message);
+      logger.info(message);
       // Optionally forward to external logger (e.g., job status)
       if (typeof options.log === "function") {
         try {
@@ -811,18 +811,12 @@ export class PressBookScraper {
           ) {
             (maybePromise as Promise<void>).catch((e) => {
               // eslint-disable-next-line no-console
-              console.error(
-                "[PressBookScraper] Error in external log callback:",
-                e,
-              );
+              pressbookLog.error({ err: e }, "Error in external log callback");
             });
           }
         } catch (e) {
           // eslint-disable-next-line no-console
-          console.error(
-            "[PressBookScraper] Error invoking external log callback:",
-            e,
-          );
+          pressbookLog.error({ err: e }, "Error invoking external log callback");
         }
       }
     };
@@ -834,7 +828,7 @@ export class PressBookScraper {
       const url = this.pbApi(encodePbURL) + "/metadata";
       metadata = await this.getJson(url, auth);
     } catch (e) {
-      console.error("Error fetching metadata from Pressbooks", e);
+      logger.error({ err: e }, "Error fetching metadata from Pressbooks");
       try {
         const url = encodePbURL + "/wp-json/";
         metadata = await this.getJson(url, auth);
@@ -898,7 +892,7 @@ export class PressBookScraper {
     // their own license; otherwise they inherit the book license.
     await this.fetchLicenseTaxonomy(encodePbURL, auth);
     const bookLicense = this.resolveLicense(metadata?.license);
-    console.log("bookLicense", bookLicense);
+    logger.info({ detail: [bookLicense] }, "bookLicense");
     try {
       result.license = bookLicense
         ? { name: bookLicense.name, sourceURL: bookLicense.url }
@@ -1379,10 +1373,7 @@ export class PressBookScraper {
     fetch(`https://batch.libretexts.org/print/Libretext=${bookURL}`, {
       headers: { origin: "commons.libretexts.org" },
     }).catch((e) => {
-      console.warn(
-        "[PressBookScraper] Matter / MindMap trigger failed (non-fatal):",
-        (e as Error).message,
-      );
+      pressbookLog.warn({ err: e }, "Matter / MindMap trigger failed (non-fatal)");
     });
     await sleep(1500);
 
@@ -1423,7 +1414,7 @@ export class PressBookScraper {
     auth?: { username: string; password: string },
   ): Promise<{ html: string; license?: PressbooksLicense }> {
     try {
-      console.log(`[*] id: ${id}`);
+      logger.info(`[*] id: ${id}`);
       const url = `${this.pbApi(bookUrl)}/${postType}/${id}?_embed=1`;
       const item = await this.getJson(url, auth);
       const html: string = this.pickLargestSrcsetImage(
@@ -1440,10 +1431,7 @@ export class PressBookScraper {
       const license = this.resolveLicense(item.license);
       return { html, license };
     } catch (err) {
-      console.warn(
-        `[PressBookScraper] Failed to fetch content for ${postType}/${id}:`,
-        (err as Error).message,
-      );
+      pressbookLog.warn({ err, postType, id }, "Failed to fetch content");
       return { html: "" };
     }
   }
@@ -1472,9 +1460,7 @@ export class PressBookScraper {
     try {
       terms = await this.getJson(url, auth);
     } catch (err) {
-      console.warn(
-        `[PressBookScraper] Failed to fetch license taxonomy: ${(err as Error).message}`,
-      );
+      pressbookLog.warn(`Failed to fetch license taxonomy: ${(err as Error).message}`);
       return;
     }
     if (!Array.isArray(terms)) return;
@@ -2330,9 +2316,7 @@ export class PressBookScraper {
       }
       page++;
       if (page > PressBookScraper.MAX_PAGING_PAGES) {
-        console.warn(
-          `[PressBookScraper] fetchAllPostsOfType(${postType}): reached page-cap (${PressBookScraper.MAX_PAGING_PAGES}) — truncating results for ${bookUrl}`,
-        );
+        pressbookLog.warn(`fetchAllPostsOfType(${postType}): reached page-cap (${PressBookScraper.MAX_PAGING_PAGES}) — truncating results for ${bookUrl}`);
         break;
       }
     }
@@ -2582,10 +2566,8 @@ export class PressBookScraper {
         }
         // Different person, same slug — pick the next free suffix.
         const freeKey = await this.findFreeNameKey(c.nameKey);
-        console.log(
-          `[PressBookScraper] Author nameKey collision: "${c.nameKey}" already used by "${existingName}"; ` +
-            `inserting "${c.name}" as "${freeKey}".`,
-        );
+        pressbookLog.info(`Author nameKey collision: "${c.nameKey}" already used by "${existingName}"; ` +
+                      `inserting "${c.name}" as "${freeKey}".`);
         docs.push({
           nameKey: freeKey,
           name: c.name,
