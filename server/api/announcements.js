@@ -4,10 +4,10 @@
 //
 
 'use strict';
+import logger from "../logger.js";
 import { body } from 'express-validator';
 import Announcement from '../models/announcement.js';
 import conductorErrors from '../conductor-errors.js';
-import { debugError } from '../debug.js';
 import authAPI from './auth.js';
 
 /**
@@ -48,7 +48,7 @@ const postAnnouncement = (req, res) => {
                 throw(conductorErrors.err3);
             }
         }).catch((err) => {
-            debugError(err);
+            logger.error({ err }, "postAnnouncement failed");
             return res.status(500).send({
                 err: true,
                 errMsg: conductorErrors.err6
@@ -100,7 +100,7 @@ const deleteAnnouncement = (req, res) => {
         var errMsg = conductorErrors.err6;
         if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'deletefail') errMsg = conductorErrors.err3;
-        else debugError(err);
+        else logger.error({ err }, "deleteAnnouncement failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -221,7 +221,7 @@ const getAllAnnouncements = (_req, res) => {
             announcements: announcements
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getAllAnnouncements failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6
@@ -333,7 +333,7 @@ const getRecentAnnouncement = (_req, res) => {
             announcement: announcement
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getRecentAnnouncement failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6
@@ -382,7 +382,7 @@ const getSystemAnnouncement = (req, res) => {
             sysAnnouncement: announcement
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getSystemAnnouncement failed");
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
@@ -435,7 +435,7 @@ const getSupportAnnouncement = async (req, res) => {
       announcement
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getSupportAnnouncement failed");
     return res.send({
       err: true,
       errMsg: conductorErrors.err6,

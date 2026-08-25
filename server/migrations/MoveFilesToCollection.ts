@@ -1,6 +1,6 @@
 // @ts-nocheck
+import logger from "../logger.js";
 import Project from "../models/project.js";
-import { debugError } from "../debug.js";
 import ProjectFile from "../models/projectfile.js";
 
 /**
@@ -11,7 +11,7 @@ export async function runMigration() {
     const projects = await Project.find({
       files: { $exists: true },
     });
-    console.log("Found projects: ", projects.length);
+    logger.info({ detail: [projects.length] }, "Found projects");
     for (const project of projects) {
       if (!project.files) continue;
 
@@ -24,7 +24,7 @@ export async function runMigration() {
         continue;
       }
 
-      console.log("Migrating project: ", project.projectID);
+      logger.info({ projectID: project.projectID }, "Migrating project");
 
       for (const file of project.files) {
         if (!file.fileID) continue;
@@ -34,13 +34,13 @@ export async function runMigration() {
           projectID,
         }).catch((e) => {
           if (e.code === 11000) {
-            console.log("File already exists, skipping...");
+            logger.info("File already exists, skipping...");
             return;
           } else {
             throw e;
           }
         });
-        console.log("INSERTED FILE ID: ", file.fileID);
+        logger.info({ detail: [file.fileID] }, "INSERTED FILE ID");
       }
       project.files = undefined; // Remove the files array from the project
       await project.save({
@@ -48,6 +48,6 @@ export async function runMigration() {
       });
     }
   } catch (e: any) {
-    debugError(`Fatal error during migration: ${e.toString()}`);
+    logger.error({ err: e }, "Fatal error during migration");
   }
 }

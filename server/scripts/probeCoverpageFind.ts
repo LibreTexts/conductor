@@ -32,6 +32,7 @@
  * usual AWS chain (env / shared config) plus AWS_REGION,
  * AWS_SSM_LIB_TOKEN_PAIR_PATH and LIBRARIES_API_USERNAME. `.env` is loaded.
  */
+import logger from "../logger.js";
 import "dotenv/config";
 import Expert from "../util/ExpertWithSSM.js";
 import type { PageBase, PageTag, Tags } from "@libretexts/cxone-expert-node";
@@ -91,11 +92,11 @@ function tally(values: string[]): [string, number][] {
 
 function printSamples(label: string, pages: FoundPage[]) {
   if (pages.length === 0) return;
-  console.log(`\n  ${label} (${pages.length}, showing up to ${SAMPLE_SIZE}):`);
+  logger.info(`\n  ${label} (${pages.length}, showing up to ${SAMPLE_SIZE}):`);
   for (const page of pages.slice(0, SAMPLE_SIZE)) {
     const tags = tagTitles(page);
-    console.log(`    ${page["@id"] ?? "?"}  ${pagePath(page) || "(no path)"}`);
-    console.log(`        tags: ${tags.join(", ") || "(none returned)"}`);
+    logger.info(`    ${page["@id"] ?? "?"}  ${pagePath(page) || "(no path)"}`);
+    logger.info(`        tags: ${tags.join(", ") || "(none returned)"}`);
   }
 }
 
@@ -104,7 +105,7 @@ async function main() {
   const library = libraryArg || DEFAULT_LIBRARY;
   const root = rootArg || DEFAULT_ROOT;
 
-  console.log(`Probing ${library} / ${root}\n`);
+  logger.info(`Probing ${library} / ${root}\n`);
 
   const expert = await Expert.getInstance().forLibrary(library);
 
@@ -120,36 +121,26 @@ async function main() {
   const untaggedCount = Number(untagged["@count"] ?? 0);
   const untaggedTotal = Number(untagged["@totalcount"] ?? 0);
 
-  console.log("Q1. Is the `tags=` filter honored?");
-  console.log(
-    `  with tags=${COVERPAGE_TAG}: count=${taggedCount} totalcount=${taggedTotal}`,
-  );
-  console.log(
-    `  without tags:              count=${untaggedCount} totalcount=${untaggedTotal}`,
-  );
-  console.log(
-    taggedTotal === untaggedTotal
-      ? "  => IDENTICAL totals. The filter is being ignored; `find` is returning\n" +
-        "     the whole subtree and every page in it was becoming a Book."
-      : "  => Totals differ, so the filter has some effect. Any untagged pages\n" +
-        "     below are leaking through it rather than bypassing it entirely.",
-  );
+  logger.info("Q1. Is the `tags=` filter honored?");
+  logger.info(`  with tags=${COVERPAGE_TAG}: count=${taggedCount} totalcount=${taggedTotal}`);
+  logger.info(`  without tags:              count=${untaggedCount} totalcount=${untaggedTotal}`);
+  logger.info(taggedTotal === untaggedTotal
+          ? "  => IDENTICAL totals. The filter is being ignored; `find` is returning\n" +
+            "     the whole subtree and every page in it was becoming a Book."
+          : "  => Totals differ, so the filter has some effect. Any untagged pages\n" +
+            "     below are leaking through it rather than bypassing it entirely.");
 
   // --- Q2: does include=tags populate tags? -------------------------------
   const pages = toArray(tagged.page);
   const withAnyTags = pages.filter((p) => tagTitles(p).length > 0);
 
-  console.log("\nQ2. Does `include=tags` populate tags on the response?");
-  console.log(
-    `  ${withAnyTags.length} of ${pages.length} returned pages carry at least one tag.`,
-  );
+  logger.info("\nQ2. Does `include=tags` populate tags on the response?");
+  logger.info(`  ${withAnyTags.length} of ${pages.length} returned pages carry at least one tag.`);
   if (pages.length > 0 && withAnyTags.length === 0) {
-    console.log(
-      "  => NO TAGS AT ALL. Do not enable the client-side tag gate: it would\n" +
-        "     reject the entire catalog. Tags must be sourced another way.",
-    );
+    logger.info("  => NO TAGS AT ALL. Do not enable the client-side tag gate: it would\n" +
+              "     reject the entire catalog. Tags must be sourced another way.");
   } else {
-    console.log("  => Tags are present and can be gated on.");
+    logger.info("  => Tags are present and can be gated on.");
   }
 
   // --- Q3: is article:topic-category the right discriminator? -------------
@@ -164,36 +155,32 @@ async function main() {
     (p) => !tagTitles(p).includes(COVERPAGE_TAG),
   );
 
-  console.log("\nQ3. What did the tagged query actually return?");
-  console.log(`  total returned:                    ${pages.length}`);
-  console.log(`  carrying ${COVERPAGE_TAG}:              ${hasCoverpage.length}`);
-  console.log(`  carrying BOTH required tags:       ${hasBoth.length}`);
-  console.log(`  coverpage tag but NOT topic-category: ${coverpageOnly.length}`);
-  console.log(`  missing the coverpage tag entirely:   ${noCoverpage.length}`);
+  logger.info("\nQ3. What did the tagged query actually return?");
+  logger.info(`  total returned:                    ${pages.length}`);
+  logger.info(`  carrying ${COVERPAGE_TAG}:              ${hasCoverpage.length}`);
+  logger.info(`  carrying BOTH required tags:       ${hasBoth.length}`);
+  logger.info(`  coverpage tag but NOT topic-category: ${coverpageOnly.length}`);
+  logger.info(`  missing the coverpage tag entirely:   ${noCoverpage.length}`);
 
-  console.log("\n  article:* distribution over ALL returned pages:");
+  logger.info("\n  article:* distribution over ALL returned pages:");
   const articleTags = pages.flatMap((p) =>
     tagTitles(p).filter((t) => t.startsWith("article:")),
   );
   for (const [tag, count] of tally(articleTags)) {
-    console.log(`    ${count.toString().padStart(6)}  ${tag}`);
+    logger.info(`    ${count.toString().padStart(6)}  ${tag}`);
   }
-  if (articleTags.length === 0) console.log("    (none)");
+  if (articleTags.length === 0) logger.info("    (none)");
 
-  console.log(
-    `\n  article:* distribution over pages carrying ${COVERPAGE_TAG} only:`,
-  );
+  logger.info(`\n  article:* distribution over pages carrying ${COVERPAGE_TAG} only:`);
   const coverpageArticleTags = hasCoverpage.flatMap((p) =>
     tagTitles(p).filter((t) => t.startsWith("article:")),
   );
   for (const [tag, count] of tally(coverpageArticleTags)) {
-    console.log(`    ${count.toString().padStart(6)}  ${tag}`);
+    logger.info(`    ${count.toString().padStart(6)}  ${tag}`);
   }
-  if (coverpageArticleTags.length === 0) console.log("    (none)");
-  console.log(
-    "\n  If anything other than article:topic-category appears above in\n" +
-      "  meaningful numbers, requiring it would drop real books.",
-  );
+  if (coverpageArticleTags.length === 0) logger.info("    (none)");
+  logger.info("\n  If anything other than article:topic-category appears above in\n" +
+          "  meaningful numbers, requiring it would drop real books.");
 
   printSamples("Rejected: missing the coverpage tag", noCoverpage);
   printSamples(
@@ -204,6 +191,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err);
+  logger.error({ err }, "probeCoverpageFind failed");
   process.exit(1);
 });

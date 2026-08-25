@@ -1,15 +1,16 @@
+import logger, { childLogger } from "../logger.js";
 import { Request, Response } from "express";
 import storeService from "./services/store-service";
 import AddressValidationService from "./services/address-validation-service";
 import { z } from "zod";
 import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema, AdminGetStoreOrdersSchema, AdminGetStoreOrderSchema, AdminResubmitPrintJobSchema, AdminGetPrintJobPayloadSchema, AdminSubmitManualPrintJobSchema, ValidateAddressSchema, SyncSingleBookToStripeSchema } from "./validators/store";
 import { conductor400Err, conductor404Err, conductor500Err } from "../util/errorutils";
-import { debug, debugError } from "../debug";
 import { LuluWebhookData, StoreShippingOption, ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import StripeService from "./services/stripe-service";
 import User from "../models/user";
 import { syncAllBooksToStripe, syncBookToStripe } from "./services/store-book-sync-service";
 import { checkBookIDFormat } from "../util/bookutils";
+const storeLog = childLogger("store");
 
 const addressValidationService = new AddressValidationService();
 
@@ -32,7 +33,7 @@ export async function getStoreProduct(req: z.infer<typeof GetStoreProductSchema>
       product,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "getStoreProduct failed");
     return conductor500Err(res);
   }
 }
@@ -60,7 +61,7 @@ export async function getStoreProducts(req: z.infer<typeof GetStoreProductsSchem
       }
     })
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "getStoreProducts failed");
     return conductor500Err(res);
   }
 }
@@ -77,7 +78,7 @@ export async function getMostPopularStoreProducts(req: z.infer<typeof GetMostPop
       products,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "getMostPopularStoreProducts failed");
     return conductor500Err(res);
   }
 }
@@ -149,7 +150,7 @@ export async function createCheckoutSession(req: ZodReqWithOptionalUser<z.infer<
       checkout_url,
     })
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "createCheckoutSession failed");
     return conductor500Err(res);
   }
 }
@@ -178,7 +179,7 @@ export async function getShippingOptions(req: ZodReqWithOptionalUser<z.infer<typ
       options,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "getShippingOptions failed");
     return conductor500Err(res);
   }
 }
@@ -223,7 +224,7 @@ export async function validateAddress(req: z.infer<typeof ValidateAddressSchema>
         return conductor500Err(res);
     }
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "validateAddress failed");
     return conductor500Err(res);
   }
 }
@@ -239,7 +240,7 @@ export async function processLuluWebhook(req: Request, res: Response) {
       return conductor400Err(res);
     }
 
-    debug("[STORE]: Lulu webhook event received");
+    storeLog.info("Lulu webhook event received");
     const data = json.data as LuluWebhookData['data'];
     await storeService.processLuluOrderUpdate({ data });
 
@@ -248,7 +249,7 @@ export async function processLuluWebhook(req: Request, res: Response) {
       message: "Lulu webhook processed successfully.",
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "processLuluWebhook failed");
     return conductor500Err(res);
   }
 }
@@ -275,7 +276,7 @@ export async function processStripeWebhook(req: Request, res: Response) {
     }
 
     if (result.feature !== 'store') {
-      debugError(`Unhandled Stripe application feature: ${result.feature}`);
+      logger.error(`Unhandled Stripe application feature: ${result.feature}`);
       return res.status(200).send({
         err: false,
         errMsg: "Stripe event feature not handled. No action taken.",
@@ -286,7 +287,7 @@ export async function processStripeWebhook(req: Request, res: Response) {
     storeService.processOrder({
       checkout_session: result.checkout_session,
     }).catch((error) => {
-      debugError(error);
+      logger.error({ err: error }, "processStripeWebhook failed");
     });
 
     return res.status(200).send({
@@ -294,7 +295,7 @@ export async function processStripeWebhook(req: Request, res: Response) {
       message: "Stripe webhook processed successfully.",
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "processStripeWebhook failed");
     return conductor500Err(res);
   }
 }
@@ -303,7 +304,7 @@ export async function syncBooksToStripe(req: Request, res: Response) {
   try {
     // Don't await this, just start the sync process
     syncAllBooksToStripe().catch((error) => {
-      debugError(error);
+      logger.error({ err: error }, "syncBooksToStripe failed");
     });
 
     return res.status(200).send({
@@ -311,7 +312,7 @@ export async function syncBooksToStripe(req: Request, res: Response) {
       message: "Book sync initiated successfully. This may take a while.",
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "syncBooksToStripe failed");
     return conductor500Err(res);
   }
 }
@@ -333,7 +334,7 @@ export async function syncSingleBookToStripe(req: z.infer<typeof SyncSingleBookT
 
     const outcome = await syncBookToStripe(bookID);
     if (outcome.status === "error") {
-      debugError(`Failed to sync ${bookID} to Stripe: ${outcome.reason}`);
+      logger.error(`Failed to sync ${bookID} to Stripe: ${outcome.reason}`);
       return conductor500Err(res);
     }
 
@@ -343,7 +344,7 @@ export async function syncSingleBookToStripe(req: z.infer<typeof SyncSingleBookT
       outcome,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "syncSingleBookToStripe failed");
     return conductor500Err(res);
   }
 }
@@ -358,7 +359,7 @@ export async function adminGetStoreOrders(req: z.infer<typeof AdminGetStoreOrder
       meta: order_data.meta,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "adminGetStoreOrders failed");
     return conductor500Err(res);
   }
 }
@@ -381,7 +382,7 @@ export async function adminGetStoreOrder(req: z.infer<typeof AdminGetStoreOrderS
       data: order,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "adminGetStoreOrder failed");
     return conductor500Err(res);
   }
 }
@@ -415,7 +416,7 @@ export async function adminResubmitPrintJob(req: z.infer<typeof AdminResubmitPri
       data: result,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "adminResubmitPrintJob failed");
     return conductor500Err(res);
   }
 }
@@ -438,7 +439,7 @@ export async function adminGetPrintJobPayload(req: z.infer<typeof AdminGetPrintJ
       data: result,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "adminGetPrintJobPayload failed");
     return conductor500Err(res);
   }
 }
@@ -470,7 +471,7 @@ export async function adminSubmitManualPrintJob(req: ZodReqWithUser<z.infer<type
       data: result,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "adminSubmitManualPrintJob failed");
     return conductor500Err(res);
   }
 }
@@ -500,7 +501,7 @@ export async function getOrder(req: Request, res: Response) {
       message: "Order fetched successfully.",
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "getOrder failed");
     return conductor500Err(res);
   }
 }

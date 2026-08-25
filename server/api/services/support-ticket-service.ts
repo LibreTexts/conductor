@@ -1,3 +1,4 @@
+import logger, { childLogger } from "../../logger.js";
 import { z } from "zod";
 import { v4 } from "uuid";
 import { randomBytes } from "crypto";
@@ -12,9 +13,9 @@ import authAPI from "../auth";
 import { BulkUpdateTicketsValidator } from "../validators/support";
 import SupportQueueService from "./support-queue-service";
 import SupportTicketMessage, { SupportTicketMessageInterface } from "../../models/supporticketmessage";
-import { debugError, debugServer } from "../../debug";
 import SearchService from "./search-service";
 import SlackNotificationService from "./slack-notification-service";
+const supportTicketLog = childLogger("support-tickets");
 
 export default class SupportTicketService {
     async getTicket(uuid: string): Promise<SupportTicketInterface | null> {
@@ -322,7 +323,7 @@ export default class SupportTicketService {
 
     async syncWithSearchIndex() {
         try {
-            debugServer(`[SupportTicketService] Starting sync with search index...`);
+            supportTicketLog.info(`Starting sync with search index...`);
             const searchService = await SearchService.getInstance();
 
             const batchSize = 100;
@@ -345,20 +346,20 @@ export default class SupportTicketService {
                 try {
                     const sanitizedBatch = JSON.parse(JSON.stringify(batch));
                     const task: any = await searchService.addDocuments("supportTickets", sanitizedBatch, { waitForCompletion: true });
-                    debugServer(`[SupportTicketService] Batch ${Math.floor(skip / batchSize) + 1} indexed. Task UID: ${task.uid ?? task.taskUid}`);
+                    supportTicketLog.info(`Batch ${Math.floor(skip / batchSize) + 1} indexed. Task UID: ${task.uid ?? task.taskUid}`);
                 } catch (batchError: any) {
-                    debugError(`[SupportTicketService] Error adding batch starting at ${skip}: ${batchError.message}`);
+                    supportTicketLog.error(`Error adding batch starting at ${skip}: ${batchError.message}`);
                     if (batchError.meilisearchError) {
-                        debugError(`[SupportTicketService] Meilisearch error object: ${JSON.stringify(batchError.meilisearchError)}`);
+                        supportTicketLog.error(`Meilisearch error object: ${JSON.stringify(batchError.meilisearchError)}`);
                     }
                     const firstFive = batch.slice(0, 5).map((b: any) => b.uuid);
                     const lastFive = batch.slice(-5).map((b: any) => b.uuid);
-                    debugError(`[SupportTicketService] Batch uuids (first 5): ${firstFive.join(', ')}`);
-                    debugError(`[SupportTicketService] Batch uuids (last 5): ${lastFive.join(', ')}`);
+                    supportTicketLog.error(`Batch uuids (first 5): ${firstFive.join(', ')}`);
+                    supportTicketLog.error(`Batch uuids (last 5): ${lastFive.join(', ')}`);
                     throw batchError;
                 }
                 totalSynced += batch.length;
-                debugServer(`[SupportTicketService] Synced batch of ${batch.length} tickets. Total synced so far: ${totalSynced}`);
+                supportTicketLog.info(`Synced batch of ${batch.length} tickets. Total synced so far: ${totalSynced}`);
                 skip += batchSize;
 
                 // If we received less than the batch size, we know we've reached the end
@@ -367,9 +368,9 @@ export default class SupportTicketService {
                 }
             }
 
-            debugServer(`[SupportTicketService] Completed sync with search index. Total synced: ${totalSynced}`);
+            supportTicketLog.info(`Completed sync with search index. Total synced: ${totalSynced}`);
         } catch (err) {
-            debugError(`[SupportTicketService] Error syncing with search index: ${err}`);
+            supportTicketLog.error({ err }, "Error syncing with search index");
             throw err;
         }
     }
@@ -391,20 +392,20 @@ export default class SupportTicketService {
             ]);
 
             if (!results || results.length === 0) {
-                debugError(`[SupportTicketService] No ticket found with ID ${ticketID} for upsert to search index.`);
+                supportTicketLog.error(`No ticket found with ID ${ticketID} for upsert to search index.`);
                 return;
             }
 
             const ticket = results[0] as SupportTicketInterface;
             if (!ticket) {
-                debugError(`[SupportTicketService] No ticket found with ID ${ticketID} for upsert to search index.`);
+                supportTicketLog.error(`No ticket found with ID ${ticketID} for upsert to search index.`);
                 return;
             }
 
             const sanitizedTicket = JSON.parse(JSON.stringify(ticket));
             await searchService.addDocuments("supportTickets", [sanitizedTicket], { waitForCompletion: true });
         } catch (err) {
-            debugError(`[SupportTicketService] Error upserting ticket ${ticketID} to search index: ${err}`);
+            supportTicketLog.error({ err }, `Error upserting ticket ${ticketID} to search index`);
         }
     }
 
@@ -428,7 +429,7 @@ export default class SupportTicketService {
             const sanitizedResults = JSON.parse(JSON.stringify(results));
             await searchService.addDocuments("supportTickets", sanitizedResults, { waitForCompletion: true });
         } catch (err) {
-            debugError(`[SupportTicketService] Error bulk upserting tickets to search index: ${err}`);
+            supportTicketLog.error({ err }, "Error bulk upserting tickets to search index");
         }
     }
 
@@ -437,7 +438,7 @@ export default class SupportTicketService {
             const searchService = await SearchService.getInstance();
             await searchService.deleteDocuments("supportTickets", [uuid]);
         } catch (err) {
-            debugError(`[SupportTicketService] Error removing ticket ${uuid} from search index: ${err}`);
+            supportTicketLog.error({ err }, `Error removing ticket ${uuid} from search index`);
         }
     }
 
@@ -467,7 +468,7 @@ export default class SupportTicketService {
             });
             return true;
         } catch (err) {
-            debugError(`[SupportTicketService] Failed to add system message to ticket ${ticketUUID}: ${err}`);
+            supportTicketLog.error({ err }, `Failed to add system message to ticket ${ticketUUID}`);
             return false;
         }
     }
@@ -511,7 +512,7 @@ export default class SupportTicketService {
             const queueService = new SupportQueueService();
             const queue = (await queueService.getQueueBySlug("store")) ?? (await queueService.getDefaultQueue());
             if (!queue) {
-                debugError("[SupportTicketService] Cannot create system ticket: no 'store' queue and no default queue configured.");
+                supportTicketLog.error("Cannot create system ticket: no 'store' queue and no default queue configured.");
                 return null;
             }
 
@@ -535,7 +536,7 @@ export default class SupportTicketService {
                 try {
                     await this.autoAssignNewTicket(ticket, queue.auto_assign_uuids);
                 } catch (err) {
-                    debugError(err);
+                    logger.error({ err }, "createSystemTicket failed");
                 }
             }
 
@@ -544,7 +545,7 @@ export default class SupportTicketService {
 
             return ticket;
         } catch (err) {
-            debugError(err);
+            logger.error({ err }, "createSystemTicket failed");
             return null;
         }
     }
@@ -573,7 +574,7 @@ export default class SupportTicketService {
                 );
             }
         } catch (err) {
-            debugError(err);
+            logger.error({ err }, "_notifySystemTicketCreated failed");
         }
 
         try {
@@ -589,7 +590,7 @@ export default class SupportTicketService {
                 metadata: (ticket.metadata as Record<string, unknown>) ?? {},
             });
         } catch (err) {
-            debugError(err);
+            logger.error({ err }, "_notifySystemTicketCreated failed");
         }
     }
 

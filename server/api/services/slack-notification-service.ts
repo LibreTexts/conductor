@@ -1,5 +1,5 @@
+import logger from "../../logger.js";
 import axios, { AxiosInstance } from "axios";
-import { debugError } from "../../debug.js";
 
 export interface SlackSupportTicketCreatedPayload {
     queueDescriptor: string;
@@ -96,7 +96,7 @@ export default class SlackNotificationService {
                 blocks,
             });
         } catch (err) {
-            debugError(err);
+            logger.error({ err }, "sendSupportTicketCreated failed");
         }
     }
 

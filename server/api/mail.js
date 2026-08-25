@@ -3,6 +3,7 @@
 // mail.js
 //
 
+import logger from "../logger.js";
 import Mailgun from 'mailgun.js';
 import formData from 'form-data';
 import { marked } from 'marked';
@@ -22,8 +23,8 @@ if (process.env.NODE_ENV === 'production') {
   mailgun = {
     messages: {
       async create(domain, msgData) {
-        console.log(`Simulating send via ${domain}. Message Data:`);
-        console.log(util.inspect(msgData));
+        logger.info(`Simulating send via ${domain}. Message Data:`);
+        logger.info(util.inspect(msgData));
       },
     },
   };

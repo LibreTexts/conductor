@@ -1,10 +1,11 @@
+import logger, { childLogger } from "../../logger.js";
 import Stripe from "stripe";
 import Book, { BookInterface } from "../../models/book.js";
-import { debug, debugError } from "../../debug.js";
 import { getLibraryAndPageFromBookID } from "../../util/bookutils.js";
 import { mapWithConcurrency } from "../../util/concurrency.js";
 import storeService from "./store-service.js";
 import StripeService from "./stripe-service.js";
+const storeBookSyncLog = childLogger("store-book-sync");
 
 /**
  * Stripe store catalog for Commons books.
@@ -254,9 +255,7 @@ const reconcilePrices = async (
     for (const duplicate of duplicates) {
       await stripe.prices.update(duplicate.id, { active: false });
       wrote = true;
-      debug(
-        `[StoreBookSync] Archived duplicate price ${duplicate.id} for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}) -- more than one active price for this variant.`,
-      );
+      storeBookSyncLog.info(`Archived duplicate price ${duplicate.id} for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}) -- more than one active price for this variant.`);
     }
 
     if (existingPrice) {
@@ -290,9 +289,7 @@ const reconcilePrices = async (
 
       await stripe.prices.update(existingPrice.id, { active: false });
       wrote = true;
-      debug(
-        `[StoreBookSync] Archived price ${existingPrice.id} for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}) -- amount changed.`,
-      );
+      storeBookSyncLog.info(`Archived price ${existingPrice.id} for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}) -- amount changed.`);
     }
 
     try {
@@ -334,22 +331,16 @@ const reconcilePrices = async (
          want. */
       if (!newPrice.active) {
         await stripe.prices.update(newPrice.id, { active: true });
-        debug(
-          `[StoreBookSync] Reactivated replayed price ${newPrice.id} for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}).`,
-        );
+        storeBookSyncLog.info(`Reactivated replayed price ${newPrice.id} for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}).`);
       }
 
-      debug(
-        `[StoreBookSync] Created price ${newPrice.id} for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}): ${option.formatted_price}`,
-      );
+      storeBookSyncLog.info(`Created price ${newPrice.id} for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}): ${option.formatted_price}`);
     } catch (err) {
       /* A concurrent run holds the same key and is mid-create. Its price is the
          one that lands; ours would have been a duplicate. Nothing to repair here
          -- the next sync reconciles whatever the other run produced. */
       if (!isIdempotencyKeyInUse(err)) throw err;
-      debug(
-        `[StoreBookSync] Skipped creating a price for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}): a concurrent sync is already creating it.`,
-      );
+      storeBookSyncLog.info(`Skipped creating a price for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}): a concurrent sync is already creating it.`);
     }
   }
 
@@ -470,14 +461,12 @@ export async function archiveBookInStripe(
       return { ok: true, archived: false };
     }
 
-    debug(
-      `[StoreBookSync] Archived ${bookID} (product ${product.id}, ${prices.data.length} price(s)).`,
-    );
+    storeBookSyncLog.info(`Archived ${bookID} (product ${product.id}, ${prices.data.length} price(s)).`);
     storeService.invalidateProductCache();
     return { ok: true, archived: true };
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    debugError(`[StoreBookSync] Error archiving ${bookID} in Stripe: ${reason}`);
+    storeBookSyncLog.error(`Error archiving ${bookID} in Stripe: ${reason}`);
     return { ok: false, reason };
   }
 }
@@ -518,7 +507,7 @@ export async function syncBookToStripe(
       const reason = book.syncMissingSince
         ? `${bookID} is marked missing from its library.`
         : `${bookID} has no finite exportInfo.contentPageCount (got ${JSON.stringify(book.exportInfo?.contentPageCount)}).`;
-      debug(`[StoreBookSync] Not syncing: ${reason}`);
+      storeBookSyncLog.info(`Not syncing: ${reason}`);
       const archival = await archiveBookInStripe(bookID);
       if (!archival.ok) {
         /* The book must come off sale and did not. Reporting `archived` here
@@ -536,10 +525,10 @@ export async function syncBookToStripe(
     if (outcome.status !== "unchanged") {
       storeService.invalidateProductCache();
     }
-    debug(`[StoreBookSync] ${outcome.status} ${bookID} in Stripe.`);
+    storeBookSyncLog.info(`${outcome.status} ${bookID} in Stripe.`);
     return outcome;
   } catch (err) {
-    debugError(`[StoreBookSync] Error syncing ${bookID} to Stripe: ${err}`);
+    storeBookSyncLog.error({ err }, `Error syncing ${bookID} to Stripe`);
     return {
       status: "error",
       reason: err instanceof Error ? err.message : String(err),
@@ -605,15 +594,11 @@ export async function syncAllBooksToStripe(): Promise<StripeCatalogSyncResult> {
       continue;
     }
     result.skipped_count += 1;
-    debug(
-      `[StoreBookSync] Skipping ${book.bookID}: exportInfo.contentPageCount is not a finite number (got ${JSON.stringify(book.exportInfo?.contentPageCount)}).`,
-    );
+    storeBookSyncLog.info(`Skipping ${book.bookID}: exportInfo.contentPageCount is not a finite number (got ${JSON.stringify(book.exportInfo?.contentPageCount)}).`);
   }
 
   const eligibleIDs = new Set(eligible.map((b) => b.bookID));
-  debug(
-    `[StoreBookSync] Syncing ${eligible.length} eligible book(s) to Stripe (${result.skipped_count} skipped).`,
-  );
+  storeBookSyncLog.info(`Syncing ${eligible.length} eligible book(s) to Stripe (${result.skipped_count} skipped).`);
 
   // Per-book failures are handled inside the callback -- mapWithConcurrency
   // rejects the whole call if `fn` rejects.
@@ -623,9 +608,7 @@ export async function syncAllBooksToStripe(): Promise<StripeCatalogSyncResult> {
       result.sync_count += 1;
     } catch (err) {
       result.failed_count += 1;
-      debugError(
-        `[StoreBookSync] Error syncing ${book.bookID} to Stripe: ${err}`,
-      );
+      storeBookSyncLog.error({ err }, `Error syncing ${book.bookID} to Stripe`);
     }
   });
 
@@ -634,9 +617,7 @@ export async function syncAllBooksToStripe(): Promise<StripeCatalogSyncResult> {
      fault (Stripe down, bad key, empty read) -- and archiving off the back of
      that would empty the store. */
   if (result.sync_count === 0 || result.failed_count > result.sync_count) {
-    debugError(
-      `[StoreBookSync] Skipping the archival pass: ${result.sync_count} synced, ${result.failed_count} failed. This looks like a systemic failure, not a catalog change.`,
-    );
+    storeBookSyncLog.error(`Skipping the archival pass: ${result.sync_count} synced, ${result.failed_count} failed. This looks like a systemic failure, not a catalog change.`);
     storeService.invalidateProductCache();
     return result;
   }
@@ -655,9 +636,7 @@ export async function syncAllBooksToStripe(): Promise<StripeCatalogSyncResult> {
       if (!productBookID) {
         // Not a retirement -- a book product with no book_id is malformed data,
         // and archiving it blind would hide the problem.
-        debugError(
-          `[StoreBookSync] Stripe product ${product.id} ("${product.name}") is in the books category but has no book_id metadata.`,
-        );
+        storeBookSyncLog.error(`Stripe product ${product.id} ("${product.name}") is in the books category but has no book_id metadata.`);
         continue;
       }
       if (eligibleIDs.has(productBookID)) continue;
@@ -677,9 +656,7 @@ export async function syncAllBooksToStripe(): Promise<StripeCatalogSyncResult> {
   } while (page);
 
   storeService.invalidateProductCache();
-  debug(
-    `[StoreBookSync] Full sync complete: ${result.sync_count} synced, ${result.archived_count} archived, ${result.skipped_count} skipped, ${result.failed_count} failed, ${result.archive_failed_count} archival failure(s).`,
-  );
+  storeBookSyncLog.info(`Full sync complete: ${result.sync_count} synced, ${result.archived_count} archived, ${result.skipped_count} skipped, ${result.failed_count} failed, ${result.archive_failed_count} archival failure(s).`);
 
   return result;
 }

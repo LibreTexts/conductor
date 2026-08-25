@@ -1,3 +1,4 @@
+import logger from "../../logger.js";
 import { ECSClient, RunTaskCommand } from "@aws-sdk/client-ecs";
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
 import { randomUUID } from "node:crypto";
@@ -8,7 +9,6 @@ import BookBotRun, {
   BookBotType,
 } from "../../models/bookbotrun";
 import { isValidLibretextsURL } from "../validators/book-bots";
-import { debugError } from "../../debug";
 
 export interface RunnerCallbackPayload {
   jobId: string;
@@ -148,7 +148,7 @@ export default class BookBotService {
           throw new Error(`Unsupported botType: ${input.botType}`);
       }
     } catch (err) {
-      debugError(err);
+      logger.error({ err }, "submitJob failed");
       await BookBotRun.updateOne(
         { jobID },
         {

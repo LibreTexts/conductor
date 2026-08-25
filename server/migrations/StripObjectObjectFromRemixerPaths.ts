@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import PrejectRemixer, {
   PathLevelFormatState,
   RemixerSubPageState,
@@ -69,9 +70,7 @@ export async function runMigration() {
 
       if (!changed) continue;
 
-      console.log(
-        `Repairing remixer state for project ${state.projectID} (remixerID ${state.remixerID}).`,
-      );
+      logger.info(`Repairing remixer state for project ${state.projectID} (remixerID ${state.remixerID}).`);
 
       toUpdate.push({
         _id: state._id,
@@ -80,7 +79,7 @@ export async function runMigration() {
       });
     }
 
-    console.log(`Found ${toUpdate.length} remixer state(s) to repair.`);
+    logger.info(`Found ${toUpdate.length} remixer state(s) to repair.`);
 
     const chunkSize = 25;
     for (let i = 0; i < toUpdate.length; i += chunkSize) {
@@ -100,8 +99,8 @@ export async function runMigration() {
       await PrejectRemixer.bulkWrite(bulkOps);
     }
 
-    console.log("Remixer path repair migration complete.");
+    logger.info("Remixer path repair migration complete.");
   } catch (err) {
-    console.error("Error during migration: ", err);
+    logger.error({ err }, "Error during migration");
   }
 }

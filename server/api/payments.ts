@@ -1,7 +1,7 @@
+import logger from "../logger.js";
 import { Request, Response } from "express";
 import orgEventsAPI from './orgevents.js';
 import { conductor400Err, conductor500Err } from "../util/errorutils.js";
-import { debug, debugError } from "../debug.js";
 import StripeService from "./services/stripe-service.js";
 
 /**
@@ -32,7 +32,7 @@ async function processStripeWebhookEvent(req: Request, res: Response) {
     }
 
     if (result.feature !== 'events') {
-      debug(`Unhandle Stripe application feature: ${result.feature}`);
+      logger.info(`Unhandle Stripe application feature: ${result.feature}`);
       return res.status(200).send({
         err: false,
         errMsg: "Stripe event feature not handled. No action taken.",
@@ -44,7 +44,7 @@ async function processStripeWebhookEvent(req: Request, res: Response) {
       result.payment_intent,
       res);
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "processStripeWebhookEvent failed");
     return conductor500Err(res);
   }
 }

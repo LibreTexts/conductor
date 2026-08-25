@@ -1,12 +1,13 @@
+import logger, { childLogger } from "../../logger.js";
 import { ShapeshiftJob, ShapeshiftJobStatus } from "../../types/Shapeshift.js";
 import axios, { AxiosInstance } from "axios";
-import { debugCommonsSync, debugError } from "../../debug.js";
 import Book from "../../models/book.js";
 import { z } from "zod";
 import { WebhookValidator } from "../validators/shapeshift.js";
 import { syncSingleBook } from "./book-sync-service.js";
 import { upsertBookToSearchIndex } from "./book-search-service.js";
 import { syncBookToStripe } from "./store-book-sync-service.js";
+const commonsSyncLog = childLogger("commons-sync");
 
 type WebhookParams = z.infer<typeof WebhookValidator>["body"];
 
@@ -62,7 +63,7 @@ export default class ShapeshiftService {
       if (resp?.status !== 200 || !resp?.data?.data?.id) return null;
       return resp.data.data.id;
     } catch (error) {
-      debugError(error);
+      logger.error({ err: error }, "createJob failed");
       return null;
     }
   }
@@ -98,7 +99,7 @@ export default class ShapeshiftService {
         meta: resp.data.meta,
       };
     } catch (error) {
-      debugError(error);
+      logger.error({ err: error }, "getOpenJobs failed");
       return emptyResponse;
     }
   }
@@ -168,9 +169,7 @@ export default class ShapeshiftService {
   private queueLiveSync(params: WebhookParams): void {
     const { bookID } = params;
     if (inFlightSyncs.has(bookID)) {
-      debugCommonsSync(
-        `Live sync for ${bookID} already running — queued a follow-up repricing.`
-      );
+      commonsSyncLog.info(`Live sync for ${bookID} already running — queued a follow-up repricing.`);
       /* The run already in flight will refresh the library data, but it may have
          read the Book before this delivery's compilation status landed. That
          write is already awaited by the caller, so indexing here is safe and
@@ -195,9 +194,7 @@ export default class ShapeshiftService {
           await this.applyCompileStatus(params);
         }
         if ("reason" in outcome) {
-          debugCommonsSync(
-            `Live sync for ${bookID} finished as ${outcome.status}: ${outcome.reason}`
-          );
+          commonsSyncLog.info(`Live sync for ${bookID} finished as ${outcome.status}: ${outcome.reason}`);
         }
 
         /* Every Mongo write from this delivery has landed — publish the result to
@@ -221,16 +218,14 @@ export default class ShapeshiftService {
         let followUps = 0;
         while (pendingResyncs.delete(bookID)) {
           if (followUps >= MAX_COALESCED_RESYNCS) {
-            debugCommonsSync(
-              `Live sync for ${bookID} hit the follow-up limit (${MAX_COALESCED_RESYNCS}) — leaving the rest to the next full sync.`
-            );
+            commonsSyncLog.info(`Live sync for ${bookID} hit the follow-up limit (${MAX_COALESCED_RESYNCS}) — leaving the rest to the next full sync.`);
             break;
           }
           followUps += 1;
           await syncBookToStripe(bookID);
         }
       } catch (error) {
-        debugError(error);
+        logger.error({ err: error }, "queueLiveSync failed");
       } finally {
         /* Both flags clear together. There is no `await` between the loop's last
            check and this point, so no delivery can slip in and be forgotten. */
@@ -266,7 +261,7 @@ export default class ShapeshiftService {
 
       // Accept the webhook if the timestamp is plus or minus 5 minutes from the current time
       if (Math.abs(currentTime - timestamp) > acceptedSkew) {
-        debugError(`Timestamp for Shapeshift webhook is too skewed. Received: ${timestamp}, Current: ${currentTime}`);
+        logger.error(`Timestamp for Shapeshift webhook is too skewed. Received: ${timestamp}, Current: ${currentTime}`);
         return 'invalid_timestamp';
       }
 
@@ -281,14 +276,14 @@ export default class ShapeshiftService {
       // No match: either the book does not exist, or a newer compilation is already recorded.
       const exists = await Book.exists({ bookID: { $eq: bookID } });
       if (!exists) {
-        debugCommonsSync(`Book ${bookID} is unknown to Commons — queued a live library sync.`);
+        commonsSyncLog.info(`Book ${bookID} is unknown to Commons — queued a live library sync.`);
         return 'accepted';
       }
 
-      debugError(`Ignoring stale Shapeshift webhook for ${bookID}. Received timestamp ${timestamp}, newer compilation already recorded.`);
+      logger.error(`Ignoring stale Shapeshift webhook for ${bookID}. Received timestamp ${timestamp}, newer compilation already recorded.`);
       return 'stale';
     } catch (error) {
-      debugError(error);
+      logger.error({ err: error }, "handleWebhook failed");
       return 'error';
     }
   }

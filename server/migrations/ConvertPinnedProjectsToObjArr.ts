@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import User from "../models/user";
 
 export async function runMigration() {
@@ -12,9 +13,7 @@ export async function runMigration() {
 
         // if the first item in the array is already an object, do nothing - it may have already been migrated
         if (typeof user.pinnedProjects[0] === "object") {
-          console.log(
-            `User ${user.email} already has pinnedProjects in the correct format.`
-          );
+          logger.info(`User ${user.email} already has pinnedProjects in the correct format.`);
           continue;
         }
 
@@ -39,10 +38,7 @@ export async function runMigration() {
         ];
       }
 
-      console.log(
-        `Migrating user ${user.email} with new pinnedProjects: `,
-        user.pinnedProjects
-      );
+      logger.info({ detail: [user.pinnedProjects] }, `Migrating user ${user.email} with new pinnedProjects`);
 
       toUpdate.push({
         _id: user._id,
@@ -67,6 +63,6 @@ export async function runMigration() {
 
 
   } catch (err) {
-    console.error("Error during migration: ", err);
+    logger.error({ err }, "Error during migration");
   }
 }

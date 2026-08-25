@@ -1,7 +1,7 @@
+import logger, { childLogger } from "../logger.js";
 import User from "../models/user.js";
 import Project from "../models/project.js";
 import Homework from "../models/homework.js";
-import { debugError } from "../debug.js";
 import { getPaginationOffset } from "../util/helpers.js";
 import projectAPI from "./projects.js";
 import { ZodReqWithOptionalUser } from "../types/Express.js";
@@ -32,6 +32,7 @@ import { buildOrganizationNamesList } from "./books.js";
 import CustomCatalog, { CustomCatalogInterface } from "../models/customcatalog.js";
 import SearchService from "./services/search-service.js";
 import { FilterInput, FilterObject } from "../types/Search.js";
+const searchLog = childLogger("search");
 
 /**
  * Gets the singleton SearchService instance, returning null on failure.
@@ -40,7 +41,7 @@ async function getSearchService(): Promise<SearchService | null> {
   try {
     return await SearchService.getInstance();
   } catch (error) {
-    debugError(`[SearchService] Failed to initialize SearchService: ${error}`);
+    searchLog.error({ err: error }, "Failed to initialize SearchService");
     return null;
   }
 }
@@ -178,7 +179,7 @@ async function miniReposSearch(
       results: paginated,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "miniReposSearch failed");
     return conductor500Err(res);
   }
 }
@@ -890,7 +891,7 @@ export async function assetsSearch(
       results: paginated,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "assetsSearch failed");
     return conductor500Err(res);
   }
 }
@@ -1053,7 +1054,7 @@ async function homeworkSearch(
       results: paginated,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "homeworkSearch failed");
     return conductor500Err(res);
   }
 }
@@ -1124,7 +1125,7 @@ async function usersSearch(
       results: paginated,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "usersSearch failed");
     return conductor500Err(res);
   }
 }
@@ -1196,7 +1197,7 @@ async function authorsSearch(
       results: filtered,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "authorsSearch failed");
     return conductor500Err(res);
   }
 }
@@ -1386,7 +1387,7 @@ async function getAutocompleteResults(
       results: caseInsensitiveFiltered,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getAutocompleteResults failed");
     return conductor500Err(res);
   }
 }
@@ -1590,7 +1591,7 @@ async function getAssetFilterOptions(req: Request, res: Response) {
       people: authors,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getAssetFilterOptions failed");
     return conductor500Err(res);
   }
 }
@@ -1622,7 +1623,7 @@ async function getAuthorFilterOptions(req: Request, res: Response) {
       primaryInstitutions,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getAuthorFilterOptions failed");
     return conductor500Err(res);
   }
 }
@@ -1634,7 +1635,7 @@ async function getProjectFilterOptions(req: Request, res: Response) {
       statuses: ["available", "open", "completed"],
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getProjectFilterOptions failed");
     return conductor500Err(res);
   }
 }
@@ -1717,7 +1718,7 @@ async function bookSearchV2(
       results: results.hits,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "bookSearchV2 failed");
     return conductor500Err(res);
   }
 }
@@ -1767,7 +1768,7 @@ async function projectSearchV2(
       results: results.hits,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "projectSearchV2 failed");
     return conductor500Err(res);
   }
 }
@@ -1937,7 +1938,7 @@ async function recordSearch(
     const { query, scope } = req.body;
     recordSearchQuery(query, scope);
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "recordSearch failed");
   }
   return res.send({ err: false });
 }
@@ -1959,7 +1960,7 @@ async function getSearchSuggestions(
       : [];
     return res.send({ err: false, suggestions });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getSearchSuggestions failed");
     return res.send({ err: false, suggestions: [] });
   }
 }

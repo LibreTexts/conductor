@@ -4,9 +4,9 @@
 //
 
 'use strict';
+import logger from "../logger.js";
 import express from 'express';
 import b62 from 'base62-random';
-import { debugError } from '../debug.js';
 import { body, query, param } from 'express-validator';
 import User from '../models/user.js';
 import Project from '../models/project.js';
@@ -241,7 +241,7 @@ const getProjectThreads = (req, res) => {
         var errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
+        else logger.error({ err }, "getProjectThreads failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -327,10 +327,10 @@ async function createThreadMessage(req, res) {
                 thread.title,
                 message.body,
                 `${user.firstName} ${user.lastName}`,
-            ).catch((e) => debugError(e));
+            ).catch((e) => logger.error({ err: e }, "createThreadMessage failed"));
 
             Thread.updateOne({ threadID: { $eq: threadID } }, { lastNotifSent: new Date() }).catch((e) => {
-                debugError(e);
+                logger.error({ err: e }, "createThreadMessage failed");
             });
         }
 
@@ -340,7 +340,7 @@ async function createThreadMessage(req, res) {
             messageID: message.messageID,
         });
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "createThreadMessage failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -422,7 +422,7 @@ async function createTaskMessage(req, res) {
                     taskTitle,
                     message.body,
                     `${user.firstName} ${user.lastName}`,
-                ).catch((e) => debugError(e));
+                ).catch((e) => logger.error({ err: e }, "createTaskMessage failed"));
             } else {
                 mailAPI.sendProjectSupportRequest(
                     notifyEmails,
@@ -443,7 +443,7 @@ async function createTaskMessage(req, res) {
             messageID: message.messageID,
         });
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "createTaskMessage failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -601,7 +601,7 @@ const getThreadMessages = (req, res) => {
         var errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
+        else logger.error({ err }, "getThreadMessages failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -691,11 +691,11 @@ const getTaskMessages = (req, res) => {
             messages: messages
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getTaskMessages failed");
         var errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
+        else logger.error({ err }, "getTaskMessages failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -733,7 +733,7 @@ async function getUsersToNotify(notifySetting, uuid, project, task = null, notif
             return emails;
         }
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "getUsersToNotify failed");
     }
     return [];
 }

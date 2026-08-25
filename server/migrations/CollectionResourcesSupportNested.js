@@ -1,4 +1,4 @@
-import { debug, debugError } from '../debug.js';
+import logger from "../logger.js";
 import Collection from '../models/collection.js';
 
 /**
@@ -8,7 +8,7 @@ import Collection from '../models/collection.js';
 export async function runMigration() {
   const migrationTitle = 'Collection Resources Support Nested';
   try {
-    debug(`Running migration "${migrationTitle}"...`);
+    logger.info(`Running migration "${migrationTitle}"...`);
 
     const results = await Collection.find({}).lean();
     const updates = results.map(({ collID, resources }) => {
@@ -31,9 +31,9 @@ export async function runMigration() {
     ));
     await Promise.all(operations);
 
-    debug(`Updated ${operations.length} Collections.`);
-    debug(`Completed migration "${migrationTitle}".`);
+    logger.info(`Updated ${operations.length} Collections.`);
+    logger.info(`Completed migration "${migrationTitle}".`);
   } catch (e) {
-    debugError(`Fatal error during migration "${migrationTitle}": ${e.toString()}`);
+    logger.error({ err: e }, `Fatal error during migration "${migrationTitle}"`);
   }
 }

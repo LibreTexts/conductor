@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import axios from 'axios';
 
 export async function generateVideoStreamURL(videoID: string) {
@@ -27,7 +28,7 @@ export async function generateVideoStreamURL(videoID: string) {
     }
     return `https://customer-${process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${streamRes.data.result.token}/iframe`;
   } catch (err) {
-    console.error(`Error generating video stream URL for "${videoID}".`, err);
+    logger.error({ err }, `Error generating video stream URL for "${videoID}".`);
   }
   return null;
 }

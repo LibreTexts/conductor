@@ -41,6 +41,7 @@
  * the same as the rest of the server's AWS usage.
  */
 
+import logger from "../logger.js";
 import "dotenv/config";
 import crypto from "node:crypto";
 import { parseArgs } from "node:util";
@@ -111,10 +112,8 @@ function parseCli(): CliOptions {
 
   const secret = values.secret ?? process.env.SANITIZE_SECRET ?? "";
   if (!secret) {
-    console.warn(
-      "[warn] No --secret / SANITIZE_SECRET provided. Using a random per-run key: " +
-        "output will NOT be reproducible across runs."
-    );
+    logger.warn("No --secret / SANITIZE_SECRET provided. Using a random per-run key: " +
+              "output will NOT be reproducible across runs.");
   }
 
   return {
@@ -445,7 +444,7 @@ async function main(): Promise<void> {
   const hash = makeHasher(opts.secret);
   const redactor = new Redactor(opts.comprehendRegion, opts.chunkBytes);
 
-  console.log(`[info] Connecting to source (read-only)...`);
+  logger.info(`Connecting to source (read-only)...`);
   const conn = await mongoose.createConnection(opts.sourceUri).asPromise();
 
   try {
@@ -458,9 +457,7 @@ async function main(): Promise<void> {
       opts.limit ? { limit: opts.limit } : {}
     );
     const tickets = (await ticketCursor.toArray()) as unknown as RawDoc[];
-    console.log(
-      `[info] Read ${tickets.length} ticket(s) for queue_id "${opts.queueId}" from source.`
-    );
+    logger.info(`Read ${tickets.length} ticket(s) for queue_id "${opts.queueId}" from source.`);
 
     // Build the shared ticket-uuid map (the ticket<->message join key).
     const ticketUuid = new Map<string, string>();
@@ -477,17 +474,15 @@ async function main(): Promise<void> {
         .toArray()) as unknown as RawDoc[];
       messages.push(...batch);
     }
-    console.log(`[info] Read ${messages.length} message(s) for those tickets.`);
+    logger.info(`Read ${messages.length} message(s) for those tickets.`);
 
     // ---- Pass 1: collect unique free-text, redact via Comprehend ----
     const texts = new Set<string>();
     for (const t of tickets) collectTicketTexts(t, texts, opts.dropMetadata);
     for (const m of messages) collectMessageTexts(m, texts);
     const uniqueTexts = [...texts];
-    console.log(
-      `[info] Redacting ${uniqueTexts.length} unique free-text value(s) via Comprehend ` +
-        `(region ${opts.comprehendRegion}, concurrency ${opts.concurrency})...`
-    );
+    logger.info(`Redacting ${uniqueTexts.length} unique free-text value(s) via Comprehend ` +
+              `(region ${opts.comprehendRegion}, concurrency ${opts.concurrency})...`);
 
     const textMap = new Map<string, string>();
     await async.mapLimit(uniqueTexts, opts.concurrency, async (original: string) => {
@@ -512,19 +507,17 @@ async function main(): Promise<void> {
     await fs.writeFile(messagesPath, EJSON.stringify(sanitizedMessages, undefined, 2, { relaxed: false }));
 
     // ---- Summary ----
-    console.log("\n===== Export summary =====");
-    console.log(`Tickets exported:        ${sanitizedTickets.length}`);
-    console.log(`Messages exported:       ${sanitizedMessages.length}`);
-    console.log(`Messages dropped (orphan): ${droppedMessages}`);
-    console.log(`Comprehend API calls:    ${redactor.calls}`);
-    console.log(`Output:`);
-    console.log(`  ${ticketsPath}`);
-    console.log(`  ${messagesPath}`);
-    console.log(
-      `\nImport with:\n` +
-        `  mongoimport --uri "<dev-uri>" --collection supporttickets --jsonArray --file "${ticketsPath}"\n` +
-        `  mongoimport --uri "<dev-uri>" --collection supportticketmessages --jsonArray --file "${messagesPath}"`
-    );
+    logger.info("\n===== Export summary =====");
+    logger.info(`Tickets exported:        ${sanitizedTickets.length}`);
+    logger.info(`Messages exported:       ${sanitizedMessages.length}`);
+    logger.info(`Messages dropped (orphan): ${droppedMessages}`);
+    logger.info(`Comprehend API calls:    ${redactor.calls}`);
+    logger.info(`Output:`);
+    logger.info(`  ${ticketsPath}`);
+    logger.info(`  ${messagesPath}`);
+    logger.info(`\nImport with:\n` +
+              `  mongoimport --uri "<dev-uri>" --collection supporttickets --jsonArray --file "${ticketsPath}"\n` +
+              `  mongoimport --uri "<dev-uri>" --collection supportticketmessages --jsonArray --file "${messagesPath}"`);
   } finally {
     await conn.close();
   }
@@ -533,6 +526,6 @@ async function main(): Promise<void> {
 main()
   .then(() => process.exit(0))
   .catch((err) => {
-    console.error(`\n[fatal] ${err?.stack ?? err}`);
+    logger.error(`\n[fatal] ${err?.stack ?? err}`);
     process.exit(1);
   });

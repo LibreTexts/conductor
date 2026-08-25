@@ -1,7 +1,7 @@
+import logger, { childLogger } from "../../logger.js";
 import StoreOrder from "../../models/storeorder.js";
 import SearchService from "./search-service.js";
-import { debugError, debugServer } from "../../debug.js";
-
+const storeOrderSearchLog = childLogger("store-order-search");
 /**
  * Store-order search index ("storeOrders").
  *
@@ -48,7 +48,7 @@ export const storeOrderSearchIndexAggregationStages: any[] = [
  */
 export async function syncStoreOrdersInBackground(): Promise<void> {
   try {
-    debugServer("Initiating Store Orders search index sync...");
+    logger.info("Initiating Store Orders search index sync...");
     const searchService = await SearchService.getInstance();
 
     const batchSize = 500;
@@ -73,7 +73,7 @@ export async function syncStoreOrdersInBackground(): Promise<void> {
       const sanitized = JSON.parse(JSON.stringify(orders));
       await searchService.addDocuments("storeOrders", sanitized);
       totalSynced += orders.length;
-      debugServer(`Synced batch of ${orders.length} store orders (${totalSynced} total)...`);
+      logger.info(`Synced batch of ${orders.length} store orders (${totalSynced} total)...`);
 
       skip += batchSize;
       if (orders.length < batchSize) {
@@ -81,9 +81,9 @@ export async function syncStoreOrdersInBackground(): Promise<void> {
       }
     }
 
-    debugServer(`Store Orders search index sync completed. Total synced: ${totalSynced}`);
+    logger.info(`Store Orders search index sync completed. Total synced: ${totalSynced}`);
   } catch (e) {
-    debugError(`Error in syncStoreOrdersInBackground: ${e}`);
+    logger.error({ err: e }, "Error in syncStoreOrdersInBackground");
     throw e;
   }
 }
@@ -114,7 +114,7 @@ export async function upsertStoreOrderToSearchIndex(id: string): Promise<void> {
     const sanitized = JSON.parse(JSON.stringify(doc));
     await searchService.addDocuments("storeOrders", [sanitized]);
   } catch (err) {
-    debugError(`[StoreOrderSearchService] Error upserting order ${id} to search index: ${err}`);
+    storeOrderSearchLog.error({ err }, `Error upserting order ${id} to search index`);
   }
 }
 
@@ -128,6 +128,6 @@ export async function removeStoreOrderFromSearchIndex(id: string): Promise<void>
     const searchService = await SearchService.getInstance();
     await searchService.deleteDocuments("storeOrders", [id]);
   } catch (err) {
-    debugError(`[StoreOrderSearchService] Error removing order ${id} from search index: ${err}`);
+    storeOrderSearchLog.error({ err }, `Error removing order ${id} from search index`);
   }
 }

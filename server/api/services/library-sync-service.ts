@@ -1,4 +1,4 @@
-import { debugError, debugCommonsSync } from "../../debug.js";
+import logger, { childLogger } from "../../logger.js";
 import Library, { LibraryInterface } from "../../models/library.js";
 import { AuthorInterface } from "../../models/author.js";
 import Expert from "../../util/ExpertWithSSM.js";
@@ -12,6 +12,7 @@ import AuthorService from "./author-service.js";
 import CXOnePageProperties from "../../util/CXOne/CXOnePageProperties.js";
 import { sanitizeOptionalLibraryText } from "../../util/sanitize-text.js";
 import { mapWithConcurrency } from "../../util/concurrency.js";
+const commonsSyncLog = childLogger("commons-sync");
 
 /** CXOne returns repeated elements as object | array | "" depending on cardinality. */
 function toArray<T>(value: T | T[] | "" | undefined | null): T[] {
@@ -529,27 +530,21 @@ export default class LibrarySyncService {
        a valid subset, and keeping it covers the root page itself, which the
        child searches don't reach. */
     if (depth >= MAX_FIND_SPLIT_DEPTH) {
-      debugError(
-        `Coverpage search for ${subdomain}/${rootPath} is still truncated at ` +
-        `${count} of ${total} after ${depth} splits. Some books were not synced.`
-      );
+      logger.error(`Coverpage search for ${subdomain}/${rootPath} is still truncated at ` +
+                `${count} of ${total} after ${depth} splits. Some books were not synced.`);
       return { pages: kept, complete: false };
     }
 
     const children = await this.childPaths(expert, rootPath, throttle);
     if (children.length === 0) {
-      debugError(
-        `Coverpage search for ${subdomain}/${rootPath} returned ${count} of ` +
-        `${total} results and has no subpages to split on. ` +
-        `Some books were not synced.`
-      );
+      logger.error(`Coverpage search for ${subdomain}/${rootPath} returned ${count} of ` +
+                `${total} results and has no subpages to split on. ` +
+                `Some books were not synced.`);
       return { pages: kept, complete: false };
     }
 
-    debugCommonsSync(
-      `Splitting ${subdomain}/${rootPath} across ${children.length} subtrees ` +
-      `(${count} of ${total} results returned).`
-    );
+    commonsSyncLog.info(`Splitting ${subdomain}/${rootPath} across ${children.length} subtrees ` +
+            `(${count} of ${total} results returned).`);
 
     const nested = await Promise.all(
       children.map((child) =>
@@ -632,18 +627,14 @@ export default class LibrarySyncService {
       if (logged < REJECTION_LOG_LIMIT) {
         logged += 1;
         const path = page.path ? page.path["#text"] ?? "" : "";
-        debugCommonsSync(
-          `Rejected ${label} page ${page["@id"] ?? "?"} ("${path}"): missing ` +
-          `${missing.join(", ")}. Has: ${tagTitles(page).join(", ") || "no tags"}.`
-        );
+        commonsSyncLog.info(`Rejected ${label} page ${page["@id"] ?? "?"} ("${path}"): missing ` +
+                    `${missing.join(", ")}. Has: ${tagTitles(page).join(", ") || "no tags"}.`);
       }
       return false;
     });
 
     if (scratch > 0) {
-      debugCommonsSync(
-        `Excluded ${scratch} page(s) in scratch locations from ${label}.`
-      );
+      commonsSyncLog.info(`Excluded ${scratch} page(s) in scratch locations from ${label}.`);
     }
 
     const untagged = pages.length - scratch - kept.length;
@@ -651,10 +642,8 @@ export default class LibrarySyncService {
       const breakdown = [...missingCounts.entries()]
         .map(([tag, count]) => `${tag}: ${count}`)
         .join(", ");
-      debugCommonsSync(
-        `Rejected ${untagged} page(s) from ${label} that are not books ` +
-        `(${breakdown}). ${kept.length} of ${pages.length} returned pages kept.`
-      );
+      commonsSyncLog.info(`Rejected ${untagged} page(s) from ${label} that are not books ` +
+                `(${breakdown}). ${kept.length} of ${pages.length} returned pages kept.`);
     }
 
     return kept;
@@ -675,17 +664,15 @@ export default class LibrarySyncService {
 
     const restriction = page.restriction;
     if (!restriction) {
-      debugError(`Skipping ${subdomain} page ${page["@id"]}: no restriction property.`);
+      logger.error(`Skipping ${subdomain} page ${page["@id"]}: no restriction property.`);
       return false;
     }
 
     if (PUBLIC_RESTRICTIONS.has(restriction)) return true;
     if (UNLISTED_RESTRICTIONS.has(restriction)) return false;
 
-    debugError(
-      `Skipping ${subdomain} page ${page["@id"]}: unrecognized restriction ` +
-      `"${restriction}". Add it to PUBLIC_RESTRICTIONS if it is publicly readable.`
-    );
+    logger.error(`Skipping ${subdomain} page ${page["@id"]}: unrecognized restriction ` +
+            `"${restriction}". Add it to PUBLIC_RESTRICTIONS if it is publicly readable.`);
     return false;
   }
 
@@ -739,7 +726,7 @@ export default class LibrarySyncService {
         : undefined;
     } catch (err) {
       if ((err as { response?: { status?: number } })?.response?.status !== 404) {
-        debugError(err);
+        logger.error({ err }, "fetchSummary failed");
       }
       return undefined;
     }
@@ -758,7 +745,7 @@ export default class LibrarySyncService {
     } catch (err) {
       // Author enrichment is not worth failing a sync over; `lulu` tags and
       // literal `author@` values still resolve without the index.
-      debugError(err);
+      logger.error({ err }, "buildAuthorIndex failed");
       return EMPTY_AUTHOR_INDEX;
     }
   }
@@ -819,7 +806,7 @@ export default class LibrarySyncService {
       if ((err as { response?: { status?: number } })?.response?.status === 404) {
         return { ok: false, reason: "not_found" };
       }
-      debugError(err);
+      logger.error({ err }, "syncSingleCoverpage failed");
       return { ok: false, reason: "error" };
     }
 
@@ -828,27 +815,21 @@ export default class LibrarySyncService {
       // so a webhook cannot introduce a page the full sync would reject.
       const missing = missingBookTags(merged);
       if (missing.length > 0) {
-        debugCommonsSync(
-          `${subdomain} page ${coverpageID} is not a book: missing ` +
-          `${missing.join(", ")}. Has: ${tagTitles(merged).join(", ") || "no tags"}.`,
-        );
+        commonsSyncLog.info(`${subdomain} page ${coverpageID} is not a book: missing ` +
+                    `${missing.join(", ")}. Has: ${tagTitles(merged).join(", ") || "no tags"}.`);
         return { ok: false, reason: "ineligible" };
       }
 
       const path = merged.path ? merged.path["#text"] ?? "" : "";
       const roots = library.syncLocations ?? [];
       if (!isUnderSyncRoot(path, roots)) {
-        debugCommonsSync(
-          `${subdomain} page ${coverpageID} ("${path}") is not under a sync ` +
-          `location (${roots.join(", ") || "none configured"}).`,
-        );
+        commonsSyncLog.info(`${subdomain} page ${coverpageID} ("${path}") is not under a sync ` +
+                    `location (${roots.join(", ") || "none configured"}).`);
         return { ok: false, reason: "ineligible" };
       }
 
       if (isExcludedLocation(merged)) {
-        debugCommonsSync(
-          `${subdomain} page ${coverpageID} is in a scratch location.`,
-        );
+        commonsSyncLog.info(`${subdomain} page ${coverpageID} is in a scratch location.`);
         return { ok: false, reason: "ineligible" };
       }
 
@@ -867,7 +848,7 @@ export default class LibrarySyncService {
 
       return { ok: true, coverpage };
     } catch (err) {
-      debugError(err);
+      logger.error({ err }, "syncSingleCoverpage failed");
       return { ok: false, reason: "error" };
     }
   }
@@ -907,11 +888,9 @@ export default class LibrarySyncService {
       );
       let complete = found.every((f) => f.complete);
       if (!complete) {
-        debugError(
-          `Coverpage search for ${subdomain} was truncated. Its books will be ` +
-          `synced, but absence from this run proves nothing, so missing-book ` +
-          `detection is skipped for this library.`
-        );
+        logger.error(`Coverpage search for ${subdomain} was truncated. Its books will be ` +
+                    `synced, but absence from this run proves nothing, so missing-book ` +
+                    `detection is skipped for this library.`);
       }
 
       // Dedupe across roots: the Courses/Bookshelves subtrees can overlap via
@@ -931,9 +910,7 @@ export default class LibrarySyncService {
       const coverpages = maxBooks ? all.slice(0, maxBooks) : all;
       if (coverpages.length < all.length) {
         complete = false;
-        debugCommonsSync(
-          `Limited ${subdomain} to ${coverpages.length} of ${all.length} books.`
-        );
+        commonsSyncLog.info(`Limited ${subdomain} to ${coverpages.length} of ${all.length} books.`);
       }
 
       await mapWithConcurrency(coverpages, SUMMARY_CONCURRENCY, async (coverpage) => {
@@ -942,7 +919,7 @@ export default class LibrarySyncService {
 
       return { ok: true, subdomain, complete, coverpages };
     } catch (err) {
-      debugError(err);
+      logger.error({ err }, "syncLibrary failed");
       return {
         ok: false,
         subdomain,
@@ -977,10 +954,8 @@ export default class LibrarySyncService {
         (s) => !all.some((l) => l.subdomain.toLowerCase() === s)
       );
       if (missing.length > 0) {
-        debugError(
-          `LIBRARY_SYNC_ONLY names ${missing.join(", ")}, which ` +
-          `${missing.length === 1 ? "is" : "are"} not a synced library.`
-        );
+        logger.error(`LIBRARY_SYNC_ONLY names ${missing.join(", ")}, which ` +
+                    `${missing.length === 1 ? "is" : "are"} not a synced library.`);
       }
     }
     if (limits.maxLibraries) {
@@ -988,13 +963,11 @@ export default class LibrarySyncService {
     }
 
     if (isLimitedSync(limits)) {
-      debugCommonsSync(
-        `LIMITED SYNC (${describeLimits(limits)}) — ${libraries.length} of ` +
-        `${all.length} libraries. Books absent from this run will NOT be ` +
-        `marked missing.`
-      );
+      commonsSyncLog.info(`LIMITED SYNC (${describeLimits(limits)}) — ${libraries.length} of ` +
+                `${all.length} libraries. Books absent from this run will NOT be ` +
+                `marked missing.`);
     } else {
-      debugCommonsSync(`Syncing ${libraries.length} libraries.`);
+      commonsSyncLog.info(`Syncing ${libraries.length} libraries.`);
     }
 
     const authorIndex = await this.buildAuthorIndex();

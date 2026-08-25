@@ -4,11 +4,11 @@
 //
 
 "use strict";
+import logger from "./logger.js";
 import express, { NextFunction, Request, Response } from "express";
 import { validationResult } from "express-validator";
 import conductorErrors from "./conductor-errors.js";
 import { ZodObject } from "zod";
-import { debugError } from "./debug.js";
 import authAPI, { COOKIE_NAMES } from "./api/auth.js";
 import {
   TypedReqBodyWithUser,
@@ -292,7 +292,7 @@ const canAccessSupportTicket = async (
     throw new Error("unauthorized");
   } catch (err: any) {
     if (process.env.NODE_ENV === "development") {
-      debugError(err);
+      logger.error({ err }, "canAccessSupportTicket failed");
     }
     if (err.message === "unauthorized") {
       return res.status(401).send({
@@ -354,7 +354,7 @@ const isSelfOrSupport = async (
     throw new Error("unauthorized"); // If the user is not the owner and does not have the support role, throw an error
   } catch (err: any) {
     if (process.env.NODE_ENV === "development") {
-      debugError(err);
+      logger.error({ err }, "isSelfOrSupport failed");
     }
     if (err.message === "unauthorized") {
       return res.status(401).send({
@@ -473,7 +473,7 @@ const validateZod = (schema: ZodObject<any>) => {
       if (!validationRes.success) {
         validationErrors = extractZodErrorMessages(validationRes.error);
         if (process.env.NODE_ENV === "development") {
-          console.error(validationRes.error);
+          logger.error({ err: validationRes.error }, "validateZod failed");
         }
         throw new Error("Validation failed");
       }

@@ -4,13 +4,12 @@
 //
 
 'use strict';
+import logger from "../logger.js";
 import { body, query } from 'express-validator';
 import TranslationFeedback from '../models/translationfeedback.js';
 import conductorErrors from '../conductor-errors.js';
 import { threePartDateStringToDate } from '../util/helpers.js';
 import { threePartDateStringValidator } from '../validators.js';
-import { debugError } from '../debug.js';
-
 /**
  * Creates and saves a new TranslationFeedback with
  * the data in the request body.
@@ -43,7 +42,7 @@ const submitFeedback = (req, res) => {
     }).catch((err) => {
         let errMsg = conductorErrors.err6;
         if (err.message === 'createfail') errMsg = conductorErrors.err3;
-        else debugError(err);
+        else logger.error({ err }, "submitFeedback failed");
         return res.status(500).send({
             err: true,
             errMsg: errMsg
@@ -132,7 +131,7 @@ const exportFeedback = (req, res) => {
         res.attachment(fileName);
         return res.send(fileBuff);
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "exportFeedback failed");
         let errMsg = conductorErrors.err6;
         return res.status(500).send({
             err: true,

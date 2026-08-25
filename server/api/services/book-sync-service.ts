@@ -1,5 +1,5 @@
+import logger, { childLogger } from "../../logger.js";
 import axios from "axios";
-import { debugCommonsSync, debugError } from "../../debug.js";
 import Book, { BookInterface } from "../../models/book.js";
 import Library from "../../models/library.js";
 import { isEmptyString } from "../../util/helpers.js";
@@ -22,6 +22,7 @@ import LibrarySyncService, {
   LibraryCoverpage,
 } from "./library-sync-service.js";
 import { upsertBookToSearchIndex } from "./book-search-service.js";
+const commonsSyncLog = childLogger("commons-sync");
 
 /**
  * A Book as assembled from a library coverpage, ready for upsert.
@@ -153,9 +154,7 @@ export const checkValidImport = (book: SyncedBook) => {
     (field) => !book[field] || isEmptyString(book[field]),
   );
   if (missing.length > 0) {
-    debugCommonsSync(
-      `Not importing 1 book — missing fields: ${missing.join(",")}`,
-    );
+    commonsSyncLog.info(`Not importing 1 book — missing fields: ${missing.join(",")}`);
     return false;
   }
   return true;
@@ -342,9 +341,7 @@ export const syncSingleBook = async (
         { $set: { syncMissingSince: new Date() } },
       );
       if (marked.modifiedCount > 0) {
-        debugCommonsSync(
-          `Marked ${bookID} missing — live fetch reported ${found.reason}.`,
-        );
+        commonsSyncLog.info(`Marked ${bookID} missing — live fetch reported ${found.reason}.`);
         /* Upsert, not remove: it re-reads the Book and deletes only if the
            aggregation still yields nothing, so a concurrent restore cannot be
            undone by a delete decided a moment earlier. Fire-and-forget per the
@@ -384,7 +381,7 @@ export const syncSingleBook = async (
     );
 
     const status = (res.upsertedCount ?? 0) > 0 ? "ingested" : "refreshed";
-    debugCommonsSync(`Live sync ${status} ${bookID}.`);
+    commonsSyncLog.info(`Live sync ${status} ${bookID}.`);
 
     /* Same fire-and-forget contract. This is also what puts a book that came
        back — the upsert above `$unset`s `syncMissingSince` — into the index
@@ -393,7 +390,7 @@ export const syncSingleBook = async (
 
     return { status };
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "syncSingleBook failed");
     return {
       status: "error",
       reason: err instanceof Error ? err.message : String(err),

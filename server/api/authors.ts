@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import { z } from "zod";
 import { Request, Response, NextFunction } from "express";
 import multer from "multer";
@@ -6,7 +7,6 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
-import { debugError } from "../debug.js";
 import Author from "../models/author.js";
 import {
   CreateAuthorValidator,
@@ -77,7 +77,7 @@ async function getAuthors(
       ...data,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "getAuthors failed");
     return conductor500Err(res);
   }
 }
@@ -102,7 +102,7 @@ async function getAuthor(
       author,
     });
   } catch (err: any) {
-    debugError(err);
+    logger.error({ err }, "getAuthor failed");
     return conductor500Err(res);
   }
 }
@@ -127,7 +127,7 @@ async function getAuthorByNameKey(
       author,
     });
   } catch (err: any) {
-    debugError(err);
+    logger.error({ err }, "getAuthorByNameKey failed");
     return conductor500Err(res);
   }
 }
@@ -261,7 +261,7 @@ async function getAuthorAssets(
     if (err.name === "DocumentNotFoundError") {
       return conductor404Err(res);
     }
-    debugError(err);
+    logger.error({ err }, "getAuthorAssets failed");
     return conductor500Err(res);
   }
 }
@@ -285,7 +285,7 @@ async function createAuthor(
         errMsg: "An author with that nameKey already exists.",
       });
     }
-    debugError(err);
+    logger.error({ err }, "createAuthor failed");
     return conductor500Err(res);
   }
 }
@@ -312,7 +312,7 @@ async function updateAuthor(
     if (err.name === "DocumentNotFoundError") {
       return conductor404Err(res);
     }
-    debugError(err);
+    logger.error({ err }, "updateAuthor failed");
     return conductor500Err(res);
   }
 }
@@ -333,7 +333,7 @@ async function deleteAuthor(
     if (err.name === "DocumentNotFoundError") {
       return conductor404Err(res);
     }
-    debugError(err);
+    logger.error({ err }, "deleteAuthor failed");
     return conductor500Err(res);
   }
 }
@@ -437,7 +437,7 @@ async function uploadAuthorPicture(
           );
         }
       } catch (cleanupErr) {
-        debugError(cleanupErr);
+        logger.error({ err: cleanupErr }, "uploadAuthorPicture failed");
       }
     }
 
@@ -450,7 +450,7 @@ async function uploadAuthorPicture(
     if (err.name === "DocumentNotFoundError") {
       return conductor404Err(res);
     }
-    debugError(err);
+    logger.error({ err }, "uploadAuthorPicture failed");
     return conductor500Err(res);
   }
 }

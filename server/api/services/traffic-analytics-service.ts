@@ -1,7 +1,6 @@
+import logger from "../../logger.js";
 import axios from 'axios';
 import countries from "world-countries";
-import {debugError} from "../../debug";
-
 export type TrafficAnalyticsAggregatedMetricsByPageDataPoint = {
   avgTimeOnPageSecs: number;
   pageTitle: string;
@@ -150,7 +149,7 @@ export default class TrafficAnalyticsService {
     const trafficRes = await axios.post(`https://${this.serviceHost}?${apiParams.toString()}`, new URLSearchParams({ token_auth: this.authToken }));
     const data = trafficRes.data;
     if (data?.result === 'error') {
-      debugError(data?.message ?? `TrafficAnalyticsService.getUniqueVisitors error - ${apiParams.toString()}`);
+      logger.warn({ reason: data?.message, params: apiParams.toString() }, "Matomo returned an error for getUniqueVisitors");
       return [];
     }
     return Object.entries(data).reduce((acc, [key, value]) => {

@@ -1,5 +1,5 @@
+import logger, { childLogger } from "../../logger.js";
 import Stripe from "stripe";
-import { debug } from "../../debug";
 import StripeService from "./stripe-service";
 import { BookPriceOption, StoreProduct, StoreShippingOption, LuluShippingLineItem, ResolvedProduct, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession, LuluPrintJob, LuluPrintJobParams, LULU_HEALTHY_STATUSES, LULU_FAILURE_STATUSES, LULU_RECOVERY_CONFIRMED_STATUSES } from "../../types";
 import { checkBookIDFormat } from "../../util/bookutils";
@@ -19,6 +19,7 @@ import SearchService from "./search-service.js";
 import { upsertStoreOrderToSearchIndex } from "./store-order-search-service.js";
 import { FilterObject } from "../../types/Search.js";
 import { StoreOrderListItem } from "../../types/Store.js";
+const storeLog = childLogger("store");
 
 const BASE_COST = 1.80;
 const PAGE_MULTIPLIER = 0.032;
@@ -148,33 +149,33 @@ class StoreService {
             }
 
             if (prices.data.length === 0) {
-                debug(`No product found with ID: ${product_id}`);
+                logger.info(`No product found with ID: ${product_id}`);
                 return null;
             }
 
             const products = this._groupByProduct(prices.data);
             if (products.length === 0) {
-                debug(`No products found for ID: ${product_id}`);
+                logger.info(`No products found for ID: ${product_id}`);
                 return null;
             }
 
             if (products.length > 1) {
-                debug(`Multiple products found for ID: ${product_id}, returning the first one.`);
+                logger.info(`Multiple products found for ID: ${product_id}, returning the first one.`);
             }
 
             const product = products[0] as StoreProduct;
             if (!product.prices || product.prices.length === 0) {
-                debug(`Product found but has no prices: ${product_id}`);
+                logger.info(`Product found but has no prices: ${product_id}`);
                 return null;
             }
 
             return product;
         } catch (error) {
             if (error instanceof Stripe.errors.StripeInvalidRequestError && error.code === 'resource_missing') {
-                debug(`Product with ID ${product_id} not found in Stripe.`);
+                logger.info(`Product with ID ${product_id} not found in Stripe.`);
                 return null;
             }
-            debug("Error searching store product:", error);
+            logger.error({ err: error }, "Error searching store product");
             throw new Error("Failed to search store product");
         }
     }
@@ -227,7 +228,7 @@ class StoreService {
                 cursor: paginated.length > 0 ? paginated[paginated.length - 1].id : undefined
             };
         } catch (error) {
-            debug("Error fetching store products:", error);
+            logger.error({ err: error }, "Error fetching store products");
             throw new Error("Failed to fetch store products");
         }
     }
@@ -246,27 +247,27 @@ class StoreService {
             });
 
             if (!prices || !prices.data || prices.data.length === 0) {
-                debug("No bookstore products found.");
+                logger.info("No bookstore products found.");
                 return [];
             }
 
             const products = this._groupByProduct(prices.data);
 
             if (products.length === 0) {
-                debug("No store products found.");
+                logger.info("No store products found.");
                 return [];
             }
 
             // For now, grab a random selection of products
             const sortedProducts = products.sort(() => Math.random() - 0.5);
             if (sortedProducts.length === 0) {
-                debug("No products available for most popular store products.");
+                logger.info("No products available for most popular store products.");
                 return [];
             }
 
             return sortedProducts.slice(0, limit);
         } catch (error) {
-            debug("Error fetching most popular store products:", error);
+            logger.error({ err: error }, "Error fetching most popular store products");
             throw new Error("Failed to fetch most popular store products");
         }
     }
@@ -326,7 +327,7 @@ class StoreService {
             const { session, charge } = await this._fetchCheckoutSession(checkout_session_id, { includeCharges: true });
 
             if (!session) {
-                debug(`No checkout session found with ID: ${checkout_session_id}`);
+                logger.info(`No checkout session found with ID: ${checkout_session_id}`);
                 return null;
             }
 
@@ -393,7 +394,7 @@ class StoreService {
 
             // return { session, charge }
         } catch (error) {
-            debug("Error fetching checkout session:", error);
+            logger.error({ err: error }, "Error fetching checkout session");
             throw new Error("Failed to fetch checkout session");
         }
     }
@@ -430,7 +431,7 @@ class StoreService {
 
                 if (shipping_option === 'digital_delivery_only') {
                     if (separated.books.length > 0) {
-                        debug("Shipping option is 'digital_delivery_only' but book items were provided. This is not allowed.");
+                        logger.info("Shipping option is 'digital_delivery_only' but book items were provided. This is not allowed.");
                         throw new Error("Shipping option is 'digital_delivery_only' but book items were provided.");
                     }
 
@@ -438,7 +439,7 @@ class StoreService {
                 }
 
                 if (!shipping_option || !shipping_option.id || !shipping_option.cost_excl_tax) {
-                    debug("Invalid or missing shipping option:", shipping_option);
+                    logger.error({ shipping_option }, "Invalid or missing shipping option");
                     throw new Error("Invalid or missing shipping option");
                 }
 
@@ -503,7 +504,7 @@ class StoreService {
                 checkout_url: session.url as string
             }
         } catch (error) {
-            debug("Error creating checkout session:", error);
+            logger.error({ err: error }, "Error creating checkout session");
             throw new Error("Failed to create checkout session: " + (error instanceof Error ? error.message : "Unknown error"));
         }
     }
@@ -534,7 +535,7 @@ class StoreService {
 
             return customerStripeID;
         } catch (error) {
-            debug("Error upserting customer:", error);
+            logger.error({ err: error }, "Error upserting customer");
             throw new Error("Failed to upsert customer");
         }
     }
@@ -546,7 +547,7 @@ class StoreService {
         }): Promise<StoreShippingOption[] | "digital_delivery_only"> {
         try {
             if (items.length === 0) {
-                debug("No items provided for shipping options.");
+                logger.info("No items provided for shipping options.");
                 throw new Error("No items provided for shipping options");
             }
 
@@ -563,14 +564,14 @@ class StoreService {
                 ids: uniqueProductIds,
             });
             if (!stripe_products || !stripe_products.data || stripe_products.data.length === 0) {
-                debug("No products found for the provided items.");
+                logger.info("No products found for the provided items.");
                 throw new Error("No products found for the provided items");
             }
 
             const foundProductIds = new Set(stripe_products.data.map(p => p.id));
             const missingProductIds = uniqueProductIds.filter(id => !foundProductIds.has(id));
             if (missingProductIds.length > 0) {
-                debug(`One or more items are not valid Stripe products: ${missingProductIds.join(', ')}`);
+                logger.info(`One or more items are not valid Stripe products: ${missingProductIds.join(', ')}`);
                 throw new Error("One or more items are not valid Stripe products");
             }
 
@@ -591,7 +592,7 @@ class StoreService {
             for (const item of items) {
                 const product = stripe_products.data.find(p => p.id === item.product_id);
                 if (!product || !item.price_id) {
-                    debug(`Item with product ID ${item.product_id} does not have a valid price_id.`);
+                    logger.info(`Item with product ID ${item.product_id} does not have a valid price_id.`);
                     continue;
                 }
 
@@ -600,7 +601,7 @@ class StoreService {
                 });
 
                 if (!price || !price.product || typeof price.product === 'string') {
-                    debug(`Price for product ID ${item.product_id} is not valid.`);
+                    logger.info(`Price for product ID ${item.product_id} is not valid.`);
                     continue;
                 }
 
@@ -617,7 +618,7 @@ class StoreService {
             }
 
             if (luluShippingLineItems.length === 0) {
-                debug("No valid items found for shipping options.");
+                logger.info("No valid items found for shipping options.");
                 throw new Error("No valid items found for shipping options");
             }
 
@@ -640,7 +641,7 @@ class StoreService {
             });
 
             if (!filtered_shipping_options || filtered_shipping_options.length === 0) {
-                debug("No shipping options found for the provided items.");
+                logger.info("No shipping options found for the provided items.");
                 throw new Error("No shipping options found for the provided items");
             }
 
@@ -680,7 +681,7 @@ class StoreService {
             const mapped = filtered_shipping_options.map((opt) => {
                 // ensure cost_excl_tax is a number and convert it to cents
                 if (!opt.cost_excl_tax || isNaN(parseFloat(opt.cost_excl_tax))) {
-                    debug("Invalid cost_excl_tax for shipping option:", opt);
+                    logger.error({ opt }, "Invalid cost_excl_tax for shipping option");
                     return null; // Skip invalid options
                 }
                 const costInCents = Math.round(parseFloat(opt.cost_excl_tax) * 100);
@@ -729,7 +730,7 @@ class StoreService {
 
             return mapped.filter(opt => opt !== null);
         } catch (error) {
-            debug("Error fetching shipping options:", error);
+            logger.error({ err: error }, "Error fetching shipping options");
             throw new Error("Failed to fetch shipping options");
         }
     }
@@ -848,7 +849,7 @@ class StoreService {
         } catch (error: any) {
             // If error is mongodb duplicate key error, it means the order already exists and we likely just received the webhook multiple times
             if (error.code === 11000) {
-                debug(`StoreOrder with ID ${checkout_session.id} already exists. This is likely a duplicate webhook event.`);
+                logger.info(`StoreOrder with ID ${checkout_session.id} already exists. This is likely a duplicate webhook event.`);
                 const existingOrder = await StoreOrder.findOne({ id: checkout_session.id });
                 if (existingOrder) {
                     return existingOrder;
@@ -863,7 +864,7 @@ class StoreService {
         try {
             const checkout_session_id = data.external_id;
             if (!checkout_session_id) {
-                debug("No external_id found in Lulu webhook data.");
+                logger.info("No external_id found in Lulu webhook data.");
                 return;
             }
 
@@ -872,7 +873,7 @@ class StoreService {
             });
 
             if (!storeOrder) {
-                debug(`No StoreOrder found with id: ${checkout_session_id}`);
+                logger.info(`No StoreOrder found with id: ${checkout_session_id}`);
                 return;
             }
 
@@ -880,7 +881,7 @@ class StoreService {
             // into the swallow-all catch below and silently drop the entire update.
             const incomingJobID = data.id?.toString();
             if (!incomingJobID) {
-                debug(`Lulu webhook for order ${storeOrder.id} has no job id; ignoring.`);
+                logger.info(`Lulu webhook for order ${storeOrder.id} has no job id; ignoring.`);
                 return;
             }
 
@@ -898,7 +899,7 @@ class StoreService {
                 Number.isFinite(currentJobNumber) &&
                 incomingJobNumber < currentJobNumber
             ) {
-                debug(`Ignoring stale Lulu webhook for job ${incomingJobID}; order ${storeOrder.id} is on job ${storeOrder.luluJobID}.`);
+                logger.info(`Ignoring stale Lulu webhook for job ${incomingJobID}; order ${storeOrder.id} is on job ${storeOrder.luluJobID}.`);
                 // Kept for forensics, but held apart from `luluJobStatusUpdates`: that log is what
                 // `getShippingData` reads, so a superseded job must never be able to land in it.
                 storeOrder.ignoredLuluJobStatusUpdates = [...(storeOrder.ignoredLuluJobStatusUpdates || []), data];
@@ -924,7 +925,7 @@ class StoreService {
                 && LULU_FAILURE_STATUSES.has(storeOrder.luluJobStatus);
 
             if (isRedeliveryOfSupersededEvent) {
-                debug(`Ignoring out-of-order Lulu webhook (${incomingStatus}) for job ${incomingJobID}; order ${storeOrder.id} already recorded ${storeOrder.luluJobStatus} for it.`);
+                logger.info(`Ignoring out-of-order Lulu webhook (${incomingStatus}) for job ${incomingJobID}; order ${storeOrder.id} already recorded ${storeOrder.luluJobStatus} for it.`);
                 // Same reasoning as the stale-job branch above: visible for forensics, but out of
                 // the log that feeds order and shipping state. Job-id scoping alone would not save
                 // us here — a redelivery carries the CURRENT job's id.
@@ -941,7 +942,7 @@ class StoreService {
             // If the order is now in production and we haven't sent a notification yet, send one
             if (customerEmail && incomingStatus === 'IN_PRODUCTION' && !storeOrder.notificationsSent?.some((n) => n.status === 'IN_PRODUCTION')) {
                 await mailAPI.sendStoreOrderInProductionUpdate(customerEmail, storeOrder.id).catch((err) => {
-                    debug("Failed to send store order in production update email:", err);
+                    logger.error({ err }, "Failed to send store order in production update email");
                 });
                 storeOrder.notificationsSent = [...(storeOrder.notificationsSent || []), { status: 'IN_PRODUCTION' }];
             }
@@ -1019,7 +1020,7 @@ class StoreService {
             // Best-effort: keep the search index in step with the new Lulu status (fire-and-forget).
             void upsertStoreOrderToSearchIndex(storeOrder.id);
         } catch (error) {
-            debug("Error processing Lulu order update:", error);
+            logger.error({ err: error }, "Error processing Lulu order update");
         }
     }
 
@@ -1044,7 +1045,7 @@ class StoreService {
     } | null> {
         const store_order = await StoreOrder.findOne({ id: { $eq: orderId } });
         if (!store_order) {
-            debug(`No StoreOrder found for ID: ${orderId}`);
+            logger.info(`No StoreOrder found for ID: ${orderId}`);
             return null;
         }
 
@@ -1128,7 +1129,7 @@ class StoreService {
             // to fix the payload by hand. The warnings are returned individually (not just joined
             // into `detail`) so the UI can list them and offer that hand-off.
             if (built.warnings.length > 0) {
-                debug(`Cannot submit Lulu job for StoreOrder ID: ${orderId}. ${built.warnings.join(' ')}`);
+                logger.info(`Cannot submit Lulu job for StoreOrder ID: ${orderId}. ${built.warnings.join(' ')}`);
                 return {
                     error: `The print job for order ${orderId} cannot be submitted as-is`,
                     detail: built.warnings.join(' '),
@@ -1140,14 +1141,14 @@ class StoreService {
             const printJob = await this.luluService.createPrintJob(built.params);
 
             if (!printJob || !printJob.id) {
-                debug(`Failed to create Lulu print job for StoreOrder ID: ${orderId}`);
+                logger.info(`Failed to create Lulu print job for StoreOrder ID: ${orderId}`);
                 return { error: `Failed to create Lulu print job for StoreOrder ID: ${orderId} with an internal error` };
             }
 
             await this._recordLuluJobOnOrder(orderId, printJob);
             return printJob;
         } catch (error) {
-            debug("Error retrying Lulu job:", error);
+            logger.error({ err: error }, "Error retrying Lulu job");
             const errorString = serializeError(error);
             return { error: "Failed to retry Lulu job", detail: errorString };
         }
@@ -1172,7 +1173,7 @@ class StoreService {
     }> {
         const store_order = await StoreOrder.findOne({ id: { $eq: orderId } });
         if (!store_order) {
-            debug(`No StoreOrder found for ID: ${orderId}`);
+            logger.info(`No StoreOrder found for ID: ${orderId}`);
             return { error: `No StoreOrder found for ID: ${orderId}` };
         }
 
@@ -1183,7 +1184,7 @@ class StoreService {
             const printJob = await this.luluService.createPrintJob(finalParams);
 
             if (!printJob || !printJob.id) {
-                debug(`Failed to create manual Lulu print job for StoreOrder ID: ${orderId}`);
+                logger.info(`Failed to create manual Lulu print job for StoreOrder ID: ${orderId}`);
                 await this._recordManualPrintJobSubmission(orderId, {
                     submittedBy,
                     submittedAt: new Date(),
@@ -1205,7 +1206,7 @@ class StoreService {
 
             return printJob;
         } catch (error) {
-            debug("Error submitting manual Lulu job:", error);
+            logger.error({ err: error }, "Error submitting manual Lulu job");
             const errorString = serializeError(error);
             await this._recordManualPrintJobSubmission(orderId, {
                 submittedBy,
@@ -1272,7 +1273,7 @@ class StoreService {
                 { $unset: { supportTicketUUID: "" } },
             );
         } catch (error) {
-            debug(`Failed to resolve support ticket for store order ${orderId}:`, error);
+            logger.error({ err: error }, `Failed to resolve support ticket for store order ${orderId}`);
         }
     }
 
@@ -1324,10 +1325,10 @@ class StoreService {
             // it as unresolved would make the order retry forever and keep the dedupe in
             // `_createOrderFailureTicket` wedged, so treat it as nothing left to close.
             if ((error as { name?: string })?.name === "DocumentNotFoundError") {
-                debug(`Support ticket ${ticketUUID} for store order ${orderId} no longer exists; treating as closed.`);
+                logger.info(`Support ticket ${ticketUUID} for store order ${orderId} no longer exists; treating as closed.`);
                 return true;
             }
-            debug(`Failed to close support ticket ${ticketUUID} for store order ${orderId}:`, error);
+            logger.error({ err: error }, `Failed to close support ticket ${ticketUUID} for store order ${orderId}`);
             return false;
         }
     }
@@ -1343,7 +1344,7 @@ class StoreService {
                 { $push: { manualPrintJobSubmissions: entry } },
             );
         } catch (error) {
-            debug("Failed to record manual print job submission:", error);
+            logger.error({ err: error }, "Failed to record manual print job submission");
         }
     }
 
@@ -1391,7 +1392,7 @@ class StoreService {
                 },
             };
         } catch (error) {
-            debug("Error fetching store orders:", error);
+            logger.error({ err: error }, "Error fetching store orders");
             throw new Error("Failed to fetch store orders");
         }
     }
@@ -1414,7 +1415,7 @@ class StoreService {
 
             return withSession;
         } catch (error) {
-            debug("Error fetching store order:", error);
+            logger.error({ err: error }, "Error fetching store order");
             throw new Error("Failed to fetch store order");
         }
     }
@@ -1475,7 +1476,7 @@ class StoreService {
                 options,
             };
         } catch (error) {
-            debug("Error calculating book price:", error);
+            logger.error({ err: error }, "Error calculating book price");
             throw new Error("Failed to calculate book price");
         }
     }
@@ -1497,7 +1498,7 @@ class StoreService {
         const { maxQuantity, reason } = await this.determineMaxQuantity(userId);
         const offender = items.find((item) => item.quantity > maxQuantity);
         if (offender) {
-            debug(`[StoreService] Quantity ${offender.quantity} exceeds max ${maxQuantity} (${reason})`);
+            storeLog.info(`Quantity ${offender.quantity} exceeds max ${maxQuantity} (${reason})`);
             return {
                 ok: false,
                 maxQuantity,
@@ -1515,7 +1516,7 @@ class StoreService {
 
             const user = await User.findOne({ uuid: { $eq: userId } });
             if (!user) {
-                debug(`[StoreService] User with ID ${userId} not found. Applying default max quantity.`);
+                storeLog.info(`User with ID ${userId} not found. Applying default max quantity.`);
                 return { maxQuantity: DEFAULT_MAX_QUANTITY, reason: "User not found, applying default max quantity." };
             }
 
@@ -1526,7 +1527,7 @@ class StoreService {
 
             return { maxQuantity: DEFAULT_MAX_QUANTITY, reason: "User is not staff, applying default max quantity." };
         } catch (err: any) {
-            debug("[StoreService] Error validating max quantity for user:", err);
+            storeLog.error({ err }, "Error validating max quantity for user");
             return { maxQuantity: DEFAULT_MAX_QUANTITY, reason: "Error validating user role, applying default max quantity." };
         }
     }
@@ -1595,7 +1596,7 @@ class StoreService {
 
 
             if (!session || !session.id) {
-                debug("No valid Stripe checkout session found for ID:", sessionId);
+                logger.error({ sessionId }, "No valid Stripe checkout session found for ID");
                 return { session: null, charge: null };
             }
 
@@ -1607,7 +1608,7 @@ class StoreService {
             this.cache.set(sessionId, session, 60 * 60); // Cache for 1 hour
             return { session, charge };
         } catch (error) {
-            debug("Error fetching checkout session:", error);
+            logger.error({ err: error }, "Error fetching checkout session");
             return { session: null, charge: null };
         }
     }
@@ -1629,7 +1630,7 @@ class StoreService {
         }): Promise<boolean> {
         try {
             if (!items || items.length === 0) {
-                debug("No digital items to process.");
+                logger.info("No digital items to process.");
                 return true;
             }
 
@@ -1642,12 +1643,12 @@ class StoreService {
                 if (digital_delivery_option === 'email_access_codes') {
                     const didGenerate = await centralIdentityAPI._generateAccessCode({ priceId: item.price_id, email });
                     if (!didGenerate) {
-                        debug(`Failed to generate access code for product ${item.product.id} for email ${email}`);
+                        logger.info(`Failed to generate access code for product ${item.product.id} for email ${email}`);
                         continue; // Skip this item if access code generation failed
                     }
                 } else {
                     if (!digital_delivery_account) {
-                        debug(`Digital delivery account must be provided when digital delivery option is 'apply_to_account' for product ${item.product.id}`);
+                        logger.info(`Digital delivery account must be provided when digital delivery option is 'apply_to_account' for product ${item.product.id}`);
                         continue; // Skip this item if account is not provided
                     }
 
@@ -1656,7 +1657,7 @@ class StoreService {
                         user_id: digital_delivery_account
                     });
                     if (!didDeliver) {
-                        debug(`Failed to deliver digital product ${item.product.id} (price ${item.price_id}) to account ${digital_delivery_account}`);
+                        logger.info(`Failed to deliver digital product ${item.product.id} (price ${item.price_id}) to account ${digital_delivery_account}`);
                         continue; // Skip this item if delivery failed
                     }
                 }
@@ -1664,13 +1665,13 @@ class StoreService {
             }
 
             if (successfulItems.length !== items.length) {
-                debug(`Some digital items could not be processed. Processed: ${successfulItems.length}, Total: ${items.length}`);
+                logger.info(`Some digital items could not be processed. Processed: ${successfulItems.length}, Total: ${items.length}`);
                 return false;
             }
 
             return true;
         } catch (error) {
-            debug("Error processing digital items:", error);
+            logger.error({ err: error }, "Error processing digital items");
             return false;
         }
     }
@@ -1692,7 +1693,7 @@ class StoreService {
         const flattenedTrackingUrls = trackingInfoToSend.flatMap(info => info.trackingURLs);
 
         await mailAPI.sendStoreOrderShippedUpdate(customerEmail, storeOrder.id, flattenedTrackingUrls).catch((err) => {
-            debug("Failed to send store order shipped update email:", err);
+            logger.error({ err }, "Failed to send store order shipped update email");
         });
 
         const notificationsSent = trackingInfoToSend.map((info) => ({
@@ -1920,7 +1921,7 @@ class StoreService {
                 return ticket.uuid;
             }
         } catch (err) {
-            debug("Failed to create support ticket for store order:", err);
+            logger.error({ err }, "Failed to create support ticket for store order");
         }
         return undefined;
     }
@@ -1976,7 +1977,7 @@ class StoreService {
         const productsMap: { [key: string]: StoreProduct } = {};
         for (const price of prices) {
             if (!price.product || typeof price.product === 'string') {
-                debug("Price without product found:", price);
+                logger.info({ price }, "Price without product found");
                 continue; // Skip prices without associated products
             }
 

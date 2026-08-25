@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import { NextFunction, Request, Response } from "express";
 import conductorErrors from "../conductor-errors.js";
 import ProjectFile, {
@@ -33,7 +34,6 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { v4 } from "uuid";
-import { debugError } from "../debug.js";
 import * as MiscValidators from "./validators/misc.js";
 import {
   conductor400Err,
@@ -381,9 +381,7 @@ export async function addProjectFile(
         // before deleting anything, so that case reconciles instead of losing
         // the video.
         await releaseClaims().catch((releaseErr) =>
-          debugError(
-            `Failed to release video upload grants after a failed attach: ${releaseErr}`
-          )
+          logger.error(`Failed to release video upload grants after a failed attach: ${releaseErr}`)
         );
         throw err;
       }
@@ -469,7 +467,7 @@ export async function addProjectFile(
       msg: "Succesfully uploaded files!",
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "addProjectFile failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -537,7 +535,7 @@ export async function addProjectFileFolder(
       msg: "Succesfully uploaded files!",
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "addProjectFileFolder failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -590,7 +588,7 @@ async function getProjectFileDownloadURL(
       url: downloadURLs[0], // Only first index because we only requested one file
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProjectFileDownloadURL failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -657,7 +655,7 @@ async function getPermanentLink(
     });
 
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getPermanentLink failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -706,7 +704,7 @@ async function redirectPermanentLink(
 
     return res.redirect(downloadURLs[0]);
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "redirectPermanentLink failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -800,7 +798,7 @@ async function bulkDownloadProjectFiles(
       file: base64File,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "bulkDownloadProjectFiles failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -863,7 +861,7 @@ async function getProjectFolderContents(
       path,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProjectFolderContents failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -925,7 +923,7 @@ async function getProjectFile(
       ...(videoStreamURL && { videoStreamURL }),
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProjectFile failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1142,7 +1140,7 @@ async function updateProjectFile(
       msg: "Successfully updated file!",
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateProjectFile failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1205,7 +1203,7 @@ async function bulkUpdateProjectFiles(
       files
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "bulkUpdateProjectFiles failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6
@@ -1352,7 +1350,7 @@ async function bulkUpdateProjectFileMetadata(
       updatedCount: updated.length,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "bulkUpdateProjectFileMetadata failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1451,7 +1449,7 @@ async function updateProjectFileAccess(
       msg: "Successfully updated file access setting!",
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateProjectFileAccess failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1550,7 +1548,7 @@ async function moveProjectFile(
       msg: "Successfully moved file!",
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "moveProjectFile failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1723,7 +1721,7 @@ async function getProjectFileCaptions(
       captions: captionsRes.data.result ?? [],
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProjectFileCaptions failed");
     return conductor500Err(res);
   }
 }
@@ -1759,7 +1757,7 @@ async function getProjectFileEmbedHTML(
       embed_html: fileRes.embed_html,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getProjectFileEmbedHTML failed");
     return conductor500Err(res);
   }
 }
@@ -1786,7 +1784,7 @@ async function _getProjectFileEmbedHTML(projectID: string, fileID: string): Prom
       embed_html: HTML,
     }
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_getProjectFileEmbedHTML failed");
     return { err: 'internal' };
   }
 }
@@ -1884,7 +1882,7 @@ async function updateProjectFileCaptions(
       msg: "Successfully uploaded caption file!",
     });
   } catch (e: any) {
-    debugError(e);
+    logger.error({ err: e }, "updateProjectFileCaptions failed");
     return conductor500Err(res);
   }
 }
@@ -2018,7 +2016,7 @@ async function getPublicProjectFiles(
       totalCount: totalCount || 0,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getPublicProjectFiles failed");
     return conductor500Err(res);
   }
 }
@@ -2147,7 +2145,7 @@ async function createProjectFileStreamUploadURL(
           },
         });
       } catch (cleanupErr) {
-        debugError(cleanupErr);
+        logger.error({ err: cleanupErr }, "createProjectFileStreamUploadURL failed");
       }
       throw dbErr;
     }
@@ -2158,7 +2156,7 @@ async function createProjectFileStreamUploadURL(
       videoID: streamMediaId,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "createProjectFileStreamUploadURL failed");
     return conductor500Err(res);
   }
 }
@@ -2207,9 +2205,7 @@ async function cleanupOrphanedStreamVideos(req: Request, res: Response) {
         { videoID: { $in: reconciledIDs } },
         { $set: { claimed: true } }
       );
-      debugError(
-        `Reconciled ${reconciledIDs.length} video upload grant(s) still referenced by a Project File: ${reconciledIDs.join(", ")}`
-      );
+      logger.error(`Reconciled ${reconciledIDs.length} video upload grant(s) still referenced by a Project File: ${reconciledIDs.join(", ")}`);
     }
 
     if (toDelete.length === 0) {
@@ -2249,11 +2245,9 @@ async function cleanupOrphanedStreamVideos(req: Request, res: Response) {
     results
       .filter((result) => result.status === "rejected")
       .forEach((result) =>
-        debugError(
-          `Failed to delete orphaned Cloudflare Stream video: ${
-            (result as PromiseRejectedResult).reason
-          }`
-        )
+        logger.error(`Failed to delete orphaned Cloudflare Stream video: ${
+                      (result as PromiseRejectedResult).reason
+                    }`)
       );
 
     if (deletedIDs.length > 0) {
@@ -2267,7 +2261,7 @@ async function cleanupOrphanedStreamVideos(req: Request, res: Response) {
       reconciled: referencedIDs.size,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "cleanupOrphanedStreamVideos failed");
     return conductor500Err(res);
   }
 }
@@ -2331,7 +2325,7 @@ async function _parseAndSaveAuthors(
 
     return uniqueParsed;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_parseAndSaveAuthors failed");
     throw new Error("authorparseerror");
   }
 }

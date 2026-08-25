@@ -4,6 +4,7 @@
 //
 
 'use strict';
+import logger, { childLogger } from "../logger.js";
 import BluebirdPromise from 'bluebird';
 import express from 'express';
 import { body, query, param } from 'express-validator';
@@ -24,7 +25,6 @@ import Message from '../models/message.js';
 import Organization from '../models/organization.js';
 import CIDDescriptor from '../models/ciddescriptor.js';
 import conductorErrors from '../conductor-errors.js';
-import { debugError, debugCommonsSync, debugServer } from '../debug.js';
 import {
     validateProjectClassification,
     validateRoadmapStep,
@@ -59,6 +59,7 @@ import {
   removeProjectFromSearchIndex,
 } from './services/project-search-service.js';
 import BookService from './services/book-service.js';
+const commonsSyncLog = childLogger("commons-sync");
 
 const projectListingProjection = {
     _id: 0,
@@ -166,7 +167,7 @@ async function _createProjectInternal(projectData) {
 
     return newProject;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_createProjectInternal failed");
     return null;
   }
 }
@@ -217,7 +218,7 @@ async function deleteProjectInternal(projectID) {
 
     return true;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteProjectInternal failed");
     return false;
   }
 }
@@ -255,7 +256,7 @@ async function deleteProject(req, res) {
       msg: 'Successfully deleted project.',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "deleteProject failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -530,7 +531,7 @@ async function getProject(req, res) {
       project: projResult,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProject failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -576,7 +577,7 @@ async function getProjectBatchUpdateJobs(req, res) {
       batch_update_jobs: project.batchUpdateJobs || [],
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getProjectBatchUpdateJobs failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -621,7 +622,7 @@ async function findByBook(req, res) {
       projectID: project.projectID,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "findByBook failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -746,7 +747,7 @@ async function uploadProjectThumbnail(req, res) {
       thumbnail: url,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "uploadProjectThumbnail failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1043,7 +1044,7 @@ async function updateProject(req, res) {
       });
     }
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateProject failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1142,7 +1143,7 @@ const getUserProjects = (req, res) => {
       });
     })
     .catch((err) => {
-      debugError(err);
+      logger.error({ err }, "getUserProjects failed");
       return res.send({
         err: false,
         errMsg: conductorErrors.err6,
@@ -1232,7 +1233,7 @@ async function getUserProjectsAdmin(req, res) {
       has_more: total > offset + limit,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getUserProjectsAdmin failed");
     return res.send({
       err: false,
       errMsg: conductorErrors.err6,
@@ -1339,7 +1340,7 @@ const getUserFlaggedProjects = (req, res) => {
             projects: projects
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getUserFlaggedProjects failed");
         return res.send({
             err: false,
             errMsg: conductorErrors.err6
@@ -1437,7 +1438,7 @@ const getUserPinnedProjects = async (req, res) => {
     if (err.message === 'user') {
       errMsg = conductorErrors.err9;
     } else {
-      debugError(err);
+      logger.error({ err }, "getUserPinnedProjects failed");
     }
     return res.send({
       err: false,
@@ -1499,7 +1500,7 @@ async function getRecentProjects(req, res) {
       projects,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getRecentProjects failed");
     return res.send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1562,7 +1563,7 @@ const getAvailableProjects = (req, res) => {
             projects: projects
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getAvailableProjects failed");
         return res.send({
             err: false,
             errMsg: conductorErrors.err6
@@ -1628,7 +1629,7 @@ const getCompletedProjects = (req, res) => {
             projects: projects
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getCompletedProjects failed");
         return res.send({
             err: false,
             errMsg: conductorErrors.err6
@@ -1743,7 +1744,7 @@ async function getPublicProjects(req, res) {
       totalCount: aggRes[0]?.totalCount[0]?.count ?? 0,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getPublicProjects failed");
     return res.send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1821,7 +1822,7 @@ async function getAddableMembers(req, res) {
 
     // Returns map of centralID to orgs (as {name: string} objects)
     const orgsRes = await centralIdentityAPI._getMultipleUsersOrgs(users.map(u => u.centralID)).catch((e) => {
-      debugError(e); // fail silently
+      logger.error({ err: e }, "orgsRes failed"); // fail silently
       return {};
     });
 
@@ -1839,7 +1840,7 @@ async function getAddableMembers(req, res) {
       err: false,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getAddableMembers failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1929,7 +1930,7 @@ async function addMemberToProject(req, res) {
       )
     });
     await Promise.all(emailPromises).catch((e) => {
-      debugError('Error sending Team Member Added notification email: ', e);
+      logger.error({ err: e }, 'Error sending Team Member Added notification email');
     });
 
     return res.send({
@@ -1938,7 +1939,7 @@ async function addMemberToProject(req, res) {
     });
 
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "addMemberToProject failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2106,7 +2107,7 @@ async function getProjectTeam(req, res) {
 
     return res.send(response);
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProjectTeam failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2205,7 +2206,7 @@ async function changeMemberRole(req, res) {
       msg: 'Successfully changed team member role!',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "changeMemberRole failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2273,7 +2274,7 @@ async function removeMemberFromProject(req, res) {
       $pull: {
         assignees: uuid,
       },
-    }).catch((e) => debugError(e));
+    }).catch((e) => logger.error({ err: e }, "removeMemberFromProject failed"));
 
     // PUT user permissions for updated team if project is linked to a Workbench book
     if(project.didCreateWorkbench && project.libreLibrary && project.libreCoverID) {
@@ -2304,7 +2305,7 @@ async function removeMemberFromProject(req, res) {
       errMsg: 'Successfully removed team member from Project.',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "removeMemberFromProject failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2352,7 +2353,7 @@ async function reSyncProjectTeamBookAccess(req, res){
       errMsg: "Successfully initiated re-sync of team member(s) book access.",
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "reSyncProjectTeamBookAccess failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2435,7 +2436,7 @@ const flagProject = (req, res) => {
         else if (err.message === 'noliaison') errMsg = conductorErrors.err32;
         else if (err.message === 'flagoption') errMsg = conductorErrors.err1;
         else if (err.message === 'missingcampus' || err.message === 'missinguuid') errMsg = conductorErrors.err1;
-        else debugError(err);
+        else logger.error({ err }, "flagProject failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -2486,7 +2487,7 @@ const clearProjectFlag = (req, res) => {
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'updatefail') errMsg = conductorErrors.err3;
-        else debugError(err);
+        else logger.error({ err }, "clearProjectFlag failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -2530,7 +2531,7 @@ const notifyProjectCompleted = (projectID) => {
                 return mailAPI.sendProjectCompletedAlert(notifRecipients, projectData.projectID, projectData.title, projectData.orgID);
             }
         }).catch((err) => {
-            debugError(err);
+            logger.error({ err }, "notifyProjectCompleted failed");
         });
     }
 };
@@ -2562,7 +2563,7 @@ const getOrgTags = (_req, res) => {
             tags: tags
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getOrgTags failed");
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
@@ -2872,7 +2873,7 @@ const importA11YSectionsFromTOC = async (req, res) => {
             msg: resMsg
         });
     } catch (err) {
-        debugError(err);
+        logger.error({ err }, "importA11YSectionsFromTOC failed");
         let errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
@@ -2998,7 +2999,7 @@ const autoGenerateProjects = (newBooks) => {
         }
     }).then(() => {
         // ignore return value of MailAPI call
-        debugCommonsSync('Sent Autogenerated Projects Notification.');
+        commonsSyncLog.info('Sent Autogenerated Projects Notification.');
         if (newProjectsDbIds.length > 0) {
             return alertsAPI.processInstantProjectAlerts(newProjectsDbIds);
         }
@@ -3007,7 +3008,7 @@ const autoGenerateProjects = (newBooks) => {
         // ignore return value of processing Alerts
         return numCreated;
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "autoGenerateProjects failed");
         if (err.message === 'nobooks') {
             return 0;
         } else if (err.status === 400) {
@@ -3062,7 +3063,7 @@ async function getProjectBookReaderResources(req, res) {
       readerResources
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProjectBookReaderResources failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -3119,7 +3120,7 @@ async function updateProjectBookReaderResources(req, res) {
       msg: 'Successfully updated Reader Resources!',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateProjectBookReaderResources failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -3187,7 +3188,7 @@ async function getTrafficAnalyticsData(req, res, func) {
       data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getTrafficAnalyticsData failed");
     res.send({
       err: false,
       data: [],
@@ -3205,10 +3206,10 @@ async function syncWithSearchIndex(req, res) {
 
     // Run the actual sync in the background (don't await)
     syncProjectsInBackground().catch((e) => {
-      debugError("Background projects sync error:", e);
+      logger.error({ err: e }, "Background projects sync error");
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "syncWithSearchIndex failed");
     // Only send error if response hasn't been sent yet
     if (!res.headersSent) {
       return res.status(500).send({
@@ -3226,7 +3227,7 @@ async function syncWithSearchIndex(req, res) {
  */
 export async function syncProjectsInBackground() {
   try {
-    debugServer("Initiating Projects search index sync...");
+    logger.info("Initiating Projects search index sync...");
     const searchService = await SearchService.getInstance();
 
     const batchSize = 500; // Process 500 projects at a time
@@ -3403,7 +3404,7 @@ export async function syncProjectsInBackground() {
         timeOutMs: 300_000,
       });
       totalSynced += projects.length;
-      debugServer(`Synced batch of ${projects.length} projects (${totalSynced} total)...`);
+      logger.info(`Synced batch of ${projects.length} projects (${totalSynced} total)...`);
 
       skip += batchSize;
 
@@ -3420,11 +3421,9 @@ export async function syncProjectsInBackground() {
        this performs. */
     const pruned = await pruneDeletedProjectsFromSearchIndex();
 
-    debugServer(
-      `Projects search index sync completed. Total synced: ${totalSynced}, pruned: ${pruned}`
-    );
+    logger.info(`Projects search index sync completed. Total synced: ${totalSynced}, pruned: ${pruned}`);
   } catch (e) {
-    debugError("Error in syncProjectsInBackground:", e);
+    logger.error({ err: e }, "Error in syncProjectsInBackground");
     throw e;
   }
 }
@@ -3784,7 +3783,7 @@ async function validateCIDDescriptors(descriptors) {
         return Promise.resolve();
       }
     } catch (e) {
-      debugError(`Error validating C-IDs: ${e.toString()}`);
+      logger.error({ err: e }, "Error validating C-IDs");
     }
   }
   return Promise.reject();
@@ -4043,7 +4042,7 @@ const getProjectToc = async (req, res) => {
     });
   
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getProjectToc failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,

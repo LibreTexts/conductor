@@ -1,7 +1,7 @@
+import logger, { childLogger } from "../../logger.js";
 import User from "../../models/user.js";
 import SearchService from "./search-service.js";
-import { debugError, debugServer } from "../../debug.js";
-
+const userSearchLog = childLogger("user-search");
 /**
  * Local-user search index ("users").
  *
@@ -62,7 +62,7 @@ export const userSearchIndexAggregationStages: any[] = [
  */
 export async function syncUsersInBackground(): Promise<void> {
   try {
-    debugServer("Initiating Users search index sync...");
+    logger.info("Initiating Users search index sync...");
     const searchService = await SearchService.getInstance();
 
     const batchSize = 500;
@@ -86,7 +86,7 @@ export async function syncUsersInBackground(): Promise<void> {
       const sanitized = JSON.parse(JSON.stringify(users));
       await searchService.addDocuments("users", sanitized);
       totalSynced += users.length;
-      debugServer(`Synced batch of ${users.length} users (${totalSynced} total)...`);
+      logger.info(`Synced batch of ${users.length} users (${totalSynced} total)...`);
 
       skip += batchSize;
       if (users.length < batchSize) {
@@ -94,9 +94,9 @@ export async function syncUsersInBackground(): Promise<void> {
       }
     }
 
-    debugServer(`Users search index sync completed. Total synced: ${totalSynced}`);
+    logger.info(`Users search index sync completed. Total synced: ${totalSynced}`);
   } catch (e) {
-    debugError(`Error in syncUsersInBackground: ${e}`);
+    logger.error({ err: e }, "Users search index background sync failed");
     throw e;
   }
 }
@@ -128,7 +128,7 @@ export async function upsertUserToSearchIndex(uuid: string): Promise<void> {
     const sanitized = JSON.parse(JSON.stringify(doc));
     await searchService.addDocuments("users", [sanitized]);
   } catch (err) {
-    debugError(`[UserSearchService] Error upserting user ${uuid} to search index: ${err}`);
+    userSearchLog.warn({ err, uuid }, "Failed to upsert user to search index");
   }
 }
 
@@ -142,6 +142,6 @@ export async function removeUserFromSearchIndex(uuid: string): Promise<void> {
     const searchService = await SearchService.getInstance();
     await searchService.deleteDocuments("users", [uuid]);
   } catch (err) {
-    debugError(`[UserSearchService] Error removing user ${uuid} from search index: ${err}`);
+    userSearchLog.warn({ err, uuid }, "Failed to remove user from search index");
   }
 }
