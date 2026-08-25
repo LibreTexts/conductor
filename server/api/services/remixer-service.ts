@@ -1524,7 +1524,7 @@ const runRemixerJob = async ({
         autoNumbering,
       );
       const status = getPageStatus(page);
-      const shouldSkip = shouldSkipPage(page, inMatterBranch, status);
+      const shouldSkip = shouldSkipPage(page,  status);
 
       const message = shouldSkip
         ? `${title} - skipped`
