@@ -130,12 +130,12 @@ export const getPageStatus = (page: RemixerSubPageState): RemixerPageStatus => {
   return "unchanged";
 };
 
-export const shouldSkipPage = (page: RemixerSubPageState, inMatterBranch: boolean, status: RemixerPageStatus): boolean => {
+export const shouldSkipPage = (page: RemixerSubPageState,  status: RemixerPageStatus): boolean => {
   const pathLen = page.pathNumber?.length ?? 0;
   const isBookRoot = pathLen === 0;
   const pageStatus = getPageStatus(page);
   const isDeleteNoExisting = page.isDeleted && (pageStatus === "imported" || pageStatus === "new") || false;
-  return isBookRoot || inMatterBranch || status === "unchanged" || isDeleteNoExisting;
+  return isBookRoot || status === "unchanged" || isDeleteNoExisting;
 };
 
 /**
