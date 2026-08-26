@@ -54,8 +54,12 @@ import {
   EditAcademyOnlineAccessFormValues,
   CentralIdentityUserLicenseResult,
   CentralIdentityAppLicense,
-  StoreDigitalDeliveryOption, StoreOrderWithStripeSession, StoreOrderListItem,
-  ManualPrintJobPayload, ManualPrintJobPayloadResponse, ResubmitPrintJobRefusal,
+  StoreDigitalDeliveryOption,
+  StoreOrderWithStripeSession,
+  StoreOrderListItem,
+  ManualPrintJobPayload,
+  ManualPrintJobPayloadResponse,
+  ResubmitPrintJobRefusal,
   OrderCharge,
   OrderSession,
   CentralIdentityOrgAdminResult,
@@ -819,11 +823,11 @@ class API {
 
   async adminSubmitManualPrintJob(
     order_id: string,
-    payload: ManualPrintJobPayload
+    payload: ManualPrintJobPayload,
   ) {
     const res = await axios.post<{ data: unknown } & ConductorBaseResponse>(
       `/store/admin/orders/${order_id}/print-job`,
-      payload
+      payload,
     );
     return res;
   }
@@ -2841,11 +2845,18 @@ class API {
     return res.data;
   }
 
-  async createMatter(projectID: string, type: CreateMatterSelection, overwrite: boolean) {
-    const res = await axios.post<ConductorBaseResponse>(`/remixer/${projectID}/create-matter`, {
-      type,
-      overwrite,
-    });
+  async createMatter(
+    projectID: string,
+    type: CreateMatterSelection,
+    overwrite: boolean,
+  ) {
+    const res = await axios.post<ConductorBaseResponse>(
+      `/remixer/${projectID}/create-matter`,
+      {
+        type,
+        overwrite,
+      },
+    );
     return res.data;
   }
 
@@ -2929,6 +2940,7 @@ class API {
         reparented?: unknown[];
         /** False when the live TOC was unavailable, so `untracked` proves nothing. */
         reconciled?: boolean;
+        publishedAt?: Date | string;
       } & ConductorBaseResponse
     >(`/remixer/${id}/project`, {});
     return res.data;
@@ -2962,11 +2974,16 @@ class API {
     return res.data;
   }
 
-  async getRemixerTreeFlattened(id: string, path: string, subdomain: string) {
+  async getRemixerTreeFlattened(
+    id: string,
+    path: string,
+    subdomain: string,
+    options?: { flatten?: boolean | true; preserveConfigs?: boolean | true },
+  ) {
     const res = await axios.post(`/remixer/${id}/page/tree`, {
       path,
       subdomain,
-      flatten: true,
+      options,
     });
     return res.data;
   }

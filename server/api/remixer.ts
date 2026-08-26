@@ -440,6 +440,10 @@ const getRemixerProjectState = async (
       { uuid: { $eq: remixerState?.updatedBy } },
       { name: 1, email: 1, _id: 0 },
     );
+    const LatestPublishedJob = await PrejectRemixerJob.findOne(
+      { projectID: id , status: "success"},
+      { status: 1, messages: 1, errorMessage: 1, updatedAt: 1, _id: 0 },
+    ).sort({ _id: -1 });
 
     return res.send({
       err: false,
@@ -457,6 +461,7 @@ const getRemixerProjectState = async (
       // Whether the book was actually checked against the live TOC. False means
       // the lookup was unavailable, so an empty `untracked` proves nothing.
       reconciled: toc !== null && !isArchived,
+      publishedAt: LatestPublishedJob?.updatedAt ?? undefined,
     });
   } catch (err) {
     if (err instanceof ProjectError) {
@@ -625,8 +630,8 @@ const getRemixerPageTree = async (
   res: Response,
 ) => {
   try {
-    const { subdomain, path, flatten } = req.body;
-
+    const { subdomain, path, options = { flatten: true, preserveConfigs: true } } = req.body;
+    const { flatten, preserveConfigs } = options;
     const ctx = await ProjectContext.load(req.params.id);
     if (!ctx.canMember(req.user)) {
       return returnProjectError(res, new ProjectError("unauthorized"));
@@ -635,10 +640,33 @@ const getRemixerPageTree = async (
     const bookService = new BookService({
       bookID: `${subdomain}-${path}`,
     });
-    const tree = await bookService.getBookTreeFull({ flatten });
+    const [tree, remixerState] = await Promise.all([
+      bookService.getBookTreeFull({ flatten }),
+      preserveConfigs
+        ? PrejectRemixer.findOne(
+            { projectID: req.params.id, archived: false },
+            { remixerCurrentBook: 1, _id: 0 },
+          )
+            .sort({ updatedAt: -1 })
+            .exec()
+        : Promise.resolve(null),
+    ]);
+
+    let response = tree;
+    if (
+      preserveConfigs &&
+      Array.isArray(tree) &&
+      remixerState?.remixerCurrentBook?.length
+    ) {
+      response = remixerService.mergeTocWithSavedConfigs(
+        tree,
+        remixerState.remixerCurrentBook,
+      );
+    }
+
     return res.send({
       err: false,
-      response: tree,
+      response,
     });
   } catch (error) {
     if (error instanceof ProjectError) {
