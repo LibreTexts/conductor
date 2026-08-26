@@ -58,14 +58,17 @@ const LibraryActions: React.FC<LibraryActionsProps> = ({
     }
 
     return (
-        <Stack direction="horizontal" gap="sm" className="w-1/2" align="start" justify="end">
+        <Stack direction="horizontal" gap="sm" className="w-1/2" align="center" justify="end">
             {remixerData.libraries && (
                 <Select
                     id="remixer-library"
-                    className="w-full"
+                    className="w-full min-w-0 [&>div]:!mt-0"
+                    labelClassName="sr-only"
+                    selectClassName="!h-10 !box-border !py-0 leading-none"
                     name="remixer-library"
-                    label=""
+                    label="Library"
                     placeholder="Library..."
+                    size="sm"
                     value={remixerData?.selectedLibrary ?? ""}
                     onChange={(e) => {
                         const raw = e.target.value;
@@ -91,6 +94,8 @@ const LibraryActions: React.FC<LibraryActionsProps> = ({
                     icon={<IconSearch size={16} />}
                     onClick={onOpenCatalogModal}
                     variant="outline"
+                    size="md"
+                    className="shrink-0"
                 />
             </Tooltip>
         </Stack>
