@@ -12,6 +12,18 @@ import CXOnePageAPIEndpoints from "../../util/CXOne/CXOnePageAPIEndpoints";
 import Project from "../../models/project";
 import { escapeRegEx } from "../../util/helpers";
 
+/**
+ * Signals that a page simply has no glossary. This is the common case for most
+ * library pages, not a failure — handlers map it to 404 so healthy traffic
+ * does not register as a 5xx.
+ */
+export class GlossaryNotFoundError extends Error {
+  constructor(message = "No glossary found") {
+    super(message);
+    this.name = "GlossaryNotFoundError";
+  }
+}
+
 export interface AddGlossaryParams {
   glossaryID?: string;
   term: string;
@@ -587,7 +599,7 @@ export default class GlossaryService {
       } = await this.getCoverIDByPageID(pageID, library);
 
       if (!coverID) {
-        throw new Error("No glossary found");
+        throw new GlossaryNotFoundError();
       }
       const candidateCoverIDs = await this.getCandidateCoverIDs(pageID, library);
 
@@ -626,12 +638,12 @@ export default class GlossaryService {
           }),
         );
         if (items.length === 0) {
-          throw new Error("No glossary found");
+          throw new GlossaryNotFoundError();
         }
         response.items = items;
         return response;
       } else {
-        throw new Error("No glossary found");
+        throw new GlossaryNotFoundError();
       }
     } catch (error) {
       throw error;
@@ -702,7 +714,7 @@ export default class GlossaryService {
       latestUpdatedAt: Date;
     }>(pipeline).exec();
     if (!result) {
-      throw new Error("No glossary found");
+      throw new GlossaryNotFoundError();
     }
     return { coverID: result._id, latestUpdatedAt: result.latestUpdatedAt };
   }
@@ -730,7 +742,7 @@ export default class GlossaryService {
       { coverID: 1, glossaryID: 1, library: 1, _id: 0 },
     );
     if (!glossary) {
-      throw new Error("No glossary found");
+      throw new GlossaryNotFoundError();
     }
     return {
       coverID: glossary.coverID,
