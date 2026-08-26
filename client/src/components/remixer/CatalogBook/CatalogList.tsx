@@ -183,7 +183,7 @@ const CatalogList: React.FC<CatalogListProps> = ({
   return (
     <Modal open={open} size="xl" onClose={onClose}>
       <Modal.Header>Catalog Book</Modal.Header>
-      <Modal.Body >
+      <Modal.Body className="!overflow-visible">
         <Input
           name="search"
           label=""
@@ -205,11 +205,16 @@ const CatalogList: React.FC<CatalogListProps> = ({
           density="compact"
           striped
           bordered
-          maxHeight="min(55vh, 420px)"
+          maxHeight="min(50vh, 420px)"
           stickyHeader
           classNames={{
+            // Davis wrapper is always `overflow-auto`; with maxHeight that creates a
+            // second scrollbar beside the table scroll region. Keep overflow on the
+            // maxHeight container only.
+            wrapper: "!overflow-hidden",
             table: "w-full min-w-[640px] table-fixed",
-
+            pagination:
+              "[&_select]:min-w-[4.5rem] [&_select]:pl-2 [&_select]:pr-7",
           }}
           emptyState="No books match your search."
           onRowClick={handleRowClick}
