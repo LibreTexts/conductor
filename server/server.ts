@@ -172,6 +172,31 @@ if (process.env.NODE_ENV !== "production") {
   );
 }
 
+// Build identity used to cache-bust the two runtime-generated scripts below. Their contents are
+// fixed for the life of a build, so a versioned URL can be cached hard while a new deploy moves
+// clients to a new URL via the (uncached) document.
+const BUILD_VERSION = process.env.VERSION;
+
+// Point the document at the versioned URLs. Without a VERSION (local dev) the plain paths stay,
+// which is what the Vite dev server serves anyway.
+if (BUILD_VERSION) {
+  const v = encodeURIComponent(BUILD_VERSION);
+  indexHtml = indexHtml
+    .replace('src="/env.js"', `src="/env.js?v=${v}"`)
+    .replace('src="/matomo-init.js"', `src="/matomo-init.js?v=${v}"`);
+}
+
+// A request carrying the current build's version can never go stale: the URL changes on the next
+// deploy. Anything else (a client on old HTML, a bookmark, a crawler) gets a short TTL so it
+// self-heals within minutes instead of pinning a stale copy. `public` so the edge can serve it too.
+const setBuildScriptCacheControl = (req: express.Request, res: express.Response) => {
+  const versioned = BUILD_VERSION && req.query.v === BUILD_VERSION;
+  res.setHeader(
+    "Cache-Control",
+    versioned ? "public, max-age=31536000, immutable" : "public, max-age=300"
+  );
+};
+
 // The document must never be cached: it is the only thing that maps a client to the
 // current build's hashed chunk filenames. Stale HTML points at chunks that no longer exist.
 const sendIndexHtml = (res: express.Response) => {
@@ -224,15 +249,18 @@ app.use(
   }
 );
 
-app.use(express.static(clientDist, { index: false }));
+// Branding assets copied from client/public: favicons, touch icons, logos, manifest. None are
+// content-hashed, so they get a bounded TTL rather than `immutable` — the ETag makes the weekly
+// revalidation cheap. Without an explicit maxAge, express.static sends `public, max-age=0`, which
+// forces a revalidation round trip on every page load AND makes the response uncacheable at the edge.
+app.use(express.static(clientDist, { index: false, maxAge: "7d" }));
 
 // Serve runtime env config for frontend use. Loaded via <script src="/env.js"> in index.html to avoid CSP issues with inline scripts.
 const appEnv = process.env.APP_ENV ?? "production";
 const envJs = `window.__APP_ENV__ = ${JSON.stringify(appEnv)};`;
-app.get("/env.js", (_req, res) => {
-  res.setHeader("Content-Type", "application/javascript")
-    .setHeader("Cache-Control", "no-cache, must-revalidate") // Built from env at boot, so it must revalidate across deploys
-    .send(envJs);
+app.get("/env.js", (req, res) => {
+  setBuildScriptCacheControl(req, res);
+  res.setHeader("Content-Type", "application/javascript").send(envJs);
 });
 
 // Matomo tracking
@@ -252,10 +280,9 @@ const matomoJS = matomoDomain && matomoSiteID ? `
     g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
   })();
 ` : '/* Matomo not configured */';
-app.get("/matomo-init.js", (_req, res) => {
-  res.setHeader("Content-Type", "application/javascript")
-    .setHeader("Cache-Control", "no-cache, must-revalidate") // Built from env at boot, so it must revalidate across deploys
-    .send(matomoJS);
+app.get("/matomo-init.js", (req, res) => {
+  setBuildScriptCacheControl(req, res);
+  res.setHeader("Content-Type", "application/javascript").send(matomoJS);
 });
 
 // Extensions of files this server ships. A request for one of these that reaches the SPA
