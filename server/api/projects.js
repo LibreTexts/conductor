@@ -59,6 +59,7 @@ import {
   removeProjectFromSearchIndex,
 } from './services/project-search-service.js';
 import BookService from './services/book-service.js';
+import { conductor500Err } from "../util/errorutils.js";
 const commonsSyncLog = childLogger("commons-sync");
 
 const projectListingProjection = {
@@ -81,6 +82,34 @@ const projectListingProjection = {
     members: 1,
     auditors: 1,
     rating: 1
+};
+
+/**
+ * Resolves the `leads` UUID array into user summary objects.
+ *
+ * Uses the localField/foreignField form rather than a correlated sub-pipeline: an
+ * `$expr: { $in: [...] }` sub-pipeline cannot be pushed down to an index, so it
+ * full-scans `users` once per project. This form uses the `users.uuid` index.
+ * (Requires MongoDB 5.0+ to combine localField/foreignField with `pipeline`.)
+ */
+const LOOKUP_PROJECT_LEADS_STAGE = {
+    $lookup: {
+        from: 'users',
+        localField: 'leads',
+        foreignField: 'uuid',
+        as: 'leads',
+        pipeline: [
+            {
+                $project: {
+                    _id: 0,
+                    uuid: 1,
+                    firstName: 1,
+                    lastName: 1,
+                    avatar: 1
+                }
+            }
+        ]
+    }
 };
 
 const projectStatusOptions = ['completed', 'available', 'open'];
@@ -1058,97 +1087,73 @@ async function updateProject(req, res) {
  * @param {Object} req - the express.js request object
  * @param {Object} res - the express.js response object
  */
-const getUserProjects = (req, res) => {
-  const { searchQuery } = req.query;
+const getUserProjects = async (req, res) => {
+  try {
+    const { searchQuery } = req.query;
 
-  let matchObj = {};
-  if (searchQuery) {
-    const parsedSearch = searchQuery.toString().toLowerCase();
-    matchObj = {
-      $and: [
-        {
-          $text: {
-            $search: parsedSearch,
-          },
-        },
-        {
-          $or: constructProjectTeamMemberQuery(req.decoded.uuid),
-        },
-        {
-          status: {
-            $ne: "completed",
-          },
-        },
-      ],
-    };
-  } else {
-    matchObj = {
-      $and: [
-        {
-          $or: constructProjectTeamMemberQuery(req.decoded.uuid),
-        },
-        {
-          status: {
-            $ne: "completed",
-          },
-        },
-      ],
-    };
-  }
-
-  Project.aggregate([
-    {
-      $match: { ...matchObj },
-    },
-    {
-      $lookup: {
-        from: "users",
-        let: {
-          leads: "$leads",
-        },
-        pipeline: [
+    let matchObj = {};
+    if (searchQuery) {
+      const parsedSearch = searchQuery.toString().toLowerCase();
+      matchObj = {
+        $and: [
           {
-            $match: {
-              $expr: {
-                $in: ["$uuid", "$$leads"],
-              },
+            $text: {
+              $search: parsedSearch,
             },
           },
           {
-            $project: {
-              _id: 0,
-              uuid: 1,
-              firstName: 1,
-              lastName: 1,
-              avatar: 1,
+            $or: constructProjectTeamMemberQuery(req.decoded.uuid),
+          },
+          {
+            status: {
+              $ne: "completed",
             },
           },
         ],
-        as: "leads",
+      };
+    } else {
+      matchObj = {
+        $and: [
+          {
+            $or: constructProjectTeamMemberQuery(req.decoded.uuid),
+          },
+          {
+            status: {
+              $ne: "completed",
+            },
+          },
+        ],
+      };
+    }
+
+    // Stage order matters: project down to the listing fields before the blocking
+    // sort so full documents (batchUpdateJobs, a11yReview, notes) aren't sorted,
+    // and run the leads lookup last so it joins the smallest possible set.
+    const projects = await Project.aggregate([
+      {
+        $match: { ...matchObj },
       },
-    },
-    {
-      $sort: {
-        title: 1,
+      {
+        $project: projectListingProjection,
       },
-    },
-    {
-      $project: projectListingProjection,
-    },
-  ])
-    .then((projects) => {
-      return res.send({
-        err: false,
-        projects: projects,
-      });
-    })
-    .catch((err) => {
-      logger.error({ err }, "getUserProjects failed");
-      return res.send({
-        err: false,
-        errMsg: conductorErrors.err6,
-      });
+      {
+        $sort: {
+          title: 1,
+        },
+      },
+      // Search results feed a typeahead dropdown; an unbounded result set is wasted work.
+      ...(searchQuery ? [{ $limit: 50 }] : []),
+      LOOKUP_PROJECT_LEADS_STAGE,
+    ]);
+
+    return res.send({
+      err: false,
+      projects,
     });
+  } catch (err) {
+    logger.error({ err }, "getUserProjects failed");
+    return conductor500Err(res);
+  }
 };
 
 
@@ -1170,7 +1175,9 @@ async function getUserProjectsAdmin(req, res) {
       const found = await User.findOne({centralID: req.query.uuid}).orFail();
       userid = found.uuid;
     };
-    const projects = await Project.aggregate([
+    // Paginate inside the pipeline rather than aggregating every project and
+    // slicing in Node, so the leads lookup only ever joins one page of results.
+    const results = await Project.aggregate([
       {
         $match: {
           $and: [
@@ -1186,31 +1193,7 @@ async function getUserProjectsAdmin(req, res) {
         },
       },
       {
-        $lookup: {
-          from: "users",
-          let: {
-            leads: "$leads",
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $in: ["$uuid", "$$leads"],
-                },
-              },
-            },
-            {
-              $project: {
-                _id: 0,
-                uuid: 1,
-                firstName: 1,
-                lastName: 1,
-                avatar: 1,
-              },
-            },
-          ],
-          as: "leads",
-        },
+        $project: projectListingProjection,
       },
       {
         $sort: {
@@ -1218,12 +1201,19 @@ async function getUserProjectsAdmin(req, res) {
         },
       },
       {
-        $project: projectListingProjection,
+        $facet: {
+          projects: [
+            { $skip: offset },
+            { $limit: limit },
+            LOOKUP_PROJECT_LEADS_STAGE,
+          ],
+          total: [{ $count: "count" }],
+        },
       },
     ]);
 
-    const total = projects.length;
-    const paginatedProjects = projects.slice(offset, offset + limit);
+    const paginatedProjects = results[0]?.projects ?? [];
+    const total = results[0]?.total?.[0]?.count ?? 0;
 
     return res.send({
       err: false,
@@ -1234,10 +1224,7 @@ async function getUserProjectsAdmin(req, res) {
     });
   } catch (err) {
     logger.error({ err }, "getUserProjectsAdmin failed");
-    return res.send({
-      err: false,
-      errMsg: conductorErrors.err6,
-    });
+    return conductor500Err(res);
   }
 };
 
@@ -1247,105 +1234,81 @@ async function getUserProjectsAdmin(req, res) {
  * @param {Object} req - the express.js request object
  * @param {Object} res - the express.js response object
  */
-const getUserFlaggedProjects = (req, res) => {
-    let isLibreAdmin = false;
-    let isCampusAdmin = false;
-    let orObj = [{
-        $and: [{
-            flag: 'liaison'
+const getUserFlaggedProjects = async (req, res) => {
+    try {
+        let isLibreAdmin = false;
+        let isCampusAdmin = false;
+        const orObj = [{
+            $and: [{
+                flag: 'liaison'
+            }, {
+                liaisons: req.decoded.uuid
+            }]
         }, {
-            liaisons: req.decoded.uuid
-        }]
-    }, {
-        $and: [{
-            flag: 'lead'
-        }, {
-            leads: req.decoded.uuid
-        }]
-    }];
-    User.findOne({
-        uuid: { $eq: req.decoded.uuid }
-    }).lean().then((user) => {
-        if (user) {
-            if (user.roles && Array.isArray(user.roles)) {
-                user.roles.forEach((item) => {
-                    if (item.org === 'libretexts' && item.role === 'superadmin') {
-                        // user is a LibreTexts Admin
-                        isLibreAdmin = true;
-                    }
-                    if (item.org === process.env.ORG_ID && (item.role === 'campusadmin' || item.role === 'superadmin')) {
-                        // user is a Campus Admin or LibreTexts Campus Admin
-                        isCampusAdmin = true;
-                    }
-                });
-            }
-            if (isLibreAdmin) {
-                orObj.push({
-                    flag: 'libretexts'
-                });
-            }
-            if (isCampusAdmin) {
-                orObj.push({
-                    $and: [{
-                        flag: 'campusadmin'
-                    }, {
-                        orgID: process.env.ORG_ID
-                    }]
-                });
-            }
-            return Project.aggregate([
-                {
-                    $match: {
-                        $or: orObj
-                    }
-                }, {
-                    $lookup: {
-                        from: 'users',
-                        let: {
-                            leads: '$leads'
-                        },
-                        pipeline: [
-                            {
-                                $match: {
-                                    $expr: {
-                                        $in: ['$uuid', '$$leads']
-                                    }
-                                }
-                            }, {
-                                $project: {
-                                    _id: 0,
-                                    uuid: 1,
-                                    firstName: 1,
-                                    lastName: 1,
-                                    avatar: 1
-                                }
-                            }
-                        ],
-                        as: 'leads'
-                    }
-                }, {
-                    $sort: {
-                        title: -1
-                    }
-                }, {
-                    $project: projectListingProjection
-                }
-            ]);
-        } else {
+            $and: [{
+                flag: 'lead'
+            }, {
+                leads: req.decoded.uuid
+            }]
+        }];
+
+        const user = await User.findOne({
+            uuid: { $eq: req.decoded.uuid }
+        }).lean();
+        if (!user) {
             throw (new Error('user'));
         }
-    }).then((projects) => {
+
+        if (user.roles && Array.isArray(user.roles)) {
+            user.roles.forEach((item) => {
+                if (item.org === 'libretexts' && item.role === 'superadmin') {
+                    // user is a LibreTexts Admin
+                    isLibreAdmin = true;
+                }
+                if (item.org === process.env.ORG_ID && (item.role === 'campusadmin' || item.role === 'superadmin')) {
+                    // user is a Campus Admin or LibreTexts Campus Admin
+                    isCampusAdmin = true;
+                }
+            });
+        }
+        if (isLibreAdmin) {
+            orObj.push({
+                flag: 'libretexts'
+            });
+        }
+        if (isCampusAdmin) {
+            orObj.push({
+                $and: [{
+                    flag: 'campusadmin'
+                }, {
+                    orgID: process.env.ORG_ID
+                }]
+            });
+        }
+
+        const projects = await Project.aggregate([
+            {
+                $match: {
+                    $or: orObj
+                }
+            }, {
+                $project: projectListingProjection
+            }, {
+                $sort: {
+                    title: -1
+                }
+            },
+            LOOKUP_PROJECT_LEADS_STAGE
+        ]);
+
         return res.send({
             err: false,
-            projects: projects
+            projects
         });
-    }).catch((err) => {
+    } catch (err) {
         logger.error({ err }, "getUserFlaggedProjects failed");
-        return res.send({
-            err: false,
-            errMsg: conductorErrors.err6
-        });
-    })
+        return conductor500Err(res);
+    }
 };
 
 
@@ -1440,10 +1403,7 @@ const getUserPinnedProjects = async (req, res) => {
     } else {
       logger.error({ err }, "getUserPinnedProjects failed");
     }
-    return res.send({
-      err: false,
-      errMsg,
-    });
+    return conductor500Err(res);
   }
 };
 
@@ -1482,14 +1442,14 @@ async function getRecentProjects(req, res) {
           ]
         }
       }, {
+        $project: projectListingProjection,
+      }, {
         $sort: {
           updatedAt: -1,
           title: -1,
         }
       }, {
         $limit: 6
-      }, {
-        $project: projectListingProjection,
       },
     ]);
     if (!Array.isArray(projects)) {
@@ -1501,10 +1461,7 @@ async function getRecentProjects(req, res) {
     });
   } catch (e) {
     logger.error({ err: e }, "getRecentProjects failed");
-    return res.send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
+    return conductor500Err(res);
   }
 };
 
@@ -1513,62 +1470,37 @@ async function getRecentProjects(req, res) {
  * @param {Object} req - the express.js request object
  * @param {Object} res - the express.js response object
  */
-const getAvailableProjects = (req, res) => {
-    Project.aggregate([
-        {
-            $match: {
-                $and: [
-                    {
-                        orgID: process.env.ORG_ID
-                    }, {
-                        status: 'available'
-                    }
-                ]
-            }
-        }, {
-            $lookup: {
-                from: 'users',
-                let: {
-                    leads: '$leads'
-                },
-                pipeline: [
-                    {
-                        $match: {
-                            $expr: {
-                                $in: ['$uuid', '$$leads']
-                            }
+const getAvailableProjects = async (req, res) => {
+    try {
+        const projects = await Project.aggregate([
+            {
+                $match: {
+                    $and: [
+                        {
+                            orgID: process.env.ORG_ID
+                        }, {
+                            status: 'available'
                         }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            uuid: 1,
-                            firstName: 1,
-                            lastName: 1,
-                            avatar: 1
-                        }
-                    }
-                ],
-                as: 'leads'
-            }
-        }, {
-            $sort: {
-                title: -1
-            }
-        }, {
-            $project: projectListingProjection
-        }
-    ]).then((projects) => {
+                    ]
+                }
+            }, {
+                $project: projectListingProjection
+            }, {
+                $sort: {
+                    title: -1
+                }
+            },
+            LOOKUP_PROJECT_LEADS_STAGE
+        ]);
+
         return res.send({
             err: false,
-            projects: projects
+            projects
         });
-    }).catch((err) => {
+    } catch (err) {
         logger.error({ err }, "getAvailableProjects failed");
-        return res.send({
-            err: false,
-            errMsg: conductorErrors.err6
-        });
-    })
+        return conductor500Err(res);
+    }
 };
 
 
@@ -1577,64 +1509,39 @@ const getAvailableProjects = (req, res) => {
  * @param {Object} req - the express.js request object
  * @param {Object} res - the express.js response object
  */
-const getCompletedProjects = (req, res) => {
-    Project.aggregate([
-        {
-            $match: {
-                $and: [
-                    {
-                        orgID: process.env.ORG_ID
-                    }, {
-                        status: 'completed'
-                    }, {
-                        $or: constructProjectTeamMemberQuery(req.decoded.uuid)
-                    }
-                ]
-            }
-        }, {
-            $lookup: {
-                from: 'users',
-                let: {
-                    leads: '$leads'
-                },
-                pipeline: [
-                    {
-                        $match: {
-                            $expr: {
-                                $in: ['$uuid', '$$leads']
-                            }
+const getCompletedProjects = async (req, res) => {
+    try {
+        const projects = await Project.aggregate([
+            {
+                $match: {
+                    $and: [
+                        {
+                            orgID: process.env.ORG_ID
+                        }, {
+                            status: 'completed'
+                        }, {
+                            $or: constructProjectTeamMemberQuery(req.decoded.uuid)
                         }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            uuid: 1,
-                            firstName: 1,
-                            lastName: 1,
-                            avatar: 1
-                        }
-                    }
-                ],
-                as: 'leads'
-            }
-        }, {
-            $sort: {
-                title: -1
-            }
-        }, {
-            $project: projectListingProjection
-        }
-    ]).then((projects) => {
+                    ]
+                }
+            }, {
+                $project: projectListingProjection
+            }, {
+                $sort: {
+                    title: -1
+                }
+            },
+            LOOKUP_PROJECT_LEADS_STAGE
+        ]);
+
         return res.send({
             err: false,
-            projects: projects
+            projects
         });
-    }).catch((err) => {
+    } catch (err) {
         logger.error({ err }, "getCompletedProjects failed");
-        return res.send({
-            err: false,
-            errMsg: conductorErrors.err6
-        });
-    })
+        return conductor500Err(res);
+    }
 };
 
 
