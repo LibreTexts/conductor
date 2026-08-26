@@ -52,6 +52,16 @@ export type AuthorizedApp = {
   icon: string;
 };
 
+/**
+ * The narrow projection of a user returned by the support staff roster
+ * (`/support/assignable-users`). Assignment surfaces only ever need identity
+ * and avatar, so this is the shape they share.
+ */
+export type AssignableUser = Pick<
+  User,
+  "uuid" | "firstName" | "lastName" | "email" | "avatar"
+>;
+
 export type UserWCentralID = User & {
   centralID?: string;
 };

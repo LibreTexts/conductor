@@ -23,6 +23,7 @@ import { useDocumentTitle } from "usehooks-ts";
 import AuthHelper from "../../../components/util/AuthHelper";
 import { Button, Heading, Stack } from "@libretexts/davis-react";
 import { IconCheck, IconRefresh, IconTrash } from "@tabler/icons-react";
+import useAssignableUsers from "../../../hooks/useAssignableUsers";
 
 const getIdFromURL = (url: string) => {
   if (!url) return "";
@@ -60,6 +61,12 @@ const SupportTicketView = () => {
     keepPreviousData: true,
     refetchOnWindowFocus: true,
     enabled: !!id,
+  });
+
+  // Warm the staff roster cache while the ticket loads so the assignee picker
+  // has data on hand the first time it is opened.
+  useAssignableUsers({
+    enabled: !!id && !!(user.isSupport || user.isHarvester),
   });
 
   const updateTicketStatusMutation = useMutation({

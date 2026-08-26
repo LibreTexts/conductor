@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
 import { Avatar, Button, Input, Text } from "@libretexts/davis-react";
 import { IconCheck, IconPlus, IconSearch, IconX } from "@tabler/icons-react";
 import api from "../../api";
-import { User } from "../../types";
+import { SupportTicket } from "../../types";
 import { useNotifications } from "../../context/NotificationContext";
 import { useTypedSelector } from "../../state/hooks";
 import useDebounce from "../../hooks/useDebounce";
+import useAssignableUsers, {
+  AssignableUser,
+} from "../../hooks/useAssignableUsers";
 
 interface TicketAssigneePickerProps {
   ticketId: string;
@@ -22,11 +25,6 @@ interface TicketAssigneePickerProps {
   /** DOM id applied to the popover trigger so the header can move focus here. */
   triggerId?: string;
 }
-
-type AssignableUser = Pick<
-  User,
-  "uuid" | "firstName" | "lastName" | "email" | "avatar"
->;
 
 const fullName = (u: AssignableUser) => `${u.firstName} ${u.lastName}`;
 
@@ -50,12 +48,7 @@ const TicketAssigneePicker: React.FC<TicketAssigneePickerProps> = ({
     setSelected(assignedUUIDs ?? []);
   }, [assignedUUIDs]);
 
-  const { data: assignableUsers } = useQuery<AssignableUser[]>({
-    queryKey: ["assignableUsers"],
-    queryFn: async () => {
-      const res = await api.getSupportAssignableUsers();
-      return res.data.users;
-    },
+  const { data: assignableUsers } = useAssignableUsers({
     enabled: !!ticketId && !disabled,
   });
 
@@ -67,8 +60,31 @@ const TicketAssigneePicker: React.FC<TicketAssigneePickerProps> = ({
         throw new Error(res.data.errMsg);
       }
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries(["ticket", ticketId]);
+    onSuccess: (_data, assignees) => {
+      // Patch the cached ticket so the UI settles immediately; the background
+      // invalidation below reconciles with the server without blocking the user.
+      // Additions resolve against the cached staff roster (falling back to the
+      // records already on the ticket) so both chips and any assignedUsers-driven
+      // UI stay correct even if the refetch is slow or fails.
+      queryClient.setQueryData<SupportTicket | undefined>(
+        ["ticket", ticketId],
+        (prev) => {
+          if (!prev) return prev;
+          const roster = assignableUsers ?? [];
+          return {
+            ...prev,
+            assignedUUIDs: assignees,
+            assignedUsers: assignees
+              .map(
+                (uuid) =>
+                  prev.assignedUsers?.find((u) => u.uuid === uuid) ??
+                  roster.find((u) => u.uuid === uuid)
+              )
+              .filter((u): u is AssignableUser => !!u),
+          };
+        }
+      );
+      queryClient.invalidateQueries(["ticket", ticketId]);
       addNotification({
         type: "success",
         message: "Successfully updated assignees.",
@@ -92,7 +108,7 @@ const TicketAssigneePicker: React.FC<TicketAssigneePickerProps> = ({
   mutateRef.current = updateAssignedMutation.mutate;
 
   const debouncedSave = useMemo(
-    () => debounce((assignees: string[]) => mutateRef.current(assignees), 500),
+    () => debounce((assignees: string[]) => mutateRef.current(assignees), 250),
     []
   );
 

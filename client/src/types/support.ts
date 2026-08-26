@@ -1,5 +1,5 @@
 import { SupportQueue } from "./supportqueues";
-import { User, UserWCentralID } from "./User";
+import { AssignableUser, User, UserWCentralID } from "./User";
 
 export type SupportTicketGuest = {
   firstName: string;
@@ -30,7 +30,7 @@ export type SupportTicket = {
   category?: string;
   capturedURL?: string;
   assignedUUIDs?: string[]; // User uuids
-  assignedUsers?: UserWCentralID[];
+  assignedUsers?: AssignableUser[];
   user?: UserWCentralID;
   guest?: SupportTicketGuest;
   ccedEmails?: {

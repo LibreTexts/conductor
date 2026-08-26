@@ -1,7 +1,7 @@
 import { useSupportCenterContext } from "../../context/SupportCenterContext";
 import useSupportQueues from "../../hooks/useSupportQueues";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { User } from "../../types";
+import useAssignableUsers from "../../hooks/useAssignableUsers";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../api";
 import { useForm } from "react-hook-form";
 import {
@@ -49,15 +49,7 @@ const BulkChangeModal: React.FC<BulkChangeModalProps> = ({
     withCount: false,
   });
 
-  const { data: assignableUsers } = useQuery<
-    Pick<User, "uuid" | "firstName" | "lastName" | "email" | "avatar">[]
-  >({
-    queryKey: ["assignableUsers"],
-    queryFn: async () => {
-      const res = await api.getSupportAssignableUsers();
-      return res.data.users;
-    },
-  });
+  const { data: assignableUsers } = useAssignableUsers({ enabled: open });
 
   useEffect(() => {
     if (open) {
