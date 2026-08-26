@@ -14,6 +14,8 @@ export interface PrejectRemixerJobInterface extends Document {
   status: PrejectRemixerJobStatus;
   messages: string[];
   errorMessage?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const PrejectRemixerJobSchema = new Schema<PrejectRemixerJobInterface>(

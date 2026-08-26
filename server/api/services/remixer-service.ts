@@ -1907,6 +1907,61 @@ const getRemixerPageEditFlags = (
 const isLocallyImportedPageID = (pageID: string): boolean =>
   pageID.includes("-");
 
+/** Path / format fields overlaid from saved remixer state onto a live TOC row. */
+const REMIXER_PAGE_CONFIG_KEYS = [
+  "pathNumber",
+  "originalPathNumber",
+  "numberedPath",
+  "formattedPath",
+  "formattedPathOverride",
+  "siblingTitleIndex",
+  "formattedPathPrefix",
+  "formattedPathIndex",
+  "originalFormattedPath",
+  "originalFormattedPathOverride",
+] as const;
+
+const pickSavedPageConfigs = (
+  saved: RemixerSubPageState,
+): Partial<RemixerSubPageState> => {
+  const plain = remixerSubPageToResponse(saved) as unknown as RemixerSubPagePlain;
+  const configs: Partial<RemixerSubPageState> = {};
+  for (const key of REMIXER_PAGE_CONFIG_KEYS) {
+    const value = plain[key];
+    if (value !== undefined) {
+      (configs as RemixerSubPagePlain)[key] = value;
+    }
+  }
+  return configs;
+};
+
+/**
+ * Overlays saved autonumbering / path-format fields onto a live TOC tree.
+ * Structure (parentID, href, title) always comes from `toc`; only per-page
+ * config is copied from the saved remixer book when the page ids match.
+ */
+const mergeTocWithSavedConfigs = (
+  toc: RemixerSubPage[],
+  savedBook: RemixerSubPageState[],
+): RemixerSubPage[] => {
+  const savedByID = new Map<string, RemixerSubPageState>();
+  for (const page of savedBook) {
+    const pageID = String(page["@id"] ?? "");
+    if (pageID && !isLocallyImportedPageID(pageID)) {
+      savedByID.set(pageID, page);
+    }
+  }
+
+  return toc.map((tocItem) => {
+    const saved = savedByID.get(String(tocItem["@id"] ?? ""));
+    if (!saved) return tocItem;
+    return {
+      ...tocItem,
+      ...pickSavedPageConfigs(saved),
+    };
+  });
+};
+
 /**
  * Reconciles a saved remixer book against the book's live TOC.
  *
@@ -2019,6 +2074,7 @@ const findDifference = (
 
 export default {
   findDifference: findDifference,
+  mergeTocWithSavedConfigs: mergeTocWithSavedConfigs,
   mapToRemixerSubPageResponse: mapToRemixerSubPagesResponse,
   mapToRemixerPageDetailsResponse: mapToRemixerPageDetailsResponse,
   runRemixerJob: runRemixerJob,

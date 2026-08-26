@@ -77,6 +77,7 @@ export interface RemixerData {
     autoNumbering?: boolean;
     catalogBook?: Book[];
     masterCatelog ?: MasterCatalogV2Response;
+    publishedAt?: string | Date |undefined;
 }
 
 export const remixerDataInit:RemixerData = { autoNumbering: true } as RemixerData;

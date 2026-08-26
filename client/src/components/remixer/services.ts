@@ -1055,7 +1055,7 @@ export const hasFormattedPathChanged = (page: RemixerSubPage): boolean => {
   const currOverride = page.formattedPathOverride === true;
   if (origOverride !== currOverride) return true;
   if (!currOverride) return false;
-  const origPath = (page.originalFormattedPath ?? "").trim();
+  const origPath = (page.originalPathNumber ? page.originalPathNumber.join(".") : (page.originalFormattedPath ?? "")).trim();
 
   return origPath !== currPath;
 };

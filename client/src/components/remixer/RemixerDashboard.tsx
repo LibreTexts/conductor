@@ -24,6 +24,7 @@ import {
   RemixerData,
   RemixerSubPage,
   RemixerUiState,
+  copyModeStates,
   libraries,
   remixerDataInit,
   remixerUiStateInit,
@@ -195,6 +196,7 @@ const RemixerDashboard: React.FC = () => {
       pathLevelFormats?: unknown;
       updatedAt?: string | Date;
       updatedBy?: string;
+      publishedAt?: Date|string;
     };
   } | null>(null);
   // ==========================================================================
@@ -340,13 +342,19 @@ const RemixerDashboard: React.FC = () => {
   const normalizeBookState = useCallback(
     (
       book: RemixerSubPage[],
-      options: { initializeOriginalPathNumber?: boolean } = {},
+      options: {
+        initializeOriginalPathNumber?: boolean;
+        /** Prefer when settings were just applied (setState has not re-rendered yet). */
+        pathLevelFormats?: PathLevelFormat[];
+        autoNumbering?: boolean;
+      } = {},
     ): RemixerSubPage[] => {
       const { initializeOriginalPathNumber = false } = options;
-      const withPaths = buildBookPaths(
-        book,
-        uiState.pathLevelFormats ?? [],
-      ).map((page) => {
+      const pathLevelFormats =
+        options.pathLevelFormats ?? uiState.pathLevelFormats ?? [];
+      const autoNumbering =
+        options.autoNumbering ?? remixerData.autoNumbering ?? true;
+      const withPaths = buildBookPaths(book, pathLevelFormats).map((page) => {
         const seedPathOriginals = initializeOriginalPathNumber;
         const seedFormattedOriginals =
           !page.addedItem && page.originalFormattedPathOverride === undefined;
@@ -372,20 +380,21 @@ const RemixerDashboard: React.FC = () => {
                 ? (page.formattedPath ?? "").trim()
                 : undefined,
           }),
-          ...(seedSplitParts && (() => {
-            const { prefix, index } = splitStoredFormattedPath(
-              page.formattedPath!.trim(),
-              uiState.pathLevelFormats ?? [],
-            );
-            return { formattedPathPrefix: prefix, formattedPathIndex: index };
-          })()),
+          ...(seedSplitParts &&
+            (() => {
+              const { prefix, index } = splitStoredFormattedPath(
+                page.formattedPath!.trim(),
+                pathLevelFormats,
+              );
+              return { formattedPathPrefix: prefix, formattedPathIndex: index };
+            })()),
         };
       });
       const withSiblingTitles = applySiblingDuplicateTitleSuffixes(withPaths);
       const withRenamed = syncRenamedItemFromAutonumberTitle(
         withSiblingTitles,
-        remixerData.autoNumbering ?? true,
-        uiState.pathLevelFormats ?? [],
+        autoNumbering,
+        pathLevelFormats,
       );
       const withArticleTypes = applyDefaultBookArticleTypes(
         withRenamed,
@@ -500,11 +509,13 @@ const RemixerDashboard: React.FC = () => {
     projectId: string,
     coverPageId: string,
     libreLibrary: string,
+    preserveConfigs?: boolean,
   ): Promise<RemixerSubPage[]> => {
     const res = await api.getRemixerTreeFlattened(
       projectId,
       coverPageId,
       libreLibrary,
+      { preserveConfigs: preserveConfigs ?? true, flatten: true },
     );
     const nodes: RemixerSubPage[] = res.response ?? [];
     return nodes.map((node) => ({
@@ -1505,6 +1516,7 @@ const RemixerDashboard: React.FC = () => {
   /** Load the book from a recovery source: local draft, server, server draft, or a fresh reload. */
   const handleLoadSource = async (
     source: "local" | "server" | "serverDraft" | "fresh",
+    options?: { preserveConfigs?: boolean  },
   ) => {
     setLoadingRecovery(true);
     try {
@@ -1579,16 +1591,75 @@ const RemixerDashboard: React.FC = () => {
           }
         }
       } else {
+        // Capture draft settings before clear — page-load recovery has not applied
+        // them to uiState yet, and preserveConfigs needs them.
+        const localBeforeClear = getLocalDraft(id);
         clearLocalDraft(id);
+        const preserveConfigs = options?.preserveConfigs !== false;
         const fullBook = await loadEntireBook(
           id,
           remixerData.liberCoverID!,
           remixerData.libreLibrary!,
+          preserveConfigs,
         );
+
+        // On first-load recovery, uiState still has init defaults — formats live on
+        // the local/server draft until the user picks a source. Prefer those.
+        let preservedSettings: {
+          autoNumbering?: boolean;
+          copyModeState?: string;
+          pathLevelFormats?: unknown;
+        } | null = null;
+        if (preserveConfigs) {
+          const uiHasFormats = (uiState.pathLevelFormats?.length ?? 0) > 0;
+          if (uiHasFormats) {
+            preservedSettings = {
+              autoNumbering: remixerData.autoNumbering,
+              copyModeState: uiState.copyModeState,
+              pathLevelFormats: uiState.pathLevelFormats,
+            };
+          } else {
+            preservedSettings =
+              serverStateRef.current?.settings ??
+              (localBeforeClear
+                ? {
+                    autoNumbering: localBeforeClear.autoNumbering,
+                    copyModeState: localBeforeClear.copyModeState,
+                    pathLevelFormats: localBeforeClear.pathLevelFormats,
+                  }
+                : null);
+          }
+        }
+
+        if (preserveConfigs && preservedSettings) {
+          applyDraftSettings(preservedSettings);
+        } else if (!preserveConfigs) {
+          setUiState((prev) => ({
+            ...prev,
+            pathLevelFormats: [],
+            copyModeState: copyModeStates[0].value,
+          }));
+        }
+
+        const pathLevelFormats = preserveConfigs
+          ? sanitizePathLevelFormats(
+              (preservedSettings?.pathLevelFormats ??
+                uiState.pathLevelFormats) as PathLevelFormat[] | undefined,
+            )
+          : [];
+        const autoNumbering = preserveConfigs
+          ? (preservedSettings?.autoNumbering ??
+            remixerData.autoNumbering ??
+            true)
+          : true;
+
         setRemixerData((prev) => ({
           ...prev,
+          autoNumbering,
           currentBook: normalizeBookState(fullBook, {
             initializeOriginalPathNumber: true,
+            pathLevelFormats,
+            autoNumbering,
           }),
         }));
       }
@@ -1625,6 +1696,7 @@ const RemixerDashboard: React.FC = () => {
               pathLevelFormats: savedState.pathLevelFormats,
               updatedAt: savedState.updatedAt,
               updatedBy: savedState.updatedBy,
+              publishedAt: savedState.publishedAt,
             },
           };
         }
@@ -1645,9 +1717,10 @@ const RemixerDashboard: React.FC = () => {
           localTimestamp: localDraft?.savedAt,
           serverUpdatedAt: serverStateRef.current?.settings.updatedAt,
           serverUpdatedBy: serverStateRef.current?.settings.updatedBy,
+          publishedAt: serverStateRef.current?.settings.publishedAt,
         }}
-        onLoadSource={(source) => {
-          handleLoadSourceRef.current(source);
+        onLoadSource={(source, options) => {
+          handleLoadSourceRef.current(source, options);
           closeAllModals();
         }}
         onClose={closeAllModals}
@@ -2045,6 +2118,7 @@ const RemixerDashboard: React.FC = () => {
         pathLevelFormats?: unknown;
         updatedAt?: string | Date;
         updatedBy?: string;
+        publishedAt?: Date|string;
       } | null = null;
 
       // Describes the server state, so it is only worth reporting once we know
@@ -2062,6 +2136,7 @@ const RemixerDashboard: React.FC = () => {
             pathLevelFormats: savedState.pathLevelFormats,
             updatedAt: savedState?.updatedAt,
             updatedBy: savedState?.updatedBy,
+            publishedAt: savedState?.publishedAt,
           };
           serverStateRef.current = {
             book: savedBook,
@@ -2121,9 +2196,10 @@ const RemixerDashboard: React.FC = () => {
               localTimestamp: localDraft?.savedAt,
               serverUpdatedAt: serverSettings?.updatedAt,
               serverUpdatedBy: serverSettings?.updatedBy,
+              publishedAt: serverSettings?.publishedAt,
             }}
-            onLoadSource={(source) => {
-              handleLoadSourceRef.current(source);
+            onLoadSource={(source, options) => {
+              handleLoadSourceRef.current(source, options);
               // Only relevant when the server state is the one being kept.
               if (source === "server" || source === "serverDraft") {
                 announceUntracked();

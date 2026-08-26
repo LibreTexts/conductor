@@ -27,7 +27,10 @@ export const GetRemixerPageTreeSchema = z.object({
   body: z.object({
     path: z.coerce.number().int().min(1),
     subdomain: z.string().min(1),
-    flatten: z.boolean().default(true),
+    options: z.object({
+      flatten: z.boolean().default(true),
+      preserveConfigs: z.boolean().default(true),
+    }).optional(),
   }),
 });
 
