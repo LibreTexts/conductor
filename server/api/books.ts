@@ -119,7 +119,9 @@ import { PressBookScraper } from "../util/pressbookutils.js";
 import PressbooksImportJob from "../models/pressbooksimportjob.js";
 import base62 from "base62-random";
 import Glossary from "../models/glossary.js";
-import GlossaryService from "./services/glossary-service.js";
+import GlossaryService, {
+  GlossaryNotFoundError,
+} from "./services/glossary-service.js";
 import GlossaryUsage from "../models/glossaryusage.js";
 import { ProjectContext, ProjectError, returnProjectError } from "./services/project-context.js";
 const commonsSyncLog = childLogger("commons-sync");
@@ -3371,6 +3373,11 @@ async function getGlossaryPage(
     return res.send({ err: false, data: glossary });
   }
   catch (err) {
+    // A page with no glossary is the common case across the libraries, not a
+    // failure. Returning 500 here buried real errors in CloudWatch noise.
+    if (err instanceof GlossaryNotFoundError) {
+      return res.status(404).send({ err: true, errMsg: conductorErrors.err11 });
+    }
     logger.error({ err }, "getGlossaryPage failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
@@ -3387,6 +3394,11 @@ async function getGlossaryDetails(
     return res.send({ err: false, ...glossaryDetails })
   }
   catch (err) {
+    // A page with no glossary is the common case across the libraries, not a
+    // failure. Returning 500 here buried real errors in CloudWatch noise.
+    if (err instanceof GlossaryNotFoundError) {
+      return res.status(404).send({ err: true, errMsg: conductorErrors.err11 });
+    }
     logger.error({ err }, "getGlossaryDetails failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
