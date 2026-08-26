@@ -129,7 +129,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
           {!isBookRoot && (
             <Checkbox
               name="formattedPathOverride"
-              label="Override Autonumbering"
+              label="Override Autonumbers"
               className="flex-row-reverse font-bold!"
               labelClassName="font-bold! text-md!"
               checked={page?.formattedPathOverride ?? false}
