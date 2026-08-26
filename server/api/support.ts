@@ -459,7 +459,8 @@ async function _getAssignableUsersInternal(): Promise<Pick<UserInterface, "uuid"
       ],
     })
       .select("uuid firstName lastName email avatar")
-      .sort({ firstName: 1 });
+      .sort({ firstName: 1 })
+      .lean();
 
     return users;
   } catch (err) {

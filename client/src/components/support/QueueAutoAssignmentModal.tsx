@@ -11,7 +11,8 @@ import { IconCheck, IconX } from "@tabler/icons-react";
 import api from "../../api";
 import { useNotifications } from "../../context/NotificationContext";
 import { useSupportCenterContext } from "../../context/SupportCenterContext";
-import { SupportQueueAutoAssignConfig, User } from "../../types";
+import useAssignableUsers from "../../hooks/useAssignableUsers";
+import { SupportQueueAutoAssignConfig } from "../../types";
 
 interface QueueAutoAssignmentModalProps {
   open: boolean;
@@ -39,16 +40,8 @@ const QueueAutoAssignmentModal: React.FC<QueueAutoAssignmentModalProps> = ({
     enabled: open,
   });
 
-  const { data: assignableUsers, isLoading: isAssignableUsersLoading } = useQuery<
-    Pick<User, "uuid" | "firstName" | "lastName" | "email" | "avatar">[]
-  >({
-    queryKey: ["assignableUsers"],
-    queryFn: async () => {
-      const res = await api.getSupportAssignableUsers();
-      return res.data.users;
-    },
-    enabled: open,
-  });
+  const { data: assignableUsers, isLoading: isAssignableUsersLoading } =
+    useAssignableUsers({ enabled: open });
 
   // Default the selected queue to the one active in the sidebar, falling back to the first.
   useEffect(() => {
