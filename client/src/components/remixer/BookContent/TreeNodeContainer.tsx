@@ -26,6 +26,8 @@ interface TreeNodeContainerProps {
   isPlacementChanged: boolean;
   isSelected: boolean;
   isBookTree: boolean;
+  /** Direct child of the book cover — always shown with a folder icon in the book tree. */
+  isBookRootChild?: boolean;
   isInteractionLocked?: boolean;
   isVisualLocked?: boolean;
   itemLink?: string;
@@ -59,6 +61,7 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
   isPlacementChanged,
   isSelected,
   isBookTree,
+  isBookRootChild = false,
   isInteractionLocked = false,
   isVisualLocked = false,
   itemLink,
@@ -137,7 +140,10 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
           <span style={{ width: 12 }} />
         )}
 
-        <Icon name={isFolder ? "folder" : "file alternate"} color="grey" />
+        <Icon
+          name={isFolder || (isBookTree && isBookRootChild) ? "folder" : "file alternate"}
+          color="grey"
+        />
 
         {(() => {
           const showLink =

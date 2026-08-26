@@ -527,6 +527,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
           isPlacementChanged={isPlacementChanged}
           isSelected={isSelected}
           isBookTree={isBookTree}
+          isBookRootChild={isBookTree && depth === 1}
           isInteractionLocked={isInteractionLocked}
           isVisualLocked={isInteractionLocked}
           itemLink={itemLink}
