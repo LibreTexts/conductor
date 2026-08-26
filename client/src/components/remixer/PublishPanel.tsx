@@ -144,7 +144,7 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
       }}
     >
       <Modal.Header>Save to Library</Modal.Header>
-      <Modal.Body>
+      <Modal.Body className="!overflow-visible">
         {publishStatus !== "idle" && (
           <div
             style={{
@@ -215,12 +215,12 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
             )}
           </div>
         )}
-        <Accordion variant="bordered" className="mt-4 w-full">
+        <Accordion variant="bordered" className="mt-4 w-full !overflow-visible">
           {sections.map((section) => (
-            <Accordion.Item key={section.key} defaultOpen={false}>
+            <Accordion.Item key={section.key} defaultOpen={false} className="!overflow-visible">
               <Accordion.Trigger>
                 <span
-                  className="font-semibold"
+                  className="font-semibold text-lg "
                   style={{ color: section.color }}
                 >
                   {section.items.length} {section.label}
@@ -230,9 +230,9 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
                 {section.items.length === 0 ? (
                   <Text color="muted">No pages</Text>
                 ) : (
-                  <ul className="list-disc space-y-1 pl-5">
+                  <ul className="max-h-48 list-disc space-y-1 overflow-y-auto pl-5 pr-1">
                     {section.items.map((item) => (
-                      <li key={item["@id"]} className="text-sm text-gray-800">
+                      <li key={item["@id"]} className="text-lg text-gray-800">
                         {appendSiblingTitleSuffix(
                           item["@title"] || item.title || "",
                           item,
