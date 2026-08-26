@@ -766,39 +766,69 @@ const TreeDnd: React.FC<TreeDndProps> = ({
                 <span style={{ width: 12 }} />
 
                 <Icon name="folder" color="grey" />
-                {!isBookTree && itemLink ? (
-                  <a
-                    href={itemLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-base"
-                    style={{
-                      whiteSpace: "nowrap",
-                      fontStyle: isInteractionLocked ? "italic" : "normal",
+                {(() => {
+                  const showLink =
+                    Boolean(itemLink) &&
+                    itemLink !== "#" &&
+                    (!isBookTree || !isImported);
+                  const titleStyle: React.CSSProperties = {
+                    whiteSpace: "nowrap",
+                    fontStyle: isInteractionLocked ? "italic" : "normal",
+                    color: isInteractionLocked ? "#6b7280" : "inherit",
+                    textDecoration: isDeleted ? "line-through" : "none",
+                  };
 
-                      textDecoration: isDeleted ? "line-through" : "none",
-                    }}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    {displayTitle}
-                    <Icon
-                      name="linkify"
-                      style={{ marginLeft: 8, color: "#1e70bf" }}
-                    />
-                  </a>
-                ) : (
-                  <span
-                    className="text-base"
-                    style={{
-                      whiteSpace: "nowrap",
-                      fontStyle: isInteractionLocked ? "italic" : "normal",
-                      color: isInteractionLocked ? "#6b7280" : "inherit",
-                      textDecoration: isDeleted ? "line-through" : "none",
-                    }}
-                  >
-                    {displayTitle}
-                  </span>
-                )}
+                  if (!showLink) {
+                    return (
+                      <span className="text-base" style={titleStyle}>
+                        {displayTitle}
+                      </span>
+                    );
+                  }
+
+                  if (!isBookTree) {
+                    return (
+                      <a
+                        href={itemLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-base"
+                        style={{
+                          ...titleStyle,
+                          color: undefined,
+                        }}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {displayTitle}
+                        <Icon
+                          name="linkify"
+                          style={{ marginLeft: 8, color: "#1e70bf" }}
+                        />
+                      </a>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <span className="text-base" style={titleStyle}>
+                        {displayTitle}
+                      </span>
+                      <a
+                        href={itemLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Open page"
+                        onClick={(event) => event.stopPropagation()}
+                        style={{ display: "inline-flex", marginLeft: 8 }}
+                      >
+                        <Icon
+                          name="linkify"
+                          style={{ color: "#1e70bf", margin: 0 }}
+                        />
+                      </a>
+                    </>
+                  );
+                })()}
               </List.Item>
               {renderNodes(
                 root["@id"],

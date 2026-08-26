@@ -139,35 +139,67 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
 
         <Icon name={isFolder ? "folder" : "file alternate"} color="grey" />
 
-        {!isBookTree && itemLink ? (
-          <a
-            href={itemLink}
-            target="_blank"
-            rel="noreferrer"
-            className="text-base"
-            style={{
-              whiteSpace: "nowrap",
-              fontStyle: isVisualLocked ? "italic" : "normal",
-              // color: "#1e70bf",
-              textDecoration: "none",
-            }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            {displayTitle}
-            <Icon name="linkify" style={{ marginLeft: 8, color: "#1e70bf" }} />
-          </a>
-        ) : (
-          <span
-            className="text-base"
-            style={{
-              whiteSpace: "nowrap",
-              fontStyle: isVisualLocked ? "italic" : "normal",
-              color: isVisualLocked ? "#6b7280" : "inherit",
-            }}
-          >
-            {displayTitle}
-          </span>
-        )}
+        {(() => {
+          const showLink =
+            Boolean(itemLink) &&
+            itemLink !== "#" &&
+            (!isBookTree || !isImported);
+          const titleStyle: React.CSSProperties = {
+            whiteSpace: "nowrap",
+            fontStyle: isVisualLocked ? "italic" : "normal",
+            color: isVisualLocked ? "#6b7280" : "inherit",
+            textDecoration: isDeleted ? "line-through" : "none",
+          };
+
+          if (!showLink) {
+            return (
+              <span className="text-base" style={titleStyle}>
+                {displayTitle}
+              </span>
+            );
+          }
+
+          // Library tree: title is the link. Book tree: only the icon links.
+          if (!isBookTree) {
+            return (
+              <a
+                href={itemLink}
+                target="_blank"
+                rel="noreferrer"
+                className="text-base"
+                style={{
+                  ...titleStyle,
+                  color: undefined,
+                }}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {displayTitle}
+                <Icon
+                  name="linkify"
+                  style={{ marginLeft: 8, color: "#1e70bf" }}
+                />
+              </a>
+            );
+          }
+
+          return (
+            <>
+              <span className="text-base" style={titleStyle}>
+                {displayTitle}
+              </span>
+              <a
+                href={itemLink}
+                target="_blank"
+                rel="noreferrer"
+                title="Open page"
+                onClick={(event) => event.stopPropagation()}
+                style={{ display: "inline-flex", marginLeft: 8 }}
+              >
+                <Icon name="linkify" style={{ color: "#1e70bf", margin: 0 }} />
+              </a>
+            </>
+          );
+        })()}
         {isDeleted && (
           <Icon
             name="trash"
