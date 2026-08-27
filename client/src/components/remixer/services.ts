@@ -377,10 +377,8 @@ export const arePathNumbersEqual = (
   const l = left ?? [];
   const r = right ?? [];
   if (l.length !== r.length) return false;
-  return l.every(
-    (segment, index) =>
-      segment.padStart(2, "0") === r[index].padStart( 2, "0"),
-  );
+  const norm = (s: string) => s.trim().replace(/^0+(?=\d)/, "");
+  return l.every((segment, index) => norm(segment) === norm(r[index] ?? ""));
 };
 
 export const cloneBook = (book: RemixerSubPage[]): RemixerSubPage[] =>
