@@ -169,7 +169,10 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                 name="remixer-mode"
                 label=""
                 placeholder="Mode..."
-                className="w-48 mb-1"
+                className="w-full min-w-0 [&>div]:!mt-0"
+                labelClassName="sr-only"
+                selectClassName="!h-10 !box-border !py-0 leading-none"
+                
                 value={copyModeState}
                 onChange={(e) => {
                     onCopyModeChange(e.target.value);

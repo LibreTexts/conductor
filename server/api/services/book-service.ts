@@ -231,7 +231,7 @@ export default class BookService {
       }
 
       // Load all page ID's from the book's TOC and check if the requested pageID is in that list
-      const toc = await this.getBookPageIDs();
+      const toc = await this.getBookPageIDs(false);
       return toc.includes(pageID.toString());
     } catch (err) {
       logger.error({ err }, "canAccessPage failed");
@@ -315,9 +315,9 @@ export default class BookService {
     return result;
   }
 
-  async getBookTOCNew(): Promise<TableOfContents> {
+  async getBookTOCNew(cache: boolean = true): Promise<TableOfContents> {
     const cached = BookService._tocCacheByBookID.get<TableOfContents>(this._bookID);
-    if (cached) {
+    if (cached && cache) {
       return cached;
     }
 
@@ -400,8 +400,8 @@ export default class BookService {
    * Calls getBookTOCNew() to get the structured TOC, then flattens it into an array of pages
    * @returns {Promise<{ id: string; title: string; url: string }[]>} - An array of pages with their ID, title, and URL
    */
-  async getBookTOCFlat(): Promise<{ id: string; title: string; url: string }[]> {
-    const structured = await this.getBookTOCNew();
+  async getBookTOCFlat(cache: boolean = true): Promise<{ id: string; title: string; url: string }[]> {
+    const structured = await this.getBookTOCNew(cache);
 
     const flattenTOC = (toc: TableOfContents): { id: string; title: string; url: string }[] => {
       const result = [{ id: toc.id, title: toc.title, url: toc.url }];
@@ -421,8 +421,8 @@ export default class BookService {
    * Calls getBookTOCFlat() to get the flat array of pages, then maps it to an array of page IDs
    * @returns {Promise<string[]>} - An array of page IDs
    */
-  async getBookPageIDs(): Promise<string[]> {
-    const toc = await this.getBookTOCFlat();
+  async getBookPageIDs(cache: boolean = true): Promise<string[]> {
+    const toc = await this.getBookTOCFlat(cache);
     return toc.map((page) => page.id);
   }
 
