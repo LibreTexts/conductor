@@ -62,11 +62,18 @@ export const buildRemixerPagePathSegment = (
   // Prefer formattedPath so autoNumbering `start` (incl. 0 → `00%3A_…`) is honored.
   const numbering =
   page.numberedPath?.trim() ||page.formattedPath?.trim() ||  "";
-  const parts = page?.pathNumber|| numbering.split(".");
+  // An empty pathNumber marks the book root rather than "no numbering info",
+  // so fall through to numbering instead of letting `[]` win as truthy. The
+  // copy keeps the padding below from mutating the caller's stored array.
+  const parts = page.pathNumber?.length
+    ? [...page.pathNumber]
+    : numbering
+      ? numbering.split(".")
+      : [];
   if (parts.length > 0) {
     parts[parts.length - 1] = parts[parts.length - 1]!.padStart(2, "0");
   }
-  const paddedNumbering = numbering ? parts.join(".") : "";
+  const paddedNumbering = parts.join(".");
   return paddedNumbering
     ? `${paddedNumbering}:_${titleSegment}${siblingTitleIndexPostfix}`
     : titleSegment;
