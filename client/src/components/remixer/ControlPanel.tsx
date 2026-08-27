@@ -1,7 +1,7 @@
 import { Button, IconButton, Menu, Select, Tooltip, type ButtonProps, type IconButtonProps } from "@libretexts/davis-react";
 import { useEffect, useState } from "react";
 import { CopyMode } from "./model";
-import { IconAtom, IconClockEdit, IconDeviceFloppy, IconDownload, IconPencilPause, IconRefresh, IconSettings } from "@tabler/icons-react";
+import { IconAtom, IconBook, IconCloudUpload, IconClockEdit,  IconDownload,  IconRefresh, IconSettings } from "@tabler/icons-react";
 import ConsultInsightButton from "../NextGenComponents/ConsultInsightButton";
 import {
     dumpProjectToLocalStorageToJsonFile,
@@ -144,7 +144,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
         } as ControlPanelAction] : []),
         {
             title: "Save as Draft",
-            icon: <IconPencilPause size={18} />,
+            icon: <IconCloudUpload size={18} />,
             variant: "outline",
             group: 'right',
             onClick: () => {
@@ -153,7 +153,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
         },
         {
             title: "Save Changes",
-            icon: <IconDeviceFloppy size={18} />,
+            icon: <IconBook size={18} />,
             variant: "primary",
             group: 'right',
             onClick: () => {
@@ -217,7 +217,8 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                                                     onClick={action.onClick}
                                                     title={action.tooltip}
                                                     disabled={action.disabled}
-                                                    className="m-0!" // This is a temp fix until Semantic UI is removed from the project. It's applying a margin to the button that isn't needed
+                                                    size="md"
+                                                    className="m-0! shrink-0" // Temp fix: Semantic UI margin until SUI is removed
                                                 />
                                             </Tooltip>
                                         )
@@ -239,7 +240,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                                 <ConsultInsightButton href="https://commons.libretexts.org/insight/the-remixer" />
                             </Tooltip>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex shrink-0 flex-row items-center gap-2">
                             {
                                 actions.filter(action => action.group === 'right').map((action, index) => {
                                     if ('tooltip' in action) {
@@ -252,6 +253,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                                                     onClick={action.onClick}
                                                     title={action.tooltip}
                                                     disabled={action.disabled}
+                                                    className="!inline-flex !flex-row !items-center shrink-0 whitespace-nowrap"
                                                 />
                                             </Tooltip>
                                         )
@@ -264,6 +266,8 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                                             icon={action.icon}
                                             onClick={action.onClick}
                                             disabled={action.disabled}
+                                            size="sm"
+                                            className="!inline-flex !h-10 !box-border !flex-row !items-center !py-0 shrink-0 whitespace-nowrap m-0!"
                                         >
                                             {action.title}
                                         </Button>
