@@ -567,126 +567,155 @@ const RemixerDashboard: React.FC = () => {
    */
   const loadSelectedBook = async (bookID: string, lib: string) => {
     if (!id) return;
+    // Prevent the selected-library useQuery from fetching home again while we
+    // build the ancestry tree — that race produced a duplicate library root.
     skipLibraryAutoLoadRef.current = true;
-    setRemixerData((prev) => ({ ...prev, selectedLibrary: lib as Library }));
+    try {
+      setRemixerData((prev) => ({ ...prev, selectedLibrary: lib as Library }));
 
-    const targetNodeId = bookID.split("-")[1];
-    const pageOptions = {
-      includeMatter: false,
-      linkTitle: true,
-      full: false,
-    };
-    const nodesById = new Map<string, RemixerSubPage>();
-    const expandedNodeIds = new Set<string>([targetNodeId]);
+      const targetNodeId = bookID.split("-")[1];
+      const pageOptions = {
+        includeMatter: false,
+        linkTitle: true,
+        full: false,
+      };
+      const nodesById = new Map<string, RemixerSubPage>();
+      const expandedNodeIds = new Set<string>([targetNodeId]);
 
-    const upsert = (node: RemixerSubPage, idOverride?: string) => {
-      const nodeId = idOverride ?? node["@id"];
-      if (!nodeId) return;
-      nodesById.set(nodeId, {
-        ...(nodesById.get(nodeId) ?? {}),
-        ...node,
-        "@id": nodeId,
-      });
-    };
+      const upsert = (node: RemixerSubPage, idOverride?: string) => {
+        const nodeId = idOverride ?? node["@id"];
+        if (!nodeId) return;
+        nodesById.set(nodeId, {
+          ...(nodesById.get(nodeId) ?? {}),
+          ...node,
+          "@id": nodeId,
+        });
+      };
 
-    // Selected book's descendants in one request.
-    const treeRes = await api.getRemixerTreeFlattened(id, targetNodeId, lib);
-    for (const node of (treeRes.response ?? []) as RemixerSubPage[]) {
-      upsert(node);
-    }
+      // Selected book's descendants in one request.
+      const treeRes = await api.getRemixerTreeFlattened(id, targetNodeId, lib);
+      for (const node of (treeRes.response ?? []) as RemixerSubPage[]) {
+        upsert(node);
+      }
 
-    // Walk the ancestry with page details so the library tree can expand to the book.
-    let pageId: string | undefined = targetNodeId;
-    const visited = new Set<string>();
-    while (pageId && pageId !== "-1" && !visited.has(pageId)) {
-      visited.add(pageId);
-      expandedNodeIds.add(pageId);
+      // Walk the ancestry with page details so the library tree can expand to the book.
+      let pageId: string | undefined = targetNodeId;
+      const visited = new Set<string>();
+      while (pageId && pageId !== "-1" && !visited.has(pageId)) {
+        visited.add(pageId);
+        expandedNodeIds.add(pageId);
 
-      const details = await api.getRemixerPage(
+        const details = await api.getRemixerPage(
+          id,
+          pageId,
+          lib,
+          true,
+          false,
+          pageOptions,
+        );
+        if (details.err || !details.response) break;
+
+        const node = details.response as RemixerSubPage;
+        upsert(node, node["@id"] || pageId);
+
+        const parentId = node.parentID;
+        if (!parentId || parentId === "-1") break;
+
+        // Direct children of each ancestor (siblings of the path) — one level only.
+        const siblings = await api.getRemixerPage(
+          id,
+          parentId,
+          lib,
+          false,
+          false,
+          pageOptions,
+        );
+        if (siblings.err === false) {
+          for (const child of (siblings.response ?? []) as RemixerSubPage[]) {
+            upsert(child);
+          }
+        }
+
+        pageId = parentId;
+      }
+
+      // Library home + top-level shelves (same shape as the auto-load query):
+      // resolve home via "0", then load children by the real home @id.
+      const libdetails = await api.getRemixerPage(
         id,
-        pageId,
+        "0",
         lib,
         true,
         false,
         pageOptions,
       );
-      if (details.err || !details.response) break;
-
-      const node = details.response as RemixerSubPage;
-      upsert(node, node["@id"] || pageId);
-
-      const parentId = node.parentID;
-      if (!parentId || parentId === "-1") break;
-
-      // Direct children of each ancestor (siblings of the path) — one level only.
-      const siblings = await api.getRemixerPage(
-        id,
-        parentId,
-        lib,
-        false,
-        false,
-        pageOptions,
-      );
-      if (siblings.err === false) {
-        for (const child of (siblings.response ?? []) as RemixerSubPage[]) {
-          upsert(child);
+      if (libdetails.err === false && libdetails.response) {
+        const home = libdetails.response as RemixerSubPage;
+        const homeId = home["@id"];
+        upsert(home);
+        if (homeId) {
+          expandedNodeIds.add(homeId);
+          const libsubpages = await api.getRemixerPage(
+            id,
+            homeId,
+            lib,
+            false,
+            false,
+            pageOptions,
+          );
+          if (libsubpages.err === false) {
+            for (const child of (libsubpages.response ??
+              []) as RemixerSubPage[]) {
+              upsert(child);
+            }
+          }
         }
       }
 
-      pageId = parentId;
-    }
+      setRemixerData((prev) => ({
+        ...prev,
+        library: {
+          ...(prev.library ?? {}),
+          [lib]: Array.from(nodesById.values()),
+        },
+      }));
 
-    const [libsubpages, libdetails] = await Promise.all([
-      api.getRemixerPage(id, "0", lib, false, false, pageOptions),
-      api.getRemixerPage(id, "0", lib, true, false, pageOptions),
-    ]);
-    if (libdetails.err === false && libdetails.response) {
-      upsert(libdetails.response as RemixerSubPage, "0");
-    }
-    if (libsubpages.err === false) {
-      for (const child of (libsubpages.response ?? []) as RemixerSubPage[]) {
-        upsert(child);
-      }
-    }
-
-    setRemixerData((prev) => ({
-      ...prev,
-      library: {
-        ...(prev.library ?? {}),
-        [lib]: Array.from(nodesById.values()),
-      },
-    }));
-
-    setExpandedNodeIdsLibrary(
-      new Set(
-        Array.from(expandedNodeIds).sort((a, b) => parseInt(a) - parseInt(b)),
-      ),
-    );
-
-    setTimeout(() => {
-      skipLibraryAutoLoadRef.current = false;
-      const el = document.querySelector<HTMLElement>(
-        `[data-node-id="${targetNodeId}"]`,
+      setExpandedNodeIdsLibrary(
+        new Set(
+          Array.from(expandedNodeIds).sort((a, b) => parseInt(a) - parseInt(b)),
+        ),
       );
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        el.style.transition =
-          "outline-color 0.5s ease, background-color 0.5s ease";
-        el.style.outline = "2px solid #1e70bf";
-        el.style.backgroundColor = "rgba(30, 112, 191, 0.1)";
-        el.style.borderRadius = "4px";
-        setTimeout(() => {
-          el.style.outlineColor = "transparent";
-          el.style.backgroundColor = "transparent";
-        }, 4000);
-        setTimeout(() => {
-          el.style.transition = "";
-          el.style.outline = "";
-          el.style.backgroundColor = "";
-          el.style.borderRadius = "";
-        }, 4500);
-      }
-    }, 200);
+
+      setTimeout(() => {
+        const el = document.querySelector<HTMLElement>(
+          `[data-node-id="${targetNodeId}"]`,
+        );
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.style.transition =
+            "outline-color 0.5s ease, background-color 0.5s ease";
+          el.style.outline = "2px solid #1e70bf";
+          el.style.backgroundColor = "rgba(30, 112, 191, 0.1)";
+          el.style.borderRadius = "4px";
+          setTimeout(() => {
+            el.style.outlineColor = "transparent";
+            el.style.backgroundColor = "transparent";
+          }, 4000);
+          setTimeout(() => {
+            el.style.transition = "";
+            el.style.outline = "";
+            el.style.backgroundColor = "";
+            el.style.borderRadius = "";
+          }, 4500);
+        }
+      }, 200);
+    } finally {
+      // Defer until after React commits library pages so auto-load sees
+      // hasSelectedLibraryPages and stays disabled.
+      setTimeout(() => {
+        skipLibraryAutoLoadRef.current = false;
+      }, 0);
+    }
   };
 
   /** Lazy-fetch children for a book folder being expanded (skipped if server-backed children already exist). */
