@@ -1181,18 +1181,29 @@ export const applyBookNodeDeletion = (
     (childMap.get(nodeId) ?? []).forEach((childId) => queue.push(childId));
   }
 
-  const withDeleted = existingBookNodes.map((node) =>
-    toDelete.has(node["@id"]) ? { ...node, deletedItem: true } : node,
+  const deletionNodes = existingBookNodes.filter((node) =>
+    toDelete.has(node["@id"]),
   );
+  // Draft-only nodes (client ids contain "-") were never published — drop them
+  // instead of soft-deleting so they never appear in the publish delete set.
+  const allDraftOnly =
+    deletionNodes.length > 0 &&
+    deletionNodes.every((node) => node["@id"].includes("-"));
+
+  const afterDeletion = allDraftOnly
+    ? existingBookNodes.filter((node) => !toDelete.has(node["@id"]))
+    : existingBookNodes.map((node) =>
+        toDelete.has(node["@id"]) ? { ...node, deletedItem: true } : node,
+      );
 
   const activeChildrenByParent = new Set<string>();
-  withDeleted.forEach((node) => {
+  afterDeletion.forEach((node) => {
     if (!node.deletedItem && node.parentID) {
       activeChildrenByParent.add(node.parentID);
     }
   });
 
-  return withDeleted.map((node) =>
+  return afterDeletion.map((node) =>
     !node.deletedItem
       ? { ...node, "@subpages": activeChildrenByParent.has(node["@id"]) }
       : node,
