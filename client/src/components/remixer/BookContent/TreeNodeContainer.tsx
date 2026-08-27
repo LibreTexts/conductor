@@ -193,16 +193,7 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
               <span className="text-base" style={titleStyle}>
                 {displayTitle}
               </span>
-              <a
-                href={itemLink}
-                target="_blank"
-                rel="noreferrer"
-                title="Open page"
-                onClick={(event) => event.stopPropagation()}
-                style={{ display: "inline-flex", marginLeft: 8 }}
-              >
-                <Icon name="linkify" style={{ color: "#1e70bf", margin: 0 }} />
-              </a>
+           
             </>
           );
         })()}
