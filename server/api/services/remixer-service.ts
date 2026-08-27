@@ -1670,8 +1670,27 @@ const runRemixerJob = async ({
     // titles/URLs with each other). Rather than failing the whole job on
     // the first conflict, push conflicting pages onto a stack and reprocess
     // them once the rest of the run has had a chance to make progress.
+    //
+    // Deletes run in a second phase AFTER all creates/imports/moves/renames.
+    // MindTouch deletes use recursive=true, so deleting a chapter while its
+    // former children still live under it on the library (even though the
+    // draft already reparented them) would cascade-wipe those survivors and
+    // cause their later move to fail.
+    const isDeleteEntry = (entry: OrderedEntry): boolean => {
+      const status = getPageStatus(entry.page);
+      return (
+        status === "deleted" ||
+        entry.inDeletedBranch ||
+        entry.page.isDeleted === true ||
+        entry.page.deletedItem === true
+      );
+    };
+
+    const nonDeleteOrdered = ordered.filter((entry) => !isDeleteEntry(entry));
+    const deleteOrdered = ordered.filter((entry) => isDeleteEntry(entry));
+
     let deferredStack: OrderedEntry[] = [];
-    for (const entry of ordered) {
+    for (const entry of nonDeleteOrdered) {
       const outcome = await processOrderedEntry(entry);
       if (outcome === "conflict") {
         deferredStack.push(entry);
@@ -1757,6 +1776,13 @@ const runRemixerJob = async ({
         `Unable to resolve title/URL conflicts for: ${remainingTitles}`,
       );
     }
+
+    // Second phase: deletes only, after survivors have been moved/renamed out
+    // of any subtree that is about to be recursively removed on MindTouch.
+    for (const entry of deleteOrdered) {
+      await processOrderedEntry(entry);
+    }
+
     const bookURL = remixerState.remixerCurrentBook[0]["@href"];
 
     // Ensure Back Matter is the last chapter among its siblings.
