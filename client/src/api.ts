@@ -12,6 +12,8 @@ import {
   CentralIdentityOrg,
   CentralIdentitySystem,
   CentralIdentityUser,
+  CentralIdentityUserSort,
+  CentralIdentitySortOrder,
   CentralIdentityService,
   CentralIdentityVerificationRequest,
   CollectionResource,
@@ -1023,13 +1025,16 @@ class API {
     limit,
     query,
     sort,
+    order,
     academy_online,
     admin_role,
   }: {
     page?: number;
     limit?: number;
     query?: string;
-    sort?: string;
+    /** Omit to let LibreOne pick its default (relevance when `query` is set). */
+    sort?: CentralIdentityUserSort;
+    order?: CentralIdentitySortOrder;
     academy_online?: number[];
     admin_role?: string[];
   }) {
@@ -1044,8 +1049,9 @@ class API {
         ...(limit ? { limit } : {}),
         ...(query ? { query } : {}),
         ...(sort ? { sort } : {}),
-        ...(academy_online ? { academy_online } : {}),
-        ...(admin_role ? { admin_role } : {}),
+        ...(order ? { order } : {}),
+        ...(academy_online?.length ? { academy_online } : {}),
+        ...(admin_role?.length ? { admin_role } : {}),
       },
     });
     return res;
