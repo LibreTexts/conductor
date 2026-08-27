@@ -593,24 +593,30 @@ const applyArticleKindToPage = async (
   page.article = localArticleField(kind);
 };
 
+type CreatePageOptions = {
+  /** Bypass numbered-path construction (used for throwaway placeholder pages). */
+  pathSegmentOverride?: string;
+  titleOverride?: string;
+};
+
 const handleNewPage = async (
   page: RemixerSubPageState,
   parent: RemixerSubPageState,
   title: string,
   subdomain: string,
   coverId?: string,
+  options?: CreatePageOptions,
 ): Promise<{ pageID: string; pageURI: string }> => {
   const kind = articleKindForPlacement(page["@id"], parent["@id"], coverId);
   const content = contentTemplateForArticleKind(kind);
   page.article = localArticleField(kind);
+  const createTitle = options?.titleOverride || title;
   const rawTitle = page["@title"] || page.title || title;
   // segment must be un-encoded here — we double-encode the full path below,
   // matching CXOneFetch's encodeURIComponent(encodeURIComponent(path)) convention.
-  const segment = buildRemixerPagePathSegment(
-    page,
-    rawTitle,
-    page.siblingTitleIndex,
-  );
+  const segment =
+    options?.pathSegmentOverride ||
+    buildRemixerPagePathSegment(page, rawTitle, page.siblingTitleIndex);
 
   const parentUri = await resolveUiUri(parent, subdomain);
   // uri.ui already has %3A-encoded colons; decode once so the combined path
@@ -626,7 +632,7 @@ const handleNewPage = async (
   // MindTouch pages/=<path> requires the content path to be double-encoded:
   // the HTTP server decodes once, then the DekiWiki router decodes again.
   const pathEnc = encodeURIComponent(encodeURIComponent(rawPath));
-  const url = `https://${subdomain}.libretexts.org/@api/deki/pages/=${pathEnc}/${CXOnePageAPIEndpoints.POST_Contents_Title(title)}`;
+  const url = `https://${subdomain}.libretexts.org/@api/deki/pages/=${pathEnc}/${CXOnePageAPIEndpoints.POST_Contents_Title(createTitle)}`;
   const dekiHeaders = await generateAPIRequestHeaders(subdomain);
   if (!dekiHeaders) {
     throw new Error(
@@ -643,7 +649,7 @@ const handleNewPage = async (
   });
 
   if (!response.ok) {
-    throwForMindTouchResponse(response, `Error creating page "${title}"`);
+    throwForMindTouchResponse(response, `Error creating page "${createTitle}"`);
   }
   const createdPage = await getPage(rawPath, subdomain);
   const pageID = createdPage?.["@id"]?.toString();
@@ -730,7 +736,9 @@ const handleModifiedPage = async (
   const isRenamed = page.renamedItem === true;
 
   if (isMoved && (!parent || parent["@id"]?.startsWith("new-"))) {
-    throw new Error(
+    // Defer rather than fail the job: the parent may still be a placeholder
+    // `new-…` id whose create is waiting on a deleted occupant to vacate.
+    throw new TitleConflictError(
       "Moving or reordering a page requires a published parent in the target book.",
     );
   }
@@ -847,6 +855,84 @@ const temporarilyRelocatePage = async (
     throwForMindTouchResponse(
       response,
       "Error temporarily relocating page to break a title/URL conflict",
+    );
+  }
+};
+
+/**
+ * A deleted sibling that currently occupies the title/URL the given page wants.
+ * Matching is by original ordinal path (what the deleted page used to be) or
+ * by the live URI leaf vs the segment we would create — either is enough to
+ * know a first-pass create would 409 and a recursive delete of the occupant
+ * would cascade-wipe children that still live under it.
+ */
+const findDeletedPathOccupant = (
+  page: RemixerSubPageState,
+  allPages: RemixerSubPageState[],
+): RemixerSubPageState | undefined => {
+  const parentID = page.parentID ?? "-1";
+  const intendedPath = (page.pathNumber ?? []).join(".");
+  const rawTitle = page["@title"] || page.title || "";
+  const intendedSegment = buildRemixerPagePathSegment(
+    page,
+    rawTitle,
+    page.siblingTitleIndex,
+  );
+
+  return allPages.find((candidate) => {
+    if (candidate === page) return false;
+    if (getPageStatus(candidate) !== "deleted") return false;
+    if ((candidate.parentID ?? "-1") !== parentID) return false;
+
+    const occupantPath = (
+      candidate.originalPathNumber ??
+      candidate.pathNumber ??
+      []
+    ).join(".");
+    if (intendedPath.length > 0 && occupantPath === intendedPath) return true;
+
+    const leaf = decodeURIComponent(
+      (getRemixerPageUriUi(candidate).split("/").pop() ?? "").split("?")[0] ??
+        "",
+    );
+    return leaf.length > 0 && leaf === intendedSegment;
+  });
+};
+
+/** Rename a page that was created at a placeholder path onto its intended slug. */
+const renamePageToIntended = async (
+  page: RemixerSubPageState,
+  title: string,
+  subdomain: string,
+): Promise<void> => {
+  const pid = parseInt(page["@id"], 10);
+  if (Number.isNaN(pid)) return;
+
+  const dekiHeaders = await generateAPIRequestHeaders(subdomain);
+  if (!dekiHeaders) {
+    throw new Error(
+      "Error generating library API headers for placeholder rename.",
+    );
+  }
+
+  const padded = remixerPagePaddedSlug(page, title, false);
+  const nameEnc = encodeURIComponent(padded);
+  const titleEnc = encodeURIComponent(title);
+  const moveUrl = `https://${subdomain}.libretexts.org/@api/deki/pages/${pid}/move?title=${titleEnc}&name=${nameEnc}&allow=deleteredirects&dream.out.format=json`;
+
+  const response = await fetch(moveUrl, {
+    method: "POST",
+    body: "",
+    headers: {
+      "Content-Type": "text/plain",
+      ...dekiHeaders,
+    },
+  });
+
+  if (!response.ok) {
+    throwForMindTouchResponse(
+      response,
+      `Error renaming placeholder page to "${title}"`,
     );
   }
 };
@@ -998,6 +1084,7 @@ const handleImportedPage = async (
   copyModeState: RemixerCopyMode,
   hasChildren: boolean,
   coverId?: string,
+  options?: CreatePageOptions,
 ): Promise<{ pageID: string; pageURI: string }> => {
   const sourceUri = getRemixerPageUriUi(page);
   const sourceSubdomain = extractLibretextsSubdomain(sourceUri);
@@ -1018,6 +1105,7 @@ const handleImportedPage = async (
     title,
     subdomain,
     coverId,
+    options,
   );
 
   let contentsBody: string;
@@ -1497,6 +1585,35 @@ const runRemixerJob = async ({
 
     const autoNumbering = remixerState.autoNumbering === true;
 
+    type PlaceholderRename = {
+      page: RemixerSubPageState;
+      intendedTitle: string;
+    };
+    const pendingFinalRenames: PlaceholderRename[] = [];
+
+    const adoptCreatedPageId = (
+      oldPageId: string,
+      page: RemixerSubPageState,
+      pageID: string,
+      pageURI: string,
+    ) => {
+      page["@id"] = pageID;
+      setRemixerPageUriUi(page, pageURI || getRemixerPageUriUi(page));
+      page["@href"] = pageURI || page["@href"];
+      byId.delete(oldPageId);
+      byId.set(pageID, page);
+      pages.forEach((candidate) => {
+        if (candidate.parentID === oldPageId) {
+          candidate.parentID = pageID;
+        }
+      });
+      const kids = childrenByParent.get(oldPageId);
+      if (kids) {
+        childrenByParent.delete(oldPageId);
+        childrenByParent.set(pageID, kids);
+      }
+    };
+
     /**
      * Processes a single ordered page (create/import/move-rename/delete).
      * Returns "conflict" when MindTouch responds 409 — i.e. the title or
@@ -1517,7 +1634,7 @@ const runRemixerJob = async ({
       const status = getPageStatus(page);
       const shouldSkip = shouldSkipPage(page,  status);
 
-      const message = shouldSkip
+      let message = shouldSkip
         ? `${title} - skipped`
         : `${title} - processed, status: ${status}`;
 
@@ -1539,23 +1656,31 @@ const runRemixerJob = async ({
           const parentId = page.parentID ?? "-1";
           const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
           if (parent) {
+            const occupant = findDeletedPathOccupant(page, pages);
+            const placeholder = occupant
+              ? `remixer-replace-tmp-${base62(8)}`
+              : undefined;
+            const createOptions: CreatePageOptions | undefined = placeholder
+              ? { titleOverride: placeholder, pathSegmentOverride: placeholder }
+              : undefined;
             const oldPageId = page["@id"];
             const { pageID, pageURI } = await withRetryOnTransient(
-              () => handleNewPage(page, parent, title, subdomain, coverId),
+              () =>
+                handleNewPage(
+                  page,
+                  parent,
+                  title,
+                  subdomain,
+                  coverId,
+                  createOptions,
+                ),
               { onRetry: logRetry },
             );
-            page["@id"] = pageID;
-            setRemixerPageUriUi(page, pageURI || getRemixerPageUriUi(page));
-            page["@href"] = pageURI || page["@href"];
-
-            // Keep references coherent for upcoming items in the same run.
-            byId.delete(oldPageId);
-            byId.set(pageID, page);
-            pages.forEach((candidate) => {
-              if (candidate.parentID === oldPageId) {
-                candidate.parentID = pageID;
-              }
-            });
+            adoptCreatedPageId(oldPageId, page, pageID, pageURI);
+            if (placeholder && occupant) {
+              pendingFinalRenames.push({ page, intendedTitle: title });
+              message = `${title} - created at a temporary path because "${occupant.title || occupant["@title"]}" still occupies the target`;
+            }
 
             await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
           }
@@ -1566,6 +1691,13 @@ const runRemixerJob = async ({
           const parentId = page.parentID ?? "-1";
           const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
           if (parent) {
+            const occupant = findDeletedPathOccupant(page, pages);
+            const placeholder = occupant
+              ? `remixer-replace-tmp-${base62(8)}`
+              : undefined;
+            const createOptions: CreatePageOptions | undefined = placeholder
+              ? { titleOverride: placeholder, pathSegmentOverride: placeholder }
+              : undefined;
             const oldPageId = page["@id"];
             const { pageID, pageURI } = await withRetryOnTransient(
               () =>
@@ -1577,20 +1709,15 @@ const runRemixerJob = async ({
                   copyModeState,
                   hasSubpages(page, pages),
                   coverId,
+                  createOptions,
                 ),
               { onRetry: logRetry },
             );
-            page["@id"] = pageID;
-            setRemixerPageUriUi(page, pageURI || getRemixerPageUriUi(page));
-            page["@href"] = pageURI || page["@href"];
-
-            byId.delete(oldPageId);
-            byId.set(pageID, page);
-            pages.forEach((candidate) => {
-              if (candidate.parentID === oldPageId) {
-                candidate.parentID = pageID;
-              }
-            });
+            adoptCreatedPageId(oldPageId, page, pageID, pageURI);
+            if (placeholder && occupant) {
+              pendingFinalRenames.push({ page, intendedTitle: title });
+              message = `${title} - created at a temporary path because "${occupant.title || occupant["@title"]}" still occupies the target`;
+            }
 
             await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
           }
@@ -1630,7 +1757,14 @@ const runRemixerJob = async ({
               () => handleDeletedPage(page, subdomain),
               { onRetry: logRetry },
             );
-          } catch (error) {}
+          } catch (error) {
+            // Non-fatal so one undeletable page can't sink the whole publish,
+            // but the page is still live upstream while the snapshot below
+            // drops it — say so instead of reporting it as processed.
+            const detail =
+              error instanceof Error ? error.message : String(error);
+            message = `${title} - delete FAILED; page still exists in the library (${detail})`;
+          }
         }
       } catch (error) {
         if (error instanceof TitleConflictError) {
@@ -1671,11 +1805,11 @@ const runRemixerJob = async ({
     // the first conflict, push conflicting pages onto a stack and reprocess
     // them once the rest of the run has had a chance to make progress.
     //
-    // Deletes run in a second phase AFTER all creates/imports/moves/renames.
-    // MindTouch deletes use recursive=true, so deleting a chapter while its
-    // former children still live under it on the library (even though the
-    // draft already reparented them) would cascade-wipe those survivors and
-    // cause their later move to fail.
+    // Deletes are held back until the straight-line pass over every
+    // create/import/move/rename has run. MindTouch deletes use recursive=true,
+    // so deleting a chapter while its former children still live under it on
+    // the library (even though the draft already reparented them) would
+    // cascade-wipe those survivors and cause their later move to fail.
     const isDeleteEntry = (entry: OrderedEntry): boolean => {
       const status = getPageStatus(entry.page);
       return (
@@ -1695,6 +1829,60 @@ const runRemixerJob = async ({
       if (outcome === "conflict") {
         deferredStack.push(entry);
       }
+    }
+
+    // Deletes run before the retry loop, not after it. A deferred page whose
+    // target path is held by a page being deleted can only ever succeed once
+    // that page is gone, so leaving deletes until after the loop guarantees
+    // the loop exhausts its passes, relocates a live page to a throwaway
+    // title on every one of them, and then throws — leaving the occupant
+    // undeleted and the deferred page parked at `remixer-swap-tmp-…`.
+    for (const entry of deleteOrdered) {
+      const outcome = await processOrderedEntry(entry);
+      if (outcome === "conflict") {
+        deferredStack.push(entry);
+      }
+    }
+
+    // Placeholder parents were created under a unique path so children could
+    // move onto them without colliding with the deleted occupant. Now that
+    // the occupant is gone, rename each placeholder to its intended title.
+    for (const pending of pendingFinalRenames) {
+      await withRetryOnTransient(() =>
+        renamePageToIntended(pending.page, pending.intendedTitle, subdomain),
+      );
+      const pid = parseInt(pending.page["@id"], 10);
+      if (!Number.isNaN(pid)) {
+        const info = await getPage(pid, subdomain);
+        const uriUiVal = info?.["uri.ui"];
+        if (typeof uriUiVal === "string" && uriUiVal.length > 0) {
+          const oldUri = getRemixerPageUriUi(pending.page);
+          setRemixerPageUriUi(pending.page, uriUiVal);
+          pending.page["@href"] = uriUiVal;
+          remapDescendantUriPaths(
+            childrenByParent,
+            pending.page["@id"],
+            oldUri,
+            uriUiVal,
+            subdomain,
+          );
+        }
+      }
+      const existingIdx = finalBook.findIndex(
+        (p) => p["@id"] === pending.page["@id"],
+      );
+      if (existingIdx >= 0) {
+        finalBook[existingIdx] = toFinalBookEntry(
+          pending.page,
+          subdomain,
+          pages,
+          pending.intendedTitle,
+        );
+      }
+      job.messages.push(
+        `${pending.intendedTitle} - renamed from temporary path to intended title.`,
+      );
+      await job.save();
     }
 
     const maxRetryPasses = pages.length + 10;
@@ -1775,12 +1963,6 @@ const runRemixerJob = async ({
       throw new Error(
         `Unable to resolve title/URL conflicts for: ${remainingTitles}`,
       );
-    }
-
-    // Second phase: deletes only, after survivors have been moved/renamed out
-    // of any subtree that is about to be recursively removed on MindTouch.
-    for (const entry of deleteOrdered) {
-      await processOrderedEntry(entry);
     }
 
     const bookURL = remixerState.remixerCurrentBook[0]["@href"];
