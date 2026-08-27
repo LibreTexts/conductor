@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { useMediaQuery } from "react-responsive";
@@ -70,7 +76,7 @@ import {
   Heading,
   Stack,
   Text,
-  Grid
+  Grid,
 } from "@libretexts/davis-react";
 import useProject from "../../hooks/useProject";
 import { useModals } from "../../context/ModalContext";
@@ -80,6 +86,7 @@ import { useDocumentTitle } from "usehooks-ts";
 import BookActions from "./BookActions";
 import LibraryActions from "./LibraryActions";
 import CreateMatterModal from "./CreateMatterModal";
+import { Icon } from "semantic-ui-react";
 
 /** Stable empty fallback so `pathLevelFormats ?? EMPTY_PATH_LEVEL_FORMATS`
  * doesn't hand a fresh `[]` to the memoized <TreeDnd> on every render. */
@@ -158,7 +165,6 @@ const RemixerDashboard: React.FC = () => {
   const { project, isLoading: isLoadingProject } = useProject(id ?? "");
   useDocumentTitle(`Remixer | ${project?.title ?? ""} | LibreTexts Conductor`);
 
-
   const [contextMenu, setContextMenu] = useState<{
     nodeId: string;
     x: number;
@@ -196,7 +202,7 @@ const RemixerDashboard: React.FC = () => {
       pathLevelFormats?: unknown;
       updatedAt?: string | Date;
       updatedBy?: string;
-      publishedAt?: Date|string;
+      publishedAt?: Date | string;
     };
   } | null>(null);
   // ==========================================================================
@@ -211,8 +217,8 @@ const RemixerDashboard: React.FC = () => {
   /** The book node matching the current selection, if any. */
   const selectedBookNode = uiState.selectedBookNodeId
     ? remixerData.currentBook?.find(
-      (node) => node["@id"] === uiState.selectedBookNodeId,
-    )
+        (node) => node["@id"] === uiState.selectedBookNodeId,
+      )
     : undefined;
 
   /** True when a library node is a restricted shelf (cannot be imported). */
@@ -271,13 +277,13 @@ const RemixerDashboard: React.FC = () => {
   const contextMenuTargetNode =
     contextMenu != null
       ? (remixerData.currentBook ?? []).find(
-        (n) => n["@id"] === contextMenu.nodeId,
-      )
+          (n) => n["@id"] === contextMenu.nodeId,
+        )
       : undefined;
   const contextMenuParentNode = contextMenuTargetNode?.parentID
     ? (remixerData.currentBook ?? []).find(
-      (n) => n["@id"] === contextMenuTargetNode.parentID,
-    )
+        (n) => n["@id"] === contextMenuTargetNode.parentID,
+      )
     : undefined;
   const contextMenuUnderMatterRoot =
     contextMenuParentNode != null && isMatterRootNode(contextMenuParentNode);
@@ -304,35 +310,40 @@ const RemixerDashboard: React.FC = () => {
     : "Item";
 
   /** Auto-numbered default prefix/index pieces for the selected node (edit-panel placeholders). */
-  const selectedBookDefaultFormattedPathParts = useCallback((nodeId?: string): {
-    prefix: string;
-    index: string;
-  } => {
-    const empty = { prefix: "", index: "" };
-    if (remixerData.autoNumbering === false) return empty;
-    const selectedId = nodeId ?? uiState.selectedBookNodeId;
-    const book = remixerData.currentBook ?? [];
-    if (!selectedId || book.length === 0) return empty;
-    const normalizedBook = buildBookPaths(
-      book,
-      uiState.pathLevelFormats ?? [],
-      {
-        ignoreOverrides: true,
-      },
-    );
-    const node = normalizedBook.find((n) => n["@id"] === selectedId);
-    if (!node) return empty;
-    return splitFormattedPathParts(
-      node.pathNumber ?? [],
-      uiState.pathLevelFormats ?? [],
-      1,
-    );
-  }, [
-    remixerData.autoNumbering,
-    remixerData.currentBook,
-    uiState.pathLevelFormats,
-    uiState.selectedBookNodeId,
-  ]);
+  const selectedBookDefaultFormattedPathParts = useCallback(
+    (
+      nodeId?: string,
+    ): {
+      prefix: string;
+      index: string;
+    } => {
+      const empty = { prefix: "", index: "" };
+      if (remixerData.autoNumbering === false) return empty;
+      const selectedId = nodeId ?? uiState.selectedBookNodeId;
+      const book = remixerData.currentBook ?? [];
+      if (!selectedId || book.length === 0) return empty;
+      const normalizedBook = buildBookPaths(
+        book,
+        uiState.pathLevelFormats ?? [],
+        {
+          ignoreOverrides: true,
+        },
+      );
+      const node = normalizedBook.find((n) => n["@id"] === selectedId);
+      if (!node) return empty;
+      return splitFormattedPathParts(
+        node.pathNumber ?? [],
+        uiState.pathLevelFormats ?? [],
+        1,
+      );
+    },
+    [
+      remixerData.autoNumbering,
+      remixerData.currentBook,
+      uiState.pathLevelFormats,
+      uiState.selectedBookNodeId,
+    ],
+  );
 
   // ==========================================================================
   // Book state mutation
@@ -928,7 +939,10 @@ const RemixerDashboard: React.FC = () => {
     );
     if (!existingNode) return;
 
-    const isBookRoot = isRemixerBookRoot(existingNode, remixerData.liberCoverID);
+    const isBookRoot = isRemixerBookRoot(
+      existingNode,
+      remixerData.liberCoverID,
+    );
 
     // Both sides go through the same canonicalizer EditPanel seeds its field
     // with, so a save with no edits compares equal instead of registering as
@@ -943,16 +957,17 @@ const RemixerDashboard: React.FC = () => {
     );
     const titleChanged = previousTitle !== nextTitle;
     const prevOverride = existingNode.formattedPathOverride === true;
-    const nextOverrideUriUiEnding = page.overrideUriUiEnding || existingNode.overrideUriUiEnding;
+    const nextOverrideUriUiEnding =
+      page.overrideUriUiEnding || existingNode.overrideUriUiEnding;
     const pathChanged =
       prevOverride !== nextOverride ||
       (nextOverride &&
         ((existingNode.formattedPathPrefix ?? "") !==
           (nextFormattedPathPrefix ?? "") ||
           (existingNode.formattedPathIndex ?? "") !==
-          (nextFormattedPathIndex ?? "") ||
+            (nextFormattedPathIndex ?? "") ||
           (existingNode.formattedPath ?? "").trim() !==
-          (nextFormattedPath ?? "").trim()));
+            (nextFormattedPath ?? "").trim()));
 
     // Save with no edits should not mark the node modified or push history.
     if (!titleChanged && !pathChanged) return;
@@ -1036,17 +1051,23 @@ const RemixerDashboard: React.FC = () => {
     if (parent && isMatterRootNode(parent)) {
       const defaults = ordered.filter((n) => isDefaultMatterPage(n));
       const customs = ordered.filter((n) => !isDefaultMatterPage(n));
-      if (isFrontMatterNode(parent) || parent["@title"]?.toLowerCase() === "front matter") {
+      if (
+        isFrontMatterNode(parent) ||
+        parent["@title"]?.toLowerCase() === "front matter"
+      ) {
         // Customs must sit after all defaults.
         if (customs.length === 0) {
           insertAfterId = defaults[defaults.length - 1]?.["@id"];
         } else if (mode === "inside") {
-          insertAfterId = customs[customs.length - 1]?.["@id"]
-            ?? defaults[defaults.length - 1]?.["@id"];
+          insertAfterId =
+            customs[customs.length - 1]?.["@id"] ??
+            defaults[defaults.length - 1]?.["@id"];
         } else {
           const targetIsCustom = customs.some((n) => n["@id"] === targetNodeId);
           if (targetIsCustom) {
-            const targetIndex = customs.findIndex((n) => n["@id"] === targetNodeId);
+            const targetIndex = customs.findIndex(
+              (n) => n["@id"] === targetNodeId,
+            );
             const afterIndex = mode === "above" ? targetIndex - 1 : targetIndex;
             insertAfterId =
               afterIndex >= 0
@@ -1059,7 +1080,10 @@ const RemixerDashboard: React.FC = () => {
             insertAfterId = defaults[defaults.length - 1]?.["@id"];
           }
         }
-      } else if (isBackMatterNode(parent) || parent["@title"]?.toLowerCase() === "back matter") {
+      } else if (
+        isBackMatterNode(parent) ||
+        parent["@title"]?.toLowerCase() === "back matter"
+      ) {
         // Customs must sit before all defaults.
         if (customs.length === 0) {
           insertBeforeId = defaults[0]?.["@id"];
@@ -1071,7 +1095,9 @@ const RemixerDashboard: React.FC = () => {
         } else {
           const targetIsCustom = customs.some((n) => n["@id"] === targetNodeId);
           if (targetIsCustom) {
-            const targetIndex = customs.findIndex((n) => n["@id"] === targetNodeId);
+            const targetIndex = customs.findIndex(
+              (n) => n["@id"] === targetNodeId,
+            );
             const afterIndex = mode === "above" ? targetIndex - 1 : targetIndex;
             if (afterIndex >= 0) {
               insertAfterId = customs[afterIndex]?.["@id"];
@@ -1085,8 +1111,7 @@ const RemixerDashboard: React.FC = () => {
       }
     } else {
       const targetIndex = siblings.findIndex((n) => n["@id"] === targetNodeId);
-      const insertAfterIndex =
-        mode === "above" ? targetIndex - 1 : targetIndex;
+      const insertAfterIndex = mode === "above" ? targetIndex - 1 : targetIndex;
       insertAfterId = siblings[insertAfterIndex]?.["@id"];
       if (!insertAfterId && mode === "above") {
         insertBeforeId = siblings[0]?.["@id"];
@@ -1272,14 +1297,20 @@ const RemixerDashboard: React.FC = () => {
       <EditPanel
         open={true}
         onClose={closeAllModals}
-        formattedPathPartsDefault={selectedBookDefaultFormattedPathParts(targetId)}
+        formattedPathPartsDefault={selectedBookDefaultFormattedPathParts(
+          targetId,
+        )}
         currentPage={targetNode}
         handleSave={handleSaveEdit}
         library={remixerData.libreLibrary as Library}
-        coverPageId={remixerData.liberCoverID ?? remixerData.currentBook?.[0]?.["@id"] ?? ""}
-      />
-    )
-  }
+        coverPageId={
+          remixerData.liberCoverID ??
+          remixerData.currentBook?.[0]?.["@id"] ??
+          ""
+        }
+      />,
+    );
+  };
 
   /**
    * Persisted-closure guard (see `handleLoadSourceRef`): the F2 key handler is
@@ -1505,9 +1536,9 @@ const RemixerDashboard: React.FC = () => {
           closeAllModals();
         }}
         loading={skipLibraryAutoLoadRef.current}
-      />
-    )
-  }
+      />,
+    );
+  };
 
   // ==========================================================================
   // Persistence / recovery
@@ -1516,7 +1547,7 @@ const RemixerDashboard: React.FC = () => {
   /** Load the book from a recovery source: local draft, server, server draft, or a fresh reload. */
   const handleLoadSource = async (
     source: "local" | "server" | "serverDraft" | "fresh",
-    options?: { preserveConfigs?: boolean  },
+    options?: { preserveConfigs?: boolean },
   ) => {
     setLoadingRecovery(true);
     try {
@@ -1724,8 +1755,8 @@ const RemixerDashboard: React.FC = () => {
           closeAllModals();
         }}
         onClose={closeAllModals}
-      />
-    )
+      />,
+    );
   };
 
   /** Persist the current book + settings to the server and clear any local draft. */
@@ -1782,50 +1813,51 @@ const RemixerDashboard: React.FC = () => {
   };
 
   /** Discard local/server drafts and reload the book from source. Resets undo/redo and UI panels. */
-  const { mutate: startOverMutation, isPending: isStartOverPending } = useMutation({
-    mutationFn: async () => {
-      clearLocalDraft(id);
-      serverStateRef.current = null;
-      await api.deleteRemixerProjectState(id);
-      const res = await api.getRemixerProject(id);
-      const fullBook = await loadEntireBook(
-        id,
-        res.project.libreCoverID,
-        res.project.libreLibrary,
-      );
-      return { res, fullBook };
-    },
-    onSuccess: ({ res, fullBook }) => {
-      setUndoStack([]);
-      setRedoStack([]);
-      setUiState((prev) => ({
-        ...prev,
-        selectedBookNodeId: undefined,
-        editPanelOpen: false,
-      }));
-      setRemixerData((prev) => ({
-        ...prev,
-        projectID: res.project.projectID,
-        title: res.project.title,
-        liberCoverID: res.project.libreCoverID,
-        libreLibrary: res.project.libreLibrary,
-        selectedLibrary: isLibrary(res.project.libreLibrary)
-          ? res.project.libreLibrary
-          : undefined,
-        currentBook: normalizeBookState(fullBook, {
-          initializeOriginalPathNumber: true,
-        }),
-      }));
-    },
-    onError: (error) => {
-      addNotification({
-        message:
-          error instanceof Error ? error.message : "Failed to start over.",
-        type: "error",
-        duration: 4000,
-      });
-    },
-  });
+  const { mutate: startOverMutation, isPending: isStartOverPending } =
+    useMutation({
+      mutationFn: async () => {
+        clearLocalDraft(id);
+        serverStateRef.current = null;
+        await api.deleteRemixerProjectState(id);
+        const res = await api.getRemixerProject(id);
+        const fullBook = await loadEntireBook(
+          id,
+          res.project.libreCoverID,
+          res.project.libreLibrary,
+        );
+        return { res, fullBook };
+      },
+      onSuccess: ({ res, fullBook }) => {
+        setUndoStack([]);
+        setRedoStack([]);
+        setUiState((prev) => ({
+          ...prev,
+          selectedBookNodeId: undefined,
+          editPanelOpen: false,
+        }));
+        setRemixerData((prev) => ({
+          ...prev,
+          projectID: res.project.projectID,
+          title: res.project.title,
+          liberCoverID: res.project.libreCoverID,
+          libreLibrary: res.project.libreLibrary,
+          selectedLibrary: isLibrary(res.project.libreLibrary)
+            ? res.project.libreLibrary
+            : undefined,
+          currentBook: normalizeBookState(fullBook, {
+            initializeOriginalPathNumber: true,
+          }),
+        }));
+      },
+      onError: (error) => {
+        addNotification({
+          message:
+            error instanceof Error ? error.message : "Failed to start over.",
+          type: "error",
+          duration: 4000,
+        });
+      },
+    });
 
   const handleStartOverWithConfirmation = () => {
     openModal(
@@ -1839,7 +1871,7 @@ const RemixerDashboard: React.FC = () => {
           startOverMutation();
           closeAllModals();
         }}
-      />
+      />,
     );
   };
 
@@ -1861,9 +1893,9 @@ const RemixerDashboard: React.FC = () => {
             autoNumbering: checked,
           }));
         }}
-      />
-    )
-  }
+      />,
+    );
+  };
 
   // ==========================================================================
   // Create Matter
@@ -1879,8 +1911,8 @@ const RemixerDashboard: React.FC = () => {
           closeAllModals();
         }}
         projectId={id}
-      />
-    )
+      />,
+    );
   };
 
   // ==========================================================================
@@ -2118,7 +2150,7 @@ const RemixerDashboard: React.FC = () => {
         pathLevelFormats?: unknown;
         updatedAt?: string | Date;
         updatedBy?: string;
-        publishedAt?: Date|string;
+        publishedAt?: Date | string;
       } | null = null;
 
       // Describes the server state, so it is only worth reporting once we know
@@ -2207,8 +2239,8 @@ const RemixerDashboard: React.FC = () => {
               closeAllModals();
             }}
             onClose={closeAllModals}
-          />
-        )
+          />,
+        );
         return;
       }
 
@@ -2447,6 +2479,14 @@ const RemixerDashboard: React.FC = () => {
     };
   }, [contextMenu]);
 
+  const { currentBookTitle, currentBookLink } = useMemo(() => {
+    const root = remixerData.currentBook?.[0];
+    return {
+      currentBookTitle: root?.["@title"] || root?.title || "",
+      currentBookLink: root?.["uri.ui"] || root?.["@href"] || "",
+    };
+  }, [remixerData.currentBook]);
+
   // ==========================================================================
   // Render
   // ==========================================================================
@@ -2464,7 +2504,9 @@ const RemixerDashboard: React.FC = () => {
             {!isLoadingProject && project?.title && (
               <Breadcrumb aria-label="Page navigation">
                 <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
-                <Breadcrumb.Item href={`/projects/${id}`}>{project?.title}</Breadcrumb.Item>
+                <Breadcrumb.Item href={`/projects/${id}`}>
+                  {project?.title}
+                </Breadcrumb.Item>
                 <Breadcrumb.Item isCurrent>Remixer</Breadcrumb.Item>
               </Breadcrumb>
             )}
@@ -2496,7 +2538,13 @@ const RemixerDashboard: React.FC = () => {
         <Grid cols={2} className="h-full w-full" gap="lg">
           <Stack direction="horizontal" align="start">
             <Stack direction="vertical" gap="sm" className="h-full w-full">
-              <Stack direction="horizontal" gap="md" className="w-full" align="center" justify="between">
+              <Stack
+                direction="horizontal"
+                gap="md"
+                className="w-full"
+                align="center"
+                justify="between"
+              >
                 <Text color="default" className="font-bold text-lg">
                   Library
                 </Text>
@@ -2514,7 +2562,9 @@ const RemixerDashboard: React.FC = () => {
                   setExpandedNodeIds={setExpandedNodeIdsLibrary}
                   currentBook={selectedLibraryPages}
                   autoNumbering={remixerData.autoNumbering ?? true}
-                  pathLevelFormats={uiState.pathLevelFormats ?? EMPTY_PATH_LEVEL_FORMATS}
+                  pathLevelFormats={
+                    uiState.pathLevelFormats ?? EMPTY_PATH_LEVEL_FORMATS
+                  }
                   onExpand={handleLibraryExpand}
                   treeId="library"
                 />
@@ -2525,9 +2575,28 @@ const RemixerDashboard: React.FC = () => {
           </Stack>
           <Stack direction="horizontal" align="start">
             <Stack direction="vertical" gap="sm" className="h-full w-full">
-              <Stack direction="horizontal" className="w-full" align="center" justify="between">
-                <Text className="font-bold text-lg" color="default">
-                  Text
+              <Stack
+                direction="horizontal"
+                className="w-full"
+                align="center"
+                justify="between"
+              >
+                <Text className="font-bold text-lg flex items-top" color="default">
+                  Text{" "}
+                  {currentBookLink && (
+                    <a
+                      href={currentBookLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(event) => event.stopPropagation()}
+                      style={{ display: "inline-flex", marginLeft: 8 }}
+                    >
+                      <Icon
+                        name="linkify"
+                        style={{ color: "#1e70bf", margin: 0 }}
+                      />
+                    </a>
+                  )}
                 </Text>
                 <BookActions
                   isNarrowScreen={isNarrowScreen}
@@ -2547,13 +2616,15 @@ const RemixerDashboard: React.FC = () => {
                   canRedo={redoStack.length > 0}
                 />
               </Stack>
-              {(remixerData.currentBook && !isStartOverPending) ? (
+              {remixerData.currentBook && !isStartOverPending ? (
                 <TreeDnd
                   expandedNodeIds={expandedNodeIdsBook}
                   setExpandedNodeIds={setExpandedNodeIdsBook}
                   currentBook={remixerData.currentBook}
                   autoNumbering={remixerData.autoNumbering ?? true}
-                  pathLevelFormats={uiState.pathLevelFormats ?? EMPTY_PATH_LEVEL_FORMATS}
+                  pathLevelFormats={
+                    uiState.pathLevelFormats ?? EMPTY_PATH_LEVEL_FORMATS
+                  }
                   onExpand={handleBookExpand}
                   treeId="book"
                   onImportNode={handleImportNode}
@@ -2609,7 +2680,7 @@ const RemixerDashboard: React.FC = () => {
         addBelowLabel={`Add ${contextMenuSiblingTypeLabel} Below`}
         onAction={handleContextMenuAction}
       />
-    </div >
+    </div>
   );
 };
 
