@@ -658,26 +658,26 @@ export default class LibrarySyncService {
 
     const security = one(page.security);
     if (!security) {
-      logger.error(`Skipping ${subdomain} page ${page["@id"]}: no security property.`);
+      logger.debug(`Skipping ${subdomain} page ${page["@id"]}: no security property.`);
       return false;
     }
 
     const restriction = one(security["permissions.page"])?.restriction;
     if (!restriction) {
-      logger.error(`Skipping ${subdomain} page ${page["@id"]}: no restriction property.`);
+      logger.debug(`Skipping ${subdomain} page ${page["@id"]}: no restriction property.`);
       return false;
     }
 
     const restrictionText = text(restriction['#text']);
     if (!restrictionText) {
-      logger.error(`Skipping ${subdomain} page ${page["@id"]}: restriction property has no text.`);
+      logger.debug(`Skipping ${subdomain} page ${page["@id"]}: restriction property has no text.`);
       return false;
     }
 
     if (PUBLIC_RESTRICTIONS.has(restrictionText)) return true;
     if (UNLISTED_RESTRICTIONS.has(restrictionText)) return false;
 
-    logger.error(`Skipping ${subdomain} page ${page["@id"]}: unrecognized restriction ` +
+    logger.debug(`Skipping ${subdomain} page ${page["@id"]}: unrecognized restriction ` +
       `"${restrictionText}". Add it to PUBLIC_RESTRICTIONS if it is publicly readable.`);
     return false;
   }
