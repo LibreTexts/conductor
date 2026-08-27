@@ -42,6 +42,25 @@ export type CentralIdentityApp = {
   updated_at: Date;
 };
 
+/**
+ * Sort fields accepted by LibreOne's `GET /users` endpoint. LibreOne defaults to
+ * "relevance" when a search query is supplied and "last_name" otherwise, so callers
+ * should omit `sort` entirely rather than guessing a default.
+ */
+export const CENTRAL_IDENTITY_USER_SORT_FIELDS = [
+  "relevance",
+  "first_name",
+  "last_name",
+  "email",
+  "created_at",
+  "last_access",
+] as const;
+
+export type CentralIdentityUserSort =
+  (typeof CENTRAL_IDENTITY_USER_SORT_FIELDS)[number];
+
+export type CentralIdentitySortOrder = "asc" | "desc";
+
 export type CentralIdentityUser = {
   academy_online: number;
   academy_online_expires: string | null;

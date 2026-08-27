@@ -27,10 +27,14 @@ import {
   CentralIdentityVerificationRequestStatus,
 } from "../types";
 import {
+  CENTRAL_IDENTITY_SORT_ORDERS,
+  CENTRAL_IDENTITY_USER_SORT_FIELDS,
   CentralIdentityAppLicense,
   CentralIdentityLicense,
+  CentralIdentitySortOrder,
   CentralIdentityUpdateVerificationRequestBody,
   CentralIdentityUserLicenseResult,
+  CentralIdentityUserSort,
 } from "../types/CentralIdentity.js";
 import User from "../models/user.js";
 import { v4 as uuidv4 } from "uuid";
@@ -57,12 +61,15 @@ const centralIdentityLog = childLogger("central-identity");
 
 const centralIdentityService = new CentralIdentityService();
 
+const MAX_USERS_PAGE_SIZE = 100;
+
 async function getUsers(
   req: TypedReqQuery<{
     page?: number;
     limit?: number;
     query?: string;
-    sort?: string;
+    sort?: CentralIdentityUserSort;
+    order?: CentralIdentitySortOrder;
     academy_online?: number[];
     admin_role?: string[];
   }>,
@@ -74,8 +81,6 @@ async function getUsers(
 ) {
   try {
     let page = 1;
-    let limit = req.query.limit || 10;
-    const sortChoice = req.query.sort || "first";
     if (
       req.query.page &&
       Number.isInteger(parseInt(req.query.page.toString()))
@@ -83,40 +88,29 @@ async function getUsers(
       page = req.query.page;
     }
 
+    const requestedLimit = Number(req.query.limit) || 10;
+    const limit = Math.min(Math.max(requestedLimit, 1), MAX_USERS_PAGE_SIZE);
     const offset = getPaginationOffset(page, limit);
 
+    // Sorting is delegated entirely to LibreOne so it applies across the whole
+    // result set, not just the current page. Omitting `sort` lets LibreOne fall
+    // back to relevance ranking when a search query is present.
     const usersRes = await centralIdentityService.getUsers({
-        offset,
-        limit,
-        query: req.query.query ? req.query.query : undefined,
-        academy_online: req.query.academy_online ? req.query.academy_online : undefined,
-        admin_role: req.query.admin_role ? req.query.admin_role : undefined,
+      offset,
+      limit,
+      query: req.query.query ? req.query.query : undefined,
+      academy_online: req.query.academy_online
+        ? req.query.academy_online
+        : undefined,
+      admin_role: req.query.admin_role ? req.query.admin_role : undefined,
+      sort: req.query.sort ? req.query.sort : undefined,
+      order: req.query.order ? req.query.order : undefined,
     });
 
     if (!usersRes.data || !usersRes.data.data || !usersRes.data.meta) {
       return conductor500Err(res);
     }
 
-    const sortData = (data: CentralIdentityUser[], sortChoice: string) => {
-      switch (sortChoice) {
-        case "first":
-          return data.sort((a, b) => a.first_name.localeCompare(b.first_name));
-        case "last":
-          return data.sort((a, b) => a.last_name.localeCompare(b.last_name));
-        case "email":
-          return data.sort((a, b) => a.email.localeCompare(b.email));
-        case "auth":
-          return data.sort(
-            (a, b) => a.external_idp?.localeCompare(b.external_idp ?? "") ?? 0
-          );
-        default:
-          return data;
-      }
-    };
-
-    if (req.query.sort) {
-      usersRes.data.data = sortData(usersRes.data.data, sortChoice);
-    }
     return res.send({
       err: false,
       users: usersRes.data.data,
@@ -1852,9 +1846,16 @@ function validate(method: string) {
         query("page", conductorErrors.err1).optional().isInt(),
         query("limit", conductorErrors.err1).optional().isInt(),
         query("query", conductorErrors.err1).optional().isString(),
-        query("sort", conductorErrors.err1).optional().isString(),
+        query("sort", conductorErrors.err1)
+          .optional()
+          .isIn([...CENTRAL_IDENTITY_USER_SORT_FIELDS]),
+        query("order", conductorErrors.err1)
+          .optional()
+          .isIn([...CENTRAL_IDENTITY_SORT_ORDERS]),
         query("academy_online").optional().isArray(),
         query("academy_online.*").optional().isInt(),
+        query("admin_role").optional().isArray(),
+        query("admin_role.*").optional().isIn(["org_admin", "org_sys_admin"]),
       ];
     }
     case "getUser": {

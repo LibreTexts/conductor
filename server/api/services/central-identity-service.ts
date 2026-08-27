@@ -1,6 +1,6 @@
 import logger from "../../logger.js";
 import axios, { AxiosInstance } from "axios";
-import { CentralIdentityAppLicense, CentralIdentityOrg, CentralIdentityService as CentralIdentityServiceType, CentralIdentitySystem, CentralIdentityUpdateVerificationRequestBody, CentralIdentityUser } from "../../types";
+import { CentralIdentityAppLicense, CentralIdentityOrg, CentralIdentityService as CentralIdentityServiceType, CentralIdentitySortOrder, CentralIdentitySystem, CentralIdentityUpdateVerificationRequestBody, CentralIdentityUser, CentralIdentityUserSort } from "../../types";
 
 export default class CentralIdentityService {
     private instance: AxiosInstance;
@@ -107,15 +107,22 @@ export default class CentralIdentityService {
         return this.instance.delete(`/organization-systems/${systemId}`);
     }
 
-    async getUsers({ offset, limit, query, academy_online, admin_role }: {
+    /**
+     * Fetches users from LibreOne. `sort` and `order` are intentionally optional:
+     * omitting them lets LibreOne apply its own defaults (relevance ranking when a
+     * query is present, last_name otherwise).
+     */
+    async getUsers({ offset, limit, query, academy_online, admin_role, sort, order }: {
         offset?: number;
         limit?: number;
         query?: string;
         academy_online?: number[];
         admin_role?: string[];
+        sort?: CentralIdentityUserSort;
+        order?: CentralIdentitySortOrder;
     }) {
         return this.instance.get("/users", {
-            params: { offset, limit, query, academy_online, admin_role }
+            params: { offset, limit, query, academy_online, admin_role, sort, order }
         });
     }
 
