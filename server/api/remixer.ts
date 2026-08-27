@@ -106,7 +106,7 @@ const validateRemixerBookOwnership = async (
     const bookService = new BookService({
       bookID: `${libreLibrary}-${libreCoverID}`,
     });
-    ownedPageIDs = await bookService.getBookPageIDs();
+    ownedPageIDs = await bookService.getBookPageIDs(false);
   } catch (error) {
     remixerLog.error({ err: error }, "failed to resolve owned book pages");
     return "Unable to verify remixer permissions against the project's book.";
