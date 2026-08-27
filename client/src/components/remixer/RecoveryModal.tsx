@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Icon } from "semantic-ui-react";
+import React, { useMemo, useState } from "react";
+
 import {
   Button,
   Card,
@@ -9,6 +9,12 @@ import {
   Stack,
   Text,
 } from "@libretexts/davis-react";
+import {
+  IconBook,
+  IconBrowser,
+  IconCloudUpload,
+  IconHistory,
+} from "@tabler/icons-react";
 
 export interface AvailableSources {
   hasLocal: boolean;
@@ -36,6 +42,36 @@ interface RecoveryModalProps {
   onClose: () => void;
 }
 
+const toTimestampMs = (value?: string | Date | number): number | null => {
+  if (value == null) return null;
+  const ms = typeof value === "number" ? value : new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
+};
+
+/** Newest dated source among the available options. */
+const resolveRecentSource = (
+  sources: AvailableSources,
+): BookSourceType | null => {
+  const candidates: { source: BookSourceType; ms: number }[] = [];
+
+  if (sources.hasLocal) {
+    const ms = toTimestampMs(sources.localTimestamp);
+    if (ms != null) candidates.push({ source: "local", ms });
+  }
+  if (sources.hasServerDraft) {
+    const ms = toTimestampMs(sources.serverUpdatedAt);
+    if (ms != null) candidates.push({ source: "serverDraft", ms });
+  }
+  const publishedMs = toTimestampMs(sources.publishedAt);
+  if (publishedMs != null) {
+    candidates.push({ source: "fresh", ms: publishedMs });
+  }
+
+  if (candidates.length === 0) return null;
+  return candidates.reduce((best, cur) => (cur.ms > best.ms ? cur : best))
+    .source;
+};
+
 const RecoveryModal: React.FC<RecoveryModalProps> = ({
   open,
   loading,
@@ -46,6 +82,21 @@ const RecoveryModal: React.FC<RecoveryModalProps> = ({
 }) => {
   const [preserveConfigs, setPreserveConfigs] = useState(true);
 
+  const recentSource = useMemo(
+    () => resolveRecentSource(availableSources),
+    [availableSources],
+  );
+
+  const recentBadge = (
+    <Text size="sm" className="font-normal text-primary">
+      (Recent)
+    </Text>
+  );
+
+  const cardClassName = loading
+    ? "cursor-default"
+    : "cursor-pointer transition-colors hover:bg-surface-hover";
+
   return (
     <Modal
       open={open}
@@ -54,7 +105,8 @@ const RecoveryModal: React.FC<RecoveryModalProps> = ({
     >
       <Modal.Header>
         <Modal.Title>
-          <Icon name="history" /> Load Remixer State
+          <IconHistory size="1.25em" className="inline-block" /> Load Remixer
+          State
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
@@ -63,21 +115,18 @@ const RecoveryModal: React.FC<RecoveryModalProps> = ({
           tree.
         </Text>
         <Stack direction="vertical" gap="md" className="mt-4">
-        <Card
+          <Card
             variant="outline"
             padding="md"
-            className={
-              loading
-                ? "cursor-default"
-                : "cursor-pointer transition-colors hover:bg-surface-hover"
-            }
+            className={cardClassName}
             onClick={() =>
               !loading && onLoadSource("fresh", { preserveConfigs })
             }
           >
             <Card.Body>
               <Heading level={4} className="flex items-center gap-2">
-                <Icon name="book" /> Fresh from Library
+                <IconBook size="1.25em" /> Fresh from Library
+                {recentSource === "fresh" ? recentBadge : null}
               </Heading>
               <Stack direction="vertical" gap="xs" className="mt-1">
                 <Text className="mt-2 text-gray-600">
@@ -115,20 +164,18 @@ const RecoveryModal: React.FC<RecoveryModalProps> = ({
               </Stack>
             </Card.Body>
           </Card>
+
           {availableSources.hasServerDraft && (
             <Card
               variant="outline"
               padding="md"
-              className={
-                loading
-                  ? "cursor-default"
-                  : "cursor-pointer transition-colors hover:bg-surface-hover"
-              }
+              className={cardClassName}
               onClick={() => !loading && onLoadSource("serverDraft")}
             >
               <Card.Body>
                 <Heading level={4} className="flex items-center gap-2">
-                  <Icon name="cloud download" /> Server Draft
+                  <IconCloudUpload size="1.25em" /> Server Draft
+                  {recentSource === "serverDraft" ? recentBadge : null}
                 </Heading>
                 {(availableSources.serverUpdatedAt != null ||
                   availableSources.serverUpdatedBy) && (
@@ -155,22 +202,17 @@ const RecoveryModal: React.FC<RecoveryModalProps> = ({
             </Card>
           )}
 
-
-
           {availableSources.hasLocal && (
             <Card
               variant="outline"
               padding="md"
-              className={
-                loading
-                  ? "cursor-default"
-                  : "cursor-pointer transition-colors hover:bg-surface-hover"
-              }
+              className={cardClassName}
               onClick={() => !loading && onLoadSource("local")}
             >
               <Card.Body>
                 <Heading level={4} className="flex items-center gap-2">
-                  <Icon name="computer" /> Browser Draft
+                  <IconBrowser size="1.25em" /> Browser Draft
+                  {recentSource === "local" ? recentBadge : null}
                 </Heading>
                 <Stack direction="vertical" gap="xs" className="mt-1">
                   {availableSources.localTimestamp != null && (
