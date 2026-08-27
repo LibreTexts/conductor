@@ -377,7 +377,10 @@ export const arePathNumbersEqual = (
   const l = left ?? [];
   const r = right ?? [];
   if (l.length !== r.length) return false;
-  return l.every((segment, index) => segment.includes(r[index]));
+  return l.every(
+    (segment, index) =>
+      segment.padStart(2, "0") === r[index].padStart( 2, "0"),
+  );
 };
 
 export const cloneBook = (book: RemixerSubPage[]): RemixerSubPage[] =>
@@ -1032,9 +1035,11 @@ const isInDeletedBranchForAutonumber = (
 export const hasFormattedPathChanged = (page: RemixerSubPage): boolean => {
   // if it is matter default page, return false
   if (isDefaultMatterPage(page)) return false;
-  if(isMatterRootNode(page)) return false;
+  if (isMatterRootNode(page)) return false;
   if (page.addedItem === true) return false;
-  const currPath = ( page.pathNumber ? page.pathNumber.join(".") : (page.numberedPath ?? "")).trim();
+  const currPath = (
+    page.pathNumber ? page.pathNumber.join(".") : (page.numberedPath ?? "")
+  ).trim();
   const url = getRemixerPageUriUi(page);
   if (url && currPath.length > 0) {
     const section = url.split("/").pop();
@@ -1054,7 +1059,6 @@ export const hasFormattedPathChanged = (page: RemixerSubPage): boolean => {
   if (!currOverride) return false;
   const origPath = (page.originalFormattedPath ?? "").trim();
 
- 
   return origPath !== currPath;
 };
 
