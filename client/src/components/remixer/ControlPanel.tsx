@@ -171,7 +171,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                 placeholder="Mode..."
                 className="w-full min-w-0 [&>div]:!mt-0"
                 labelClassName="sr-only"
-                selectClassName="!h-10 !box-border !py-0 leading-none"
+                selectClassName="!h-10 !box-border !py-0 !pr-10 leading-none"
                 
                 value={copyModeState}
                 onChange={(e) => {
