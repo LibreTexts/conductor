@@ -2234,16 +2234,10 @@ const isLocallyImportedPageID = (pageID: string): boolean =>
 
 /** Path / format fields overlaid from saved remixer state onto a live TOC row. */
 const REMIXER_PAGE_CONFIG_KEYS = [
-  "pathNumber",
-  "originalPathNumber",
-  "numberedPath",
-  "formattedPath",
   "formattedPathOverride",
-  "siblingTitleIndex",
-  "formattedPathPrefix",
-  "formattedPathIndex",
-  "originalFormattedPath",
   "originalFormattedPathOverride",
+  "formattedPath",
+
 ] as const;
 
 const pickSavedPageConfigs = (
