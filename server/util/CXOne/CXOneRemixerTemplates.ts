@@ -97,8 +97,10 @@ const RemixerTemplates = {
   ) => {
     let contents = rawSourceHTML;
     for (const m of fileMigrations) {
-      contents = contents.replace(m.original, m.final);
-      contents = contents.replace(`fileid="${m.oldID}"`, `fileid="${m.newID}"`);
+      if (m.original) {
+        contents = contents.split(m.original).join(m.final);
+      }
+      contents = contents.split(`fileid="${m.oldID}"`).join(`fileid="${m.newID}"`);
     }
     return (
       contents +
