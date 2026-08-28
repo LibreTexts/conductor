@@ -13,14 +13,14 @@ import {
   Select,
   Stack,
   Text,
+  Tooltip,
 } from "@libretexts/davis-react";
 import { DataTable } from "@libretexts/davis-react-table";
 import type { ColumnDef } from "@libretexts/davis-react-table";
 import {
   IconBan,
-  IconCheck,
-  IconCopy,
   IconDeviceFloppy,
+  IconKey,
   IconPencil,
   IconPlus,
   IconRefresh,
@@ -45,7 +45,7 @@ import {
 import HandleUserDisableModal from "../../../../components/controlpanel/CentralIdentity/HandleUserDisableModal";
 import { dirtyValues } from "../../../../utils/misc";
 import { useNotifications } from "../../../../context/NotificationContext";
-import CopyButton from "../../../../components/util/CopyButton";
+import CopyValueButton from "../../../../components/util/CopyValueButton";
 import { format, parseISO } from "date-fns";
 import { utcToZonedTime } from "date-fns-tz";
 import { useDocumentTitle } from "usehooks-ts";
@@ -85,10 +85,14 @@ import { useModals } from "../../../../context/ModalContext";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import AddUserAppLicenseModal from "../../../../components/controlpanel/CentralIdentity/AddUserAppLicenseModal";
 import ChangeUserEmailModal from "../../../../components/controlpanel/CentralIdentity/ChangeUserEmailModal";
+import ResetUserPasswordModal from "../../../../components/controlpanel/CentralIdentity/ResetUserPasswordModal";
 import { useTypedSelector } from "../../../../state/hooks";
 import ConfirmDeleteUserModal from "../../../../components/controlpanel/CentralIdentity/ConfirmDeleteUserModal";
 
 const DEFAULT_AVATAR_URL = "https://cdn.libretexts.net/DefaultImages/avatar.png";
+
+const EXTERNAL_IDP_REASON =
+  "This user signs in with an external identity provider, so LibreOne does not manage their password or email address.";
 
 const shortDate = (value: string | null | undefined) =>
   value
@@ -110,35 +114,6 @@ const DetailRow: React.FC<{
     <dd className={valueClassName ?? "break-words"}>{children}</dd>
   </div>
 );
-
-/** Copy-to-clipboard affordance. Focusable, unlike the `<Icon onClick>` it replaces. */
-const CopyValueButton: React.FC<{ value: string; label: string }> = ({
-  value,
-  label,
-}) => {
-  const { addNotification } = useNotifications();
-  return (
-    <CopyButton val={value}>
-      {({ copied, copy }) => (
-        <IconButton
-          icon={copied ? <IconCheck /> : <IconCopy />}
-          aria-label={label}
-          tooltip={label}
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            copy();
-            addNotification({
-              message: "Copied to clipboard!",
-              type: "success",
-              duration: 2000,
-            });
-          }}
-        />
-      )}
-    </CopyButton>
-  );
-};
 
 const makeOrganizationColumns = (
   onRemove: (orgId: string) => void
@@ -670,12 +645,19 @@ const CentralIdentityUserView = () => {
                       />
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {!externalIdp && (
+                      {/* `softDisabled` rather than `disabled`: a natively disabled button
+                          fires no hover or focus events, so its tooltip would be
+                          unreachable by keyboard and invisible to a screen reader. */}
+                      <Tooltip
+                        content={EXTERNAL_IDP_REASON}
+                        disabled={!externalIdp}
+                      >
                         <Button
                           variant="secondary"
                           size="sm"
                           icon={<IconPencil />}
                           loading={loading}
+                          softDisabled={!!externalIdp}
                           onClick={() => {
                             openModal(
                               <ChangeUserEmailModal
@@ -692,7 +674,31 @@ const CentralIdentityUserView = () => {
                         >
                           Change Email
                         </Button>
-                      )}
+                      </Tooltip>
+                      <Tooltip
+                        content={EXTERNAL_IDP_REASON}
+                        disabled={!externalIdp}
+                      >
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<IconKey />}
+                          loading={loading}
+                          softDisabled={!!externalIdp}
+                          onClick={() => {
+                            openModal(
+                              <ResetUserPasswordModal
+                                show={true}
+                                userId={userUuid}
+                                onReset={loadUser}
+                                onClose={() => closeAllModals()}
+                              />
+                            );
+                          }}
+                        >
+                          Reset Password
+                        </Button>
+                      </Tooltip>
                       {disabled ? (
                         <Button
                           variant="warning"

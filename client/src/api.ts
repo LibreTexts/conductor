@@ -1148,6 +1148,15 @@ class API {
     return res;
   }
 
+  async changeCentralIdentityUserPassword(uuid: string, newPassword: string) {
+    const res = await axios.post<
+      {
+        sessions_invalidated?: boolean;
+      } & ConductorBaseResponse
+    >(`/central-identity/users/${uuid}/password`, { new_password: newPassword });
+    return res;
+  }
+
   async disableCentralIdentityUser(uuid: string, reason: string) {
     const res = await axios.patch<ConductorBaseResponse>(
       `/central-identity/users/${uuid}/disable`,
