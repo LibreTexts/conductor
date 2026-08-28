@@ -174,3 +174,72 @@ export function toSelectOptions<T extends string | number>(
     label: opt.text,
   }));
 }
+
+/**
+ * Human-readable summary of the password rules enforced client-side. LibreOne itself
+ * scores passwords with zxcvbn rather than static rules, so this is a courtesy check
+ * that catches obvious mistakes before a round trip. The server's rejection is
+ * authoritative and must still render cleanly.
+ */
+export const PASSWORD_RULES_TEXT =
+  "Must be at least 10 characters and include at least 1 number and 1 special character.";
+
+export const MIN_PASSWORD_LENGTH = 10;
+
+export function meetsPasswordRules(value: string): boolean {
+  if (!value || value.length < MIN_PASSWORD_LENGTH) return false;
+  if (!/\d/.test(value)) return false;
+  if (!/[^A-Za-z0-9]/.test(value)) return false;
+  return true;
+}
+
+const PASSWORD_POOLS = [
+  "abcdefghijkmnopqrstuvwxyz", // no 'l'
+  "ABCDEFGHJKLMNPQRSTUVWXYZ", // no 'I' or 'O'
+  "23456789", // no '0' or '1'
+  "!@#$%^&*-_=+?",
+];
+
+/**
+ * Returns a uniformly distributed integer in [0, max) using the Web Crypto API.
+ * Rejection sampling discards values in the final partial bucket, which is what
+ * keeps a plain modulo from skewing toward the low end of the range.
+ */
+function randomInt(max: number): number {
+  const limit = Math.floor(0xffffffff / max) * max;
+  const buf = new Uint32Array(1);
+  let value = 0;
+  do {
+    crypto.getRandomValues(buf);
+    value = buf[0];
+  } while (value >= limit);
+  return value % max;
+}
+
+function randomChar(pool: string): string {
+  return pool.charAt(randomInt(pool.length));
+}
+
+/**
+ * Generates a password guaranteed to contain at least one character from each pool,
+ * so it always satisfies `meetsPasswordRules` and comfortably clears zxcvbn's
+ * threshold. Visually ambiguous characters (l/I/O/0/1) are excluded because these
+ * passwords get read aloud or retyped by the user they are handed to.
+ */
+export function generateSecurePassword(length = 16): string {
+  const minLength = Math.max(length, PASSWORD_POOLS.length, MIN_PASSWORD_LENGTH);
+  const combined = PASSWORD_POOLS.join("");
+  const chars = PASSWORD_POOLS.map((pool) => randomChar(pool));
+
+  while (chars.length < minLength) {
+    chars.push(randomChar(combined));
+  }
+
+  // Fisher-Yates, so the guaranteed characters aren't pinned to the first four slots.
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+
+  return chars.join("");
+}

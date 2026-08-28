@@ -25,6 +25,16 @@ export const VerificationStatusUpdateWebhookValidator = z.object({
   }),
 });
 
+export const ChangeUserPasswordValidator = z.object({
+  params: z.object({
+    id: z.uuid(),
+  }),
+  body: z.object({
+    new_password: z.string().min(8).max(128),
+  }),
+});
+
+
 export const CheckUserApplicationAccessValidator = z.object({
   params: z.object({
     id: z.string().uuid(),

@@ -233,6 +233,17 @@ router
   );
 
 router
+  .route("/central-identity/users/:id/password")
+  .post(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(centralIdentityValidators.ChangeUserPasswordValidator),
+    centralIdentityAPI.changeUserPassword
+  );
+
+router
   .route("/central-identity/users/:id/disable")
   .patch(
     middleware.checkCentralIdentityConfig,

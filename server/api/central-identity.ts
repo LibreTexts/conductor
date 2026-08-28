@@ -46,7 +46,8 @@ import {
   VerificationStatusUpdateWebhookValidator,
   GetVerificationRequestsSchema,
   CheckUsersApplicationAccessValidator,
-  DeleteUserValidator
+  DeleteUserValidator,
+  ChangeUserPasswordValidator
 } from "./validators/central-identity.js";
 import Project, { ProjectInterface } from "../models/project.js";
 import { getSubdomainFromLibrary } from "../util/librariesclient.js";
@@ -247,6 +248,87 @@ async function changeUserEmail(
       return conductor400Err(res);
     }
     logger.error({ err: error }, "changeUserEmail failed");
+    return conductor500Err(res);
+  }
+}
+
+/**
+ * Reduces an error thrown by the password-change call to the two fields that cannot carry
+ * the plaintext password: the HTTP status and Axios' own transport code (`ECONNABORTED`,
+ * `ERR_BAD_RESPONSE`, and friends).
+ *
+ * Deliberately narrow. The raw Axios error is never logged - it carries `config.data`, which
+ * is the request body, which is the password, and Pino's `err` serializer would walk straight
+ * into it. Neither is `error.message` or any upstream response text: LibreOne's validator may
+ * quote the value it rejected. Correlate against LibreOne's own logs for detail.
+ */
+function passwordChangeErrorFields(error: any) {
+  const status = error?.response?.status ?? error?.status;
+  return {
+    status: typeof status === "number" ? status : undefined,
+    code: typeof error?.code === "string" ? error.code : undefined,
+  };
+}
+
+/**
+ * Sets a LibreOne user's password on behalf of an administrator. The plaintext password is
+ * never logged or echoed back: LibreOne is the only place it comes to rest, and the admin
+ * already holds the value they submitted.
+ */
+async function changeUserPassword(
+  req: ZodReqWithUser<z.infer<typeof ChangeUserPasswordValidator>>,
+  res: Response
+) {
+  try {
+    const userId = req.params.id;
+    if (!userId) return conductor400Err(res);
+
+    // LibreOne attributes the audit note it writes to the `X-User-ID` header, which must be
+    // the acting admin's LibreOne UUID - not their local Conductor uuid.
+    const callingUser = await User.findOne({
+      uuid: { $eq: req.user.decoded.uuid },
+    });
+    if (!callingUser?.centralID) return conductor400Err(res);
+
+    const passwordRes = await centralIdentityService.updateUserPasswordDirect(
+      userId,
+      req.body.new_password,
+      callingUser.centralID
+    );
+
+    return res.send({
+      err: false,
+      msg: "Password updated successfully.",
+      sessions_invalidated: !!passwordRes.data?.sessions_invalidated,
+    });
+  } catch (error: any) {
+    const status = error?.response?.status ?? error?.status;
+    const errFields = {
+      ...passwordChangeErrorFields(error),
+      userId: req.params.id,
+    };
+
+    if (status === 400) {
+      logger.debug(errFields, "changeUserPassword failed with 400");
+      return res.status(400).send({
+        err: true,
+        errMsg:
+          "Password rejected: it may be too weak, or this user signs in with an external identity provider.",
+      });
+    }
+    if (status === 403) {
+      logger.debug(errFields, "changeUserPassword failed with 403");
+      return res.status(403).send({
+        err: true,
+        errMsg: "You are not permitted to reset this user's password.",
+      });
+    }
+    if (status === 404) {
+      logger.debug(errFields, "changeUserPassword failed with 404");
+      return conductor404Err(res);
+    }
+
+    logger.error(errFields, "changeUserPassword failed");
     return conductor500Err(res);
   }
 }
@@ -2054,6 +2136,7 @@ export default {
   updateUserAcademyOnlineAccess,
   updateUserAdminRole,
   changeUserEmail,
+  changeUserPassword,
   processNewUserWebhookEvent,
   processLibraryAccessWebhookEvent,
   processVerificationStatusUpdateWebook,

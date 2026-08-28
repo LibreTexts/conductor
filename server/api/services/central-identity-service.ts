@@ -178,6 +178,20 @@ export default class CentralIdentityService {
         return this.instance.post(`/users/${userId}/email-change-direct`, { email });
     }
 
+    /**
+     * Sets a user's password on behalf of an administrator, without the user's current
+     * password. `callingUserCentralID` must be the acting admin's LibreOne UUID: LibreOne
+     * records it as the author of the audit note it writes against the target user.
+     * All of the target user's active sessions are destroyed by this call.
+     */
+    async updateUserPasswordDirect(userId: string, newPassword: string, callingUserCentralID: string) {
+        return this.instance.post(`/users/${userId}/password-change-direct`, { new_password: newPassword }, {
+            headers: {
+                'X-User-ID': callingUserCentralID
+            }
+        });
+    }
+
     async addUserApplication(userId: string, application_id: string | number) {
         return this.instance.post(`/users/${userId}/applications`, { application_id });
     }
