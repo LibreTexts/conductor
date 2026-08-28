@@ -72,6 +72,7 @@ const validateRemixerBookOwnership = async (
   libreLibrary: string | undefined,
   libreCoverID: string | undefined,
   currentBook: unknown,
+  realTimeBook: boolean = false,
 ): Promise<string | null> => {
   if (!libreLibrary || !libreCoverID) {
     return "Project is not attached to a library book; cannot verify remixer permissions.";
@@ -106,7 +107,7 @@ const validateRemixerBookOwnership = async (
     const bookService = new BookService({
       bookID: `${libreLibrary}-${libreCoverID}`,
     });
-    ownedPageIDs = await bookService.getBookPageIDs(false);
+    ownedPageIDs = await bookService.getBookPageIDs(!realTimeBook);
   } catch (error) {
     remixerLog.error({ err: error }, "failed to resolve owned book pages");
     return "Unable to verify remixer permissions against the project's book.";
@@ -181,6 +182,7 @@ const saveRemixerProjectState = async (
       project.libreLibrary,
       project.libreCoverID,
       currentBook,
+      true,
     );
     if (ownershipError) {
       return res.status(403).send({ err: true, errMsg: ownershipError });
@@ -291,6 +293,7 @@ const publishRemixerProject = async (
       subdomain,
       project.libreCoverID,
       currentBook,
+      true,
     );
     if (ownershipError) {
       return res.status(403).send({ err: true, errMsg: ownershipError });
