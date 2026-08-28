@@ -592,8 +592,12 @@ const RemixerDashboard: React.FC = () => {
         });
       };
 
-      // Selected book's descendants in one request.
-      const treeRes = await api.getRemixerTreeFlattened(id, targetNodeId, lib);
+      // Selected book's descendants in one request. Library browse only —
+      // do not overlay this project's saved remixer configs onto the tree.
+      const treeRes = await api.getRemixerTreeFlattened(id, targetNodeId, lib, {
+        flatten: true,
+        preserveConfigs: false,
+      });
       for (const node of (treeRes.response ?? []) as RemixerSubPage[]) {
         upsert(node);
       }
