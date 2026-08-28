@@ -160,3 +160,17 @@ export const getPrettyAcademyOnlineAccessLevel = (level: number) => {
 export const getCentralAuthInstructorURL = () => {
   return "https://one.libretexts.org/instructor";
 };
+/**
+ * Converts the Semantic-era `{ key, text, value }` option shape used throughout
+ * this file into the `{ value, label }` shape Davis' `Select` expects. Davis
+ * `Select` is string-valued only, so numeric option sets (e.g. Academy Online
+ * access levels) are stringified here and must be coerced back by the caller.
+ */
+export function toSelectOptions<T extends string | number>(
+  options: GenericKeyTextValueObj<T>[]
+): { value: string; label: string }[] {
+  return options.map((opt) => ({
+    value: String(opt.value),
+    label: opt.text,
+  }));
+}

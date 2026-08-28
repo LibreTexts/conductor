@@ -1,22 +1,36 @@
 import { useState, useEffect, useMemo } from "react";
 import lazyWithRetry from "../../../../utils/lazyWithRetry";
-import { Link, useHistory, useParams } from "react-router-dom";
+import { useHistory, useParams } from "react-router-dom";
 import {
-  Header,
-  Segment,
-  Grid,
+  Alert,
+  Avatar,
   Breadcrumb,
-  Table,
-  Icon,
   Button,
-  Dropdown,
-  Image,
-  Popup,
-  Message,
-} from "semantic-ui-react";
+  Card,
+  Heading,
+  IconButton,
+  Input,
+  Select,
+  Stack,
+  Text,
+} from "@libretexts/davis-react";
+import { DataTable } from "@libretexts/davis-react-table";
+import type { ColumnDef } from "@libretexts/davis-react-table";
+import {
+  IconBan,
+  IconCheck,
+  IconCopy,
+  IconDeviceFloppy,
+  IconPencil,
+  IconPlus,
+  IconRefresh,
+  IconTrash,
+  IconX,
+} from "@tabler/icons-react";
 import {
   CentralIdentityUser,
   CentralIdentityApp,
+  CentralIdentityOrg,
   CentralIdentityUserLicenseResult,
 } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
@@ -24,16 +38,17 @@ import { useForm, Controller } from "react-hook-form";
 import {
   getPrettyAcademyOnlineAccessLevel,
   getPrettyAuthSource,
+  toSelectOptions,
   userTypeOptions,
   verificationStatusOptions,
 } from "../../../../utils/centralIdentityHelpers";
 import HandleUserDisableModal from "../../../../components/controlpanel/CentralIdentity/HandleUserDisableModal";
 import { dirtyValues } from "../../../../utils/misc";
 import { useNotifications } from "../../../../context/NotificationContext";
-import CtlTextInput from "../../../../components/ControlledInputs/CtlTextInput";
 import CopyButton from "../../../../components/util/CopyButton";
 import { format, parseISO } from "date-fns";
 import { utcToZonedTime } from "date-fns-tz";
+import { useDocumentTitle } from "usehooks-ts";
 const AddUserAppModal = lazyWithRetry(
   () =>
     import(
@@ -73,11 +88,161 @@ import ChangeUserEmailModal from "../../../../components/controlpanel/CentralIde
 import { useTypedSelector } from "../../../../state/hooks";
 import ConfirmDeleteUserModal from "../../../../components/controlpanel/CentralIdentity/ConfirmDeleteUserModal";
 
+const DEFAULT_AVATAR_URL = "https://cdn.libretexts.net/DefaultImages/avatar.png";
+
+const shortDate = (value: string | null | undefined) =>
+  value
+    ? new Intl.DateTimeFormat("en-US", { dateStyle: "short" }).format(
+        new Date(value)
+      )
+    : "";
+
+/** A read-only label/value pair. Replaces the repeated `<Header sub>` + `<span>` blocks. */
+const DetailRow: React.FC<{
+  label: string;
+  children: React.ReactNode;
+  valueClassName?: string;
+}> = ({ label, children, valueClassName }) => (
+  <div>
+    <Text as="dt" size="sm" weight="semibold" color="muted">
+      {label}
+    </Text>
+    <dd className={valueClassName ?? "break-words"}>{children}</dd>
+  </div>
+);
+
+/** Copy-to-clipboard affordance. Focusable, unlike the `<Icon onClick>` it replaces. */
+const CopyValueButton: React.FC<{ value: string; label: string }> = ({
+  value,
+  label,
+}) => {
+  const { addNotification } = useNotifications();
+  return (
+    <CopyButton val={value}>
+      {({ copied, copy }) => (
+        <IconButton
+          icon={copied ? <IconCheck /> : <IconCopy />}
+          aria-label={label}
+          tooltip={label}
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            copy();
+            addNotification({
+              message: "Copied to clipboard!",
+              type: "success",
+              duration: 2000,
+            });
+          }}
+        />
+      )}
+    </CopyButton>
+  );
+};
+
+const makeOrganizationColumns = (
+  onRemove: (orgId: string) => void
+): ColumnDef<CentralIdentityOrg>[] => [
+  { accessorKey: "name", header: "Name" },
+  {
+    id: "system",
+    header: "System Name",
+    accessorFn: (row) => row.system?.name ?? "",
+  },
+  {
+    id: "actions",
+    header: "Actions",
+    cell: ({ row }) => (
+      <IconButton
+        icon={<IconTrash />}
+        aria-label={`Remove organization ${row.original.name}`}
+        tooltip="Remove organization"
+        variant="destructive"
+        size="sm"
+        onClick={() => onRemove(row.original.id.toString())}
+      />
+    ),
+  },
+];
+
+const makeAppLicenseColumns = (
+  onRevoke: (licenseId: string) => void
+): ColumnDef<CentralIdentityUserLicenseResult>[] => [
+  {
+    id: "name",
+    header: "Name",
+    accessorFn: (row) => row.application_license.name,
+  },
+  {
+    accessorKey: "original_purchase_date",
+    header: "Original Purchase",
+    cell: ({ getValue }) => shortDate(getValue<string>()),
+  },
+  {
+    accessorKey: "last_renewed_at",
+    header: "Last Renewed",
+    cell: ({ getValue }) => shortDate(getValue<string>()),
+  },
+  {
+    id: "expires",
+    header: "Expires At",
+    cell: ({ row }) => {
+      const app = row.original;
+      if (app.application_license.perpetual) return "Perpetual";
+      const isExpired = new Date(app.expires_at) < new Date();
+      return `${isExpired ? "Expired " : ""}${shortDate(app.expires_at)}`;
+    },
+  },
+  {
+    id: "revoked",
+    header: "Revoked?",
+    cell: ({ row }) =>
+      row.original.revoked && row.original.revoked_at
+        ? shortDate(row.original.revoked_at)
+        : "No",
+  },
+  { accessorKey: "granted_by", header: "Granted Through" },
+  {
+    id: "actions",
+    header: "Actions",
+    cell: ({ row }) => (
+      <IconButton
+        icon={<IconTrash />}
+        aria-label={`Revoke license ${row.original.application_license.name}`}
+        tooltip="Revoke license"
+        variant="destructive"
+        size="sm"
+        disabled={row.original.revoked}
+        onClick={() => onRevoke(row.original.application_license_id.toString())}
+      />
+    ),
+  },
+];
+
+const makeUserAppColumns = (
+  onRemove: (appId: string) => void
+): ColumnDef<CentralIdentityApp>[] => [
+  { accessorKey: "name", header: "Name" },
+  {
+    id: "actions",
+    header: "Actions",
+    cell: ({ row }) => (
+      <IconButton
+        icon={<IconTrash />}
+        aria-label={`Remove application ${row.original.name}`}
+        tooltip="Remove application"
+        variant="destructive"
+        size="sm"
+        onClick={() => onRemove(row.original.id.toString())}
+      />
+    ),
+  },
+];
+
 const CentralIdentityUserView = () => {
   const { uuid } = useParams<{ uuid: string }>();
   const history = useHistory();
-  const DEFAULT_AVATAR_URL =
-    "https://cdn.libretexts.net/DefaultImages/avatar.png";
+  useDocumentTitle("LibreTexts Conductor | Manage User");
 
   const [loading, setLoading] = useState<boolean>(false);
   const [userLoading, setUserLoading] = useState<boolean>(true);
@@ -110,6 +275,53 @@ const CentralIdentityUserView = () => {
   const { openModal, closeAllModals } = useModals();
   const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
 
+  const { control, register, formState, reset, watch, getValues, setValue } =
+    useForm<CentralIdentityUser>({
+      defaultValues: {
+        first_name: "",
+        last_name: "",
+        disabled: false,
+        disabled_reason: "",
+        disabled_date: "",
+        bio_url: "",
+        user_type: "student",
+        student_id: "",
+        avatar: DEFAULT_AVATAR_URL,
+        last_access: "",
+        last_password_change: "",
+      },
+    });
+  const { errors } = formState;
+
+  // `watch` (not `getValues`) so conditional sections actually re-render when
+  // the underlying field changes.
+  const firstName = watch("first_name");
+  const lastName = watch("last_name");
+  const disabled = watch("disabled");
+  const disabledReason = watch("disabled_reason");
+  const disabledDate = watch("disabled_date");
+  const userType = watch("user_type");
+  const avatar = watch("avatar");
+  const email = watch("email");
+  const userUuid = watch("uuid");
+  const externalIdp = watch("external_idp");
+  const organizations = watch("organizations");
+  const createdAt = watch("created_at");
+  const timeZone = watch("time_zone");
+  const lastAccess = watch("last_access");
+  const lastPasswordChange = watch("last_password_change");
+  const academyOnline = watch("academy_online");
+  const academyOnlineExpiresRaw = watch("academy_online_expires");
+
+  const userTypeSelectOptions = useMemo(
+    () => toSelectOptions(userTypeOptions),
+    []
+  );
+  const verificationStatusSelectOptions = useMemo(
+    () => toSelectOptions(verificationStatusOptions),
+    []
+  );
+
   const handleDeleteUser = async () => {
     try {
       setDeleteLoading(true);
@@ -134,23 +346,6 @@ const CentralIdentityUserView = () => {
     }
   };
 
-  const { control, formState, reset, watch, getValues, setValue } =
-    useForm<CentralIdentityUser>({
-      defaultValues: {
-        first_name: "",
-        last_name: "",
-        disabled: false,
-        disabled_reason: "",
-        disabled_date: "",
-        bio_url: "",
-        user_type: "student",
-        student_id: "",
-        avatar: DEFAULT_AVATAR_URL,
-        last_access: "",
-        last_password_change: "",
-      },
-    });
-
   useEffect(() => {
     if (uuid) {
       loadUser();
@@ -161,11 +356,27 @@ const CentralIdentityUserView = () => {
   }, [uuid]);
 
   const academyOnlineExpires = useMemo(() => {
-    const academyOnlineExpires = getValues("academy_online_expires");
-    if (!academyOnlineExpires) return "Never";
-    const parsedDate = parseISO(academyOnlineExpires);
-    return format(parsedDate, "MM/dd/yyyy hh:mm aa");
-  }, [watch("academy_online_expires")]);
+    if (!academyOnlineExpiresRaw) return "Never";
+    return format(parseISO(academyOnlineExpiresRaw), "MM/dd/yyyy hh:mm aa");
+  }, [academyOnlineExpiresRaw]);
+
+  const disabledMessage = useMemo(() => {
+    let message = "This user's account has been disabled.";
+    if (disabledReason) {
+      message += ` Reason: ${disabledReason}.`;
+    }
+    if (disabledDate) {
+      const formatted = format(
+        utcToZonedTime(
+          parseISO(disabledDate),
+          Intl.DateTimeFormat().resolvedOptions().timeZone
+        ),
+        "MM/dd/yyyy"
+      );
+      message += ` Disabled on ${formatted}.`;
+    }
+    return message;
+  }, [disabledReason, disabledDate]);
 
   async function loadUser() {
     try {
@@ -197,11 +408,15 @@ const CentralIdentityUserView = () => {
       }
 
       setUserLocalID(res.uuid);
-    } catch (err) {
-      console.error(err);
-      // handleGlobalError(
-      //   "User does not have a local Conductor record. This may or may not be expected."
-      // );
+    } catch (err: any) {
+      // A 404 simply means the user has no local Conductor record, which is an
+      // expected state. This lookup is supplementary and must never break the
+      // page, so anything else is surfaced but still swallowed.
+      if (err?.response?.status === 404 || err?.status === 404) {
+        setUserLocalID("");
+        return;
+      }
+      handleGlobalError(err);
     }
   }
 
@@ -390,630 +605,405 @@ const CentralIdentityUserView = () => {
     );
   }
 
+  const organizationColumns = useMemo(
+    () =>
+      makeOrganizationColumns((orgId) =>
+        handleOpenRemoveOrgOrAppModal("org", orgId)
+      ),
+    []
+  );
+  const appLicenseColumns = useMemo(
+    () => makeAppLicenseColumns(handleInitRevokeAppLicense),
+    [uuid]
+  );
+  const userAppColumns = useMemo(
+    () =>
+      makeUserAppColumns((appId) => handleOpenRemoveOrgOrAppModal("app", appId)),
+    []
+  );
+
   return (
-    <Grid stackable className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">
-            Manage User
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column>
-          <Segment className="flex flex-row items-center justify-between">
-            <Breadcrumb>
-              <Breadcrumb.Section as={Link} to="/controlpanel">
-                Control Panel
-              </Breadcrumb.Section>
-              <Breadcrumb.Divider icon="right chevron" />
-              <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
-                LibreOne Admin Consoles
-              </Breadcrumb.Section>
-              <Breadcrumb.Divider icon="right chevron" />
-              <Breadcrumb.Section as={Link} to="/controlpanel/libreone/users">
-                Users
-              </Breadcrumb.Section>
-              <Breadcrumb.Divider icon="right chevron" />
-              <Breadcrumb.Section active>
-                {getValues("first_name") ?? ""} {getValues("last_name") ?? ""}
-              </Breadcrumb.Section>
-            </Breadcrumb>
-            {/* Disabled control for now */}
-            {/* <div className="flex items-center gap-2">
-              <CtlCheckbox name="disabled" control={control} toggle negated />
-              <span>
-                {getValues("disabled") ? (
-                  <strong>Disabled</strong>
-                ) : (
-                  <strong>Active</strong>
-                )}
-              </span>
-            </div> */}
-          </Segment>
-          {getValues("disabled") && (
-            <Message warning icon>
-              <Icon name="warning sign" />
-              <Message.Content>
-                <Message.Header>Account Disabled</Message.Header>
-                <p>
-                  This user's account has been disabled.
-                  {getValues("disabled_reason") && (
-                    <>
-                      {" "}
-                      <strong>Reason:</strong> {getValues("disabled_reason")}
-                    </>
-                  )}
-                  {getValues("disabled_date") && (
-                    <>
-                      {" "}
-                      <strong>Date:</strong>{" "}
-                      {format(
-                        utcToZonedTime(
-                          parseISO(getValues("disabled_date")!),
-                          Intl.DateTimeFormat().resolvedOptions().timeZone
-                        ),
-                        "MM/dd/yyyy"
-                      )}
-                    </>
-                  )}
-                </p>
-              </Message.Content>
-            </Message>
-          )}
-          <div className="flex flex-col lg:flex-row lg:justify-between pb-4">
-            <div className="flex flex-col w-full lg:basis-1/2 min-w-0">
-              <Segment loading={userLoading}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    justifyContent: "space-between",
-                    marginBottom: "1.5rem",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "1.5rem",
-                    }}
-                  >
-                    <Image
-                      avatar
-                      size="small"
-                      src={getValues("avatar") ?? DEFAULT_AVATAR_URL}
-                    />
-                    <Popup
-                      content="Reset to default avatar"
-                      trigger={
+    <div className="!h-full !p-8">
+      <Stack direction="vertical" gap="md">
+        <Heading level={2}>Manage User</Heading>
+        <Breadcrumb>
+          <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+          <Breadcrumb.Item href="/controlpanel/libreone">
+            LibreOne Admin Consoles
+          </Breadcrumb.Item>
+          <Breadcrumb.Item href="/controlpanel/libreone/users">
+            Users
+          </Breadcrumb.Item>
+          <Breadcrumb.Item isCurrent>
+            {`${firstName ?? ""} ${lastName ?? ""}`.trim() || "User"}
+          </Breadcrumb.Item>
+        </Breadcrumb>
+
+        {disabled && (
+          <Alert
+            variant="warning"
+            title="Account Disabled"
+            message={disabledMessage}
+          />
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {/* Left column */}
+          <Stack direction="vertical" gap="lg" className="min-w-0">
+            <Card>
+              <Card.Body>
+                <Stack direction="vertical" gap="md">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <Avatar
+                        src={avatar || DEFAULT_AVATAR_URL}
+                        alt={`${firstName ?? ""} ${lastName ?? ""}`.trim()}
+                        size="xl"
+                      />
+                      <IconButton
+                        icon={<IconBan />}
+                        aria-label="Reset to default avatar"
+                        tooltip="Reset to default avatar"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleResetAvatar}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {!externalIdp && (
                         <Button
-                          icon="ban"
-                          circular
-                          size="tiny"
-                          onClick={handleResetAvatar}
-                        />
-                      }
-                    />
-                  </div>
-                  <div className="flex flex-row gap-2">
-                    {!getValues("external_idp") && (
-                      <Button
-                        color="blue"
-                        size="small"
-                        loading={loading}
-                        onClick={() => {
-                          openModal(
-                            <ChangeUserEmailModal
-                              show={true}
-                              userId={getValues("uuid")}
-                              onChanged={() => {
-                                loadUser();
-                                closeAllModals();
-                              }}
-                              onClose={() => closeAllModals()}
-                            />
-                          );
-                        }}
-                      >
-                        <Icon name="pencil" /> Change Email
-                      </Button>
-                    )}
-                    {getValues("disabled") ? (
-                      <Button
-                        color="yellow"
-                        size="small"
-                        loading={loading}
-                        onClick={handleReEnableUser}
-                      >
-                        <Icon name="refresh" /> Re-Enable User
-                      </Button>
-                    ) : (
-                      <Button
-                        color="red"
-                        loading={loading}
-                        onClick={handleOpenDisableUserModal}
-                        size="small"
-                      >
-                        <Icon name="ban" /> Disable User
-                      </Button>
-                    )}
-                    {isSuperAdmin && (
-                      <Button
-                        color="red"
-                        size="small"
-                        loading={deleteLoading}
-                        onClick={() => setShowDeleteUserModal(true)}
-                        style={{ backgroundColor: "#d32f2f" }}
-                      >
-                        <Icon name="trash" /> Delete User
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                  <Header sub>Email</Header>
-                  <span
-                    style={{
-                      width: "100%",
-                      display: "block",
-                      fontSize: "1.1em",
-                      wordBreak: "break-all",
-                    }}
-                  >
-                    {getValues("email")}
-                    <CopyButton val={getValues("email") ?? ""}>
-                      {({ copied, copy }) => (
-                        <Icon
-                          name="copy"
-                          className="cursor-pointer !ml-1"
+                          variant="secondary"
+                          size="sm"
+                          icon={<IconPencil />}
+                          loading={loading}
                           onClick={() => {
-                            copy();
-                            addNotification({
-                              message: "Copied to clipboard!",
-                              type: "success",
-                              duration: 2000,
-                            });
+                            openModal(
+                              <ChangeUserEmailModal
+                                show={true}
+                                userId={userUuid}
+                                onChanged={() => {
+                                  loadUser();
+                                  closeAllModals();
+                                }}
+                                onClose={() => closeAllModals()}
+                              />
+                            );
                           }}
-                          color={copied ? "green" : "blue"}
-                        />
+                        >
+                          Change Email
+                        </Button>
                       )}
-                    </CopyButton>
-                  </span>
-                </div>
-                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                  <Header sub>First Name</Header>
-                  <CtlTextInput
-                    name="first_name"
-                    control={control}
-                    rules={{ required: true }}
-                    fluid
-                    style={{ width: "100%" }}
-                    loading={loading}
+                      {disabled ? (
+                        <Button
+                          variant="warning"
+                          size="sm"
+                          icon={<IconRefresh />}
+                          loading={loading}
+                          onClick={handleReEnableUser}
+                        >
+                          Re-Enable User
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          icon={<IconBan />}
+                          loading={loading}
+                          onClick={handleOpenDisableUserModal}
+                        >
+                          Disable User
+                        </Button>
+                      )}
+                      {isSuperAdmin && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          icon={<IconTrash />}
+                          loading={deleteLoading}
+                          onClick={() => setShowDeleteUserModal(true)}
+                        >
+                          Delete User
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <dl className="m-0">
+                    <DetailRow label="Email">
+                      <span className="inline-flex items-center gap-1 break-all">
+                        {email}
+                        <CopyValueButton
+                          value={email ?? ""}
+                          label="Copy email address"
+                        />
+                      </span>
+                    </DetailRow>
+                  </dl>
+
+                  <Input
+                    label="First Name"
+                    required
+                    disabled={userLoading}
+                    error={!!errors.first_name}
+                    errorMessage={errors.first_name?.message}
+                    {...register("first_name", {
+                      required: "First name is required.",
+                    })}
                   />
-                </div>
-                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                  <Header sub>Last Name</Header>
-                  <CtlTextInput
-                    name="last_name"
-                    control={control}
-                    rules={{ required: true }}
-                    fluid
-                    style={{ width: "100%" }}
-                    loading={loading}
+                  <Input
+                    label="Last Name"
+                    required
+                    disabled={userLoading}
+                    error={!!errors.last_name}
+                    errorMessage={errors.last_name?.message}
+                    {...register("last_name", {
+                      required: "Last name is required.",
+                    })}
                   />
-                </div>
-                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                  <Header sub>User Type</Header>
                   <Controller
                     name="user_type"
                     control={control}
                     render={({ field }) => (
-                      <Dropdown
-                        options={userTypeOptions}
-                        {...field}
-                        onChange={(e, data) => {
-                          field.onChange(data.value?.toString() ?? "student");
-                        }}
-                        selection
-                        fluid
-                        loading={loading}
+                      <Select
+                        name={field.name}
+                        ref={field.ref}
+                        onBlur={field.onBlur}
+                        label="User Type"
+                        placeholder="Select a user type"
+                        options={userTypeSelectOptions}
+                        value={field.value ?? "student"}
+                        onChange={(e) =>
+                          field.onChange(e.target.value || "student")
+                        }
+                        disabled={userLoading}
                       />
                     )}
                   />
-                </div>
-                {getValues("user_type") === "student" && (
-                  <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                    <Header sub>Student ID</Header>
-                    <CtlTextInput
-                      name="student_id"
-                      control={control}
-                      fluid
-                      style={{ width: "100%" }}
-                      loading={loading}
+                  {userType === "student" && (
+                    <Input
+                      label="Student ID"
+                      disabled={userLoading}
+                      {...register("student_id")}
                     />
-                  </div>
-                )}
-                {getValues("user_type") === "instructor" && (
-                  <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                    <Header sub>Verification Status</Header>
-                    <Controller
-                      name="verify_status"
-                      control={control}
-                      render={({ field }) => (
-                        <Dropdown
-                          options={verificationStatusOptions}
-                          {...field}
-                          onChange={(e, data) => {
-                            field.onChange(data.value?.toString() ?? "pending");
-                          }}
-                          selection
-                          fluid
-                          loading={loading}
-                        />
-                      )}
-                    />
-                  </div>
-                )}
-                {getValues("user_type") === "instructor" && (
-                  <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                    <Header sub>Bio URL</Header>
-                    <CtlTextInput
-                      name="bio_url"
-                      control={control}
-                      placeholder="Bio URL..."
-                      fluid
-                      style={{ width: "100%" }}
-                      loading={loading}
-                    />
-                  </div>
-                )}
-
-                <div
-                  style={{
-                    marginTop: "2rem",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <Button onClick={loadUser} loading={userLoading} disabled={userLoading}>Cancel</Button>
-                  {formState.isDirty && (
-                    <Button
-                      color="green"
-                      onClick={handleSave}
-                      loading={loading}
-                    >
-                      <Icon name="save" />
-                      Save
-                    </Button>
                   )}
-                </div>
-              </Segment>
-              <Segment>
-                <Header as="h3" dividing>
-                  Authentication & Security Data
-                </Header>
-                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                  <Header sub>UUID</Header>
-                  <span style={{ fontFamily: "monospace" }}>
-                    {getValues("uuid")}
-                    <CopyButton val={getValues("uuid") ?? ""}>
-                      {({ copied, copy }) => (
-                        <Icon
-                          name="copy"
-                          className="cursor-pointer !ml-1"
-                          onClick={() => {
-                            copy();
-                            addNotification({
-                              message: "Copied to clipboard!",
-                              type: "success",
-                              duration: 2000,
-                            });
-                          }}
-                          color={copied ? "green" : "blue"}
-                        />
-                      )}
-                    </CopyButton>
-                  </span>
-                </div>
-                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                  <Header sub>Authentication Source</Header>
-                  <span>
-                    {getValues("external_idp")
-                      ? getPrettyAuthSource(getValues("external_idp") ?? "")
-                      : "LibreOne (Local)"}
-                  </span>
-                </div>
-                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                  <Header sub>Time of Account Creation</Header>
-                  <span>
-                    {getValues("created_at")
-                      ? format(
-                        utcToZonedTime(
-                          parseISO(getValues("created_at") as string),
-                          getValues("time_zone") as string
-                        ),
-                        "MM/dd/yyyy hh:mm aa"
-                      )
-                      : ""}
-                  </span>
-                </div>
-                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                  <Header sub>Time of Last Access</Header>
-                  <span>
-                    {getValues("last_access")
-                      ? format(
-                        parseISO(getValues("last_access") as string),
-                        "MM/dd/yyyy hh:mm aa"
-                      )
-                      : "Unknown"}
-                  </span>
-                </div>
-                <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                  <Header sub>Time of Last Password Change</Header>
-                  <span>
-                    {getValues("last_password_change")
-                      ? format(
-                        parseISO(getValues("last_password_change") as string),
-                        "MM/dd/yyyy hh:mm aa"
-                      )
-                      : "Unknown"}
-                  </span>
-                </div>
-              </Segment>
-              {userLocalID && <UserConductorData uuid={userLocalID} />}
-            </div>
-            <div className="flex flex-col w-full lg:basis-1/2 lg:ml-8 gap-y-6 mt-6 lg:mt-0 min-w-0">
-              <Segment className="!my-0">
-                <div className="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
-                  <Header as="h3" style={{ margin: 0 }}>
-                    Organizations
-                  </Header>
-                  <Button
-                    icon
-                    color="blue"
-                    size="tiny"
-                    onClick={() => setShowAddOrgModal(true)}
-                  >
-                    <Icon name="plus" />
-                  </Button>
-                </div>
-                <div style={{ maxHeight: "300px", overflowY: "auto", overflowX: "auto" }}>
-                  <Table compact celled>
-                    <Table.Header>
-                      <Table.Row>
-                        <Table.HeaderCell>Name</Table.HeaderCell>
-                        <Table.HeaderCell>System Name</Table.HeaderCell>
-                        <Table.HeaderCell>Actions</Table.HeaderCell>
-                      </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                      {getValues("organizations") &&
-                        getValues("organizations")?.length > 0 ? (
-                        getValues("organizations").map((org) => (
-                          <Table.Row key={org.id}>
-                            <Table.Cell>{org.name}</Table.Cell>
-                            <Table.Cell>
-                              <span>{org.system ? org.system.name : ""}</span>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <Button
-                                icon
-                                color="red"
-                                size="tiny"
-                                onClick={() =>
-                                  handleOpenRemoveOrgOrAppModal(
-                                    "org",
-                                    org.id.toString()
-                                  )
-                                }
-                              >
-                                <Icon name="trash" />
-                              </Button>
-                            </Table.Cell>
-                          </Table.Row>
-                        ))
-                      ) : (
-                        <Table.Row>
-                          <Table.Cell colSpan={3} textAlign="center">
-                            <em>No organizations found.</em>
-                          </Table.Cell>
-                        </Table.Row>
-                      )}
-                    </Table.Body>
-                  </Table>
-                </div>
-              </Segment>
-              {userLocalID && isSuperAdmin && <CampusAdminRolesSection uuid={userLocalID} />}
-              <Segment className="!my-0">
-                <div className="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
-                  <Header as="h3" style={{ margin: 0 }}>
-                    Application Licenses
-                  </Header>
-                  <Button
-                    icon
-                    color="blue"
-                    size="tiny"
-                    onClick={handleAddUserAppLicense}
-                  >
-                    <Icon name="plus" />
-                  </Button>
-                </div>
-                <div style={{ maxHeight: "300px", overflowY: "auto", overflowX: "auto" }}>
-                  <Table compact celled>
-                    <Table.Header>
-                      <Table.Row>
-                        <Table.HeaderCell>Name</Table.HeaderCell>
-                        <Table.HeaderCell>Original Purchase</Table.HeaderCell>
-                        <Table.HeaderCell>Last Renewed</Table.HeaderCell>
-                        <Table.HeaderCell>Expires At</Table.HeaderCell>
-                        <Table.HeaderCell>Revoked?</Table.HeaderCell>
-                        <Table.HeaderCell>Granted Through</Table.HeaderCell>
-                        <Table.HeaderCell>Actions</Table.HeaderCell>
-                      </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                      {userAppLicenses.length > 0 ? (
-                        userAppLicenses.map((app) => {
-                          const isExpired =
-                            new Date(app.expires_at) < new Date();
-                          return (
-                            <Table.Row key={app.application_license_id}>
-                              <Table.Cell>
-                                {app.application_license.name}
-                              </Table.Cell>
-                              <Table.Cell>
-                                {app.original_purchase_date &&
-                                  new Intl.DateTimeFormat("en-US", {
-                                    dateStyle: "short",
-                                  }).format(
-                                    new Date(app.original_purchase_date)
-                                  )}
-                              </Table.Cell>
-                              <Table.Cell>
-                                {app.last_renewed_at &&
-                                  new Intl.DateTimeFormat("en-US", {
-                                    dateStyle: "short",
-                                  }).format(new Date(app.last_renewed_at))}
-                              </Table.Cell>
-                              <Table.Cell>
-                                {app.application_license.perpetual
-                                  ? "Perpetual"
-                                  : `${isExpired ? "Expired " : ""
-                                  }${new Intl.DateTimeFormat("en-US", {
-                                    dateStyle: "short",
-                                  }).format(new Date(app.expires_at))}`}
-                              </Table.Cell>
-                              <Table.Cell>
-                                {app.revoked && app.revoked_at
-                                  ? new Intl.DateTimeFormat("en-US", {
-                                    dateStyle: "short",
-                                  }).format(new Date(app.revoked_at))
-                                  : "No"}
-                              </Table.Cell>
-                              <Table.Cell>{app.granted_by}</Table.Cell>
-                              <Table.Cell>
-                                <Button
-                                  disabled={app.revoked}
-                                  icon
-                                  color="red"
-                                  size="tiny"
-                                  onClick={() =>
-                                    handleInitRevokeAppLicense(
-                                      app.application_license_id.toString()
-                                    )
-                                  }
-                                >
-                                  <Icon name="trash" />
-                                </Button>
-                              </Table.Cell>
-                            </Table.Row>
-                          );
-                        })
-                      ) : (
-                        <Table.Row>
-                          <Table.Cell colSpan={7} textAlign="center">
-                            <em>No applications found.</em>
-                          </Table.Cell>
-                        </Table.Row>
-                      )}
-                    </Table.Body>
-                  </Table>
-                </div>
-              </Segment>
-              <Segment className="!my-0">
-                <div className="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
-                  <Header as="h3" style={{ margin: 0 }}>
-                    Application Security Access
-                  </Header>
-                  <Button
-                    icon
-                    color="blue"
-                    size="tiny"
-                    onClick={() => setShowAddAppModal(true)}
-                  >
-                    <Icon name="plus" />
-                  </Button>
-                </div>
-                <div style={{ maxHeight: "300px", overflowY: "auto", overflowX: "auto" }}>
-                  <Table compact celled>
-                    <Table.Header>
-                      <Table.Row>
-                        <Table.HeaderCell>Name</Table.HeaderCell>
-                        <Table.HeaderCell>Actions</Table.HeaderCell>
-                      </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                      {userApps.length > 0 ? (
-                        userApps.map((app) => (
-                          <Table.Row key={app.id}>
-                            <Table.Cell>{app.name}</Table.Cell>
-                            <Table.Cell>
-                              <Button
-                                icon
-                                color="red"
-                                size="tiny"
-                                onClick={() =>
-                                  handleOpenRemoveOrgOrAppModal(
-                                    "app",
-                                    app.id.toString()
-                                  )
-                                }
-                              >
-                                <Icon name="trash" />
-                              </Button>
-                            </Table.Cell>
-                          </Table.Row>
-                        ))
-                      ) : (
-                        <Table.Row>
-                          <Table.Cell colSpan={2} textAlign="center">
-                            <em>No applications found.</em>
-                          </Table.Cell>
-                        </Table.Row>
-                      )}
-                    </Table.Body>
-                  </Table>
-                </div>
-              </Segment>
-              <Segment className="!my-0">
-                <div className="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
-                  <Header as="h3" style={{ margin: 0 }}>
-                    Academy Online
-                  </Header>
-                  <Button
-                    icon
-                    color="blue"
-                    size="tiny"
-                    onClick={() => setShowAcademyAccessModal(true)}
-                  >
-                    <Icon name="pencil" />
-                  </Button>
-                </div>
-                <div style={{ maxHeight: "300px", overflowY: "auto", overflowX: "auto" }}>
-                  <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                    <Header sub>Level</Header>
-                    <span>
-                      {getPrettyAcademyOnlineAccessLevel(
-                        getValues("academy_online")
-                      )}
+                  {userType === "instructor" && (
+                    <>
+                      <Controller
+                        name="verify_status"
+                        control={control}
+                        render={({ field }) => (
+                          <Select
+                            name={field.name}
+                            ref={field.ref}
+                            onBlur={field.onBlur}
+                            label="Verification Status"
+                            placeholder="Select a verification status"
+                            options={verificationStatusSelectOptions}
+                            value={field.value ?? "pending"}
+                            onChange={(e) =>
+                              field.onChange(e.target.value || "pending")
+                            }
+                            disabled={userLoading}
+                          />
+                        )}
+                      />
+                      <Input
+                        label="Bio URL"
+                        type="url"
+                        placeholder="Bio URL..."
+                        disabled={userLoading}
+                        {...register("bio_url")}
+                      />
+                    </>
+                  )}
+                </Stack>
+              </Card.Body>
+              <Card.Footer className="flex justify-between">
+                <Button
+                  variant="secondary"
+                  icon={<IconX />}
+                  onClick={loadUser}
+                  loading={userLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  icon={<IconDeviceFloppy />}
+                  onClick={handleSave}
+                  loading={loading}
+                  disabled={!formState.isDirty}
+                >
+                  Save
+                </Button>
+              </Card.Footer>
+            </Card>
+
+            <Card>
+              <Card.Header>
+                <Heading level={3}>Authentication &amp; Security Data</Heading>
+              </Card.Header>
+              <Card.Body>
+                <dl className="flex flex-col gap-4 m-0">
+                  <DetailRow label="UUID">
+                    <span className="inline-flex items-center gap-1 font-mono break-all">
+                      {userUuid}
+                      <CopyValueButton
+                        value={userUuid ?? ""}
+                        label="Copy user UUID"
+                      />
                     </span>
-                  </div>
-                  <div style={{ marginBottom: "1.25rem", width: "100%" }}>
-                    <Header sub>Access Expires</Header>
-                    <span>{academyOnlineExpires}</span>
-                  </div>
+                  </DetailRow>
+                  <DetailRow label="Authentication Source">
+                    {externalIdp
+                      ? getPrettyAuthSource(externalIdp)
+                      : "LibreOne (Local)"}
+                  </DetailRow>
+                  <DetailRow label="Time of Account Creation">
+                    {createdAt
+                      ? format(
+                          utcToZonedTime(
+                            parseISO(createdAt),
+                            timeZone as string
+                          ),
+                          "MM/dd/yyyy hh:mm aa"
+                        )
+                      : "Unknown"}
+                  </DetailRow>
+                  <DetailRow label="Time of Last Access">
+                    {lastAccess
+                      ? format(parseISO(lastAccess), "MM/dd/yyyy hh:mm aa")
+                      : "Unknown"}
+                  </DetailRow>
+                  <DetailRow label="Time of Last Password Change">
+                    {lastPasswordChange
+                      ? format(
+                          parseISO(lastPasswordChange),
+                          "MM/dd/yyyy hh:mm aa"
+                        )
+                      : "Unknown"}
+                  </DetailRow>
+                </dl>
+              </Card.Body>
+            </Card>
+
+            {userLocalID && <UserConductorData uuid={userLocalID} />}
+          </Stack>
+
+          {/* Right column */}
+          <Stack direction="vertical" gap="lg" className="min-w-0">
+            <Card>
+              <Card.Header>
+                <div className="flex items-center justify-between gap-2">
+                  <Heading level={3}>Organizations</Heading>
+                  <IconButton
+                    icon={<IconPlus />}
+                    aria-label="Add organization"
+                    tooltip="Add organization"
+                    size="sm"
+                    onClick={() => setShowAddOrgModal(true)}
+                  />
                 </div>
-              </Segment>
-              {userLocalID && <UserSupportTickets uuid={userLocalID} />}
-              <Segment className="!my-0">
-                <InternalNotesSection userId={uuid} />
-              </Segment>
-            </div>
-          </div>
-        </Grid.Column>
-      </Grid.Row>
+              </Card.Header>
+              <Card.Body>
+                <DataTable<CentralIdentityOrg>
+                  data={organizations ?? []}
+                  columns={organizationColumns}
+                  density="compact"
+                  maxHeight="300px"
+                  bordered
+                  caption="Organizations this user belongs to"
+                  emptyState="No organizations found."
+                />
+              </Card.Body>
+            </Card>
+
+            {userLocalID && isSuperAdmin && (
+              <CampusAdminRolesSection uuid={userLocalID} />
+            )}
+
+            <Card>
+              <Card.Header>
+                <div className="flex items-center justify-between gap-2">
+                  <Heading level={3}>Application Licenses</Heading>
+                  <IconButton
+                    icon={<IconPlus />}
+                    aria-label="Add application license"
+                    tooltip="Add application license"
+                    size="sm"
+                    onClick={handleAddUserAppLicense}
+                  />
+                </div>
+              </Card.Header>
+              <Card.Body>
+                <DataTable<CentralIdentityUserLicenseResult>
+                  data={userAppLicenses}
+                  columns={appLicenseColumns}
+                  density="compact"
+                  maxHeight="300px"
+                  bordered
+                  caption="Application licenses granted to this user"
+                  emptyState="No application licenses found."
+                />
+              </Card.Body>
+            </Card>
+
+            <Card>
+              <Card.Header>
+                <div className="flex items-center justify-between gap-2">
+                  <Heading level={3}>Application Security Access</Heading>
+                  <IconButton
+                    icon={<IconPlus />}
+                    aria-label="Add application security access"
+                    tooltip="Add application security access"
+                    size="sm"
+                    onClick={() => setShowAddAppModal(true)}
+                  />
+                </div>
+              </Card.Header>
+              <Card.Body>
+                <DataTable<CentralIdentityApp>
+                  data={userApps}
+                  columns={userAppColumns}
+                  density="compact"
+                  maxHeight="300px"
+                  bordered
+                  caption="Applications this user can access"
+                  emptyState="No applications found."
+                />
+              </Card.Body>
+            </Card>
+
+            <Card>
+              <Card.Header>
+                <div className="flex items-center justify-between gap-2">
+                  <Heading level={3}>Academy Online</Heading>
+                  <IconButton
+                    icon={<IconPencil />}
+                    aria-label="Edit Academy Online access"
+                    tooltip="Edit Academy Online access"
+                    size="sm"
+                    onClick={() => setShowAcademyAccessModal(true)}
+                  />
+                </div>
+              </Card.Header>
+              <Card.Body>
+                <dl className="flex flex-col gap-4 m-0">
+                  <DetailRow label="Level">
+                    {getPrettyAcademyOnlineAccessLevel(academyOnline)}
+                  </DetailRow>
+                  <DetailRow label="Access Expires">
+                    {academyOnlineExpires}
+                  </DetailRow>
+                </dl>
+              </Card.Body>
+            </Card>
+
+            {userLocalID && <UserSupportTickets uuid={userLocalID} />}
+
+            <InternalNotesSection userId={uuid} />
+          </Stack>
+        </div>
+      </Stack>
 
       <AddUserAppModal
         show={showAddAppModal}
@@ -1024,9 +1014,7 @@ const CentralIdentityUserView = () => {
       <AddUserOrgModal
         show={showAddOrgModal}
         userId={uuid}
-        currentOrgs={getValues("organizations")?.map((org) =>
-          org.id.toString()
-        )}
+        currentOrgs={organizations?.map((org) => org.id.toString()) ?? []}
         onClose={handleAddOrgModalClose}
       />
       <ConfirmRemoveOrgOrAppModal
@@ -1051,13 +1039,13 @@ const CentralIdentityUserView = () => {
       />
       <ConfirmDeleteUserModal
         open={showDeleteUserModal}
-        userName={`${getValues("first_name")} ${getValues("last_name")}`}
-        userUuid={getValues("uuid")}
+        userName={`${firstName} ${lastName}`}
+        userUuid={userUuid}
         onClose={() => setShowDeleteUserModal(false)}
         onConfirmDelete={handleDeleteUser}
         loading={deleteLoading}
       />
-    </Grid>
+    </div>
   );
 };
 

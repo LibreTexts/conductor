@@ -1,16 +1,30 @@
-import React, { useState, useEffect } from "react";
-import { Modal, Button, Icon } from "semantic-ui-react";
+import { useState, useEffect } from "react";
+import { Button, Modal, Textarea } from "@libretexts/davis-react";
+import { IconDeviceFloppy, IconTrash, IconX } from "@tabler/icons-react";
 import { useForm } from "react-hook-form";
 import api from "../../api";
-import CtlTextArea from "../ControlledInputs/CtlTextArea";
+import useGlobalError from "../error/ErrorHooks";
 import { EditNoteModalProps, NoteFormData } from "../../types/Note";
 
-export default function EditNoteModal({ open, onClose, note, userId }: EditNoteModalProps) {
+const MAX_NOTE_LENGTH = 3000;
+
+export default function EditNoteModal({
+  open,
+  onClose,
+  note,
+  userId,
+}: EditNoteModalProps) {
   const [loading, setLoading] = useState(false);
-  const { control, reset, watch, formState: { isDirty } } = useForm<NoteFormData>({
+  const { handleGlobalError } = useGlobalError();
+  const {
+    register,
+    reset,
+    watch,
+    formState: { isDirty, errors },
+  } = useForm<NoteFormData>({
     defaultValues: {
-      content: ""
-    }
+      content: "",
+    },
   });
 
   useEffect(() => {
@@ -19,8 +33,11 @@ export default function EditNoteModal({ open, onClose, note, userId }: EditNoteM
     }
   }, [note, open, reset]);
 
-  const content = watch("content");
-  const isOverLimit = content.length > 3000;
+  const content = watch("content") ?? "";
+  const isOverLimit = content.length > MAX_NOTE_LENGTH;
+  const canSave = note
+    ? isDirty && !isOverLimit
+    : content.trim().length > 0 && !isOverLimit;
 
   const handleSave = async () => {
     setLoading(true);
@@ -30,77 +47,80 @@ export default function EditNoteModal({ open, onClose, note, userId }: EditNoteM
       } else {
         await api.createUserNote(userId, content);
       }
-      setLoading(false);
       onClose(true);
     } catch (error) {
+      handleGlobalError(error);
+    } finally {
       setLoading(false);
-      console.error("Error saving note:", error);
     }
   };
 
   const handleDelete = async () => {
-    if (!note) return; 
-    
+    if (!note) return;
+
     setLoading(true);
     try {
       await api.deleteUserNote(userId, note.uuid);
-      setLoading(false);
       onClose(true);
     } catch (error) {
+      handleGlobalError(error);
+    } finally {
       setLoading(false);
-      console.error("Error deleting note:", error);
     }
   };
 
   return (
-    <Modal open={open} onClose={() => onClose(false)} size="small">
-      <Modal.Header>{note ? "Edit Note" : "Add Note"}</Modal.Header>
-      <Modal.Content>
-        <CtlTextArea
-          name="content"
-          control={control}
-          rules={{ required: "Note content is required" }}
-          maxLength={3000}
-          showRemaining
-          fluid
-          bordered
+    <Modal open={open} onClose={() => onClose(false)} size="md">
+      <Modal.Header>
+        <Modal.Title>{note ? "Edit Note" : "Add Note"}</Modal.Title>
+        <Modal.Close />
+      </Modal.Header>
+      <Modal.Body>
+        <Textarea
+          label="Note"
           placeholder="Enter note content..."
+          required
           autoFocus
+          rows={6}
+          maxLength={MAX_NOTE_LENGTH}
+          showCharacterCount
+          error={!!errors.content}
+          errorMessage={errors.content?.message}
+          {...register("content", { required: "Note content is required." })}
         />
-      </Modal.Content>
-      <Modal.Actions>
-        <div style={{ 
-          display: "flex", 
-          justifyContent: "space-between", 
-          width: "100%",
-        }}>
-          <div>
-            {note && (
-              <Button color="red" onClick={handleDelete} loading={loading}>
-                Delete
-              </Button>
-            )}
-          </div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <Button color="grey" onClick={() => onClose(false)} disabled={loading}>
-              {note && !isDirty ? "Close" : "Cancel"}
+      </Modal.Body>
+      <Modal.Footer className="!justify-between">
+        <div>
+          {note && (
+            <Button
+              variant="destructive"
+              icon={<IconTrash />}
+              onClick={handleDelete}
+              loading={loading}
+            >
+              Delete
             </Button>
-            {note ? (
-              isDirty && !isOverLimit && (
-                <Button color="green" onClick={handleSave} loading={loading}>
-                  Save
-                </Button>
-              )
-            ) : (
-              content.trim().length > 0 && !isOverLimit && (
-                <Button color="green" onClick={handleSave} loading={loading}>
-                  Create
-                </Button>
-              )
-            )}
-          </div>
+          )}
         </div>
-      </Modal.Actions>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            icon={<IconX />}
+            onClick={() => onClose(false)}
+            disabled={loading}
+          >
+            {note && !isDirty ? "Close" : "Cancel"}
+          </Button>
+          <Button
+            icon={<IconDeviceFloppy />}
+            onClick={handleSave}
+            loading={loading}
+            disabled={!canSave}
+          >
+            {note ? "Save" : "Create"}
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 }

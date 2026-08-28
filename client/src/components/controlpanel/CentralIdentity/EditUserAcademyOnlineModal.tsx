@@ -1,15 +1,17 @@
-import { Button, Dropdown, Icon, Modal, ModalProps } from "semantic-ui-react";
-import LoadingSpinner from "../../LoadingSpinner";
-import { useEffect, useState } from "react";
+import { Button, Input, Modal, Select, Spinner, Stack } from "@libretexts/davis-react";
+import { IconDeviceFloppy, IconX } from "@tabler/icons-react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { EditAcademyOnlineAccessFormValues } from "../../../types";
-import CtlTextInput from "../../ControlledInputs/CtlTextInput";
-import { academyOnlineAccessLevels } from "../../../utils/centralIdentityHelpers";
+import {
+  academyOnlineAccessLevels,
+  toSelectOptions,
+} from "../../../utils/centralIdentityHelpers";
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 import { useNotifications } from "../../../context/NotificationContext";
 
-interface EditUserAcademyOnlineModalProps extends ModalProps {
+interface EditUserAcademyOnlineModalProps {
   show: boolean;
   userId: string;
   onClose: () => void;
@@ -21,18 +23,29 @@ const EditUserAcademyOnlineModal: React.FC<EditUserAcademyOnlineModalProps> = ({
   onClose,
   onChanged,
   show,
-  ...rest
 }) => {
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
   const { addNotification } = useNotifications();
-  const { control, reset, getValues } =
-    useForm<EditAcademyOnlineAccessFormValues>({
-      defaultValues: {
-        academy_online: 0,
-        academy_online_expires_in_days: 0,
-      },
-    });
+  const {
+    control,
+    register,
+    reset,
+    getValues,
+    formState: { errors },
+  } = useForm<EditAcademyOnlineAccessFormValues>({
+    defaultValues: {
+      academy_online: 0,
+      academy_online_expires_in_days: 0,
+    },
+  });
+
+  // Davis' Select is string-valued, so the numeric access levels are stringified
+  // here and coerced back to numbers in the Controller's onChange.
+  const accessLevelOptions = useMemo(
+    () => toSelectOptions(academyOnlineAccessLevels),
+    []
+  );
 
   useEffect(() => {
     if (show) {
@@ -47,9 +60,9 @@ const EditUserAcademyOnlineModal: React.FC<EditUserAcademyOnlineModalProps> = ({
       const res = await api.updateCentralIdentityUserAcademyOnlineAccess(
         userId,
         {
-          academy_online: getValues("academy_online"),
-          academy_online_expires_in_days: getValues(
-            "academy_online_expires_in_days"
+          academy_online: Number(getValues("academy_online")),
+          academy_online_expires_in_days: Number(
+            getValues("academy_online_expires_in_days")
           ),
         }
       );
@@ -66,7 +79,6 @@ const EditUserAcademyOnlineModal: React.FC<EditUserAcademyOnlineModalProps> = ({
 
       onChanged();
     } catch (err) {
-      console.error("Error updating academy online access:", err);
       handleGlobalError(err);
     } finally {
       setLoading(false);
@@ -74,57 +86,68 @@ const EditUserAcademyOnlineModal: React.FC<EditUserAcademyOnlineModalProps> = ({
   }
 
   return (
-    <Modal open={show} onClose={onClose} size="small" {...rest}>
-      <Modal.Header>Change User Academy Online Access</Modal.Header>
-      <Modal.Content>
+    <Modal open={show} onClose={onClose} size="md">
+      <Modal.Header>
+        <Modal.Title>Change User Academy Online Access</Modal.Title>
+        <Modal.Close />
+      </Modal.Header>
+      <Modal.Body>
         {loading ? (
-          <LoadingSpinner />
+          <div className="flex justify-center py-8">
+            <Spinner />
+          </div>
         ) : (
-          <>
-            <label
-              htmlFor="academy_online"
-              className="form-field-label !mb-1.5"
-            >
-              New Academy Online Access Level
-            </label>
+          <Stack direction="vertical" gap="md">
             <Controller
-              render={({ field }) => (
-                <Dropdown
-                  id="academy_online"
-                  options={academyOnlineAccessLevels}
-                  {...field}
-                  onChange={(e, data) => {
-                    field.onChange(data.value ?? 0);
-                  }}
-                  fluid
-                  selection
-                  placeholder="Select access level"
-                />
-              )}
               name="academy_online"
               control={control}
+              render={({ field }) => (
+                <Select
+                  name={field.name}
+                  ref={field.ref}
+                  onBlur={field.onBlur}
+                  label="New Academy Online Access Level"
+                  placeholder="Select access level"
+                  options={accessLevelOptions}
+                  value={String(field.value ?? 0)}
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                />
+              )}
             />
-            <CtlTextInput
-              name="academy_online_expires_in_days"
-              control={control}
+            <Input
               type="number"
-              label="Number of days until access expires (leave 0 for no expiration, maximum 730 days)"
-              placeholder="Enter number of days until access expires"
-              rules={{ required: "Access expiration is required" }}
-              fluid
-              className="mt-4"
+              label="Days until access expires"
+              helperText="Leave 0 for no expiration; maximum 730 days."
+              placeholder="0"
+              required
+              error={!!errors.academy_online_expires_in_days}
+              errorMessage={errors.academy_online_expires_in_days?.message}
+              {...register("academy_online_expires_in_days", {
+                required: "Access expiration is required.",
+                min: { value: 0, message: "Must be 0 or greater." },
+                max: { value: 730, message: "Must be 730 or fewer days." },
+              })}
             />
-          </>
+          </Stack>
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose} disabled={loading}>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button
+          variant="secondary"
+          icon={<IconX />}
+          onClick={onClose}
+          disabled={loading}
+        >
           Cancel
         </Button>
-        <Button color="green" onClick={handleUpdateAccess} loading={loading}>
-          <Icon name="save" /> Save
+        <Button
+          icon={<IconDeviceFloppy />}
+          onClick={handleUpdateAccess}
+          loading={loading}
+        >
+          Save
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };

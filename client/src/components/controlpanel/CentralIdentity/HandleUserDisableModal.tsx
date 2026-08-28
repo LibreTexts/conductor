@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react";
-import { Button, Modal, Icon, ModalProps } from "semantic-ui-react";
-import LoadingSpinner from "../../LoadingSpinner";
+import { Button, Modal, Spinner, Textarea } from "@libretexts/davis-react";
+import { IconBan, IconX } from "@tabler/icons-react";
 import useGlobalError from "../../error/ErrorHooks";
 import { useForm } from "react-hook-form";
 import { NoteFormData } from "../../../types/Note";
-import CtlTextArea from "../../ControlledInputs/CtlTextArea";
 import api from "../../../api";
 import { useNotifications } from "../../../context/NotificationContext";
 
-interface HandleUserDisableModalProps extends ModalProps {
+const MAX_REASON_LENGTH = 150;
+
+interface HandleUserDisableModalProps {
   show: boolean;
   userId: string;
   onClose: () => void;
-  onDisabled?: () => void; 
+  onDisabled?: () => void;
 }
 
 const HandleUserDisableModal: React.FC<HandleUserDisableModalProps> = ({
@@ -20,15 +21,19 @@ const HandleUserDisableModal: React.FC<HandleUserDisableModalProps> = ({
   userId,
   onClose,
   onDisabled,
-  ...rest
 }) => {
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
   const { addNotification } = useNotifications();
-  const { control, reset, watch } = useForm<NoteFormData>({
+  const {
+    register,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm<NoteFormData>({
     defaultValues: {
-      content: ""
-    }
+      content: "",
+    },
   });
 
   useEffect(() => {
@@ -37,8 +42,9 @@ const HandleUserDisableModal: React.FC<HandleUserDisableModalProps> = ({
     }
   }, [show, reset]);
 
-  const reason = watch("content");
-  const isOverLimit = reason.length > 150;
+  const reason = watch("content") ?? "";
+  const canSubmit =
+    reason.trim().length > 0 && reason.length <= MAX_REASON_LENGTH;
 
   async function handleDisableUser() {
     try {
@@ -67,42 +73,51 @@ const HandleUserDisableModal: React.FC<HandleUserDisableModalProps> = ({
   }
 
   return (
-    <Modal open={show} onClose={onClose} size="small" {...rest}>
+    <Modal open={show} onClose={onClose} size="md">
       <Modal.Header>
-        <Icon name="ban" color="red" /> Disable User
+        <Modal.Title>Disable User</Modal.Title>
+        <Modal.Close />
       </Modal.Header>
-      <Modal.Content>
+      <Modal.Body>
         {loading ? (
-          <LoadingSpinner />
+          <div className="flex justify-center py-8">
+            <Spinner />
+          </div>
         ) : (
-            <>
-                <p className="mb-2">
-                    Reason: Why are you disabling this user?
-                </p>
-                <CtlTextArea
-                    name="content"
-                    control={control}
-                    rules={{ required: "Note content is required" }}
-                    maxLength={150}
-                    showRemaining
-                    fluid
-                    bordered
-                    placeholder="Enter note content..."
-                    autoFocus
-                />
-            </>
+          <Textarea
+            label="Reason"
+            helperText="Why are you disabling this user?"
+            placeholder="Enter a reason..."
+            required
+            autoFocus
+            rows={4}
+            maxLength={MAX_REASON_LENGTH}
+            showCharacterCount
+            error={!!errors.content}
+            errorMessage={errors.content?.message}
+            {...register("content", { required: "A reason is required." })}
+          />
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose} disabled={loading}>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button
+          variant="secondary"
+          icon={<IconX />}
+          onClick={onClose}
+          disabled={loading}
+        >
           Cancel
         </Button>
-        {reason.trim().length > 0 && !isOverLimit && (
-            <Button color="red" onClick={handleDisableUser} loading={loading}>
-                <Icon name="ban" /> Disable
-            </Button>
-        )}
-      </Modal.Actions>
+        <Button
+          variant="destructive"
+          icon={<IconBan />}
+          onClick={handleDisableUser}
+          disabled={!canSubmit}
+          loading={loading}
+        >
+          Disable
+        </Button>
+      </Modal.Footer>
     </Modal>
   );
 };

@@ -1,5 +1,15 @@
-import { useState } from "react";
-import { Header, Table, Button, Icon, Dropdown } from "semantic-ui-react";
+import { useMemo, useState } from "react";
+import {
+  Button,
+  Card,
+  Combobox,
+  Heading,
+  IconButton,
+  Stack,
+} from "@libretexts/davis-react";
+import { DataTable } from "@libretexts/davis-react-table";
+import type { ColumnDef } from "@libretexts/davis-react-table";
+import { IconPlus, IconUserMinus } from "@tabler/icons-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useGlobalError from "../../error/ErrorHooks";
 import { useNotifications } from "../../../context/NotificationContext";
@@ -16,19 +26,49 @@ type CampusAdminRole = {
   roleInternal: string;
 };
 
+const makeColumns = (
+  onRemove: (orgID: string) => void,
+  removing: boolean
+): ColumnDef<CampusAdminRole>[] => [
+  {
+    id: "organization",
+    header: "Organization",
+    accessorFn: (row) => row.org.name,
+  },
+  {
+    id: "actions",
+    header: "Actions",
+    cell: ({ row }) => (
+      <IconButton
+        icon={<IconUserMinus />}
+        aria-label={`Remove campus admin role for ${row.original.org.name}`}
+        tooltip="Remove campus admin role (demote to member)"
+        variant="destructive"
+        size="sm"
+        loading={removing}
+        onClick={() => onRemove(row.original.org.orgID)}
+      />
+    ),
+  },
+];
+
 const CampusAdminRolesSection: React.FC<Props> = ({ uuid }) => {
   const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
   const { addNotification } = useNotifications();
-  const [selectedOrg, setSelectedOrg] = useState<string>("");
+  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
 
-  const { data: adminRoles = [], isFetching: rolesLoading } = useQuery<CampusAdminRole[]>({
+  const { data: adminRoles = [], isFetching: rolesLoading } = useQuery<
+    CampusAdminRole[]
+  >({
     queryKey: ["user-campus-admin-roles", uuid],
     queryFn: async () => {
       try {
         const res = await api.getUserRoles(uuid);
         if (res.data.err) throw new Error(res.data.errMsg);
-        return res.data.user.roles.filter((r) => r.roleInternal === "campusadmin");
+        return res.data.user.roles.filter(
+          (r) => r.roleInternal === "campusadmin"
+        );
       } catch (err) {
         handleGlobalError(err);
         return [];
@@ -39,7 +79,9 @@ const CampusAdminRolesSection: React.FC<Props> = ({ uuid }) => {
     refetchOnWindowFocus: false,
   });
 
-  const { data: allOrgs = [], isFetching: orgsLoading } = useQuery<Organization[]>({
+  const { data: allOrgs = [], isFetching: orgsLoading } = useQuery<
+    Organization[]
+  >({
     queryKey: ["all-organizations"],
     queryFn: async () => {
       try {
@@ -62,8 +104,13 @@ const CampusAdminRolesSection: React.FC<Props> = ({ uuid }) => {
       return res;
     },
     onSuccess: () => {
-      addNotification({ message: "Campus admin role removed (demoted to member).", type: "success" });
-      queryClient.invalidateQueries({ queryKey: ["user-campus-admin-roles", uuid] });
+      addNotification({
+        message: "Campus admin role removed (demoted to member).",
+        type: "success",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["user-campus-admin-roles", uuid],
+      });
     },
     onError: (err) => handleGlobalError(err),
   });
@@ -76,89 +123,87 @@ const CampusAdminRolesSection: React.FC<Props> = ({ uuid }) => {
     },
     onSuccess: () => {
       addNotification({ message: "Campus admin role granted.", type: "success" });
-      setSelectedOrg("");
-      queryClient.invalidateQueries({ queryKey: ["user-campus-admin-roles", uuid] });
+      setSelectedOrg(null);
+      queryClient.invalidateQueries({
+        queryKey: ["user-campus-admin-roles", uuid],
+      });
     },
     onError: (err) => handleGlobalError(err),
   });
 
-  const adminOrgIDs = new Set(adminRoles.map((r) => r.org.orgID));
-  const grantableOrgs = allOrgs.filter((o) => !adminOrgIDs.has(o.orgID) && o.orgID !== "libretexts");
-  const orgOptions = grantableOrgs.map((o) => ({
-    key: o.orgID,
-    text: o.name,
-    value: o.orgID,
-  }));
+  const [orgSearch, setOrgSearch] = useState<string>("");
+
+  const grantableOrgs = useMemo(() => {
+    const adminOrgIDs = new Set(adminRoles.map((r) => r.org.orgID));
+    const query = orgSearch.trim().toLowerCase();
+    return allOrgs
+      .filter((o) => !adminOrgIDs.has(o.orgID) && o.orgID !== "libretexts")
+      .filter((o) => !query || o.name.toLowerCase().includes(query));
+  }, [allOrgs, adminRoles, orgSearch]);
+
+  const columns = useMemo(
+    () => makeColumns((orgID) => removeMutation.mutate(orgID), removeMutation.isLoading),
+    [removeMutation.isLoading]
+  );
+
+  const hasGrantableOrgs = !orgsLoading && grantableOrgs.length > 0;
 
   return (
-    <div className="flex flex-col rounded-md p-4 shadow-md bg-white h-fit space-y-1.5">
-      <div className="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
-        <Header as="h3" className="!m-0">
-          Campus Admin Roles
-        </Header>
-      </div>
-      <Table compact celled>
-        <Table.Header>
-          <Table.Row>
-            <Table.HeaderCell>Organization</Table.HeaderCell>
-            <Table.HeaderCell>Actions</Table.HeaderCell>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {adminRoles.length > 0 ? (
-            adminRoles.map((r) => (
-              <Table.Row key={r.org.orgID}>
-                <Table.Cell>{r.org.name}</Table.Cell>
-                <Table.Cell>
-                  <Button
-                    icon
-                    color="red"
-                    size="tiny"
-                    loading={removeMutation.isPending}
-                    title="Remove campus admin role (demote to member)"
-                    onClick={() => removeMutation.mutate(r.org.orgID)}
-                  >
-                    <Icon name="user delete" />
-                  </Button>
-                </Table.Cell>
-              </Table.Row>
-            ))
-          ) : (
-            <Table.Row>
-              <Table.Cell colSpan={2} textAlign="center">
-                {rolesLoading ? (
-                  <em>Loading...</em>
-                ) : (
-                  <em>No campus admin roles found.</em>
-                )}
-              </Table.Cell>
-            </Table.Row>
-          )}
-        </Table.Body>
-      </Table>
-      {!orgsLoading && grantableOrgs.length > 0 && (
-        <div className="flex items-center gap-2 pt-2">
-          <Dropdown
-            placeholder="Select organization to grant..."
-            selection
-            search
-            options={orgOptions}
-            value={selectedOrg}
-            onChange={(_, { value }) => setSelectedOrg(value as string)}
-            className="flex-1"
+    <Card>
+      <Card.Header>
+        <Heading level={3}>Campus Admin Roles</Heading>
+      </Card.Header>
+      <Card.Body>
+        <Stack direction="vertical" gap="md">
+          <DataTable<CampusAdminRole>
+            data={adminRoles}
+            columns={columns}
+            loading={rolesLoading}
+            density="compact"
+            maxHeight="300px"
+            bordered
+            caption="Campus admin roles held by this user"
+            emptyState="No campus admin roles found."
           />
-          <Button
-            color="green"
-            size="small"
-            disabled={!selectedOrg}
-            loading={grantMutation.isPending}
-            onClick={() => grantMutation.mutate(selectedOrg)}
-          >
-            <Icon name="plus" /> Grant
-          </Button>
-        </div>
-      )}
-    </div>
+          {hasGrantableOrgs && (
+            <div className="flex items-end gap-2">
+              <Combobox<Organization>
+                className="grow"
+                value={selectedOrg}
+                onChange={setSelectedOrg}
+                by="orgID"
+                nullable
+              >
+                <Combobox.Label>Grant campus admin role</Combobox.Label>
+                <Combobox.Input<Organization>
+                  placeholder="Select organization to grant..."
+                  displayValue={(org) => org?.name ?? ""}
+                  onChange={(e) => setOrgSearch(e.target.value)}
+                />
+                <Combobox.Options>
+                  {grantableOrgs.map((org) => (
+                    <Combobox.Option<Organization> key={org.orgID} value={org}>
+                      {org.name}
+                    </Combobox.Option>
+                  ))}
+                  <Combobox.Empty>No organizations found.</Combobox.Empty>
+                </Combobox.Options>
+              </Combobox>
+              <Button
+                icon={<IconPlus />}
+                disabled={!selectedOrg}
+                loading={grantMutation.isLoading}
+                onClick={() =>
+                  selectedOrg && grantMutation.mutate(selectedOrg.orgID)
+                }
+              >
+                Grant
+              </Button>
+            </div>
+          )}
+        </Stack>
+      </Card.Body>
+    </Card>
   );
 };
 

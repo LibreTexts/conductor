@@ -1,6 +1,6 @@
-import { Button, Icon, Modal, ModalProps, Dropdown } from "semantic-ui-react";
+import { Button, Modal, Select, Spinner } from "@libretexts/davis-react";
+import { IconPlus, IconX } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
-import LoadingSpinner from "../../LoadingSpinner";
 import {
   CentralIdentityAppLicense,
   CentralIdentityUserLicenseResult,
@@ -10,7 +10,7 @@ import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 import { useNotifications } from "../../../context/NotificationContext";
 
-interface AddUserAppLicenseModalProps extends ModalProps {
+interface AddUserAppLicenseModalProps {
   show: boolean;
   onClose: () => void;
   onChanged: () => void;
@@ -24,7 +24,6 @@ const AddUserAppLicenseModal: React.FC<AddUserAppLicenseModalProps> = ({
   onChanged,
   userId,
   userCurrentApps,
-  ...rest
 }) => {
   const { handleGlobalError } = useGlobalError();
   const { addNotification } = useNotifications();
@@ -47,11 +46,10 @@ const AddUserAppLicenseModal: React.FC<AddUserAppLicenseModalProps> = ({
           )
       )
       .map((app) => ({
-        key: app.uuid,
         value: app.uuid,
-        text: app.name,
+        label: app.name,
       }));
-  }, [data]);
+  }, [data, userCurrentApps]);
 
   async function getAvailableAppLicenses() {
     try {
@@ -62,7 +60,6 @@ const AddUserAppLicenseModal: React.FC<AddUserAppLicenseModalProps> = ({
       }
       return res.data.licenses;
     } catch (err) {
-      console.error("Error fetching available app licenses:", err);
       handleGlobalError(err);
       return [];
     }
@@ -87,7 +84,6 @@ const AddUserAppLicenseModal: React.FC<AddUserAppLicenseModalProps> = ({
       });
       onChanged();
     } catch (err) {
-      console.error("Error adding user application license:", err);
       handleGlobalError(err);
     } finally {
       setLoading(false);
@@ -95,36 +91,40 @@ const AddUserAppLicenseModal: React.FC<AddUserAppLicenseModalProps> = ({
   }
 
   return (
-    <Modal open={show} onClose={onClose} {...rest} size="large">
-      <Modal.Header>Add User Application(s)</Modal.Header>
-      <Modal.Content>
-        {(loading || isLoading) && (
-          <div className="my-4r">
-            <LoadingSpinner />
+    <Modal open={show} onClose={onClose} size="lg">
+      <Modal.Header>
+        <Modal.Title>Add User Application License</Modal.Title>
+        <Modal.Close />
+      </Modal.Header>
+      <Modal.Body>
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Spinner />
           </div>
+        ) : (
+          <Select
+            name="applicationLicense"
+            label="Application License"
+            placeholder="Select an application license"
+            options={options}
+            value={selectedId}
+            onChange={(e) => setSelectedId(e.target.value)}
+          />
         )}
-        {!loading && !isLoading && (
-          <>
-            <p className="mb-2">Select an application license to add</p>
-            <Dropdown
-              placeholder="Select Application License"
-              fluid
-              selection
-              options={options}
-              value={selectedId}
-              onChange={(e, { value }) => {
-                setSelectedId(value as string);
-              }}
-            />
-          </>
-        )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button color="green" onClick={submitAddUserAppLicense} loading={loading} disabled={!selectedId}>
-          <Icon name="plus" /> Add
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" icon={<IconX />} onClick={onClose}>
+          Cancel
         </Button>
-      </Modal.Actions>
+        <Button
+          icon={<IconPlus />}
+          onClick={submitAddUserAppLicense}
+          loading={loading}
+          disabled={!selectedId}
+        >
+          Add
+        </Button>
+      </Modal.Footer>
     </Modal>
   );
 };

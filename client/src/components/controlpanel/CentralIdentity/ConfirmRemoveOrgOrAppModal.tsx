@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
-import { Button, Modal, ModalProps } from "semantic-ui-react";
-import LoadingSpinner from "../../LoadingSpinner";
+import { useState } from "react";
+import { Button, Modal, Spinner, Text } from "@libretexts/davis-react";
 import useGlobalError from "../../error/ErrorHooks";
 import axios from "axios";
 
-interface ConfirmRemoveOrgOrAppModalProps extends ModalProps {
+interface ConfirmRemoveOrgOrAppModalProps {
   show: boolean;
   type: "org" | "app";
   userId: string;
@@ -18,13 +17,13 @@ const ConfirmRemoveOrgOrAppModal: React.FC<ConfirmRemoveOrgOrAppModalProps> = ({
   userId,
   targetId,
   onClose,
-  ...rest
 }) => {
   // Global state & hooks
   const { handleGlobalError } = useGlobalError();
 
   // Data & UI
   const [loading, setLoading] = useState(false);
+  const label = type === "app" ? "Application" : "Organization";
 
   // Methods
   function submitRemoveOrgOrApp() {
@@ -81,29 +80,34 @@ const ConfirmRemoveOrgOrAppModal: React.FC<ConfirmRemoveOrgOrAppModalProps> = ({
   }
 
   return (
-    <Modal open={show} onClose={onClose} {...rest}>
+    <Modal open={show} onClose={onClose} size="md">
       <Modal.Header>
-        Remove {type === "app" ? "Application" : "Organization"}
+        <Modal.Title>Remove {label}</Modal.Title>
+        <Modal.Close />
       </Modal.Header>
-      <Modal.Content scrolling id="task-view-content">
-        {loading && (
-          <div className="my-4r">
-            <LoadingSpinner />
+      <Modal.Body>
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Spinner />
           </div>
+        ) : (
+          <Text>
+            Are you sure you want to remove this {label.toLowerCase()}?
+          </Text>
         )}
-        {!loading && (
-          <p className="pa-2r">
-            Are you sure you want to remove this{" "}
-            {type === "app" ? "application" : "organization"}?
-          </p>
-        )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button color="red" onClick={submitRemoveOrgOrApp}>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={onClose} disabled={loading}>
+          Cancel
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={submitRemoveOrgOrApp}
+          loading={loading}
+        >
           Confirm
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };

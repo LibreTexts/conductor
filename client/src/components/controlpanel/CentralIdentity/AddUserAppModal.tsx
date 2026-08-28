@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react";
-import { Button, Form, Icon, Modal, ModalProps, Checkbox } from "semantic-ui-react";
-import LoadingSpinner from "../../LoadingSpinner";
+import {
+  Button,
+  Checkbox,
+  Heading,
+  Modal,
+  Spinner,
+  Stack,
+  Text,
+} from "@libretexts/davis-react";
+import { IconDeviceFloppy, IconX } from "@tabler/icons-react";
 import useGlobalError from "../../error/ErrorHooks";
 import { CentralIdentityApp } from "../../../types/CentralIdentity";
 import axios from "axios";
 
-interface AddUserAppModalProps extends ModalProps {
+interface AddUserAppModalProps {
   show: boolean;
   userId: string;
   currentApps: string[];
@@ -17,7 +25,6 @@ const AddUserAppModal: React.FC<AddUserAppModalProps> = ({
   userId,
   currentApps,
   onClose,
-  ...rest
 }) => {
   // Global state & hooks
   const { handleGlobalError } = useGlobalError();
@@ -106,86 +113,108 @@ const AddUserAppModal: React.FC<AddUserAppModalProps> = ({
 
   function toggleAppSelection(appId: string) {
     if (appsToAdd.includes(appId)) {
-      setAppsToAdd(appsToAdd.filter(id => id !== appId));
+      setAppsToAdd(appsToAdd.filter((id) => id !== appId));
     } else {
       setAppsToAdd([...appsToAdd, appId]);
     }
   }
 
-  const defaultApps = availableApps.filter(app => app.is_default_library);
-  const otherApps = availableApps.filter(app => !app.is_default_library);
+  const defaultApps = availableApps.filter((app) => app.is_default_library);
+  const otherApps = availableApps.filter((app) => !app.is_default_library);
 
   return (
-    <Modal open={show} onClose={onClose} {...rest} size="large">
-      <Modal.Header>Add User Application(s)</Modal.Header>
-      <Modal.Content scrolling id="task-view-content">
-        {loading && (
-          <div className="my-4r">
-            <LoadingSpinner />
+    <Modal open={show} onClose={onClose} size="xl">
+      <Modal.Header>
+        <Modal.Title>Add User Application(s)</Modal.Title>
+        <Modal.Close />
+      </Modal.Header>
+      <Modal.Body className="overflow-y-auto max-h-[70vh]">
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Spinner />
           </div>
-        )}
-        {!loading && (
-          <div className="px-6 pb-6 pt-4">
-            <div className="flex justify-end mb-2">
-              <p className="underline cursor-pointer" onClick={handleSelectAll}>
+        ) : (
+          <Stack direction="vertical" gap="md">
+            <div className="flex justify-end">
+              <Button variant="tertiary" size="sm" onClick={handleSelectAll}>
                 Select all applications
-              </p>
+              </Button>
             </div>
-            
-            <div className="flex flex-row mb-6">
-              <div className="w-1/2 pr-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-bold">Default Applications</h3>
-                  <p className="underline cursor-pointer" onClick={handleSelectAllDefaultLibs}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <section aria-labelledby="default-apps-heading">
+                <div className="flex items-center justify-between mb-2 gap-2">
+                  <Heading level={3} id="default-apps-heading">
+                    Default Applications
+                  </Heading>
+                  <Button
+                    variant="tertiary"
+                    size="sm"
+                    onClick={handleSelectAllDefaultLibs}
+                  >
                     Select all defaults
-                  </p>
+                  </Button>
                 </div>
-                <div>
+                <Stack direction="vertical" gap="sm">
                   {defaultApps.map((app) => (
-                    <div key={app.id} className="mb-2">
-                      <Checkbox 
-                        label={app.name} 
-                        checked={appsToAdd.includes(app.id.toString())}
-                        onChange={() => toggleAppSelection(app.id.toString())}
-                      />
-                    </div>
+                    <Checkbox
+                      key={app.id}
+                      name={`app-${app.id}`}
+                      label={app.name}
+                      checked={appsToAdd.includes(app.id.toString())}
+                      onChange={() => toggleAppSelection(app.id.toString())}
+                    />
                   ))}
-                  {defaultApps.length === 0 && <p>No default applications available</p>}
-                </div>
-              </div>
-              
-              <div className="w-1/2 pl-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-bold">Other Applications</h3>
-                  <p className="underline cursor-pointer" onClick={handleSelectAllOthersLibs}>
+                  {defaultApps.length === 0 && (
+                    <Text>No default applications available</Text>
+                  )}
+                </Stack>
+              </section>
+
+              <section aria-labelledby="other-apps-heading">
+                <div className="flex items-center justify-between mb-2 gap-2">
+                  <Heading level={3} id="other-apps-heading">
+                    Other Applications
+                  </Heading>
+                  <Button
+                    variant="tertiary"
+                    size="sm"
+                    onClick={handleSelectAllOthersLibs}
+                  >
                     Select all others
-                  </p>
+                  </Button>
                 </div>
-                <div>
+                <Stack direction="vertical" gap="sm">
                   {otherApps.map((app) => (
-                    <div key={app.id} className="mb-2">
-                      <Checkbox 
-                        label={app.name} 
-                        checked={appsToAdd.includes(app.id.toString())}
-                        onChange={() => toggleAppSelection(app.id.toString())}
-                      />
-                    </div>
+                    <Checkbox
+                      key={app.id}
+                      name={`app-${app.id}`}
+                      label={app.name}
+                      checked={appsToAdd.includes(app.id.toString())}
+                      onChange={() => toggleAppSelection(app.id.toString())}
+                    />
                   ))}
-                  {otherApps.length === 0 && <p>No other applications available</p>}
-                </div>
-              </div>
+                  {otherApps.length === 0 && (
+                    <Text>No other applications available</Text>
+                  )}
+                </Stack>
+              </section>
             </div>
-          </div>
+          </Stack>
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        {appsToAdd.length > 0 && (defaultApps.length > 0 || otherApps.length > 0) && (
-          <Button color="green" onClick={submitAddUserApp}>
-            <Icon name="save" /> Save
-          </Button>
-        )}
-      </Modal.Actions>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" icon={<IconX />} onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          icon={<IconDeviceFloppy />}
+          onClick={submitAddUserApp}
+          disabled={appsToAdd.length === 0}
+          loading={loading}
+        >
+          Save
+        </Button>
+      </Modal.Footer>
     </Modal>
   );
 };

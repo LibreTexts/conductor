@@ -1,38 +1,85 @@
 import { useState } from "react";
+import { Card, Heading } from "@libretexts/davis-react";
+import { DataTable } from "@libretexts/davis-react-table";
+import type { ColumnDef } from "@libretexts/davis-react-table";
 import { SupportTicket } from "../../../types";
 import useGlobalError from "../../error/ErrorHooks";
-import SupportCenterTable from "../../support/SupportCenterTable";
 import { format, parseISO } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../../api";
-import { PaginationWithItemsSelect } from "../../util/PaginationWithItemsSelect";
 import { capitalizeFirstLetter } from "../../util/HelperFunctions";
 import { getPrettySupportTicketCategory } from "../../../utils/supportHelpers";
-import { Header } from "semantic-ui-react";
 import { TicketStatusPill } from "../../support/TicketInfoPill";
 
 interface UserSupportTicketsProps {
   uuid: string;
 }
 
+const columns: ColumnDef<SupportTicket>[] = [
+  {
+    id: "queue",
+    header: "Queue",
+    accessorFn: (row) => row.queue?.name || "N/A",
+  },
+  {
+    accessorKey: "timeOpened",
+    header: "Date Opened",
+    cell: ({ getValue }) => format(parseISO(getValue<string>()), "MM/dd/yyyy"),
+  },
+  {
+    accessorKey: "title",
+    header: "Subject",
+    cell: ({ getValue }) => (
+      <span className="line-clamp-1 break-words">{getValue<string>()}</span>
+    ),
+  },
+  {
+    accessorKey: "category",
+    header: "Category",
+    cell: ({ getValue }) =>
+      getPrettySupportTicketCategory(getValue<string>() || ""),
+  },
+  {
+    accessorKey: "assignedUsers",
+    header: "Assigned To",
+    cell: ({ row }) => {
+      const assigned = row.original.assignedUsers;
+      return assigned && Array.isArray(assigned) && assigned.length > 0 ? (
+        <span className="line-clamp-1">
+          {assigned.map((u) => u.firstName).join(", ")}
+        </span>
+      ) : (
+        <span>Unassigned</span>
+      );
+    },
+  },
+  {
+    accessorKey: "priority",
+    header: "Priority",
+    cell: ({ getValue }) => capitalizeFirstLetter(getValue<string>() || ""),
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => <TicketStatusPill status={row.original.status} />,
+  },
+];
+
 const UserSupportTickets: React.FC<UserSupportTicketsProps> = ({ uuid }) => {
   const { handleGlobalError } = useGlobalError();
   const [activePage, setActivePage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [activeSort, setActiveSort] = useState<string>("opened");
+  const [activeSort] = useState<string>("opened");
   const [itemsPerPage, setItemsPerPage] = useState<number>(5);
   const [totalItems, setTotalItems] = useState<number>(0);
 
-  const { data, isFetching } = useQuery<SupportTicket[]>(
-    {
-      queryKey: ["user-tickets", uuid, activePage, itemsPerPage, activeSort],
-      queryFn: () => getUserTickets(),
-      keepPreviousData: true,
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      refetchOnWindowFocus: false,
-      enabled: !!uuid,
-    }
-  );
+  const { data, isFetching } = useQuery<SupportTicket[]>({
+    queryKey: ["user-tickets", uuid, activePage, itemsPerPage, activeSort],
+    queryFn: () => getUserTickets(),
+    keepPreviousData: true,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    refetchOnWindowFocus: false,
+    enabled: !!uuid,
+  });
 
   async function getUserTickets() {
     try {
@@ -53,7 +100,6 @@ const UserSupportTickets: React.FC<UserSupportTicketsProps> = ({ uuid }) => {
       }
 
       setTotalItems(res.data.total);
-      setTotalPages(Math.ceil(res.data.total / itemsPerPage));
       return res.data.tickets;
     } catch (err) {
       handleGlobalError(err);
@@ -61,95 +107,48 @@ const UserSupportTickets: React.FC<UserSupportTicketsProps> = ({ uuid }) => {
     }
   }
 
-  function openTicket(uuid: string) {
-    if (!uuid) return;
-    window.open(`/support/ticket/${uuid}`, "_blank");
+  function openTicket(ticketUUID: string) {
+    if (!ticketUUID) return;
+    window.open(`/support/ticket/${ticketUUID}`, "_blank");
   }
 
+  const paginationState = {
+    pageIndex: activePage - 1,
+    pageSize: itemsPerPage,
+  };
+
   return (
-    <div className="flex flex-col rounded-md p-4 shadow-md bg-white h-fit space-y-1.5">
-      <div className="flex justify-between items-center mb-4 border-b border-slate-300 py-1.5">
-        <Header as="h3" className="!m-0">
-          Support Tickets
-        </Header>
-      </div>
-      <SupportCenterTable<SupportTicket & { actions?: string }>
-        tableProps={{
-          className: "!mb-2",
-        }}
-        loading={isFetching}
-        data={data || []}
-        onRowClick={(record) => {
-          openTicket(record.uuid);
-        }}
-        columns={[
-          {
-            accessor: "queue.name",
-            title: "Queue",
-            render(record) {
-              return record.queue?.name || "N/A";
-            }
-          },
-          {
-            accessor: "timeOpened",
-            title: "Date Opened",
-            render(record) {
-              return format(parseISO(record.timeOpened), "MM/dd/yyyy");
+    <Card>
+      <Card.Header>
+        <Heading level={3}>Support Tickets</Heading>
+      </Card.Header>
+      <Card.Body>
+        <DataTable<SupportTicket>
+          data={data || []}
+          columns={columns}
+          loading={isFetching}
+          density="compact"
+          caption="Support tickets opened by this user"
+          onRowClick={(record) => openTicket(record.uuid)}
+          enablePagination
+          pageSize={itemsPerPage}
+          pageSizeOptions={[5, 10, 25]}
+          tableOptions={{
+            manualPagination: true,
+            rowCount: totalItems,
+            state: { pagination: paginationState },
+            onPaginationChange: (updater) => {
+              const next =
+                typeof updater === "function"
+                  ? updater(paginationState)
+                  : updater;
+              setActivePage(next.pageIndex + 1);
+              setItemsPerPage(next.pageSize);
             },
-          },
-          {
-            accessor: "title",
-            title: "Subject",
-            className: "!w-full !max-w-[40rem] break-words truncate",
-            render(record) {
-              return record.title;
-            },
-          },
-          {
-            accessor: "category",
-            title: "Category",
-            render(record) {
-              return getPrettySupportTicketCategory(record.category || "");
-            },
-          },
-          {
-            accessor: "assignedUsers",
-            title: "Assigned To",
-            render(record) {
-              return record.assignedUsers &&
-                Array.isArray(record.assignedUsers) &&
-                record.assignedUsers.length > 0 ? (
-                <p className="line-clamp-1 truncate">
-                  {record.assignedUsers.map((u) => u.firstName).join(", ")}
-                </p>
-              ) : (
-                <p>Unassigned</p>
-              );
-            },
-          },
-          {
-            accessor: "priority",
-            render(record) {
-              return capitalizeFirstLetter(record.priority || "");
-            },
-          },
-          {
-            accessor: "status",
-            render(record) {
-              return <TicketStatusPill status={record.status} />;
-            },
-          },
-        ]}
-      />
-      <PaginationWithItemsSelect
-        activePage={activePage}
-        totalPages={totalPages}
-        itemsPerPage={itemsPerPage}
-        setActivePageFn={setActivePage}
-        setItemsPerPageFn={setItemsPerPage}
-        totalLength={totalItems}
-      />
-    </div>
+          }}
+        />
+      </Card.Body>
+    </Card>
   );
 };
 

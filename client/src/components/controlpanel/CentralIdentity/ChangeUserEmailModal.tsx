@@ -1,35 +1,49 @@
-import { Button, Icon, Modal, ModalProps } from "semantic-ui-react";
-import LoadingSpinner from "../../LoadingSpinner";
-import { useEffect, useMemo, useState } from "react";
+import {
+  Button,
+  Checkbox,
+  Input,
+  Modal,
+  Spinner,
+  Stack,
+  Text,
+} from "@libretexts/davis-react";
+import { IconDeviceFloppy, IconX } from "@tabler/icons-react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import CtlTextInput from "../../ControlledInputs/CtlTextInput";
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 import { useNotifications } from "../../../context/NotificationContext";
-import Checkbox from "../../NextGenInputs/Checkbox";
 
-interface ChangeUserEmailModalProps extends ModalProps {
+interface ChangeUserEmailModalProps {
   show: boolean;
   userId: string;
   onClose: () => void;
   onChanged: () => void;
 }
 
+type ChangeUserEmailFormValues = {
+  email: string;
+  confirmEmail: string;
+  confirmChange: boolean;
+};
+
 const ChangeUserEmailModal: React.FC<ChangeUserEmailModalProps> = ({
   userId,
   onClose,
   onChanged,
   show,
-  ...rest
 }) => {
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
   const { addNotification } = useNotifications();
-  const { control, reset, getValues, setValue, watch } = useForm<{
-    email: string;
-    confirmEmail: string;
-    confirmChange: boolean;
-  }>({
+  const {
+    register,
+    reset,
+    getValues,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<ChangeUserEmailFormValues>({
     defaultValues: {
       email: "",
       confirmEmail: "",
@@ -43,14 +57,13 @@ const ChangeUserEmailModal: React.FC<ChangeUserEmailModalProps> = ({
     }
   }, [show, reset]);
 
-  const isDisabled = useMemo(() => {
-    return (
-      !watch("email") ||
-      !watch("confirmEmail") ||
-      !watch("confirmChange") ||
-      watch("email") !== watch("confirmEmail")
-    );
-  }, [watch("email"), watch("confirmEmail"), watch("confirmChange")]);
+  const [email, confirmEmail, confirmChange] = watch([
+    "email",
+    "confirmEmail",
+    "confirmChange",
+  ]);
+  const emailsMatch = !!email && email === confirmEmail;
+  const isDisabled = !emailsMatch || !confirmChange;
 
   async function handleChangeEmail() {
     try {
@@ -76,14 +89,13 @@ const ChangeUserEmailModal: React.FC<ChangeUserEmailModalProps> = ({
 
       onChanged();
     } catch (err: any) {
-      if ("status" in err && err.status === 400) {
+      if (err && "status" in err && err.status === 400) {
         handleGlobalError(
           "Request failed - another user with that email may already exist."
         );
         return;
       }
 
-      console.error("Error updating user email:", err);
       handleGlobalError(err);
     } finally {
       setLoading(false);
@@ -91,66 +103,80 @@ const ChangeUserEmailModal: React.FC<ChangeUserEmailModalProps> = ({
   }
 
   return (
-    <Modal open={show} onClose={onClose} size="small" {...rest}>
-      <Modal.Header>Change User Email: {userId}</Modal.Header>
-      <Modal.Content>
+    <Modal open={show} onClose={onClose} size="md">
+      <Modal.Header>
+        <Modal.Title>Change User Email</Modal.Title>
+        <Modal.Close />
+      </Modal.Header>
+      <Modal.Body>
         {loading ? (
-          <LoadingSpinner />
+          <div className="flex justify-center py-8">
+            <Spinner />
+          </div>
         ) : (
-          <>
-            <CtlTextInput
-              name="email"
-              control={control}
+          <Stack direction="vertical" gap="md">
+            <Input
               type="email"
               label="New Email Address"
               placeholder="user@example.com"
-              rules={{ required: "Email address is required" }}
-              fluid
+              required
+              autoComplete="off"
+              error={!!errors.email}
+              errorMessage={errors.email?.message}
+              {...register("email", {
+                required: "Email address is required.",
+              })}
             />
-            <CtlTextInput
-              name="confirmEmail"
-              control={control}
+            <Input
               type="email"
               label="Confirm New Email Address"
               placeholder="user@example.com"
-              rules={{ required: "Email address is required" }}
-              fluid
-              className="mt-2"
-              showErrorMsg
-            />
-            <p className="mt-4">
-              Changing the user's email address will take effect immediately.
-              The user will need to use this email address for all future
-              logins.
-              <strong> The user will not be notified of this change.</strong>{" "}
-              Please ensure they are aware of this change.
-            </p>
-            <Checkbox
-              label="I understand"
-              name="confirm-change"
               required
-              checked={watch("confirmChange") || false}
-              onChange={(checked) => {
-                setValue("confirmChange", checked);
-              }}
-              className="mt-2"
+              autoComplete="off"
+              error={!!confirmEmail && !emailsMatch}
+              errorMessage={
+                !!confirmEmail && !emailsMatch
+                  ? "Email addresses do not match."
+                  : undefined
+              }
+              {...register("confirmEmail", {
+                required: "Email address is required.",
+              })}
             />
-          </>
+            <Text>
+              Changing the user&apos;s email address will take effect
+              immediately. The user will need to use this email address for all
+              future logins. <strong>The user will not be notified of this
+              change.</strong> Please ensure they are aware of this change.
+            </Text>
+            <Checkbox
+              name="confirmChange"
+              label="I understand"
+              required
+              checked={confirmChange || false}
+              onChange={(checked) => setValue("confirmChange", checked)}
+            />
+          </Stack>
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose} disabled={loading}>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button
+          variant="secondary"
+          icon={<IconX />}
+          onClick={onClose}
+          disabled={loading}
+        >
           Cancel
         </Button>
         <Button
-          color="green"
+          icon={<IconDeviceFloppy />}
           onClick={handleChangeEmail}
           loading={loading}
           disabled={isDisabled}
         >
-          <Icon name="save" /> Change Email
+          Change Email
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };
