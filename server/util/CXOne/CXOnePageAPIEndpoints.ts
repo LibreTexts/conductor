@@ -22,6 +22,8 @@ const CXOnePageAPIEndpoints = {
   GET_Page_Files: `files?${DREAM_OUT_FORMAT}`,
   GET_Page_File: (fileName: string) =>
     `files/${encodeURIComponent(fileName)}`,
+  PUT_Page_File: (fileName: string) =>
+    `files/=${encodeURIComponent(encodeURIComponent(fileName))}?${DREAM_OUT_FORMAT}`,
   GET_Page_Images: `images?${DREAM_OUT_FORMAT}`,
   GET_Page_Info: `info?${DREAM_OUT_FORMAT}`,
   GET_Page_Properties: `properties?${DREAM_OUT_FORMAT}`,

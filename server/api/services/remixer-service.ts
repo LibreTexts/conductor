@@ -1076,6 +1076,95 @@ const hasSubpages = (
   return book.some((p) => p.parentID === page["@id"] && p.deletedItem !== true);
 };
 
+const PAGE_THUMBNAIL_FILENAME = "mindtouch.page#thumbnail";
+
+type RemixerFileMigration = {
+  original: string;
+  final: string;
+  oldID: string;
+  newID: string;
+};
+
+const hrefPathname = (href: string): string => {
+  try {
+    return new URL(href).pathname;
+  } catch {
+    return href;
+  }
+};
+
+/**
+ * Copies every attached file (except the page thumbnail, which is handled
+ * separately) from a source page onto a newly created target page, and
+ * returns URL/id substitutions for rewriting the copied HTML.
+ */
+const copySourcePageFiles = async ({
+  sourceService,
+  sourceId,
+  targetService,
+  targetId,
+}: {
+  sourceService: BookService;
+  sourceId: string;
+  targetService: BookService;
+  targetId: string;
+}): Promise<RemixerFileMigration[]> => {
+  const sourceFiles = await sourceService.getPageFiles(sourceId);
+  const migrations: RemixerFileMigration[] = [];
+
+  for (const file of sourceFiles) {
+    const filename = file.filename;
+    const oldID = file["@id"];
+    if (!filename || !oldID) continue;
+    if (filename === PAGE_THUMBNAIL_FILENAME) continue;
+    if (file["@res-is-deleted"] === "true") continue;
+
+    const downloaded = await sourceService.getFileBytes(oldID);
+    if (!downloaded) {
+      remixerLog.warn(
+        `Full copy: could not download file ${oldID} (${filename}) from source page ${sourceId}`,
+      );
+      continue;
+    }
+
+    const contentType =
+      file.contents?.["@type"] || downloaded.contentType || "application/octet-stream";
+    const uploaded = await targetService.putPageFile(
+      targetId,
+      filename,
+      downloaded.bytes,
+      contentType,
+    );
+    const newID = uploaded?.["@id"];
+    if (!uploaded || !newID) {
+      remixerLog.warn(
+        `Full copy: could not upload file ${filename} to target page ${targetId}`,
+      );
+      continue;
+    }
+
+    const oldHref = file.contents?.["@href"] || file["@href"] || "";
+    const newHref = uploaded.contents?.["@href"] || uploaded["@href"] || "";
+    const oldPath = hrefPathname(oldHref);
+    const newPath = hrefPathname(newHref);
+
+    if (oldHref && newHref) {
+      migrations.push({ original: oldHref, final: newHref, oldID, newID });
+    }
+    if (oldPath && newPath && oldPath !== oldHref) {
+      migrations.push({ original: oldPath, final: newPath, oldID, newID });
+    }
+    migrations.push({
+      original: `/@api/deki/files/${oldID}/`,
+      final: `/@api/deki/files/${newID}/`,
+      oldID,
+      newID,
+    });
+  }
+
+  return migrations;
+};
+
 const handleImportedPage = async (
   page: RemixerSubPageState,
   parent: RemixerSubPageState,
@@ -1142,37 +1231,65 @@ const handleImportedPage = async (
     }
     postComment = "Remixer transclude";
   } else {
-    const targetLibarayDekiHeaders =
-      await generateAPIRequestHeaders(sourceSubdomain);
     const htmlRes = await CXOneFetch({
       scope: "page",
       path: sourceId,
-      api: MindTouch.API.Page.GET_Page_Contents("json"),
+      api: MindTouch.API.Page.GET_Page_Contents("json", "edit"),
       subdomain: sourceSubdomain,
-      options: {
-        headers: {
-          ...targetLibarayDekiHeaders,
-        },
-      },
     });
     if (!htmlRes.ok) {
       throwForMindTouchResponse(htmlRes, "Error reading source page contents");
     }
     const htmlJson = await htmlRes.json();
-    // `body` is the main HTML string; when it's an array, later entries are
-    // non-content extras (e.g. `{"@target":"toc", ...}`) — only [0] is the page body.
-    const rawHtml = Array.isArray(htmlJson?.body)
-      ? (htmlJson.body[0]?.toString() ?? "")
-      : (htmlJson?.body?.toString() ?? "");
-    const $ = cheerio.load(rawHtml);
+    const rawBody = htmlJson?.body;
+    const rawHtml =
+      typeof rawBody === "string"
+        ? rawBody
+        : Array.isArray(rawBody)
+          ? String(rawBody[0] ?? "")
+          : "";
+    // Fragment parse so we don't wrap the body in <html><head><body>.
+    const $ = cheerio.load(rawHtml, null, false);
     $(".mt-guide-content").remove();
-    const cleanedRawHtml = $.html();
-    contentsBody = RemixerTemplates.POST_ForkPage(
-      cleanedRawHtml,
-      sourceSubdomain,
-      [],
-    );
-    postComment = "Remixer fork";
+    const cleanedRawHtml = $.root().html() ?? $.html() ?? "";
+
+    if (copyModeState === "Full") {
+      try {
+        const targetService = new BookService({
+          bookID: `${subdomain}-${pageID}`,
+        });
+        const migrations = await copySourcePageFiles({
+          sourceService,
+          sourceId: sourceId.toString(),
+          targetService,
+          targetId: pageID,
+        });
+        contentsBody = RemixerTemplates.POST_FullCopyPage(
+          cleanedRawHtml,
+          migrations,
+          [],
+        );
+        postComment = "Remixer full copy";
+      } catch (err) {
+        remixerLog.warn(
+          { err },
+          `Full copy file migration failed for page ${sourceId}; falling back to fork URLs`,
+        );
+        contentsBody = RemixerTemplates.POST_ForkPage(
+          cleanedRawHtml,
+          sourceSubdomain,
+          [],
+        );
+        postComment = "Remixer full copy (file copy failed, using source URLs)";
+      }
+    } else {
+      contentsBody = RemixerTemplates.POST_ForkPage(
+        cleanedRawHtml,
+        sourceSubdomain,
+        [],
+      );
+      postComment = "Remixer fork";
+    }
   }
   const kind = articleKindForPlacement(page["@id"], parent["@id"], coverId);
   contentsBody = contentTemplateForArticleKind(kind) + contentsBody;

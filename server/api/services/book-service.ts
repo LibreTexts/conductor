@@ -8,6 +8,7 @@ import {
   PageBase,
   PageDetailsResponse,
   PageImagesRes,
+  PageFile,
   PageSimpleWOverview,
   PageSimpleWTags,
   PageTag,
@@ -806,6 +807,76 @@ export default class BookService {
     }
 
     return parsed;
+  }
+
+  async getPageFiles(pageID: string): Promise<PageFile[]> {
+    const pageFilesRes = await CXOneFetch({
+      scope: "page",
+      path: parseInt(pageID),
+      api: MindTouch.API.Page.GET_Page_Files,
+      subdomain: this._library,
+    });
+
+    if (!pageFilesRes.ok) {
+      throw new Error(`Error fetching page files: ${pageFilesRes.statusText}`);
+    }
+
+    const parsed = (await pageFilesRes.json()) as PageImagesRes | undefined;
+    if (!parsed?.file) return [];
+    return Array.isArray(parsed.file) ? parsed.file : [parsed.file];
+  }
+
+  /**
+   * Downloads a file's original bytes. `fileID` is the MindTouch files API id,
+   * not a page id.
+   */
+  async getFileBytes(
+    fileID: string,
+  ): Promise<{ bytes: ArrayBuffer; contentType: string } | undefined> {
+    const fileContentRes = await CXOneFetch({
+      scope: "files",
+      path: parseInt(fileID, 10),
+      api: MindTouch.API.File.GET_File("original"),
+      subdomain: this._library,
+    });
+
+    if (!fileContentRes.ok) {
+      return undefined;
+    }
+
+    const contentType =
+      fileContentRes.headers.get("content-type") ?? "application/octet-stream";
+    return {
+      bytes: await fileContentRes.arrayBuffer(),
+      contentType,
+    };
+  }
+
+  async putPageFile(
+    pageID: string,
+    fileName: string,
+    body: ArrayBuffer | Buffer,
+    contentType: string,
+  ): Promise<PageFile | undefined> {
+    const putRes = await CXOneFetch({
+      scope: "page",
+      path: parseInt(pageID, 10),
+      api: MindTouch.API.Page.PUT_Page_File(fileName),
+      subdomain: this._library,
+      options: {
+        method: "PUT",
+        body: Buffer.isBuffer(body) ? body : Buffer.from(new Uint8Array(body)),
+        headers: {
+          "Content-Type": contentType,
+        },
+      },
+    });
+
+    if (!putRes.ok) {
+      return undefined;
+    }
+
+    return (await putRes.json()) as PageFile;
   }
 
   async getPageVisibility(pageID: string): Promise<string> {
