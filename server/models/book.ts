@@ -19,6 +19,9 @@ export interface BookInterface extends Document {
     lastCompiled?: number;
     compiledBy?: string;
     contentPageCount?: number;
+    lastJobID?: string;
+    lastJobSubmittedAt?: Date;
+    lastJobSubmittedBy?: string;
   };
   rating?: number;
   links?: {
@@ -128,6 +131,23 @@ const BookSchema = new Schema<BookInterface>(
        * The number of pages in the Book's content PDF, as reported by Shapeshift during compilation.
       */
       contentPageCount: Number,
+      /**
+       * The Shapeshift job ID of the most recent compile submitted from Conductor.
+       *
+       * Shapeshift's job list cannot be filtered by book, so the ID is recorded
+       * here at submission time. Without it a page reload loses track of an
+       * in-flight compile.
+       */
+      lastJobID: String,
+      /**
+       * When that job was submitted. Compared against `lastCompiled` to tell a
+       * finished job apart from one that failed without a webhook delivery.
+       */
+      lastJobSubmittedAt: Date,
+      /**
+       * UUID of the Conductor user who submitted that job.
+       */
+      lastJobSubmittedBy: String,
     },
     /**
      * The overall quality, on a scale of 0-5. Value is the average of all Peer Review

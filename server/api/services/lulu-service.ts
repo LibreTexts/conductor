@@ -3,7 +3,7 @@ import axios, { AxiosInstance } from "axios";
 import { LuluPrintJob, LuluPrintJobParams, LuluShippingLineItem, LuluShippingOption, LuluShippingCalculationAddress, ResolvedProduct, LuluPrintJobLineItem } from "../../types";
 import { decodeJwt } from "jose"
 import { serializeError } from "../../util/errorutils";
-import { assembleUrl } from "../../util/helpers.js";
+import { getDownloadsBaseURL, getExportURL } from "./book-export-service.js";
 const luluLog = childLogger("lulu");
 
 export default class LuluService {
@@ -104,20 +104,19 @@ export default class LuluService {
     }
 
     getDownloadsBaseUrl(bookID: string): string {
-        const host = process.env.DOWNLOADS_BASE_URL || 'https://downloads.libretexts.org';
-        return assembleUrl([host, 'api/v1/download', bookID]);
+        return getDownloadsBaseURL(bookID);
     }
 
     getCoverFile(bookID: string, hardcover: boolean): string {
-        return assembleUrl([this.getDownloadsBaseUrl(bookID), `cover-${hardcover ? 'casewrap' : 'perfectbound'}`]);
+        return getExportURL(bookID, hardcover ? 'cover-casewrap' : 'cover-perfectbound');
     }
 
     getContentFile(bookID: string): string {
-        return assembleUrl([this.getDownloadsBaseUrl(bookID), 'content']);
+        return getExportURL(bookID, 'content-pdf');
     }
 
     getPDFFileUrl(bookID: string): string {
-        return assembleUrl([this.getDownloadsBaseUrl(bookID), 'pdf']);
+        return getExportURL(bookID, 'full-pdf');
     }
 
     async getShippingOptions({ line_items, shipping_address }: {

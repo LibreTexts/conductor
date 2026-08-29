@@ -3228,6 +3228,36 @@ router.route('/shapeshift/job').post(
   catchInternal((req, res) => shapeshiftAPI.createJob(req, res)),
 );
 
+// Book-scoped compile routes. Unlike the admin console routes above, these are
+// authorized per-project inside the handler: any project member may compile.
+router.route('/shapeshift/book/:bookID/exports').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ShapeshiftValidators.BookScopedValidator),
+  catchInternal((req, res) => shapeshiftAPI.getBookExports(req, res)),
+);
+
+router.route('/shapeshift/book/:bookID/exports/download-all').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ShapeshiftValidators.BookScopedValidator),
+  catchInternal((req, res) => shapeshiftAPI.downloadAllBookExports(req, res)),
+);
+
+router.route('/shapeshift/book/:bookID/job').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ShapeshiftValidators.BookScopedValidator),
+  catchInternal((req, res) => shapeshiftAPI.getBookCompileJob(req, res)),
+);
+
+router.route('/shapeshift/book/:bookID/compile').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ShapeshiftValidators.BookScopedValidator),
+  catchInternal((req, res) => shapeshiftAPI.compileBook(req, res)),
+);
+
 router.route("/shapeshift/webhook").post(
   middleware.checkShapeshiftWebhookKey,
   middleware.validateZod(ShapeshiftValidators.WebhookValidator),
