@@ -20,6 +20,8 @@ node_modules/
 # Build / Dist
 dist
 build
+playwright-report/
+test-results/
 
 # macOS Metafiles
 .DS_Store
