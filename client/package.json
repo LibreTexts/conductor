@@ -8,7 +8,9 @@
     "build": "tsc && vite build",
     "serve": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:visual": "percy exec -- playwright test",
+    "test:visual:local": "playwright test"
   },
   "dependencies": {
     "@ckeditor/ckeditor5-react": "11.2.0",
@@ -115,6 +117,9 @@
     ]
   },
   "devDependencies": {
+    "@percy/cli": "^1.32.6",
+    "@percy/playwright": "^1.1.2",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/forms": "0.5.11",
     "@tailwindcss/postcss": "4.2.4",
     "@tailwindcss/vite": "4.2.4",
