@@ -102,7 +102,11 @@ import {
   TrafficAnalyticsVisitorCountriesDataPoint,
 } from "./types/TrafficAnalytics";
 import { EventSource } from "extended-eventsource";
-import { ShapeshiftJob } from "./types/Shapeshift";
+import {
+  BookCompileJob,
+  BookExportManifest,
+  ShapeshiftJob,
+} from "./types/Shapeshift";
 import { BookBotRun, BookBotType } from "./types/BookBot";
 import { GlossaryEntry } from "./screens/commons/Glossary/model";
 
@@ -2579,6 +2583,47 @@ class API {
       },
     });
     return res.data;
+  }
+
+  /**
+   * Every export the downloads service holds for a book, with sizes and
+   * generation dates, plus the book's stored compilation info.
+   */
+  async getBookExports(bookID: string) {
+    const res = await axios.get<BookExportManifest & ConductorBaseResponse>(
+      `/shapeshift/book/${encodeURIComponent(bookID)}/exports`,
+    );
+    return res.data;
+  }
+
+  /**
+   * Status of the most recent compile submitted from Conductor. `job` is null
+   * when the book has never been compiled from here.
+   */
+  async getBookCompileJob(bookID: string) {
+    const res = await axios.get<BookCompileJob & ConductorBaseResponse>(
+      `/shapeshift/book/${encodeURIComponent(bookID)}/job`,
+    );
+    return res.data;
+  }
+
+  async compileBook(bookID: string) {
+    const res = await axios.post<{ jobId: string } & ConductorBaseResponse>(
+      `/shapeshift/book/${encodeURIComponent(bookID)}/compile`,
+    );
+    return res.data;
+  }
+
+  /**
+   * URL of the all-exports archive.
+   *
+   * A plain URL rather than a request: the response is a file download, so the
+   * browser navigates to it instead of the client buffering it.
+   */
+  buildBookExportsDownloadAllURL(bookID: string) {
+    return `${axios.defaults.baseURL ?? ""}/shapeshift/book/${encodeURIComponent(
+      bookID,
+    )}/exports/download-all`;
   }
 
   async searchGlossary(term: string) {

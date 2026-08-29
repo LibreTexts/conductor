@@ -12,9 +12,9 @@ import { getProductionURL, isEmptyString, removeTrailingSlash, assembleUrl } fro
 import { CXOneFetch } from './librariesclient.js';
 import MindTouch from "../util/CXOne/index.js";
 import crypto from 'crypto';
+import { getDownloadsBaseURL, getExportURL } from '../api/services/book-export-service.js';
 
-// TODO: collapse book download link generators to a single source of truth - don't split between here and lulu-service.ts
-const BOOK_DOWNLOADS_BASE_URL = 'https://downloads.libretexts.org/api/v1/download/';
+
 
 const licenses = [
     'arr',
@@ -173,7 +173,7 @@ export const genThumbnailLink = (lib, pageID) => {
  * @returns {String} The link to the PDF download, or an empty string if invalid arguments provided.
  */
 export const genPDFLink = (bookID) => {
-    if (checkBookIDFormat(bookID)) return `${BOOK_DOWNLOADS_BASE_URL}${bookID}/pdf`;
+    if (checkBookIDFormat(bookID)) return getExportURL(bookID, 'full-pdf');
     return '';
 };
 
@@ -195,7 +195,7 @@ export const genBookstoreLink = (bookID) => {
  * @returns {String} The link to the ZIP download, or an empty string if invalid arguments provided.
  */
 export const genZIPLink = (bookID) => {
-    if (checkBookIDFormat(bookID)) return `${BOOK_DOWNLOADS_BASE_URL}${bookID}/pages`;
+    if (checkBookIDFormat(bookID)) return getExportURL(bookID, 'page-pdfs');
     return '';
 };
 
@@ -206,7 +206,7 @@ export const genZIPLink = (bookID) => {
  * @returns {String} The link to the publication files download, or an empty string if invalid arguments provided.
  */
 export const genPubFilesLink = (bookID) => {
-    if (checkBookIDFormat(bookID)) return `${BOOK_DOWNLOADS_BASE_URL}${bookID}/publication`;
+    if (checkBookIDFormat(bookID)) return assembleUrl([getDownloadsBaseURL(bookID), 'publication']);
     return '';
 };
 
@@ -217,7 +217,7 @@ export const genPubFilesLink = (bookID) => {
  * @returns {String} The link to the LMS import file download, or an empty string if invalid arguments provided.
  */
 export const genLMSFileLink = (bookID) => {
-    if (checkBookIDFormat(bookID)) return `${BOOK_DOWNLOADS_BASE_URL}${bookID}/thincc`;
+    if (checkBookIDFormat(bookID)) return getExportURL(bookID, 'thincc');
     return '';
 };
 

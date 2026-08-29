@@ -23,6 +23,16 @@ export const GetJobsValidator = z.object({
 });
 
 
+/**
+ * Book-scoped routes are addressed by bookID and authorized against the Project
+ * that owns the book, so the path param is all they take.
+ */
+export const BookScopedValidator = z.object({
+  params: z.object({
+    bookID: bookIDSchema,
+  }),
+});
+
 export const WebhookValidator = z.object({
   body: z.object({
     bookID: bookIDSchema,

@@ -7,6 +7,7 @@ import { WebhookValidator } from "../validators/shapeshift.js";
 import { syncSingleBook } from "./book-sync-service.js";
 import { upsertBookToSearchIndex } from "./book-search-service.js";
 import { syncBookToStripe } from "./store-book-sync-service.js";
+import { invalidateBookExportManifest } from "./book-export-service.js";
 const commonsSyncLog = childLogger("commons-sync");
 
 type WebhookParams = z.infer<typeof WebhookValidator>["body"];
@@ -64,6 +65,45 @@ export default class ShapeshiftService {
       return resp.data.data.id;
     } catch (error) {
       logger.error({ err: error }, "createJob failed");
+      return null;
+    }
+  }
+
+  /**
+   * Fetches a single job by ID.
+   *
+   * The job list cannot be filtered by book, so this is how a book-scoped view
+   * follows a compile it submitted: the ID is recorded on the Book and read
+   * back here.
+   *
+   * @returns The job, or `null` if it is unknown to Shapeshift or the request
+   * failed.
+   */
+  public async getJob(id: string): Promise<ShapeshiftJob | null> {
+    try {
+      const resp = await this.instance.get(`/job/${encodeURIComponent(id)}`);
+      if (resp?.status !== 200) return null;
+
+      // Accept either envelope. `POST /job` nests the record under `data`, but
+      // a bare record is the other plausible shape and reading it wrong would
+      // silently look like "no job running" to every caller.
+      const record = resp?.data?.data?.id
+        ? resp.data.data
+        : resp?.data?.id
+          ? resp.data
+          : null;
+
+      if (!record) {
+        logger.warn(
+          { jobID: id, responseKeys: Object.keys(resp?.data ?? {}) },
+          "getJob returned an unrecognized payload"
+        );
+        return null;
+      }
+
+      return record as ShapeshiftJob;
+    } catch (error) {
+      logger.error({ err: error, jobID: id }, "getJob failed");
       return null;
     }
   }
@@ -270,6 +310,10 @@ export default class ShapeshiftService {
       // Whatever the compilation write did, the library data behind this book is
       // worth refreshing — that is the point of reacting to a compile at all.
       this.queueLiveSync(params);
+
+      // Fresh artifacts landed, so the cached export probes describe the previous
+      // compile. Drop them so the next manifest request re-reads sizes and dates.
+      invalidateBookExportManifest(bookID);
 
       if (applied) return 'success';
 
