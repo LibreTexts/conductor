@@ -60,7 +60,22 @@ import {
 } from './services/project-search-service.js';
 import BookService from './services/book-service.js';
 import { conductor500Err } from "../util/errorutils.js";
+import { createResponseCache } from '../util/response-cache.js';
 const commonsSyncLog = childLogger("commons-sync");
+
+// find-by-book runs on nearly every MindTouch library page load, almost always for a
+// bookID we just looked up. Cache the resolved projectID (or null, when the book has no
+// project) for a few minutes so those repeats never reach Mongo.
+const FIND_BY_BOOK_TTL_SECONDS = 180;
+// Each entry is a 10-char projectID or null, so the cap is generous relative to the
+// real library catalog and still bounds a client walking well-formed bookIDs that
+// match nothing. Past the cap, those lookups just go to Mongo as they did before.
+const FIND_BY_BOOK_MAX_KEYS = 20000;
+const findByBookCache = createResponseCache({
+    ttlSeconds: FIND_BY_BOOK_TTL_SECONDS,
+    maxKeys: FIND_BY_BOOK_MAX_KEYS,
+    name: "project-find-by-book",
+});
 
 const projectListingProjection = {
     _id: 0,
@@ -634,12 +649,21 @@ async function findByBook(req, res) {
 
     const [library, pageID] = split;
 
-    const project = await Project.findOne({
-      libreLibrary: library,
-      libreCoverID: pageID,
-    }).lean();
+    const projectID = await findByBookCache.getOrLoad(`${library}-${pageID}`, async () => {
+      const project = await Project.findOne({
+        libreLibrary: { $eq: library },
+        libreCoverID: { $eq: pageID },
+      }).select('projectID').lean();
 
-    if(!project){
+      return project?.projectID ?? null;
+    });
+
+    // Anonymous and identical for every caller, so browsers and the edge can hold it too.
+    // Set on the 404 as well: most library pages have no Conductor project, and those are
+    // exactly the requests we do not want repeated on every load.
+    res.setHeader("Cache-Control", `public, max-age=${FIND_BY_BOOK_TTL_SECONDS}`);
+
+    if(!projectID){
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
@@ -648,7 +672,7 @@ async function findByBook(req, res) {
 
     return res.send({
       err: false,
-      projectID: project.projectID,
+      projectID,
     });
   } catch (err) {
     logger.error({ err }, "findByBook failed");

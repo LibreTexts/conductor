@@ -107,6 +107,9 @@ async function getAuthor(
   }
 }
 
+/** Matches the server-side cache TTL in AuthorService.getAuthorByNameKey. */
+const AUTHOR_BY_KEY_MAX_AGE_SECONDS = 180;
+
 async function getAuthorByNameKey(
   req: z.infer<typeof GetAuthorByNameKeyValidator>,
   res: Response
@@ -115,6 +118,12 @@ async function getAuthorByNameKey(
     const authorService = new AuthorService();
 
     const author = await authorService.getAuthorByNameKey(req.params.key, req.query.includeProjects);
+
+    // Anonymous, identical for every caller, and hit on nearly every MindTouch library
+    // page load. A short shared TTL lets browsers and the edge skip the request entirely.
+    // Applied to the 404 too, so a key with no author does not re-request on every load.
+    res.setHeader("Cache-Control", `public, max-age=${AUTHOR_BY_KEY_MAX_AGE_SECONDS}`);
+
     if (!author) {
       return res.status(404).send({
         err: true,

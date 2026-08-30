@@ -4,6 +4,7 @@ import { BaseConductorInfiniteScrollResponse } from "../../types";
 import Author, { AuthorInterface } from "../../models/author.js";
 import { escapeRegEx, getPaginationOffset } from "../../util/helpers.js";
 import { Types } from "mongoose";
+import { createResponseCache } from "../../util/response-cache.js";
 
 export default class AuthorService {
     public async getAuthors(params: z.infer<typeof GetAuthorsValidator>['query']): Promise<BaseConductorInfiniteScrollResponse<AuthorInterface>> {
@@ -53,34 +54,53 @@ export default class AuthorService {
         return aggRes.length > 0 ? aggRes[0] : null;
     }
 
+    // This lookup is hit on nearly every MindTouch library page load, almost always
+    // for the same handful of keys. Static so the cache is shared across requests:
+    // the service itself is constructed per request.
+    private static readonly BY_NAME_KEY_CACHE_TTL_SECONDS = 180;
+    // Entries can carry an author's project list, so this is capped tighter than a
+    // cache of scalars would be. It still comfortably exceeds the number of distinct
+    // authors a library serves in a 3 minute window.
+    private static readonly BY_NAME_KEY_CACHE_MAX_KEYS = 2000;
+    private static readonly _byNameKeyCache = createResponseCache<AuthorInterface | null>({
+        ttlSeconds: AuthorService.BY_NAME_KEY_CACHE_TTL_SECONDS,
+        maxKeys: AuthorService.BY_NAME_KEY_CACHE_MAX_KEYS,
+        name: "author-by-name-key",
+    });
+
     public async getAuthorByNameKey(nameKey: string, includeProjects = false): Promise<AuthorInterface | null> {
-        const aggRes = await Author.aggregate([
-            {
-                $match: {
-                    nameKey: nameKey,
-                    orgID: process.env.ORG_ID,
+        // `includeProjects` changes both the $lookup and the projection, so it is part of the key.
+        const cacheKey = `${process.env.ORG_ID}:${nameKey}:${includeProjects ? 1 : 0}`;
+
+        return AuthorService._byNameKeyCache.getOrLoad(cacheKey, async () => {
+            const aggRes = await Author.aggregate([
+                {
+                    $match: {
+                        nameKey: nameKey,
+                        orgID: process.env.ORG_ID,
+                    },
                 },
-            },
-            ...(includeProjects ? [AuthorService.LOOKUP_AUTHOR_PROJECTS_STAGE] : []),
-            {
-                $project: {
-                    _id: 0,
-                    nameKey: 1,
-                    name: 1,
-                    nameURL: 1,
-                    campusName: 1,
-                    campusURL: 1,
-                    pictureURL: 1,
-                    pictureCircle: 1,
-                    attributionPrefix: 1,
-                    programName: 1,
-                    programURL: 1,
-                    ...(includeProjects ? { projects: 1 } : {}),
+                ...(includeProjects ? [AuthorService.LOOKUP_AUTHOR_PROJECTS_STAGE] : []),
+                {
+                    $project: {
+                        _id: 0,
+                        nameKey: 1,
+                        name: 1,
+                        nameURL: 1,
+                        campusName: 1,
+                        campusURL: 1,
+                        pictureURL: 1,
+                        pictureCircle: 1,
+                        attributionPrefix: 1,
+                        programName: 1,
+                        programURL: 1,
+                        ...(includeProjects ? { projects: 1 } : {}),
+                    }
                 }
-            }
-        ]);
-        
-        return aggRes.length > 0 ? aggRes[0] : null;
+            ]);
+
+            return aggRes.length > 0 ? aggRes[0] : null;
+        });
     }
 
     public async createAuthor(data: z.infer<typeof CreateAuthorValidator>['body']): Promise<AuthorInterface> {
