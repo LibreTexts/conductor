@@ -44,6 +44,7 @@ import supportQueuesAPI from "./api/supportqueues.js";
 import projectInvitationsAPI from "./api/projectinvitations.js";
 import * as shapeshiftAPI from "./api/shapeshift.js";
 import * as bookBotsAPI from "./api/book-bots.js";
+import * as publishAPI from "./api/publish.js";
 
 import * as storeValidators from "./api/validators/store.js";
 import * as centralIdentityValidators from "./api/validators/central-identity.js";
@@ -62,6 +63,7 @@ import * as UserValidators from "./api/validators/user.js";
 import * as ProjectInvitationValidators from "./api/validators/project-invitations.js";
 import * as ShapeshiftValidators from "./api/validators/shapeshift.js";
 import * as BookBotsValidators from "./api/validators/book-bots.js";
+import * as PublishValidators from "./api/validators/publish.js";
 
 import remixerAPI from "./api/remixer.js";
 import * as RemixerValidators from "./api/validators/remixer.js";
@@ -3262,6 +3264,63 @@ router.route("/shapeshift/webhook").post(
   middleware.checkShapeshiftWebhookKey,
   middleware.validateZod(ShapeshiftValidators.WebhookValidator),
   catchInternal((req, res) => shapeshiftAPI.handleWebhook(req, res))
+);
+
+/* Book Publishing */
+router.route('/project/:projectID/publish').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(PublishValidators.PublishStatusValidator),
+  catchInternal((req, res) => publishAPI.getPublishStatus(req, res)),
+);
+
+router.route('/project/:projectID/publish/destinations').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(PublishValidators.ListDestinationsValidator),
+  catchInternal((req, res) => publishAPI.listPublishDestinations(req, res)),
+);
+
+router.route('/project/:projectID/publish/preprocess').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(PublishValidators.PublishStepValidator),
+  catchInternal((req, res) => publishAPI.submitPublishPreprocess(req, res)),
+);
+
+router.route('/project/:projectID/publish/security').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(PublishValidators.PublishStepValidator),
+  catchInternal((req, res) => publishAPI.setPublishBookSecurity(req, res)),
+);
+
+router.route('/project/:projectID/publish/move').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(PublishValidators.MoveBookValidator),
+  catchInternal((req, res) => publishAPI.movePublishedBook(req, res)),
+);
+
+router.route('/project/:projectID/publish/visibility').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(PublishValidators.PublishStepValidator),
+  catchInternal((req, res) => publishAPI.setPublishVisibility(req, res)),
+);
+
+router.route('/project/:projectID/publish/compile').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(PublishValidators.PublishStepValidator),
+  catchInternal((req, res) => publishAPI.submitPublishCompile(req, res)),
 );
 
 router.route('/book-bots/editor-preprocess').post(

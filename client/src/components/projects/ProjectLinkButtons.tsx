@@ -3,16 +3,17 @@ import {isEmptyString, normalizeURL} from "../util/HelperFunctions";
 import {
   buildCommonsUrl,
   buildLibraryPageGoURL,
+  isProjectPublished,
 } from "../../utils/projectHelpers";
 import { Suspense, useEffect, useState } from "react";
 import lazyWithRetry from "../../utils/lazyWithRetry";
-import { ProjectClassification } from "../../types";
+import { Project, ProjectClassification } from "../../types";
 import { useTypedSelector } from "../../state/hooks";
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import ImportWorkbenchModal from "./ImportWorkbenchModal";
 import { Button as DavisButton } from "@libretexts/davis-react";
-import { IconSend } from "@tabler/icons-react";
+import { IconBook, IconConfetti, IconSend } from "@tabler/icons-react";
 
 type ActiveImportJob = {
   jobID: string;
@@ -25,6 +26,11 @@ const CreateWorkbenchModal = lazyWithRetry(() => import("./CreateWorkbenchModal"
 const CompileBookDrawer = lazyWithRetry(
   () => import("./CompileBook/CompileBookDrawer"),
 );
+// Same reasoning: the destination picker and its per-level fetches are dead
+// weight on a project page until someone opens the drawer.
+const PublishBookDrawer = lazyWithRetry(
+  () => import("./PublishBook/PublishBookDrawer"),
+);
 
 interface ProjectLinkButtonsProps {
   adaptCourseID?: string;
@@ -35,7 +41,7 @@ interface ProjectLinkButtonsProps {
   isProjectMemberOrAdmin?: boolean;
   libreCoverID?: string;
   libreLibrary?: string;
-  project: object;
+  project: Project;
   projectClassification?: string;
   projectID?: string;
   projectLink?: string;
@@ -64,9 +70,21 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
   const [showImportWorkbenchModal, setShowImportWorkbenchModal] =
     useState(false);
   const [showCompileDrawer, setShowCompileDrawer] = useState(false);
+  const [showPublishDrawer, setShowPublishDrawer] = useState(false);
   const validBook = libreCoverID && libreLibrary;
   const canCompile = !!validBook && hasCommonsBook && isProjectMemberOrAdmin;
   const user = useTypedSelector((state) => state.user);
+  // Publishing moves pages on the library and flips the project public, so it
+  // is the publishing team's tool rather than any member's.
+  //
+  // Deliberately not gated on `hasCommonsBook`, unlike compiling: a book earns
+  // its Commons record by sitting under a sync root and being publicly
+  // readable, which is what steps 2 and 3 of this flow do. Requiring the record
+  // up front would hide the button on exactly the books that still need
+  // publishing. Only the compile step needs a Book row, and it says so when the
+  // row is missing.
+  const canPublish = !!validBook && user.isSuperAdmin;
+  const isPublished = isProjectPublished(project);
 
   const { data: initialImportJob } = useQuery<ActiveImportJob | null>({
     queryKey: ["active-import-pressbooks-job", projectID],
@@ -164,6 +182,20 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             Compile book
           </DavisButton>
         )}
+        {/* Hidden on purpose. The publish flow is merged but not yet released to
+            the publishing team; uncomment this to turn it on. Everything behind
+            it — `canPublish`, the drawer, the API — is live and unchanged, so
+            this is the only line that has to move. */}
+        {/* {canPublish && (
+          <DavisButton
+            variant="primary"
+            size="sm"
+            icon={<IconConfetti size={16} />}
+            onClick={() => setShowPublishDrawer(true)}
+          >
+            Publish Book (Admin Visible Only)
+          </DavisButton>
+        )} */}
         {projectVisibility === "public" && (
           <Popup
             content="This link will take you to the project's page on the Commons."
@@ -185,7 +217,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
           <Popup
             content="This link will take you to the book's page on the Commons."
             trigger={
-              <Button
+              <DavisButton
                 onClick={() =>
                   window.open(
                     buildCommonsUrl(libreLibrary, libreCoverID),
@@ -193,11 +225,11 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                   )
                 }
                 color="blue"
-                size="small"
+                size="sm"
+                icon={<IconBook size={16} />}
               >
                 View Book on Commons
-                <Icon name="external alternate" className="!ml-2" />
-              </Button>
+              </DavisButton>
             }
           />
         )}
@@ -216,23 +248,39 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             <Icon name="external alternate" className="!ml-2" />
           </Button>
         )}
-        {isProjectMemberOrAdmin && !hasCommonsBook && didCreateWorkbench && (
-          <Button
-            color='blue'
-            compact
-            className='!w-48'
-            disabled={didRequestPublish}
-            {...(didRequestPublish
-              ? {}
-              : {
-                  as: 'a',
-                  href: `https://commons.libretexts.org/support/contact?queue=publishing&projectID=${projectID}&capturedURL=${encodeURIComponent(window.location.href)}`,
-                  target: '_blank',
-                })}
-          >
-            {didRequestPublish ? 'Publishing Requested' : 'Request to Publish'}
-          </Button>
-        )}
+        {/* A published book always has a Commons record, so the `!hasCommonsBook`
+            gate would hide this button at exactly the point it should read
+            "Published". `isPublished` keeps it on screen for that state. */}
+        {isProjectMemberOrAdmin &&
+          didCreateWorkbench &&
+          (!hasCommonsBook || isPublished) && (
+            <Button
+              color='blue'
+              compact
+              className='!w-48'
+              disabled={isPublished || didRequestPublish}
+              title={
+                isPublished
+                  ? 'This book has completed every publishing step.'
+                  : didRequestPublish
+                    ? 'A publishing request has already been submitted for this project.'
+                    : undefined
+              }
+              {...(isPublished || didRequestPublish
+                ? {}
+                : {
+                    as: 'a',
+                    href: `https://commons.libretexts.org/support/contact?queue=publishing&projectID=${projectID}&capturedURL=${encodeURIComponent(window.location.href)}`,
+                    target: '_blank',
+                  })}
+            >
+              {isPublished
+                ? 'Published'
+                : didRequestPublish
+                  ? 'Publishing Requested'
+                  : 'Request to Publish'}
+            </Button>
+          )}
         {projectID && projectTitle && (
           <CreateWorkbenchModal
             show={showCreateWorkbenchModal}
@@ -249,6 +297,16 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
               open={showCompileDrawer}
               onClose={() => setShowCompileDrawer(false)}
               bookID={`${libreLibrary}-${libreCoverID}`}
+            />
+          </Suspense>
+        )}
+        {canPublish && showPublishDrawer && projectID && (
+          <Suspense fallback={null}>
+            <PublishBookDrawer
+              open={showPublishDrawer}
+              onClose={() => setShowPublishDrawer(false)}
+              projectID={projectID}
+              projectTitle={projectTitle ?? ''}
             />
           </Suspense>
         )}

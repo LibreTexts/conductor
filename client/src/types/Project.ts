@@ -1,6 +1,7 @@
 import { AssetTag } from "./AssetTagging";
 import { Author } from "./Author";
 import { License } from "./Misc";
+import { PublishStepKey, PublishStepState } from "./Publish";
 import { User } from "./User";
 import { a11ySectionReviewSchema } from "./a11y";
 
@@ -198,6 +199,12 @@ export type Project = {
   sourceLastModifiedDate?: Date;
   sourceLanguage?: string;
   batchUpdateJobs?: ProjectBookBatchUpdateJob[];
+  /**
+   * Per-step record of the book publishing flow. Absent until the first step is
+   * run. Arrives with the project itself, so surfaces that only need to know
+   * "is this published" can read it without a second request.
+   */
+  publishing?: Partial<Record<PublishStepKey, PublishStepState>>;
   publicAssets?: number;
   instructorAssets?: number;
 };
