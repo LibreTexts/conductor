@@ -24,6 +24,7 @@ import { requestContext } from "./request-context.js";
 import { httpLogger } from "./http-logger.js";
 import { floodShield } from "./util/rateLimitHelpers.js";
 import { sitemapRouter } from "./static-endpoints/sitemap.js";
+import { startAutoHealReconciler } from "./api/services/store-auto-heal-service.js";
 const dbLog = childLogger("db");
 
 // Prevent startup without ORG_ID env variable
@@ -319,6 +320,11 @@ const server = app.listen(port, () => {
 
   // Initiate MongoDB connection after server is listening
   connectToMongoDB();
+
+  // Recovery attempts for rejected store orders live on the StoreOrder documents, so this can start
+  // before Mongo is up: the first tick simply finds nothing, and any attempt left in flight by a
+  // restart is picked up as soon as the connection settles.
+  startAutoHealReconciler();
 });
 
 server.on("error", (err: Error) => {

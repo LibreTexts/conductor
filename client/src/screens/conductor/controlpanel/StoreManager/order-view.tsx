@@ -3,7 +3,8 @@ import { Badge, Breadcrumb, Button, Card, Heading, Stack } from "@libretexts/dav
 import type { BadgeVariant } from "@libretexts/davis-react";
 import { formatPrice, truncateOrderId } from "../../../../utils/storeHelpers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { StoreOrderWithStripeSession } from "../../../../types";
+import { StoreOrderAutoHeal, StoreOrderWithStripeSession } from "../../../../types";
+import { autoHealLabel, autoHealVariant } from "./auto-heal";
 import api from "../../../../api";
 import Stripe from "stripe";
 import {
@@ -42,6 +43,37 @@ function orderStatusVariant(status?: string): BadgeVariant {
   if (status === "completed") return "success";
   if (status === "failed") return "danger";
   return "default";
+}
+
+/**
+ * Plain-language account of the one automatic recovery attempt an order gets after Lulu rejects
+ * its print job.
+ *
+ * The support ticket is deliberately withheld while the attempt runs, so a failed order with no
+ * ticket is normal for up to the attempt's deadline. Saying so here is what stops an operator
+ * redoing by hand the recompile Conductor already has in flight.
+ */
+function autoHealSummary(autoHeal: StoreOrderAutoHeal): string {
+  switch (autoHeal.state) {
+    case "queued":
+      return "Conductor is about to recompile this order's books and resubmit it to Lulu. No support ticket is opened unless that fails.";
+    case "compiling":
+      return "Conductor is recompiling this order's books in Shapeshift. It will resubmit the order to Lulu once every compile finishes.";
+    case "resubmitting":
+      return "Every book has been recompiled. Conductor is resubmitting the order to Lulu now.";
+    case "resubmitted":
+      return "Conductor recompiled this order's books and resubmitted it to Lulu. The order stays failed until Lulu confirms the new print job.";
+    case "ticket_pending":
+      return `Automatic recovery gave up and Conductor is opening a support ticket for this order: ${autoHeal.stoppedReason || "no reason recorded"}`;
+    case "succeeded":
+      return "Conductor recovered this order on its own: the books were recompiled, the order was resubmitted, and Lulu accepted the new print job.";
+    case "abandoned":
+      return `Automatic recovery gave up, so a support ticket was opened: ${autoHeal.stoppedReason || "no reason recorded"}`;
+    case "superseded":
+      return `Automatic recovery stopped because it was no longer needed: ${autoHeal.stoppedReason || "no reason recorded"}`;
+    default:
+      return "";
+  }
 }
 
 type ModalState =
@@ -482,6 +514,45 @@ const OrderView = () => {
                             <span className="block mt-2">
                               Recorded error: {data.error}
                             </span>
+                          )}
+                        </dd>
+                      </div>
+                    )}
+                    {data.autoHeal && (
+                      <div className="mt-4">
+                        <dt className="font-medium text-gray-900">
+                          Automatic Recovery
+                        </dt>
+                        <dd className="mt-1 text-gray-500">
+                          <Badge
+                            label={autoHealLabel(data.autoHeal.state) ?? data.autoHeal.state}
+                            variant={autoHealVariant(data.autoHeal.state)}
+                            size="sm"
+                          />
+                          <span className="block mt-2">
+                            {autoHealSummary(data.autoHeal)}
+                          </span>
+                          <span className="block mt-2">
+                            Started{" "}
+                            {new Date(data.autoHeal.startedAt).toLocaleString()}
+                            {data.autoHeal.finishedAt
+                              ? `, finished ${new Date(data.autoHeal.finishedAt).toLocaleString()}`
+                              : `, gives up ${new Date(
+                                  data.autoHeal.state === "resubmitted" &&
+                                  data.autoHeal.confirmationDeadlineAt
+                                    ? data.autoHeal.confirmationDeadlineAt
+                                    : data.autoHeal.deadlineAt
+                                ).toLocaleString()}`}
+                          </span>
+                          {data.autoHeal.books.length > 0 && (
+                            <ul className="mt-2 list-disc list-inside">
+                              {data.autoHeal.books.map((book) => (
+                                <li key={book.bookID}>
+                                  {book.bookID}: recompile {book.status}
+                                  {book.error ? ` (${book.error})` : ""}
+                                </li>
+                              ))}
+                            </ul>
                           )}
                         </dd>
                       </div>
