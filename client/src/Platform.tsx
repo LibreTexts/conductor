@@ -107,7 +107,6 @@ const Platform = () => {
   ];
 
   const standalonePaths = [
-    "/adopt",
     "/accessibility",
     "/translationfeedbackexport",
     "/book/:bookID/submit-peer-review",

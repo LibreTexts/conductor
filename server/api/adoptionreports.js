@@ -147,7 +147,7 @@ const validateRole = (value) => {
  *  and @instructor.printCost to the expected Number type.
  */
 const validateInstructorObj = (value) => {
-    if (typeof(value) === 'object') {
+    if (typeof(value) !== 'object' || value === null || Array.isArray(value)) {
         return false;
     }
 
