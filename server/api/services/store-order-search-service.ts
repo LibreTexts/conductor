@@ -34,6 +34,11 @@ export const storeOrderSearchIndexAggregationStages: any[] = [
       luluJobID: 1,
       luluJobStatus: 1,
       supportTicketUUID: 1,
+      luluJobFailCount: 1,
+      // The auto-heal state only. The rest of the sub-document (per-book job IDs, timestamps,
+      // the abandon reason) is not needed to render the admin table and is read from Mongo on
+      // the order detail view instead.
+      autoHealState: "$autoHeal.state",
       createdAt: 1,
       // Numeric epoch millis — sortable/filterable in Meilisearch. Falls back to 0 when createdAt
       // is somehow missing so a document never fails to sort.

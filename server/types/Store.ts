@@ -58,6 +58,10 @@ export type StoreOrderListItem = {
     luluJobID?: string;
     luluJobStatus?: string;
     supportTicketUUID?: string;
+    luluJobFailCount?: number;
+    // Flattened from `autoHeal.state` by the index projection — the table only needs to say whether
+    // a failed order is still being recovered, not the whole attempt.
+    autoHealState?: NonNullable<RawStoreOrder["autoHeal"]>["state"];
     createdAt?: string; // ISO string as stored in the index
     createdAtTimestamp?: number; // epoch millis (sortable in Meilisearch)
 }

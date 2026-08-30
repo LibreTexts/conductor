@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Badge, Breadcrumb, Button, Heading, Input, Select, Stack } from "@libretexts/davis-react";
 import type { BadgeVariant } from "@libretexts/davis-react";
 import { StoreOrderListItem } from "../../../../types";
+import { autoHealLabel, autoHealVariant } from "./auto-heal";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import SupportCenterTable from "../../../../components/support/SupportCenterTable";
 import { useInfiniteQuery } from "@tanstack/react-query";
@@ -221,13 +222,25 @@ const StoreManager = () => {
               accessor: "luluJobStatus",
               title: "Lulu Job Status",
               render(record) {
-                if (!record.luluJobStatus) return <span>--</span>;
+                const healLabel = autoHealLabel(record.autoHealState);
+                if (!record.luluJobStatus && !healLabel) return <span>--</span>;
                 return (
-                  <Badge
-                    label={record.luluJobStatus}
-                    variant={luluStatusVariant(record.luluJobStatus)}
-                    size="sm"
-                  />
+                  <span className="flex flex-wrap items-center gap-1">
+                    {record.luluJobStatus && (
+                      <Badge
+                        label={record.luluJobStatus}
+                        variant={luluStatusVariant(record.luluJobStatus)}
+                        size="sm"
+                      />
+                    )}
+                    {healLabel && (
+                      <Badge
+                        label={healLabel}
+                        variant={autoHealVariant(record.autoHealState)}
+                        size="sm"
+                      />
+                    )}
+                  </span>
                 );
               },
             },

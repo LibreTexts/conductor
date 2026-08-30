@@ -117,6 +117,48 @@ export type ManualPrintJobSubmission = {
     error?: string;
 }
 
+export type StoreOrderAutoHealBook = {
+    bookID: string;
+    shapeshiftJobID?: string;
+    status: "pending" | "finished" | "failed";
+    error?: string;
+}
+
+export type StoreOrderAutoHealState =
+    | "queued"
+    | "compiling"
+    | "resubmitting"
+    // Resubmitted to Lulu, waiting on Lulu's verdict on the new print job.
+    | "resubmitted"
+    // Gave up, and the support ticket the webhook deferred does not exist yet. Conductor keeps
+    // retrying until it does.
+    | "ticket_pending"
+    | "succeeded"
+    // Gave up and opened the support ticket the webhook deferred.
+    | "abandoned"
+    // Stopped because it was no longer needed (an admin submitted by hand, or the order stopped
+    // being failed). No ticket.
+    | "superseded";
+
+/**
+ * The one automatic recovery attempt an order gets after Lulu rejects its print job: Conductor
+ * recompiles every book and resubmits the order, and opens a support ticket only if that fails.
+ * Mirrors `RawStoreOrderAutoHeal` in `server/models/storeorder.ts`.
+ */
+export type StoreOrderAutoHeal = {
+    state: StoreOrderAutoHealState;
+    triggeredByLuluJobID: string;
+    startedAt: string;
+    deadlineAt: string;
+    books: StoreOrderAutoHealBook[];
+    resubmittedAt?: string;
+    resubmittedLuluJobID?: string;
+    confirmationDeadlineAt?: string;
+    ticketAttempts?: number;
+    stoppedReason?: string;
+    finishedAt?: string;
+}
+
 export type StoreOrder = {
     _id: string; // MongoDB ObjectID
     id: string; // Stripe checkout session ID
@@ -126,6 +168,8 @@ export type StoreOrder = {
     luluJobStatus?: string;
     luluJobStatusMessage?: string;
     manualPrintJobSubmissions?: ManualPrintJobSubmission[];
+    luluJobFailCount?: number;
+    autoHeal?: StoreOrderAutoHeal;
     createdAt?: Date;
     updatedAt?: Date;
 }
@@ -210,6 +254,10 @@ export type StoreOrderListItem = {
     luluJobID?: string;
     luluJobStatus?: string;
     supportTicketUUID?: string;
+    luluJobFailCount?: number;
+    // Flattened from `autoHeal.state` by the index projection — the table only needs to say whether
+    // a failed order is still being recovered, not the whole attempt.
+    autoHealState?: StoreOrderAutoHealState;
     createdAt?: string; // ISO string as stored in the index
     createdAtTimestamp?: number; // epoch millis
 }

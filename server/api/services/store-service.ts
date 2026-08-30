@@ -19,6 +19,7 @@ import SearchService from "./search-service.js";
 import { upsertStoreOrderToSearchIndex } from "./store-order-search-service.js";
 import { FilterObject } from "../../types/Search.js";
 import { StoreOrderListItem } from "../../types/Store.js";
+import { AUTO_HEAL_TRIGGER_STATUSES, getAutoHealTimeoutMs, shouldAutoHeal } from "./store-auto-heal-config.js";
 const storeLog = childLogger("store");
 
 const BASE_COST = 1.80;
@@ -971,18 +972,79 @@ class StoreService {
                 storeOrder.status = 'failed';
                 storeOrder.error = data.status?.message || `Lulu print job ${incomingStatus}`;
 
-                // A rejected, errored, or canceled print job needs manual resolution; open a ticket,
-                // or comment on the existing one if this order is already ticketed. Both `luluJobID`
-                // and `luluJobStatus` are still the previously recorded values here (the write is
-                // below), which is exactly what identifies a redelivered webhook: same job, same
-                // status, nothing new to say.
-                await this._createOrderFailureTicket(storeOrder, {
-                    trigger: incomingStatus === 'REJECTED' ? "lulu_rejected" : "lulu_error",
-                    message: data.status?.message || '',
-                    luluJobID: incomingJobID,
-                    repeatOfRecordedFailure: storeOrder.luluJobID === incomingJobID
-                        && storeOrder.luluJobStatus === incomingStatus,
-                });
+                // Both `luluJobID` and `luluJobStatus` are still the previously recorded values
+                // here (the write is below), which is exactly what identifies a redelivered webhook:
+                // same job, same status, nothing new to say.
+                const repeatOfRecordedFailure = storeOrder.luluJobID === incomingJobID
+                    && storeOrder.luluJobStatus === incomingStatus;
+
+                // Counts genuine failures only. A redelivery describes a failure that was already
+                // counted, and inflating this would make a first failure look like a second one and
+                // skip the recovery attempt below.
+                if (!repeatOfRecordedFailure) {
+                    storeOrder.luluJobFailCount = (storeOrder.luluJobFailCount || 0) + 1;
+                }
+
+                // Most rejections are fixed by recompiling the book and resubmitting the same
+                // payload, which Conductor can do on its own. Give the order exactly one shot at
+                // that before involving a human: defer the ticket, record the intent, and let the
+                // reconciler in store-auto-heal-service.ts take it from there. Everything else --
+                // a second failure, a CANCELED job, an order already ticketed, a redelivery -- keeps
+                // the original behavior of ticketing immediately.
+                const eligibleForAutoHeal = shouldAutoHeal()
+                    && AUTO_HEAL_TRIGGER_STATUSES.has(incomingStatus)
+                    && !storeOrder.autoHeal
+                    && !repeatOfRecordedFailure
+                    && !storeOrder.supportTicketUUID;
+
+                if (eligibleForAutoHeal) {
+                    const now = new Date();
+                    storeOrder.autoHeal = {
+                        state: "queued",
+                        triggeredByLuluJobID: incomingJobID,
+                        startedAt: now,
+                        // Absolute, so neither a backend restart nor a long outage can extend the
+                        // window an order gets before a human is told about it.
+                        deadlineAt: new Date(now.getTime() + getAutoHealTimeoutMs()),
+                        books: [],
+                    };
+                    storeLog.info(
+                        { orderID: storeOrder.id, luluJobID: incomingJobID, luluJobStatus: incomingStatus },
+                        "Lulu job failed; queued an automatic recovery attempt instead of opening a ticket",
+                    );
+                } else if (this._isAutoHealHandlingFailureOf(storeOrder, incomingJobID)) {
+                    // A redelivery of the very failure that started the attempt, or another failure
+                    // event for that same job. Ticketing here would undo the deferral outright:
+                    // there is no `supportTicketUUID` yet precisely because the attempt is running,
+                    // so the dedupe that normally absorbs a repeat has nothing to dedupe against.
+                    // The attempt owns this failure and will open the ticket itself if it gives up.
+                    storeLog.info(
+                        { orderID: storeOrder.id, luluJobID: incomingJobID, autoHealState: storeOrder.autoHeal?.state },
+                        "Suppressed the failure ticket; an automatic recovery attempt is already handling this job",
+                    );
+                } else {
+                    // Read before the state is changed below, so the note describes the attempt as
+                    // it was when it ran rather than the outcome being written now.
+                    const autoHealNote = this._describeExhaustedAutoHeal(storeOrder);
+
+                    // Lulu has now failed the automatically resubmitted job too. Close the attempt
+                    // out, or the admin views would keep showing an in-flight recovery for an order
+                    // that has just been handed to a human.
+                    if (storeOrder.autoHeal?.state === "resubmitted") {
+                        storeOrder.autoHeal.state = "abandoned";
+                        storeOrder.autoHeal.stoppedReason = "Lulu failed the automatically resubmitted print job as well.";
+                        storeOrder.autoHeal.finishedAt = new Date();
+                        storeOrder.markModified("autoHeal");
+                    }
+
+                    await this._createOrderFailureTicket(storeOrder, {
+                        trigger: incomingStatus === 'REJECTED' ? "lulu_rejected" : "lulu_error",
+                        message: data.status?.message || '',
+                        luluJobID: incomingJobID,
+                        repeatOfRecordedFailure,
+                        autoHealNote,
+                    });
+                }
             } else if (incomingStatus && LULU_HEALTHY_STATUSES.has(incomingStatus)) {
                 if (incomingStatus === 'SHIPPED') {
                     storeOrder.status = 'completed';
@@ -997,6 +1059,16 @@ class StoreService {
                     storeOrder.error = "";
                     // `supportTicketUUID` is deliberately left in place here: it is only detached
                     // once the ticket service confirms the close, in `_resolveOrderFailureTicket`.
+
+                    // Lulu has accepted the automatically resubmitted job, which is the only thing
+                    // that proves the recovery attempt worked. Nothing downstream reads this -- the
+                    // reconciler stops at "resubmitted" -- but an attempt left looking unfinished
+                    // forever would misreport how often the automatic path actually succeeds.
+                    if (storeOrder.autoHeal?.state === "resubmitted") {
+                        storeOrder.autoHeal.state = "succeeded";
+                        storeOrder.autoHeal.finishedAt = new Date();
+                        storeOrder.markModified("autoHeal");
+                    }
                 }
             }
 
@@ -1111,7 +1183,7 @@ class StoreService {
         };
     }
 
-    public async resubmitLuluJob(orderId: string): Promise<LuluPrintJob | {
+    public async resubmitLuluJob(orderId: string, { fromAutoHeal = false }: { fromAutoHeal?: boolean } = {}): Promise<LuluPrintJob | {
         error: string;
         detail?: string;
         code?: 'INCOMPLETE_PAYLOAD';
@@ -1145,7 +1217,7 @@ class StoreService {
                 return { error: `Failed to create Lulu print job for StoreOrder ID: ${orderId} with an internal error` };
             }
 
-            await this._recordLuluJobOnOrder(orderId, printJob);
+            await this._recordLuluJobOnOrder(orderId, printJob, { fromAutoHeal });
             return printJob;
         } catch (error) {
             logger.error({ err: error }, "Error retrying Lulu job");
@@ -1221,14 +1293,22 @@ class StoreService {
 
     /**
      * Persists an accepted Lulu print job onto the order and mirrors it into the search index.
-     * Shared by the plain resubmit and the manual submission paths.
+     * Shared by the plain resubmit, the manual submission, and the auto-heal paths.
+     *
+     * `fromAutoHeal` marks the submission the reconciler made for itself. Every other submission is
+     * an admin acting by hand, which retires any recovery attempt still in flight — see
+     * {@link _supersedeAutoHeal}.
      */
-    private async _recordLuluJobOnOrder(orderId: string, printJob: LuluPrintJob): Promise<void> {
+    private async _recordLuluJobOnOrder(orderId: string, printJob: LuluPrintJob, { fromAutoHeal = false }: { fromAutoHeal?: boolean } = {}): Promise<void> {
         await StoreOrder.updateOne({ id: { $eq: orderId } }, {
             luluJobID: printJob.id.toString(),
             luluJobStatus: printJob.status["name"] || "unknown",
             luluJobStatusMessage: printJob.status["message"] || "",
         });
+
+        if (!fromAutoHeal) {
+            await this._supersedeAutoHeal(orderId);
+        }
 
         // The order deliberately stays 'failed' with its support ticket attached until Lulu confirms
         // the new job (see LULU_RECOVERY_CONFIRMED_STATUSES). Lulu having *accepted* a submission
@@ -1238,6 +1318,101 @@ class StoreService {
 
         // Best-effort: reflect the new Lulu job in the search index (fire-and-forget).
         void upsertStoreOrderToSearchIndex(orderId);
+    }
+
+    /**
+     * Retires a recovery attempt that an admin has overtaken by submitting a print job by hand.
+     *
+     * Two competing Lulu jobs for one order is the thing to avoid: the reconciler would resubmit on
+     * top of the admin's job, and the stale-job guard in {@link processLuluOrderUpdate} would then
+     * start discarding webhooks for whichever one lost. No ticket is opened -- an admin is visibly
+     * already working the order, which is the entire purpose a ticket would serve.
+     *
+     * The state filter is what makes this safe to call unconditionally: an attempt that already
+     * abandoned or succeeded is left exactly as it is.
+     */
+    private async _supersedeAutoHeal(orderId: string): Promise<void> {
+        try {
+            const result = await StoreOrder.updateOne({
+                id: { $eq: orderId },
+                "autoHeal.state": { $in: ["queued", "compiling", "resubmitting", "resubmitted", "ticket_pending"] },
+            }, {
+                $set: {
+                    "autoHeal.state": "superseded",
+                    "autoHeal.stoppedReason": "A print job was submitted manually, which superseded the automatic recovery attempt.",
+                    "autoHeal.finishedAt": new Date(),
+                },
+                $unset: { "autoHeal.lockedUntil": "" },
+            });
+
+            if (result.modifiedCount > 0) {
+                storeLog.info({ orderID: orderId }, "Manual print job submission superseded the automatic recovery attempt");
+            }
+        } catch (err) {
+            // Never let this affect the submission the admin just made. The worst case is a
+            // reconciler tick resubmitting once more, which the admin can see and act on.
+            logger.error({ err, orderID: orderId }, "Failed to supersede auto-heal attempt");
+        }
+    }
+
+    /**
+     * Whether an in-flight recovery attempt is already responsible for this failing job, and the
+     * ticket should therefore stay deferred.
+     *
+     * Scoped to the job that started the attempt on purpose. The attempt's own resubmission is a
+     * different job, and a failure of THAT one is the second failure this feature promises to
+     * escalate -- it must ticket even if the reconciler has not yet recorded the attempt as
+     * finished.
+     */
+    private _isAutoHealHandlingFailureOf(storeOrder: RawStoreOrder, incomingJobID: string): boolean {
+        const autoHeal = storeOrder.autoHeal;
+        if (!autoHeal) return false;
+        // Deliberately not AUTO_HEAL_ACTIVE_STATES. "resubmitted" is active to the reconciler, which
+        // is still watching for Lulu's verdict, but a failure arriving in that state IS that verdict
+        // and must escalate. "ticket_pending" already owes a ticket and must not suppress one.
+        if (!["queued", "compiling", "resubmitting"].includes(autoHeal.state)) return false;
+        return autoHeal.triggeredByLuluJobID === incomingJobID;
+    }
+
+    /**
+     * One line describing a recovery attempt that did not save the order, for the support ticket
+     * that is being opened as a result. Returns `undefined` for an order that never had one, which
+     * leaves the ticket reading exactly as it did before this feature existed.
+     */
+    private _describeExhaustedAutoHeal(storeOrder: RawStoreOrder): string | undefined {
+        const autoHeal = storeOrder.autoHeal;
+        if (!autoHeal) return undefined;
+
+        if (autoHeal.state === "abandoned" || autoHeal.state === "superseded" || autoHeal.state === "ticket_pending") {
+            return `Conductor attempted to recover this order automatically (recompile the books, then resubmit) and stopped: ${autoHeal.stoppedReason || "no reason recorded"}`;
+        }
+
+        return "Conductor recompiled this order's books and resubmitted it to Lulu automatically, and Lulu failed the new print job as well. Automatic recovery is not attempted a second time.";
+    }
+
+    /**
+     * Opens the failure ticket that was held back while a recovery attempt ran.
+     *
+     * Called by the reconciler when it gives up. Re-reads the order rather than taking a caller's
+     * copy, because the abandon reason it must quote was written by that same tick.
+     *
+     * Returns the ticket UUID, or `undefined` when no ticket exists afterwards. The reconciler holds
+     * the attempt in `ticket_pending` and retries on `undefined`, so this must never report success
+     * it did not achieve -- ticket creation swallows its own errors, and a false success would strand
+     * a failed order with nobody watching it.
+     */
+    public async openDeferredFailureTicket(orderId: string): Promise<string | undefined> {
+        const storeOrder = await StoreOrder.findOne({ id: { $eq: orderId } }).lean();
+        if (!storeOrder) {
+            logger.info(`No StoreOrder found for ID: ${orderId}; cannot open its deferred failure ticket.`);
+            return undefined;
+        }
+
+        return this._createOrderFailureTicket(storeOrder, {
+            trigger: storeOrder.luluJobStatus === "ERROR" ? "lulu_error" : "lulu_rejected",
+            message: storeOrder.error || storeOrder.luluJobStatusMessage,
+            autoHealNote: this._describeExhaustedAutoHeal(storeOrder),
+        });
     }
 
     /**
@@ -1856,7 +2031,7 @@ class StoreService {
      */
     private async _createOrderFailureTicket(
         storeOrder: RawStoreOrder,
-        { trigger, message, luluJobID, repeatOfRecordedFailure }: {
+        { trigger, message, luluJobID, repeatOfRecordedFailure, autoHealNote }: {
             trigger: "order_failed" | "lulu_rejected" | "lulu_error";
             message?: string;
             /** The job that failed. Defaults to whatever is recorded on the order. */
@@ -1867,6 +2042,12 @@ class StoreService {
              * comment so a redelivery cannot spam the ticket.
              */
             repeatOfRecordedFailure?: boolean;
+            /**
+             * What automatic recovery tried and why it did not save the order. Present only when
+             * the order had an attempt, and worth stating plainly: without it the ticket looks like
+             * a first failure, and whoever picks it up repeats work Conductor already did.
+             */
+            autoHealNote?: string;
         },
     ): Promise<string | undefined> {
         try {
@@ -1882,6 +2063,7 @@ class StoreService {
                         trigger,
                         message,
                         luluJobID: failingJobID,
+                        autoHealNote,
                     });
                 }
                 return storeOrder.supportTicketUUID;
@@ -1901,6 +2083,7 @@ class StoreService {
                 storeOrder.customerEmail ? `Customer: ${storeOrder.customerEmail}` : undefined,
                 failingJobID ? `Lulu Job ID: ${failingJobID}` : undefined,
                 message ? `Details: ${message}` : undefined,
+                ...(autoHealNote ? [``, autoHealNote] : []),
             ].filter(Boolean);
 
             const ticket = await this.ticketService.createSystemTicket({
@@ -1913,6 +2096,8 @@ class StoreService {
                     trigger,
                     luluJobStatus: storeOrder.luluJobStatus,
                     message,
+                    autoHealState: storeOrder.autoHeal?.state,
+                    luluJobFailCount: storeOrder.luluJobFailCount,
                 },
             });
 
@@ -1938,11 +2123,12 @@ class StoreService {
      */
     private async _commentOnOrderFailureTicket(
         storeOrder: RawStoreOrder,
-        { ticketUUID, trigger, message, luluJobID }: {
+        { ticketUUID, trigger, message, luluJobID, autoHealNote }: {
             ticketUUID: string;
             trigger: "order_failed" | "lulu_rejected" | "lulu_error";
             message?: string;
             luluJobID?: string;
+            autoHealNote?: string;
         },
     ): Promise<void> {
         const headlineByTrigger: Record<typeof trigger, string> = {
@@ -1957,6 +2143,7 @@ class StoreService {
             `Order ID: ${storeOrder.id}`,
             luluJobID ? `Lulu Job ID: ${luluJobID}` : undefined,
             message ? `Details: ${message}` : undefined,
+            ...(autoHealNote ? [``, autoHealNote] : []),
             ``,
             `The order is still failed, so this ticket stays open rather than a new one being created for the repeat failure.`,
         ].filter((l) => l !== undefined);

@@ -100,6 +100,30 @@ export async function handleWebhook(
 }
 
 /**
+ * Resolves the Project that owns a book, by the library and cover page its ID
+ * encodes.
+ *
+ * Shared by the request-scoped {@link authorizeBookAccess} and by background
+ * callers (the store auto-heal reconciler) that need the same lookup without a
+ * user or a response to write to. Returns `null` for a malformed book ID as well
+ * as for a book no project owns — neither is actionable, and the difference does
+ * not change what any caller does next.
+ */
+export async function findProjectForBookID(
+  bookID: string
+): Promise<ProjectInterfaceRaw | null> {
+  const [library, coverID] = getLibraryAndPageFromBookID(bookID);
+  if (!library || !coverID) return null;
+
+  const project = await Project.findOne({
+    libreLibrary: library,
+    libreCoverID: coverID,
+  }).lean();
+
+  return (project as unknown as ProjectInterfaceRaw) ?? null;
+}
+
+/**
  * Resolves the Project that owns a book and confirms the requesting user is on
  * its team.
  *
@@ -117,10 +141,7 @@ async function authorizeBookAccess(
     return null;
   }
 
-  const project = await Project.findOne({
-    libreLibrary: library,
-    libreCoverID: coverID,
-  }).lean();
+  const project = await findProjectForBookID(bookID);
 
   if (!project) {
     res.status(404).send({
