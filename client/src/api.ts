@@ -108,6 +108,7 @@ import {
   ShapeshiftJob,
 } from "./types/Shapeshift";
 import { BookBotRun, BookBotType } from "./types/BookBot";
+import { PublishDestination, PublishStatus } from "./types/Publish";
 import { GlossaryEntry } from "./screens/commons/Glossary/model";
 
 /**
@@ -2744,6 +2745,62 @@ class API {
     const { usageId } = props;
     const res = await axios.delete<ConductorBaseResponse>(
       `/commons/glossary/usage/${usageId}`,
+    );
+    return res.data;
+  }
+
+  // Book Publishing
+  async getPublishStatus(projectID: string) {
+    const res = await axios.get<{ status: PublishStatus } & ConductorBaseResponse>(
+      `/project/${projectID}/publish`,
+    );
+    return res.data;
+  }
+
+  /**
+   * Lists the destinations under `path`. Omit `path` for the library's roots.
+   */
+  async getPublishDestinations(projectID: string, path?: string) {
+    const res = await axios.get<
+      { destinations: PublishDestination[] } & ConductorBaseResponse
+    >(`/project/${projectID}/publish/destinations`, {
+      params: path ? { path } : undefined,
+    });
+    return res.data;
+  }
+
+  async submitPublishPreprocess(projectID: string) {
+    const res = await axios.post<{ jobID: string } & ConductorBaseResponse>(
+      `/project/${projectID}/publish/preprocess`,
+    );
+    return res.data;
+  }
+
+  async setPublishBookSecurity(projectID: string) {
+    const res = await axios.post<ConductorBaseResponse>(
+      `/project/${projectID}/publish/security`,
+    );
+    return res.data;
+  }
+
+  async movePublishedBook(projectID: string, to: string) {
+    const res = await axios.post<{ path: string } & ConductorBaseResponse>(
+      `/project/${projectID}/publish/move`,
+      { to },
+    );
+    return res.data;
+  }
+
+  async setPublishVisibility(projectID: string) {
+    const res = await axios.post<ConductorBaseResponse>(
+      `/project/${projectID}/publish/visibility`,
+    );
+    return res.data;
+  }
+
+  async submitPublishCompile(projectID: string) {
+    const res = await axios.post<{ jobID: string } & ConductorBaseResponse>(
+      `/project/${projectID}/publish/compile`,
     );
     return res.data;
   }

@@ -57,6 +57,43 @@ export type ProjectBookBatchUpdateJob = {
   };
 };
 
+export type PublishStepKey =
+  | "preprocess"
+  | "security"
+  | "move"
+  | "visibility"
+  | "compile";
+
+export type PublishStepStatus =
+  | "not-started"
+  | "running"
+  | "succeeded"
+  | "failed";
+
+/**
+ * The recorded outcome of one step of the publishing flow.
+ *
+ * Every step writes the same shape so the drawer can render them uniformly and
+ * so "who moved this book, where, and when" is answerable from the Project
+ * alone. `jobID` is only meaningful for the steps that hand work to another
+ * system (editor-preprocess, Shapeshift); `detail` carries the step's own
+ * result, which today is the destination path the move wrote.
+ */
+export type PublishStepState = {
+  status: PublishStepStatus;
+  startedAt?: Date;
+  finishedAt?: Date;
+  /** UUID of the user who ran the step. */
+  actor?: string;
+  jobID?: string;
+  detail?: string;
+  errorMessage?: string;
+};
+
+export type ProjectPublishingState = {
+  [K in PublishStepKey]?: PublishStepState;
+};
+
 export interface ProjectInterfaceRaw {
   orgID: string;
   projectID: string;
@@ -122,9 +159,32 @@ export interface ProjectInterfaceRaw {
   sourceLastModifiedDate?: Date;
   sourceLanguage?: string;
   batchUpdateJobs?: ProjectBookBatchUpdateJob[];
+  publishing?: ProjectPublishingState;
 }
 
 export interface ProjectInterface extends ProjectInterfaceRaw, Document {};
+
+/**
+ * One publishing step's recorded state. Shared by every step so they stay
+ * structurally identical; `_id: false` because these are keyed by step name,
+ * not collected in an array.
+ */
+const PublishStepStateSchema = new Schema<PublishStepState>(
+  {
+    status: {
+      type: String,
+      enum: ["not-started", "running", "succeeded", "failed"],
+      default: "not-started",
+    },
+    startedAt: Date,
+    finishedAt: Date,
+    actor: String,
+    jobID: String,
+    detail: String,
+    errorMessage: String,
+  },
+  { _id: false }
+);
 
 const ProjectSchema = new Schema<ProjectInterface>(
   {
@@ -496,6 +556,23 @@ const ProjectSchema = new Schema<ProjectInterface>(
         },
       },
     ],
+    /**
+     * Per-step record of the book publishing flow. Absent until the first step
+     * is run.
+     */
+    publishing: {
+      type: new Schema<ProjectPublishingState>(
+        {
+          preprocess: PublishStepStateSchema,
+          security: PublishStepStateSchema,
+          move: PublishStepStateSchema,
+          visibility: PublishStepStateSchema,
+          compile: PublishStepStateSchema,
+        },
+        { _id: false }
+      ),
+      required: false,
+    },
   },
   {
     timestamps: true,

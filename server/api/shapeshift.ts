@@ -145,7 +145,7 @@ async function authorizeBookAccess(
  * `projectURL` or by being linked to a library book, in which case the book's
  * live page is the target.
  */
-function resolveCompileURL(project: ProjectInterfaceRaw): string | null {
+export function resolveCompileURL(project: ProjectInterfaceRaw): string | null {
   if (project.projectURL) return project.projectURL;
   if (project.libreLibrary && project.libreCoverID) {
     return `https://${project.libreLibrary}.libretexts.org/@go/page/${project.libreCoverID}`;
@@ -218,6 +218,67 @@ export async function getBookCompileJob(
   });
 }
 
+export type SubmitCompileResult =
+  | { ok: true; jobId: string }
+  | { ok: false; status: 400 | 409 | 500; errMsg: string };
+
+/**
+ * Submits a compile for a project's book and records the job on the Book.
+ *
+ * Shared by the compile route and the publishing flow's compile step so both
+ * resolve the URL, apply the same refusals, and stamp `exportInfo` identically.
+ * Returns a discriminated result rather than writing a response, because the
+ * two callers report failure differently.
+ */
+export async function submitCompileForBook(
+  project: ProjectInterfaceRaw,
+  bookID: string,
+  actorUUID: string
+): Promise<SubmitCompileResult> {
+  const url = resolveCompileURL(project);
+  if (!url) {
+    return {
+      ok: false,
+      status: 400,
+      errMsg:
+        "This project has no linked URL or library book, so it cannot be compiled.",
+    };
+  }
+
+  // Refuse before submitting rather than after. The job ID is recorded on the
+  // Book, so a project whose book Commons has not synced yet would get a job
+  // running with nowhere to store its ID, and the drawer would report the book
+  // as never compiled while a compile was in flight.
+  const bookExists = await Book.exists({ bookID: { $eq: bookID } });
+  if (!bookExists) {
+    return {
+      ok: false,
+      status: 409,
+      errMsg:
+        "This book has not been published to the Commons yet, so it cannot be compiled from here.",
+    };
+  }
+
+  const service = new ShapeshiftService();
+  const jobId = await service.createJob({ url });
+  if (!jobId) {
+    return { ok: false, status: 500, errMsg: "Error creating job." };
+  }
+
+  await Book.updateOne(
+    { bookID: { $eq: bookID } },
+    {
+      $set: {
+        "exportInfo.lastJobID": jobId,
+        "exportInfo.lastJobSubmittedAt": new Date(),
+        "exportInfo.lastJobSubmittedBy": actorUUID,
+      },
+    }
+  );
+
+  return { ok: true, jobId };
+}
+
 /**
  * Submits a compile for a project's book.
  *
@@ -232,62 +293,70 @@ export async function compileBook(
   const project = await authorizeBookAccess(req, res);
   if (!project) return;
 
-  const url = resolveCompileURL(project);
-  if (!url) {
-    return res.status(400).send({
-      err: true,
-      errMsg:
-        "This project has no linked URL or library book, so it cannot be compiled.",
-    });
-  }
-
-  // Refuse before submitting rather than after. The job ID is recorded on the
-  // Book, so a project whose book Commons has not synced yet would get a job
-  // running with nowhere to store its ID, and the drawer would report the book
-  // as never compiled while a compile was in flight.
-  const { bookID } = req.params;
-  const bookExists = await Book.exists({ bookID: { $eq: bookID } });
-  if (!bookExists) {
-    return res.status(409).send({
-      err: true,
-      errMsg:
-        "This book has not been published to the Commons yet, so it cannot be compiled from here.",
-    });
-  }
-
-  const service = new ShapeshiftService();
-  const jobId = await service.createJob({ url });
-  if (!jobId) {
-    return res.status(500).send({ err: true, errMsg: "Error creating job." });
-  }
-
-  await Book.updateOne(
-    { bookID: { $eq: bookID } },
-    {
-      $set: {
-        "exportInfo.lastJobID": jobId,
-        "exportInfo.lastJobSubmittedAt": new Date(),
-        "exportInfo.lastJobSubmittedBy": req.user.decoded.uuid,
-      },
-    }
+  const result = await submitCompileForBook(
+    project,
+    req.params.bookID,
+    req.user.decoded.uuid
   );
+  if (!result.ok) {
+    return res.status(result.status).send({ err: true, errMsg: result.errMsg });
+  }
 
   return res.status(200).json({
     err: false,
     msg: "Compile job submitted.",
-    jobId,
+    jobId: result.jobId,
   });
 }
 
 /**
- * Total bytes this endpoint will hold in memory before giving up.
+ * Total export bytes this endpoint will pull into memory.
  *
- * The archive is assembled in-process, so an unbounded book could otherwise
- * take the worker down. Well past any real book, small enough to be a ceiling.
+ * The archive is assembled in-process, and `zip.toBuffer()` renders a second
+ * copy of everything, so peak usage is roughly twice this number. 250 MB keeps
+ * that peak near half a gigabyte while still being well past any real book's
+ * combined exports.
  */
-const DOWNLOAD_ALL_MAX_BYTES = 500 * 1024 * 1024;
+const DOWNLOAD_ALL_MAX_BYTES = 250 * 1024 * 1024;
 
 const DOWNLOAD_ALL_FILE_TIMEOUT_MS = 60_000;
+
+/**
+ * Reads a response body into a buffer, giving up once it passes `maxBytes`.
+ *
+ * The manifest's `sizeBytes` comes from a HEAD probe, so it is a hint and not a
+ * promise: the downloads host may omit `Content-Length`, report a stale value
+ * from before a recompile, or serve a chunked response with no length at all.
+ * A cap that only reads that number does not cap anything. This one holds
+ * against bytes actually received.
+ *
+ * Returns `null` on overflow, cancelling the stream rather than draining it, so
+ * an oversized artifact costs a few chunks instead of its full size. The
+ * partial buffer is dropped: half a PDF in the zip is worse than no PDF.
+ */
+async function readBodyCapped(
+  body: ReadableStream<Uint8Array> | null,
+  maxBytes: number
+): Promise<Buffer | null> {
+  if (!body) return null;
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    if (received > maxBytes) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+
+  return Buffer.concat(chunks, received);
+}
 
 /**
  * Streams every available export for a book as one zip.
@@ -321,7 +390,11 @@ export async function downloadAllBookExports(
     const definition = getExportDefinition(entry.key);
     if (!definition) continue;
 
-    if (totalBytes + (entry.sizeBytes ?? 0) > DOWNLOAD_ALL_MAX_BYTES) {
+    const remaining = DOWNLOAD_ALL_MAX_BYTES - totalBytes;
+
+    // The probed size is only a hint, so this skips a fetch that clearly cannot
+    // fit rather than deciding anything. `readBodyCapped` is what enforces.
+    if ((entry.sizeBytes ?? 0) > remaining) {
       logger.warn(
         { bookID, exportKey: entry.key, totalBytes },
         "Download-all size cap reached, omitting remaining exports"
@@ -340,7 +413,19 @@ export async function downloadAllBookExports(
         );
         continue;
       }
-      const buffer = Buffer.from(await fileRes.arrayBuffer());
+
+      const buffer = await readBodyCapped(fileRes.body, remaining);
+      if (!buffer) {
+        // Dropped rather than fatal: the other exports are still worth zipping,
+        // and a book whose PDF alone blows the budget should still hand back
+        // its LMS packages.
+        logger.warn(
+          { bookID, exportKey: entry.key, totalBytes, remaining },
+          "Skipping export in download-all, response exceeded the size cap"
+        );
+        continue;
+      }
+
       totalBytes += buffer.byteLength;
       zip.addFile(`${bookID}-${entry.key}.${definition.extension}`, buffer);
     } catch (err) {
