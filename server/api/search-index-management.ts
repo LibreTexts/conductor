@@ -1,11 +1,12 @@
+import logger from "../logger.js";
 import { Request, Response } from "express";
 import SearchService, { INDEXES, SEARCH_QUERIES_INDEX } from "./services/search-service.js";
-import { debugError, debugServer } from "../debug.js";
 import { conductor500Err } from "../util/errorutils.js";
 import SupportTicketService from "./services/support-ticket-service.js";
 import booksAPI from "./books.js";
 import projectsAPI from "./projects.js";
 import { syncUsersInBackground } from "./services/user-search-service.js";
+import { syncStoreOrdersInBackground } from "./services/store-order-search-service.js";
 
 // Indexes valid for the reinitialize-settings endpoint. Includes search-queries
 // alongside the tuple-typed core indexes.
@@ -37,7 +38,7 @@ export async function getIndexStatus(req: Request, res: Response) {
           sortableAttributes: sortableAttrs,
         });
       } catch (error: any) {
-        debugError(`Error fetching status for index ${indexName}: ${error}`);
+        logger.error({ err: error }, `Error fetching status for index ${indexName}`);
         indexStatuses.push({
           name: indexName,
           error: error.message || "Failed to fetch index status",
@@ -66,7 +67,7 @@ export async function getIndexStatus(req: Request, res: Response) {
         sortableAttributes: sortableAttrs,
       });
     } catch (error: any) {
-      debugError(`Error fetching status for index ${SEARCH_QUERIES_INDEX}: ${error}`);
+      logger.error({ err: error }, `Error fetching status for index ${SEARCH_QUERIES_INDEX}`);
       indexStatuses.push({
         name: SEARCH_QUERIES_INDEX,
         error: error.message || "Failed to fetch index status",
@@ -78,7 +79,7 @@ export async function getIndexStatus(req: Request, res: Response) {
       indexes: indexStatuses,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "getIndexStatus failed");
     return conductor500Err(res);
   }
 }
@@ -112,10 +113,10 @@ export async function resyncIndex(req: Request, res: Response) {
 
     // Run the actual sync in the background (don't await)
     resyncIndexInBackground(indexName as typeof INDEXES[number]).catch((e) => {
-      debugError(`Error in background re-sync for ${indexName}: ${e}`);
+      logger.error({ err: e }, `Error in background re-sync for ${indexName}`);
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "resyncIndex failed");
     if (!res.headersSent) {
       return conductor500Err(res);
     }
@@ -156,14 +157,14 @@ export async function reinitializeIndexSettings(req: Request, res: Response) {
         message: `Settings for index '${indexName}' re-initialized successfully`,
       });
     } catch (error: any) {
-      debugError(`Error re-initializing index ${indexName}: ${error}`);
+      logger.error({ err: error }, `Error re-initializing index ${indexName}`);
       return res.status(500).send({
         err: true,
         errMsg: error.message || "Failed to re-initialize settings",
       });
     }
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "reinitializeIndexSettings failed");
     return conductor500Err(res);
   }
 }
@@ -173,7 +174,7 @@ export async function reinitializeIndexSettings(req: Request, res: Response) {
  */
 async function resyncIndexInBackground(indexName: typeof INDEXES[number]) {
   try {
-    debugServer(`Initiating search index re-synchronization for '${indexName}'...`);
+    logger.info(`Initiating search index re-synchronization for '${indexName}'...`);
     const searchService = await SearchService.create();
 
     switch (indexName) {
@@ -190,13 +191,16 @@ async function resyncIndexInBackground(indexName: typeof INDEXES[number]) {
       case "users":
         await syncUsersInBackground();
         break;
+      case "storeOrders":
+        await syncStoreOrdersInBackground();
+        break;
       default:
         throw new Error(`Unknown index: ${indexName}`);
     }
 
-    debugServer(`Search index re-synchronization for '${indexName}' completed successfully.`);
+    logger.info(`Search index re-synchronization for '${indexName}' completed successfully.`);
   } catch (error) {
-    debugError(`Error during index re-sync for ${indexName}: ${error}`);
+    logger.error({ err: error }, `Error during index re-sync for ${indexName}`);
     throw error;
   }
 }
@@ -215,7 +219,7 @@ export async function clearSearchQueriesIndex(req: Request, res: Response) {
       message: `Index '${SEARCH_QUERIES_INDEX}' cleared successfully`,
     });
   } catch (error: any) {
-    debugError(`Error clearing index ${SEARCH_QUERIES_INDEX}: ${error}`);
+    logger.error({ err: error }, `Error clearing index ${SEARCH_QUERIES_INDEX}`);
     return res.status(500).send({
       err: true,
       errMsg: error.message || "Failed to clear index",

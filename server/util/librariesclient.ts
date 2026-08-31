@@ -1,5 +1,5 @@
+import logger from "../logger.js";
 import { SSMClient, GetParametersByPathCommand } from "@aws-sdk/client-ssm";
-import { debugError } from "../debug.js";
 import {
   CXOneFetchParams,
   LibrariesSSMClient as LibrariesSSMClientType,
@@ -67,13 +67,11 @@ class LibrariesSSMClient {
       );
 
       if (pairResponse.$metadata.httpStatusCode !== 200) {
-        console.error(pairResponse.$metadata);
+        logger.error({ err: pairResponse.$metadata }, "getLibraryCredentials failed");
         throw new Error("Error retrieving library token pair.");
       }
       if (!pairResponse.Parameters) {
-        console.error(
-          "No data returned from token pair retrieval. Lib: " + lib
-        );
+        logger.error("No data returned from token pair retrieval. Lib: " + lib);
         throw new Error("Error retrieving library token pair.");
       }
 
@@ -84,9 +82,7 @@ class LibrariesSSMClient {
         p.Name?.includes(`${lib}/secret`)
       );
       if (!libKey?.Value || !libSec?.Value) {
-        console.error(
-          "Key param not found in token pair retrieval. Lib: " + lib
-        );
+        logger.error("Key param not found in token pair retrieval. Lib: " + lib);
         throw new Error("Error retrieving library token pair.");
       }
 
@@ -103,7 +99,7 @@ class LibrariesSSMClient {
       this.credentialsCache[lib] = creds;
       return creds;
     } catch (err) {
-      debugError(err);
+      logger.error({ err }, "getLibraryCredentials failed");
       return null;
     }
   }
@@ -126,7 +122,7 @@ export async function generateAPIRequestHeaders(
 
     const creds = await libClient.getLibraryCredentials(lib);
     if (!creds || !creds.keyPair || !creds.apiUsername) {
-      console.log("Failed attempt to generate library token pair.");
+      logger.info("Failed attempt to generate library token pair.");
       throw new Error("Error generating library token pair.");
     }
 
@@ -140,7 +136,7 @@ export async function generateAPIRequestHeaders(
       "X-Requested-With": "XMLHttpRequest",
     };
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "generateAPIRequestHeaders failed");
     return null;
   }
 }
@@ -213,12 +209,15 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
         query,
         queryIsFirst
       )}`;
+
+      // https://dev.libretexts.org/@api/deki/pages/7137/order?dream.out.format=json&origin=mt-web&afterId=8654
+   
       request = fetch(url, finalOptions);
     }
 
     const result = await request;
     if (!result.ok && !silentFail) {
-      debugError(result.url);
+      logger.error(result.url);
       throw new Error(
         `Error fetching ${
           params.scope === "files"
@@ -280,7 +279,7 @@ export async function addPageProperty(
 
     return true;
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "addPageProperty failed");
     return false;
   }
 }
@@ -299,7 +298,7 @@ export async function getPage(
     const raw = await res.json();
     return raw;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getPage failed");
     return null;
   }
 }
@@ -319,7 +318,7 @@ export async function getPageID(
     }
     return id;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getPageID failed");
     return null;
   }
 }
@@ -354,7 +353,7 @@ export async function getGroups(subdomain: string): Promise<CXOneGroup[]> {
 
     return finalGroups;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getGroups failed");
     return [];
   }
 }
@@ -374,7 +373,7 @@ export async function getLibreBotUserId(
     const raw = await res.json();
     return raw["@id"]?.toString() || null;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getLibreBotUserId failed");
     return null;
   }
 }
@@ -392,7 +391,7 @@ export async function getDeveloperGroup(
     const groups = await getGroups(subdomain);
     return groups.find((g) => g.name === "Developer");
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getDeveloperGroup failed");
     return undefined;
   }
 }
@@ -432,7 +431,7 @@ export async function getLibUsers(subdomain: string): Promise<CXOneUser[]> {
 
     return finalUsers;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getLibUsers failed");
     return [];
   }
 }
@@ -452,7 +451,7 @@ export async function getLibUser(
     const users = await getLibUsers(subdomain);
     return users.find((u) => u.email === email);
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getLibUser failed");
     return undefined;
   }
 }
@@ -489,16 +488,68 @@ function _parseQuery(query?: Record<string, any>, first = false) {
 }
 
 /**
+ * Ceiling for the encoded book path segment.
+ *
+ * The longest path we derive from it is the first chapter —
+ * `Workbench/<segment>/01:_First_Chapter` (see `generateChapterOnePath`) — so a
+ * 200-character segment keeps the full derived path near 230, comfortably under
+ * the 255 a CXOne path segment is expected to tolerate. CXOne does not publish
+ * the limit, so this is deliberately conservative rather than exact.
+ */
+const MAX_ENCODED_PATH_SEGMENT = 200;
+
+/**
+ * Encodes `value` for use in a path segment, trimming from the end until the
+ * encoded result fits `budget`.
+ *
+ * Trims by code point rather than by string index: `encodeURIComponent` is not
+ * length-preserving (one character can become up to nine bytes of escapes), so
+ * slicing the raw string to the budget is not enough, and slicing mid-surrogate
+ * would corrupt the character.
+ */
+const encodeWithinBudget = (value: string, budget: number): string => {
+  let encoded = encodeURIComponent(value);
+  if (encoded.length <= budget) return encoded;
+
+  const chars = Array.from(value);
+  while (chars.length > 0) {
+    chars.pop();
+    encoded = encodeURIComponent(chars.join(""));
+    if (encoded.length <= budget) break;
+  }
+  return encoded;
+};
+
+/**
  * Returns a tuple containing the CXOne path and URL of a book.
+ * If a project ID is provided, it will be appended to the generated path/URL.
+ *
+ * The title portion is truncated to keep the encoded segment within
+ * `MAX_ENCODED_PATH_SEGMENT`; the project ID is always preserved in full, since
+ * it is what makes the path unique. Only the path is shortened — callers pass
+ * the book's display title separately, so it is never truncated.
+ *
  * @param subdomain - The subdomain of the library
  * @param title - The title of the book
+ * @param projectID - Optional project ID to include in the URL (defaults to null)
  * @returns {[string, string]} - The CXOne [path,URL] of the book
  */
 export const generateBookPathAndURL = (
   subdomain: string,
-  title: string
+  title: string,
+  projectID: string | null = null
 ): [string, string] => {
-  const path = `Workbench/${encodeURIComponent(title)}`;
+  // Reserved before the title so the suffix — the part that makes the path
+  // unique per project — can never be what gets trimmed away.
+  const suffix = projectID ? `_${projectID}` : "";
+  const encodedTitle = encodeWithinBudget(
+    title,
+    MAX_ENCODED_PATH_SEGMENT - suffix.length
+  );
+  // A title that encodes to nothing (or trims to nothing) would leave a bare
+  // leading underscore, so fall back to the project ID alone.
+  const segment = encodedTitle ? `${encodedTitle}${suffix}` : projectID ?? encodedTitle;
+  const path = `Workbench/${segment}`;
   const url = `https://${subdomain}.libretexts.org/${path}`;
   return [path, url];
 };
@@ -520,7 +571,7 @@ export async function getSubdomainFromLibrary(
     }
     return null;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getSubdomainFromLibrary failed");
     return null;
   }
 }

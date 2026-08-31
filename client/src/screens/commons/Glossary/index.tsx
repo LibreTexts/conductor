@@ -6,8 +6,20 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { TableOfContents } from "../../../types/Book";
 
 import api from "../../../api";
-import { Button, Card, Grid, Link, Stack } from "@libretexts/davis-react";
-import { IconPlus, IconTableImport } from "@tabler/icons-react";
+import {
+  Breadcrumb,
+  Button,
+  Card,
+  Grid,
+  Link,
+  Stack,
+} from "@libretexts/davis-react";
+import {
+  IconFoldDown,
+  IconFoldUp,
+  IconPlus,
+  IconTableImport,
+} from "@tabler/icons-react";
 import TOCTreeView from "./TOCTreeView";
 import GlossaryForm from "./manager";
 import "./Glossary.css";
@@ -20,6 +32,7 @@ import GlossaryList from "./GlossaryList";
 import { GlossaryEntry } from "./model";
 import AddPageDialog from "./AddPageDialog";
 import { useNotifications } from "../../../context/NotificationContext";
+import useProject from "../../../hooks/useProject";
 
 type GlossaryResourceType = "book" | "project";
 
@@ -41,6 +54,11 @@ const GlossaryManager: React.FC = () => {
     resourceType = "book";
   }
 
+  const { project, isLoading: isLoadingProject } =
+    resourceType === "project"
+      ? useProject(id!)
+      : { project: undefined, isLoading: false };
+
   const { data: bookTOC, isLoading: loadingTOC } = useQuery<TableOfContents>({
     queryKey: ["book-toc", id, resourceType],
     queryFn: async () => {
@@ -59,6 +77,7 @@ const GlossaryManager: React.FC = () => {
   const coverID = useMemo(() => bookTOC?.id ?? "", [bookTOC?.id]);
 
   const [editingUsageID, setEditingUsageID] = useState<string | null>(null);
+  const [tocExpandAll, setTocExpandAll] = useState(false);
 
   const handleEditUsageID = (usageID: string) => {
     setEditingUsageID(usageID);
@@ -133,7 +152,10 @@ const GlossaryManager: React.FC = () => {
   }, [bookTOC]);
 
   const importGlossaryTermsMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (vars?: {
+      auxGlossaryID?: string;
+      auxGlossaryParentID?: string;
+    }) => {
       if (!glossaryID) {
         throw new Error("No glossary ID found.");
       }
@@ -141,6 +163,8 @@ const GlossaryManager: React.FC = () => {
         library: library,
         coverID: coverID,
         glossaryID: glossaryID,
+        auxGlossaryID: vars?.auxGlossaryID,
+        auxGlossaryParentID: vars?.auxGlossaryParentID,
       });
       if (res.err) {
         throw new Error(
@@ -172,7 +196,20 @@ const GlossaryManager: React.FC = () => {
       <div className="glossary-page__column commons-glossary col-span-2">
         <div className="glossary-page__column-header">
           <Stack direction="horizontal" align="center" justify="between">
-            <h4 className="text-2xl font-semibold">Book Glossary</h4>
+            <Stack direction="vertical"  gap="sm">
+              <h4 className="text-2xl font-semibold">Book Glossary</h4>
+              {resourceType === "project" &&
+                !isLoadingProject &&
+                project?.title && (
+                  <Breadcrumb className="ml-1">
+                    <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
+                    <Breadcrumb.Item href={`/projects/${id}`}>
+                      {project?.title}
+                    </Breadcrumb.Item>
+                    <Breadcrumb.Item isCurrent>Glossary</Breadcrumb.Item>
+                  </Breadcrumb>
+                )}
+            </Stack>
             <Stack direction="horizontal" gap="sm">
               <Button
                 size="sm"
@@ -185,7 +222,7 @@ const GlossaryManager: React.FC = () => {
               {glossaryID && (
                 <Button
                   size="sm"
-                  onClick={() => importGlossaryTermsMutation.mutate()}
+                  onClick={() => importGlossaryTermsMutation.mutate(undefined)}
                   loading={importGlossaryTermsMutation.isLoading}
                   disabled={importGlossaryTermsMutation.isLoading}
                   icon={<IconTableImport size={16} />}
@@ -211,7 +248,10 @@ const GlossaryManager: React.FC = () => {
             }
           }}
           addNotification={addNotification}
-          editingTerm={glossaryEntries.find((term) => term.usageID === editingUsageID) ?? null}
+          editingTerm={
+            glossaryEntries.find((term) => term.usageID === editingUsageID) ??
+            null
+          }
           setEditingUsageID={setEditingUsageID}
           existingTerms={glossaryEntries}
         />
@@ -231,12 +271,32 @@ const GlossaryManager: React.FC = () => {
             addNotification={addNotification}
             refetchGlossary={refetchGlossary}
             setEditingUsageID={handleEditUsageID}
+            bookTOC={bookTOC!}
           />
         </div>
       </div>
       <div className="glossary-page__column commons-glossary">
         <div className="glossary-page__column-header">
-          <h4 className="text-2xl font-semibold">Table of Contents</h4>
+          <Stack direction="horizontal" align="center" justify="between">
+            <h4 className="text-2xl font-semibold">Table of Contents</h4>
+            {bookTOC && bookTOC.children.length > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={
+                  tocExpandAll ? (
+                    <IconFoldUp size={16} />
+                  ) : (
+                    <IconFoldDown size={16} />
+                  )
+                }
+                iconPosition="left"
+                onClick={() => setTocExpandAll((v) => !v)}
+              >
+                {tocExpandAll ? "Collapse All" : "Expand All"}
+              </Button>
+            )}
+          </Stack>
           <p className="text-sm text-neutral-600">
             {bookTOC && (
               <Link href={bookTOC.url} external={true} showExternalIcon={true}>
@@ -246,15 +306,21 @@ const GlossaryManager: React.FC = () => {
           </p>
         </div>
         <Card padding="sm" className="glossary-page__card">
-          <Stack
-            direction="horizontal"
-            gap="sm"
-            align="center"
-            justify="between"
-            className="shrink-0"
-          ></Stack>
           {bookTOC && bookTOC.children.length > 0 ? (
-            <TOCTreeView items={bookTOC.children} onNodeClick={onNodeClick} />
+            <TOCTreeView
+              items={bookTOC.children}
+              expandAll={tocExpandAll}
+              storageKey={id ? `glossary-toc-expanded:${resourceType}:${id}` : undefined}
+              onNodeClick={onNodeClick}
+              bookId={bookTOC?.id}
+              onImportGlossary={(auxGlossaryID, auxGlossaryParentID) =>
+                importGlossaryTermsMutation.mutate({
+                  auxGlossaryID,
+                  auxGlossaryParentID,
+                })
+              }
+              importingGlossary={importGlossaryTermsMutation.isLoading}
+            />
           ) : (
             <p>
               <em>Table of contents unavailable.</em>

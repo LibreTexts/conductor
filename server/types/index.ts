@@ -1,4 +1,5 @@
 export * from "./AI";
+export * from "./AddressValidation";
 export * from "./AssetTags";
 export * from "./Book";
 export * from "./Store";

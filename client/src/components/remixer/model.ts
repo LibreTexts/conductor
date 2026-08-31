@@ -26,6 +26,7 @@ export interface PathLevelFormat {
     prefix: string;
     start: number;
     type: NumberingType;
+    continue?: boolean;
 }
 
 export interface RemixerSubPage {
@@ -45,6 +46,9 @@ export interface RemixerSubPage {
     numberedPath?: string;
     formattedPath?: string;
     formattedPathOverride?: boolean;
+    /** Editable pieces of `formattedPath` when overridden — kept in sync so the edit panel can round-trip them. */
+    formattedPathPrefix?: string;
+    formattedPathIndex?: string;
     isDeleted?: boolean;
     isImported?: boolean;
     isRenamed?: boolean;
@@ -54,6 +58,9 @@ export interface RemixerSubPage {
     renamedItem?: boolean;
     deletedItem?: boolean;
     sourceID?: string;
+    /** Disambiguates duplicate sibling titles; 0 is hidden, 1+ shown as (n). */
+    siblingTitleIndex?: number;
+    overrideUriUiEnding?: string;
 }
 
 export type RemixerLibrary = Partial<Record<Library, RemixerSubPage[]>>;
@@ -75,10 +82,10 @@ export interface RemixerData {
 export const remixerDataInit:RemixerData = { autoNumbering: true } as RemixerData;
 
 export interface RemixerUiState {
-    catalogListOpen: boolean;
-    publishPanelOpen: boolean;
-    pathNameFormatOpen: boolean;
-    editPanelOpen: boolean;
+    catalogListOpen: boolean; // TODO: remove this when switching to new Remixer UI (not used in new UI)
+    publishPanelOpen: boolean; // TODO: remove this when switching to new Remixer UI (not used in new UI)
+    pathNameFormatOpen: boolean; // TODO: remove this when switching to new Remixer UI (not used in new UI)
+    editPanelOpen: boolean; // TODO: remove this when switching to new Remixer UI (not used in new UI)
     selectedBookNodeId?: string;
     pathNameFormatDepth: number;
     pathLevelFormats?: PathLevelFormat[];
@@ -95,9 +102,9 @@ export interface CopyModeState {
 }
 
 export const copyModeStates: CopyModeState[] = [
-    { title: "Copy-Transclude (Recommended)", value: "Transclude", isAdminOnly: false },
-    { title: "Copy-Fork", value: "Fork", isAdminOnly: false },
-    { title: "Copy-Full (Admin Only)", value: "Full", isAdminOnly: true },
+    { title: "Copy-Transclude", value: "Transclude", isAdminOnly: false },
+    { title: "Copy-Fork", value: "Fork", isAdminOnly: true },
+    { title: "Copy-Full", value: "Full", isAdminOnly: true },
 ];
 
 export const defaultCopyModeState: CopyModeState = copyModeStates[0];
@@ -152,3 +159,27 @@ export interface GetRemixerDisplayTitleOptions {
     ordinalPathById: Map<string, string[]>;
   };
 }
+
+export const matterNodesUrlEndings = [
+  "zz%3A_Back_Matter/10%3A_Index",
+  "zz%3A_Back_Matter/20%3A_Glossary",
+  "zz%3A_Back_Matter/30%3A_Detailed_Licensing",
+  "0%3A_Front_Matter/01%3A_TitlePage",
+  "00%3A_Front_Matter/03%3A_Table_of_Contents",
+  "00%3A_Front_Matter/02%3A_InfoPage",
+  "00%3A_Front_Matter/04%3A_Licensing",
+  "zz%3A_Back_Matter",
+  "0%3A_Front_Matter",
+];
+
+export const matterNodeValidTitles = [
+  "Index",
+  "Glossary",
+  "Detailed Licensing",
+  "TitlePage",
+  "Table of Contents",
+  "InfoPage",
+  "Licensing",
+  "Front Matter",
+  "Back Matter",
+];

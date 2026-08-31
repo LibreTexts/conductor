@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PaginationSchema } from "./misc.js";
+import { UX_ACKNOWLEDGMENT_KEY_VALUES } from "../../util/uxAcknowledgmentKeys.js";
 
 export const GetUsersSchema = z.object({
   query: z
@@ -75,4 +76,24 @@ export const DeleteUserNoteSchema = z.object({
       userId: z.string().uuid(),
       noteId: z.string().uuid()
     })
+});
+
+// Only registered, dot-free keys may reach the User document. Rejecting
+// unknown keys at the edge prevents typos and unbounded document bloat.
+const uxAcknowledgmentKeyEnum = z.enum(
+  UX_ACKNOWLEDGMENT_KEY_VALUES as [string, ...string[]]
+);
+
+export const GetUserUXAcknowledgmentsSchema = z.object({});
+
+export const RecordUserUXAcknowledgmentSchema = z.object({
+  params: z.object({ key: uxAcknowledgmentKeyEnum }),
+  body: z.object({
+    status: z.enum(["seen", "dismissed", "completed"]).optional(),
+    data: z.record(z.string(), z.unknown()).optional(),
+  }),
+});
+
+export const DeleteUserUXAcknowledgmentSchema = z.object({
+  params: z.object({ key: uxAcknowledgmentKeyEnum }),
 });

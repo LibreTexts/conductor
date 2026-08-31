@@ -1,49 +1,66 @@
-import React, { useEffect, useState } from "react";
-import {    Icon, Modal } from "semantic-ui-react";
+import React, { useEffect, useRef, useState } from "react";
 import { Library, RemixerSubPage } from "./model";
-import { Button, Checkbox, Input, Stack } from "@libretexts/davis-react";
-import { DAVIS_REMIXER_BTN_CLASS, DAVIS_REMIXER_CHECKBOX_CLASS, DAVIS_REMIXER_LINK_CLASS } from "./style";
+import {
+  Button,
+  Checkbox,
+  Input,
+  Stack,
+  Modal,
+  Link,
+  Text,
+  IconButton,
+} from "@libretexts/davis-react";
+import { IconDeviceFloppy, IconEdit } from "@tabler/icons-react";
+import {
+  getRemixerPageUriUi,
+  isRemixerBookRoot,
+  sanitizeRemixerPageTitle,
+  toEditableRemixerTitle,
+} from "./services";
 import api from "../../api";
-
-interface EditPanelProps {
-  open: boolean;
-  dimmer: string;
-  onClose: () => void;
-  currentPage?: RemixerSubPage;
-  handleSave: (page: RemixerSubPage) => void;
-  formattedPathDefault?: string;
-  library:Library;
-  coverID?: string;
-}
 
 type ReingestState = {
   status: "idle" | "running" | "done" | "error";
   message: string;
 };
 
-/** Colons are not allowed. If present, drop the prefix before the first ":" and any remaining ":". */
-function sanitizeRemixerTitle(value: string, trim: boolean = true): string {
-  let s = value;
-  const colonIndex = s.indexOf(":");
-  if (colonIndex !== -1) {
-    s = s.slice(colonIndex + 1);
-  }
-  if (trim) {
-    return s.replace(/:/g, "").trim();
-  }
-  return s.replace(/:/g, "");
+interface EditPanelProps {
+  open: boolean;
+  onClose: () => void;
+  currentPage?: RemixerSubPage;
+  handleSave: (page: RemixerSubPage) => void;
+  /** Auto-numbered prefix/index pieces used as placeholders/defaults when override is first enabled. */
+  formattedPathPartsDefault?: { prefix: string; index: string };
+  library: Library;
+  /** Project cover page id; the book root allows colons in its title. */
+  coverPageId: string;
+}
+
+/** Truncate to `maxLen` characters with "..." in the middle (e.g. 25 → "abcdefghij...opqrstuvwxy"). */
+function truncateMiddle(value: string, maxLen: number): string {
+  if (value.length <= maxLen) return value;
+  const keep = maxLen - 3;
+  const front = Math.ceil(keep / 2);
+  const back = Math.floor(keep / 2);
+  return `${value.slice(0, front)}...${value.slice(-back)}`;
+}
+
+/** Path-segment-safe characters only — no `/`, spaces, `?`, `#`, etc. */
+function sanitizeUriEnding(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const cleaned = value.replace(/[^A-Za-z0-9._~%-]/g, "");
+  return cleaned.length > 0 ? cleaned : undefined; // return undefined if nothing remains after sanitization
 }
 
 const EditPanel: React.FC<EditPanelProps> = (props) => {
   const {
     open,
-    dimmer,
     onClose,
     currentPage,
     handleSave,
-    formattedPathDefault,
+    formattedPathPartsDefault,
     library,
-    coverID
+    coverPageId,
   } = props;
   const [page, setPage] = useState<RemixerSubPage | undefined>(currentPage);
   const [reingest, setReingest] = useState<ReingestState>({
@@ -58,10 +75,10 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
 
   const handleReingest = () => {
     const pageID = currentPage?.["@id"];
-    if (!pageID || !coverID || !library) return;
+    if (!pageID || !coverPageId || !library) return;
 
     setReingest({ status: "running", message: "Starting…" });
-    const evtSource = api.reingestPage(`${library}-${coverID}`, pageID);
+    const evtSource = api.reingestPage(`${library}-${coverPageId}`, pageID);
 
     evtSource.addEventListener("progress", (e: MessageEvent) => {
       try {
@@ -105,18 +122,37 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
     });
   };
 
+  const currentPageUri = getRemixerPageUriUi(currentPage);
+  const currentPageParentPath = currentPageUri
+    ? currentPageUri.split("/").slice(0, -1).join("/")
+    : "";
+ 
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const isBookRoot = isRemixerBookRoot(currentPage, coverPageId);
+  const [overrideUriUiEnding, setOverrideUriUiEnding] = useState<string|undefined>(
+    sanitizeUriEnding(currentPage?.overrideUriUiEnding ||currentPageUri?.split("/").slice(-1)[0]  ||undefined),
+  );
+  const [enableOverrideUriUiEnding, setEnableOverrideUriUiEnding] =
+    useState(false);
+
   const handleSaveClick = () => {
     if (!page) return;
-    const title = sanitizeRemixerTitle(page.title ?? page["@title"] ?? "");
+    const title = toEditableRemixerTitle(
+      page.title ?? page["@title"] ?? "",
+      isBookRoot,
+    );
+    const overridden = page.formattedPathOverride === true;
+    const prefix = overridden ? (page.formattedPathPrefix ?? "") : undefined;
+    const index = overridden ? (page.formattedPathIndex ?? "") : undefined;
     const normalizedPage: RemixerSubPage = {
       ...page,
       title,
       "@title": title,
-      formattedPathOverride: page.formattedPathOverride === true,
-      formattedPath:
-        page.formattedPathOverride === true
-          ? (page.formattedPath ?? "")
-          : undefined,
+      formattedPathOverride: overridden,
+      formattedPathPrefix: prefix,
+      formattedPathIndex: index,
+      formattedPath: overridden ? `${prefix}${index}`.trim() : undefined,
+      overrideUriUiEnding: enableOverrideUriUiEnding ? overrideUriUiEnding : undefined,
     };
     handleSave(normalizedPage);
   };
@@ -126,113 +162,224 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
       setPage(undefined);
       return;
     }
-    const title = sanitizeRemixerTitle(
+    const title = toEditableRemixerTitle(
       currentPage.title ?? currentPage["@title"] ?? "",
+      isBookRoot,
     );
     setPage({ ...currentPage, title, "@title": title });
+    const uri = getRemixerPageUriUi(currentPage);
+    setOverrideUriUiEnding(
+      sanitizeUriEnding(uri.split("/").slice(-1)[0] ?? ""),
+    );
+    setEnableOverrideUriUiEnding(false);
   }, [currentPage, open]);
 
+  useEffect(() => {
+    if (!open) return;
+    // After Modal finishes its own focus management
+    const id = window.setTimeout(() => {
+      titleInputRef.current?.focus();
+    }, 0);
+    return () => clearTimeout(id);
+  }, [open]);
+
   return (
-    <Modal open={open} onClose={onClose} dimmer={dimmer}>
-      <Modal.Header>Edit Page</Modal.Header>
-      <Modal.Content>
-        <Input
-          name="title"
-          label="Title"
-          placeholder="Loading title..."
-          value={page?.title ?? page?.["@title"] ?? ""}
-          onChange={(e) => {
-            const next = sanitizeRemixerTitle(e.target.value,false);
-            setPage((prev) =>
-              prev ? { ...prev, title: next, "@title": next } : prev,
-            );
-          }}
-        />
-        <Checkbox
-          name="formattedPathOverride"
-          label="Override Prefix"
-          className={DAVIS_REMIXER_CHECKBOX_CLASS.labelLeft}
-          checked={page?.formattedPathOverride ?? false}
-          onChange={(checked) =>
-            setPage((prev) => {
-              if (!prev) return prev;
-              const enabled = checked === true;
-              return {
-                ...prev,
-                formattedPathOverride: enabled,
-                formattedPath: enabled
-                  ? (prev.formattedPath ?? formattedPathDefault ?? "")
-                  : undefined,
-              };
-            })
-          }
-        />
-        <Input
-          name="formattedPath"
-          label="Prefix"
-          placeholder="Custom prefix (leave blank to hide prefix)"
-          value={
-            page?.formattedPathOverride
-              ? (page?.formattedPath ?? "")
-              : (formattedPathDefault ?? "")
-          }
-          disabled={page?.formattedPathOverride !== true}
-          onChange={(e) =>
-            setPage((prev) =>
-              prev ? { ...prev, formattedPath: e.target.value } : prev,
-            )
-          }
-        />
-        {!currentPage?.["@id"].startsWith("new-") && (
-          <a
-            href={currentPage?.["uri.ui"] && currentPage?.["uri.ui"] !== "" ? currentPage?.["uri.ui"] : `https://${library}.libretexts.org/@go/page/${currentPage?.["@id"]}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={DAVIS_REMIXER_LINK_CLASS.external}
-          >
-            Link to this page in the library
-            <Icon name="external alternate" className="!ml-2" />
-          </a>
-        )}
-        {!currentPage?.["@id"].startsWith("new-") && coverID && (
-          <div className="!mt-4">
-            <Button
-              onClick={handleReingest}
-              disabled={reingest.status === "running"}
-              className={DAVIS_REMIXER_BTN_CLASS.base}
-            >
-              {reingest.status === "running"
-                ? "Updating Benny…"
-                : "Update Benny for this page"}
-            </Button>
-            <p className="!mt-1 !text-sm !text-gray-600">
-              After editing this page in the library, refresh Benny's copy so
-              students see your changes now — or leave it for the weekly sync.
-            </p>
-            {reingest.message && (
-              <p
-                className={
-                  reingest.status === "error"
-                    ? "!mt-1 !text-sm !text-red-600"
-                    : "!mt-1 !text-sm !text-gray-700"
-                }
-              >
-                {reingest.message}
-              </p>
+    <Modal open={open} size="md" onClose={onClose}>
+      <Modal.Header>
+        <Modal.Title>Edit Page</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Stack direction="vertical" gap="md" align="start" className="w-full">
+          {!isBookRoot && (
+            <Checkbox
+              name="formattedPathOverride"
+              label="Override Autonumbering"
+              className="flex-row-reverse font-bold!"
+              labelClassName="font-bold! text-md!"
+              checked={page?.formattedPathOverride ?? false}
+              onChange={(checked) =>
+                setPage((prev) => {
+                  if (!prev) return prev;
+                  const enabled = checked === true;
+                  return {
+                    ...prev,
+                    formattedPathOverride: enabled,
+                    formattedPathPrefix: enabled
+                      ? (prev.formattedPathPrefix ??
+                        formattedPathPartsDefault?.prefix ??
+                        "")
+                      : undefined,
+                    formattedPathIndex: enabled
+                      ? (prev.formattedPathIndex ??
+                        formattedPathPartsDefault?.index ??
+                        "")
+                      : undefined,
+                  };
+                })
+              }
+            />
+          )}
+          <Stack direction="horizontal" gap="md" className="w-full">
+            {!isBookRoot && (
+              <>
+                <Input
+                  name="formattedPathPrefix"
+                  label="Prefix"
+                  placeholder="Custom prefix (leave blank to hide prefix)"
+                  value={
+                    page?.formattedPathOverride
+                      ? (page?.formattedPathPrefix ?? "")
+                      : (formattedPathPartsDefault?.prefix ?? "")
+                  }
+                  disabled={page?.formattedPathOverride !== true}
+                  onChange={(e) =>
+                    setPage((prev) =>
+                      prev
+                        ? { ...prev, formattedPathPrefix: e.target.value }
+                        : prev,
+                    )
+                  }
+                  className="flex-1"
+                />
+                <Input
+                  type="text"
+                  name="formattedPathIndex"
+                  label="Index"
+                  placeholder="Custom index (e.g. 2.1)"
+                  className="flex-1"
+                  disabled={page?.formattedPathOverride !== true}
+                  value={
+                    page?.formattedPathOverride
+                      ? (page?.formattedPathIndex ?? "")
+                      : (formattedPathPartsDefault?.index ?? "")
+                  }
+                  onChange={(e) =>
+                    setPage((prev) =>
+                      prev
+                        ? { ...prev, formattedPathIndex: e.target.value }
+                        : prev,
+                    )
+                  }
+                />
+              </>
             )}
-          </div>
-        )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Stack direction="horizontal" gap="md" justify="end">
-        <Button  onClick={onClose} className={DAVIS_REMIXER_BTN_CLASS.base}>
-          Cancel
-        </Button>
-        <Button  onClick={handleSaveClick} disabled={!page} className={DAVIS_REMIXER_BTN_CLASS.success}>
-          Save
-        </Button>
+            <Input
+              ref={titleInputRef}
+              name="title"
+              label="Title"
+              placeholder="Loading title..."
+              value={page?.title ?? page?.["@title"] ?? ""}
+              onChange={(e) => {
+                // Hyphenate colons as they are typed, but never strip a
+                // numbering prefix mid-edit — that happens on load/save only.
+                const next = isBookRoot
+                  ? e.target.value
+                  : sanitizeRemixerPageTitle(e.target.value, false);
+                setPage((prev) =>
+                  prev ? { ...prev, title: next, "@title": next } : prev,
+                );
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                e.preventDefault();
+                handleSaveClick();
+              }}
+              className="flex-7"
+            />
+          </Stack>
+          {currentPageUri && (
+            <Stack direction="horizontal" gap="sm" align="center" className="w-full">
+              <Text className="text-sm text-gray-500 shrink-0">
+                <span title={currentPageParentPath}>
+                  {truncateMiddle(currentPageParentPath, 25)}
+                </span>{" "}
+                /
+              </Text>
+              {enableOverrideUriUiEnding ? (
+                <Input
+                  name="overrideUriUiEnding"
+                  label=""
+                  aria-label="URL ending"
+                  value={overrideUriUiEnding}
+                  onChange={(e) =>
+                    setOverrideUriUiEnding(sanitizeUriEnding(e.target.value))
+                  }
+                  className="flex-1"
+                />
+              ) : (
+                <Text className="text-sm text-gray-500">{overrideUriUiEnding}</Text>
+              )}
+              {/* <IconButton
+                icon={<IconEdit size={16} />}
+                aria-label={
+                  enableOverrideUriUiEnding
+                    ? "Stop editing URL ending"
+                    : "Edit URL ending"
+                }
+                onClick={() =>
+                  setEnableOverrideUriUiEnding((prev) => !prev)
+                }
+              /> */}
+            </Stack>
+          )}
+          {!currentPage?.["@id"].startsWith("new-") && (
+            <Link
+              href={
+                currentPageUri && currentPageUri !== ""
+                  ? currentPageUri
+                  : `https://${library}.libretexts.org/@go/page/${currentPage?.["@id"]}`
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Link to this page in the library
+            </Link>
+          )}
+          {!currentPage?.["@id"].startsWith("new-") && coverPageId && (
+            <div className="!mt-2">
+              <Button
+                variant="outline"
+                onClick={handleReingest}
+                disabled={reingest.status === "running"}
+              >
+                {reingest.status === "running"
+                  ? "Updating Benny…"
+                  : "Update Benny for this page"}
+              </Button>
+              <Text className="!mt-1 !text-sm !text-gray-600">
+                After editing this page in the library, refresh Benny's copy so
+                students see your changes now — or leave it for the weekly sync.
+              </Text>
+              {reingest.message && (
+                <Text
+                  className={
+                    reingest.status === "error"
+                      ? "!mt-1 !text-sm !text-red-600"
+                      : "!mt-1 !text-sm !text-gray-700"
+                  }
+                >
+                  {reingest.message}
+                </Text>
+              )}
+            </div>
+          )}
         </Stack>
-      </Modal.Actions>
+      </Modal.Body>
+      <Modal.Footer>
+        <Stack direction="horizontal" gap="md" justify="end">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleSaveClick}
+            disabled={!page}
+            icon={<IconDeviceFloppy size={16} />}
+          >
+            Save
+          </Button>
+        </Stack>
+      </Modal.Footer>
     </Modal>
   );
 };

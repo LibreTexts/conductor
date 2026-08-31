@@ -24,7 +24,8 @@ import {
   Checkbox,
 } from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
-import { useEffect, useState, useCallback, lazy, Suspense, useMemo } from 'react';
+import { useEffect, useState, useCallback, Suspense, useMemo } from "react";
+import lazyWithRetry from "../../utils/lazyWithRetry";
 import { useSelector } from 'react-redux';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
@@ -93,8 +94,10 @@ import RequestToPublishModal from './RequestToPublishModal';
 import { useIsProjectPinned, useUnpinProjectMutation } from '../Home/PinnedProjects/hooks';
 import AddPinnedProjectModal from '../Home/PinnedProjects/AddPinnedProjectModal';
 import { ProjectClassification } from '../../types';
-const ProjectPropertiesModal = lazy(() => import('./ProjectPropertiesModal'));
-const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
+import { checkIsUUID } from '../../utils/misc';
+import ProjectCoAuthoringToolsButtons from "./ProjectCoAuthoringToolsButtons";
+const ProjectPropertiesModal = lazyWithRetry(() => import('./ProjectPropertiesModal'));
+const ManageTeamModal = lazyWithRetry(() => import('./ManageTeamModal'));
 
 const ProjectView = (props) => {
 
@@ -1824,60 +1827,30 @@ const ProjectView = (props) => {
                             </div>
                           }
                           <ProjectLinkButtons
-                            projectID={project.projectID}
+                            adaptCourseID={project.adaptCourseID}
+                            didCreateWorkbench={project.didCreateWorkbench}
+                            didRequestPublish={project.didRequestPublish}
+                            hasCommonsBook={project.hasCommonsBook}
+                            isProjectMemberOrAdmin={userProjectAdmin || userProjectMember}
                             libreCoverID={project.libreCoverID}
                             libreLibrary={project.libreLibrary}
+                            project={project}
+                            projectClassification={project.classification}
+                            projectID={project.projectID}
                             projectLink={project.projectURL}
                             projectTitle={project.title}
-                            didCreateWorkbench={project.didCreateWorkbench}
-                            hasCommonsBook={project.hasCommonsBook}
-                            projectClassification={project.classification}
                             projectVisibility={project.visibility}
-                            project={project}
-                            isProjectMemberOrAdmin={userProjectAdmin || userProjectMember}
                           />
-                          {(project.adaptCourseID && project.adaptCourseID !== '') && (
-                            <div className="mt-1e">
-                              <a
-                                href={`https://adapt.libretexts.org/instructors/courses/${project.adaptCourseID}/assignments`}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                View Course on ADAPT <Icon name="external" />
-                              </a>
-                            </div>
-                          )}
-                          {canViewDetails&& (
-                            <div className="mt-8 flex flex-col">
-                              <Header as='span' sub>Important Tools: </Header>
-                              {
-                                project.hasCommonsBook && (
-                                  <Button
-                                    color="blue"
-                                    compact
-                                    onClick={handleOpenReaderResourcesModal}
-                                    className='!w-64'
-                                  >
-                                    Manage Reader Resources
-                                  </Button>
-                              )}
-                              {
-                                !project.hasCommonsBook && project.didCreateWorkbench && (
-                                  <Button
-                                    color='blue'
-                                    compact
-                                    className='!w-64'
-                                    disabled={project.didRequestPublish}
-                                    as={'a'}
-                                    href={`https://commons.libretexts.org/support/contact?queue=publishing&projectID=${project.projectID}&capturedURL=${encodeURIComponent(window.location.href)}`}
-                                    target='_blank'
-                                  >
-                                    {project.didRequestPublish ? 'Publishing Requested' : 'Request to Publish'}
-                                  </Button>
-                                )
-                              }
-                            </div>
-                          )}
+                          <ProjectCoAuthoringToolsButtons
+                            className="mt-2"
+                            handleOpenReaderResourcesModal={handleOpenReaderResourcesModal}
+                            hasCommonsBook={project.hasCommonsBook}
+                            isProjectMemberOrAdmin={userProjectAdmin || userProjectMember}
+                            libreCoverID={project.libreCoverID}
+                            libreLibrary={project.libreLibrary}
+                            projectClassification={project.classification}
+                            projectID={project.projectID}
+                          />
                         </Grid.Column>
                         {hasResourceInfo &&
                           <Grid.Column>
@@ -1904,6 +1877,13 @@ const ProjectView = (props) => {
                               <div className='mt-1p'>
                                 <a href={normalizeURL(project.license.sourceURL)} target='_blank' rel='noopener noreferrer'>Resource Link<Icon name='external' className='ml-1p' /></a>
                               </div>
+                            }
+                            {
+                              project.harvestReqID && checkIsUUID(project.harvestReqID) && (
+                                <div className='mt-1p'>
+                                  <a href={`https://commons.libretexts.org/support/ticket/${project.harvestReqID}`} target='_blank' rel='noopener noreferrer'>View Harvest Request<Icon name='external' className='ml-1p' /></a>
+                                </div>
+                              )
                             }
                           </Grid.Column>
                         }

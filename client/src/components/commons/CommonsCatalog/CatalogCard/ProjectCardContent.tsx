@@ -49,7 +49,7 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
       />
       <Card.Body>
         <Stack direction="vertical" gap="sm" className="py-4">
-          <Heading level={headingLevel} className="line-clamp-2 !text-2xl">
+          <Heading level={headingLevel} className="line-clamp-3 !text-lg">
             <RouterLink to={linkTo} className="commons-card-title-link">
               {project.title}
             </RouterLink>
@@ -108,12 +108,6 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
               {getLibraryName(project.libreLibrary)}
             </div>
           )}
-          {assetString ? (
-            <p className="commons-content-card-affiliation !mt-3">
-              <Icon name="file alternate outline" />
-              {assetString}
-            </p>
-          ) : null}
         </Stack>
       </Card.Body>
     </>

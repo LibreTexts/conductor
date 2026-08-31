@@ -44,6 +44,12 @@ export const GetStoreProductSchema = z.object({
     }),
 });
 
+export const SyncSingleBookToStripeSchema = z.object({
+    params: z.object({
+        bookID: z.string().trim().min(1, "Book ID is required"),
+    }),
+});
+
 export const CreateCheckoutSessionSchema = z.object({
     body: z.object({
         items: z.array(_ProductPriceQuantity)
@@ -77,6 +83,14 @@ export const GetShippingOptionsSchema = z.object({
     })
 })
 
+export const ValidateAddressSchema = z.object({
+    body: z.object({
+        shipping_address: _BasicShippingAddress.extend({
+            address_line_2: z.string().trim().optional().or(z.literal("")),
+        })
+    })
+})
+
 export const AdminGetStoreOrdersSchema = z.object({
     query: z.object({
         starting_after: z.string().optional().or(z.literal("")),
@@ -94,3 +108,56 @@ export const AdminGetStoreOrderSchema = z.object({
 });
 
 export const AdminResubmitPrintJobSchema = AdminGetStoreOrderSchema;
+
+export const AdminGetPrintJobPayloadSchema = AdminGetStoreOrderSchema;
+
+// Mirrors LuluShippingLevel in server/types/Lulu.ts
+const _LuluShippingLevel = z.enum(["MAIL", "PRIORITY_MAIL", "GROUND_HD", "GROUND_BUS", "GROUND", "EXPEDITED", "EXPRESS"]);
+
+const _LuluFullShippingAddress = z.object({
+    name: z.string().trim().min(1, "Recipient name is required"),
+    street1: z.string().trim().min(1, "Street address is required"),
+    // Defaulted rather than optional so the parsed shape matches LuluFullShippingAddress,
+    // where street2 is always present (nullable).
+    street2: z.string().trim().nullable().default(null),
+    city: z.string().trim().min(1, "City is required"),
+    state_code: z.string().trim(),
+    postcode: z.string().trim().min(1, "Postal code is required"),
+    country_code: z.string().trim().length(2, "Country code must be a 2-letter ISO code"),
+    phone_number: z.string().trim().default(""),
+    email: z.string().trim().email("Invalid email address"),
+    is_business: z.boolean().default(false),
+}).strict();
+
+const _LuluPrintJobLineItem = z.object({
+    external_id: z.string().trim().min(1, "Line item external_id (book ID) is required"),
+    title: z.string().trim().min(1, "Line item title is required"),
+    quantity: z.coerce.number().int().positive("Quantity must be a positive integer"),
+    printable_normalization: z.object({
+        cover: z.object({
+            source_url: z.string().trim().url("Cover source_url must be a valid URL"),
+        }).strict(),
+        interior: z.object({
+            source_url: z.string().trim().url("Interior source_url must be a valid URL"),
+        }).strict(),
+        pod_package_id: z.string().trim().min(1, "pod_package_id is required"),
+    }).strict(),
+}).strict();
+
+/**
+ * Body schema for a hand-edited Lulu print job submission.
+ *
+ * `.strict()` is deliberate at every level: rather than silently dropping a pasted `external_id`,
+ * `contact_email`, or `production_delay`, the request is rejected with a clear message so an admin
+ * is never left believing they overrode a server-owned field.
+ */
+export const AdminSubmitManualPrintJobSchema = z.object({
+    params: z.object({
+        order_id: z.string().min(1, "Order ID is required"),
+    }),
+    body: z.object({
+        shipping_address: _LuluFullShippingAddress,
+        line_items: z.array(_LuluPrintJobLineItem).min(1, "At least one line item is required"),
+        shipping_level: _LuluShippingLevel,
+    }).strict(),
+});

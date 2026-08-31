@@ -1,12 +1,5 @@
-import {
-  useState,
-  useRef,
-  useEffect,
-  useCallback,
-  forwardRef,
-  useImperativeHandle,
-  lazy,
-} from "react";
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
+import lazyWithRetry from "../../../utils/lazyWithRetry";
 import { Controller } from "react-hook-form";
 import {
   Alert,
@@ -38,7 +31,7 @@ import CampusAliasesControl from "./CampusAliasesControl";
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../../api";
-const CustomOrgListModal = lazy(() => import("../CustomOrgListModal"));
+const CustomOrgListModal = lazyWithRetry(() => import("../CustomOrgListModal"));
 
 type CampusSettingsFormProps = {
   orgID: string;

@@ -62,7 +62,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({
                 </Table.Cell>
                 <Table.Cell>
                   <span>
-                    {getPrettyAuthorsList(item.primaryAuthor, item.authors)}
+                    {getPrettyAuthorsList(item.primaryAuthor)}
                   </span>
                 </Table.Cell>
                 <Table.Cell>

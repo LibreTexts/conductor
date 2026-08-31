@@ -70,7 +70,7 @@ export const bookSearchSchema = z.object({
     publisher: z.string().optional(),
     affiliation: z.string().optional(),
     //CID: z.string().optional(),
-    assets: z.enum(["public", "instructors"]).optional(),
+    assets: z.enum(["public", "instructors", "any"]).optional(),
     sort: z
       .enum(["title", "author", "library", "subject", "affiliation"])
       .default("title"),
@@ -99,7 +99,6 @@ export const projectSearchSchema = z.object({
     status: z.string().default("any"),
     classification: z.string().default("any"),
     leads: z.coerce.boolean().optional(),
-    principalInvestigators: z.coerce.boolean().optional(),
     sort: z
       .enum([
         "relevance",

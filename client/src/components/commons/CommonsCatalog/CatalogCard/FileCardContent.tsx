@@ -25,12 +25,9 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
 
-  const prettyAuthors = getPrettyAuthorsList(file.primaryAuthor, file.authors);
+  const prettyAuthors = getPrettyAuthorsList(file.primaryAuthor);
 
-  const allAuthors =
-    [file.primaryAuthor, ...(file.authors ?? [])]
-      .map((a) => a?.name)
-      .join(", ") || "Unknown";
+  const allAuthors = file.primaryAuthor?.name || "Unknown";
 
   async function handleFileDownload(file: ConductorSearchResponseFile) {
     let success = false;
@@ -50,13 +47,13 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
     <>
       <Card.Header
         image={{
-          src: file.projectInfo.thumbnail || '/project_icon.svg',
+          src: file.projectInfo?.thumbnail || '/project_icon.svg',
           alt: "" // Decorative only - leave blank alt-text
         }}
       />
       <Card.Body>
         <Stack direction="vertical" gap="sm" className="py-4">
-          <Heading level={headingLevel} className="line-clamp-2 !text-2xl">
+          <Heading level={headingLevel} className="line-clamp-3 !text-lg">
             <button
               type="button"
               className="commons-card-title-link"

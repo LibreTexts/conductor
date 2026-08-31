@@ -25,6 +25,7 @@ export interface RemixerSubPageState {
   renamedItem?: boolean;
   deletedItem?: boolean;
   sourceID?: string;
+  siblingTitleIndex?: number;
 }
 
 export interface PathLevelFormatState {
@@ -34,6 +35,7 @@ export interface PathLevelFormatState {
   prefix: string;
   start: number;
   type: "numeric" | "alphabetic" | "roman" | "none";
+  continue?: boolean;
 }
 
 export interface PrejectRemixerInterface extends Document {
@@ -74,6 +76,7 @@ const RemixerSubPageStateSchema = new Schema<RemixerSubPageState>(
     movedItem: { type: Boolean },
     renamedItem: { type: Boolean },
     deletedItem: { type: Boolean },
+    siblingTitleIndex: { type: Number },
   },
   {
     _id: false,
@@ -86,9 +89,10 @@ const PathLevelFormatSchema = new Schema<PathLevelFormatState>(
     level: { type: Number, required: true },
     excludeParent: { type: Boolean },
     delimiter: { type: String },
-    prefix: { type: String, required: true, default: "" },
+    prefix: { type: String, default: "" },
     start: { type: Number, required: true, default: 1 },
     type: { type: String, required: true, default: "numeric" },
+    continue: { type: Boolean },
   },
   { _id: false },
 );

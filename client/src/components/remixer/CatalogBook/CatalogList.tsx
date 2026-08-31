@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DataTable,
+  selectionColumn,
   type ColumnDef,
   type RowSelectionState,
 } from "@libretexts/davis-react-table";
@@ -50,6 +51,7 @@ const CatalogList: React.FC<CatalogListProps> = ({
         book.author,
         book.course,
         book.license,
+        book?.links?.online,
         getLicenseText(book.license),
       ]
         .map((s) => (s ?? "").toString().toLowerCase())
@@ -60,6 +62,11 @@ const CatalogList: React.FC<CatalogListProps> = ({
 
   const columns = useMemo<ColumnDef<Book>[]>(
     () => [
+      {
+        ...selectionColumn<Book>(),
+        // Single-select table: no select-all checkbox in the header.
+        header: () => null,
+      } as ColumnDef<Book>,
       {
         accessorKey: "title",
         header: "Title",
@@ -205,11 +212,11 @@ const CatalogList: React.FC<CatalogListProps> = ({
 
           }}
           emptyState="No books match your search."
-          enableRowSelection
           onRowClick={handleRowClick}
           enableMultiSort
           enableColumnFilters
           tableOptions={{
+            enableRowSelection: true,
             getRowId: (row) => row.bookID,
             enableMultiRowSelection: false,
             state: { rowSelection },

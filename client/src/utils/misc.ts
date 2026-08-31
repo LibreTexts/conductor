@@ -1,11 +1,21 @@
 import { format as formatDate, parse, parseISO } from "date-fns";
 import {
+  Author,
+  Book,
   CommonsModule,
   CommonsModuleSettings,
+  ConductorSearchResponseFile,
   GenericKeyTextValueObj,
   NestedKeyOf,
   NestedValueOf,
+  Project,
 } from "../types";
+import {
+  isAuthor,
+  isBook,
+  isConductorSearchResponseFile,
+  isProject,
+} from "./typeHelpers";
 import { FieldNamesMarkedBoolean } from "react-hook-form";
 import { SemanticCOLORS } from "semantic-ui-react";
 import { AxiosResponse } from "axios";
@@ -223,6 +233,73 @@ export function getDefaultCommonsModule(settings?: CommonsModuleSettings): Commo
   return defaultModule as CommonsModule ?? "books";
 }
 
+export type CatalogItem =
+  | Book
+  | ConductorSearchResponseFile
+  | Project
+  | Author;
+
+/**
+ * Resolves the server-side identifier for a Commons catalog item.
+ *
+ * Guards are evaluated in the same order as CatalogCard so the key always
+ * agrees with the card actually rendered for the item.
+ *
+ * @param item - The catalog item to identify.
+ * @returns A namespaced identifier, or null if the item can't be identified.
+ */
+function getCatalogItemID(item: CatalogItem): string | null {
+  if (isAuthor(item)) return `author-${item._id ?? item.nameKey}`;
+  if (isBook(item)) return `book-${item.bookID}`;
+  if (isProject(item)) return `project-${item.projectID}`;
+  if (isConductorSearchResponseFile(item)) return `file-${item.fileID}`;
+  return null;
+}
+
+/**
+ * Pairs each item with a stable React key derived from its own identity.
+ *
+ * Keys must not change between renders: a fresh key on every render remounts
+ * every card, discarding image-load and card-level state and defeating React's
+ * reconciliation as an infinite-scroll list grows.
+ *
+ * Repeated identifiers are suffixed rather than collapsed, because paginated
+ * lists can legitimately surface the same record twice. Items the resolver
+ * can't identify fall back to their index.
+ *
+ * @param items - Items in render order.
+ * @param getID - Resolves an item's stable identifier, or null if it has none.
+ * @returns The items paired with unique, render-stable keys.
+ */
+export function withStableKeys<T>(
+  items: T[],
+  getID: (item: T) => string | null
+): { item: T; key: string }[] {
+  const seen = new Map<string, number>();
+  return items.map((item, index) => {
+    const id = getID(item) ?? `index-${index}`;
+    const occurrence = seen.get(id) ?? 0;
+    seen.set(id, occurrence + 1);
+    return { item, key: occurrence === 0 ? id : `${id}#${occurrence}` };
+  });
+}
+
+/**
+ * Pairs each Commons catalog item with a stable React key.
+ *
+ * Browse mode paginates from a random offset server-side (see getRandomOffset)
+ * and the assets search merges four aggregations, so duplicates are expected
+ * here and are disambiguated rather than dropped.
+ *
+ * @param items - Catalog items in render order.
+ * @returns The items paired with unique, render-stable keys.
+ */
+export function keyCatalogItems<T extends CatalogItem>(
+  items: T[]
+): { item: T; key: string }[] {
+  return withStableKeys(items, getCatalogItemID);
+}
+
 export function upperFirst(str: string): string {
   if (!str || typeof str !== "string") return str;
   return `${str.charAt(0).toUpperCase()}${str.slice(1)}`;
@@ -316,4 +393,11 @@ export const bookIDSchema = z.string().regex(/^[a-zA-Z]{2,12}-\d{1,12}$/, {
  */
 export const numberIsNotNullOrUndefined = (value: any): boolean => {
   return typeof value === "number" && !isNaN(value);
+};
+
+export const checkIsUUID = (str?: string | null) => {
+  if (!str) return false;
+  const parsed = z.string().uuid().safeParse(str);
+  const isUUID = parsed.success;
+  return isUUID;
 };

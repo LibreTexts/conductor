@@ -20,13 +20,14 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
 
   return (
     <Menu>
-      <Menu.Button className="!max-h-[36px] !w-full xl:!w-auto">
+      <Menu.Button className="!max-h-[36px] !w-full nav:!w-auto">
         {showAvatar && <Avatar src={`${user.avatar}`} name={`${user.firstName} ${user.lastName}`} size="xs" />}
         <Text size="sm" className="text-white">
           {user.firstName} {user.lastName}
         </Text>
       </Menu.Button>
       <Menu.Items className="z-[10000]!">
+        <Menu.Label>Signed in as {user.email}</Menu.Label>
         <Menu.Item
           onClick={() => window.open(
             `${centralIdentityBaseUrl}/profile`,
@@ -37,7 +38,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
             <Stack direction="horizontal" gap="sm" align="center">
               <IconUser />
               <Text>
-                Profile ({user.email})
+                Profile
               </Text>
             </Stack>
           )}

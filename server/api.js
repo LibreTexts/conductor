@@ -5,9 +5,8 @@
 
 import express from "express";
 import cors from "cors";
-import bodyParser from "body-parser";
 import { catchInternal } from "./util/helpers.js";
-import { rateLimitMiddleware } from "./util/rateLimitHelpers.js";
+import { limitAddressValidation, rateLimitMiddleware } from "./util/rateLimitHelpers.js";
 import middleware from "./middleware.js"; // Route middleware
 import assetTagFrameworkAPI from "./api/assettagframeworks.js";
 import authorsAPI from "./api/authors.js";
@@ -18,6 +17,7 @@ import storeAPI from "./api/store.js";
 import centralIdentityAPI from "./api/central-identity.js";
 import clientConfigAPI from "./api/client-config.js";
 import usersAPI from "./api/users.js";
+import * as uxAcknowledgmentsAPI from "./api/uxAcknowledgments.js";
 import orgsAPI from "./api/organizations.js";
 import alertsAPI from "./api/alerts.js";
 import adoptionReportAPI from "./api/adoptionreports.js";
@@ -113,9 +113,6 @@ const corsMiddleware = cors({
     "Content-Type",
     "Authorization",
     "X-Requested-With",
-    "upload-length",
-    "tus-resumable",
-    "upload-metadata",
   ],
   credentials: true,
   maxAge: 7200,
@@ -132,10 +129,23 @@ permalinkRouter.route("/:projectID/:fileID").get(
 // Handle standard API routes (with /api/v1 prefix)
 const router = express.Router();
 router.use(corsMiddleware);
-router.use(
-  middleware.middlewareFilter(["/payments/webhook", "/store/webhooks/stripe", "/store/webhooks/lulu"], bodyParser.json())
-);
-router.use(bodyParser.urlencoded({ extended: false }));
+const globalJsonParser = express.json();
+const rawBodyPaths = ["/payments/webhook", "/store/webhooks/stripe", "/store/webhooks/lulu"];
+router.use((req, res, next) => {
+  const pathname = req.path ?? req._parsedUrl?.pathname;
+
+  // If we can't reliably determine the path, fall back to normal JSON parsing.
+  if (!pathname) return globalJsonParser(req, res, next);
+
+  // Raw-body webhooks parse their own payload with express.raw at the route level.
+  if (rawBodyPaths.includes(pathname)) return next();
+  // Remixer writes are parsed after auth with a 2mb limit (see the /remixer route defs).
+  if (pathname.startsWith("/remixer/") && (req.method === "POST" || req.method === "PUT")) {
+    return next();
+  }
+  return globalJsonParser(req, res, next);
+});
+router.use(express.urlencoded({ extended: false }));
 router.use(middleware.authSanitizer);
 
 /** Globally resolve user identity (if token present) for rate limiting
@@ -878,8 +888,17 @@ router.route("/store/checkout/session/:order_id").get(
 router.route("/store/checkout/shipping-options").post(
   authAPI.optionalVerifyRequest,
   authAPI.optionalGetUserAttributes,
+  limitAddressValidation, // Tighter rate limit for address validation and shipping options
   middleware.validateZod(storeValidators.GetShippingOptionsSchema),
   storeAPI.getShippingOptions
+)
+
+router.route("/store/checkout/validate-address").post(
+  authAPI.optionalVerifyRequest,
+  authAPI.optionalGetUserAttributes,
+  limitAddressValidation, // Tighter rate limit for address validation and shipping options
+  middleware.validateZod(storeValidators.ValidateAddressSchema),
+  storeAPI.validateAddress
 )
 
 router.route("/store/admin/orders").get(
@@ -906,6 +925,22 @@ router.route("/store/admin/orders/:order_id/resubmit").post(
   storeAPI.adminResubmitPrintJob
 );
 
+router.route("/store/admin/orders/:order_id/print-job-payload").get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(storeValidators.AdminGetPrintJobPayloadSchema),
+  storeAPI.adminGetPrintJobPayload
+);
+
+router.route("/store/admin/orders/:order_id/print-job").post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(storeValidators.AdminSubmitManualPrintJobSchema),
+  storeAPI.adminSubmitManualPrintJob
+);
+
 router.route("/store/products").get(
   middleware.validateZod(storeValidators.GetStoreProductsSchema),
   storeAPI.getStoreProducts
@@ -924,6 +959,12 @@ router.route("/store/products/:product_id").get(
 router.route("/store/sync").put(
   middleware.checkLibreAPIKey,
   storeAPI.syncBooksToStripe
+);
+
+router.route("/store/sync/:bookID").put(
+  middleware.checkLibreAPIKey,
+  middleware.validateZod(storeValidators.SyncSingleBookToStripeSchema),
+  storeAPI.syncSingleBookToStripe
 );
 
 router.route("/store/webhooks/stripe").post(
@@ -1066,7 +1107,10 @@ router
 
 router
   .route("/commons/syncwithlibs/automated")
-  .put(middleware.checkLibreAPIKey, booksAPI.runAutomatedSyncWithLibraries);
+  .put(
+    middleware.checkLibreAPIKey,
+    booksAPI.runAutomatedSyncWithLibraries
+  );
 
 router.route("/commons/sync-with-search-index").post(
   middleware.checkLibreAPIKey,
@@ -1431,13 +1475,6 @@ router
     searchAPI.assetsSearch
   );
 router
-  .route("/search/books")
-  .get(
-    authAPI.optionalVerifyRequest,
-    middleware.validateZod(SearchValidators.bookSearchSchema),
-    searchAPI.booksSearch
-  );
-router
   .route("/search/books-v2")
   .get(
     authAPI.optionalVerifyRequest,
@@ -1457,13 +1494,6 @@ router
     authAPI.optionalVerifyRequest,
     middleware.validateZod(SearchValidators.miniReposSearchSchema),
     searchAPI.miniReposSearch
-  );
-router
-  .route("/search/projects")
-  .get(
-    authAPI.optionalVerifyRequest,
-    middleware.validateZod(SearchValidators.projectSearchSchema),
-    searchAPI.projectsSearch
   );
 router
   .route("/search/projects-v2")
@@ -1619,6 +1649,29 @@ router
     middleware.validateZod(UserValidators.UpdateUserPinnedProjectsSchema),
     usersAPI.updateUserPinnedProjects
   )
+
+// Per-user UX record-keeping (dismissible banners, welcome dialogs, tours).
+// Current-user only, no role check — verifyRequest alone.
+router
+  .route("/user/ux-acknowledgments")
+  .get(
+    authAPI.verifyRequest,
+    middleware.validateZod(UserValidators.GetUserUXAcknowledgmentsSchema),
+    uxAcknowledgmentsAPI.getUserUXAcknowledgments
+  );
+
+router
+  .route("/user/ux-acknowledgments/:key")
+  .post(
+    authAPI.verifyRequest,
+    middleware.validateZod(UserValidators.RecordUserUXAcknowledgmentSchema),
+    uxAcknowledgmentsAPI.recordUserUXAcknowledgment
+  )
+  .delete(
+    authAPI.verifyRequest,
+    middleware.validateZod(UserValidators.DeleteUserUXAcknowledgmentSchema),
+    uxAcknowledgmentsAPI.deleteUserUXAcknowledgment
+  );
 
 router
   .route("/users")
@@ -2354,6 +2407,17 @@ router
   )
 
 router
+  .route("/project/:projectID/files/bulk/metadata")
+  .patch(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(
+      ProjectFileValidators.bulkUpdateProjectFileMetadataSchema
+    ),
+    projectfilesAPI.bulkUpdateProjectFileMetadata
+  );
+
+router
   .route("/project/:projectID/files/:fileID/access")
   .put(
     authAPI.verifyRequest,
@@ -2409,6 +2473,17 @@ router
       ProjectFileValidators.getProjectFolderContentsSchema
     ),
     projectfilesAPI.getProjectFolderContents
+  );
+
+router
+  .route("/project/:projectID/files/stream-upload-url")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(
+      ProjectFileValidators.createProjectFileStreamUploadURLSchema
+    ),
+    projectfilesAPI.createProjectFileStreamUploadURL
   );
 
 router
@@ -3046,16 +3121,12 @@ router.route("/support/sync-with-search-index").post(
   supportAPI.syncWithSearchIndex
 )
 
-router.route("/cloudflare/stream-url").post(
-  // authAPI.verifyRequest,
-  // authAPI.getUserAttributes,
-  // middleware.validateZod(ProjectFileValidators.createCloudflareStreamURLSchema),
-  projectfilesAPI.createProjectFileStreamUploadURL
-);
-
 router
-  .route("/cloudflare/stream-url")
-  .options(projectfilesAPI.createProjectFileStreamUploadURLOptions);
+  .route("/cloudflare/cleanup-orphaned-videos")
+  .post(
+    middleware.checkEventBridgeAPIKey,
+    projectfilesAPI.cleanupOrphanedStreamVideos
+  );
 
 router
   .route("/project-invitations/:projectID")
@@ -3169,6 +3240,12 @@ router.route('/shapeshift/job').post(
   catchInternal((req, res) => shapeshiftAPI.createJob(req, res)),
 );
 
+router.route("/shapeshift/webhook").post(
+  middleware.checkShapeshiftWebhookKey,
+  middleware.validateZod(ShapeshiftValidators.WebhookValidator),
+  catchInternal((req, res) => shapeshiftAPI.handleWebhook(req, res))
+);
+
 router.route('/book-bots/editor-preprocess').post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
@@ -3224,21 +3301,35 @@ router
   );
 
 router
+  .route("/remixer/:id/create-matter")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", ["support", "superadmin"]),
+    // Need to parse JSON body before validation because remixer paths are excluded from automatic JSON parsing
+    express.json({ limit: "2mb" }),
+    middleware.validateZod(RemixerValidators.CreateMatterSchema),
+    remixerAPI.createMatter
+  );
+
+router
   .route("/remixer/:id/project")
   .get(
     authAPI.verifyRequest,
-    authAPI.getUserAttributes ,
+    authAPI.getUserAttributes,
     remixerAPI.getRemixerProject
   )
   .put(
     authAPI.verifyRequest,
-    authAPI.getUserAttributes ,
+    authAPI.getUserAttributes,
+    middleware.streamJsonBody,
     middleware.validateZod(RemixerValidators.SaveRemixerProjectStateSchema),
     remixerAPI.saveRemixerProjectState
   )
   .post(
     authAPI.verifyRequest,
     authAPI.getUserAttributes ,
+    express.json({ limit: "2mb" }),
     middleware.validateZod(RemixerValidators.GetRemixerProjectStateSchema),
     remixerAPI.getRemixerProjectState
   )
@@ -3254,21 +3345,31 @@ router
   .post(
     authAPI.verifyRequest,
     authAPI.getUserAttributes ,
+    express.json({ limit: "2mb" }),
     middleware.validateZod(RemixerValidators.GetRemixerPageSchema),
     remixerAPI.fetchPage
   );
+
+router.route('/remixer/:id/page/tree').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  express.json({ limit: "2mb" }),
+  middleware.validateZod(RemixerValidators.GetRemixerPageTreeSchema),
+  remixerAPI.getRemixerPageTree
+);
 
 router
   .route("/remixer/:id/publish")
   .post(
     authAPI.verifyRequest,
-    authAPI.getUserAttributes ,
+    authAPI.getUserAttributes,
+    middleware.streamJsonBody,
     middleware.validateZod(RemixerValidators.SaveRemixerProjectStateSchema),
     remixerAPI.publishRemixerProject
   )
   .get(
     authAPI.verifyRequest,
-    authAPI.getUserAttributes ,
+    authAPI.getUserAttributes,
     remixerAPI.getRemixerJobStatus
   );
 
@@ -3305,5 +3406,7 @@ router.route('/projects/:projectID/restacker/license').patch(
   middleware.validateZod(RestackerValidators.UpdateRestackerLicenseSchema),
   restackerAPI.updateRestackerLicense
 );
+
+
 
 export default router;

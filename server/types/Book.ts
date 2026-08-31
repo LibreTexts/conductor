@@ -1,7 +1,10 @@
 import { BookInterface } from "../models/book";
 import { Prettify } from "./Misc";
 
+export type BookMatterType = 'Back' | 'Front';
+
 export type BookSortOption = "random" | "author" | "title";
+
 export type TableOfContents = {
   id: string;
   title: string;

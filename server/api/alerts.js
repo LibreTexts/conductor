@@ -4,6 +4,7 @@
 //
 
 'use strict';
+import logger from "../logger.js";
 import Promise from 'bluebird';
 import mongoose from 'mongoose';
 import { body, query } from 'express-validator';
@@ -13,7 +14,6 @@ import Project from '../models/project.js';
 import Book from '../models/book.js';
 import Homework from '../models/homework.js';
 import conductorErrors from '../conductor-errors.js';
-import { debugError } from '../debug.js';
 import {
   isValidDateObject,
   computeDateDifference,
@@ -114,7 +114,7 @@ const createAlert = (req, res) => {
   }).catch((err) => {
     let errMsg = conductorErrors.err6;
     if (err.message === 'createfail') errMsg = conductorErrors.err3;
-    debugError(err);
+    logger.error({ err }, "createAlert failed");
     return res.send({
       err: true,
       errMsg: errMsg
@@ -199,7 +199,7 @@ const getUserAlerts = (req, res) => {
       sort: sortMethod
     });
   }).catch((err) => {
-    debugError(err);
+    logger.error({ err }, "getUserAlerts failed");
     return res.send({
       err: true,
       errMsg: conductorErrors.err6
@@ -233,7 +233,7 @@ const getAlert = (req, res) => {
       });
     }
   }).catch((err) => {
-    debugError(err);
+    logger.error({ err }, "getAlert failed");
     return res.send({
       err: true,
       errMsg: conductorErrors.err6
@@ -249,8 +249,8 @@ const getAlert = (req, res) => {
  */
 const deleteAlert = (req, res) => {
   return Alert.deleteOne({
-    alertID: req.body.alertID,
-    user: req.decoded.uuid
+    alertID: { $eq: req.body.alertID },
+    user: { $eq: req.decoded.uuid }
   }).then((deleteRes) => {
     if (deleteRes.deletedCount === 1) {
       return res.send({
@@ -263,7 +263,7 @@ const deleteAlert = (req, res) => {
   }).catch((err) => {
     let errMsg = conductorErrors.err6;
     if (err.message === 'deletefail') errMsg = conductorErrors.err3;
-    debugError(err);
+    logger.error({ err }, "deleteAlert failed");
     return res.send({
       err: true,
       errMsg: errMsg
@@ -398,7 +398,7 @@ const processInstantProjectAlerts = (newProjectIds) => {
     // ignore return value of Mailgun call(s)
     return true;
   }).catch((err) => {
-    debugError(err);
+    logger.error({ err }, "processInstantProjectAlerts failed");
     return false;
   });
 };
@@ -519,7 +519,7 @@ const processInstantBookAlerts = (newBookIds) => {
     // ignore return value of Mailgun call(s)
     return true;
   }).catch((err) => {
-    debugError(err);
+    logger.error({ err }, "processInstantBookAlerts failed");
     return false;
   });
 };
@@ -640,7 +640,7 @@ const processInstantHomeworkAlerts = (newHomeworkIds) => {
     // ignore return value of Mailgun call(s)
     return true;
   }).catch((err) => {
-    debugError(err);
+    logger.error({ err }, "processInstantHomeworkAlerts failed");
     return false;
   });
 };
@@ -834,7 +834,7 @@ const processDailyAlerts = (req, res) => {
       msg: 'Successfully processed daily alerts.'
     });
   }).catch((err) => {
-    debugError(err);
+    logger.error({ err }, "processDailyAlerts failed");
     return res.send({
       err: true,
       errMsg: conductorErrors.err6

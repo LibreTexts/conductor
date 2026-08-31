@@ -49,11 +49,11 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
   // The drawer only unmounts on click — nothing closes it if the viewport is
   // resized past the desktop breakpoint (e.g. un-maximizing/dragging wider)
   // while it's open, so it can end up rendered alongside the desktop nav.
-  // `xl:hidden` only hides it visually; explicitly closing it here also
-  // drops it from the DOM and keeps the two in sync with the same "xl"
-  // breakpoint the desktop nav itself uses.
+  // `nav:hidden` only hides it visually; explicitly closing it here also
+  // drops it from the DOM and keeps the two in sync with the same "nav"
+  // breakpoint (--breakpoint-nav, 1500px) the desktop nav itself uses.
   useEffect(() => {
-    const query = window.matchMedia("(min-width: 1280px)");
+    const query = window.matchMedia("(min-width: 1500px)");
     const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
       if (e.matches) setMenuOpen(false);
     };
@@ -88,7 +88,7 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
             // flex/grid <ul> in the accessibility tree (SC 1.3.1).
             <ul
               role="list"
-              className="hidden xl:flex flex-row items-center ml-4 gap-2 list-none m-0 p-0"
+              className="hidden nav:flex flex-row items-center ml-4 gap-2 list-none m-0 p-0"
             >
               {desktopNavItems}
             </ul>
@@ -102,7 +102,7 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
             // flex/grid <ul> in the accessibility tree (SC 1.3.1).
             <ul
               role="list"
-              className="hidden xl:flex flex-row items-center gap-4 list-none m-0 p-0"
+              className="hidden nav:flex flex-row items-center gap-4 list-none m-0 p-0"
             >
               {desktopActions}
             </ul>
@@ -118,7 +118,7 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
               aria-controls={mobileDrawerId}
               variant="ghost"
               size="md"
-              className="xl:hidden min-w-[44px] max-h-[44px]"
+              className="nav:hidden min-w-[44px] max-h-[44px]"
               onClick={() => setMenuOpen((prev) => !prev)}
             />
           )}
@@ -132,7 +132,7 @@ const NavbarShell: React.FC<NavbarShellProps> = ({
           // role="list" restores the list semantics Chromium drops from a
           // flex/grid <ul> in the accessibility tree (SC 1.3.1).
           role="list"
-          className="xl:hidden bg-white w-full px-4 py-4 shadow-xl flex flex-col gap-3 border-t border-neutral-100 overflow-y-auto max-h-[calc(100vh-60px)] list-none"
+          className="nav:hidden bg-white w-full px-4 py-4 shadow-xl flex flex-col gap-3 border-t border-neutral-100 overflow-y-auto max-h-[calc(100vh-60px)] list-none"
           style={{ position: "absolute", top: "100%", left: 0 }}
         >
           {mobileDrawerItems}

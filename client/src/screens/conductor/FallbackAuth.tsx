@@ -1,21 +1,13 @@
-import {
-  Grid,
-  Segment,
-  Button,
-  Form,
-  Input,
-  Image,
-  Message,
-} from "semantic-ui-react";
+import { Card, Button, Input, Alert, Stack, Text, Link } from "@libretexts/davis-react";
+import { IconUser, IconLock } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useLocation, useHistory } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import axios from "axios";
 import Cookies from "js-cookie";
-import { isEmptyString } from "../../../components/util/HelperFunctions";
-import useGlobalError from "../../../components/error/ErrorHooks";
-import styles from './FallbackAuth.module.css';
-import AuthHelper, { COOKIE_NAMES } from "../../../components/util/AuthHelper";
+import { isEmptyString } from "../../components/util/HelperFunctions";
+import useGlobalError from "../../components/error/ErrorHooks";
+import AuthHelper, { COOKIE_NAMES } from "../../components/util/AuthHelper";
 
 const FallbackAuth = () => {
   const dispatch = useDispatch();
@@ -128,81 +120,85 @@ const FallbackAuth = () => {
   };
 
   return (
-    <Grid centered={true} verticalAlign="middle" className={styles.login_grid}>
-      <Grid.Column computer={8} tablet={12} mobile={14}>
-        <Grid columns={1} verticalAlign="middle" centered={true}>
-          <Grid.Column computer={8} tablet={10}>
-            <Image src="/libretexts_logo.png" alt="The main LibreTexts logo." />
-          </Grid.Column>
-        </Grid>
-        <Segment raised>
-          {import.meta.env.VITE_DISABLE_CONDUCTOR === "true" && (
-            <Message negative className="mb-2e">
-              <Message.Header>Conductor is disabled</Message.Header>
-              <p>Sorry, access to Conductor is currently disabled.</p>
-            </Message>
-          )}
-          {showExpiredAuth && (
-            <Message warning className="mb-2e">
-              <Message.Header>Please login again.</Message.Header>
-              <p>
-                Your authentication method appears to have expired. Please login
-                again.
-              </p>
-            </Message>
-          )}
-          <p>
-            {`This screen is for Conductor system administrators only. If you're a user and would like to login, you can do so `}
-            <a href={AuthHelper.generateLoginURL()}>here</a>.
-          </p>
-          <Form noValidate>
-            <Form.Field error={emailError}>
-              <label htmlFor="email">Email</label>
-              <Input
-                fluid={true}
-                id="email"
-                type="email"
-                name="email"
-                placeholder="Email"
-                required={true}
-                value={email}
-                onChange={onChange}
-                icon="user"
-                iconPosition="left"
-                autoComplete="username"
+    <div className="flex min-h-[85vh] items-center justify-center p-4">
+      <Stack gap="lg" className="w-full max-w-md">
+        <img
+          src="/libretexts_logo.png"
+          alt="The main LibreTexts logo."
+          className="mx-auto w-2/3"
+        />
+        <Card variant="elevated">
+          <Card.Body>
+            {import.meta.env.VITE_DISABLE_CONDUCTOR === "true" && (
+              <Alert
+                variant="error"
+                title="Conductor is disabled"
+                message="Sorry, access to Conductor is currently disabled."
+                className="mb-4"
               />
-            </Form.Field>
-            <Form.Field error={passwordError}>
-              <label htmlFor="password">Password</label>
-              <Input
-                fluid={true}
-                type="password"
-                id="password"
-                name="password"
-                placeholder="********"
-                required={true}
-                value={password}
-                onChange={onChange}
-                icon="lock"
-                iconPosition="left"
-                autoComplete="current-password"
+            )}
+            {showExpiredAuth && (
+              <Alert
+                variant="warning"
+                title="Please login again."
+                message="Your authentication method appears to have expired. Please login again."
+                className="mb-4"
               />
-            </Form.Field>
-            <Button
-              type="submit"
-              color="blue"
-              size="large"
-              fluid
-              disabled={import.meta.env.VITE_DISABLE_CONDUCTOR === "true"}
-              loading={submitLoading}
-              onClick={submitLogin}
+            )}
+            <Text className="mb-4">
+              {`This screen is for Conductor system administrators only. If you're a user and would like to login, you can do so `}
+              <Link href={AuthHelper.generateLoginURL()}>here</Link>.
+            </Text>
+            <form
+              noValidate
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitLogin();
+              }}
             >
-              Login
-            </Button>
-          </Form>
-        </Segment>
-      </Grid.Column>
-    </Grid>
+              <Stack gap="md" className="mt-4">
+                <Input
+                  id="email"
+                  name="email"
+                  label="Email"
+                  type="email"
+                  placeholder="Email"
+                  required
+                  value={email}
+                  onChange={onChange}
+                  error={emailError}
+                  leftIcon={<IconUser size={18} />}
+                  autoComplete="username"
+                />
+                <Input
+                  id="password"
+                  name="password"
+                  label="Password"
+                  type="password"
+                  placeholder="********"
+                  required
+                  value={password}
+                  onChange={onChange}
+                  error={passwordError}
+                  leftIcon={<IconLock size={18} />}
+                  autoComplete="current-password"
+                />
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  loading={submitLoading}
+                  disabled={import.meta.env.VITE_DISABLE_CONDUCTOR === "true"}
+                >
+                  Login
+                </Button>
+              </Stack>
+            </form>
+          </Card.Body>
+        </Card>
+      </Stack>
+    </div>
   );
 };
 

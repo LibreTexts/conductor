@@ -153,7 +153,7 @@ async function upsertAssetTags(
 
     await ProjectFile.updateOne(
       {
-        fileID: file.fileID,
+        fileID: { $eq: file.fileID },
       },
       {
         tags: finalTags.map((t) => t._id),

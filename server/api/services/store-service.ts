@@ -1,14 +1,12 @@
+import logger, { childLogger } from "../../logger.js";
 import Stripe from "stripe";
-import { debug } from "../../debug";
 import StripeService from "./stripe-service";
-import { getLibraryNameKeys } from "../libraries";
-import axios from "axios";
-import { BookPriceOption, StoreProduct, StoreShippingOption, DownloadCenterItem, LuluShippingLineItem, ResolvedProduct, LuluPrintJobLineItem, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession, LuluPrintJob } from "../../types";
+import { BookPriceOption, StoreProduct, StoreShippingOption, LuluShippingLineItem, ResolvedProduct, LuluShippingLevel, LuluWebhookData, StoreOrderWithStripeSession, LuluPrintJob, LuluPrintJobParams, LULU_HEALTHY_STATUSES, LULU_FAILURE_STATUSES, LULU_RECOVERY_CONFIRMED_STATUSES } from "../../types";
 import { checkBookIDFormat } from "../../util/bookutils";
 import { CreateCheckoutSessionSchema, GetShippingOptionsSchema, AdminGetStoreOrdersSchema } from "../validators/store";
 import { z } from "zod";
 import LuluService from "./lulu-service";
-import StoreOrder, { RawStoreOrder, RawStoreOrderNotification, StoreOrderDocument } from "../../models/storeorder";
+import StoreOrder, { RawManualPrintJobSubmission, RawStoreOrder, RawStoreOrderNotification, StoreOrderDocument } from "../../models/storeorder";
 import centralIdentityAPI from "../central-identity"
 import Fuse from "fuse.js";
 import NodeCache from "node-cache";
@@ -17,6 +15,11 @@ import mailAPI from "../mail"
 import User from "../../models/user";
 import authAPI from "../../api/auth.js";
 import SupportTicketService from "./support-ticket-service";
+import SearchService from "./search-service.js";
+import { upsertStoreOrderToSearchIndex } from "./store-order-search-service.js";
+import { FilterObject } from "../../types/Search.js";
+import { StoreOrderListItem } from "../../types/Store.js";
+const storeLog = childLogger("store");
 
 const BASE_COST = 1.80;
 const PAGE_MULTIPLIER = 0.032;
@@ -38,46 +41,89 @@ class StoreService {
         this.cache = new NodeCache({ stdTTL: 60 * 5, checkperiod: 120 }); // Cache for 5 minutes
     }
 
-    private _redactPersonalInfo(text: string): string {
-        if (!text || typeof text !== 'string') return text;
+    // Cap mask length so we don't leak the exact length of a redacted token.
+    private static readonly MAX_MASK_LENGTH = 6;
 
-        const words = text.trim().split(/\s+/);
-
-        const redactedWords = words.map(word => {
-            if (word.length <= 1) return word;
-
-            if (word.length === 2) {
-                return word[0] + '*';
-            }
-
-            return word[0] + '*'.repeat(word.length - 1);
-        });
-
-        return redactedWords.join(' ');
+    /**
+     * Masks a single token, keeping `keep` leading characters.
+     * Tokens shorter than or equal to `keep` are reduced to a single character
+     * so we never echo a short token back verbatim.
+     */
+    private _maskToken(token: string, keep: number): string {
+        if (token.length <= keep) {
+            return token.length <= 1 ? token : token[0] + '*';
+        }
+        const maskLength = Math.min(token.length - keep, StoreService.MAX_MASK_LENGTH);
+        return token.slice(0, keep) + '*'.repeat(maskLength);
     }
 
+    /**
+     * Redacts a personal name. The first given name is left intact (it is the
+     * weakest identifier on its own and the strongest recognition cue for the
+     * customer), remaining tokens are reduced to an initial.
+     * e.g. "Jonathan Q Turner" -> "Jonathan Q T*****"
+     */
+    private _redactName(name: string): string {
+        if (!name || typeof name !== 'string') return name;
+
+        const tokens = name.trim().split(/\s+/);
+        if (tokens.length === 0) return name;
+
+        return [
+            tokens[0],
+            ...tokens.slice(1).map(token => this._maskToken(token, 1)),
+        ].join(' ');
+    }
+
+    /**
+     * Redacts a street address line. Non-alphabetic tokens (house/unit numbers,
+     * "#4B", "1/2") are preserved, alphabetic tokens keep two leading characters.
+     * The result is recognizable to the customer but is not a deliverable address.
+     * e.g. "1234 Maple Avenue Apt 5" -> "1234 Ma*** Av**** Ap* 5"
+     */
+    private _redactStreetAddress(line: string): string {
+        if (!line || typeof line !== 'string') return line;
+
+        return line
+            .trim()
+            .split(/\s+/)
+            .map(token => (/[a-z]/i.test(token) ? this._maskToken(token, 2) : token))
+            .join(' ');
+    }
+
+    /**
+     * Keeps the first two and last character of the local part plus the full
+     * domain, so the customer can confirm the account without the address being
+     * guessable. e.g. "jonathan.turner@example.edu" -> "jo************r@example.edu"
+     */
     private _redactEmail(email: string): string {
         if (!email || typeof email !== 'string' || !email.includes('@')) return email;
 
-        const [localPart, domain] = email.split('@');
-        if (localPart.length <= 1) return email;
+        const atIndex = email.lastIndexOf('@');
+        const localPart = email.slice(0, atIndex);
+        const domain = email.slice(atIndex + 1);
+        if (localPart.length <= 2) return `${this._maskToken(localPart, 1)}@${domain}`;
+        if (localPart.length <= 4) return `${localPart[0]}**${localPart.slice(-1)}@${domain}`;
 
-        const redactedLocal = localPart[0] + '*'.repeat(Math.max(localPart.length - 1, 1));
-        return `${redactedLocal}@${domain}`;
+        const maskLength = Math.min(localPart.length - 3, StoreService.MAX_MASK_LENGTH);
+        return `${localPart.slice(0, 2)}${'*'.repeat(maskLength)}${localPart.slice(-1)}@${domain}`;
     }
 
+    /**
+     * Keeps only the last four digits. The previous first-three-and-last-four
+     * rule left all but three digits of a US number visible.
+     */
     private _redactPhoneNumber(phone: string): string {
         if (!phone || typeof phone !== 'string') return phone;
 
-        // Keep first 3 and last 4 digits, redact the middle
-        const digits = phone.replace(/\D/g, '');
+        const digitCount = phone.replace(/\D/g, '').length;
+        if (digitCount <= 4) return phone;
 
-        // Preserve original formatting structure but with redacted digits
-        return phone.replace(/\d/g, (digit, index) => {
-            const digitIndex = phone.slice(0, index).replace(/\D/g, '').length;
-            if (digitIndex < 3) return digit;
-            if (digitIndex >= digits.length - 4) return digit;
-            return '*';
+        let seen = 0;
+        return phone.replace(/\d/g, digit => {
+            const isVisible = seen >= digitCount - 4;
+            seen += 1;
+            return isVisible ? digit : '*';
         });
     }
 
@@ -103,33 +149,33 @@ class StoreService {
             }
 
             if (prices.data.length === 0) {
-                debug(`No product found with ID: ${product_id}`);
+                logger.info(`No product found with ID: ${product_id}`);
                 return null;
             }
 
             const products = this._groupByProduct(prices.data);
             if (products.length === 0) {
-                debug(`No products found for ID: ${product_id}`);
+                logger.info(`No products found for ID: ${product_id}`);
                 return null;
             }
 
             if (products.length > 1) {
-                debug(`Multiple products found for ID: ${product_id}, returning the first one.`);
+                logger.info(`Multiple products found for ID: ${product_id}, returning the first one.`);
             }
 
             const product = products[0] as StoreProduct;
             if (!product.prices || product.prices.length === 0) {
-                debug(`Product found but has no prices: ${product_id}`);
+                logger.info(`Product found but has no prices: ${product_id}`);
                 return null;
             }
 
             return product;
         } catch (error) {
             if (error instanceof Stripe.errors.StripeInvalidRequestError && error.code === 'resource_missing') {
-                debug(`Product with ID ${product_id} not found in Stripe.`);
+                logger.info(`Product with ID ${product_id} not found in Stripe.`);
                 return null;
             }
-            debug("Error searching store product:", error);
+            logger.error({ err: error }, "Error searching store product");
             throw new Error("Failed to search store product");
         }
     }
@@ -182,7 +228,7 @@ class StoreService {
                 cursor: paginated.length > 0 ? paginated[paginated.length - 1].id : undefined
             };
         } catch (error) {
-            debug("Error fetching store products:", error);
+            logger.error({ err: error }, "Error fetching store products");
             throw new Error("Failed to fetch store products");
         }
     }
@@ -201,27 +247,27 @@ class StoreService {
             });
 
             if (!prices || !prices.data || prices.data.length === 0) {
-                debug("No bookstore products found.");
+                logger.info("No bookstore products found.");
                 return [];
             }
 
             const products = this._groupByProduct(prices.data);
 
             if (products.length === 0) {
-                debug("No store products found.");
+                logger.info("No store products found.");
                 return [];
             }
 
             // For now, grab a random selection of products
             const sortedProducts = products.sort(() => Math.random() - 0.5);
             if (sortedProducts.length === 0) {
-                debug("No products available for most popular store products.");
+                logger.info("No products available for most popular store products.");
                 return [];
             }
 
             return sortedProducts.slice(0, limit);
         } catch (error) {
-            debug("Error fetching most popular store products:", error);
+            logger.error({ err: error }, "Error fetching most popular store products");
             throw new Error("Failed to fetch most popular store products");
         }
     }
@@ -236,9 +282,20 @@ class StoreService {
         }>;
     } | null> {
         const order = await StoreOrder.findOne({ id: { $eq: checkout_session_id } });
-        if (!order || !order.luluJobStatusUpdates?.length) return null;
+        if (!order?.luluJobStatusUpdates?.length) return null;
 
-        const latestUpdate = order.luluJobStatusUpdates[order.luluJobStatusUpdates.length - 1];
+        // Scope to the order's current Lulu job. `luluJobStatusUpdates` is an append-only event log,
+        // and on orders processed before superseded jobs were filtered out on ingest it can still
+        // hold events from a job that a resubmit has since replaced. Taking the tail unconditionally
+        // would then hand the customer a dead job's tracking numbers.
+        const updates = order.luluJobStatusUpdates;
+        const latestUpdate = order.luluJobID
+            // No match means the current job has not reported yet (e.g. straight after a resubmit).
+            // Returning nothing is right: any entry still in the log belongs to a superseded job.
+            ? updates.findLast((u) => u?.id?.toString() === order.luluJobID)
+            : updates[updates.length - 1]; // pre-`luluJobID` orders have nothing to scope by
+        if (!latestUpdate) return null;
+
         const lineItems: any[] = latestUpdate.line_items || [];
 
         const luluStatusToShipping = (statusName: string): "ORDER_PLACED" | "IN_PRODUCTION" | "SHIPPED" => {
@@ -270,7 +327,7 @@ class StoreService {
             const { session, charge } = await this._fetchCheckoutSession(checkout_session_id, { includeCharges: true });
 
             if (!session) {
-                debug(`No checkout session found with ID: ${checkout_session_id}`);
+                logger.info(`No checkout session found with ID: ${checkout_session_id}`);
                 return null;
             }
 
@@ -300,16 +357,16 @@ class StoreService {
                     })) || []
                 },
                 customer_details: session.customer_details ? {
-                    // Redact customer name
-                    name: session.customer_details.name ? this._redactPersonalInfo(session.customer_details.name) : undefined,
+                    // Redact customer name (first given name kept for recognition)
+                    name: session.customer_details.name ? this._redactName(session.customer_details.name) : undefined,
                     // Redact email
                     email: session.customer_details.email ? this._redactEmail(session.customer_details.email) : undefined,
                     // Redact phone
                     phone: session.customer_details.phone ? this._redactPhoneNumber(session.customer_details.phone) : undefined,
                     address: session.customer_details.address ? {
-                        // Redact line1 and line2 (street addresses)
-                        line1: session.customer_details.address.line1 ? this._redactPersonalInfo(session.customer_details.address.line1) : undefined,
-                        line2: session.customer_details.address.line2 ? this._redactPersonalInfo(session.customer_details.address.line2) : undefined,
+                        // Partially redact street lines: numbers kept, street names masked
+                        line1: session.customer_details.address.line1 ? this._redactStreetAddress(session.customer_details.address.line1) : undefined,
+                        line2: session.customer_details.address.line2 ? this._redactStreetAddress(session.customer_details.address.line2) : undefined,
                         // Keep city, state, postal_code visible
                         city: session.customer_details.address.city,
                         state: session.customer_details.address.state,
@@ -337,7 +394,7 @@ class StoreService {
 
             // return { session, charge }
         } catch (error) {
-            debug("Error fetching checkout session:", error);
+            logger.error({ err: error }, "Error fetching checkout session");
             throw new Error("Failed to fetch checkout session");
         }
     }
@@ -374,7 +431,7 @@ class StoreService {
 
                 if (shipping_option === 'digital_delivery_only') {
                     if (separated.books.length > 0) {
-                        debug("Shipping option is 'digital_delivery_only' but book items were provided. This is not allowed.");
+                        logger.info("Shipping option is 'digital_delivery_only' but book items were provided. This is not allowed.");
                         throw new Error("Shipping option is 'digital_delivery_only' but book items were provided.");
                     }
 
@@ -382,7 +439,7 @@ class StoreService {
                 }
 
                 if (!shipping_option || !shipping_option.id || !shipping_option.cost_excl_tax) {
-                    debug("Invalid or missing shipping option:", shipping_option);
+                    logger.error({ shipping_option }, "Invalid or missing shipping option");
                     throw new Error("Invalid or missing shipping option");
                 }
 
@@ -447,7 +504,7 @@ class StoreService {
                 checkout_url: session.url as string
             }
         } catch (error) {
-            debug("Error creating checkout session:", error);
+            logger.error({ err: error }, "Error creating checkout session");
             throw new Error("Failed to create checkout session: " + (error instanceof Error ? error.message : "Unknown error"));
         }
     }
@@ -478,7 +535,7 @@ class StoreService {
 
             return customerStripeID;
         } catch (error) {
-            debug("Error upserting customer:", error);
+            logger.error({ err: error }, "Error upserting customer");
             throw new Error("Failed to upsert customer");
         }
     }
@@ -490,7 +547,7 @@ class StoreService {
         }): Promise<StoreShippingOption[] | "digital_delivery_only"> {
         try {
             if (items.length === 0) {
-                debug("No items provided for shipping options.");
+                logger.info("No items provided for shipping options.");
                 throw new Error("No items provided for shipping options");
             }
 
@@ -507,14 +564,14 @@ class StoreService {
                 ids: uniqueProductIds,
             });
             if (!stripe_products || !stripe_products.data || stripe_products.data.length === 0) {
-                debug("No products found for the provided items.");
+                logger.info("No products found for the provided items.");
                 throw new Error("No products found for the provided items");
             }
 
             const foundProductIds = new Set(stripe_products.data.map(p => p.id));
             const missingProductIds = uniqueProductIds.filter(id => !foundProductIds.has(id));
             if (missingProductIds.length > 0) {
-                debug(`One or more items are not valid Stripe products: ${missingProductIds.join(', ')}`);
+                logger.info(`One or more items are not valid Stripe products: ${missingProductIds.join(', ')}`);
                 throw new Error("One or more items are not valid Stripe products");
             }
 
@@ -535,7 +592,7 @@ class StoreService {
             for (const item of items) {
                 const product = stripe_products.data.find(p => p.id === item.product_id);
                 if (!product || !item.price_id) {
-                    debug(`Item with product ID ${item.product_id} does not have a valid price_id.`);
+                    logger.info(`Item with product ID ${item.product_id} does not have a valid price_id.`);
                     continue;
                 }
 
@@ -544,7 +601,7 @@ class StoreService {
                 });
 
                 if (!price || !price.product || typeof price.product === 'string') {
-                    debug(`Price for product ID ${item.product_id} is not valid.`);
+                    logger.info(`Price for product ID ${item.product_id} is not valid.`);
                     continue;
                 }
 
@@ -561,7 +618,7 @@ class StoreService {
             }
 
             if (luluShippingLineItems.length === 0) {
-                debug("No valid items found for shipping options.");
+                logger.info("No valid items found for shipping options.");
                 throw new Error("No valid items found for shipping options");
             }
 
@@ -584,7 +641,7 @@ class StoreService {
             });
 
             if (!filtered_shipping_options || filtered_shipping_options.length === 0) {
-                debug("No shipping options found for the provided items.");
+                logger.info("No shipping options found for the provided items.");
                 throw new Error("No shipping options found for the provided items");
             }
 
@@ -624,7 +681,7 @@ class StoreService {
             const mapped = filtered_shipping_options.map((opt) => {
                 // ensure cost_excl_tax is a number and convert it to cents
                 if (!opt.cost_excl_tax || isNaN(parseFloat(opt.cost_excl_tax))) {
-                    debug("Invalid cost_excl_tax for shipping option:", opt);
+                    logger.error({ opt }, "Invalid cost_excl_tax for shipping option");
                     return null; // Skip invalid options
                 }
                 const costInCents = Math.round(parseFloat(opt.cost_excl_tax) * 100);
@@ -673,7 +730,7 @@ class StoreService {
 
             return mapped.filter(opt => opt !== null);
         } catch (error) {
-            debug("Error fetching shipping options:", error);
+            logger.error({ err: error }, "Error fetching shipping options");
             throw new Error("Failed to fetch shipping options");
         }
     }
@@ -702,7 +759,10 @@ class StoreService {
                     throw new Error("MISSING_EMAIL");
                 }
                 storeOrder.customerEmail = email;
-                await storeOrder.save(); // Save the email to the order now in case processing fails later
+                // Mirror the order total from Stripe so the admin list never needs a live Stripe call.
+                storeOrder.amountTotal = checkout_session.amount_total ?? undefined;
+                storeOrder.currency = checkout_session.currency ?? undefined;
+                await storeOrder.save(); // Save the email/amount to the order now in case processing fails later
 
                 const lineItems = this._parseLineItemsFromCheckoutSession(checkout_session);
                 if (!lineItems || lineItems.length === 0) {
@@ -778,6 +838,9 @@ class StoreService {
                     await mailAPI.sendStoreOrderConfirmation(checkout_session.customer_details?.email, checkout_session.id)
                 }
 
+                // Best-effort: mirror the finished order into the search index. Fire-and-forget so a
+                // Meilisearch hiccup can never affect order processing.
+                void upsertStoreOrderToSearchIndex(storeOrder.id);
                 return storeOrder;
             } catch (error: any) {
                 await this._failStoreOrder(storeOrder, error.toString());
@@ -786,7 +849,7 @@ class StoreService {
         } catch (error: any) {
             // If error is mongodb duplicate key error, it means the order already exists and we likely just received the webhook multiple times
             if (error.code === 11000) {
-                debug(`StoreOrder with ID ${checkout_session.id} already exists. This is likely a duplicate webhook event.`);
+                logger.info(`StoreOrder with ID ${checkout_session.id} already exists. This is likely a duplicate webhook event.`);
                 const existingOrder = await StoreOrder.findOne({ id: checkout_session.id });
                 if (existingOrder) {
                     return existingOrder;
@@ -801,137 +864,492 @@ class StoreService {
         try {
             const checkout_session_id = data.external_id;
             if (!checkout_session_id) {
-                debug("No external_id found in Lulu webhook data.");
+                logger.info("No external_id found in Lulu webhook data.");
                 return;
             }
 
             const storeOrder = await StoreOrder.findOne({
-                id: checkout_session_id,
+                id: { $eq: checkout_session_id },
             });
 
             if (!storeOrder) {
-                debug(`No StoreOrder found with id: ${checkout_session_id}`);
+                logger.info(`No StoreOrder found with id: ${checkout_session_id}`);
                 return;
             }
+
+            // `id` is unguarded elsewhere in this method's history; a payload without it used to throw
+            // into the swallow-all catch below and silently drop the entire update.
+            const incomingJobID = data.id?.toString();
+            if (!incomingJobID) {
+                logger.info(`Lulu webhook for order ${storeOrder.id} has no job id; ignoring.`);
+                return;
+            }
+
+            // A resubmit creates a NEW Lulu job, but the superseded job can still emit webhooks.
+            // Since this method joins on `external_id` alone, a late REJECTED/ERROR from the old job
+            // would otherwise overwrite the good job's ID and status and re-break a just-fixed order.
+            // Lulu job IDs increase monotonically, so a lower ID means the event is stale. Fail open
+            // when either ID isn't numeric: dropping real updates is worse than applying an odd one.
+            const incomingJobNumber = Number(incomingJobID);
+            const currentJobNumber = Number(storeOrder.luluJobID);
+            if (
+                storeOrder.luluJobID &&
+                storeOrder.luluJobID !== incomingJobID &&
+                Number.isFinite(incomingJobNumber) &&
+                Number.isFinite(currentJobNumber) &&
+                incomingJobNumber < currentJobNumber
+            ) {
+                logger.info(`Ignoring stale Lulu webhook for job ${incomingJobID}; order ${storeOrder.id} is on job ${storeOrder.luluJobID}.`);
+                // Kept for forensics, but held apart from `luluJobStatusUpdates`: that log is what
+                // `getShippingData` reads, so a superseded job must never be able to land in it.
+                storeOrder.ignoredLuluJobStatusUpdates = [...(storeOrder.ignoredLuluJobStatusUpdates || []), data];
+                await storeOrder.save();
+                return;
+            }
+
+            const incomingStatus = data.status?.name;
+
+            // Lulu emits a job's status changes in order, but does NOT guarantee ordered DELIVERY:
+            // a retried or delayed event can land after one that superseded it. When the incoming
+            // event belongs to the job already on file AND that job's last recorded status was a
+            // failure, a healthy event from it describes something that happened BEFORE the
+            // failure — it is a redelivery, never a recovery. Without this, a retried IN_PRODUCTION
+            // arriving after an ERROR would clear a real failure and close its ticket. Recovery is
+            // therefore only ever driven by a different (newer) job, or by a job whose own last
+            // status was healthy (the `_failStoreOrder` case, where the order failed for a reason
+            // outside the print job).
+            const isRedeliveryOfSupersededEvent = !!incomingStatus
+                && LULU_HEALTHY_STATUSES.has(incomingStatus)
+                && storeOrder.luluJobID === incomingJobID
+                && !!storeOrder.luluJobStatus
+                && LULU_FAILURE_STATUSES.has(storeOrder.luluJobStatus);
+
+            if (isRedeliveryOfSupersededEvent) {
+                logger.info(`Ignoring out-of-order Lulu webhook (${incomingStatus}) for job ${incomingJobID}; order ${storeOrder.id} already recorded ${storeOrder.luluJobStatus} for it.`);
+                // Same reasoning as the stale-job branch above: visible for forensics, but out of
+                // the log that feeds order and shipping state. Job-id scoping alone would not save
+                // us here — a redelivery carries the CURRENT job's id.
+                storeOrder.ignoredLuluJobStatusUpdates = [...(storeOrder.ignoredLuluJobStatusUpdates || []), data];
+                await storeOrder.save();
+                return;
+            }
+
+            // Captured before any mutation: it drives the recovery branch below.
+            const wasFailed = storeOrder.status === 'failed';
 
             const customerEmail = storeOrder.customerEmail || await this.stripeService.getCustomerEmailFromCheckoutSession(storeOrder.id);
 
             // If the order is now in production and we haven't sent a notification yet, send one
-            if (customerEmail && data.status?.name === 'IN_PRODUCTION' && !storeOrder.notificationsSent?.some((n) => n.status === 'IN_PRODUCTION')) {
+            if (customerEmail && incomingStatus === 'IN_PRODUCTION' && !storeOrder.notificationsSent?.some((n) => n.status === 'IN_PRODUCTION')) {
                 await mailAPI.sendStoreOrderInProductionUpdate(customerEmail, storeOrder.id).catch((err) => {
-                    debug("Failed to send store order in production update email:", err);
+                    logger.error({ err }, "Failed to send store order in production update email");
                 });
                 storeOrder.notificationsSent = [...(storeOrder.notificationsSent || []), { status: 'IN_PRODUCTION' }];
             }
 
-            // If the order has shipped, consider it completed
-            if (data.status?.name === 'SHIPPED') {
-                if (customerEmail) {
-                    const notificationsSent = await this._processShippingUpdates(storeOrder, data, customerEmail);
-                    storeOrder.notificationsSent = [...(storeOrder.notificationsSent || []), ...notificationsSent];
+            // If the order has shipped, gather tracking notifications before the status write below.
+            if (incomingStatus === 'SHIPPED' && customerEmail) {
+                const notificationsSent = await this._processShippingUpdates(storeOrder, data, customerEmail);
+                storeOrder.notificationsSent = [...(storeOrder.notificationsSent || []), ...notificationsSent];
+            }
+
+            // Keep `status`/`error` in sync with the live print job in BOTH directions. Previously
+            // they were write-once: only `_failStoreOrder` set 'failed' and nothing ever cleared it,
+            // so a successfully resubmitted order stayed 'failed' until an admin edited MongoDB.
+            // An unrecognized status falls into neither set and deliberately leaves them untouched,
+            // so a status Lulu adds later can never silently fail or un-fail an order.
+            // Recovery is deliberately NOT every healthy status. A resubmitted job reports CREATED
+            // before Lulu has validated anything, and a tricky order can be REJECTED again from
+            // exactly that state. Treating CREATED as a recovery would clear the failure and close
+            // the ticket immediately, so the next rejection would find no ticket attached and open a
+            // second one. Waiting for PRODUCTION_DELAYED (see LULU_RECOVERY_CONFIRMED_STATUSES) keeps
+            // the original ticket open and deduping until Lulu has actually accepted the job.
+            const recoveryConfirmed = !!incomingStatus && LULU_RECOVERY_CONFIRMED_STATUSES.has(incomingStatus);
+            const recovered = wasFailed && recoveryConfirmed;
+
+            if (incomingStatus && LULU_FAILURE_STATUSES.has(incomingStatus)) {
+                storeOrder.status = 'failed';
+                storeOrder.error = data.status?.message || `Lulu print job ${incomingStatus}`;
+
+                // A rejected, errored, or canceled print job needs manual resolution; open a ticket,
+                // or comment on the existing one if this order is already ticketed. Both `luluJobID`
+                // and `luluJobStatus` are still the previously recorded values here (the write is
+                // below), which is exactly what identifies a redelivered webhook: same job, same
+                // status, nothing new to say.
+                await this._createOrderFailureTicket(storeOrder, {
+                    trigger: incomingStatus === 'REJECTED' ? "lulu_rejected" : "lulu_error",
+                    message: data.status?.message || '',
+                    luluJobID: incomingJobID,
+                    repeatOfRecordedFailure: storeOrder.luluJobID === incomingJobID
+                        && storeOrder.luluJobStatus === incomingStatus,
+                });
+            } else if (incomingStatus && LULU_HEALTHY_STATUSES.has(incomingStatus)) {
+                if (incomingStatus === 'SHIPPED') {
+                    storeOrder.status = 'completed';
+                } else if (recovered) {
+                    // Gated on `recovered`, not `wasFailed`: an early healthy status from a job that
+                    // may still be rejected must leave the order 'failed', or the failure would be
+                    // cleared here and the next webhook would no longer see `wasFailed`.
+                    storeOrder.status = 'pending';
                 }
 
-                storeOrder.status = 'completed';
+                if (recovered) {
+                    storeOrder.error = "";
+                    // `supportTicketUUID` is deliberately left in place here: it is only detached
+                    // once the ticket service confirms the close, in `_resolveOrderFailureTicket`.
+                }
             }
 
-            // A rejected or errored Lulu print job needs manual resolution; open a support ticket.
-            if (data.status?.name === 'REJECTED') {
-                await this._createOrderFailureTicket(storeOrder, {
-                    trigger: "lulu_rejected",
-                    message: data.status?.message || '',
-                });
-            }
-
-            if (data.status?.name === 'ERROR') {
-                await this._createOrderFailureTicket(storeOrder, {
-                    trigger: "lulu_error",
-                    message: data.status?.message || '',
-                });
-            }
-
-            storeOrder.luluJobID = data.id.toString(); // Update the Lulu job ID (e.g. on resubmits)
-            storeOrder.luluJobStatus = data.status?.name || "unknown";
+            storeOrder.luluJobID = incomingJobID; // Update the Lulu job ID (e.g. on resubmits)
+            storeOrder.luluJobStatus = incomingStatus || "unknown";
             storeOrder.luluJobStatusMessage = data.status?.message || "";
             storeOrder.luluJobStatusUpdates = [...(storeOrder.luluJobStatusUpdates || []), data];
             await storeOrder.save();
+
+            // After the save so ticket I/O never sits on the order write path. Re-reads the order
+            // rather than trusting the in-memory copy, because `_createOrderFailureTicket` attaches
+            // the UUID with its own `updateOne`.
+            // Gated on `recoveryConfirmed` rather than `recovered` so that every later confirmed
+            // status (IN_PRODUCTION, SHIPPED, ...) retries a close that a transient ticket-service
+            // error left outstanding. `_resolveOrderFailureTicket` no-ops when the order is still
+            // failed or has no ticket attached.
+            if (recoveryConfirmed) {
+                await this._resolveOrderFailureTicket(storeOrder.id);
+            }
+
+            // Best-effort: keep the search index in step with the new Lulu status (fire-and-forget).
+            void upsertStoreOrderToSearchIndex(storeOrder.id);
         } catch (error) {
-            debug("Error processing Lulu order update:", error);
+            logger.error({ err: error }, "Error processing Lulu order update");
         }
+    }
+
+    /**
+     * Rebuilds the Lulu print job payload for an existing order from its Stripe checkout session.
+     *
+     * This is deliberately BEST-EFFORT rather than fail-fast: the situations that most often need
+     * a manual print job submission (missing shipping line item, a book product whose Stripe
+     * metadata is wrong, an unreachable session) are exactly the ones a strict builder would
+     * refuse to produce anything for. Instead of bailing, each gap becomes a warning plus a safe
+     * default, so an admin can fill it in by hand in the editor.
+     *
+     * `external_id` is always the StoreOrder id (the Stripe checkout session id) — it is what lets
+     * the Lulu `PRINT_JOB_STATUS_CHANGED` webhook reattach the resulting job to this order, so it
+     * is never sourced from anywhere else.
+     *
+     * Returns `null` only when the order itself does not exist.
+     */
+    public async buildPrintJobParams(orderId: string): Promise<{
+        params: Omit<LuluPrintJobParams, 'contact_email' | 'production_delay'>;
+        warnings: string[];
+    } | null> {
+        const store_order = await StoreOrder.findOne({ id: { $eq: orderId } });
+        if (!store_order) {
+            logger.info(`No StoreOrder found for ID: ${orderId}`);
+            return null;
+        }
+
+        const warnings: string[] = [];
+
+        // Skip the session cache: this payload is often rebuilt immediately after an admin has
+        // corrected data in Stripe, and serving them an hour-old session would defeat the point.
+        const { session } = await this._fetchCheckoutSession(store_order.id, { skipCache: true });
+        if (!session || !session.id) {
+            warnings.push("The Stripe checkout session could not be fetched. The shipping address is a blank template and must be filled in manually.");
+        }
+
+        const lineItems = session ? this._parseLineItemsFromCheckoutSession(session) : [];
+        if (session && lineItems.length === 0) {
+            warnings.push("No line items were found on the Stripe checkout session. Line items must be entered manually.");
+        }
+
+        let books: ResolvedProduct[] = [];
+        let shipping: ResolvedProduct | null = null;
+        if (lineItems.length > 0) {
+            try {
+                const separated = await this._separateProductsByCategory(lineItems);
+                books = separated.books;
+                shipping = separated.shipping;
+            } catch (error) {
+                warnings.push(`The Stripe line items could not be resolved (${serializeError(error)}). Line items must be entered manually.`);
+            }
+        }
+
+        if (books.length === 0) {
+            warnings.push("No book line items resolved from the Stripe checkout session. `line_items` is empty and must be filled in manually.");
+        }
+
+        for (const book of books) {
+            if (!book.product.metadata['book_id']) {
+                warnings.push(`Product "${book.product.name}" has no \`book_id\` metadata in Stripe, so its cover/interior source URLs are malformed. Correct them before submitting.`);
+            }
+        }
+
+        if (!shipping) {
+            warnings.push("No shipping line item was found on the Stripe checkout session. `shipping_level` has been defaulted to MAIL.");
+        }
+
+        return {
+            params: {
+                external_id: store_order.id,
+                shipping_address: {
+                    name: session?.customer_details?.name || '',
+                    street1: session?.customer_details?.address?.line1 || '',
+                    street2: session?.customer_details?.address?.line2 || '',
+                    city: session?.customer_details?.address?.city || '',
+                    state_code: session?.customer_details?.address?.state || '',
+                    postcode: session?.customer_details?.address?.postal_code || '',
+                    country_code: session?.customer_details?.address?.country || '',
+                    phone_number: session?.customer_details?.phone || '',
+                    email: session?.customer_details?.email || store_order.customerEmail || '', // Will default to the contact email on Lulu account if not provided
+                    is_business: false,
+                },
+                line_items: this.luluService.buildPrintJobLineItems(books),
+                shipping_level: shipping?.product.metadata['lulu_shipping_option_level'] as LuluShippingLevel || 'MAIL',
+            },
+            warnings,
+        };
     }
 
     public async resubmitLuluJob(orderId: string): Promise<LuluPrintJob | {
         error: string;
         detail?: string;
+        code?: 'INCOMPLETE_PAYLOAD';
+        warnings?: string[];
     }> {
         try {
-            const store_order = await StoreOrder.findOne({ id: orderId });
-            if (!store_order) {
-                debug(`No StoreOrder found for ID: ${orderId}`);
+            const built = await this.buildPrintJobParams(orderId);
+            if (!built) {
                 return { error: `No StoreOrder found for ID: ${orderId}` };
             }
 
-            const { session } = await this._fetchCheckoutSession(store_order.id);
-            if (!session || !session.id) {
-                debug(`No valid Stripe checkout session found for StoreOrder ID: ${store_order.id}`);
-                return { error: `No valid Stripe checkout session found for StoreOrder ID: ${store_order.id}` };
+            // This path sends the derived payload verbatim, so it is only meaningful when the
+            // payload is complete. Any warning from the builder means it is not — surface it rather
+            // than pushing a knowingly-broken payload to Lulu. Use "Submit Order Details Manually"
+            // to fix the payload by hand. The warnings are returned individually (not just joined
+            // into `detail`) so the UI can list them and offer that hand-off.
+            if (built.warnings.length > 0) {
+                logger.info(`Cannot submit Lulu job for StoreOrder ID: ${orderId}. ${built.warnings.join(' ')}`);
+                return {
+                    error: `The print job for order ${orderId} cannot be submitted as-is`,
+                    detail: built.warnings.join(' '),
+                    code: 'INCOMPLETE_PAYLOAD',
+                    warnings: built.warnings,
+                };
             }
 
-            const lineItems = this._parseLineItemsFromCheckoutSession(session);
-            if (!lineItems || lineItems.length === 0) {
-                debug(`No valid line items found for StoreOrder ID: ${store_order.id}`);
-                return { error: `No valid line items found for StoreOrder ID: ${store_order.id}` };
-            }
-
-            const { books, shipping } = await this._separateProductsByCategory(lineItems);
-            if (!books || books.length === 0) {
-                debug(`No valid book items found for StoreOrder ID: ${store_order.id}`);
-                return { error: `No valid book items found for StoreOrder ID: ${store_order.id}` };
-            }
-
-            if (!shipping) {
-                debug(`No valid shipping item found for StoreOrder ID: ${store_order.id}`);
-                return { error: `No valid shipping item found for StoreOrder ID: ${store_order.id}` };
-            }
-
-            const luluLineItems = this.luluService.buildPrintJobLineItems(books);
-            const printJob = await this.luluService.createPrintJob({
-                external_id: store_order.id,
-                shipping_address: {
-                    name: session.customer_details?.name || '',
-                    street1: session.customer_details?.address?.line1 || '',
-                    street2: session.customer_details?.address?.line2 || '',
-                    city: session.customer_details?.address?.city || '',
-                    state_code: session.customer_details?.address?.state || '',
-                    postcode: session.customer_details?.address?.postal_code || '',
-                    country_code: session.customer_details?.address?.country || '',
-                    phone_number: session.customer_details?.phone || '',
-                    email: session.customer_details?.email || '', // Will default to the contact email on Lulu account if not provided
-                    is_business: false,
-                },
-                line_items: luluLineItems,
-                shipping_level: shipping.product.metadata['lulu_shipping_option_level'] as LuluShippingLevel || 'MAIL',
-            })
+            const printJob = await this.luluService.createPrintJob(built.params);
 
             if (!printJob || !printJob.id) {
-                debug(`Failed to create Lulu print job for StoreOrder ID: ${store_order.id}`);
-                return { error: `Failed to create Lulu print job for StoreOrder ID: ${store_order.id} with an internal error` };
+                logger.info(`Failed to create Lulu print job for StoreOrder ID: ${orderId}`);
+                return { error: `Failed to create Lulu print job for StoreOrder ID: ${orderId} with an internal error` };
             }
 
-            store_order.luluJobID = printJob.id.toString();
-            store_order.luluJobStatus = printJob.status["name"] || "unknown";
-            store_order.luluJobStatusMessage = printJob.status["message"] || "";
-            await store_order.save();
-
+            await this._recordLuluJobOnOrder(orderId, printJob);
             return printJob;
         } catch (error) {
-            debug("Error retrying Lulu job:", error);
+            logger.error({ err: error }, "Error retrying Lulu job");
             const errorString = serializeError(error);
             return { error: "Failed to retry Lulu job", detail: errorString };
         }
     }
 
+    /**
+     * Submits a hand-edited Lulu print job payload for an existing order.
+     *
+     * `external_id` is forced to the StoreOrder id here regardless of what arrived on the wire, so
+     * the Lulu webhook always reattaches the resulting job to the correct order. `contact_email`
+     * and `production_delay` are likewise forced inside `LuluService.createPrintJob`.
+     *
+     * Every attempt — successful or not — is appended to `manualPrintJobSubmissions` for audit.
+     */
+    public async submitManualPrintJob({ orderId, params, submittedBy }: {
+        orderId: string;
+        params: Omit<LuluPrintJobParams, 'contact_email' | 'production_delay' | 'external_id'>;
+        submittedBy: string;
+    }): Promise<LuluPrintJob | {
+        error: string;
+        detail?: string;
+    }> {
+        const store_order = await StoreOrder.findOne({ id: { $eq: orderId } });
+        if (!store_order) {
+            logger.info(`No StoreOrder found for ID: ${orderId}`);
+            return { error: `No StoreOrder found for ID: ${orderId}` };
+        }
+
+        // external_id is server-owned: never trust the submitted body for it.
+        const finalParams = { ...params, external_id: store_order.id };
+
+        try {
+            const printJob = await this.luluService.createPrintJob(finalParams);
+
+            if (!printJob || !printJob.id) {
+                logger.info(`Failed to create manual Lulu print job for StoreOrder ID: ${orderId}`);
+                await this._recordManualPrintJobSubmission(orderId, {
+                    submittedBy,
+                    submittedAt: new Date(),
+                    payload: finalParams,
+                    success: false,
+                    error: "Lulu returned no print job",
+                });
+                return { error: `Failed to create Lulu print job for StoreOrder ID: ${orderId} with an internal error` };
+            }
+
+            await this._recordLuluJobOnOrder(orderId, printJob);
+            await this._recordManualPrintJobSubmission(orderId, {
+                submittedBy,
+                submittedAt: new Date(),
+                payload: finalParams,
+                luluJobID: printJob.id.toString(),
+                success: true,
+            });
+
+            return printJob;
+        } catch (error) {
+            logger.error({ err: error }, "Error submitting manual Lulu job");
+            const errorString = serializeError(error);
+            await this._recordManualPrintJobSubmission(orderId, {
+                submittedBy,
+                submittedAt: new Date(),
+                payload: finalParams,
+                success: false,
+                error: errorString,
+            });
+            return { error: "Failed to submit manual Lulu print job", detail: errorString };
+        }
+    }
+
+    /**
+     * Persists an accepted Lulu print job onto the order and mirrors it into the search index.
+     * Shared by the plain resubmit and the manual submission paths.
+     */
+    private async _recordLuluJobOnOrder(orderId: string, printJob: LuluPrintJob): Promise<void> {
+        await StoreOrder.updateOne({ id: { $eq: orderId } }, {
+            luluJobID: printJob.id.toString(),
+            luluJobStatus: printJob.status["name"] || "unknown",
+            luluJobStatusMessage: printJob.status["message"] || "",
+        });
+
+        // The order deliberately stays 'failed' with its support ticket attached until Lulu confirms
+        // the new job (see LULU_RECOVERY_CONFIRMED_STATUSES). Lulu having *accepted* a submission
+        // says nothing about whether it will pass validation, and a job rejected again after the
+        // failure was cleared would open a second ticket for the same order. `processLuluOrderUpdate`
+        // clears the failure and closes the ticket once PRODUCTION_DELAYED or later arrives.
+
+        // Best-effort: reflect the new Lulu job in the search index (fire-and-forget).
+        void upsertStoreOrderToSearchIndex(orderId);
+    }
+
+    /**
+     * Closes and detaches the system-generated failure ticket of an order that is no longer failed.
+     *
+     * The UUID is unset only once the ticket service confirms the close. A transient ticket-service
+     * or database error therefore leaves the reference on the order, where the next recovery attempt
+     * (another resubmit, or the next healthy webhook) retries it — rather than orphaning an open
+     * ticket that nothing points at.
+     *
+     * The `status: { $ne: "failed" }` term makes this a no-op for an order that has failed again in
+     * the meantime: that ticket is live and must stay open.
+     */
+    private async _resolveOrderFailureTicket(orderId: string): Promise<void> {
+        try {
+            const order = await StoreOrder.findOne({ id: { $eq: orderId }, status: { $ne: "failed" } });
+            if (!order?.supportTicketUUID) return;
+
+            // Say why before closing, so the ticket carries the reason it went away rather than just
+            // a "closed by Conductor (automated)" feed entry. Posted on each attempt: if the close
+            // below fails and a later webhook retries it, a second note is a fair description of what
+            // happened and is far cheaper than tracking close attempts on the order.
+            await this._commentOnOrderRecovery(order.supportTicketUUID, order);
+
+            const closed = await this._closeOrderFailureTicket(order.supportTicketUUID, orderId);
+            if (!closed) return; // reference retained on purpose so a later attempt can retry
+
+            // Detaching lifts the "one ticket per order, ever" dedupe in `_createOrderFailureTicket`,
+            // so a later genuine failure opens a fresh ticket. Matching on the same UUID means a
+            // ticket opened by a concurrent failure is never detached by this write.
+            await StoreOrder.updateOne(
+                { id: { $eq: orderId }, supportTicketUUID: { $eq: order.supportTicketUUID } },
+                { $unset: { supportTicketUUID: "" } },
+            );
+        } catch (error) {
+            logger.error({ err: error }, `Failed to resolve support ticket for store order ${orderId}`);
+        }
+    }
+
+    /**
+     * Notes on the ticket that the order has recovered, immediately before it is closed.
+     *
+     * The status named here is the one that earned the close: recovery is only declared once Lulu
+     * has taken the job into production (see LULU_RECOVERY_CONFIRMED_STATUSES), not merely accepted
+     * a submission, so this doubles as the record of which job finally stuck.
+     *
+     * Best-effort by construction: `createSystemMessage` swallows its own errors.
+     */
+    private async _commentOnOrderRecovery(ticketUUID: string, order: RawStoreOrder): Promise<void> {
+        const lines = [
+            `Lulu has taken this order's print job into production, so the order is no longer failed and this ticket is being closed automatically.`,
+            ``,
+            `Order ID: ${order.id}`,
+            order.luluJobID ? `Lulu Job ID: ${order.luluJobID}` : undefined,
+            order.luluJobStatus ? `Lulu Job Status: ${order.luluJobStatus}` : undefined,
+            ``,
+            `Reopen this ticket if the order still needs attention.`,
+        ].filter((l) => l !== undefined);
+
+        await this.ticketService.createSystemMessage({
+            ticketUUID,
+            message: lines.join("\n"),
+        });
+    }
+
+    /**
+     * Closes the system-generated failure ticket for an order that has recovered. Fully defensive:
+     * `changeTicketStatus` uses `.orFail()`, and a deleted or already-closed ticket must never
+     * disrupt order processing.
+     *
+     * Returns whether the close is known to have succeeded — callers use that to decide whether the
+     * order may stop tracking the ticket.
+     */
+    private async _closeOrderFailureTicket(ticketUUID: string, orderId: string): Promise<boolean> {
+        try {
+            await this.ticketService.changeTicketStatus({
+                uuid: ticketUUID,
+                status: "closed",
+                callingUserName: "Conductor (automated)",
+            });
+            return true;
+        } catch (error) {
+            // `changeTicketStatus` closes with `updateOne(...).orFail()`, so a ticket that no longer
+            // exists surfaces as DocumentNotFoundError. That is permanent, not transient: reporting
+            // it as unresolved would make the order retry forever and keep the dedupe in
+            // `_createOrderFailureTicket` wedged, so treat it as nothing left to close.
+            if ((error as { name?: string })?.name === "DocumentNotFoundError") {
+                logger.info(`Support ticket ${ticketUUID} for store order ${orderId} no longer exists; treating as closed.`);
+                return true;
+            }
+            logger.error({ err: error }, `Failed to close support ticket ${ticketUUID} for store order ${orderId}`);
+            return false;
+        }
+    }
+
+    /**
+     * Appends a manual submission audit entry. Best-effort: a failure to write the audit trail is
+     * logged and swallowed so it can never mask the outcome of the submission itself.
+     */
+    private async _recordManualPrintJobSubmission(orderId: string, entry: RawManualPrintJobSubmission): Promise<void> {
+        try {
+            await StoreOrder.updateOne(
+                { id: { $eq: orderId } },
+                { $push: { manualPrintJobSubmissions: entry } },
+            );
+        } catch (error) {
+            logger.error({ err: error }, "Failed to record manual print job submission");
+        }
+    }
+
     public async adminGetStoreOrders(params: z.infer<typeof AdminGetStoreOrdersSchema>['query']): Promise<{
-        items: StoreOrderWithStripeSession[];
+        items: StoreOrderListItem[];
         meta: {
             total_count: number;
             has_more: boolean;
@@ -939,60 +1357,42 @@ class StoreService {
         };
     }> {
         try {
-            let limit = params?.limit ? parseInt(params.limit.toString(), 10) : 25;
-            let filter: any = { $and: [] };
+            const limit = params?.limit ? parseInt(params.limit.toString(), 10) : 25;
+            // `starting_after` carries the Meilisearch offset for the next page (as a string).
+            const offset = params?.starting_after ? Math.max(parseInt(params.starting_after, 10) || 0, 0) : 0;
+            const query = params?.query?.trim() || "";
 
-            if (params?.starting_after) {
-                // ensure mongoID is properly formatted
-                filter.$and.push({ _id: { $lt: params.starting_after } });
-            }
-            if (params?.status) {
-                filter.$and.push({ status: params?.status });
-            }
-            if (params?.lulu_status) {
-                filter.$and.push({ luluJobStatus: params?.lulu_status });
-            }
-            if (params?.query && params?.query.trim() !== '') {
-                filter.$and.push(
-                    { id: new RegExp(params.query, 'i') },
-                );
-            }
+            // Retain the two existing filters, translated to the storeOrders index attributes.
+            const filters: FilterObject = {};
+            if (params?.status) filters.status = params.status;
+            if (params?.lulu_status) filters.luluJobStatus = params.lulu_status;
+            const hasFilters = Object.keys(filters).length > 0;
 
-            const orders = await StoreOrder.find(filter).sort({ _id: -1 }).limit(limit).exec();
-            if (!orders || orders.length === 0) {
-                return {
-                    items: [],
-                    meta: {
-                        total_count: 0,
-                        has_more: false,
-                        next_page: null
-                    }
-                };
-            }
+            const searchService = await SearchService.getInstance();
+            const result: any = await searchService.search(
+                "storeOrders",
+                query,
+                hasFilters ? filters : undefined,
+                // With a text query, let Meilisearch rank by relevance; otherwise show newest first.
+                query ? undefined : [{ field: "createdAtTimestamp", order: "desc" }],
+                { offset, limit },
+            );
 
-            const order_data: StoreOrderWithStripeSession[] = [];
-            for (const order of orders) {
-                const { session } = await this._fetchCheckoutSession(order.id);
-                order_data.push({
-                    ...order.toObject(), // Convert Mongoose document to plain object
-                    stripe_session: session
-                });
-            }
+            const items: StoreOrderListItem[] = result?.hits || [];
+            const total_count = result?.estimatedTotalHits ?? items.length;
+            const nextOffset = offset + items.length;
+            const has_more = nextOffset < total_count;
 
-            const total_count = await StoreOrder.countDocuments(filter);
-            const previously_fetched_count = params?.starting_after ? await StoreOrder.countDocuments({ _id: { $gt: params.starting_after } }) : 0;
-            const has_more = total_count > (previously_fetched_count + orders.length);
-            const next_page = (orders.length === limit ? orders[orders.length - 1]._id?.toString() : null) || null;
             return {
-                items: order_data,
+                items,
                 meta: {
                     total_count,
                     has_more,
-                    next_page
-                }
+                    next_page: has_more ? nextOffset.toString() : null,
+                },
             };
         } catch (error) {
-            debug("Error fetching store orders:", error);
+            logger.error({ err: error }, "Error fetching store orders");
             throw new Error("Failed to fetch store orders");
         }
     }
@@ -1015,200 +1415,10 @@ class StoreService {
 
             return withSession;
         } catch (error) {
-            debug("Error fetching store order:", error);
+            logger.error({ err: error }, "Error fetching store order");
             throw new Error("Failed to fetch store order");
         }
     }
-
-    public async syncBooksToStripe(): Promise<{
-        sync_count: number;
-        failed_count: number;
-    } | undefined> {
-        try {
-            let sync_count = 0;
-            let failed_count = 0;
-            const stripe = this.stripeService.getInstance();
-
-            const alllibraries = await getLibraryNameKeys(false, false);
-            if (!alllibraries || alllibraries.length === 0) {
-                debug("No libraries found to sync books.");
-                return undefined;
-            }
-
-            for (const library of alllibraries) {
-                const bookshelf = await axios.get(`https://api.libretexts.org/DownloadsCenter/${library}/Bookshelves.json`).catch((err) => {
-                    debug(`Error fetching bookshelf for library ${library}:`, err);
-                    return null;
-                });
-                const courses = await axios.get(`https://api.libretexts.org/DownloadsCenter/${library}/Courses.json`).catch((err) => {
-                    debug(`Error fetching courses for library ${library}:`, err);
-                    return null;
-                });
-
-                if ((!bookshelf || !bookshelf.data) && (!courses || !courses.data)) {
-                    debug(`No books or courses found for library: ${library}`);
-                    continue;
-                }
-
-                const allItems = new Set<DownloadCenterItem>();
-                if (bookshelf && bookshelf.data && bookshelf.data.items) {
-                    for (const item of bookshelf.data.items) {
-                        allItems.add(item);
-                    }
-                }
-
-                if (courses && courses.data && courses.data.items) {
-                    for (const item of courses.data.items) {
-                        allItems.add(item);
-                    }
-                }
-
-                // filter out any malformed items (e.g. missing id or title
-                for (const item of Array.from(allItems)) {
-                    if (!item.id || !item.title) {
-                        debug(`Skipping malformed item in library ${library}:`, item);
-                        allItems.delete(item);
-                    }
-                    if (item.failed === true) {
-                        debug(`Skipping failed item in library ${library}:`, item);
-                        allItems.delete(item);
-                    }
-                }
-
-                for (const book of Array.from(allItems)) {
-                    try {
-                        // add a slight delay to avoid hitting API rate limits
-                        await new Promise(resolve => setTimeout(resolve, 100));
-
-                        // Check if the book already exists in Stripe as a product
-                        const existingProducts = await stripe.products.search({
-                            query: `metadata["book_id"]:"${library}-${book.id}"`,
-                            limit: 1,
-                        });
-
-                        let product: Stripe.Product | null = null;
-                        const thumbnailUrl = this.getBookThumbnailUrl({ library, id: book.id });
-
-                        let bookLicense = "";
-                        if (Array.isArray(book.tags)) {
-                            const licenseTag = book.tags.find((tag) => tag.includes("license:"));
-                            if (licenseTag) {
-                                bookLicense = licenseTag.replace("license:", "");
-                            }
-                        }
-
-                        if (existingProducts.data.length > 0) {
-                            // If the product exists, update it
-                            product = existingProducts.data[0];
-                            await stripe.products.update(product.id, {
-                                name: book.title,
-                                description: book.summary || "No description available",
-                                images: [thumbnailUrl],
-                                metadata: {
-                                    bookID: `${library}-${book.id}`,
-                                    store: "true",
-                                    store_category: "books",
-                                    book_author: book.author || "Anonymous",
-                                    book_institution: book.institution || "",
-                                    num_pages: book.numPages.toString(),
-                                    license: bookLicense,
-                                }
-                            });
-                        } else {
-                            // If the product does not exist, create it
-                            product = await stripe.products.create({
-                                name: book.title,
-                                description: book.summary || "No description available",
-                                images: [thumbnailUrl],
-                                metadata: {
-                                    book_id: `${library}-${book.id}`,
-                                    store: "true",
-                                    store_category: "books",
-                                    book_author: book.author || "Anonymous",
-                                    book_institution: book.institution || "",
-                                    num_pages: book.numPages.toString(),
-                                    license: bookLicense,
-                                }
-                            });
-                        }
-
-                        const priceOptions = this.calculateBookPrices({ num_pages: book.numPages });
-                        const existingPrices = await stripe.prices.list({
-                            product: product.id,
-                            active: true,
-                        });
-
-                        for (const option of priceOptions.options) {
-                            const existingPrice = existingPrices.data.find((p) => {
-                                return p.metadata["hardcover"] === String(option.hardcover) &&
-                                    p.metadata["color"] === String(option.color);
-                            })
-
-                            if (existingPrice) {
-                                // if the price already exists and is the same currency and amount, update it
-                                // otherwise, we must delete it and create a new one
-                                if (existingPrice.unit_amount === option.price && existingPrice.currency === 'usd') {
-                                    await stripe.prices.update(existingPrice.id, {
-                                        tax_behavior: 'exclusive',
-                                        nickname: this._buildBookPriceNickname({
-                                            hardcover: option.hardcover,
-                                            color: option.color,
-                                        }),
-                                        metadata: {
-                                            ...existingPrice.metadata,
-                                            store: "true",
-                                            store_category: "books",
-                                        }
-                                    });
-                                    debug(`Price for ${product.name} with hardcover=${option.hardcover} and color=${option.color} updated.`);
-                                    continue;
-                                }
-
-                                await stripe.prices.update(existingPrice.id, { active: false }); // Archive the existing price
-                                debug(`Archived existing price ${existingPrice.id} for ${product.name} with hardcover=${option.hardcover} and color=${option.color}.`);
-                                // Proceed to create a new price
-                            }
-
-                            // Create new price
-                            const newPrice = await stripe.prices.create({
-                                product: product.id,
-                                unit_amount: option.price,
-                                currency: 'usd',
-                                tax_behavior: 'exclusive',
-                                nickname: this._buildBookPriceNickname({
-                                    hardcover: option.hardcover,
-                                    color: option.color
-                                }),
-                                metadata: {
-                                    store: "true",
-                                    store_category: "books",
-                                    book_id: `${library}-${book.id}`,
-                                    bookstore: "true",
-                                    hardcover: String(option.hardcover),
-                                    color: String(option.color),
-                                }
-                            });
-                            debug(`Created new price ${newPrice.id} for ${product.name} with hardcover=${option.hardcover} and color=${option.color}: ${option.formatted_price}`);
-                        }
-
-                        sync_count++;
-                    } catch (error) {
-                        failed_count++;
-                        debug(`Error processing book ${book.id} in library ${library}:`, error);
-                        continue; // Skip to the next book if there's an error
-                    }
-                }
-            }
-            return {
-                sync_count,
-                failed_count,
-            }
-        } catch (error) {
-            debug("Error syncing books:", error);
-            throw new Error("Failed to sync books");
-        }
-    }
-
 
     public calculateBookPrices({ num_pages }: { num_pages: number }): { num_pages: number; options: BookPriceOption[] } {
         try {
@@ -1266,7 +1476,7 @@ class StoreService {
                 options,
             };
         } catch (error) {
-            debug("Error calculating book price:", error);
+            logger.error({ err: error }, "Error calculating book price");
             throw new Error("Failed to calculate book price");
         }
     }
@@ -1288,7 +1498,7 @@ class StoreService {
         const { maxQuantity, reason } = await this.determineMaxQuantity(userId);
         const offender = items.find((item) => item.quantity > maxQuantity);
         if (offender) {
-            debug(`[StoreService] Quantity ${offender.quantity} exceeds max ${maxQuantity} (${reason})`);
+            storeLog.info(`Quantity ${offender.quantity} exceeds max ${maxQuantity} (${reason})`);
             return {
                 ok: false,
                 maxQuantity,
@@ -1306,7 +1516,7 @@ class StoreService {
 
             const user = await User.findOne({ uuid: { $eq: userId } });
             if (!user) {
-                debug(`[StoreService] User with ID ${userId} not found. Applying default max quantity.`);
+                storeLog.info(`User with ID ${userId} not found. Applying default max quantity.`);
                 return { maxQuantity: DEFAULT_MAX_QUANTITY, reason: "User not found, applying default max quantity." };
             }
 
@@ -1317,9 +1527,19 @@ class StoreService {
 
             return { maxQuantity: DEFAULT_MAX_QUANTITY, reason: "User is not staff, applying default max quantity." };
         } catch (err: any) {
-            debug("[StoreService] Error validating max quantity for user:", err);
+            storeLog.error({ err }, "Error validating max quantity for user");
             return { maxQuantity: DEFAULT_MAX_QUANTITY, reason: "Error validating user role, applying default max quantity." };
         }
+    }
+
+    /**
+     * Drops the cached product listings so a catalog change is visible before the
+     * 5-minute TTL expires. Called by `store-book-sync-service` after it writes
+     * to or archives anything in Stripe.
+     */
+    public invalidateProductCache(): void {
+        const keys = this.cache.keys().filter((key) => key.startsWith('store_products_'));
+        if (keys.length > 0) this.cache.del(keys);
     }
 
     private async _fetchAllProducts(category?: string): Promise<StoreProduct[]> {
@@ -1358,14 +1578,14 @@ class StoreService {
         return allProducts;
     }
 
-    private async _fetchCheckoutSession(sessionId: string, opts: { includeCharges?: boolean } = {}): Promise<{
+    private async _fetchCheckoutSession(sessionId: string, opts: { includeCharges?: boolean, skipCache?: boolean } = {}): Promise<{
         session: Stripe.Checkout.Session | null;
         charge?: Stripe.Charge | null;
     }> {
         const stripe = this.stripeService.getInstance();
         const cached = this.cache.get(sessionId);
 
-        if (cached && !opts.includeCharges) {
+        if (cached && !opts.includeCharges && !opts.skipCache) {
             return { session: cached as Stripe.Checkout.Session };
         }
 
@@ -1376,7 +1596,7 @@ class StoreService {
 
 
             if (!session || !session.id) {
-                debug("No valid Stripe checkout session found for ID:", sessionId);
+                logger.error({ sessionId }, "No valid Stripe checkout session found for ID");
                 return { session: null, charge: null };
             }
 
@@ -1388,7 +1608,7 @@ class StoreService {
             this.cache.set(sessionId, session, 60 * 60); // Cache for 1 hour
             return { session, charge };
         } catch (error) {
-            debug("Error fetching checkout session:", error);
+            logger.error({ err: error }, "Error fetching checkout session");
             return { session: null, charge: null };
         }
     }
@@ -1410,7 +1630,7 @@ class StoreService {
         }): Promise<boolean> {
         try {
             if (!items || items.length === 0) {
-                debug("No digital items to process.");
+                logger.info("No digital items to process.");
                 return true;
             }
 
@@ -1423,12 +1643,12 @@ class StoreService {
                 if (digital_delivery_option === 'email_access_codes') {
                     const didGenerate = await centralIdentityAPI._generateAccessCode({ priceId: item.price_id, email });
                     if (!didGenerate) {
-                        debug(`Failed to generate access code for product ${item.product.id} for email ${email}`);
+                        logger.info(`Failed to generate access code for product ${item.product.id} for email ${email}`);
                         continue; // Skip this item if access code generation failed
                     }
                 } else {
                     if (!digital_delivery_account) {
-                        debug(`Digital delivery account must be provided when digital delivery option is 'apply_to_account' for product ${item.product.id}`);
+                        logger.info(`Digital delivery account must be provided when digital delivery option is 'apply_to_account' for product ${item.product.id}`);
                         continue; // Skip this item if account is not provided
                     }
 
@@ -1437,7 +1657,7 @@ class StoreService {
                         user_id: digital_delivery_account
                     });
                     if (!didDeliver) {
-                        debug(`Failed to deliver digital product ${item.product.id} (price ${item.price_id}) to account ${digital_delivery_account}`);
+                        logger.info(`Failed to deliver digital product ${item.product.id} (price ${item.price_id}) to account ${digital_delivery_account}`);
                         continue; // Skip this item if delivery failed
                     }
                 }
@@ -1445,13 +1665,13 @@ class StoreService {
             }
 
             if (successfulItems.length !== items.length) {
-                debug(`Some digital items could not be processed. Processed: ${successfulItems.length}, Total: ${items.length}`);
+                logger.info(`Some digital items could not be processed. Processed: ${successfulItems.length}, Total: ${items.length}`);
                 return false;
             }
 
             return true;
         } catch (error) {
-            debug("Error processing digital items:", error);
+            logger.error({ err: error }, "Error processing digital items");
             return false;
         }
     }
@@ -1473,7 +1693,7 @@ class StoreService {
         const flattenedTrackingUrls = trackingInfoToSend.flatMap(info => info.trackingURLs);
 
         await mailAPI.sendStoreOrderShippedUpdate(customerEmail, storeOrder.id, flattenedTrackingUrls).catch((err) => {
-            debug("Failed to send store order shipped update email:", err);
+            logger.error({ err }, "Failed to send store order shipped update email");
         });
 
         const notificationsSent = trackingInfoToSend.map((info) => ({
@@ -1624,6 +1844,8 @@ class StoreService {
             message: error,
         });
 
+        // Best-effort: reflect the failed status in the search index (fire-and-forget).
+        void upsertStoreOrderToSearchIndex(storeOrder.id);
         return result;
     }
 
@@ -1634,10 +1856,36 @@ class StoreService {
      */
     private async _createOrderFailureTicket(
         storeOrder: RawStoreOrder,
-        { trigger, message }: { trigger: "order_failed" | "lulu_rejected" | "lulu_error"; message?: string },
+        { trigger, message, luluJobID, repeatOfRecordedFailure }: {
+            trigger: "order_failed" | "lulu_rejected" | "lulu_error";
+            message?: string;
+            /** The job that failed. Defaults to whatever is recorded on the order. */
+            luluJobID?: string;
+            /**
+             * Set when the incoming failure is the same job + status already recorded on the order,
+             * i.e. a redelivered webhook rather than a new failure. Suppresses the repeat-failure
+             * comment so a redelivery cannot spam the ticket.
+             */
+            repeatOfRecordedFailure?: boolean;
+        },
     ): Promise<string | undefined> {
         try {
-            if (storeOrder.supportTicketUUID) return storeOrder.supportTicketUUID; // already ticketed
+            const failingJobID = luluJobID || storeOrder.luluJobID;
+
+            if (storeOrder.supportTicketUUID) {
+                // Already ticketed. One ticket per order still stands — a resubmitted job that Lulu
+                // rejects again must not open a second ticket — but the ticket would otherwise still
+                // describe only the first failure, so record the new one on it as a comment.
+                if (!repeatOfRecordedFailure) {
+                    await this._commentOnOrderFailureTicket(storeOrder, {
+                        ticketUUID: storeOrder.supportTicketUUID,
+                        trigger,
+                        message,
+                        luluJobID: failingJobID,
+                    });
+                }
+                return storeOrder.supportTicketUUID;
+            }
 
             const shortID = storeOrder.id.slice(-6);
             const titleByTrigger: Record<typeof trigger, string> = {
@@ -1651,7 +1899,7 @@ class StoreService {
                 ``,
                 `Order ID: ${storeOrder.id}`,
                 storeOrder.customerEmail ? `Customer: ${storeOrder.customerEmail}` : undefined,
-                storeOrder.luluJobID ? `Lulu Job ID: ${storeOrder.luluJobID}` : undefined,
+                failingJobID ? `Lulu Job ID: ${failingJobID}` : undefined,
                 message ? `Details: ${message}` : undefined,
             ].filter(Boolean);
 
@@ -1669,13 +1917,54 @@ class StoreService {
             });
 
             if (ticket?.uuid) {
-                await StoreOrder.updateOne({ id: storeOrder.id }, { supportTicketUUID: ticket.uuid });
+                await StoreOrder.updateOne({ id: { $eq: storeOrder.id } }, { supportTicketUUID: ticket.uuid });
                 return ticket.uuid;
             }
         } catch (err) {
-            debug("Failed to create support ticket for store order:", err);
+            logger.error({ err }, "Failed to create support ticket for store order");
         }
         return undefined;
+    }
+
+    /**
+     * Records a repeat failure as a comment on an order's already-open failure ticket.
+     *
+     * Tricky orders can be rejected several times before an admin gets the payload right, and each
+     * of those rejections is real triage information. Holding to one ticket per order keeps that
+     * history in one place instead of scattering it across duplicates — but only if the later
+     * failures are actually written down, which is what this does.
+     *
+     * Best-effort by construction: `createSystemMessage` swallows its own errors.
+     */
+    private async _commentOnOrderFailureTicket(
+        storeOrder: RawStoreOrder,
+        { ticketUUID, trigger, message, luluJobID }: {
+            ticketUUID: string;
+            trigger: "order_failed" | "lulu_rejected" | "lulu_error";
+            message?: string;
+            luluJobID?: string;
+        },
+    ): Promise<void> {
+        const headlineByTrigger: Record<typeof trigger, string> = {
+            order_failed: "This order failed again while this ticket was still open.",
+            lulu_rejected: "Lulu rejected this order's print job again while this ticket was still open.",
+            lulu_error: "Lulu reported another error on this order's print job while this ticket was still open.",
+        };
+
+        const lines = [
+            headlineByTrigger[trigger],
+            ``,
+            `Order ID: ${storeOrder.id}`,
+            luluJobID ? `Lulu Job ID: ${luluJobID}` : undefined,
+            message ? `Details: ${message}` : undefined,
+            ``,
+            `The order is still failed, so this ticket stays open rather than a new one being created for the repeat failure.`,
+        ].filter((l) => l !== undefined);
+
+        await this.ticketService.createSystemMessage({
+            ticketUUID,
+            message: lines.join("\n"),
+        });
     }
 
     /**
@@ -1688,7 +1977,7 @@ class StoreService {
         const productsMap: { [key: string]: StoreProduct } = {};
         for (const price of prices) {
             if (!price.product || typeof price.product === 'string') {
-                debug("Price without product found:", price);
+                logger.info({ price }, "Price without product found");
                 continue; // Skip prices without associated products
             }
 
@@ -1714,7 +2003,12 @@ class StoreService {
         }).filter(product => product.prices.length > 0); // Filter out products without prices
     }
 
-    private _buildBookPriceNickname({ hardcover, color }: { hardcover: boolean; color: boolean }): string {
+    /**
+     * Human-readable label for a print option, shown on the Stripe price and in
+     * the store. Public because `store-book-sync-service` writes the same labels
+     * when it reconciles a book's prices.
+     */
+    public buildBookPriceNickname({ hardcover, color }: { hardcover: boolean; color: boolean }): string {
         let nickname = '';
         if (hardcover) {
             nickname += 'Hardcover';

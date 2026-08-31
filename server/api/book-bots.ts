@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import { NextFunction, Request, Response } from "express";
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
@@ -13,7 +14,6 @@ import {
   RunnerCallbackValidator,
   SubmitEditorPreprocessValidator,
 } from "./validators/book-bots";
-import { debugError } from "../debug";
 
 function safeBearerEqual(provided: string, expected: string): boolean {
   const a = Buffer.from(provided);
@@ -35,7 +35,7 @@ export async function verifyRunnerCallback(
   try {
     expectedKey = await getRunnerCallbackKey();
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "verifyRunnerCallback failed");
     return res.status(500).end();
   }
   const header = req.get("authorization") || "";
@@ -52,7 +52,7 @@ export async function submitEditorPreprocessJob(
 ) {
   try {
     const service = new BookBotService();
-    const user = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+    const user = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } }).lean();
     if (!user) {
       return res.status(404).json({ err: true, errMsg: "User not found." });
     }
@@ -70,7 +70,7 @@ export async function submitEditorPreprocessJob(
       jobID,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "submitEditorPreprocessJob failed");
     return res.status(500).json({
       err: true,
       errMsg:
@@ -124,7 +124,7 @@ export async function handleRunnerCallback(
     );
     return res.status(204).end();
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "handleRunnerCallback failed");
     return res.status(500).end();
   }
 }

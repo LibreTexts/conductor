@@ -22,7 +22,7 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import { useLocation } from "react-router-dom-v5-compat";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import {
   useInfiniteQuery,
@@ -36,7 +36,10 @@ import CollectionCard from "../../../components/Collections/CollectionCard";
 import CollectionTable from "../../../components/Collections/CollectionTable";
 import useDebounce from "../../../hooks/useDebounce";
 import { useJumpToBottom } from "../../../hooks/useJumpToBottom";
-import { checkIsCollection } from "../../../components/util/TypeHelpers";
+import {
+  getToLink,
+  keyCollectionItems,
+} from "../../../components/util/CollectionHelpers";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 
@@ -56,6 +59,84 @@ const getDynamicPath = (path?: string): string => {
   const pathWithoutBase = path.replace(BASE_PATH, "");
   return pathWithoutBase;
 };
+
+type CollectionGridItem = Collection | CollectionResource;
+
+// These three are declared at module scope, not inside CommonsCollection.
+// A component defined in a parent's render body is a brand-new type on every
+// parent render, so React unmounts and remounts its entire subtree each time —
+// which would defeat the stable keys below.
+
+const Breadcrumbs: React.FC<{
+  dynamicPath: string;
+  collectionsLabel: string;
+}> = ({ dynamicPath, collectionsLabel }) => {
+  const elements = dynamicPath.split("/").filter((el) => el !== "");
+
+  const linkPathForIndex = (index: number) => {
+    return BASE_PATH + "/" + elements.slice(0, index + 1).join("/");
+  };
+
+  return (
+    <Breadcrumb aria-label="Collection navigation">
+      <Breadcrumb.Item href="/collections">{collectionsLabel}</Breadcrumb.Item>
+      {elements.map((el, i) => (
+        <Breadcrumb.Item
+          key={i}
+          href={i === elements.length - 1 ? undefined : linkPathForIndex(i)}
+          isCurrent={i === elements.length - 1}
+        >
+          {decodeURIComponent(el)}
+        </Breadcrumb.Item>
+      ))}
+    </Breadcrumb>
+  );
+};
+
+const VisualMode: React.FC<{
+  items: CollectionGridItem[];
+  loaded: boolean;
+  pathname: string;
+}> = ({ items, loaded, pathname }) => {
+  if (!loaded || items.length === 0) {
+    return (
+      <Text className="text-center" role="alert">
+        <em>No results found.</em>
+      </Text>
+    );
+  }
+
+  return (
+    // Davis Grid rendered as a real <ul>; role="list" restores the list
+    // semantics Chromium drops from a display:grid container (SC 1.3.1).
+    <Grid
+      as="ul"
+      role="list"
+      gap="lg"
+      className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 list-none m-0 p-0"
+    >
+      {/* Items arrive already flattened across pages, so the same record
+          appearing on two pages still gets distinct, render-stable keys.
+          These were previously crypto.randomUUID(), which remounted every
+          card on every render. */}
+      {keyCollectionItems(items).map(({ item, key }) => (
+        <li key={key} className="h-full">
+          <CollectionCard item={item} to={getToLink(item, pathname)} />
+        </li>
+      ))}
+    </Grid>
+  );
+};
+
+const ItemizedMode: React.FC<{
+  items: CollectionGridItem[];
+  loading: boolean;
+}> = ({ items, loading }) => (
+  <CollectionTable
+    data={items as Collection[] | CollectionResource[]}
+    loading={loading}
+  />
+);
 
 const CommonsCollection: React.FC<{}> = () => {
   const { handleGlobalError } = useGlobalError();
@@ -160,6 +241,14 @@ const CommonsCollection: React.FC<{}> = () => {
   const hasMore = hasNextPage || false;
   const isLoading = resourcesLoading;
 
+  // Flattened once here so both view modes render the same list and the key
+  // helper can disambiguate a record that appears on more than one page.
+  const items = useMemo(
+    () =>
+      resources?.pages.flatMap((p) => p.data as CollectionGridItem[]) ?? [],
+    [resources]
+  );
+
   async function getCollection() {
     try {
       const collRes = await api.getCollection(id);
@@ -260,90 +349,14 @@ const CommonsCollection: React.FC<{}> = () => {
     }
   }, [org, collection?.title, pathname]);
 
-  const getToLink = (item: Collection | CollectionResource) => {
-    if ("resourceData" in item) {
-      if (checkIsCollection(item.resourceData)) {
-        const toLink =
-          (pathname.endsWith("/") ? pathname : `${pathname}/`) +
-          encodeURIComponent(item.resourceData.title);
-        return toLink;
-      }
-    }
-    return undefined;
-  };
-
-  const Breadcrumbs = () => {
-    const elements = dynamicPath.split("/").filter((el) => el !== "");
-
-    const linkPathForIndex = (index: number) => {
-      return BASE_PATH + "/" + elements.slice(0, index + 1).join("/");
-    };
-
-    return (
-      <Breadcrumb aria-label="Collection navigation">
-        <Breadcrumb.Item href="/collections">
-          {org.collectionsDisplayLabel || "Collections"}
-        </Breadcrumb.Item>
-        {elements.map((el, i) => (
-          <Breadcrumb.Item
-            key={i}
-            href={i === elements.length - 1 ? undefined : linkPathForIndex(i)}
-            isCurrent={i === elements.length - 1}
-          >
-            {decodeURIComponent(el)}
-          </Breadcrumb.Item>
-        ))}
-      </Breadcrumb>
-    );
-  };
-
-  const VisualMode = () => {
-    if (resourcesLoaded && resources.pages.length > 0) {
-      return (
-        // Davis Grid rendered as a real <ul>; role="list" restores the list
-        // semantics Chromium drops from a display:grid container (SC 1.3.1).
-        <Grid
-          as="ul"
-          role="list"
-          gap="lg"
-          className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 list-none m-0 p-0"
-        >
-          {resources.pages.map((p) => {
-            return p.data.map((item: Collection | CollectionResource) => (
-              <li key={crypto.randomUUID()} className="h-full">
-                <CollectionCard item={item} to={getToLink(item)} />
-              </li>
-            ));
-          })}
-        </Grid>
-      );
-    } else {
-      return (
-        <Text className="text-center" role="alert">
-          <em>No results found.</em>
-        </Text>
-      );
-    }
-  };
-
-  const ItemizedMode = () => {
-    return (
-      <CollectionTable
-        data={
-          (resources?.pages.map((p) => p.data).flat() as
-            | Collection[]
-            | CollectionResource[]) || []
-        }
-        loading={resourcesLoading}
-      />
-    );
-  };
-
   return (
     <Stack direction="vertical" gap="lg" className="p-6">
       {id && (
         <div className="px-6 pt-4">
-          <Breadcrumbs />
+          <Breadcrumbs
+            dynamicPath={dynamicPath}
+            collectionsLabel={org.collectionsDisplayLabel || "Collections"}
+          />
         </div>
       )}
 
@@ -460,7 +473,15 @@ const CommonsCollection: React.FC<{}> = () => {
           </div>
         ) : (
           <>
-            {itemizedMode ? <ItemizedMode /> : <VisualMode />}
+            {itemizedMode ? (
+              <ItemizedMode items={items} loading={resourcesLoading} />
+            ) : (
+              <VisualMode
+                items={items}
+                loaded={resourcesLoaded}
+                pathname={pathname}
+              />
+            )}
 
             {hasMore && (
               <div className="w-full mt-6 flex justify-center">

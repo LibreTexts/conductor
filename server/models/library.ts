@@ -6,6 +6,8 @@ export interface LibraryInterface extends Document {
   link: string;
   thumbnail: string;
   glyphURL?: string;
+  guideTabTemplates?: Record<string, string>;
+  syncLocations: string[];
   centralIdentityAppId: number;
   hidden: boolean;
   syncSupported: boolean;
@@ -33,6 +35,15 @@ const LibrarySchema = new Schema(
     glyphURL: {
       type: String,
       required: false,
+    },
+    guideTabTemplates: {
+      type: Map,
+      of: String,
+      required: false,
+    },
+    syncLocations: {
+      type: [String],
+      required: true,
     },
     centralIdentityAppId: {
       type: Number,

@@ -14,7 +14,6 @@ import {
 } from "semantic-ui-react";
 import {
   AssetTagFramework,
-  Author,
   CentralIdentityLicense,
   GenericKeyTextValueObj,
   Project,
@@ -23,7 +22,8 @@ import {
 } from "../../types";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import useGlobalError from "../error/ErrorHooks";
-import { lazy, useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import lazyWithRetry from "../../utils/lazyWithRetry";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 import CtlTextArea from "../ControlledInputs/CtlTextArea";
@@ -51,8 +51,8 @@ import CtlDateInput from "../ControlledInputs/CtlDateInput";
 import languageCodes from "../../utils/languageCodes";
 import Tooltip from "../util/Tooltip";
 import AboutProjectClassificationsModal from "./AboutProjectClassificationsModal";
-const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
-const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
+const CreateWorkbenchModal = lazyWithRetry(() => import("./CreateWorkbenchModal"));
+const DeleteProjectModal = lazyWithRetry(() => import("./DeleteProjectModal"));
 
 interface ProjectPropertiesModalProps extends ModalProps {
   show: boolean;
@@ -123,12 +123,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
         additionalTerms: "",
       },
       defaultPrimaryAuthorID: "",
-      defaultSecondaryAuthorIDs: [],
-      defaultCorrespondingAuthorID: "",
-      principalInvestigatorIDs: [],
-      coPrincipalInvestigatorIDs: [],
-      principalInvestigators: [],
-      coPrincipalInvestigators: [],
       description: "",
       contentArea: "",
       isbns: [],
@@ -168,10 +162,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
     GenericKeyTextValueObj<string>[]
   >([]);
   const [loadedOrgs, setLoadedOrgs] = useState<boolean>(false);
-  const [piOptions, setPIOptions] = useState<Author[]>([]);
-  const [coPIOptions, setCoPIOptions] = useState<Author[]>([]);
-  const [loadingPIOptions, setLoadingPIOptions] = useState<boolean>(false);
-  const [loadingCoPIOptions, setLoadingCoPIOptions] = useState<boolean>(false);
 
   const [contentAreaOptions, setContentAreaOptions] = useState<
     GenericKeyTextValueObj<string>[]
@@ -191,7 +181,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
     getTags();
     getCIDDescriptors();
     getLicenseOptions();
-    getPIOptions(undefined, true);
     checkCampusDefault();
   }
 
@@ -426,69 +415,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
     200
   );
 
-  async function getPIOptions(searchQuery?: string, setOthers = false) {
-    try {
-      setLoadingPIOptions(true);
-      const res = await api.getAuthors({ query: searchQuery });
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      if (!res.data.items || !Array.isArray(res.data.items)) {
-        throw new Error("Failed to load PI options");
-      }
-
-      const existing = getValues("principalInvestigators") ?? [];
-      const opts = [...res.data.items, ...existing];
-
-      setPIOptions(opts);
-
-      // We only use this when loading the PI's for the first time
-      // so we don't need to run the same query multiple times
-      if (setOthers) {
-        const existingCoPIs = getValues("coPrincipalInvestigators") ?? [];
-        setCoPIOptions([...opts, ...existingCoPIs]);
-      }
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setLoadingPIOptions(false);
-    }
-  }
-
-  const getPIsDebounced = debounce(
-    (inputVal: string) => getPIOptions(inputVal),
-    200
-  );
-
-  async function getCoPIOptions(searchQuery?: string) {
-    try {
-      setLoadingCoPIOptions(true);
-      const res = await api.getAuthors({ query: searchQuery });
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      if (!res.data.items || !Array.isArray(res.data.items)) {
-        throw new Error("Failed to load co-PI options");
-      }
-
-      const opts = [
-        ...res.data.items,
-        ...(watch("coPrincipalInvestigators") ?? []),
-      ];
-
-      setCoPIOptions(opts);
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setLoadingCoPIOptions(false);
-    }
-  }
-
-  const getCoPIsDebounced = debounce(
-    (inputVal: string) => getCoPIOptions(inputVal),
-    200
-  );
-
   /**
    * Loads the default framework for the campus, if one exists.
    */
@@ -554,11 +480,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       const authorData = authorsFormRef.current?.getAuthors();
       if (authorData) {
         setValue("defaultPrimaryAuthor", authorData.primaryAuthor ?? undefined);
-        setValue("defaultSecondaryAuthors", authorData.authors);
-        setValue(
-          "defaultCorrespondingAuthor",
-          authorData.correspondingAuthor ?? undefined
-        );
       }
 
       if (!(await triggerValidation())) {
@@ -571,8 +492,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       );
       const res = await axios.put("/project", {
         ...values,
-        principalInvestigators: getValues("principalInvestigatorIDs"),
-        coPrincipalInvestigators: getValues("coPrincipalInvestigatorIDs"),
       });
       if (res.data.err) {
         let errorMessage = res.data.errMsg;
@@ -641,26 +560,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       setLoading(false);
     }
   }
-
-  const principalInvestigatorOpts = useMemo(() => {
-    return piOptions.map((pi) => {
-      return {
-        key: crypto.randomUUID(),
-        value: pi._id ?? "",
-        text: pi.name,
-      };
-    });
-  }, [piOptions]);
-
-  const coPrincipalInvestigatorOpts = useMemo(() => {
-    return coPIOptions.map((pi) => {
-      return {
-        key: crypto.randomUUID(),
-        value: pi?._id ?? "",
-        text: pi?.name ?? "",
-      };
-    });
-  }, [coPIOptions]);
 
   function handleOpenChangeURLModal() {
     openModal(
@@ -843,62 +742,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               rows={3}
               maxLength={DESCRIP_MAX_CHARS}
               showRemaining
-            />
-          </Form.Field>
-          <Form.Field className="flex flex-col !mt-4">
-            <label htmlFor="principalInvestigators">
-              Principal Investigators
-            </label>
-            <Controller
-              render={({ field }) => (
-                <Dropdown
-                  id="principalInvestigators"
-                  placeholder="Search people..."
-                  options={principalInvestigatorOpts}
-                  {...field}
-                  onChange={(e, { value }) => {
-                    field.onChange(value);
-                  }}
-                  onSearchChange={(e, { searchQuery }) => {
-                    getPIsDebounced(searchQuery);
-                  }}
-                  fluid
-                  selection
-                  multiple
-                  search
-                  loading={loadingPIOptions}
-                />
-              )}
-              name="principalInvestigatorIDs"
-              control={control}
-            />
-          </Form.Field>
-          <Form.Field className="flex flex-col !mt-4">
-            <label htmlFor="coPrincipalInvestigators">
-              Co-Principal Investigators
-            </label>
-            <Controller
-              render={({ field }) => (
-                <Dropdown
-                  id="coPrincipalInvestigators"
-                  placeholder="Search people..."
-                  options={coPrincipalInvestigatorOpts}
-                  {...field}
-                  onChange={(e, { value }) => {
-                    field.onChange(value);
-                  }}
-                  onSearchChange={(e, { searchQuery }) => {
-                    getCoPIsDebounced(searchQuery);
-                  }}
-                  fluid
-                  selection
-                  multiple
-                  search
-                  loading={loadingCoPIOptions}
-                />
-              )}
-              name="coPrincipalInvestigatorIDs"
-              control={control}
             />
           </Form.Field>
           <Form.Field className="flex flex-col !mt-4">
@@ -1463,82 +1306,8 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             currentPrimaryAuthor={
               getValues("defaultPrimaryAuthor") ?? undefined
             }
-            currentAuthors={getValues("defaultSecondaryAuthors") ?? []}
-            currentCorrespondingAuthor={
-              getValues("defaultCorrespondingAuthor") ?? undefined
-            }
             ref={authorsFormRef}
           />
-          {/* <div className="mt-4">
-            <label className="form-field-label">Primary Author</label>
-            <Form.Field className="flex flex-col">
-              <Controller
-                name="defaultPrimaryAuthorID"
-                control={control}
-                render={({ field }) => (
-                  <Dropdown
-                    id="primaryAuthorSelect"
-                    options={authorOptions.map((a) => ({
-                      key: crypto.randomUUID(),
-                      value: a._id ?? "",
-                      text: `${a.firstName} ${a.lastName}`,
-                    }))}
-                    {...field}
-                    onChange={(e, data) => {
-                      field.onChange(data.value?.toString() ?? "");
-
-                      const _secondaryAuthors = getValues('defaultSecondaryAuthorIDs') ?? [];
-                      if(_secondaryAuthors.includes(data.value?.toString() ?? "")) {
-                        const _filtered = _secondaryAuthors.filter((a) => a !== (data.value?.toString() ?? ""));
-                        setValue('defaultSecondaryAuthorIDs', _filtered);
-                      }
-                    }}
-                    fluid
-                    selection
-                    search
-                    placeholder="Seach authors..."
-                    loading={loadingAuthors}
-                  />
-                )}
-              />
-            </Form.Field>
-          </div>
-          <div className="mt-4">
-            <label className="form-field-label">Secondary Author(s)</label>
-            <Form.Field className="flex flex-col">
-              <Controller
-                name="defaultSecondaryAuthorIDs"
-                control={control}
-                render={({ field }) => (
-                  <Dropdown
-                    id="secondaryAuthorSelect"
-                    placeholder="Search authors..."
-                    options={authorOptions
-                      .filter(
-                        (a) => a._id !== watch("defaultPrimaryAuthorID")
-                      )
-                      .map((a) => ({
-                        key: crypto.randomUUID(),
-                        value: a._id ?? "",
-                        text: `${a.firstName} ${a.lastName}`,
-                      }))}
-                    {...field}
-                    onChange={(e, { value }) => {
-                      field.onChange(value as string[]);
-                    }}
-                    multiple
-                    fluid
-                    selection
-                    search
-                    onSearchChange={(e, { searchQuery }) => {
-                      getAuthorsDebounced(searchQuery);
-                    }}
-                    loading={loadingAuthors}
-                  />
-                )}
-              />
-            </Form.Field>
-          </div> */}
           <Divider />
           <Header as="h3">Discussion Settings</Header>
           <div className="w-1/4">

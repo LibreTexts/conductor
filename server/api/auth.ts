@@ -1,4 +1,6 @@
 "use strict";
+import logger, { childLogger } from "../logger.js";
+import { setRequestUser } from "../request-context.js";
 import { CookieOptions, NextFunction, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 
@@ -9,7 +11,6 @@ import { createRemoteJWKSet, jwtVerify, SignJWT, decodeJwt } from "jose";
 import axios from "axios";
 import User from "../models/user.js";
 import conductorErrors from "../conductor-errors.js";
-import { debugError } from "../debug.js";
 import { assembleUrl, isEmptyString, isFullURL, maybeDecodeURIComponent } from "../util/helpers.js";
 import FormData from "form-data";
 import Session from "../models/session.js";
@@ -17,6 +18,7 @@ import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
 import { z } from "zod";
 import { isUUID } from "./validators/misc.js";
 import { upsertUserToSearchIndex } from "./services/user-search-service.js";
+const authLog = childLogger("auth");
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = new TextEncoder().encode(process.env.SECRETKEY);
@@ -276,7 +278,7 @@ async function completeLogin(req: Request, res: Response) {
       try {
         return JSON.parse(stateStr);
       } catch (e) {
-        debugError(`Failed to parse state: ${stateStr}`);
+        logger.error(`Failed to parse state: ${stateStr}`);
         return null;
       }
     };
@@ -355,7 +357,7 @@ async function completeLogin(req: Request, res: Response) {
 
     // Check if user exists locally and sync
     // If validUUID, search by centralID, else we may have received an external subject id, so search by email
-    const existUser = await User.findOne(validUUID ? { centralID: authSub } : { email: centralAttr.email });
+    const existUser = await User.findOne(validUUID ? { centralID: { $eq: authSub } } : { email: { $eq: centralAttr.email } });
     if (existUser) {
       authUser = existUser;
       // Sync data that may have been changed in a delegated IdP
@@ -385,7 +387,7 @@ async function completeLogin(req: Request, res: Response) {
 
     // User doesn't exist locally, create them now
     if (!authUser) {
-      console.log(`Creating new user with centralID ${authSub}, email ${centralAttr.email}`);
+      logger.info(`Creating new user with centralID ${authSub}, email ${centralAttr.email}`);
       const newUser = new User({
         centralID: authSub,
         uuid: uuidv4(),
@@ -462,15 +464,13 @@ async function completeLogin(req: Request, res: Response) {
 
     // Validate the final redirect target against the allowlist before issuing the redirect.
     if (!isAllowedRedirectTarget(finalRedirectURL)) {
-      debugError(
-        `[auth] Open-redirect blocked: attempted target="${finalRedirectURL.substring(0, 200)}" user="${authUser?.uuid ?? "unknown"}"`
-      );
+      authLog.error(`Open-redirect blocked: attempted target="${finalRedirectURL.substring(0, 200)}" user="${authUser?.uuid ?? "unknown"}"`);
       return res.redirect(safeDefault);
     }
 
     return res.redirect(finalRedirectURL);
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "completeLogin failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -520,7 +520,7 @@ async function logout(_req: Request, res: Response) {
           );
         }
       } catch (e) {
-        debugError(e); // Just fail silently if we can't invalidate the DB sessions - we still want to log the user out
+        logger.error({ err: e }, "logout failed"); // Just fail silently if we can't invalidate the DB sessions - we still want to log the user out
       }
     }
 
@@ -558,7 +558,7 @@ async function logout(_req: Request, res: Response) {
       });
     }
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "logout failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -618,7 +618,7 @@ async function handleSingleLogout(req: Request, res: Response) {
       msg: "Logout request received. Session(s) invalidated.",
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "handleSingleLogout failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -658,7 +658,7 @@ async function fallbackAuthLogin(req: Request, res: Response) {
     await createAndAttachLocalSession(res, foundUser.uuid);
     return res.redirect("/home");
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "fallbackAuthLogin failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -823,6 +823,9 @@ async function verifyRequest(req: Request, res: Response, next: NextFunction) {
     // @ts-ignore
     req.decoded = payload; // TODO: Remove and update other handlers
 
+    // Every log line for the rest of this request now identifies the actor.
+    setRequestUser(payload.uuid as string | undefined);
+
     const sessionId = payload.sessionId;
     if (!sessionId) {
       throw new Error("ERR_BAD_SESSION");
@@ -846,7 +849,7 @@ async function verifyRequest(req: Request, res: Response, next: NextFunction) {
     } else if (e.message === "ERR_BAD_SESSION") {
       sessionInvalid = true;
     } else {
-      debugError(e);
+      logger.error({ err: e }, "verifyRequest failed");
     }
     return res.status(401).send({
       err: true,
@@ -905,6 +908,7 @@ async function optionalVerifyRequest(
     req.user = { decoded: payload };
     // @ts-ignore
     req.decoded = payload;
+    setRequestUser(payload.uuid as string | undefined);
     return next();
   } catch (e) {
     return next();
@@ -928,7 +932,7 @@ const getUserAttributes = (
 
   if (req.user.decoded !== undefined) {
     return User.findOne({
-      uuid: req.user.decoded.uuid,
+      uuid: { $eq: req.user.decoded.uuid },
     })
       .then((user) => {
         if (user) {
@@ -947,7 +951,7 @@ const getUserAttributes = (
             errMsg: conductorErrors.err7,
           });
         } else {
-          debugError(err);
+          logger.error({ err }, "getUserAttributes failed");
           return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -1007,14 +1011,14 @@ const checkHasRole = (
   // If no valid roles are provided, fail-closed and return false
   if (matchRoles.length === 0) {
     if (!silent) {
-      debugError(conductorErrors.err92);
+      logger.error(conductorErrors.err92);
     }
     return false;
   }
 
   if (!user) {
     if (!silent) {
-      debugError(conductorErrors.err7);
+      logger.error(conductorErrors.err7);
     }
     return false;
   }
@@ -1046,7 +1050,7 @@ const checkHasRole = (
     return false;
   }
   if (!silent) {
-    debugError(conductorErrors.err9);
+    logger.error(conductorErrors.err9);
   }
   return false;
 };
@@ -1073,7 +1077,7 @@ const checkHasRoleByID = async (
 ): Promise<boolean> => {
   if (!userId || isEmptyString(userId)) {
     if (!silent) {
-      debugError(conductorErrors.err7);
+      logger.error(conductorErrors.err7);
     }
     return false;
   }
@@ -1081,7 +1085,7 @@ const checkHasRoleByID = async (
   const user = await User.findOne({ uuid: { $eq: userId } });
   if (!user) {
     if (!silent) {
-      debugError(conductorErrors.err7);
+      logger.error(conductorErrors.err7);
     }
     return false;
   }
@@ -1099,7 +1103,7 @@ const checkHasRoleByID = async (
 const checkHasRoleMiddleware = (org: string, role: string | string[]) => {
   return (req: ZodReqWithUser<Request>, res: Response, next: NextFunction) => {
     if (!org || isEmptyString(org)) {
-      debugError(conductorErrors.err10);
+      logger.error(conductorErrors.err10);
       return res.status(400).send({
         err: true,
         errMsg: conductorErrors.err10,
@@ -1113,7 +1117,7 @@ const checkHasRoleMiddleware = (org: string, role: string | string[]) => {
       .map((r) => r.toLowerCase());
     // If no valid roles are provided, fail-closed and return 400
     if (matchRoles.length === 0) {
-      debugError(conductorErrors.err92);
+      logger.error(conductorErrors.err92);
       return res.status(400).send({
         err: true,
         errMsg: conductorErrors.err92,
@@ -1149,7 +1153,7 @@ const checkHasRoleMiddleware = (org: string, role: string | string[]) => {
         errMsg: conductorErrors.err8,
       });
     }
-    debugError(conductorErrors.err9);
+    logger.error(conductorErrors.err9);
     return res.status(400).send({
       err: true,
       errMsg: conductorErrors.err9,
@@ -1181,7 +1185,7 @@ const assertCampusAdminForOrgParam = (
   }
 
   if (!req.user?.roles || !Array.isArray(req.user.roles)) {
-    debugError(conductorErrors.err9);
+    logger.error(conductorErrors.err9);
     return res.status(403).send({
       err: true,
       errMsg: conductorErrors.err8,
@@ -1235,7 +1239,7 @@ async function cloudflareSiteVerify(req: Request, res: Response) {
       success,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "cloudflareSiteVerify failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,

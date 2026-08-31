@@ -1,5 +1,5 @@
+import logger, { childLogger } from "../logger.js";
 import conductorErrors from "../conductor-errors.js";
-import { debug, debugError } from "../debug.js";
 import { Request, Response } from "express";
 import { query, param, body, oneOf } from "express-validator";
 import {
@@ -53,6 +53,7 @@ import CentralIdentityService from "./services/central-identity-service.js";
 import { createStandardWorkBook, generateWorkSheetColumnDefinitions } from "../util/exports.js";
 import { GetUserNotesSchema } from "./validators/user.js";
 import { upsertUserToSearchIndex, removeUserFromSearchIndex } from "./services/user-search-service.js";
+const centralIdentityLog = childLogger("central-identity");
 
 const centralIdentityService = new CentralIdentityService();
 
@@ -122,7 +123,7 @@ async function getUsers(
       total: usersRes.data.meta.total ?? 0,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getUsers failed");
     return conductor500Err(res);
   }
 }
@@ -145,7 +146,7 @@ async function getUser(
       user: userRes.data.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getUser failed");
     return conductor500Err(res);
   }
 }
@@ -169,7 +170,7 @@ async function updateUser(
       user: userRes.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updateUser failed");
     return conductor500Err(res);
   }
 }
@@ -196,7 +197,7 @@ async function updateUserAdminRole(
       user: userRes.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updateUserAdminRole failed");
     return conductor500Err(res);
   }
 }
@@ -224,7 +225,7 @@ async function updateUserAcademyOnlineAccess(
       user: userRes.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updateUserAcademyOnlineAccess failed");
     return conductor500Err(res);
   }
 }
@@ -251,7 +252,7 @@ async function changeUserEmail(
     if ('status' in error && error.status === 400) {
       return conductor400Err(res);
     }
-    debugError(error);
+    logger.error({ err: error }, "changeUserEmail failed");
     return conductor500Err(res);
   }
 }
@@ -270,7 +271,7 @@ async function getUserApplications(
       applications: appsRes,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getUserApplications failed");
     return conductor500Err(res);
   }
 }
@@ -286,7 +287,7 @@ async function getUserApplicationsInternal(
 
     return appsRes.data.data.applications;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getUserApplicationsInternal failed");
     return null;
   }
 }
@@ -313,7 +314,7 @@ async function checkUserApplicationAccess(
       hasAccess,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "checkUserApplicationAccess failed");
     return conductor500Err(res);
   }
 }
@@ -346,7 +347,7 @@ async function checkUsersApplicationAccess(
               resolve({ id: u.uuid, hasAccess: hasAccess ?? false });
             })
             .catch((err) => {
-              debugError(err);
+              logger.error({ err }, "accessPromises failed");
               reject(err);
             });
         }
@@ -360,7 +361,7 @@ async function checkUsersApplicationAccess(
       accessResults,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "checkUsersApplicationAccess failed");
     return conductor500Err(res);
   }
 }
@@ -379,7 +380,7 @@ async function checkUserApplicationAccessInternal(
     );
     return hasAccess;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "checkUserApplicationAccessInternal failed");
     return null;
   }
 }
@@ -404,7 +405,7 @@ async function getUserAppLicenses(
       licenses: licensesRes.data.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getUserAppLicenses failed");
     return conductor500Err(res);
   }
 }
@@ -429,7 +430,7 @@ async function grantAppLicense(
       application_license_id: grantResponse.data.data.application_license_id
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "grantAppLicense failed");
     return conductor500Err(res);
   }
 }
@@ -454,7 +455,7 @@ async function revokeAppLicense(
       application_license_id: revokeResponse.data.data.application_license_id
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "revokeAppLicense failed");
     return conductor500Err(res);
   }
 }
@@ -475,7 +476,7 @@ async function getAppLicenses(
       licenses: available.data.data
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getAppLicenses failed");
     return [];
   }
 }
@@ -523,7 +524,7 @@ async function bulkGenerateAccessCodes(
 
     return res.send(csv);
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "bulkGenerateAccessCodes failed");
     return conductor500Err(res);
   }
 }
@@ -552,7 +553,7 @@ async function getUserOrgs(
       orgs: orgsRes,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getUserOrgs failed");
     return conductor500Err(res);
   }
 }
@@ -575,7 +576,7 @@ async function _getMultipleUsersOrgs(uuids: string[]): Promise<Record<string, { 
 
     return userRes.data.data;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_getMultipleUsersOrgs failed");
     return {};
   }
 }
@@ -619,7 +620,7 @@ async function addUserApplications(
       applications: addedApps,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "addUserApplications failed");
     return conductor500Err(res);
   }
 }
@@ -646,7 +647,7 @@ async function deleteUserApplication(
       err: false,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteUserApplication failed");
     return conductor500Err(res);
   }
 }
@@ -679,7 +680,7 @@ async function addUserOrgs(
       orgs: addedOrgs,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "addUserOrgs failed");
     return conductor500Err(res);
   }
 }
@@ -706,7 +707,7 @@ async function deleteUserOrg(
       err: false,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteUserOrg failed");
     return conductor500Err(res);
   }
 }
@@ -726,7 +727,7 @@ async function _generateAccessCode({ priceId, email }: { priceId: string; email:
 
     return true;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_generateAccessCode failed");
     return false;
   }
 }
@@ -746,7 +747,7 @@ async function _autoDeliverDigitalProduct({ priceId, user_id }: { priceId: strin
 
     return true;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_autoDeliverDigitalProduct failed");
     return false;
   }
 }
@@ -778,7 +779,7 @@ async function getApplicationsPriveledged(
       totalCount: appsRes.totalCount,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getApplicationsPriveledged failed");
     return conductor500Err(res);
   }
 }
@@ -803,7 +804,7 @@ async function _getApplicationsPriveledgedInternal(
       totalCount: appsRes.data.meta.total,
     };
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_getApplicationsPriveledgedInternal failed");
     return null;
   }
 }
@@ -851,7 +852,7 @@ async function getApplicationsPublic(
       totalCount: totalCount,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getApplicationsPublic failed");
     return conductor500Err(res);
   }
 }
@@ -867,7 +868,7 @@ async function getApplicationById(
     );
     return found ?? null;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getApplicationById failed");
     return null;
   }
 }
@@ -883,7 +884,7 @@ async function getLibraryFromSubdomain(
     );
     return found ?? null;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getLibraryFromSubdomain failed");
     return null;
   }
 }
@@ -921,7 +922,7 @@ async function getOrgs(
       totalCount: orgsRes.data.meta.total,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getOrgs failed");
     return conductor500Err(res);
   }
 }
@@ -944,7 +945,7 @@ async function getOrg(
       org: orgRes.data.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getOrg failed");
     return conductor500Err(res);
   }
 }
@@ -968,7 +969,7 @@ async function updateOrg(
       org: updateRes.data.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updateOrg failed");
     return conductor500Err(res);
   }
 }
@@ -998,7 +999,7 @@ async function createOrg(
       org: orgRes.data.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "createOrg failed");
     return conductor500Err(res);
   }
 }
@@ -1021,7 +1022,7 @@ async function deleteOrg(
       err: false,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteOrg failed");
     return conductor500Err(res);
   }
 }
@@ -1045,7 +1046,7 @@ async function getOrgAdmins(
       admins: adminsRes.data.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getOrgAdmins failed");
     return conductor500Err(res);
   }
 }
@@ -1099,7 +1100,7 @@ async function getADAPTOrgs(
       totalCount: orgs.length,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getADAPTOrgs failed");
     return conductor500Err(res);
   }
 }
@@ -1137,7 +1138,7 @@ async function getSystems(
       totalCount: orgsRes.data.meta.total,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getSystems failed");
     return conductor500Err(res);
   }
 }
@@ -1161,7 +1162,7 @@ async function getSystem(
       system: systemRes.data.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getSystem failed");
     return conductor500Err(res);
   }
 }
@@ -1185,7 +1186,7 @@ async function updateSystem(
       system: updateRes.data.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updateSystem failed");
     return conductor500Err(res);
   }
 }
@@ -1215,7 +1216,7 @@ async function createSystem(
       system: systemRes.data.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "createSystem failed");
     return conductor500Err(res);
   }
 }
@@ -1238,7 +1239,7 @@ async function deleteSystem(
       err: false,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteSystem failed");
     return conductor500Err(res);
   }
 }
@@ -1306,7 +1307,7 @@ async function getServices(
       totalCount: orgsRes.data.meta.total ?? 0,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getServices failed");
     return conductor500Err(res);
   }
 }
@@ -1346,7 +1347,7 @@ async function updateService(
       message: updateRes.data.message
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updateService failed");
     return conductor500Err(res);
   }
 }
@@ -1381,7 +1382,7 @@ async function getVerificationRequests(
       totalCount: requestsRes.data.meta.total,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getVerificationRequests failed");
     return conductor500Err(res);
   }
 }
@@ -1414,7 +1415,7 @@ async function getVerificationRequest(
       request: requestRes.data.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getVerificationRequest failed");
     return conductor500Err(res);
   }
 }
@@ -1437,7 +1438,7 @@ async function getLicenses(
       licenses: licensesRes?.data?.data ?? [],
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getLicenses failed");
     return res.send({
       err: false,
       licenses: [],
@@ -1473,7 +1474,7 @@ async function updateVerificationRequest(
       err: false,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updateVerificationRequest failed");
     return conductor500Err(res);
   }
 }
@@ -1508,7 +1509,7 @@ async function getUserNotes(
       has_more: noteRes.data.data.has_more,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getUserNotes failed");
     return conductor500Err(res);
   }
 }
@@ -1523,7 +1524,7 @@ async function createUserNote(
   try {
     const userId = req.params.userId;
     const callingUserId = req.user.decoded.uuid;
-    const callingUser = await User.findOne({ uuid: callingUserId });
+    const callingUser = await User.findOne({ uuid: { $eq: callingUserId } });
     if (!userId || !callingUser || !callingUser.centralID) {
       return conductor400Err(res);
     }
@@ -1543,7 +1544,7 @@ async function createUserNote(
       note: noteRes.data.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "createUserNote failed");
     return conductor500Err(res);
   }
 }
@@ -1558,7 +1559,7 @@ async function updateUserNote(
   try {
     const { userId, noteId } = req.params;
     const callingUserId = req.user.decoded.uuid;
-    const callingUser = await User.findOne({ uuid: callingUserId });
+    const callingUser = await User.findOne({ uuid: { $eq: callingUserId } });
     if (!userId || !noteId || !callingUser || !callingUser.centralID) {
       return conductor400Err(res);
     }
@@ -1579,7 +1580,7 @@ async function updateUserNote(
       note: noteRes.data.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updateUserNote failed");
     return conductor500Err(res);
   }
 }
@@ -1611,7 +1612,7 @@ async function deleteUserNote(
       note: noteRes.data.data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteUserNote failed");
     return conductor500Err(res);
   }
 }
@@ -1651,14 +1652,14 @@ async function processNewUserWebhookEvent(
     // Index the newly provisioned user. Fire-and-forget: never block the webhook response.
     void upsertUserToSearchIndex(newUser.uuid);
 
-    console.log("New user created from webhook: ", newUser.centralID);
+    logger.info({ centralID: newUser.centralID }, "New user created from webhook");
 
     return res.send({
       err: false,
       msg: "User successfully created.",
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "processNewUserWebhookEvent failed");
     return conductor500Err(res);
   }
 }
@@ -1722,7 +1723,7 @@ async function processLibraryAccessWebhookEvent(
       },
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "processLibraryAccessWebhookEvent failed");
     return conductor500Err(res);
   }
 }
@@ -1754,7 +1755,7 @@ async function processVerificationStatusUpdateWebook(
       meta: {},
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "processVerificationStatusUpdateWebook failed");
     return conductor500Err(res);
   }
 }
@@ -1776,7 +1777,7 @@ async function disableUser(
       meta: {},
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "disableUser failed");
     return conductor500Err(res);
   }
 }
@@ -1798,7 +1799,7 @@ async function reEnableUser(
       meta: {},
     })
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "reEnableUser failed");
     return conductor500Err(res);
   }
 }
@@ -1812,7 +1813,7 @@ async function deleteUser(
       return conductor400Err(res);
     }
 
-    console.log("DELETING USER", req.params.id);
+    logger.info({ userID: req.params.id }, "Deleting user");
     const deleteRes = await centralIdentityService.deleteUser(req.params.id);
 
     if (deleteRes.data.err || deleteRes.data.errMsg) {
@@ -1828,7 +1829,7 @@ async function deleteUser(
           return removeUserFromSearchIndex(localUser.uuid);
         }
       })
-      .catch((err) => debugError(`[central-identity] deleteUser search-index cleanup failed: ${err}`));
+      .catch((err) => centralIdentityLog.error({ err }, "deleteUser search-index cleanup failed"));
 
     return res.send({
       err: false,
@@ -1836,7 +1837,7 @@ async function deleteUser(
       meta: {},
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteUser failed");
     return conductor500Err(res);
   }
 }

@@ -24,7 +24,6 @@ import SearchForm from "./SearchForm.js";
 import { useCart } from "../../../context/CartContext.js";
 import SwitchApp from "../SwitchApp.jsx";
 import { COMMONS_PATHS } from "../../../Platform.js";
-import LibreFestBanner from "../LibreFestBanner.js";
 
 // ─── Conductor nav items ──────────────────────────────────────────────────────
 const menuItemBase =
@@ -84,6 +83,16 @@ const ConductorNavItems: React.FC<ConductorNavItemsProps> = ({
         My Tasks
       </Link>
     </li>
+    <li>
+      <Link
+        to="/alerts"
+        className={`${menuItemBase} ${activeItem === "alerts" ? menuItemActive : menuItemInactive}`}
+        aria-current={activeItem === "alerts" ? "page" : undefined}
+        onClick={() => setActiveItem("alerts")}
+      >
+        My Alerts
+      </Link>
+    </li>
   </>
 );
 
@@ -127,7 +136,7 @@ const Navbar: React.FC<{}> = () => {
     if (p.includes("/home")) setActiveItem("home");
     else if (p.includes("/projects")) setActiveItem("projects");
     else if (p.includes("/tasks")) setActiveItem("tasks");
-    else if (p.includes("analytics")) setActiveItem("analytics");
+    else if (p.includes("/alerts")) setActiveItem("alerts");
     else setActiveItem("");
   }, [location, context]);
 
@@ -388,7 +397,6 @@ const Navbar: React.FC<{}> = () => {
       }}
     >
       <EnvironmentBanner />
-      <LibreFestBanner />
       <nav
         aria-label="Main navigation"
         className="w-full flex-1 flex flex-col justify-center"

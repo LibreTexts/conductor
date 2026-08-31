@@ -1,10 +1,7 @@
-import React, { useEffect, useMemo, useRef } from "react";
-import {
-  Icon,
-  List,
-  Progress,
-} from "semantic-ui-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Icon, List, Progress } from "semantic-ui-react";
 import { RemixerSubPage } from "./model";
+import { appendSiblingTitleSuffix } from "./services";
 import { Accordion, Button, Modal, Text } from "@libretexts/davis-react";
 interface PublishPanelProps {
   open: boolean;
@@ -18,16 +15,13 @@ interface PublishPanelProps {
 }
 
 interface SummarySection {
-  key:
-    | "added"
-    | "moved"
-    | "renamed"
-    | "deleted"
-    | "unchanged";
+  key: "added" | "moved" | "renamed" | "deleted" | "unchanged";
   label: string;
   color: string;
   items: RemixerSubPage[];
 }
+
+const NEAR_BOTTOM_PX = 24;
 
 const PublishPanel: React.FC<PublishPanelProps> = ({
   open,
@@ -40,10 +34,27 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
   publishMessages = [],
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
 
   useEffect(() => {
+    if (publishStatus === "idle" || publishMessages.length === 0) {
+      setAutoScroll(true);
+    }
+  }, [publishStatus, publishMessages.length]);
+
+  useEffect(() => {
+    if (!autoScroll) return;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [publishMessages]);
+  }, [publishMessages, autoScroll]);
+
+  const handleMessagesScroll = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight;
+    setAutoScroll(distanceFromBottom <= NEAR_BOTTOM_PX);
+  }, []);
 
   const publish = () => {
     handlePublish();
@@ -54,7 +65,11 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
   const progressInfo = useMemo(() => {
     if (publishStatus === "idle") return null;
     const total = currentBook.length;
-    const processed = publishMessages.filter((m) => m.endsWith("- processed") || m.endsWith("- skipped")).length;
+    
+    const processed = publishMessages.filter(
+      (m) => m.endsWith("- skipped") || m.includes("- processed, status:")
+    ).length;
+    
     let percent: number;
     if (publishStatus === "success") {
       percent = 100;
@@ -63,6 +78,7 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
     } else {
       percent = total > 0 ? Math.round((processed / total) * 100) : 0;
     }
+    
     return { percent, total, processed };
   }, [publishStatus, publishMessages, currentBook]);
 
@@ -139,12 +155,20 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
               border: "1px solid #dfe3e8",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 8,
+              }}
+            >
               <span style={{ fontWeight: 700 }}>
                 Status:{" "}
                 {publishStatus === "error"
                   ? "Failed"
-                  : publishStatus.charAt(0).toUpperCase() + publishStatus.slice(1)}
+                  : publishStatus.charAt(0).toUpperCase() +
+                    publishStatus.slice(1)}
               </span>
               {progressInfo && (
                 <span style={{ fontSize: 12, color: "#555" }}>
@@ -171,6 +195,8 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
             )}
             {publishMessages.length > 0 ? (
               <div
+                ref={messagesContainerRef}
+                onScroll={handleMessagesScroll}
                 style={{
                   maxHeight: 180,
                   overflowY: "auto",
@@ -207,7 +233,10 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
                   <ul className="list-disc space-y-1 pl-5">
                     {section.items.map((item) => (
                       <li key={item["@id"]} className="text-sm text-gray-800">
-                        {item["@title"] || item.title}
+                        {appendSiblingTitleSuffix(
+                          item["@title"] || item.title || "",
+                          item,
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -218,9 +247,21 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
         </Accordion>
       </Modal.Body>
       <Modal.Footer>
-        <Button onClick={handleClose} disabled={!canClose} variant="outline" className="bg-neutral-100 text-neutral-700 hover:bg-neutral-200">Close</Button>
-        <Button variant="primary" onClick={publish} loading={publishInProgress} disabled={publishInProgress}>
-          <Icon name="save" /> Save 
+        <Button
+          onClick={handleClose}
+          disabled={!canClose}
+          variant="outline"
+          className="bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+        >
+          Close
+        </Button>
+        <Button
+          variant="primary"
+          onClick={publish}
+          loading={publishInProgress}
+          disabled={publishInProgress}
+        >
+          <Icon name="save" /> Save
         </Button>
       </Modal.Footer>
     </Modal>

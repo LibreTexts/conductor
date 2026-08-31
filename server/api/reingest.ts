@@ -6,7 +6,7 @@ import BookService from "./services/book-service";
 import { getLibraryAndPageFromBookID } from "../util/bookutils.js";
 import conductorErrors from "../conductor-errors";
 import { conductor404Err, conductor500Err } from "../util/errorutils";
-import { debugError } from "../debug";
+import logger from "../logger.js";
 import { reingestPageSchema } from "./validators/reingest";
 
 const CHATBOT_URL = process.env.CHATBOT_REINGEST_URL;
@@ -96,7 +96,7 @@ async function reingestPage(
       upstream.data.destroy?.();
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "reingestPage failed");
     if (!res.headersSent) return conductor500Err(res);
     res.end();
   }

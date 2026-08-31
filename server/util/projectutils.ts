@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import axios from "axios";
 import {
   stringContainsOneOfSubstring,
@@ -6,7 +7,6 @@ import {
 } from "./helpers.js";
 import { getLibraryNameKeys } from "../api/libraries.js";
 import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
-import { debugError } from "../debug.js";
 import Project, { ProjectInterface } from "../models/project.js";
 import User from "../models/user.js";
 import base64 from "base-64";
@@ -254,7 +254,7 @@ export async function getLibreTextInformation(url: string) {
     }
     return textInfo;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getLibreTextInformation failed");
     return textInfo;
   }
 }
@@ -283,7 +283,7 @@ export async function filterFilesByAccess(
   }
 
   if (userID) {
-    const user = await User.findOne({ uuid: userID });
+    const user = await User.findOne({ uuid: { $eq: userID } });
     if (user) {
       authorizedLevels.push("users");
 
@@ -358,7 +358,7 @@ export async function getProjectFiles(
 
     return sorted;
   } catch (err){
-    debugError(err);
+    logger.error({ err }, "getProjectFiles failed");
     return null;
   }
 }
@@ -417,7 +417,7 @@ export async function retrieveAllProjectFiles(
 
     return sorted;
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "retrieveAllProjectFiles failed");
     return null;
   }
 }
@@ -552,7 +552,7 @@ export async function getFolderContents(
 
     return [accessFiltered, finalPath];
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getFolderContents failed");
     return [null, null];
   }
 }
@@ -569,7 +569,7 @@ export async function getProjectFileS3Metadata(projectID: string, fileID: string
     const res = await s3.send(command);
     return res;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getProjectFileS3Metadata failed");
     return null;
   }
 }
@@ -763,14 +763,12 @@ export async function downloadProjectFiles(
 
     if (!updateRes.isOk) {
       // Silent fail
-      debugError(
-        `Error occurred updating ${projectID} file(s) download count.`
-      );
+      logger.error(`Error occurred updating ${projectID} file(s) download count.`);
     }
 
     return signedURLs;
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "downloadProjectFiles failed");
     return null;
   }
 }
@@ -865,7 +863,7 @@ export async function updateProjectFiles(
     );
     return true;
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateProjectFiles failed");
     return false;
   }
 }
@@ -911,7 +909,7 @@ export async function checkIfBookLinkedToProject(
       return true;
     }
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "checkIfBookLinkedToProject failed");
     return true;
   }
 }
@@ -925,13 +923,13 @@ export async function generateZIPFile(
     for (let i = 0; i < items.length; i++) {
       const buffer = Buffer.from(items[i].data);
       zip.addFile(items[i].name, buffer);
-      console.log('[SYSTEM] Added file to ZIP: ' + items[i].name)
+      logger.info('Added file to ZIP: ' + items[i].name)
     }
 
     const buffer = await zip.toBufferPromise();
     return buffer
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "generateZIPFile failed");
     return null;
   }
 }
@@ -987,7 +985,7 @@ export async function parseAndZipS3Objects(
     const zipBuff = await generateZIPFile(noUndefined);
     return zipBuff ?? null;
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "parseAndZipS3Objects failed");
     return null;
   }
 }
@@ -1042,7 +1040,7 @@ export async function createZIPAndNotify(
       throw new Error('Upload ID is undefined');
     }
 
-    console.log('[SYSTEM] Created multipart upload with ID: ' + multipartUpload.UploadId)
+    logger.info('Created multipart upload with ID: ' + multipartUpload.UploadId)
 
     // chunk zip buffer into 5MB chunks
     const chunkSize = 5 * 1024 * 1024;
@@ -1071,7 +1069,7 @@ export async function createZIPAndNotify(
       throw new Error('Upload failed');
     }
 
-    console.log('[SYSTEM] Completing multipart upload')
+    logger.info('Completing multipart upload')
     const completeUpload = await storageClient.send(new CompleteMultipartUploadCommand({
       Bucket: process.env.AWS_PROJECTFILES_BUCKET,
       Key: tempFileKey,
@@ -1090,7 +1088,7 @@ export async function createZIPAndNotify(
       throw new Error('Upload failed');
     }
 
-    console.log('[SYSTEM] Finished multipart upload')
+    logger.info('Finished multipart upload')
 
     // await storageClient.send(
     //   new PutObjectCommand({
@@ -1128,10 +1126,10 @@ export async function createZIPAndNotify(
     });
 
     await mailAPI.sendZIPFileReadyNotification(signedURL, emailToNotify);
-    console.log('[SYSTEM] Sent email to: ' + emailToNotify)
+    logger.info('Sent email to: ' + emailToNotify)
     return true;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "createZIPAndNotify failed");
     return false;
   }
 }
@@ -1142,7 +1140,7 @@ export async function updateTeamWorkbenchPermissions(projectID: string, subdomai
       throw new Error("Invalid projectID passed to updateTeamWorkbenchPermissions");
     }
 
-    const project = await Project.findOne({ projectID }).orFail();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).orFail();
     const team = [
       ...project.leads ?? [],
       ...project.liaisons ?? [],
@@ -1210,7 +1208,7 @@ export async function updateTeamWorkbenchPermissions(projectID: string, subdomai
     }
     return true;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updateTeamWorkbenchPermissions failed");
     return false;
   }
 }
@@ -1386,14 +1384,6 @@ export const RETRIEVE_PROJECT_FILES_AGGREGATION = [
   {
     $lookup: {
       from: "authors",
-      localField: "authors",
-      foreignField: "_id",
-      as: "authors",
-    },
-  },
-  {
-    $lookup: {
-      from: "authors",
       localField: "primaryAuthor",
       foreignField: "_id",
       as: "primaryAuthor",
@@ -1403,21 +1393,6 @@ export const RETRIEVE_PROJECT_FILES_AGGREGATION = [
     $set: {
       primaryAuthor: {
         $arrayElemAt: ["$primaryAuthor", 0],
-      },
-    },
-  },
-  {
-    $lookup: {
-      from: "authors",
-      localField: "correspondingAuthor",
-      foreignField: "_id",
-      as: "correspondingAuthor",
-    }
-  },
-  {
-    $set: {
-      correspondingAuthor: {
-        $arrayElemAt: ["$correspondingAuthor", 0],
       },
     },
   }

@@ -1,13 +1,11 @@
 import axios, { AxiosRequestConfig } from "axios";
 import {
   Announcement,
-  AssetFilters,
   AssetSearchParams,
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
   Author,
   Book,
-  BookFilters,
   BookSearchParams,
   CentralIdentityApp,
   CentralIdentityLicense,
@@ -24,7 +22,6 @@ import {
   HomeworkSearchParams,
   Library,
   PageDetailsResponse,
-  PageTag,
   PeerReview,
   PeerReviewRubric,
   Project,
@@ -32,17 +29,17 @@ import {
   ProjectSearchParams,
   SupportTicket,
   TableOfContents,
-  RestackerTocEntry,
   RestackerEntry,
   RestackerTocLicense,
   User,
+  UXAcknowledgmentEntry,
+  UXAcknowledgmentMap,
+  UXAcknowledgmentStatus,
   UserSearchParams,
   BaseInvitation,
   Sender,
   ProjectSummary,
   InvitationsResponse,
-  PageSimpleWTags,
-  PageSimpleWOverview,
   TableOfContentsDetailed,
   Note,
   StoreProduct,
@@ -50,17 +47,18 @@ import {
   ClientConfig,
   StoreGetShippingOptionsRes,
   StoreCheckoutForm,
-  StoreShippingOption,
+  StoreAddressFields,
+  StoreValidateAddressRes,
   EditAcademyOnlineAccessFormValues,
   CentralIdentityUserLicenseResult,
   CentralIdentityAppLicense,
-  StoreDigitalDeliveryOption,
-  StoreOrder,
-  StoreOrderWithStripeSession,
+  StoreDigitalDeliveryOption, StoreOrderWithStripeSession, StoreOrderListItem,
+  ManualPrintJobPayload, ManualPrintJobPayloadResponse, ResubmitPrintJobRefusal,
   OrderCharge,
   OrderSession,
   CentralIdentityOrgAdminResult,
   AssetTag,
+  License,
   SupportQueue,
   SupportQueueAutoAssignConfig,
   SupportQueueMetrics,
@@ -71,10 +69,12 @@ import {
   Organization,
   GetCampusAdminResponse,
   UserTask,
+  CreateMatterSelection,
 } from "./types";
 import {
   AddableProjectTeamMember,
   CIDDescriptor,
+  CreateWorkbenchForm,
   ImportWorkbenchForm,
   ProjectBookBatchUpdateJob,
   ProjectFileAuthor,
@@ -115,6 +115,52 @@ class API {
     import.meta.env.MODE === "development"
       ? `${import.meta.env.VITE_DEV_BASE_URL}/api/v1`
       : "/api/v1";
+
+  /**
+   * Sends a JSON payload via `fetch` with `JSON.stringify(data)` as the body.
+   * Used for remixer save/publish routes that bypass Express's default
+   * `bodyParser.json()` limit and instead use server `streamJsonBody`
+   * middleware (capped at 5 MB). Auth uses the session cookie
+   * (`credentials: "include"` mirrors `axios.defaults.withCredentials`).
+   *
+   * Returns the parsed JSON response, or throws with a shape compatible with
+   * the Axios error format so callers can handle it uniformly.
+   */
+  private async streamJson<T>(
+    method: "PUT" | "POST",
+    path: string,
+    data: unknown,
+  ): Promise<T> {
+    const response = await fetch(`${this.BASE_URL}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        // Mirror the header axios sets globally so the server treats this
+        // identically to other authenticated AJAX requests.
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      body: JSON.stringify(data),
+      credentials: "include",
+    });
+
+    const text = await response.text().catch(() => "");
+    let parsed: Record<string, unknown> = {};
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      /* non-JSON error body */
+    }
+
+    if (!response.ok) {
+      throw Object.assign(
+        new Error(
+          String(parsed.errMsg ?? parsed.message ?? `HTTP ${response.status}`),
+        ),
+        { response: { status: response.status, data: parsed } },
+      );
+    }
+    return parsed as T;
+  }
 
   // ANNOUNCEMENTS
   async getSystemAnnouncement() {
@@ -309,11 +355,24 @@ class API {
     return res;
   }
 
-  public cloudflareStreamUploadURL: string = `${
-    import.meta.env.MODE === "development"
-      ? import.meta.env.VITE_DEV_BASE_URL
-      : ""
-  }/api/v1/cloudflare/stream-url`;
+  /**
+   * Requests a pre-authorized Cloudflare Stream upload URL for a project. The
+   * server enforces project membership and the organization's video length
+   * limit before creating the slot; the returned URL is then uploaded to
+   * directly via tus.
+   */
+  async createStreamUploadURL(
+    projectID: string,
+    body: { name: string; size: number; durationSeconds: number },
+  ) {
+    const res = await axios.post<
+      {
+        uploadURL: string;
+        videoID: string;
+      } & ConductorBaseResponse
+    >(`/project/${projectID}/files/stream-upload-url`, body);
+    return res;
+  }
 
   async getPermanentLink(projectID: string, fileID: string) {
     const res = await axios.get<
@@ -717,6 +776,19 @@ class API {
     return res;
   }
 
+  async validateAddress({
+    shipping_address,
+  }: {
+    shipping_address: StoreAddressFields;
+  }) {
+    const res = await axios.post<
+      StoreValidateAddressRes & ConductorBaseResponse
+    >("/store/checkout/validate-address", {
+      shipping_address,
+    });
+    return res;
+  }
+
   async adminGetStoreOrders(params: {
     starting_after?: string;
     limit?: number;
@@ -725,7 +797,7 @@ class API {
     query?: string;
   }) {
     const res = await axios.get<
-      ConductorInfiniteScrollResponse<StoreOrderWithStripeSession>
+      ConductorInfiniteScrollResponse<StoreOrderListItem>
     >("/store/admin/orders", {
       params,
     });
@@ -740,9 +812,30 @@ class API {
   }
 
   async adminResubmitPrintJob(order_id: string) {
+    // Success returns the created Lulu print job, not the order. The failure branch may carry a
+    // `code`/`warnings` pair when the server refused an incomplete payload -- see
+    // `ResubmitPrintJobRefusal`.
     const res = await axios.post<
-      { data: StoreOrderWithStripeSession } & ConductorBaseResponse
+      { err: false; data: unknown } | ResubmitPrintJobRefusal
     >(`/store/admin/orders/${order_id}/resubmit`);
+    return res;
+  }
+
+  async adminGetPrintJobPayload(order_id: string) {
+    const res = await axios.get<
+      { data: ManualPrintJobPayloadResponse } & ConductorBaseResponse
+    >(`/store/admin/orders/${order_id}/print-job-payload`);
+    return res;
+  }
+
+  async adminSubmitManualPrintJob(
+    order_id: string,
+    payload: ManualPrintJobPayload
+  ) {
+    const res = await axios.post<{ data: unknown } & ConductorBaseResponse>(
+      `/store/admin/orders/${order_id}/print-job`,
+      payload
+    );
     return res;
   }
 
@@ -1256,6 +1349,19 @@ class API {
     );
   }
 
+  /**
+   * Gets a download URL for a file in the Commons.
+   * At some point we should determine if this can be
+   * replace entirely with @link getFileDownloadURL from the
+   * Projects API, but for now this is a separate endpoint.
+   */
+  async getCommonsDownloadFileURL(bookID: string, fileID: string) {
+    const res = await axios.get<{ url: string } & ConductorBaseResponse>(
+      `/commons/book/${bookID}/files/${fileID}/download`,
+    );
+    return res;
+  }
+
   // Harvest Requests
   async createHarvestRequest(data: HarvestRequest) {
     const res = await axios.post<ConductorBaseResponse>(
@@ -1339,17 +1445,6 @@ class API {
     return res;
   }
 
-  async booksSearch(params: BookSearchParams) {
-    const res = await axios.get<
-      ConductorSearchResponse<"books"> & ConductorBaseResponse
-    >("/search/books", {
-      params: {
-        ...params,
-      },
-    });
-    return res;
-  }
-
   async booksSearchV2(params: BookSearchParams) {
     const res = await axios.get<
       ConductorSearchResponse<"books"> & ConductorBaseResponse
@@ -1376,17 +1471,6 @@ class API {
     const res = await axios.get<
       ConductorSearchResponse<"minirepos"> & ConductorBaseResponse
     >("/search/minirepos", {
-      params: {
-        ...params,
-      },
-    });
-    return res;
-  }
-
-  async projectsSearch(params: ProjectSearchParams) {
-    const res = await axios.get<
-      ConductorSearchResponse<"projects"> & ConductorBaseResponse
-    >("/search/projects", {
       params: {
         ...params,
       },
@@ -1544,6 +1628,37 @@ class API {
     return res;
   }
 
+  /**
+   * Per-user UX record-keeping: fetch which one-off UI prompts (banners,
+   * welcome dialogs, tours) the current user has seen/dismissed/completed.
+   */
+  async getUserUXAcknowledgments() {
+    const res = await axios.get<
+      { acknowledgments: UXAcknowledgmentMap } & ConductorBaseResponse
+    >("/user/ux-acknowledgments");
+    return res;
+  }
+
+  async recordUserUXAcknowledgment(
+    key: string,
+    data?: { status?: UXAcknowledgmentStatus; data?: Record<string, unknown> },
+  ) {
+    const res = await axios.post<
+      {
+        key: string;
+        acknowledgment: UXAcknowledgmentEntry | null;
+      } & ConductorBaseResponse
+    >(`/user/ux-acknowledgments/${key}`, data ?? {});
+    return res;
+  }
+
+  async deleteUserUXAcknowledgment(key: string) {
+    const res = await axios.delete<{ key: string } & ConductorBaseResponse>(
+      `/user/ux-acknowledgments/${key}`,
+    );
+    return res;
+  }
+
   async getPublicProjects(params?: { page?: number; limit?: number }) {
     const res = await axios.get<
       {
@@ -1690,6 +1805,29 @@ class API {
     );
   }
 
+  /**
+   * Bulk-updates licensing, authorship, and publisher metadata on the given files.
+   * Only include fields the user set — omitted fields are left unchanged on each file.
+   * Selected folder IDs are expanded to their descendant files server-side.
+   */
+  async bulkUpdateProjectFileMetadata(
+    projectID: string,
+    fileIDs: string[],
+    data: {
+      license?: Partial<License>;
+      primaryAuthor?: string;
+      originalPublisher?: { name?: string; url?: string };
+    },
+  ) {
+    return await axios.patch<{ updatedCount: number } & ConductorBaseResponse>(
+      `/project/${projectID}/files/bulk/metadata`,
+      {
+        fileIDs,
+        ...data,
+      },
+    );
+  }
+
   async getPublicProjectFiles(params?: { page?: number; limit?: number }) {
     const res = await axios.get<
       {
@@ -1754,7 +1892,7 @@ class API {
 
   async updateQueueAutoAssignConfig(
     id: string,
-    config: { auto_assign_enabled: boolean; auto_assign_uuids: string[] }
+    config: { auto_assign_enabled: boolean; auto_assign_uuids: string[] },
   ) {
     const res = await axios.put<
       {
@@ -1991,11 +2129,11 @@ class API {
       autoCloseSilenced?: boolean;
       category?: string;
       queue?: string; // queue slug
-    }
+    },
   ) {
     return await axios.patch<{ ticket: SupportTicket } & ConductorBaseResponse>(
       `/support/ticket/${ticketID}`,
-      payload
+      payload,
     );
   }
 
@@ -2477,8 +2615,8 @@ class API {
     aliases?: string[];
     imageSource?: string;
   }) {
-
-    const { coverID, library, imageFile, removeImage, aliases, ...rest } = props;
+    const { coverID, library, imageFile, removeImage, aliases, ...rest } =
+      props;
     const formData = new FormData();
     Object.entries(rest).forEach(([key, value]) => {
       if (value !== undefined && value !== "") {
@@ -2535,34 +2673,36 @@ class API {
     library: string;
     coverID: string;
     glossaryID: string;
+    auxGlossaryID?: string;
+    auxGlossaryParentID?: string;
   }) {
-    const { library, coverID, glossaryID } = props;
+    const { library, coverID, glossaryID, auxGlossaryID, auxGlossaryParentID } =
+      props;
     const res = await axios.patch<ConductorBaseResponse>(
-      `/commons/book/${library}/${coverID}/glossary`, { glossaryID });
+      `/commons/book/${library}/${coverID}/glossary`,
+      { glossaryID, auxGlossaryID, auxGlossaryParentID },
+    );
     return res.data;
   }
   async getExistingGlossary(library: string, coverID: string) {
-    const res = await axios.put<
-      ConductorBaseResponse
-    >(`/commons/book/${library}/${coverID}/glossary/existing`);
+    const res = await axios.put<ConductorBaseResponse>(
+      `/commons/book/${library}/${coverID}/glossary/existing`,
+    );
     return res.data;
   }
-  async removePageFromGlossary(props: {
-    pageId: string;
-    usageId: string;
-  }) {
-    const { pageId, usageId, } = props;
+  async removePageFromGlossary(props: { pageId: string; usageId: string }) {
+    const { pageId, usageId } = props;
     const res = await axios.delete<ConductorBaseResponse>(
-      `/commons/glossary/usage/${usageId}/page/${pageId}`);
+      `/commons/glossary/usage/${usageId}/page/${pageId}`,
+    );
     return res.data;
   }
 
-  async removeGlossaryTerm(props: {
-    usageId: string;
-  }) {
+  async removeGlossaryTerm(props: { usageId: string }) {
     const { usageId } = props;
     const res = await axios.delete<ConductorBaseResponse>(
-      `/commons/glossary/usage/${usageId}`);
+      `/commons/glossary/usage/${usageId}`,
+    );
     return res.data;
   }
 
@@ -2602,6 +2742,14 @@ class API {
     return res.data;
   }
 
+  async createMatter(projectID: string, type: CreateMatterSelection, overwrite: boolean) {
+    const res = await axios.post<ConductorBaseResponse>(`/remixer/${projectID}/create-matter`, {
+      type,
+      overwrite,
+    });
+    return res.data;
+  }
+
   async getRemixerProject(id: string) {
     const res = await axios.get<
       {
@@ -2614,9 +2762,13 @@ class API {
   async saveRemixerProjectState(
     id: string,
     currentBook: unknown[],
-    settings?: { autoNumbering?: boolean; copyModeState?: string; pathLevelFormats?: unknown[] },
+    settings?: {
+      autoNumbering?: boolean;
+      copyModeState?: string;
+      pathLevelFormats?: unknown[];
+    },
   ) {
-    const res = await axios.put<
+    return this.streamJson<
       {
         projectID: string;
         currentBook: unknown[];
@@ -2624,25 +2776,24 @@ class API {
         copyModeState?: string;
         pathLevelFormats?: unknown[];
       } & ConductorBaseResponse
-    >(`/remixer/${id}/project`, {
-      currentBook,
-      ...settings,
-    });
-    return res.data;
+    >("PUT", `/remixer/${id}/project`, { currentBook, ...settings });
   }
 
   async publishRemixerProject(
     id: string,
     currentBook: unknown[],
-    settings?: { autoNumbering?: boolean; copyModeState?: string; pathLevelFormats?: unknown[] },
+    settings?: {
+      autoNumbering?: boolean;
+      copyModeState?: string;
+      pathLevelFormats?: unknown[];
+    },
   ) {
-    const res = await axios.post<
+    return this.streamJson<
       {
         projectID: string;
         currentBook: unknown[];
       } & ConductorBaseResponse
-    >(`/remixer/${id}/publish`, { currentBook, ...settings });
-    return res.data;
+    >("POST", `/remixer/${id}/publish`, { currentBook, ...settings });
   }
 
   async getRemixerPublishJobStatus(id: string) {
@@ -2673,6 +2824,12 @@ class API {
         pathLevelFormats?: unknown[];
         updatedAt?: Date;
         updatedBy?: string;
+        /** Pages that no longer exist in the live book and were dropped. */
+        untracked?: unknown[];
+        /** Kept pages whose parent was dropped; reparented to the book root. */
+        reparented?: unknown[];
+        /** False when the live TOC was unavailable, so `untracked` proves nothing. */
+        reconciled?: boolean;
       } & ConductorBaseResponse
     >(`/remixer/${id}/project`, {});
     return res.data;
@@ -2696,13 +2853,21 @@ class API {
     currentbook: boolean = true,
     option: { includeMatter: boolean; linkTitle: boolean; full: boolean },
   ) {
-
     const res = await axios.post(`/remixer/${id}/page`, {
       path,
       subdomain,
       pageDetails,
       currentbook,
       option,
+    });
+    return res.data;
+  }
+
+  async getRemixerTreeFlattened(id: string, path: string, subdomain: string) {
+    const res = await axios.post(`/remixer/${id}/page/tree`, {
+      path,
+      subdomain,
+      flatten: true,
     });
     return res.data;
   }
@@ -2715,43 +2880,69 @@ class API {
     return response;
   }
 
+  async createWorkbench(values: CreateWorkbenchForm, projectID: string) {
+    return axios.post<
+      {
+        path: string;
+        url: string;
+        warnings?: string[];
+      } & ConductorBaseResponse
+    >("/commons/book", {
+      ...values,
+      projectID,
+    });
+  }
+
   async getRestackerToc(id: string) {
     // /projects/:projectID/restacker/toc
-    const res = await axios.get<{
-      toc: TableOfContents;
-    } & ConductorBaseResponse & { status: "pending" | "completed" | "failed" }>(`/projects/${id}/restacker/toc`);
+    const res = await axios.get<
+      {
+        toc: TableOfContents;
+      } & ConductorBaseResponse & { status: "pending" | "completed" | "failed" }
+    >(`/projects/${id}/restacker/toc`);
     return res.data;
   }
 
   async getRestacker(id: string) {
-    const res = await axios.get<{
-      restacker: RestackerEntry[];
-    } & ConductorBaseResponse>(`/projects/${id}/restacker`);
+    const res = await axios.get<
+      {
+        restacker: RestackerEntry[];
+      } & ConductorBaseResponse
+    >(`/projects/${id}/restacker`);
     return res.data;
   }
 
   async getRestackerStatus(id: string) {
-    const res = await axios.get<{
-      status: "pending" | "completed" | "failed" | "notfound";
-      processing: boolean;
-      total: number;
-      completed: number;
-      failed: number;
-      pending: number;
-    } & ConductorBaseResponse>(`/projects/${id}/restacker/status`);
+    const res = await axios.get<
+      {
+        status: "pending" | "completed" | "failed" | "notfound";
+        processing: boolean;
+        total: number;
+        completed: number;
+        failed: number;
+        pending: number;
+      } & ConductorBaseResponse
+    >(`/projects/${id}/restacker/status`);
     return res.data;
   }
 
   async reloadRestacker(id: string) {
-    const res = await axios.post<{
-      toc: TableOfContents;
-    } & ConductorBaseResponse & { status: "pending" | "completed" | "failed" }>(`/projects/${id}/restacker/toc`);
+    const res = await axios.post<
+      {
+        toc: TableOfContents;
+      } & ConductorBaseResponse & { status: "pending" | "completed" | "failed" }
+    >(`/projects/${id}/restacker/toc`);
     return res.data;
   }
 
   async updateRestackerLicense(
     projectID: string,
-    data: { pageID: string; license: string; version?: string; force?: boolean },
+    data: {
+      pageID: string;
+      license: string;
+      version?: string;
+      force?: boolean;
+    },
   ) {
     const res = await axios.patch<
       {
@@ -2762,8 +2953,6 @@ class API {
     >(`/projects/${projectID}/restacker/license`, data);
     return res.data;
   }
-
-
 }
 
 export default new API();

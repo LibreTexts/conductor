@@ -20,6 +20,7 @@ import {
   Link as DavisLink,
   Spinner,
   Breadcrumb as DavisBreadcrumb,
+  IconButton,
 } from "@libretexts/davis-react";
 import {
   IconUser,
@@ -44,6 +45,9 @@ import {
   IconSchool,
   IconHandStop,
   IconFileZip,
+  IconFolder,
+  IconFileDescription,
+  IconFolderOpen,
 } from "@tabler/icons-react";
 import { PieChart, PieChartProps } from "react-minimal-pie-chart";
 import axios from "axios";
@@ -82,6 +86,8 @@ import BookPeerReviewsModal from "../../../components/peerreview/BookPeerReviews
 import { format, parseISO } from "date-fns";
 import { getLanguageName } from "../../../utils/languageCodes";
 import PausableImage from "../../../components/util/PausableImage";
+import AssetsSection from "../../../components/commons/Book/AssetsSection";
+import { useDocumentTitle } from "usehooks-ts";
 type CustomPieChartData = {
   value: number;
   title: string;
@@ -136,35 +142,12 @@ const CommonsBook = () => {
   });
 
   // General UI
+  useDocumentTitle(book.title ? `LibreCommons | ${book.title}` : "LibreCommons");
   const [showAdoptionReport, setShowAdoptionReport] = useState<boolean>(false);
   const [loadedData, setLoadedData] = useState<boolean>(false);
   const [loadedLicensing, setLoadedLicensing] = useState<boolean>(false);
   const [showFiles, setShowFiles] = useState<boolean>(true); // show files by default
   const [showLicensing, setShowLicensing] = useState<boolean>(false);
-
-  // Project Files
-  const [currDirectory, setCurrDirectory] = useState<string>("");
-  const [currDirPath, setCurrDirPath] = useState([
-    {
-      fileID: "",
-      name: "",
-    },
-  ]);
-  const { data: projFiles, isFetching: loadingFiles } = useQuery<ProjectFile[]>(
-    {
-      queryKey: ["book-files", book.projectID, currDirectory],
-      queryFn: getProjectFiles,
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      refetchOnWindowFocus: false,
-    }
-  );
-
-  // File Search
-  const [fileSearchLoading, setFileSearchLoading] = useState<boolean>(false);
-  const [fileSearchQuery, setFileSearchQuery] = useState<string>("");
-  const [fileSearchResults, setFileSearchResults] = useState<
-    { title: string; description: string }[]
-  >([]);
 
   // TOC
   const { data: bookTOC, isLoading: loadingTOC } = useQuery<TableOfContents[]>({
@@ -216,7 +199,7 @@ const CommonsBook = () => {
     {
       key: "pdf",
       text: "Download PDF",
-      href: book.links?.pdf,
+      href: `https://downloads.libretexts.org/api/v1/download/${book.bookID}/pdf`,
       icon: <IconFileText size={16} />,
     },
     {
@@ -228,19 +211,19 @@ const CommonsBook = () => {
     {
       key: "zip",
       text: "Download Pages ZIP",
-      href: book.links?.zip,
+      href: `https://downloads.libretexts.org/api/v1/download/${book.bookID}/pages`,
       icon: <IconFileZip size={16} />,
     },
     {
       key: "files",
       text: "Download Print Files",
-      href: book.links?.files,
+      href: `https://downloads.libretexts.org/api/v1/download/${book.bookID}/publication`,
       icon: <IconDownload size={16} />,
     },
     {
       key: "lms",
-      text: "Download LMS File",
-      href: book.links?.lms,
+      text: "Download LMS File (Thin CC)",
+      href: `https://downloads.libretexts.org/api/v1/download/${book.bookID}/thincc`,
       icon: <IconDownload size={16} />,
     },
   ];
@@ -365,35 +348,6 @@ const CommonsBook = () => {
   ]);
 
   /**
-   * Load the Files list from the server, prepare it for the UI, then save it to state.
-   */
-  async function getProjectFiles() {
-    try {
-      if (!book.projectID) return [];
-
-      const res = await api.getProjectFiles(
-        book.projectID,
-        currDirectory,
-        !(user.isAuthenticated ?? false) // default to public only (true) if can't determine auth
-      );
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-
-      if (!res.data.files || !Array.isArray(res.data.files)) return [];
-
-      if (Array.isArray(res.data.path)) {
-        setCurrDirPath(res.data.path);
-      }
-
-      return res.data.files;
-    } catch (e) {
-      handleGlobalError(e);
-      return [];
-    }
-  }
-
-  /**
    * Load information about the Book from the server catalog.
    */
   const getBook = useCallback(async () => {
@@ -438,15 +392,6 @@ const CommonsBook = () => {
       setShowLicensing(true);
     }
   }, [getBook, setShowLicensing]);
-
-  /**
-   * Update page title when data is available.
-   */
-  useEffect(() => {
-    if (book.title && book.title !== "") {
-      document.title = "LibreCommons | " + book.title;
-    }
-  }, [book]);
 
   /**
    * Look for licensing report once book information is loaded.
@@ -502,80 +447,10 @@ const CommonsBook = () => {
     history.push(`/book/${bookID}/submit-peer-review`);
   }
 
-  /**
-   * Updates state with the a new directory to bring into view.
-   *
-   * @param {string} directoryID - Identifier of the directory entry.
-   */
-  function handleDirectoryClick(directoryID: string) {
-    setCurrDirectory(directoryID);
-  }
-
   const handleChangeFilesVis = () => {
     setShowFiles(!showFiles);
     localStorage.setItem("commons_show_files", JSON.stringify(!showFiles));
   };
-
-  const handleFileSearch = (_e: any, { value }: { value: string }) => {
-    setFileSearchLoading(true);
-    setFileSearchQuery(value);
-    let searchRegExp = new RegExp(value.toLowerCase(), "g");
-    let filterResults = projFiles?.filter((file) => {
-      let descripString =
-        String(file.name).toLowerCase() +
-        " " +
-        String(file.description).toLocaleLowerCase();
-      if (value !== "") {
-        let match = descripString.match(searchRegExp);
-        if (match !== null && match.length > 0) {
-          return file;
-        }
-      }
-      return false;
-    });
-
-    let results = filterResults?.map((item) => {
-      return {
-        title: item.name,
-        description: item.description,
-      };
-    });
-    setFileSearchResults(results ?? []);
-    setFileSearchLoading(false);
-  };
-
-  const handleFileSearchSelect = (resultID: string) => {
-    const foundFile = projFiles?.find((file) => file.fileID === resultID);
-    if (!foundFile) return;
-
-    if (foundFile.storageType === "folder") {
-      handleDirectoryClick(foundFile.fileID);
-    }
-    if (foundFile.storageType === "file") {
-      handleDownloadFile(foundFile.fileID);
-    }
-  };
-
-  /**
-   * Requests a download link from the server for a File entry, then opens it in a new tab.
-   *
-   * @param {string} fileID - Identifier of the File to download.
-   */
-  async function handleDownloadFile(fileID: string) {
-    try {
-      const downloadRes = await axios.get(
-        `/commons/book/${bookID}/files/${fileID}/download`
-      );
-      if (downloadRes.data.err) {
-        throw new Error(downloadRes.data.err);
-      }
-      if (typeof downloadRes.data.url === "string") {
-        window.open(downloadRes.data.url, "_blank", "noreferrer");
-      }
-    } catch (e) {
-      handleGlobalError(e);
-    }
-  }
 
   /**
    * Renders a link or span with information about a given License.
@@ -841,9 +716,9 @@ const CommonsBook = () => {
               />
             </div>
           ) : (
-            <p className={styles.meta_largefont}>
+            <Text>
               Licensing breakdown unavailable.
-            </p>
+            </Text>
           )}
         </div>
         {pieChartData.length > 0 && (
@@ -853,44 +728,6 @@ const CommonsBook = () => {
         )}
       </div>
     );
-  }
-
-  /**
-   * Generates path breadcrumbs based on the current directory in view.
-   *
-   * @returns {React.ReactElement} The generated breadcrumbs.
-   */
-  function DirectoryBreadcrumbs() {
-    const nodes: ReactElement[] = [];
-    currDirPath.forEach((item, idx) => {
-      let shouldLink = true;
-      let name = item.name;
-      if (item.name === "" && item.fileID === "") {
-        name = "Assets";
-      } else {
-        nodes.push(
-          <Breadcrumb.Divider
-            key={`divider-${item.fileID}`}
-            icon="right chevron"
-          />
-        );
-      }
-      if (idx === currDirPath.length - 1) {
-        shouldLink = false; // don't click active directory
-      }
-      nodes.push(
-        <span
-          key={`section-${item.fileID}`}
-          onClick={
-            shouldLink ? () => handleDirectoryClick(item.fileID) : undefined
-          }
-          className={shouldLink ? "text-link" : ""}
-        >
-          {name}
-        </span>
-      );
-    });
-    return <Breadcrumb>{nodes}</Breadcrumb>;
   }
 
   return (
@@ -1109,7 +946,7 @@ const CommonsBook = () => {
               <Card padding="sm">
                 <Stack direction="vertical" gap="sm">
                   <Heading level={2}>Summary</Heading>
-                  <Text as="p" className={styles.meta_largefont}>
+                  <Text as="p">
                     {book.summary}
                   </Text>
                 </Stack>
@@ -1117,181 +954,11 @@ const CommonsBook = () => {
             )}
 
             {/* Assets */}
-            {projFiles && (projFiles.length > 0 || currDirectory !== "") && (
-              <Card padding="sm">
-                <Stack direction="horizontal" gap="sm" align="center" justify="between">
-                  <Heading level={2}>Assets</Heading>
-                  <Button
-                    variant="tertiary"
-                    onClick={() => {
-                      setFileSearchQuery("");
-                      handleChangeFilesVis();
-                    }}
-                  >
-                    {showFiles ? "Hide" : "Show"}
-                  </Button>
-                </Stack>
-                {showFiles && (
-                  <>
-                    <div className="px-4 py-2 border-b border-neutral-200">
-                      <div className="flex-row-div">
-                        <div className="left-flex ml-05e">
-                          <DirectoryBreadcrumbs />
-                        </div>
-                        <div className="right-flex">
-                          <Search
-                            input={{
-                              icon: "search",
-                              iconPosition: "left",
-                              placeholder: "Search assets...",
-                            }}
-                            loading={fileSearchLoading}
-                            onResultSelect={(_e, { result }) =>
-                              handleFileSearchSelect(result.id)
-                            }
-                            onSearchChange={(_e, { value }) =>
-                              handleFileSearch(_e, { value: value ?? "" })
-                            }
-                            results={fileSearchResults}
-                            value={fileSearchQuery}
-                            size="mini"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <Segment
-                      loading={loadingFiles}
-                      className={projFiles.length === 0 ? "muted-segment" : ""}
-                    >
-                      {projFiles.length > 0 ? (
-                        <List divided verticalAlign="middle">
-                          {projFiles.map((file, idx) => {
-                            return (
-                              <List.Item key={file.fileID}>
-                                <div className="flex-col-div">
-                                  <div className="flex-row-div">
-                                    <div className="left-flex">
-                                      <div className="project-file-title-column">
-                                        <div
-                                          className={
-                                            file.description ? "mb-01e" : ""
-                                          }
-                                        >
-                                          {file.storageType === "folder" ? (
-                                            <Icon name="folder outline" />
-                                          ) : (
-                                            <FileIcon filename={file.name} />
-                                          )}
-                                          {file.storageType === "folder" ? (
-                                            <span
-                                              className={`text-link ${styles.project_file_title}`}
-                                              onClick={() =>
-                                                handleDirectoryClick(file.fileID)
-                                              }
-                                            >
-                                              {file.name}
-                                            </span>
-                                          ) : (
-                                            <a
-                                              onClick={() =>
-                                                handleDownloadFile(file.fileID)
-                                              }
-                                              className={
-                                                styles.project_file_title +
-                                                " cursor-pointer"
-                                              }
-                                            >
-                                              {file.name}
-                                            </a>
-                                          )}
-                                          {
-                                            file.access === 'instructors' && user?.isAuthenticated && user?.verifiedInstructor && (
-                                              <Popup
-                                                content="This asset is restricted to verified instructors. You're good to go!"
-                                                trigger={
-                                                  <Icon
-                                                    name="graduation cap"
-                                                    color="blue"
-                                                    className="!ml-2 !mt-0.5"
-                                                  />
-                                                }
-                                                position="top center"
-                                              />
-                                            )
-                                          }
-                                        </div>
-                                        <div>
-                                          {file.description && (
-                                            <span
-                                              className={`muted-text ml-2e ${styles.project_file_descrip}`}
-                                            >
-                                              {truncateString(
-                                                file.description,
-                                                100
-                                              )}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="right-flex">
-                                      <Popup
-                                        content="Download Asset"
-                                        trigger={
-                                          file.storageType === "file" && (
-                                            <SUIButton
-                                              icon
-                                              size="small"
-                                              title="Download asset (opens in new tab)"
-                                              aria-label={`Download ${file.name} (opens in new tab)`}
-                                              onClick={() =>
-                                                handleDownloadFile(file.fileID)
-                                              }
-                                            >
-                                              <Icon name="download" />
-                                            </SUIButton>
-                                          )
-                                        }
-                                        position="top center"
-                                      />
-                                      <Popup
-                                        content="Open Folder"
-                                        trigger={
-                                          file.storageType === "folder" && (
-                                            <SUIButton
-                                              icon
-                                              size="small"
-                                              title="Open Folder"
-                                              aria-label={`Open folder ${file.name}`}
-                                              onClick={() =>
-                                                handleDirectoryClick(file.fileID)
-                                              }
-                                            >
-                                              <Icon name="folder open outline" />
-                                            </SUIButton>
-                                          )
-                                        }
-                                        position="top center"
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              </List.Item>
-                            );
-                          })}
-                        </List>
-                      ) : (
-                        <div>
-                          <p className="text-center muted-text">
-                            <em>No assets yet.</em>
-                          </p>
-                        </div>
-                      )}
-                    </Segment>
-                  </>
-                )}
-              </Card>
-            )}
+            <AssetsSection
+              book={book}
+              showFiles={showFiles}
+              handleChangeFilesVis={handleChangeFilesVis}
+            />
 
             {/* Table of Contents */}
             <Card padding="sm">
@@ -1306,9 +973,9 @@ const CommonsBook = () => {
                   textKey="title"
                 />
               ) : (
-                <p className={styles.meta_largefont}>
-                  <em>Table of contents unavailable.</em>
-                </p>
+                <Text as="p" italic>
+                  Table of contents unavailable.
+                </Text>
               )}
             </Card>
 

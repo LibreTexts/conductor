@@ -3,6 +3,7 @@
  * @author LibreTexts <info@libretexts.org>
  */
 
+import logger from "../logger.js";
 import express from 'express';
 import { param } from 'express-validator';
 import APIClient from '../models/apiclient.js';
@@ -17,7 +18,7 @@ import conductorErrors from '../conductor-errors.js';
  * @returns {Promise<object|null>} API Client information, or null if not found.
  */
 async function getAPIClientInternal(clientID) {
-  const foundClient = await APIClient.findOne({ clientID }).lean();
+  const foundClient = await APIClient.findOne({ clientID: { $eq: clientID } }).lean();
   if (!foundClient) {
     return null;
   }
@@ -67,8 +68,8 @@ function updateAPIClientLastUsed(clientID) {
     return;
   }
   APIClient.updateOne({ clientID }, { lastUsed: new Date() }).catch((e) => {
-    console.warn('Error updating APIClient Last Used time:');
-    console.warn(e);
+    logger.warn('Error updating APIClient Last Used time:');
+    logger.warn({ err: e }, "updateAPIClientLastUsed failed");
   });
 }
 

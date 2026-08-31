@@ -3,13 +3,13 @@
  * @author LibreTexts <info@libretexts.org>
  */
 
+import logger from "../logger.js";
 import Promise from 'bluebird';
 import express from 'express';
 import axios from 'axios';
 import { parse } from 'csv-parse';
 import { query } from 'express-validator';
 import CIDDescriptor from '../models/ciddescriptor.js';
-import { debugError } from '../debug.js';
 import conductorErrors from '../conductor-errors.js';
 import { isValidDateObject } from '../util/helpers.js';
 
@@ -89,12 +89,12 @@ async function syncCIDDescriptors() {
     const cidWrite = await CIDDescriptor.bulkWrite(updateOps, { ordered: false });
     if (cidWrite.result?.writeErrors?.length > 0) {
       cidWrite.result.writeErrors.forEach((error) => {
-        debugError(`Error during CIDDescriptor DB operation: ${error.errmsg}`);
+        logger.error(`Error during CIDDescriptor DB operation: ${error.errmsg}`);
       });
     }
   } catch (err) {
-    debugError('Error occurred while syncing C-ID Descriptors:');
-    debugError(err.toString());
+    logger.error('Error occurred while syncing C-ID Descriptors:');
+    logger.error({ err: err.toString() }, "syncCIDDescriptors failed");
     return false;
   }
   return true;
@@ -155,7 +155,7 @@ async function getCIDDescriptors(req, res) {
       err: false,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getCIDDescriptors failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,

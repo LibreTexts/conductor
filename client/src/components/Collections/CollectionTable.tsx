@@ -27,6 +27,15 @@ const columns: ColumnDef<RowItem>[] = [
     header: "Title",
     cell: ({ row }) => {
       const data = getItemData(row.original);
+      // Same guard as CollectionCard: a resource whose parent record is gone
+      // arrives without resourceData and would throw on these lookups.
+      if (!data) {
+        return (
+          <p>
+            <em>Unavailable</em>
+          </p>
+        );
+      }
       return (
         <p>
           <strong>
@@ -41,6 +50,7 @@ const columns: ColumnDef<RowItem>[] = [
     header: "Program",
     cell: ({ row }) => {
       const data = getItemData(row.original);
+      if (!data) return <p></p>;
       const isBook = checkIsBook(data); // isBook should never be true for strictly Collections records, but need this for type narrowing
       return <p>{isBook ? "" : data.program}</p>;
     },
@@ -50,6 +60,7 @@ const columns: ColumnDef<RowItem>[] = [
     header: "Number of Resources",
     cell: ({ row }) => {
       const data = getItemData(row.original);
+      if (!data) return <p>0</p>;
       const isBook = checkIsBook(data);
       return <p>{isBook ? "0" : data.resourceCount || "0"}</p>;
     },

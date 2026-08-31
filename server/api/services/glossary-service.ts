@@ -1,6 +1,5 @@
 import base62 from "base62-random";
 import * as cheerio from "cheerio";
-import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -12,6 +11,18 @@ import { CXOneFetch } from "../../util/librariesclient";
 import CXOnePageAPIEndpoints from "../../util/CXOne/CXOnePageAPIEndpoints";
 import Project from "../../models/project";
 import { escapeRegEx } from "../../util/helpers";
+
+/**
+ * Signals that a page simply has no glossary. This is the common case for most
+ * library pages, not a failure — handlers map it to 404 so healthy traffic
+ * does not register as a 5xx.
+ */
+export class GlossaryNotFoundError extends Error {
+  constructor(message = "No glossary found") {
+    super(message);
+    this.name = "GlossaryNotFoundError";
+  }
+}
 
 export interface AddGlossaryParams {
   glossaryID?: string;
@@ -138,7 +149,7 @@ export default class GlossaryService {
       }
       const project = await Project.findOne({
         libreCoverID: glossary.coverID.toString(),
-        libreLibrary: glossary.library,
+        libreLibrary: { $eq: glossary.library },
       });
       return project;
     } catch (error) {
@@ -178,28 +189,22 @@ export default class GlossaryService {
     }
   }
 
-  async addExternalGlossaryToGlossaryUsage(
-    glossaryID: string,
-    coverID: string,
+  async _extractTermsFromCxOneGlossary(
+    pageID: number,
     library: string,
-    addedBy: string,
   ): Promise<GlossaryTableEntry[]> {
     try {
       const pageContentsRes = await CXOneFetch({
         scope: "page",
-        path: parseInt(glossaryID),
+        path: pageID,
         api: CXOnePageAPIEndpoints.GET_Page_Contents("json"),
         subdomain: library,
-      }).catch((err) => {
-        console.error(err);
-        throw new Error(`Error fetching page details: ${err}`);
       });
       if (!pageContentsRes.ok) {
         throw new Error(
           `Error fetching page details: ${pageContentsRes.statusText}`,
         );
       }
-
       const rawContent = await pageContentsRes.json();
       const html: string = rawContent.body?.[0]?.toString() ?? "";
       if (!html) {
@@ -208,15 +213,41 @@ export default class GlossaryService {
 
       const $ = cheerio.load(html);
 
-      const tables = $("table.mt-responsive-table");
-      // The first table is the example/directions template; the data table is captioned "Glossary Entries"
-      const targetTable =
-        tables
+      const expectedDataThs = [
+        "Word(s)",
+        "Definition",
+        "Image",
+        "Caption",
+        "Link",
+        "Source",
+      ];
+      const isGlossaryRow = ($row: ReturnType<typeof $>) => {
+        const cells = $row.find("td");
+        if (cells.length < expectedDataThs.length) return false;
+        return expectedDataThs.every(
+          (th, i) => $(cells[i]).attr("data-th") === th,
+        );
+      };
+
+      // Prefer tbody#glossaryTable (class on <table> is optional), then caption, then first-row shape
+      let targetTable = $("tbody#glossaryTable").closest("table");
+      if (!targetTable.length) {
+        targetTable = $("table")
           .filter(
             (_i, el) =>
-              $(el).find("caption").text().trim() === "Glossary Entries",
+              $(el).find("caption").first().text().trim() ===
+              "Glossary Entries",
           )
-          .first() || (tables.length >= 2 ? tables.eq(1) : tables.eq(0));
+          .first();
+      }
+      if (!targetTable.length) {
+        targetTable = $("table")
+          .filter((_i, el) => {
+            const firstRow = $(el).find("tbody tr").first();
+            return isGlossaryRow(firstRow);
+          })
+          .first();
+      }
 
       const entries: GlossaryTableEntry[] = [];
 
@@ -238,6 +269,24 @@ export default class GlossaryService {
           source: getText(5),
         });
       });
+      return entries;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async addExternalGlossaryToGlossaryUsage(
+    glossaryID: string,
+    coverID: string,
+    library: string,
+    addedBy: string,
+  ): Promise<GlossaryTableEntry[]> {
+    try {
+      const entries = await this._extractTermsFromCxOneGlossary(
+        parseInt(glossaryID),
+        library,
+      );
+
       await Promise.all(
         entries
           .filter((e) => e.term && e.definition)
@@ -265,6 +314,102 @@ export default class GlossaryService {
     } catch (error) {
       throw error;
     }
+  }
+
+  async addExternalAuxGlossaryToGlossaryUsage(
+    glossaryID: string,
+    coverID: string,
+    library: string,
+    addedBy: string,
+    auxGlossaryID: string,
+    auxGlossaryParentID?: string,
+  ): Promise<GlossaryTableEntry[]> {
+    try {
+      const entries = await this._extractTermsFromCxOneGlossary(
+        parseInt(auxGlossaryID),
+        library,
+      );
+      await Promise.all(
+        entries
+          .filter((e) => e.term && e.definition)
+          .map(async (entry) => {
+            const { termID } = await this._addGlossaryToDatabase(
+              entry.term,
+              entry.definition,
+            );
+            const usageID = await this._addGlossaryUsageToDatabase({
+              termID,
+              term: entry.term,
+              definition: entry.definition,
+              coverID,
+              library,
+              addedBy,
+              glossaryID,
+              caption: entry.caption || undefined,
+              link: entry.link || undefined,
+              source: entry.source || undefined,
+            });
+            if (auxGlossaryID || auxGlossaryParentID) {
+              const pages = [];
+              if (auxGlossaryID) {
+                pages.push(parseInt(auxGlossaryID));
+              }
+              if (auxGlossaryParentID) {
+                pages.push(parseInt(auxGlossaryParentID));
+              }
+              // ADD PAGE TO USAGE
+              await this.addPageToGlossaryUsage(pages, [usageID], coverID, library);
+            }
+          }),
+      );
+      return entries;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Bulk-import glossary term/definition pairs (e.g. from a Pressbooks
+   * `/glossary` REST response) into Glossary + GlossaryUsage for a book.
+   * Skips entries missing a term or definition. Non-unique term+cover+library
+   * rows are upserted via `_addGlossaryUsageToDatabase`.
+   */
+  async addGlossaryEntries(
+    entries: {
+      term: string;
+      definition: string;
+      author?: string;
+      source?: string;
+      link?: string;
+    }[],
+    coverID: string,
+    library: string,
+    addedBy: string,
+    glossaryID?: string,
+  ): Promise<number> {
+    const valid = entries.filter(
+      (e) => e.term?.trim() && e.definition?.trim(),
+    );
+    await Promise.all(
+      valid.map(async (entry) => {
+        const term = entry.term.trim();
+        const definition = entry.definition.trim();
+        const { termID } = await this._addGlossaryToDatabase(term, definition);
+        await this._addGlossaryUsageToDatabase({
+          termID,
+          term,
+          definition,
+          coverID,
+          library,
+          addedBy,
+          glossaryID,
+          author: entry.author,
+          source: entry.source,
+          link: entry.link,
+        });
+      }),
+    );
+    return valid.length;
   }
 
   async addGlossary(params: AddGlossaryParams): Promise<string> {
@@ -350,13 +495,14 @@ export default class GlossaryService {
             ),
             aliases: aliases,
             updatedAt: new Date(),
-            ...(imageFile && !removeImage && {
-              imageFile: {
-                data: imageFile.buffer,
-                contentType: imageFile.mimetype,
-                originalname: imageFile.originalname,
-              },
-            }),
+            ...(imageFile &&
+              !removeImage && {
+                imageFile: {
+                  data: imageFile.buffer,
+                  contentType: imageFile.mimetype,
+                  originalname: imageFile.originalname,
+                },
+              }),
           },
           ...(Object.keys(toUnset).length > 0 && { $unset: toUnset }),
         },
@@ -439,6 +585,7 @@ export default class GlossaryService {
       throw error;
     }
   }
+  
 
   async getGlossaryPage(
     pageID: number,
@@ -452,10 +599,11 @@ export default class GlossaryService {
       } = await this.getCoverIDByPageID(pageID, library);
 
       if (!coverID) {
-        throw new Error("No glossary found");
+        throw new GlossaryNotFoundError();
       }
+      const candidateCoverIDs = await this.getCandidateCoverIDs(pageID, library);
 
-      const glossary = await GlossaryUsage.find({ coverID, library });
+      const glossary = await GlossaryUsage.find({ coverID:{$in: candidateCoverIDs}, library });
       const response: GlossayResponse = {
         coverID,
         glossaryID,
@@ -490,15 +638,48 @@ export default class GlossaryService {
           }),
         );
         if (items.length === 0) {
-          throw new Error("No glossary found");
+          throw new GlossaryNotFoundError();
         }
         response.items = items;
         return response;
       } else {
-        throw new Error("No glossary found");
+        throw new GlossaryNotFoundError();
       }
     } catch (error) {
       throw error;
+    }
+  }
+
+  /**
+   * Fetches the page from MindTouch and returns numeric IDs for the page itself
+   * and every ancestor in the `parent` chain. Falls back to `[pageID]` on error.
+   * Used by both getGlossaryPage and getGlossaryDetails to widen their DB match.
+   */
+  private async getCandidateCoverIDs(
+    pageID: number,
+    library: string,
+  ): Promise<number[]> {
+    try {
+      const res = await CXOneFetch({
+        scope: "page",
+        path: pageID,
+        api: CXOnePageAPIEndpoints.GET_Page,
+        subdomain: library,
+      });
+      if (!res.ok) return [pageID];
+      const info = await res.json();
+      const ids: number[] = [];
+      const selfId = parseInt(info?.["@id"], 10);
+      if (!Number.isNaN(selfId)) ids.push(selfId);
+      let cursor = info?.["page.parent"];
+      while (cursor) {
+        const pid = parseInt(cursor["@id"], 10);
+        if (!Number.isNaN(pid)) ids.push(pid);
+        cursor = cursor?.["page.parent"];
+      }
+      return ids.length > 0 ? ids : [pageID];
+    } catch {
+      return [pageID];
     }
   }
 
@@ -506,29 +687,24 @@ export default class GlossaryService {
     pageID: number,
     library: string,
   ): Promise<GlossaryDetails> {
+    const candidateIds = await this.getCandidateCoverIDs(pageID, library);
+    const candidateStrs = candidateIds.map(String);
+
     const pipeline = [
       {
         $match: {
-          library: library,
+          library,
           $or: [
-            {
-              "pages.pageID": pageID.toString(),
-            },
-            {
-              glossaryID: pageID.toString(),
-            },
-            {
-              coverID: pageID,
-            },
+            { "pages.pageID": { $in: candidateStrs } },
+            { glossaryID: { $in: candidateStrs } },
+            { coverID: { $in: candidateIds } },
           ],
         },
       },
       {
         $group: {
           _id: "$coverID",
-          latestUpdatedAt: {
-            $max: "$updatedAt",
-          },
+          latestUpdatedAt: { $max: "$updatedAt" },
         },
       },
     ];
@@ -538,7 +714,7 @@ export default class GlossaryService {
       latestUpdatedAt: Date;
     }>(pipeline).exec();
     if (!result) {
-      throw new Error("No glossary found");
+      throw new GlossaryNotFoundError();
     }
     return { coverID: result._id, latestUpdatedAt: result.latestUpdatedAt };
   }
@@ -551,26 +727,28 @@ export default class GlossaryService {
     glossaryID: string;
     library: string;
   }> {
-    try {
-      const pageIDStr = pageID.toString();
-      const glossary = await GlossaryUsage.findOne(
-        {
-          library,
-          $or: [{ "pages.pageID": pageIDStr }, { glossaryID: pageIDStr }],
-        },
-        { coverID: 1, glossaryID: 1, library: 1, _id: 0 },
-      );
-      if (!glossary) {
-        throw new Error("No glossary found");
-      }
-      return {
-        coverID: glossary.coverID,
-        glossaryID: glossary.glossaryID || "",
-        library: glossary.library || "",
-      };
-    } catch (error) {
-      throw error;
+    const candidateIds = await this.getCandidateCoverIDs(pageID, library);
+    const candidateStrs = candidateIds.map(String);
+
+    const glossary = await GlossaryUsage.findOne(
+      {
+        library,
+        $or: [
+          { "pages.pageID": { $in: candidateStrs } },
+          { glossaryID: { $in: candidateStrs } },
+          { coverID: { $in: candidateIds } },
+        ],
+      },
+      { coverID: 1, glossaryID: 1, library: 1, _id: 0 },
+    );
+    if (!glossary) {
+      throw new GlossaryNotFoundError();
     }
+    return {
+      coverID: glossary.coverID,
+      glossaryID: glossary.glossaryID || "",
+      library: glossary.library || "",
+    };
   }
 
   async getGlossaryUsageImage(

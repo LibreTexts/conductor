@@ -35,8 +35,9 @@ const CommonsSyncModal: React.FC<CommonsSyncModalProps> = ({
         </p>
         <p>
           <em>
-            This may result in a brief service interruption while the database
-            is updated.
+            The sync runs in the background and can take upwards of an hour.
+            You can close this window once it has started; progress and the
+            final result are reported in the server logs.
           </em>
         </p>
         {!syncWithLibsMutation.isSuccess && (

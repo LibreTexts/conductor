@@ -42,7 +42,7 @@ const LicenseWarningModal: React.FC<LicenseWarningModalProps> = ({
       </Modal.Header>
       <Modal.Body>
         <Stack direction="vertical" gap="sm">
-          {pageTitle && (
+          {pageTitle && field !== "book" && (
             <Text size="sm" weight="semibold">
               Page: {pageTitle}
             </Text>
@@ -51,31 +51,46 @@ const LicenseWarningModal: React.FC<LicenseWarningModalProps> = ({
             The proposed {field === "book" ? "book" : "page"} license{" "}
             <strong>{proposedLabel}</strong> is incompatible with:
           </Text>
-          <ul className="space-y-2 text-sm">
+          <ul className="max-h-[40vh] space-y-2 overflow-y-auto text-sm">
             {incompatiblePairs.map((pair, index) => {
               const changedRole = field === "book" ? "book" : "page";
-              const otherRole =
-                pair.licenseA.role === changedRole
-                  ? pair.licenseB.role
-                  : pair.licenseA.role;
-              const otherKey =
-                pair.licenseA.role === changedRole
-                  ? pair.licenseB.key
-                  : pair.licenseA.key;
+              const other =
+                pair.licenseAdption.role === changedRole
+                  ? pair.licenseOrigin
+                  : pair.licenseAdption;
+              const otherLabel = getLicenseText(
+                other.key,
+                other.version ?? "",
+              );
+              const pageLabel =
+                field === "book" && pair.licenseOrigin.pageTitle
+                  ? pair.licenseOrigin.pageTitle
+                  : formatLicenseRole(other.role);
 
               return (
                 <li
-                  key={`${pair.licenseA.role}-${pair.licenseB.role}-${index}`}
+                  key={`${pair.licenseAdption.role}-${pair.licenseOrigin.role}-${pair.licenseOrigin.pageTitle ?? ""}-${index}`}
                   className="rounded border border-red-200 bg-red-50 px-3 py-2 text-red-900"
                 >
-                  {formatLicenseRole(otherRole)} ({otherKey})
+                  {field === "book" ? (
+                    <>
+                      <span className="font-medium">{pageLabel}</span>
+                      {": "}
+                      {otherLabel}
+                    </>
+                  ) : (
+                    <>
+                      {formatLicenseRole(other.role)}: {otherLabel}
+                    </>
+                  )}
                 </li>
               );
             })}
           </ul>
           <Text size="sm" className="text-neutral-600">
-            Applying this change may create a license conflict on this page.
-            Do you want to continue?
+            {field === "book"
+              ? "The book license is treated as adapting these pages' original licenses. Applying this change may create conflicts across the book. Do you want to continue?"
+              : "Applying this change may create a license conflict on this page. Do you want to continue?"}
           </Text>
         </Stack>
       </Modal.Body>

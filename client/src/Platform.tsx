@@ -24,6 +24,7 @@ import SupportCenterProvider from "./providers/SupportCenterProvider.js";
 import { BrowserRouter, Route, Switch } from "react-router-dom";
 import { useNotifications } from "./context/NotificationContext.js";
 import CartProvider from "./providers/CartProvider.js";
+import useNewBuildCheck from "./hooks/useNewBuildCheck.js";
 
 const notificationRef: { current: ((n: any) => void) | null } = {
   current: null,
@@ -128,6 +129,9 @@ const Platform = () => {
 
   const ApplicationTree = () => {
     const { addNotification } = useNotifications();
+
+    // Surface a new release before a stale tab trips over a chunk that no longer exists.
+    useNewBuildCheck();
 
     // Keep the ref updated with the latest addNotification function
     useEffect(() => {

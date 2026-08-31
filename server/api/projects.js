@@ -4,6 +4,7 @@
 //
 
 'use strict';
+import logger, { childLogger } from "../logger.js";
 import BluebirdPromise from 'bluebird';
 import express from 'express';
 import { body, query, param } from 'express-validator';
@@ -24,7 +25,6 @@ import Message from '../models/message.js';
 import Organization from '../models/organization.js';
 import CIDDescriptor from '../models/ciddescriptor.js';
 import conductorErrors from '../conductor-errors.js';
-import { debugError, debugCommonsSync, debugServer } from '../debug.js';
 import {
     validateProjectClassification,
     validateRoadmapStep,
@@ -54,7 +54,13 @@ import { getLibraryNameKeys } from './libraries.js';
 import TrafficAnalyticsService from "./services/traffic-analytics-service.js";
 import ProjectInvitation from '../models/projectinvitation.js';
 import SearchService from './services/search-service.js';
+import {
+  pruneDeletedProjectsFromSearchIndex,
+  removeProjectFromSearchIndex,
+} from './services/project-search-service.js';
 import BookService from './services/book-service.js';
+import { conductor500Err } from "../util/errorutils.js";
+const commonsSyncLog = childLogger("commons-sync");
 
 const projectListingProjection = {
     _id: 0,
@@ -76,6 +82,34 @@ const projectListingProjection = {
     members: 1,
     auditors: 1,
     rating: 1
+};
+
+/**
+ * Resolves the `leads` UUID array into user summary objects.
+ *
+ * Uses the localField/foreignField form rather than a correlated sub-pipeline: an
+ * `$expr: { $in: [...] }` sub-pipeline cannot be pushed down to an index, so it
+ * full-scans `users` once per project. This form uses the `users.uuid` index.
+ * (Requires MongoDB 5.0+ to combine localField/foreignField with `pipeline`.)
+ */
+const LOOKUP_PROJECT_LEADS_STAGE = {
+    $lookup: {
+        from: 'users',
+        localField: 'leads',
+        foreignField: 'uuid',
+        as: 'leads',
+        pipeline: [
+            {
+                $project: {
+                    _id: 0,
+                    uuid: 1,
+                    firstName: 1,
+                    lastName: 1,
+                    avatar: 1
+                }
+            }
+        ]
+    }
 };
 
 const projectStatusOptions = ['completed', 'available', 'open'];
@@ -162,7 +196,7 @@ async function _createProjectInternal(projectData) {
 
     return newProject;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_createProjectInternal failed");
     return null;
   }
 }
@@ -177,7 +211,7 @@ async function _createProjectInternal(projectData) {
 async function deleteProjectInternal(projectID) {
   try {
     const proj = await Project.findOneAndDelete({
-      projectID,
+      projectID: { $eq: projectID },
     });
     if (!proj) {
       // findOneAndDelete returns deleted document
@@ -188,12 +222,12 @@ async function deleteProjectInternal(projectID) {
     const threads = await Thread.find({ project: projectID }).lean();
     if (threads.length > 0) {
       await Promise.allSettled(threads.map((t) => Message.deleteMany({
-        thread: t.threadID,
+        thread: { $eq: t.threadID },
       })));
     }
     // </delete threads and messages>
 
-    await Task.deleteMany({ projectID });
+    await Task.deleteMany({ projectID: { $eq: projectID } });
 
     // <delete files>
     const allFiles = await ProjectFile.find({
@@ -205,9 +239,15 @@ async function deleteProjectInternal(projectID) {
     }
     // </delete files>
 
+    /* Fire-and-forget: a delete must not fail on a Meilisearch hiccup. The
+       Project is already gone from Mongo, so a dropped index write leaves a
+       stale document until the next full re-sync prunes it — not a failed
+       delete. */
+    void removeProjectFromSearchIndex(projectID);
+
     return true;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteProjectInternal failed");
     return false;
   }
 }
@@ -245,7 +285,7 @@ async function deleteProject(req, res) {
       msg: 'Successfully deleted project.',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "deleteProject failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -442,7 +482,7 @@ async function getProject(req, res) {
       },
       {
         $addFields: {
-          hasBookData: {
+          hasCommonsBook: {
             $cond: [
               {
                 $gt: [
@@ -468,7 +508,7 @@ async function getProject(req, res) {
           },
         },
       },
-      ...LOOKUP_PROJECT_PI_STAGES(true),
+      ...LOOKUP_PROJECT_PRIMARY_AUTHOR_STAGES(true),
       {
         $project: {
           _id: 0,
@@ -489,7 +529,7 @@ async function getProject(req, res) {
     and pass it to the permission check */
     let foundUser;
     if(req.user?.decoded?.uuid){
-      foundUser = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+      foundUser = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } }).lean();
     }
 
     if (!checkProjectGeneralPermission(projResult, foundUser ?? undefined)) {
@@ -520,7 +560,7 @@ async function getProject(req, res) {
       project: projResult,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProject failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -566,7 +606,7 @@ async function getProjectBatchUpdateJobs(req, res) {
       batch_update_jobs: project.batchUpdateJobs || [],
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getProjectBatchUpdateJobs failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -611,7 +651,7 @@ async function findByBook(req, res) {
       projectID: project.projectID,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "findByBook failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -736,7 +776,7 @@ async function uploadProjectThumbnail(req, res) {
       thumbnail: url,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "uploadProjectThumbnail failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -979,39 +1019,6 @@ async function updateProject(req, res) {
 
       updateObj.defaultPrimaryAuthorID = parsed[0]
     }
-    if(req.body.hasOwnProperty('defaultSecondaryAuthors')){
-      const parsed = await projectFilesAPI._parseAndSaveAuthors(req.body.defaultSecondaryAuthors);
-      if(!parsed || !Array.isArray(parsed)){
-        throw new Error('Error parsing secondary authors');
-      }
-
-      updateObj.defaultSecondaryAuthorIDs = parsed;
-    }
-    if(req.body.hasOwnProperty('defaultCorrespondingAuthor')){
-      const parsed = await projectFilesAPI._parseAndSaveAuthors([req.body.defaultCorrespondingAuthor]);
-      if(!parsed || !Array.isArray(parsed) || parsed.length < 1){
-        throw new Error('Error parsing corresponding author');
-      }
-
-      updateObj.defaultCorrespondingAuthorID = parsed[0];
-    }
-
-    if(req.body.hasOwnProperty('principalInvestigators')){
-      const parsed = await projectFilesAPI._parseAndSaveAuthors(req.body.principalInvestigators);
-      if(!parsed || !Array.isArray(parsed)){
-        throw new Error('Error parsing principal investigators');
-      }
-      updateObj.principalInvestigatorIDs = parsed;
-    }
-
-    if(req.body.hasOwnProperty('coPrincipalInvestigators')){
-      const parsed = await projectFilesAPI._parseAndSaveAuthors(req.body.coPrincipalInvestigators);
-      if(!parsed || !Array.isArray(parsed)){
-        throw new Error('Error parsing co-principal investigators');
-      }
-
-      updateObj.coPrincipalInvestigatorIDs = parsed;
-    }
 
     if(req.body.hasOwnProperty('description')){
       updateObj.description = req.body.description;
@@ -1066,7 +1073,7 @@ async function updateProject(req, res) {
       });
     }
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateProject failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1080,97 +1087,73 @@ async function updateProject(req, res) {
  * @param {Object} req - the express.js request object
  * @param {Object} res - the express.js response object
  */
-const getUserProjects = (req, res) => {
-  const { searchQuery } = req.query;
+const getUserProjects = async (req, res) => {
+  try {
+    const { searchQuery } = req.query;
 
-  let matchObj = {};
-  if (searchQuery) {
-    const parsedSearch = searchQuery.toString().toLowerCase();
-    matchObj = {
-      $and: [
-        {
-          $text: {
-            $search: parsedSearch,
-          },
-        },
-        {
-          $or: constructProjectTeamMemberQuery(req.decoded.uuid),
-        },
-        {
-          status: {
-            $ne: "completed",
-          },
-        },
-      ],
-    };
-  } else {
-    matchObj = {
-      $and: [
-        {
-          $or: constructProjectTeamMemberQuery(req.decoded.uuid),
-        },
-        {
-          status: {
-            $ne: "completed",
-          },
-        },
-      ],
-    };
-  }
-
-  Project.aggregate([
-    {
-      $match: { ...matchObj },
-    },
-    {
-      $lookup: {
-        from: "users",
-        let: {
-          leads: "$leads",
-        },
-        pipeline: [
+    let matchObj = {};
+    if (searchQuery) {
+      const parsedSearch = searchQuery.toString().toLowerCase();
+      matchObj = {
+        $and: [
           {
-            $match: {
-              $expr: {
-                $in: ["$uuid", "$$leads"],
-              },
+            $text: {
+              $search: parsedSearch,
             },
           },
           {
-            $project: {
-              _id: 0,
-              uuid: 1,
-              firstName: 1,
-              lastName: 1,
-              avatar: 1,
+            $or: constructProjectTeamMemberQuery(req.decoded.uuid),
+          },
+          {
+            status: {
+              $ne: "completed",
             },
           },
         ],
-        as: "leads",
+      };
+    } else {
+      matchObj = {
+        $and: [
+          {
+            $or: constructProjectTeamMemberQuery(req.decoded.uuid),
+          },
+          {
+            status: {
+              $ne: "completed",
+            },
+          },
+        ],
+      };
+    }
+
+    // Stage order matters: project down to the listing fields before the blocking
+    // sort so full documents (batchUpdateJobs, a11yReview, notes) aren't sorted,
+    // and run the leads lookup last so it joins the smallest possible set.
+    const projects = await Project.aggregate([
+      {
+        $match: { ...matchObj },
       },
-    },
-    {
-      $sort: {
-        title: 1,
+      {
+        $project: projectListingProjection,
       },
-    },
-    {
-      $project: projectListingProjection,
-    },
-  ])
-    .then((projects) => {
-      return res.send({
-        err: false,
-        projects: projects,
-      });
-    })
-    .catch((err) => {
-      debugError(err);
-      return res.send({
-        err: false,
-        errMsg: conductorErrors.err6,
-      });
+      {
+        $sort: {
+          title: 1,
+        },
+      },
+      // Search results feed a typeahead dropdown; an unbounded result set is wasted work.
+      ...(searchQuery ? [{ $limit: 50 }] : []),
+      LOOKUP_PROJECT_LEADS_STAGE,
+    ]);
+
+    return res.send({
+      err: false,
+      projects,
     });
+  } catch (err) {
+    logger.error({ err }, "getUserProjects failed");
+    return conductor500Err(res);
+  }
 };
 
 
@@ -1192,7 +1175,9 @@ async function getUserProjectsAdmin(req, res) {
       const found = await User.findOne({centralID: req.query.uuid}).orFail();
       userid = found.uuid;
     };
-    const projects = await Project.aggregate([
+    // Paginate inside the pipeline rather than aggregating every project and
+    // slicing in Node, so the leads lookup only ever joins one page of results.
+    const results = await Project.aggregate([
       {
         $match: {
           $and: [
@@ -1208,31 +1193,7 @@ async function getUserProjectsAdmin(req, res) {
         },
       },
       {
-        $lookup: {
-          from: "users",
-          let: {
-            leads: "$leads",
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $in: ["$uuid", "$$leads"],
-                },
-              },
-            },
-            {
-              $project: {
-                _id: 0,
-                uuid: 1,
-                firstName: 1,
-                lastName: 1,
-                avatar: 1,
-              },
-            },
-          ],
-          as: "leads",
-        },
+        $project: projectListingProjection,
       },
       {
         $sort: {
@@ -1240,12 +1201,19 @@ async function getUserProjectsAdmin(req, res) {
         },
       },
       {
-        $project: projectListingProjection,
+        $facet: {
+          projects: [
+            { $skip: offset },
+            { $limit: limit },
+            LOOKUP_PROJECT_LEADS_STAGE,
+          ],
+          total: [{ $count: "count" }],
+        },
       },
     ]);
 
-    const total = projects.length;
-    const paginatedProjects = projects.slice(offset, offset + limit);
+    const paginatedProjects = results[0]?.projects ?? [];
+    const total = results[0]?.total?.[0]?.count ?? 0;
 
     return res.send({
       err: false,
@@ -1255,11 +1223,8 @@ async function getUserProjectsAdmin(req, res) {
       has_more: total > offset + limit,
     });
   } catch (err) {
-    debugError(err);
-    return res.send({
-      err: false,
-      errMsg: conductorErrors.err6,
-    });
+    logger.error({ err }, "getUserProjectsAdmin failed");
+    return conductor500Err(res);
   }
 };
 
@@ -1269,105 +1234,81 @@ async function getUserProjectsAdmin(req, res) {
  * @param {Object} req - the express.js request object
  * @param {Object} res - the express.js response object
  */
-const getUserFlaggedProjects = (req, res) => {
-    let isLibreAdmin = false;
-    let isCampusAdmin = false;
-    let orObj = [{
-        $and: [{
-            flag: 'liaison'
+const getUserFlaggedProjects = async (req, res) => {
+    try {
+        let isLibreAdmin = false;
+        let isCampusAdmin = false;
+        const orObj = [{
+            $and: [{
+                flag: 'liaison'
+            }, {
+                liaisons: req.decoded.uuid
+            }]
         }, {
-            liaisons: req.decoded.uuid
-        }]
-    }, {
-        $and: [{
-            flag: 'lead'
-        }, {
-            leads: req.decoded.uuid
-        }]
-    }];
-    User.findOne({
-        uuid: req.decoded.uuid
-    }).lean().then((user) => {
-        if (user) {
-            if (user.roles && Array.isArray(user.roles)) {
-                user.roles.forEach((item) => {
-                    if (item.org === 'libretexts' && item.role === 'superadmin') {
-                        // user is a LibreTexts Admin
-                        isLibreAdmin = true;
-                    }
-                    if (item.org === process.env.ORG_ID && (item.role === 'campusadmin' || item.role === 'superadmin')) {
-                        // user is a Campus Admin or LibreTexts Campus Admin
-                        isCampusAdmin = true;
-                    }
-                });
-            }
-            if (isLibreAdmin) {
-                orObj.push({
-                    flag: 'libretexts'
-                });
-            }
-            if (isCampusAdmin) {
-                orObj.push({
-                    $and: [{
-                        flag: 'campusadmin'
-                    }, {
-                        orgID: process.env.ORG_ID
-                    }]
-                });
-            }
-            return Project.aggregate([
-                {
-                    $match: {
-                        $or: orObj
-                    }
-                }, {
-                    $lookup: {
-                        from: 'users',
-                        let: {
-                            leads: '$leads'
-                        },
-                        pipeline: [
-                            {
-                                $match: {
-                                    $expr: {
-                                        $in: ['$uuid', '$$leads']
-                                    }
-                                }
-                            }, {
-                                $project: {
-                                    _id: 0,
-                                    uuid: 1,
-                                    firstName: 1,
-                                    lastName: 1,
-                                    avatar: 1
-                                }
-                            }
-                        ],
-                        as: 'leads'
-                    }
-                }, {
-                    $sort: {
-                        title: -1
-                    }
-                }, {
-                    $project: projectListingProjection
-                }
-            ]);
-        } else {
+            $and: [{
+                flag: 'lead'
+            }, {
+                leads: req.decoded.uuid
+            }]
+        }];
+
+        const user = await User.findOne({
+            uuid: { $eq: req.decoded.uuid }
+        }).lean();
+        if (!user) {
             throw (new Error('user'));
         }
-    }).then((projects) => {
+
+        if (user.roles && Array.isArray(user.roles)) {
+            user.roles.forEach((item) => {
+                if (item.org === 'libretexts' && item.role === 'superadmin') {
+                    // user is a LibreTexts Admin
+                    isLibreAdmin = true;
+                }
+                if (item.org === process.env.ORG_ID && (item.role === 'campusadmin' || item.role === 'superadmin')) {
+                    // user is a Campus Admin or LibreTexts Campus Admin
+                    isCampusAdmin = true;
+                }
+            });
+        }
+        if (isLibreAdmin) {
+            orObj.push({
+                flag: 'libretexts'
+            });
+        }
+        if (isCampusAdmin) {
+            orObj.push({
+                $and: [{
+                    flag: 'campusadmin'
+                }, {
+                    orgID: process.env.ORG_ID
+                }]
+            });
+        }
+
+        const projects = await Project.aggregate([
+            {
+                $match: {
+                    $or: orObj
+                }
+            }, {
+                $project: projectListingProjection
+            }, {
+                $sort: {
+                    title: -1
+                }
+            },
+            LOOKUP_PROJECT_LEADS_STAGE
+        ]);
+
         return res.send({
             err: false,
-            projects: projects
+            projects
         });
-    }).catch((err) => {
-        debugError(err);
-        return res.send({
-            err: false,
-            errMsg: conductorErrors.err6
-        });
-    })
+    } catch (err) {
+        logger.error({ err }, "getUserFlaggedProjects failed");
+        return conductor500Err(res);
+    }
 };
 
 
@@ -1460,12 +1401,9 @@ const getUserPinnedProjects = async (req, res) => {
     if (err.message === 'user') {
       errMsg = conductorErrors.err9;
     } else {
-      debugError(err);
+      logger.error({ err }, "getUserPinnedProjects failed");
     }
-    return res.send({
-      err: false,
-      errMsg,
-    });
+    return conductor500Err(res);
   }
 };
 
@@ -1477,7 +1415,7 @@ const getUserPinnedProjects = async (req, res) => {
  * @param {express.Response} res - Outgoing response object.
  */
 async function getRecentProjects(req, res) {
-  const user = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+  const user = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } }).lean();
   if (!user) {
     return res.send({
       err: true,
@@ -1504,14 +1442,14 @@ async function getRecentProjects(req, res) {
           ]
         }
       }, {
+        $project: projectListingProjection,
+      }, {
         $sort: {
           updatedAt: -1,
           title: -1,
         }
       }, {
         $limit: 6
-      }, {
-        $project: projectListingProjection,
       },
     ]);
     if (!Array.isArray(projects)) {
@@ -1522,11 +1460,8 @@ async function getRecentProjects(req, res) {
       projects,
     });
   } catch (e) {
-    debugError(e);
-    return res.send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
+    logger.error({ err: e }, "getRecentProjects failed");
+    return conductor500Err(res);
   }
 };
 
@@ -1535,62 +1470,37 @@ async function getRecentProjects(req, res) {
  * @param {Object} req - the express.js request object
  * @param {Object} res - the express.js response object
  */
-const getAvailableProjects = (req, res) => {
-    Project.aggregate([
-        {
-            $match: {
-                $and: [
-                    {
-                        orgID: process.env.ORG_ID
-                    }, {
-                        status: 'available'
-                    }
-                ]
-            }
-        }, {
-            $lookup: {
-                from: 'users',
-                let: {
-                    leads: '$leads'
-                },
-                pipeline: [
-                    {
-                        $match: {
-                            $expr: {
-                                $in: ['$uuid', '$$leads']
-                            }
+const getAvailableProjects = async (req, res) => {
+    try {
+        const projects = await Project.aggregate([
+            {
+                $match: {
+                    $and: [
+                        {
+                            orgID: process.env.ORG_ID
+                        }, {
+                            status: 'available'
                         }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            uuid: 1,
-                            firstName: 1,
-                            lastName: 1,
-                            avatar: 1
-                        }
-                    }
-                ],
-                as: 'leads'
-            }
-        }, {
-            $sort: {
-                title: -1
-            }
-        }, {
-            $project: projectListingProjection
-        }
-    ]).then((projects) => {
+                    ]
+                }
+            }, {
+                $project: projectListingProjection
+            }, {
+                $sort: {
+                    title: -1
+                }
+            },
+            LOOKUP_PROJECT_LEADS_STAGE
+        ]);
+
         return res.send({
             err: false,
-            projects: projects
+            projects
         });
-    }).catch((err) => {
-        debugError(err);
-        return res.send({
-            err: false,
-            errMsg: conductorErrors.err6
-        });
-    })
+    } catch (err) {
+        logger.error({ err }, "getAvailableProjects failed");
+        return conductor500Err(res);
+    }
 };
 
 
@@ -1599,64 +1509,39 @@ const getAvailableProjects = (req, res) => {
  * @param {Object} req - the express.js request object
  * @param {Object} res - the express.js response object
  */
-const getCompletedProjects = (req, res) => {
-    Project.aggregate([
-        {
-            $match: {
-                $and: [
-                    {
-                        orgID: process.env.ORG_ID
-                    }, {
-                        status: 'completed'
-                    }, {
-                        $or: constructProjectTeamMemberQuery(req.decoded.uuid)
-                    }
-                ]
-            }
-        }, {
-            $lookup: {
-                from: 'users',
-                let: {
-                    leads: '$leads'
-                },
-                pipeline: [
-                    {
-                        $match: {
-                            $expr: {
-                                $in: ['$uuid', '$$leads']
-                            }
+const getCompletedProjects = async (req, res) => {
+    try {
+        const projects = await Project.aggregate([
+            {
+                $match: {
+                    $and: [
+                        {
+                            orgID: process.env.ORG_ID
+                        }, {
+                            status: 'completed'
+                        }, {
+                            $or: constructProjectTeamMemberQuery(req.decoded.uuid)
                         }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            uuid: 1,
-                            firstName: 1,
-                            lastName: 1,
-                            avatar: 1
-                        }
-                    }
-                ],
-                as: 'leads'
-            }
-        }, {
-            $sort: {
-                title: -1
-            }
-        }, {
-            $project: projectListingProjection
-        }
-    ]).then((projects) => {
+                    ]
+                }
+            }, {
+                $project: projectListingProjection
+            }, {
+                $sort: {
+                    title: -1
+                }
+            },
+            LOOKUP_PROJECT_LEADS_STAGE
+        ]);
+
         return res.send({
             err: false,
-            projects: projects
+            projects
         });
-    }).catch((err) => {
-        debugError(err);
-        return res.send({
-            err: false,
-            errMsg: conductorErrors.err6
-        });
-    })
+    } catch (err) {
+        logger.error({ err }, "getCompletedProjects failed");
+        return conductor500Err(res);
+    }
 };
 
 
@@ -1681,7 +1566,7 @@ async function getPublicProjects(req, res) {
               visibility: "public",
             },
           },
-          ...LOOKUP_PROJECT_PI_STAGES(false),
+          ...LOOKUP_PROJECT_PRIMARY_AUTHOR_STAGES(false),
           {
             $lookup: {
               from: "projectfiles",
@@ -1734,8 +1619,6 @@ async function getPublicProjects(req, res) {
               projectURL: 1,
               contentArea: 1,
               description: 1,
-              principalInvestigators: 1,
-              coPrincipalInvestigators: 1,
               associatedOrgs: 1,
               publicAssets: 1,
               instructorAssets: 1
@@ -1768,7 +1651,7 @@ async function getPublicProjects(req, res) {
       totalCount: aggRes[0]?.totalCount[0]?.count ?? 0,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getPublicProjects failed");
     return res.send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1846,7 +1729,7 @@ async function getAddableMembers(req, res) {
 
     // Returns map of centralID to orgs (as {name: string} objects)
     const orgsRes = await centralIdentityAPI._getMultipleUsersOrgs(users.map(u => u.centralID)).catch((e) => {
-      debugError(e); // fail silently
+      logger.error({ err: e }, "orgsRes failed"); // fail silently
       return {};
     });
 
@@ -1864,7 +1747,7 @@ async function getAddableMembers(req, res) {
       err: false,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getAddableMembers failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1915,7 +1798,7 @@ async function addMemberToProject(req, res) {
     }
 
     const updateRes = await Project.updateOne(
-      { projectID },
+      { projectID: { $eq: projectID } },
       { $addToSet: { members: uuid } },
     );
     if (updateRes.modifiedCount !== 1) {
@@ -1954,7 +1837,7 @@ async function addMemberToProject(req, res) {
       )
     });
     await Promise.all(emailPromises).catch((e) => {
-      debugError('Error sending Team Member Added notification email: ', e);
+      logger.error({ err: e }, 'Error sending Team Member Added notification email');
     });
 
     return res.send({
@@ -1963,7 +1846,7 @@ async function addMemberToProject(req, res) {
     });
 
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "addMemberToProject failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2131,7 +2014,7 @@ async function getProjectTeam(req, res) {
 
     return res.send(response);
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProjectTeam failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2230,7 +2113,7 @@ async function changeMemberRole(req, res) {
       msg: 'Successfully changed team member role!',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "changeMemberRole failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2298,7 +2181,7 @@ async function removeMemberFromProject(req, res) {
       $pull: {
         assignees: uuid,
       },
-    }).catch((e) => debugError(e));
+    }).catch((e) => logger.error({ err: e }, "removeMemberFromProject failed"));
 
     // PUT user permissions for updated team if project is linked to a Workbench book
     if(project.didCreateWorkbench && project.libreLibrary && project.libreCoverID) {
@@ -2310,11 +2193,18 @@ async function removeMemberFromProject(req, res) {
       await updateTeamWorkbenchPermissions(projectID, subdomain, project.libreCoverID)
     }
 
-    const user = await User.findOne({ uuid }); 
+    const user = await User.findOne({ uuid: { $eq: uuid } }).lean(); 
+    if (!user) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err7,
+      });
+    }
+    
     // Delete the invitation for the removed user from the project
     await ProjectInvitation.deleteOne({
-      projectID,
-      email: user.email,
+      projectID: { $eq: projectID },
+      email: { $eq: user.email },
     });
 
     return res.send({
@@ -2322,7 +2212,7 @@ async function removeMemberFromProject(req, res) {
       errMsg: 'Successfully removed team member from Project.',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "removeMemberFromProject failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2370,7 +2260,7 @@ async function reSyncProjectTeamBookAccess(req, res){
       errMsg: "Successfully initiated re-sync of team member(s) book access.",
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "reSyncProjectTeamBookAccess failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2453,7 +2343,7 @@ const flagProject = (req, res) => {
         else if (err.message === 'noliaison') errMsg = conductorErrors.err32;
         else if (err.message === 'flagoption') errMsg = conductorErrors.err1;
         else if (err.message === 'missingcampus' || err.message === 'missinguuid') errMsg = conductorErrors.err1;
-        else debugError(err);
+        else logger.error({ err }, "flagProject failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -2504,7 +2394,7 @@ const clearProjectFlag = (req, res) => {
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'updatefail') errMsg = conductorErrors.err3;
-        else debugError(err);
+        else logger.error({ err }, "clearProjectFlag failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -2548,7 +2438,7 @@ const notifyProjectCompleted = (projectID) => {
                 return mailAPI.sendProjectCompletedAlert(notifRecipients, projectData.projectID, projectData.title, projectData.orgID);
             }
         }).catch((err) => {
-            debugError(err);
+            logger.error({ err }, "notifyProjectCompleted failed");
         });
     }
 };
@@ -2580,7 +2470,7 @@ const getOrgTags = (_req, res) => {
             tags: tags
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getOrgTags failed");
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
@@ -2810,113 +2700,88 @@ const updateA11YReviewSectionItem = (req, res) => {
 };
 
 
-const importA11YSectionsFromTOC = (req, res) => {
+const importA11YSectionsFromTOC = async (req, res) => {
     const recurseBuildPagesArray = (pages) => {
-        if (Array.isArray(pages)) {
-            let processed = [];
-            pages.forEach((item) => {
-                let children = item.children;
-                delete item.children;
-                processed.push(item);
-                if (Array.isArray(children) && children.length > 0) {
-                    processed = [...processed, ...recurseBuildPagesArray(children)];
-                }
-            });
-            return processed;
-        }
-        return [];
+        if (!Array.isArray(pages)) return [];
+        let processed = [];
+        pages.forEach((item) => {
+            const children = item.children;
+            delete item.children;
+            processed.push(item);
+            if (Array.isArray(children) && children.length > 0) {
+                processed = [...processed, ...recurseBuildPagesArray(children)];
+            }
+        });
+        return processed;
     };
 
-    let projectData = {};
-    Project.findOne({
-        projectID: req.body.projectID
-    }).lean().then(async (project) => {
-        if (project) {
-            projectData = project;
-            // check user has permission to import TOC
-            if (checkProjectMemberPermission(projectData, req.user)) {
-              const bookData = await Book.findOne({
-                library: projectData.libreLibrary,
-              }).lean();
-                if (
-                    !isEmptyString(projectData.libreLibrary)
-                    && !isEmptyString(projectData.libreCoverID)
-                    && !isEmptyString(projectData.projectURL)
-                ) return getBookTOCFromAPI(bookData.bookID, projectData.projectURL);
-                else throw (new Error('bookid'));
-            } else {
-                throw (new Error('unauth'));
+    try {
+        const projectData = await Project.findOne({
+            projectID: req.body.projectID
+        }).lean();
+        if (!projectData) throw new Error('notfound');
+
+        // check user has permission to import TOC
+        if (!checkProjectMemberPermission(projectData, req.user)) throw new Error('unauth');
+
+        // The project must be fully associated with a specific Book before we can fetch its TOC.
+        const bookID = getBookLinkedToProject(projectData);
+        if (!bookID) throw new Error('bookid');
+
+        // getBookTOCFromAPI validates the ID and resolves the Book itself.
+        const toc = await getBookTOCFromAPI(bookID, projectData.projectURL);
+        if (!toc) throw new Error('notoc'); // handle as generic error below
+
+        const pages = recurseBuildPagesArray(toc.children);
+        let pageObjs = pages.map((page) => ({
+            sectionTitle: page.title,
+            sectionURL: page.url
+        }));
+
+        let resMsg = 'No pages found to import.';
+        if (pageObjs.length > 0) {
+            if (req.body.merge === true && Array.isArray(projectData.a11yReview)) {
+                const currentState = projectData.a11yReview;
+                pageObjs = pageObjs.map((page) => {
+                    let foundIndex = -1;
+                    const foundExisting = projectData.a11yReview.find((existing, index) => {
+                        if (existing.sectionTitle === page.sectionTitle) {
+                            foundIndex = index;
+                            return existing;
+                        }
+                        return null;
+                    });
+                    if (foundExisting !== undefined) {
+                        if (foundIndex !== -1) {
+                            currentState.splice(foundIndex, 1);
+                        }
+                        return foundExisting;
+                    }
+                    return page;
+                });
             }
-        } else {
-            throw (new Error('notfound'));
-        }
-    }).then((toc) => {
-        if (toc) {
-            let pages = recurseBuildPagesArray(toc.children);
-            let pageObjs = pages.map((page) => {
-                return {
-                    sectionTitle: page.title,
-                    sectionURL: page.url
+
+            const updateRes = await Project.updateOne({
+                projectID: { $eq: projectData.projectID }
+            }, {
+                $set: {
+                    a11yReview: pageObjs
                 }
             });
-            if (pageObjs.length > 0) {
-                if (req.body.merge === true && Array.isArray(projectData.a11yReview)) {
-                    let currentState = projectData.a11yReview;
-                    pageObjs = pageObjs.map((page) => {
-                        let foundIndex = -1;
-                        let foundExisting = projectData.a11yReview.find((existing, index) => {
-                            if (existing.sectionTitle === page.sectionTitle) {
-                                foundIndex = index;
-                                return existing;
-                            }
-                            return null;
-                        });
-                        if (foundExisting !== undefined) {
-                            if (foundIndex !== -1) {
-                                currentState.splice(foundIndex, 1);
-                            }
-                            return foundExisting;
-                        } else {
-                            return page;
-                        }
-                    });
-                }
-                // need to update project
-                return Project.updateOne({
-                    projectID: projectData.projectID
-                }, {
-                    $set: {
-                        a11yReview: pageObjs
-                    }
-                });
-            } else {
-                // no pages, don't need to update
-                return {};
-            }
-        } else {
-            throw (new Error('notoc')); // handle as generic error below
+            if (updateRes.modifiedCount !== 1) throw new Error('updatefail'); // handle as generic error below
+            resMsg = req.body.merge === true
+                ? 'LibreText sections successfully imported and merged.'
+                : 'LibreText sections successfully imported.';
         }
-    }).then((updateRes) => {
-        let resMsg = 'No pages found to import.';
-        if (Object.keys(updateRes).length > 0) { // update performed
-            if (updateRes.modifiedCount === 1) {
-                if (req.body.merge === true) {
-                    resMsg = 'LibreText sections successfully imported and merged.';
-                } else {
-                    resMsg = 'LibreText sections successfully imported.';
-                }
-            } else {
-                throw (new Error('updatefail')); // handle as generic error below
-            }
-        }
+
         return res.send({
             err: false,
             projectID: projectData.projectID,
             msg: resMsg
         });
-    }).catch((err) => {
-        debugError(err);
-        var errMsg = conductorErrors.err6;
+    } catch (err) {
+        logger.error({ err }, "importA11YSectionsFromTOC failed");
+        let errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'bookid') errMsg = conductorErrors.err28;
@@ -2926,7 +2791,7 @@ const importA11YSectionsFromTOC = (req, res) => {
             err: true,
             errMsg: errMsg
         });
-    });
+    }
 };
 
 
@@ -3041,7 +2906,7 @@ const autoGenerateProjects = (newBooks) => {
         }
     }).then(() => {
         // ignore return value of MailAPI call
-        debugCommonsSync('Sent Autogenerated Projects Notification.');
+        commonsSyncLog.info('Sent Autogenerated Projects Notification.');
         if (newProjectsDbIds.length > 0) {
             return alertsAPI.processInstantProjectAlerts(newProjectsDbIds);
         }
@@ -3050,7 +2915,7 @@ const autoGenerateProjects = (newBooks) => {
         // ignore return value of processing Alerts
         return numCreated;
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "autoGenerateProjects failed");
         if (err.message === 'nobooks') {
             return 0;
         } else if (err.status === 400) {
@@ -3105,7 +2970,7 @@ async function getProjectBookReaderResources(req, res) {
       readerResources
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProjectBookReaderResources failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -3123,7 +2988,7 @@ async function updateProjectBookReaderResources(req, res) {
   try {
     const newResources = req.body.readerResources;
     const projectID = req.params.projectID;
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
@@ -3162,7 +3027,7 @@ async function updateProjectBookReaderResources(req, res) {
       msg: 'Successfully updated Reader Resources!',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateProjectBookReaderResources failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -3230,7 +3095,7 @@ async function getTrafficAnalyticsData(req, res, func) {
       data,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getTrafficAnalyticsData failed");
     res.send({
       err: false,
       data: [],
@@ -3248,10 +3113,10 @@ async function syncWithSearchIndex(req, res) {
 
     // Run the actual sync in the background (don't await)
     syncProjectsInBackground().catch((e) => {
-      debugError("Background projects sync error:", e);
+      logger.error({ err: e }, "Background projects sync error");
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "syncWithSearchIndex failed");
     // Only send error if response hasn't been sent yet
     if (!res.headersSent) {
       return res.status(500).send({
@@ -3269,7 +3134,7 @@ async function syncWithSearchIndex(req, res) {
  */
 export async function syncProjectsInBackground() {
   try {
-    debugServer("Initiating Projects search index sync...");
+    logger.info("Initiating Projects search index sync...");
     const searchService = await SearchService.getInstance();
 
     const batchSize = 500; // Process 500 projects at a time
@@ -3419,6 +3284,7 @@ export async function syncProjectsInBackground() {
           tags: 1,
           publicAssets: 1,
           instructorAssets: 1,
+          thumbnail: 1,
         },
       },
     ];
@@ -3435,9 +3301,17 @@ export async function syncProjectsInBackground() {
         break;
       }
 
-      await searchService.addDocuments("projects", projects);
+      /* Waited to completion, not just enqueued: document-level rejections are
+         reported through task status, never the HTTP response, so without this
+         a batch Meilisearch threw away would still be counted as synced. It
+         also keeps the loop from outrunning the task queue, and guarantees the
+         prune below reconciles against a settled index. */
+      await searchService.addDocuments("projects", projects, {
+        waitForCompletion: true,
+        timeOutMs: 300_000,
+      });
       totalSynced += projects.length;
-      debugServer(`Synced batch of ${projects.length} projects (${totalSynced} total)...`);
+      logger.info(`Synced batch of ${projects.length} projects (${totalSynced} total)...`);
 
       skip += batchSize;
 
@@ -3447,9 +3321,16 @@ export async function syncProjectsInBackground() {
       }
     }
 
-    debugServer(`Projects search index sync completed. Total synced: ${totalSynced}`);
+    /* Upserts alone never remove anything, so a project deleted while
+       Meilisearch was unreachable would stay searchable forever. Reconcile now
+       that every live Project has been written — applied, not merely enqueued,
+       so no stale document can still be in flight and slip past the index read
+       this performs. */
+    const pruned = await pruneDeletedProjectsFromSearchIndex();
+
+    logger.info(`Projects search index sync completed. Total synced: ${totalSynced}, pruned: ${pruned}`);
   } catch (e) {
-    debugError("Error in syncProjectsInBackground:", e);
+    logger.error({ err: e }, "Error in syncProjectsInBackground");
     throw e;
   }
 }
@@ -3473,6 +3354,7 @@ function getBookLinkedToProject(project) {
 
 
 /**
+ * @deprecated Use ProjectContext.canGeneral instead.
  * Checks if a user has permission to perform general actions on or view a
  * project.
  * @param {Object} project          - the project data object
@@ -3513,6 +3395,7 @@ const checkProjectGeneralPermission = (project, user) => {
 
 
 /**
+ * @deprecated Use ProjectContext.canMember instead.
  * Checks if a user has permission to perform member-only actions on a Project.
  * LibreTexts superadmins and support staff return true.
  * @param {Object} project - the project data object
@@ -3560,6 +3443,7 @@ const checkProjectMemberPermission = (project, user) => {
 
 
 /**
+ * @deprecated Use ProjectContext.canAdmin instead.
  * Checks if a user has permission to perform high-level actions on a Project.
  * @param {Object} project - the project data object
  * @param {Object|String} user - the current user context
@@ -3602,6 +3486,7 @@ const checkProjectAdminPermission = (project, user) => {
 
 
 /**
+ * @deprecated Use ProjectContext permissions check methods instead.
  * Construct an array of users in a project's team, with optional exclusion(s).
  * @param {Object} project - The Project data object.
  * @param {String|String[]} [exclude] - The UUID(s) to exclude from the array.
@@ -3661,7 +3546,7 @@ const constructProjectTeamMemberQuery = (uuid) => {
     throw (new Error('uuid')); // for security, do not allow unrestricted aggregation
 };
 
-const LOOKUP_PROJECT_PI_STAGES = (includeAuthors = false) => {
+const LOOKUP_PROJECT_PRIMARY_AUTHOR_STAGES = (includeAuthors = false) => {
     return [
     ...(includeAuthors ? [
       {
@@ -3679,46 +3564,7 @@ const LOOKUP_PROJECT_PI_STAGES = (includeAuthors = false) => {
           },
         },
       },
-      {
-        $lookup: {
-          from: "authors",
-          localField: "defaultCorrespondingAuthorID",
-          foreignField: "_id",
-          as: "defaultCorrespondingAuthor",
-        },
-      },
-      {
-        $set: {
-          defaultCorrespondingAuthor: {
-            $arrayElemAt: ["$defaultCorrespondingAuthor", 0],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
-          localField: "defaultSecondaryAuthorIDs",
-          foreignField: "_id",
-          as: "defaultSecondaryAuthors",
-        }
-      },
     ]: []),
-    {
-      $lookup: {
-        from: "authors",
-        localField: "principalInvestigatorIDs",
-        foreignField: "_id",
-        as: "principalInvestigators",
-      }
-    },
-    {
-      $lookup: {
-        from: "authors",
-        localField: "coPrincipalInvestigatorIDs",
-        foreignField: "_id",
-        as: "coPrincipalInvestigators",
-      }
-    },
   ]
 }
 
@@ -3844,7 +3690,7 @@ async function validateCIDDescriptors(descriptors) {
         return Promise.resolve();
       }
     } catch (e) {
-      debugError(`Error validating C-IDs: ${e.toString()}`);
+      logger.error({ err: e }, "Error validating C-IDs");
     }
   }
   return Promise.reject();
@@ -3975,10 +3821,6 @@ const validate = (method) => {
           body('defaultFileLicense', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateDefaultFileLicense),
           body('projectModules', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateProjectModules),
           body('defaultPrimaryAuthor', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateAuthor),
-          body('defaultSecondaryAuthors', conductorErrors.err1).optional({ checkFalsy: true }).isArray().custom(validateAuthorArray),
-          body('defaultCorrespondingAuthor', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateAuthor),
-          body('principalInvestigators', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
-          body('coPrincipalInvestigators', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
           body('description', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('contentArea', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('isbn', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 5, max: 50 }),
@@ -4079,7 +3921,7 @@ const getProjectToc = async (req, res) => {
   try {
     const projectID = req.params.projectID;
     const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: userID }).orFail();
+    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
     const project = await Project.findOne({ projectID :{$eq: projectID}}).lean();
     if (!project) {
       return res.status(404).send({
@@ -4107,7 +3949,7 @@ const getProjectToc = async (req, res) => {
     });
   
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getProjectToc failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -4159,7 +4001,7 @@ export default {
     checkProjectAdminPermission,
     constructProjectTeam,
     constructProjectTeamMemberQuery,
-    LOOKUP_PROJECT_PI_STAGES,
+    LOOKUP_PROJECT_PRIMARY_AUTHOR_STAGES,
     syncWithSearchIndex,
     syncProjectsInBackground,
     validate,

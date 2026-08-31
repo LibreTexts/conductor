@@ -1,7 +1,7 @@
+import logger, { childLogger } from "../logger.js";
 import { Request, Response, NextFunction } from "express";
 import multer, { memoryStorage, MulterError } from "multer";
 import fs from "fs-extra";
-import { debug, debugError, debugCommonsSync, debugServer } from "../debug.js";
 import AdoptionReport from "../models/adoptionreport.js";
 import Book, { BookInterface } from "../models/book.js";
 import Collection from "../models/collection.js";
@@ -19,22 +19,13 @@ import {
   getRandomOffset,
   truncateString,
   getPaginationOffset,
-  sanitizeControlCharacters,
   escapeRegEx,
 } from "../util/helpers.js";
 import {
   deleteBookFromAPI,
-  extractLibFromID,
   getLibraryAndPageFromBookID,
-  genThumbnailLink,
-  genPDFLink,
-  genBookstoreLink,
-  genZIPLink,
-  genPubFilesLink,
-  genLMSFileLink,
   genPermalink,
   checkIsCampusBook,
-  hashStringToFloat,
 } from "../util/bookutils.js";
 import {
   downloadProjectFiles,
@@ -46,7 +37,7 @@ import authAPI from "./auth.js";
 import projectsAPI from "./projects.js";
 import alertsAPI from "./alerts.js";
 import collectionsAPI from "./collections.js";
-import axios, { AxiosResponse } from "axios";
+import axios from "axios";
 import {
   _generatePageImagesAltTextResObj,
   BookSortOption,
@@ -65,12 +56,14 @@ import {
   generateChapterOnePath,
   getPageID,
 } from "../util/librariesclient.js";
-import MindTouch from "../util/CXOne/index.js";
-import { conductor400Err, conductor500Err } from "../util/errorutils.js";
+import {
+  conductor400Err,
+  conductor500Err,
+  serializeError,
+} from "../util/errorutils.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
 import User from "../models/user.js";
 import centralIdentity from "./central-identity.js";
-const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
 import { PipelineStage, Types } from "mongoose";
 import {
   createBookSchema,
@@ -94,15 +87,44 @@ import {
   addPageWithCoverIDParamSchema,
   readFromCxOneGlossaryAndAddToGlossaryUsageSchema,
 } from "./validators/book.js";
-import BookService from "./services/book-service.js";
+import BookService, { BookPageConflictError } from "./services/book-service.js";
+import LibrarySyncService, {
+  describeLimits,
+  getLibrarySyncLimits,
+  isLimitedSync,
+  LibraryCoverpage,
+  LibrarySyncResult,
+} from "./services/library-sync-service.js";
+import {
+  buildBookUpsertOp,
+  checkValidImport,
+  detectAnimatedThumbnails,
+  SyncedBook,
+  toBookRecord,
+} from "./services/book-sync-service.js";
+import type { MongoBulkWriteError } from "mongodb";
 import { normalizedSort } from "../util/searchutils.js";
 import SearchService from "./services/search-service.js";
+import {
+  attachAssetCounts,
+  bookSearchIndexAggregationStages,
+  buildBookSearchDocuments,
+  pruneDeletedBooksFromSearchIndex,
+  reconcileBooksInSearchIndex,
+  removeBookFromSearchIndex,
+  sanitizeForSearchIndex,
+} from "./services/book-search-service.js";
+import { archiveBookInStripe } from "./services/store-book-sync-service.js";
 import { PressBookScraper } from "../util/pressbookutils.js";
 import PressbooksImportJob from "../models/pressbooksimportjob.js";
 import base62 from "base62-random";
 import Glossary from "../models/glossary.js";
-import GlossaryService from "./services/glossary-service.js";
+import GlossaryService, {
+  GlossaryNotFoundError,
+} from "./services/glossary-service.js";
 import GlossaryUsage from "../models/glossaryusage.js";
+import { ProjectContext, ProjectError, returnProjectError } from "./services/project-context.js";
+const commonsSyncLog = childLogger("commons-sync");
 
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
@@ -112,30 +134,6 @@ const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   updatedAt: 0,
   randomIndex: 0,
   randomSort: 0,
-};
-
-/**
- * Accepts a library shortname and returns the LibreTexts API URL for the current
- * Bookshelves listings in that library.
- * @param {String} lib - the standard shortened library identifier
- * @returns {String} the URL of the library's Bookshelves listings
- */
-const generateBookshelvesURL = (lib: string) => {
-  if (lib !== "espanol") {
-    return `https://api.libretexts.org/DownloadsCenter/${lib}/Bookshelves.json`;
-  } else {
-    return `https://api.libretexts.org/DownloadsCenter/${lib}/home.json`;
-  }
-};
-
-/**
- * Accepts a library shortname and returns the LibreTexts API URL for the current
- * Courses listings in that library.
- * @param {String} lib - the standard shortened library identifier
- * @returns {String} the URL of the library's Courses listings
- */
-const generateCoursesURL = (lib: string) => {
-  return `https://api.libretexts.org/DownloadsCenter/${lib}/Courses.json`;
 };
 
 /**
@@ -177,47 +175,6 @@ function sortBooks(books: BookInterface[], sortChoice: BookSortOption) {
   }
   return books;
 }
-
-/**
- * Checks that a new book object has the required fields to be imported.
- * @param {Object} book - The information about the book to be imported.
- * @returns {Boolean} True if ready for import, false otherwise (logged).
- */
-const checkValidImport = (book: BookInterface) => {
-  var isValidImport = true;
-  var validationFails = [];
-  var expectedLib = extractLibFromID(book.zipFilename);
-  if (
-    book.zipFilename === undefined ||
-    book.zipFilename === null ||
-    isEmptyString(book.zipFilename)
-  ) {
-    isValidImport = false;
-    validationFails.push("bookID");
-  }
-  if (
-    book.title === undefined ||
-    book.title === null ||
-    isEmptyString(book.title)
-  ) {
-    isValidImport = false;
-    validationFails.push("title");
-  }
-  if (isEmptyString(expectedLib)) {
-    isValidImport = false;
-    validationFails.push("library");
-  }
-  if (book.id === undefined || book.id === null || isEmptyString(book.id)) {
-    isValidImport = false;
-    validationFails.push("coverPageID");
-  }
-  if (!isValidImport && validationFails.length > 0) {
-    var debugString =
-      "Not importing 1 book — missing fields: " + validationFails.join(",");
-    debugCommonsSync(debugString);
-  }
-  return isValidImport;
-};
 
 /**
  * Updates system-managed Collections for specified OER programs.
@@ -331,410 +288,452 @@ const autoGenerateCollections = () => {
       return 0;
     })
     .catch((err) => {
-      console.error(err);
+      logger.error({ err }, "autoGenerateCollections failed");
       return false;
     });
 };
 
 /**
- * Retrieve prepared books from the LibreTexts API and process &
- * import them to the Conductor database for use in Commons.
+ * Marks Books that have disappeared from their library.
+ *
+ * Absence is inferred from `lastSyncedAt`: every Book this run wrote carries the
+ * run's start time, so anything older than that was not seen. The alternative —
+ * `bookID: { $nin: [...everything the run saw] }` — ships several thousand
+ * strings per library in the query document and cannot use an index, where this
+ * is a bounded range scan on `{ library, lastSyncedAt }`.
+ *
+ * Books written before `lastSyncedAt` existed have no value for it at all, so
+ * the missing case is matched explicitly; type bracketing means `$lt` alone
+ * would skip exactly the stale legacy records this is meant to catch.
+ *
+ * Only libraries whose walk was exhaustive are passed in — see the `complete`
+ * flag on {@link LibrarySyncResult}. A truncated or capped walk returns real
+ * books, but its silence about a book means nothing.
+ *
+ * Returns the bookIDs it marked, so the caller can drop them from the search
+ * index without waiting for the next full re-sync.
+ *
+ * Those ids are read back *after* the write, matched on the exact timestamp this
+ * call stamped, rather than read before it. Reading first would report books the
+ * write then skipped: a live book re-synced between the two queries gets a fresh
+ * `lastSyncedAt` and correctly falls out of the update, but would still be in the
+ * pre-read — and the caller would delete a healthy book from the search index.
+ */
+const markMissingBooks = async (
+  subdomains: string[],
+  runStartedAt: Date,
+): Promise<string[]> => {
+  const bookIDs: string[] = [];
+
+  for (const subdomain of subdomains) {
+    // Stamped from a captured value, not `new Date()` inline, so the read-back
+    // below can identify exactly the documents this update touched.
+    const markedAt = new Date();
+    const res = await Book.updateMany(
+      {
+        library: { $eq: subdomain },
+        $or: [
+          { lastSyncedAt: { $lt: runStartedAt } },
+          { lastSyncedAt: { $exists: false } },
+        ],
+        syncMissingSince: { $exists: false },
+      },
+      { $set: { syncMissingSince: markedAt } },
+    );
+    if ((res.modifiedCount ?? 0) === 0) continue;
+
+    const marked = await Book.find(
+      { library: { $eq: subdomain }, syncMissingSince: { $eq: markedAt } },
+      { bookID: 1, _id: 0 },
+    ).lean();
+    bookIDs.push(...marked.map((b: any) => b.bookID));
+  }
+
+  return bookIDs;
+};
+
+/**
+ * Walks every synced library and imports the LibreTexts it publishes into the
+ * Conductor database for use in Commons.
+ *
+ * @param signal - Aborting this stops the library walk and prevents the run
+ * from writing anything, so an abandoned run cannot race the one that replaces
+ * it.
+ * @returns {Promise<string>} A human-readable summary of the run.
+ */
+const runLibrarySync = async (signal?: AbortSignal): Promise<string> => {
+  const limits = getLibrarySyncLimits();
+  const limited = isLimitedSync(limits);
+
+  /* Captured before the walk starts, so a Book written by this run is never
+     older than the cutoff missing-book detection compares against. */
+  const runStartedAt = new Date();
+
+  const results = await new LibrarySyncService().syncAllLibraries({ signal });
+
+  /* The walk yields whatever it managed to collect before the abort, which is
+     not a picture of the catalog. Bail before any write so an abandoned run
+     never competes with its replacement. */
+  if (signal?.aborted) {
+    throw new Error("Sync with Libraries was abandoned before writing.");
+  }
+
+  const succeeded = results.filter(
+    (r): r is Extract<LibrarySyncResult, { ok: true }> => r.ok,
+  );
+  const failed = results.filter(
+    (r): r is Extract<LibrarySyncResult, { ok: false }> => !r.ok,
+  );
+
+  if (succeeded.length === 0) {
+    throw new Error("All libraries failed to sync.");
+  }
+
+  /* Map coverpages onto Books, dropping invalid and duplicate entries.
+
+     A library only stays eligible for missing-book detection if its walk was
+     exhaustive AND every coverpage it returned mapped to a storable Book. A
+     record dropped here is one the library does publish, so leaving it out of
+     the run while still treating the run as authoritative would flag a live
+     book as gone. */
+  const byBookID = new Map<string, SyncedBook>();
+  const completeLibraries: string[] = [];
+  for (const { subdomain, complete, coverpages } of succeeded) {
+    let dropped = 0;
+    for (const coverpage of coverpages) {
+      const book = toBookRecord(subdomain, coverpage);
+      if (!checkValidImport(book)) {
+        dropped += 1;
+        continue;
+      }
+      if (byBookID.has(book.bookID)) continue;
+      byBookID.set(book.bookID, book);
+    }
+
+    if (!complete || dropped > 0 || coverpages.length === 0) {
+      commonsSyncLog.info(`Skipping missing-book detection for ${subdomain}: ` +
+                  (coverpages.length === 0
+                    ? "sync returned no books."
+                    : !complete
+                      ? "the coverpage search was incomplete."
+                      : `${dropped} coverpage(s) could not be mapped to a Book.`));
+      continue;
+    }
+    completeLibraries.push(subdomain);
+  }
+  const processedBooks = [...byBookID.values()];
+
+  /* Load what's already stored, for thumbnail reuse and project detection */
+  const [existingBooks, existingProjects] = await Promise.all([
+    Book.aggregate([
+      { $project: { _id: 0, bookID: 1, thumbnail: 1, thumbnailIsAnimated: 1 } },
+    ]),
+    Project.aggregate([
+      {
+        $match: {
+          $and: [
+            { libreLibrary: { $ne: null } },
+            { libreCoverID: { $ne: null } },
+          ],
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          projectID: 1,
+          projectURL: 1,
+          libreLibrary: 1,
+          libreCoverID: 1,
+        },
+      },
+    ]),
+  ]);
+
+  await detectAnimatedThumbnails(
+    processedBooks,
+    new Map(existingBooks.map((b) => [b.bookID, b])),
+  );
+
+  /* Assemble upserts and detect Books without a tracking Project */
+  const projectsToCreate: {
+    title: string;
+    library: string;
+    coverID: string;
+    url?: string;
+    author?: string;
+  }[] = [];
+  // Indexed rather than scanned: both sides run to several thousand entries,
+  // and a linear lookup per book made this quadratic.
+  const projectKeys = new Set(
+    existingProjects.map((p) => `${p.libreLibrary}-${p.libreCoverID}`),
+  );
+  const bookOps = processedBooks.map((book) => {
+    const [bookLib, bookCoverID] = getLibraryAndPageFromBookID(book.bookID);
+    if (typeof bookLib === "string" && typeof bookCoverID === "string") {
+      if (!projectKeys.has(`${bookLib}-${bookCoverID}`)) {
+        projectsToCreate.push({
+          title: book.title,
+          library: bookLib,
+          coverID: bookCoverID,
+          url: book.links?.online,
+          author: book.author,
+        });
+      }
+    }
+
+    // Stamped with the run's start time so missing-book detection can find
+    // everything this run did not touch with a range query.
+    return buildBookUpsertOp(book, runStartedAt);
+  });
+
+  /* Write Books */
+  let importCount = 0;
+  const newBookDBIds: object[] = [];
+  /* A book whose upsert failed keeps its previous `lastSyncedAt`, which is
+     exactly what missing-book detection reads as "the library dropped it". Any
+     library with a failed write is therefore out of the running below. */
+  const librariesWithFailedWrites = new Set<string>();
+  try {
+    const writeRes = await Book.bulkWrite(bookOps, { ordered: false });
+    importCount = (writeRes.matchedCount ?? 0) + (writeRes.upsertedCount ?? 0);
+    newBookDBIds.push(...Object.values(writeRes.upsertedIds ?? {}));
+  } catch (writeErr) {
+    logger.error({ err: writeErr }, "runLibrarySync failed");
+    /* An unordered bulkWrite reports per-operation failures by throwing once at
+       the end, with the successful writes still applied and summarized on
+       `error.result`. Salvage those rather than discarding a whole run over a
+       handful of bad records. */
+    const partial = (writeErr as MongoBulkWriteError)?.result;
+
+    /* Attribute each failed operation back to its library. The driver reports
+       an unordered batch's errors against the caller's operation index, and
+       `bookOps` is built in `processedBooks` order, so the index identifies the
+       book. Anything that cannot be attributed makes every library suspect —
+       skipping detection costs a cycle, a false "missing" edits the catalog. */
+    const rawWriteErrors = (writeErr as MongoBulkWriteError)?.writeErrors;
+    const writeErrors = Array.isArray(rawWriteErrors)
+      ? rawWriteErrors
+      : rawWriteErrors
+        ? [rawWriteErrors]
+        : [];
+    let attributed = 0;
+    for (const opErr of writeErrors) {
+      const index = opErr?.index ?? opErr?.err?.index;
+      const book =
+        typeof index === "number" ? processedBooks[index] : undefined;
+      if (book?.library) {
+        librariesWithFailedWrites.add(book.library);
+        attributed += 1;
+      }
+    }
+    if (attributed < writeErrors.length || writeErrors.length === 0) {
+      completeLibraries.forEach((lib) => librariesWithFailedWrites.add(lib));
+    }
+
+    const recovered =
+      (partial?.matchedCount ?? 0) + (partial?.upsertedCount ?? 0);
+    if (recovered > 0) {
+      importCount = recovered;
+      newBookDBIds.push(...Object.values(partial?.upsertedIds ?? {}));
+      commonsSyncLog.info(`Wrote only ${importCount} books when ${processedBooks.length} were expected.`);
+    } else {
+      // Nothing landed — the write failed outright.
+      throw new Error("Failed to write any books to the database.", {
+        cause: writeErr,
+      });
+    }
+  }
+
+  /* Absence only means "gone from the library" when the run looked everywhere.
+     Under a limit it means "not looked for", so marking would flag thousands of
+     healthy books. */
+  const detectableLibraries = completeLibraries.filter(
+    (lib) => !librariesWithFailedWrites.has(lib),
+  );
+  const markedIDs = limited
+    ? []
+    : await markMissingBooks(detectableLibraries, runStartedAt);
+  const markedMissing = markedIDs.length;
+
+  /* Pull the newly-missing books out of the search index now rather than leaving
+     them searchable until the next re-sync. Reconciled rather than deleted
+     outright: this run keeps working for a while yet, and a book restored in the
+     meantime must not be deleted by a decision made before the restore. The
+     helper re-reads each book immediately before removing it.
+
+     Fire-and-forget, and it swallows its own errors: index upkeep must never
+     sink a sync run, and the prune at the end of `syncBooksInBackground` catches
+     anything dropped here. */
+  void reconcileBooksInSearchIndex(markedIDs);
+
+  if (limited) {
+    commonsSyncLog.info("Limited sync — skipping missing-book detection.");
+  } else if (detectableLibraries.length < completeLibraries.length) {
+    commonsSyncLog.info(`Skipping missing-book detection for ${completeLibraries
+              .filter((lib) => librariesWithFailedWrites.has(lib))
+              .join(", ")}: some books could not be written this run.`);
+  }
+
+  /* Downstream jobs — each reports its own failure without sinking the sync */
+  const updatedCollections = await autoGenerateCollections();
+  const didGenExports = (await generateKBExport()) === true;
+
+  let generatedProjects: number | boolean = 0;
+  if (projectsToCreate.length > 0) {
+    generatedProjects = await projectsAPI.autoGenerateProjects(projectsToCreate);
+  } else {
+    commonsSyncLog.info("No new projects to create.");
+  }
+
+  if (newBookDBIds.length > 0) {
+    await alertsAPI.processInstantBookAlerts(newBookDBIds);
+  }
+
+  /* Summarize */
+  let msg = `Imported ${importCount} books from the Libraries.`;
+  if (failed.length > 0) {
+    msg += ` FAILED to sync ${failed.length} librar${
+      failed.length === 1 ? "y" : "ies"
+    }: ${failed.map((f) => `${f.subdomain} (${f.error})`).join("; ")}.`;
+  }
+  if (limited) {
+    msg = `LIMITED SYNC (${describeLimits(limits)}) — not a full catalog. ${msg}`;
+  }
+  if (markedMissing > 0) {
+    msg += ` ${markedMissing} books no longer found in their library were marked missing.`;
+  }
+  if (typeof updatedCollections === "number") {
+    msg += ` ${updatedCollections} system-managed Collections updated.`;
+  } else {
+    msg += ` FAILED to update system-managed collections. Check server logs.`;
+  }
+  if (didGenExports) {
+    msg += ` Successfully generated export files for 3rd-party content services.`;
+  } else {
+    msg += ` FAILED to generate export files for 3rd-party content services. Check server logs.`;
+  }
+  if (typeof generatedProjects === "number") {
+    msg += ` ${generatedProjects} new Projects were autogenerated.`;
+  } else {
+    msg += ` FAILED to autogenerate new Projects. Check server logs.`;
+  }
+
+  commonsSyncLog.info(msg);
+  return msg;
+};
+
+/**
+ * Guards against overlapping runs. The sync takes tens of minutes, so a
+ * scheduled trigger can easily arrive while the previous one is still working.
+ */
+let librarySyncRunning = false;
+
+/**
+ * How long a sync may run before it is treated as dead.
+ *
+ * The library requests carry no timeout of their own, so a socket that never
+ * settles leaves the run pending forever — and with it {@link librarySyncRunning},
+ * which would reject every later trigger until the process restarts. A full
+ * catalog walk lands well inside an hour, so anything past that is stuck rather
+ * than slow. Reaching the ceiling aborts the run rather than merely ignoring
+ * it; see {@link withSyncTimeout}.
+ */
+const LIBRARY_SYNC_TIMEOUT_MS = 60 * 60 * 1000;
+
+/**
+ * Rejects if `work` has not settled within {@link LIBRARY_SYNC_TIMEOUT_MS},
+ * aborting `controller` on the way out.
+ *
+ * The abort is what makes the ceiling safe: the run stops at its next throttled
+ * request and never reaches its writes, so it cannot compete with the run that
+ * replaces it. The overlap guard is released by the run itself once it settles,
+ * not here — a job that ignores the abort still holds the lock, which is the
+ * conservative failure.
+ */
+const withSyncTimeout = async <T>(
+  work: Promise<T>,
+  controller: AbortController,
+): Promise<T> => {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(
+            new Error(
+              `Sync with Libraries exceeded its ${
+                LIBRARY_SYNC_TIMEOUT_MS / 60000
+              }-minute ceiling and was abandoned. It has been signalled to ` +
+                `stop and will not write; the next trigger is accepted once ` +
+                `it unwinds.`,
+            ),
+          );
+        }, LIBRARY_SYNC_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
+/**
+ * Starts the Sync with Libraries job.
+ *
+ * The job makes one throttled request per book to read its overview property,
+ * which puts the runtime well past any proxy's connection timeout. The request
+ * is acknowledged immediately and the job runs detached; its outcome is
+ * reported through the Commons sync log.
+ *
  * @param {Object} req - The Express.js request object.
  * @param {Object} res - The Express.js response object.
  */
 const syncWithLibraries = async (_req: Request, res: Response) => {
-  let importCount = 0; // final count of imported books
-  let didGenExports = false; // If KB Export files were generated
-  let shelvesRequests: Promise<AxiosResponse>[] = []; // requests from Bookshelves
-  let coursesRequests: Promise<AxiosResponse>[] = []; // requests from Campus Bookshelves
-  let allRequests = []; // all requests to be made
-  let allBooks: BookInterface[] = []; // all books returned from LT API
-  let processedBooks: BookInterface[] = []; // all books processed for DB save
-  let bookOps = []; // update/insert operations to perform with Mongoose
-  let existingBooks = []; // existing books in the DB
-  let existingProjects = []; // existing projects (tied to books) in the DB
-  let bookIDs: string[] = []; // all (unique) bookIDs returned from LT API
-  let projectsToCreate = []; // projects to be created to track books from LT API
-  let newBookDBIds = []; // upserted MongoDb id's
-  let generatedProjects = false; // did create new projects
-  let updatedCollections = false; // did update auto-managed Collections
-
-  // Build list(s) of HTTP requests to be performed
-  const libs = await librariesAPI.getLibraryNameKeys(false, false);
-  if (Array.isArray(libs)) {
-    libs.forEach((l) => {
-      shelvesRequests.push(axios.get(generateBookshelvesURL(l)));
-      coursesRequests.push(axios.get(generateCoursesURL(l)));
-    });
-  } else {
-    return res.send({
+  if (librarySyncRunning) {
+    return res.status(409).send({
       err: true,
-      errMsg: conductorErrors.err16,
+      errMsg: "A sync with the Libraries is already in progress.",
     });
   }
 
-  allRequests = shelvesRequests.concat(coursesRequests);
+  librarySyncRunning = true;
+  commonsSyncLog.info("Starting sync with Libraries.");
 
-  // Execute requests
-  Promise.all(allRequests)
-    .then(async (booksRes) => {
-      // Extract books from responses
-      booksRes.forEach((axiosRes) => {
-        allBooks = allBooks.concat(axiosRes.data.items);
-      });
-      // Process books and prepare for DB save
-      allBooks.forEach((book) => {
-        // check if book is valid & unique, otherwise ignore
-        if (checkValidImport(book) && !bookIDs.includes(book.zipFilename)) {
-          let link = "";
-          let author = "";
-          let affiliation = "";
-          let license = "";
-          let summary = "";
-          let subject = "";
-          let course = "";
-          let location = "";
-          let program = "";
-          let lastUpdated = "";
-          let libraryTags = [];
-          if (Array.isArray(book.tags)) {
-            if (book.tags.includes("coverpage:nocommons")) {
-              return; // don't continue processing this entry
-            }
-            book.tags.forEach((tag) => {
-              if (tag.includes("license:")) {
-                license = tag.replace("license:", "");
-              }
-              if (tag.includes("program:")) {
-                program = tag.replace("program:", "");
-              }
-            });
-            libraryTags = book.tags;
-          }
-          if (book.link) {
-            link = book.link;
-            if (String(book.link).includes("/Bookshelves/")) {
-              location = "central";
-              let baseURL = `https://${extractLibFromID(
-                book.zipFilename,
-              )}.libretexts.org/Bookshelves/`;
-              let isolated = String(book.link).replace(baseURL, "");
-              let splitURL = isolated.split("/");
-              if (splitURL.length > 0) {
-                let shelfRaw = splitURL[0];
-                subject = shelfRaw.replace(/_/g, " ");
-              }
-            }
-            if (String(book.link).includes("/Courses/")) {
-              location = "campus";
-              let baseURL = `https://${extractLibFromID(
-                book.zipFilename,
-              )}.libretexts.org/Courses/`;
-              let isolated = String(book.link).replace(baseURL, "");
-              let splitURL = isolated.split("/");
-              if (splitURL.length > 0) {
-                let courseRaw = splitURL[0];
-                course = courseRaw.replace(/_/g, " ");
-                // url decode in case of special characters
-                course = decodeURIComponent(course);
-              }
-            }
-          }
-          if (book.author) author = book.author.trim();
-          if (typeof book.summary === "string") summary = book.summary;
-          if (book.institution) affiliation = book.institution; // Affiliation is referred to as "Institution" in LT API
-          if (typeof book.lastModified === "string")
-            lastUpdated = book.lastModified;
+  const controller = new AbortController();
+  const work = runLibrarySync(controller.signal);
 
-          bookIDs.push(book.zipFilename); // duplicate mitigation
-          processedBooks.push({
-            author,
-            affiliation,
-            subject,
-            location,
-            course,
-            program,
-            license,
-            summary,
-            bookID: book.zipFilename,
-            title: sanitizeControlCharacters(book.title),
-            library: extractLibFromID(book.zipFilename),
-            thumbnail: genThumbnailLink(
-              extractLibFromID(book.zipFilename),
-              book.id,
-            ),
-            links: {
-              online: link,
-              pdf: genPDFLink(book.zipFilename),
-              buy: genBookstoreLink(book.zipFilename),
-              zip: genZIPLink(book.zipFilename),
-              files: genPubFilesLink(book.zipFilename),
-              lms: genLMSFileLink(book.zipFilename),
-            },
-            lastUpdated,
-            libraryTags,
-          });
-        }
-      });
-
-      let booksQuery = Book.aggregate([
-        {
-          $project: {
-            _id: 0,
-            bookID: 1,
-            thumbnail: 1,
-            thumbnailIsAnimated: 1,
-          },
-        },
-      ]);
-      let projsQuery = Project.aggregate([
-        {
-          $match: {
-            $and: [
-              { libreLibrary: { $ne: null } },
-              { libreCoverID: { $ne: null } },
-            ],
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            projectID: 1,
-            projectURL: 1,
-            libreLibrary: 1,
-            libreCoverID: 1,
-          },
-        },
-      ]);
-      return Promise.all([booksQuery, projsQuery]);
-    })
-    .then(async (queryResults) => {
-      if (queryResults.length === 2) {
-        if (Array.isArray(queryResults[0])) {
-          existingBooks = queryResults[0]
-            .map((existBook) => {
-              if (typeof existBook.bookID === "string") return existBook.bookID;
-              return null;
-            })
-            .filter((item) => item !== null);
-        }
-        if (Array.isArray(queryResults[1])) existingProjects = queryResults[1];
+  /* The lock follows the job, not the timeout. Releasing it when the ceiling
+     fires would let the next trigger start while the abandoned run is still
+     unwinding, and two runs writing the catalog is the failure this guard
+     exists to prevent. */
+  void work
+    .then((msg) => {
+      if (controller.signal.aborted) {
+        commonsSyncLog.info(`Abandoned sync with Libraries settled: ${msg}`);
       }
-
-      // Detect animated thumbnails (GIFs) via HEAD requests in parallel.
-      // Server-side requests avoid CORS restrictions that block client-side detection.
-      const existingBooksMap = new Map(
-        (queryResults[0] ?? []).map((b: any) => [b.bookID, b])
-      );
-      await Promise.all(
-        processedBooks.map(async (book) => {
-          if (!book.thumbnail) return;
-
-          // Short-circuit: URL clearly identifies a GIF
-          if (/\.gif(\?|$)/i.test(book.thumbnail)) {
-            (book as any).thumbnailIsAnimated = true;
-            return;
-          }
-
-          // Skip HEAD request if the thumbnail URL hasn't changed and we
-          // already have a detection result from a previous sync cycle
-          const existing = existingBooksMap.get(book.bookID);
-          if (
-            existing &&
-            existing.thumbnail === book.thumbnail &&
-            existing.thumbnailIsAnimated !== undefined
-          ) {
-            (book as any).thumbnailIsAnimated = existing.thumbnailIsAnimated;
-            return;
-          }
-
-          try {
-            const headRes = await axios.head(book.thumbnail, { timeout: 5000 });
-            const contentType = headRes.headers["content-type"];
-            if (typeof contentType === "string" && ["image/gif", "image/webp", "image/apng", "image/avif"].includes(contentType.toLowerCase())) {
-              (book as any).thumbnailIsAnimated = true;
-            }
-          } catch {
-            // Request failed — leave thumbnailIsAnimated unset
-          }
-        })
-      );
-
-      processedBooks.forEach((book) => {
-        /* check if project needs to be created */
-        let [bookLib, bookCoverID] = getLibraryAndPageFromBookID(book.bookID);
-        if (typeof bookLib === "string" && typeof bookCoverID === "string") {
-          let foundProject = existingProjects.find((project) => {
-            if (
-              project.libreLibrary === bookLib &&
-              project.libreCoverID === bookCoverID
-            ) {
-              return project;
-            }
-            return null;
-          });
-          if (foundProject === undefined) {
-            projectsToCreate.push({
-              title: book.title,
-              library: bookLib,
-              coverID: bookCoverID,
-              url: book.links?.online,
-              author: book.author,
-            });
-          }
-        }
-        /* insert or update books */
-        bookOps.push({
-          updateOne: {
-            filter: {
-              bookID: book.bookID,
-            },
-            update: {
-              $setOnInsert: {
-                bookID: book.bookID,
-              },
-              $set: {
-                title: book.title,
-                author: book.author,
-                affiliation: book.affiliation,
-                library: book.library,
-                subject: book.subject,
-                location: book.location,
-                course: book.course,
-                program: book.program,
-                license: book.license,
-                thumbnail: book.thumbnail,
-                thumbnailIsAnimated: !!(book as any).thumbnailIsAnimated,
-                summary: book.summary,
-                links: book.links,
-                lastUpdated: book.lastUpdated,
-                libraryTags: book.libraryTags,
-                randomIndex: hashStringToFloat(book.bookID),
-              },
-            },
-            upsert: true,
-          },
-        });
-      });
-      existingBooks.forEach((book) => {
-        /* check if book needs to be deleted */
-        let foundProcessed = processedBooks.find(
-          (processed) => book === processed.bookID,
-        );
-        if (foundProcessed === undefined) {
-          // book not found in new batch, needs to be deleted
-          bookOps.push({
-            deleteOne: {
-              filter: {
-                bookID: book,
-              },
-            },
-          });
-        }
-      });
-      return Book.bulkWrite(bookOps, {
-        ordered: false,
-      });
-    })
-    .catch((writeErr) => {
-      debugError(writeErr);
-      /* Catch intermediate errors with bulkWrite, try to recover */
-      if (writeErr.result?.nMatched > 0) {
-        // Some imports failed (silent)
-        debugCommonsSync(
-          `Updated only ${writeErr.result.nMatched} books when ${allBooks.length} books were expected.`,
-        );
-        return null; // Continue to auto-generate Program Collections
-      } else {
-        // All imports failed
-        throw new Error("bulkwrite");
-      }
-    })
-    .then((writeRes) => {
-      if (typeof writeRes.result?.nMatched === "number") {
-        importCount = writeRes.result.nMatched;
-      }
-      if (typeof writeRes.upsertedIds === "object") {
-        Object.keys(writeRes.upsertedIds).forEach((key) => {
-          newBookDBIds.push(writeRes.upsertedIds[key]);
-        });
-      }
-      // All imports succeeded, continue to update auto-managed Collections
-      return autoGenerateCollections();
-    })
-    .then((autoCollsRes) => {
-      updatedCollections = autoCollsRes;
-      // Program Collections updated, continue to generate KB Export files
-      return generateKBExport();
-    })
-    .then((generated) => {
-      if (generated === true) {
-        didGenExports = true;
-      }
-      if (projectsToCreate.length > 0) {
-        // Continue to autogenerate new Projects
-        return projectsAPI.autoGenerateProjects(projectsToCreate);
-      }
-      debugCommonsSync("No new projects to create.");
-      return 0;
-    })
-    .then((projectsGen) => {
-      generatedProjects = projectsGen;
-      if (newBookDBIds.length > 0) {
-        return alertsAPI.processInstantBookAlerts(newBookDBIds);
-      }
-      return true;
-    })
-    .then(() => {
-      // ignore return value of processing Alerts
-      let msg = `Imported ${importCount} books from the Libraries.`;
-      if (typeof updatedCollections == "number") {
-        msg += ` ${updatedCollections} system-managed Collections updated.`;
-      } else if (
-        typeof updatedCollections === "boolean" &&
-        !updatedCollections
-      ) {
-        msg += ` FAILED to update system-managed collections. Check server logs.`;
-      }
-      if (didGenExports) {
-        msg += ` Successfully generated export files for 3rd-party content services.`;
-      } else {
-        msg += ` FAILED to generate export files for 3rd-party content services. Check server logs.`;
-      }
-      if (typeof generatedProjects === "number") {
-        msg += ` ${generatedProjects} new Projects were autogenerated.`;
-      } else if (typeof generatedProjects === "boolean" && !generatedProjects) {
-        msg += ` FAILED to autogenerate new Projects. Check server logs.`;
-      }
-      debugCommonsSync(msg);
-      return res.send({
-        err: false,
-        msg: msg,
-      });
     })
     .catch((err) => {
-      debugError(err);
-      if (err.message === "bulkwrite") {
-        // all imports failed
-        return res.send({
-          err: true,
-          msg: conductorErrors.err13,
-        });
-      } else if (err.code === "ENOTFOUND") {
-        // issues connecting to LT API
-        return res.send({
-          err: true,
-          errMsg: conductorErrors.err16,
-        });
-      } else {
-        // other errors
-        debugError(err);
-        return res.send({
-          err: true,
-          errMsg: conductorErrors.err6,
-        });
+      if (controller.signal.aborted) {
+        logger.error({ err }, "syncWithLibraries failed");
+        commonsSyncLog.info(`Abandoned sync with Libraries has unwound: ${err.message}`);
       }
+    })
+    .finally(() => {
+      librarySyncRunning = false;
     });
+
+  withSyncTimeout(work, controller).catch((err) => {
+    logger.error({ err }, "syncWithLibraries failed");
+    commonsSyncLog.info(err.message === "bulkwrite"
+              ? "Sync with Libraries failed: no books could be written."
+              : `Sync with Libraries failed: ${err.message}`);
+  });
+
+  return res.status(202).send({
+    err: false,
+    msg: "Sync with Libraries started. Progress is reported in the server logs.",
+  });
 };
 
 /**
@@ -743,9 +742,7 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
  * @param {object} res - The Express.js response object.
  */
 const runAutomatedSyncWithLibraries = (req: Request, res: Response) => {
-  debugServer(
-    `Received automated request to sync Commons with Libraries ${new Date().toLocaleString()}`,
-  );
+  logger.info(`Received automated request to sync Commons with Libraries ${new Date().toLocaleString()}`);
   return syncWithLibraries(req, res);
 };
 
@@ -854,24 +851,24 @@ async function getCommonsCatalog(
               ...(orgData.autoCatalogMatchingDisabled
                 ? []
                 : [
-                    {
-                      $expr: {
-                        $in: [{ $toLower: "$course" }, campusNames],
-                      },
+                  {
+                    $expr: {
+                      $in: [{ $toLower: "$course" }, campusNames],
                     },
-                  ]),
+                  },
+                ]),
             ],
           },
           // automatic matching exclusions only applied if autoCatalogMatchingDisabled is false
           ...(orgData.autoCatalogMatchingDisabled
             ? []
             : [
-                {
-                  bookID: {
-                    $nin: customCatalog?.automaticMatchingExclusions || [],
-                  },
+              {
+                bookID: {
+                  $nin: customCatalog?.automaticMatchingExclusions || [],
                 },
-              ]),
+              },
+            ]),
           { randomIndex: { $ne: null } },
         ],
       };
@@ -958,21 +955,9 @@ async function getCommonsCatalog(
       numTotal = totalCount;
     }
 
-    // Check if the associated project has any public or instructor only files
-    const publicOrInstructorSearch =
-      await _getBookPublicOrInstructorAssetsCount(
-        books.map((r) => r.bookID) || [],
-      );
-
-    // Add the publicOrInstructorAssets field to each book
-    books.forEach((book) => {
-      const bookID = book.bookID;
-      const found = publicOrInstructorSearch.find((b) => b.bookID === bookID);
-      // @ts-ignore
-      book.publicAssets = found?.publicAssets || 0;
-      // @ts-ignore
-      book.instructorAssets = found?.instructorAssets || 0;
-    });
+    // Attach the public/instructor asset counts of the associated project, via the
+    // same helper the search index uses, so both report identical numbers.
+    await attachAssetCounts(books);
 
     return res.send({
       err: false,
@@ -981,7 +966,7 @@ async function getCommonsCatalog(
       seed,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getCommonsCatalog failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1089,7 +1074,7 @@ const getMasterCatalog = (
       });
     })
     .catch((err) => {
-      debugError(err);
+      logger.error({ err }, "getMasterCatalog failed");
       return res.send({
         err: true,
         errMsg: conductorErrors.err6,
@@ -1199,7 +1184,7 @@ async function getMasterCatalogV2(_req: Request, res: Response) {
       libraries,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "getMasterCatalogV2 failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1346,7 +1331,38 @@ async function getCatalogFilterOptions(_req: Request, res: Response) {
 }
 
 /**
+ * Machine-readable reasons a book operation could not proceed.
+ *
+ * The client branches on these rather than on `errMsg`, so a recoverable problem
+ * (a title that's already taken) can be shown inline on the offending field
+ * instead of being funneled into the generic error modal.
+ */
+type BookErrorCode =
+  | "bad_library"
+  | "already_linked"
+  | "no_library_access"
+  | "title_conflict";
+
+const ALREADY_LINKED_MSG =
+  "This project is already linked to a book. A project can only have one book.";
+
+function createBookErr(
+  res: Response,
+  status: number,
+  code: BookErrorCode,
+  errMsg: string,
+) {
+  return res.status(status).send({ err: true, code, errMsg });
+}
+
+/**
  * Creates a new book with default features in a library Workbench area.
+ *
+ * Failures are separated into ones the user can fix (an unavailable title, a
+ * library they can't access, a project that already has a book) and genuine
+ * internal errors. Only the latter produce a 500. Steps that aren't required for
+ * a usable book — the first chapter, front/back matter, team permissions — are
+ * allowed to fail without failing the request.
  *
  * @param {express.Request} req - Incoming request.
  * @param {express.Response} res - Outgoing response.
@@ -1360,22 +1376,31 @@ async function createBook(
     const { uuid: userID } = req.user.decoded;
 
     const user = await User.findOne({ uuid: userID }).orFail();
-    const project = await Project.findOne({ projectID }).orFail();
 
     const libraryApp = await centralIdentity.getApplicationById(library);
     if (!libraryApp) {
-      throw new Error("badlibrary");
+      return createBookErr(res, 404, "bad_library", conductorErrors.err11);
     }
 
     const subdomain = getSubdomainFromUrl(libraryApp.main_url);
     if (!subdomain) {
-      throw new Error("badlibrary");
+      return createBookErr(res, 404, "bad_library", conductorErrors.err11);
     }
 
-    // Check project permissions
-    const canCreate = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canCreate) {
-      throw new Error(conductorErrors.err8);
+    const ctx = await ProjectContext.load(projectID, { hydrate: true });
+    if (!ctx.canMember(userID)) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
+    }
+
+    // Creating a second book would orphan the first one and silently relink the
+    // project, so refuse rather than half-succeed.
+    if (ctx.doc.libreLibrary && ctx.doc.libreCoverID) {
+      return createBookErr(
+        res,
+        409,
+        "already_linked",
+        ALREADY_LINKED_MSG,
+      );
     }
 
     const hasLibAccess =
@@ -1384,142 +1409,196 @@ async function createBook(
         libraryApp.id,
       );
     if (!hasLibAccess) {
-      throw new Error(conductorErrors.err8);
+      return createBookErr(res, 403, "no_library_access", conductorErrors.err8);
     }
 
-    // Create book coverpage
-    const [bookPath, bookURL] = generateBookPathAndURL(subdomain, title);
-    const createBookRes = await CXOneFetch({
-      scope: "page",
-      path: bookPath,
-      api: MindTouch.API.Page.POST_Contents_Title(title),
-      subdomain,
-      options: {
-        method: "POST",
-        body: MindTouch.Templates.POST_CreateBook,
-      },
-      query: { abort: "exists" },
-    }).catch((e) => {
-      const err = new Error(conductorErrors.err86);
-      err.name = "CreateBookError";
-      throw err;
-    });
+    /**
+     * We pass projectID to `generateBookPathAndURL` so that the path is unique even if the title is the same as another book.
+     * CXOne enforces unique paths in a library, not page titles, so this avoids conflicts.
+     * When the book is published and moved to a permanent location (e.g. /Courses or /Bookshelves), the path can be changed to match the title,
+     * assuming there wouldn't be a conflict at that location. But, that is a publishing concern, not a creation concern, so we don't need to worry about it here.
+     * This just lets authors create their books with whatever title they prefer, without worrying about conflicts with other books that may have the same title.
+     * 
+     * Thus, a title conflict should never happen under normal circumstances, but if it does, we handle it gracefully and inform the user to choose a different title.
+     * This would usually mean a previous book creation attempt failed to link the project, leaving a coverpage orphaned in the library. The user can either choose a different title or contact support to have the orphaned page removed.
+     */
+    const [bookPath, bookURL] = generateBookPathAndURL(subdomain, title, projectID);
+    const titleConflictMsg = `A book already exists at ${bookURL}. Please choose a different title.`;
 
-    // createBookRes didn't throw, but didn't return a successful response
-    if (!createBookRes.ok) {
-      throw new Error(`Error creating Workbench book: "${title}"`);
+    // Pre-flight: a read is cheap and, unlike the create below, can't disturb an
+    // existing book. If the library itself can't be reached, fall through — the
+    // create is guarded too.
+    try {
+      if (await BookService.pageExists(subdomain, bookPath)) {
+        return createBookErr(res, 409, "title_conflict", titleConflictMsg);
+      }
+    } catch (err) {
+      logger.error(`Unable to pre-check "${bookPath}" on ${subdomain}, continuing: ${serializeError(err)}`);
     }
 
-    await Promise.all([
-      addPageProperty(subdomain, bookPath, "WelcomeHidden", true),
-      addPageProperty(subdomain, bookPath, "SubPageListing", "simple"),
-    ]);
+    let newCoverPageID: number | null = null;
+    try {
+      newCoverPageID = await BookService.createBookCoverPage({
+        library: subdomain,
+        coverPagePath: bookPath,
+        title,
+        throwOnConflict: true,
+      });
+    } catch (err) {
+      // Lost the race between the pre-flight check and this write.
+      if (err instanceof BookPageConflictError) {
+        return createBookErr(res, 409, "title_conflict", titleConflictMsg);
+      }
+      logger.error(`Error creating coverpage for "${title}": ${serializeError(err)}`);
+      return res.status(500).send({ err: true, errMsg: conductorErrors.err86 });
+    }
 
-    const imageRes = await fetch(`${defaultImagesURL}/default.png`);
-    const defaultBookImage = await imageRes.blob();
-    await CXOneFetch({
-      scope: "page",
-      path: bookPath,
-      api: MindTouch.API.Page.PUT_File_Default_Thumbnail,
-      subdomain,
-      options: { method: "PUT", body: defaultBookImage },
-      //silentFail: true,
-    }).catch((e) => {
-      // Warn, but don't throw error
-      console.warn("[createBook] Error setting coverpage thumbnail:");
-      console.warn(e);
-    });
+    // The page exists at this point, so bailing without an ID would leave it
+    // orphaned and make every retry conflict forever. Look the ID up instead.
+    if (!newCoverPageID) {
+      const recoveredID = await getPageID(bookPath, subdomain);
+      if (recoveredID && Number.isFinite(Number(recoveredID))) {
+        newCoverPageID = Number(recoveredID);
+        logger.error(`No page ID returned for "${bookPath}"; recovered ${newCoverPageID} by path lookup.`);
+      }
+    }
 
-    // Create first chapter
-    const chapterOnePath = generateChapterOnePath(bookPath);
-    await CXOneFetch({
-      scope: "page",
-      path: chapterOnePath,
-      api: MindTouch.API.Page.POST_Contents_Title("1: First Chapter"),
-      subdomain,
-      options: {
-        method: "POST",
-        body: MindTouch.Templates.POST_CreateBookChapter,
-      },
-    });
+    if (!newCoverPageID) {
+      logger.error(`Library reported success but returned no page ID for "${bookPath}", and it could not be recovered by path lookup.`);
+      return res.status(502).send({
+        err: true,
+        errMsg: `The book page was created at ${bookURL}, but the library did not return its ID, so it could not be linked to this project. Please contact support.`,
+      });
+    }
 
-    await Promise.all([
-      addPageProperty(subdomain, chapterOnePath, "WelcomeHidden", true),
-      addPageProperty(subdomain, chapterOnePath, "GuideDisplay", "single"),
-      addPageProperty(
-        subdomain,
-        chapterOnePath,
-        "GuideTabs",
-        MindTouch.Templates.PROP_GuideTabs,
-      ),
-    ]);
-
-    await CXOneFetch({
-      scope: "page",
-      path: chapterOnePath,
-      api: MindTouch.API.Page.PUT_File_Default_Thumbnail,
-      subdomain,
-      options: { method: "PUT", body: defaultBookImage },
-      //silentFail: true,
-    }).catch((e) => {
-      // Warn, but don't throw error
-      console.warn("[createBook] Error setting Chapter 1 thumbnail:");
-      console.warn(e);
-    });
-
-    // Create Front & Back Matter
-    const matterRes = fetch(
-      `https://batch.libretexts.org/print/Libretext=${bookURL}?createMatterOnly=true`,
+    // Link the project now, before anything else can fail. If this were left
+    // until the end, a later failure would leave a coverpage that exists but
+    // belongs to no project — and every retry would then conflict against it
+    // with no way for the user to recover.
+    //
+    // This is also the authoritative "already linked" guard: the check above is
+    // a cheap early bail, but it reads and writes in separate steps, so two
+    // concurrent creates on the same project can both pass it. The filter here
+    // repeats that condition inside a single-document update, which Mongo
+    // applies atomically, so exactly one request can claim the project. It
+    // mirrors the check exactly — a project counts as linked only when both
+    // fields are set — so a project carrying just one of them is still
+    // claimable, as before.
+    const claimed = await Project.findOneAndUpdate(
       {
-        headers: { origin: "commons.libretexts.org" },
+        projectID: { $eq: projectID },
+        $or: [
+          { libreCoverID: { $in: [null, ""] } },
+          { libreLibrary: { $in: [null, ""] } },
+        ],
       },
-    ); // Don't wait for response, no-op if fails
+      {
+        libreLibrary: subdomain,
+        libreCoverID: newCoverPageID.toString(),
+        didCreateWorkbench: true,
+      },
+      { new: true },
+    );
 
-    sleep(1500); // let CXone catch up with page creations
-
-    const newBookID = await getPageID(bookPath, subdomain);
-    if (!newBookID) {
-      throw new Error(`Error saving book ID for Workbench book: "${title}":`);
+    if (!claimed) {
+      // Another request linked this project while we were creating our page.
+      // Ours is now orphaned on the library; log it for manual cleanup rather
+      // than deleting from an error path we don't fully understand.
+      logger.error(`Lost the link race for project ${projectID}; "${bookPath}" on ${subdomain} (page ${newCoverPageID}) is orphaned and needs manual cleanup.`);
+      return createBookErr(
+        res,
+        409,
+        "already_linked",
+        ALREADY_LINKED_MSG,
+      );
     }
 
-    // Update Project with new book info
-    project.libreLibrary = subdomain;
-    project.libreCoverID = newBookID;
-    project.didCreateWorkbench = true;
-    await project.save();
+    const warnings: string[] = [];
+    const newBookID = `${subdomain}-${newCoverPageID}`;
+
+    // The first chapter is a convenience, not part of a valid book. Don't fail
+    // the request (and strand the coverpage) over it.
+    try {
+      const chapterOnePath = generateChapterOnePath(bookPath);
+      const chapterID = await BookService.createFirstChapter({
+        library: subdomain,
+        chapterPath: chapterOnePath,
+      });
+      if (!chapterID) {
+        warnings.push(
+          "The first chapter could not be created because a page already exists at that location. You can add chapters directly in the library.",
+        );
+      }
+    } catch (err) {
+      logger.error(`Error creating first chapter for "${title}": ${serializeError(err)}`);
+      warnings.push(
+        "Your book was created, but its first chapter could not be added. You can add chapters directly in the library.",
+      );
+    }
+
+    await sleep(1500); // let CXone catch up with page creations
+
+    // Front/back matter creation can take a while and is not critical to the book creation process,
+    // so we fire-and-forget it here. If it fails, the book will still be usable, but the front/back matter
+    // will need to be created manually.
+    try {
+      const bookService = new BookService({ bookID: newBookID });
+      // Fire-and-forget
+      bookService.createDefaultFrontMatter({
+        coverPagePath: bookPath,
+        coverPageFullURL: bookURL,
+        titlePageInfo: {
+          author: "",
+          title,
+          summary: "",
+        }
+      }).catch((err) => {
+        logger.error(`Error creating default front matter: ${err instanceof Error ? err.message : err}`);
+      });
+
+      // Fire-and-forget
+      bookService.createDefaultBackMatter({
+        coverPagePath: bookPath,
+      }).catch((err) => {
+        logger.error(`Error creating default back matter: ${err instanceof Error ? err.message : err}`);
+      });
+    } catch (err) {
+      logger.error(`Error initializing BookService for front/back matter creation: ${err instanceof Error ? err.message : err}`);
+    }
 
     const permsUpdated = await updateTeamWorkbenchPermissions(
       projectID,
       subdomain,
-      newBookID,
+      newCoverPageID.toString(),
     );
 
     if (!permsUpdated) {
-      console.log(
-        `[createBook] Failed to update permissions for ${projectID}.`,
-      ); // Silent fail
+      logger.info(`Failed to update permissions for ${projectID}.`); // Silent fail
+      warnings.push(
+        "Your book was created, but team permissions could not be applied automatically. Team members may need to be granted access manually.",
+      );
     }
 
-    console.log(`[createBook] Created ${bookPath}.`);
+    logger.info(`Created ${bookPath}.`);
     return res.send({
       err: false,
       path: bookPath,
       url: bookURL,
+      warnings,
     });
   } catch (err: any) {
-    if (err.name === "DocumentNotFoundError" || err.name === "badlibrary") {
+    if (err instanceof ProjectError) {
+      return returnProjectError(res, err);
+    }
+
+    if (err.name === "DocumentNotFoundError") {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
       });
     }
-    debugError(err);
-    if (["CreateBookError", "badlibrary"].includes(err.name)) {
-      return res.status(400).send({
-        err: true,
-        errMsg: err.message,
-      });
-    }
+
+    logger.error({ err }, "createBook failed");
     return conductor500Err(res);
   }
 }
@@ -1556,7 +1635,7 @@ async function deleteBook(
       const projectID = attachedProject.projectID;
       await PeerReview.deleteMany({ projectID });
       if (deleteProject) {
-        debug(`[Delete Book]: Deleting project ${projectID}`);
+        logger.info(`Deleting project ${projectID}`);
         const projDelRes = await projectsAPI.deleteProjectInternal(projectID);
         if (!projDelRes) {
           return conductor500Err(res);
@@ -1574,23 +1653,35 @@ async function deleteBook(
     try {
       if (process.env.NODE_ENV === "production") {
         await deleteBookFromAPI(bookID);
-        debug(`Book ${bookID} deleted from API.`);
+        logger.info(`Book ${bookID} deleted from API.`);
       } else {
-        debug("Simulating book deletion from API.");
+        logger.info("Simulating book deletion from API.");
       }
     } catch (err: any) {
-      debugError(`[Delete Book] ${err.toString()}`);
+      logger.error({ err }, "deleteBook failed");
       return conductor500Err(res);
     }
     // </delete from central API>
 
     await Book.deleteOne({ bookID });
+
+    /* Fire-and-forget: an unpublish must not fail on a Meilisearch hiccup. The
+       book is gone from Mongo, so a dropped index write leaves a stale document
+       until the next full re-sync — not a failed delete. */
+    void removeBookFromSearchIndex(bookID);
+
+    /* Same contract for the store: pull the book off sale now rather than leaving
+       it purchasable until the nightly Stripe reconcile. The outcome is dropped
+       on purpose — the Book is already gone from Mongo, and the nightly pass
+       re-archives anything this misses. A delete must not fail on Stripe. */
+    void archiveBookInStripe(bookID);
+
     return res.send({
       err: false,
       msg: "Book successfully deleted.",
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteBook failed");
     return conductor500Err(res);
   }
 }
@@ -1820,7 +1911,7 @@ async function getBookDetail(
       book: bookRes[0],
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getBookDetail failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1878,7 +1969,7 @@ async function getBookPeerReviews(
       allowsAnon,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getBookPeerReviews failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1926,7 +2017,7 @@ const addBookToCustomCatalog = async (
       msg: "Resource successfully added to Catalog.",
     });
   } catch (err: any) {
-    debugError(err);
+    logger.error({ err }, "addBookToCustomCatalog failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1964,7 +2055,7 @@ const removeBookFromCustomCatalog = async (
       msg: "Resource successfully removed from Catalog.",
     });
   } catch (err: any) {
-    debugError(err);
+    logger.error({ err }, "removeBookFromCustomCatalog failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2009,7 +2100,7 @@ const excludeBookFromAutoMatch = async (
       msg: "Resource successfully excluded from Automatic Catalog Matching.",
     });
   } catch (err: any) {
-    debugError(err);
+    logger.error({ err }, "excludeBookFromAutoMatch failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2078,7 +2169,7 @@ async function downloadBookFile(
       url: downloadURLs[0], // only first index because only one file requested
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "downloadBookFile failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2106,7 +2197,7 @@ async function getBookTOC(
       toc,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getBookTOC failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2153,7 +2244,7 @@ async function getLicenseReport(
       data: licRep.data,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getLicenseReport failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2201,7 +2292,7 @@ async function getBookPagesDetails(
       toc: detailedToc,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getBookPagesDetails failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2243,7 +2334,7 @@ async function getPageDetail(
       tags: details.tags,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getPageDetail failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2302,7 +2393,7 @@ async function updatePageDetails(
       msg: "Page details updated successfully.",
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updatePageDetails failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2349,7 +2440,7 @@ async function bulkUpdatePageTags(
       processed,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "bulkUpdatePageTags failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -2520,7 +2611,7 @@ const generateKBExport = () => {
                   let authorProcess = author.trim();
                   if (
                     authorProcess.toLowerCase() !==
-                      "no attribution by request" &&
+                    "no attribution by request" &&
                     authorProcess.length > 0
                   ) {
                     itemAuthors.push(authorProcess);
@@ -2541,7 +2632,7 @@ const generateKBExport = () => {
     .then(() => fs.writeJson("./public/kbexport.json", kbExport))
     .then(() => true)
     .catch((err) => {
-      debugError(err);
+      logger.error({ err }, "generateKBExport failed");
       return false;
     });
 };
@@ -2567,123 +2658,13 @@ const retrieveKBExport = (_req: Request, res: Response) => {
       throw new Error("kbexport-notfound");
     })
     .catch((err) => {
-      debugError(err);
+      logger.error({ err }, "retrieveKBExport failed");
       return res.status(500).send({
         err: true,
         msg: conductorErrors.err45,
       });
     });
 };
-
-export async function _getBookPublicOrInstructorAssetsCount(
-  ids: string[],
-): Promise<
-  {
-    bookID: string;
-    publicAssets: number;
-    instructorAssets: number;
-  }[]
-> {
-  return Book.aggregate([
-    {
-      $match: {
-        bookID: { $in: ids },
-      },
-    },
-    {
-      $lookup: {
-        from: "projects",
-        let: {
-          bookIdParts: {
-            $split: ["$bookID", "-"],
-          },
-        },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  {
-                    $eq: [
-                      "$libreLibrary",
-                      {
-                        $arrayElemAt: ["$$bookIdParts", 0],
-                      },
-                    ],
-                  },
-                  {
-                    $eq: [
-                      "$libreCoverID",
-                      {
-                        $arrayElemAt: ["$$bookIdParts", 1],
-                      },
-                    ],
-                  },
-                ],
-              },
-            },
-          },
-          {
-            $project: {
-              projectID: 1,
-            },
-          },
-        ],
-        as: "projectDetails",
-      },
-    },
-    {
-      $addFields: {
-        project: {
-          $first: "$projectDetails",
-        },
-      },
-    },
-    {
-      $match: {
-        "project.projectID": {
-          $exists: true,
-          $ne: "",
-        },
-      },
-    },
-    {
-      $lookup: {
-        from: "projectfiles",
-        localField: "project.projectID",
-        foreignField: "projectID",
-        as: "projectFiles",
-      },
-    },
-    {
-      $project: {
-        bookID: "$bookID",
-        publicAssets: {
-          $size: {
-            $filter: {
-              input: "$projectFiles",
-              as: "file",
-              cond: {
-                $eq: ["$$file.access", "public"],
-              },
-            },
-          },
-        },
-        instructorAssets: {
-          $size: {
-            $filter: {
-              input: "$projectFiles",
-              as: "file",
-              cond: {
-                $eq: ["$$file.access", "instructors"],
-              },
-            },
-          },
-        },
-      },
-    },
-  ]);
-}
 
 export async function syncWithSearchIndex(req: Request, res: Response) {
   try {
@@ -2695,10 +2676,10 @@ export async function syncWithSearchIndex(req: Request, res: Response) {
 
     // Run the actual sync in the background (don't await)
     syncBooksInBackground().catch((e) => {
-      debugError(`Error in background sync: ${e}`);
+      logger.error({ err: e }, "Error in background sync");
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "syncWithSearchIndex failed");
     // Only send error if response hasn't been sent yet
     if (!res.headersSent) {
       return res.status(500).send({
@@ -2709,6 +2690,91 @@ export async function syncWithSearchIndex(req: Request, res: Response) {
   }
 }
 
+/* A 500-document Meilisearch task can outrun the SearchService default on a
+   loaded instance, and this is a background job — give it room. */
+const SEARCH_INDEX_TASK_TIMEOUT_MS = 120_000;
+
+/* Each catch-up pass covers a strictly shorter window than the last, so a small
+   budget is enough to converge. Anything still outstanding waits for the next
+   re-sync rather than holding this run open indefinitely. */
+const SEARCH_INDEX_CATCH_UP_PASSES = 3;
+
+/* The catch-up assumes only a handful of Books change while a re-sync runs. A
+   concurrent library walk breaks that assumption wholesale: `buildBookUpsertOp`
+   $sets `lastSyncedAt` on every Book it touches, so Mongoose stamps `updatedAt`
+   across the whole corpus whether or not any field actually changed. Past this
+   many hits the window is not a catch-up, it is a second full rebuild — skip it
+   and let the next re-sync cover the ground. */
+const SEARCH_INDEX_CATCH_UP_MAX = 5_000;
+
+/**
+ * Re-indexes every Book written since `since`, repeating until a pass finds
+ * nothing new or the pass budget (`SEARCH_INDEX_CATCH_UP_PASSES`) runs out.
+ * Returns the number of documents rewritten.
+ *
+ * The full walk pages through `Book.aggregate`, so a Book written after its page's
+ * snapshot was read gets indexed from stale data. Meilisearch is last-write-wins
+ * per document with no conditional update, so the walk's older payload silently
+ * overwrites whatever a concurrent incremental upsert (Shapeshift webhook, a Book
+ * edit, another instance) had just written. Reading Mongo again closes that window
+ * no matter which process opened it — an in-process lock could not, because every
+ * instance shares one Meilisearch.
+ */
+async function catchUpSearchIndexSince(
+  since: Date,
+  batchSize: number,
+): Promise<number> {
+  const searchService = await SearchService.getInstance();
+  let cursor = since;
+  let rewritten = 0;
+
+  for (let pass = 0; pass < SEARCH_INDEX_CATCH_UP_PASSES; pass += 1) {
+    /* Stamped before the read, so a write landing during this pass is caught by
+       the next one rather than falling through the gap. */
+    const passStartedAt = new Date();
+    const changed = await Book.find(
+      { updatedAt: { $gt: cursor } },
+      { bookID: 1, _id: 0 },
+    )
+      /* One over the cap, purely to tell "at the cap" from "over it". */
+      .limit(SEARCH_INDEX_CATCH_UP_MAX + 1)
+      .lean();
+    if (changed.length === 0) break;
+
+    if (changed.length > SEARCH_INDEX_CATCH_UP_MAX) {
+      logger.info(`Catch-up window covers more than ${SEARCH_INDEX_CATCH_UP_MAX} books — a library ` +
+                  `walk most likely overlapped this run and restamped every lastSyncedAt. ` +
+                  `Skipping the catch-up; the next re-sync covers it.`);
+      break;
+    }
+
+    const bookIDs = changed.map((book) => book.bookID);
+    for (let i = 0; i < bookIDs.length; i += batchSize) {
+      /* Already applies attachAssetCounts and sanitizeForSearchIndex, so these
+         documents are shaped identically to the ones the walk writes. A Book
+         deleted mid-run simply drops out here; the prune removes it. */
+      const docs = await buildBookSearchDocuments(
+        bookIDs.slice(i, i + batchSize),
+      );
+      if (docs.length === 0) continue;
+
+      await searchService.addDocuments("books", docs, {
+        waitForCompletion: true,
+        timeOutMs: SEARCH_INDEX_TASK_TIMEOUT_MS,
+      });
+      rewritten += docs.length;
+    }
+
+    cursor = passStartedAt;
+  }
+
+  if (rewritten > 0) {
+    logger.info(`Re-indexed ${rewritten} book(s) written while the re-sync was running.`);
+  }
+
+  return rewritten;
+}
+
 /**
  * Syncs all books to the search index in batches to avoid memory issues
  * and timeouts with large datasets. Runs in the background.
@@ -2716,7 +2782,7 @@ export async function syncWithSearchIndex(req: Request, res: Response) {
  */
 export async function syncBooksInBackground() {
   try {
-    debugServer("Initiating Commons Books search index synchronization...");
+    logger.info("Initiating Commons Books search index synchronization...");
     const searchService = await SearchService.getInstance();
 
     const batchSize = 500; // Process 500 books at a time
@@ -2724,91 +2790,13 @@ export async function syncBooksInBackground() {
     let hasMore = true;
     let totalSynced = 0;
 
-    /**
-     * Book data for search index should be in format:
-     * {
-     * bookID: string,
-     *  ...other Book fields,
-     *  projectTags: string[] // array of tag titles associated with the Book's Project
-     * }
-     */
-    const aggregationPipeline = [
-      {
-        // Add project data to each book (if any)
-        $lookup: {
-          from: "projects",
-          let: {
-            lib: "$library",
-            coverID: { $arrayElemAt: [{ $split: ["$bookID", "-"] }, 1] },
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$$lib", "$libreLibrary"] },
-                    { $eq: ["$$coverID", "$libreCoverID"] },
-                    { $eq: ["$visibility", "public"] },
-                  ],
-                },
-              },
-            },
-          ],
-          as: "project",
-        },
-      },
-      {
-        $addFields: {
-          project: {
-            $arrayElemAt: ["$project", 0],
-          },
-        },
-      },
-      // project.tags is a string array of tagID's; we need to load the actual tag.title values
-      {
-        $lookup: {
-          from: "tags",
-          localField: "project.tags",
-          foreignField: "tagID",
-          as: "projectTags",
-        },
-      },
-      {
-        $addFields: {
-          projectTags: {
-            $map: {
-              input: "$projectTags",
-              as: "tag",
-              in: "$$tag.title",
-            },
-          },
-          courseNormalized: {
-            $toLower: {
-              $trim: {
-                input: {
-                  $ifNull: ["$course", ""],
-                },
-              },
-            },
-          },
-        },
-      },
-      {
-        // Exclude fields that add no value to search index
-        $project: {
-          _id: 0,
-          __v: 0,
-          createdAt: 0,
-          updatedAt: 0,
-          randomIndex: 0,
-          project: 0,
-        },
-      },
-    ];
+    /* Any Book written from here on may be read by the walk below from a snapshot
+       taken before that write — see the catch-up pass that follows the loop. */
+    const syncStartedAt = new Date();
 
     while (hasMore) {
       const books = await Book.aggregate([
-        ...aggregationPipeline,
+        ...bookSearchIndexAggregationStages,
         { $skip: skip },
         { $limit: batchSize },
       ]);
@@ -2818,11 +2806,19 @@ export async function syncBooksInBackground() {
         break;
       }
 
-      await searchService.addDocuments("books", books);
+      // Attach public/instructor asset counts so the search index can filter on them.
+      await attachAssetCounts(books);
+
+      /* Waited to completion, not just enqueued: document-level rejections are
+         reported through task status, never the HTTP response, so without this the
+         success logged below would be indistinguishable from a batch Meilisearch
+         threw away. It also keeps the loop from outrunning the task queue. */
+      await searchService.addDocuments("books", sanitizeForSearchIndex(books), {
+        waitForCompletion: true,
+        timeOutMs: SEARCH_INDEX_TASK_TIMEOUT_MS,
+      });
       totalSynced += books.length;
-      debugServer(
-        `Synced batch of ${books.length} books (${totalSynced} total)...`,
-      );
+      logger.info(`Synced batch of ${books.length} books (${totalSynced} total)...`);
 
       skip += batchSize;
 
@@ -2832,11 +2828,17 @@ export async function syncBooksInBackground() {
       }
     }
 
-    debugServer(
-      `Commons Books search index sync completed. Total synced: ${totalSynced}`,
-    );
+    const caughtUp = await catchUpSearchIndexSince(syncStartedAt, batchSize);
+
+    /* Upserts alone never remove anything, so a book deleted while Meilisearch was
+       unreachable would stay searchable forever. Reconcile now that every live Book
+       has been written — applied, not merely enqueued, so no stale document can
+       still be in flight and slip past the index read this performs. */
+    const pruned = await pruneDeletedBooksFromSearchIndex();
+
+    logger.info(`Commons Books search index sync completed. Total synced: ${totalSynced}, caught up: ${caughtUp}, pruned: ${pruned}`);
   } catch (e) {
-    debugError("Error in syncBooksInBackground:", e);
+    logger.error({ err: e }, "Error in syncBooksInBackground");
     throw e;
   }
 }
@@ -2903,7 +2905,7 @@ type PressbooksImportJobParams = {
   projectID: string;
   pbBookURL: string;
   userID: string;
-}; 
+};
 async function appendPressbooksJobMessages(jobID: string, messages: string[]) {
   if (!messages.length) return;
   await PressbooksImportJob.updateOne(
@@ -3001,7 +3003,7 @@ async function runPressbooksImportJob(params: PressbooksImportJobParams) {
       "Pressbooks import completed successfully.",
     ]);
   } catch (err: any) {
-    debugError(err);
+    logger.error({ err }, "runPressbooksImportJob failed");
     await PressbooksImportJob.updateOne(
       { jobID },
       {
@@ -3052,7 +3054,7 @@ async function getPressBooksImportJobStatus(
       },
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getPressBooksImportJobStatus failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -3092,7 +3094,7 @@ async function getActivePressBooksImportJob(
       },
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getActivePressBooksImportJob failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -3111,7 +3113,7 @@ async function getCoverIdByUrl(req: Request, res: Response) {
     }
     return res.send({ err: false, id: result.id, bookID: result.bookID });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getCoverIdByUrl failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3130,7 +3132,7 @@ async function getGlossaryTermSearch(req: Request, res: Response) {
       data: results.map((entry) => entry.term),
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getGlossaryTermSearch failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3169,7 +3171,7 @@ async function getBookGlossary(
     });
     return res.send({ err: false, data: glossary });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getBookGlossary failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3180,7 +3182,7 @@ async function addBookGlossary(
   res: Response,
 ) {
   try {
-    const {glossaryID, term, definition, pageId, bookId, altText, caption, link, source, imageSource, imageAuthor, imageLicense, aliases, author, usageID, removeImage } = req.body;
+    const { glossaryID, term, definition, pageId, bookId, altText, caption, link, source, imageSource, imageAuthor, imageLicense, aliases, author, usageID, removeImage } = req.body;
     const { coverID, library } = req.params;
 
     const glossaryService = new GlossaryService();
@@ -3239,7 +3241,7 @@ async function addBookGlossary(
       imageFile: req.file,
       altText: altText?.trim() || undefined,
       caption: caption?.trim() || undefined,
-      aliases: aliases?.split(",").map((alias) => alias.trim()).filter((alias) => alias !== "")  || [],
+      aliases: aliases?.split(",").map((alias) => alias.trim()).filter((alias) => alias !== "") || [],
       author: author?.trim() || undefined,
       link: link?.trim() || undefined,
       source: source?.trim() || undefined,
@@ -3250,7 +3252,7 @@ async function addBookGlossary(
     });
     return res.send({ err: false, pageId, termID });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "addBookGlossary failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3268,7 +3270,7 @@ async function addPageToGlossaryUsage(
       library,
     });
     const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: userID }).orFail();
+    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
     const isSuperAdmin = authAPI.checkHasRole(
       req.user,
       "libretexts",
@@ -3285,7 +3287,7 @@ async function addPageToGlossaryUsage(
     await glossaryService.addPageToGlossaryUsage(pageIds, usageIds, coverID.toString(), library);
     return res.send({ err: false, msg: "Page added to glossary usage successfully." });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "addPageToGlossaryUsage failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3293,36 +3295,37 @@ async function addPageToGlossaryUsage(
 async function deleteBookGlossary(
   req: ZodReqWithUser<z.infer<typeof getWithCoverIDParamSchema>>,
   res: Response,
-) { try {
-  const { coverID, library } = req.params;
-  const glossaryService = new GlossaryService();
-  const project = await glossaryService.getProject({
-    coverID: coverID.toString(),
-    library,
-  });
-  const { uuid: userID } = req.user.decoded;
-  const user = await User.findOne({ uuid: userID }).orFail();
-  const isSuperAdmin = authAPI.checkHasRole(
-    req.user,
-    "libretexts",
-    "superadmin",
-    true,
-  );
-  if (!project && !isSuperAdmin) {
-    return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
-  }
-  const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-  if (!canAccess && !isSuperAdmin) {
-    throw new Error(conductorErrors.err8);
-  }
- 
+) {
+  try {
+    const { coverID, library } = req.params;
+    const glossaryService = new GlossaryService();
+    const project = await glossaryService.getProject({
+      coverID: coverID.toString(),
+      library,
+    });
+    const { uuid: userID } = req.user.decoded;
+    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
+    const isSuperAdmin = authAPI.checkHasRole(
+      req.user,
+      "libretexts",
+      "superadmin",
+      true,
+    );
+    if (!project && !isSuperAdmin) {
+      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
+    }
+    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
+    if (!canAccess && !isSuperAdmin) {
+      throw new Error(conductorErrors.err8);
+    }
+
     await glossaryService.deleteBookGlossary({
       coverID: coverID.toString(),
       library,
     });
     return res.send({ err: false, msg: "Glossary deleted successfully." });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteBookGlossary failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3337,7 +3340,7 @@ async function deleteBookGlossaryUsage(
     const glossaryService = new GlossaryService();
     const project = await glossaryService.getProjectByUsageID(usageID.toString());
     const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: userID }).orFail();
+    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
     const isSuperAdmin = authAPI.checkHasRole(
       req.user,
       "libretexts",
@@ -3351,11 +3354,11 @@ async function deleteBookGlossaryUsage(
     if (!canAccess && !isSuperAdmin) {
       throw new Error(conductorErrors.err8);
     }
-    await glossaryService.deleteGlossaryUsage(  usageID, pageID?.toString() || undefined);
+    await glossaryService.deleteGlossaryUsage(usageID, pageID?.toString() || undefined);
     return res.send({ err: false, msg: "Glossary usage deleted successfully." });
   }
   catch (err) {
-   
+
     return res.status(500).send({ err: true, errMsg: "Failed to delete glossary usage." });
   }
 }
@@ -3370,7 +3373,12 @@ async function getGlossaryPage(
     return res.send({ err: false, data: glossary });
   }
   catch (err) {
-    debugError(err);
+    // A page with no glossary is the common case across the libraries, not a
+    // failure. Returning 500 here buried real errors in CloudWatch noise.
+    if (err instanceof GlossaryNotFoundError) {
+      return res.status(404).send({ err: true, errMsg: conductorErrors.err11 });
+    }
+    logger.error({ err }, "getGlossaryPage failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3383,10 +3391,15 @@ async function getGlossaryDetails(
   try {
     const glossaryService = new GlossaryService();
     const glossaryDetails = await glossaryService.getGlossaryDetails(pageID, library);
-    return res.send({err:false,...glossaryDetails})
+    return res.send({ err: false, ...glossaryDetails })
   }
   catch (err) {
-    debugError(err);
+    // A page with no glossary is the common case across the libraries, not a
+    // failure. Returning 500 here buried real errors in CloudWatch noise.
+    if (err instanceof GlossaryNotFoundError) {
+      return res.status(404).send({ err: true, errMsg: conductorErrors.err11 });
+    }
+    logger.error({ err }, "getGlossaryDetails failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3395,14 +3408,24 @@ async function addExternalGlossaryToGlossaryUsage(
   res: Response,
 ) {
   try {
-  const { glossaryID } = req.body;
-  const {  library, coverID } = req.params;
-  const glossaryService = new GlossaryService();
-  await glossaryService.addExternalGlossaryToGlossaryUsage(glossaryID.toString(), coverID.toString(), library, req.user.decoded.uuid);
-  return res.send({ err: false, msg: "External glossary added to glossary usage successfully." });
+    const { glossaryID } = req.body;
+    const { library, coverID } = req.params;
+    const { auxGlossaryID, auxGlossaryParentID } = req.body;
+    const glossaryService = new GlossaryService();
+    if (!auxGlossaryID && !auxGlossaryParentID) {
+      const result = await glossaryService.addExternalGlossaryToGlossaryUsage(glossaryID.toString(), coverID.toString(), library, req.user.decoded.uuid);
+      return res.send({ err: false, msg: "External glossary added to glossary usage successfully.", data: result });
+    }
+    else if (auxGlossaryID) {
+      const result = await glossaryService.addExternalAuxGlossaryToGlossaryUsage(glossaryID.toString(), coverID.toString(), library, req.user.decoded.uuid, auxGlossaryID.toString(), auxGlossaryParentID?.toString());
+      return res.send({ err: false, msg: "External glossary added to glossary usage successfully.", data: result });
+    }
+    else {
+      throw new Error("Invalid request.");
+    }
   }
   catch (err) {
-    debugError(err);
+    logger.error({ err }, "addExternalGlossaryToGlossaryUsage failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3451,7 +3474,7 @@ async function getGlossaryUsageImage(
     res.set("Cache-Control", "public, max-age=31536000");
     return res.send(data);
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getGlossaryUsageImage failed");
     return res.status(404).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3484,7 +3507,6 @@ export default {
   retrieveKBExport,
   syncWithSearchIndex,
   syncBooksInBackground,
-  _getBookPublicOrInstructorAssetsCount,
   getGlossaryTermSearch,
   addBookGlossary,
   getBookGlossary,

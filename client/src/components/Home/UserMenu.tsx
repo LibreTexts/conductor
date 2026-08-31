@@ -64,7 +64,6 @@ const NavList: React.FC<{ showUserDetail: boolean }> = ({ showUserDetail }) => {
       {(user.isSuperAdmin || user.isCampusAdmin || user.isSupport) && (
         <NavItem label="Control Panel" icon={<IconDashboard size={20} />} to="/controlpanel" />
       )}
-      <NavItem label="My Alerts" icon={<IconBell size={20} />} to="/alerts" />
       <NavItem label="My Support Tickets" icon={<IconTicket size={20} />} to="/support/dashboard" />
       <NavItem
         label="Harvesting Request"

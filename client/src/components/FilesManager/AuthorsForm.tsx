@@ -14,85 +14,47 @@ import { ProjectFileAuthor } from "../../types/Project";
 interface AuthorsFormProps {
   mode: "project-default" | "file";
   currentPrimaryAuthor?: ProjectFileAuthor;
-  currentAuthors?: ProjectFileAuthor[];
-  currentCorrespondingAuthor?: ProjectFileAuthor;
 }
 
 type AuthorsFormRef = {
   getAuthors: () => {
     primaryAuthor: ProjectFileAuthor | null;
-    authors: ProjectFileAuthor[];
-    correspondingAuthor: ProjectFileAuthor | null;
   };
 };
 
 const AuthorsForm = forwardRef(
   (props: AuthorsFormProps, ref: React.ForwardedRef<AuthorsFormRef>) => {
-    const {
-      mode,
-      currentPrimaryAuthor,
-      currentAuthors,
-      currentCorrespondingAuthor,
-    } = props;
+    const { mode, currentPrimaryAuthor } = props;
 
     const { handleGlobalError } = useGlobalError();
     const { debounce } = useDebounce();
 
     const [authorOptions, setAuthorOptions] = useState<ProjectFileAuthor[]>([]);
-    const [secondaryAuthorOptions, setSecondaryAuthorOptions] = useState<
-      ProjectFileAuthor[]
-    >([]);
-    const [correspondingAuthorOptions, setCorrespondingAuthorOptions] =
-      useState<ProjectFileAuthor[]>([]);
-
     const [loadingAuthors, setLoadingAuthors] = useState(false);
-    const [loadingSecondaryAuthors, setLoadingSecondaryAuthors] =
-      useState(false);
-    const [loadingCorrespondingAuthors, setLoadingCorrespondingAuthors] =
-      useState(false);
 
     const [selectedPrimary, setSelectedPrimary] =
       useState<ProjectFileAuthor | null>(currentPrimaryAuthor ?? null);
-    const [selectedSecondary, setSelectedSecondary] = useState<
-      ProjectFileAuthor[]
-    >(currentAuthors ?? []);
-    const [selectedCorresponding, setSelectedCorresponding] =
-      useState<ProjectFileAuthor | null>(currentCorrespondingAuthor ?? null);
 
     useImperativeHandle(ref, () => ({
       getAuthors: () => ({
         primaryAuthor: selectedPrimary,
-        authors: selectedSecondary,
-        correspondingAuthor: selectedCorresponding,
       }),
     }));
 
     useEffect(() => {
-      loadAuthorOptions(undefined, true);
+      loadAuthorOptions();
     }, []);
 
-    // We need to update the selected authors when the current authors change
+    // We need to update the selected author when the current author changes
     // since that data may not be available when the component is first rendered
     useEffect(() => {
       setSelectedPrimary(currentPrimaryAuthor ?? null);
-      setSelectedSecondary(currentAuthors ?? []);
-      setSelectedCorresponding(currentCorrespondingAuthor ?? null);
       if (currentPrimaryAuthor) {
         setAuthorOptions((prev) => {
           return noDuplicateAuthors([...prev, currentPrimaryAuthor]);
         });
       }
-      if (currentAuthors) {
-        setSecondaryAuthorOptions((prev) => {
-          return noDuplicateAuthors([...prev, ...currentAuthors]);
-        });
-      }
-      if (currentCorrespondingAuthor) {
-        setCorrespondingAuthorOptions((prev) => {
-          return noDuplicateAuthors([...prev, currentCorrespondingAuthor]);
-        });
-      }
-    }, [currentPrimaryAuthor, currentAuthors, currentCorrespondingAuthor]);
+    }, [currentPrimaryAuthor]);
 
     function noDuplicateAuthors(authors: ProjectFileAuthor[]) {
       return authors.filter(
@@ -100,7 +62,7 @@ const AuthorsForm = forwardRef(
       );
     }
 
-    async function loadAuthorOptions(searchQuery?: string, setOthers = false) {
+    async function loadAuthorOptions(searchQuery?: string) {
       try {
         setLoadingAuthors(true);
         const res = await api.getAuthors({ query: searchQuery });
@@ -114,70 +76,12 @@ const AuthorsForm = forwardRef(
         const opts = [
           ...res.data.items,
           ...(selectedPrimary ? [selectedPrimary] : []),
-          ...(selectedCorresponding ? [selectedCorresponding] : []),
-          ...(selectedSecondary ?? []),
         ];
         setAuthorOptions(opts);
-
-        // We only use this when loading the authors for the first time
-        // so we don't need to run the same query multiple times
-        if (setOthers) {
-          setSecondaryAuthorOptions(opts);
-          setCorrespondingAuthorOptions(opts);
-        }
       } catch (err) {
         handleGlobalError(err);
       } finally {
         setLoadingAuthors(false);
-      }
-    }
-
-    async function loadSecondaryAuthorOptions(searchQuery?: string) {
-      try {
-        setLoadingSecondaryAuthors(true);
-        const res = await api.getAuthors({ query: searchQuery });
-        if (res.data.err) {
-          throw new Error(res.data.errMsg);
-        }
-        if (!res.data.items || !Array.isArray(res.data.items)) {
-          throw new Error("Failed to load author options");
-        }
-
-        const opts = [...res.data.items, ...(selectedSecondary ?? [])];
-
-        const unique = opts.filter(
-          (a, i, self) => self.findIndex((b) => b._id === a._id) === i
-        );
-
-        setSecondaryAuthorOptions(unique);
-      } catch (err) {
-        handleGlobalError(err);
-      } finally {
-        setLoadingSecondaryAuthors(false);
-      }
-    }
-
-    async function loadCorrespondingAuthorOptions(searchQuery?: string) {
-      try {
-        setLoadingCorrespondingAuthors(true);
-        const res = await api.getAuthors({ query: searchQuery });
-        if (res.data.err) {
-          throw new Error(res.data.errMsg);
-        }
-        if (!res.data.items || !Array.isArray(res.data.items)) {
-          throw new Error("Failed to load author options");
-        }
-
-        const opts = [
-          ...res.data.items,
-          ...(selectedCorresponding ? [selectedCorresponding] : []),
-        ];
-
-        setCorrespondingAuthorOptions(opts);
-      } catch (err) {
-        handleGlobalError(err);
-      } finally {
-        setLoadingCorrespondingAuthors(false);
       }
     }
 
@@ -186,54 +90,8 @@ const AuthorsForm = forwardRef(
       200
     );
 
-    const getSecondaryAuthorsDebounced = debounce(
-      (searchQuery?: string) => loadSecondaryAuthorOptions(searchQuery),
-      200
-    );
-
-    const getCorrespondingAuthorsDebounced = debounce(
-      (searchQuery?: string) => loadCorrespondingAuthorOptions(searchQuery),
-      200
-    );
-
     const primaryAuthorOpts = useMemo(() => {
-      const opts = authorOptions
-        .filter((a) => !selectedSecondary?.find((ca) => ca._id === a._id))
-        .map((a) => ({
-          key: crypto.randomUUID(),
-          value: a._id ?? "",
-          text: a.name ?? "Unknown",
-        }));
-
-      opts.unshift({
-        key: crypto.randomUUID(),
-        value: "",
-        text: "Clear...",
-      });
-
-      return opts;
-    }, [authorOptions, selectedSecondary]);
-
-    const secondaryAuthorOpts = useMemo(() => {
-      const opts = secondaryAuthorOptions
-        .filter((a) => !selectedPrimary || a._id !== selectedPrimary._id)
-        .map((a) => ({
-          key: crypto.randomUUID(),
-          value: a._id ?? "",
-          text: a.name ?? "Unknown",
-        }));
-
-      opts.unshift({
-        key: crypto.randomUUID(),
-        value: "",
-        text: "Clear...",
-      });
-
-      return opts;
-    }, [secondaryAuthorOptions, selectedPrimary]);
-
-    const correspondingAuthorOpts = useMemo(() => {
-      const opts = correspondingAuthorOptions.map((a) => ({
+      const opts = authorOptions.map((a) => ({
         key: crypto.randomUUID(),
         value: a._id ?? "",
         text: a.name ?? "Unknown",
@@ -246,112 +104,38 @@ const AuthorsForm = forwardRef(
       });
 
       return opts;
-    }, [correspondingAuthorOptions]);
+    }, [authorOptions]);
 
     return (
-      <>
-        <div className="mt-4">
-          <label className="form-field-label" htmlFor="primaryAuthorSelect">
-            {mode === "project-default" ? "Default " : ""}Primary Author
-          </label>
-          <Form.Field className="flex flex-col">
-            <Dropdown
-              id="primaryAuthorSelect"
-              options={primaryAuthorOpts}
-              onChange={(e, { value }) => {
-                if (!value) {
-                  setSelectedPrimary(null);
-                  return;
-                }
-                const found = authorOptions.find((a) => a._id === value);
-                if (!found) return;
-                setSelectedPrimary(found);
-              }}
-              fluid
-              selection
-              search
-              value={selectedPrimary?._id ?? ""}
-              onSearchChange={(e, { searchQuery }) => {
-                getAuthorsDebounced(searchQuery);
-              }}
-              placeholder="Seach authors..."
-              loading={loadingAuthors}
-            />
-          </Form.Field>
-        </div>
-        <div className="mt-4">
-          <label
-            className="form-field-label"
-            htmlFor="correspondingAuthorSelect"
-          >
-            {mode === "project-default" ? "Default " : ""}Contact Person
-          </label>
-          <Form.Field className="flex flex-col">
-            <Dropdown
-              id="correspondingAuthorSelect"
-              options={correspondingAuthorOpts}
-              onChange={(e, { value }) => {
-                if (!value) {
-                  setSelectedCorresponding(null);
-                  return;
-                }
-                const found = correspondingAuthorOptions.find(
-                  (a) => a._id === value
-                );
-                if (!found) return;
-                setSelectedCorresponding(found);
-              }}
-              fluid
-              selection
-              search
-              value={selectedCorresponding?._id ?? ""}
-              onSearchChange={(e, { searchQuery }) => {
-                getCorrespondingAuthorsDebounced(searchQuery);
-              }}
-              placeholder="Seach authors..."
-              loading={loadingCorrespondingAuthors}
-            />
-          </Form.Field>
-        </div>
-        <div>
-          <Form.Field className="flex flex-col">
-            <label htmlFor="existingAuthorSelect">
-              {mode === "project-default" ? "Default " : ""}Additional Author(s)
-            </label>
-            <Dropdown
-              id="existingAuthorSelect"
-              placeholder="Search authors..."
-              options={secondaryAuthorOpts}
-              onChange={(e, { value }) => {
-                if (!value) return;
-
-                // If 'clear' is selected, the last value will be an empty string
-                if (Array.isArray(value) && value[value.length - 1] === "") {
-                  setSelectedSecondary([]);
-                  return;
-                }
-                const foundEntries = secondaryAuthorOptions.filter(
-                  (a) => a._id && (value as string[])?.includes(a._id)
-                );
-                setSelectedSecondary(foundEntries);
-              }}
-              fluid
-              selection
-              search
-              multiple
-              value={
-                selectedSecondary
-                  .filter((a) => !!a)
-                  .map((a) => a._id) as string[]
+      <div className="mt-4">
+        <label className="form-field-label" htmlFor="primaryAuthorSelect">
+          {mode === "project-default" ? "Default " : ""}Primary Author
+        </label>
+        <Form.Field className="flex flex-col">
+          <Dropdown
+            id="primaryAuthorSelect"
+            options={primaryAuthorOpts}
+            onChange={(e, { value }) => {
+              if (!value) {
+                setSelectedPrimary(null);
+                return;
               }
-              onSearchChange={(e, { searchQuery }) => {
-                getSecondaryAuthorsDebounced(searchQuery);
-              }}
-              loading={loadingSecondaryAuthors}
-            />
-          </Form.Field>
-        </div>
-      </>
+              const found = authorOptions.find((a) => a._id === value);
+              if (!found) return;
+              setSelectedPrimary(found);
+            }}
+            fluid
+            selection
+            search
+            value={selectedPrimary?._id ?? ""}
+            onSearchChange={(e, { searchQuery }) => {
+              getAuthorsDebounced(searchQuery);
+            }}
+            placeholder="Seach authors..."
+            loading={loadingAuthors}
+          />
+        </Form.Field>
+      </div>
     );
   }
 );

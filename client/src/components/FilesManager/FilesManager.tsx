@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback } from "react";
+import lazyWithRetry from "../../utils/lazyWithRetry";
 import {
   Button,
   Loader,
@@ -14,14 +15,14 @@ import {
   Dropdown,
   Message,
 } from "semantic-ui-react";
-const AddFolder = React.lazy(() => import("./AddFolder"));
-const ChangeAccess = React.lazy(() => import("./ChangeAccess"));
-const DeleteFiles = React.lazy(() => import("./DeleteFiles"));
-const FileIcon = React.lazy(() => import("../FileIcon"));
-const FilesUploader = React.lazy(() => import("./FilesUploader"));
-const MoveFiles = React.lazy(() => import("./MoveFiles"));
-const EditFile = React.lazy(() => import("./EditFile"));
-const LargeDownloadModal = React.lazy(() => import("./LargeDownloadModal"));
+const AddFolder = lazyWithRetry(() => import("./AddFolder"));
+const ChangeAccess = lazyWithRetry(() => import("./ChangeAccess"));
+const DeleteFiles = lazyWithRetry(() => import("./DeleteFiles"));
+const FileIcon = lazyWithRetry(() => import("../FileIcon"));
+const FilesUploader = lazyWithRetry(() => import("./FilesUploader"));
+const MoveFiles = lazyWithRetry(() => import("./MoveFiles"));
+const EditFile = lazyWithRetry(() => import("./EditFile"));
+const LargeDownloadModal = lazyWithRetry(() => import("./LargeDownloadModal"));
 import {
   getFilesLicenseText,
   getFilesAccessText,
@@ -46,6 +47,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import PermanentLinkModal from "./PermanentLinkModal";
 import { useModals } from "../../context/ModalContext";
 import BulkTagModal from "./BulkTagModal";
+import BulkEditMetadataModal from "./BulkEditMetadataModal";
 
 interface FilesManagerProps extends SegmentProps {
   projectID: string;
@@ -531,6 +533,25 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     );
   }
 
+  function handleBulkEditMetadata() {
+    if (!files || files.length === 0) return;
+    // Include folders — they act as recursion entry points (server expands to descendant files).
+    const selected = files.filter((obj) => obj.checked);
+    if (selected.length === 0) return;
+
+    openModal(
+      <BulkEditMetadataModal
+        projectID={projectID}
+        fileIds={selected.map((f) => f.fileID)}
+        onCancel={() => closeAllModals()}
+        onSave={() => {
+          queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
+          closeAllModals();
+        }}
+      />
+    );
+  }
+
   /**
    * Generates path breadcrumbs based on the current directory in view.
    *
@@ -798,6 +819,18 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                 >
                   <Icon name="tags" />
                   Bulk Tag
+                </Button>
+              )}
+              {canViewDetails && itemsChecked > 0 && (
+                <Button
+                  color="olive"
+                  disabled={itemsChecked < 1}
+                  onClick={() => {
+                    handleBulkEditMetadata();
+                  }}
+                >
+                  <Icon name="edit" />
+                  Bulk Edit
                 </Button>
               )}
               {canViewDetails && itemsChecked > 1 && (

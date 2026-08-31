@@ -6,7 +6,8 @@ import {
   IconCheck,
 } from "@tabler/icons-react";
 import useGlobalError from "../../components/error/ErrorHooks";
-import { useEffect, useState, lazy } from "react";
+import { useEffect, useState } from "react";
+import lazyWithRetry from "../../utils/lazyWithRetry";
 import axios from "axios";
 import { useTypedSelector } from "../../state/hooks";
 import { useForm, Controller } from "react-hook-form";
@@ -15,12 +16,12 @@ import PageLastEditor from "./PageLastEditor";
 import { required } from "../../utils/formRules";
 import useQueryParam from "../../utils/useQueryParam";
 import PageStatusLabel from "./PageStatusLabel";
-import { checkIsUUID, getKBSharingObj } from "../../utils/kbHelpers";
 import { useQueryClient } from "@tanstack/react-query";
+import { checkIsUUID } from "../../utils/misc";
 
-const KBCKEditor = lazy(() => import("./KBCKEditor"));
-const PreviewPageModal = lazy(() => import("./PreviewPageModal"));
-const ConfirmDeletePageModal = lazy(() => import("./ConfirmDeletePageModal"));
+const KBCKEditor = lazyWithRetry(() => import("./KBCKEditor"));
+const PreviewPageModal = lazyWithRetry(() => import("./PreviewPageModal"));
+const ConfirmDeletePageModal = lazyWithRetry(() => import("./ConfirmDeletePageModal"));
 
 const KBPageEditMode = ({
   mode,

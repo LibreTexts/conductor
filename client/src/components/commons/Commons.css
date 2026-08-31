@@ -301,13 +301,6 @@
     word-break: break-word;
 }
 
-.commons-content-card-affiliation {
-    height: 1.4em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: break-spaces;
-}
-
 .commons-content-card-header {
     text-overflow: ellipsis;
     max-height: 45px;

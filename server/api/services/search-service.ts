@@ -1,10 +1,11 @@
+import logger, { childLogger } from "../../logger.js";
 import { Index, MeiliSearch } from "meilisearch";
 import { createHash } from "crypto";
-import { debugServer, debugError } from "../../debug";
 import Organization from "../../models/organization";
 import { FilterInput, FilterValue } from "../../types";
+const searchLog = childLogger("search");
 
-export const INDEXES = ["books", "projects", "supportTickets", "users"] as const;
+export const INDEXES = ["books", "projects", "supportTickets", "users", "storeOrders"] as const;
 
 // Popular-search-terms index. Kept outside INDEXES so its (different) document shape and
 // looser typing do not leak into addDocuments/search/getIndexStats, which are tuple-typed.
@@ -32,13 +33,15 @@ export const INDEX_PRIMARY_KEYS: Record<(typeof INDEXES)[number], string> = {
   projects: "projectID",
   supportTickets: "uuid",
   users: "uuid",
+  storeOrders: "id",
 };
 
 export const INDEX_FILTERABLE_ATTRIBUTES = {
-  books: ["bookID", "library", "license", "author", "course", "courseNormalized", "affiliation", "location", "license", "subject"],
+  books: ["bookID", "library", "license", "author", "course", "courseNormalized", "affiliation", "location", "license", "subject", "publicAssets", "instructorAssets"],
   projects: ["status", "classification", "visibility", "orgID"],
   supportTickets: ["queue_id", "status", "priority", "category", "assignedUUIDs"],
   users: ["uuid", "emailDomain"],
+  storeOrders: ["status", "luluJobStatus", "createdAtTimestamp"],
 };
 
 export const INDEX_SORTABLE_ATTRIBUTES = {
@@ -46,13 +49,17 @@ export const INDEX_SORTABLE_ATTRIBUTES = {
   projects: ["status", "classification", "visibility", "orgID"],
   supportTickets: ["status", "category", "timeOpened"],
   users: ["firstName", "lastName"],
+  storeOrders: ["createdAtTimestamp", "amountTotal"],
 };
 
 // Per-index searchable-attribute overrides. Indexes absent from this map use the
 // Meilisearch default (all fields searchable). The users index opts in explicitly so a
 // query can only ever match a name — never the opaque uuid/centralID or the emailDomain.
+// storeOrders opts in explicitly so the single admin search box matches only the order id,
+// customer email, or Lulu job id — never internal fields like error text.
 export const INDEX_SEARCHABLE_ATTRIBUTES: Partial<Record<(typeof INDEXES)[number], string[]>> = {
   users: ["firstName", "lastName"],
+  storeOrders: ["id", "customerEmail", "luluJobID"],
 };
 
 export default class SearchService {
@@ -116,7 +123,7 @@ export default class SearchService {
         }
       }
     } catch (error: any) {
-      debugServer(`[SearchService] Error initializing indexes: ${error}`);
+      searchLog.info(`Error initializing indexes: ${error}`);
       throw error;
     }
 
@@ -124,13 +131,13 @@ export default class SearchService {
     // search-queries index can never block boot or core search.
     try {
       await this.ensureSearchQueriesIndex();
-    } catch (error: any) {
-      debugError(`[SearchService] search-queries init failed (non-fatal): ${error?.message || error}`);
+    } catch (err: any) {
+      searchLog.warn({ err }, "search-queries init failed (non-fatal)");
     }
     try {
       this.startSearchQueriesFlushTimer();
-    } catch (error: any) {
-      debugError(`[SearchService] could not start search-queries flush timer: ${error?.message || error}`);
+    } catch (err: any) {
+      searchLog.warn({ err }, "could not start search-queries flush timer");
     }
   }
 
@@ -156,7 +163,7 @@ export default class SearchService {
     this.searchQueriesFlushTimer = setInterval(() => {
       // Wrap so a rejected promise can't crash the process.
       this.flushSearchQueries().catch((err) => {
-        debugError(`[SearchService] flushSearchQueries failed: ${err?.message || err}`);
+        searchLog.warn({ err }, "flushSearchQueries failed");
       });
     }, SEARCH_QUERIES_FLUSH_MS);
     // Don't keep the event loop alive solely for this timer.
@@ -185,7 +192,7 @@ export default class SearchService {
       this.cachedRecordFlag = { value, expiresAt: now + FEATURE_FLAG_TTL_MS };
       return value;
     } catch (err: any) {
-      debugError(`[SearchService] feature flag lookup failed: ${err?.message || err}`);
+      searchLog.warn({ err }, "feature flag lookup failed");
       return false;
     }
   }
@@ -215,7 +222,7 @@ export default class SearchService {
         });
       }
     } catch (err: any) {
-      debugError(`[SearchService] recordSearchQuery swallowed error: ${err?.message || err}`);
+      searchLog.warn({ err }, "recordSearchQuery swallowed error");
     }
   }
 
@@ -271,7 +278,7 @@ export default class SearchService {
         await index.addDocuments(documents, { primaryKey: SEARCH_QUERIES_PRIMARY_KEY });
       }
     } catch (err: any) {
-      debugError(`[SearchService] flushSearchQueries swallowed error: ${err?.message || err}`);
+      searchLog.warn({ err }, "flushSearchQueries swallowed error");
     }
   }
 
@@ -321,7 +328,7 @@ export default class SearchService {
       const hits: any[] = result?.hits || [];
       return hits.map((h) => ({ query: h.query, count: h.count }));
     } catch (err: any) {
-      debugError(`[SearchService] getSearchSuggestions swallowed error: ${err?.message || err}`);
+      searchLog.warn({ err }, "getSearchSuggestions swallowed error");
       return [];
     }
   }
@@ -338,16 +345,12 @@ export default class SearchService {
         // index_primary_key_multiple_candidates_found. Try to correct it.
         const currentPrimaryKey = (foundIndex as any).primaryKey;
         if (currentPrimaryKey !== expectedPrimaryKey) {
-          debugServer(
-            `[SearchService] Index ${indexName} has primaryKey='${currentPrimaryKey ?? "none"}', expected '${expectedPrimaryKey}'. Attempting to correct.`
-          );
+          searchLog.info(`Index ${indexName} has primaryKey='${currentPrimaryKey ?? "none"}', expected '${expectedPrimaryKey}'. Attempting to correct.`);
           try {
             await foundIndex.update({ primaryKey: expectedPrimaryKey });
           } catch (updateErr: any) {
-            debugServer(
-              `[SearchService] Could not update primaryKey for index ${indexName} (this requires the index to be empty): ${updateErr.message || updateErr}. ` +
-              `addDocuments calls will still pass primaryKey='${expectedPrimaryKey}' as a fallback.`
-            );
+            searchLog.info(`Could not update primaryKey for index ${indexName} (this requires the index to be empty): ${updateErr.message || updateErr}. ` +
+                            `addDocuments calls will still pass primaryKey='${expectedPrimaryKey}' as a fallback.`);
           }
         }
 
@@ -387,9 +390,7 @@ export default class SearchService {
       }
       return index;
     } catch (error: any) {
-      debugServer(
-        `[SearchService] Error ensuring index ${indexName} exists: ${error}`
-      );
+      searchLog.info(`Error ensuring index ${indexName} exists: ${error}`);
       throw error;
     }
   }
@@ -403,9 +404,7 @@ export default class SearchService {
 
       return index.getStats();
     } catch (error: any) {
-      debugServer(
-        `[SearchService] Error getting stats for index ${indexName}: ${error}`
-      );
+      searchLog.info(`Error getting stats for index ${indexName}: ${error}`);
       throw error;
     }
   }
@@ -419,9 +418,7 @@ export default class SearchService {
 
       return index.getFilterableAttributes();
     } catch (error: any) {
-      debugServer(
-        `[SearchService] Error getting filterable attributes for index ${indexName}: ${error}`
-      );
+      searchLog.info(`Error getting filterable attributes for index ${indexName}: ${error}`);
       throw error;
     }
   }
@@ -435,9 +432,7 @@ export default class SearchService {
 
       return index.getSortableAttributes();
     } catch (error: any) {
-      debugServer(
-        `[SearchService] Error getting sortable attributes for index ${indexName}: ${error}`
-      );
+      searchLog.info(`Error getting sortable attributes for index ${indexName}: ${error}`);
       throw error;
     }
   }
@@ -479,17 +474,15 @@ export default class SearchService {
       }
       return finished;
     } catch (error: any) {
-      debugServer(
-        `[SearchService] Error adding ${documents.length} documents to index ${indexName}: ${error.message || error}`
-      );
+      searchLog.info(`Error adding ${documents.length} documents to index ${indexName}: ${error.message || error}`);
       if (error.message && typeof error.message === 'string') {
-        debugServer(`[SearchService] Error details: ${error.message}`);
+        searchLog.info(`Error details: ${error.message}`);
       }
       if (error.code) {
-        debugServer(`[SearchService] Error code: ${error.code}`);
+        searchLog.info(`Error code: ${error.code}`);
       }
       if (error.meilisearchError) {
-        debugServer(`[SearchService] Meilisearch task error: ${JSON.stringify(error.meilisearchError)}`);
+        searchLog.info(`Meilisearch task error: ${JSON.stringify(error.meilisearchError)}`);
       }
       throw error;
     }
@@ -499,22 +492,99 @@ export default class SearchService {
     try {
       return await this._client.tasks.getTask(taskUid);
     } catch (error: any) {
-      debugServer(`[SearchService] Error getting task ${taskUid}: ${error.message || error}`);
+      searchLog.info(`Error getting task ${taskUid}: ${error.message || error}`);
       throw error;
     }
   }
 
-  async deleteDocuments(indexName: (typeof INDEXES)[number], ids: string[]) {
+  async deleteDocuments(
+    indexName: (typeof INDEXES)[number],
+    ids: string[],
+    { waitForCompletion = false, timeOutMs = 60_000 }: { waitForCompletion?: boolean; timeOutMs?: number } = {}
+  ) {
     try {
       const index = this.indexes.get(indexName);
       if (!index) {
         throw new Error(INDEX_NOT_FOUND_ERROR);
       }
-      return index.deleteDocuments(ids);
+      const enqueued = await index.deleteDocuments(ids);
+
+      if (!waitForCompletion) return enqueued;
+
+      // DELETE /indexes/{uid}/documents is asynchronous — the HTTP call only enqueues a task.
+      // A deletion that Meilisearch refuses is reported via task status, not the HTTP response,
+      // so a caller that does not wait cannot tell a dropped delete from a successful one.
+      const finished: any = await this._client.tasks.waitForTask(enqueued.taskUid, { timeout: timeOutMs });
+      if (finished.status === "failed" || finished.status === "canceled") {
+        const err: any = new Error(
+          `[Meilisearch] Delete task ${finished.uid} for index ${indexName} finished with status '${finished.status}': ` +
+          `${finished.error?.code ?? "unknown_code"} — ${finished.error?.message ?? "no message"} ` +
+          `(type=${finished.error?.type ?? "?"}, link=${finished.error?.link ?? "?"})`
+        );
+        err.meilisearchError = finished.error;
+        err.meilisearchTask = finished;
+        throw err;
+      }
+      return finished;
     } catch (error: any) {
-      debugServer(
-        `[SearchService] Error deleting documents from index ${indexName}: ${error}`
-      );
+      searchLog.info(`Error deleting documents from index ${indexName}: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Returns every primary key currently stored in an index.
+   *
+   * For reconciliation only (finding documents whose source record is gone) — it
+   * pages through the whole index, so never call it in a request path.
+   *
+   * Best-effort, not a snapshot: offset paging has no stable order, so documents
+   * written or removed while this is running can shift across a page boundary and
+   * be seen twice or not at all. Only ever use the result to find records that no
+   * longer exist in the source of truth — a missed id just defers that cleanup to
+   * the next run, whereas treating this as an exhaustive listing would not be safe.
+   */
+  async getAllDocumentIds(indexName: (typeof INDEXES)[number]): Promise<string[]> {
+    try {
+      const index = this.indexes.get(indexName);
+      if (!index) {
+        throw new Error(INDEX_NOT_FOUND_ERROR);
+      }
+
+      const primaryKey = INDEX_PRIMARY_KEYS[indexName];
+      const batchSize = 1000;
+      // Backstop only: the loop exits on a short page long before this. It exists so a
+      // server that keeps returning full pages cannot spin here indefinitely.
+      const maxPages = 10_000;
+      const ids: string[] = [];
+      let offset = 0;
+
+      for (let page_i = 0; page_i < maxPages; page_i += 1) {
+        const page: any = await index.getDocuments({
+          fields: [primaryKey],
+          limit: batchSize,
+          offset,
+        });
+        const results: any[] = page?.results ?? [];
+        if (results.length === 0) break;
+
+        for (const doc of results) {
+          const id = doc?.[primaryKey];
+          if (typeof id === "string" && id) ids.push(id);
+        }
+
+        if (results.length < batchSize) break;
+        offset += batchSize;
+
+        if (page_i === maxPages - 1) {
+          searchLog.info(`Hit the ${maxPages}-page cap listing document ids for index ${indexName}; ` +
+                        `returning a partial listing.`);
+        }
+      }
+
+      return ids;
+    } catch (error: any) {
+      searchLog.info(`Error listing document ids for index ${indexName}: ${error}`);
       throw error;
     }
   }
@@ -542,9 +612,7 @@ export default class SearchService {
 
       return index.search(query, searchOptions);
     } catch (error: any) {
-      debugServer(
-        `[SearchService] Error searching index ${indexName}: ${error}`
-      );
+      searchLog.info(`Error searching index ${indexName}: ${error}`);
       throw error;
     }
   }

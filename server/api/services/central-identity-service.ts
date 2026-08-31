@@ -1,3 +1,4 @@
+import logger from "../../logger.js";
 import axios, { AxiosInstance } from "axios";
 import { CentralIdentityAppLicense, CentralIdentityOrg, CentralIdentityService as CentralIdentityServiceType, CentralIdentitySystem, CentralIdentityUpdateVerificationRequestBody, CentralIdentityUser } from "../../types";
 
@@ -154,7 +155,7 @@ export default class CentralIdentityService {
     }
 
     async deleteUser(userId: string) {
-        console.log("Deleting user", userId);
+        logger.info({ userId }, "Deleting user");
         return this.instance.delete(`/users/${userId}`);
     }
 

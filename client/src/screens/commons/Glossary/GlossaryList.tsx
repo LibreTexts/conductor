@@ -6,8 +6,8 @@ import type { ColumnDef, Table } from "@libretexts/davis-react-table";
 import { DataTable } from "@libretexts/davis-react-table";
 import type { RowSelectionState } from "@tanstack/react-table";
 
-import { IconPencil, IconTrash } from "@tabler/icons-react";
-import { useRef, useState } from "react";
+import { IconAlertTriangle, IconPencil, IconTrash } from "@tabler/icons-react";
+import { useMemo, useRef, useState } from "react";
 import { TableOfContents } from "../../../types";
 import { findTocNodeById } from "./services";
 import type { Notification } from "../../../context/NotificationContext";
@@ -24,6 +24,7 @@ type GlossaryListProps = {
   addNotification: (notification: Notification) => void;
   refetchGlossary: () => void;
   setEditingUsageID: (usageID: string) => void;
+  bookTOC: TableOfContents;
 };
 
 type PageColumnDef = {
@@ -53,6 +54,18 @@ const GlossaryList = ({
   const tableRef = useRef<Table<GlossaryEntry> | null>(null);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
+  /** Flat set of every page ID present in the book TOC — O(1) membership test. */
+  const tocIdSet = useMemo(() => {
+    const set = new Set<string>();
+    if (!toc) return set;
+    const traverse = (node: TableOfContents) => {
+      set.add(node.id);
+      node.children.forEach(traverse);
+    };
+    traverse(toc);
+    return set;
+  }, [toc]);
+
   const handleRowSelectionChange = (
     updater:
       | RowSelectionState
@@ -65,24 +78,28 @@ const GlossaryList = ({
     });
   };
 
-  const getPageTitle = (pageID: string) => {
-    if (!toc) {
-      return pageID;
-    }
-    return findTocNodeById(toc, pageID)?.title ?? pageID;
-  };
+
 
   const pageColumns: ColumnDef<PageColumnDef>[] = [
     {
       accessorKey: "pageID",
-      // header: "Page Title",
       size: 580,
       header: () => <span className="block w-full text-sm">Page Title</span>,
-      cell: ({ getValue }) => (
-        <span className="block break-words whitespace-normal  text-xs">
-          {getPageTitle(getValue() as string)}
-        </span>
-      ),
+      cell: ({ getValue }) => {
+        const pageID = getValue() as string;
+        const missingFromToc = toc != null && !tocIdSet.has(pageID);
+        return (
+          <span
+            className={`flex items-center gap-1 break-words whitespace-normal text-xs${missingFromToc ? " text-amber-600" : ""}`}
+            title={missingFromToc ? "This page is not in the book table of contents" : undefined}
+          >
+            {missingFromToc?"Removed Page":findTocNodeById(toc!, pageID)?.title}
+            {missingFromToc && (
+              <IconAlertTriangle size={12} className="shrink-0" />
+            )}
+          </span>
+        );
+      },
     },
     // {
     //   accessorKey: "definition",
@@ -151,11 +168,27 @@ const GlossaryList = ({
       // enableSorting: true,
       // enableColumnFilter: true,
       size: 160,
-      cell: ({ getValue }) => (
-        <span className="block break-words whitespace-normal">
-          <GlossaryDefinitionPreview definition={String(getValue() ?? "")} />
-        </span>
-      ),
+      cell: ({ getValue, row }) => {
+        const orphaned = toc
+          ? row.original.pages.filter((p) => !tocIdSet.has(p.pageID)).length
+          : 0;
+        return (
+          <span
+            className={`flex items-center gap-1 break-words whitespace-normal${orphaned > 0 ? " text-amber-600" : ""}`}
+            title={
+              orphaned > 0
+                ? `${orphaned} page${orphaned > 1 ? "s" : ""} not found in book table of contents`
+                : undefined
+            }
+          >
+            {orphaned > 0 && <IconAlertTriangle size={14} className="shrink-0" />}
+            <GlossaryDefinitionPreview
+              definition={String(getValue() ?? "")}
+              className={orphaned > 0 ? "text-amber-600" : undefined}
+            />
+          </span>
+        );
+      },
     },
     {
       accessorKey: "definition",
@@ -172,8 +205,25 @@ const GlossaryList = ({
       header: "Pages",
       accessorFn: (row) => row.pages.length,
       size: 72,
-
-      cell: ({ getValue }) => getValue(),
+      cell: ({ getValue, row }) => {
+        const count = getValue() as number;
+        const orphaned = toc
+          ? row.original.pages.filter((p) => !tocIdSet.has(p.pageID)).length
+          : 0;
+        return (
+          <span
+            className={`flex items-center gap-1${orphaned > 0 ? " font-medium text-amber-600" : ""}`}
+            title={
+              orphaned > 0
+                ? `${orphaned} page${orphaned > 1 ? "s" : ""} not found in book table of contents`
+                : undefined
+            }
+          >
+            {count}
+            {orphaned > 0 && <IconAlertTriangle size={14} className="shrink-0" />}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "actions",

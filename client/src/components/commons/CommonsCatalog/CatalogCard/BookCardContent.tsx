@@ -1,10 +1,10 @@
-import { Icon } from "semantic-ui-react";
 import { Link } from "react-router-dom";
 import { Book } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import { getLibGlyphAltText, getLibGlyphURL } from "../../../util/LibraryOptions";
 import { Heading, Card, Text, Stack } from "@libretexts/davis-react";
 import PausableImage from "../../../util/PausableImage";
+import { IconFileDescription, IconSchoolFilled, IconUsersGroup } from "@tabler/icons-react";
 
 interface BookCardContentProps {
   book: Book;
@@ -17,18 +17,8 @@ const BookCardContent: React.FC<BookCardContentProps> = ({
   linkTo,
   headingLevel = 2,
 }) => {
-  const buildAssetString = () => {
-    let assetString = "";
-    if (book.publicAssets) {
-      assetString += `${book.publicAssets} public asset${book.publicAssets > 1 ? "s" : ""}`;
-    }
-    if (book.instructorAssets) {
-      assetString += `${book.publicAssets ? ", " : ""}${book.instructorAssets} instructor asset${book.instructorAssets > 1 ? "s" : ""}`;
-    }
-    return assetString;
-  };
-
-  const assetString = buildAssetString();
+  const publicAssets = book.publicAssets || 0;
+  const instructorAssets = book.instructorAssets || 0;
 
   return (
     <>
@@ -54,7 +44,7 @@ const BookCardContent: React.FC<BookCardContentProps> = ({
       </div>
       <Card.Body>
         <Stack direction="vertical" gap="sm" className="py-4">
-          <Heading level={headingLevel} className="line-clamp-2 !text-2xl">
+          <Heading level={headingLevel} className="line-clamp-3 !text-lg">
             <Link to={linkTo} className="commons-card-title-link">
               {book.title}
             </Link>
@@ -65,11 +55,27 @@ const BookCardContent: React.FC<BookCardContentProps> = ({
           <Text >
             <em>{truncateString(book.affiliation, 30)}</em>
           </Text>
-          {assetString ? (
-            <Text className="commons-content-card-affiliation !mt-3">
-              <Icon name="file alternate outline" />
-              {assetString}
-            </Text>
+          {(publicAssets > 0 || instructorAssets > 0) ? (
+            <Stack direction="vertical" gap="xs">
+              {
+                instructorAssets > 0 && (
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconSchoolFilled size={16} className="text-primary" />
+                    <Text>
+                      {instructorAssets} instructor only asset{instructorAssets > 1 ? "s" : ""}
+                    </Text>
+                  </Stack>
+                )}
+              {
+                publicAssets > 0 && (
+                  <Stack direction="horizontal" gap="sm" align="center">
+                    <IconUsersGroup size={16} />
+                    <Text>
+                      {publicAssets} public asset{publicAssets > 1 ? "s" : ""}
+                    </Text>
+                  </Stack>
+                )}
+            </Stack>
           ) : null}
         </Stack>
       </Card.Body>

@@ -1,13 +1,18 @@
+import logger, { childLogger } from "../logger.js";
 import { Request, Response } from "express";
 import storeService from "./services/store-service";
+import AddressValidationService from "./services/address-validation-service";
 import { z } from "zod";
-import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema, AdminGetStoreOrdersSchema, AdminGetStoreOrderSchema, AdminResubmitPrintJobSchema } from "./validators/store";
+import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema, AdminGetStoreOrdersSchema, AdminGetStoreOrderSchema, AdminResubmitPrintJobSchema, AdminGetPrintJobPayloadSchema, AdminSubmitManualPrintJobSchema, ValidateAddressSchema, SyncSingleBookToStripeSchema } from "./validators/store";
 import { conductor400Err, conductor404Err, conductor500Err } from "../util/errorutils";
-import { debug, debugError } from "../debug";
-import { LuluWebhookData, StoreShippingOption, ZodReqWithOptionalUser } from "../types";
+import { LuluWebhookData, StoreShippingOption, ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import StripeService from "./services/stripe-service";
 import User from "../models/user";
-import { data } from "cheerio/dist/commonjs/api/attributes";
+import { syncAllBooksToStripe, syncBookToStripe } from "./services/store-book-sync-service";
+import { checkBookIDFormat } from "../util/bookutils";
+const storeLog = childLogger("store");
+
+const addressValidationService = new AddressValidationService();
 
 
 export async function getStoreProduct(req: z.infer<typeof GetStoreProductSchema>, res: Response) {
@@ -28,7 +33,7 @@ export async function getStoreProduct(req: z.infer<typeof GetStoreProductSchema>
       product,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "getStoreProduct failed");
     return conductor500Err(res);
   }
 }
@@ -56,7 +61,7 @@ export async function getStoreProducts(req: z.infer<typeof GetStoreProductsSchem
       }
     })
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "getStoreProducts failed");
     return conductor500Err(res);
   }
 }
@@ -73,17 +78,18 @@ export async function getMostPopularStoreProducts(req: z.infer<typeof GetMostPop
       products,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "getMostPopularStoreProducts failed");
     return conductor500Err(res);
   }
 }
 export async function createCheckoutSession(req: ZodReqWithOptionalUser<z.infer<typeof CreateCheckoutSessionSchema>>, res: Response) {
   try {
     const { items, shipping_option_id, shipping_address, digital_delivery_option } = req.body;
+    const userId = req.user?.decoded.uuid;
 
     const quantityCheck = await storeService.validateItemQuantities({
       items,
-      userId: req.user?.decoded.uuid,
+      userId,
     });
     if (!quantityCheck.ok) {
       return res.status(400).send({
@@ -114,9 +120,16 @@ export async function createCheckoutSession(req: ZodReqWithOptionalUser<z.infer<
 
     let digital_delivery_account: string | null = null;
     if (digital_delivery_option === 'apply_to_account') {
+      if (!userId) {
+        return res.status(401).send({
+          err: true,
+          message: "User must be logged in to apply digital delivery to account.",
+        });
+      }
+
       const user = await User.findOne({
-        uuid: req.user?.decoded.uuid,
-      })
+        uuid: { $eq: userId },
+      });
 
       if (!user || !user.centralID) {
         return res.status(400).send({
@@ -137,7 +150,7 @@ export async function createCheckoutSession(req: ZodReqWithOptionalUser<z.infer<
       checkout_url,
     })
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "createCheckoutSession failed");
     return conductor500Err(res);
   }
 }
@@ -166,7 +179,52 @@ export async function getShippingOptions(req: ZodReqWithOptionalUser<z.infer<typ
       options,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "getShippingOptions failed");
+    return conductor500Err(res);
+  }
+}
+
+export async function validateAddress(req: z.infer<typeof ValidateAddressSchema>, res: Response) {
+  try {
+    const result = await addressValidationService.validateAddress(req.body.shipping_address);
+
+    switch (result.status) {
+      case "not_configured":
+        return res.status(200).send({
+          err: false,
+          message: "Address validation is not configured. Skipping validation.",
+          status: "skipped",
+        });
+      case "error":
+        return res.status(200).send({
+          err: false,
+          message: "Address validation is temporarily unavailable. Skipping validation.",
+          status: "skipped",
+        });
+      case "valid":
+        return res.status(200).send({
+          err: false,
+          message: "Address confirmed.",
+          status: "valid",
+        });
+      case "suggested_correction":
+        return res.status(200).send({
+          err: false,
+          message: "A suggested correction is available for this address.",
+          status: "suggested_correction",
+          suggested_address: result.suggested,
+        });
+      case "invalid":
+        return res.status(200).send({
+          err: true,
+          errMsg: result.reason,
+          status: "invalid",
+        });
+      default:
+        return conductor500Err(res);
+    }
+  } catch (error) {
+    logger.error({ err: error }, "validateAddress failed");
     return conductor500Err(res);
   }
 }
@@ -182,7 +240,7 @@ export async function processLuluWebhook(req: Request, res: Response) {
       return conductor400Err(res);
     }
 
-    debug("[STORE]: Lulu webhook event received");
+    storeLog.info("Lulu webhook event received");
     const data = json.data as LuluWebhookData['data'];
     await storeService.processLuluOrderUpdate({ data });
 
@@ -191,7 +249,7 @@ export async function processLuluWebhook(req: Request, res: Response) {
       message: "Lulu webhook processed successfully.",
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "processLuluWebhook failed");
     return conductor500Err(res);
   }
 }
@@ -218,7 +276,7 @@ export async function processStripeWebhook(req: Request, res: Response) {
     }
 
     if (result.feature !== 'store') {
-      debugError(`Unhandled Stripe application feature: ${result.feature}`);
+      logger.error(`Unhandled Stripe application feature: ${result.feature}`);
       return res.status(200).send({
         err: false,
         errMsg: "Stripe event feature not handled. No action taken.",
@@ -229,7 +287,7 @@ export async function processStripeWebhook(req: Request, res: Response) {
     storeService.processOrder({
       checkout_session: result.checkout_session,
     }).catch((error) => {
-      debugError(error);
+      logger.error({ err: error }, "processStripeWebhook failed");
     });
 
     return res.status(200).send({
@@ -237,7 +295,7 @@ export async function processStripeWebhook(req: Request, res: Response) {
       message: "Stripe webhook processed successfully.",
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "processStripeWebhook failed");
     return conductor500Err(res);
   }
 }
@@ -245,14 +303,48 @@ export async function processStripeWebhook(req: Request, res: Response) {
 export async function syncBooksToStripe(req: Request, res: Response) {
   try {
     // Don't await this, just start the sync process
-    storeService.syncBooksToStripe();
+    syncAllBooksToStripe().catch((error) => {
+      logger.error({ err: error }, "syncBooksToStripe failed");
+    });
 
     return res.status(200).send({
       err: false,
       message: "Book sync initiated successfully. This may take a while.",
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "syncBooksToStripe failed");
+    return conductor500Err(res);
+  }
+}
+
+/**
+ * Syncs one book to Stripe, creating, updating, or archiving its product as the
+ * book's current eligibility dictates.
+ *
+ * Unlike the full catalog sync this is awaited: a single book is a handful of
+ * Stripe calls, and the caller (an operator or an automation re-running a book
+ * that failed) needs the outcome rather than an acknowledgement.
+ */
+export async function syncSingleBookToStripe(req: z.infer<typeof SyncSingleBookToStripeSchema>, res: Response) {
+  try {
+    const { bookID } = req.params;
+    if (!checkBookIDFormat(bookID)) {
+      return conductor400Err(res);
+    }
+
+    const outcome = await syncBookToStripe(bookID);
+    if (outcome.status === "error") {
+      logger.error(`Failed to sync ${bookID} to Stripe: ${outcome.reason}`);
+      return conductor500Err(res);
+    }
+
+    return res.status(200).send({
+      err: false,
+      message: `Book ${bookID} synced to Stripe (${outcome.status}).`,
+      outcome,
+    });
+  } catch (error) {
+    logger.error({ err: error }, "syncSingleBookToStripe failed");
     return conductor500Err(res);
   }
 }
@@ -267,7 +359,7 @@ export async function adminGetStoreOrders(req: z.infer<typeof AdminGetStoreOrder
       meta: order_data.meta,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "adminGetStoreOrders failed");
     return conductor500Err(res);
   }
 }
@@ -290,7 +382,7 @@ export async function adminGetStoreOrder(req: z.infer<typeof AdminGetStoreOrderS
       data: order,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "adminGetStoreOrder failed");
     return conductor500Err(res);
   }
 }
@@ -308,6 +400,65 @@ export async function adminResubmitPrintJob(req: z.infer<typeof AdminResubmitPri
     }
 
     if ('error' in result) {
+      // `code` and `warnings` are passed through alongside the flattened `errMsg` so the admin UI
+      // can tell an incomplete payload (which it offers to fix by hand) from a genuine failure.
+      return res.status(200).send({
+        err: true,
+        errMsg: `${result.error}. ${result.detail || ""}`,
+        ...(result.code && { code: result.code }),
+        ...(result.warnings && { warnings: result.warnings }),
+      });
+    }
+
+    return res.status(200).send({
+      err: false,
+      message: "Store order print job submitted successfully.",
+      data: result,
+    });
+  } catch (error) {
+    logger.error({ err: error }, "adminResubmitPrintJob failed");
+    return conductor500Err(res);
+  }
+}
+
+export async function adminGetPrintJobPayload(req: z.infer<typeof AdminGetPrintJobPayloadSchema>, res: Response) {
+  try {
+    const { order_id } = req.params;
+    if (!order_id) {
+      return conductor400Err(res);
+    }
+
+    const result = await storeService.buildPrintJobParams(order_id);
+    if (!result) {
+      return conductor404Err(res);
+    }
+
+    return res.status(200).send({
+      err: false,
+      message: "Print job payload built successfully.",
+      data: result,
+    });
+  } catch (error) {
+    logger.error({ err: error }, "adminGetPrintJobPayload failed");
+    return conductor500Err(res);
+  }
+}
+
+export async function adminSubmitManualPrintJob(req: ZodReqWithUser<z.infer<typeof AdminSubmitManualPrintJobSchema>>, res: Response) {
+  try {
+    const { order_id } = req.params;
+    const submittedBy = req.user?.decoded.uuid;
+    if (!order_id || !submittedBy) {
+      return conductor400Err(res);
+    }
+
+    const result = await storeService.submitManualPrintJob({
+      orderId: order_id,
+      params: req.body,
+      submittedBy,
+    });
+
+    if ('error' in result) {
       return res.status(200).send({
         err: true,
         errMsg: `${result.error}. ${result.detail || ""}`,
@@ -316,14 +467,15 @@ export async function adminResubmitPrintJob(req: z.infer<typeof AdminResubmitPri
 
     return res.status(200).send({
       err: false,
-      message: "Store order print job resubmitted successfully.",
+      message: "Print job submitted to Lulu successfully.",
       data: result,
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "adminSubmitManualPrintJob failed");
     return conductor500Err(res);
   }
 }
+
 export async function getOrder(req: Request, res: Response) {
   try {
     const { order_id } = req.params;
@@ -349,7 +501,7 @@ export async function getOrder(req: Request, res: Response) {
       message: "Order fetched successfully.",
     });
   } catch (error) {
-    debugError(error);
+    logger.error({ err: error }, "getOrder failed");
     return conductor500Err(res);
   }
 }
@@ -360,11 +512,15 @@ export default {
   getMostPopularStoreProducts,
   createCheckoutSession,
   getShippingOptions,
+  validateAddress,
   processLuluWebhook,
   processStripeWebhook,
   syncBooksToStripe,
+  syncSingleBookToStripe,
   adminGetStoreOrder,
   adminGetStoreOrders,
   adminResubmitPrintJob,
+  adminGetPrintJobPayload,
+  adminSubmitManualPrintJob,
   getOrder
 };

@@ -3,12 +3,13 @@ import { IconPlus } from "@tabler/icons-react";
 import { useTypedSelector } from "../../../state/hooks";
 import FeaturedPageCard from "./FeaturedPageCard";
 import useGlobalError from "../../error/ErrorHooks";
-import { useEffect, useState, lazy } from "react";
+import { useEffect, useState } from "react";
+import lazyWithRetry from "../../../utils/lazyWithRetry";
 import axios from "axios";
 import { KBFeaturedPage, KBFeaturedVideo } from "../../../types";
 import FeaturedVideoCard from "./FeaturedVideoCard";
-const AddPageModal = lazy(() => import("./AddPageModal"));
-const AddVideoModal = lazy(() => import("./AddVideoModal"));
+const AddPageModal = lazyWithRetry(() => import("./AddPageModal"));
+const AddVideoModal = lazyWithRetry(() => import("./AddVideoModal"));
 import "./FeaturedList.css";
 import { canEditKB } from "../../../utils/kbHelpers";
 

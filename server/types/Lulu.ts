@@ -73,7 +73,60 @@ export type LuluPrintJobParams = {
     shipping_level: LuluShippingLevel
 }
 
-export type LuluPrintJobStatus = "CREATED" | "ACCEPTED" | "REJECTED" | "IN_PRODUCTION" | "ERROR" | "SHIPPED";
+export type LuluPrintJobStatus =
+    | "CREATED"
+    | "ACCEPTED"
+    | "UNPAID"
+    | "PAYMENT_IN_PROGRESS"
+    | "PRODUCTION_READY"
+    | "PRODUCTION_DELAYED"
+    | "IN_PRODUCTION"
+    | "SHIPPED"
+    | "REJECTED"
+    | "ERROR"
+    | "CANCELED";
+
+/**
+ * Lulu job statuses that mean the print job is progressing normally. Receiving one of these for an
+ * order that is currently `failed` is what tells us the order has recovered (e.g. after a resubmit).
+ */
+export const LULU_HEALTHY_STATUSES: ReadonlySet<string> = new Set<LuluPrintJobStatus>([
+    "CREATED",
+    "ACCEPTED",
+    "UNPAID",
+    "PAYMENT_IN_PROGRESS",
+    "PRODUCTION_READY",
+    "PRODUCTION_DELAYED",
+    "IN_PRODUCTION",
+    "SHIPPED",
+]);
+
+/**
+ * Lulu job statuses that confirm a print job has actually cleared Lulu's validation.
+ *
+ * A newly created job reports CREATED/UNPAID/PAYMENT_IN_PROGRESS long before Lulu has looked at the
+ * files, so those statuses say nothing about whether a resubmit will stick — a tricky order can be
+ * REJECTED several times, each time from a job that briefly looked healthy. PRODUCTION_DELAYED is
+ * the first status Lulu only reaches after the job has been accepted for production, so recovery of
+ * a failed order (clearing `failed` and closing its support ticket) is gated on this set rather than
+ * on {@link LULU_HEALTHY_STATUSES}. Holding the failure open until then is also what keeps the
+ * one-ticket-per-order dedupe in place across repeated rejections.
+ */
+export const LULU_RECOVERY_CONFIRMED_STATUSES: ReadonlySet<string> = new Set<LuluPrintJobStatus>([
+    "PRODUCTION_DELAYED",
+    "PRODUCTION_READY",
+    "IN_PRODUCTION",
+    "SHIPPED",
+]);
+
+/**
+ * Lulu job statuses that mean the print job needs manual resolution.
+ */
+export const LULU_FAILURE_STATUSES: ReadonlySet<string> = new Set<LuluPrintJobStatus>([
+    "REJECTED",
+    "ERROR",
+    "CANCELED",
+]);
 
 export type LuluPrintJob = {
     contact_email: string,
@@ -114,7 +167,9 @@ export type LuluPrintJob = {
     },
     shipping_level: LuluShippingLevel,
     shipping_option_level: LuluShippingLevel,
-    status: Record<string, any>
+    // `name` is typed loosely on purpose: Lulu can introduce statuses we don't know about yet, and
+    // an unrecognized value must flow through harmlessly rather than fail to compile.
+    status: { name?: LuluPrintJobStatus | (string & {}); message?: string } & Record<string, any>
 }
 
 export type LuluWebhookData = {

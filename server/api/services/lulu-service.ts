@@ -1,8 +1,10 @@
+import logger, { childLogger } from "../../logger.js";
 import axios, { AxiosInstance } from "axios";
 import { LuluPrintJob, LuluPrintJobParams, LuluShippingLineItem, LuluShippingOption, LuluShippingCalculationAddress, ResolvedProduct, LuluPrintJobLineItem } from "../../types";
 import { decodeJwt } from "jose"
-import { debug } from "../../debug";
 import { serializeError } from "../../util/errorutils";
+import { assembleUrl } from "../../util/helpers.js";
+const luluLog = childLogger("lulu");
 
 export default class LuluService {
     private _authAxiosInstance: AxiosInstance;
@@ -37,7 +39,7 @@ export default class LuluService {
                 return Promise.reject(error);
             }
         }, (error) => {
-            debug("[LuluService]: Error in request interceptor:", error);
+            luluLog.error({ err: error }, "Error in request interceptor");
             return Promise.reject(error);
         });
     }
@@ -72,7 +74,7 @@ export default class LuluService {
 
             return this._accessToken || '';
         } catch (error) {
-            debug("Error fetching access token from Lulu:", error);
+            logger.error({ err: error }, "Error fetching access token from Lulu");
             this._accessToken = null;
             this._accessTokenExpiration = null;
             throw new Error("Failed to fetch access token from Lulu");
@@ -98,19 +100,24 @@ export default class LuluService {
     }
 
     getPodPackageID({ hardcover, color }: { hardcover: boolean, color: boolean }): string {
-        return `0850X1100${color ? 'FC' : 'BW'}STD${hardcover ? 'CW' : 'PB'}060UW444MXX`
+        return `0850X1100.${color ? 'FC' : 'BW'}.STD.${hardcover ? 'CW' : 'PB'}.060UW444.MXX`
     }
 
-    getCoverFile({ pdf_url, hardcover }: { pdf_url: string, hardcover: boolean }): string {
-        return `${pdf_url}/Cover_${hardcover ? 'Casewrap' : 'PerfectBound'}.pdf`;
+    getDownloadsBaseUrl(bookID: string): string {
+        const host = process.env.DOWNLOADS_BASE_URL || 'https://downloads.libretexts.org';
+        return assembleUrl([host, 'api/v1/download', bookID]);
     }
 
-    getContentFile({ pdf_url }: { pdf_url: string }): string {
-        return `${pdf_url}/Content.pdf`;
+    getCoverFile(bookID: string, hardcover: boolean): string {
+        return assembleUrl([this.getDownloadsBaseUrl(bookID), `cover-${hardcover ? 'casewrap' : 'perfectbound'}`]);
+    }
+
+    getContentFile(bookID: string): string {
+        return assembleUrl([this.getDownloadsBaseUrl(bookID), 'content']);
     }
 
     getPDFFileUrl(bookID: string): string {
-        return `https://batch.libretexts.org/print/Finished/${bookID}/Publication`;
+        return assembleUrl([this.getDownloadsBaseUrl(bookID), 'pdf']);
     }
 
     async getShippingOptions({ line_items, shipping_address }: {
@@ -127,7 +134,7 @@ export default class LuluService {
             });
             return response.data;
         } catch (error) {
-            debug("[LuluService]: Error fetching shipping options from Lulu:", error);
+            luluLog.error({ err: error }, "Error fetching shipping options from Lulu");
             throw new Error("Failed to retrieve shipping options from Lulu");
         }
     }
@@ -153,8 +160,14 @@ export default class LuluService {
                 contact_email: process.env.BOOKSTORE_CONTACT_EMAIL,
                 production_delay: 120
             }).catch((error) => {
-                debug("[LuluService]: Error creating print job on Lulu:", error);
-                throw new Error(serializeError(error.response?.data || error));
+                luluLog.error({ err: error }, "Error creating print job on Lulu");
+                // Prefer Lulu's own error body, but only when it is a plain JSON payload -- a stream
+                // or an absent response must fall back to the axios error itself.
+                const luluErrorBody = error?.response?.data;
+                const usableBody = !!luluErrorBody
+                    && typeof luluErrorBody === 'object'
+                    && typeof luluErrorBody.pipe !== 'function';
+                throw new Error(serializeError(usableBody ? luluErrorBody : error));
             });
 
             return response.data;
@@ -168,7 +181,7 @@ export default class LuluService {
         try {
             return await this.createPrintJob(params);
         } catch (error) {
-            debug("[LuluService]: Error resubmitting print job on Lulu:", error);
+            luluLog.error({ err: error }, "Error resubmitting print job on Lulu");
             const errorString = serializeError(error);
             throw new Error("Failed to resubmit print job on Lulu: " + errorString);
         }
@@ -187,9 +200,8 @@ export default class LuluService {
 
             const pod_package_id = this.getPodPackageID({ hardcover, color });
 
-            const pdf_url = this.getPDFFileUrl(external_id);
-            const cover = this.getCoverFile({ pdf_url, hardcover });
-            const content = this.getContentFile({ pdf_url });
+            const cover = this.getCoverFile(external_id, hardcover);
+            const content = this.getContentFile(external_id);
 
             return {
                 external_id,

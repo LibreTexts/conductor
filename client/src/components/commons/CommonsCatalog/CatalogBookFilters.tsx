@@ -131,13 +131,18 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
       // These are static options for now
       allFilters.assetOptions = [
         {
+          key: "any",
+          text: "Any Assets",
+          value: "any",
+        },
+        {
           key: "public",
-          text: "Public",
+          text: "Public Assets",
           value: "public",
         },
         {
           key: "instructors",
-          text: "Instructors Only",
+          text: "Instructor Only Assets",
           value: "instructors",
         },
       ];

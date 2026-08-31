@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import b62 from "base62-random";
 import { BookInterface } from "../models/book.js";
 import Collection, { CollectionInterface } from "../models/collection.js";
@@ -14,7 +15,6 @@ import {
   removeCollectionResourceSchema,
   updateCollectionImageAssetSchema,
 } from "./validators/collections.js";
-import { debugError } from "../debug.js";
 import { FilterQuery } from "mongoose";
 import multer from "multer";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -147,7 +147,7 @@ async function updateCollectionImageAsset(
       url: assetURL,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateCollectionImageAsset failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -215,7 +215,7 @@ async function createCollection(
       collID: newCollection.collID,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "createCollection failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -304,7 +304,7 @@ async function editCollection(
       msg: "Collection successfully updated.",
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "editCollection failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -355,7 +355,7 @@ async function deleteCollection(
       msg: "Collection successfully deleted.",
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteCollection failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -458,7 +458,7 @@ async function getCommonsCollections(
       total_items: collections.length,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getCommonsCollections failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -560,7 +560,7 @@ async function getAllCollections(
       total_items: collections.length,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getAllCollections failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -599,7 +599,7 @@ async function getCollection(
       collection,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getCollection failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -889,7 +889,7 @@ async function getCollectionResources(
       total_items: sorted.length,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getCollectionResources failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -936,7 +936,7 @@ async function addResourcesToCollection(
       msg: "Resource(s) successfully added to Collection.",
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "addResourcesToCollection failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1008,7 +1008,7 @@ async function removeResourceFromCollection(
       msg: "Resource successfully removed from Collection.",
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "removeResourceFromCollection failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,

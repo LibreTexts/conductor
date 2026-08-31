@@ -45,9 +45,7 @@ export type ProjectFile = {
   createdDate?: Date;
   license?: License;
   primaryAuthor?: ProjectFileAuthor;
-  authors?: ProjectFileAuthor[];
-  correspondingAuthor?: ProjectFileAuthor;
-  publisher?: ProjectFilePublisher;
+  originalPublisher?: ProjectFilePublisher;
   mimeType?: string;
 };
 
@@ -169,7 +167,7 @@ export type Project = {
   rdmpReqRemix: Boolean;
   rdmpCurrentStep: string;
   a11yReview: a11ySectionReviewSchema[];
-  harvestReqID: string;
+  harvestReqID?: string;
   flag: "libretexts" | "campusadmin" | "lead" | "liaison";
   flagDescrip: string;
   defaultChatNotification?: string;
@@ -186,15 +184,7 @@ export type Project = {
   createdAt: string;
   updatedAt?: string;
   defaultPrimaryAuthorID?: string;
-  defaultSecondaryAuthorIDs?: string[];
-  defaultCorrespondingAuthorID?: string;
   defaultPrimaryAuthor?: ProjectFileAuthor;
-  defaultSecondaryAuthors?: ProjectFileAuthor[];
-  defaultCorrespondingAuthor?: ProjectFileAuthor;
-  principalInvestigatorIDs?: string[];
-  coPrincipalInvestigatorIDs?: string[];
-  principalInvestigators?: ProjectFileAuthor[];
-  coPrincipalInvestigators?: ProjectFileAuthor[];
   description?: string;
   contentArea?: string;
   isbns?: {
@@ -225,6 +215,11 @@ export type AddableProjectTeamMember = Pick<
 
 export type AuthenBrowser = {
   [key: string]: string;
+}
+
+export interface CreateWorkbenchForm {
+  library: number | string;
+  title: string;
 }
 
 export interface ImportWorkbenchForm {

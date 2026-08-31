@@ -5,6 +5,7 @@
  */
 
 'use strict';
+import logger from "../logger.js";
 import express, {Request, Response, NextFunction} from 'express';
 import { body, param, query } from 'express-validator';
 import multer from 'multer';
@@ -12,7 +13,6 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import Organization, { COMMONS_MODULES, OrganizationInterface } from '../models/organization.js';
 import { ensureUniqueStringArray, isEmptyString, sanitizeCustomColor } from '../util/helpers.js';
 import conductorErrors from '../conductor-errors.js';
-import { debugError } from '../debug.js';
 import authAPI from './auth.js';
 import CustomCatalog from '../models/customcatalog.js';
 
@@ -80,7 +80,7 @@ async function lookupOrganization(orgID: string) {
     }
     return org;
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "lookupOrganization failed");
   }
   return null;
 }
@@ -114,7 +114,7 @@ async function getCampusAdmins(req: Request, res: Response) {
       campusAdmins: campusAdminUsers,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getCampusAdmins failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -177,7 +177,7 @@ async function getAllOrganizations(_req: Request, res: Response) {
       err: false,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getAllOrganizations failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -217,7 +217,7 @@ async function getLibreGridOrganizations(_req: Request, res: Response) {
       err: false,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getLibreGridOrganizations failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -314,7 +314,7 @@ async function updateOrganizationInfo(req: Request, res: Response) {
       updatedOrg: updated,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateOrganizationInfo failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -339,7 +339,7 @@ async function updateBrandingImageAsset(req: Request, res: Response) {
       });
     }
 
-    const org = await Organization.findOne({ orgID }).lean();
+    const org = await Organization.findOne({ orgID: { $eq: orgID } }).lean();
     if (!org) {
       return res.status(404).send({
         err: true,
@@ -396,7 +396,7 @@ async function updateBrandingImageAsset(req: Request, res: Response) {
       url: assetURL,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateBrandingImageAsset failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -448,7 +448,7 @@ async function updateAutomaticCatalogMatchingSettings(
       msg: "Successfully updated automatic catalog matching status. Existing automatic matching exclusions have been cleared.",
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateAutomaticCatalogMatchingSettings failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,

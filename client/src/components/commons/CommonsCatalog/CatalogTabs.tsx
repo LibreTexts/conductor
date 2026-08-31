@@ -15,7 +15,7 @@ import CatalogAssetFilters from "./CatalogAssetFilters";
 import CatalogAuthorFilters from "./CatalogAuthorFilters";
 import CatalogProjectFilters from "./CatalogProjectFilters";
 import CatalogMiniRepoFilters from "./CatalogMiniRepoFilters";
-import { IconArrowDown, IconBook, IconFile, IconFolder, IconGrid3x3, IconList, IconTools, IconUser } from "@tabler/icons-react";
+import { IconArrowDown, IconBook, IconFileDescription, IconFolder, IconGrid3x3, IconList, IconTools, IconUser } from "@tabler/icons-react";
 
 // Icons extracted from the former CatalogTabLabel component
 const ICONS: Record<CommonsModule, React.ReactNode> = {
@@ -23,7 +23,7 @@ const ICONS: Record<CommonsModule, React.ReactNode> = {
     <IconBook size={16} />
   ),
   assets: (
-    <IconFile size={16} />
+    <IconFileDescription size={16} />
   ),
   minirepos: (
     <IconFolder size={16} />

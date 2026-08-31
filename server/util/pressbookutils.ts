@@ -1,3 +1,4 @@
+import logger, { childLogger } from "../logger.js";
 import {
   addPageProperty,
   CXOneFetch,
@@ -9,6 +10,9 @@ import MindTouch from "./CXOne/index.js";
 import { License } from "../types";
 import Author, { AuthorInterface } from "../models/author";
 import sanitizeHtml from "sanitize-html";
+import * as cheerio from "cheerio";
+import GlossaryService from "../api/services/glossary-service.js";
+const pressbookLog = childLogger("pressbook-scraper");
 
 const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
 
@@ -275,6 +279,16 @@ function sanitizePressbooks(html: string): string {
   return sanitizeHtml(html, PRESSBOOKS_SANITIZE_OPTIONS);
 }
 
+interface GlossaryTerm {
+  id: number;
+  slug?: string;
+  term: string;
+  definition: string;
+  author?: string;
+  source?: string;
+  link?: string;
+}
+
 interface TocNode {
   id: number;
   title: string;
@@ -437,7 +451,8 @@ export class PressBookScraper {
     this.title = title;
     this.subdomain = subdomain;
     this.pbHeaders = {
-      "User-Agent": "Mozilla/5.0 (compatible; LibreTexts-Conductor/1.0; +https://libretexts.org)",
+      "User-Agent":
+        "Mozilla/5.0 (compatible; LibreTexts-Conductor/1.0; +https://libretexts.org)",
       Accept: "application/json",
     };
   }
@@ -456,7 +471,10 @@ export class PressBookScraper {
       headers,
       signal: AbortSignal.timeout(30_000),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}-${res.statusText}-${res.body} for ${url}`);
+    if (!res.ok)
+      throw new Error(
+        `HTTP ${res.status}-${res.statusText}-${res.body} for ${url}`,
+      );
     return res.json();
   }
 
@@ -671,6 +689,101 @@ export class PressBookScraper {
     return bestURL;
   }
 
+  /**
+   * Neutralize scraped Pressbooks content before it is persisted. The Commons
+   * glossary renders term/definition through `innerHTML`, so a stored value
+   * must be safe in that sink. Stripping every tag and re-escaping stray markup
+   * prevents stored XSS from a malicious or compromised source book (including
+   * the double-encoding case where entity-decoded text would re-parse as HTML).
+   */
+  private static sanitizeToText(value: string): string {
+    return sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} });
+  }
+
+  private async fetchGlossary(
+    bookUrl: string,
+    auth?: { username: string; password: string },
+  ): Promise<GlossaryTerm[]> {
+    const terms: GlossaryTerm[] = [];
+    const perPage = 100;
+    let page = 1;
+    // Cache WP user ID → display name so each author is fetched at most once.
+    const authorNameById = new Map<number, string>();
+
+    const resolveAuthorName = async (
+      author: unknown,
+    ): Promise<string | undefined> => {
+      if (typeof author === "string" && author.trim()) return author.trim();
+      const authorId =
+        typeof author === "number"
+          ? author
+          : typeof author === "string" && /^\d+$/.test(author)
+            ? parseInt(author, 10)
+            : NaN;
+      if (Number.isNaN(authorId)) return undefined;
+      if (authorNameById.has(authorId)) return authorNameById.get(authorId);
+
+      try {
+        const userUrl =
+          `${bookUrl.replace(/\/+$/, "")}/wp-json/wp/v2/users/${authorId}` +
+          `?_fields=id,name`;
+        const user = await this.getJson(userUrl, auth);
+        const name =
+          typeof user?.name === "string" && user.name.trim()
+            ? user.name.trim()
+            : undefined;
+        if (name) authorNameById.set(authorId, name);
+        return name;
+      } catch {
+        return undefined;
+      }
+    };
+
+    while (page <= PressBookScraper.MAX_PAGING_PAGES) {
+      const url =
+        `${this.pbApi(bookUrl)}/glossary` +
+        `?per_page=${perPage}&page=${page}` +
+        `&_fields=id,slug,title,content,author,link`;
+      let items: any[];
+      try {
+        items = await this.getJson(url, auth);
+      } catch {
+        // 400 / 404 ("page out of bounds") means we have everything.
+        break;
+      }
+      if (!Array.isArray(items) || items.length === 0) break;
+
+      for (const item of items) {
+        terms.push({
+          id: item.id,
+          slug: item.slug,
+          term: PressBookScraper.sanitizeToText(
+            item.title?.raw ?? item.title?.rendered ?? "",
+          ).trim(),
+          definition: PressBookScraper.sanitizeToText(
+            cheerio
+              .load(item.content?.raw ?? item.content?.rendered ?? "")
+              .text(),
+          )
+            .replace(/\s+/g, " ")
+            .trim(),
+          author: await resolveAuthorName(item.author),
+          source: "Pressbooks",
+          link: item?.link,
+        });
+      }
+
+      if (items.length < perPage) break;
+      page++;
+    }
+
+    if (page > PressBookScraper.MAX_PAGING_PAGES) {
+      pressbookLog.warn(`fetchGlossary: reached page-cap (${PressBookScraper.MAX_PAGING_PAGES}) — truncating results for ${bookUrl}`);
+    }
+
+    return terms;
+  }
+
   async publishBook(options: PublishOptions): Promise<PublishResult> {
     const encodePbURL = this.pbBookURL.replace(/\/+$/, "");
     const auth = options.auth;
@@ -687,7 +800,7 @@ export class PressBookScraper {
     const log = (message: string) => {
       // Always log to server console
       // eslint-disable-next-line no-console
-      console.log(message);
+      logger.info(message);
       // Optionally forward to external logger (e.g., job status)
       if (typeof options.log === "function") {
         try {
@@ -698,18 +811,12 @@ export class PressBookScraper {
           ) {
             (maybePromise as Promise<void>).catch((e) => {
               // eslint-disable-next-line no-console
-              console.error(
-                "[PressBookScraper] Error in external log callback:",
-                e,
-              );
+              pressbookLog.error({ err: e }, "Error in external log callback");
             });
           }
         } catch (e) {
           // eslint-disable-next-line no-console
-          console.error(
-            "[PressBookScraper] Error invoking external log callback:",
-            e,
-          );
+          pressbookLog.error({ err: e }, "Error invoking external log callback");
         }
       }
     };
@@ -719,26 +826,20 @@ export class PressBookScraper {
     let metadataV2: any = {};
     try {
       const url = this.pbApi(encodePbURL) + "/metadata";
-      metadata = await this.getJson(
-        url,
-        auth,
-      );
-    } catch(e) {
-      console.error("Error fetching metadata from Pressbooks", e);
+      metadata = await this.getJson(url, auth);
+    } catch (e) {
+      logger.error({ err: e }, "Error fetching metadata from Pressbooks");
       try {
         const url = encodePbURL + "/wp-json/";
         metadata = await this.getJson(url, auth);
-      } catch(e) {
+      } catch (e) {
         throw new Error("Error fetching metadata from Pressbooks");
       }
     }
 
     try {
       const v2Url = this.pbApi(encodePbURL) + "/metadata";
-      metadataV2 = await this.getJson(
-        v2Url,
-        auth,
-      );
+      metadataV2 = await this.getJson(v2Url, auth);
     } catch {
       throw new Error(conductorErrors.err8);
     }
@@ -791,7 +892,7 @@ export class PressBookScraper {
     // their own license; otherwise they inherit the book license.
     await this.fetchLicenseTaxonomy(encodePbURL, auth);
     const bookLicense = this.resolveLicense(metadata?.license);
-    console.log("bookLicense", bookLicense);
+    logger.info({ detail: [bookLicense] }, "bookLicense");
     try {
       result.license = bookLicense
         ? { name: bookLicense.name, sourceURL: bookLicense.url }
@@ -836,12 +937,17 @@ export class PressBookScraper {
       log(`[*] contributorAuthorTags: ${contributorAuthorTags.join(", ")}`);
     }
 
-
     await this.createAuthors(contributors.authors);
-    result.authorsName = contributors.authors.map((c) => this.resolveContributorCleanName(c)).join(", ");
+    result.authorsName = contributors.authors
+      .map((c) => this.resolveContributorCleanName(c))
+      .join(", ");
 
     // ── 4. Create the CXOne book root ─────────────────────────────────────────
-    const bookContent = metadataV2.disambiguatingDescription ? MindTouch.Templates.POST_CreateBookWithDescription(metadataV2.disambiguatingDescription) : MindTouch.Templates.POST_CreateBook;
+    const bookContent = metadataV2.disambiguatingDescription
+      ? MindTouch.Templates.POST_CreateBookWithDescription(
+          metadataV2.disambiguatingDescription,
+        )
+      : MindTouch.Templates.POST_CreateBook;
     const createBookRes = await CXOneFetch({
       scope: "page",
       path: bookPath,
@@ -1164,6 +1270,9 @@ export class PressBookScraper {
     }
     for (let i = 0; i < extraBackMatter.length; i++) {
       const node = extraBackMatter[i];
+      if (/glossary/i.test(node?.title ?? "")) {
+        continue;
+      }
       // Continue the 00-based sequence after the TOC items.
       const seq = String(i).padStart(2, "0");
       const pagePath = `${backMatterContainerPath}/${seq}:_${this.slugifyNode(node)}`;
@@ -1186,6 +1295,49 @@ export class PressBookScraper {
       ]);
     }
 
+    
+
+
+    const coverID = bookRootID ?? (await getPageID(bookPath, this.subdomain));
+    const glossary = await this.fetchGlossary(encodePbURL, auth);
+    if (glossary && glossary.length > 0 && coverID) {
+      // make the glossary page 20%3A_Glossary
+      const glossaryPagePath = `${backMatterContainerPath}/20%3A_Glossary`;
+      await this.upsertCXOnePage(glossaryPagePath, "Glossary", "<p>{{template.Glossary()}}</p>", false, [
+        ...bookLicenseTags,
+      ]);
+      const glossaryPageID = await getPageID(glossaryPagePath, this.subdomain);
+      try {
+        const glossaryService = new GlossaryService();
+        const imported = await glossaryService.addGlossaryEntries(
+          glossary.map((g) => ({
+            term: g.term,
+            definition: g.definition,
+            author: g.author,
+            source: g.source,
+            link: g.link,
+          })),
+          coverID,
+          this.subdomain,
+          "pressbooks-import",
+          glossaryPageID ?? undefined,
+        );
+        log(
+          `  [BM glossary] Imported ${imported} term(s) into GlossaryUsage (cover ${coverID})`,
+        );
+      } catch (err) {
+        log(
+          `  [BM glossary] Failed to import glossary terms (non-fatal): ${(err as Error).message}`,
+        );
+      }
+    } else if (!coverID) {
+      log(
+        "  [BM glossary] Skipping GlossaryUsage import — cover page ID unavailable",
+      );
+    }
+
+
+  
     await Promise.all([
       addPageProperty(
         this.subdomain,
@@ -1221,10 +1373,7 @@ export class PressBookScraper {
     fetch(`https://batch.libretexts.org/print/Libretext=${bookURL}`, {
       headers: { origin: "commons.libretexts.org" },
     }).catch((e) => {
-      console.warn(
-        "[PressBookScraper] Matter / MindMap trigger failed (non-fatal):",
-        (e as Error).message,
-      );
+      pressbookLog.warn({ err: e }, "Matter / MindMap trigger failed (non-fatal)");
     });
     await sleep(1500);
 
@@ -1251,6 +1400,7 @@ export class PressBookScraper {
     return result;
   }
 
+  
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   /**
@@ -1264,7 +1414,7 @@ export class PressBookScraper {
     auth?: { username: string; password: string },
   ): Promise<{ html: string; license?: PressbooksLicense }> {
     try {
-      console.log(`[*] id: ${id}`);
+      logger.info(`[*] id: ${id}`);
       const url = `${this.pbApi(bookUrl)}/${postType}/${id}?_embed=1`;
       const item = await this.getJson(url, auth);
       const html: string = this.pickLargestSrcsetImage(
@@ -1281,10 +1431,7 @@ export class PressBookScraper {
       const license = this.resolveLicense(item.license);
       return { html, license };
     } catch (err) {
-      console.warn(
-        `[PressBookScraper] Failed to fetch content for ${postType}/${id}:`,
-        (err as Error).message,
-      );
+      pressbookLog.warn({ err, postType, id }, "Failed to fetch content");
       return { html: "" };
     }
   }
@@ -1313,9 +1460,7 @@ export class PressBookScraper {
     try {
       terms = await this.getJson(url, auth);
     } catch (err) {
-      console.warn(
-        `[PressBookScraper] Failed to fetch license taxonomy: ${(err as Error).message}`,
-      );
+      pressbookLog.warn(`Failed to fetch license taxonomy: ${(err as Error).message}`);
       return;
     }
     if (!Array.isArray(terms)) return;
@@ -2171,9 +2316,7 @@ export class PressBookScraper {
       }
       page++;
       if (page > PressBookScraper.MAX_PAGING_PAGES) {
-        console.warn(
-          `[PressBookScraper] fetchAllPostsOfType(${postType}): reached page-cap (${PressBookScraper.MAX_PAGING_PAGES}) — truncating results for ${bookUrl}`,
-        );
+        pressbookLog.warn(`fetchAllPostsOfType(${postType}): reached page-cap (${PressBookScraper.MAX_PAGING_PAGES}) — truncating results for ${bookUrl}`);
         break;
       }
     }
@@ -2423,10 +2566,8 @@ export class PressBookScraper {
         }
         // Different person, same slug — pick the next free suffix.
         const freeKey = await this.findFreeNameKey(c.nameKey);
-        console.log(
-          `[PressBookScraper] Author nameKey collision: "${c.nameKey}" already used by "${existingName}"; ` +
-            `inserting "${c.name}" as "${freeKey}".`,
-        );
+        pressbookLog.info(`Author nameKey collision: "${c.nameKey}" already used by "${existingName}"; ` +
+                      `inserting "${c.name}" as "${freeKey}".`);
         docs.push({
           nameKey: freeKey,
           name: c.name,

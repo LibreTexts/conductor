@@ -13,6 +13,9 @@ import { CXOneFetch } from './librariesclient.js';
 import MindTouch from "../util/CXOne/index.js";
 import crypto from 'crypto';
 
+// TODO: collapse book download link generators to a single source of truth - don't split between here and lulu-service.ts
+const BOOK_DOWNLOADS_BASE_URL = 'https://downloads.libretexts.org/api/v1/download/';
+
 const licenses = [
     'arr',
     'ccby',
@@ -170,7 +173,7 @@ export const genThumbnailLink = (lib, pageID) => {
  * @returns {String} The link to the PDF download, or an empty string if invalid arguments provided.
  */
 export const genPDFLink = (bookID) => {
-    if (checkBookIDFormat(bookID)) return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/Full.pdf`;
+    if (checkBookIDFormat(bookID)) return `${BOOK_DOWNLOADS_BASE_URL}${bookID}/pdf`;
     return '';
 };
 
@@ -181,7 +184,7 @@ export const genPDFLink = (bookID) => {
  * @returns {String} The link to the Bookstore page, or an empty string if invalid arguments provided.
  */
 export const genBookstoreLink = (bookID) => {
-    if (checkBookIDFormat(bookID)) return `https://libretexts.org/bookstore/order?${bookID}`;
+    if (checkBookIDFormat(bookID)) return `https://commons.libretexts.org/store/product/${bookID}`;
     return '';
 };
 
@@ -192,7 +195,7 @@ export const genBookstoreLink = (bookID) => {
  * @returns {String} The link to the ZIP download, or an empty string if invalid arguments provided.
  */
 export const genZIPLink = (bookID) => {
-    if (checkBookIDFormat(bookID)) return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/Individual.zip`;
+    if (checkBookIDFormat(bookID)) return `${BOOK_DOWNLOADS_BASE_URL}${bookID}/pages`;
     return '';
 };
 
@@ -203,7 +206,7 @@ export const genZIPLink = (bookID) => {
  * @returns {String} The link to the publication files download, or an empty string if invalid arguments provided.
  */
 export const genPubFilesLink = (bookID) => {
-    if (checkBookIDFormat(bookID)) return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/Publication.zip`;
+    if (checkBookIDFormat(bookID)) return `${BOOK_DOWNLOADS_BASE_URL}${bookID}/publication`;
     return '';
 };
 
@@ -214,7 +217,7 @@ export const genPubFilesLink = (bookID) => {
  * @returns {String} The link to the LMS import file download, or an empty string if invalid arguments provided.
  */
 export const genLMSFileLink = (bookID) => {
-    if (checkBookIDFormat(bookID)) return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/LibreText.imscc`;
+    if (checkBookIDFormat(bookID)) return `${BOOK_DOWNLOADS_BASE_URL}${bookID}/thincc`;
     return '';
 };
 

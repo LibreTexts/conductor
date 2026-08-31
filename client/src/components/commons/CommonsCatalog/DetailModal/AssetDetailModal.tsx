@@ -18,23 +18,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
   const [downloadLoading, setDownloadLoading] = useState(false);
 
   const getAuthorsText = () => {
-    const corresponding = file.correspondingAuthor
-      ? `${file.correspondingAuthor?.name}* (corresponding)`
-      : "";
-    const allOthersMapped = file.authors
-      ?.map((a) => a?.name);
-
-    const allTogether = [
-      file.primaryAuthor
-        ? file.primaryAuthor?.name
-        : "",
-      corresponding,
-      ...(allOthersMapped ?? []),
-    ]
-      .filter((a) => a)
-      .join(", ");
-
-    return allTogether || "Unknown";
+    return file.primaryAuthor?.name || "Unknown";
   };
 
   async function handleFileDownload(file: ConductorSearchResponseFile) {
@@ -79,12 +63,12 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
           storageType={file.storageType}
           rendererClassName="!max-h-[500px] !max-w-[900px] overflow-auto !p-0"
         />
-        {/* {file.projectInfo.thumbnail ? (
+        {/* {file.projectInfo?.thumbnail ? (
           <div
             onClick={() => window.open(`/commons-project/${file.projectID}`)}
             className="flex h-32 w-full rounded-md bg-left bg-no-repeat !bg-contain !cursor-pointer"
             style={{
-              backgroundImage: `url(${file.projectInfo.thumbnail})`,
+              backgroundImage: `url(${file.projectInfo?.thumbnail})`,
             }}
           ></div>
         ) : (

@@ -10,3 +10,10 @@ export interface RemixerSubPage {
     parentID?: string;
     formattedPath?: string;
   }
+
+export type RemixerPageStatus =
+  | "unchanged"
+  | "modified"
+  | "new"
+  | "imported"
+  | "deleted";

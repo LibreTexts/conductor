@@ -1,9 +1,9 @@
+import logger from "../logger.js";
 import {createProjectInvitationSchema, getProjectInvitationSchema, getAllProjectInvitationsSchema, deleteProjectInvitationSchema, acceptProjectInvitationSchema, updateProjectInvitationSchema} from "./validators/project-invitations";
 import { ZodReqWithUser } from "../types";
 import { z } from "zod";
 import { Request, Response, NextFunction } from "express";
 import b62 from "base62-random";
-import { debugError } from "../debug.js";
 import conductorErrors from "../conductor-errors.js";
 import authAPI from './auth.js';
 import ProjectInvitation from "../models/projectinvitation.js";
@@ -136,7 +136,7 @@ async function _addMemberToProjectInternal(
     throw new Error('Project update failed.');
   }
 
-  const updatedProject = await Project.findOne({ projectID });
+  const updatedProject = await Project.findOne({ projectID: { $eq: projectID } });
   if (!updatedProject) {
     throw new Error('Error finding updated project.');
   }
@@ -174,7 +174,7 @@ async function _addMemberToProjectInternal(
     )
   );
   await Promise.all(emailPromises).catch((e) => {
-    debugError(`Error sending Team Member Added notification email: ${e}`);
+    logger.error({ err: e }, "Error sending Team Member Added notification email");
   });
 
   return 'Successfully added user to project team!';
@@ -273,7 +273,7 @@ export async function createProjectInvitation(
     });
   }
   catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "createProjectInvitation failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -327,7 +327,7 @@ export async function getProjectInvitation(req: ZodReqWithUser<z.infer<typeof ge
 
   }
   catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProjectInvitation failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -391,7 +391,7 @@ export async function getAllInvitationsForProject(req: ZodReqWithUser<z.infer<ty
       });
   }
   catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getAllInvitationsForProject failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -420,7 +420,7 @@ export async function deleteProjectInvitation(req: ZodReqWithUser<z.infer<typeof
       }
 
       const { projectID } = invitation;
-      const project = await Project.findOne({ projectID, orgID }).lean();
+      const project = await Project.findOne({ projectID: { $eq: projectID }, orgID: { $eq: orgID } }).lean();
       if (!project) {
         return res.status(404).send({
           err: true,
@@ -443,7 +443,7 @@ export async function deleteProjectInvitation(req: ZodReqWithUser<z.infer<typeof
         deleted: true,
       });
     } catch (e) {
-      debugError(e);
+      logger.error({ err: e }, "deleteProjectInvitation failed");
       return res.status(500).send({
         err: true,
         errMsg: conductorErrors.err6,
@@ -482,7 +482,7 @@ export async function updateProjectInvitation(req: ZodReqWithUser<z.infer<typeof
       updatedInvitation,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateProjectInvitation failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -540,7 +540,7 @@ export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof
      * so long as inviteID and token are valid (and user is authenticated).
      * Many people have multiple accounts/emails and may have been invited via a different one.
     */
-    const user = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+    const user = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } }).lean();
 
     if (!user) {
       return res.status(404).send({
@@ -562,7 +562,7 @@ export async function acceptProjectInvitation(req: ZodReqWithUser<z.infer<typeof
     });
 
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "acceptProjectInvitation failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,

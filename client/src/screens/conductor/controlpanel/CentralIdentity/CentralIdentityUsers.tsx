@@ -202,7 +202,7 @@ const CentralIdentityUsers = () => {
   };
 
   return (
-    <div className="!pt-32 !bg-white !h-full !px-8">
+    <div className="!h-full !p-8">
       <Stack direction="vertical" gap="md" className="mb-4">
         <Heading level={2}>LibreOne Admin Consoles: Users</Heading>
         <Breadcrumb>

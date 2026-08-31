@@ -1,4 +1,4 @@
-import { debug, debugError } from '../debug.js';
+import logger from "../logger.js";
 import { v4 as uuidv4 } from 'uuid';
 import OrgEventParticipant from '../models/orgeventparticipant.js';
 
@@ -9,7 +9,7 @@ import OrgEventParticipant from '../models/orgeventparticipant.js';
 export async function runMigration() {
   const migrationTitle = 'Add RegisteredBy to OrgEventParticipant';
   try {
-    debug(`Running migration "${migrationTitle}"...`);
+    logger.info(`Running migration "${migrationTitle}"...`);
 
     const results = await OrgEventParticipant.find({}).lean();
     const operations = results.map((participant) =>
@@ -23,9 +23,9 @@ export async function runMigration() {
     );
     await Promise.all(operations);
 
-    debug(`Updated ${operations.length} Participants.`);
-    debug(`Completed migration "${migrationTitle}".`);
+    logger.info(`Updated ${operations.length} Participants.`);
+    logger.info(`Completed migration "${migrationTitle}".`);
   } catch (e) {
-    debugError(`Fatal error during migration "${migrationTitle}": ${e.toString()}`);
+    logger.error({ err: e }, `Fatal error during migration "${migrationTitle}"`);
   }
 }

@@ -4,11 +4,11 @@
 //
 
 "use strict";
+import logger from "./logger.js";
 import express, { NextFunction, Request, Response } from "express";
 import { validationResult } from "express-validator";
 import conductorErrors from "./conductor-errors.js";
 import { ZodObject } from "zod";
-import { debugError } from "./debug.js";
 import authAPI, { COOKIE_NAMES } from "./api/auth.js";
 import {
   TypedReqBodyWithUser,
@@ -100,6 +100,23 @@ const checkEventBridgeAPIKey = (req: Request, res: Response, next: NextFunction)
       return res.status(500).send({ errMsg: conductorErrors.err6 });
     }
     if (process.env.EVENT_BRIDGE_API_KEY === foundToken) return next();
+  }
+  return res.status(401).send({ errMsg: conductorErrors.err5 });
+};
+
+/**
+ * Verifies that a request has provided a valid key from a Shapeshift webhook.
+ * @param {object} req - The Express.js request object.
+ * @param {object} res - The Express.js response object.
+ * @param {function} next - The next function in the middleware chain.
+ */
+const checkShapeshiftWebhookKey = (req: Request, res: Response, next: NextFunction) => {
+  if (typeof req.headers?.authorization === "string") {
+    const foundToken = req.headers.authorization.replace("Bearer ", "");
+    if (!process.env.SHAPESHIFT_WEBHOOK_KEY || process.env.SHAPESHIFT_WEBHOOK_KEY.length === 0) {
+      return res.status(500).send({ errMsg: conductorErrors.err6 });
+    }
+    if (process.env.SHAPESHIFT_WEBHOOK_KEY === foundToken) return next();
   }
   return res.status(401).send({ errMsg: conductorErrors.err5 });
 };
@@ -211,7 +228,7 @@ const canAccessSupportTicket = async (
     // We check this first in case a user is logged in, but was added as a CC to the ticket and is accessing the ticket via the accessKey
     if (req.query && req.query.accessKey && req.params.uuid) {
       const ticket = await SupportTicket.findOne({
-        uuid: req.params.uuid,
+        uuid: { $eq: req.params.uuid },
       });
 
       if (!ticket || !ticket.uuid) {
@@ -230,7 +247,7 @@ const canAccessSupportTicket = async (
         return next();
       }
     } else if (req.user && req.user.decoded.uuid) {
-      const user = await User.findOne({ uuid: req.user.decoded.uuid });
+      const user = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } });
       if (!user || !user.uuid) {
         throw new Error("unauthorized");
       }
@@ -258,8 +275,8 @@ const canAccessSupportTicket = async (
       // if the user does not have the support role, check if the user is the owner of the ticket
       if (req.params && req.params.uuid) {
         const ticket = await SupportTicket.findOne({
-          uuid: req.params.uuid,
-          userUUID: user.uuid,
+          uuid: { $eq: req.params.uuid },
+          userUUID: { $eq: user.uuid },
         });
 
         // if the ticket is found and the user is the owner, allow access
@@ -275,7 +292,7 @@ const canAccessSupportTicket = async (
     throw new Error("unauthorized");
   } catch (err: any) {
     if (process.env.NODE_ENV === "development") {
-      debugError(err);
+      logger.error({ err }, "canAccessSupportTicket failed");
     }
     if (err.message === "unauthorized") {
       return res.status(401).send({
@@ -311,7 +328,7 @@ const isSelfOrSupport = async (
       throw new Error("unauthorized");
     }
 
-    const user = await User.findOne({ uuid: req.user.decoded.uuid });
+    const user = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } });
     if (!user || !user.uuid) {
       throw new Error("unauthorized");
     }
@@ -337,7 +354,7 @@ const isSelfOrSupport = async (
     throw new Error("unauthorized"); // If the user is not the owner and does not have the support role, throw an error
   } catch (err: any) {
     if (process.env.NODE_ENV === "development") {
-      debugError(err);
+      logger.error({ err }, "isSelfOrSupport failed");
     }
     if (err.message === "unauthorized") {
       return res.status(401).send({
@@ -350,6 +367,96 @@ const isSelfOrSupport = async (
       errMsg: conductorErrors.err2,
     });
   }
+};
+
+/**
+ * Reads the incoming request body as a Node.js readable stream — no size
+ * ceiling — then parses it as JSON and assigns the result to `req.body`.
+ *
+ * Use this instead of the global `bodyParser.json()` on routes that must
+ * accept arbitrarily large JSON payloads (e.g. remixer book-state save and
+ * publish). The calling route must be excluded from the global body-parser
+ * middleware so the stream is not consumed before this runs.
+ */
+const STREAM_JSON_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+
+const streamJsonBody = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.headers["content-type"]?.startsWith("application/json")) {
+    return next();
+  }
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+  // Single latch guaranteeing exactly one terminal action (a response OR
+  // next()). Without it, `data` can fire multiple times before req.destroy()
+  // takes effect, and destroy/end/error can overlap — each path would try to
+  // send again on an already-flushed response, throwing ERR_HTTP_HEADERS_SENT
+  // inside the event callback and crashing the process.
+  let settled = false;
+
+  const onData = (chunk: unknown) => {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string, "utf-8");
+    totalBytes += buf.byteLength;
+    if (totalBytes > STREAM_JSON_MAX_BYTES) {
+      fail(413, "Request body exceeds the 5 MB limit");
+      return;
+    }
+    chunks.push(buf);
+  };
+
+  const onEnd = () => {
+    if (settled) return;
+    settled = true;
+    cleanup();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+    } catch {
+      if (!res.headersSent) {
+        res.status(400).json({ err: true, errMsg: "Invalid or malformed JSON body" });
+      }
+      return;
+    }
+    req.body = parsed;
+    next();
+  };
+
+  const onError = () => fail(400, "Error reading request body");
+
+  // Detach only the consumption listeners on settle. The `error` listener must
+  // stay attached until the request is fully torn down: fail() keeps `req`
+  // alive to flush the response, and next() hands off to async downstream work
+  // — in either window an unhandled 'error' (client abort, ECONNRESET) would be
+  // rethrown as an uncaught exception and crash the process. onError is
+  // idempotent under `settled`, so leaving it bound simply swallows late errors.
+  function cleanup() {
+    req.removeListener("data", onData);
+    req.removeListener("end", onEnd);
+  }
+
+  function fail(status: number, errMsg: string) {
+    if (settled) return;
+    settled = true;
+    cleanup();
+    if (!res.headersSent) {
+      res.status(status).json({ err: true, errMsg });
+    }
+    // Stop reading now, but defer socket teardown until the response has
+    // flushed. req and res share one socket, so destroying it synchronously
+    // would reset the connection before the client receives the error body.
+    // writableFinished (not writableEnded) is only true once the bytes have
+    // actually left for the socket.
+    req.pause();
+    if (res.writableFinished) {
+      req.destroy();
+    } else {
+      res.once("finish", () => req.destroy());
+      res.once("close", () => req.destroy());
+    }
+  }
+
+  req.on("data", onData);
+  req.on("end", onEnd);
+  req.on("error", onError);
 };
 
 const validateZod = (schema: ZodObject<any>) => {
@@ -366,7 +473,7 @@ const validateZod = (schema: ZodObject<any>) => {
       if (!validationRes.success) {
         validationErrors = extractZodErrorMessages(validationRes.error);
         if (process.env.NODE_ENV === "development") {
-          console.error(validationRes.error);
+          logger.error({ err: validationRes.error }, "validateZod failed");
         }
         throw new Error("Validation failed");
       }
@@ -391,11 +498,13 @@ export default {
   checkLibreCommons,
   checkLibreAPIKey,
   checkEventBridgeAPIKey,
+  checkShapeshiftWebhookKey,
   authSanitizer,
   middlewareFilter,
   checkCentralIdentityConfig,
   authLibreOneRequest,
   canAccessSupportTicket,
   isSelfOrSupport,
+  streamJsonBody,
   validateZod,
 };

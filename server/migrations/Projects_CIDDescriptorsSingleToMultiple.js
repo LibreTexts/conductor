@@ -1,4 +1,4 @@
-import { debugError } from '../debug';
+import logger from "../logger.js";
 import Project from '../models/project';
 
 /**
@@ -29,11 +29,11 @@ async function ProjectsCIDDescriptorSingleToMultiple() {
       },
     ]);
     if (results.acknowledged) {
-      console.log(`Succesfully updated ${results.modifiedCount} records.`);
+      logger.info(`Succesfully updated ${results.modifiedCount} records.`);
     } else {
       throw new Error('Request not acknowledged by database.');
     }
   } catch (e) {
-    debugError(`Fatal error during migration: ${e.toString()}`);
+    logger.error({ err: e }, "Fatal error during migration");
   }
 }

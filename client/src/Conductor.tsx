@@ -1,6 +1,6 @@
-import { Suspense, lazy } from 'react';
-import { Route, Switch } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { Suspense } from "react";
+import lazyWithRetry from "./utils/lazyWithRetry";
+import { Route, Switch, useLocation } from 'react-router-dom';
 import { SkipLink } from '@libretexts/davis-react';
 
 import AnonRoute from './components/util/AnonRoute';
@@ -8,33 +8,34 @@ import PrivateRoute from './components/util/PrivateRoute';
 import Footer from "./components/navigation/Footer";
 import ChatBot from "./utils/ChatBot";
 
-const AdoptionReports = lazy(() => import('./screens/conductor/controlpanel/AdoptionReports'));
-const AnalyticsCourseView = lazy(() => import('./screens/conductor/analytics/AnalyticsCourseView'));
-const AnalyticsInvites = lazy(() => import('./screens/conductor/analytics/AnalyticsInvites'));
-const AnalyticsPortal = lazy(() => import('./screens/conductor/analytics/AnalyticsPortal'));
-const AnalyticsRequestAccess = lazy(() => import('./screens/conductor/analytics/AnalyticsRequestAccess'));
-const AnalyticsRequests = lazy(() => import('./screens/conductor/controlpanel/AnalyticsRequests'));
-const AssetTagsManager = lazy(() => import('./screens/conductor/controlpanel/AssetTagsManager'));
-const BooksManager = lazy(() => import('./screens/conductor/controlpanel/BooksManager'));
-const MasterCatalogPlainView = lazy(() => import('./screens/conductor/controlpanel/BooksManager/MasterCatalogPlainView'));
-const IndexManager = lazy(() => import('./screens/conductor/controlpanel/IndexManager'));
-const CampusSettings = lazy(() => import('./components/controlpanel/CampusSettings'));
-const CollectionsManager = lazy(() => import('./screens/conductor/controlpanel/CollectionsManager'));
-const QRCodeGenerator = lazy(() => import('./screens/conductor/controlpanel/QRCodeGenerator'));
-const CentralIdentityOrganizationView = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityOrganizationView'));
-const CentralIdentitySystemView = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentitySystemView'));
-const ControlPanel = lazy(() => import('./components/controlpanel/ControlPanel'));
+const AdoptionReports = lazyWithRetry(() => import('./screens/conductor/controlpanel/AdoptionReports'));
+const AnalyticsCourseView = lazyWithRetry(() => import('./screens/conductor/analytics/AnalyticsCourseView'));
+const AnalyticsInvites = lazyWithRetry(() => import('./screens/conductor/analytics/AnalyticsInvites'));
+const AnalyticsPortal = lazyWithRetry(() => import('./screens/conductor/analytics/AnalyticsPortal'));
+const AnalyticsRequestAccess = lazyWithRetry(() => import('./screens/conductor/analytics/AnalyticsRequestAccess'));
+const AnalyticsRequests = lazyWithRetry(() => import('./screens/conductor/controlpanel/AnalyticsRequests'));
+const AssetTagsManager = lazyWithRetry(() => import('./screens/conductor/controlpanel/AssetTagsManager'));
+const BooksManager = lazyWithRetry(() => import('./screens/conductor/controlpanel/BooksManager'));
+const MasterCatalogPlainView = lazyWithRetry(() => import('./screens/conductor/controlpanel/BooksManager/MasterCatalogPlainView'));
+const IndexManager = lazyWithRetry(() => import('./screens/conductor/controlpanel/IndexManager'));
+const CampusSettings = lazyWithRetry(() => import('./components/controlpanel/CampusSettings'));
+const CollectionsManager = lazyWithRetry(() => import('./screens/conductor/controlpanel/CollectionsManager'));
+const CollectionDetail = lazyWithRetry(() => import('./screens/conductor/controlpanel/CollectionsManager/CollectionDetail'));
+const QRCodeGenerator = lazyWithRetry(() => import('./screens/conductor/controlpanel/QRCodeGenerator'));
+const CentralIdentityOrganizationView = lazyWithRetry(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityOrganizationView'));
+const CentralIdentitySystemView = lazyWithRetry(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentitySystemView'));
+const ControlPanel = lazyWithRetry(() => import('./screens/conductor/controlpanel'));
 import EventsManager from './screens/conductor/controlpanel/EventsManager';
 import EventRegistration from './screens/conductor/OrgEvents/EventRegistration';
-const FallbackAuth = lazy(() => import('./screens/conductor/FallbackAuth'));
+const FallbackAuth = lazyWithRetry(() => import('./screens/conductor/FallbackAuth'));
 import HarvestRequest from './components/harvestrequest/HarvestRequest';
 import Home from './screens/conductor/Home';
 import HomeworkManager from './components/controlpanel/HomeworkManager';
-const KnowledgeBase = lazy(() => import('./screens/conductor/kb'));
-const KBPage = lazy(() => import('./screens/conductor/kb/KBPage'));
-const KBCoverPage = lazy(() => import('./screens/conductor/kb/KBCoverPage'));
-const KBSearchResults = lazy(() => import('./screens/conductor/kb/KBSearchResults'));
-const Login = lazy(() => import('./screens/conductor/Login'));
+const KnowledgeBase = lazyWithRetry(() => import('./screens/conductor/kb'));
+const KBPage = lazyWithRetry(() => import('./screens/conductor/kb/KBPage'));
+const KBCoverPage = lazyWithRetry(() => import('./screens/conductor/kb/KBCoverPage'));
+const KBSearchResults = lazyWithRetry(() => import('./screens/conductor/kb/KBSearchResults'));
+const Login = lazyWithRetry(() => import('./screens/conductor/Login'));
 import ManageEvent from './screens/conductor/controlpanel/EventsManager/ManageEvent';
 import MyAlerts from './components/alerts/MyAlerts';
 import Navbar from './components/navigation/Navbar';
@@ -42,51 +43,51 @@ import OrganizationsManager from './components/controlpanel/OrganizationsManager
 import PeerReviewPage from './components/peerreview/PeerReviewPage';
 import PeerReviewRubricManage from './components/controlpanel/PeerReviewRubricManage';
 import PeerReviewRubrics from './components/controlpanel/PeerReviewRubrics';
-const AuthorsManager = lazy(() => import('./screens/conductor/controlpanel/AuthorsManager'));
+const AuthorsManager = lazyWithRetry(() => import('./screens/conductor/controlpanel/AuthorsManager'));
 import ProjectAccessibility from './components/projects/ProjectAccessibility';
 import ProjectPeerReview from './components/projects/ProjectPeerReview';
-const MyProjects = lazy(() => import('./screens/conductor/Projects'));
-const ProjectAnalytics = lazy(() => import('./screens/conductor/Projects/Analytics'));
-const ProjectPeerReviewSubmit = lazy(() => import('./screens/conductor/Projects/PeerReview/submit'));
-const ProjectsAvailable = lazy(() => import('./screens/conductor/Projects/ProjectsAvailable'));
-const ProjectsCompleted = lazy(() => import('./screens/conductor/Projects/ProjectsCompleted'));
-const ProjectsFlagged = lazy(() => import('./screens/conductor/Projects/ProjectsFlagged'));
+const MyProjects = lazyWithRetry(() => import('./screens/conductor/Projects'));
+const ProjectAnalytics = lazyWithRetry(() => import('./screens/conductor/Projects/Analytics'));
+const ProjectPeerReviewSubmit = lazyWithRetry(() => import('./screens/conductor/Projects/PeerReview/submit'));
+const ProjectsAvailable = lazyWithRetry(() => import('./screens/conductor/Projects/ProjectsAvailable'));
+const ProjectsCompleted = lazyWithRetry(() => import('./screens/conductor/Projects/ProjectsCompleted'));
+const ProjectsFlagged = lazyWithRetry(() => import('./screens/conductor/Projects/ProjectsFlagged'));
 import ProjectTimeline from './components/projects/ProjectTimeline';
-const MyTasks = lazy(() => import('./screens/conductor/Tasks'));
+const MyTasks = lazyWithRetry(() => import('./screens/conductor/Tasks'));
 import ProjectView from './components/projects/ProjectView';
-const Search = lazy(() => import('./screens/conductor/Search'));
-const ShapeshiftConsole = lazy(() => import('./screens/conductor/controlpanel/ShapeshiftConsole'));
-const BookBots = lazy(() => import('./screens/conductor/controlpanel/BookBots'));
-const BookBotsEditorPreprocess = lazy(() => import('./screens/conductor/controlpanel/BookBots/EditorPreprocess'));
-const Store = lazy(() => import('./screens/conductor/store'));
-const StoreAuthCheck = lazy(() => import('./screens/conductor/store/auth-check'));
-const StoreCart = lazy(() => import('./screens/conductor/store/cart'));
-const StoreCatalog = lazy(() => import('./screens/conductor/store/catalog'));
-const StoreManager = lazy(() => import('./screens/conductor/controlpanel/StoreManager'));
-const StoreManagerOrderView = lazy(() => import('./screens/conductor/controlpanel/StoreManager/order-view'));
-const StoreOrder = lazy(() => import('./screens/conductor/store/order'));
-const StoreProduct = lazy(() => import('./screens/conductor/store/product'));
-const StoreShipping = lazy(() => import('./screens/conductor/store/shipping'));
-const StoreSuccess = lazy(() => import('./screens/conductor/store/success'));
+const Search = lazyWithRetry(() => import('./screens/conductor/Search'));
+const ShapeshiftConsole = lazyWithRetry(() => import('./screens/conductor/controlpanel/ShapeshiftConsole'));
+const BookBots = lazyWithRetry(() => import('./screens/conductor/controlpanel/BookBots'));
+const BookBotsEditorPreprocess = lazyWithRetry(() => import('./screens/conductor/controlpanel/BookBots/EditorPreprocess'));
+const Store = lazyWithRetry(() => import('./screens/conductor/store'));
+const StoreAuthCheck = lazyWithRetry(() => import('./screens/conductor/store/auth-check'));
+const StoreCart = lazyWithRetry(() => import('./screens/conductor/store/cart'));
+const StoreCatalog = lazyWithRetry(() => import('./screens/conductor/store/catalog'));
+const StoreManager = lazyWithRetry(() => import('./screens/conductor/controlpanel/StoreManager'));
+const StoreManagerOrderView = lazyWithRetry(() => import('./screens/conductor/controlpanel/StoreManager/order-view'));
+const StoreOrder = lazyWithRetry(() => import('./screens/conductor/store/order'));
+const StoreProduct = lazyWithRetry(() => import('./screens/conductor/store/product'));
+const StoreShipping = lazyWithRetry(() => import('./screens/conductor/store/shipping'));
+const StoreSuccess = lazyWithRetry(() => import('./screens/conductor/store/success'));
 import LoadingSpinner from './components/LoadingSpinner';
-const CentralIdentity = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity'));
-const CentralIdentityAppLicenses = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityAppLicenses'));
-const CentralIdentityInstructorVerifications = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityInstructorVerifications'));
-const CentralIdentityOrgs = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityOrgs'));
-const CentralIdentityServices = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityServices'));
-const CentralIdentityUsers = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUsers'));
-const CentralIdentityUserView = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUserView'));
-const SupportCenter = lazy(() => import('./screens/conductor/support'));
-const SupportCenterCreateTicket = lazy(() => import('./screens/conductor/support/SupportCreateTicket'));
-const SupportDashboard = lazy(() => import('./screens/conductor/support/Dashboard'));
-const SupportTicket = lazy(() => import('./screens/conductor/support/Ticket'));
-const SupportClosedTickets = lazy(() => import('./screens/conductor/support/closed'));
-const TextbookCuration = lazy(() => import('./screens/conductor/Projects/TextbookCuration'));
-const BatchRun = lazy(() => import('./screens/conductor/Projects/TextbookCuration/BatchRun'));
-const AcceptProjectInviteScreen = lazy(() => import('./screens/conductor/Projects/AcceptProjectInviteScreen'));
-const PermanentLinkDownload = lazy(() => import('./components/FilesManager/PermanentLinkDownload'));
-const RemixerDashboard = lazy(()=> import('./components/remixer/RemixerDashboard'));
-const GlossaryManager =lazy(() => import('./screens/commons/Glossary'));
+const CentralIdentity = lazyWithRetry(() => import('./screens/conductor/controlpanel/CentralIdentity'));
+const CentralIdentityAppLicenses = lazyWithRetry(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityAppLicenses'));
+const CentralIdentityInstructorVerifications = lazyWithRetry(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityInstructorVerifications'));
+const CentralIdentityOrgs = lazyWithRetry(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityOrgs'));
+const CentralIdentityServices = lazyWithRetry(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityServices'));
+const CentralIdentityUsers = lazyWithRetry(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUsers'));
+const CentralIdentityUserView = lazyWithRetry(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUserView'));
+const SupportCenter = lazyWithRetry(() => import('./screens/conductor/support'));
+const SupportCenterCreateTicket = lazyWithRetry(() => import('./screens/conductor/support/SupportCreateTicket'));
+const SupportDashboard = lazyWithRetry(() => import('./screens/conductor/support/Dashboard'));
+const SupportTicket = lazyWithRetry(() => import('./screens/conductor/support/Ticket'));
+const SupportClosedTickets = lazyWithRetry(() => import('./screens/conductor/support/closed'));
+const TextbookCuration = lazyWithRetry(() => import('./screens/conductor/Projects/TextbookCuration'));
+const BatchRun = lazyWithRetry(() => import('./screens/conductor/Projects/TextbookCuration/BatchRun'));
+const AcceptProjectInviteScreen = lazyWithRetry(() => import('./screens/conductor/Projects/AcceptProjectInviteScreen'));
+const PermanentLinkDownload = lazyWithRetry(() => import('./components/FilesManager/PermanentLinkDownload'));
+const RemixerDashboard = lazyWithRetry(()=> import('./components/remixer/RemixerDashboard'));
+const GlossaryManager =lazyWithRetry(() => import('./screens/commons/Glossary'));
 
 /* 404 */
 import PageNotFound from './components/util/PageNotFound';
@@ -94,6 +95,7 @@ import LibreTextsRoute from './components/util/LibreTextsRoute';
 import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
 import SupportCenterDataLoader from './providers/SupportCenterDataLoader';
 import Restacker from './components/projects/Restacker';
+import { useTypedSelector } from './state/hooks';
 
 /**
  * The project planning and internal tools system. Requires authentication to access most pages.
@@ -101,13 +103,21 @@ import Restacker from './components/projects/Restacker';
 const Conductor = () => {
 
   // Global State and Location
-  const org = useSelector((state) => state.org);
+  const org = useTypedSelector((state) => state.org);
+  const location = useLocation();
+
+  // Support queue data is only needed on the support/insight routes; mount the
+  // loader here (not around the routes) so it doesn't fire an API call app-wide.
+  const isSupportRoute =
+    location.pathname.startsWith('/support') ||
+    location.pathname.startsWith('/insight');
 
   return (
     <div className='flex flex-col min-h-screen'>
       <SkipLink targetId="main-content" />
       <Navbar />
       <main id="main-content" className='flex-1 bg-surface-muted pb-8'>
+        {isSupportRoute && <SupportCenterDataLoader />}
         <Suspense fallback={<LoadingSpinner />}>
           <Switch>
           <AnonRoute exact path='/login' component={Login} />
@@ -127,6 +137,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
           <PrivateRoute exact path='/projects/:id/ai-co-author' component={TextbookCuration} />
           <PrivateRoute exact path='/projects/:id/ai-co-author/batch' component={BatchRun} />
+          <PrivateRoute exact path='/projects/:id/remixer' component={RemixerDashboard} />
           <PrivateRoute exact path='/projects/:id/restacker' component={Restacker} />
           <Route exact path='/projects/:id/analytics' component={ProjectAnalytics} /> {/* Auth handled at page level. Can be private or public*/}
           <PrivateRoute exact path='/projects/accept-invite/:id' component={AcceptProjectInviteScreen} />
@@ -144,6 +155,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/indexmanager' component={IndexManager} />
           <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
           <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />
+          <PrivateRoute exact path='/controlpanel/collectionsmanager/:collID' component={CollectionDetail} />
           <PrivateRoute exact path='/controlpanel/qr-code-generator' component={QRCodeGenerator} />
           <PrivateRoute exact path='/controlpanel/eventsmanager' component={EventsManager} />
           <PrivateRoute exact path='/controlpanel/eventsmanager/:mode/:eventID?' component={ManageEvent} />
@@ -166,7 +178,6 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/store' component={StoreManager} />
           <PrivateRoute exact path='/controlpanel/store/orders/:order_id' component={StoreManagerOrderView} />
           <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
-          <PrivateRoute exact path='/remixer/:id' component={RemixerDashboard} />
           <PrivateRoute exact path='/glossary/book/:id' component={GlossaryManager} />
           <PrivateRoute exact path='/glossary/project/:id' component={GlossaryManager} />
           <Route exact path="/download/:projectID/:fileID" component={PermanentLinkDownload} />
@@ -181,18 +192,16 @@ const Conductor = () => {
           <LibreTextsRoute exact path='/store/checkout/success' key='storesuccess' org={org} component={StoreSuccess} />
           <LibreTextsRoute exact path='/store/order/:order_id' key='storeorder' org={org} component={StoreOrder} />
           <LibreTextsRoute exact path='/store/product/:product_id' key='storeproduct' org={org} component={StoreProduct} />
-          <SupportCenterDataLoader>
-            <LibreTextsRoute exact path='/insight' key='insight' component={KnowledgeBase} org={org}/>
-            <LibreTextsRoute exact path='/insight/search' key='insightsearchresults' component={KBSearchResults} org={org}/>
-            <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
-            <LibreTextsRoute exact path='/insight/:slug' key='insightpageview' org={org} component={KBPage} />
-            <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
-            <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
-            <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} />
-            {/*LibreTexts org private routes */}
-            <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
-            <LibreTextsPrivateRoute exact path='/support/closed' key='supportclosedtickets' org={org} component={SupportClosedTickets} />
-          </SupportCenterDataLoader>
+          <LibreTextsRoute exact path='/insight' key='insight' component={KnowledgeBase} org={org}/>
+          <LibreTextsRoute exact path='/insight/search' key='insightsearchresults' component={KBSearchResults} org={org}/>
+          <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
+          <LibreTextsRoute exact path='/insight/:slug' key='insightpageview' org={org} component={KBPage} />
+          <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
+          <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
+          <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} />
+          {/*LibreTexts org private routes */}
+          <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
+          <LibreTextsPrivateRoute exact path='/support/closed' key='supportclosedtickets' org={org} component={SupportClosedTickets} />
           {/* 404 */}
           <Route component={PageNotFound} />
           </Switch>

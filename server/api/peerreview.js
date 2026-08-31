@@ -4,6 +4,7 @@
 //
 
 'use strict';
+import logger from "../logger.js";
 import Promise from 'bluebird';
 import { body, query } from 'express-validator';
 import b62 from 'base62-random';
@@ -13,7 +14,6 @@ import PeerReview from '../models/peerreview.js';
 import PeerReviewRubric from '../models/peerreviewrubric.js';
 import Book from '../models/book.js';
 import conductorErrors from '../conductor-errors.js';
-import { debugError } from '../debug.js';
 import  {
     validatePeerReviewPromptType,
     validatePeerReviewAuthorType,
@@ -111,7 +111,7 @@ const getPeerReviewRubric = (req, res) => {
             throw (new Error('rubricnotfound'));
         }
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getPeerReviewRubric failed");
         let errMsg = conductorErrors.err6;
         if (err.message === 'rubricnotfound') errMsg = conductorErrors.err48;
         return res.send({
@@ -180,7 +180,7 @@ const getAllPeerReviewRubrics = (_req, res) => {
             rubrics: sorted
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getAllPeerReviewRubrics failed");
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
@@ -206,7 +206,7 @@ const checkOrgDefaultRubric = (_req, res) => {
             orgID: process.env.ORG_ID
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "checkOrgDefaultRubric failed");
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
@@ -245,7 +245,7 @@ const getProjectPeerReviewRubric = (req, res) => {
             throw (new Error('rubricnotfound'));
         }
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getProjectPeerReviewRubric failed");
         let errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'rubricnotfound') errMsg = conductorErrors.err48;
@@ -328,7 +328,7 @@ const getProjectPeerReviews = (req, res) => {
         return res.send(reviewsRes);
     }).catch((err) => {
         let errMsg = conductorErrors.err6;
-        debugError(err);
+        logger.error({ err }, "getProjectPeerReviews failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -347,7 +347,7 @@ const getPeerReview = (req, res) => {
     PeerReview.aggregate(buildPeerReviewAggregation(req.query.peerReviewID, true)).then((peerReviews) => {
         if (peerReviews.length > 0) {
             peerReview = peerReviews[0];
-            return Project.findOne({ projectID: peerReview.projectID }).lean();
+            return Project.findOne({ projectID: { $eq: peerReview.projectID } }).lean();
         }
         throw (new Error('notfound'));
     }).then((project) => {
@@ -429,7 +429,7 @@ const sendPeerReviewInvite = (req, res) => {
             msg: "Successfully sent invitation email!"
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "sendPeerReviewInvite failed");
         let errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
@@ -672,7 +672,7 @@ const createPeerReview = (req, res) => {
         else if (err.message === 'requiredresponses') errMsg = conductorErrors.err49;
         else if (err.message === 'noresponses') errMsg = conductorErrors.err50;
         else if (err.message === 'createfail') errMsg = conductorErrors.err3;
-        debugError(err);
+        logger.error({ err }, "createPeerReview failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -694,7 +694,7 @@ const deletePeerReview = (req, res) => {
     }).lean().then((peerReviewData) => {
         if (peerReviewData) {
             peerReview = peerReviewData;
-            return Project.findOne({ projectID: peerReview.projectID }).lean();
+            return Project.findOne({ projectID: { $eq: peerReview.projectID } }).lean();
         }
         throw (new Error('notfound'));
     }).then((projectData) => {
@@ -888,7 +888,7 @@ const updatePeerReviewRubric = (req, res) => {
         }
         throw (new Error('updatefail'));
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "updatePeerReviewRubric failed");
         let errMsg = conductorErrors.err6;
         if (err.message === 'updatefail') errMsg = conductorErrors.err3;
         else if (err.message === 'dropdownoptions') errMsg = conductorErrors.err51;
@@ -954,7 +954,7 @@ const updateProjectAverageRating = (projectID) => {
     let newAverage = 0;
     let updateBook = false;
     return Project.findOne({
-        projectID: projectID
+        projectID: { $eq: projectID }
     }).lean().then((projectData) => {
         if (projectData) {
             project = projectData;
@@ -988,7 +988,7 @@ const updateProjectAverageRating = (projectID) => {
         } else {
             newAverage = 0;
         }
-        return Project.updateOne({ projectID: projectID }, {
+        return Project.updateOne({ projectID: { $eq: projectID } }, {
             rating: newAverage
         });
     }).then((updateRes) => {

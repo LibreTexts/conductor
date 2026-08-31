@@ -171,7 +171,7 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
             </MetaRow>
             <MetaRow label="Captured URL">
               {ticket?.capturedURL ? (
-                <a href={ticket.capturedURL} target="_blank" rel="noreferrer">
+                <a href={ticket.capturedURL} target="_blank" rel="noreferrer" className="break-all">
                   {ticket.capturedURL}
                 </a>
               ) : (

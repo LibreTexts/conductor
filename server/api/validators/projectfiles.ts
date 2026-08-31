@@ -48,17 +48,7 @@ export const projectFileSchema = z.object({
   primaryAuthor: projectFileAuthorSchema
     .or(z.string().refine((val: string) => isMongoIDValidator(val)))
     .optional(),
-  authors: z
-    .array(
-      projectFileAuthorSchema.or(
-        z.string().refine((val: string) => isMongoIDValidator(val))
-      )
-    )
-    .optional(),
-  correspondingAuthor: projectFileAuthorSchema
-    .or(z.string().refine((val: string) => isMongoIDValidator(val)))
-    .optional(),
-  publisher: z
+  originalPublisher: z
     .object({
       name: z.string().trim().max(255).optional().or(z.literal("")),
       url: z.string().url().optional().or(z.literal("")),
@@ -109,6 +99,19 @@ export const bulkUpdateProjectFilesSchema = z.object({
     tagMode: z.enum(["replace", "append"]),
   })
 })
+
+export const bulkUpdateProjectFileMetadataSchema = z.object({
+  params: z.object({
+    projectID: _projectIDSchema,
+  }),
+  body: z.object({
+    // Selected items; folders are allowed and expanded to their descendant files server-side.
+    fileIDs: z.array(z.string().uuid()).min(1).max(50),
+    license: projectFileSchema.shape.license,
+    primaryAuthor: projectFileSchema.shape.primaryAuthor,
+    originalPublisher: projectFileSchema.shape.originalPublisher,
+  }),
+});
 
 export const updateProjectFileAccessSchema = z.object({
   params: _projectFileParams,
@@ -180,9 +183,16 @@ export const getPublicProjectFilesSchema = z.object({
   query: PaginationSchema,
 });
 
-export const createCloudflareStreamURLSchema = z.object({
-  //params: _projectFileParams,
+/** Maximum size of a single video accepted for Cloudflare Stream upload (100mb). */
+export const MAX_VIDEO_UPLOAD_BYTES = 100000000;
+
+export const createProjectFileStreamUploadURLSchema = z.object({
+  params: z.object({
+    projectID: _projectIDSchema,
+  }),
   body: z.object({
-    contentLength: z.coerce.number(),
+    name: z.string().trim().min(1).max(255),
+    size: z.coerce.number().int().positive().max(MAX_VIDEO_UPLOAD_BYTES),
+    durationSeconds: z.coerce.number().positive(),
   }),
 });

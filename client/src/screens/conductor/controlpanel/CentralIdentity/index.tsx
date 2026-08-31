@@ -1,21 +1,19 @@
-import "../../../../components/controlpanel/ControlPanel.css";
-
+import { Breadcrumb, Heading, Stack, Text } from "@libretexts/davis-react";
 import {
-  Grid,
-  Header,
-  Segment,
-  Icon,
-  List,
-  Breadcrumb,
-  SemanticICONS,
-} from "semantic-ui-react";
-import { useEffect } from "react";
-import { Link } from "react-router-dom";
+  IconBuilding,
+  IconChevronRight,
+  IconCircleCheck,
+  IconKey,
+  IconServer,
+  IconUsers,
+} from "@tabler/icons-react";
+import { useHistory } from "react-router-dom";
 import { useTypedSelector } from "../../../../state/hooks";
+import { useDocumentTitle } from "usehooks-ts";
 
 type CentralIdentityListItem = {
   url: string;
-  icon: SemanticICONS;
+  icon: React.ReactNode;
   title: string;
   description: string;
 };
@@ -24,113 +22,89 @@ const CentralIdentity = () => {
   // Global State
   const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
   const org = useTypedSelector((state) => state.org);
-
-  /**
-   * Set page title on initial load.
-   */
-  useEffect(() => {
-    document.title = "LibreTexts Conductor | LibreOne Management";
-  }, []);
+  const history = useHistory();
+  useDocumentTitle("LibreTexts Conductor | LibreOne Management");
 
   const listItems: CentralIdentityListItem[] = [
     {
       url: "/controlpanel/libreone/app-licenses",
-      icon: "key",
+      icon: <IconKey size={20} />,
       title: "App Licenses",
       description: "View and manage App Licenses",
     },
     {
       url: "/controlpanel/libreone/instructor-verifications",
-      icon: "check circle",
+      icon: <IconCircleCheck size={20} />,
       title: "Instructor Verification Requests",
       description: "View and manage Instructor Verification Requests",
     },
     {
       url: "/controlpanel/libreone/orgs",
-      icon: "building",
+      icon: <IconBuilding size={20} />,
       title: "Organizations & Systems",
       description:
         "View and manage Organizations and Systems on the LibreOne platform",
     },
     {
       url: "/controlpanel/libreone/users",
-      icon: "users",
+      icon: <IconUsers size={20} />,
       title: "Users",
       description: "View and manage Users on the LibreOne platform",
     },
     {
       url: "/controlpanel/libreone/services",
-      icon: "server",
+      icon: <IconServer size={20} />,
       title: "Services",
       description: "View and manage Services on the LibreOne platform",
     },
   ];
 
-  const renderListItem = (item: CentralIdentityListItem, idx: number) => {
-    return (
-      <List.Item as={Link} to={item.url} key={idx}>
-        <div className="flex-row-div">
-          <div className="left-flex">
-            <Icon name={item.icon} />
-            <div className="flex-col-div ml-1p">
-              <Header as="span" size="small">
-                {item.title}
-              </Header>
-              <span>{item.description}</span>
-            </div>
-          </div>
-          <div className="right-flex">
-            <Icon name="chevron right" />
+  return (
+    <div className="h-full px-8 pt-8">
+      <Stack direction="vertical" gap="md" className="mb-4">
+        <Heading level={2}>LibreOne Admin Consoles</Heading>
+        <Breadcrumb aria-label="Page navigation">
+          <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+          <Breadcrumb.Item isCurrent>LibreOne Admin Consoles</Breadcrumb.Item>
+        </Breadcrumb>
+      </Stack>
+
+      <Text className="">
+        Welcome to the LibreOne Admin Consoles. Here, you will find several
+        tools to manage users throughout the LibreVerse via the LibreOne CAS.
+      </Text>
+
+      {isSuperAdmin && org.orgID === "libretexts" && (
+        <div className="mt-6">
+          <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
+            {listItems.map((item) => (
+              <button
+                key={item.url}
+                type="button"
+                onClick={() => history.push(item.url)}
+                className="w-full flex items-center justify-between gap-4 px-4 py-4 text-left hover:bg-gray-50 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-primary"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-gray-500">{item.icon}</span>
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-sm">
+                      {item.title}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      {item.description}
+                    </span>
+                  </div>
+                </div>
+                <IconChevronRight
+                  size={18}
+                  className="text-gray-400 shrink-0"
+                />
+              </button>
+            ))}
           </div>
         </div>
-      </List.Item>
-    );
-  };
-
-  return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">LibreOne Admin Consoles</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>
-                  LibreOne Admin Consoles
-                </Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment>
-              <p className="mt-1p mb-1p">
-                Welcome to the LibreOne Admin Consoles. Here, you will find
-                several tools to manage users throughout the LibreVerse via the
-                LibreOne CAS.
-              </p>
-              <Segment basic>
-                {isSuperAdmin && org.orgID === "libretexts" && (
-                  <div className="mb-2r">
-                    <Header as="h5" dividing>
-                      LibreOne Admin Consoles
-                    </Header>
-                    <List relaxed="very" divided selection>
-                      {listItems.map((item, idx) => renderListItem(item, idx))}
-                    </List>
-                  </div>
-                )}
-              </Segment>
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+      )}
+    </div>
   );
 };
 

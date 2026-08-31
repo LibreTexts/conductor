@@ -22,26 +22,26 @@ const CC_COMPATIBILITY_MATRIX: Record<CcLicenseKey, Record<CcLicenseKey, boolean
   publicdomain: {
     publicdomain: true,
     ccby: true,
-    ccbysa: true,
+    ccbysa: false,
     ccbync: true,
     ccbynd: false,
-    ccbyncsa: true,
+    ccbyncsa: false,
     ccbyncnd: false,
   },
   ccby: {
     publicdomain: true,
     ccby: true,
-    ccbysa: true,
+    ccbysa: false,
     ccbync: true,
     ccbynd: false,
-    ccbyncsa: true,
+    ccbyncsa: false,
     ccbyncnd: false,
   },
   ccbysa: {
     publicdomain: true,
     ccby: true,
     ccbysa: true,
-    ccbync: false,
+    ccbync: true,
     ccbynd: false,
     ccbyncsa: false,
     ccbyncnd: false,
@@ -52,14 +52,14 @@ const CC_COMPATIBILITY_MATRIX: Record<CcLicenseKey, Record<CcLicenseKey, boolean
     ccbysa: false,
     ccbync: true,
     ccbynd: false,
-    ccbyncsa: true,
+    ccbyncsa: false,
     ccbyncnd: false,
   },
   ccbynd: {
-    publicdomain: false,
-    ccby: false,
+    publicdomain: true,
+    ccby: true,
     ccbysa: false,
-    ccbync: false,
+    ccbync: true,
     ccbynd: false,
     ccbyncsa: false,
     ccbyncnd: false,
@@ -74,10 +74,10 @@ const CC_COMPATIBILITY_MATRIX: Record<CcLicenseKey, Record<CcLicenseKey, boolean
     ccbyncnd: false,
   },
   ccbyncnd: {
-    publicdomain: false,
-    ccby: false,
+    publicdomain: true,
+    ccby: true,
     ccbysa: false,
-    ccbync: false,
+    ccbync: true,
     ccbynd: false,
     ccbyncsa: false,
     ccbyncnd: false,
@@ -91,8 +91,14 @@ export type LicenseRole =
   | `content:${number}`;
 
 export type LicensePairCompliance = {
-  licenseA: { role: LicenseRole; key: string };
-  licenseB: { role: LicenseRole; key: string };
+  licenseAdption: { role: LicenseRole; key: string; version?: string };
+  licenseOrigin: {
+    role: LicenseRole;
+    key: string;
+    version?: string;
+    /** Present when the origin is a specific page (e.g. book↔page book-wide check). */
+    pageTitle?: string;
+  };
   compatible: boolean | null;
 };
 
@@ -114,46 +120,55 @@ function toCcLicenseKey(key: string): CcLicenseKey | undefined {
 }
 
 export function areLicensesCompatible(
-  licenseA?: RestackerTocLicense,
-  licenseB?: RestackerTocLicense,
+  licenseAdption?: RestackerTocLicense,
+  licenseOrigin?: RestackerTocLicense,
 ): boolean | null {
-  const keyA = parseLicenseKey(licenseA);
-  const keyB = parseLicenseKey(licenseB);
+  const keyAdption = parseLicenseKey(licenseAdption);
+  const keyOrigin = parseLicenseKey(licenseOrigin);
 
-  if (!keyA || !keyB) return null;
+  if (!keyAdption || !keyOrigin) return null;
 
-  const ccKeyA = toCcLicenseKey(keyA);
-  const ccKeyB = toCcLicenseKey(keyB);
+  const ccKeyAdption = toCcLicenseKey(keyAdption);
+  const ccKeyOrigin = toCcLicenseKey(keyOrigin);
 
-  if (!ccKeyA || !ccKeyB) return null;
+  if (!ccKeyAdption || !ccKeyOrigin) return null;
 
-  return CC_COMPATIBILITY_MATRIX[ccKeyA][ccKeyB];
+  // Rows = original/source, columns = adapting/destination
+  const compatible = CC_COMPATIBILITY_MATRIX[ccKeyAdption][ccKeyOrigin];
+  if (!compatible) return false;
+
+  const versionAdption = parseLicenseVersion(licenseAdption?.version);
+  const versionOrigin = parseLicenseVersion(licenseOrigin?.version);
+  if (versionAdption && versionOrigin) {
+    return parseFloat(versionAdption) >= parseFloat(versionOrigin);
+  }
+
+  return true;
 }
 
-function collectLicensedEntries(
-  bookLicense: RestackerTocLicense,
-  pageLicense: RestackerTocLicense,
-  sourceLicense: RestackerTocLicense,
-  contentLicenses: RestackerTocLicense[],
-): { role: LicenseRole; license: RestackerTocLicense }[] {
-  const entries: { role: LicenseRole; license: RestackerTocLicense }[] = [];
 
-  if (parseLicenseKey(bookLicense)) {
-    entries.push({ role: "book", license: bookLicense });
-  }
-  if (parseLicenseKey(pageLicense)) {
-    entries.push({ role: "page", license: pageLicense });
-  }
-  if (parseLicenseKey(sourceLicense)) {
-    entries.push({ role: "source", license: sourceLicense });
-  }
-  contentLicenses.forEach((license, index) => {
-    if (parseLicenseKey(license)) {
-      entries.push({ role: `content:${index}`, license });
-    }
-  });
-
-  return entries;
+function makePair(
+  roleAdption: LicenseRole,
+  licenseAdption: RestackerTocLicense,
+  roleOrigin  : LicenseRole,
+  licenseOrigin: RestackerTocLicense,
+): LicensePairCompliance | null {
+  const keyAdption = parseLicenseKey(licenseAdption);
+  const keyOrigin = parseLicenseKey(licenseOrigin);
+  if (!keyAdption || !keyOrigin) return null;
+  return {
+    licenseAdption: {
+      role: roleAdption,
+      key: keyAdption,
+      version: parseLicenseVersion(licenseAdption.version) ?? licenseAdption.version,
+    },
+    licenseOrigin: {
+      role: roleOrigin,
+      key: keyOrigin,
+      version: parseLicenseVersion(licenseOrigin.version) ?? licenseOrigin.version,
+    },
+    compatible: areLicensesCompatible(licenseAdption, licenseOrigin),
+  };
 }
 
 export const getLicenseCompliance = (
@@ -162,29 +177,41 @@ export const getLicenseCompliance = (
   sourceLicense: RestackerTocLicense,
   contentLicenses: RestackerTocLicense[],
 ): LicenseComplianceResult => {
-  const entries = collectLicensedEntries(
-    bookLicense,
-    pageLicense,
-    sourceLicense,
-    contentLicenses,
-  );
-
   const pairs: LicensePairCompliance[] = [];
 
-  for (let i = 0; i < entries.length; i += 1) {
-    for (let j = i + 1; j < entries.length; j += 1) {
-      const entryA = entries[i];
-      const entryB = entries[j];
-      const keyA = parseLicenseKey(entryA.license)!;
-      const keyB = parseLicenseKey(entryB.license)!;
+  // 1. Book (adapting) ↔ Page (original)
+  const bookPage = makePair("book", bookLicense, "page", pageLicense);
+  if (bookPage) pairs.push(bookPage);
 
-      pairs.push({
-        licenseA: { role: entryA.role, key: keyA },
-        licenseB: { role: entryB.role, key: keyB },
-        compatible: areLicensesCompatible(entryA.license, entryB.license),
-      });
-    }
+  // 2. Page ↔ Source — must be an exact license+version match
+  const pageKey = parseLicenseKey(pageLicense);
+  const sourceKey = parseLicenseKey(sourceLicense);
+  const pageVersion = parseLicenseVersion(pageLicense.version);
+  const sourceVersion = parseLicenseVersion(sourceLicense.version);
+  if (sourceKey) {
+    const compatible =
+      pageKey?.toLowerCase() === sourceKey?.toLowerCase() &&
+      (pageVersion ?? "") === (sourceVersion ?? "");
+    pairs.push({
+      licenseAdption: {
+        role: "page",
+        key: pageKey ?? "",
+        version: pageVersion,
+      },
+      licenseOrigin: {
+        role: "source",
+        key: sourceKey,
+        version: sourceVersion,
+      },
+      compatible,
+    });
   }
+
+  // 3. Page ↔ each Content license
+  contentLicenses.forEach((contentLicense, index) => {
+    const pageContent = makePair("page", pageLicense, `content:${index}`, contentLicense);
+    if (pageContent) pairs.push(pageContent);
+  });
 
   const incompatiblePairs = pairs.filter((pair) => pair.compatible === false);
   const unknownPairs = pairs.filter((pair) => pair.compatible === null);
@@ -259,6 +286,7 @@ export function buildLicenseFromDraft(
 export function getProposedLicenseCompliance(
   field: "book" | "page",
   row: {
+    title?: string;
     pageLicense?: RestackerTocLicense;
     sourceLicense?: RestackerTocLicense;
     contentLicenses?: RestackerTocLicense[];
@@ -266,8 +294,47 @@ export function getProposedLicenseCompliance(
   bookLicense: RestackerTocLicense | undefined,
   proposedLicense: string,
   proposedVersion?: string,
+  /** When changing the book license, pass all TOC rows to check every page. */
+  allRows?: {
+    title: string;
+    pageLicense?: RestackerTocLicense;
+    sourceLicense?: RestackerTocLicense;
+    contentLicenses?: RestackerTocLicense[];
+  }[],
 ): LicenseComplianceResult {
   const proposed = buildLicenseFromDraft(proposedLicense, proposedVersion);
+
+  // Book license applies book-wide: page is original, book is adapting
+  if (field === "book" && allRows?.length) {
+    const pairs: LicensePairCompliance[] = [];
+    for (const r of allRows) {
+      const pair = makePair(
+        "book",
+        proposed,
+        "page",
+        r.pageLicense ?? EMPTY_LICENSE,
+      );
+      if (!pair) continue;
+      pairs.push({
+        ...pair,
+        licenseOrigin: {
+          ...pair.licenseOrigin,
+          pageTitle: r.title,
+        },
+      });
+    }
+
+    const incompatiblePairs = pairs.filter((pair) => pair.compatible === false);
+    const unknownPairs = pairs.filter((pair) => pair.compatible === null);
+
+    return {
+      compliant: incompatiblePairs.length === 0,
+      pairs,
+      incompatiblePairs,
+      unknownPairs,
+    };
+  }
+
   return getLicenseCompliance(
     field === "book" ? proposed : (bookLicense ?? EMPTY_LICENSE),
     field === "page" ? proposed : (row.pageLicense ?? EMPTY_LICENSE),
@@ -276,20 +343,7 @@ export function getProposedLicenseCompliance(
   );
 }
 
-export const LICENSE_VERSION_OPTIONS = [
-  { value: "10", label: "1.0" },
-  { value: "20", label: "2.0" },
-  { value: "25", label: "2.5" },
-  { value: "30", label: "3.0" },
-  { value: "40", label: "4.0" },
-] as const;
 
-const LICENSES_WITHOUT_VERSION = new Set(["publicdomain", "arr", "ck12"]);
-
-export function licenseNeedsVersion(licenseKey?: string): boolean {
-  if (!licenseKey) return false;
-  return !LICENSES_WITHOUT_VERSION.has(licenseKey);
-}
 
 export function formatVersionDigits(version?: string): string | undefined {
   if (!version) return undefined;

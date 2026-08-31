@@ -162,56 +162,7 @@ export default class AuthorService {
                 {
                     $match: {
                         $expr: {
-                            $or: [
-                                {
-                                    $eq: ["$defaultPrimaryAuthorID", "$$authorID"],
-                                },
-                                {
-                                    $eq: ["$defaultCorrespondingAuthorID", "$$authorID"],
-                                },
-                                {
-                                    $in: [
-                                        "$$authorID",
-                                        {
-                                            $cond: {
-                                                if: {
-                                                    $isArray: "$defaultSecondaryAuthorIDs",
-                                                },
-                                                then: "$defaultSecondaryAuthorIDs",
-                                                else: [],
-                                            },
-                                        },
-                                    ],
-                                },
-                                {
-                                    $in: [
-                                        "$$authorID",
-                                        {
-                                            $cond: {
-                                                if: {
-                                                    $isArray: "$principalInvestigatorIDs",
-                                                },
-                                                then: "$principalInvestigatorIDs",
-                                                else: [],
-                                            },
-                                        },
-                                    ],
-                                },
-                                {
-                                    $in: [
-                                        "$$authorID",
-                                        {
-                                            $cond: {
-                                                if: {
-                                                    $isArray: "$coPrincipalInvestigatorIDs",
-                                                },
-                                                then: "$coPrincipalInvestigatorIDs",
-                                                else: [],
-                                            },
-                                        },
-                                    ],
-                                },
-                            ],
+                            $eq: ["$defaultPrimaryAuthorID", "$$authorID"],
                         },
                     },
                 },

@@ -1,4 +1,4 @@
-import { debugError } from "../../debug.js";
+import logger from "../../logger.js";
 import CoverPageIdCache from "../../models/coverpageidcache.js";
 import { getPageID } from "../../util/librariesclient.js";
 import {
@@ -34,7 +34,7 @@ export async function resolveCoverPageIdFromPath(
       return { id: hit.pageId, subdomain, coverPath, bookID };
     }
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "resolveCoverPageIdFromPath failed");
   }
 
   const id = await getPageID(coverPath, subdomain);
@@ -55,7 +55,7 @@ export async function resolveCoverPageIdFromPath(
       { upsert: true }
     );
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "resolveCoverPageIdFromPath failed");
   }
 
   const bookID = `${subdomain}-${id}`;

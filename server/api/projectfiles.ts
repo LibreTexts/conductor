@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import { NextFunction, Request, Response } from "express";
 import conductorErrors from "../conductor-errors.js";
 import ProjectFile, {
@@ -33,7 +34,6 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { v4 } from "uuid";
-import { debugError } from "../debug.js";
 import * as MiscValidators from "./validators/misc.js";
 import {
   conductor400Err,
@@ -56,12 +56,13 @@ import {
   updateProjectFileAccessSchema,
   updateProjectFileSchema,
   addProjectFileFolderSchema,
-  createCloudflareStreamURLSchema,
+  createProjectFileStreamUploadURLSchema,
   videoDataSchema,
   updateProjectFileCaptionsSchema,
   getProjectFileCaptionsSchema,
   getProjectFileEmbedHTMLSchema,
   bulkUpdateProjectFilesSchema,
+  bulkUpdateProjectFileMetadataSchema,
 } from "./validators/projectfiles.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import { ZodReqWithFiles } from "../types/Express";
@@ -69,6 +70,7 @@ import Author from "../models/author.js";
 import { isAuthorObject } from "../util/typeHelpers.js";
 import { Schema } from "mongoose";
 import User from "../models/user.js";
+import VideoUploadGrant from "../models/videoUploadGrant.js";
 import { generateVideoStreamURL } from "../util/videoutils.js";
 import axios from "axios";
 import mime from "mime";
@@ -77,6 +79,16 @@ const filesStorage = multer.memoryStorage();
 const MAX_UPLOAD_FILES = 20;
 const MAX_UPLOAD_FILE_SIZE = 100000000; // 100mb
 const LIBRETEXTS_ALLOWED_ORIGINS = ["*.libretexts.org", "*.libretexts.net"];
+/** How long a Cloudflare Stream upload slot stays valid before it can be swept. */
+const VIDEO_UPLOAD_GRANT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+/**
+ * How long the grant record itself is retained. Deliberately much longer than
+ * VIDEO_UPLOAD_GRANT_TTL_MS so Mongo's TTL index cannot reap a record before the
+ * cleanup job has had the chance to delete its Cloudflare video.
+ */
+const VIDEO_UPLOAD_GRANT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+/** Maximum number of orphaned videos deleted in a single cleanup run. */
+const ORPHANED_VIDEO_CLEANUP_BATCH_SIZE = 200;
 const ALLOWED_MIME_TYPES = [
   "application/msword", // .doc
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
@@ -98,6 +110,9 @@ const ALLOWED_MIME_TYPES = [
   "model/stl", // .stl
   "application/zip", // .zip
   "application/x-zip-compressed", // .zip (sometimes used on Windows)
+  "application/vnd.ims.imsccv1p1+zip", // .imscc (Common Cartridge v1.1)
+  "application/vnd.ims.imsccv1p2+zip", // .imscc (Common Cartridge v1.2)
+  "application/vnd.ims.imsccv1p3+zip", // .imscc (Common Cartridge v1.3)
   "text/x-tex", // .tex
   "text/vtt", // .vtt
 ]
@@ -144,6 +159,14 @@ function fileUploadHandler(req: Request, res: Response, next: NextFunction) {
       if (file.originalname.endsWith(".zip")) {
         file.mimetype = "application/zip"; // Normalize .zip to application/zip for consistency
       }
+      // Browsers rarely report a type for .imscc, and the extension alone doesn't
+      // reveal the Common Cartridge version. Normalize unconditionally to the
+      // container's true type rather than trusting (or guessing) a versioned
+      // IMSCC type -- preserving a client-declared one would reject any version
+      // that isn't in ALLOWED_MIME_TYPES.
+      if (file.originalname.endsWith(".imscc")) {
+        file.mimetype = "application/zip";
+      }
       const isAllowed = ALLOWED_MIME_TYPES.some((allowed) =>
         allowed.endsWith("/*")
           ? file.mimetype.startsWith(allowed.slice(0, -1)) // "image/" etc.
@@ -185,11 +208,18 @@ export async function addProjectFile(
 ) {
   try {
     const projectID = req.params.projectID;
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
       });
     }
 
@@ -198,8 +228,6 @@ export async function addProjectFile(
 
     // Set default authors if present
     const defaultPrimary = project.defaultPrimaryAuthorID;
-    const defaultSecondary = project.defaultSecondaryAuthorIDs;
-    const defaultCorresponding = project.defaultCorrespondingAuthorID;
 
     const files = await retrieveAllProjectFiles(
       projectID,
@@ -237,6 +265,70 @@ export async function addProjectFile(
         : req.body.videoData;
 
     if (parsedVideoData && parsedVideoData.length) {
+      // Only videos this user was granted an upload slot for, on this project, may be attached.
+      const submittedVideoIDs = parsedVideoData.map(
+        (videoData: z.infer<typeof videoDataSchema>) => videoData.videoID
+      );
+      const grants = await VideoUploadGrant.find({
+        videoID: { $in: submittedVideoIDs },
+        projectID,
+        createdBy: req.user.decoded.uuid,
+        claimed: false,
+      }).lean();
+
+      const grantedVideoIDs = new Set(grants.map((grant) => grant.videoID));
+      const hasUnknownVideo = submittedVideoIDs.some(
+        (videoID: string) => !grantedVideoIDs.has(videoID)
+      );
+      const hasDuplicateVideo =
+        new Set<string>(submittedVideoIDs).size !== submittedVideoIDs.length;
+      if (hasUnknownVideo || hasDuplicateVideo) {
+        return res.status(400).send({
+          err: true,
+          errMsg: conductorErrors.err2,
+        });
+      }
+
+      // Claim the grants before the Project Files are written, and roll the
+      // claim back if any downstream step fails. Claiming afterwards leaves a
+      // live video looking abandoned to the cleanup sweep whenever the claim
+      // write is the thing that fails. Grants are claimed one at a time, with
+      // `claimed: false` as the concurrency latch, so the rollback targets
+      // exactly the slots this request won and never one a concurrent request
+      // is legitimately holding.
+      const claimedVideoIDs: string[] = [];
+      const releaseClaims = async () => {
+        if (claimedVideoIDs.length === 0) return;
+        await VideoUploadGrant.updateMany(
+          { videoID: { $in: claimedVideoIDs } },
+          { $set: { claimed: false } }
+        );
+      };
+
+      for (const videoID of submittedVideoIDs as string[]) {
+        const claimed = await VideoUploadGrant.findOneAndUpdate(
+          {
+            videoID,
+            projectID,
+            createdBy: req.user.decoded.uuid,
+            claimed: false,
+          },
+          { $set: { claimed: true } }
+        ).lean();
+        if (!claimed) break;
+        claimedVideoIDs.push(videoID);
+      }
+
+      if (claimedVideoIDs.length !== submittedVideoIDs.length) {
+        // A concurrent request took one of these slots between the find above
+        // and the claim, so the batch is no longer trustworthy.
+        await releaseClaims();
+        return res.status(409).send({
+          err: true,
+          errMsg: conductorErrors.err2,
+        });
+      }
+
       const cloudflareUpdates: Promise<any>[] = [];
       parsedVideoData.forEach((videoData: z.infer<typeof videoDataSchema>) => {
         const newID = v4();
@@ -255,13 +347,7 @@ export async function addProjectFile(
           primaryAuthor: defaultPrimary
             ? (defaultPrimary as unknown as Schema.Types.ObjectId)
             : undefined,
-          authors: defaultSecondary
-            ? (defaultSecondary as unknown as Schema.Types.ObjectId[])
-            : undefined,
-          correspondingAuthor: defaultCorresponding
-            ? (defaultCorresponding as unknown as Schema.Types.ObjectId)
-            : undefined,
-          publisher: req.body.publisher,
+          originalPublisher: req.body.originalPublisher,
           isVideo: true,
           videoStorageID: videoData.videoID,
           version: 1, // initial version
@@ -285,9 +371,21 @@ export async function addProjectFile(
         );
       });
 
-      await Promise.all(cloudflareUpdates);
+      try {
+        await Promise.all(cloudflareUpdates);
+        await ProjectFile.insertMany(filesToCreate);
+      } catch (err) {
+        // Hand the slots back to the cleanup sweep rather than stranding a
+        // billed upload. A partially-applied insertMany would release a slot
+        // whose Project File does exist; the sweep re-checks Project Files
+        // before deleting anything, so that case reconciles instead of losing
+        // the video.
+        await releaseClaims().catch((releaseErr) =>
+          logger.error(`Failed to release video upload grants after a failed attach: ${releaseErr}`)
+        );
+        throw err;
+      }
 
-      await ProjectFile.insertMany(filesToCreate);
       filesToCreate.length = 0; // clear array for use by standard files below
     }
 
@@ -326,13 +424,7 @@ export async function addProjectFile(
           primaryAuthor: defaultPrimary
             ? (defaultPrimary as unknown as Schema.Types.ObjectId)
             : undefined,
-          authors: defaultSecondary
-            ? (defaultSecondary as unknown as Schema.Types.ObjectId[])
-            : undefined,
-          correspondingAuthor: defaultCorresponding
-            ? (defaultCorresponding as unknown as Schema.Types.ObjectId)
-            : undefined,
-          publisher: req.body.publisher,
+          originalPublisher: req.body.originalPublisher,
           version: 1, // initial version
         });
       });
@@ -360,8 +452,7 @@ export async function addProjectFile(
             sourceURL: req.body.fileURL, // Set Source url as url
           },
         primaryAuthor: defaultPrimary,
-        authors: defaultSecondary,
-        publisher: req.body.publisher,
+        originalPublisher: req.body.originalPublisher,
       });
     } else if (!providedFiles && !req.body.isURL && !parsedVideoData) {
       // If not file, URL, or video data, return error
@@ -376,7 +467,7 @@ export async function addProjectFile(
       msg: "Succesfully uploaded files!",
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "addProjectFile failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -393,11 +484,18 @@ export async function addProjectFileFolder(
 ) {
   try {
     const projectID = req.params.projectID;
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
       });
     }
 
@@ -437,7 +535,7 @@ export async function addProjectFileFolder(
       msg: "Succesfully uploaded files!",
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "addProjectFileFolder failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -458,7 +556,7 @@ async function getProjectFileDownloadURL(
   try {
     const { projectID, fileID } = req.params;
     const { shouldIncrement = true } = req.query;
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
@@ -490,7 +588,7 @@ async function getProjectFileDownloadURL(
       url: downloadURLs[0], // Only first index because we only requested one file
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProjectFileDownloadURL failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -504,7 +602,7 @@ async function getPermanentLink(
 ) {
   try {
     const { projectID, fileID } = req.params;
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
@@ -557,7 +655,7 @@ async function getPermanentLink(
     });
 
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getPermanentLink failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -606,7 +704,7 @@ async function redirectPermanentLink(
 
     return res.redirect(downloadURLs[0]);
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "redirectPermanentLink failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -700,7 +798,7 @@ async function bulkDownloadProjectFiles(
       file: base64File,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "bulkDownloadProjectFiles failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -730,7 +828,7 @@ async function getProjectFolderContents(
 
     let foundUser;
     if (req.user?.decoded?.uuid) {
-      foundUser = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+      foundUser = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } }).lean();
     }
 
     if (
@@ -763,7 +861,7 @@ async function getProjectFolderContents(
       path,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProjectFolderContents failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -825,7 +923,7 @@ async function getProjectFile(
       ...(videoStreamURL && { videoStreamURL }),
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProjectFile failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -846,14 +944,27 @@ async function updateProjectFile(
   try {
     const { projectID, fileID } = req.params;
 
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
     const {
       name,
       description,
       license,
       primaryAuthor,
-      authors,
-      correspondingAuthor,
-      publisher,
+      originalPublisher,
       tags,
       isURL,
       fileURL,
@@ -925,16 +1036,8 @@ async function updateProjectFile(
       const parsed = await _parseAndSaveAuthors([primaryAuthor]);
       updateObj.primaryAuthor = parsed[0] ?? undefined;
     }
-    if (authors) {
-      const parsedAuthors = await _parseAndSaveAuthors(authors);
-      updateObj.authors = parsedAuthors;
-    }
-    if (correspondingAuthor) {
-      const parsed = await _parseAndSaveAuthors([correspondingAuthor]);
-      updateObj.correspondingAuthor = parsed[0] ?? undefined;
-    }
-    if (publisher) {
-      updateObj.publisher = publisher;
+    if (originalPublisher) {
+      updateObj.originalPublisher = originalPublisher;
     }
     if (req.files && req.files[0]) {
       updateObj.version = file.version ? file.version + 1 : 1; // increment version
@@ -1037,7 +1140,7 @@ async function updateProjectFile(
       msg: "Successfully updated file!",
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateProjectFile failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1052,6 +1155,21 @@ async function bulkUpdateProjectFiles(
   try {
     const { projectID } = req.params;
     const { fileIDs, tags, tagMode } = req.body;
+
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
 
     const files = await getProjectFiles(
       projectID,
@@ -1085,10 +1203,157 @@ async function bulkUpdateProjectFiles(
       files
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "bulkUpdateProjectFiles failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6
+    });
+  }
+}
+
+/**
+ * Bulk-updates licensing, authorship, and publisher metadata on a set of Project Files.
+ *
+ * Only the fields provided in the request body are applied to each target file; blank/omitted
+ * fields leave the existing value untouched (non-empty overwrite). When a folder is among the
+ * selected fileIDs, its descendant files (at all nesting levels) are included; folders themselves
+ * are skipped since they carry no license/author/publisher metadata.
+ */
+async function bulkUpdateProjectFileMetadata(
+  req: ZodReqWithUser<z.infer<typeof bulkUpdateProjectFileMetadataSchema>>,
+  res: Response
+) {
+  try {
+    const { projectID } = req.params;
+    const { fileIDs, license, primaryAuthor, originalPublisher } = req.body;
+
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const hasAnyField =
+      license !== undefined ||
+      primaryAuthor !== undefined ||
+      originalPublisher !== undefined;
+    if (!hasAnyField) {
+      return res.send({
+        err: false,
+        msg: "No fields provided, nothing to update.",
+        updatedCount: 0,
+      });
+    }
+
+    const files = await retrieveAllProjectFiles(
+      projectID,
+      false,
+      req.user.decoded.uuid
+    );
+    if (!files) {
+      throw new Error("retrieveerror");
+    }
+
+    // Resolve author fields once and reuse across every target file so we don't
+    // create duplicate Author records or repeat lookups per file.
+    const resolvedPrimary =
+      primaryAuthor !== undefined
+        ? (await _parseAndSaveAuthors([primaryAuthor]))[0] ?? undefined
+        : undefined;
+
+    // Collect target files, expanding any selected folder into its descendant files.
+    const targets = new Map<
+      string,
+      RawProjectFileInterface | ProjectFileInterface
+    >();
+    const addFileTarget = (
+      obj: RawProjectFileInterface | ProjectFileInterface
+    ) => {
+      if (obj.storageType === "file") targets.set(obj.fileID, obj);
+    };
+    const collectFolderFiles = (parentID: string) => {
+      files.forEach((obj) => {
+        if (obj.parent !== parentID) return;
+        if (obj.storageType === "folder") {
+          collectFolderFiles(obj.fileID);
+        } else {
+          addFileTarget(obj);
+        }
+      });
+    };
+
+    for (const id of fileIDs) {
+      const found = files.find((obj) => obj.fileID === id);
+      if (!found) continue;
+      if (found.storageType === "folder") {
+        collectFolderFiles(found.fileID);
+      } else {
+        addFileTarget(found);
+      }
+    }
+
+    if (targets.size === 0) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err63,
+      });
+    }
+
+    // Keep only defined, non-empty-string entries so we never overwrite an existing
+    // value with a blank. Booleans (e.g. modifiedFromSource: false) are preserved.
+    const pickProvided = <T extends Record<string, any>>(obj: T) =>
+      Object.fromEntries(
+        Object.entries(obj).filter(
+          ([, v]) => v !== undefined && v !== ""
+        )
+      );
+
+    const licensePatch = license ? pickProvided(license) : undefined;
+    const publisherPatch = originalPublisher
+      ? pickProvided(originalPublisher)
+      : undefined;
+
+    const updated = Array.from(targets.values()).map((file) => {
+      const next: RawProjectFileInterface | ProjectFileInterface = { ...file };
+      if (licensePatch) {
+        next.license = { ...(file.license ?? {}), ...licensePatch };
+      }
+      if (publisherPatch) {
+        next.originalPublisher = {
+          ...(file.originalPublisher ?? {}),
+          ...publisherPatch,
+        };
+      }
+      if (primaryAuthor !== undefined) {
+        next.primaryAuthor = resolvedPrimary;
+      }
+      return next;
+    });
+
+    const didUpdate = await updateProjectFilesUtil(projectID, updated);
+    if (!didUpdate) {
+      throw new Error("updatefail");
+    }
+
+    return res.send({
+      err: false,
+      msg: "Successfully updated files!",
+      updatedCount: updated.length,
+    });
+  } catch (e) {
+    logger.error({ err: e }, "bulkUpdateProjectFileMetadata failed");
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
     });
   }
 }
@@ -1104,11 +1369,18 @@ async function updateProjectFileAccess(
   try {
     const { projectID, fileID } = req.params;
     const newAccess = req.body.newAccess;
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
       });
     }
 
@@ -1177,7 +1449,7 @@ async function updateProjectFileAccess(
       msg: "Successfully updated file access setting!",
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateProjectFileAccess failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1197,11 +1469,18 @@ async function moveProjectFile(
 ) {
   try {
     const projectID = req.params.projectID;
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
       });
     }
 
@@ -1269,7 +1548,7 @@ async function moveProjectFile(
       msg: "Successfully moved file!",
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "moveProjectFile failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1380,7 +1659,24 @@ async function removeProjectFile(
   res: Response
 ) {
   try {
-    await removeProjectFilesInternal(req.params.projectID, [req.params.fileID]);
+    const { projectID, fileID } = req.params;
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    await removeProjectFilesInternal(projectID, [fileID]);
+
     return res.send({
       err: false,
       msg: `Successfully deleted files!`,
@@ -1425,7 +1721,7 @@ async function getProjectFileCaptions(
       captions: captionsRes.data.result ?? [],
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getProjectFileCaptions failed");
     return conductor500Err(res);
   }
 }
@@ -1461,7 +1757,7 @@ async function getProjectFileEmbedHTML(
       embed_html: fileRes.embed_html,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getProjectFileEmbedHTML failed");
     return conductor500Err(res);
   }
 }
@@ -1488,7 +1784,7 @@ async function _getProjectFileEmbedHTML(projectID: string, fileID: string): Prom
       embed_html: HTML,
     }
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_getProjectFileEmbedHTML failed");
     return { err: 'internal' };
   }
 }
@@ -1522,12 +1818,22 @@ async function updateProjectFileCaptions(
     const captionFile = req.files[0];
     const { projectID, fileID } = req.params;
 
-    const project = await Project.findOne({ projectID }).lean();
+    const project = await Project.findOne({ projectID: { $eq: projectID } }).lean();
     if (!project) {
-      return conductor404Err(res);
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
     }
 
-    const file = await ProjectFile.findOne({ projectID, fileID }).lean();
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const file = await ProjectFile.findOne({ projectID: { $eq: projectID }, fileID: { $eq: fileID } }).lean();
     if (!file || !file.videoStorageID) {
       return conductor404Err(res);
     }
@@ -1576,7 +1882,7 @@ async function updateProjectFileCaptions(
       msg: "Successfully uploaded caption file!",
     });
   } catch (e: any) {
-    debugError(e);
+    logger.error({ err: e }, "updateProjectFileCaptions failed");
     return conductor500Err(res);
   }
 }
@@ -1662,14 +1968,6 @@ async function getPublicProjectFiles(
       {
         $lookup: {
           from: "authors",
-          localField: "authors",
-          foreignField: "_id",
-          as: "authors",
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
           localField: "primaryAuthor",
           foreignField: "_id",
           as: "primaryAuthor",
@@ -1683,26 +1981,13 @@ async function getPublicProjectFiles(
         },
       },
       {
-        $lookup: {
-          from: "authors",
-          localField: "correspondingAuthor",
-          foreignField: "_id",
-          as: "correspondingAuthor",
-        },
-      },
-      {
-        $set: {
-          correspondingAuthor: {
-            $arrayElemAt: ["$correspondingAuthor", 0],
-          },
-        },
-      },
-      {
         $match: {
-          // Filter where project was not public or does not exist, so projectInfo wasn't set
-          projectInfo: {
+          // Filter where project was not public or does not exist, so projectInfo wasn't set.
+          // Checked via a projected field: `projectInfo: { $ne: [null, {}] }` compares
+          // against the array literal [null, {}] and never excludes anything.
+          "projectInfo.title": {
             $exists: true,
-            $ne: [null, {}],
+            $ne: null,
           },
         },
       },
@@ -1731,14 +2016,37 @@ async function getPublicProjectFiles(
       totalCount: totalCount || 0,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getPublicProjectFiles failed");
     return conductor500Err(res);
   }
 }
 
-async function createProjectFileStreamUploadURL(req: Request, res: Response) {
+/**
+ * Encodes a set of key/value pairs as a tus `Upload-Metadata` header value.
+ * Per the tus protocol, values are base64-encoded and pairs are comma-separated.
+ *
+ * @param entries - The metadata keys and their (plaintext) values.
+ * @returns The encoded header value.
+ */
+function _encodeTusMetadata(entries: Record<string, string>): string {
+  return Object.entries(entries)
+    .map(([key, value]) => `${key} ${Buffer.from(value).toString("base64")}`)
+    .join(",");
+}
+
+/**
+ * Creates a Cloudflare Stream direct-creator upload slot for an authenticated
+ * project member. The caller uploads the video straight to the returned URL via
+ * tus; this endpoint is the only point at which our Cloudflare credentials are
+ * used, so all authorization and quota enforcement happens here.
+ *
+ * @see https://developers.cloudflare.com/stream/uploading-videos/direct-creator-uploads/
+ */
+async function createProjectFileStreamUploadURL(
+  req: ZodReqWithUser<z.infer<typeof createProjectFileStreamUploadURLSchema>>,
+  res: Response
+) {
   try {
-    // https://developers.cloudflare.com/stream/uploading-videos/direct-creator-uploads/#step-1-create-your-own-api-endpoint-that-returns-an-upload-url
     if (
       !process.env.CLOUDFLARE_STREAM_ACCOUNT_ID ||
       !process.env.CLOUDFLARE_STREAM_API_TOKEN ||
@@ -1747,20 +2055,62 @@ async function createProjectFileStreamUploadURL(req: Request, res: Response) {
       throw new Error("Missing Cloudflare credentials");
     }
 
-    if (!req.headers["upload-length"] || !req.headers["upload-metadata"]) {
-      return res.status(400).send({
+    const { projectID } = req.params;
+    const { name, size, durationSeconds } = req.body;
+
+    const project = await Project.findOne({
+      projectID: { $eq: projectID },
+    }).lean();
+    if (!project) {
+      return res.status(404).send({
         err: true,
-        errMsg: conductorErrors.err1,
+        errMsg: conductorErrors.err11,
       });
     }
+
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const org = await Organization.findOne({
+      orgID: process.env.ORG_ID,
+    }).lean();
+    if (!org) {
+      throw new Error("Failed to resolve organization");
+    }
+
+    // Authoritative video length check. The client performs the same check for
+    // UX, but it cannot be trusted — this is what actually caps billable minutes.
+    const maxDurationSeconds = org.videoLengthLimit * 60;
+    if (durationSeconds > maxDurationSeconds) {
+      return res.status(400).send({
+        err: true,
+        errMsg: `Video length exceeds the organization's limit of ${org.videoLengthLimit} minutes.`,
+      });
+    }
+
+    const now = new Date();
+    const uploadExpiry = new Date(now.getTime() + 60 * 60 * 1000); // Cloudflare upload URL valid for 1 hour
+
+    // Metadata is built here, never forwarded from the client, so maxDurationSeconds
+    // cannot be inflated by the caller.
+    const uploadMetadata = _encodeTusMetadata({
+      name,
+      maxDurationSeconds: maxDurationSeconds.toString(),
+      expiry: uploadExpiry.toISOString(),
+    });
 
     const ENDPOINT = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream?direct_user=true`;
     const cloudFlareRes = await axios.post(ENDPOINT, undefined, {
       headers: {
         Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
         "Tus-Resumable": "1.0.0",
-        "Upload-Length": req.headers["upload-length"],
-        "Upload-Metadata": req.headers["upload-metadata"],
+        "Upload-Length": size.toString(),
+        "Upload-Metadata": uploadMetadata,
+        "Upload-Creator": req.user.decoded.uuid,
       },
     });
 
@@ -1769,49 +2119,151 @@ async function createProjectFileStreamUploadURL(req: Request, res: Response) {
     }
 
     const streamMediaId = cloudFlareRes.headers["stream-media-id"];
-
     const destination = cloudFlareRes.headers["location"];
-    if (!destination) {
+    if (!streamMediaId || !destination) {
       throw new Error("Failed to get Cloudflare uploadURL");
     }
 
-    // https://developers.cloudflare.com/stream/uploading-videos/direct-creator-uploads/#step-1-create-your-own-api-endpoint-that-returns-an-upload-url
-    res.setHeader("Access-Control-Expose-Headers", [
-      "Location",
-      "Stream-Media-Id",
-    ]);
-    res.setHeader("Access-Control-Allow-Headers", "*");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Location", destination);
-    res.setHeader("Stream-Media-Id", streamMediaId);
+    try {
+      await VideoUploadGrant.create({
+        videoID: streamMediaId,
+        projectID,
+        createdBy: req.user.decoded.uuid,
+        maxDurationSeconds,
+        uploadLength: size,
+        claimed: false,
+        createdAt: now,
+        expiresAt: new Date(now.getTime() + VIDEO_UPLOAD_GRANT_RETENTION_MS),
+      });
+    } catch (dbErr) {
+      // Best-effort cleanup: avoid leaving an untracked Cloudflare video billed indefinitely.
+      const cleanupEndpoint = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream/${streamMediaId}`;
+      try {
+        await axios.delete(cleanupEndpoint, {
+          headers: {
+            Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
+          },
+        });
+      } catch (cleanupErr) {
+        logger.error({ err: cleanupErr }, "createProjectFileStreamUploadURL failed");
+      }
+      throw dbErr;
+    }
 
     return res.send({
       err: false,
-      destination,
+      uploadURL: destination,
+      videoID: streamMediaId,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "createProjectFileStreamUploadURL failed");
     return conductor500Err(res);
   }
 }
 
-async function createProjectFileStreamUploadURLOptions(
-  req: Request,
-  res: Response
-) {
-  res.setHeader("Access-Control-Allow-Headers", "*");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Max-Age", "86400");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Expose-Headers", [
-    "Location",
-    "Stream-Media-Id",
-  ]);
-  return res.send({
-    err: false,
-  });
+/**
+ * Deletes Cloudflare Stream videos whose upload slot was never claimed by a
+ * Project File. Without this, an abandoned upload is billed indefinitely.
+ * Candidates are re-checked against Project Files before deletion so a lost
+ * claim write can never take a live video with it; those grants are marked
+ * claimed instead. Intended to be invoked on a schedule via EventBridge.
+ */
+async function cleanupOrphanedStreamVideos(req: Request, res: Response) {
+  try {
+    if (
+      !process.env.CLOUDFLARE_STREAM_ACCOUNT_ID ||
+      !process.env.CLOUDFLARE_STREAM_API_TOKEN
+    ) {
+      throw new Error("Missing Cloudflare credentials");
+    }
+
+    const cutoff = new Date(Date.now() - VIDEO_UPLOAD_GRANT_TTL_MS);
+    const orphaned = await VideoUploadGrant.find({
+      claimed: false,
+      createdAt: { $lt: cutoff },
+    })
+      .limit(ORPHANED_VIDEO_CLEANUP_BATCH_SIZE)
+      .lean();
+
+    if (orphaned.length === 0) {
+      return res.send({ err: false, deleted: 0, failed: 0, reconciled: 0 });
+    }
+
+    // Defensive check: do not delete a Stream video if it's already referenced by a Project File.
+    // Cloudflare deletion is irreversible, so the Project Files are the authority here, not the flag.
+    const referenced = await ProjectFile.find(
+      { isVideo: true, videoStorageID: { $in: orphaned.map((g) => g.videoID) } },
+      { videoStorageID: 1 }
+    ).lean();
+    const referencedIDs = new Set(referenced.map((f) => f.videoStorageID));
+    const toDelete = orphaned.filter((g) => !referencedIDs.has(g.videoID));
+
+    if (referencedIDs.size > 0) {
+      // Mark them claimed so the grants stop resurfacing on every sweep.
+      const reconciledIDs = [...referencedIDs];
+      await VideoUploadGrant.updateMany(
+        { videoID: { $in: reconciledIDs } },
+        { $set: { claimed: true } }
+      );
+      logger.error(`Reconciled ${reconciledIDs.length} video upload grant(s) still referenced by a Project File: ${reconciledIDs.join(", ")}`);
+    }
+
+    if (toDelete.length === 0) {
+      return res.send({
+        err: false,
+        deleted: 0,
+        failed: 0,
+        reconciled: referencedIDs.size,
+      });
+    }
+
+    const results = await Promise.allSettled(
+      toDelete.map(async (grant) => {
+        const ENDPOINT = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream/${grant.videoID}`;
+        try {
+          await axios.delete(ENDPOINT, {
+            headers: {
+              Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
+            },
+          });
+        } catch (err: any) {
+          // Already gone from Cloudflare — the grant record can still be cleared.
+          if (err?.response?.status !== 404) throw err;
+        }
+        return grant.videoID;
+      })
+    );
+
+    const deletedIDs = results
+      .filter(
+        (result): result is PromiseFulfilledResult<string> =>
+          result.status === "fulfilled"
+      )
+      .map((result) => result.value);
+
+    // Log failures rather than throwing so one bad id doesn't stall the sweep.
+    results
+      .filter((result) => result.status === "rejected")
+      .forEach((result) =>
+        logger.error(`Failed to delete orphaned Cloudflare Stream video: ${
+                      (result as PromiseRejectedResult).reason
+                    }`)
+      );
+
+    if (deletedIDs.length > 0) {
+      await VideoUploadGrant.deleteMany({ videoID: { $in: deletedIDs } });
+    }
+
+    return res.send({
+      err: false,
+      deleted: deletedIDs.length,
+      failed: results.length - deletedIDs.length,
+      reconciled: referencedIDs.size,
+    });
+  } catch (err) {
+    logger.error({ err }, "cleanupOrphanedStreamVideos failed");
+    return conductor500Err(res);
+  }
 }
 
 async function _parseAndSaveAuthors(
@@ -1873,7 +2325,7 @@ async function _parseAndSaveAuthors(
 
     return uniqueParsed;
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "_parseAndSaveAuthors failed");
     throw new Error("authorparseerror");
   }
 }
@@ -1914,6 +2366,7 @@ export default {
   getProjectFile,
   updateProjectFile,
   bulkUpdateProjectFiles,
+  bulkUpdateProjectFileMetadata,
   updateProjectFileAccess,
   moveProjectFile,
   removeProjectFilesInternal,
@@ -1924,7 +2377,7 @@ export default {
   updateProjectFileCaptions,
   getPublicProjectFiles,
   createProjectFileStreamUploadURL,
-  createProjectFileStreamUploadURLOptions,
+  cleanupOrphanedStreamVideos,
   _parseAndSaveAuthors,
   getPermanentLink,
   redirectPermanentLink,

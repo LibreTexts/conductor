@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import { z } from "zod";
 import {
   AddKbImageValidator,
@@ -15,7 +16,6 @@ import {
   UpdateKBPageValidator,
 } from "./validators/kb.js";
 import { NextFunction, Request, Response } from "express";
-import { debugError } from "../debug.js";
 import { conductor404Err, conductor500Err } from "../util/errorutils.js";
 import KBPage, { KBPageInterface } from "../models/kbpage.js";
 import authAPI from "./auth.js";
@@ -98,7 +98,7 @@ async function getKBPage(
       page: kbPage,
     });
   } catch (err: any) {
-    debugError(err);
+    logger.error({ err }, "getKBPage failed");
     if (
       typeof err === "object" &&
       err &&
@@ -124,7 +124,7 @@ async function getKBTree(
 
     // If user is logged in, check their KB roles
     if (req.user) {
-      const foundUser = await User.findOne({ uuid: req.user.decoded.uuid });
+      const foundUser = await User.findOne({ uuid: { $eq: req.user.decoded.uuid } });
       if (
         foundUser &&
         authAPI.checkHasRole(foundUser, "libretexts", "superadmin")
@@ -219,7 +219,7 @@ async function getKBTree(
       tree: sortedTree,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getKBTree failed");
     return conductor500Err(res);
   }
 }
@@ -233,7 +233,7 @@ async function createKBPage(
       req.body;
     const { decoded } = req.user;
 
-    const editor = await User.findOne({ uuid: decoded.uuid }).orFail();
+    const editor = await User.findOne({ uuid: { $eq: decoded.uuid } }).orFail();
 
     const safeSlug = _generatePageSlug(title, slug);
 
@@ -257,7 +257,7 @@ async function createKBPage(
         await qdrantService.initializeCollection();
         await qdrantService.upsertKBPage(kbPage.toObject());
       } catch (err) {
-        debugError(err);
+        logger.error({ err }, "createKBPage failed");
       }
     }
 
@@ -266,7 +266,7 @@ async function createKBPage(
       page: kbPage,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "createKBPage failed");
     return conductor500Err(res);
   }
 }
@@ -361,7 +361,7 @@ async function addKBImage(
       url,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "addKBImage failed");
     return conductor500Err(res);
   }
 }
@@ -378,7 +378,7 @@ async function updateKBPage(
 
     const safeURL = _generatePageSlug(title, slug);
 
-    const editor = await User.findOne({ uuid: decoded.uuid }).orFail();
+    const editor = await User.findOne({ uuid: { $eq: decoded.uuid } }).orFail();
     const kbPage = await KBPage.findOne({ uuid }).orFail();
 
     kbPage.title = title;
@@ -394,7 +394,7 @@ async function updateKBPage(
     if (urlsToDelete.length > 0) {
       const deleteImagesResult = await _deleteKBImagesFromStorage(urlsToDelete);
       if (!deleteImagesResult) {
-        debugError("Failed to delete one or more images from storage"); // Silently fail, but log
+        logger.error("Failed to delete one or more images from storage"); // Silently fail, but log
       } else {
         // Remove the deleted images from the page
         kbPage.imgURLs = kbPage.imgURLs?.filter(
@@ -416,7 +416,7 @@ async function updateKBPage(
         await qdrantService.deleteKBPage(kbPage.uuid);
       }
     } catch (err) {
-      debugError(err);
+      logger.error({ err }, "updateKBPage failed");
     }
 
     return res.send({
@@ -424,7 +424,7 @@ async function updateKBPage(
       page: kbPage,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "updateKBPage failed");
     return conductor500Err(res);
   }
 }
@@ -440,7 +440,7 @@ async function deleteKBPage(
     if (page.imgURLs && page.imgURLs.length > 0) {
       const deleteImagesResult = await _deleteKBImagesFromStorage(page.imgURLs);
       if (!deleteImagesResult) {
-        debugError("Failed to delete one or more images from storage"); // Silently fail, but log
+        logger.error("Failed to delete one or more images from storage"); // Silently fail, but log
       }
     }
 
@@ -450,7 +450,7 @@ async function deleteKBPage(
       await qdrantService.initializeCollection();
       await qdrantService.deleteKBPage(uuid);
     } catch (err) {
-      debugError(err);
+      logger.error({ err }, "deleteKBPage failed");
     }
 
     return res.send({
@@ -458,7 +458,7 @@ async function deleteKBPage(
       page,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteKBPage failed");
     return conductor500Err(res);
   }
 }
@@ -515,7 +515,7 @@ async function searchKB(
       pages,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "searchKB failed");
     return conductor500Err(res);
   }
 }
@@ -571,7 +571,7 @@ async function getKBFeaturedContent(
       videos: videos ?? [],
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getKBFeaturedContent failed");
     return conductor500Err(res);
   }
 }
@@ -601,7 +601,7 @@ async function createKBFeaturedPage(
     if (err.name === "DocumentNotFoundError") {
       return conductor404Err(res);
     }
-    debugError(err);
+    logger.error({ err }, "createKBFeaturedPage failed");
     return conductor500Err(res);
   }
 }
@@ -619,7 +619,7 @@ async function deleteKBFeaturedPage(
       err: false,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteKBFeaturedPage failed");
     return conductor500Err(res);
   }
 }
@@ -642,7 +642,7 @@ async function createKBFeaturedVideo(
       video: newFeaturedVideo,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "createKBFeaturedVideo failed");
     return conductor500Err(res);
   }
 }
@@ -660,7 +660,7 @@ async function deleteKBFeaturedVideo(
       err: false,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "deleteKBFeaturedVideo failed");
     return conductor500Err(res);
   }
 }
@@ -728,7 +728,7 @@ async function getOEmbed(
       oembed: oEmbedData.html,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getOEmbed failed");
     return conductor500Err(res);
   }
 }
@@ -746,7 +746,7 @@ async function _generateEmbeddings(text: string): Promise<number[]> {
 
     return response.data[0].embedding;
   } catch (error) {
-    console.error('Error generating embeddings:', error);
+    logger.error({ err: error }, 'Error generating embeddings');
     throw new Error('Failed to generate embeddings');
   }
 }
@@ -794,7 +794,7 @@ async function generateKBPageEmbeddings(
       embeddingsLength: embeddings.length,
     });
   } catch (err: any) {
-    debugError(err);
+    logger.error({ err }, "generateKBPageEmbeddings failed");
     if (err.name === "DocumentNotFoundError") {
       return res.status(404).send({
         err: true,
@@ -814,7 +814,7 @@ async function migrateKBPagesToQdrant(req: Request, res: Response) {
     const stop = stopParam === 'all' || !stopParam ? Number.MAX_SAFE_INTEGER : parseInt(stopParam);
     const limit = stop === Number.MAX_SAFE_INTEGER ? 0 : stop - start;
 
-    console.log(`🚀 Starting KB pages migration to Qdrant (${start} to ${stop === Number.MAX_SAFE_INTEGER ? 'end' : stop})...`);
+    logger.info(`🚀 Starting KB pages migration to Qdrant (${start} to ${stop === Number.MAX_SAFE_INTEGER ? 'end' : stop})...`);
 
     // Initialize Qdrant collection
     await qdrantService.initializeCollection();
@@ -833,7 +833,7 @@ async function migrateKBPagesToQdrant(req: Request, res: Response) {
     
     const kbPages = await query.lean();
 
-    console.log(`📊 Found ${kbPages.length} KB pages to migrate (requested ${start}-${stop})`);
+    logger.info(`📊 Found ${kbPages.length} KB pages to migrate (requested ${start}-${stop})`);
 
     if (kbPages.length === 0) {
       return res.send({
@@ -846,12 +846,12 @@ async function migrateKBPagesToQdrant(req: Request, res: Response) {
       });
     }
 
-    console.log('📋 Pages to migrate:');
+    logger.info('📋 Pages to migrate:');
     kbPages.slice(0, 3).forEach((page, idx) => {
-      console.log(`  ${start + idx}. ${page.title} (${page.uuid})`);
+      logger.info(`  ${start + idx}. ${page.title} (${page.uuid})`);
     });
     if (kbPages.length > 3) {
-      console.log(`  ... and ${kbPages.length - 3} more`);
+      logger.info(`  ... and ${kbPages.length - 3} more`);
     }
 
     // Batch migrate to Qdrant (smaller batches to avoid rate limits)
@@ -860,14 +860,14 @@ async function migrateKBPagesToQdrant(req: Request, res: Response) {
     const successful = results.filter(r => r.success);
     const failed = results.filter(r => !r.success);
 
-    console.log(`\n✅ Migration completed!`);
-    console.log(`   Range: ${start}-${stop}`);
-    console.log(`   Successful: ${successful.length}`);
-    console.log(`   Failed: ${failed.length}`);
+    logger.info(`\n✅ Migration completed!`);
+    logger.info(`   Range: ${start}-${stop}`);
+    logger.info(`   Successful: ${successful.length}`);
+    logger.info(`   Failed: ${failed.length}`);
 
     if (failed.length > 0) {
-      console.log('\n❌ Failed pages:');
-      failed.forEach(f => console.log(`   - ${f.title} (${f.uuid}): ${f.error}`));
+      logger.info('\n❌ Failed pages:');
+      failed.forEach(f => logger.info(`   - ${f.title} (${f.uuid}): ${f.error}`));
     }
 
     return res.send({
@@ -883,8 +883,8 @@ async function migrateKBPagesToQdrant(req: Request, res: Response) {
     });
 
   } catch (error) {
-    console.error('💥 Migration error:', error);
-    debugError(error);
+    logger.error({ err: error }, '💥 Migration error');
+    logger.error({ err: error }, "migrateKBPagesToQdrant failed");
     return conductor500Err(res);
   }
 }
@@ -901,7 +901,7 @@ async function getQdrantStatus(req: Request, res: Response) {
       pointsCount: info.points_count,
     });
   } catch (error) {
-    console.error('Qdrant status error:', error);
+    logger.error({ err: error }, 'Qdrant status error');
     return res.send({
       err: true,
       message: 'Failed to connect to Qdrant',
@@ -917,7 +917,7 @@ async function createSinglePageEmbedding(req: Request, res: Response) {
     // Get the KB page from MongoDB
     const kbPage = await KBPage.findOne({ uuid }).lean();
 
-    console.log('kbPage', kbPage);
+    logger.info({ detail: [kbPage] }, 'kbPage');
     
     if (!kbPage) {
       return res.status(404).send({
@@ -926,7 +926,7 @@ async function createSinglePageEmbedding(req: Request, res: Response) {
       });
     }
 
-    console.log(`📄 Creating embedding for: ${kbPage.title}`);
+    logger.info(`📄 Creating embedding for: ${kbPage.title}`);
 
     // Initialize Qdrant collection if needed
     await qdrantService.initializeCollection();
@@ -952,8 +952,8 @@ async function createSinglePageEmbedding(req: Request, res: Response) {
       });
     }
   } catch (error) {
-    console.error('Error creating single page embedding:', error);
-    debugError(error);
+    logger.error({ err: error }, 'Error creating single page embedding');
+    logger.error({ err: error }, "createSinglePageEmbedding failed");
     return conductor500Err(res);
   }
 }
@@ -1078,7 +1078,7 @@ function _generatePageSlug(title: string, userInput?: string) {
 //       response,
 //     });
 //   } catch (err) {
-//     console.error("Error in queryWithToolsHandler:", err);
+//     console.error({ err }, "Error in queryWithToolsHandler");
 //     return res.status(500).send({
 //       err: true,
 //       msg: "An error occurred while processing the query.",
@@ -1098,7 +1098,7 @@ async function createSessionHandler(req: ZodReqWithOptionalUser<{}>, res: Respon
       sessionId,
     });
   } catch (err) {
-    console.error("Error in createSessionHandler:", err);
+    logger.error({ err }, "Error in createSessionHandler");
     return res.status(500).send({
       err: true,
       msg: "An error occurred while creating the session.",
@@ -1135,8 +1135,8 @@ async function agentQueryLangGraph(req: z.infer<typeof AgentQueryLangGraphValida
     });
 
   } catch (error) {
-    console.error('LangGraph agent query error:', error);
-    debugError(error);
+    logger.error({ err: error }, 'LangGraph agent query error');
+    logger.error({ err: error }, "agentQueryLangGraph failed");
     return conductor500Err(res);
   }
 }

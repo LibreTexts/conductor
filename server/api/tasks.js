@@ -4,13 +4,13 @@
 //
 
 'use strict';
+import logger from "../logger.js";
 import b62 from 'base62-random';
 import date from 'date-and-time';
 import { body, query } from 'express-validator';
 import Task from '../models/task.js';
 import Project from '../models/project.js';
 import conductorErrors from '../conductor-errors.js';
-import { debugError } from '../debug.js';
 import { validateUUIDArray } from '../util/helpers.js';
 import projectsAPI from './projects.js';
 import mailAPI from './mail.js';
@@ -149,7 +149,7 @@ const createTask = (req, res) => {
         else if (err.message === 'parentdep') errMsg = conductorErrors.err27;
         else if (err.message === 'depnotcompleted') errMsg = conductorErrors.err25;
         else if (err.message === 'dateorder') errMsg = conductorErrors.err33;
-        else debugError(err);
+        else logger.error({ err }, "createTask failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -233,7 +233,7 @@ const batchCreateTask = (req, res) => {
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'insertfail') errMsg = conductorErrors.err3;
         else if (err.message === 'number') errMsg = conductorErrors.err2;
-        else debugError(err);
+        else logger.error({ err }, "batchCreateTask failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -373,7 +373,7 @@ const updateTask = (req, res) => {
         if (Object.keys(updateObj).length > 0) {
             doUpdate = true;
             return Task.updateOne({
-                taskID: task.taskID
+                taskID: { $eq: task.taskID }
             }, updateObj);
         } else return {};
     }).then((updateRes) => {
@@ -396,7 +396,7 @@ const updateTask = (req, res) => {
         else if (err.message === 'parentdep') errMsg = conductorErrors.err27;
         else if (err.message === 'selfdep') errMsg = conductorErrors.err31;
         else if (err.message === 'dateorder') errMsg = conductorErrors.err33;
-        else debugError(err);
+        else logger.error({ err }, "updateTask failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -454,7 +454,7 @@ const deleteTask = (req, res) => {
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'deletefail') errMsg = conductorErrors.err3;
-        else debugError(err);
+        else logger.error({ err }, "deleteTask failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -720,7 +720,7 @@ const getTask = (req, res) => {
         var errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
+        else logger.error({ err }, "getTask failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -950,7 +950,7 @@ const getProjectTasks = (req, res) => {
         let errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
+        else logger.error({ err }, "getProjectTasks failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -1062,7 +1062,7 @@ const getUserTasks = async (req, res) => {
             tasks: tasksWithProject
         });
     } catch (err) {
-        debugError(err);
+        logger.error({ err }, "getUserTasks failed");
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
@@ -1138,7 +1138,7 @@ const addTaskAssignee = (req, res) => {
             else if (err.message === 'unauth') errMsg = conductorErrors.err8;
             else if (err.message === 'notteam') errMsg = conductorErrors.err26;
             else if (err.message === 'updatefail') errMsg = conductorErrors.err3;
-            else debugError(err);
+            else logger.error({ err }, "addTaskAssignee failed");
             return res.send({
                 err: true,
                 errMsg: errMsg
@@ -1210,7 +1210,7 @@ const assignAllMembersToTask = async (req, res) => {
       if (err.message === "updatefail") {
         errMsg = conductorErrors.err3;
       } else {
-        debugError(err);
+        logger.error({ err }, "assignAllMembersToTask failed");
       }
       return res.send({
         err: true,
@@ -1259,7 +1259,7 @@ const removeTaskAssignee = (req, res) => {
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'updatefail') errMsg = conductorErrors.err3;
-        else debugError(err);
+        else logger.error({ err }, "removeTaskAssignee failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -1281,13 +1281,13 @@ const getTaskProjectAndCheckPermission = (taskID, user) => {
     let project = {};
     return new Promise((resolve, reject) => {
         resolve(Task.findOne({
-            taskID: taskID
+            taskID: { $eq: taskID }
         }).lean());
     }).then((taskData) => {
         if (taskData) {
             task = taskData;
             return Project.findOne({
-                projectID: taskData.projectID
+                projectID: { $eq: taskData.projectID }
             }).lean();
         } else throw(new Error('notfound'));
     }).then((projectData) => {

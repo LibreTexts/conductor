@@ -1,13 +1,17 @@
 import React from 'react';
-import PropTypes from 'prop-types';
-import { Redirect, Route } from 'react-router-dom';
+import { Redirect, Route, RouteProps } from 'react-router-dom';
 import AuthHelper from './AuthHelper';
+
+interface PrivateRouteProps extends RouteProps {
+  component: React.ComponentType<any>;
+  unAuthSrc?: string;
+}
 
 /**
  * A route in which the user SHOULD be authenticated. If the user is not
  * authenticated, they are redirected to login.
  */
-const PrivateRoute = ({ component: Component, unAuthSrc, ...rest }) => (
+const PrivateRoute: React.FC<PrivateRouteProps> = ({ component: Component, unAuthSrc, ...rest }) => (
   <Route {...rest} render={(props) => {
     if (AuthHelper.isAuthenticated()) {
       return (<Component {...props} />)
@@ -27,16 +31,5 @@ const PrivateRoute = ({ component: Component, unAuthSrc, ...rest }) => (
     return <Redirect to={`/login?${redirectParams.toString()}`} />;
   }} />
 );
-
-PrivateRoute.propTypes = {
-  /**
-   * The component to render if the user is authenticated.
-   */
-  component: PropTypes.elementType.isRequired,
-  /**
-   * A `src` parameter to include in the login redirect if the user is not authenticated.
-   */
-  unAuthSrc: PropTypes.string,
-};
 
 export default PrivateRoute;

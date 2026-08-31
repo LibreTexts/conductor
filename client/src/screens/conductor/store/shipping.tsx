@@ -1,14 +1,14 @@
 import { Radio, RadioGroup } from "@headlessui/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useCart } from "../../../context/CartContext";
 import {
+  StoreAddressFields,
   StoreCheckoutForm,
   StoreDigitalDeliveryOption,
   StoreGetShippingOptionsRes,
   StoreShippingOption,
 } from "../../../types";
-import useDebounce from "../../../hooks/useDebounce";
 import api from "../../../api";
 import AlternateLayout from "../../../components/navigation/AlternateLayout";
 import ShippingOptions from "../../../components/store/ShippingOptions";
@@ -19,9 +19,10 @@ import { Icon } from "semantic-ui-react";
 import { useTypedSelector } from "../../../state/hooks";
 import { useModals } from "../../../context/ModalContext";
 import ConfirmOrderModal from "../../../components/store/ConfirmOrderModal";
+import AddressSuggestionModal from "../../../components/store/AddressSuggestionModal";
 import ShippingTimeline from "../../../components/store/ShippingTimeline";
-import { Button, Stack, Text } from "@libretexts/davis-react";
-import { IconArrowRight } from "@tabler/icons-react";
+import { Button, Link, Stack, Text } from "@libretexts/davis-react";
+import { IconArrowRight, IconTruckDelivery } from "@tabler/icons-react";
 
 const STATE_CODES = [
   {
@@ -316,15 +317,27 @@ const STATE_CODES = [
 
 const TODAY_TIMESTAMP_SECONDS = Math.floor(Date.now() / 1000);
 
+const REQUIRED_ADDRESS_FORM_FIELDS: (keyof StoreCheckoutForm)[] = [
+  "first_name",
+  "last_name",
+  "address_line_1",
+  "city",
+  "state",
+  "postal_code",
+  "country",
+  "email",
+  "phone",
+];
+
 export default function ShippingPage() {
   const { cart, hasDigitalProducts, hasPhysicalProducts } = useCart();
-  const { debounce } = useDebounce();
   const { openModal, closeAllModals } = useModals();
   const user = useTypedSelector((state) => state.user);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const shippingCalculated = useRef(false);
   const [shippingLoading, setShippingLoading] = useState(false);
+  const [validatingAddress, setValidatingAddress] = useState(false);
   const [shippingOptions, setShippingOptions] =
     useState<StoreGetShippingOptionsRes>("digital_delivery_only");
   const [selectedShippingOption, setSelectedShippingOption] =
@@ -348,6 +361,20 @@ export default function ShippingPage() {
         country: "US",
       },
     });
+
+  const watchedFormValues = watch();
+  const addressFormComplete = useMemo(() => {
+    return REQUIRED_ADDRESS_FORM_FIELDS.every((field) =>
+      !!watchedFormValues[field]?.toString().trim()
+    );
+  }, [watchedFormValues]);
+
+  const getShippingOptionsDisabled = useMemo(() => {
+    if (!cart || cart.items.length === 0) return true;
+    if (!addressFormComplete) return true;
+    if (validatingAddress || shippingLoading) return true;
+    return false;
+  }, [cart, addressFormComplete, validatingAddress, shippingLoading]);
 
   const proceedDisabled = useMemo(() => {
     if (!cart || cart.items.length === 0) return true;
@@ -376,13 +403,111 @@ export default function ShippingPage() {
     user?.uuid
   ]);
 
-  const updateShippingOptionsDebounced = debounce(updateShippingOptions, 500);
-  useEffect(() => {
-    const subscription = watch((value, data) => {
-      updateShippingOptionsDebounced();
-    });
-    return () => subscription.unsubscribe();
-  }, [cart, watch]);
+  function getCurrentAddressFields(): StoreAddressFields {
+    return {
+      address_line_1: getValues("address_line_1"),
+      address_line_2: getValues("address_line_2"),
+      city: getValues("city"),
+      state: getValues("state"),
+      postal_code: getValues("postal_code"),
+      country: getValues("country"),
+    };
+  }
+
+  function applySuggestedAddress(suggested: StoreAddressFields) {
+    setValue("address_line_1", suggested.address_line_1, { shouldValidate: true });
+    setValue("address_line_2", suggested.address_line_2 || "", { shouldValidate: true });
+    setValue("city", suggested.city, { shouldValidate: true });
+    setValue("state", suggested.state, { shouldValidate: true });
+    setValue("postal_code", suggested.postal_code, { shouldValidate: true });
+    setValue("country", suggested.country, { shouldValidate: true });
+  }
+
+  async function handleGetShippingOptions() {
+    // Reentrancy guard: ignore repeat clicks while a validation (or its
+    // suggestion modal) is already in flight.
+    if (validatingAddress || shippingLoading) return;
+
+    if (!cart || cart.items.length === 0) {
+      setError("Cart is empty");
+      return;
+    }
+
+    setError(null);
+    const valid = await trigger();
+    if (!valid) return;
+
+    // Digital-only carts aren't shipped via Lulu, so there's no address to validate.
+    if (!hasPhysicalProducts) {
+      await updateShippingOptions();
+      return;
+    }
+
+    // Keep validatingAddress true until the flow fully resolves. When we hand
+    // off to the suggestion modal, ownership of clearing the flag passes to
+    // onResolve so the button stays disabled while the modal is open.
+    setValidatingAddress(true);
+    let handedOffToModal = false;
+    try {
+      const currentAddress = getCurrentAddressFields();
+      const response = await api.validateAddress({ shipping_address: currentAddress });
+      const { status, suggested_address } = response.data;
+
+      if (response.data.err) {
+        setError(
+          response.data.errMsg ||
+          "We couldn't confirm this shipping address. Please double-check it and try again."
+        );
+        return;
+      }
+
+      if (status === "suggested_correction" && suggested_address) {
+        handedOffToModal = true;
+        openModal(
+          <AddressSuggestionModal
+            isOpen
+            onClose={() => {
+              // Dismissing without choosing cancels the flow; release the flag
+              // so the button re-enables and the user can retry.
+              closeAllModals();
+              setValidatingAddress(false);
+            }}
+            currentAddress={currentAddress}
+            suggestedAddress={suggested_address}
+            onResolve={async (accepted) => {
+              closeAllModals();
+              try {
+                if (accepted) {
+                  applySuggestedAddress(suggested_address);
+                  if (suggested_address.address_line_1.length > 30) {
+                    setError(
+                      'The suggested Address line 1 is longer than the 30-character limit. Please shorten it, then click "Get Shipping Options" again.'
+                    );
+                    return;
+                  }
+                }
+                await updateShippingOptions();
+              } finally {
+                setValidatingAddress(false);
+              }
+            }}
+          />
+        );
+        return;
+      }
+
+      // status is "valid" or "skipped" (validation unavailable) - proceed to fetching shipping options
+      await updateShippingOptions();
+    } catch (error: any) {
+      console.error("Error validating address:", error);
+      // Fail open: don't let a validation hiccup block the customer from ordering
+      await updateShippingOptions();
+    } finally {
+      // The modal path clears the flag in onResolve; don't clear it here or the
+      // button re-enables while the modal is still open.
+      if (!handedOffToModal) setValidatingAddress(false);
+    }
+  }
 
   async function updateShippingOptions() {
     try {
@@ -583,7 +708,13 @@ export default function ShippingPage() {
                 <Controller
                   name="address_line_1"
                   control={control}
-                  rules={{ required: true }}
+                  rules={{
+                    required: true,
+                    maxLength: {
+                      value: 30,
+                      message: "Address line 1 cannot exceed 30 characters",
+                    },
+                  }}
                   render={({ field }) => (
                     <Input
                       label="Address line 1"
@@ -734,6 +865,26 @@ export default function ShippingPage() {
                     />
                   )}
                 />
+              </div>
+              <div className="sm:col-span-2 mt-2">
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleGetShippingOptions}
+                  disabled={getShippingOptionsDisabled}
+                  loading={validatingAddress || shippingLoading}
+                  icon={<IconTruckDelivery size={18} />}
+                >
+                  Get Shipping Options
+                </Button>
+                {cart && cart.items.length > 0 && !addressFormComplete && (
+                  <div className="mt-4">
+                    <Text>
+                      Fill in all required fields above, then click "Get Shipping Options" to
+                      continue.
+                    </Text>
+                  </div>
+                )}
               </div>
               <ShippingOptions
                 shippingCalculated={shippingCalculated}
@@ -937,16 +1088,18 @@ export default function ShippingPage() {
             >
               Proceed to Payment
             </Button>
-            <p className="!mt-4 text-sm text-gray-500 text-center">
-              If you have any questions or concerns, please contact our{" "}
-              <a
-                href="https://support.libretexts.org"
-                className="text-primary hover:underline"
-              >
-                Support Center
-              </a>{" "}
-              before proceeding.
-            </p>
+            <div className="mt-4 text-center">
+              <Text>
+                If you have any questions or concerns, please contact our{" "}
+                <Link
+                  href="https://support.libretexts.org"
+                  className="text-primary hover:underline"
+                >
+                  Support Center
+                </Link>{" "}
+                before proceeding.
+              </Text>
+            </div>
             {error && (
               <div role="alert" className="mt-4 text-red-700 text-center flex items-center justify-center text-lg font-medium">
                 <Icon name="exclamation triangle" className="!mb-1 !mr-2" aria-hidden="true" />

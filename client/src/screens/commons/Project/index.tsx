@@ -96,36 +96,6 @@ const CommonsProject = () => {
                   </dd>
                 </div>
                 <div className="mt-2">
-                  <dt className="sr-only">Principal Investigators</dt>
-                  <dd className="inline m-0">
-                    <Icon name="user" color="blue" className="!mr-2" aria-hidden="true" />
-                    {project?.principalInvestigators &&
-                      project?.principalInvestigators.length > 0 ? (
-                      project?.principalInvestigators
-                        ?.map((p) => p.name)
-                        .join(", ")
-                    ) : (
-                      <span className="muted-text">No principal investigators</span>
-                    )}
-                  </dd>
-                </div>
-                <div className="mt-2">
-                  <dt className="sr-only">Co-Principal Investigators</dt>
-                  <dd className="inline m-0">
-                    <Icon name="user plus" color="blue" className="!mr-2" aria-hidden="true" />
-                    {project?.coPrincipalInvestigators &&
-                      project?.coPrincipalInvestigators.length > 0 ? (
-                      project?.coPrincipalInvestigators
-                        ?.map((p) => p.name)
-                        .join(", ")
-                    ) : (
-                      <span className="muted-text">
-                        No co-principal investigators
-                      </span>
-                    )}
-                  </dd>
-                </div>
-                <div className="mt-2">
                   <dt className="sr-only">Associated Organizations</dt>
                   <dd className="inline m-0">
                     <Icon name="university" color="blue" className="!mr-2" aria-hidden="true" />

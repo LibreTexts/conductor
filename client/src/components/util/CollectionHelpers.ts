@@ -6,6 +6,11 @@ import {
   GenericKeyTextValueObj,
 } from "../../types";
 import { isBook } from "../../utils/typeHelpers";
+import { withStableKeys } from "../../utils/misc";
+import {
+  checkIsCollection,
+  checkIsCollectionResource,
+} from "./TypeHelpers";
 
 export const DEFAULT_COLL_LOCS = <CollectionLocations[]>[
   CollectionLocations.CAMPUS,
@@ -32,8 +37,34 @@ export const collectionPrivacyOptions: GenericKeyTextValueObj<CollectionPrivacyO
     { key: "campus", text: "Campus", value: CollectionPrivacyOptions.CAMPUS },
   ];
 
+/**
+ * Builds the in-app link for a nested collection, or undefined for leaf
+ * resources (which link via getCollectionHref instead).
+ *
+ * @param item - The collection or collection resource being rendered.
+ * @param pathname - The current location pathname to nest beneath.
+ */
+export const getToLink = (
+  item: Collection | CollectionResource,
+  pathname: string
+): string | undefined => {
+  // checkIsCollection tolerates a missing resourceData; the `in` probe below
+  // still needs item itself to be an object.
+  if (!item || typeof item !== "object") return undefined;
+  if ("resourceData" in item && checkIsCollection(item.resourceData)) {
+    return (
+      (pathname.endsWith("/") ? pathname : `${pathname}/`) +
+      encodeURIComponent(item.resourceData.title)
+    );
+  }
+  return undefined;
+};
+
 export const getCollectionHref = (item: Collection | CollectionResource) => {
   const data = "resourceData" in item ? item.resourceData : item;
+  // A resource whose parent record is gone has no resourceData; fall back to
+  // the collections root rather than throwing on the property access below.
+  if (!data) return "/collections";
   const book = isBook(data);
   if (book) {
     return `/book/${data.bookID}`;
@@ -41,3 +72,27 @@ export const getCollectionHref = (item: Collection | CollectionResource) => {
     return `/collections/${encodeURIComponent(data.title)}`;
   }
 };
+
+/**
+ * Resolves the server-side identifier for a collection grid item.
+ *
+ * @param item - The collection or collection resource to identify.
+ * @returns A namespaced identifier, or null if the item can't be identified.
+ */
+function getCollectionItemID(item: Collection | CollectionResource): string | null {
+  if (checkIsCollection(item)) return `collection-${item.collID}`;
+  if (checkIsCollectionResource(item)) return `resource-${item.resourceID}`;
+  return null;
+}
+
+/**
+ * Pairs each collection grid item with a stable React key.
+ *
+ * @param items - Collections and collection resources in render order.
+ * @returns The items paired with unique, render-stable keys.
+ */
+export function keyCollectionItems<T extends Collection | CollectionResource>(
+  items: T[]
+): { item: T; key: string }[] {
+  return withStableKeys(items, getCollectionItemID);
+}

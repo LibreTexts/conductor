@@ -19,6 +19,8 @@ const RL_NO_COOKIE_LIMIT = parseRateLimitEnv("RL_NO_COOKIE_LIMIT", 100);
 const RL_COOKIE_UNAUTH_LIMIT = parseRateLimitEnv("RL_COOKIE_UNAUTH_LIMIT", 300);
 const RL_COOKIE_AUTH_LIMIT = parseRateLimitEnv("RL_COOKIE_AUTH_LIMIT", 500);
 const RL_WINDOW_SEC = parseRateLimitEnv("RL_WINDOW_SEC", 60);
+const RL_ADDR_VALIDATE_LIMIT = parseRateLimitEnv("RL_ADDR_VALIDATE_LIMIT", 20);
+const RL_ADDR_VALIDATE_WINDOW_SEC = parseRateLimitEnv("RL_ADDR_VALIDATE_WINDOW_SEC", 60);
 
 /* ── Cookie config ───────────────────────────────────────────── */
 
@@ -99,6 +101,12 @@ const cookieAuthLimiter = new RateLimiterMemory({
   duration: RL_WINDOW_SEC,
 });
 
+const addressValidationLimiter = new RateLimiterMemory({
+  keyPrefix: "rl_addr_validate",
+  points: RL_ADDR_VALIDATE_LIMIT,
+  duration: RL_ADDR_VALIDATE_WINDOW_SEC,
+});
+
 /* ── Header helpers ──────────────────────────────────────────── */
 
 function setRateLimitHeaders(res: Response, rlRes: { remainingPoints: number; msBeforeNext: number }, limit: number) {
@@ -168,5 +176,14 @@ export async function rateLimitMiddleware(req: Request, res: Response, next: Nex
     const retryAfter = Math.ceil(rlRes.msBeforeNext / 1000);
     res.set("Retry-After", String(retryAfter));
     res.status(429).json({ err: true, errMsg: "Too many requests. Please try again later." });
+  }
+}
+
+export async function limitAddressValidation(req: Request, res: Response, next: NextFunction) {
+  try {
+    await addressValidationLimiter.consume(getClientIp(req));
+    next();
+  } catch {
+    res.status(429).json({ err: true, errMsg: "Too many requests" });
   }
 }

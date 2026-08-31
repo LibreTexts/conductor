@@ -1,3 +1,4 @@
+import logger from "../../logger.js";
 import OpenAI from "openai";
 import { ChatCompletionMessageParam } from "openai/resources";
 import { encodeGenerator, decodeGenerator } from "gpt-tokenizer";
@@ -166,7 +167,7 @@ export default class AIService {
 
       return aiSummaryOutput;
     } catch (error) {
-      console.error(error);
+      logger.error({ err: error }, "generatePageOverview failed");
       return "internal";
     }
   }
@@ -255,7 +256,7 @@ export default class AIService {
 
       return unique.length > 10 ? unique.slice(0, 10) : unique;
     } catch (error) {
-      console.error(error);
+      logger.error({ err: error }, "generatePageTags failed");
       return "error";
     }
   }
@@ -348,7 +349,7 @@ export default class AIService {
 
       return output.trim();
     } catch (error) {
-      console.error(error);
+      logger.error({ err: error }, "generateImageAltText failed");
       return "error";
     }
   }

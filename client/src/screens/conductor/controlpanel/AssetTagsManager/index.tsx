@@ -1,4 +1,5 @@
-import { useState, useEffect, lazy, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
+import lazyWithRetry from "../../../../utils/lazyWithRetry";
 import {
   Badge,
   Breadcrumb,
@@ -23,13 +24,13 @@ import { AssetTagFrameworkWithCampusDefault } from "../../../../types";
 import { truncateString } from "../../../../components/util/HelperFunctions";
 import { useTypedSelector } from "../../../../state/hooks";
 import { useQueryClient } from "@tanstack/react-query";
-const ManageFrameworkModal = lazy(
+const ManageFrameworkModal = lazyWithRetry(
   () =>
     import(
       "../../../../components/controlpanel/AssetTagsManager/ManageFrameworkModal"
     )
 );
-const ConfirmSetOrgDefault = lazy(
+const ConfirmSetOrgDefault = lazyWithRetry(
   () =>
     import(
       "../../../../components/controlpanel/AssetTagsManager/ConfirmSetOrgDefault"

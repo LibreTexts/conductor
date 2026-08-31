@@ -1,6 +1,7 @@
 import { Alert, Card, Divider, Timeline, Button, Heading, Stack } from "@libretexts/davis-react";
 import { IconPlus } from "@tabler/icons-react";
-import { useEffect, useState, useCallback, lazy } from "react";
+import { useEffect, useState, useCallback } from "react";
+import lazyWithRetry from "../../../utils/lazyWithRetry";
 import { useTypedSelector } from "../../../state/hooks";
 import axios from "axios";
 import { useLocation } from "react-router-dom";
@@ -16,16 +17,16 @@ import PinnedProjects from "../../../components/Home/PinnedProjects/PinnedProjec
 import SystemAnnouncement from "../../../components/util/SystemAnnouncement";
 import RecentlyEditedProjects from "../../../components/Home/RecentlyEditedProjects";
 import { useDocumentTitle } from "usehooks-ts";
-const NewMemberModal = lazy(
+const NewMemberModal = lazyWithRetry(
   () => import("../../../components/Home/NewMemberModal")
 );
-const ViewAnnouncementModal = lazy(
+const ViewAnnouncementModal = lazyWithRetry(
   () => import("../../../components/Home/ViewAnnouncementModal")
 );
-const NewAnnouncementModal = lazy(
+const NewAnnouncementModal = lazyWithRetry(
   () => import("../../../components/Home/NewAnnouncementModal")
 );
-const CreateProjectModal = lazy(
+const CreateProjectModal = lazyWithRetry(
   () => import("../../../components/projects/CreateProject")
 );
 

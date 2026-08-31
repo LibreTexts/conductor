@@ -57,7 +57,7 @@ export type ProjectBookBatchUpdateJob = {
   };
 };
 
-export interface ProjectInterface extends Document {
+export interface ProjectInterfaceRaw {
   orgID: string;
   projectID: string;
   title: string;
@@ -113,10 +113,6 @@ export interface ProjectInterface extends Document {
   // thumbnailVersion?: number;
   projectModules?: ProjectModuleSettings;
   defaultPrimaryAuthorID?: string;
-  defaultSecondaryAuthorIDs?: string[];
-  defaultCorrespondingAuthorID?: string;
-  principalInvestigatorIDs?: string[];
-  coPrincipalInvestigatorIDs?: string[];
   description?: string;
   contentArea: string;
   isbns?: ISBNFormat[];
@@ -127,6 +123,8 @@ export interface ProjectInterface extends Document {
   sourceLanguage?: string;
   batchUpdateJobs?: ProjectBookBatchUpdateJob[];
 }
+
+export interface ProjectInterface extends ProjectInterfaceRaw, Document {};
 
 const ProjectSchema = new Schema<ProjectInterface>(
   {
@@ -313,8 +311,8 @@ const ProjectSchema = new Schema<ProjectInterface>(
      */
     a11yReview: [a11ySectionReviewSchema],
     /**
-     * The original _id of the Harvesting Request the Project was generated
-     * from, if applicable.
+     * The uuid of the Harvesting Request (SupportTicket) that generated this Project, if applicable.
+     * Note: on some very old Projects, this may be the legacy Harvest Request Mongo _id (before Harvesting Requests were converted to SupportTickets).
      */
     harvestReqID: String,
     /**
@@ -406,44 +404,6 @@ const ProjectSchema = new Schema<ProjectInterface>(
      * Default primary author.
      */
     defaultPrimaryAuthorID: {
-      type: {
-        ref: "Author",
-        type: Schema.Types.ObjectId,
-      },
-    },
-    /**
-     * Default secondary authors.
-     */
-    defaultSecondaryAuthorIDs: {
-      type: [
-        {
-          ref: "Author",
-          type: Schema.Types.ObjectId,
-        },
-      ],
-    },
-    /**
-     * Default corresponding author.
-     */
-    defaultCorrespondingAuthorID: {
-      type: {
-        ref: "Author",
-        type: Schema.Types.ObjectId,
-      },
-    },
-    /**
-     * Principal Investigators.
-     */
-    principalInvestigatorIDs: {
-      type: {
-        ref: "Author",
-        type: Schema.Types.ObjectId,
-      },
-    },
-    /**
-     * Co-Principal Investigators.
-     */
-    coPrincipalInvestigatorIDs: {
       type: {
         ref: "Author",
         type: Schema.Types.ObjectId,
@@ -572,20 +532,12 @@ ProjectSchema.index({
   projectID: 1,
 });
 ProjectSchema.index({ libreCoverID: 1, libreLibrary: 1, visibility: 1 });
-ProjectSchema.index({ principalInvestigatorIDs: 1 });
-ProjectSchema.index({ coPrincipalInvestigatorIDs: 1 });
 
 ProjectSchema.virtual("defaultPrimaryAuthor", {
   ref: "Author",
   localField: "defaultPrimaryAuthor",
   foreignField: "_id",
   justOne: true,
-});
-
-ProjectSchema.virtual("defaultSecondaryAuthors", {
-  ref: "Author",
-  localField: "defaultSecondaryAuthors",
-  foreignField: "_id",
 });
 
 const Project = model<ProjectInterface>("Project", ProjectSchema);

@@ -1,15 +1,35 @@
 import { useState, useEffect, useRef, FC, ReactElement } from "react";
-import { Form, Modal, Button, Icon, Input, Message } from "semantic-ui-react";
+import {
+  Modal,
+  Button,
+  Input,
+  Textarea,
+  Select,
+  Checkbox,
+  FormSection,
+  Stack,
+  Alert,
+  Text,
+} from "@libretexts/davis-react";
+import {
+  IconDeviceFloppy,
+  IconExternalLink,
+  IconPlus,
+  IconTag,
+  IconUpload,
+} from "@tabler/icons-react";
 import axios from "axios";
 import { getShelvesNameText } from "../../util/BookHelpers.js";
 import useGlobalError from "../../error/ErrorHooks";
 import { Collection, CollectionLocations, CollectionPrivacyOptions } from "../../../types";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { useTypedSelector } from "../../../state/hooks.js";
 import { collectionPrivacyOptions } from "../../util/CollectionHelpers.js";
-import TextArea from "../../TextArea/index.js";
-import CtlTextInput from "../../ControlledInputs/CtlTextInput.js";
-import CtlDropdown from "../../ControlledInputs/CtlDropdown.js";
+
+const PRIVACY_OPTIONS = collectionPrivacyOptions.map((o) => ({
+  label: o.text,
+  value: o.value,
+}));
 
 type EditCollectionProps = {
   show: boolean;
@@ -37,7 +57,7 @@ const EditCollection: FC<EditCollectionProps> = ({
     getValues: getFormValue,
     watch: watchFormValue,
     setError: setFormError,
-    formState: { errors, isDirty },
+    formState: { errors },
   } = useForm<Collection>({
     defaultValues: {
       orgID: "",
@@ -56,6 +76,10 @@ const EditCollection: FC<EditCollectionProps> = ({
   const photoRef = useRef(null);
   const [photoLoading, setPhotoLoading] = useState<boolean>(false);
   const [photoUploaded, setPhotoUploaded] = useState<boolean>(false);
+
+  const isCreateMode = ["nest", "create"].includes(mode);
+  const autoManage = watchFormValue("autoManage");
+  const selectedLocations = watchFormValue("locations");
 
   useEffect(() => {
     if (["edit"].includes(mode)) {
@@ -232,181 +256,218 @@ const EditCollection: FC<EditCollectionProps> = ({
   }
 
   return (
-    <Modal open={show} closeOnDimmerClick={false}>
+    <Modal open={show} onClose={onCloseFunc} size="lg">
       <Modal.Header>
-        {["nest", "create"].includes(mode) ? "Create" : "Edit"} Collection
+        <Modal.Title>{isCreateMode ? "Create" : "Edit"} Collection</Modal.Title>
+        <Modal.Close />
       </Modal.Header>
-      <Modal.Content>
-        {["create", "nest"].includes(mode) && (
-          <p>
-            <em>
+      <Modal.Body className="overflow-y-auto max-h-[70vh]">
+        <Stack gap="xl">
+          {isCreateMode && (
+            <Text as="p" italic>
               This collection will be created inside of{" "}
               <strong>
                 {org.shortName}
                 {collectionToEdit?.collID ? `: ${collectionToEdit.title}` : "."}
               </strong>
-            </em>
-          </p>
-        )}
-        <Form noValidate>
-          <Form.Field required error={errors.title}>
-            <label>Collection Title</label>
-            <CtlTextInput
-              control={control}
-              name="title"
-              placeholder="Collection Title..."
-              error={errors.title ? true : false}
-              rules={{ required: "Title is required." }}
-            />
-          </Form.Field>
-          <Form.Field error={errors.description}>
-            <label>Description</label>
-            <TextArea
-              placeholder="Collection Description..."
-              textValue={watchFormValue("description") || ""}
-              onTextChange={(newText) => setFormValue("description", newText)}
-              contentType="description"
-              error={errors.description ? true : false}
-              className="h-40"
-            />
-          </Form.Field>
-          {["create", "nest"].includes(mode) && (
-            <>
-              <p>
-                <strong>Collection Cover Photo</strong>
-              </p>
-              <p>
-                <em>Save this collection first to upload a Cover Photo.</em>
-              </p>
-            </>
+            </Text>
           )}
-          {["edit"].includes(mode) && collectionToEdit?.collID && (
-            <Form.Field required className="!my-6">
-              <label htmlFor="coverPhoto">Collection Cover Photo</label>
-              <p>
-                Resolution should be high enough to avoid blurring on digital
-                screens.
-              </p>
-              <input
-                type="file"
-                accept="image/jpeg,image/png"
-                id="conductor-org-coverphoto-upload"
-                hidden
-                ref={photoRef}
-                onChange={handleCoverPhotoFileChange}
+
+          <FormSection title="Collection Details">
+            <Stack gap="md">
+              <Controller
+                name="title"
+                control={control}
+                rules={{ required: "Title is required." }}
+                render={({ field }) => (
+                  <Input
+                    label="Collection Title"
+                    placeholder="Collection Title..."
+                    required
+                    error={!!errors.title}
+                    errorMessage={errors.title?.message}
+                    {...field}
+                  />
+                )}
               />
-              <Button.Group fluid>
-                <Button
-                  disabled={!collectionToEdit.coverPhoto}
-                  as="a"
-                  href={collectionToEdit.coverPhoto}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Icon name="external" />
-                  View Current
-                </Button>
-                <Button
-                  color="blue"
-                  onClick={handleUploadCoverPhoto}
-                  loading={photoLoading}
-                >
-                  <Icon name="upload" />
-                  Upload New
-                </Button>
-              </Button.Group>
-              {photoUploaded && (
-                <Message positive>
-                  <Icon name="check circle" />
-                  <span>Cover Photo successfully uploaded.</span>
-                </Message>
-              )}
-            </Form.Field>
-          )}
-          <Form.Select
-            name="privacy"
-            fluid
-            label={
-              <label>
-                Collection Privacy{" "}
-                <span className="muted-text">(defaults to Public)</span>
-              </label>
-            }
-            value={getFormValue("privacy") || "public"}
-            placeholder="Collection Privacy..."
-            options={collectionPrivacyOptions}
-            onChange={(e, { value }) => setFormValue('privacy', value?.toString() as CollectionPrivacyOptions || CollectionPrivacyOptions.PUBLIC)}
-            error={errors.privacy ? true : false}
-          />
-          <Form.Checkbox
-            name="autoManage"
-            label="Allow Conductor to manage this collection automatically during Commons-Libraries syncs"
-            onChange={async (e, { name, defaultChecked, checked }) => {
-              setFormValue("autoManage", checked ?? false);
-              await trigger("autoManage");
-            }}
-            checked={getFormValue("autoManage") || false}
-            error={errors.autoManage ? true : false}
-          />
-          <Form.Field
-            className="mt-2p"
-            error={errors.program}
-          >
-            <label className={getFormValue("autoManage") ? "" : "muted-text"}>
-              Program Meta-Tag{" "}
-              <span className="muted-text">(used to match resources)</span>
-            </label>
-            <Form.Input
-              disabled={!getFormValue("autoManage")}
-              name="program"
-              icon="tag"
-              placeholder="Meta-Tag"
-              type="text"
-              value={getFormValue("program") || ""}
-              iconPosition="left"
-              onChange={async (e, { name, value }) => {
-                setFormValue(name, value);
-                await trigger("program");
-              }}
-              error={errors.program ? true : false}
-            />
-          </Form.Field>
-          <Form.Group grouped>
-            <label className={getFormValue("autoManage") ? "" : "muted-text"}>
-              Locations to Search{" "}
-              <span className="muted-text">(at least one required)</span>
-            </label>
-            {Object.values(CollectionLocations).map((option, index) => {
-              return (
-                <Form.Checkbox
-                  key={index}
-                  disabled={!getFormValue("autoManage")}
-                  name="locations"
-                  label={getShelvesNameText(option)}
-                  value={option}
-                  checked={getFormValue("locations")?.includes(option) ?? false}
-                  onChange={async (e, { name, value }) => {
-                    handleLocationsChange(value?.toString());
-                    await trigger("locations");
-                  }}
-                  error={errors.locations ? true : false}
+              <Controller
+                name="description"
+                control={control}
+                render={({ field }) => (
+                  <Textarea
+                    label="Description"
+                    placeholder="Collection Description..."
+                    rows={6}
+                    helperText="You can format your description with Markdown."
+                    error={!!errors.description}
+                    {...field}
+                    value={field.value || ""}
+                  />
+                )}
+              />
+
+              {isCreateMode && (
+                <Alert
+                  variant="info"
+                  message="Save this collection first to upload a Cover Photo."
                 />
-              );
-            })}
-          </Form.Group>
-        </Form>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onCloseFunc}>Cancel</Button>
-        <Button
-          color="green"
-          onClick={handleSubmit(submitForm)}
-          loading={loading}
-        >
-          <Icon name={["nest", "create"].includes(mode) ? "add" : "save"} />
-          {["nest", "create"].includes(mode) ? "Create" : "Save"}
-        </Button>
-      </Modal.Actions>
+              )}
+              {["edit"].includes(mode) && collectionToEdit?.collID && (
+                <div>
+                  <Text as="p" weight="semibold">
+                    Collection Cover Photo
+                  </Text>
+                  <Text as="p" color="muted">
+                    Resolution should be high enough to avoid blurring on digital
+                    screens.
+                  </Text>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png"
+                    id="conductor-org-coverphoto-upload"
+                    hidden
+                    ref={photoRef}
+                    onChange={handleCoverPhotoFileChange}
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      variant="outline"
+                      as="a"
+                      href={collectionToEdit.coverPhoto}
+                      target="_blank"
+                      rel="noreferrer"
+                      disabled={!collectionToEdit.coverPhoto}
+                      icon={<IconExternalLink size={16} />}
+                    >
+                      View Current
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={handleUploadCoverPhoto}
+                      loading={photoLoading}
+                      icon={<IconUpload size={16} />}
+                    >
+                      Upload New
+                    </Button>
+                  </div>
+                  {photoUploaded && (
+                    <Alert
+                      variant="success"
+                      message="Cover Photo successfully uploaded."
+                      className="mt-2"
+                    />
+                  )}
+                </div>
+              )}
+
+              <Controller
+                name="privacy"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    label="Collection Privacy (defaults to Public)"
+                    placeholder="Collection Privacy..."
+                    options={PRIVACY_OPTIONS}
+                    error={!!errors.privacy}
+                    name={field.name}
+                    value={field.value || CollectionPrivacyOptions.PUBLIC}
+                    onChange={(e) =>
+                      field.onChange(
+                        (e.target.value as CollectionPrivacyOptions) ||
+                          CollectionPrivacyOptions.PUBLIC
+                      )
+                    }
+                  />
+                )}
+              />
+            </Stack>
+          </FormSection>
+
+          <FormSection title="Automatic Management">
+            <Stack gap="md">
+              <Controller
+                name="autoManage"
+                control={control}
+                render={({ field }) => (
+                  <Checkbox
+                    name="autoManage"
+                    label="Allow Conductor to manage this collection automatically during Commons-Libraries syncs"
+                    checked={field.value || false}
+                    error={!!errors.autoManage}
+                    onChange={async (checked) => {
+                      field.onChange(checked);
+                      await trigger("autoManage");
+                    }}
+                  />
+                )}
+              />
+              <Controller
+                name="program"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    label="Program Meta-Tag (used to match resources)"
+                    placeholder="Meta-Tag"
+                    type="text"
+                    leftIcon={<IconTag size={16} />}
+                    error={!!errors.program}
+                    {...field}
+                    disabled={!autoManage}
+                    value={field.value || ""}
+                  />
+                )}
+              />
+              <div>
+                <Text
+                  as="p"
+                  color={autoManage ? "default" : "muted"}
+                  className="mb-2"
+                >
+                  Locations to Search{" "}
+                  <span className="text-gray-500">(at least one required)</span>
+                </Text>
+                <Stack gap="sm">
+                  {Object.values(CollectionLocations).map((option, index) => (
+                    <Checkbox
+                      key={index}
+                      name="locations"
+                      disabled={!autoManage}
+                      label={getShelvesNameText(option)}
+                      checked={selectedLocations?.includes(option) ?? false}
+                      error={!!errors.locations}
+                      onChange={async () => {
+                        handleLocationsChange(option);
+                        await trigger("locations");
+                      }}
+                    />
+                  ))}
+                </Stack>
+              </div>
+            </Stack>
+          </FormSection>
+        </Stack>
+      </Modal.Body>
+      <Modal.Footer>
+        <Stack direction="horizontal" gap="md" justify="end">
+          <Button variant="outline" onClick={onCloseFunc} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleSubmit(submitForm)}
+            loading={loading}
+            icon={
+              isCreateMode ? (
+                <IconPlus size={16} />
+              ) : (
+                <IconDeviceFloppy size={16} />
+              )
+            }
+          >
+            {isCreateMode ? "Create" : "Save"}
+          </Button>
+        </Stack>
+      </Modal.Footer>
     </Modal>
   );
 };

@@ -22,11 +22,11 @@ jobs:
       newVersion: ${{ steps.semver.outputs.new_release_version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: semantic-release
-        uses: cycjimmy/semantic-release-action@v3
+        uses: cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90 # v6.0.0
         id: semver
         env:
           GITHUB_TOKEN: ${{ secrets.LIBREBOT_ACCESS_TOKEN }}

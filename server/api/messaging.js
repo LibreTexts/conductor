@@ -4,9 +4,9 @@
 //
 
 'use strict';
+import logger from "../logger.js";
 import express from 'express';
 import b62 from 'base62-random';
-import { debugError } from '../debug.js';
 import { body, query, param } from 'express-validator';
 import User from '../models/user.js';
 import Project from '../models/project.js';
@@ -84,7 +84,7 @@ const deleteDiscussionThread = (req, res) => {
     }).lean().then((thread) => {
         if (thread) {
             return Project.findOne({
-                projectID: thread.project
+                projectID: { $eq: thread.project }
             }).lean();
         } else {
             throw(new Error('notfound'));
@@ -104,7 +104,7 @@ const deleteDiscussionThread = (req, res) => {
     }).then((threadDeleteRes) => {
         if (threadDeleteRes.deletedCount === 1) {
             return Message.deleteMany({
-                thread: req.body.threadID
+                thread: { $eq: req.body.threadID }
             });
         } else {
             throw(new Error('deletefail'));
@@ -140,7 +140,7 @@ const getProjectThreads = (req, res) => {
         threadKind = req.query.kind;
     }
     Project.findOne({
-        projectID: req.query.projectID
+        projectID: { $eq: req.query.projectID }
     }).lean().then((project) => {
         if (project) {
             if (projectsAPI.checkProjectMemberPermission(project, req.user)) {
@@ -241,7 +241,7 @@ const getProjectThreads = (req, res) => {
         var errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
+        else logger.error({ err }, "getProjectThreads failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -269,7 +269,7 @@ async function createThreadMessage(req, res) {
             });
         }
 
-        const project = await Project.findOne({ projectID: thread.project }).lean();
+        const project = await Project.findOne({ projectID: { $eq: thread.project } }).lean();
         if (!project) {
             return res.status(404).send({
                 err: true,
@@ -293,7 +293,7 @@ async function createThreadMessage(req, res) {
         }).save();
 
         const user = await User.findOne(
-            { uuid: req.user.decoded.uuid },
+            { uuid: { $eq: req.user.decoded.uuid } },
             { firstName: 1, lastName: 1 },
         ).lean();
 
@@ -327,10 +327,10 @@ async function createThreadMessage(req, res) {
                 thread.title,
                 message.body,
                 `${user.firstName} ${user.lastName}`,
-            ).catch((e) => debugError(e));
+            ).catch((e) => logger.error({ err: e }, "createThreadMessage failed"));
 
-            Thread.updateOne({ threadID }, { lastNotifSent: new Date() }).catch((e) => {
-                debugError(e);
+            Thread.updateOne({ threadID: { $eq: threadID } }, { lastNotifSent: new Date() }).catch((e) => {
+                logger.error({ err: e }, "createThreadMessage failed");
             });
         }
 
@@ -340,7 +340,7 @@ async function createThreadMessage(req, res) {
             messageID: message.messageID,
         });
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "createThreadMessage failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -368,7 +368,7 @@ async function createTaskMessage(req, res) {
             });
         }
 
-        const project = await Project.findOne({ projectID: task.projectID }).lean();
+        const project = await Project.findOne({ projectID: { $eq: task.projectID } }).lean();
         if (!project) {
             return res.status(404).send({
                 err: true,
@@ -392,7 +392,7 @@ async function createTaskMessage(req, res) {
         }).save();
 
         const user = await User.findOne(
-            { uuid: req.user.decoded.uuid },
+            { uuid: { $eq: req.user.decoded.uuid } },
             { firstName: 1, lastName: 1 },
         ).lean();
 
@@ -407,7 +407,7 @@ async function createTaskMessage(req, res) {
             // send email notifications
             let taskTitle = task.title;
             if (task.parent) {
-                const parent = await Task.findOne({ taskID: task.parent }).lean();
+                const parent = await Task.findOne({ taskID: { $eq: task.parent } }).lean();
                 if (parent) {
                     taskTitle = `${parent.title}/${task.title}`;
                 }
@@ -422,7 +422,7 @@ async function createTaskMessage(req, res) {
                     taskTitle,
                     message.body,
                     `${user.firstName} ${user.lastName}`,
-                ).catch((e) => debugError(e));
+                ).catch((e) => logger.error({ err: e }, "createTaskMessage failed"));
             } else {
                 mailAPI.sendProjectSupportRequest(
                     notifyEmails,
@@ -443,7 +443,7 @@ async function createTaskMessage(req, res) {
             messageID: message.messageID,
         });
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "createTaskMessage failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -468,7 +468,7 @@ const deleteMessage = (req, res) => {
             if (msgData.thread && msgData.thread.length > 0) {
                 return Thread.findOne({ threadID: msgData.thread }).lean();
             } else if (msgData.task && msgData.task.length > 0) {
-                return Task.findOne({ taskID: msgData.task }).lean();
+                return Task.findOne({ taskID: { $eq: msgData.task } }).lean();
             } else {
                 throw (new Error('missingparent'));
             }
@@ -530,7 +530,7 @@ const getThreadMessages = (req, res) => {
     }).lean().then((thread) => {
         if (thread) {
             return Project.findOne({
-                projectID: thread.project
+                projectID: { $eq: thread.project }
             }).lean();
         } else {
             throw(new Error('notfound'));
@@ -601,7 +601,7 @@ const getThreadMessages = (req, res) => {
         var errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
+        else logger.error({ err }, "getThreadMessages failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -623,7 +623,7 @@ const getTaskMessages = (req, res) => {
     }).lean().then((task) => {
         if (task) {
             return Project.findOne({
-                projectID: task.projectID
+                projectID: { $eq: task.projectID }
             }).lean();
         } else {
             throw(new Error('notfound'));
@@ -691,11 +691,11 @@ const getTaskMessages = (req, res) => {
             messages: messages
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getTaskMessages failed");
         var errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
+        else logger.error({ err }, "getTaskMessages failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -733,7 +733,7 @@ async function getUsersToNotify(notifySetting, uuid, project, task = null, notif
             return emails;
         }
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "getUsersToNotify failed");
     }
     return [];
 }

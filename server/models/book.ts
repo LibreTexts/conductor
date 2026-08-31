@@ -14,6 +14,12 @@ export interface BookInterface extends Document {
   license?: string;
   thumbnail?: string;
   summary?: string;
+  exportInfo?: {
+    isCompiled?: boolean;
+    lastCompiled?: number;
+    compiledBy?: string;
+    contentPageCount?: number;
+  };
   rating?: number;
   links?: {
     online?: string;
@@ -29,6 +35,9 @@ export interface BookInterface extends Document {
   thumbnailIsAnimated?: boolean;
   trafficAnalyticsConfigured?: boolean;
   randomIndex?: number;
+  syncMissingSince?: Date;
+  lastSyncedAt?: Date;
+  syncedBy?: "conductor";
 }
 
 const BookSchema = new Schema<BookInterface>(
@@ -100,6 +109,27 @@ const BookSchema = new Schema<BookInterface>(
      */
     summary: String,
     /**
+     * Holds information about the Book's export/compilation status and history with Shapeshift.
+     */
+    exportInfo: {
+      /**
+       * Whether the Book has, at any point, been successfully compiled by Shapeshift.
+       */
+      isCompiled: Boolean,
+      /**
+       * Timestamp of the most recent successful compilation by Shapeshift (Unix timestamp in milliseconds).
+       */
+      lastCompiled: Number,
+      /**
+       * The name of the system that last successfully compiled the Book. Currently only "shapeshift" is used but this allows for distinguishing between legacy compilations.
+       */
+      compiledBy: String,
+      /**
+       * The number of pages in the Book's content PDF, as reported by Shapeshift during compilation.
+      */
+      contentPageCount: Number,
+    },
+    /**
      * The overall quality, on a scale of 0-5. Value is the average of all Peer Review
      * overall ratings submitted on the Book.
      */
@@ -162,6 +192,34 @@ const BookSchema = new Schema<BookInterface>(
      * A random index number between 0 and 1 for use in random sorting from a deterministic hash of the bookID.
      */
     randomIndex: Number,
+    /**
+     * When the Book first went missing from its library's sync batch.
+     *
+     * Set only when that library synced successfully, so an unreachable library
+     * never marks its own books. Nothing reads this field yet — it exists so a
+     * later job can reap books that have been absent long enough to be sure.
+     */
+    syncMissingSince: Date,
+    /**
+     * When the Book was last written by a complete library sync run.
+     *
+     * Stamped with the run's start time, so missing-book detection is a range
+     * query (`lastSyncedAt < runStartedAt`) against an index rather than a
+     * `$nin` over every bookID the run saw.
+     */
+    lastSyncedAt: Date,
+    /**
+     * Which pipeline last wrote this Book.
+     *
+     * `conductor` marks a Book written by Conductor's own library sync, which
+     * walks the libraries directly. Books last written by the retired nodePrint
+     * DownloadsCenter import have no value here, so the field distinguishes
+     * migrated records from stale ones while the two are being compared.
+     */
+    syncedBy: {
+      type: String,
+      enum: ["conductor"],
+    },
   },
   {
     timestamps: true,
@@ -180,6 +238,10 @@ BookSchema.index({
   license: "text",
   summary: "text",
   libraryTags: "text",
+});
+BookSchema.index({
+  library: 1,
+  lastSyncedAt: 1,
 });
 BookSchema.index({
   location: 1,

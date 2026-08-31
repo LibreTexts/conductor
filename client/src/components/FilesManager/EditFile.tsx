@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import lazyWithRetry from "../../utils/lazyWithRetry";
 import axios from "axios";
 import {
   Modal,
@@ -28,7 +29,7 @@ import ManageCaptionsModal from "./ManageCaptionsModal";
 import { useQuery } from "@tanstack/react-query";
 import useCentralIdentityLicenses from "../../hooks/useCentralIdentityLicenses";
 import RenderTagFields from "./RenderTagFields";
-const FilesUploader = React.lazy(() => import("./FilesUploader"));
+const FilesUploader = lazyWithRetry(() => import("./FilesUploader"));
 
 interface EditFileProps extends ModalProps {
   show: boolean;
@@ -74,8 +75,7 @@ const EditFile: React.FC<EditFileProps> = ({
         modifiedFromSource: false,
         additionalTerms: "",
       },
-      authors: [],
-      publisher: {
+      originalPublisher: {
         name: "",
         url: "",
       },
@@ -254,17 +254,12 @@ const EditFile: React.FC<EditFileProps> = ({
       setLoading(true);
 
       if (!isFolder) {
-        // Get authors data from AuthorsForm component
+        // Get author data from AuthorsForm component
         const authors = authorsFormRef.current?.getAuthors();
         if (!authors) {
           throw new Error("Failed to get authors");
         }
         setValue("primaryAuthor", authors.primaryAuthor ?? undefined);
-        setValue("authors", authors.authors);
-        setValue(
-          "correspondingAuthor",
-          authors.correspondingAuthor ?? undefined
-        );
       }
 
       const valid = await trigger(); // Trigger validation on all fields
@@ -279,9 +274,7 @@ const EditFile: React.FC<EditFileProps> = ({
           ...(!isFolder && {
             license: vals.license,
             primaryAuthor: vals.primaryAuthor ?? undefined,
-            authors: vals.authors ?? undefined,
-            correspondingAuthor: vals.correspondingAuthor ?? undefined,
-            publisher: vals.publisher,
+            originalPublisher: vals.originalPublisher,
             tags: cleanTagsForRequest(vals.tags ?? []),
           }),
         }
@@ -553,22 +546,18 @@ const EditFile: React.FC<EditFileProps> = ({
                           ref={authorsFormRef}
                           mode="file"
                           currentPrimaryAuthor={getValues("primaryAuthor")}
-                          currentAuthors={getValues("authors")}
-                          currentCorrespondingAuthor={getValues(
-                            "correspondingAuthor"
-                          )}
                         />
                         <CtlTextInput
-                          name="publisher.name"
+                          name="originalPublisher.name"
                           control={control}
-                          label="Publisher Name"
+                          label="Original Publisher Name"
                           placeholder="John Doe"
                           className=""
                         />
                         <CtlTextInput
-                          name="publisher.url"
+                          name="originalPublisher.url"
                           control={control}
-                          label="Publisher URL"
+                          label="Original Publisher URL"
                           placeholder="https://example.com"
                           className="mt-2"
                         />

@@ -3,6 +3,7 @@
  * @author LibreTexts <info@libretexts.org>
  */
 
+import logger from "../logger.js";
 import express from 'express';
 import axios from 'axios';
 import b62 from 'base62-random';
@@ -16,7 +17,6 @@ import mailAPI from './mail.js';
 import { parseLibreTextsURL } from '../util/bookutils.js';
 import { getProductionURL } from '../util/helpers.js';
 import conductorErrors from '../conductor-errors.js';
-import { debugError } from '../debug.js';
 
 /**
  * Redirects the user agent to the Learning Analytics auth flow initiation endpoint.
@@ -71,7 +71,7 @@ async function validateTextbookURL(libreURL) {
       }
     }
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "validateTextbookURL failed");
   }
   return [false, null];
 }
@@ -95,7 +95,7 @@ async function connectADAPTCourse(sharingKey, newCourseID) {
       return connectRes.data.course_id;
     }
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "connectADAPTCourse failed");
   }
   return null;
 }
@@ -134,7 +134,7 @@ async function createAnalyticsAccessRequest(requester, courseID) {
     await mailAPI.sendAnalyticsAccessRequestCreated();
     return true;
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "createAnalyticsAccessRequest failed");
   }
   return false;
 }
@@ -238,7 +238,7 @@ async function createAnalyticsCourse(req, res) {
       msg: 'Successfully created Analytics Course!',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "createAnalyticsCourse failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -281,7 +281,7 @@ async function createAnalyticsInvite(req, res) {
     }
 
     const sender = await User.findOne(
-      { uuid: req.user.decoded.uuid },
+      { uuid: { $eq: req.user.decoded.uuid } },
       { firstName: 1, lastName: 1 },
     ).lean();
 
@@ -314,8 +314,8 @@ async function createAnalyticsInvite(req, res) {
       { title: course.title },
       newInvite._id,
     ).catch((e) => {
-      console.warn('Error sending invitation email:');
-      console.warn(e);
+      logger.warn('Error sending invitation email:');
+      logger.warn({ err: e }, "createAnalyticsInvite failed");
     });
 
     return res.send({
@@ -323,7 +323,7 @@ async function createAnalyticsInvite(req, res) {
       msg: 'Invitation successfully sent!',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "createAnalyticsInvite failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -389,7 +389,7 @@ async function getUserAnalyticsCourses(req, res) {
       msg: 'Successfully retrieved user courses.',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getUserAnalyticsCourses failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -443,7 +443,7 @@ async function getAnalyticsCourse(req, res) {
       msg: 'Successfully retrieved course.',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getAnalyticsCourse failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -506,7 +506,7 @@ async function getAnalyticsCourseRoster(req, res) {
       err: false,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getAnalyticsCourseRoster failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -619,7 +619,7 @@ async function getAnalyticsCourseRoster(req, res) {
       msg: 'Successfully retrieved course members.',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getAnalyticsCourseMembers failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -713,7 +713,7 @@ async function getAnalyticsAccessRequests(_req, res) {
       err: false,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getAnalyticsAccessRequests failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -795,7 +795,7 @@ async function getUserAnalyticsInvites(req, res) {
       msg: 'Successfully retrieved Analytics Invites.',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getUserAnalyticsInvites failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -910,7 +910,7 @@ async function getAnalyticsCourseInvites(req, res) {
       msg: 'Successfully retrieved course invitations.',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "getAnalyticsCourseInvites failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -981,7 +981,7 @@ async function updateAnalyticsCourse(req, res) {
       msg: 'Successfully updated analytics course!',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateAnalyticsCourse failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1033,7 +1033,7 @@ async function updateAnalyticsCourseRoster(req, res) {
       msg: 'Successfully updated analytics course roster!',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateAnalyticsCourseRoster failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1108,7 +1108,7 @@ async function updateAnalyticsCourseRoster(req, res) {
       msg: 'Successfully updated course members.',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "updateAnalyticsCourseMemberAccess failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1135,7 +1135,7 @@ async function completeAnalyticsAccessRequest(req, res) {
       });
     }
 
-    const analyticsCourse = await AnalyticsCourse.findOne({ courseID: foundRequest.courseID }).lean();
+    const analyticsCourse = await AnalyticsCourse.findOne({ courseID: { $eq: foundRequest.courseID } }).lean();
     if (!analyticsCourse) {
       return res.status(400).send({
         err: true,
@@ -1143,7 +1143,7 @@ async function completeAnalyticsAccessRequest(req, res) {
       });
     }
 
-    const requester = await User.findOne({ uuid: foundRequest.requester }, {
+    const requester = await User.findOne({ uuid: { $eq: foundRequest.requester } }, {
       email: 1,
       firstName: 1,
     }).lean();
@@ -1173,7 +1173,7 @@ async function completeAnalyticsAccessRequest(req, res) {
     };
     const requestUpdateObj = { status: isApproved ? 'approved' : 'denied' };
 
-    const courseUpdate = await AnalyticsCourse.updateOne({ courseID: foundRequest.courseID }, courseUpdateObj);
+    const courseUpdate = await AnalyticsCourse.updateOne({ courseID: { $eq: foundRequest.courseID } }, courseUpdateObj);
     if (!courseUpdate.acknowledged) {
       throw (new Error('Course update failed.'));
     }
@@ -1185,8 +1185,8 @@ async function completeAnalyticsAccessRequest(req, res) {
 
     if (isApproved) {
       mailAPI.sendAnalyticsAccessRequestApproved(requesterMsgData, courseMsgData).catch((e) => {
-        console.warn('Error sending approval notification:');
-        console.warn(e);
+        logger.warn('Error sending approval notification:');
+        logger.warn({ err: e }, "completeAnalyticsAccessRequest failed");
       });
     } else {
       mailAPI.sendAnalyticsAccessRequestDenied(
@@ -1194,8 +1194,8 @@ async function completeAnalyticsAccessRequest(req, res) {
         courseMsgData,
         message,
       ).catch((e) => {
-        console.warn('Error sending denial notification:');
-        console.warn(e);
+        logger.warn('Error sending denial notification:');
+        logger.warn({ err: e }, "completeAnalyticsAccessRequest failed");
       });
     }
 
@@ -1204,7 +1204,7 @@ async function completeAnalyticsAccessRequest(req, res) {
       msg: `Analytics Access Request successfully ${isApproved ? 'approved!' : 'marked Denied.'}`,
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "completeAnalyticsAccessRequest failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1250,7 +1250,7 @@ async function acceptAnalyticsInvite(req, res) {
       });
     }
 
-    const course = await AnalyticsCourse.findOne({ courseID: invite.courseID }).lean();
+    const course = await AnalyticsCourse.findOne({ courseID: { $eq: invite.courseID } }).lean();
     if (!course) {
       return res.status(400).send({
         err: true,
@@ -1272,7 +1272,7 @@ async function acceptAnalyticsInvite(req, res) {
     }
 
     const courseUpdate = await AnalyticsCourse.updateOne(
-      { courseID: invite.courseID },
+      { courseID: { $eq: invite.courseID } },
       { instructors, viewers },
     );
     if (!courseUpdate.acknowledged) {
@@ -1288,16 +1288,16 @@ async function acceptAnalyticsInvite(req, res) {
     }
 
     const [sender, invitee] = await Promise.all([
-      User.findOne({ uuid: invite.sender }).lean(),
-      User.findOne({ uuid: invite.invitee }).lean(),
+      User.findOne({ uuid: { $eq: invite.sender } }).lean(),
+      User.findOne({ uuid: { $eq: invite.invitee } }).lean(),
     ]);
     mailAPI.sendAnalyticsInviteAccepted(
       { firstName: sender.firstName, email: sender.email },
       { firstName: invitee.firstName, lastName: invitee.lastName },
       { title: course.title },
     ).catch((e) => {
-      console.warn('Error sending invite accepted notification:');
-      console.warn(e);
+      logger.warn('Error sending invite accepted notification:');
+      logger.warn({ err: e }, "acceptAnalyticsInvite failed");
     });
 
     return res.send({
@@ -1305,7 +1305,7 @@ async function acceptAnalyticsInvite(req, res) {
       msg: 'Successfully accepted Analytics invite!',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "acceptAnalyticsInvite failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1367,7 +1367,7 @@ async function deleteAnalyticsCourse(req, res) {
       msg: 'Successfully deleted analytics course.',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "deleteAnalyticsCourse failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1426,7 +1426,7 @@ async function deleteAnalyticsCourse(req, res) {
       msg: 'Successfully updated course members.',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "removeAnalyticsCourseMember failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1454,13 +1454,13 @@ async function deleteAnalyticsAccessRequest(req, res) {
     }
 
     if (deleteCourse) {
-      const courseDeletion = await AnalyticsCourse.deleteOne({ courseID: foundRequest.courseID });
+      const courseDeletion = await AnalyticsCourse.deleteOne({ courseID: { $eq: foundRequest.courseID } });
       if (courseDeletion.deletedCount !== 1) {
-        console.warn(`Error occurred deleting course ${foundRequest.courseID}`);
+        logger.warn(`Error occurred deleting course ${foundRequest.courseID}`);
       }
     }
 
-    const deletion = await AnalyticsRequest.deleteOne({ _id: requestID });
+    const deletion = await AnalyticsRequest.deleteOne({ _id: { $eq: requestID } });
     if (!deletion.acknowledged) {
       throw (new Error('Error deleting request.'));
     }
@@ -1470,7 +1470,7 @@ async function deleteAnalyticsAccessRequest(req, res) {
       msg: 'Analytics Access Request was successfully deleted.',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "deleteAnalyticsAccessRequest failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
@@ -1505,7 +1505,7 @@ async function deleteAnalyticsInvite(req, res) {
 
     // Check user has permission to delete invite, if not invitee
     if (req.user.decoded.uuid !== invite.invitee) {
-      const course = await AnalyticsCourse.findOne({ courseID: invite.courseID }).lean();
+      const course = await AnalyticsCourse.findOne({ courseID: { $eq: invite.courseID } }).lean();
       if (!course) {
         return res.status(400).send({
           err: true,
@@ -1530,7 +1530,7 @@ async function deleteAnalyticsInvite(req, res) {
       msg: 'Invite deleted.',
     });
   } catch (e) {
-    debugError(e);
+    logger.error({ err: e }, "deleteAnalyticsInvite failed");
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,

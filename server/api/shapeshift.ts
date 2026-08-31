@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { z } from "zod";
 import { ZodReqWithUser } from "../types";
-import { CreateJobValidator, GetJobsValidator } from "./validators/shapeshift";
+import { CreateJobValidator, GetJobsValidator, WebhookValidator } from "./validators/shapeshift";
 import ShapeshiftService from "./services/shapeshift-service";
 
 export async function createJob(
@@ -38,5 +38,46 @@ export async function getJobs(
     msg: 'Retrieved jobs.',
     meta,
     jobs,
+  });
+}
+
+export async function handleWebhook(
+  req: z.infer<typeof WebhookValidator>,
+  res: Response
+) {
+  const service = new ShapeshiftService();
+  const result = await service.handleWebhook(req.body);
+
+  if (result === 'accepted') {
+    return res.status(202).json({
+      err: false,
+      msg: 'Webhook accepted. Book is not yet known to Commons; a library sync was queued.',
+    });
+  }
+
+  if (result === 'invalid_timestamp') {
+    return res.status(400).json({
+      err: true,
+      msg: 'Invalid timestamp for webhook.',
+    });
+  }
+
+  if (result === 'stale') {
+    return res.status(200).json({
+      err: false,
+      msg: 'Webhook ignored, newer compilation data already recorded.',
+    });
+  }
+
+  if (result === 'error') {
+    return res.status(500).json({
+      err: true,
+      msg: 'Error processing webhook.',
+    });
+  }
+
+  return res.status(200).json({
+    err: false,
+    msg: 'Webhook processed.',
   });
 }

@@ -1,8 +1,7 @@
+import logger, { childLogger } from "../logger.js";
 import User from "../models/user.js";
 import Project from "../models/project.js";
-import Book from "../models/book.js";
 import Homework from "../models/homework.js";
-import { debugError } from "../debug.js";
 import { getPaginationOffset } from "../util/helpers.js";
 import projectAPI from "./projects.js";
 import { ZodReqWithOptionalUser } from "../types/Express.js";
@@ -18,7 +17,6 @@ import {
   bookSearchSchema,
   homeworkSearchSchema,
   miniReposSearchSchema,
-  projectSearchSchema,
   projectSearchV2Schema,
   recordSearchSchema,
   searchSuggestionsSchema,
@@ -30,12 +28,11 @@ import Author from "../models/author.js";
 import Fuse from "fuse.js";
 import Organization from "../models/organization.js";
 import AssetTagFramework from "../models/assettagframework.js";
-import Tag from "../models/tag.js";
-import { _getBookPublicOrInstructorAssetsCount, buildOrganizationNamesList } from "./books.js";
+import { buildOrganizationNamesList } from "./books.js";
 import CustomCatalog, { CustomCatalogInterface } from "../models/customcatalog.js";
-import { normalizedSort } from "../util/searchutils.js";
 import SearchService from "./services/search-service.js";
 import { FilterInput, FilterObject } from "../types/Search.js";
+const searchLog = childLogger("search");
 
 /**
  * Gets the singleton SearchService instance, returning null on failure.
@@ -44,7 +41,7 @@ async function getSearchService(): Promise<SearchService | null> {
   try {
     return await SearchService.getInstance();
   } catch (error) {
-    debugError(`[SearchService] Failed to initialize SearchService: ${error}`);
+    searchLog.error({ err: error }, "Failed to initialize SearchService");
     return null;
   }
 }
@@ -58,176 +55,6 @@ function recordSearchQuery(query: string | undefined, scope: string): void {
   getSearchService()
     .then((svc) => svc?.recordSearchQuery(query, scope))
     .catch(() => { /* swallowed — nicety, not core */ });
-}
-
-/**
- * Performs a global search across multiple Conductor resource types (e.g. Projects, Books, etc.)
- */
-async function projectsSearch(
-  req: ZodReqWithOptionalUser<z.infer<typeof projectSearchSchema>>,
-  res: Response
-) {
-  try {
-    const sort = req.query.sort || "relevance";
-    const includeLeads =
-      req.query.leads === true || req.query.leads?.toString() === "true";
-    const includePIs =
-      req.query.principalInvestigators === true ||
-      req.query.principalInvestigators?.toString() === "true";
-
-    const query = req.query.searchQuery;
-
-    // Get pagination offsets
-    const projectsPage = parseInt(req.query.page?.toString()) || 1;
-    const projectsLimit = parseInt(req.query.limit?.toString()) || 25;
-    const projectsOffset = getPaginationOffset(projectsPage, req.query.limit);
-
-    let isSuperAdmin = false;
-
-    if (req.user?.decoded?.uuid) {
-      const user = await User.findOne({ uuid: req.user?.decoded?.uuid });
-      if (user) {
-        isSuperAdmin = authAPI.checkHasRole(
-          user,
-          "libretexts",
-          "superadmin",
-          true
-        );
-      }
-    }
-
-    const projectMatchObjs = _generateProjectMatchObjs({
-      projLocation: req.query.location,
-      projStatus: req.query.status,
-      projClassification: req.query.classification,
-      queryString: query,
-      userUUID: req.user?.decoded.uuid,
-      isSuperAdmin: isSuperAdmin,
-    });
-
-    // @ts-ignore
-    const results = await Project.aggregate([
-      ...projectMatchObjs,
-      ...(includeLeads
-        ? [
-          {
-            $lookup: {
-              from: "users",
-              let: {
-                leads: "$leads",
-              },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $in: ["$uuid", "$$leads"],
-                    },
-                  },
-                },
-                {
-                  $project: {
-                    _id: 0,
-                    uuid: 1,
-                    firstName: 1,
-                    lastName: 1,
-                    avatar: 1,
-                  },
-                },
-              ],
-              as: "leads",
-            },
-          },
-        ]
-        : []),
-      ...(includePIs ? projectAPI.LOOKUP_PROJECT_PI_STAGES(false) : []),
-      {
-        $project: {
-          _id: 0,
-          orgID: 1,
-          projectID: 1,
-          title: 1,
-          status: 1,
-          visibility: 1,
-          classification: 1,
-          leads: 1,
-          author: 1,
-          thumbnail: 1,
-          projectURL: 1,
-          contentArea: 1,
-          associatedOrgs: 1,
-          description: 1,
-          principalInvestigators: 1,
-          coPrincipalInvestigators: 1,
-          updatedAt: 1,
-        },
-      },
-      {
-        $lookup: {
-          from: "projectfiles",
-          localField: "projectID",
-          foreignField: "projectID",
-          as: "files",
-        },
-      },
-      {
-        $addFields: {
-          publicAssets: {
-            $size: {
-              $filter: {
-                input: "$files",
-                cond: { $eq: ["$$this.access", "public"] }
-              }
-            }
-          },
-          instructorAssets: {
-            $size: {
-              $filter: {
-                input: "$files",
-                cond: { $eq: ["$$this.access", "instructor"] }
-              }
-            }
-          }
-        },
-      },
-      {
-        $project: {
-          files: 0
-        }
-      },
-      ...(sort === "relevance"
-        ? [
-          {
-            $sort: {
-              score: -1,
-            },
-          },
-        ]
-        : [
-          {
-            $sort: {
-              ...(sort === "title" && { title: 1 }),
-              ...(sort === "classification" && { classification: 1 }),
-              ...(sort === "visibility" && { visibility: 1 }),
-            },
-          },
-        ]),
-    ]);
-
-    const totalCount = results.length;
-    const paginated = results.slice(
-      projectsOffset,
-      projectsOffset + projectsLimit
-    );
-
-    return res.send({
-      err: false,
-      numResults: totalCount,
-      results: paginated,
-    });
-  } catch (err) {
-    debugError(err);
-    return conductor500Err(res);
-  }
 }
 
 /**
@@ -250,7 +77,7 @@ async function miniReposSearch(
     let isSuperAdmin = false;
 
     if (req.user?.decoded?.uuid) {
-      const user = await User.findOne({ uuid: req.user?.decoded?.uuid });
+      const user = await User.findOne({ uuid: { $eq: req.user?.decoded?.uuid } });
       if (user) {
         isSuperAdmin = authAPI.checkHasRole(
           user,
@@ -287,8 +114,6 @@ async function miniReposSearch(
           contentArea: 1,
           associatedOrgs: 1,
           description: 1,
-          principalInvestigators: 1,
-          coPrincipalInvestigators: 1,
           updatedAt: 1,
         },
       },
@@ -354,447 +179,9 @@ async function miniReposSearch(
       results: paginated,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "miniReposSearch failed");
     return conductor500Err(res);
   }
-}
-
-async function booksSearch(
-  req: z.infer<typeof bookSearchSchema>,
-  res: Response
-) {
-  try {
-    const query = req.query.searchQuery;
-
-    const booksPage = parseInt(req.query.page?.toString()) || 1;
-    const booksLimit = parseInt(req.query.limit?.toString()) || 25;
-    const booksOffset = getPaginationOffset(booksPage, booksLimit);
-
-    const matchObj = _generateBookMatchObj({
-      library: req.query.library,
-      subject: req.query.subject,
-      location: req.query.location,
-      license: req.query.license,
-      author: req.query.author,
-      course: req.query.course,
-      publisher: req.query.publisher,
-      affiliation: req.query.affiliation,
-      query,
-    });
-
-    // @ts-ignore
-    const fromBooks = Book.aggregate([
-      ...matchObj,
-      {
-        $project: {
-          _id: 0,
-          __v: 0,
-        },
-      },
-    ]);
-
-    const fromProjectTags = Tag.aggregate([
-      {
-        $search: {
-          text: {
-            query,
-            path: ["title"],
-            fuzzy: {
-              maxEdits: 1,
-              maxExpansions: 50,
-            },
-          },
-        },
-      },
-      {
-        $match: {
-          orgID: process.env.ORG_ID,
-        },
-      },
-      {
-        $lookup: {
-          from: "projects",
-          localField: "tagID",
-          foreignField: "tags",
-          as: "matchingProjects",
-        },
-      },
-      {
-        $unwind: {
-          path: "$matchingProjects",
-          preserveNullAndEmptyArrays: false,
-        },
-      },
-      {
-        $replaceRoot: {
-          newRoot: "$matchingProjects",
-        },
-      },
-      {
-        $match: {
-          libreCoverID: {
-            $exists: true,
-            $ne: "",
-          },
-          libreLibrary: {
-            $exists: true,
-            $ne: "",
-          },
-          visibility: "public",
-        },
-      },
-      {
-        $lookup: {
-          from: "books",
-          let: {
-            library: "$libreLibrary",
-            pageID: "$libreCoverID",
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $cond: [
-                    {
-                      $and: [
-                        {
-                          $ne: ["$$library", ""],
-                        },
-                        {
-                          $ne: ["$$pageID", ""],
-                        },
-                      ],
-                    },
-                    {
-                      $eq: [
-                        "$bookID",
-                        {
-                          $concat: ["$$library", "-", "$$pageID"],
-                        },
-                      ],
-                    },
-                    {
-                      $eq: ["$bookID", false], // empty lookup
-                    },
-                  ],
-                },
-              },
-            },
-          ],
-          as: "book",
-        },
-      },
-      {
-        $match: {
-          book: { $ne: [] },
-        },
-      },
-      {
-        $replaceRoot: {
-          newRoot: {
-            $arrayElemAt: ["$book", 0],
-          },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          __v: 0,
-        },
-      },
-    ]);
-
-    const promises = [fromBooks];
-    if (query) {
-      promises.push(fromProjectTags);
-    }
-
-    const [booksResults, projectsResults] = await Promise.all(promises);
-    const rawResults = [...booksResults, ...(projectsResults ?? [])];
-
-    // It is certainly not optimal to do sorting and filtering in JS after fetching all results,
-    // but gets very convoluted to do this in aggregation pipeline. This will work for now until
-    // we have a more robust search solution in place.
-    let results: any[] = [];
-    if (process.env.ORG_ID !== "libretexts") {
-      const orgDataPromise = process.env.ORG_ID !== "libretexts" ? Organization.findOne({ orgID: process.env.ORG_ID }) : Promise.resolve(null);
-      const customCatalogPromise = process.env.ORG_ID !== "libretexts" ? CustomCatalog.findOne({ orgID: process.env.ORG_ID }) : Promise.resolve(null);
-
-      const [orgData, customCatalog] = await Promise.all([orgDataPromise, customCatalogPromise]);
-      const campusNames = orgData ? buildOrganizationNamesList(orgData).map((name) => name.toLowerCase()) : [];
-
-      results = rawResults.filter((book) => {
-        // If specifically included in custom catalog, include it
-        if (customCatalog && customCatalog.resources && customCatalog.resources.includes(book.bookID)) {
-          return true;
-        }
-
-        // If automatic catalog matching is disabled, there's no further checks
-        if (orgData?.autoCatalogMatchingDisabled) {
-          return false;
-        }
-
-        // Automatic matching: include if book course matches org campus names and not excluded
-        if (book.course && campusNames.includes(book.course?.toLowerCase())) {
-          if (!customCatalog?.automaticMatchingExclusions?.includes(book.bookID)) {
-            return true;
-          }
-        }
-
-        return false;
-      });
-    } else {
-      results = rawResults;
-    }
-
-    results.sort((a, b) => {
-      if (req.query.sort === "author") {
-        return normalizedSort(a.author, b.author);
-      } else if (req.query.sort === "subject") {
-        return normalizedSort(a.course, b.course);
-      } else if (req.query.sort === "library") {
-        return normalizedSort(a.library, b.library);
-      } else if (req.query.sort === "affiliation") {
-        return normalizedSort(a.affiliation, b.affiliation);
-      }
-      return normalizedSort(a.title, b.title); // default to title sort
-    });
-
-    const publicOrInstructorAssets = await _getBookPublicOrInstructorAssetsCount(
-      results.map((book) => book.bookID)
-    );
-
-    // Add the publicOrInstructorAssets field to each book
-    results.forEach((book) => {
-      const bookID = book.bookID;
-      const found = publicOrInstructorAssets.find((b) => b.bookID === bookID);
-      book.publicAssets = found?.publicAssets || 0;
-      book.instructorAssets = found?.instructorAssets || 0;
-    });
-
-    if (req.query.assets) {
-      const assetsFilter = req.query.assets;
-      if (assetsFilter === "public") {
-        results = results.filter((book) => book.publicAssets > 0);
-      } else if (assetsFilter === "instructors") {
-        results = results.filter((book) => book.instructorAssets > 0);
-      }
-    }
-
-    const totalCount = results.length;
-    const paginated = results.slice(booksOffset, booksOffset + booksLimit);
-
-    return res.send({
-      err: false,
-      numResults: totalCount,
-      results: paginated,
-    });
-  } catch (err) {
-    debugError(err);
-    return conductor500Err(res);
-  }
-}
-
-function _generateBookMatchObj({
-  library,
-  subject,
-  location,
-  license,
-  author,
-  course,
-  publisher,
-  affiliation,
-  query,
-}: {
-  library?: string;
-  subject?: string;
-  location?: "campus" | "central";
-  license?: string;
-  author?: string;
-  course?: string;
-  publisher?: string;
-  affiliation?: string;
-  query?: string;
-}): Record<string, any>[] {
-  const bookFilters = [];
-  let bookFiltersOptions = {};
-
-  if (library) {
-    bookFilters.push({ library });
-  }
-
-  if (subject) {
-    bookFilters.push({ subject });
-  }
-
-  if (location) {
-    bookFilters.push({ location });
-  }
-
-  if (license) {
-    bookFilters.push({ license });
-  }
-
-  if (author) {
-    bookFilters.push({ author });
-  }
-
-  if (course) {
-    bookFilters.push({ course });
-  }
-
-  if (publisher) {
-    bookFilters.push({ program: publisher });
-  }
-
-  if (affiliation) {
-    bookFilters.push({ affiliation });
-  }
-
-  // If multiple filters, use $and, otherwise just use the filter
-  if (bookFilters.length > 1) {
-    bookFiltersOptions = { $and: bookFilters };
-  } else {
-    bookFiltersOptions = { ...bookFilters[0] };
-  }
-
-  // Combine all filters and return
-  const bookMatchOptions = {
-    $and: [
-      {
-        ...bookFiltersOptions,
-      },
-    ],
-  };
-
-  const search = {
-    text: {
-      query,
-      path: ["title", "author", "course"],
-      fuzzy: {
-        maxEdits: 2,
-        maxExpansions: 50,
-      },
-    },
-  };
-
-  const steps: Record<string, any>[] = [
-    {
-      $match: bookMatchOptions,
-    },
-  ];
-
-  if (query) {
-    steps.unshift({ $search: search });
-  }
-  return steps;
-}
-
-function _generateProjectMatchObjs({
-  projLocation,
-  projStatus,
-  projClassification,
-  queryString,
-  userUUID,
-  isSuperAdmin,
-}: {
-  projLocation?: string;
-  projStatus?: string;
-  projClassification?: string;
-  queryString?: string;
-  userUUID?: string;
-  isSuperAdmin?: boolean;
-}): Record<string, any>[] {
-  const projectFilters = [];
-  let projectFiltersOptions = {};
-
-  // If project location is not 'global', add it to the filters
-  if (projLocation === "local") {
-    projectFilters.push({ orgID: process.env.ORG_ID });
-  }
-
-  // If project classification is not 'any', add it to the filters
-  if (projClassification && projClassification !== "any") {
-    projectFilters.push({ classification: projClassification });
-  }
-
-  // If project status is not 'any', add it to the filters
-  if (projStatus && projectAPI.projectStatusOptions.includes(projStatus)) {
-    projectFilters.push({ status: projStatus });
-  }
-
-  // Generate visibility query
-  let visibilityQuery = {};
-  if (!isSuperAdmin) {
-    // If user is not a super admin, add visibility query
-    if (userUUID) {
-      const teamMemberQuery =
-        projectAPI.constructProjectTeamMemberQuery(userUUID);
-
-      // If userUUID is provided, add query for private projects that the user is a member of
-      const privateProjectQuery = {
-        $and: [{ visibility: "private" }, { $or: teamMemberQuery }],
-      };
-
-      visibilityQuery = {
-        $or: [privateProjectQuery, { visibility: "public" }],
-      };
-    } else {
-      // If userUUID is not provided, only show public projects
-      visibilityQuery = { visibility: "public" };
-    }
-
-    if (Object.keys(visibilityQuery).length > 0) {
-      projectFilters.push(visibilityQuery);
-    }
-  }
-
-  // If multiple filters, use $and, otherwise just use the filter
-  if (projectFilters.length > 1) {
-    projectFiltersOptions = { $and: projectFilters };
-  } else {
-    projectFiltersOptions = { ...projectFilters[0] };
-  }
-
-  if (!queryString) {
-    return [{ $match: projectFiltersOptions }];
-  }
-
-  // Combine all filters and return
-  return [
-    {
-      $search: {
-        text: {
-          query: queryString,
-          path: [
-            "title",
-            "author",
-            "libreShelf",
-            "libreCampus",
-            "associatedOrgs",
-          ],
-        },
-        scoreDetails: true,
-      },
-    },
-    {
-      $addFields: {
-        score: {
-          $getField: {
-            field: "value",
-            input: {
-              $meta: "searchScoreDetails",
-            },
-          },
-        },
-      },
-    },
-    {
-      $match: {
-        ...projectFiltersOptions,
-      },
-    },
-  ];
 }
 
 function _generateMiniReposMatchObjs({
@@ -1000,14 +387,6 @@ export async function assetsSearch(
       {
         $lookup: {
           from: "authors",
-          localField: "authors",
-          foreignField: "_id",
-          as: "authors",
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
           localField: "primaryAuthor",
           foreignField: "_id",
           as: "primaryAuthor",
@@ -1021,26 +400,13 @@ export async function assetsSearch(
         },
       },
       {
-        $lookup: {
-          from: "authors",
-          localField: "correspondingAuthor",
-          foreignField: "_id",
-          as: "correspondingAuthor",
-        },
-      },
-      {
-        $set: {
-          correspondingAuthor: {
-            $arrayElemAt: ["$correspondingAuthor", 0],
-          },
-        },
-      },
-      {
         $match: {
-          // Filter where project was not public or does not exist, so projectInfo wasn't set
-          projectInfo: {
+          // Filter where project was not public or does not exist, so projectInfo wasn't set.
+          // Checked via a projected field: `projectInfo: { $ne: [null, {}] }` compares
+          // against the array literal [null, {}] and never excludes anything.
+          "projectInfo.title": {
             $exists: true,
-            $ne: [null, {}],
+            $ne: null,
           },
         },
       },
@@ -1156,14 +522,6 @@ export async function assetsSearch(
       {
         $lookup: {
           from: "authors",
-          localField: "authors",
-          foreignField: "_id",
-          as: "authors",
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
           localField: "primaryAuthor",
           foreignField: "_id",
           as: "primaryAuthor",
@@ -1173,21 +531,6 @@ export async function assetsSearch(
         $set: {
           primaryAuthor: {
             $arrayElemAt: ["$primaryAuthor", 0],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
-          localField: "correspondingAuthor",
-          foreignField: "_id",
-          as: "correspondingAuthor",
-        },
-      },
-      {
-        $set: {
-          correspondingAuthor: {
-            $arrayElemAt: ["$correspondingAuthor", 0],
           },
         },
       },
@@ -1228,15 +571,8 @@ export async function assetsSearch(
             {
               $match: {
                 $expr: {
-                  $or: [
-                    {
-                      $in: ["$$authorId", "$authors"],
-                    }, // Check if the author id is in the authors array
-                    {
-                      $eq: ["$$authorId", "$primaryAuthor"],
-                    }, // Check if the author id is equal to the primary author
-                  ],
-                },
+                  $eq: ["$$authorId", "$primaryAuthor"],
+                }, // Check if the author id is equal to the primary author
               },
             },
           ],
@@ -1340,14 +676,6 @@ export async function assetsSearch(
       {
         $lookup: {
           from: "authors",
-          localField: "authors",
-          foreignField: "_id",
-          as: "authors",
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
           localField: "primaryAuthor",
           foreignField: "_id",
           as: "primaryAuthor",
@@ -1357,21 +685,6 @@ export async function assetsSearch(
         $set: {
           primaryAuthor: {
             $arrayElemAt: ["$primaryAuthor", 0],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
-          localField: "correspondingAuthor",
-          foreignField: "_id",
-          as: "correspondingAuthor",
-        },
-      },
-      {
-        $set: {
-          correspondingAuthor: {
-            $arrayElemAt: ["$correspondingAuthor", 0],
           },
         },
       },
@@ -1450,14 +763,6 @@ export async function assetsSearch(
       {
         $lookup: {
           from: "authors",
-          localField: "authors",
-          foreignField: "_id",
-          as: "authors",
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
           localField: "primaryAuthor",
           foreignField: "_id",
           as: "primaryAuthor",
@@ -1467,21 +772,6 @@ export async function assetsSearch(
         $set: {
           primaryAuthor: {
             $arrayElemAt: ["$primaryAuthor", 0],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
-          localField: "correspondingAuthor",
-          foreignField: "_id",
-          as: "correspondingAuthor",
-        },
-      },
-      {
-        $set: {
-          correspondingAuthor: {
-            $arrayElemAt: ["$correspondingAuthor", 0],
           },
         },
       },
@@ -1529,19 +819,9 @@ export async function assetsSearch(
       allResults = allResults.filter((file) => {
         const primaryAuthor =
           `${file.primaryAuthor?.firstName} ${file.primaryAuthor?.lastName}`.toLowerCase();
-        const correspondingAuthor =
-          `${file.correspondingAuthor?.firstName} ${file.correspondingAuthor?.lastName}`.toLowerCase();
 
-        // Check if the person is in authors array, primary author, or corresponding author
-        return (
-          file.authors.find((author: any) => {
-            return `${author.firstName} ${author.lastName}`
-              .toLowerCase()
-              .includes(lowercased);
-          }) ||
-          primaryAuthor.includes(lowercased) ||
-          correspondingAuthor.includes(lowercased)
-        );
+        // Check if the person is the primary author
+        return primaryAuthor.includes(lowercased);
       });
     }
 
@@ -1611,7 +891,7 @@ export async function assetsSearch(
       results: paginated,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "assetsSearch failed");
     return conductor500Err(res);
   }
 }
@@ -1774,7 +1054,7 @@ async function homeworkSearch(
       results: paginated,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "homeworkSearch failed");
     return conductor500Err(res);
   }
 }
@@ -1845,7 +1125,7 @@ async function usersSearch(
       results: paginated,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "usersSearch failed");
     return conductor500Err(res);
   }
 }
@@ -1917,7 +1197,7 @@ async function authorsSearch(
       results: filtered,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "authorsSearch failed");
     return conductor500Err(res);
   }
 }
@@ -2107,7 +1387,7 @@ async function getAutocompleteResults(
       results: caseInsensitiveFiltered,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getAutocompleteResults failed");
     return conductor500Err(res);
   }
 }
@@ -2311,7 +1591,7 @@ async function getAssetFilterOptions(req: Request, res: Response) {
       people: authors,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getAssetFilterOptions failed");
     return conductor500Err(res);
   }
 }
@@ -2343,7 +1623,7 @@ async function getAuthorFilterOptions(req: Request, res: Response) {
       primaryInstitutions,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getAuthorFilterOptions failed");
     return conductor500Err(res);
   }
 }
@@ -2355,7 +1635,7 @@ async function getProjectFilterOptions(req: Request, res: Response) {
       statuses: ["available", "open", "completed"],
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getProjectFilterOptions failed");
     return conductor500Err(res);
   }
 }
@@ -2383,7 +1663,8 @@ async function bookSearchV2(
       affiliation: req.query.affiliation,
     });
 
-    let combinedFilter: FilterObject = filterMap;
+    const filterClauses: FilterInput[] = [filterMap];
+
     if (process.env.ORG_ID !== "libretexts") {
       const [orgData, customCatalog] = await Promise.all([
         Organization.findOne({ orgID: process.env.ORG_ID }),
@@ -2402,10 +1683,25 @@ async function bookSearchV2(
         campusNames,
       });
 
-      combinedFilter = {
-        $and: [filterMap, catalogAccessFilter],
-      };
+      filterClauses.push(catalogAccessFilter);
     }
+
+    // Filter by attached public/instructor assets (indexed as numeric counts during sync).
+    if (req.query.assets === "any") {
+      filterClauses.push({
+        $or: [
+          { publicAssets: { $gt: 0 } },
+          { instructorAssets: { $gt: 0 } }, 
+        ]
+      });
+    } else if (req.query.assets === "public") {
+      filterClauses.push({ publicAssets: { $gt: 0 } });
+    } else if (req.query.assets === "instructors") {
+      filterClauses.push({ instructorAssets: { $gt: 0 } });
+    }
+
+    const combinedFilter: FilterObject =
+      filterClauses.length > 1 ? { $and: filterClauses } : filterMap;
 
     const page = parseInt(req.query.page?.toString()) || 1;
     const limit = parseInt(req.query.limit?.toString()) || 25;
@@ -2422,7 +1718,7 @@ async function bookSearchV2(
       results: results.hits,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "bookSearchV2 failed");
     return conductor500Err(res);
   }
 }
@@ -2472,7 +1768,7 @@ async function projectSearchV2(
       results: results.hits,
     });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "projectSearchV2 failed");
     return conductor500Err(res);
   }
 }
@@ -2572,20 +1868,6 @@ function _boostExactMatches(file: any, query: string) {
   const searchQuery = query.toLowerCase().split(" ");
   const name = file.name?.toLowerCase() ?? "";
   const description = file.description?.toLowerCase() ?? "";
-  const authorFirsts =
-    file.authors?.map((a: any) => {
-      if (!a || typeof a !== "object") return null;
-      if (!a.firstName) return null;
-      if (typeof a.firstName === "string") return a.firstName.toLowerCase();
-      return null;
-    }) ?? [];
-  const authorLasts =
-    file.authors?.map((a: any) => {
-      if (!a || typeof a !== "object") return null;
-      if (!a.lastName) return null;
-      if (typeof a.lastName === "string") return a.lastName.toLowerCase();
-      return null;
-    }) ?? [];
   const tags =
     (file.tags?.map((t: any) => {
       if (!t || typeof t !== "object") return null;
@@ -2604,34 +1886,13 @@ function _boostExactMatches(file: any, query: string) {
   ) {
     file.score = file.score * 2;
   }
-  if (
-    authorFirsts.some((firstName: string) => searchQuery.includes(firstName))
-  ) {
-    file.score = file.score * 2;
-  }
-  if (authorLasts.some((lastName: string) => searchQuery.includes(lastName))) {
-    file.score = file.score * 2;
-  }
 
-  const boostByPrimaryOrCorresponding = () => {
-    if (file.primaryAuthor) {
-      const primaryAuthor = `${file.primaryAuthor.firstName} ${file.primaryAuthor.lastName}`;
-      if (searchQuery.some((s) => primaryAuthor.toLowerCase().includes(s))) {
-        file.score = file.score * 2;
-        return; // don't boost corresponding author if primary author is a match
-      }
+  if (file.primaryAuthor) {
+    const primaryAuthor = `${file.primaryAuthor.firstName} ${file.primaryAuthor.lastName}`;
+    if (searchQuery.some((s) => primaryAuthor.toLowerCase().includes(s))) {
+      file.score = file.score * 2;
     }
-    if (file.correspondingAuthor) {
-      const correspondingAuthor = `${file.correspondingAuthor.firstName} ${file.correspondingAuthor.lastName}`;
-      if (
-        searchQuery.some((s) => correspondingAuthor.toLowerCase().includes(s))
-      ) {
-        file.score = file.score * 2;
-      }
-    }
-  };
-
-  boostByPrimaryOrCorresponding();
+  }
 
   if (tags.length > 0) {
     const flattened = tags.flat();
@@ -2677,7 +1938,7 @@ async function recordSearch(
     const { query, scope } = req.body;
     recordSearchQuery(query, scope);
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "recordSearch failed");
   }
   return res.send({ err: false });
 }
@@ -2699,17 +1960,15 @@ async function getSearchSuggestions(
       : [];
     return res.send({ err: false, suggestions });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "getSearchSuggestions failed");
     return res.send({ err: false, suggestions: [] });
   }
 }
 
 export default {
   assetsSearch,
-  booksSearch,
   homeworkSearch,
   miniReposSearch,
-  projectsSearch,
   usersSearch,
   authorsSearch,
   getAutocompleteResults,

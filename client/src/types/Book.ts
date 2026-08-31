@@ -16,6 +16,11 @@ export type Book = {
   thumbnail: string;
   thumbnailIsAnimated?: boolean;
   summary: string;
+  exportInfo?: {
+    isCompiled?: boolean;
+    lastCompiled?: number;
+    contentPageCount?: number;
+  };
   rating: number;
   links: BookLinks;
   lastUpdated: string;
@@ -158,3 +163,6 @@ export type BooksManagerSortOptions =
   | "book_id_desc"
   | "library_asc"
   | "library_desc";
+
+
+export type CreateMatterSelection = "front" | "back" | "both";

@@ -1,4 +1,5 @@
 // server/api/services/agent.ts
+import logger from "../../logger.js";
 import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, AIMessage, BaseMessage } from '@langchain/core/messages';
 import { DynamicStructuredTool } from '@langchain/core/tools';
@@ -68,7 +69,7 @@ export class AgentService {
    * Load chat history from database
    */
   private async loadChatHistory(sessionId: string): Promise<BaseMessage[]> {
-    const session = await AgentHistory.findOne({ sessionId });
+    const session = await AgentHistory.findOne({ sessionId: { $eq: sessionId } });
 
     if (!session || !session.messages || session.messages.length === 0) {
       return [];
@@ -88,7 +89,7 @@ export class AgentService {
    */
   private async saveMessages(sessionId: string, userMessage: string, aiMessage: string) {
     await AgentHistory.updateOne(
-      { sessionId },
+      { sessionId: { $eq: sessionId } },
       {
         $push: {
           messages: [
@@ -114,7 +115,7 @@ export class AgentService {
       }),
       func: async ({ query }) => {
         try {
-          console.log(`🔍 Google Search: "${query}"`);
+          logger.info(`🔍 Google Search: "${query}"`);
 
           if (!process.env.SERPER_API_KEY) {
             return 'Google Search is not available (API key not configured)';
@@ -150,7 +151,7 @@ export class AgentService {
 
           return `Google Search Results:\n\n${formattedResults}`;
         } catch (error: any) {
-          console.error('Google Search error:', error.message);
+          logger.error({ err: error.message }, 'Google Search error');
           return `Error searching Google: ${error.message}`;
         }
       },
@@ -170,7 +171,7 @@ export class AgentService {
       }),
       func: async ({ query, limit = 3 }) => {
         try {
-          console.log(`📚 KB Search: "${query}" (limit: ${limit})`);
+          logger.info(`📚 KB Search: "${query}" (limit: ${limit})`);
 
           const results = await qdrantService.searchSimilar(query, limit);
 
@@ -189,7 +190,7 @@ export class AgentService {
 
           return `Knowledge Base Results:\n\n${formattedResults}`;
         } catch (error: any) {
-          console.error('KB Search error:', error.message);
+          logger.error({ err: error.message }, 'KB Search error');
           return `Error searching Knowledge Base: ${error.message}`;
         }
       },
@@ -230,7 +231,7 @@ export class AgentService {
     systemPrompt: string = buildSystemPrompt({ tone: 'default', includeHistory: true })
   ): Promise<AgentResponse> {
     try {
-      console.log(`🤖 LangGraph Agent Query: "${query}" [Session: ${sessionId}]`);
+      logger.info(`🤖 LangGraph Agent Query: "${query}" [Session: ${sessionId}]`);
 
       // Load chat history
       const chatHistory = await this.loadChatHistory(sessionId);
@@ -288,7 +289,7 @@ export class AgentService {
         timestamp: new Date().toISOString(),
       };
     } catch (error: any) {
-      console.error('❌ LangGraph Agent error:', error);
+      logger.error({ err: error }, '❌ LangGraph Agent error');
       throw error;
     }
   }
@@ -383,7 +384,7 @@ export class AgentService {
       
       return mermaidString;
     } catch (error: any) {
-      console.error('Error generating graph visualization:', error);
+      logger.error({ err: error }, 'Error generating graph visualization');
       throw error;
     }
   }
@@ -392,8 +393,8 @@ export class AgentService {
     const mermaid = await this.getGraphVisualization();
     const fs = await import('fs/promises');
     await fs.writeFile(filename, mermaid, 'utf-8');
-    console.log(`✅ Graph exported to ${filename}`);
-    console.log('View it at: https://mermaid.live/');
+    logger.info(`✅ Graph exported to ${filename}`);
+    logger.info('View it at: https://mermaid.live/');
   }
 }
 

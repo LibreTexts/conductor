@@ -3,9 +3,9 @@
 // users.js
 
 'use strict';
+import logger from "../logger.js";
 import express from 'express';
 import { body, query, param } from 'express-validator';
-import { debugError } from '../debug.js';
 import User, { DEFAULT_PINNED_PROJECTS } from '../models/user.js';
 import conductorErrors from '../conductor-errors.js';
 import authAPI from './auth.js';
@@ -18,7 +18,7 @@ import { getPaginationOffset } from '../util/helpers.js';
  */
 const getBasicUserInfo = (req, res) => {
     User.findOne({
-        uuid: req.decoded.uuid
+        uuid: { $eq: req.decoded.uuid }
     }, {
         _id: 0,
         uuid: 1,
@@ -40,7 +40,7 @@ const getBasicUserInfo = (req, res) => {
     }).catch((err) => {
         let errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err7;
-        debugError(err);
+        logger.error({ err }, "getBasicUserInfo failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -125,7 +125,7 @@ const getBasicAccountInfo = (req, res) => {
     }).catch((err) => {
         let errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err7;
-        debugError(err);
+        logger.error({ err }, "getBasicAccountInfo failed");
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
@@ -143,7 +143,7 @@ async function getCentralID(req, res) {
             });
         }
 
-        const user = await User.findOne({ uuid }).lean();
+        const user = await User.findOne({ uuid: { $eq: uuid } }).lean();
 
         if (!user) {
             return res.status(400).send({
@@ -157,7 +157,7 @@ async function getCentralID(req, res) {
             centralID: user.centralID || null,
         })
     } catch (err) {
-        debugError(err);
+        logger.error({ err }, "getCentralID failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -189,7 +189,7 @@ async function getUserFromCentralID(req, res) {
             uuid: user.uuid,
         })
     } catch (err) {
-        debugError(err);
+        logger.error({ err }, "getUserFromCentralID failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -205,7 +205,7 @@ async function getUserFromCentralID(req, res) {
  */
 async function checkVerifiedInstructorStatus(uuid) {
     if (uuid) {
-        const user = await User.findOne({ uuid }).lean();
+        const user = await User.findOne({ uuid: { $eq: uuid } }).lean();
         const verified = !!user.verifiedInstructor;
         let isSuperAdmin = false;
         if (Array.isArray(user.roles)) {
@@ -254,7 +254,7 @@ async function updateUserInstructorProfile(req, res) {
         }
 
         await User.updateOne(
-            { uuid: req.user.decoded.uuid },
+            { uuid: { $eq: req.user.decoded.uuid } },
             { instructorProfile: profileUpdate },
         );
         return res.send({
@@ -262,7 +262,7 @@ async function updateUserInstructorProfile(req, res) {
             msg: 'Successfully updated user instructor profile!',
         });
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "updateUserInstructorProfile failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -324,7 +324,7 @@ const getUsersList = async (_req, res) => {
         })
 
     } catch (e){
-        debugError(e);
+        logger.error({ err: e }, "getUsersList failed");
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
@@ -363,7 +363,7 @@ const getBasicUsersList = (_req, res) => {
             users: users
         });
     }).catch((err) => {
-        debugError(err);
+        logger.error({ err }, "getBasicUsersList failed");
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
@@ -444,7 +444,7 @@ const getUserInfoAdmin = (req, res) => {
     }).catch((err) => {
         let errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err7;
-        debugError(err);
+        logger.error({ err }, "getUserInfoAdmin failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -491,8 +491,8 @@ const getUserInfoAdmin = (req, res) => {
  * @returns {Promise<object[]>} The list of authorized apps, or an empty array if not found.
  */
 async function getUserAuthorizedApplications(uuid) {
-  if (typeof (uuid) === 'string' || uuid.length > 0) {
-    const foundUser = await User.findOne({ uuid }).lean();
+  if (typeof (uuid) === 'string' && uuid.length > 0) {
+    const foundUser = await User.findOne({ uuid: { $eq: uuid } }).lean();
     if (foundUser && Array.isArray(foundUser.authorizedApps)) {
       return foundUser.authorizedApps;
     }
@@ -592,7 +592,7 @@ async function getAuthorizedApplications(req, res) {
             apps: userApps,
         });
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "getAuthorizedApplications failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -609,7 +609,7 @@ async function getAuthorizedApplications(req, res) {
  */
 async function addUserAuthorizedApplication(uuid, clientID) {
   if (uuid && clientID) {
-    const foundUser = await User.findOne({ uuid }).lean();
+    const foundUser = await User.findOne({ uuid: { $eq: uuid } }).lean();
     if (foundUser) {
       let authorized = [];
       if (Array.isArray(foundUser.authorizedApps)) {
@@ -628,7 +628,7 @@ async function addUserAuthorizedApplication(uuid, clientID) {
           authorizedAt: now,
         });
       }
-      const updated = await User.updateOne({ uuid }, {
+      const updated = await User.updateOne({ uuid: { $eq: uuid } }, {
         authorizedApps: authorized,
       });
       if (updated.modifiedCount === 1) {
@@ -649,7 +649,7 @@ async function removeUserAuthorizedApplication(req, res) {
     try {
         const { clientID } = req.params;
         await User.updateOne(
-            { uuid: req.user.decoded.uuid },
+            { uuid: { $eq: req.user.decoded.uuid } },
             { $pull: { authorizedApps: { clientID } } },
         );
         return res.send({
@@ -696,7 +696,7 @@ async function getInstructorProfile(req, res) {
             uuid: foundUser.uuid,
         });
     } catch (e) {
-        debugError(e);
+        logger.error({ err: e }, "getInstructorProfile failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -799,7 +799,7 @@ async function updateUserPinnedProjects(req, res) {
             pinned: user.pinnedProjects
         })
     } catch (err) {
-        debugError(err);
+        logger.error({ err }, "updateUserPinnedProjects failed");
         return res.status(500).send({
             err: true,
             errMsg: conductorErrors.err6,
@@ -869,7 +869,7 @@ const getUserRoles = (req, res) => {
     }).catch((err) => {
         let errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err7;
-        debugError(err);
+        logger.error({ err }, "getUserRoles failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -937,7 +937,7 @@ const updateUserRole = (req, res) => {
         else if (err.message === 'invalid') errMsg = conductorErrors.err2;
         else if (err.message === 'notfound') errMsg = conductorErrors.err7;
         else if (err.message === 'updatefail') errMsg = conductorErrors.err3;
-        debugError(err);
+        logger.error({ err }, "updateUserRole failed");
         return res.send({
             err: true,
             errMsg: errMsg
@@ -994,7 +994,7 @@ const deleteUserRole = async (req, res) => {
         });
       }
     } catch (err) {
-      debugError(err);
+      logger.error({ err }, "deleteUserRole failed");
       return res.status(500).send({
         err: true,
         errMsg: conductorErrors.err6

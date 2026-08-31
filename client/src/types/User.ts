@@ -55,3 +55,23 @@ export type AuthorizedApp = {
 export type UserWCentralID = User & {
   centralID?: string;
 };
+
+export type UXAcknowledgmentStatus = "seen" | "dismissed" | "completed";
+
+/**
+ * A record of a single one-off UI prompt (banner, welcome dialog, tour, hint)
+ * the user has seen, dismissed, or completed. Dates are ISO strings over the wire.
+ */
+export interface UXAcknowledgmentEntry {
+  status: UXAcknowledgmentStatus;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  dismissedAt?: string;
+  completedAt?: string;
+  viewCount: number;
+  dismissCount: number;
+  data?: Record<string, unknown>;
+}
+
+/** The current user's acknowledgment map, keyed by acknowledgment id. */
+export type UXAcknowledgmentMap = Record<string, UXAcknowledgmentEntry>;

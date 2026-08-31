@@ -7,7 +7,9 @@ if (process.env.NODE_ENV === "production") {
   await import("newrelic");
 }
 
+// Must precede ./logger.js — the logger reads NODE_ENV/LOG_LEVEL at module init.
 import "dotenv/config";
+import logger, { childLogger } from "./logger.js";
 import path from "path";
 import { exit } from "process";
 import { fileURLToPath } from "url";
@@ -17,14 +19,17 @@ import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
 import Promise from "bluebird";
 import helmet from "helmet";
-import { debug, debugServer, debugDB } from "./debug.js";
 import api, { permalinkRouter } from "./api.js";
+import { requestContext } from "./request-context.js";
+import { httpLogger } from "./http-logger.js";
 import { floodShield } from "./util/rateLimitHelpers.js";
 import { sitemapRouter } from "./static-endpoints/sitemap.js";
+const dbLog = childLogger("db");
 
 // Prevent startup without ORG_ID env variable
 if (!process.env.ORG_ID) {
-  debug("[FATAL ERROR]: The ORG_ID environment variable is missing.");
+  logger.fatal("The ORG_ID environment variable is missing.");
+  logger.flush();
   exit(1);
 }
 
@@ -112,9 +117,23 @@ app.use(
   })
 );
 
+// Build identity endpoint. Used by the client to detect that a new release is live
+// so it can prompt for a reload instead of failing on a chunk that no longer exists.
+app.get("/api/v1/build", (_req, res) => {
+  res
+    .setHeader("Cache-Control", "no-store")
+    .json({
+      version: process.env.VERSION ?? "dev",
+      ref: process.env.VCS_REF ?? null,
+    });
+});
+
 // Serve API
-app.use("/api/v1", floodShield, api);
-app.use("/permalink", permalinkRouter);
+// requestContext opens the AsyncLocalStorage scope that gives every log line beneath a
+// request its reqId; httpLogger emits the one access line per request. Both are mounted
+// here rather than globally so static asset and SPA-fallback traffic stays out of the logs.
+app.use("/api/v1", requestContext, httpLogger, floodShield, api);
+app.use("/permalink", requestContext, httpLogger, permalinkRouter);
 
 // Health endpoint that checks actual MongoDB connection status
 app.use("/health", (_req, res) => {
@@ -153,22 +172,95 @@ if (process.env.NODE_ENV !== "production") {
   );
 }
 
+// Build identity used to cache-bust the two runtime-generated scripts below. Their contents are
+// fixed for the life of a build, so a versioned URL can be cached hard while a new deploy moves
+// clients to a new URL via the (uncached) document.
+const BUILD_VERSION = process.env.VERSION;
+
+// Point the document at the versioned URLs. Without a VERSION (local dev) the plain paths stay,
+// which is what the Vite dev server serves anyway.
+if (BUILD_VERSION) {
+  const v = encodeURIComponent(BUILD_VERSION);
+  indexHtml = indexHtml
+    .replace('src="/env.js"', `src="/env.js?v=${v}"`)
+    .replace('src="/matomo-init.js"', `src="/matomo-init.js?v=${v}"`);
+}
+
+// A request carrying the current build's version can never go stale: the URL changes on the next
+// deploy. Anything else (a client on old HTML, a bookmark, a crawler) gets a short TTL so it
+// self-heals within minutes instead of pinning a stale copy. `public` so the edge can serve it too.
+const setBuildScriptCacheControl = (req: express.Request, res: express.Response) => {
+  const versioned = BUILD_VERSION && req.query.v === BUILD_VERSION;
+  res.setHeader(
+    "Cache-Control",
+    versioned ? "public, max-age=31536000, immutable" : "public, max-age=300"
+  );
+};
+
+// The document must never be cached: it is the only thing that maps a client to the
+// current build's hashed chunk filenames. Stale HTML points at chunks that no longer exist.
+const sendIndexHtml = (res: express.Response) => {
+  res
+    .setHeader("Content-Type", "text/html")
+    .setHeader("Cache-Control", "no-cache, must-revalidate")
+    .send(indexHtml);
+};
+
 // Serve index.html from the in-memory copy so the conditional strip takes effect; static middleware handles other assets.
 app.get(["/", "/index.html"], (_req, res) => {
-  res.setHeader("Content-Type", "text/html").send(indexHtml);
+  sendIndexHtml(res);
 });
 
 app.use(sitemapRouter());
 
-app.use(express.static(clientDist, { index: false }));
+// Vite content-hashes every filename under /assets, so a given URL's bytes never change:
+// cache it for a year. This also keeps a previous build's chunks alive at the edge long
+// after a deploy, which is what already-open tabs need.
+// fallthrough:false is load-bearing — without it a missing chunk falls through to the SPA
+// catch-all below and is answered with 200 text/html, which Cloudflare then caches under
+// the .js URL and serves to every user until the TTL expires.
+app.use(
+  "/assets",
+  express.static(path.join(clientDist, "assets"), {
+    index: false,
+    fallthrough: false,
+    immutable: true,
+    maxAge: "1y",
+  })
+);
+
+app.use(
+  "/assets",
+  (
+    err: any,
+    _req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+  ) => {
+    if (err?.status === 404 || err?.statusCode === 404) {
+      res
+        .status(404)
+        .setHeader("Cache-Control", "no-store")
+        .type("text/plain")
+        .send("Not found");
+      return;
+    }
+    next(err);
+  }
+);
+
+// Branding assets copied from client/public: favicons, touch icons, logos, manifest. None are
+// content-hashed, so they get a bounded TTL rather than `immutable` — the ETag makes the weekly
+// revalidation cheap. Without an explicit maxAge, express.static sends `public, max-age=0`, which
+// forces a revalidation round trip on every page load AND makes the response uncacheable at the edge.
+app.use(express.static(clientDist, { index: false, maxAge: "7d" }));
 
 // Serve runtime env config for frontend use. Loaded via <script src="/env.js"> in index.html to avoid CSP issues with inline scripts.
 const appEnv = process.env.APP_ENV ?? "production";
 const envJs = `window.__APP_ENV__ = ${JSON.stringify(appEnv)};`;
-app.get("/env.js", (_req, res) => {
-  res.setHeader("Content-Type", "application/javascript")
-    .setHeader("Cache-Control", "public, max-age=31536000, immutable") // Caching to improve performance since this doesn't change after initial load
-    .send(envJs);
+app.get("/env.js", (req, res) => {
+  setBuildScriptCacheControl(req, res);
+  res.setHeader("Content-Type", "application/javascript").send(envJs);
 });
 
 // Matomo tracking
@@ -188,15 +280,30 @@ const matomoJS = matomoDomain && matomoSiteID ? `
     g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
   })();
 ` : '/* Matomo not configured */';
-app.get("/matomo-init.js", (_req, res) => {
-  res.setHeader("Content-Type", "application/javascript")
-    .setHeader("Cache-Control", "public, max-age=31536000, immutable") // Caching to improve performance since this doesn't change after initial load
-    .send(matomoJS);
+app.get("/matomo-init.js", (req, res) => {
+  setBuildScriptCacheControl(req, res);
+  res.setHeader("Content-Type", "application/javascript").send(matomoJS);
 });
 
+// Extensions of files this server ships. A request for one of these that reaches the SPA
+// fallback missed on disk. Kept to a known list rather than "any dot" so app routes whose
+// params contain a period still resolve.
+const STATIC_FILE_EXT =
+  /\.(js|mjs|cjs|css|map|json|webmanifest|png|jpe?g|gif|svg|ico|webp|avif|woff2?|ttf|otf|eot|txt|xml)$/i;
+
 let cliRouter = express.Router();
-cliRouter.route("*").get((_req, res) => {
-  res.setHeader("Content-Type", "text/html").send(indexHtml);
+cliRouter.route("*").get((req, res) => {
+  // A static asset request that missed. Answering it with the app shell produces a
+  // cacheable 200 of HTML under an asset URL, which poisons the CDN for every other client.
+  if (STATIC_FILE_EXT.test(req.path)) {
+    res
+      .status(404)
+      .setHeader("Cache-Control", "no-store")
+      .type("text/plain")
+      .send("Not found");
+    return;
+  }
+  sendIndexHtml(res);
 });
 app.use("/", cliRouter);
 
@@ -208,14 +315,28 @@ const server = app.listen(port, () => {
   } else {
     startupMsg = `Conductor (${process.env.ORG_ID}) is listening on ${port}`;
   }
-  debugServer(startupMsg);
+  logger.info(startupMsg);
 
   // Initiate MongoDB connection after server is listening
   connectToMongoDB();
 });
 
 server.on("error", (err: Error) => {
-  debugServer(err);
+  logger.error({ err }, "HTTP server error");
+});
+
+/* Without these, a crash leaves nothing behind — the process dies before anything is
+   written. `flush` is what gets the line out ahead of the exit. */
+process.on("uncaughtException", (err) => {
+  logger.fatal({ err }, "Uncaught exception — exiting");
+  logger.flush();
+  exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  logger.fatal({ err: reason }, "Unhandled promise rejection — exiting");
+  logger.flush();
+  exit(1);
 });
 
 /**
@@ -226,24 +347,27 @@ async function connectToMongoDB(retryCount = 0) {
   const retryDelay = 5000; // 5 seconds
 
   try {
-    debugDB(`Attempting to connect to MongoDB (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+    dbLog.info(`Attempting to connect to MongoDB (attempt ${retryCount + 1}/${maxRetries + 1})...`);
 
     await mongoose.connect(process.env.MONGOOSEURI ?? "", {
       maxPoolSize: process.env.ORG_ID === "libretexts" ? 100 : 25,
     });
 
-    debugDB("✓ Connected to MongoDB Atlas.");
+    dbLog.info("✓ Connected to MongoDB Atlas.");
   } catch (err) {
-    debugDB(`✗ Failed to connect to MongoDB (attempt ${retryCount + 1}/${maxRetries + 1}):`);
-    debugDB(err);
-
     if (retryCount < maxRetries) {
-      debugDB(`Retrying in ${retryDelay / 1000} seconds...`);
+      // Recoverable: another attempt is already scheduled.
+      dbLog.warn(
+        { err, attempt: retryCount + 1, maxAttempts: maxRetries + 1, retryInMs: retryDelay },
+        "Failed to connect to MongoDB — retrying"
+      );
       setTimeout(() => connectToMongoDB(retryCount + 1), retryDelay);
     } else {
-      debugDB("[FATAL ERROR]: Unable to connect to MongoDB after maximum retries.");
-      debugDB("Please check MongoDB connection string and network connectivity.");
-      debugDB("Exiting process.");
+      dbLog.fatal(
+        { err, attempts: maxRetries + 1 },
+        "Unable to connect to MongoDB after maximum retries — check the connection string and network connectivity"
+      );
+      dbLog.flush();
       // Exit the process if we can't connect to MongoDB after all retries
       exit(1);
     }
@@ -252,16 +376,15 @@ async function connectToMongoDB(retryCount = 0) {
 
 // Handle MongoDB connection events
 mongoose.connection.on("connected", () => {
-  debugDB("MongoDB connection established");
+  dbLog.info("MongoDB connection established");
 });
 
 mongoose.connection.on("error", (err) => {
-  debugDB("MongoDB connection error:");
-  debugDB(err);
+  dbLog.error({ err }, "MongoDB connection error");
 });
 
 mongoose.connection.on("disconnected", () => {
-  debugDB("MongoDB connection lost. Attempting to reconnect...");
+  dbLog.warn("MongoDB connection lost. Attempting to reconnect...");
 });
 
 /**
@@ -269,13 +392,12 @@ mongoose.connection.on("disconnected", () => {
  */
 function shutdown() {
   if (server.listening) {
-    console.log("\nConductor is shutting down...");
+    logger.info("Conductor is shutting down...");
     server.close(async () => {
-      await mongoose.disconnect().catch((e) => {
-        console.error("Error gracefully closing MongoDB connection:");
-        console.error(e);
+      await mongoose.disconnect().catch((err) => {
+        logger.error({ err }, "Error gracefully closing MongoDB connection");
       });
-      console.log("Conductor shutdown successfully.\n");
+      logger.info("Conductor shutdown successfully.");
     });
   }
 }

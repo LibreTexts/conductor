@@ -1,3 +1,4 @@
+import logger from "../logger.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -123,9 +124,7 @@ function parseFileFirstWins(filePath) {
             try {
               result[key] = JSON.parse(valueStr);
             } catch (e) {
-              console.warn(
-                `  Warning: could not parse value for key "${key}" in ${path.basename(filePath)}: ${e.message}. Skipping.`
-              );
+              logger.warn({ err: e, key, file: path.basename(filePath) }, "Could not parse value — skipping");
             }
             break;
           }
@@ -183,7 +182,7 @@ function transformRecord(nameKey, record, orgID) {
 export async function runMigration() {
   const migrationTitle = "Import Authors from JSON Files";
   try {
-    console.log(`Running migration "${migrationTitle}"...`);
+    logger.info(`Running migration "${migrationTitle}"...`);
 
     if (!process.env.MONGOOSEURI) {
       throw new Error("MONGOOSEURI environment variable is not set.");
@@ -196,28 +195,28 @@ export async function runMigration() {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
-    console.log("Connected to MongoDB.");
+    logger.info("Connected to MongoDB.");
 
     const headerPath = path.resolve(__dirname, "../../prod-authors-header.json");
     const footerPath = path.resolve(__dirname, "../../prod-authors-footer.json");
 
-    console.log("Parsing prod-authors-header.json (first-wins)...");
+    logger.info("Parsing prod-authors-header.json (first-wins)...");
     const headerData = parseFileFirstWins(headerPath);
-    console.log(`  ${Object.keys(headerData).length} unique records`);
+    logger.info(`  ${Object.keys(headerData).length} unique records`);
 
-    console.log("Parsing prod-authors-footer.json (first-wins)...");
+    logger.info("Parsing prod-authors-footer.json (first-wins)...");
     const footerData = parseFileFirstWins(footerPath);
-    console.log(`  ${Object.keys(footerData).length} unique records`);
+    logger.info(`  ${Object.keys(footerData).length} unique records`);
 
     const merged = mergeData(headerData, footerData);
-    console.log(`Merged total: ${Object.keys(merged).length} unique records`);
+    logger.info(`Merged total: ${Object.keys(merged).length} unique records`);
 
     // Load existing nameKeys to make this migration idempotent
     const existing = await Author.find({ orgID: process.env.ORG_ID })
       .select("nameKey")
       .lean();
     const existingKeys = new Set(existing.map((a) => a.nameKey));
-    console.log(`Existing authors in DB: ${existingKeys.size}`);
+    logger.info(`Existing authors in DB: ${existingKeys.size}`);
 
     const toInsert = [];
     const skippedExisting = [];
@@ -232,7 +231,7 @@ export async function runMigration() {
       const doc = transformRecord(nameKey, record, process.env.ORG_ID);
 
       if (!doc.name) {
-        console.warn(`  Skipping "${nameKey}": missing required "name" field.`);
+        logger.warn(`  Skipping "${nameKey}": missing required "name" field.`);
         skippedInvalid.push(nameKey);
         continue;
       }
@@ -240,28 +239,26 @@ export async function runMigration() {
       toInsert.push(doc);
     }
 
-    console.log(`Records to insert:               ${toInsert.length}`);
-    console.log(`Records skipped (already in DB): ${skippedExisting.length}`);
-    console.log(`Records skipped (invalid data):  ${skippedInvalid.length}`);
+    logger.info(`Records to insert:               ${toInsert.length}`);
+    logger.info(`Records skipped (already in DB): ${skippedExisting.length}`);
+    logger.info(`Records skipped (invalid data):  ${skippedInvalid.length}`);
 
     if (toInsert.length === 0) {
-      console.log("Nothing to insert. Migration already complete.");
+      logger.info("Nothing to insert. Migration already complete.");
       return;
     }
 
     // ordered: false — continue inserting even if individual docs fail
     const insertResult = await Author.insertMany(toInsert, { ordered: false });
-    console.log(`Inserted ${insertResult.length} authors successfully.`);
-    console.log(`Completed migration "${migrationTitle}".`);
+    logger.info(`Inserted ${insertResult.length} authors successfully.`);
+    logger.info(`Completed migration "${migrationTitle}".`);
   } catch (e) {
     // MongoBulkWriteError is thrown by insertMany when ordered:false and some docs fail
     if (e.name === "MongoBulkWriteError") {
-      console.log(
-        `Inserted ${e.result?.nInserted ?? 0} authors (${e.writeErrors?.length ?? 0} skipped due to write errors).`
-      );
+      logger.info(`Inserted ${e.result?.nInserted ?? 0} authors (${e.writeErrors?.length ?? 0} skipped due to write errors).`);
       return;
     }
-    console.error(`Fatal error during migration "${migrationTitle}": ${e.toString()}`);
+    logger.error({ err: e }, `Fatal error during migration "${migrationTitle}"`);
     throw e;
   } finally {
     await mongoose.disconnect();
@@ -272,6 +269,6 @@ export async function runMigration() {
 // runMigration()
 //   .then(() => process.exit(0))
 //   .catch((e) => {
-//     console.error(`Migration failed: ${e.toString()}`);
+//     console.error({ err: e }, "Migration failed");
 //     process.exit(1);
 //   });

@@ -1,13 +1,5 @@
-import { z } from "zod";
 import { AtlasSearchHighlight, KBPage, SupportTicket, User } from "../types";
 import DOMPurify from "dompurify";
-
-export const checkIsUUID = (str?: string | null) => {
-  if (!str) return false;
-  const parsed = z.string().uuid().safeParse(str);
-  const isUUID = parsed.success;
-  return isUUID;
-};
 
 export const getKBSharingObj = (page: KBPage) => {
   return {
