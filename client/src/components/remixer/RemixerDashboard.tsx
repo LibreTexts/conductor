@@ -38,6 +38,7 @@ import {
 import {
   DropPosition,
   applyBookNodeDeletion,
+  applyBookNodeRestore,
   applyDefaultBookArticleTypes,
   applySiblingDuplicateTitleSuffixes,
   buildBookPaths,
@@ -298,6 +299,8 @@ const RemixerDashboard: React.FC = () => {
     contextMenu != null &&
     !isRootBookNode(remixerData.currentBook ?? [], contextMenu.nodeId) &&
     (contextMenuUnderMatterRoot || !isDefaultMatterItem(contextMenu.nodeId));
+
+  const contextMenuIsDeleted = contextMenuTargetNode?.deletedItem === true;
 
   const contextMenuCanDuplicate =
     contextMenu != null &&
@@ -897,6 +900,19 @@ const RemixerDashboard: React.FC = () => {
     setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
   };
 
+  /** Restore the currently selected book node and its descendants (mirrors handleDeleteSelectedBookNode). */
+  const handleRestoreSelectedBookNode = () => {
+    const selectedNodeId = uiState.selectedBookNodeId;
+    if (!selectedNodeId) return;
+    if (isDefaultMatterItem(selectedNodeId)) return;
+    updateCurrentBook(
+      (existingBookNodes) =>
+        applyBookNodeRestore(existingBookNodes, selectedNodeId),
+      { trackHistory: true },
+    );
+    setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
+  };
+
   /** Flag the given nodes as moved (used after a drag-and-drop reorder completes). */
   const handleMarkMovedNodes = (nodeIds: string[]) => {
     if (nodeIds.length === 0) return;
@@ -1250,6 +1266,7 @@ const RemixerDashboard: React.FC = () => {
       | "add-to"
       | "add-below"
       | "delete"
+      | "restore"
       | "modify"
       | "duplicate",
   ) => {
@@ -1264,6 +1281,13 @@ const RemixerDashboard: React.FC = () => {
       if (isDefaultMatterItem(nodeId)) return;
       updateCurrentBook(
         (existingBookNodes) => applyBookNodeDeletion(existingBookNodes, nodeId),
+        { trackHistory: true },
+      );
+      setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
+    } else if (action === "restore") {
+      if (isDefaultMatterItem(nodeId)) return;
+      updateCurrentBook(
+        (existingBookNodes) => applyBookNodeRestore(existingBookNodes, nodeId),
         { trackHistory: true },
       );
       setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
@@ -2623,6 +2647,12 @@ const RemixerDashboard: React.FC = () => {
                   isNarrowScreen={isNarrowScreen}
                   onAddItem={handleAddBookItem}
                   onDeleteItem={handleDeleteSelectedBookNode}
+                  onRestoreItem={handleRestoreSelectedBookNode}
+                  isSelectedItemDeleted={
+                    (remixerData.currentBook ?? []).find(
+                      (n) => n["@id"] === uiState.selectedBookNodeId,
+                    )?.deletedItem === true
+                  }
                   onUndo={handleUndo}
                   onRedo={handleRedo}
                   isAllExpanded={isExpandedAllCurrentBookNodes()}
@@ -2696,6 +2726,7 @@ const RemixerDashboard: React.FC = () => {
         contextMenu={contextMenu}
         canAddSibling={contextMenuCanAddSibling}
         canDuplicate={contextMenuCanDuplicate}
+        isDeleted={contextMenuIsDeleted}
         addAboveLabel={`Add ${contextMenuSiblingTypeLabel} Above`}
         addToLabel={`Add ${contextMenuChildTypeLabel} To`}
         addBelowLabel={`Add ${contextMenuSiblingTypeLabel} Below`}

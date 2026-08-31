@@ -1210,6 +1210,46 @@ export const applyBookNodeDeletion = (
   );
 };
 
+/** Inverse of `applyBookNodeDeletion` — clears `deletedItem` on the node and its (soft-deleted) descendants. */
+export const applyBookNodeRestore = (
+  existingBookNodes: RemixerSubPage[],
+  selectedNodeId: string,
+): RemixerSubPage[] => {
+  const childMap = new Map<string, string[]>();
+  existingBookNodes.forEach((node) => {
+    const parentId = node.parentID ?? "-1";
+    const siblings = childMap.get(parentId) ?? [];
+    siblings.push(node["@id"]);
+    childMap.set(parentId, siblings);
+  });
+
+  const toRestore = new Set<string>();
+  const queue: string[] = [selectedNodeId];
+  while (queue.length > 0) {
+    const nodeId = queue.shift();
+    if (!nodeId || toRestore.has(nodeId)) continue;
+    toRestore.add(nodeId);
+    (childMap.get(nodeId) ?? []).forEach((childId) => queue.push(childId));
+  }
+
+  const afterRestore = existingBookNodes.map((node) =>
+    toRestore.has(node["@id"]) ? { ...node, deletedItem: false } : node,
+  );
+
+  const activeChildrenByParent = new Set<string>();
+  afterRestore.forEach((node) => {
+    if (!node.deletedItem && node.parentID) {
+      activeChildrenByParent.add(node.parentID);
+    }
+  });
+
+  return afterRestore.map((node) =>
+    !node.deletedItem
+      ? { ...node, "@subpages": activeChildrenByParent.has(node["@id"]) }
+      : node,
+  );
+};
+
 const isDescendant = (
   nodeId: string,
   ancestorId: string,

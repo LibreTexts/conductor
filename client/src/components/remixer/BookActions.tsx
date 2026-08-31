@@ -8,6 +8,7 @@ import {
     IconArrowForwardUp,
     IconPlus,
     IconTrash,
+    IconRestore,
     IconChevronUp,
     IconChevronDown,
 } from "@tabler/icons-react";
@@ -16,6 +17,8 @@ interface BookActionsProps {
     isNarrowScreen: boolean;
     onAddItem: () => void;
     onDeleteItem: () => void;
+    onRestoreItem: () => void;
+    isSelectedItemDeleted: boolean;
     onUndo: () => void;
     onRedo: () => void;
     isAllExpanded: boolean;
@@ -36,6 +39,8 @@ const BookActions: React.FC<BookActionsProps> = ({
     isNarrowScreen,
     onAddItem,
     onDeleteItem,
+    onRestoreItem,
+    isSelectedItemDeleted,
     onUndo,
     onRedo,
     isAllExpanded,
@@ -53,7 +58,14 @@ const BookActions: React.FC<BookActionsProps> = ({
                 onAddItem();
             }
         },
-        {
+        isSelectedItemDeleted ? {
+            title: "Restore",
+            icon: <IconRestore size={18} />,
+            variant: "outline",
+            onClick: () => {
+                onRestoreItem();
+            }
+        } : {
             title: "Delete",
             icon: <IconTrash size={18} />,
             variant: "destructive",
