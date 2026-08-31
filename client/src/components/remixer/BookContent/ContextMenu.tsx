@@ -12,6 +12,7 @@ type ContextMenuAction =
   | "add-below"
   | "add-to"
   | "delete"
+  | "restore"
   | "modify"
   | "duplicate";
 
@@ -19,6 +20,7 @@ interface ContextMenuProps {
   contextMenu: ContextMenuPosition | null;
   canAddSibling: boolean;
   canDuplicate: boolean;
+  isDeleted: boolean;
   addAboveLabel: string;
   addToLabel: string;
   addBelowLabel: string;
@@ -37,6 +39,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   contextMenu,
   canAddSibling,
   canDuplicate,
+  isDeleted,
   addAboveLabel,
   addToLabel,
   addBelowLabel,
@@ -104,14 +107,25 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
           margin: "4px 0",
         }}
       />
-      <div
-        style={itemStyle}
-        onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f0f0")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-        onClick={() => onAction("delete")}
-      >
-        <Icon name="trash alternate" /> Delete
-      </div>
+      {isDeleted ? (
+        <div
+          style={itemStyle}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f0f0")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          onClick={() => onAction("restore")}
+        >
+          <Icon name="undo" /> Restore
+        </div>
+      ) : (
+        <div
+          style={itemStyle}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f0f0")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          onClick={() => onAction("delete")}
+        >
+          <Icon name="trash alternate" /> Delete
+        </div>
+      )}
       <div
         style={itemStyle}
         onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f0f0")}
