@@ -151,6 +151,10 @@ const RemixerDashboard: React.FC = () => {
   const [expandedNodeIdsLibrary, setExpandedNodeIdsLibrary] = useState<
     Set<string>
   >(new Set());
+  /** Catalog-opened library node; stays highlighted until another catalog book is loaded. */
+  const [highlightedLibraryNodeId, setHighlightedLibraryNodeId] = useState<
+    string | undefined
+  >();
 
   const [undoStack, setUndoStack] = useState<RemixerSubPage[][]>([]);
   const [redoStack, setRedoStack] = useState<RemixerSubPage[][]>([]);
@@ -563,7 +567,7 @@ const RemixerDashboard: React.FC = () => {
 
   /**
    * Open a catalog book: fetch its ancestry so the library tree is expanded to the book,
-   * then scroll-reveal the target node with a brief highlight.
+   * then scroll to it and keep it highlighted until another catalog book is selected.
    */
   const loadSelectedBook = async (bookID: string, lib: string) => {
     if (!id) return;
@@ -690,28 +694,12 @@ const RemixerDashboard: React.FC = () => {
         ),
       );
 
+      setHighlightedLibraryNodeId(targetNodeId);
       setTimeout(() => {
         const el = document.querySelector<HTMLElement>(
           `[data-node-id="${targetNodeId}"]`,
         );
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-          el.style.transition =
-            "outline-color 0.5s ease, background-color 0.5s ease";
-          el.style.outline = "2px solid #1e70bf";
-          el.style.backgroundColor = "rgba(30, 112, 191, 0.1)";
-          el.style.borderRadius = "4px";
-          setTimeout(() => {
-            el.style.outlineColor = "transparent";
-            el.style.backgroundColor = "transparent";
-          }, 4000);
-          setTimeout(() => {
-            el.style.transition = "";
-            el.style.outline = "";
-            el.style.backgroundColor = "";
-            el.style.borderRadius = "";
-          }, 4500);
-        }
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 200);
     } finally {
       // Defer until after React commits library pages so auto-load sees
@@ -2600,6 +2588,7 @@ const RemixerDashboard: React.FC = () => {
                   }
                   onExpand={handleLibraryExpand}
                   treeId="library"
+                  selectedNodeId={highlightedLibraryNodeId}
                 />
               ) : (
                 <TreeSkeleton />

@@ -37,6 +37,13 @@ const handleMouseLeave: React.MouseEventHandler<HTMLButtonElement> = (
   event.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 1)";
 };
 
+/** Catalog-opened library book: persists until another catalog book is selected. */
+const CATALOG_NODE_HIGHLIGHT_STYLE: React.CSSProperties = {
+  outline: "2px solid #1e70bf",
+  backgroundColor: "rgba(30, 112, 191, 0.1)",
+  borderRadius: "4px",
+};
+
 const STATUS_PALETTE = {
   info: COLORS.primary[500],
   infoBg: COLORS.primary[100],
@@ -64,4 +71,11 @@ const STATUS_PALETTE = {
   neutralBgHover: COLORS.neutral[200],
 };
 
-export { buttonActiveStyle, buttonStyle, handleMouseEnter, handleMouseLeave, STATUS_PALETTE };
+export {
+  buttonActiveStyle,
+  buttonStyle,
+  handleMouseEnter,
+  handleMouseLeave,
+  CATALOG_NODE_HIGHLIGHT_STYLE,
+  STATUS_PALETTE,
+};

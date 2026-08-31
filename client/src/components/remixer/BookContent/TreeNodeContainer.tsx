@@ -1,6 +1,7 @@
 import React, { DragEvent } from "react";
 import { Icon, List } from "semantic-ui-react";
 import { RemixerSubPage } from "../model";
+import { CATALOG_NODE_HIGHLIGHT_STYLE } from "../style";
 
 interface StatusPalette {
   info: string;
@@ -25,6 +26,8 @@ interface TreeNodeContainerProps {
   isRenamed: boolean;
   isPlacementChanged: boolean;
   isSelected: boolean;
+  /** Catalog-opened book in the library tree — highlight wraps the node until another book is selected. */
+  isCatalogHighlighted?: boolean;
   isBookTree: boolean;
   /** Direct child of the book cover — always shown with a folder icon in the book tree. */
   isBookRootChild?: boolean;
@@ -60,6 +63,7 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
   isRenamed,
   isPlacementChanged,
   isSelected,
+  isCatalogHighlighted = false,
   isBookTree,
   isBookRootChild = false,
   isInteractionLocked = false,
@@ -83,7 +87,14 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
   children,
 }) => {
   return (
-    <div key={page["@id"]} data-node-id={page["@id"]} style={{ marginLeft: TREE_LEVEL_INDENT_PX }}>
+    <div
+      key={page["@id"]}
+      data-node-id={page["@id"]}
+      style={{
+        marginLeft: TREE_LEVEL_INDENT_PX,
+        ...(isCatalogHighlighted ? CATALOG_NODE_HIGHLIGHT_STYLE : {}),
+      }}
+    >
       <List.Item
         draggable={!isInteractionLocked}
         onDragStart={(event: DragEvent<HTMLDivElement>) => onDragStart(page, event)}
