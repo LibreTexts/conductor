@@ -1989,7 +1989,15 @@ const RemixerDashboard: React.FC = () => {
   // `openModal`, which snapshots a static element and would freeze the panel's
   // `publishStatus`/`publishMessages` at their open-time values — the polling
   // updates would never reach it. Inline rendering keeps its props live.
-  const openPublishModal = () => setPublishPanelOpen(true);
+  const openPublishModal = () => {
+    // Clear a previous run's terminal state so Save starts enabled again;
+    // never clear mid-flight (pending/running), e.g. the on-load resume-polling call.
+    if (publishStatus === "success" || publishStatus === "error") {
+      setPublishStatus("idle");
+      setPublishMessages([]);
+    }
+    setPublishPanelOpen(true);
+  };
 
   // ==========================================================================
   // Stable <TreeDnd> prop identities
@@ -2155,14 +2163,7 @@ const RemixerDashboard: React.FC = () => {
         // Non-critical; ignore errors checking job status on load
       }
 
-      const isPostPublishReload =
-        sessionStorage.getItem("remixer_post_publish_reload") === "1";
-      if (isPostPublishReload) {
-        sessionStorage.removeItem("remixer_post_publish_reload");
-        clearLocalDraft(id);
-      }
-
-      const localDraft = isPostPublishReload ? null : getLocalDraft(id);
+      const localDraft = getLocalDraft(id);
 
       let serverBook: RemixerSubPage[] | null = null;
       let serverSettings: {
@@ -2446,10 +2447,8 @@ const RemixerDashboard: React.FC = () => {
           type: "success",
           duration: 4000,
         });
-        setTimeout(() => {
-          sessionStorage.setItem("remixer_post_publish_reload", "1");
-          window.location.reload();
-        }, 4000);
+        serverStateRef.current = null;
+        handleLoadSourceRef.current("serverDraft");
       } else if (job.status === "error") {
         setPublishPolling(false);
         addNotification({

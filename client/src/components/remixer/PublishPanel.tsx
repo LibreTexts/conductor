@@ -259,7 +259,7 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
           variant="primary"
           onClick={publish}
           loading={publishInProgress}
-          disabled={publishInProgress}
+          disabled={publishInProgress || publishStatus === "success"}
         >
           <Icon name="save" /> Save
         </Button>
