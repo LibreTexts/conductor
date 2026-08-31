@@ -52,7 +52,7 @@ const RemixerTemplates = {
   POST_TranscludeSameLibrary: (sourcePath: string, tags: string[]) =>
     `<div class="mt-contentreuse-widget" data-page="${sourcePath}" data-section="" data-show="false">
   <pre class="script">
-  wiki.page("${sourcePath}", NULL)</pre>
+  wiki.page("${sourcePath}", NULL);</pre>
   </div>
   <p class="template:tag-insert">
     <em>Tags recommended by the template: </em>

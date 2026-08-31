@@ -20,7 +20,7 @@ import {
   sortMatterSiblings,
 } from "../services";
 import TreeNodeContainer from "./TreeNodeContainer";
-import { STATUS_PALETTE } from "../style";
+import { CATALOG_NODE_HIGHLIGHT_STYLE, STATUS_PALETTE } from "../style";
 
 type DropPosition = "before" | "inside" | "after";
 type TreeId = "library" | "book";
@@ -504,6 +504,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
       const isPlacementChanged =
         page.isPlacementChanged ?? page.movedItem === true;
       const isSelected = selectedNodeId === page["@id"];
+      const isCatalogHighlighted = !isBookTree && isSelected;
       const itemLink = page["uri.ui"] || page["@href"];
       const isInteractionLocked = isDefaultMatterPage(page);
       const isDropInside =
@@ -526,6 +527,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
           isRenamed={isRenamed}
           isPlacementChanged={isPlacementChanged}
           isSelected={isSelected}
+          isCatalogHighlighted={isCatalogHighlighted}
           isBookTree={isBookTree}
           isBookRootChild={isBookTree && depth === 1}
           isInteractionLocked={isInteractionLocked}
@@ -605,6 +607,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
           const isPlacementChanged =
             root.isPlacementChanged ?? root.movedItem === true;
           const isSelected = selectedNodeId === root["@id"];
+          const isCatalogHighlighted = !isBookTree && isSelected;
           const itemLink = root["uri.ui"] || root["@href"];
           const targetLevel = 1;
           const isInteractionLocked = isDefaultMatterPage(root);
@@ -620,7 +623,11 @@ const TreeDnd: React.FC<TreeDndProps> = ({
           );
 
           return (
-            <div key={root["@id"]} data-node-id={root["@id"]}>
+            <div
+              key={root["@id"]}
+              data-node-id={root["@id"]}
+              style={isCatalogHighlighted ? CATALOG_NODE_HIGHLIGHT_STYLE : undefined}
+            >
               <List.Item
                 draggable={!isInteractionLocked}
                 onDragStart={(event: DragEvent<HTMLDivElement>) => {
