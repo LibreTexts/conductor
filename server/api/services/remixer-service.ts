@@ -891,10 +891,19 @@ const findDeletedPathOccupant = (
     ).join(".");
     if (intendedPath.length > 0 && occupantPath === intendedPath) return true;
 
-    const leaf = decodeURIComponent(
+    const rawLeaf =
       (getRemixerPageUriUi(candidate).split("/").pop() ?? "").split("?")[0] ??
-        "",
-    );
+      "";
+    // Malformed legacy percent-encoding (e.g. a lone "%" from an old,
+    // partially-encoded title) must not abort the whole publish job — treat
+    // an undecodable leaf as simply not matching, same as the other
+    // decodeURIComponent call sites in this file.
+    let leaf: string;
+    try {
+      leaf = decodeURIComponent(rawLeaf);
+    } catch {
+      leaf = rawLeaf;
+    }
     return leaf.length > 0 && leaf === intendedSegment;
   });
 };

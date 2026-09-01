@@ -73,6 +73,13 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
   );
   const [enableOverrideUriUiEnding, setEnableOverrideUriUiEnding] =
     useState(false);
+  // True only once the user actually types in the URL-ending field — distinct
+  // from `enableOverrideUriUiEnding` (a display-mode toggle). Without this,
+  // merely switching to edit mode (which seeds the field with the current
+  // auto-generated ending as a preview) and saving without typing anything
+  // would persist that fallback text as a brand-new explicit override.
+  const [overrideUriUiEndingTouched, setOverrideUriUiEndingTouched] =
+    useState(false);
 
   const handleSaveClick = () => {
     if (!page) return;
@@ -98,7 +105,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
       // while just viewing, leave the page's existing saved override
       // untouched instead of wiping it or replacing it with the field's
       // fallback-seeded display value (the current auto-generated ending).
-      overrideUriUiEnding: enableOverrideUriUiEnding
+      overrideUriUiEnding: overrideUriUiEndingTouched
         ? overrideUriUiEnding
         : currentPage?.overrideUriUiEnding,
     };
@@ -122,6 +129,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
       ),
     );
     setEnableOverrideUriUiEnding(!!currentPage.overrideUriUiEnding);
+    setOverrideUriUiEndingTouched(false);
   }, [currentPage, open]);
 
   useEffect(() => {
@@ -251,9 +259,10 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
                   label=""
                   aria-label="URL ending"
                   value={overrideUriUiEnding}
-                  onChange={(e) =>
-                    setOverrideUriUiEnding(sanitizeUriEnding(e.target.value))
-                  }
+                  onChange={(e) => {
+                    setOverrideUriUiEnding(sanitizeUriEnding(e.target.value));
+                    setOverrideUriUiEndingTouched(true);
+                  }}
                   className="flex-1"
                 />
               ) : (
