@@ -61,6 +61,8 @@ export interface RemixerSubPage {
     /** Disambiguates duplicate sibling titles; 0 is hidden, 1+ shown as (n). */
     siblingTitleIndex?: number;
     overrideUriUiEnding?: string;
+    /** Baseline value of overrideUriUiEnding as loaded, for drift detection (mirrors originalFormattedPath). */
+    originalOverrideUriUiEnding?: string;
 }
 
 export type RemixerLibrary = Partial<Record<Library, RemixerSubPage[]>>;

@@ -28,6 +28,8 @@ interface EditPanelProps {
   library: Library;
   /** Project cover page id; the book root allows colons in its title. */
   coverPageId: string;
+  /** True for default front/back-matter pages and matter-root containers — URL ending is not user-editable for these. */
+  isMatterPage?: boolean;
 }
 
 /** Truncate to `maxLen` characters with "..." in the middle (e.g. 25 → "abcdefghij...opqrstuvwxy"). */
@@ -55,6 +57,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
     formattedPathPartsDefault,
     library,
     coverPageId,
+    isMatterPage,
   } = props;
   const [page, setPage] = useState<RemixerSubPage | undefined>(currentPage);
 
@@ -105,9 +108,11 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
     setPage({ ...currentPage, title, "@title": title });
     const uri = getRemixerPageUriUi(currentPage);
     setOverrideUriUiEnding(
-      sanitizeUriEnding(uri.split("/").slice(-1)[0] ?? ""),
+      sanitizeUriEnding(
+        currentPage.overrideUriUiEnding || uri.split("/").slice(-1)[0] || "",
+      ),
     );
-    setEnableOverrideUriUiEnding(false);
+    setEnableOverrideUriUiEnding(!!currentPage.overrideUriUiEnding);
   }, [currentPage, open]);
 
   useEffect(() => {
@@ -223,7 +228,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
               className="flex-7"
             />
           </Stack>
-          {currentPageUri && (
+          {currentPageUri && !isBookRoot && !isMatterPage && (
             <Stack direction="horizontal" gap="sm" align="center" className="w-full">
               <Text className="text-sm text-gray-500 shrink-0">
                 <span title={currentPageParentPath}>
@@ -245,7 +250,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
               ) : (
                 <Text className="text-sm text-gray-500">{overrideUriUiEnding}</Text>
               )}
-              {/* <IconButton
+              <IconButton
                 icon={<IconEdit size={16} />}
                 aria-label={
                   enableOverrideUriUiEnding
@@ -255,7 +260,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
                 onClick={() =>
                   setEnableOverrideUriUiEnding((prev) => !prev)
                 }
-              /> */}
+              />
             </Stack>
           )}
           {!currentPage?.["@id"].startsWith("new-") && (
