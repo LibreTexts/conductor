@@ -1142,10 +1142,7 @@ export const syncRenamedItemFromAutonumberTitle = (
 
     const rawTitle = (page["@title"] || page.title || "").trim();
 
-    const titleMatches =
-      rawTitle === expectedDisplay.trim() ||
-      `${page.formattedPathOverride}: ${expectedDisplay.trim()}` ===
-        expectedDisplay.trim();
+    const titleMatches = rawTitle === expectedDisplay.trim();
     return {
       ...page,
       renamedItem: !titleMatches,
@@ -1210,20 +1207,18 @@ export const applyBookNodeDeletion = (
     (childMap.get(nodeId) ?? []).forEach((childId) => queue.push(childId));
   }
 
-  const deletionNodes = existingBookNodes.filter((node) =>
-    toDelete.has(node["@id"]),
-  );
-  // Draft-only nodes (client ids contain "-") were never published — drop them
-  // instead of soft-deleting so they never appear in the publish delete set.
-  const allDraftOnly =
-    deletionNodes.length > 0 &&
-    deletionNodes.every((node) => node["@id"].includes("-"));
-
-  const afterDeletion = allDraftOnly
-    ? existingBookNodes.filter((node) => !toDelete.has(node["@id"]))
-    : existingBookNodes.map((node) =>
-        toDelete.has(node["@id"]) ? { ...node, deletedItem: true } : node,
-      );
+  // Draft nodes (client ids contain "-") were never published — drop each one
+  // instead of soft-deleting it so it never appears in the publish delete set.
+  // Decided per-node, not per-subtree: a subtree can mix draft and
+  // already-published nodes, and a published sibling/descendant must not
+  // stop an adjacent draft node from being dropped.
+  const afterDeletion = existingBookNodes
+    .filter((node) => !(toDelete.has(node["@id"]) && node["@id"].includes("-")))
+    .map((node) =>
+      toDelete.has(node["@id"]) && !node["@id"].includes("-")
+        ? { ...node, deletedItem: true }
+        : node,
+    );
 
   const activeChildrenByParent = new Set<string>();
   afterDeletion.forEach((node) => {
@@ -1237,6 +1232,32 @@ export const applyBookNodeDeletion = (
       ? { ...node, "@subpages": activeChildrenByParent.has(node["@id"]) }
       : node,
   );
+};
+
+/**
+ * True when an ancestor of `nodeId` (not the node itself) is still deleted.
+ * The server treats a page as deleted whenever any ancestor is deleted
+ * (`inDeletedBranch`, independent of the page's own flag) and recursively
+ * deletes the whole branch on publish — so restoring a node below a
+ * still-deleted ancestor would look "active" locally but be silently
+ * deleted again on the next publish. Callers should block restore in that
+ * case rather than let it happen.
+ */
+export const isNodeUnderDeletedAncestor = (
+  existingBookNodes: RemixerSubPage[],
+  nodeId: string,
+): boolean => {
+  const nodesById = new Map(existingBookNodes.map((n) => [n["@id"], n]));
+  let currentId = nodesById.get(nodeId)?.parentID ?? "-1";
+  const visited = new Set<string>();
+  while (currentId && currentId !== "-1" && !visited.has(currentId)) {
+    visited.add(currentId);
+    const ancestor = nodesById.get(currentId);
+    if (!ancestor) break;
+    if (ancestor.deletedItem === true) return true;
+    currentId = ancestor.parentID ?? "-1";
+  }
+  return false;
 };
 
 /** Inverse of `applyBookNodeDeletion` — clears `deletedItem` on the node and its (soft-deleted) descendants. */

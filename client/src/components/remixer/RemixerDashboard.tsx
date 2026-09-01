@@ -39,6 +39,7 @@ import {
   DropPosition,
   applyBookNodeDeletion,
   applyBookNodeRestore,
+  isNodeUnderDeletedAncestor,
   applyDefaultBookArticleTypes,
   applySiblingDuplicateTitleSuffixes,
   buildBookPaths,
@@ -567,10 +568,15 @@ const RemixerDashboard: React.FC = () => {
       rootNode: RemixerSubPage,
       libreLibrary: string,
     ): Promise<RemixerSubPage[]> => {
+      // Library browse only — do not overlay this project's saved remixer
+      // configs onto the tree (same reasoning as loadSelectedBook below):
+      // page IDs are per-subdomain and can collide with this project's own
+      // book across different libraries.
       const res = await api.getRemixerTreeFlattened(
         projectId,
         rootNode["@id"],
         libreLibrary,
+        { flatten: true, preserveConfigs: false },
       );
       const nodes: RemixerSubPage[] = (res.response ?? []).map(
         (node: RemixerSubPage) => ({
@@ -923,6 +929,17 @@ const RemixerDashboard: React.FC = () => {
     const selectedNodeId = uiState.selectedBookNodeId;
     if (!selectedNodeId) return;
     if (isDefaultMatterItem(selectedNodeId)) return;
+    if (
+      isNodeUnderDeletedAncestor(remixerData.currentBook ?? [], selectedNodeId)
+    ) {
+      addNotification({
+        message:
+          "Restore the deleted parent chapter first — a page under a deleted ancestor would be deleted again on publish.",
+        type: "error",
+        duration: 4000,
+      });
+      return;
+    }
     updateCurrentBook(
       (existingBookNodes) =>
         applyBookNodeRestore(existingBookNodes, selectedNodeId),
@@ -1309,6 +1326,15 @@ const RemixerDashboard: React.FC = () => {
       setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
     } else if (action === "restore") {
       if (isDefaultMatterItem(nodeId)) return;
+      if (isNodeUnderDeletedAncestor(remixerData.currentBook ?? [], nodeId)) {
+        addNotification({
+          message:
+            "Restore the deleted parent chapter first — a page under a deleted ancestor would be deleted again on publish.",
+          type: "error",
+          duration: 4000,
+        });
+        return;
+      }
       updateCurrentBook(
         (existingBookNodes) => applyBookNodeRestore(existingBookNodes, nodeId),
         { trackHistory: true },
