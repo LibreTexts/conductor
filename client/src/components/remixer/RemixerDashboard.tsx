@@ -67,6 +67,7 @@ import {
   setLocalDraft,
   hasFormattedPathChanged,
   hasOverrideUriEndingChanged,
+  joinPrefixAndIndex,
   splitFormattedPathParts,
   splitStoredFormattedPath,
   syncRenamedItemFromAutonumberTitle,
@@ -1003,7 +1004,10 @@ const RemixerDashboard: React.FC = () => {
       ? (page.formattedPathIndex ?? "")
       : undefined;
     const nextFormattedPath = nextOverride
-      ? `${nextFormattedPathPrefix ?? ""}${nextFormattedPathIndex ?? ""}`.trim()
+      ? joinPrefixAndIndex(
+          nextFormattedPathPrefix ?? "",
+          nextFormattedPathIndex ?? "",
+        ).trim()
       : undefined;
 
     const existingNode = (remixerData.currentBook ?? []).find(

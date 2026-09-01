@@ -13,6 +13,7 @@ import { IconDeviceFloppy } from "@tabler/icons-react";
 import {
   getRemixerPageUriUi,
   isRemixerBookRoot,
+  joinPrefixAndIndex,
   sanitizeRemixerPageTitle,
   toEditableRemixerTitle,
 } from "./services";
@@ -93,7 +94,9 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
       formattedPathOverride: overridden,
       formattedPathPrefix: prefix,
       formattedPathIndex: index,
-      formattedPath: overridden ? `${prefix}${index}`.trim() : undefined,
+      formattedPath: overridden
+        ? joinPrefixAndIndex(prefix ?? "", index ?? "").trim()
+        : undefined,
       // Checked → persist the override value; unchecked → clear it so the
       // page's URL is reconstructed to its auto-generated ending on publish.
       overrideUriUiEnding: enableOverrideUriUiEnding
