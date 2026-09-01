@@ -629,6 +629,7 @@ export const getRemixerDisplayTitle = (
   if (inDeletedBranch || inMatterNoNumberSubtree) {
     return cleanTitle;
   }
+
   const overridden = page.formattedPathOverride === true;
   if (overridden) {
     const overriddenFormattedPath = stripObjectObjectMarker(
@@ -1039,7 +1040,11 @@ export const hasFormattedPathChanged = (page: RemixerSubPage): boolean => {
     page.pathNumber ? page.pathNumber.join(".") : (page.numberedPath ?? "")
   ).trim();
   const url = getRemixerPageUriUi(page);
-  if (url && currPath.length > 0) {
+  // A URL-ending override replaces this page's path segment outright, so the
+  // live URL is expected to diverge from the auto-numbered structural prefix
+  // checked below — that drift is tracked separately by
+  // hasOverrideUriEndingChanged, not here.
+  if (!page.overrideUriUiEnding && url && currPath.length > 0) {
     const section = url.split("/").pop();
     const parts = currPath.split(".");
     parts[parts.length - 1] = parts[parts.length - 1]!.padStart(2, "0");
@@ -1055,9 +1060,29 @@ export const hasFormattedPathChanged = (page: RemixerSubPage): boolean => {
   const currOverride = page.formattedPathOverride === true;
   if (origOverride !== currOverride) return true;
   if (!currOverride) return false;
-  const origPath = (page.originalPathNumber ? page.originalPathNumber.join(".") : (page.originalFormattedPath ?? "")).trim();
+  const origPath = (
+    page.originalPathNumber
+      ? page.originalPathNumber.join(".")
+      : (page.originalFormattedPath ?? "")
+  ).trim();
 
   return origPath !== currPath;
+};
+
+/**
+ * True when the URL-ending override differs from the loaded baseline.
+ * Independent of `autoNumbering` — unlike `hasFormattedPathChanged`, this must
+ * fire regardless of whether numbering display is on, since it tracks a raw
+ * path override rather than a numbering concern.
+ */
+export const hasOverrideUriEndingChanged = (page: RemixerSubPage): boolean => {
+  if (isDefaultMatterPage(page)) return false;
+  if (isMatterRootNode(page)) return false;
+  if (page.addedItem === true) return false;
+  return (
+    (page.originalOverrideUriUiEnding ?? "") !==
+    (page.overrideUriUiEnding ?? "")
+  );
 };
 
 /**
@@ -1116,7 +1141,11 @@ export const syncRenamedItemFromAutonumberTitle = (
     );
 
     const rawTitle = (page["@title"] || page.title || "").trim();
-    const titleMatches = rawTitle === expectedDisplay.trim();
+
+    const titleMatches =
+      rawTitle === expectedDisplay.trim() ||
+      `${page.formattedPathOverride}: ${expectedDisplay.trim()}` ===
+        expectedDisplay.trim();
     return {
       ...page,
       renamedItem: !titleMatches,

@@ -65,6 +65,7 @@ import {
   sanitizePathLevelFormats,
   setLocalDraft,
   hasFormattedPathChanged,
+  hasOverrideUriEndingChanged,
   splitFormattedPathParts,
   splitStoredFormattedPath,
   syncRenamedItemFromAutonumberTitle,
@@ -376,6 +377,8 @@ const RemixerDashboard: React.FC = () => {
         const seedPathOriginals = initializeOriginalPathNumber;
         const seedFormattedOriginals =
           !page.addedItem && page.originalFormattedPathOverride === undefined;
+        const seedUriEndingOriginal =
+          !page.addedItem && page.originalOverrideUriUiEnding === undefined;
         // Backfill the split edit-panel fields for overrides that only carry the
         // combined `formattedPath` (e.g. round-tripped through the backend on publish/reload).
         const seedSplitParts =
@@ -384,7 +387,12 @@ const RemixerDashboard: React.FC = () => {
           page.formattedPath.trim().length > 0 &&
           (page.formattedPathPrefix === undefined ||
             page.formattedPathIndex === undefined);
-        if (!seedPathOriginals && !seedFormattedOriginals && !seedSplitParts)
+        if (
+          !seedPathOriginals &&
+          !seedFormattedOriginals &&
+          !seedUriEndingOriginal &&
+          !seedSplitParts
+        )
           return page;
         return {
           ...page,
@@ -397,6 +405,9 @@ const RemixerDashboard: React.FC = () => {
               page.formattedPathOverride === true
                 ? (page.formattedPath ?? "").trim()
                 : undefined,
+          }),
+          ...(seedUriEndingOriginal && {
+            originalOverrideUriUiEnding: page.overrideUriUiEnding,
           }),
           ...(seedSplitParts &&
             (() => {
@@ -414,8 +425,15 @@ const RemixerDashboard: React.FC = () => {
         autoNumbering,
         pathLevelFormats,
       );
+      // URL-ending drift is independent of autoNumbering, so it's checked
+      // unconditionally here rather than inside the gated sync above.
+      const withUriEndingDrift = withRenamed.map((page) =>
+        !page.renamedItem && hasOverrideUriEndingChanged(page)
+          ? { ...page, renamedItem: true }
+          : page,
+      );
       const withArticleTypes = applyDefaultBookArticleTypes(
-        withRenamed,
+        withUriEndingDrift,
         remixerData.liberCoverID,
       );
       return withDerivedStatusFlags(withArticleTypes);
@@ -994,8 +1012,12 @@ const RemixerDashboard: React.FC = () => {
     );
     const titleChanged = previousTitle !== nextTitle;
     const prevOverride = existingNode.formattedPathOverride === true;
-    const nextOverrideUriUiEnding =
-      page.overrideUriUiEnding || existingNode.overrideUriUiEnding;
+    // Directly reflects user intent (kept, changed, or explicitly cleared) —
+    // EditPanel seeds its field from currentPage.overrideUriUiEnding on open,
+    // so no fallback merge with the existing value is needed (and would
+    // otherwise prevent ever clearing a previously-saved override).
+    const nextOverrideUriUiEnding = page.overrideUriUiEnding;
+    const prevOverrideUriUiEnding = existingNode.overrideUriUiEnding ?? "";
     const pathChanged =
       prevOverride !== nextOverride ||
       (nextOverride &&
@@ -1004,7 +1026,8 @@ const RemixerDashboard: React.FC = () => {
           (existingNode.formattedPathIndex ?? "") !==
             (nextFormattedPathIndex ?? "") ||
           (existingNode.formattedPath ?? "").trim() !==
-            (nextFormattedPath ?? "").trim()));
+            (nextFormattedPath ?? "").trim())) ||
+      prevOverrideUriUiEnding !== (nextOverrideUriUiEnding ?? "");
 
     // Save with no edits should not mark the node modified or push history.
     if (!titleChanged && !pathChanged) return;
@@ -1021,13 +1044,14 @@ const RemixerDashboard: React.FC = () => {
               formattedPath: nextFormattedPath,
               formattedPathPrefix: nextFormattedPathPrefix,
               formattedPathIndex: nextFormattedPathIndex,
-              ...(nextOverrideUriUiEnding
-                ? { overrideUriUiEnding: nextOverrideUriUiEnding }
-                : {}),
+              overrideUriUiEnding: nextOverrideUriUiEnding,
             };
             return {
               ...saved,
-              renamedItem: node.renamedItem || hasFormattedPathChanged(saved),
+              renamedItem:
+                node.renamedItem ||
+                hasFormattedPathChanged(saved) ||
+                hasOverrideUriEndingChanged(saved),
             };
           }),
         { trackHistory: true },
@@ -1048,16 +1072,15 @@ const RemixerDashboard: React.FC = () => {
             formattedPath: nextFormattedPath,
             formattedPathPrefix: nextFormattedPathPrefix,
             formattedPathIndex: nextFormattedPathIndex,
-            ...(nextOverrideUriUiEnding
-              ? { overrideUriUiEnding: nextOverrideUriUiEnding }
-              : {}),
+            overrideUriUiEnding: nextOverrideUriUiEnding,
           };
           return {
             ...saved,
             renamedItem:
               node.renamedItem ||
               titleChanged ||
-              hasFormattedPathChanged(saved),
+              hasFormattedPathChanged(saved) ||
+              hasOverrideUriEndingChanged(saved),
           };
         });
       },
@@ -1352,6 +1375,10 @@ const RemixerDashboard: React.FC = () => {
           remixerData.liberCoverID ??
           remixerData.currentBook?.[0]?.["@id"] ??
           ""
+        }
+        isMatterPage={
+          isDefaultMatterItem(targetId) ||
+          (targetNode ? isMatterRootNode(targetNode) : false)
         }
       />,
     );

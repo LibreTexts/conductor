@@ -1526,6 +1526,18 @@ const toFinalBookEntry = (
       typeof plain.formattedPathOverride === "boolean"
         ? plain.formattedPathOverride
         : undefined,
+    // Carry the override value itself forward through publish, same as
+    // formattedPathOverride/formattedPath above — its `original*` baseline is
+    // intentionally left unset here (mirroring originalFormattedPathOverride/
+    // originalFormattedPath, also absent here) so the client's normalizeBookState
+    // re-seeds it from this just-published value on the next load, the same
+    // mechanism the autonumber override baseline uses to avoid a false
+    // "edited" flag right after a clean publish.
+    overrideUriUiEnding:
+      typeof plain.overrideUriUiEnding === "string" &&
+      plain.overrideUriUiEnding.length > 0
+        ? plain.overrideUriUiEnding
+        : undefined,
     isDeleted: false,
     isImported: false,
     isRenamed: false,
@@ -2233,27 +2245,45 @@ const isLocallyImportedPageID = (pageID: string): boolean =>
   pageID.includes("-");
 
 /** Path / format fields overlaid from saved remixer state onto a live TOC row. */
-const REMIXER_PAGE_CONFIG_KEYS = [
+const FORMATTED_PATH_CONFIG_KEYS = [
   "formattedPathOverride",
   "originalFormattedPathOverride",
   "formattedPath",
+] as const;
 
+/** URL-ending override fields, carried independently of the numbering override above. */
+const URI_ENDING_CONFIG_KEYS = [
+  "overrideUriUiEnding",
+  "originalOverrideUriUiEnding",
 ] as const;
 
 const pickSavedPageConfigs = (
   saved: RemixerSubPageState,
 ): Partial<RemixerSubPageState> => {
   const plain = remixerSubPageToResponse(saved) as unknown as RemixerSubPagePlain;
-  if (saved.formattedPathOverride !== true) {
-    return {};
-  }
   const configs: Partial<RemixerSubPageState> = {};
-  for (const key of REMIXER_PAGE_CONFIG_KEYS) {
-    const value = plain[key];
-    if (value !== undefined) {
-      (configs as RemixerSubPagePlain)[key] = value;
+
+  if (saved.formattedPathOverride === true) {
+    for (const key of FORMATTED_PATH_CONFIG_KEYS) {
+      const value = plain[key];
+      if (value !== undefined) {
+        (configs as RemixerSubPagePlain)[key] = value;
+      }
     }
   }
+
+  if (
+    typeof saved.overrideUriUiEnding === "string" &&
+    saved.overrideUriUiEnding.length > 0
+  ) {
+    for (const key of URI_ENDING_CONFIG_KEYS) {
+      const value = plain[key];
+      if (value !== undefined) {
+        (configs as RemixerSubPagePlain)[key] = value;
+      }
+    }
+  }
+
   return configs;
 };
 

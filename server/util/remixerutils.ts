@@ -44,6 +44,16 @@ type RemixerPathNumbering = {
   formattedPath?: string;
   numberedPath?: string;
   pathNumber?: string[];
+  overrideUriUiEnding?: string;
+};
+
+/** Path-segment-safe characters only — mirrors the client's `sanitizeUriEnding`. Never trust client sanitization alone since the API can be called directly. */
+export const sanitizeRemixerUriEnding = (
+  value: string | undefined,
+): string | undefined => {
+  if (!value) return undefined;
+  const cleaned = value.replace(/[^A-Za-z0-9._~%-]/g, "");
+  return cleaned.length > 0 ? cleaned : undefined;
 };
 
 /**
@@ -55,6 +65,14 @@ export const buildRemixerPagePathSegment = (
   rawTitle: string,
   siblingTitleIndex: number | undefined,
 ): string => {
+  // An explicit URL-ending override replaces the auto-numbered/slugified
+  // segment entirely. siblingTitleIndex is intentionally not appended here —
+  // a collision from an explicit override is the user's responsibility and
+  // surfaces as a 409, already handled by the TitleConflictError retry /
+  // placeholder-relocation machinery in runRemixerJob.
+  const sanitizedOverride = sanitizeRemixerUriEnding(page.overrideUriUiEnding);
+  if (sanitizedOverride) return sanitizedOverride;
+
   const titleSegment = titleToRemixerPathSegment(rawTitle);
   const siblingTitleIndexPostfix = siblingTitleIndex
     ? `_${siblingTitleIndex.toString()}`

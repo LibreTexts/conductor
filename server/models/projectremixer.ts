@@ -26,6 +26,8 @@ export interface RemixerSubPageState {
   deletedItem?: boolean;
   sourceID?: string;
   siblingTitleIndex?: number;
+  overrideUriUiEnding?: string;
+  originalOverrideUriUiEnding?: string;
 }
 
 export interface PathLevelFormatState {
@@ -77,6 +79,8 @@ const RemixerSubPageStateSchema = new Schema<RemixerSubPageState>(
     renamedItem: { type: Boolean },
     deletedItem: { type: Boolean },
     siblingTitleIndex: { type: Number },
+    overrideUriUiEnding: { type: String },
+    originalOverrideUriUiEnding: { type: String },
   },
   {
     _id: false,
