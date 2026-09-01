@@ -505,6 +505,18 @@ export const splitFormattedPathParts = (
 };
 
 /**
+ * Joins a numbering prefix and index, inserting a single space between them
+ * when neither already has whitespace at the boundary (e.g. "Chapter" + "5"
+ * → "Chapter 5", but "Chapter " + "5" or "Chapter" + " 5" are left as-is).
+ */
+export const joinPrefixAndIndex = (prefix: string, index: string): string => {
+  if (!prefix) return index;
+  if (!index) return prefix;
+  const needsSpace = !/\s$/.test(prefix) && !/^\s/.test(index);
+  return needsSpace ? `${prefix} ${index}` : `${prefix}${index}`;
+};
+
+/**
  * Formatted display path from ordinal segments — matches `buildBookPaths` `toPaths` rules.
  * `excludeParent` drops only the immediate parent's index from the chain (grandparents stay);
  * this level's prefix still wraps the joined numeric path.
@@ -519,7 +531,7 @@ export const formatOrdinalSegmentsToFormattedPath = (
     pathLevelFormats,
     startLevel,
   );
-  return prefix ? `${prefix}${index}` : index;
+  return prefix ? joinPrefixAndIndex(prefix, index) : index;
 };
 
 /**
