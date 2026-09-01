@@ -2524,6 +2524,11 @@ const RemixerDashboard: React.FC = () => {
           type: "success",
           duration: 4000,
         });
+        // A stale pre-publish local draft must not survive a successful
+        // publish — otherwise the recovery modal on a later visit could
+        // offer it as a real option and silently revert the just-published
+        // book back to its pre-publish state.
+        clearLocalDraft(id);
         serverStateRef.current = null;
         handleLoadSourceRef.current("serverDraft");
       } else if (job.status === "error") {
