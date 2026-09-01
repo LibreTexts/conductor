@@ -8,9 +8,8 @@ import {
   Modal,
   Link,
   Text,
-  IconButton,
 } from "@libretexts/davis-react";
-import { IconDeviceFloppy, IconEdit } from "@tabler/icons-react";
+import { IconDeviceFloppy } from "@tabler/icons-react";
 import {
   getRemixerPageUriUi,
   isRemixerBookRoot,
@@ -71,14 +70,11 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
   const [overrideUriUiEnding, setOverrideUriUiEnding] = useState<string|undefined>(
     sanitizeUriEnding(currentPage?.overrideUriUiEnding ||currentPageUri?.split("/").slice(-1)[0]  ||undefined),
   );
+  // Mirrors `formattedPathOverride`'s checkbox semantics exactly: checked
+  // means the override is active and its value is persisted on save;
+  // unchecked means it's cleared, and the page's URL is reconstructed back
+  // to its auto-generated ending on the next publish.
   const [enableOverrideUriUiEnding, setEnableOverrideUriUiEnding] =
-    useState(false);
-  // True only once the user actually types in the URL-ending field — distinct
-  // from `enableOverrideUriUiEnding` (a display-mode toggle). Without this,
-  // merely switching to edit mode (which seeds the field with the current
-  // auto-generated ending as a preview) and saving without typing anything
-  // would persist that fallback text as a brand-new explicit override.
-  const [overrideUriUiEndingTouched, setOverrideUriUiEndingTouched] =
     useState(false);
 
   const handleSaveClick = () => {
@@ -98,16 +94,11 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
       formattedPathPrefix: prefix,
       formattedPathIndex: index,
       formattedPath: overridden ? `${prefix}${index}`.trim() : undefined,
-      // `enableOverrideUriUiEnding` is a display-mode toggle (read-only text vs.
-      // editable input), not an on/off switch for the override itself — while
-      // actively editing, persist whatever's in the field (including an
-      // explicit clear-to-empty, which sanitizeUriEnding maps to undefined);
-      // while just viewing, leave the page's existing saved override
-      // untouched instead of wiping it or replacing it with the field's
-      // fallback-seeded display value (the current auto-generated ending).
-      overrideUriUiEnding: overrideUriUiEndingTouched
+      // Checked → persist the override value; unchecked → clear it so the
+      // page's URL is reconstructed to its auto-generated ending on publish.
+      overrideUriUiEnding: enableOverrideUriUiEnding
         ? overrideUriUiEnding
-        : currentPage?.overrideUriUiEnding,
+        : undefined,
     };
     handleSave(normalizedPage);
   };
@@ -129,7 +120,6 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
       ),
     );
     setEnableOverrideUriUiEnding(!!currentPage.overrideUriUiEnding);
-    setOverrideUriUiEndingTouched(false);
   }, [currentPage, open]);
 
   useEffect(() => {
@@ -246,40 +236,55 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
             />
           </Stack>
           {currentPageUri && !isBookRoot && !isMatterPage && (
-            <Stack direction="horizontal" gap="sm" align="center" className="w-full">
-              <Text className="text-sm text-gray-500 shrink-0">
-                <span title={currentPageParentPath}>
-                  {truncateMiddle(currentPageParentPath, 25)}
-                </span>{" "}
-                /
-              </Text>
-              {enableOverrideUriUiEnding ? (
+            <>
+              <Checkbox
+                name="overrideUriUiEndingEnabled"
+                label="Override URL Ending"
+                className="flex-row-reverse font-bold!"
+                labelClassName="font-bold! text-md!"
+                checked={enableOverrideUriUiEnding}
+                onChange={(checked) => {
+                  const enabled = checked === true;
+                  setEnableOverrideUriUiEnding(enabled);
+                  if (!enabled) {
+                    // Disabling reconstructs the URL: clear the override so
+                    // the page falls back to its auto-generated ending on
+                    // the next publish.
+                    setOverrideUriUiEnding(undefined);
+                  } else if (!overrideUriUiEnding) {
+                    setOverrideUriUiEnding(
+                      sanitizeUriEnding(
+                        currentPageUri.split("/").slice(-1)[0] || undefined,
+                      ),
+                    );
+                  }
+                }}
+              />
+              <Stack direction="horizontal" gap="sm" align="center" className="w-full">
+                <Text className="text-sm text-gray-500 shrink-0">
+                  <span title={currentPageParentPath}>
+                    {truncateMiddle(currentPageParentPath, 25)}
+                  </span>{" "}
+                  /
+                </Text>
                 <Input
                   name="overrideUriUiEnding"
                   label=""
                   aria-label="URL ending"
-                  value={overrideUriUiEnding}
-                  onChange={(e) => {
-                    setOverrideUriUiEnding(sanitizeUriEnding(e.target.value));
-                    setOverrideUriUiEndingTouched(true);
-                  }}
+                  placeholder="Auto-generated"
+                  disabled={!enableOverrideUriUiEnding}
+                  value={
+                    enableOverrideUriUiEnding
+                      ? (overrideUriUiEnding ?? "")
+                      : (currentPageUri.split("/").slice(-1)[0] ?? "")
+                  }
+                  onChange={(e) =>
+                    setOverrideUriUiEnding(sanitizeUriEnding(e.target.value))
+                  }
                   className="flex-1"
                 />
-              ) : (
-                <Text className="text-sm text-gray-500">{overrideUriUiEnding}</Text>
-              )}
-              <IconButton
-                icon={<IconEdit size={16} />}
-                aria-label={
-                  enableOverrideUriUiEnding
-                    ? "Stop editing URL ending"
-                    : "Edit URL ending"
-                }
-                onClick={() =>
-                  setEnableOverrideUriUiEnding((prev) => !prev)
-                }
-              />
-            </Stack>
+              </Stack>
+            </>
           )}
           {!currentPage?.["@id"].startsWith("new-") && (
             <Link

@@ -1214,11 +1214,18 @@ export const applyBookNodeDeletion = (
   // stop an adjacent draft node from being dropped.
   const afterDeletion = existingBookNodes
     .filter((node) => !(toDelete.has(node["@id"]) && node["@id"].includes("-")))
-    .map((node) =>
-      toDelete.has(node["@id"]) && !node["@id"].includes("-")
-        ? { ...node, deletedItem: true }
-        : node,
-    );
+    .map((node) => {
+      if (!toDelete.has(node["@id"]) || node["@id"].includes("-")) return node;
+      // The selected node is a direct delete. A descendant that's already
+      // deleted was deleted independently before this action — leave its
+      // own deletedItem/deletedViaAncestor state untouched so a later
+      // restore of this ancestor doesn't resurrect it.
+      if (node["@id"] === selectedNodeId) {
+        return { ...node, deletedItem: true, deletedViaAncestor: false };
+      }
+      if (node.deletedItem === true) return node;
+      return { ...node, deletedItem: true, deletedViaAncestor: true };
+    });
 
   const activeChildrenByParent = new Set<string>();
   afterDeletion.forEach((node) => {
@@ -1260,13 +1267,22 @@ export const isNodeUnderDeletedAncestor = (
   return false;
 };
 
-/** Inverse of `applyBookNodeDeletion` — clears `deletedItem` on the node and its (soft-deleted) descendants. */
+/**
+ * Inverse of `applyBookNodeDeletion` — clears `deletedItem` on the node and
+ * its cascade-deleted descendants, but NOT on a descendant that was deleted
+ * independently before this ancestor was (`deletedViaAncestor !== true`).
+ * The BFS stops descending at such a node entirely: it and everything under
+ * it stay deleted, matching how the server treats any node under a still-
+ * deleted ancestor as deleted regardless of its own flag.
+ */
 export const applyBookNodeRestore = (
   existingBookNodes: RemixerSubPage[],
   selectedNodeId: string,
 ): RemixerSubPage[] => {
   const childMap = new Map<string, string[]>();
+  const nodesById = new Map<string, RemixerSubPage>();
   existingBookNodes.forEach((node) => {
+    nodesById.set(node["@id"], node);
     const parentId = node.parentID ?? "-1";
     const siblings = childMap.get(parentId) ?? [];
     siblings.push(node["@id"]);
@@ -1278,12 +1294,20 @@ export const applyBookNodeRestore = (
   while (queue.length > 0) {
     const nodeId = queue.shift();
     if (!nodeId || toRestore.has(nodeId)) continue;
+    const node = nodesById.get(nodeId);
+    const isIndependentlyDeleted =
+      nodeId !== selectedNodeId &&
+      node?.deletedItem === true &&
+      node.deletedViaAncestor !== true;
+    if (isIndependentlyDeleted) continue;
     toRestore.add(nodeId);
     (childMap.get(nodeId) ?? []).forEach((childId) => queue.push(childId));
   }
 
   const afterRestore = existingBookNodes.map((node) =>
-    toRestore.has(node["@id"]) ? { ...node, deletedItem: false } : node,
+    toRestore.has(node["@id"])
+      ? { ...node, deletedItem: false, deletedViaAncestor: false }
+      : node,
   );
 
   const activeChildrenByParent = new Set<string>();

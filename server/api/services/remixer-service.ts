@@ -735,7 +735,17 @@ const handleModifiedPage = async (
   const isMoved = page.movedItem === true || page.isPlacementChanged === true;
   const isRenamed = page.renamedItem === true;
 
-  if (isMoved && (!parent || parent["@id"]?.startsWith("new-"))) {
+  if (isMoved && !parent) {
+    // No parent found in the book at all — a genuinely broken reference,
+    // not a transient ordering conflict. Fail fast with the specific,
+    // actionable message rather than burning through the deferred-retry
+    // budget only to fail later with a generic "conflict" message.
+    throw new Error(
+      "Moving or reordering a page requires a published parent in the target book.",
+    );
+  }
+
+  if (isMoved && parent?.["@id"]?.startsWith("new-")) {
     // Defer rather than fail the job: the parent may still be a placeholder
     // `new-…` id whose create is waiting on a deleted occupant to vacate.
     throw new TitleConflictError(

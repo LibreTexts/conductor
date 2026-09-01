@@ -57,6 +57,8 @@ export interface RemixerSubPage {
     movedItem?: boolean;
     renamedItem?: boolean;
     deletedItem?: boolean;
+    /** True when `deletedItem` was set by an ancestor's cascade rather than a direct delete on this node — lets restore skip nodes that were independently deleted before the ancestor was. */
+    deletedViaAncestor?: boolean;
     sourceID?: string;
     /** Disambiguates duplicate sibling titles; 0 is hidden, 1+ shown as (n). */
     siblingTitleIndex?: number;
