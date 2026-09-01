@@ -91,7 +91,16 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
       formattedPathPrefix: prefix,
       formattedPathIndex: index,
       formattedPath: overridden ? `${prefix}${index}`.trim() : undefined,
-      overrideUriUiEnding: enableOverrideUriUiEnding ? overrideUriUiEnding : undefined,
+      // `enableOverrideUriUiEnding` is a display-mode toggle (read-only text vs.
+      // editable input), not an on/off switch for the override itself — while
+      // actively editing, persist whatever's in the field (including an
+      // explicit clear-to-empty, which sanitizeUriEnding maps to undefined);
+      // while just viewing, leave the page's existing saved override
+      // untouched instead of wiping it or replacing it with the field's
+      // fallback-seeded display value (the current auto-generated ending).
+      overrideUriUiEnding: enableOverrideUriUiEnding
+        ? overrideUriUiEnding
+        : currentPage?.overrideUriUiEnding,
     };
     handleSave(normalizedPage);
   };
