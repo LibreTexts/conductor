@@ -1205,7 +1205,13 @@ const handleImportedPage = async (
     bookID: `${sourceSubdomain}-${sourceId}`,
   });
   const sourceTags = await sourceService.getPageTags(sourceId.toString());
-  const preservedTags = sourceTags.map((tag) => tag["@value"]);
+  // Drop the source page's own article:* tag — its kind reflected the
+  // source's position, not this import's target placement. The correct
+  // kind is computed below from the target parent/coverId and applied
+  // explicitly via applyArticleKindToPage.
+  const preservedTags = sourceTags
+    .map((tag) => tag["@value"])
+    .filter((tag) => !tag.startsWith("article:"));
 
   const shouldTransclude = copyModeState === "Transclude" && !hasChildren;
   if (shouldTransclude) {
@@ -1327,6 +1333,21 @@ const handleImportedPage = async (
     await targetService.updatePageDetails(pageID, undefined, preservedTags);
   } catch (error) {
     logger.error({ err: error }, "handleImportedPage failed");
+  }
+
+  // Explicitly (re)apply the placement-derived article kind, mirroring the
+  // move-handler's use of applyArticleKindToPage — this is the source of
+  // truth for the tag/ShowOrg state, independent of whether the create-time
+  // content template was parsed into a tag by MindTouch.
+  if (coverId) {
+    try {
+      await applyArticleKindToPage(page, kind, subdomain, coverId);
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "handleImportedPage: failed to apply article kind",
+      );
+    }
   }
 
   await applyDefaultRemixerPageProperties(subdomain, pageID);
@@ -2095,6 +2116,37 @@ const runRemixerJob = async ({
     }
 
     const bookURL = remixerState.remixerCurrentBook[0]["@href"];
+
+    // ── Article-kind reconciliation pass: guarantee every surviving page's
+    // article type matches its final position (book root → topic-category,
+    // cover's immediate children → topic-guide, everything else → topic).
+    // Move/rename and import already apply the correct kind as they happen
+    // (see applyArticleKindToPage above), so this is a cheap self-heal for
+    // pages this run didn't touch — e.g. stale kinds left over from data
+    // predating that fix — not a full re-apply: a page is only written back
+    // to MindTouch when its locally-tracked kind disagrees with the kind its
+    // final parentID implies.
+    logger.info("[*] Article kind reconciliation pass...");
+    if (coverId) {
+      for (const finalPage of finalBook) {
+        const kind = articleKindForPlacement(
+          finalPage["@id"],
+          finalPage.parentID,
+          coverId,
+        );
+        if (finalPage.article === localArticleField(kind)) continue;
+        try {
+          await applyArticleKindToPage(finalPage, kind, subdomain, coverId);
+        } catch (error) {
+          logger.error(
+            { err: error, pageId: finalPage["@id"] },
+            "Article kind reconciliation failed for page",
+          );
+        }
+      }
+      job.messages.push("Article kind reconciliation pass complete.");
+      await job.save();
+    }
 
     // Ensure Back Matter is the last chapter among its siblings.
     logger.info("[*] Ordering Back Matter as last chapter...");
