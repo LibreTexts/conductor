@@ -5,15 +5,9 @@ import { PageTag } from "../types/Book";
 import { sleep } from "./helpers";
 import { libraryKeys } from "./libraries";
 import * as cheerio from "cheerio";
+import { containsReuseMarkup, detectTranscludeStub } from "./transclusion.js";
 const restackerLog = childLogger("restacker");
 
-const CROSS_TRANSLUDE_SOURCE_RE =
-  /template\(\s*['"]CrossTransclude\/Web['"]\s*,\s*\{[\s\S]*?['"]Library['"]\s*:\s*['"]([^'"]+)['"][\s\S]*?['"]PageID['"]\s*:\s*(\d+)/i;
-// Matches rendered HTML form of content-reuse widget
-const CONTENT_REUSE_WIDGET_RE =
-  /<div[^>]+class=["'][^"']*mt-contentreuse-widget[^"']*["'][^>]+data-page=["'][^"']+["']/i;
-// Matches raw wikitext form: wiki.page("...", NULL) stored inside <pre class="script">
-const WIKI_PAGE_REUSE_RE = /wiki\.page\s*\(\s*["'&quot;]/i;
 class RestackerService {
   private pageTags: Map<string, PageTag[]>;
 
@@ -229,94 +223,86 @@ class RestackerService {
   private async isTranscluded(
     pageID: string,
     library: string,
-  ): Promise<{isTranscluded: boolean, sourceLicense: { label: string; raw: string; version: string } | undefined}> {
+  ): Promise<{
+    isTranscluded: boolean;
+    /**
+     * The page carries reuse markup of any kind, stub or embedded. Broader than
+     * `isTranscluded` and kept separate because the quotation rate treats any
+     * reused content as quoted, while tagging and license inheritance apply
+     * only to a page that is wholly someone else's.
+     */
+    reusesContent: boolean;
+    sourceLicense: { label: string; raw: string; version: string } | undefined;
+  }> {
+    const notTranscluded = (reusesContent = false) => ({
+      isTranscluded: false,
+      reusesContent,
+      sourceLicense: undefined,
+    });
+
     try {
       const bookService = new BookService({ bookID: `${library}-${pageID}` });
       const rawContents = await bookService.getPageRawContent(pageID);
       if (!rawContents) {
-        return {isTranscluded: false, sourceLicense: undefined};
+        return notTranscluded();
       }
-      // The API returns a JSON envelope; extract the HTML body for all further matching
-      let content = rawContents;
-      try {
-        const parsed = JSON.parse(rawContents);
-        if (typeof parsed?.body === "string") content = parsed.body;
-      } catch {}
-
-      const isCrossTranscluded =
-        CROSS_TRANSLUDE_SOURCE_RE.test(content);
-      const isContentReused =
-        CONTENT_REUSE_WIDGET_RE.test(content) ||
-        WIKI_PAGE_REUSE_RE.test(content);
-
-        if(isContentReused||isCrossTranscluded){
-          const tags = this.pageTags.get(this.pageTagsKey(library, pageID));
-          // check if transcluded tag is set
-          const transcludedTag = tags?.find((tag) => tag["@value"].startsWith("transcluded:"));
-          if(!transcludedTag){
-          // if not add it to the page on cxone
-            const existingTags = tags?.map((tag) => tag["@value"]) ?? [];
-            const newTags = existingTags.includes("transcluded:yes")
-              ? existingTags
-              : existingTags.concat("transcluded:yes");
-            await bookService.updatePageDetails(pageID, undefined, newTags);
-          }
-        }
-
-      if (isContentReused) {
-        // Extract source page path — try data-page attribute first (rendered HTML),
-        // then fall back to wiki.page() argument (&quot; is the HTML-entity form of " in the body)
-        const dataPageMatch = content.match(/data-page=["']([^"']+)["']/i);
-        const wikiPageMatch = content.match(/wiki\.page\s*\(\s*(?:["']|&quot;)([^"'&]+)/i);
-        const rawSourcePath = dataPageMatch?.[1] ?? wikiPageMatch?.[1];
-
-        if (rawSourcePath) {
-          const sourcePath = decodeURIComponent(rawSourcePath);
-          const tags = await this.getCachedPageTags(
-            library,
-            sourcePath,
-            `${library}-${pageID}`,
-          );
-          const licenseTag = tags?.find((tag) => tag["@value"].startsWith("license:"));
-          const licenseVersionTag = tags?.find((tag) =>
-            tag["@value"].startsWith("licenseversion:"),
-          );
-          if (licenseTag) {
-            return {
-              isTranscluded: true,
-              sourceLicense: {
-                label: licenseTag["@value"],
-                raw: licenseVersionTag?.["@value"] ?? "",
-                version: licenseVersionTag?.["@value"] ?? "",
-              },
-            };
-          }
-        }
+      // Only a page whose whole body is a pointer at another page is
+      // transcluded. A page that merely embeds content-reuse blocks owns its
+      // content: tagging it `transcluded:yes` or giving it the embedded
+      // block's license would both be wrong.
+      const stub = detectTranscludeStub(rawContents);
+      if (!stub) {
+        return notTranscluded(containsReuseMarkup(rawContents));
       }
-      if(isCrossTranscluded){
-        
-          // extract the library and pageID
-          const crossLibrary = content.match(/Library':['"]([^'"]+)['"]/i)?.[1];
-          const crossPageID = content.match(/PageID':(\d+)/i)?.[1];
-          if (crossLibrary && crossPageID) {
-            const tags = await this.getCachedPageTags(
-              crossLibrary,
-              crossPageID,
-              `${crossLibrary}-${crossPageID}`,
+
+      const tags = this.pageTags.get(this.pageTagsKey(library, pageID));
+      // check if transcluded tag is set
+      const transcludedTag = tags?.find((tag) =>
+        tag["@value"].startsWith("transcluded:"),
+      );
+      if (!transcludedTag) {
+        // if not add it to the page on cxone
+        const existingTags = tags?.map((tag) => tag["@value"]) ?? [];
+        const newTags = existingTags.includes("transcluded:yes")
+          ? existingTags
+          : existingTags.concat("transcluded:yes");
+        await bookService.updatePageDetails(pageID, undefined, newTags);
+      }
+
+      const sourceTags =
+        stub.kind === "cross-library"
+          ? await this.getCachedPageTags(
+              stub.subdomain,
+              String(stub.pageID),
+              `${stub.subdomain}-${stub.pageID}`,
+            )
+          : await this.getCachedPageTags(
+              library,
+              stub.path,
+              `${library}-${pageID}`,
             );
-            const licenseTag = tags?.find((tag) => tag["@value"].startsWith("license:"));
-            const licenseVersionTag = tags?.find((tag) =>
-              tag["@value"].startsWith("licenseversion:"),
-            );
-            if(licenseTag ){
-              return {isTranscluded: true, sourceLicense: {label: licenseTag["@value"], raw: licenseVersionTag?.["@value"] || "", version: licenseVersionTag?.["@value"] || ""}};
-            }
-          }
-        }
-   
-      return {isTranscluded: isCrossTranscluded || isContentReused, sourceLicense: undefined};
+
+      const licenseTag = sourceTags?.find((tag) =>
+        tag["@value"].startsWith("license:"),
+      );
+      const licenseVersionTag = sourceTags?.find((tag) =>
+        tag["@value"].startsWith("licenseversion:"),
+      );
+      if (licenseTag) {
+        return {
+          isTranscluded: true,
+          reusesContent: true,
+          sourceLicense: {
+            label: licenseTag["@value"],
+            raw: licenseVersionTag?.["@value"] ?? "",
+            version: licenseVersionTag?.["@value"] ?? "",
+          },
+        };
+      }
+
+      return { isTranscluded: true, reusesContent: true, sourceLicense: undefined };
     } catch (error) {
-      return {isTranscluded: false, sourceLicense: undefined};
+      return notTranscluded();
     }
   }
 
@@ -384,7 +370,12 @@ class RestackerService {
       }
     }
     const transcludedInfo = await this.isTranscluded(pageID, library);
-    const quotationRate = transcludedInfo.isTranscluded?1:this.getQuotationRate(page);
+    // A page built entirely from someone else's content is 100% quotation.
+    // getQuotationRate only counts lt-<library>-<id> classed text nodes, so it
+    // reads reuse widgets as 0 — hence the pin for any page carrying them.
+    const quotationRate = transcludedInfo.reusesContent
+      ? 1
+      : this.getQuotationRate(page);
 
     const licenseMap = new Map<string, { label: string; raw: string; version: string }>();
     for (const license of licenses) {
