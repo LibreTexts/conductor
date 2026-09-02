@@ -1072,13 +1072,18 @@ export const hasFormattedPathChanged = (page: RemixerSubPage): boolean => {
   const currOverride = page.formattedPathOverride === true;
   if (origOverride !== currOverride) return true;
   if (!currOverride) return false;
-  const origPath = (
-    page.originalPathNumber
-      ? page.originalPathNumber.join(".")
-      : (page.originalFormattedPath ?? "")
+  // Both sides are the override *text*, not the structural ordinals. Comparing
+  // originalPathNumber against pathNumber here would only restate the position
+  // check `arePathNumbersEqual` already does for `movedItem`, and would miss the
+  // thing this function exists to catch: the user editing the custom prefix
+  // while the page stays put. `originalFormattedPath` is seeded from
+  // `formattedPath` in `normalizeBookState`, so the two compare like for like.
+  const origFormattedPath = stripObjectObjectMarker(
+    page.originalFormattedPath,
   ).trim();
+  const currFormattedPath = stripObjectObjectMarker(page.formattedPath).trim();
 
-  return origPath !== currPath;
+  return origFormattedPath !== currFormattedPath;
 };
 
 /**
