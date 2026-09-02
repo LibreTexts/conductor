@@ -19,6 +19,7 @@ import {
   IconFoldUp,
   IconPlus,
   IconTableImport,
+  IconFileTypeCsv,
 } from "@tabler/icons-react";
 import TOCTreeView from "./TOCTreeView";
 import GlossaryForm from "./manager";
@@ -31,6 +32,7 @@ import {
 import GlossaryList from "./GlossaryList";
 import { GlossaryEntry } from "./model";
 import AddPageDialog from "./AddPageDialog";
+import GlossaryCsvImportDialog from "./GlossaryCsvImportDialog";
 import { useNotifications } from "../../../context/NotificationContext";
 import useProject from "../../../hooks/useProject";
 
@@ -87,6 +89,7 @@ const GlossaryManager: React.FC = () => {
   const [glossaryEntries, setGlossaryEntries] = useState<GlossaryEntry[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddPageModal, setShowAddPageModal] = useState(false);
+  const [showCsvImportModal, setShowCsvImportModal] = useState(false);
   const {
     // data: glossaryEntries = [],
     isLoading: loadingGlossary,
@@ -219,6 +222,14 @@ const GlossaryManager: React.FC = () => {
               >
                 Add Term
               </Button>
+              <Button
+                size="sm"
+                onClick={() => setShowCsvImportModal(true)}
+                icon={<IconFileTypeCsv size={16} />}
+                iconPosition="left"
+              >
+                Import CSV
+              </Button>
               {glossaryID && (
                 <Button
                   size="sm"
@@ -328,6 +339,15 @@ const GlossaryManager: React.FC = () => {
           )}
         </Card>
       </div>
+      <GlossaryCsvImportDialog
+        open={showCsvImportModal}
+        onClose={() => setShowCsvImportModal(false)}
+        library={library}
+        coverID={coverID}
+        glossaryID={glossaryID}
+        addNotification={addNotification}
+        onImported={() => refetchGlossary()}
+      />
       <AddPageDialog
         open={showAddPageModal}
         onClose={() => setShowAddPageModal(false)}

@@ -2738,6 +2738,46 @@ class API {
     );
     return res.data;
   }
+  async importGlossaryTermsFromCsv(props: {
+    library: string;
+    coverID: string;
+    file: File;
+    glossaryID?: string;
+  }) {
+    const { library, coverID, file, glossaryID } = props;
+    const formData = new FormData();
+    formData.append("file", file);
+    if (glossaryID) {
+      formData.append("glossaryID", glossaryID);
+    }
+
+    const res = await axios.post<
+      {
+        jobID: string;
+        totalRows: number;
+      } & ConductorBaseResponse
+    >(`/commons/book/${library}/${coverID}/glossary/csv-import`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  }
+
+  async getGlossaryCsvImportJobStatus(jobID: string) {
+    const res = await axios.get<
+      {
+        job: {
+          jobID: string;
+          status: "pending" | "running" | "success" | "error";
+          totalRows: number;
+          processedRows: number;
+          imported: number;
+          errorMessage?: string;
+        };
+      } & ConductorBaseResponse
+    >(`/commons/glossary/csv-import/${jobID}`);
+    return res.data;
+  }
+
   async getExistingGlossary(library: string, coverID: string) {
     const res = await axios.put<ConductorBaseResponse>(
       `/commons/book/${library}/${coverID}/glossary/existing`,

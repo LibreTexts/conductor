@@ -1,6 +1,7 @@
 import logger, { childLogger } from "../logger.js";
 import { Request, Response, NextFunction } from "express";
 import multer, { memoryStorage, MulterError } from "multer";
+import { parse as parseCsv } from "csv-parse/sync";
 import fs from "fs-extra";
 import AdoptionReport from "../models/adoptionreport.js";
 import Book, { BookInterface } from "../models/book.js";
@@ -86,6 +87,8 @@ import {
   getWithUsageIDParamSchema,
   addPageWithCoverIDParamSchema,
   readFromCxOneGlossaryAndAddToGlossaryUsageSchema,
+  importGlossaryFromCsvSchema,
+  getGlossaryCsvImportJobStatusSchema,
 } from "./validators/book.js";
 import BookService, { BookPageConflictError } from "./services/book-service.js";
 import LibrarySyncService, {
@@ -117,6 +120,7 @@ import {
 import { archiveBookInStripe } from "./services/store-book-sync-service.js";
 import { PressBookScraper } from "../util/pressbookutils.js";
 import PressbooksImportJob from "../models/pressbooksimportjob.js";
+import GlossaryCsvImportJob from "../models/glossarycsvimportjob.js";
 import base62 from "base62-random";
 import Glossary from "../models/glossary.js";
 import GlossaryService, {
@@ -3461,6 +3465,255 @@ async function glossaryImageUploadHandler(
   });
 }
 
+async function glossaryCsvUploadHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const config = multer({
+    storage: memoryStorage(),
+    limits: { files: 1, fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const validMimeTypes = [
+        "text/csv",
+        "application/csv",
+        "application/vnd.ms-excel",
+        "text/plain",
+      ];
+      if (
+        !validMimeTypes.includes(file.mimetype) &&
+        !file.originalname.toLowerCase().endsWith(".csv")
+      ) {
+        return cb(new Error("notcsvfile"));
+      }
+      return cb(null, true);
+    },
+  }).single("file");
+
+  return config(req, res, (err) => {
+    if (err) {
+      let errMsg = conductorErrors.err6;
+      if (err instanceof MulterError && err.code === "LIMIT_FILE_SIZE") {
+        errMsg = "CSV file must be smaller than 5 MB.";
+      }
+      if (err.message === "notcsvfile") {
+        errMsg = "Please upload a valid CSV file.";
+      }
+      return res.status(400).send({ err: true, errMsg });
+    }
+    return next();
+  });
+}
+
+/**
+ * Parses an uploaded two-column (term, definition) CSV file. A first row
+ * whose two cells read "term"/"definition" (case-insensitive) is treated as
+ * a header and skipped; otherwise every row is treated as data.
+ */
+function parseGlossaryCsvEntries(
+  buffer: Buffer,
+): { term: string; definition: string }[] {
+  const rows: string[][] = parseCsv(buffer, {
+    skip_empty_lines: true,
+    trim: true,
+    relax_column_count: true,
+  });
+
+  const looksLikeHeader =
+    rows.length > 0 &&
+    rows[0].length >= 2 &&
+    /^term$/i.test(rows[0][0] ?? "") &&
+    /^definition$/i.test(rows[0][1] ?? "");
+  const dataRows = looksLikeHeader ? rows.slice(1) : rows;
+
+  return dataRows
+    .filter((row) => row.length >= 2 && row[0]?.trim() && row[1]?.trim())
+    .map((row) => ({ term: row[0].trim(), definition: row[1].trim() }));
+}
+
+/**
+ * Kicks off a background job to bulk-add glossary terms from an uploaded
+ * CSV file. Runs asynchronously (rather than inline in the request) because
+ * imports of hundreds of rows can take long enough to trip upstream/proxy
+ * request timeouts; the client polls `getGlossaryCsvImportJobStatus` for
+ * progress instead of waiting on this response.
+ */
+async function startGlossaryCsvImportJob(
+  req: ZodReqWithUser<z.infer<typeof importGlossaryFromCsvSchema>> & {
+    file?: Express.Multer.File;
+  },
+  res: Response,
+) {
+  try {
+    const { coverID, library } = req.params;
+    const { glossaryID } = req.body;
+
+    if (!req.file) {
+      return res
+        .status(400)
+        .send({ err: true, errMsg: "No CSV file provided." });
+    }
+
+    const glossaryService = new GlossaryService();
+    const project = await glossaryService.getProject({
+      coverID: coverID.toString(),
+      library,
+    });
+    const { uuid: userID } = req.user.decoded;
+    const user = await User.findOne({ uuid: userID }).orFail();
+    const isSuperAdmin = authAPI.checkHasRole(
+      req.user,
+      "libretexts",
+      "superadmin",
+      true,
+    );
+    if (!project && !isSuperAdmin) {
+      return res
+        .status(404)
+        .send({ err: true, errMsg: "Project not found for this book." });
+    }
+    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
+    if (!canAccess && !isSuperAdmin) {
+      throw new Error(conductorErrors.err8);
+    }
+
+    let entries: { term: string; definition: string }[];
+    try {
+      entries = parseGlossaryCsvEntries(req.file.buffer);
+    } catch {
+      return res
+        .status(400)
+        .send({ err: true, errMsg: "Failed to parse CSV file." });
+    }
+
+    if (entries.length === 0) {
+      return res.status(400).send({
+        err: true,
+        errMsg:
+          "No valid term/definition rows found in CSV. Expected two columns: term, definition.",
+      });
+    }
+
+    const jobID = base62(10);
+    await GlossaryCsvImportJob.create({
+      jobID,
+      coverID: coverID,
+      library,
+      userID,
+      glossaryID: glossaryID?.toString().trim() || undefined,
+      status: "pending",
+      totalRows: entries.length,
+      processedRows: 0,
+      imported: 0,
+    });
+
+    res.send({ err: false, jobID, totalRows: entries.length });
+
+    void runGlossaryCsvImportJob({
+      jobID,
+      entries,
+      coverID: coverID.toString(),
+      library,
+      userID,
+      glossaryID: glossaryID?.toString().trim() || undefined,
+    });
+  } catch (err) {
+    logger.error({ err }, "startGlossaryCsvImportJob failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+type GlossaryCsvImportJobParams = {
+  jobID: string;
+  entries: { term: string; definition: string }[];
+  coverID: string;
+  library: string;
+  userID: string;
+  glossaryID?: string;
+};
+
+async function runGlossaryCsvImportJob(params: GlossaryCsvImportJobParams) {
+  const { jobID, entries, coverID, library, userID, glossaryID } = params;
+  try {
+    await GlossaryCsvImportJob.updateOne(
+      { jobID },
+      { $set: { status: "running" } },
+    );
+
+    const glossaryService = new GlossaryService();
+    const imported = await glossaryService.addGlossaryEntries(
+      entries,
+      coverID,
+      library,
+      userID,
+      glossaryID,
+      (processed) => {
+        GlossaryCsvImportJob.updateOne(
+          { jobID },
+          { $set: { processedRows: processed, imported: processed } },
+        ).catch((err) => {
+          logger.error({ err }, "Failed to update glossary CSV import job progress");
+        });
+      },
+    );
+
+    await GlossaryCsvImportJob.updateOne(
+      { jobID },
+      {
+        $set: {
+          status: "success",
+          processedRows: entries.length,
+          imported,
+        },
+      },
+    );
+  } catch (err: any) {
+    logger.error({ err }, "runGlossaryCsvImportJob failed");
+    await GlossaryCsvImportJob.updateOne(
+      { jobID },
+      {
+        $set: {
+          status: "error",
+          errorMessage: err?.message || conductorErrors.err6,
+        },
+      },
+    );
+  }
+}
+
+async function getGlossaryCsvImportJobStatus(
+  req: ZodReqWithUser<z.infer<typeof getGlossaryCsvImportJobStatusSchema>>,
+  res: Response,
+) {
+  try {
+    const { jobID } = req.params;
+    const requesterID = req.user.decoded.uuid;
+
+    const job = await GlossaryCsvImportJob.findOne({ jobID }).lean();
+    if (!job) {
+      return res.status(404).send({ err: true, errMsg: "Import job not found." });
+    }
+    if (job.userID !== requesterID) {
+      return res.status(403).send({ err: true, errMsg: conductorErrors.err8 });
+    }
+
+    return res.send({
+      err: false,
+      job: {
+        jobID: job.jobID,
+        status: job.status,
+        totalRows: job.totalRows,
+        processedRows: job.processedRows,
+        imported: job.imported,
+        errorMessage: job.errorMessage,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "getGlossaryCsvImportJobStatus failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
 async function getGlossaryUsageImage(
   req: ZodReqWithOptionalUser<z.infer<typeof getWithUsageIDParamSchema>>,
   res: Response,
@@ -3518,4 +3771,7 @@ export default {
   getGlossaryUsageImage,
   addPageToGlossaryUsage,
   addExternalGlossaryToGlossaryUsage,
+  glossaryCsvUploadHandler,
+  startGlossaryCsvImportJob,
+  getGlossaryCsvImportJobStatus,
 };

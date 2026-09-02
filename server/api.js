@@ -1264,7 +1264,22 @@ router.route("/commons/book/:library/:coverID/glossary")
     middleware.validateZod(BookValidators.addPageWithCoverIDParamSchema),
     booksAPI.addPageToGlossaryUsage
   );
-  
+
+  // bulk-import glossary terms from an uploaded CSV file (runs as a background job)
+  router.route("/commons/book/:library/:coverID/glossary/csv-import").post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    booksAPI.glossaryCsvUploadHandler,
+    middleware.validateZod(BookValidators.importGlossaryFromCsvSchema),
+    booksAPI.startGlossaryCsvImportJob
+  );
+
+  router.route("/commons/glossary/csv-import/:jobID").get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.getGlossaryCsvImportJobStatusSchema),
+    booksAPI.getGlossaryCsvImportJobStatus
+  );
 
   router.route("/commons/glossary/usage/:usageID").delete(
     authAPI.verifyRequest,
