@@ -22,6 +22,7 @@ import {
   shouldSkipPage,
 } from "../../util/remixerutils";
 import * as cheerio from "cheerio";
+import { detectTranscludeStub } from "../../util/transclusion.js";
 import { RemixerSubPage } from "../../types/Remixer";
 import BookService from "./book-service";
 const remixerLog = childLogger("remixer");
@@ -1015,25 +1016,18 @@ const renamePageToIntended = async (
   }
 };
 
-// Matches CrossTransclude/Web template — captures Library (group 1) and PageID (group 2)
-const CROSS_TRANSLUDE_SOURCE_RE =
-  /template\(\s*['"]CrossTransclude\/Web['"]\s*,\s*\{[\s\S]*?['"]Library['"]\s*:\s*['"]([^'"]+)['"][\s\S]*?['"]PageID['"]\s*:\s*(\d+)/i;
-
-// Matches rendered HTML form of content-reuse widget — captures data-page value (group 1)
-const CONTENT_REUSE_WIDGET_RE =
-  /<div[^>]+class=["'][^"']*mt-contentreuse-widget[^"']*["'][^>]+data-page=["']([^"']+)["']/i;
-
-// Matches raw wikitext wiki.page() call — captures path argument (group 1)
-const WIKI_PAGE_REUSE_RE = /wiki\.page\s*\(\s*(?:["']|&quot;)([^"'&]+)/i;
-
 /**
- * Resolves the true source of a transcluded/reused page by inspecting its raw
- * wikitext. Handles three cases:
- *   1. CrossTransclude/Web template — cross-library; extracts Library + PageID directly.
- *   2. Content-reuse widget HTML (data-page attribute) — same-library path reference.
- *   3. wiki.page() raw wikitext — same-library path reference.
- * Recursively follows the chain (e.g. a reuse that itself points at another
- * reuse) until reaching a page with no transclusion, or returns the fallback.
+ * Resolves the true source of a transcluded page by inspecting its raw
+ * wikitext. `detectTranscludeStub` only reports a source when the page body is
+ * *nothing but* a pointer at another page, in either the cross-library
+ * (CrossTransclude/Web) or same-library (whole-page content reuse) form.
+ *
+ * A page that merely *embeds* content-reuse blocks owns its content and is its
+ * own source — resolving it to one of its embedded blocks would publish that
+ * block in place of the page.
+ *
+ * Recursively follows the chain (a stub that itself points at another stub)
+ * until reaching a page that owns its content, or returns the fallback.
  */
 const resolveTranscludeSource = async ({
   subdomain,
@@ -1077,12 +1071,20 @@ const resolveTranscludeSource = async ({
 
   const rawContents = await rawRes.text();
 
-  // ── Case 1: CrossTransclude/Web (cross-library) ───────────────────────────
-  const crossMatch = rawContents.match(CROSS_TRANSLUDE_SOURCE_RE);
-  if (crossMatch) {
-    const nestedSubdomain = crossMatch[1];
-    const nestedId = parseInt(crossMatch[2], 10);
-    if (!nestedSubdomain || Number.isNaN(nestedId)) return fallback;
+  // A page that owns its content — including one that embeds content-reuse
+  // blocks — is the source. Only a pure pointer page resolves onward.
+  const stub = detectTranscludeStub(rawContents);
+  if (!stub) return fallback;
+
+  remixerLog.debug(
+    { subdomain, pageId, stub },
+    "Resolved transclusion stub to its source",
+  );
+
+  // ── Cross-library (CrossTransclude/Web) ───────────────────────────────────
+  if (stub.kind === "cross-library") {
+    const nestedSubdomain = stub.subdomain;
+    const nestedId = stub.pageID;
 
     const nestedHeaders = await generateAPIRequestHeaders(nestedSubdomain);
     const nestedPageRes = await CXOneFetch({
@@ -1113,22 +1115,13 @@ const resolveTranscludeSource = async ({
     });
   }
 
-  // ── Cases 2 & 3: same-library content-reuse widget or wiki.page() ─────────
-  // data-page and wiki.page() both carry a URL path whose first segment is the
-  // library subdomain: /<subdomain>/<...rest>  OR  <subdomain>/<...rest>
-  const dataPageMatch = rawContents.match(CONTENT_REUSE_WIDGET_RE);
-  const wikiPageMatch = rawContents.match(WIKI_PAGE_REUSE_RE);
-  const rawSourcePath =
-    dataPageMatch?.[1] != null
-      ? decodeURIComponent(dataPageMatch[1])
-      : wikiPageMatch?.[1] != null
-        ? decodeURIComponent(wikiPageMatch[1])
-        : null;
-
-  if (!rawSourcePath) return fallback;
+  // ── Same-library whole-page content reuse ─────────────────────────────────
+  // The path carries a URL whose first segment is the library subdomain:
+  // /<subdomain>/<...rest>  OR  <subdomain>/<...rest>
+  // detectTranscludeStub only emits this variant with a non-empty path.
 
   // Resolve the path to a real page ID on MindTouch
-  const pageInfo = await getPage(rawSourcePath, subdomain);
+  const pageInfo = await getPage(stub.path, subdomain);
   if (!pageInfo) return fallback;
 
   const resolvedId = parseInt(pageInfo["@id"]?.toString() ?? "", 10);
