@@ -315,6 +315,22 @@ export const getGlossaryCsvImportJobStatusSchema = z.object({
   }),
 });
 
+export const importGlossaryFromCsvSchema = z.object({
+  params: z.object({
+    coverID: z.coerce.number().int().positive().max(999999999999),
+    library: z.string().min(2).max(12),
+  }),
+  body: z.object({
+    glossaryID: z.coerce.number().int().positive().optional(),
+  }),
+});
+
+export const getGlossaryCsvImportJobStatusSchema = z.object({
+  params: z.object({
+    jobID: z.string().min(10).max(10),
+  }),
+});
+
 export const addPageWithCoverIDParamSchema = z.object({
   params: z.object({
     coverID: z.coerce.number().int().positive().max(999999999999),
