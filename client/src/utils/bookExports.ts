@@ -12,6 +12,12 @@ export interface BookExportDisplay {
   label: string;
   group: BookExportGroup;
   /**
+   * Segment appended to the book's downloads base URL. `null` for exports the
+   * downloads service does not produce yet. Mirrors `pathSegment` in
+   * `server/api/services/book-export-service.ts` and must stay in step with it.
+   */
+  pathSegment: string | null;
+  /**
    * Whether the browser can render this export inline.
    *
    * Read from here, never inferred from the download URL's extension at render
@@ -42,6 +48,7 @@ export const BOOK_EXPORT_GROUP_LABELS: Record<BookExportGroup, string> = {
 export const BOOK_EXPORT_DISPLAY: BookExportDisplay[] = [
   {
     key: "full-pdf",
+    pathSegment: "pdf",
     label: "Full PDF",
     group: "full-book",
     previewable: true,
@@ -52,6 +59,7 @@ export const BOOK_EXPORT_DISPLAY: BookExportDisplay[] = [
   },
   {
     key: "content-pdf",
+    pathSegment: "content",
     label: "Content PDF",
     group: "publication",
     previewable: true,
@@ -61,6 +69,7 @@ export const BOOK_EXPORT_DISPLAY: BookExportDisplay[] = [
   },
   {
     key: "cover-perfectbound",
+    pathSegment: "cover-perfectbound",
     label: "Paperback Cover PDF",
     group: "publication",
     previewable: true,
@@ -70,6 +79,7 @@ export const BOOK_EXPORT_DISPLAY: BookExportDisplay[] = [
   },
   {
     key: "cover-casewrap",
+    pathSegment: "cover-casewrap",
     label: "Hardcover Cover PDF",
     group: "publication",
     previewable: true,
@@ -79,6 +89,7 @@ export const BOOK_EXPORT_DISPLAY: BookExportDisplay[] = [
   },
   {
     key: "thincc",
+    pathSegment: "thincc",
     label: "ThinCC",
     group: "full-book",
     previewable: false,
@@ -89,6 +100,7 @@ export const BOOK_EXPORT_DISPLAY: BookExportDisplay[] = [
   },
   {
     key: "page-pdfs",
+    pathSegment: "pages",
     label: "Page PDFs",
     group: "other",
     previewable: false,
@@ -98,6 +110,7 @@ export const BOOK_EXPORT_DISPLAY: BookExportDisplay[] = [
   },
   {
     key: "epub",
+    pathSegment: null,
     label: "EPUB",
     group: "other",
     previewable: false,
@@ -140,4 +153,31 @@ export const getDefaultExportKey = (
     availableKeys.includes(e.key),
   );
   return firstAvailable?.key ?? BOOK_EXPORT_DISPLAY[0].key;
+};
+
+const DOWNLOADS_HOST_PRODUCTION = "https://downloads.libretexts.org";
+const DOWNLOADS_HOST_STAGING = "https://staging.downloads.libretexts.org";
+
+/**
+ * Download URL for one of a Book's exports.
+ *
+ * The server half of the registry owns the authoritative path shape
+ * (`getExportURL` in `server/api/services/book-export-service.ts`); this mirrors
+ * it for links the client renders on its own. Returns an empty string when the
+ * bookID is missing or the export has no artifact yet, so callers can gate on a
+ * falsy URL rather than rendering a dead link.
+ */
+export const getBookExportURL = (
+  bookID: string | undefined,
+  key: BookExportKey,
+  opts?: { isProduction?: boolean },
+): string => {
+  if (!bookID) return "";
+  const display = getExportDisplay(key);
+  if (!display?.enabled || !display.pathSegment) return "";
+  const host =
+    opts?.isProduction === false
+      ? DOWNLOADS_HOST_STAGING
+      : DOWNLOADS_HOST_PRODUCTION;
+  return `${host}/api/v1/download/${encodeURIComponent(bookID)}/${display.pathSegment}`;
 };

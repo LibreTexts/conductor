@@ -16,6 +16,8 @@ import { buildLibraryPageGoURL } from "../../../utils/projectHelpers";
 import { Alert, Button, Divider, Heading, Link, NumberInput, Radio, RadioGroup, Stack, Text } from "@libretexts/davis-react";
 import { IconBook2, IconShoppingCartPlus } from "@tabler/icons-react";
 import useStoreMaxQuantityPerItem from "../../../hooks/useStoreMaxQuantityPerItem";
+import useClientConfig from "../../../hooks/useClientConfig";
+import { getBookExportURL } from "../../../utils/bookExports";
 
 const BOOK_PAGE_LIMIT = 799;
 
@@ -25,6 +27,7 @@ export default function ProductPage() {
   const { cart, addToCart, removeFromCart, loading: cartLoading } = useCart();
   const params = useParams<{ product_id: string }>();
   const maxQuantityPerItem = useStoreMaxQuantityPerItem();
+  const { isProduction } = useClientConfig();
   const { data: product, isFetching } = useQuery<StoreProduct>({
     queryKey: ["store-product", params.product_id],
     queryFn: async () => {
@@ -118,7 +121,11 @@ export default function ProductPage() {
     return num_pages > BOOK_PAGE_LIMIT;
   }, [product, isBook]);
 
-  const [bookDetail, setBookDetail] = useState<{ license?: string;[key: string]: unknown } | null>(null);
+  const [bookDetail, setBookDetail] = useState<{
+    license?: string;
+    exportInfo?: { customCoverOrg?: string;[key: string]: unknown };
+    [key: string]: unknown;
+  } | null>(null);
 
   useEffect(() => {
     if (!product || !isBook) return;
@@ -140,6 +147,30 @@ export default function ProductPage() {
     const license = (bookDetail.license || "").toLowerCase();
     return license.includes("cc-by-nc") || license.includes("ccbync");
   }, [bookDetail]);
+
+  /**
+   * The organization producing the book's custom cover, when it has one.
+   * Display-only: the field is informational and never gates pricing or
+   * fulfillment.
+   */
+  const customCoverOrg = useMemo(() => {
+    if (!isBook) return null;
+    const org = bookDetail?.exportInfo?.customCoverOrg;
+    return typeof org === "string" && org.trim() ? org.trim() : null;
+  }, [bookDetail, isBook]);
+
+  /**
+   * Cover artwork for the binding the customer currently has selected, so the
+   * link always points at the PDF that would actually be printed.
+   */
+  const customCoverURL = useMemo(() => {
+    if (!customCoverOrg) return "";
+    return getBookExportURL(
+      product?.metadata["book_id"],
+      hardcover ? "cover-casewrap" : "cover-perfectbound",
+      { isProduction }
+    );
+  }, [customCoverOrg, product, hardcover, isProduction]);
 
   function handleAddToCart() {
     if (!product) return;
@@ -308,6 +339,25 @@ export default function ProductPage() {
                 error={quantity > maxQuantityPerItem}
                 errorMessage={`Maximum ${maxQuantityPerItem} per item. Please reduce the quantity to continue.`}
               />
+              {customCoverOrg && (
+                <Alert
+                  variant="info"
+                  message={`This book will ship with a custom cover by ${customCoverOrg}.`}
+                  {...(customCoverURL
+                    ? {
+                      action: {
+                        label: "View custom cover",
+                        onClick: () =>
+                          window.open(
+                            customCoverURL,
+                            "_blank",
+                            "noopener,noreferrer"
+                          ),
+                      },
+                    }
+                    : {})}
+                />
+              )}
               {hasNCLicense && (
                 <Alert variant="warning" message={"This book has a NonCommercial clause in its license and cannot be resold for profit."} />
               )}

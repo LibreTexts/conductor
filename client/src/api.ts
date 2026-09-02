@@ -490,7 +490,14 @@ class API {
   async getBookDetail(bookID: string) {
     const res = await axios.get<
       {
-        book: { license?: string; [key: string]: unknown };
+        book: {
+          license?: string;
+          exportInfo?: {
+            customCoverOrg?: string;
+            [key: string]: unknown;
+          };
+          [key: string]: unknown;
+        };
       } & ConductorBaseResponse
     >(`/commons/book/${bookID}`);
     return res;
