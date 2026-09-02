@@ -370,9 +370,16 @@ export default class GlossaryService {
 
   /**
    * Bulk-import glossary term/definition pairs (e.g. from a Pressbooks
-   * `/glossary` REST response) into Glossary + GlossaryUsage for a book.
-   * Skips entries missing a term or definition. Non-unique term+cover+library
-   * rows are upserted via `_addGlossaryUsageToDatabase`.
+   * `/glossary` REST response, or an uploaded CSV) into Glossary +
+   * GlossaryUsage for a book. Skips entries missing a term or definition.
+   * Non-unique term+cover+library rows are upserted via
+   * `_addGlossaryUsageToDatabase`.
+   *
+   * Entries are processed in small concurrent batches rather than all at
+   * once — a few hundred entries fired through `Promise.all` in one shot can
+   * exhaust the DB connection pool and stall long enough to trip upstream
+   * timeouts. `onProgress` (if given) is called after each batch so a
+   * long-running import can report how far along it is.
    */
   async addGlossaryEntries(
     entries: {
@@ -386,29 +393,38 @@ export default class GlossaryService {
     library: string,
     addedBy: string,
     glossaryID?: string,
+    onProgress?: (processed: number, total: number) => void,
   ): Promise<number> {
     const valid = entries.filter(
       (e) => e.term?.trim() && e.definition?.trim(),
     );
-    await Promise.all(
-      valid.map(async (entry) => {
-        const term = entry.term.trim();
-        const definition = entry.definition.trim();
-        const { termID } = await this._addGlossaryToDatabase(term, definition);
-        await this._addGlossaryUsageToDatabase({
-          termID,
-          term,
-          definition,
-          coverID,
-          library,
-          addedBy,
-          glossaryID,
-          author: entry.author,
-          source: entry.source,
-          link: entry.link,
-        });
-      }),
-    );
+    const BATCH_SIZE = 20;
+    for (let i = 0; i < valid.length; i += BATCH_SIZE) {
+      const batch = valid.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (entry) => {
+          const term = entry.term.trim();
+          const definition = entry.definition.trim();
+          const { termID } = await this._addGlossaryToDatabase(
+            term,
+            definition,
+          );
+          await this._addGlossaryUsageToDatabase({
+            termID,
+            term,
+            definition,
+            coverID,
+            library,
+            addedBy,
+            glossaryID,
+            author: entry.author,
+            source: entry.source,
+            link: entry.link,
+          });
+        }),
+      );
+      onProgress?.(Math.min(i + BATCH_SIZE, valid.length), valid.length);
+    }
     return valid.length;
   }
 
@@ -603,7 +619,7 @@ export default class GlossaryService {
       }
       const candidateCoverIDs = await this.getCandidateCoverIDs(pageID, library);
 
-      const glossary = await GlossaryUsage.find({ coverID:{$in: candidateCoverIDs}, library });
+      const glossary = await GlossaryUsage.find({ coverID:{$in: candidateCoverIDs}, library }).sort({ term: "asc" });
       const response: GlossayResponse = {
         coverID,
         glossaryID,
