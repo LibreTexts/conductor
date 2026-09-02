@@ -409,7 +409,12 @@ const RemixerDashboard: React.FC = () => {
                 : undefined,
           }),
           ...(seedUriEndingOriginal && {
-            originalOverrideUriUiEnding: page.overrideUriUiEnding,
+            // Normalized to a string, never `undefined` — an undefined value
+            // leaves `seedUriEndingOriginal` true forever, which defeats the
+            // early `return page` above and reallocates every node on every
+            // normalize (breaking the identity <TreeDnd> memoizes on).
+            // `hasOverrideUriEndingChanged` compares both sides with `?? ""`.
+            originalOverrideUriUiEnding: page.overrideUriUiEnding ?? "",
           }),
           ...(seedSplitParts &&
             (() => {
@@ -2532,8 +2537,21 @@ const RemixerDashboard: React.FC = () => {
         // publish — otherwise the recovery modal on a later visit could
         // offer it as a real option and silently revert the just-published
         // book back to its pre-publish state.
+        //
+        // The undo/redo stacks are pre-publish snapshots for the same reason,
+        // and this path replaced a full page reload that used to discard them:
+        // an Undo here would restore the pre-publish tree, autosave it as a
+        // local draft, and republish it on the next save. Reset them alongside
+        // the drafts, matching `startOverMutation`.
         clearLocalDraft(id);
         serverStateRef.current = null;
+        setUndoStack([]);
+        setRedoStack([]);
+        setUiState((prev) => ({
+          ...prev,
+          selectedBookNodeId: undefined,
+          editPanelOpen: false,
+        }));
         handleLoadSourceRef.current("serverDraft");
       } else if (job.status === "error") {
         setPublishPolling(false);
@@ -2688,7 +2706,10 @@ const RemixerDashboard: React.FC = () => {
                 align="center"
                 justify="between"
               >
-                <Text className="font-bold text-lg flex items-top" color="default">
+                <Text
+                  className="font-bold text-lg flex items-top"
+                  color="default"
+                >
                   Text{" "}
                   {currentBookLink && (
                     <a

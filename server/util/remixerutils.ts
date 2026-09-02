@@ -47,13 +47,35 @@ type RemixerPathNumbering = {
   overrideUriUiEnding?: string;
 };
 
-/** Path-segment-safe characters only — mirrors the client's `sanitizeUriEnding`. Never trust client sanitization alone since the API can be called directly. */
+/**
+ * Path-segment-safe characters only — mirrors the client's `sanitizeUriEnding`.
+ * Never trust client sanitization alone since the API can be called directly.
+ *
+ * The alphabet matches what the auto-generated segment produces (see
+ * `buildRemixerPagePathSegment`): a raw `:` as in `01:_Introduction`, never a
+ * percent-encoded one. `%` is deliberately excluded — callers encode the whole
+ * path once or twice on the way out, so a stored `%3A` would reach MindTouch as
+ * three literal characters and land the page at `01%253A_Introduction`.
+ * The value is decoded first so an override seeded from an encoded `uri.ui`
+ * leaf heals into `01:_Introduction` rather than being stripped to
+ * `013A_Introduction`.
+ */
 export const sanitizeRemixerUriEnding = (
   value: string | undefined,
 ): string | undefined => {
   if (!value) return undefined;
-  const cleaned = value.replace(/[^A-Za-z0-9._~%-]/g, "");
-  return cleaned.length > 0 ? cleaned : undefined;
+  let decoded = value;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    // Malformed percent-encoding (e.g. a lone "%") — fall through with the raw
+    // value; the character class below drops whatever cannot be a path segment.
+  }
+  const cleaned = decoded.replace(/[^A-Za-z0-9._~():-]/g, "");
+  // `/` is already stripped, but a dots-only leaf ("." / "..") is still a
+  // relative path segment; reject it rather than build a path around it.
+  if (cleaned.length === 0 || /^\.+$/.test(cleaned)) return undefined;
+  return cleaned;
 };
 
 /**
@@ -150,22 +172,23 @@ export const getPageStatus = (page: RemixerSubPageState): RemixerPageStatus => {
     return "new";
 
   if (page.isImported || page.addedItem) return "imported";
-  
-  if (
-    page.movedItem ||
-    page.isPlacementChanged ||
-    page.renamedItem
-  )
+
+  if (page.movedItem || page.isPlacementChanged || page.renamedItem)
     return "modified";
 
   return "unchanged";
 };
 
-export const shouldSkipPage = (page: RemixerSubPageState,  status: RemixerPageStatus): boolean => {
+export const shouldSkipPage = (
+  page: RemixerSubPageState,
+  status: RemixerPageStatus,
+): boolean => {
   const pathLen = page.pathNumber?.length ?? 0;
   const isBookRoot = pathLen === 0;
   const pageStatus = getPageStatus(page);
-  const isDeleteNoExisting = page.isDeleted && (pageStatus === "imported" || pageStatus === "new") || false;
+  const isDeleteNoExisting =
+    (page.isDeleted && (pageStatus === "imported" || pageStatus === "new")) ||
+    false;
   return isBookRoot || status === "unchanged" || isDeleteNoExisting;
 };
 

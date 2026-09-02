@@ -145,6 +145,20 @@ class TitleConflictError extends Error {
   }
 }
 
+/**
+ * A deferral caused by the page's *parent* not existing yet, rather than by a
+ * contested title/URL. Kept distinct from a plain `TitleConflictError` because
+ * the deadlock breaker must never relocate one of these: this page's own title
+ * is not the contested slot, so moving it to a throwaway path frees nothing and
+ * just churns a live library page once per retry pass.
+ */
+class ParentNotReadyError extends TitleConflictError {
+  constructor(message: string, cause?: unknown) {
+    super(message, cause);
+    this.name = "ParentNotReadyError";
+  }
+}
+
 const isTransientStatus = (status: number): boolean =>
   status === 408 || status === 425 || status === 429 || status >= 500;
 
@@ -339,6 +353,31 @@ const remapDescendantUriPaths = (
   }
 };
 
+/**
+ * Every node beneath `rootId`, breadth-first. Shares `childrenByParent` with
+ * `remapDescendantUriPaths` — when a rename shifts a page's URL it shifts every
+ * descendant's too, so callers that snapshot descendants need the same walk.
+ */
+const collectDescendants = (
+  childrenByParent: Map<string, RemixerSubPageState[]>,
+  rootId: string,
+): RemixerSubPageState[] => {
+  const out: RemixerSubPageState[] = [];
+  const queue: RemixerSubPageState[] = [
+    ...(childrenByParent.get(rootId) ?? []),
+  ];
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    const id = node["@id"];
+    if (visited.has(id)) continue;
+    visited.add(id);
+    out.push(node);
+    queue.push(...(childrenByParent.get(id) ?? []));
+  }
+  return out;
+};
+
 const isMatterNode = (page: {
   "@title": string;
   title: string;
@@ -481,7 +520,9 @@ const orderPageAfterPreviousSibling = async (
       options: { method: "PUT" },
     });
     if (!response.ok) {
-      remixerLog.warn(`Could not order page ${newPageId} after ${prevSibling["@id"]}: ${response.status}`);
+      remixerLog.warn(
+        `Could not order page ${newPageId} after ${prevSibling["@id"]}: ${response.status}`,
+      );
     }
   } catch (err) {
     remixerLog.warn({ err }, "Non-fatal error ordering new page");
@@ -766,7 +807,7 @@ const handleModifiedPage = async (
   if (isMoved && parent?.["@id"]?.startsWith("new-")) {
     // Defer rather than fail the job: the parent may still be a placeholder
     // `new-…` id whose create is waiting on a deleted occupant to vacate.
-    throw new TitleConflictError(
+    throw new ParentNotReadyError(
       "Moving or reordering a page requires a published parent in the target book.",
     );
   }
@@ -1165,7 +1206,9 @@ const copySourcePageFiles = async ({
     }
 
     const contentType =
-      file.contents?.["@type"] || downloaded.contentType || "application/octet-stream";
+      file.contents?.["@type"] ||
+      downloaded.contentType ||
+      "application/octet-stream";
     const uploaded = await targetService.putPageFile(
       targetId,
       filename,
@@ -1453,7 +1496,9 @@ const copyPageThumbnailAndOverview = async ({
         },
       });
       if (!putRes.ok) {
-        remixerLog.warn(`Could not copy thumbnail to page ${targetId}: ${putRes.status}`);
+        remixerLog.warn(
+          `Could not copy thumbnail to page ${targetId}: ${putRes.status}`,
+        );
       }
     }
   } catch (err) {
@@ -1728,6 +1773,8 @@ const runRemixerJob = async ({
       page: RemixerSubPageState;
       inMatterBranch: boolean;
       inDeletedBranch: boolean;
+      /** Why this entry was last deferred; read by the deadlock breaker below. */
+      lastConflictReason?: "title" | "parent-not-ready";
     };
     const ordered: OrderedEntry[] = [];
     const queue: Array<{
@@ -1821,7 +1868,7 @@ const runRemixerJob = async ({
         autoNumbering,
       );
       const status = getPageStatus(page);
-      const shouldSkip = shouldSkipPage(page,  status);
+      const shouldSkip = shouldSkipPage(page, status);
 
       let message = shouldSkip
         ? `${title} - skipped`
@@ -1957,8 +2004,14 @@ const runRemixerJob = async ({
         }
       } catch (error) {
         if (error instanceof TitleConflictError) {
+          const parentNotReady = error instanceof ParentNotReadyError;
+          entry.lastConflictReason = parentNotReady
+            ? "parent-not-ready"
+            : "title";
           job.messages.push(
-            `${title} - title/URL already in use; deferring for reprocessing.`,
+            parentNotReady
+              ? `${title} - its new parent page has not been created yet; deferring for reprocessing.`
+              : `${title} - title/URL already in use; deferring for reprocessing.`,
           );
           await job.save();
           return "conflict";
@@ -2037,37 +2090,66 @@ const runRemixerJob = async ({
     // move onto them without colliding with the deleted occupant. Now that
     // the occupant is gone, rename each placeholder to its intended title.
     for (const pending of pendingFinalRenames) {
-      await withRetryOnTransient(() =>
-        renamePageToIntended(pending.page, pending.intendedTitle, subdomain),
-      );
-      const pid = parseInt(pending.page["@id"], 10);
-      if (!Number.isNaN(pid)) {
-        const info = await getPage(pid, subdomain);
-        const uriUiVal = info?.["uri.ui"];
-        if (typeof uriUiVal === "string" && uriUiVal.length > 0) {
-          const oldUri = getRemixerPageUriUi(pending.page);
-          setRemixerPageUriUi(pending.page, uriUiVal);
-          pending.page["@href"] = uriUiVal;
-          remapDescendantUriPaths(
-            childrenByParent,
-            pending.page["@id"],
-            oldUri,
-            uriUiVal,
-            subdomain,
-          );
-        }
+      // Non-fatal, like the delete phase above. A 409 here means the occupant
+      // never vacated (its delete failed), and a hard throw would fail the job
+      // with this page still published under `remixer-replace-tmp-…`. Leave the
+      // placeholder in place, say so, and let the rest of the run finish.
+      try {
+        await withRetryOnTransient(() =>
+          renamePageToIntended(pending.page, pending.intendedTitle, subdomain),
+        );
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        job.messages.push(
+          `${pending.intendedTitle} - still at its temporary path; rename FAILED (${detail}). Resolve the page holding that title/URL and publish again.`,
+        );
+        await job.save();
+        continue;
       }
-      const existingIdx = finalBook.findIndex(
-        (p) => p["@id"] === pending.page["@id"],
-      );
-      if (existingIdx >= 0) {
-        finalBook[existingIdx] = toFinalBookEntry(
-          pending.page,
+
+      const pid = parseInt(pending.page["@id"], 10);
+      if (Number.isNaN(pid)) {
+        job.messages.push(
+          `${pending.intendedTitle} - renamed from its temporary path, but its id could not be resolved to refresh the saved URL.`,
+        );
+        await job.save();
+        continue;
+      }
+
+      const info = await getPage(pid, subdomain);
+      const uriUiVal = info?.["uri.ui"];
+      if (typeof uriUiVal === "string" && uriUiVal.length > 0) {
+        const oldUri = getRemixerPageUriUi(pending.page);
+        setRemixerPageUriUi(pending.page, uriUiVal);
+        pending.page["@href"] = uriUiVal;
+        remapDescendantUriPaths(
+          childrenByParent,
+          pending.page["@id"],
+          oldUri,
+          uriUiVal,
           subdomain,
-          pages,
-          pending.intendedTitle,
         );
       }
+
+      // The rename shifted this page's URL and, recursively, every
+      // descendant's. Their finalBook entries were snapshotted back when they
+      // were processed, so they still carry the `remixer-replace-tmp-…` path —
+      // re-snapshot them from the just-remapped nodes. Display titles are kept
+      // from the existing entries; only the URL fields need refreshing.
+      const toResnapshot: RemixerSubPageState[] = [
+        pending.page,
+        ...collectDescendants(childrenByParent, pending.page["@id"]),
+      ];
+      for (const node of toResnapshot) {
+        const idx = finalBook.findIndex((p) => p["@id"] === node["@id"]);
+        if (idx < 0) continue;
+        const displayTitle =
+          node === pending.page
+            ? pending.intendedTitle
+            : finalBook[idx]["@title"];
+        finalBook[idx] = toFinalBookEntry(node, subdomain, pages, displayTitle);
+      }
+
       job.messages.push(
         `${pending.intendedTitle} - renamed from temporary path to intended title.`,
       );
@@ -2101,22 +2183,41 @@ const runRemixerJob = async ({
         // page in the cycle needs; the relocated page keeps its real
         // target and gets retried again on a later pass, once whichever
         // page is ahead of it in the cycle has vacated that target.
+        // Only a page whose *own* title/URL is the contested slot can break the
+        // cycle by stepping aside. A page deferred because its parent has not
+        // been created yet holds nothing anyone is waiting on, so relocating it
+        // frees no slot and would move a live library page to a throwaway path
+        // once per remaining pass before the loop gives up anyway.
         const relocatable = stillStuck.find(
-          (entry) => !Number.isNaN(parseInt(entry.page["@id"], 10)),
+          (entry) =>
+            entry.lastConflictReason !== "parent-not-ready" &&
+            !Number.isNaN(parseInt(entry.page["@id"], 10)),
         );
         if (!relocatable) {
-          const stuckTitles = stillStuck
-            .map((entry) =>
-              getDisplayTitle(
-                entry.page,
-                entry.inMatterBranch,
-                entry.inDeletedBranch,
-                autoNumbering,
-              ),
-            )
-            .join(", ");
+          const titlesOf = (entries: OrderedEntry[]): string =>
+            entries
+              .map((entry) =>
+                getDisplayTitle(
+                  entry.page,
+                  entry.inMatterBranch,
+                  entry.inDeletedBranch,
+                  autoNumbering,
+                ),
+              )
+              .join(", ");
+          const parentNotReady = stillStuck.filter(
+            (entry) => entry.lastConflictReason === "parent-not-ready",
+          );
+          if (parentNotReady.length === stillStuck.length) {
+            throw new Error(
+              `Unable to place: ${titlesOf(parentNotReady)} — the new parent page each one moves under could not be created, because its title/URL is held by a page outside this remix. Resolve that page and publish again.`,
+            );
+          }
+          const titleStuck = stillStuck.filter(
+            (entry) => entry.lastConflictReason !== "parent-not-ready",
+          );
           throw new Error(
-            `Title/URL conflict for: ${stuckTitles} — the conflicting title/path belongs to a page outside this remix and must be resolved manually.`,
+            `Title/URL conflict for: ${titlesOf(titleStuck)} — the conflicting title/path belongs to a page outside this remix and must be resolved manually.`,
           );
         }
 
@@ -2358,7 +2459,9 @@ const URI_ENDING_CONFIG_KEYS = [
 const pickSavedPageConfigs = (
   saved: RemixerSubPageState,
 ): Partial<RemixerSubPageState> => {
-  const plain = remixerSubPageToResponse(saved) as unknown as RemixerSubPagePlain;
+  const plain = remixerSubPageToResponse(
+    saved,
+  ) as unknown as RemixerSubPagePlain;
   const configs: Partial<RemixerSubPageState> = {};
 
   if (saved.formattedPathOverride === true) {
@@ -2438,9 +2541,11 @@ const findDifference = (
     try {
       return remixerSubPageToResponse(page);
     } catch (err) {
-      remixerLog.info(`findDifference: could not normalize page ${
-                  page?.["@id"] ?? "(unknown)"
-                }: ${err instanceof Error ? err.message : String(err)}`);
+      remixerLog.info(
+        `findDifference: could not normalize page ${
+          page?.["@id"] ?? "(unknown)"
+        }: ${err instanceof Error ? err.message : String(err)}`,
+      );
       return page;
     }
   };
