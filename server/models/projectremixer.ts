@@ -24,6 +24,13 @@ export interface RemixerSubPageState {
   movedItem?: boolean;
   renamedItem?: boolean;
   deletedItem?: boolean;
+  /**
+   * True when `deletedItem` was set by an ancestor's cascade rather than a
+   * direct delete on this node. The client's `applyBookNodeRestore` reads it to
+   * decide which descendants come back with a restored ancestor, so it has to
+   * survive a save/reload round trip like the other edit-state flags.
+   */
+  deletedViaAncestor?: boolean;
   sourceID?: string;
   siblingTitleIndex?: number;
   overrideUriUiEnding?: string;
@@ -78,6 +85,7 @@ const RemixerSubPageStateSchema = new Schema<RemixerSubPageState>(
     movedItem: { type: Boolean },
     renamedItem: { type: Boolean },
     deletedItem: { type: Boolean },
+    deletedViaAncestor: { type: Boolean },
     siblingTitleIndex: { type: Number },
     overrideUriUiEnding: { type: String },
     originalOverrideUriUiEnding: { type: String },

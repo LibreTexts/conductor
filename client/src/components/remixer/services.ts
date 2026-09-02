@@ -1312,10 +1312,14 @@ export const applyBookNodeRestore = (
     const nodeId = queue.shift();
     if (!nodeId || toRestore.has(nodeId)) continue;
     const node = nodesById.get(nodeId);
+    // Only an explicit `false` marks a descendant as deleted on its own. An
+    // absent flag means the draft was saved before `deletedViaAncestor` existed,
+    // where every node in a deleted subtree was flagged the same way and a
+    // cascade is the only thing it could have been — so those come back.
     const isIndependentlyDeleted =
       nodeId !== selectedNodeId &&
       node?.deletedItem === true &&
-      node.deletedViaAncestor !== true;
+      node.deletedViaAncestor === false;
     if (isIndependentlyDeleted) continue;
     toRestore.add(nodeId);
     (childMap.get(nodeId) ?? []).forEach((childId) => queue.push(childId));

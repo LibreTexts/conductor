@@ -1171,24 +1171,36 @@ const hrefPathname = (href: string): string => {
   }
 };
 
+const formatMiB = (bytes: number): string =>
+  `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+
 /**
  * Copies every attached file (except the page thumbnail, which is handled
  * separately) from a source page onto a newly created target page, and
  * returns URL/id substitutions for rewriting the copied HTML.
+ *
+ * A file that cannot be copied (unavailable, or larger than
+ * `MAX_COPYABLE_FILE_BYTES`) is skipped individually rather than failing the
+ * page: its HTML keeps pointing at the source library's copy, which still
+ * resolves. Each skip is reported through `warnings` so the publish log says
+ * so instead of leaving it to the server logs.
  */
 const copySourcePageFiles = async ({
   sourceService,
   sourceId,
   targetService,
   targetId,
+  warnings,
 }: {
   sourceService: BookService;
   sourceId: string;
   targetService: BookService;
   targetId: string;
+  warnings: string[];
 }): Promise<RemixerFileMigration[]> => {
   const sourceFiles = await sourceService.getPageFiles(sourceId);
   const migrations: RemixerFileMigration[] = [];
+  const maxBytes = BookService.MAX_COPYABLE_FILE_BYTES;
 
   for (const file of sourceFiles) {
     const filename = file.filename;
@@ -1197,10 +1209,27 @@ const copySourcePageFiles = async ({
     if (filename === PAGE_THUMBNAIL_FILENAME) continue;
     if (file["@res-is-deleted"] === "true") continue;
 
-    const downloaded = await sourceService.getFileBytes(oldID);
-    if (!downloaded) {
+    // Skip on the listing's declared size before opening the download at all;
+    // getFileBytes re-checks for responses that arrive without a Content-Length.
+    const declaredSize = Number(file.contents?.["@size"]);
+    if (Number.isFinite(declaredSize) && declaredSize > maxBytes) {
+      warnings.push(
+        `attachment "${filename}" (${formatMiB(declaredSize)}) exceeds the ${formatMiB(maxBytes)} copy limit and still points at the source library`,
+      );
+      continue;
+    }
+
+    const downloaded = await sourceService.getFileBytes(oldID, { maxBytes });
+    if (!downloaded.ok) {
+      const detail =
+        downloaded.reason === "too-large"
+          ? `${formatMiB(downloaded.size)} exceeds the ${formatMiB(maxBytes)} copy limit`
+          : "could not be downloaded";
+      warnings.push(
+        `attachment "${filename}" ${detail} and still points at the source library`,
+      );
       remixerLog.warn(
-        `Full copy: could not download file ${oldID} (${filename}) from source page ${sourceId}`,
+        `Full copy: skipping file ${oldID} (${filename}) from source page ${sourceId}: ${downloaded.reason}`,
       );
       continue;
     }
@@ -1217,6 +1246,9 @@ const copySourcePageFiles = async ({
     );
     const newID = uploaded?.["@id"];
     if (!uploaded || !newID) {
+      warnings.push(
+        `attachment "${filename}" could not be uploaded and still points at the source library`,
+      );
       remixerLog.warn(
         `Full copy: could not upload file ${filename} to target page ${targetId}`,
       );
@@ -1254,7 +1286,10 @@ const handleImportedPage = async (
   hasChildren: boolean,
   coverId?: string,
   options?: CreatePageOptions,
-): Promise<{ pageID: string; pageURI: string }> => {
+): Promise<{ pageID: string; pageURI: string; warnings: string[] }> => {
+  // Per-page, non-fatal notes (skipped attachments, file-copy fallback) that the
+  // caller folds into the job log so they reach the publish panel, not just pino.
+  const warnings: string[] = [];
   const sourceUri = getRemixerPageUriUi(page);
   const sourceSubdomain = extractLibretextsSubdomain(sourceUri);
   if (!sourceSubdomain) {
@@ -1349,6 +1384,7 @@ const handleImportedPage = async (
           sourceId: sourceId.toString(),
           targetService,
           targetId: pageID,
+          warnings,
         });
         contentsBody = RemixerTemplates.POST_FullCopyPage(
           cleanedRawHtml,
@@ -1357,6 +1393,10 @@ const handleImportedPage = async (
         );
         postComment = "Remixer full copy";
       } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        warnings.push(
+          `full copy of attached files failed (${detail}); the page's files still point at the source library`,
+        );
         remixerLog.warn(
           { err },
           `Full copy file migration failed for page ${sourceId}; falling back to fork URLs`,
@@ -1442,7 +1482,7 @@ const handleImportedPage = async (
     targetId: pageID,
   });
 
-  return { pageID, pageURI };
+  return { pageID, pageURI, warnings };
 };
 
 /**
@@ -1651,6 +1691,7 @@ const toFinalBookEntry = (
     movedItem: false,
     renamedItem: false,
     deletedItem: false,
+    deletedViaAncestor: false,
   };
 };
 
@@ -1827,12 +1868,20 @@ const runRemixerJob = async ({
     };
     const pendingFinalRenames: PlaceholderRename[] = [];
 
+    /**
+     * Real MindTouch ids created by this run. The ownership gate above vets the
+     * *submitted* payload, and pages created here did not exist when it ran, so
+     * any later pass that writes to a page has to treat these as owned too.
+     */
+    const createdPageIDs = new Set<string>();
+
     const adoptCreatedPageId = (
       oldPageId: string,
       page: RemixerSubPageState,
       pageID: string,
       pageURI: string,
     ) => {
+      createdPageIDs.add(pageID);
       page["@id"] = pageID;
       setRemixerPageUriUi(page, pageURI || getRemixerPageUriUi(page));
       page["@href"] = pageURI || page["@href"];
@@ -1935,7 +1984,7 @@ const runRemixerJob = async ({
               ? { titleOverride: placeholder, pathSegmentOverride: placeholder }
               : undefined;
             const oldPageId = page["@id"];
-            const { pageID, pageURI } = await withRetryOnTransient(
+            const { pageID, pageURI, warnings } = await withRetryOnTransient(
               () =>
                 handleImportedPage(
                   page,
@@ -1950,6 +1999,11 @@ const runRemixerJob = async ({
               { onRetry: logRetry },
             );
             adoptCreatedPageId(oldPageId, page, pageID, pageURI);
+            // The page itself imported fine; these are per-file degradations
+            // that would otherwise only exist in the server log.
+            for (const warning of warnings) {
+              job.messages.push(`${title} - ${warning}`);
+            }
             if (placeholder && occupant) {
               pendingFinalRenames.push({ page, intendedTitle: title });
               message = `${title} - created at a temporary path because "${occupant.title || occupant["@title"]}" still occupies the target`;
@@ -2269,6 +2323,33 @@ const runRemixerJob = async ({
     logger.info("[*] Article kind reconciliation pass...");
     if (coverId) {
       for (const finalPage of finalBook) {
+        // ── Authorization, not hygiene ──────────────────────────────────────
+        // This pass writes tags and, via activateShowOrg, the page BODY. The
+        // ownership gate at the top of the job only inspects pages whose status
+        // is new/imported/modified/deleted; an entry with no change flags reads
+        // as `unchanged`, is never checked against ownedIDs, and still lands in
+        // finalBook. `currentBook` is client-supplied (z.record(z.string(),
+        // z.any())), so without this guard a project member could name any page
+        // id in the library, give it a mismatched `article`, and have the pass
+        // overwrite that page.
+        //
+        // A non-numeric id is refused for the same reason applyArticleKindToPage
+        // takes an explicit pageID: every BookService helper parseInts what it
+        // is handed, so an unadopted import id (`<sourceID>-<ts>-<rand>`) would
+        // resolve to <sourceID> in the TARGET library. That happens whenever a
+        // create was skipped because `byId` had no entry for the page's parent,
+        // which the gate permits when the parent is an owned page absent from
+        // the payload.
+        const finalPageID = String(finalPage["@id"] ?? "");
+        if (!/^\d+$/.test(finalPageID)) continue;
+        if (!ownedIDs.has(finalPageID) && !createdPageIDs.has(finalPageID)) {
+          remixerLog.warn(
+            { pageId: finalPageID, projectID },
+            "Article kind reconciliation: skipping page not owned by this book",
+          );
+          continue;
+        }
+
         const kind = articleKindForPlacement(
           finalPage["@id"],
           finalPage.parentID,

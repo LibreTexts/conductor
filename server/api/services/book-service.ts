@@ -76,6 +76,22 @@ export default class BookService {
   });
   private static _tocInFlightByBookID = new Map<string, Promise<TableOfContents>>();
 
+  /**
+   * Per-file ceiling for bulk attachment copying (remixer full-copy mode).
+   *
+   * Sized for the 2 vCPU / 4 GiB ECS task this runs on. A copy holds the
+   * downloaded ArrayBuffer while the upload Buffer views it, and undici keeps
+   * its own chunk list during `arrayBuffer()`, so budget ~3x the file size in
+   * flight. Publish jobs are serialized per project but not across projects,
+   * so assume up to 4 concurrent: 50 MiB x 3 x 4 = 600 MiB peak, comfortably
+   * inside the container once Node's heap and the rest of the app are paid for.
+   *
+   * 50 MiB clears every image and effectively every PDF in a LibreTexts book.
+   * Anything above it is video-shaped and stays linked to the source library
+   * instead of being copied.
+   */
+  static readonly MAX_COPYABLE_FILE_BYTES = 50 * 1024 * 1024;
+
   private static readonly MATTER_ROOT_PATHS = {
     Front: "00%3A_Front_Matter",
     Back: "zz%3A_Back_Matter",
@@ -810,11 +826,15 @@ export default class BookService {
   }
 
   async getPageFiles(pageID: string): Promise<PageFile[]> {
+    // silentFail: CXOneFetch throws on any non-2xx unless told otherwise, which
+    // would bypass the caller-facing error below (and, in getFileBytes /
+    // putPageFile, the per-file skip their callers rely on).
     const pageFilesRes = await CXOneFetch({
       scope: "page",
       path: parseInt(pageID),
       api: MindTouch.API.Page.GET_Page_Files,
       subdomain: this._library,
+      silentFail: true,
     });
 
     if (!pageFilesRes.ok) {
@@ -829,27 +849,52 @@ export default class BookService {
   /**
    * Downloads a file's original bytes. `fileID` is the MindTouch files API id,
    * not a page id.
+   *
+   * `maxBytes` is checked against `Content-Length` *before* the body is read,
+   * so an oversized attachment is reported rather than buffered. Callers that
+   * copy attachments in bulk must pass it — see BookService.MAX_COPYABLE_FILE_BYTES.
    */
   async getFileBytes(
     fileID: string,
-  ): Promise<{ bytes: ArrayBuffer; contentType: string } | undefined> {
+    { maxBytes }: { maxBytes?: number } = {},
+  ): Promise<
+    | { ok: true; bytes: ArrayBuffer; contentType: string }
+    | { ok: false; reason: "unavailable" }
+    | { ok: false; reason: "too-large"; size: number }
+  > {
     const fileContentRes = await CXOneFetch({
       scope: "files",
       path: parseInt(fileID, 10),
       api: MindTouch.API.File.GET_File("original"),
       subdomain: this._library,
+      silentFail: true,
     });
 
     if (!fileContentRes.ok) {
-      return undefined;
+      return { ok: false, reason: "unavailable" };
+    }
+
+    if (maxBytes != null) {
+      const declared = Number(fileContentRes.headers.get("content-length"));
+      if (Number.isFinite(declared) && declared > maxBytes) {
+        // Drain rather than leave the socket hanging on an unread body.
+        await fileContentRes.body?.cancel().catch(() => {});
+        return { ok: false, reason: "too-large", size: declared };
+      }
     }
 
     const contentType =
       fileContentRes.headers.get("content-type") ?? "application/octet-stream";
-    return {
-      bytes: await fileContentRes.arrayBuffer(),
-      contentType,
-    };
+    const bytes = await fileContentRes.arrayBuffer();
+
+    // A chunked response carries no Content-Length, so the pre-read check above
+    // cannot fire. Re-check the real size and drop the buffer rather than hand a
+    // multi-hundred-MB payload on to an upload that would double it.
+    if (maxBytes != null && bytes.byteLength > maxBytes) {
+      return { ok: false, reason: "too-large", size: bytes.byteLength };
+    }
+
+    return { ok: true, bytes, contentType };
   }
 
   async putPageFile(
@@ -863,9 +908,13 @@ export default class BookService {
       path: parseInt(pageID, 10),
       api: MindTouch.API.Page.PUT_Page_File(fileName),
       subdomain: this._library,
+      silentFail: true,
       options: {
         method: "PUT",
-        body: Buffer.isBuffer(body) ? body : Buffer.from(new Uint8Array(body)),
+        // Buffer.from(arrayBuffer) is a zero-copy view. Buffer.from(new
+        // Uint8Array(...)) would copy, doubling peak memory for every
+        // attachment the remixer's full-copy mode moves.
+        body: Buffer.isBuffer(body) ? body : Buffer.from(body),
         headers: {
           "Content-Type": contentType,
         },
