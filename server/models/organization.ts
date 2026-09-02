@@ -21,6 +21,17 @@ export type CommonsModuleSettings = {
   minirepos: CommonsModuleConfig;
 }
 
+export type CustomCoverConfig = {
+  enabled: boolean;
+  casewrapCoverFrontTemplateURL: string;
+  casewrapCoverBackTemplateURL: string;
+  perfectboundCoverFrontTemplateURL: string;
+  perfectboundCoverBackTemplateURL: string;
+  spineHexColor: string;
+  spineImageURL?: string;
+  matchingPaths: string[];
+}
+
 export interface OrganizationInterface extends Document {
   orgID: string;
   active: boolean;
@@ -51,6 +62,7 @@ export interface OrganizationInterface extends Document {
   showCollections?: boolean;
   assetFilterExclusions?: string[];
   autoCatalogMatchingDisabled?: boolean;
+  customCoverConfig?: CustomCoverConfig;
   listenerPriority: number;
   cpuUnitsOverride: number;
   memoryValueOverride: number;
@@ -59,6 +71,30 @@ export interface OrganizationInterface extends Document {
   FEAT_PedagogyProjectTags?: boolean;
   FEAT_RecordSearchQueries?: boolean;
 }
+
+/**
+ * Custom cover configuration is optional as a whole, but every field except
+ * `spineImageURL` is required when the object is present. Declaring it as a
+ * single nested subdocument (rather than a nested object literal) means these
+ * validators only run when the subdocument actually exists.
+ */
+const CustomCoverConfigSchema = new Schema<CustomCoverConfig>(
+  {
+    enabled: { type: Boolean, required: true },
+    casewrapCoverFrontTemplateURL: { type: String, required: true },
+    casewrapCoverBackTemplateURL: { type: String, required: true },
+    perfectboundCoverFrontTemplateURL: { type: String, required: true },
+    perfectboundCoverBackTemplateURL: { type: String, required: true },
+    spineHexColor: { type: String, required: true },
+    spineImageURL: String,
+    matchingPaths: {
+      type: [String],
+      required: true,
+      default: undefined,
+    },
+  },
+  { _id: false }
+);
 
 const OrganizationSchema = new Schema<OrganizationInterface>(
   {
@@ -233,6 +269,13 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
     autoCatalogMatchingDisabled: {
       type: Boolean,
       default: false,
+    },
+    /**
+     * Configuration for custom cover templates and spine colors for the Organization.
+     */
+    customCoverConfig: {
+      type: CustomCoverConfigSchema,
+      required: false,
     },
     /**
      * Used for deterministic routing in a load-balanced Conductor deployment.

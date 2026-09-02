@@ -738,6 +738,14 @@ router
     orgsAPI.getCampusAdmins
   );
 
+router
+  .route("/org/:orgID/custom-cover-config")
+  .get(
+    orgsAPI.validate("getCustomCoverConfig"),
+    middleware.checkValidationErrors,
+    orgsAPI.getCustomCoverConfig
+  );
+
 /* Asset Tag Frameworks */
 router
   .route("/assettagframeworks")

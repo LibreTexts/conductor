@@ -6,7 +6,7 @@
 
 'use strict';
 import logger from "../logger.js";
-import express, {Request, Response, NextFunction} from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { body, param, query } from 'express-validator';
 import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
@@ -71,7 +71,7 @@ async function lookupOrganization(orgID: string) {
       { orgID },
       { _id: 0, defaultProjectLead: 0 },
     ).lean();
-    if(org?.commonsModules){
+    if (org?.commonsModules) {
       // Remove _id and __v fields from commonsModules subdocument
       // @ts-ignore
       delete org.commonsModules._id;
@@ -225,6 +225,45 @@ async function getLibreGridOrganizations(_req: Request, res: Response) {
   }
 }
 
+async function getCustomCoverConfig(req: Request, res: Response) {
+  try {
+    const { orgID } = req.params;
+
+    const orgData = await Organization.findOne(
+      {
+        orgID: { $eq: orgID }
+      },
+      {
+        orgID: 1,
+        name: 1,
+        customCoverConfig: 1,
+      }
+    ).lean();
+
+    if (!orgData) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    return res.send({
+      err: false,
+      org: {
+        orgID: orgData.orgID,
+        name: orgData.name,
+      },
+      customCoverConfig: orgData.customCoverConfig || null,
+    });
+  } catch (e) {
+    logger.error({ err: e }, "getCustomCoverConfig failed");
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
 /**
  * Updates an Organization's information.
  *
@@ -248,11 +287,11 @@ async function updateOrganizationInfo(req: Request, res: Response) {
       }
     };
 
-    if(req.body.primaryColor) {
+    if (req.body.primaryColor) {
       updateObj.primaryColor = sanitizeCustomColor(req.body.primaryColor)
     }
 
-    if(req.body.footerColor) {
+    if (req.body.footerColor) {
       updateObj.footerColor = sanitizeCustomColor(req.body.footerColor)
     }
 
@@ -274,7 +313,7 @@ async function updateOrganizationInfo(req: Request, res: Response) {
       );
     }
 
-    if(Object.hasOwn(updateObj, 'collectionsDisplayLabel') && isEmptyString(updateObj.collectionsDisplayLabel ?? '')){
+    if (Object.hasOwn(updateObj, 'collectionsDisplayLabel') && isEmptyString(updateObj.collectionsDisplayLabel ?? '')) {
       // Reset label to 'Collections' if empty string was passed 
       updateObj.collectionsDisplayLabel = 'Collections'
     }
@@ -355,9 +394,9 @@ async function updateBrandingImageAsset(req: Request, res: Response) {
         errMsg: conductorErrors.err2,
       });
     }
-    
+
     let assetVersion = 1;
-    
+
     // @ts-ignore
     if (org[assetName].includes(process.env.AWS_ORGDATA_DOMAIN)) {
       //@ts-ignore
@@ -472,7 +511,7 @@ function validateCommonsModules(commonsModules: any) {
     return false;
   }
   for (const module in commonsModules) {
-    if(module === "_id" || module === "__v"){
+    if (module === "_id" || module === "__v") {
       // ignore these fields (mongodb adds them because commonsModules is technically a subdocument of the Organization model)
       continue;
     }
@@ -512,16 +551,20 @@ function validate(method: string) {
       return [
         param('orgID', conductorErrors.err1).exists().isLength({ min: 2, max: 50 }),
       ];
+    case 'getCustomCoverConfig':
+      return [
+        param('orgID', conductorErrors.err1).exists().isLength({ min: 2, max: 50 }),
+      ];
     case 'updateinfo':
       return [
         param('orgID', conductorErrors.err1).exists().isLength({ min: 2, max: 50 }),
         body('aboutLink', conductorErrors.err1).optional({ checkFalsy: true }).isURL(),
         body('commonsHeader', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ max: 200 }),
         body('commonsMessage', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ max: 500 }),
-        body('collectionsDisplayLabel', conductorErrors.err1).optional({checkFalsy: true}).isLength({ max: 200 }),
-        body('collectionsMessage', conductorErrors.err1).optional({checkFalsy: true}).isLength({max: 500}),
-        body('primaryColor', conductorErrors.err1).optional({ checkFalsy: true }).isLength({min: 7, max: 7}).isHexColor(),
-        body('footerColor', conductorErrors.err1).optional({ checkFalsy: true }).isLength({min: 7, max: 7}).isHexColor(),
+        body('collectionsDisplayLabel', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ max: 200 }),
+        body('collectionsMessage', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ max: 500 }),
+        body('primaryColor', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ min: 7, max: 7 }).isHexColor(),
+        body('footerColor', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ min: 7, max: 7 }).isHexColor(),
         body('addToLibreGridList', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
         body('supportTicketNotifiers', conductorErrors.err1).optional({ checkFalsy: true }).isArray().isEmail(),
         body('defaultAssetTagFrameworkUUID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
@@ -549,6 +592,7 @@ export default {
   getOrganizationInfo,
   getCampusAdmins,
   getCurrentOrganization,
+  getCustomCoverConfig,
   getAllOrganizations,
   getLibreGridOrganizations,
   updateOrganizationInfo,

@@ -19,6 +19,7 @@ export interface BookInterface extends Document {
     lastCompiled?: number;
     compiledBy?: string;
     contentPageCount?: number;
+    customCoverOrg?: string; // The name of the org producing the book if a custom cover is used. Should be used for display/informational purposes only, not for load-bearing logic or validation.
     lastJobID?: string;
     lastJobSubmittedAt?: Date;
     lastJobSubmittedBy?: string;
@@ -131,6 +132,10 @@ const BookSchema = new Schema<BookInterface>(
        * The number of pages in the Book's content PDF, as reported by Shapeshift during compilation.
       */
       contentPageCount: Number,
+      /**
+       * The name of the org producing the book if a custom cover is used. Should be used for display/informational purposes only, not for load-bearing logic or validation.
+       */
+      customCoverOrg: String,
       /**
        * The Shapeshift job ID of the most recent compile submitted from Conductor.
        *

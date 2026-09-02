@@ -38,5 +38,6 @@ export const WebhookValidator = z.object({
     bookID: bookIDSchema,
     contentPageCount: z.number().int().nonnegative().optional(),
     timestamp: z.number().int().nonnegative(), // Unix timestamp in milliseconds
+    customCoverOrg: z.string().trim().min(1).max(255).optional(), // Only set if the book has a custom cover by the producing org
   }),
 });

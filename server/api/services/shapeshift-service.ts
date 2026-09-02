@@ -157,6 +157,7 @@ export default class ShapeshiftService {
     bookID,
     contentPageCount,
     timestamp,
+    customCoverOrg,
   }: WebhookParams): Promise<boolean> {
     const result = await Book.updateOne(
       {
@@ -174,6 +175,7 @@ export default class ShapeshiftService {
           ...(contentPageCount !== undefined
             ? { "exportInfo.contentPageCount": contentPageCount }
             : {}),
+          ...(customCoverOrg !== undefined ? { "exportInfo.customCoverOrg": customCoverOrg } : {}),
         },
       }
     );
