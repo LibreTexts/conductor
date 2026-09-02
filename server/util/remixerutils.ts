@@ -43,6 +43,7 @@ export const titleToRemixerPathSegment = (title: string): string => {
 type RemixerPathNumbering = {
   formattedPath?: string;
   numberedPath?: string;
+  pathNumber?: string[];
 };
 
 /**
@@ -58,14 +59,26 @@ export const buildRemixerPagePathSegment = (
   const siblingTitleIndexPostfix = siblingTitleIndex
     ? `_${siblingTitleIndex.toString()}`
     : "";
-  // Prefer formattedPath so autoNumbering `start` (incl. 0 → `00%3A_…`) is honored.
+  // pathNumber is authoritative: the client's change detection compares live URLs
+  // against its dot-joined segments (services.ts hasFormattedPathChanged), so slugs
+  // must be built from the same source. numberedPath/formattedPath are fallbacks for
+  // pages that predate pathNumber; note they apply level `delimiter`/`excludeParent`
+  // and, for formattedPath, the autoNumbering `start` offset, none of which belong
+  // in a URL segment.
   const numbering =
-  page.numberedPath?.trim() ||page.formattedPath?.trim() ||  "";
-  const parts = numbering.split(".");
+    page.numberedPath?.trim() || page.formattedPath?.trim() || "";
+  // An empty pathNumber marks the book root rather than "no numbering info",
+  // so fall through to numbering instead of letting `[]` win as truthy. The
+  // copy keeps the padding below from mutating the caller's stored array.
+  const parts = page.pathNumber?.length
+    ? [...page.pathNumber]
+    : numbering
+      ? numbering.split(".")
+      : [];
   if (parts.length > 0) {
     parts[parts.length - 1] = parts[parts.length - 1]!.padStart(2, "0");
   }
-  const paddedNumbering = numbering ? parts.join(".") : "";
+  const paddedNumbering = parts.join(".");
   return paddedNumbering
     ? `${paddedNumbering}:_${titleSegment}${siblingTitleIndexPostfix}`
     : titleSegment;
