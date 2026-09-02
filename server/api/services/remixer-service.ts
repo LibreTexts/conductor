@@ -1174,26 +1174,47 @@ const formatMiB = (bytes: number): string =>
  *
  * A file that cannot be copied (unavailable, or larger than
  * `MAX_COPYABLE_FILE_BYTES`) is skipped individually rather than failing the
- * page: its HTML keeps pointing at the source library's copy, which still
- * resolves. Each skip is reported through `warnings` so the publish log says
- * so instead of leaving it to the server logs.
+ * page. Within one library the body's relative `/@api/deki/files/{id}/` path
+ * still resolves, so it is left alone; across libraries that id would resolve
+ * against the *target* library and silently render a different file, so the
+ * skipped file gets an explicit absolute migration back to the source library.
+ * Each skip is reported through `warnings` so the publish log says so instead
+ * of leaving it to the server logs.
  */
 const copySourcePageFiles = async ({
   sourceService,
   sourceId,
+  sourceSubdomain,
   targetService,
   targetId,
+  targetSubdomain,
   warnings,
 }: {
   sourceService: BookService;
   sourceId: string;
+  sourceSubdomain: string;
   targetService: BookService;
   targetId: string;
+  targetSubdomain: string;
   warnings: string[];
 }): Promise<RemixerFileMigration[]> => {
   const sourceFiles = await sourceService.getPageFiles(sourceId);
   const migrations: RemixerFileMigration[] = [];
   const maxBytes = BookService.MAX_COPYABLE_FILE_BYTES;
+  const crossLibrary = sourceSubdomain !== targetSubdomain;
+
+  // Point one uncopied file back at the library that actually holds it. Only
+  // needed across libraries, and deliberately per-file: a blanket rewrite of
+  // every `/@api/deki` path is what produced the doubled `src` bug.
+  const keepPointingAtSource = (oldID: string) => {
+    if (!crossLibrary) return;
+    migrations.push({
+      original: `/@api/deki/files/${oldID}/`,
+      final: `https://${sourceSubdomain}.libretexts.org/@api/deki/files/${oldID}/`,
+      oldID,
+      newID: "",
+    });
+  };
 
   for (const file of sourceFiles) {
     const filename = file.filename;
@@ -1207,8 +1228,9 @@ const copySourcePageFiles = async ({
     const declaredSize = Number(file.contents?.["@size"]);
     if (Number.isFinite(declaredSize) && declaredSize > maxBytes) {
       warnings.push(
-        `attachment "${filename}" (${formatMiB(declaredSize)}) exceeds the ${formatMiB(maxBytes)} copy limit and still points at the source library`,
+        `attachment "${filename}" (${formatMiB(declaredSize)}) exceeds the ${formatMiB(maxBytes)} copy limit and was not copied; it may need to be re-attached by hand`,
       );
+      keepPointingAtSource(oldID);
       continue;
     }
 
@@ -1219,10 +1241,11 @@ const copySourcePageFiles = async ({
           ? `${formatMiB(downloaded.size)} exceeds the ${formatMiB(maxBytes)} copy limit`
           : "could not be downloaded";
       warnings.push(
-        `attachment "${filename}" ${detail} and still points at the source library`,
+        `attachment "${filename}" ${detail} and was not copied; it may need to be re-attached by hand`,
       );
+      keepPointingAtSource(oldID);
       remixerLog.warn(
-        `Full copy: skipping file ${oldID} (${filename}) from source page ${sourceId}: ${downloaded.reason}`,
+        `Skipping file ${oldID} (${filename}) from source page ${sourceId}: ${downloaded.reason}`,
       );
       continue;
     }
@@ -1240,10 +1263,11 @@ const copySourcePageFiles = async ({
     const newID = uploaded?.["@id"];
     if (!uploaded || !newID) {
       warnings.push(
-        `attachment "${filename}" could not be uploaded and still points at the source library`,
+        `attachment "${filename}" could not be uploaded and was not copied; it may need to be re-attached by hand`,
       );
+      keepPointingAtSource(oldID);
       remixerLog.warn(
-        `Full copy: could not upload file ${filename} to target page ${targetId}`,
+        `Could not upload file ${filename} to target page ${targetId}`,
       );
       continue;
     }
@@ -1253,8 +1277,11 @@ const copySourcePageFiles = async ({
     const oldPath = hrefPathname(oldHref);
     const newPath = hrefPathname(newHref);
 
-    if (oldHref && newHref) {
-      migrations.push({ original: oldHref, final: newHref, oldID, newID });
+    // Every replacement lands on the target library's *relative* path. An
+    // absolute `@api/deki/files/...` value is what CXOne mis-resolves into a
+    // doubled `src`, so it must never be what we write back.
+    if (oldHref && newPath) {
+      migrations.push({ original: oldHref, final: newPath, oldID, newID });
     }
     if (oldPath && newPath && oldPath !== oldHref) {
       migrations.push({ original: oldPath, final: newPath, oldID, newID });
@@ -1367,7 +1394,14 @@ const handleImportedPage = async (
     $(".mt-guide-content").remove();
     const cleanedRawHtml = $.root().html() ?? $.html() ?? "";
 
-    if (copyModeState === "Full") {
+    // A same-library fork can keep the source's relative `/@api/deki/files/...`
+    // paths: file ids resolve library-wide, so the target page renders the same
+    // attachment without copying it. Across libraries that id would resolve
+    // against the target library instead, so the files have to come with it.
+    const crossLibrary = sourceSubdomain !== subdomain;
+    const shouldCopyFiles = copyModeState === "Full" || crossLibrary;
+
+    if (shouldCopyFiles) {
       try {
         const targetService = new BookService({
           bookID: `${subdomain}-${pageID}`,
@@ -1375,38 +1409,44 @@ const handleImportedPage = async (
         const migrations = await copySourcePageFiles({
           sourceService,
           sourceId: sourceId.toString(),
+          sourceSubdomain,
           targetService,
           targetId: pageID,
+          targetSubdomain: subdomain,
           warnings,
         });
-        contentsBody = RemixerTemplates.POST_FullCopyPage(
+        contentsBody = RemixerTemplates.POST_CopyPage(
           cleanedRawHtml,
           migrations,
           [],
         );
-        postComment = "Remixer full copy";
+        postComment =
+          copyModeState === "Full"
+            ? "Remixer full copy"
+            : "Remixer fork (cross-library)";
       } catch (err) {
         const detail = err instanceof Error ? err.message : String(err);
         warnings.push(
-          `full copy of attached files failed (${detail}); the page's files still point at the source library`,
+          `copy of attached files failed (${detail}); the page's images may need to be re-attached by hand`,
         );
         remixerLog.warn(
           { err },
-          `Full copy file migration failed for page ${sourceId}; falling back to fork URLs`,
+          `File migration failed for page ${sourceId}; posting content without file rewrites`,
         );
-        contentsBody = RemixerTemplates.POST_ForkPage(
-          cleanedRawHtml,
-          sourceSubdomain,
-          [],
-        );
-        postComment = "Remixer full copy (file copy failed, using source URLs)";
+        // No migrations to apply, and nothing to absolutise: the stale fileid
+        // attributes are dropped so CXOne re-resolves each src on its own.
+        contentsBody = RemixerTemplates.POST_CopyPage(cleanedRawHtml, [], [], {
+          stripFileIds: true,
+        });
+        postComment =
+          copyModeState === "Full"
+            ? "Remixer full copy (file copy failed)"
+            : "Remixer fork (file copy failed)";
       }
     } else {
-      contentsBody = RemixerTemplates.POST_ForkPage(
-        cleanedRawHtml,
-        sourceSubdomain,
-        [],
-      );
+      contentsBody = RemixerTemplates.POST_CopyPage(cleanedRawHtml, [], [], {
+        stripFileIds: true,
+      });
       postComment = "Remixer fork";
     }
   }

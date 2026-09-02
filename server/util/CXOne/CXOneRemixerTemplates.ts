@@ -59,33 +59,21 @@ const RemixerTemplates = {
     ${tags.map((t) => `<a href="#">${t}</a>`).join("")}
   </p>`,
 
-  // ── Fork / Full-copy ─────────────────────────────────────────────────────────
+  // ── Fork / Full-copy ───────────────────────────────────────────────────────
 
   /**
-   * Rewrites relative API paths to absolute source URLs and strips stale
-   * fileid attributes. Pass the raw HTML body from the source page.
+   * Builds the body for a forked or fully-copied page: applies file migrations
+   * (from copySourcePageFiles()), optionally strips stale fileid attributes,
+   * then appends the tag block. Pass the raw HTML body from the source page.
+   *
+   * Attachment paths are left relative on purpose. CXOne recognises the
+   * `@api/deki/files/{id}` shape on save but treats an absolute value as a
+   * relative path, rebuilding it as `"/" + siteUri + src` — which is how a
+   * blanket absolutising rewrite here used to produce a doubled, dead `src`.
+   * Anything that must point outside the target library has to arrive as an
+   * explicit per-file migration.
    */
-  POST_ForkPage: (
-    rawSourceHTML: string,
-    sourceSubdomain: string,
-    tags: string[],
-  ) =>
-    rawSourceHTML
-      .replace(
-        /\/@api\/deki/g,
-        `https://${sourceSubdomain}.libretexts.org/@api/deki`,
-      )
-      .replace(/ fileid=".*?"/g, "") +
-    `\n<p class="template:tag-insert">
-    <em>Tags recommended by the template: </em>
-    ${tags.map((t) => `<a href="#">${t}</a>`).join("")}
-  </p>`,
-
-  /**
-   * Applies file migration results (from processFile()) to rewrite all file
-   * URLs and IDs in the source HTML, then appends the tag block.
-   */
-  POST_FullCopyPage: (
+  POST_CopyPage: (
     rawSourceHTML: string,
     fileMigrations: {
       original: string;
@@ -94,17 +82,27 @@ const RemixerTemplates = {
       newID: string;
     }[],
     tags: string[],
+    opts?: { stripFileIds?: boolean },
   ) => {
     let contents = rawSourceHTML;
     for (const m of fileMigrations) {
       if (m.original) {
         contents = contents.split(m.original).join(m.final);
       }
-      contents = contents.split(`fileid="${m.oldID}"`).join(`fileid="${m.newID}"`);
+      if (m.oldID && m.newID) {
+        contents = contents
+          .split(`fileid="${m.oldID}"`)
+          .join(`fileid="${m.newID}"`);
+      }
+    }
+    // After the remap, so ids the migrations just rewrote are not clobbered.
+    if (opts?.stripFileIds) {
+      contents = contents.replace(/ fileid=".*?"/g, "");
     }
     return (
       contents +
-      `\n<p class="template:tag-insert">
+      `
+<p class="template:tag-insert">
     <em>Tags recommended by the template: </em>
     ${tags.map((t) => `<a href="#">${t}</a>`).join("")}
   </p>`
