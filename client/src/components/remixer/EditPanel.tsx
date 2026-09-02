@@ -41,11 +41,42 @@ function truncateMiddle(value: string, maxLen: number): string {
   return `${value.slice(0, front)}...${value.slice(-back)}`;
 }
 
-/** Path-segment-safe characters only — no `/`, spaces, `?`, `#`, etc. */
+/**
+ * Path-segment-safe characters only — no `/`, spaces, `?`, `#`, etc. Mirrors the
+ * server's `sanitizeRemixerUriEnding`, which re-applies this on save.
+ *
+ * The override is stored as literal path text, matching what auto-numbering
+ * produces (`01:_Introduction`, with a raw colon). `%` is excluded on purpose:
+ * the publish job encodes the whole path on the way out, so a stored `%3A`
+ * would reach the library as three literal characters and publish the page at
+ * `01%253A_Introduction`. Values are decoded first so an ending seeded from an
+ * encoded `uri.ui` leaf heals instead of being stripped to `013A_Introduction`.
+ */
 function sanitizeUriEnding(value: string | undefined): string | undefined {
   if (!value) return undefined;
-  const cleaned = value.replace(/[^A-Za-z0-9._~%-]/g, "");
-  return cleaned.length > 0 ? cleaned : undefined; // return undefined if nothing remains after sanitization
+  const cleaned = decodeUriEndingLeaf(value).replace(
+    /[^A-Za-z0-9._~():-]/g,
+    "",
+  );
+  // Nothing usable left, or a dots-only leaf ("." / "..") that would read as a
+  // relative path segment rather than a page name.
+  if (cleaned.length === 0 || /^\.+$/.test(cleaned)) return undefined;
+  return cleaned;
+}
+
+/** Percent-decodes a URL path leaf, leaving malformed encodings untouched. */
+function decodeUriEndingLeaf(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+/** The last path segment of a page URL, decoded for display and editing. */
+function uriEndingFrom(uri: string | undefined): string {
+  if (!uri) return "";
+  return decodeUriEndingLeaf(uri.split("/").slice(-1)[0] ?? "");
 }
 
 const EditPanel: React.FC<EditPanelProps> = (props) => {
@@ -65,11 +96,15 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
   const currentPageParentPath = currentPageUri
     ? currentPageUri.split("/").slice(0, -1).join("/")
     : "";
- 
+
   const titleInputRef = useRef<HTMLInputElement>(null);
   const isBookRoot = isRemixerBookRoot(currentPage, coverPageId);
-  const [overrideUriUiEnding, setOverrideUriUiEnding] = useState<string|undefined>(
-    sanitizeUriEnding(currentPage?.overrideUriUiEnding ||currentPageUri?.split("/").slice(-1)[0]  ||undefined),
+  const [overrideUriUiEnding, setOverrideUriUiEnding] = useState<
+    string | undefined
+  >(
+    sanitizeUriEnding(
+      currentPage?.overrideUriUiEnding || uriEndingFrom(currentPageUri),
+    ),
   );
   // Mirrors `formattedPathOverride`'s checkbox semantics exactly: checked
   // means the override is active and its value is persisted on save;
@@ -118,9 +153,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
     setPage({ ...currentPage, title, "@title": title });
     const uri = getRemixerPageUriUi(currentPage);
     setOverrideUriUiEnding(
-      sanitizeUriEnding(
-        currentPage.overrideUriUiEnding || uri.split("/").slice(-1)[0] || "",
-      ),
+      sanitizeUriEnding(currentPage.overrideUriUiEnding || uriEndingFrom(uri)),
     );
     setEnableOverrideUriUiEnding(!!currentPage.overrideUriUiEnding);
   }, [currentPage, open]);
@@ -256,14 +289,17 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
                     setOverrideUriUiEnding(undefined);
                   } else if (!overrideUriUiEnding) {
                     setOverrideUriUiEnding(
-                      sanitizeUriEnding(
-                        currentPageUri.split("/").slice(-1)[0] || undefined,
-                      ),
+                      sanitizeUriEnding(uriEndingFrom(currentPageUri)),
                     );
                   }
                 }}
               />
-              <Stack direction="horizontal" gap="sm" align="center" className="w-full">
+              <Stack
+                direction="horizontal"
+                gap="sm"
+                align="center"
+                className="w-full"
+              >
                 <Text className="text-sm text-gray-500 shrink-0">
                   <span title={currentPageParentPath}>
                     {truncateMiddle(currentPageParentPath, 25)}
@@ -279,7 +315,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
                   value={
                     enableOverrideUriUiEnding
                       ? (overrideUriUiEnding ?? "")
-                      : (currentPageUri.split("/").slice(-1)[0] ?? "")
+                      : uriEndingFrom(currentPageUri)
                   }
                   onChange={(e) =>
                     setOverrideUriUiEnding(sanitizeUriEnding(e.target.value))
