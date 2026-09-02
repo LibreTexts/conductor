@@ -23,10 +23,8 @@ export type CommonsModuleSettings = {
 
 export type CustomCoverConfig = {
   enabled: boolean;
-  casewrapCoverFrontTemplateURL: string;
-  casewrapCoverBackTemplateURL: string;
-  perfectboundCoverFrontTemplateURL: string;
-  perfectboundCoverBackTemplateURL: string;
+  frontTemplateURL: string;
+  backTemplateURL: string;
   spineHexColor: string;
   spineImageURL?: string;
   matchingPaths: string[];
@@ -81,10 +79,8 @@ export interface OrganizationInterface extends Document {
 const CustomCoverConfigSchema = new Schema<CustomCoverConfig>(
   {
     enabled: { type: Boolean, required: true },
-    casewrapCoverFrontTemplateURL: { type: String, required: true },
-    casewrapCoverBackTemplateURL: { type: String, required: true },
-    perfectboundCoverFrontTemplateURL: { type: String, required: true },
-    perfectboundCoverBackTemplateURL: { type: String, required: true },
+    frontTemplateURL: { type: String, required: true },
+    backTemplateURL: { type: String, required: true },
     spineHexColor: { type: String, required: true },
     spineImageURL: String,
     matchingPaths: {

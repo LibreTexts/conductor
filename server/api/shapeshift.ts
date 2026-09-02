@@ -20,6 +20,7 @@ import projectsAPI from "./projects.js";
 import conductorErrors from "../conductor-errors.js";
 import logger from "../logger.js";
 import { getLibraryAndPageFromBookID } from "../util/bookutils.js";
+import Organization from "../models/organization";
 
 export async function createJob(
   req: ZodReqWithUser<z.infer<typeof CreateJobValidator>>,
@@ -330,6 +331,63 @@ export async function compileBook(
   });
 }
 
+export async function getBookCustomCoverConfig(
+  req: ZodReqWithUser<z.infer<typeof BookScopedValidator>>,
+  res: Response
+) {
+  /**
+   * We don't check for project access here because 1) Shapeshift is the primary 
+   * consumer of this endpoint, not users, and 2) the custom cover config is not
+   * sensitive information anyways.
+   */
+  const book = await Book.findOne({ bookID: { $eq: req.params.bookID } }).lean();
+  if (!book) {
+    return res.status(404).json({
+      err: true,
+      errMsg: "Book not found.",
+    });
+  }
+
+  if (!book.affiliation) {
+    return res.status(404).json({
+      err: true,
+      errMsg: "Book does not have an affiliation. Cannot determine custom cover config.",
+    });
+  }
+
+  const associatedOrg = await Organization.findOne({
+    name: { $eq: book.affiliation },
+  }, {
+    orgID: 1,
+    name: 1,
+    customCoverConfig: 1,
+  }).lean();
+
+  if (!associatedOrg) {
+    return res.status(404).json({
+      err: true,
+      errMsg: "No organization found for the book's affiliation.",
+    });
+  }
+
+  if (!associatedOrg.customCoverConfig || !associatedOrg.customCoverConfig.enabled) {
+    return res.status(404).json({
+      err: true,
+      errMsg: "The associated organization does not have a custom cover configuration configured or it is not enabled.",
+    });
+  }
+
+  return res.status(200).json({
+    err: false,
+    msg: "Retrieved custom cover configuration.",
+    org: {
+      orgID: associatedOrg.orgID,
+      name: associatedOrg.name,
+    },
+    customCoverConfig: associatedOrg.customCoverConfig,
+  });
+}
+
 /**
  * Total export bytes this endpoint will pull into memory.
  *
@@ -365,7 +423,7 @@ async function readBodyCapped(
   const chunks: Uint8Array[] = [];
   let received = 0;
 
-  for (;;) {
+  for (; ;) {
     const { done, value } = await reader.read();
     if (done) break;
     received += value.byteLength;

@@ -3279,6 +3279,11 @@ router.route('/shapeshift/book/:bookID/compile').post(
   catchInternal((req, res) => shapeshiftAPI.compileBook(req, res)),
 );
 
+router.route('/shapeshift/book/:bookID/custom-cover-config').get(
+  middleware.validateZod(ShapeshiftValidators.BookScopedValidator),
+  catchInternal((req, res) => shapeshiftAPI.getBookCustomCoverConfig(req, res))
+);
+
 router.route("/shapeshift/webhook").post(
   middleware.checkShapeshiftWebhookKey,
   middleware.validateZod(ShapeshiftValidators.WebhookValidator),
