@@ -580,14 +580,23 @@ const applyArticleKindToPage = async (
   kind: RemixerArticleKind,
   subdomain: string,
   coverId: string,
+  /**
+   * MindTouch page id to write to. Defaults to `page["@id"]`, which is only
+   * the real id once it has been adopted from a create response. An imported
+   * node still carries its local `<sourceID>-<ts>-<rand>` id until then, and
+   * every BookService helper does `parseInt` on what it is given, so passing
+   * the un-adopted page would target the SOURCE page id instead, a write to a
+   * page this job does not own.
+   */
+  pageID: string = page["@id"],
 ): Promise<void> => {
   const bookService = new BookService({
     bookID: `${subdomain}-${coverId}`,
   });
   const tag = kind === "topic" ? "article:topic" : (`article:${kind}` as const);
-  await bookService.updatePageDetails(page["@id"], undefined, [tag]);
+  await bookService.updatePageDetails(pageID, undefined, [tag]);
   await bookService.activateShowOrg(
-    page["@id"],
+    pageID,
     kind === "topic-guide" || kind === "topic-category",
   );
   page.article = localArticleField(kind);
@@ -707,6 +716,15 @@ const handleDeletedPage = async (
       },
     },
   );
+
+  // Deletes are recursive, and a subtree's descendants are queued as their own
+  // entries, so by the time a child's DELETE runs its ancestor has usually
+  // already taken it. "Not there" is the outcome this call wanted, not a
+  // failure. Reporting it as one would flag every multi-level delete.
+  // Same reasoning for a page removed out of band since the draft was loaded.
+  if (response.status === 404 || response.status === 410) {
+    return;
+  }
 
   if (!response.ok) {
     throwForMindTouchResponse(response, "Error deleting page");
@@ -1358,9 +1376,11 @@ const handleImportedPage = async (
   // move-handler's use of applyArticleKindToPage — this is the source of
   // truth for the tag/ShowOrg state, independent of whether the create-time
   // content template was parsed into a tag by MindTouch.
+  // `pageID` is passed explicitly: the caller does not adopt it onto `page`
+  // until this function returns, so `page["@id"]` is still the local import id.
   if (coverId) {
     try {
-      await applyArticleKindToPage(page, kind, subdomain, coverId);
+      await applyArticleKindToPage(page, kind, subdomain, coverId, pageID);
     } catch (error) {
       logger.error(
         { err: error },
@@ -2315,11 +2335,18 @@ const getRemixerPageEditFlags = (
 const isLocallyImportedPageID = (pageID: string): boolean =>
   pageID.includes("-");
 
-/** Path / format fields overlaid from saved remixer state onto a live TOC row. */
+/**
+ * Path / format fields overlaid from saved remixer state onto a live TOC row.
+ * The `original*` baselines travel with the values they are the baseline for:
+ * the client's `hasFormattedPathChanged` compares the two, so carrying an
+ * override forward without its baseline would flag every override page as
+ * renamed the moment a fresh-from-library load preserved configs.
+ */
 const FORMATTED_PATH_CONFIG_KEYS = [
   "formattedPathOverride",
   "originalFormattedPathOverride",
   "formattedPath",
+  "originalFormattedPath",
 ] as const;
 
 /** URL-ending override fields, carried independently of the numbering override above. */
