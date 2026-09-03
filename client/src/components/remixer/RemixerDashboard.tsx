@@ -2638,6 +2638,7 @@ const RemixerDashboard: React.FC = () => {
           <ControlPanelNewUITemp
             isNarrowScreen={isNarrowScreen}
             isAdmin={isSupportOrSuperAdmin}
+            isCopyModeAdmin={!!user?.isSuperAdmin}
             copyModeState={uiState.copyModeState ?? "default"}
             onCopyModeChange={(newMode) => {
               setUiState((prev) => ({ ...prev, copyModeState: newMode }));
