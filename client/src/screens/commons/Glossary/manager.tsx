@@ -135,6 +135,12 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
   const hasImage = !!imageFile || !!imagePreview;
 
   const handleExistingTermMatch = (term: string) => {
+    if (editingTerm) {
+      // Renaming an existing term updates its own usage record in place;
+      // the usageID stays pinned to editingTerm regardless of what's typed.
+      return;
+    }
+
     const trimmed = term.trim();
     if (!trimmed) {
       setEditingUsageID(null);
@@ -275,11 +281,22 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                 placeholder="Search glossary terms..."
                 rules={{
                   required: "This field is required",
-                  validate: (value) =>
-                    value.trim().length > 0 || "This field is required",
+                  validate: (value) => {
+                    const trimmed = value.trim();
+                    if (!trimmed) return "This field is required";
+                    if (editingTerm) {
+                      const conflict = existingTerms?.find(
+                        (t) =>
+                          t.term === trimmed &&
+                          t.usageID !== editingTerm.usageID,
+                      );
+                      if (conflict) {
+                        return "Another glossary term already uses this name. Choose a different name or edit that term instead.";
+                      }
+                    }
+                    return true;
+                  },
                 }}
-                
-                disabled={!!editingTerm}
                 onSelect={handleExistingTermMatch}
                 onBlur={handleExistingTermMatch}
               />
