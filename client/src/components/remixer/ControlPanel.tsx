@@ -12,6 +12,7 @@ import {
 interface ControlPanelNewUITempProps {
     isNarrowScreen: boolean;
     isAdmin: boolean;
+    isCopyModeAdmin: boolean;
     copyModeState: string;
     projectID: string;
     projectName: string | undefined;
@@ -27,13 +28,12 @@ interface ControlPanelNewUITempProps {
 interface CopyModeState {
     title: string;
     value: CopyMode;
-    isAdminOnly: boolean;
 }
 
 const COPY_MODE_STATES: CopyModeState[] = [
-    { title: "Copy-Transclude", value: "Transclude", isAdminOnly: false },
-    { title: "Copy-Fork", value: "Fork", isAdminOnly: true },
-    { title: "Copy-Full", value: "Full", isAdminOnly: true },
+    { title: "Copy-Transclude", value: "Transclude" },
+    { title: "Copy-Fork", value: "Fork" },
+    { title: "Copy-Full", value: "Full" },
 ];
 
 type ControlPanelAction = {
@@ -46,6 +46,7 @@ type ControlPanelAction = {
 const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
     isNarrowScreen,
     isAdmin,
+    isCopyModeAdmin,
     copyModeState,
     projectID,
     projectName,
@@ -164,24 +165,26 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
 
     return (
         <div className="flex items-center gap-2">
-            <Select
-                id="remixer-mode"
-                name="remixer-mode"
-                label=""
-                placeholder="Mode..."
-                className="w-full min-w-0 [&>div]:!mt-0"
-                labelClassName="sr-only"
-                selectClassName="!h-10 !box-border !py-0 !pr-10 leading-none"
-                
-                value={copyModeState}
-                onChange={(e) => {
-                    onCopyModeChange(e.target.value);
-                }}
-                options={COPY_MODE_STATES.filter((mode) => isAdmin ? true : !mode.isAdminOnly).map((mode) => ({
-                    value: mode.value,
-                    label: mode.title,
-                }))}
-            />
+            {isCopyModeAdmin && (
+                <Select
+                    id="remixer-mode"
+                    name="remixer-mode"
+                    label=""
+                    placeholder="Mode..."
+                    className="w-full min-w-0 [&>div]:!mt-0"
+                    labelClassName="sr-only"
+                    selectClassName="!h-10 !box-border !py-0 !pr-10 leading-none"
+
+                    value={copyModeState}
+                    onChange={(e) => {
+                        onCopyModeChange(e.target.value);
+                    }}
+                    options={COPY_MODE_STATES.map((mode) => ({
+                        value: mode.value,
+                        label: mode.title,
+                    }))}
+                />
+            )}
             {
                 isNarrowScreen ? (
                     <Menu>
