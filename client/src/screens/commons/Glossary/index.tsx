@@ -116,7 +116,7 @@ const GlossaryManager: React.FC = () => {
   const onNodeClick = (nodeId: string) => {
     var pageIds: string[] = [];
     // show nodeId and its parents pageIds
-    pageIds = getPageAncestors(bookTOC!, nodeId);
+    pageIds = [nodeId];
     setSelectedPageIds([...pageIds]);
     setShowAddPageModal(true);
   };
