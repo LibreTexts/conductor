@@ -84,14 +84,16 @@
   color: #007bff;
 }
 
+/*
+  Undo Tailwind Preflight's `svg { display: block }`, which otherwise breaks
+  MathJax's SVG output (loaded via tex-mml-svg.js, i.e. jax="SVG") by forcing
+  each glyph run onto its own block box instead of flowing horizontally.
+*/
 mjx-container {
-  display: inline-block !important;
-}
-
-mjx-container[jax="CHTML"] {
   display: inline-block !important;
   margin: 0 !important;
 }
-mjx-container[jax="CHTML"][display="true"] {
-  display: inline-block !important; /* only if you WANT display math inline too */
+
+mjx-container > svg {
+  display: inline-block !important;
 }
