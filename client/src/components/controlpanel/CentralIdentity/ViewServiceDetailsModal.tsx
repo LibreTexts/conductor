@@ -1,7 +1,14 @@
-import { useState, useEffect } from "react";
-import { Button, Form, Modal, Icon, Header } from "semantic-ui-react";
+import { useEffect, useState } from "react";
+import {
+  Button,
+  Heading,
+  Input,
+  Modal,
+  Stack,
+  Text,
+} from "@libretexts/davis-react";
+import { IconDeviceFloppy, IconEdit, IconX } from "@tabler/icons-react";
 import { CentralIdentityService } from "../../../types";
-import axios from "axios";
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 
@@ -75,90 +82,60 @@ const ViewServiceDetailsModal = ({
   };
 
   return (
-    <Modal open={open} onClose={onClose}>
+    <Modal open={open} onClose={(isOpen) => !isOpen && onClose()} size="lg">
       <Modal.Header>
-        {isEditing ? "Edit Service" : "Service Details"}
+        <Modal.Title>
+          {isEditing ? "Edit Service" : "Service Details"}
+        </Modal.Title>
+        <Modal.Close aria-label="Close service details" />
       </Modal.Header>
-      <Modal.Content>
+      <Modal.Body>
         {service && (
-          <>
+          <Stack direction="vertical" gap="md">
             {isEditing ? (
-              <Form loading={loading}>
-                <Form.Field>
-                  <label>Name</label>
-                  <input
-                    name="name"
-                    value={formData.name || ""}
-                    onChange={handleChange}
-                  />
-                </Form.Field>
-                <Form.Field>
-                  <label>Service ID</label>
-                  <input
-                    name="service_Id"
-                    value={formData.service_Id || ""}
-                    onChange={handleChange}
-                  />
-                </Form.Field>
-                <Form.Field>
-                  <label>Evaluation Order</label>
-                  <input
-                    name="evaluation_Order"
-                    value={formData.evaluation_Order || ""}
-                    onChange={handleChange}
-                  />
-                </Form.Field>
-                <Form.Field>
-                  <label>Evaluation Priority</label>
-                  <input
-                    name="evaluation_Priority"
-                    value={formData.evaluation_Priority || ""}
-                    onChange={handleChange}
-                  />
-                </Form.Field>
-                <Form.Field>
-                  <label>Configuration</label>
-                  <input
-                    name="body"
-                    value={formData.body || ""}
-                    onChange={handleChange}
-                  />
-                </Form.Field>
-              </Form>
+              <Stack direction="vertical" gap="md">
+                <Input name="name" label="Name" value={formData.name || ""} onChange={handleChange} disabled={loading} />
+                <Input name="service_Id" label="Service ID" value={formData.service_Id || ""} onChange={handleChange} disabled={loading} />
+                <Input name="evaluation_Order" label="Evaluation Order" value={formData.evaluation_Order || ""} onChange={handleChange} disabled={loading} />
+                <Input name="evaluation_Priority" label="Evaluation Priority" value={formData.evaluation_Priority || ""} onChange={handleChange} disabled={loading} />
+                <Input name="body" label="Configuration" value={formData.body || ""} onChange={handleChange} disabled={loading} />
+              </Stack>
             ) : (
-              <div>
-                <Header as="h4">Service Name</Header>
-                <p>{service.name}</p>
-                <Header as="h4">Service ID</Header>
-                <p>{service.service_Id}</p>
-                <Header as="h4">Evaluation Order</Header>
-                <p>{service.evaluation_Order}</p>
-                <Header as="h4">Evaluation Priority</Header>
-                <p>{service.evaluation_Priority}</p>
-                <Header as="h4">Configuration</Header>
-                <p>{service.body}</p>
-              </div>
+              <Stack direction="vertical" gap="md">
+                {[
+                  ["Service Name", service.name],
+                  ["Service ID", service.service_Id],
+                  ["Evaluation Order", service.evaluation_Order],
+                  ["Evaluation Priority", service.evaluation_Priority],
+                  ["Configuration", service.body],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <Heading level={4}>{label}</Heading>
+                    <Text as="p" className="break-all">{value || "N/A"}</Text>
+                  </div>
+                ))}
+              </Stack>
             )}
-          </>
+          </Stack>
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Close</Button>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline" onClick={onClose}>Close</Button>
         {isEditing ? (
           <>
-            <Button secondary onClick={toggleEditMode}>
-              <Icon name="cancel" /> Cancel
+            <Button variant="outline" icon={<IconX size={16} />} onClick={toggleEditMode}>
+              Cancel
             </Button>
-            <Button primary onClick={handleSubmit} loading={loading} disabled={!formChanged}>
-              <Icon name="save" /> Save Changes
+            <Button variant="primary" icon={<IconDeviceFloppy size={16} />} onClick={handleSubmit} loading={loading} disabled={!formChanged}>
+              Save Changes
             </Button>
           </>
         ) : (
-          <Button color="green" onClick={toggleEditMode}>
-            <Icon name="edit" /> Edit Service
+          <Button variant="primary" icon={<IconEdit size={16} />} onClick={toggleEditMode}>
+            Edit Service
           </Button>
         )}
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };
