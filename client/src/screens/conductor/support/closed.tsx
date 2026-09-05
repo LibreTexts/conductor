@@ -56,10 +56,10 @@ const SupportDashboard = () => {
 
   return (
     <AlternateLayout noPadding>
-      <div className="flex flex-col w-full p-8 bg-gray-100/50">
-        <div className="w-full overflow-x-auto !pr-2">
+      <div className="flex min-w-0 flex-1 flex-col bg-gray-100/50 p-4 sm:p-6 lg:p-8">
+        <div className="w-full min-w-0 !pr-2">
           <div className="flex flex-col">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <Heading level={2} className="mb-2 capitalize">
                 Closed Tickets
               </Heading>
@@ -72,7 +72,12 @@ const SupportDashboard = () => {
                 Back to Dashboard
               </Button>
             </div>
-            <Stack direction="horizontal" gap="md" align="end">
+            <Stack
+              direction="horizontal"
+              gap="md"
+              align="end"
+              className="flex-wrap"
+            >
               <Input
                 name="search-tickets"
                 label="Search"
@@ -82,14 +87,14 @@ const SupportDashboard = () => {
                   setQueryInputString(e.target.value);
                   debouncedQueryUpdate(e.target.value);
                 }}
-                className="min-w-80!"
+                className="w-full! min-w-64! sm:w-80!"
                 leftIcon={<IconSearch className="size-5 text-gray-400" />}
               />
               <Listbox
                 value={assigneeFilters}
                 onChange={(v) => setAssigneeFilters(v)}
                 multiple
-                className="max-w-56!"
+                className="w-56! max-w-full!"
               >
                 <Listbox.Button
                   displayValue={(v) => {
@@ -115,7 +120,7 @@ const SupportDashboard = () => {
                 value={priorityFilters}
                 onChange={(v) => setPriorityFilters(v)}
                 multiple
-                className="max-w-56!"
+                className="w-56! max-w-full!"
               >
                 <Listbox.Button
                   displayValue={(v) => {
@@ -141,7 +146,7 @@ const SupportDashboard = () => {
                 value={categoryFilters}
                 onChange={(v) => setCategoryFilters(v)}
                 multiple
-                className="max-w-56!"
+                className="w-56! max-w-full!"
               >
                 <Listbox.Button
                   displayValue={(v) => {
