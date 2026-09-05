@@ -17,6 +17,12 @@ import {
   sanitizeRemixerPageTitle,
   toEditableRemixerTitle,
 } from "./services";
+import api from "../../api";
+
+type ReingestState = {
+  status: "idle" | "running" | "done" | "error";
+  message: string;
+};
 
 interface EditPanelProps {
   open: boolean;
@@ -91,6 +97,64 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
     isMatterPage,
   } = props;
   const [page, setPage] = useState<RemixerSubPage | undefined>(currentPage);
+  const [reingest, setReingest] = useState<ReingestState>({
+    status: "idle",
+    message: "",
+  });
+
+  // Reset the re-ingest status whenever the panel opens on a different page.
+  useEffect(() => {
+    setReingest({ status: "idle", message: "" });
+  }, [currentPage, open]);
+
+  const handleReingest = () => {
+    const pageID = currentPage?.["@id"];
+    if (!pageID || !coverPageId || !library) return;
+
+    setReingest({ status: "running", message: "Starting…" });
+    const evtSource = api.reingestPage(`${library}-${coverPageId}`, pageID);
+
+    evtSource.addEventListener("progress", (e: MessageEvent) => {
+      try {
+        const d = JSON.parse(e.data);
+        const label: Record<string, string> = {
+          fetched: "Fetched the latest content",
+          chunked: `Split into ${d.chunks} sections`,
+          embedded: `Updated ${d.units_novel} of ${d.units_total} changed sections`,
+          indexed: "Indexing",
+        };
+        setReingest({ status: "running", message: label[d.stage] ?? d.stage });
+      } catch {
+        /* ignore an unparseable frame */
+      }
+    });
+
+    evtSource.addEventListener("done", (e: MessageEvent) => {
+      let message = "Benny is up to date with this page.";
+      try {
+        const d = JSON.parse(e.data);
+        message = `Benny is up to date (${d.chunks} sections).`;
+      } catch {
+        /* keep the default */
+      }
+      setReingest({ status: "done", message });
+      evtSource.close();
+    });
+
+    // NOTE: SSE dispatches our `event: error` frame AND native transport errors
+    // to the same "error" listener. Our failure frame carries JSON data; a
+    // transport error does not — disambiguate on that.
+    evtSource.addEventListener("error", (e: MessageEvent) => {
+      let message = "Couldn't reach Benny — try again in a moment.";
+      try {
+        if (e?.data) message = JSON.parse(e.data).message ?? message;
+      } catch {
+        /* keep the default */
+      }
+      setReingest({ status: "error", message });
+      evtSource.close();
+    });
+  };
 
   const currentPageUri = getRemixerPageUriUi(currentPage);
   const currentPageParentPath = currentPageUri
@@ -337,6 +401,34 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
             >
               Link to this page in the library
             </Link>
+          )}
+          {!currentPage?.["@id"].startsWith("new-") && coverPageId && (
+            <div className="!mt-2">
+              <Button
+                variant="outline"
+                onClick={handleReingest}
+                disabled={reingest.status === "running"}
+              >
+                {reingest.status === "running"
+                  ? "Updating Benny…"
+                  : "Update Benny for this page"}
+              </Button>
+              <Text className="!mt-1 !text-sm !text-gray-600">
+                After editing this page in the library, refresh Benny's copy so
+                students see your changes now — or leave it for the weekly sync.
+              </Text>
+              {reingest.message && (
+                <Text
+                  className={
+                    reingest.status === "error"
+                      ? "!mt-1 !text-sm !text-red-600"
+                      : "!mt-1 !text-sm !text-gray-700"
+                  }
+                >
+                  {reingest.message}
+                </Text>
+              )}
+            </div>
           )}
         </Stack>
       </Modal.Body>
