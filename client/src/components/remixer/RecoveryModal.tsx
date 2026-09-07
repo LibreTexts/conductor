@@ -8,6 +8,7 @@ import {
   Modal,
   Stack,
   Text,
+  Tooltip,
 } from "@libretexts/davis-react";
 import {
   IconBook,
@@ -15,6 +16,7 @@ import {
   IconCloudUpload,
   IconHistory,
 } from "@tabler/icons-react";
+import ConsultInsightButton from "../NextGenComponents/ConsultInsightButton";
 
 export interface AvailableSources {
   hasLocal: boolean;
@@ -110,10 +112,15 @@ const RecoveryModal: React.FC<RecoveryModalProps> = ({
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <Text className="text-gray-700">
-          Choose which version to load. This will replace your current book
-          tree.
-        </Text>
+        <div className="flex items-start justify-between gap-4">
+          <Text className="text-gray-700">
+            Choose which version to load. This will replace your current book
+            tree.
+          </Text>
+          <Tooltip placement="bottom" content="Consult the Insight Knowledge Base for more information about loading the Remixer state">
+            <ConsultInsightButton href="https://commons.libretexts.org/insight/remixer---load-remixer-state" />
+          </Tooltip>
+        </div>
         <Stack direction="vertical" gap="md" className="mt-4">
           <Card
             variant="outline"
