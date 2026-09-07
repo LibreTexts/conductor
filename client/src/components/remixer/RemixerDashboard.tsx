@@ -1816,6 +1816,7 @@ const RemixerDashboard: React.FC = () => {
    */
   const handleLoadSourceRef = useRef(handleLoadSource);
   handleLoadSourceRef.current = handleLoadSource;
+  const startOverFromRecoveryRef = useRef<() => void>(() => {});
 
   /** Gather the set of available recovery sources (local/server) and open the recovery modal. */
   const openRecoveryModal = async () => {
@@ -1846,7 +1847,7 @@ const RemixerDashboard: React.FC = () => {
     openModal(
       <RecoveryModal
         open={true}
-        loading={loadingRecovery}
+        loading={loadingRecovery || isStartOverPending}
         dismissible={true}
         availableSources={{
           hasLocal: !!localDraft,
@@ -1861,6 +1862,7 @@ const RemixerDashboard: React.FC = () => {
           handleLoadSourceRef.current(source, options);
           closeAllModals();
         }}
+        onStartOver={() => startOverFromRecoveryRef.current()}
         onClose={closeAllModals}
       />,
     );
@@ -1965,6 +1967,11 @@ const RemixerDashboard: React.FC = () => {
         });
       },
     });
+
+  startOverFromRecoveryRef.current = () => {
+    startOverMutation();
+    closeAllModals();
+  };
 
   const handleStartOverWithConfirmation = () => {
     openModal(
@@ -2327,7 +2334,7 @@ const RemixerDashboard: React.FC = () => {
         openModal(
           <RecoveryModal
             open={true}
-            loading={loadingRecovery}
+            loading={loadingRecovery || isStartOverPending}
             dismissible={false}
             availableSources={{
               hasLocal: !!localDraft,
@@ -2346,6 +2353,7 @@ const RemixerDashboard: React.FC = () => {
               }
               closeAllModals();
             }}
+            onStartOver={() => startOverFromRecoveryRef.current()}
             onClose={closeAllModals}
           />,
         );
