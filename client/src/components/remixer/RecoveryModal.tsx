@@ -3,9 +3,10 @@ import React, { useMemo, useState } from "react";
 import {
   Button,
   Card,
-  Checkbox,
   Heading,
   Modal,
+  Radio,
+  RadioGroup,
   Stack,
   Text,
   Tooltip,
@@ -30,6 +31,8 @@ export interface AvailableSources {
 
 export type BookSourceType = "local" | "serverDraft" | "server" | "fresh";
 
+type FreshLoadMode = "preserve" | "startOver";
+
 export interface LoadSourceOptions {
   /** When loading fresh from library, keep autonumbering / path formats / copy mode. */
   preserveConfigs?: boolean;
@@ -41,6 +44,7 @@ interface RecoveryModalProps {
   dismissible?: boolean;
   availableSources: AvailableSources;
   onLoadSource: (source: BookSourceType, options?: LoadSourceOptions) => void;
+  onStartOver: () => void;
   onClose: () => void;
 }
 
@@ -80,9 +84,10 @@ const RecoveryModal: React.FC<RecoveryModalProps> = ({
   dismissible = false,
   availableSources,
   onLoadSource,
+  onStartOver,
   onClose,
 }) => {
-  const [preserveConfigs, setPreserveConfigs] = useState(true);
+  const [freshLoadMode, setFreshLoadMode] = useState<FreshLoadMode>("preserve");
 
   const recentSource = useMemo(
     () => resolveRecentSource(availableSources),
@@ -126,9 +131,14 @@ const RecoveryModal: React.FC<RecoveryModalProps> = ({
             variant="outline"
             padding="md"
             className={cardClassName}
-            onClick={() =>
-              !loading && onLoadSource("fresh", { preserveConfigs })
-            }
+            onClick={() => {
+              if (loading) return;
+              if (freshLoadMode === "startOver") {
+                onStartOver();
+              } else {
+                onLoadSource("fresh", { preserveConfigs: true });
+              }
+            }}
           >
             <Card.Body>
               <Heading level={4} className="flex items-center gap-2">
@@ -139,11 +149,11 @@ const RecoveryModal: React.FC<RecoveryModalProps> = ({
                 <Text className="mt-2 text-gray-600">
                   Reload the original book structure from the library.
                 </Text>
-                {!preserveConfigs && (
-                  <Text size="sm" className="block text-warning-500 ">
-                    This will reset your current book tree to the original
-                    structure. Autonumbering and path format settings will be
-                    lost.
+                {freshLoadMode === "startOver" && (
+                  <Text size="sm" className="block text-warning-500">
+                    This will delete the saved Remixer draft and reload the book
+                    from the library. Autonumbering and path format settings
+                    will be reset.
                   </Text>
                 )}
 
@@ -160,13 +170,20 @@ const RecoveryModal: React.FC<RecoveryModalProps> = ({
                   onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
                 >
-                  <Checkbox
-                    name="preserveConfigs"
-                    label="Preserve autonumbering & path formats"
-                    checked={preserveConfigs}
+                  <RadioGroup
+                    name="freshLoadMode"
+                    value={freshLoadMode}
                     disabled={loading}
-                    onChange={(checked) => setPreserveConfigs(checked === true)}
-                  />
+                    onChange={(value) =>
+                      setFreshLoadMode(value as FreshLoadMode)
+                    }
+                  >
+                    <Radio
+                      label="Preserve autonumbering, path formats and override settings"
+                      value="preserve"
+                    />
+                    <Radio label="Start over" value="startOver" />
+                  </RadioGroup>
                 </div>
               </Stack>
             </Card.Body>
