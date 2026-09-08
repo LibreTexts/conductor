@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import DOMPurify from "dompurify";
 import { typesetMathElements } from "../../../utils/mathjax";
 
 interface GlossaryDefinitionPreviewProps {
@@ -16,7 +17,14 @@ const GlossaryDefinitionPreview = ({
     const el = ref.current;
     if (!el || !definition) return;
 
-    el.innerHTML = definition;
+    // Server-side ingestion (manual add, CSV import, Pressbooks/CXOne sync)
+    // already strips markup from term/definition, but this is the actual
+    // innerHTML sink — sanitize here too so a bad value can never reach it,
+    // regardless of how or when it was written.
+    el.innerHTML = DOMPurify.sanitize(definition, {
+      ALLOWED_TAGS: [],
+      ALLOWED_ATTR: [],
+    });
 
     typesetMathElements([el]).catch((err) =>
       console.error("MathJax typeset failed:", err),
