@@ -16,6 +16,7 @@ export interface RemixerSubPageState {
   numberedPath?: string;
   formattedPath?: string;
   formattedPathOverride?: boolean;
+  skipAutoNumber?: boolean;
   isDeleted?: boolean;
   isImported?: boolean;
   isRenamed?: boolean;
@@ -77,6 +78,7 @@ const RemixerSubPageStateSchema = new Schema<RemixerSubPageState>(
     numberedPath: { type: String },
     formattedPath: { type: String },
     formattedPathOverride: { type: Boolean },
+    skipAutoNumber: { type: Boolean },
     isDeleted: { type: Boolean },
     isImported: { type: Boolean },
     isRenamed: { type: Boolean },

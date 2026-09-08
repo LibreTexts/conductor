@@ -49,6 +49,8 @@ export interface RemixerSubPage {
     /** Editable pieces of `formattedPath` when overridden — kept in sync so the edit panel can round-trip them. */
     formattedPathPrefix?: string;
     formattedPathIndex?: string;
+    /** Excludes this page from the autonumber sequence — siblings after it renumber to close the gap. Independent of `formattedPathOverride`. */
+    skipAutoNumber?: boolean;
     isDeleted?: boolean;
     isImported?: boolean;
     isRenamed?: boolean;

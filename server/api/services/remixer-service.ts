@@ -1716,6 +1716,11 @@ const toFinalBookEntry = (
       plain.overrideUriUiEnding.length > 0
         ? plain.overrideUriUiEnding
         : undefined,
+    // Independent of formattedPathOverride — carried forward the same way.
+    skipAutoNumber:
+      typeof plain.skipAutoNumber === "boolean"
+        ? plain.skipAutoNumber
+        : undefined,
     isDeleted: false,
     isImported: false,
     isRenamed: false,
@@ -2597,6 +2602,12 @@ const pickSavedPageConfigs = (
         (configs as RemixerSubPagePlain)[key] = value;
       }
     }
+  }
+
+  // Independent of formattedPathOverride — a page can skip the autonumber
+  // sequence without also carrying custom prefix/index text.
+  if (saved.skipAutoNumber === true) {
+    configs.skipAutoNumber = true;
   }
 
   return configs;
