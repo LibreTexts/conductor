@@ -3611,9 +3611,18 @@ function parseGlossaryCsvEntries(
     /^definition$/i.test(rows[0][1] ?? "");
   const dataRows = looksLikeHeader ? rows.slice(1) : rows;
 
+  // Match the length limits `addWithCoverIDParamSchema` enforces on the
+  // manual add form, so a CSV row can't slip in a term/definition the
+  // normal path would reject. HTML/script content is neutralized later, in
+  // GlossaryService's shared write path (`_addGlossaryToDatabase` /
+  // `_addGlossaryUsageToDatabase`), which every import route funnels
+  // through — CSV rows get no special exemption from that sanitization.
   return dataRows
     .filter((row) => row.length >= 2 && row[0]?.trim() && row[1]?.trim())
-    .map((row) => ({ term: row[0].trim(), definition: row[1].trim() }));
+    .map((row) => ({
+      term: row[0].trim().slice(0, 50),
+      definition: row[1].trim().slice(0, 1000),
+    }));
 }
 
 /**

@@ -11,6 +11,10 @@ import { CXOneFetch } from "../../util/librariesclient";
 import CXOnePageAPIEndpoints from "../../util/CXOne/CXOnePageAPIEndpoints";
 import Project from "../../models/project";
 import { escapeRegEx } from "../../util/helpers";
+import {
+  sanitizeLibraryText,
+  sanitizeOptionalLibraryText,
+} from "../../util/sanitize-text.js";
 
 /**
  * Signals that a page simply has no glossary. This is the common case for most
@@ -487,32 +491,39 @@ export default class GlossaryService {
         bookId,
         coverID,
         library,
+        term,
+        definition,
         ...rest
       } = params;
       const aliases = [] as { termID: string; term: string }[];
       if (aliasesArray && aliasesArray.length > 0) {
         // add aliases to glossary and make a list of [{termID, term}] using _addGlossaryToDatabase
         for (const alias of aliasesArray) {
-          if (alias.trim() === "") {
+          const cleanAlias = sanitizeLibraryText(alias);
+          if (cleanAlias === "") {
             continue;
           }
           const { termID } = await this._addGlossaryToDatabase(
-            alias.trim(),
+            cleanAlias,
             "",
           );
-          aliases.push({ termID, term: alias.trim() });
+          aliases.push({ termID, term: cleanAlias });
         }
       }
 
+      // Terms/definitions here can originate from a CSV upload, a Pressbooks
+      // or CXOne import, or the manual add/edit form — see the sanitization
+      // note on `_addGlossaryToDatabase`. This is the one write path that
+      // does not funnel through those private helpers, so it sanitizes here.
       const optionalFields: Record<string, string | undefined> = {
-        altText,
-        caption,
-        link,
-        source,
-        imageSource,
-        imageAuthor,
-        imageLicense,
-        author,
+        altText: sanitizeOptionalLibraryText(altText),
+        caption: sanitizeOptionalLibraryText(caption),
+        link: sanitizeOptionalLibraryText(link),
+        source: sanitizeOptionalLibraryText(source),
+        imageSource: sanitizeOptionalLibraryText(imageSource),
+        imageAuthor: sanitizeOptionalLibraryText(imageAuthor),
+        imageLicense: sanitizeOptionalLibraryText(imageLicense),
+        author: sanitizeOptionalLibraryText(author),
         bookID: bookId,
       };
       const toUnset: Record<string, ""> = {};
@@ -530,6 +541,8 @@ export default class GlossaryService {
         {
           $set: {
             ...rest,
+            term: sanitizeLibraryText(term),
+            definition: sanitizeLibraryText(definition),
             ...Object.fromEntries(
               Object.entries(optionalFields).filter(([, v]) => v !== undefined),
             ),
@@ -616,9 +629,15 @@ export default class GlossaryService {
     attribution: { author?: string; link?: string; source?: string },
   ): Promise<number> {
     const setFields: Record<string, string> = {};
-    if (attribution.author !== undefined) setFields.author = attribution.author;
-    if (attribution.link !== undefined) setFields.link = attribution.link;
-    if (attribution.source !== undefined) setFields.source = attribution.source;
+    if (attribution.author !== undefined) {
+      setFields.author = sanitizeLibraryText(attribution.author);
+    }
+    if (attribution.link !== undefined) {
+      setFields.link = sanitizeLibraryText(attribution.link);
+    }
+    if (attribution.source !== undefined) {
+      setFields.source = sanitizeLibraryText(attribution.source);
+    }
     if (Object.keys(setFields).length === 0) return 0;
 
     const result = await GlossaryUsage.updateMany(
@@ -853,15 +872,24 @@ export default class GlossaryService {
     return term.toLowerCase().replace(/ /g, "-");
   }
 
+  /**
+   * Terms/definitions here can originate from a CSV upload, a Pressbooks or
+   * CXOne import, or the manual add/edit form — none of it is trustworthy,
+   * and the Commons glossary renders term/definition through `innerHTML`
+   * (see GlossaryDefinitionPreview), so a stored value must be safe in that
+   * sink. Sanitizing at this single write path covers every caller.
+   */
   private async _addGlossaryToDatabase(
     term: string,
     definition: string,
   ): Promise<{ termID: string }> {
     try {
+      const cleanTerm = sanitizeLibraryText(term);
+      const cleanDefinition = sanitizeLibraryText(definition);
       // if term already exists, return the termID
       const existingGlossary = await Glossary.findOne({
         term: {
-          $regex: `^${escapeRegEx(term)}$`,
+          $regex: `^${escapeRegEx(cleanTerm)}$`,
           $options: "i",
         },
       });
@@ -871,12 +899,12 @@ export default class GlossaryService {
       // generate a new termID
       const termID = base62(10);
       // generate a new slug
-      const slug = this._generateSlug(term);
+      const slug = this._generateSlug(cleanTerm);
       const glossary = await Glossary.create({
-        term,
+        term: cleanTerm,
         slug,
         termID,
-        definition,
+        definition: cleanDefinition,
       });
       return { termID: glossary.termID };
     } catch (error) {
@@ -895,6 +923,17 @@ export default class GlossaryService {
      * return the usageID
      */
     try {
+      const term = sanitizeLibraryText(params.term);
+      const definition = sanitizeLibraryText(params.definition);
+      const author = sanitizeOptionalLibraryText(params.author);
+      const link = sanitizeOptionalLibraryText(params.link);
+      const source = sanitizeOptionalLibraryText(params.source);
+      const imageSource = sanitizeOptionalLibraryText(params.imageSource);
+      const imageAuthor = sanitizeOptionalLibraryText(params.imageAuthor);
+      const imageLicense = sanitizeOptionalLibraryText(params.imageLicense);
+      const altText = sanitizeOptionalLibraryText(params.altText);
+      const caption = sanitizeOptionalLibraryText(params.caption);
+
       const existingGlossaryUsage = await GlossaryUsage.findOne({
         termID: params.termID,
         coverID: parseInt(params.coverID),
@@ -905,14 +944,15 @@ export default class GlossaryService {
       if (params?.aliases && params.aliases.length > 0) {
         // add aliases to glossary and make a list of [{termID, term}] using _addGlossaryToDatabase
         for (const alias of params.aliases) {
-          if (alias.trim() === "") {
+          const cleanAlias = sanitizeLibraryText(alias);
+          if (cleanAlias === "") {
             continue;
           }
           const { termID } = await this._addGlossaryToDatabase(
-            alias.trim(),
+            cleanAlias,
             "",
           );
-          aliases.push({ termID, term: alias.trim() });
+          aliases.push({ termID, term: cleanAlias });
         }
       }
       if (existingGlossaryUsage) {
@@ -941,7 +981,7 @@ export default class GlossaryService {
           await existingGlossaryUsage.save();
           return existingGlossaryUsage.usageID;
         } else {
-          existingGlossaryUsage.definition = params.definition;
+          existingGlossaryUsage.definition = definition;
           existingGlossaryUsage.updatedAt = new Date();
           await existingGlossaryUsage.save();
           return existingGlossaryUsage.usageID;
@@ -950,8 +990,8 @@ export default class GlossaryService {
       const usageID = base62(10);
       const glossaryUsage = await GlossaryUsage.create({
         usageID,
-        term: params.term,
-        definition: params.definition,
+        term,
+        definition,
         termID: params.termID,
         bookID: params.bookId,
         updatedAt: new Date(),
@@ -974,15 +1014,15 @@ export default class GlossaryService {
               originalname: params.imageFile.originalname,
             }
           : undefined,
-        altText: params.altText,
-        caption: params.caption,
-        link: params.link,
-        source: params.source,
-        imageSource: params.imageSource,
-        imageAuthor: params.imageAuthor,
-        imageLicense: params.imageLicense,
+        altText,
+        caption,
+        link,
+        source,
+        imageSource,
+        imageAuthor,
+        imageLicense,
         aliases: aliases,
-        author: params.author,
+        author,
       });
       return glossaryUsage.usageID;
     } catch (error) {
