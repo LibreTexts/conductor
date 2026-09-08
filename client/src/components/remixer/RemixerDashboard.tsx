@@ -1038,6 +1038,8 @@ const RemixerDashboard: React.FC = () => {
     );
     const titleChanged = previousTitle !== nextTitle;
     const prevOverride = existingNode.formattedPathOverride === true;
+    const nextSkipAutoNumber = page.skipAutoNumber === true;
+    const prevSkipAutoNumber = existingNode.skipAutoNumber === true;
     // Directly reflects user intent (kept, changed, or explicitly cleared) —
     // EditPanel seeds its field from currentPage.overrideUriUiEnding on open,
     // so no fallback merge with the existing value is needed (and would
@@ -1053,7 +1055,8 @@ const RemixerDashboard: React.FC = () => {
             (nextFormattedPathIndex ?? "") ||
           (existingNode.formattedPath ?? "").trim() !==
             (nextFormattedPath ?? "").trim())) ||
-      prevOverrideUriUiEnding !== (nextOverrideUriUiEnding ?? "");
+      prevOverrideUriUiEnding !== (nextOverrideUriUiEnding ?? "") ||
+      prevSkipAutoNumber !== nextSkipAutoNumber;
 
     // Save with no edits should not mark the node modified or push history.
     if (!titleChanged && !pathChanged) return;
@@ -1071,6 +1074,7 @@ const RemixerDashboard: React.FC = () => {
               formattedPathPrefix: nextFormattedPathPrefix,
               formattedPathIndex: nextFormattedPathIndex,
               overrideUriUiEnding: nextOverrideUriUiEnding,
+              skipAutoNumber: nextSkipAutoNumber,
             };
             return {
               ...saved,
@@ -1099,6 +1103,7 @@ const RemixerDashboard: React.FC = () => {
             formattedPathPrefix: nextFormattedPathPrefix,
             formattedPathIndex: nextFormattedPathIndex,
             overrideUriUiEnding: nextOverrideUriUiEnding,
+            skipAutoNumber: nextSkipAutoNumber,
           };
           return {
             ...saved,
