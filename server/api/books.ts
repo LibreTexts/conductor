@@ -3546,7 +3546,7 @@ async function startGlossaryCsvImportJob(
 ) {
   try {
     const { coverID, library } = req.params;
-    const { glossaryID } = req.body;
+    const { glossaryID, duplicateAction } = req.body;
 
     if (!req.file) {
       return res
@@ -3592,6 +3592,41 @@ async function startGlossaryCsvImportJob(
         errMsg:
           "No valid term/definition rows found in CSV. Expected two columns: term, definition.",
       });
+    }
+
+    if (!duplicateAction) {
+      const duplicateTerms = await glossaryService.findExistingUsageTerms(
+        entries.map((e) => e.term),
+        coverID.toString(),
+        library,
+      );
+      if (duplicateTerms.length > 0) {
+        return res.send({
+          err: false,
+          requiresConfirmation: true,
+          duplicateTerms,
+          totalRows: entries.length,
+        });
+      }
+    } else if (duplicateAction === "skip") {
+      const duplicateTerms = new Set(
+        (
+          await glossaryService.findExistingUsageTerms(
+            entries.map((e) => e.term),
+            coverID.toString(),
+            library,
+          )
+        ).map((t) => t.toLowerCase()),
+      );
+      entries = entries.filter(
+        (e) => !duplicateTerms.has(e.term.toLowerCase()),
+      );
+      if (entries.length === 0) {
+        return res.status(400).send({
+          err: true,
+          errMsg: "All terms in the CSV already exist in this glossary.",
+        });
+      }
     }
 
     const jobID = base62(10);

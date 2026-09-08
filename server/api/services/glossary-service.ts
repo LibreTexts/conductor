@@ -369,6 +369,30 @@ export default class GlossaryService {
   }
 
   /**
+   * Given a list of candidate terms, returns the subset (case-insensitive,
+   * original CSV casing preserved) that already exist as GlossaryUsage
+   * entries for the given book, so callers can warn before overwriting them.
+   */
+  async findExistingUsageTerms(
+    terms: string[],
+    coverID: string,
+    library: string,
+  ): Promise<string[]> {
+    if (terms.length === 0) return [];
+    const existing = await GlossaryUsage.find({
+      coverID: parseInt(coverID),
+      library,
+      term: {
+        $in: terms.map((t) => new RegExp(`^${escapeRegEx(t)}$`, "i")),
+      },
+    })
+      .select("term")
+      .lean();
+    const existingLower = new Set(existing.map((e) => e.term.toLowerCase()));
+    return terms.filter((t) => existingLower.has(t.toLowerCase()));
+  }
+
+  /**
    * Bulk-import glossary term/definition pairs (e.g. from a Pressbooks
    * `/glossary` REST response, or an uploaded CSV) into Glossary +
    * GlossaryUsage for a book. Skips entries missing a term or definition.
