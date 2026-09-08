@@ -2743,18 +2743,24 @@ class API {
     coverID: string;
     file: File;
     glossaryID?: string;
+    duplicateAction?: "overwrite" | "skip";
   }) {
-    const { library, coverID, file, glossaryID } = props;
+    const { library, coverID, file, glossaryID, duplicateAction } = props;
     const formData = new FormData();
     formData.append("file", file);
     if (glossaryID) {
       formData.append("glossaryID", glossaryID);
     }
+    if (duplicateAction) {
+      formData.append("duplicateAction", duplicateAction);
+    }
 
     const res = await axios.post<
       {
-        jobID: string;
+        jobID?: string;
         totalRows: number;
+        requiresConfirmation?: boolean;
+        duplicateTerms?: string[];
       } & ConductorBaseResponse
     >(`/commons/book/${library}/${coverID}/glossary/csv-import`, formData, {
       headers: { "Content-Type": "multipart/form-data" },

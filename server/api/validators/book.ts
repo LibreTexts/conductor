@@ -304,6 +304,7 @@ export const importGlossaryFromCsvSchema = z.object({
   }),
   body: z.object({
     glossaryID: z.coerce.number().int().positive().optional(),
+    duplicateAction: z.enum(["overwrite", "skip"]).optional(),
   }),
 });
 
