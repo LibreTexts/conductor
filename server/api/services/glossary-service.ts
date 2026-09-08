@@ -590,6 +590,48 @@ export default class GlossaryService {
     }
   }
 
+  /** Deletes multiple GlossaryUsage records at once, scoped to a single book. */
+  async bulkDeleteGlossaryUsage(
+    usageIDs: string[],
+    coverID: string,
+    library: string,
+  ): Promise<number> {
+    const result = await GlossaryUsage.deleteMany({
+      usageID: { $in: usageIDs },
+      coverID: parseInt(coverID),
+      library,
+    });
+    return result.deletedCount ?? 0;
+  }
+
+  /**
+   * Applies the given attribution fields to multiple GlossaryUsage records
+   * at once, scoped to a single book. Fields left undefined are not touched,
+   * so callers only need to pass the fields they want to overwrite.
+   */
+  async bulkUpdateAttribution(
+    usageIDs: string[],
+    coverID: string,
+    library: string,
+    attribution: { author?: string; link?: string; source?: string },
+  ): Promise<number> {
+    const setFields: Record<string, string> = {};
+    if (attribution.author !== undefined) setFields.author = attribution.author;
+    if (attribution.link !== undefined) setFields.link = attribution.link;
+    if (attribution.source !== undefined) setFields.source = attribution.source;
+    if (Object.keys(setFields).length === 0) return 0;
+
+    const result = await GlossaryUsage.updateMany(
+      {
+        usageID: { $in: usageIDs },
+        coverID: parseInt(coverID),
+        library,
+      },
+      { $set: { ...setFields, updatedAt: new Date() } },
+    );
+    return result.modifiedCount;
+  }
+
   async addPageToGlossaryUsage(
     pageIds: number[],
     usageIds: string[],

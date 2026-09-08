@@ -271,6 +271,8 @@ const GlossaryManager: React.FC = () => {
             entries={glossaryEntries}
             isLoading={loadingGlossary}
             toc={bookTOC}
+            library={library}
+            coverID={coverID}
             error={
               glossaryFetchFailed
                 ? ((glossaryError as Error)?.message ??

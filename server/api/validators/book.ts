@@ -325,6 +325,29 @@ export const addPageWithCoverIDParamSchema = z.object({
   }),
 });
 
+export const bulkDeleteGlossaryUsageSchema = z.object({
+  params: z.object({
+    coverID: z.coerce.number().int().positive().max(999999999999),
+    library: z.string().min(2).max(12),
+  }),
+  body: z.object({
+    usageIds: z.array(z.string().min(10).max(10)).min(1).max(500),
+  }),
+});
+
+export const bulkUpdateGlossaryAttributionSchema = z.object({
+  params: z.object({
+    coverID: z.coerce.number().int().positive().max(999999999999),
+    library: z.string().min(2).max(12),
+  }),
+  body: z.object({
+    usageIds: z.array(z.string().min(10).max(10)).min(1).max(500),
+    author: z.string().max(300).optional(),
+    link: z.string().max(2000).optional(),
+    source: z.string().max(300).optional(),
+  }),
+});
+
 export const readFromCxOneGlossaryAndAddToGlossaryUsageSchema = z.object({
   params: z.object({
     coverID: z.coerce.number().int().positive().max(999999999999),
