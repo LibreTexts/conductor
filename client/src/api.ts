@@ -2806,6 +2806,40 @@ class API {
     return res.data;
   }
 
+  async bulkDeleteGlossaryTerms(props: {
+    library: string;
+    coverID: string;
+    usageIds: string[];
+  }) {
+    const { library, coverID, usageIds } = props;
+    const res = await axios.delete<
+      { deletedCount: number } & ConductorBaseResponse
+    >(`/commons/book/${library}/${coverID}/glossary/usage/bulk`, {
+      data: { usageIds },
+    });
+    return res.data;
+  }
+
+  async bulkUpdateGlossaryAttribution(props: {
+    library: string;
+    coverID: string;
+    usageIds: string[];
+    author?: string;
+    link?: string;
+    source?: string;
+  }) {
+    const { library, coverID, usageIds, author, link, source } = props;
+    const res = await axios.patch<
+      { modifiedCount: number } & ConductorBaseResponse
+    >(`/commons/book/${library}/${coverID}/glossary/usage/bulk/attribution`, {
+      usageIds,
+      author,
+      link,
+      source,
+    });
+    return res.data;
+  }
+
   // Book Publishing
   async getPublishStatus(projectID: string) {
     const res = await axios.get<{ status: PublishStatus } & ConductorBaseResponse>(

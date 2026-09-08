@@ -1,24 +1,33 @@
-import { Badge, IconButton, Stack } from "@libretexts/davis-react";
+import { Badge, Button, IconButton, Input, Stack } from "@libretexts/davis-react";
 import LoadingSpinner from "../../../components/LoadingSpinner";
+import ConfirmModal from "../../../components/ConfirmModal";
 import { GlossaryEntry } from "./model";
 
 import type { ColumnDef, Table } from "@libretexts/davis-react-table";
 import { DataTable } from "@libretexts/davis-react-table";
 import type { RowSelectionState } from "@tanstack/react-table";
 
-import { IconAlertTriangle, IconPencil, IconTrash } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconPencil,
+  IconTag,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useMemo, useRef, useState } from "react";
 import { TableOfContents } from "../../../types";
 import { findTocNodeById } from "./services";
 import type { Notification } from "../../../context/NotificationContext";
 import api from "../../../api";
 import GlossaryDefinitionPreview from "./GlossaryDefinitionPreview";
+import BulkAttributionDialog from "./BulkAttributionDialog";
 
 type GlossaryListProps = {
   entries: GlossaryEntry[];
   isLoading: boolean;
   error: string | null;
   toc?: TableOfContents;
+  library: string;
+  coverID: string;
   selectedTerms: GlossaryEntry[];
   setSelectedTerms: (terms: GlossaryEntry[]) => void;
   addNotification: (notification: Notification) => void;
@@ -45,6 +54,8 @@ const GlossaryList = ({
   isLoading,
   error,
   toc,
+  library,
+  coverID,
   selectedTerms,
   setSelectedTerms,
   addNotification,
@@ -53,6 +64,45 @@ const GlossaryList = ({
 }: GlossaryListProps) => {
   const tableRef = useRef<Table<GlossaryEntry> | null>(null);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [searchValue, setSearchValue] = useState("");
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [showBulkAttributionModal, setShowBulkAttributionModal] =
+    useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const clearSelection = () => {
+    setSelectedTerms([]);
+    setRowSelection({});
+  };
+
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true);
+    try {
+      const res = await api.bulkDeleteGlossaryTerms({
+        library,
+        coverID,
+        usageIds: selectedTerms.map((t) => t.usageID),
+      });
+      if (res.err) {
+        addNotification({
+          message: res.errMsg ?? "Failed to delete glossary terms.",
+          type: "error",
+        });
+        return;
+      }
+      addNotification({
+        message: `Deleted ${res.deletedCount} glossary term${
+          res.deletedCount === 1 ? "" : "s"
+        } successfully`,
+        type: "success",
+      });
+      clearSelection();
+      refetchGlossary();
+    } finally {
+      setBulkDeleting(false);
+      setShowBulkDeleteConfirm(false);
+    }
+  };
 
   /** Flat set of every page ID present in the book TOC — O(1) membership test. */
   const tocIdSet = useMemo(() => {
@@ -293,72 +343,141 @@ const GlossaryList = ({
           <em>No glossary entries for this book yet.</em>
         </p>
       ) : (
-        <DataTable<GlossaryEntry>
-          striped={true}
-          stickyHeader={true}
-          toolbar={{
-            globalSearch: true,
-            globalSearchPlaceholder: "Search terms…",
-            columnVisibility: false,
-            end: (
-              <Stack direction="horizontal" gap="xs" align="center">
-                {selectedTerms.map((term) => (
-                  <Badge
-                    key={term.usageID}
-                    variant="primary"
-                    label={term.term}
-                    size="sm"
-                    onRemove={() => {
-                      setSelectedTerms(
-                        selectedTerms.filter((t) => t.usageID !== term.usageID),
-                      );
-                      setRowSelection((prev) => {
-                        const next = { ...prev };
-                        delete next[term.usageID];
-                        return next;
-                      });
-                    }}
-                  />
-                ))}
-              </Stack>
-            ),
-          }}
-          data={entries}
-          columns={columns}
-          className="min-w-0 w-full max-w-full"
-          classNames={glossaryTableClassNames}
-          enableRowSelection
-          enableExpansion
-          getRowCanExpand={(row) => row.original.pages.length > 0}
-          renderSubRow={(row) => (
-            <DataTable<PageColumnDef>
-              data={row.original.pages.map((p) => ({ ...p, usageID: row.original.usageID }))}
-              columns={pageColumns}
-              className="min-w-0 w-full max-w-full"
-              classNames={{
-                ...glossaryTableClassNames,
-                table: `${glossaryTableClassNames.table} glossary-list__pages-table`,
+        <>
+          <Stack direction="vertical" gap="sm" className="mb-3">
+            <Input
+              name="glossary-term-search"
+              label="Search"
+              labelClassName="sr-only"
+              type="search"
+              placeholder="Search terms…"
+              className="w-64 max-w-full"
+              value={searchValue}
+              onChange={(e) => {
+                setSearchValue(e.target.value);
+                tableRef.current?.setGlobalFilter(e.target.value);
               }}
-              density="compact"
-              bordered
-              caption="Page definitions"
             />
-          )}
-          pageSize={100}
-          enablePagination
-          pageSizeOptions={[5, 10, 25, 50, 100]}
-          enableSorting
-          enableColumnFilters
-          onTableReady={(table) => {
-            tableRef.current = table;
-          }}
-          tableOptions={{
-            getRowId: (row) => row.usageID,
-            state: { rowSelection },
-            onRowSelectionChange: handleRowSelectionChange,
-          }}
-        />
+            {selectedTerms.length > 0 && (
+              <Stack
+                direction="horizontal"
+                align="center"
+                justify="between"
+                className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2"
+              >
+                <span className="text-sm font-medium text-blue-800">
+                  {selectedTerms.length} term
+                  {selectedTerms.length === 1 ? "" : "s"} selected
+                </span>
+                <Stack direction="horizontal" gap="xs">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<IconTag size={14} />}
+                    iconPosition="left"
+                    onClick={() => setShowBulkAttributionModal(true)}
+                  >
+                    Update Attribution
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    icon={<IconTrash size={14} />}
+                    iconPosition="left"
+                    onClick={() => setShowBulkDeleteConfirm(true)}
+                  >
+                    Delete Selected
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={clearSelection}>
+                    Clear
+                  </Button>
+                </Stack>
+              </Stack>
+            )}
+            <Stack direction="horizontal" gap="xs" align="center">
+              {selectedTerms.map((term) => (
+                <Badge
+                  key={term.usageID}
+                  variant="primary"
+                  label={term.term}
+                  size="sm"
+                  onRemove={() => {
+                    setSelectedTerms(
+                      selectedTerms.filter((t) => t.usageID !== term.usageID),
+                    );
+                    setRowSelection((prev) => {
+                      const next = { ...prev };
+                      delete next[term.usageID];
+                      return next;
+                    });
+                  }}
+                />
+              ))}
+            </Stack>
+          </Stack>
+          <DataTable<GlossaryEntry>
+            striped={true}
+            stickyHeader={true}
+            toolbar={false}
+            data={entries}
+            columns={columns}
+            className="min-w-0 w-full max-w-full"
+            classNames={glossaryTableClassNames}
+            enableRowSelection
+            enableExpansion
+            getRowCanExpand={(row) => row.original.pages.length > 0}
+            renderSubRow={(row) => (
+              <DataTable<PageColumnDef>
+                data={row.original.pages.map((p) => ({ ...p, usageID: row.original.usageID }))}
+                columns={pageColumns}
+                className="min-w-0 w-full max-w-full"
+                classNames={{
+                  ...glossaryTableClassNames,
+                  table: `${glossaryTableClassNames.table} glossary-list__pages-table`,
+                }}
+                density="compact"
+                bordered
+                caption="Page definitions"
+              />
+            )}
+            pageSize={100}
+            enablePagination
+            pageSizeOptions={[5, 10, 25, 50, 100]}
+            enableSorting
+            enableColumnFilters
+            onTableReady={(table) => {
+              tableRef.current = table;
+            }}
+            tableOptions={{
+              getRowId: (row) => row.usageID,
+              state: { rowSelection },
+              onRowSelectionChange: handleRowSelectionChange,
+            }}
+          />
+        </>
       )}
+      <ConfirmModal
+        open={showBulkDeleteConfirm}
+        text={`Delete ${selectedTerms.length} selected glossary term${
+          selectedTerms.length === 1 ? "" : "s"
+        }? This cannot be undone.`}
+        confirmText={bulkDeleting ? "Deleting..." : "Delete"}
+        confirmColor="red"
+        onConfirm={handleBulkDelete}
+        onCancel={() => setShowBulkDeleteConfirm(false)}
+      />
+      <BulkAttributionDialog
+        open={showBulkAttributionModal}
+        onClose={() => setShowBulkAttributionModal(false)}
+        library={library}
+        coverID={coverID}
+        terms={selectedTerms}
+        addNotification={addNotification}
+        onUpdated={() => {
+          clearSelection();
+          refetchGlossary();
+        }}
+      />
     </div>
   );
 };

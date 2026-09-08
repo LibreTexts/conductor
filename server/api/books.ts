@@ -89,6 +89,8 @@ import {
   readFromCxOneGlossaryAndAddToGlossaryUsageSchema,
   importGlossaryFromCsvSchema,
   getGlossaryCsvImportJobStatusSchema,
+  bulkDeleteGlossaryUsageSchema,
+  bulkUpdateGlossaryAttributionSchema,
 } from "./validators/book.js";
 import BookService, { BookPageConflictError } from "./services/book-service.js";
 import LibrarySyncService, {
@@ -3296,6 +3298,89 @@ async function addPageToGlossaryUsage(
   }
 }
 
+async function bulkDeleteGlossaryUsage(
+  req: ZodReqWithUser<z.infer<typeof bulkDeleteGlossaryUsageSchema>>,
+  res: Response,
+) {
+  try {
+    const { usageIds } = req.body;
+    const { coverID, library } = req.params;
+    const glossaryService = new GlossaryService();
+    const project = await glossaryService.getProject({
+      coverID: coverID.toString(),
+      library,
+    });
+    const { uuid: userID } = req.user.decoded;
+    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
+    const isSuperAdmin = authAPI.checkHasRole(
+      req.user,
+      "libretexts",
+      "superadmin",
+      true,
+    );
+    if (!project && !isSuperAdmin) {
+      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
+    }
+    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
+    if (!canAccess && !isSuperAdmin) {
+      throw new Error(conductorErrors.err8);
+    }
+    const deletedCount = await glossaryService.bulkDeleteGlossaryUsage(
+      usageIds,
+      coverID.toString(),
+      library,
+    );
+    return res.send({ err: false, deletedCount });
+  } catch (err) {
+    logger.error({ err }, "bulkDeleteGlossaryUsage failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+async function bulkUpdateGlossaryAttribution(
+  req: ZodReqWithUser<z.infer<typeof bulkUpdateGlossaryAttributionSchema>>,
+  res: Response,
+) {
+  try {
+    const { usageIds, author, link, source } = req.body;
+    const { coverID, library } = req.params;
+    const glossaryService = new GlossaryService();
+    const project = await glossaryService.getProject({
+      coverID: coverID.toString(),
+      library,
+    });
+    const { uuid: userID } = req.user.decoded;
+    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
+    const isSuperAdmin = authAPI.checkHasRole(
+      req.user,
+      "libretexts",
+      "superadmin",
+      true,
+    );
+    if (!project && !isSuperAdmin) {
+      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
+    }
+    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
+    if (!canAccess && !isSuperAdmin) {
+      throw new Error(conductorErrors.err8);
+    }
+    const modifiedCount = await glossaryService.bulkUpdateAttribution(
+      usageIds,
+      coverID.toString(),
+      library,
+      {
+        author: author?.trim() || undefined,
+        link: link?.trim() || undefined,
+        source: source?.trim() || undefined,
+      },
+    );
+    return res.send({ err: false, modifiedCount });
+  } catch (err) {
+    logger.error({ err }, "bulkUpdateGlossaryAttribution failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
 async function deleteBookGlossary(
   req: ZodReqWithUser<z.infer<typeof getWithCoverIDParamSchema>>,
   res: Response,
@@ -3809,4 +3894,6 @@ export default {
   glossaryCsvUploadHandler,
   startGlossaryCsvImportJob,
   getGlossaryCsvImportJobStatus,
+  bulkDeleteGlossaryUsage,
+  bulkUpdateGlossaryAttribution,
 };

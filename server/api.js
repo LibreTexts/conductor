@@ -1281,6 +1281,20 @@ router.route("/commons/book/:library/:coverID/glossary")
     booksAPI.getGlossaryCsvImportJobStatus
   );
 
+  router.route("/commons/book/:library/:coverID/glossary/usage/bulk").delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.bulkDeleteGlossaryUsageSchema),
+    booksAPI.bulkDeleteGlossaryUsage
+  );
+
+  router.route("/commons/book/:library/:coverID/glossary/usage/bulk/attribution").patch(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.bulkUpdateGlossaryAttributionSchema),
+    booksAPI.bulkUpdateGlossaryAttribution
+  );
+
   router.route("/commons/glossary/usage/:usageID").delete(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
