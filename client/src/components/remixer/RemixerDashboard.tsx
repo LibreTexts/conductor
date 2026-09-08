@@ -1933,6 +1933,7 @@ const RemixerDashboard: React.FC = () => {
           id,
           res.project.libreCoverID,
           res.project.libreLibrary,
+          false,
         );
         return { res, fullBook };
       },
@@ -1943,6 +1944,8 @@ const RemixerDashboard: React.FC = () => {
           ...prev,
           selectedBookNodeId: undefined,
           editPanelOpen: false,
+          pathLevelFormats: [],
+          copyModeState: copyModeStates[0].value,
         }));
         setRemixerData((prev) => ({
           ...prev,
@@ -1953,8 +1956,11 @@ const RemixerDashboard: React.FC = () => {
           selectedLibrary: isLibrary(res.project.libreLibrary)
             ? res.project.libreLibrary
             : undefined,
+          autoNumbering: true,
           currentBook: normalizeBookState(fullBook, {
             initializeOriginalPathNumber: true,
+            pathLevelFormats: [],
+            autoNumbering: true,
           }),
         }));
       },

@@ -132,6 +132,7 @@ export const DELIMITER_OPTIONS = [
   { key: "dash", text: "-", value: "-" },
   { key: "slash", text: "/", value: "/" },
   { key: "space", text: "space", value: " " },
+  { key: "none", text: "None", value: "" },
 ];
 
 export const NUMBERING_TYPE_OPTIONS = [
