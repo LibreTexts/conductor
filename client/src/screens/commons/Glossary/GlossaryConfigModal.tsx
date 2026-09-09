@@ -33,6 +33,7 @@ import {
   type DropTarget,
 } from "./glossaryConfigDefaults";
 import { findTocNodeById } from "./services";
+import { getGroupColor } from "./glossaryConfigColors";
 import GlossaryModeSelector from "./GlossaryModeSelector";
 import GlossaryConfigTocTree from "./GlossaryConfigTocTree";
 import type { Notification } from "../../../context/NotificationContext";
@@ -114,6 +115,7 @@ interface GroupCardProps {
   group: GlossaryConfigGroup;
   index: number;
   label: string;
+  color: string;
   mode: GlossaryConfigMode;
   targetTitle: string;
   armed: boolean;
@@ -133,6 +135,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
   group,
   index,
   label,
+  color,
   mode,
   targetTitle,
   armed,
@@ -157,6 +160,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
   return (
     <li
       ref={setNodeRef}
+      style={{ borderLeftColor: color, borderLeftWidth: 3 }}
       className={`rounded-md border p-3 transition-colors ${
         isOver
           ? "border-primary-400 bg-primary-50"
@@ -166,7 +170,22 @@ const GroupCard: React.FC<GroupCardProps> = ({
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">{label}</span>
+        <span className="flex items-center gap-2 text-sm font-medium">
+          <span
+            className="flex shrink-0 items-center gap-1"
+            aria-label={`Group ${index + 1}`}
+          >
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: color }}
+              aria-hidden
+            />
+            <span className="text-xs font-semibold text-neutral-500">
+              {index + 1}
+            </span>
+          </span>
+          {label}
+        </span>
         <div className="flex items-center gap-1">
           <IconButton
             name="move-up"
@@ -404,6 +423,18 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
     [fields],
   );
 
+  // Color is a supplementary cue, not the only one — a colorblind viewer (or
+  // anyone once colors repeat past 8 groups) identifies a group by its
+  // number, matched 1:1 with the numbered badge on each group card.
+  const pageGroupInfo = useMemo(() => {
+    const map = new Map<string, { color: string; number: number }>();
+    fields.forEach((group, index) => {
+      const info = { color: getGroupColor(index), number: index + 1 };
+      group.pageIds.forEach((pageId) => map.set(pageId, info));
+    });
+    return map;
+  }, [fields]);
+
   const unassignedPageIds = useMemo(
     () => allPageIds.filter((id) => !assignedPageIds.has(id)),
     [allPageIds, assignedPageIds],
@@ -550,6 +581,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
                       group={group}
                       index={index}
                       label={getGroupLabel(group, index)}
+                      color={getGroupColor(index)}
                       mode={mode}
                       targetTitle={getTargetTitle(group)}
                       armed={armedGroupIndex === index}
@@ -627,7 +659,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
                   <GlossaryConfigTocTree
                     items={bookTOC.children}
                     onNodeClick={handleTocNodeClick}
-                    assignedPageIds={assignedPageIds}
+                    pageGroupInfo={pageGroupInfo}
                   />
                 </div>
               </div>
