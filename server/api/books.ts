@@ -92,6 +92,11 @@ import {
   bulkDeleteGlossaryUsageSchema,
   bulkUpdateGlossaryAttributionSchema,
 } from "./validators/book.js";
+import {
+  getGlossaryConfigSchema,
+  saveGlossaryConfigSchema,
+  deleteGlossaryConfigSchema,
+} from "./validators/glossaryconfig.js";
 import BookService, { BookPageConflictError } from "./services/book-service.js";
 import LibrarySyncService, {
   describeLimits,
@@ -127,6 +132,7 @@ import base62 from "base62-random";
 import Glossary from "../models/glossary.js";
 import GlossaryService, {
   GlossaryNotFoundError,
+  GlossaryConfigValidationError,
 } from "./services/glossary-service.js";
 import GlossaryUsage from "../models/glossaryusage.js";
 import { ProjectContext, ProjectError, returnProjectError } from "./services/project-context.js";
@@ -3381,6 +3387,105 @@ async function bulkUpdateGlossaryAttribution(
   }
 }
 
+async function checkGlossaryConfigAccess(
+  req: ZodReqWithUser<{ params: { coverID: number; library: string } }>,
+  glossaryService: GlossaryService,
+): Promise<{ err: true; status: number; errMsg: string } | { err: false }> {
+  const { coverID, library } = req.params;
+  const project = await glossaryService.getProject({
+    coverID: coverID.toString(),
+    library,
+  });
+  const { uuid: userID } = req.user.decoded;
+  const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
+  const isSuperAdmin = authAPI.checkHasRole(
+    req.user,
+    "libretexts",
+    "superadmin",
+    true,
+  );
+  if (!project && !isSuperAdmin) {
+    return {
+      err: true,
+      status: 404,
+      errMsg: "Project not found for this book.",
+    };
+  }
+  const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
+  if (!canAccess && !isSuperAdmin) {
+    return { err: true, status: 403, errMsg: conductorErrors.err8 };
+  }
+  return { err: false };
+}
+
+async function getGlossaryConfig(
+  req: ZodReqWithUser<z.infer<typeof getGlossaryConfigSchema>>,
+  res: Response,
+) {
+  try {
+    const { coverID, library } = req.params;
+    const glossaryService = new GlossaryService();
+    const access = await checkGlossaryConfigAccess(req, glossaryService);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
+    }
+    const config = await glossaryService.getGlossaryConfig(
+      coverID.toString(),
+      library,
+    );
+    return res.send({ err: false, exists: !!config, config: config ?? null });
+  } catch (err) {
+    logger.error({ err }, "getGlossaryConfig failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+async function saveGlossaryConfig(
+  req: ZodReqWithUser<z.infer<typeof saveGlossaryConfigSchema>>,
+  res: Response,
+) {
+  try {
+    const { coverID, library } = req.params;
+    const { mode, glossaryPageId, groups } = req.body;
+    const glossaryService = new GlossaryService();
+    const access = await checkGlossaryConfigAccess(req, glossaryService);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
+    }
+    const config = await glossaryService.saveGlossaryConfig(
+      coverID.toString(),
+      library,
+      { mode, glossaryPageId, groups },
+    );
+    return res.send({ err: false, config });
+  } catch (err) {
+    if (err instanceof GlossaryConfigValidationError) {
+      return res.status(400).send({ err: true, errMsg: err.message });
+    }
+    logger.error({ err }, "saveGlossaryConfig failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+async function deleteGlossaryConfig(
+  req: ZodReqWithUser<z.infer<typeof deleteGlossaryConfigSchema>>,
+  res: Response,
+) {
+  try {
+    const { coverID, library } = req.params;
+    const glossaryService = new GlossaryService();
+    const access = await checkGlossaryConfigAccess(req, glossaryService);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
+    }
+    await glossaryService.deleteGlossaryConfig(coverID.toString(), library);
+    return res.send({ err: false });
+  } catch (err) {
+    logger.error({ err }, "deleteGlossaryConfig failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
 async function deleteBookGlossary(
   req: ZodReqWithUser<z.infer<typeof getWithCoverIDParamSchema>>,
   res: Response,
@@ -3905,4 +4010,7 @@ export default {
   getGlossaryCsvImportJobStatus,
   bulkDeleteGlossaryUsage,
   bulkUpdateGlossaryAttribution,
+  getGlossaryConfig,
+  saveGlossaryConfig,
+  deleteGlossaryConfig,
 };
