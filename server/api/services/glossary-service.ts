@@ -7,6 +7,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import Glossary from "../../models/glossary";
 import GlossaryUsage from "../../models/glossaryusage";
+import GlossaryConfig, {
+  GlossaryConfigInterface,
+  GlossaryConfigMode,
+  GlossaryConfigGroup,
+} from "../../models/glossaryconfig";
 import { CXOneFetch } from "../../util/librariesclient";
 import CXOnePageAPIEndpoints from "../../util/CXOne/CXOnePageAPIEndpoints";
 import Project from "../../models/project";
@@ -25,6 +30,18 @@ export class GlossaryNotFoundError extends Error {
   constructor(message = "No glossary found") {
     super(message);
     this.name = "GlossaryNotFoundError";
+  }
+}
+
+/**
+ * Signals a semantically-invalid GlossaryConfig payload (e.g. a duplicate
+ * groupID, or a page assigned to more than one group) that passed Zod's
+ * shape check but violates a cross-field rule — handlers map it to 400.
+ */
+export class GlossaryConfigValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GlossaryConfigValidationError";
   }
 }
 
@@ -1028,5 +1045,78 @@ export default class GlossaryService {
     } catch (error) {
       throw error;
     }
+  }
+
+  async getGlossaryConfig(
+    coverID: string,
+    library: string,
+  ): Promise<GlossaryConfigInterface | null> {
+    return GlossaryConfig.findOne({
+      coverID: parseInt(coverID),
+      library,
+    });
+  }
+
+  async saveGlossaryConfig(
+    coverID: string,
+    library: string,
+    data: {
+      mode: GlossaryConfigMode;
+      glossaryPageId?: string;
+      groups: GlossaryConfigGroup[];
+    },
+  ): Promise<GlossaryConfigInterface> {
+    const groupIDs = new Set<string>();
+    const pageOwner = new Map<string, string>();
+    const groups: GlossaryConfigGroup[] = data.groups.map((group) => {
+      if (groupIDs.has(group.groupID)) {
+        throw new GlossaryConfigValidationError(
+          `Duplicate group ID: ${group.groupID}`,
+        );
+      }
+      groupIDs.add(group.groupID);
+
+      const pageIds = [...new Set(group.pageIds)];
+      for (const pageId of pageIds) {
+        const owner = pageOwner.get(pageId);
+        if (owner && owner !== group.groupID) {
+          throw new GlossaryConfigValidationError(
+            `Page ${pageId} is assigned to more than one group.`,
+          );
+        }
+        pageOwner.set(pageId, group.groupID);
+      }
+
+      return {
+        groupID: group.groupID,
+        pageIds,
+        targetPageId: group.targetPageId,
+      };
+    });
+
+    const project = await this.getProject({ coverID, library });
+
+    const config = await GlossaryConfig.findOneAndUpdate(
+      { coverID: parseInt(coverID), library },
+      {
+        $set: {
+          projectId: project?.projectID,
+          coverID: parseInt(coverID),
+          library,
+          glossaryPageId: data.glossaryPageId,
+          mode: data.mode,
+          groups,
+        },
+      },
+      { upsert: true, new: true },
+    );
+    return config;
+  }
+
+  async deleteGlossaryConfig(coverID: string, library: string): Promise<void> {
+    await GlossaryConfig.deleteOne({
+      coverID: parseInt(coverID),
+      library,
+    });
   }
 }

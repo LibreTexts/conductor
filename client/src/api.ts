@@ -113,7 +113,12 @@ import {
 } from "./types/Shapeshift";
 import { BookBotRun, BookBotType } from "./types/BookBot";
 import { PublishDestination, PublishStatus } from "./types/Publish";
-import { GlossaryEntry } from "./screens/commons/Glossary/model";
+import {
+  GlossaryEntry,
+  GlossaryConfig,
+  GlossaryConfigMode,
+  GlossaryConfigGroup,
+} from "./screens/commons/Glossary/model";
 
 /**
  * @fileoverview
@@ -2837,6 +2842,38 @@ class API {
       link,
       source,
     });
+    return res.data;
+  }
+
+  async getGlossaryConfig(library: string, coverID: string) {
+    const res = await axios.get<
+      { exists: boolean; config: GlossaryConfig | null } & ConductorBaseResponse
+    >(`/commons/book/${library}/${coverID}/glossary-config`);
+    return res.data;
+  }
+
+  async saveGlossaryConfig(props: {
+    library: string;
+    coverID: string;
+    mode: GlossaryConfigMode;
+    glossaryPageId?: string;
+    groups: GlossaryConfigGroup[];
+  }) {
+    const { library, coverID, mode, glossaryPageId, groups } = props;
+    const res = await axios.put<
+      { config: GlossaryConfig } & ConductorBaseResponse
+    >(`/commons/book/${library}/${coverID}/glossary-config`, {
+      mode,
+      glossaryPageId,
+      groups,
+    });
+    return res.data;
+  }
+
+  async deleteGlossaryConfig(library: string, coverID: string) {
+    const res = await axios.delete<ConductorBaseResponse>(
+      `/commons/book/${library}/${coverID}/glossary-config`,
+    );
     return res.data;
   }
 

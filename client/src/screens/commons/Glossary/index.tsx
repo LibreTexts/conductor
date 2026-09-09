@@ -20,6 +20,7 @@ import {
   IconPlus,
   IconTableImport,
   IconFileTypeCsv,
+  IconSettings,
 } from "@tabler/icons-react";
 import TOCTreeView from "./TOCTreeView";
 import GlossaryForm from "./manager";
@@ -33,6 +34,7 @@ import GlossaryList from "./GlossaryList";
 import { GlossaryEntry } from "./model";
 import AddPageDialog from "./AddPageDialog";
 import GlossaryCsvImportDialog from "./GlossaryCsvImportDialog";
+import GlossaryConfigModal from "./GlossaryConfigModal";
 import { useNotifications } from "../../../context/NotificationContext";
 import useProject from "../../../hooks/useProject";
 
@@ -90,6 +92,7 @@ const GlossaryManager: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddPageModal, setShowAddPageModal] = useState(false);
   const [showCsvImportModal, setShowCsvImportModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const {
     // data: glossaryEntries = [],
     isLoading: loadingGlossary,
@@ -230,6 +233,16 @@ const GlossaryManager: React.FC = () => {
               >
                 Import CSV
               </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setShowConfigModal(true)}
+                disabled={!bookTOC}
+                icon={<IconSettings size={16} />}
+                iconPosition="left"
+              >
+                Configure Glossary
+              </Button>
               {glossaryID && (
                 <Button
                   size="sm"
@@ -350,6 +363,17 @@ const GlossaryManager: React.FC = () => {
         addNotification={addNotification}
         onImported={() => refetchGlossary()}
       />
+      {bookTOC && (
+        <GlossaryConfigModal
+          open={showConfigModal}
+          onClose={() => setShowConfigModal(false)}
+          library={library}
+          coverID={coverID}
+          bookTOC={bookTOC}
+          glossaryPageId={glossaryID}
+          addNotification={addNotification}
+        />
+      )}
       <AddPageDialog
         open={showAddPageModal}
         onClose={() => setShowAddPageModal(false)}

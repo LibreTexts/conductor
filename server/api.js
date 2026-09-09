@@ -64,6 +64,7 @@ import * as ProjectInvitationValidators from "./api/validators/project-invitatio
 import * as ShapeshiftValidators from "./api/validators/shapeshift.js";
 import * as BookBotsValidators from "./api/validators/book-bots.js";
 import * as PublishValidators from "./api/validators/publish.js";
+import * as GlossaryConfigValidators from "./api/validators/glossaryconfig.js";
 
 import remixerAPI from "./api/remixer.js";
 import * as RemixerValidators from "./api/validators/remixer.js";
@@ -1294,6 +1295,26 @@ router.route("/commons/book/:library/:coverID/glossary")
     middleware.validateZod(BookValidators.bulkUpdateGlossaryAttributionSchema),
     booksAPI.bulkUpdateGlossaryAttribution
   );
+
+  router.route("/commons/book/:library/:coverID/glossary-config")
+    .get(
+      authAPI.verifyRequest,
+      authAPI.getUserAttributes,
+      middleware.validateZod(GlossaryConfigValidators.getGlossaryConfigSchema),
+      booksAPI.getGlossaryConfig
+    )
+    .put(
+      authAPI.verifyRequest,
+      authAPI.getUserAttributes,
+      middleware.validateZod(GlossaryConfigValidators.saveGlossaryConfigSchema),
+      booksAPI.saveGlossaryConfig
+    )
+    .delete(
+      authAPI.verifyRequest,
+      authAPI.getUserAttributes,
+      middleware.validateZod(GlossaryConfigValidators.deleteGlossaryConfigSchema),
+      booksAPI.deleteGlossaryConfig
+    );
 
   router.route("/commons/glossary/usage/:usageID").delete(
     authAPI.verifyRequest,
