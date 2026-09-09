@@ -4,25 +4,27 @@ import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import { TableOfContents } from "../../../types/Book";
 import { collectSubtreeIds } from "./glossaryConfigDefaults";
 
+export type PageGroupInfo = { color: string; number: number };
+
 interface GlossaryConfigTocTreeProps {
   items: TableOfContents[];
   onNodeClick?: (pageId: string) => void;
-  /** Pages already assigned to some group — shown with a small marker. */
-  assignedPageIds?: Set<string>;
+  /** Maps a page id to its group's color + ordinal, for assigned pages. */
+  pageGroupInfo?: Map<string, PageGroupInfo>;
 }
 
 interface TocNodeProps {
   item: TableOfContents;
   depth: number;
   onNodeClick?: (pageId: string) => void;
-  assignedPageIds?: Set<string>;
+  pageGroupInfo?: Map<string, PageGroupInfo>;
 }
 
 const TocNode: React.FC<TocNodeProps> = ({
   item,
   depth,
   onNodeClick,
-  assignedPageIds,
+  pageGroupInfo,
 }) => {
   const [expanded, setExpanded] = useState(depth < 1);
   const hasChildren = item.children.length > 0;
@@ -32,7 +34,7 @@ const TocNode: React.FC<TocNodeProps> = ({
     // merging several chapters into one group is a single drag.
     data: { pageIds: collectSubtreeIds(item) },
   });
-  const assigned = assignedPageIds?.has(item.id);
+  const groupInfo = pageGroupInfo?.get(item.id);
 
   return (
     <li>
@@ -43,10 +45,16 @@ const TocNode: React.FC<TocNodeProps> = ({
         onClick={() => onNodeClick?.(item.id)}
         role={onNodeClick ? "button" : undefined}
         tabIndex={onNodeClick ? 0 : undefined}
-        style={{ paddingLeft: `${depth * 0.9}rem` }}
-        className={`flex cursor-grab items-center gap-1 rounded px-1.5 py-1 text-sm hover:bg-neutral-100 ${
-          isDragging ? "opacity-40" : ""
-        } ${onNodeClick ? "cursor-pointer" : ""}`}
+        style={{
+          paddingLeft: `${depth * 0.9}rem`,
+          borderLeft: `3px solid ${groupInfo?.color ?? "transparent"}`,
+          backgroundColor: groupInfo ? `${groupInfo.color}14` : undefined,
+        }}
+        className={`flex cursor-grab items-center gap-1 rounded px-1.5 py-1 text-sm ${
+          groupInfo ? "" : "hover:bg-neutral-100"
+        } ${isDragging ? "opacity-40" : ""} ${
+          onNodeClick ? "cursor-pointer" : ""
+        }`}
       >
         {hasChildren ? (
           <button
@@ -69,12 +77,23 @@ const TocNode: React.FC<TocNodeProps> = ({
           <span className="inline-block w-[18px] shrink-0" />
         )}
         <span className="truncate">{item.title}</span>
-        {assigned && (
+        {groupInfo && (
+          // Color alone doesn't identify a group for a colorblind viewer
+          // (and colors repeat past 8 groups) — the number is the actual
+          // identifier, matched 1:1 with the badge on each group card.
           <span
-            className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-primary-500"
-            title="Assigned to a group"
-            aria-hidden
-          />
+            className="ml-auto flex shrink-0 items-center gap-1"
+            aria-label={`Group ${groupInfo.number}`}
+          >
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ backgroundColor: groupInfo.color }}
+              aria-hidden
+            />
+            <span className="text-[10px] font-semibold text-neutral-500">
+              {groupInfo.number}
+            </span>
+          </span>
         )}
       </div>
       {hasChildren && expanded && (
@@ -85,7 +104,7 @@ const TocNode: React.FC<TocNodeProps> = ({
               item={child}
               depth={depth + 1}
               onNodeClick={onNodeClick}
-              assignedPageIds={assignedPageIds}
+              pageGroupInfo={pageGroupInfo}
             />
           ))}
         </ul>
@@ -97,7 +116,7 @@ const TocNode: React.FC<TocNodeProps> = ({
 const GlossaryConfigTocTree: React.FC<GlossaryConfigTocTreeProps> = ({
   items,
   onNodeClick,
-  assignedPageIds,
+  pageGroupInfo,
 }) => {
   if (items.length === 0) {
     return (
@@ -114,7 +133,7 @@ const GlossaryConfigTocTree: React.FC<GlossaryConfigTocTreeProps> = ({
           item={item}
           depth={0}
           onNodeClick={onNodeClick}
-          assignedPageIds={assignedPageIds}
+          pageGroupInfo={pageGroupInfo}
         />
       ))}
     </ul>
