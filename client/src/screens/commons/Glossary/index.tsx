@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouteMatch } from "react-router-dom";
 import PageNotFound from "../../../components/util/PageNotFound";
 
@@ -36,12 +36,19 @@ import AddPageDialog from "./AddPageDialog";
 import GlossaryCsvImportDialog from "./GlossaryCsvImportDialog";
 import GlossaryConfigModal from "./GlossaryConfigModal";
 import { useNotifications } from "../../../context/NotificationContext";
+import { useModals } from "../../../context/ModalContext";
 import useProject from "../../../hooks/useProject";
+
+const ADD_TERM_MODAL_ID = "glossary-add-term-modal";
+const CSV_IMPORT_MODAL_ID = "glossary-csv-import-modal";
+const CONFIG_MODAL_ID = "glossary-config-modal";
+const ADD_PAGE_MODAL_ID = "glossary-add-page-modal";
 
 type GlossaryResourceType = "book" | "project";
 
 const GlossaryManager: React.FC = () => {
   const { addNotification } = useNotifications();
+  const { openModal, closeModal } = useModals();
   const { id } = useParams<{ id: string }>();
   const projectMatch = useRouteMatch({
     path: "/glossary/project/:id",
@@ -80,19 +87,20 @@ const GlossaryManager: React.FC = () => {
   );
   const coverID = useMemo(() => bookTOC?.id ?? "", [bookTOC?.id]);
 
-  const [editingUsageID, setEditingUsageID] = useState<string | null>(null);
+  // `undefined` = Add/Edit Term modal closed; `null` = open for a new term;
+  // a usageID = open editing that term. Folding "is it open" into this
+  // value (rather than a separate boolean) is what lets the modal's
+  // presence be derived instead of tracked twice.
+  const [editingUsageID, setEditingUsageID] = useState<
+    string | null | undefined
+  >(undefined);
   const [tocExpandAll, setTocExpandAll] = useState(false);
 
   const handleEditUsageID = (usageID: string) => {
     setEditingUsageID(usageID);
-    setShowAddModal(true);
   };
 
   const [glossaryEntries, setGlossaryEntries] = useState<GlossaryEntry[]>([]);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showAddPageModal, setShowAddPageModal] = useState(false);
-  const [showCsvImportModal, setShowCsvImportModal] = useState(false);
-  const [showConfigModal, setShowConfigModal] = useState(false);
   const {
     // data: glossaryEntries = [],
     isLoading: loadingGlossary,
@@ -115,13 +123,11 @@ const GlossaryManager: React.FC = () => {
   if (!resourceType) {
     return <PageNotFound />;
   }
+  // An empty array doubles as "Add Page modal closed" — there is never a
+  // reason to show it with nothing selected.
   const [selectedPageIds, setSelectedPageIds] = useState<string[]>([]);
   const onNodeClick = (nodeId: string) => {
-    var pageIds: string[] = [];
-    // show nodeId and its parents pageIds
-    pageIds = [nodeId];
-    setSelectedPageIds([...pageIds]);
-    setShowAddPageModal(true);
+    setSelectedPageIds([nodeId]);
   };
   const handleAddTermsToPages = async () => {
     const res = await api.addGlossaryTermsToPages({
@@ -142,7 +148,6 @@ const GlossaryManager: React.FC = () => {
       message: "Glossary terms added to pages successfully",
       type: "success",
     });
-    setShowAddPageModal(false);
     setSelectedPageIds([]);
     refetchGlossary();
   };
@@ -197,6 +202,116 @@ const GlossaryManager: React.FC = () => {
     },
   });
 
+  // `openModal`/`closeModal` are recreated on every render by ModalsProvider,
+  // so they're deliberately left out of these dependency arrays — including
+  // them would re-fire the effect on every modal open/close anywhere in the
+  // app. Each effect re-registers its modal's content whenever the data it
+  // depends on changes, which is what keeps content fresh while the modal
+  // stays open (e.g. re-matching an existing term while typing, or removing
+  // a page badge). Whether the modal is open is derived from the triggering
+  // state itself (`editingUsageID`/`selectedPageIds`) rather than a
+  // separate boolean.
+
+  useEffect(() => {
+    if (editingUsageID === undefined) {
+      closeModal(ADD_TERM_MODAL_ID);
+      return;
+    }
+    openModal(
+      <GlossaryForm
+        open={true}
+        glossaryID={glossaryID}
+        onClose={() => setEditingUsageID(undefined)}
+        coverID={coverID}
+        bookID={!projectMatch ? (id ?? "") : ""}
+        library={library}
+        onTermCreated={() => {
+          if (coverID && library) {
+            refetchGlossary();
+          }
+        }}
+        addNotification={addNotification}
+        editingTerm={
+          glossaryEntries.find((term) => term.usageID === editingUsageID) ??
+          null
+        }
+        setEditingUsageID={setEditingUsageID}
+        existingTerms={glossaryEntries}
+      />,
+      ADD_TERM_MODAL_ID,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    editingUsageID,
+    glossaryEntries,
+    glossaryID,
+    coverID,
+    library,
+    id,
+    projectMatch,
+    addNotification,
+  ]);
+
+  useEffect(() => {
+    if (selectedPageIds.length === 0 || !bookTOC) {
+      closeModal(ADD_PAGE_MODAL_ID);
+      return;
+    }
+    openModal(
+      <AddPageDialog
+        open={true}
+        onClose={() => setSelectedPageIds([])}
+        pageIds={selectedPageIds}
+        selectedTerms={selectedTerms}
+        toc={bookTOC}
+        setSelectedPageIds={setSelectedPageIds}
+        handleAddTermsToPages={handleAddTermsToPages}
+        editingUsageID={editingUsageID ?? null}
+        setEditingUsageID={handleEditUsageID}
+        glossaryEntries={glossaryEntries}
+      />,
+      ADD_PAGE_MODAL_ID,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    selectedPageIds,
+    selectedTerms,
+    bookTOC,
+    editingUsageID,
+    glossaryEntries,
+  ]);
+
+  const openCsvImportModal = () => {
+    openModal(
+      <GlossaryCsvImportDialog
+        open={true}
+        onClose={() => closeModal(CSV_IMPORT_MODAL_ID)}
+        library={library}
+        coverID={coverID}
+        glossaryID={glossaryID}
+        addNotification={addNotification}
+        onImported={() => refetchGlossary()}
+      />,
+      CSV_IMPORT_MODAL_ID,
+    );
+  };
+
+  const openConfigModal = () => {
+    if (!bookTOC) return;
+    openModal(
+      <GlossaryConfigModal
+        open={true}
+        onClose={() => closeModal(CONFIG_MODAL_ID)}
+        library={library}
+        coverID={coverID}
+        bookTOC={bookTOC}
+        glossaryPageId={glossaryID}
+        addNotification={addNotification}
+      />,
+      CONFIG_MODAL_ID,
+    );
+  };
+
   return (
     <Grid cols={3} gap="lg" className="glossary-page px-4 py-6">
       <div className="glossary-page__column commons-glossary col-span-2">
@@ -219,7 +334,7 @@ const GlossaryManager: React.FC = () => {
             <Stack direction="horizontal" gap="sm">
               <Button
                 size="sm"
-                onClick={() => setShowAddModal(true)}
+                onClick={() => setEditingUsageID(null)}
                 icon={<IconPlus size={16} />}
                 iconPosition="left"
               >
@@ -227,7 +342,7 @@ const GlossaryManager: React.FC = () => {
               </Button>
               <Button
                 size="sm"
-                onClick={() => setShowCsvImportModal(true)}
+                onClick={openCsvImportModal}
                 icon={<IconFileTypeCsv size={16} />}
                 iconPosition="left"
               >
@@ -236,7 +351,7 @@ const GlossaryManager: React.FC = () => {
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => setShowConfigModal(true)}
+                onClick={openConfigModal}
                 disabled={!bookTOC}
                 icon={<IconSettings size={16} />}
                 iconPosition="left"
@@ -259,26 +374,6 @@ const GlossaryManager: React.FC = () => {
           </Stack>
           <p className="text-sm text-neutral-600"></p>
         </div>
-        <GlossaryForm
-          open={showAddModal}
-          glossaryID={glossaryID}
-          onClose={() => setShowAddModal(false)}
-          coverID={coverID}
-          bookID={!projectMatch ? (id ?? "") : ""}
-          library={library}
-          onTermCreated={() => {
-            if (coverID && library) {
-              refetchGlossary();
-            }
-          }}
-          addNotification={addNotification}
-          editingTerm={
-            glossaryEntries.find((term) => term.usageID === editingUsageID) ??
-            null
-          }
-          setEditingUsageID={setEditingUsageID}
-          existingTerms={glossaryEntries}
-        />
         <div className="glossary-page__panel-scroll">
           <GlossaryList
             entries={glossaryEntries}
@@ -354,38 +449,6 @@ const GlossaryManager: React.FC = () => {
           )}
         </Card>
       </div>
-      <GlossaryCsvImportDialog
-        open={showCsvImportModal}
-        onClose={() => setShowCsvImportModal(false)}
-        library={library}
-        coverID={coverID}
-        glossaryID={glossaryID}
-        addNotification={addNotification}
-        onImported={() => refetchGlossary()}
-      />
-      {bookTOC && (
-        <GlossaryConfigModal
-          open={showConfigModal}
-          onClose={() => setShowConfigModal(false)}
-          library={library}
-          coverID={coverID}
-          bookTOC={bookTOC}
-          glossaryPageId={glossaryID}
-          addNotification={addNotification}
-        />
-      )}
-      <AddPageDialog
-        open={showAddPageModal}
-        onClose={() => setShowAddPageModal(false)}
-        pageIds={selectedPageIds}
-        selectedTerms={selectedTerms}
-        toc={bookTOC!}
-        setSelectedPageIds={setSelectedPageIds}
-        handleAddTermsToPages={handleAddTermsToPages}
-        editingUsageID={editingUsageID}
-        setEditingUsageID={handleEditUsageID}
-        glossaryEntries={glossaryEntries}
-      />
     </Grid>
   );
 };
