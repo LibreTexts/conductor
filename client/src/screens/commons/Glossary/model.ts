@@ -38,3 +38,18 @@ export type GlossaryConfig = {
   glossaryPageId?: string;
   groups: GlossaryConfigGroup[];
 };
+
+export type GlossaryConfigMode = "PAGE" | "CHAPTER" | "BACKEND";
+
+export type GlossaryConfigGroup = {
+  groupID: string;
+  pageIds: string[];
+  /** The page this group's combined glossary is displayed on. */
+  targetPageId: string;
+};
+
+export type GlossaryConfig = {
+  mode: GlossaryConfigMode;
+  glossaryPageId?: string;
+  groups: GlossaryConfigGroup[];
+};
