@@ -3,8 +3,9 @@ import { useDraggable } from "@dnd-kit/core";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import { TableOfContents } from "../../../types/Book";
 import { collectSubtreeIds } from "./glossaryConfigDefaults";
+import GroupShape from "./GlossaryGroupShape";
 
-export type PageGroupInfo = { color: string; number: number };
+export type PageGroupInfo = { color: string; index: number };
 
 interface GlossaryConfigTocTreeProps {
   items: TableOfContents[];
@@ -79,20 +80,13 @@ const TocNode: React.FC<TocNodeProps> = ({
         <span className="truncate">{item.title}</span>
         {groupInfo && (
           // Color alone doesn't identify a group for a colorblind viewer
-          // (and colors repeat past 8 groups) — the number is the actual
+          // (and colors repeat past 8 groups) — the shape is the actual
           // identifier, matched 1:1 with the badge on each group card.
           <span
-            className="ml-auto flex shrink-0 items-center gap-1"
-            aria-label={`Group ${groupInfo.number}`}
+            className="ml-auto flex shrink-0 items-center"
+            aria-label={`Group ${groupInfo.index + 1}`}
           >
-            <span
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: groupInfo.color }}
-              aria-hidden
-            />
-            <span className="text-[10px] font-semibold text-neutral-500">
-              {groupInfo.number}
-            </span>
+            <GroupShape index={groupInfo.index} color={groupInfo.color} />
           </span>
         )}
       </div>

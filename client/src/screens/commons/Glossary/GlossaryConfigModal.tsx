@@ -35,6 +35,7 @@ import {
 import { findTocNodeById } from "./services";
 import { getGroupColor } from "./glossaryConfigColors";
 import GlossaryModeSelector from "./GlossaryModeSelector";
+import GroupShape from "./GlossaryGroupShape";
 import GlossaryConfigTocTree from "./GlossaryConfigTocTree";
 import type { Notification } from "../../../context/NotificationContext";
 
@@ -172,17 +173,10 @@ const GroupCard: React.FC<GroupCardProps> = ({
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-sm font-medium">
           <span
-            className="flex shrink-0 items-center gap-1"
+            className="flex shrink-0 items-center"
             aria-label={`Group ${index + 1}`}
           >
-            <span
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ backgroundColor: color }}
-              aria-hidden
-            />
-            <span className="text-xs font-semibold text-neutral-500">
-              {index + 1}
-            </span>
+            <GroupShape index={index} color={color} size={12} />
           </span>
           {label}
         </span>
@@ -425,11 +419,11 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
 
   // Color is a supplementary cue, not the only one — a colorblind viewer (or
   // anyone once colors repeat past 8 groups) identifies a group by its
-  // number, matched 1:1 with the numbered badge on each group card.
+  // shape, matched 1:1 with the shape badge on each group card.
   const pageGroupInfo = useMemo(() => {
-    const map = new Map<string, { color: string; number: number }>();
+    const map = new Map<string, { color: string; index: number }>();
     fields.forEach((group, index) => {
-      const info = { color: getGroupColor(index), number: index + 1 };
+      const info = { color: getGroupColor(index), index };
       group.pageIds.forEach((pageId) => map.set(pageId, info));
     });
     return map;
