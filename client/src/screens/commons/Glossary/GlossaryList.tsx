@@ -130,7 +130,7 @@ const GlossaryList = ({
 
 
 
-  const pageColumns: ColumnDef<PageColumnDef>[] = [
+  const pageColumns: ColumnDef<PageColumnDef>[] = useMemo(() => [
     {
       accessorKey: "pageID",
       size: 580,
@@ -172,6 +172,7 @@ const GlossaryList = ({
     //   ),
     // },
     {
+      id: "pageID-actions",
       accessorKey: "pageID",
       header: () => (
         <span className="block w-full text-right text-sm">Actions</span>
@@ -205,13 +206,13 @@ const GlossaryList = ({
             }}
             size="sm"
           />
-          
+
         </Stack>
       ),
     },
-  ];
+  ], [toc, tocIdSet, addNotification, refetchGlossary]);
 
-  const columns: ColumnDef<GlossaryEntry>[] = [
+  const columns: ColumnDef<GlossaryEntry>[] = useMemo(() => [
     {
       accessorKey: "term",
       header: "Term",
@@ -318,7 +319,7 @@ const GlossaryList = ({
       enableSorting: false,
       enableColumnFilter: false,
     },
-  ];
+  ], [toc, tocIdSet, addNotification, refetchGlossary, setEditingUsageID]);
 
   if (isLoading) {
     return (

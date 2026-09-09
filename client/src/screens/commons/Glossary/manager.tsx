@@ -28,7 +28,6 @@ interface GlossaryFormProps {
   setGlossaryEntries?: (entries: GlossaryEntry[]) => void;
   addNotification: (notification: Notification) => void;
   editingTerm: GlossaryEntry | null;
-  setEditingUsageID: (usageID: string | null) => void;
   existingTerms?: GlossaryEntry[];
 }
 
@@ -83,7 +82,6 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     onTermCreated,
     addNotification,
     editingTerm,
-    setEditingUsageID,
     existingTerms,
   } = props;
 
@@ -102,35 +100,45 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     defaultValues: DEFAULT_VALUES,
   });
 
-  useEffect(() => {
-    if (!open || !editingTerm) return;
-
+  /**
+   * Populates every field from an existing term — used both when the modal
+   * opens already targeting a term (via `editingTerm`) and when the user
+   * types a name that matches an existing term while adding a new one (see
+   * `handleExistingTermMatch`). Applying it directly, synchronously, is what
+   * lets this component stay self-contained: it never needs a parent to
+   * hand back an updated `editingTerm` prop mid-session.
+   */
+  const applyEditingTerm = (term: GlossaryEntry) => {
     const baseUrl =
       import.meta.env.MODE === "development"
         ? import.meta.env.VITE_DEV_BASE_URL
         : "";
-    setValue("term", editingTerm.term ?? "");
-    setValue("definition", editingTerm.definition ?? "");
-    setValue("aliases", editingTerm.aliases ?? []);
-    setValue("link", editingTerm.link ?? "");
-    setValue("source", editingTerm.source ?? "");
-    setValue("author", editingTerm.author ?? "");
-    setValue("imageSource", editingTerm.imageSource ?? "");
-    setValue("imageAuthor", editingTerm.imageAuthor ?? "");
-    setValue("imageLicense", editingTerm.imageLicense ?? "");
-    setValue("altText", editingTerm.altText ?? "");
-    setValue("caption", editingTerm.caption ?? "");
-    setValue("usageID", editingTerm.usageID ?? undefined);
+    setValue("term", term.term ?? "");
+    setValue("definition", term.definition ?? "");
+    setValue("aliases", term.aliases ?? []);
+    setValue("link", term.link ?? "");
+    setValue("source", term.source ?? "");
+    setValue("author", term.author ?? "");
+    setValue("imageSource", term.imageSource ?? "");
+    setValue("imageAuthor", term.imageAuthor ?? "");
+    setValue("imageLicense", term.imageLicense ?? "");
+    setValue("altText", term.altText ?? "");
+    setValue("caption", term.caption ?? "");
+    setValue("usageID", term.usageID ?? undefined);
 
     setImageFile(null);
     setRemoveExistingImage(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
-    if (editingTerm.imageUrl) {
-      setImagePreview(`${baseUrl}${editingTerm.imageUrl}?t=${Date.now()}`);
-    } else {
-      setImagePreview(null);
-    }
-  }, [editingTerm, open, setValue]);
+    setImagePreview(
+      term.imageUrl ? `${baseUrl}${term.imageUrl}?t=${Date.now()}` : null,
+    );
+  };
+
+  useEffect(() => {
+    if (!open || !editingTerm) return;
+    applyEditingTerm(editingTerm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingTerm, open]);
 
   const hasImage = !!imageFile || !!imagePreview;
 
@@ -143,16 +151,14 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
 
     const trimmed = term.trim();
     if (!trimmed) {
-      setEditingUsageID(null);
       setValue("usageID", undefined);
       return;
     }
 
     const existingTerm = existingTerms?.find((t) => t.term === trimmed);
     if (existingTerm) {
-      setEditingUsageID(existingTerm.usageID);
+      applyEditingTerm(existingTerm);
     } else {
-      setEditingUsageID(null);
       setValue("usageID", undefined);
     }
   };
@@ -246,7 +252,6 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     setRemoveExistingImage(false);
 
     setValue("aliases", []);
-    setEditingUsageID(null);
   };
   const handleClose = (v: boolean) => {
     if (!v) {
@@ -284,11 +289,16 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                   validate: (value) => {
                     const trimmed = value.trim();
                     if (!trimmed) return "This field is required";
-                    if (editingTerm) {
+                    // Read the form's own live usageID rather than the
+                    // static `editingTerm` prop — it also covers the case
+                    // where typing matched an existing term mid-session
+                    // (see `handleExistingTermMatch`), not just the term
+                    // the modal was originally opened to edit.
+                    const currentUsageID = getValues("usageID");
+                    if (currentUsageID) {
                       const conflict = existingTerms?.find(
                         (t) =>
-                          t.term === trimmed &&
-                          t.usageID !== editingTerm.usageID,
+                          t.term === trimmed && t.usageID !== currentUsageID,
                       );
                       if (conflict) {
                         return "Another glossary term already uses this name. Choose a different name or edit that term instead.";
