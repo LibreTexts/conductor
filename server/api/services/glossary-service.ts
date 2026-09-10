@@ -102,6 +102,8 @@ export interface GlossayResponse {
   library: string;
   items: GlossaryPageResponse[];
   lastUpdatedAt: Date;
+  mode: GlossaryConfigMode;
+  groups: GlossaryConfigGroup[];
 }
 
 export interface AddGlossaryUsageParams extends AddGlossaryParams {
@@ -721,7 +723,10 @@ export default class GlossaryService {
       }
       const candidateCoverIDs = await this.getCandidateCoverIDs(pageID, library);
 
-      const glossary = await GlossaryUsage.find({ coverID:{$in: candidateCoverIDs}, library }).sort({ term: "asc" });
+      const [glossary, config] = await Promise.all([
+        GlossaryUsage.find({ coverID: { $in: candidateCoverIDs }, library }).sort({ term: "asc" }),
+        this.getGlossaryConfig(String(coverID), glossaryLibrary),
+      ]);
       const response: GlossayResponse = {
         coverID,
         glossaryID,
@@ -734,6 +739,8 @@ export default class GlossaryService {
                 glossary[0].updatedAt,
               )
             : new Date(),
+        mode: config?.mode ?? "PAGE",
+        groups: config?.groups ?? [],
       };
       if (glossary.length > 0) {
         const items: GlossaryPageResponse[] = glossary.map(
@@ -827,14 +834,23 @@ export default class GlossaryService {
       },
     ];
 
-    const [result] = await GlossaryUsage.aggregate<{
-      _id: number;
-      latestUpdatedAt: Date;
-    }>(pipeline).exec();
+    const [[result], config] = await Promise.all([
+      GlossaryUsage.aggregate<{
+        _id: number;
+        latestUpdatedAt: Date;
+      }>(pipeline).exec(),
+      GlossaryConfig.findOne({ coverID: { $in: candidateIds }, library }),
+    ]);
     if (!result) {
       throw new GlossaryNotFoundError();
     }
-    return { coverID: result._id, latestUpdatedAt: result.latestUpdatedAt };
+
+    const latestUpdatedAt =
+      config && config.updatedAt > result.latestUpdatedAt
+        ? config.updatedAt
+        : result.latestUpdatedAt;
+
+    return { coverID: result._id, latestUpdatedAt };
   }
 
   private async getCoverIDByPageID(

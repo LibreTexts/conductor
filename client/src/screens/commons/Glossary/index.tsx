@@ -113,10 +113,13 @@ const GlossaryManager: React.FC = () => {
     return <PageNotFound />;
   }
 
-  const handleAddTermsToPages = async (pageIds: string[]) => {
+  const handleAddTermsToPages = async (
+    pageIds: string[],
+    termUsageIds: string[],
+  ) => {
     const res = await api.addGlossaryTermsToPages({
       pageIds,
-      usageIds: selectedTerms.map((term) => term.usageID),
+      usageIds: termUsageIds,
       library: library,
       coverID: coverID,
     });
@@ -225,6 +228,7 @@ const GlossaryManager: React.FC = () => {
         onClose={() => closeModal(ADD_PAGE_MODAL_ID)}
         initialPageIds={pageIds}
         selectedTerms={selectedTerms}
+        setSelectedTerms={setSelectedTerms}
         toc={bookTOC}
         onSubmit={handleAddTermsToPages}
       />,
