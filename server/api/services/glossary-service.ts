@@ -1341,6 +1341,7 @@ export default class GlossaryService {
       mode: GlossaryConfigMode;
       glossaryPageId?: string;
       groups: GlossaryConfigGroup[];
+      showTermOnly?: boolean;
     },
   ): Promise<GlossaryConfigInterface> {
     const groupIDs = new Set<string>();
@@ -1383,6 +1384,7 @@ export default class GlossaryService {
           glossaryPageId: data.glossaryPageId,
           mode: data.mode,
           groups,
+          showTermOnly: data.showTermOnly ?? false,
         },
       },
       { upsert: true, new: true },

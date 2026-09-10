@@ -16,6 +16,8 @@ export interface GlossaryConfigInterface extends Document {
   glossaryPageId?: string;
   mode: GlossaryConfigMode;
   groups: GlossaryConfigGroup[];
+  /** When true, the glossary as displayed outside Conductor shows only the term, not its definition. */
+  showTermOnly: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,6 +58,11 @@ const GlossaryConfigSchema = new Schema<GlossaryConfigInterface>(
       type: [GlossaryConfigGroupSchema],
       required: true,
       default: [],
+    },
+    showTermOnly: {
+      type: Boolean,
+      required: true,
+      default: false,
     },
   },
   {
