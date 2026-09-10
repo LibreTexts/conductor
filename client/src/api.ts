@@ -2858,14 +2858,16 @@ class API {
     mode: GlossaryConfigMode;
     glossaryPageId?: string;
     groups: GlossaryConfigGroup[];
+    showTermOnly: boolean;
   }) {
-    const { library, coverID, mode, glossaryPageId, groups } = props;
+    const { library, coverID, mode, glossaryPageId, groups, showTermOnly } = props;
     const res = await axios.put<
       { config: GlossaryConfig } & ConductorBaseResponse
     >(`/commons/book/${library}/${coverID}/glossary-config`, {
       mode,
       glossaryPageId,
       groups,
+      showTermOnly,
     });
     return res.data;
   }
