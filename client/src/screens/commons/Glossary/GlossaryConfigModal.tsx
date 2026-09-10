@@ -13,7 +13,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { Button, IconButton, Modal, Spinner } from "@libretexts/davis-react";
+import { Button, IconButton, Modal, Spinner, Switch } from "@libretexts/davis-react";
 import {
   IconArrowDown,
   IconArrowUp,
@@ -53,9 +53,14 @@ interface GlossaryConfigModalProps {
 type GlossaryConfigFormFields = {
   mode: GlossaryConfigMode;
   groups: GlossaryConfigGroup[];
+  showTermOnly: boolean;
 };
 
-const DEFAULT_VALUES: GlossaryConfigFormFields = { mode: "PAGE", groups: [] };
+const DEFAULT_VALUES: GlossaryConfigFormFields = {
+  mode: "PAGE",
+  groups: [],
+  showTermOnly: false,
+};
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (axios.isAxiosError(err)) {
@@ -312,6 +317,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
     name: "groups",
   });
   const mode = watch("mode");
+  const showTermOnly = watch("showTermOnly");
   const [armedGroupIndex, setArmedGroupIndex] = useState<number | null>(null);
   const [activeDragPageIds, setActiveDragPageIds] = useState<string[] | null>(
     null,
@@ -334,11 +340,16 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
     enabled: open,
     onSuccess: (res) => {
       if (res.exists && res.config) {
-        reset({ mode: res.config.mode, groups: res.config.groups });
+        reset({
+          mode: res.config.mode,
+          groups: res.config.groups,
+          showTermOnly: res.config.showTermOnly ?? false,
+        });
       } else {
         reset({
           mode: "PAGE",
           groups: generateDefaultGroups("PAGE", bookTOC, glossaryPageId),
+          showTermOnly: false,
         });
       }
     },
@@ -358,6 +369,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
         coverID,
         mode: values.mode,
         groups: values.groups,
+        showTermOnly: values.showTermOnly,
       });
       if (res.err) {
         throw new Error(res.errMsg ?? "Failed to save glossary configuration.");
@@ -396,6 +408,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
       reset({
         mode: "PAGE",
         groups: generateDefaultGroups("PAGE", bookTOC, glossaryPageId),
+        showTermOnly: false,
       });
     },
     onError: (err) => {
@@ -536,6 +549,19 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
               onChange={handleModeChange}
               disabled={busy}
             />
+
+            <div className="mt-4">
+              <Switch
+                name="showTermOnly"
+                label="Show term only for external use"
+                description="When enabled, the glossary as displayed outside Conductor shows only the term, without its definition."
+                checked={showTermOnly}
+                onChange={(checked) =>
+                  setValue("showTermOnly", checked, { shouldDirty: true })
+                }
+                disabled={busy}
+              />
+            </div>
 
             <div className="mt-4 grid grid-cols-[1fr_16rem] gap-4">
               <div>
