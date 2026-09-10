@@ -32,7 +32,7 @@ export function getTopLevelAncestorId(
 const newGroupID = (): string =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
-    : `group-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    : `group-${Date.now()}-${Math.random().toString(10).slice(2, 9)}`;
 
 /**
  * The book root (the cover/book-level TOC node) is never treated as a

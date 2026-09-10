@@ -10,8 +10,9 @@ interface AddPageDialogProps {
   /** Snapshot of the pages to assign, taken once when the dialog opens. */
   initialPageIds: string[];
   selectedTerms: GlossaryEntry[];
+  setSelectedTerms: (terms: GlossaryEntry[]) => void;
   toc: TableOfContents;
-  onSubmit: (pageIds: string[]) => void;
+  onSubmit: (pageIds: string[], termUsageIds: string[]) => void;
 }
 
 const AddPageDialog: React.FC<AddPageDialogProps> = ({
@@ -19,14 +20,22 @@ const AddPageDialog: React.FC<AddPageDialogProps> = ({
   onClose,
   initialPageIds,
   selectedTerms,
+  setSelectedTerms,
   toc,
   onSubmit,
 }) => {
-  // Owns its own working copy so removing a page badge doesn't need the
-  // parent to hand back an updated prop mid-session — a fresh instance of
-  // this dialog is created each time it's opened, so seeding from the prop
-  // once at mount is all that's needed.
+  // Owns its own working copy so removing a page badge (or term badge)
+  // doesn't need the parent to hand back an updated prop mid-session — a
+  // fresh instance of this dialog is created each time it's opened, so
+  // seeding from the prop once at mount is all that's needed.
   const [pageIds, setPageIds] = useState<string[]>(initialPageIds);
+  const [terms, setTerms] = useState<GlossaryEntry[]>(selectedTerms);
+
+  const removeTerm = (usageID: string) => {
+    const updated = terms.filter((t) => t.usageID !== usageID);
+    setTerms(updated);
+    setSelectedTerms(updated);
+  };
 
   const pageTitles = useMemo(() => {
     return [...pageIds]
@@ -44,9 +53,15 @@ const AddPageDialog: React.FC<AddPageDialogProps> = ({
       </Modal.Header>
       <Modal.Body>
         <p>Add the following term(s) </p>
-        <Stack direction="horizontal" gap="sm">
-          {selectedTerms.map((term) => (
-            <Badge key={term.usageID} label={term.term} variant="primary" size="md" />
+        <Stack direction="horizontal" gap="sm" wrap>
+          {terms.map((term) => (
+            <Badge
+              key={term.usageID}
+              label={term.term}
+              variant="primary"
+              size="sm"
+              onRemove={() => removeTerm(term.usageID)}
+            />
           ))}
         </Stack>
         <p>to the following pages:</p>
@@ -70,8 +85,13 @@ const AddPageDialog: React.FC<AddPageDialogProps> = ({
         </Button>
         <Button
           variant="primary"
-          onClick={() => onSubmit(pageIds)}
-          disabled={pageIds.length === 0 || selectedTerms.length === 0}
+          onClick={() =>
+            onSubmit(
+              pageIds,
+              terms.map((t) => t.usageID),
+            )
+          }
+          disabled={pageIds.length === 0 || terms.length === 0}
         >
           Add
         </Button>
