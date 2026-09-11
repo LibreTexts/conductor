@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const glossaryConfigModeEnum = z.enum(["PAGE", "CHAPTER", "BACKEND"]);
+export const glossaryConfigModeEnum = z.enum(["PAGE", "CHAPTER", "BACKMATTER"]);
 
 const glossaryConfigGroupSchema = z.object({
   groupID: z.string().min(1).max(64),

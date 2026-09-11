@@ -1,6 +1,6 @@
 import { model, Schema, Document } from "mongoose";
 
-export type GlossaryConfigMode = "PAGE" | "CHAPTER" | "BACKEND";
+export type GlossaryConfigMode = "PAGE" | "CHAPTER" | "BACKMATTER";
 
 export interface GlossaryConfigGroup {
   groupID: string;
@@ -51,7 +51,7 @@ const GlossaryConfigSchema = new Schema<GlossaryConfigInterface>(
     },
     mode: {
       type: String,
-      enum: ["PAGE", "CHAPTER", "BACKEND"],
+      enum: ["PAGE", "CHAPTER", "BACKMATTER"],
       required: true,
     },
     groups: {
