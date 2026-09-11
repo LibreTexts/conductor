@@ -56,7 +56,7 @@ export function fallbackTargetPageId(toc: TableOfContents): string {
  * deterministic aside from group IDs — never persists anything.
  *
  * `glossaryPageId` is the book's existing back-matter "Glossary" page, if
- * one has been located — BACKEND mode's single group always targets it
+ * one has been located — BACKMATTER mode's single group always targets it
  * (falling back to the book's first chapter when the book has no such page
  * yet).
  */
@@ -70,7 +70,7 @@ export function generateDefaultGroups(
       return generatePageGroups(toc);
     case "CHAPTER":
       return generateChapterGroups(toc);
-    case "BACKEND":
+    case "BACKMATTER":
       return [
         {
           groupID: newGroupID(),

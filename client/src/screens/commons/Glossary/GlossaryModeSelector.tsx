@@ -24,8 +24,8 @@ const MODE_OPTIONS: {
       "Pages are grouped by top-level chapter — each chapter and everything under it shares one group.",
   },
   {
-    label: "Backend glossary",
-    value: "BACKEND",
+    label: "Backmatter glossary",
+    value: "BACKMATTER",
     description: "All pages in the book share a single glossary group.",
   },
 ];

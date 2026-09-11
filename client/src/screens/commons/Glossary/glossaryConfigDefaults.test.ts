@@ -124,8 +124,8 @@ describe("generateDefaultGroups", () => {
     expect(generateDefaultGroups("CHAPTER", leafOnly)).toEqual([]);
   });
 
-  it("BACKEND mode: a single group containing every page in the book except the root, targeting the glossary page", () => {
-    const groups = generateDefaultGroups("BACKEND", toc, "existing-glossary-page");
+  it("BACKMATTER mode: a single group containing every page in the book except the root, targeting the glossary page", () => {
+    const groups = generateDefaultGroups("BACKMATTER", toc, "existing-glossary-page");
     expect(groups).toHaveLength(1);
     expect(groups[0].pageIds).toEqual([
       "chapter-1",
@@ -142,14 +142,14 @@ describe("generateDefaultGroups", () => {
     expect(groups[0].targetPageId).toBe("existing-glossary-page");
   });
 
-  it("BACKEND mode falls back to the book's first chapter as the target when there is no glossary page yet", () => {
-    const groups = generateDefaultGroups("BACKEND", toc);
+  it("BACKMATTER mode falls back to the book's first chapter as the target when there is no glossary page yet", () => {
+    const groups = generateDefaultGroups("BACKMATTER", toc);
     expect(groups[0].targetPageId).toBe("chapter-1");
   });
 
-  it("BACKEND mode falls back to the root as the target when the book has no chapters either", () => {
+  it("BACKMATTER mode falls back to the root as the target when the book has no chapters either", () => {
     const leafOnly = node("solo-page");
-    const groups = generateDefaultGroups("BACKEND", leafOnly);
+    const groups = generateDefaultGroups("BACKMATTER", leafOnly);
     expect(groups[0].targetPageId).toBe("solo-page");
   });
 });

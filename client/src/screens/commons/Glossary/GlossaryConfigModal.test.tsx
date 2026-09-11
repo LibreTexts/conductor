@@ -159,7 +159,7 @@ describe("GlossaryConfigModal", () => {
     expect(api.saveGlossaryConfig).not.toHaveBeenCalled();
   });
 
-  it("switching to BACKEND mode collapses everything into one group", async () => {
+  it("switching to BACKMATTER mode collapses everything into one group", async () => {
     vi.mocked(api.getGlossaryConfig).mockResolvedValue({
       err: false,
       exists: false,
@@ -172,7 +172,7 @@ describe("GlossaryConfigModal", () => {
       expect(screen.queryByRole("status")).not.toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole("radio", { name: /backend glossary/i }));
+    await user.click(screen.getByRole("radio", { name: /backmatter glossary/i }));
 
     // Only one group card remains, containing every page in the book (excluding the root).
     expect(groupList().getAllByRole("listitem")).toHaveLength(1);

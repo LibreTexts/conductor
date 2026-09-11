@@ -2,6 +2,7 @@ import base62 from "base62-random";
 import * as cheerio from "cheerio";
 import path from "path";
 import { fileURLToPath } from "url";
+import { randomUUID } from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,6 +21,44 @@ import {
   sanitizeLibraryText,
   sanitizeOptionalLibraryText,
 } from "../../util/sanitize-text.js";
+import BookService from "./book-service";
+import { childLogger } from "../../logger.js";
+import { TableOfContents } from "../../types";
+
+const glossaryLog = childLogger("glossary");
+
+/**
+ * Depth-first collection of a TOC node's id plus every descendant's id.
+ * Mirrors the client's identically-named helper in glossaryConfigDefaults.ts.
+ */
+function collectSubtreeIds(node: TableOfContents): string[] {
+  const ids: string[] = [node.id];
+  for (const child of node.children) {
+    ids.push(...collectSubtreeIds(child));
+  }
+  return ids;
+}
+
+/**
+ * Finds the book's auto-generated back-matter "Glossary" page, if it has
+ * one yet. Mirrors the client-side lookup used to seed the Glossary config
+ * screen (client/src/screens/commons/Glossary/index.tsx).
+ */
+function findBackmatterGlossaryPageId(
+  toc: TableOfContents,
+): string | undefined {
+  if (
+    toc.title === "Glossary" &&
+    toc.url.endsWith("zz%3A_Back_Matter/20%3A_Glossary")
+  ) {
+    return toc.id;
+  }
+  for (const child of toc.children) {
+    const found = findBackmatterGlossaryPageId(child);
+    if (found) return found;
+  }
+  return undefined;
+}
 
 /**
  * Signals that a page simply has no glossary. This is the common case for most
@@ -104,6 +143,7 @@ export interface GlossayResponse {
   lastUpdatedAt: Date;
   mode: GlossaryConfigMode;
   groups: GlossaryConfigGroup[];
+  showTermOnly: boolean;
 }
 
 export interface AddGlossaryUsageParams extends AddGlossaryParams {
@@ -445,6 +485,9 @@ export default class GlossaryService {
     const valid = entries.filter(
       (e) => e.term?.trim() && e.definition?.trim(),
     );
+    if (valid.length > 0) {
+      await this.ensureDefaultGlossaryConfig(coverID, library);
+    }
     const BATCH_SIZE = 20;
     for (let i = 0; i < valid.length; i += BATCH_SIZE) {
       const batch = valid.slice(i, i + BATCH_SIZE);
@@ -484,6 +527,7 @@ export default class GlossaryService {
         termID,
         ...params,
       });
+      await this.ensureDefaultGlossaryConfig(params.coverID, params.library);
       return usageID;
     } catch (error) {
       throw error;
@@ -741,6 +785,7 @@ export default class GlossaryService {
             : new Date(),
         mode: config?.mode ?? "PAGE",
         groups: config?.groups ?? [],
+        showTermOnly: config?.showTermOnly ?? false,
       };
       if (glossary.length > 0) {
         const items: GlossaryPageResponse[] = glossary.map(
@@ -1071,6 +1116,50 @@ export default class GlossaryService {
       coverID: parseInt(coverID),
       library,
     });
+  }
+
+  /**
+   * Backfills a default GlossaryConfig for books that don't have one yet —
+   * called when a term is added, so the book's very first term creates one
+   * instead of leaving it unset until someone visits the config screen.
+   * Defaults to BACKMATTER mode (a single group spanning the whole book)
+   * targeting the book's back-matter "Glossary" page, mirroring the
+   * client's own BACKMATTER default (glossaryConfigDefaults.ts). Best-effort:
+   * a failure here must not block the term add that triggered it.
+   */
+  private async ensureDefaultGlossaryConfig(
+    coverID: string,
+    library: string,
+  ): Promise<void> {
+    try {
+      const existing = await GlossaryConfig.findOne({
+        coverID: parseInt(coverID),
+        library,
+      });
+      if (existing) return;
+
+      const toc = await new BookService({
+        bookID: `${library}-${coverID}`,
+      }).getBookTOCNew();
+      const glossaryPageId = findBackmatterGlossaryPageId(toc);
+
+      await this.saveGlossaryConfig(coverID, library, {
+        mode: "BACKMATTER",
+        glossaryPageId,
+        groups: [
+          {
+            groupID: randomUUID(),
+            pageIds: toc.children.flatMap(collectSubtreeIds),
+            targetPageId: glossaryPageId ?? toc.children[0]?.id ?? toc.id,
+          },
+        ],
+      });
+    } catch (error) {
+      glossaryLog.warn(
+        { err: error, coverID, library },
+        "Failed to create default glossary config",
+      );
+    }
   }
 
   async saveGlossaryConfig(
