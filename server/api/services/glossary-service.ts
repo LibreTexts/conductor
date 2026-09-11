@@ -182,6 +182,7 @@ export interface GlossayResponse {
   lastUpdatedAt: Date;
   mode: GlossaryConfigMode;
   groups: GlossaryConfigGroup[];
+  showTermOnly: boolean;
 }
 
 export interface AddGlossaryUsageParams extends AddGlossaryParams {
@@ -908,6 +909,7 @@ export default class GlossaryService {
             : new Date(),
         mode: config?.mode ?? "PAGE",
         groups: config?.groups ?? [],
+        showTermOnly: config?.showTermOnly ?? false,
       };
       if (glossary.length > 0) {
         const items: GlossaryPageResponse[] = glossary.map(

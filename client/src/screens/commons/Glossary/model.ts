@@ -39,7 +39,7 @@ export type GlossaryConfig = {
   groups: GlossaryConfigGroup[];
 };
 
-export type GlossaryConfigMode = "PAGE" | "CHAPTER" | "BACKEND";
+export type GlossaryConfigMode = "PAGE" | "CHAPTER" | "BACKMATTER";
 
 export type GlossaryConfigGroup = {
   groupID: string;
