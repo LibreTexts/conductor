@@ -617,7 +617,7 @@ const articleKindForPlacement = (
   if (coverId && (pageId === coverId || pageId === "-1")) {
     return "topic-category";
   }
-  if (coverId && parentId === coverId) {
+  if (isBookRootChild({ parentID: parentId }, coverId)) {
     return "topic-guide";
   }
   return "topic";
