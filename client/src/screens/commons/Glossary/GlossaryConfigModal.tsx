@@ -553,7 +553,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
             <div className="mt-4">
               <Switch
                 name="showTermOnly"
-                label="Show term only for external use"
+                label="Show term only"
                 description="When enabled, the glossary as displayed outside Conductor shows only the term, without its definition."
                 checked={showTermOnly}
                 onChange={(checked) =>
