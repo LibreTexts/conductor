@@ -379,12 +379,26 @@ const collectDescendants = (
   return out;
 };
 
-const isMatterNode = (page: {
-  "@title": string;
-  title: string;
-  "uri.ui": string;
-  "@href": string;
-}): boolean => {
+/** Front/Back Matter containers live only as direct children of the cover. */
+const isBookRootChild = (
+  page: { parentID?: string },
+  coverId?: string,
+): boolean => {
+  if (!coverId) return false;
+  return (page.parentID ?? "-1") === coverId;
+};
+
+const isMatterNode = (
+  page: {
+    "@title": string;
+    title: string;
+    "uri.ui": string;
+    "@href": string;
+    parentID?: string;
+  },
+  coverId?: string,
+): boolean => {
+  if (!isBookRootChild(page, coverId)) return false;
   const normalized = stripLeadingNumbering(
     page["@title"] || page.title || "",
   ).toLowerCase();
@@ -394,12 +408,17 @@ const isMatterNode = (page: {
   return uri.includes("front_matter") || uri.includes("back_matter");
 };
 
-const isBackMatterNode = (page: {
-  "@title": string;
-  title: string;
-  "uri.ui": string;
-  "@href": string;
-}): boolean => {
+const isBackMatterNode = (
+  page: {
+    "@title": string;
+    title: string;
+    "uri.ui": string;
+    "@href": string;
+    parentID?: string;
+  },
+  coverId?: string,
+): boolean => {
+  if (!isBookRootChild(page, coverId)) return false;
   const normalized = stripLeadingNumbering(
     page["@title"] || page.title || "",
   ).toLowerCase();
@@ -418,8 +437,9 @@ const isBackMatterNode = (page: {
 const orderBackMatterLast = async (
   book: RemixerSubPageState[],
   subdomain: string,
+  coverId?: string,
 ): Promise<boolean> => {
-  const backMatter = book.find((p) => isBackMatterNode(p));
+  const backMatter = book.find((p) => isBackMatterNode(p, coverId));
   if (!backMatter) return false;
 
   const backMatterId = parseInt(backMatter["@id"], 10);
@@ -1873,7 +1893,7 @@ const runRemixerJob = async ({
       visited.add(id);
       const node = byId.get(id);
       if (!node) continue;
-      const nodeMatter = inMatterBranch || isMatterNode(node);
+      const nodeMatter = inMatterBranch || isMatterNode(node, coverId);
       const nodeDeleted = inDeletedBranch || node.deletedItem === true;
       ordered.push({
         page: node,
@@ -2410,7 +2430,7 @@ const runRemixerJob = async ({
     // Ensure Back Matter is the last chapter among its siblings.
     logger.info("[*] Ordering Back Matter as last chapter...");
     const orderedBackMatter = await withRetryOnTransient(() =>
-      orderBackMatterLast(finalBook, subdomain),
+      orderBackMatterLast(finalBook, subdomain, coverId),
     );
     if (orderedBackMatter) {
       job.messages.push("Back Matter ordered as last chapter.");
