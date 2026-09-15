@@ -21,7 +21,6 @@ export const saveGlossaryConfigSchema = z.object({
     mode: glossaryConfigModeEnum,
     glossaryPageId: z.string().max(100).optional(),
     groups: z.array(glossaryConfigGroupSchema).max(500),
-    showTermOnly: z.boolean().optional().default(false),
   }),
 });
 
