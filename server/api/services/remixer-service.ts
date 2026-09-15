@@ -25,7 +25,9 @@ import * as cheerio from "cheerio";
 import { detectTranscludeStub } from "../../util/transclusion.js";
 import { RemixerSubPage } from "../../types/Remixer";
 import BookService from "./book-service";
+import GlossaryService from "./glossary-service";
 const remixerLog = childLogger("remixer");
+const glossaryService = new GlossaryService();
 
 export type RemixerCopyMode = "Transclude" | "Fork" | "Full";
 
@@ -1306,6 +1308,8 @@ const handleImportedPage = async (
   hasChildren: boolean,
   coverId?: string,
   options?: CreatePageOptions,
+  importGlossaryTerms?: boolean,
+  addedBy?: string,
 ): Promise<{ pageID: string; pageURI: string; warnings: string[] }> => {
   // Per-page, non-fatal notes (skipped attachments, file-copy fallback) that the
   // caller folds into the job log so they reach the publish panel, not just pino.
@@ -1515,6 +1519,34 @@ const handleImportedPage = async (
     targetId: pageID,
   });
 
+  // Glossary terms used on the source page — opt-in, and non-fatal so a
+  // lookup/write failure here can't sink an otherwise-successful import.
+  if (importGlossaryTerms && coverId) {
+    try {
+      const copiedCount = await glossaryService.copyPageGlossaryUsages({
+        sourcePageID: sourceId.toString(),
+        sourceLibrary: sourceSubdomain,
+        targetPageID: pageID,
+        targetCoverID: coverId,
+        targetLibrary: subdomain,
+        addedBy: addedBy || "system",
+      });
+      if (copiedCount > 0) {
+        warnings.push(
+          `imported ${copiedCount} glossary term(s) used on the source page`,
+        );
+      }
+    } catch (error) {
+      warnings.push(
+        "failed to import glossary terms from the source page",
+      );
+      remixerLog.warn(
+        { err: error },
+        `Glossary term import failed for imported page (source ${sourceId})`,
+      );
+    }
+  }
+
   return { pageID, pageURI, warnings };
 };
 
@@ -1602,6 +1634,8 @@ interface RunRemixerJobParams {
   projectID: string;
   subdomain: string;
   coverId: string;
+  /** Carry glossary terms used on imported pages' source pages over to this book. */
+  importGlossaryTerms?: boolean;
 }
 
 /** Plain snapshot of a remixer page for persistence (avoids spreading Mongoose subdocs). */
@@ -1743,6 +1777,7 @@ const runRemixerJob = async ({
   projectID,
   subdomain,
   coverId,
+  importGlossaryTerms = false,
 }: RunRemixerJobParams) => {
   const job = await PrejectRemixerJob.findOne({ jobID: { $eq: jobID } }).sort({
     _id: -1,
@@ -2028,6 +2063,8 @@ const runRemixerJob = async ({
                   hasSubpages(page, pages),
                   coverId,
                   createOptions,
+                  importGlossaryTerms,
+                  job.userID,
                 ),
               { onRetry: logRetry },
             );

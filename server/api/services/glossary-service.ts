@@ -750,6 +750,73 @@ export default class GlossaryService {
   }
   
 
+  /**
+   * Copies every GlossaryUsage attached to `sourcePageID` in `sourceLibrary`
+   * onto `targetPageID` in the target book. Reuses the existing term/usage
+   * upsert helpers, so a term already present in the target book just gains
+   * the new page instead of duplicating the usage record. Used by the
+   * Remixer publish flow to carry glossary terms over from imported pages
+   * when the user opts in; callers should treat this as best-effort.
+   */
+  async copyPageGlossaryUsages(params: {
+    sourcePageID: string;
+    sourceLibrary: string;
+    targetPageID: string;
+    targetCoverID: string;
+    targetLibrary: string;
+    addedBy: string;
+  }): Promise<number> {
+    const {
+      sourcePageID,
+      sourceLibrary,
+      targetPageID,
+      targetCoverID,
+      targetLibrary,
+      addedBy,
+    } = params;
+
+    const sourceUsages = await GlossaryUsage.find({
+      library: sourceLibrary,
+      "pages.pageID": sourcePageID,
+    });
+    if (sourceUsages.length === 0) return 0;
+
+    for (const usage of sourceUsages) {
+      const { termID } = await this._addGlossaryToDatabase(
+        usage.term,
+        usage.definition,
+      );
+      await this._addGlossaryUsageToDatabase({
+        termID,
+        term: usage.term,
+        definition: usage.definition,
+        coverID: targetCoverID,
+        library: targetLibrary,
+        addedBy,
+        pageId: parseInt(targetPageID, 10),
+        aliases: usage.aliases?.map((a) => a.term),
+        author: usage.author,
+        link: usage.link,
+        source: usage.source,
+        imageSource: usage.imageSource,
+        imageAuthor: usage.imageAuthor,
+        imageLicense: usage.imageLicense,
+        altText: usage.altText,
+        caption: usage.caption,
+        imageFile: usage.imageFile
+          ? ({
+              buffer: usage.imageFile.data,
+              mimetype: usage.imageFile.contentType,
+              originalname: usage.imageFile.originalname,
+            } as Express.Multer.File)
+          : undefined,
+      });
+    }
+
+    await this.ensureDefaultGlossaryConfig(targetCoverID, targetLibrary);
+    return sourceUsages.length;
+  }
+
   async getGlossaryPage(
     pageID: number,
     library: string,

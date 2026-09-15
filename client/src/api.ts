@@ -3020,6 +3020,7 @@ class API {
       autoNumbering?: boolean;
       copyModeState?: string;
       pathLevelFormats?: unknown[];
+      importGlossaryTerms?: boolean;
     },
   ) {
     return this.streamJson<

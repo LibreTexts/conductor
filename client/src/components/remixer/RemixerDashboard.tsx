@@ -2034,6 +2034,7 @@ const RemixerDashboard: React.FC = () => {
         autoNumbering?: boolean;
         copyModeState?: string;
         pathLevelFormats?: PathLevelFormat[];
+        importGlossaryTerms?: boolean;
       };
     }) => {
       const response = await api.publishRemixerProject(
@@ -2057,7 +2058,21 @@ const RemixerDashboard: React.FC = () => {
     },
   });
 
-  const handlePublish = () => {
+  /**
+   * True when the book contains at least one page copied in from a library
+   * (as opposed to a brand-new blank page, whose local id still starts with
+   * `new-`) — mirrors the server's own "imported" classification in
+   * `getPageStatus` so the glossary prompt only fires when there is source
+   * content to actually carry terms over from.
+   */
+  const hasImportedLibraryPages = (remixerData.currentBook ?? []).some(
+    (page) =>
+      page.addedItem === true &&
+      !page.deletedItem &&
+      !page["@id"].startsWith("new-"),
+  );
+
+  const startPublish = (importGlossaryTerms: boolean) => {
     if (!id) return;
     setPublishStatus("pending");
     setPublishMessages(["Publish request accepted. Creating backend job..."]);
@@ -2067,8 +2082,32 @@ const RemixerDashboard: React.FC = () => {
         autoNumbering: remixerData.autoNumbering,
         copyModeState: uiState.copyModeState,
         pathLevelFormats: uiState.pathLevelFormats,
+        importGlossaryTerms,
       },
     });
+  };
+
+  const handlePublish = () => {
+    if (!id) return;
+    if (hasImportedLibraryPages) {
+      openModal(
+        <ConfirmModal
+          text="This remix includes pages imported from other books. Would you like to import the glossary terms used on those pages into this book's glossary as well?"
+          confirmText="Import Glossary Terms"
+          cancelText="Skip"
+          onCancel={() => {
+            closeAllModals();
+            startPublish(false);
+          }}
+          onConfirm={() => {
+            closeAllModals();
+            startPublish(true);
+          }}
+        />,
+      );
+      return;
+    }
+    startPublish(false);
   };
 
   // Rendered inline in the tree (see below) rather than pushed through
