@@ -10,12 +10,18 @@ import type { RowSelectionState } from "@tanstack/react-table";
 import {
   IconAlertTriangle,
   IconPencil,
+  IconTableExport,
   IconTag,
   IconTrash,
 } from "@tabler/icons-react";
 import { useMemo, useRef, useState } from "react";
 import { TableOfContents } from "../../../types";
-import { findTocNodeById } from "./services";
+import {
+  downloadCsv,
+  findTocNodeById,
+  glossaryEntriesToCsv,
+  slugifyForFilename,
+} from "./services";
 import type { Notification } from "../../../context/NotificationContext";
 import api from "../../../api";
 import GlossaryDefinitionPreview from "./GlossaryDefinitionPreview";
@@ -73,6 +79,14 @@ const GlossaryList = ({
   const clearSelection = () => {
     setSelectedTerms([]);
     setRowSelection({});
+  };
+
+  const handleExportSelectedCsv = () => {
+    if (selectedTerms.length === 0) return;
+    downloadCsv(
+      `${slugifyForFilename(toc?.title ?? "glossary")}-selected-terms.csv`,
+      glossaryEntriesToCsv(selectedTerms),
+    );
   };
 
   const handleBulkDelete = async () => {
@@ -371,6 +385,15 @@ const GlossaryList = ({
                   {selectedTerms.length === 1 ? "" : "s"} selected
                 </span>
                 <Stack direction="horizontal" gap="xs">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<IconTableExport size={14} />}
+                    iconPosition="left"
+                    onClick={handleExportSelectedCsv}
+                  >
+                    Export CSV
+                  </Button>
                   <Button
                     size="sm"
                     variant="secondary"

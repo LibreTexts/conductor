@@ -1,4 +1,5 @@
 import { TableOfContents } from "../../../types/Book";
+import { GlossaryEntry } from "./model";
 
 /**
  * Finds a TOC node by id, searching the root and all nested children.
@@ -71,3 +72,77 @@ const _findPath = (node: TableOfContents, nodeId: string): string[] => {
 export const getPageAncestors = (toc: TableOfContents, nodeId: string): string[] => {
   return _findPath(toc, nodeId).slice(1);
 }
+
+/**
+ * Entries with at least one usage on the given page — used to scope a CSV
+ * dump to a single TOC node rather than the whole book.
+ */
+export const filterGlossaryEntriesForPage = (
+  entries: GlossaryEntry[],
+  pageId: string,
+): GlossaryEntry[] =>
+  entries.filter((entry) => entry.pages.some((page) => page.pageID === pageId));
+
+/** Definitions are stored/rendered as HTML; a CSV cell wants plain text. */
+const stripHtml = (value: string): string =>
+  value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** Quotes a CSV field only when it contains characters that require it. */
+const escapeCsvField = (value: string): string =>
+  /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+
+const GLOSSARY_CSV_HEADER = [
+  "Term",
+  "Definition",
+  "Aliases",
+  "Author",
+  "Source",
+  "Link",
+  "Page IDs",
+];
+
+/** Serializes glossary entries to CSV — one row per term, in table order. */
+export const glossaryEntriesToCsv = (entries: GlossaryEntry[]): string => {
+  const rows = entries.map((entry) => [
+    entry.term,
+    stripHtml(entry.definition ?? ""),
+    (entry.aliases ?? []).join("; "),
+    entry.author ?? "",
+    entry.source ?? "",
+    entry.link ?? "",
+    entry.pages.map((page) => page.pageID).join("; "),
+  ]);
+  return [GLOSSARY_CSV_HEADER, ...rows]
+    .map((row) => row.map(escapeCsvField).join(","))
+    .join("\r\n");
+};
+
+/** Triggers a browser download of `content` as a file named `filename`. */
+export const downloadCsv = (filename: string, content: string): void => {
+  // Leading BOM so Excel opens the UTF-8 file without mangling accented characters.
+  const blob = new Blob(["﻿" + content], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  window.URL.revokeObjectURL(url);
+};
+
+/** Filesystem-safe-ish filename slug from a book/page title. */
+export const slugifyForFilename = (title: string): string =>
+  title
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase() || "glossary";

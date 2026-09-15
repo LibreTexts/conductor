@@ -11,6 +11,7 @@ import {
   Button,
   Card,
   Grid,
+  IconButton,
   Link,
   Stack,
 } from "@libretexts/davis-react";
@@ -19,6 +20,7 @@ import {
   IconFoldUp,
   IconPlus,
   IconTableImport,
+  IconTableExport,
   IconFileTypeCsv,
   IconSettings,
 } from "@tabler/icons-react";
@@ -26,9 +28,13 @@ import TOCTreeView from "./TOCTreeView";
 import GlossaryForm from "./manager";
 import "./Glossary.css";
 import {
+  downloadCsv,
   extractLibraryFromURL,
+  filterGlossaryEntriesForPage,
   findTocNode,
   getPageAncestors,
+  glossaryEntriesToCsv,
+  slugifyForFilename,
 } from "./services";
 import GlossaryList from "./GlossaryList";
 import { GlossaryEntry } from "./model";
@@ -108,6 +114,17 @@ const GlossaryManager: React.FC = () => {
     },
     enabled: !!library && !!coverID,
   });
+
+  /** Page ids with at least one glossary term — gates the TOC row export icon. */
+  const pageIdsWithTerms = useMemo(() => {
+    const ids = new Set<string>();
+    for (const entry of glossaryEntries) {
+      for (const page of entry.pages) {
+        ids.add(page.pageID);
+      }
+    }
+    return ids;
+  }, [glossaryEntries]);
 
   if (!resourceType) {
     return <PageNotFound />;
@@ -251,6 +268,35 @@ const GlossaryManager: React.FC = () => {
     );
   };
 
+  const handleExportBookCsv = () => {
+    if (glossaryEntries.length === 0) {
+      addNotification({
+        message: "There are no glossary terms to export yet.",
+        type: "info",
+      });
+      return;
+    }
+    downloadCsv(
+      `${slugifyForFilename(bookTOC?.title ?? "glossary")}-glossary.csv`,
+      glossaryEntriesToCsv(glossaryEntries),
+    );
+  };
+
+  const handleExportPageCsv = (pageId: string, pageTitle: string) => {
+    const pageEntries = filterGlossaryEntriesForPage(glossaryEntries, pageId);
+    if (pageEntries.length === 0) {
+      addNotification({
+        message: `“${pageTitle}” has no glossary terms to export.`,
+        type: "info",
+      });
+      return;
+    }
+    downloadCsv(
+      `${slugifyForFilename(pageTitle)}-glossary.csv`,
+      glossaryEntriesToCsv(pageEntries),
+    );
+  };
+
   const openConfigModal = () => {
     if (!bookTOC) return;
     openModal(
@@ -373,13 +419,23 @@ const GlossaryManager: React.FC = () => {
               </Button>
             )}
           </Stack>
-          <p className="text-sm text-neutral-600">
+          <div className="text-sm text-neutral-600">
             {bookTOC && (
-              <Link href={bookTOC.url} external={true} showExternalIcon={true}>
-                {bookTOC.title}
-              </Link>
+              <Stack direction="horizontal" align="center" gap="xs">
+                <Link href={bookTOC.url} external={true} showExternalIcon={true}>
+                  {bookTOC.title}
+                </Link>
+                <IconButton
+                  size="sm"
+                  variant="ghost"
+                  icon={<IconTableExport size={16} />}
+                  title="Export whole-book glossary as CSV"
+                  aria-label="Export whole-book glossary as CSV"
+                  onClick={handleExportBookCsv}
+                />
+              </Stack>
             )}
-          </p>
+          </div>
         </div>
         <Card padding="sm" className="glossary-page__card">
           {bookTOC && bookTOC.children.length > 0 ? (
@@ -396,6 +452,8 @@ const GlossaryManager: React.FC = () => {
                 })
               }
               importingGlossary={importGlossaryTermsMutation.isLoading}
+              onExportPageCsv={handleExportPageCsv}
+              pageIdsWithTerms={pageIdsWithTerms}
             />
           ) : (
             <p>
