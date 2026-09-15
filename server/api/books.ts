@@ -3448,7 +3448,7 @@ async function saveGlossaryConfig(
 ) {
   try {
     const { coverID, library } = req.params;
-    const { mode, glossaryPageId, groups, showTermOnly } = req.body;
+    const { mode, glossaryPageId, groups } = req.body;
     const glossaryService = new GlossaryService();
     const access = await checkGlossaryConfigAccess(req, glossaryService);
     if (access.err) {
@@ -3457,7 +3457,7 @@ async function saveGlossaryConfig(
     const config = await glossaryService.saveGlossaryConfig(
       coverID.toString(),
       library,
-      { mode, glossaryPageId, groups, showTermOnly },
+      { mode, glossaryPageId, groups },
     );
     return res.send({ err: false, config });
   } catch (err) {

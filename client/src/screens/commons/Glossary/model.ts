@@ -52,6 +52,4 @@ export type GlossaryConfig = {
   mode: GlossaryConfigMode;
   glossaryPageId?: string;
   groups: GlossaryConfigGroup[];
-  /** When true, the glossary as displayed outside Conductor shows only the term, not its definition. */
-  showTermOnly: boolean;
 };
