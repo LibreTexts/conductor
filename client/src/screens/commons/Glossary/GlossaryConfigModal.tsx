@@ -363,6 +363,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
         library,
         coverID,
         mode: values.mode,
+        glossaryPageId,
         groups: values.groups,
       });
       if (res.err) {
