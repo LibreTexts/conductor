@@ -42,9 +42,11 @@ function collectSubtreeIds(node: TableOfContents): string[] {
 /**
  * Finds the book's auto-generated back-matter "Glossary" page, if it has
  * one yet. Mirrors the client-side lookup used to seed the Glossary config
- * screen (client/src/screens/commons/Glossary/index.tsx).
+ * screen (client/src/screens/commons/Glossary/index.tsx). Exported so the
+ * `BackfillGlossaryConfigPageId` migration can recompute it for existing
+ * GlossaryConfig documents without duplicating this logic.
  */
-function findBackmatterGlossaryPageId(
+export function findBackmatterGlossaryPageId(
   toc: TableOfContents,
 ): string | undefined {
   if (
@@ -839,7 +841,14 @@ export default class GlossaryService {
       ]);
       const response: GlossayResponse = {
         coverID,
-        glossaryID,
+        // `glossaryID` here is the book's back-matter Glossary page id.
+        // GlossaryConfig.glossaryPageId is the authoritative source (kept up
+        // to date by the Configure Glossary screen); the id derived from a
+        // GlossaryUsage record is only a fallback for books that predate
+        // GlossaryConfig or whose config is missing it — most usages never
+        // have their own `glossaryID` populated (it's only set by the CXOne/
+        // CSV import flows), so relying on it alone left this blank.
+        glossaryID: config?.glossaryPageId || glossaryID,
         library: glossaryLibrary,
         items: [],
         lastUpdatedAt:
