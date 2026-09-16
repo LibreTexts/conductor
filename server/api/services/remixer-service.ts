@@ -1993,81 +1993,79 @@ const runRemixerJob = async ({
 
       try {
         if (status === "new") {
-          if (shouldSkip) {
-            return "success";
-          }
-          const parentId = page.parentID ?? "-1";
-          const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
-          if (parent) {
-            const occupant = findDeletedPathOccupant(page, pages);
-            const placeholder = occupant
-              ? `remixer-replace-tmp-${base62(8)}`
-              : undefined;
-            const createOptions: CreatePageOptions | undefined = placeholder
-              ? { titleOverride: placeholder, pathSegmentOverride: placeholder }
-              : undefined;
-            const oldPageId = page["@id"];
-            const { pageID, pageURI } = await withRetryOnTransient(
-              () =>
-                handleNewPage(
-                  page,
-                  parent,
-                  title,
-                  subdomain,
-                  coverId,
-                  createOptions,
-                ),
-              { onRetry: logRetry },
-            );
-            adoptCreatedPageId(oldPageId, page, pageID, pageURI);
-            if (placeholder && occupant) {
-              pendingFinalRenames.push({ page, intendedTitle: title });
-              message = `${title} - created at a temporary path because "${occupant.title || occupant["@title"]}" still occupies the target`;
-            }
+          if (!shouldSkip) {
+            const parentId = page.parentID ?? "-1";
+            const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
+            if (parent) {
+              const occupant = findDeletedPathOccupant(page, pages);
+              const placeholder = occupant
+                ? `remixer-replace-tmp-${base62(8)}`
+                : undefined;
+              const createOptions: CreatePageOptions | undefined = placeholder
+                ? { titleOverride: placeholder, pathSegmentOverride: placeholder }
+                : undefined;
+              const oldPageId = page["@id"];
+              const { pageID, pageURI } = await withRetryOnTransient(
+                () =>
+                  handleNewPage(
+                    page,
+                    parent,
+                    title,
+                    subdomain,
+                    coverId,
+                    createOptions,
+                  ),
+                { onRetry: logRetry },
+              );
+              adoptCreatedPageId(oldPageId, page, pageID, pageURI);
+              if (placeholder && occupant) {
+                pendingFinalRenames.push({ page, intendedTitle: title });
+                message = `${title} - created at a temporary path because "${occupant.title || occupant["@title"]}" still occupies the target`;
+              }
 
-            await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
+              await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
+            }
           }
         } else if (status === "imported") {
-          if (shouldSkip) {
-            return "success";
-          }
-          const parentId = page.parentID ?? "-1";
-          const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
-          if (parent) {
-            const occupant = findDeletedPathOccupant(page, pages);
-            const placeholder = occupant
-              ? `remixer-replace-tmp-${base62(8)}`
-              : undefined;
-            const createOptions: CreatePageOptions | undefined = placeholder
-              ? { titleOverride: placeholder, pathSegmentOverride: placeholder }
-              : undefined;
-            const oldPageId = page["@id"];
-            const { pageID, pageURI, warnings } = await withRetryOnTransient(
-              () =>
-                handleImportedPage(
-                  page,
-                  parent,
-                  title,
-                  subdomain,
-                  copyModeState,
-                  hasSubpages(page, pages),
-                  coverId,
-                  createOptions,
-                ),
-              { onRetry: logRetry },
-            );
-            adoptCreatedPageId(oldPageId, page, pageID, pageURI);
-            // The page itself imported fine; these are per-file degradations
-            // that would otherwise only exist in the server log.
-            for (const warning of warnings) {
-              job.messages.push(`${title} - ${warning}`);
-            }
-            if (placeholder && occupant) {
-              pendingFinalRenames.push({ page, intendedTitle: title });
-              message = `${title} - created at a temporary path because "${occupant.title || occupant["@title"]}" still occupies the target`;
-            }
+          if (!shouldSkip) {
+            const parentId = page.parentID ?? "-1";
+            const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
+            if (parent) {
+              const occupant = findDeletedPathOccupant(page, pages);
+              const placeholder = occupant
+                ? `remixer-replace-tmp-${base62(8)}`
+                : undefined;
+              const createOptions: CreatePageOptions | undefined = placeholder
+                ? { titleOverride: placeholder, pathSegmentOverride: placeholder }
+                : undefined;
+              const oldPageId = page["@id"];
+              const { pageID, pageURI, warnings } = await withRetryOnTransient(
+                () =>
+                  handleImportedPage(
+                    page,
+                    parent,
+                    title,
+                    subdomain,
+                    copyModeState,
+                    hasSubpages(page, pages),
+                    coverId,
+                    createOptions,
+                  ),
+                { onRetry: logRetry },
+              );
+              adoptCreatedPageId(oldPageId, page, pageID, pageURI);
+              // The page itself imported fine; these are per-file degradations
+              // that would otherwise only exist in the server log.
+              for (const warning of warnings) {
+                job.messages.push(`${title} - ${warning}`);
+              }
+              if (placeholder && occupant) {
+                pendingFinalRenames.push({ page, intendedTitle: title });
+                message = `${title} - created at a temporary path because "${occupant.title || occupant["@title"]}" still occupies the target`;
+              }
 
-            await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
+              await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
+            }
           }
         } else if (status === "modified") {
           const parentId = page.parentID ?? "-1";
