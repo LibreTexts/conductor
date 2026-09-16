@@ -652,6 +652,10 @@ export const getRemixerDisplayTitle = (
       ? `${overriddenFormattedPath}: ${cleanTitle}`
       : cleanTitle;
   }
+  // Skipped from the sequence and not separately given custom text — no number to show.
+  if (page.skipAutoNumber === true) {
+    return cleanTitle;
+  }
   const inherited =
     remixerPathLookup &&
     resolveInheritedFormattedPathPrefix(
@@ -682,7 +686,16 @@ const isDeletedForPath = (node: RemixerSubPage): boolean =>
 export const computeRemixerOrdinalPathsMap = (
   book: RemixerSubPage[],
   pathLevelFormats: PathLevelFormat[] = [],
+  options: { ignoreOverrides?: boolean } = {},
 ): Map<string, string[]> => {
+  const { ignoreOverrides = false } = options;
+  // A "Skip Auto Number" page keeps its own (internal, unshown) ordinal slot, but is
+  // excluded from the count that produces its *siblings'* numbers — it isn't part of
+  // the autonumber sequence, so later siblings close the gap. Independent of
+  // `formattedPathOverride` (custom prefix/index text); `ignoreOverrides` suppresses
+  // both, for the "what would this be automatically" preview.
+  const isSkippableForSiblings = (node: RemixerSubPage): boolean =>
+    !ignoreOverrides && node.skipAutoNumber === true;
   const nodesById = new Map(book.map((node) => [node["@id"], node]));
   const childrenByParent = new Map<string, RemixerSubPage[]>();
 
@@ -738,7 +751,10 @@ export const computeRemixerOrdinalPathsMap = (
         (c) =>
           !isFrontMatterNode(c) && !isBackMatterNode(c) && !isDeletedForPath(c),
       );
-      const backMatterSegment = String(chapterSlotNodes.length + 1);
+      const visibleChapterSlotNodes = chapterSlotNodes.filter(
+        (c) => !isSkippableForSiblings(c),
+      );
+      const backMatterSegment = String(visibleChapterSlotNodes.length + 1);
 
       for (const child of children) {
         if (isDeletedForPath(child) || parentInDeletedBranch) {
@@ -756,7 +772,9 @@ export const computeRemixerOrdinalPathsMap = (
         } else if (isBackMatterNode(child)) {
           nextPath = [...parentPath, backMatterSegment];
         } else {
-          const idx = chapterSlotNodes.indexOf(child);
+          const idx = isSkippableForSiblings(child)
+            ? chapterSlotNodes.indexOf(child)
+            : visibleChapterSlotNodes.indexOf(child);
           nextPath =
             idx >= 0 ? [...parentPath, String(idx + 1)] : [...parentPath];
         }
@@ -781,6 +799,9 @@ export const computeRemixerOrdinalPathsMap = (
       const numberable = ordered.filter(
         (c) => !isDeletedForPath(c) && !isDefaultMatterPage(c),
       );
+      const visibleNumberable = numberable.filter(
+        (c) => !isSkippableForSiblings(c),
+      );
       for (const child of ordered) {
         if (isDeletedForPath(child) || parentInDeletedBranch) {
           const path = [...parentPath];
@@ -793,7 +814,9 @@ export const computeRemixerOrdinalPathsMap = (
         if (isDefaultMatterPage(child)) {
           nextPath = [...parentPath];
         } else {
-          const idx = numberable.indexOf(child);
+          const idx = isSkippableForSiblings(child)
+            ? numberable.indexOf(child)
+            : visibleNumberable.indexOf(child);
           // Back matter: 1..n (display/slug offset by autoNumbering start → 00, 01…).
           // Front matter: continue after reserved 01–04 → 5, 6, 7… → `05%3A_…`.
           const isBack = parentNode ? isBackMatterNode(parentNode) : false;
@@ -814,7 +837,8 @@ export const computeRemixerOrdinalPathsMap = (
     const shouldContinue =
       !parentInMatterBranch && levelFormat?.continue === true;
 
-    let ordinal = shouldContinue
+    let rawOrdinal = 0;
+    let visibleOrdinal = shouldContinue
       ? (continuedOrdinalByLevel.get(childLevel) ?? 0)
       : 0;
 
@@ -826,15 +850,20 @@ export const computeRemixerOrdinalPathsMap = (
         assignUnderParent(child["@id"], path, true, parentInMatterBranch);
         continue;
       }
-      ordinal += 1;
-      const nextPath = [...parentPath, String(ordinal)];
+      rawOrdinal += 1;
+      const skippable = isSkippableForSiblings(child);
+      if (!skippable) visibleOrdinal += 1;
+      const nextPath = [
+        ...parentPath,
+        String(skippable ? rawOrdinal : visibleOrdinal),
+      ];
       ordinalPathById.set(child["@id"], nextPath);
       visited.add(child["@id"]);
       assignUnderParent(child["@id"], nextPath, false, parentInMatterBranch);
     }
 
     if (shouldContinue) {
-      continuedOrdinalByLevel.set(childLevel, ordinal);
+      continuedOrdinalByLevel.set(childLevel, visibleOrdinal);
     }
   };
 
@@ -865,7 +894,9 @@ export const buildBookPaths = (
   if (book.length === 0) return book;
 
   const nodesById = new Map(book.map((n) => [n["@id"], n]));
-  const ordinalPathById = computeRemixerOrdinalPathsMap(book, pathLevelFormats);
+  const ordinalPathById = computeRemixerOrdinalPathsMap(book, pathLevelFormats, {
+    ignoreOverrides,
+  });
 
   const toPaths = (ordinalPath: string[]) => {
     const formattedPath = formatOrdinalSegmentsToFormattedPath(

@@ -1038,6 +1038,8 @@ const RemixerDashboard: React.FC = () => {
     );
     const titleChanged = previousTitle !== nextTitle;
     const prevOverride = existingNode.formattedPathOverride === true;
+    const nextSkipAutoNumber = page.skipAutoNumber === true;
+    const prevSkipAutoNumber = existingNode.skipAutoNumber === true;
     // Directly reflects user intent (kept, changed, or explicitly cleared) —
     // EditPanel seeds its field from currentPage.overrideUriUiEnding on open,
     // so no fallback merge with the existing value is needed (and would
@@ -1053,7 +1055,8 @@ const RemixerDashboard: React.FC = () => {
             (nextFormattedPathIndex ?? "") ||
           (existingNode.formattedPath ?? "").trim() !==
             (nextFormattedPath ?? "").trim())) ||
-      prevOverrideUriUiEnding !== (nextOverrideUriUiEnding ?? "");
+      prevOverrideUriUiEnding !== (nextOverrideUriUiEnding ?? "") ||
+      prevSkipAutoNumber !== nextSkipAutoNumber;
 
     // Save with no edits should not mark the node modified or push history.
     if (!titleChanged && !pathChanged) return;
@@ -1071,6 +1074,7 @@ const RemixerDashboard: React.FC = () => {
               formattedPathPrefix: nextFormattedPathPrefix,
               formattedPathIndex: nextFormattedPathIndex,
               overrideUriUiEnding: nextOverrideUriUiEnding,
+              skipAutoNumber: nextSkipAutoNumber,
             };
             return {
               ...saved,
@@ -1099,6 +1103,7 @@ const RemixerDashboard: React.FC = () => {
             formattedPathPrefix: nextFormattedPathPrefix,
             formattedPathIndex: nextFormattedPathIndex,
             overrideUriUiEnding: nextOverrideUriUiEnding,
+            skipAutoNumber: nextSkipAutoNumber,
           };
           return {
             ...saved,
@@ -1816,6 +1821,7 @@ const RemixerDashboard: React.FC = () => {
    */
   const handleLoadSourceRef = useRef(handleLoadSource);
   handleLoadSourceRef.current = handleLoadSource;
+  const startOverFromRecoveryRef = useRef<() => void>(() => {});
 
   /** Gather the set of available recovery sources (local/server) and open the recovery modal. */
   const openRecoveryModal = async () => {
@@ -1846,7 +1852,7 @@ const RemixerDashboard: React.FC = () => {
     openModal(
       <RecoveryModal
         open={true}
-        loading={loadingRecovery}
+        loading={loadingRecovery || isStartOverPending}
         dismissible={true}
         availableSources={{
           hasLocal: !!localDraft,
@@ -1861,6 +1867,7 @@ const RemixerDashboard: React.FC = () => {
           handleLoadSourceRef.current(source, options);
           closeAllModals();
         }}
+        onStartOver={() => startOverFromRecoveryRef.current()}
         onClose={closeAllModals}
       />,
     );
@@ -1931,6 +1938,7 @@ const RemixerDashboard: React.FC = () => {
           id,
           res.project.libreCoverID,
           res.project.libreLibrary,
+          false,
         );
         return { res, fullBook };
       },
@@ -1941,6 +1949,8 @@ const RemixerDashboard: React.FC = () => {
           ...prev,
           selectedBookNodeId: undefined,
           editPanelOpen: false,
+          pathLevelFormats: [],
+          copyModeState: copyModeStates[0].value,
         }));
         setRemixerData((prev) => ({
           ...prev,
@@ -1951,8 +1961,11 @@ const RemixerDashboard: React.FC = () => {
           selectedLibrary: isLibrary(res.project.libreLibrary)
             ? res.project.libreLibrary
             : undefined,
+          autoNumbering: true,
           currentBook: normalizeBookState(fullBook, {
             initializeOriginalPathNumber: true,
+            pathLevelFormats: [],
+            autoNumbering: true,
           }),
         }));
       },
@@ -1965,6 +1978,11 @@ const RemixerDashboard: React.FC = () => {
         });
       },
     });
+
+  startOverFromRecoveryRef.current = () => {
+    startOverMutation();
+    closeAllModals();
+  };
 
   const handleStartOverWithConfirmation = () => {
     openModal(
@@ -2327,7 +2345,7 @@ const RemixerDashboard: React.FC = () => {
         openModal(
           <RecoveryModal
             open={true}
-            loading={loadingRecovery}
+            loading={loadingRecovery || isStartOverPending}
             dismissible={false}
             availableSources={{
               hasLocal: !!localDraft,
@@ -2346,6 +2364,7 @@ const RemixerDashboard: React.FC = () => {
               }
               closeAllModals();
             }}
+            onStartOver={() => startOverFromRecoveryRef.current()}
             onClose={closeAllModals}
           />,
         );

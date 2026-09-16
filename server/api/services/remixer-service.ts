@@ -379,12 +379,26 @@ const collectDescendants = (
   return out;
 };
 
-const isMatterNode = (page: {
-  "@title": string;
-  title: string;
-  "uri.ui": string;
-  "@href": string;
-}): boolean => {
+/** Front/Back Matter containers live only as direct children of the cover. */
+const isBookRootChild = (
+  page: { parentID?: string },
+  coverId?: string,
+): boolean => {
+  if (!coverId) return false;
+  return (page.parentID ?? "-1") === coverId;
+};
+
+const isMatterNode = (
+  page: {
+    "@title": string;
+    title: string;
+    "uri.ui": string;
+    "@href": string;
+    parentID?: string;
+  },
+  coverId?: string,
+): boolean => {
+  if (!isBookRootChild(page, coverId)) return false;
   const normalized = stripLeadingNumbering(
     page["@title"] || page.title || "",
   ).toLowerCase();
@@ -394,12 +408,17 @@ const isMatterNode = (page: {
   return uri.includes("front_matter") || uri.includes("back_matter");
 };
 
-const isBackMatterNode = (page: {
-  "@title": string;
-  title: string;
-  "uri.ui": string;
-  "@href": string;
-}): boolean => {
+const isBackMatterNode = (
+  page: {
+    "@title": string;
+    title: string;
+    "uri.ui": string;
+    "@href": string;
+    parentID?: string;
+  },
+  coverId?: string,
+): boolean => {
+  if (!isBookRootChild(page, coverId)) return false;
   const normalized = stripLeadingNumbering(
     page["@title"] || page.title || "",
   ).toLowerCase();
@@ -418,8 +437,9 @@ const isBackMatterNode = (page: {
 const orderBackMatterLast = async (
   book: RemixerSubPageState[],
   subdomain: string,
+  coverId?: string,
 ): Promise<boolean> => {
-  const backMatter = book.find((p) => isBackMatterNode(p));
+  const backMatter = book.find((p) => isBackMatterNode(p, coverId));
   if (!backMatter) return false;
 
   const backMatterId = parseInt(backMatter["@id"], 10);
@@ -597,7 +617,7 @@ const articleKindForPlacement = (
   if (coverId && (pageId === coverId || pageId === "-1")) {
     return "topic-category";
   }
-  if (coverId && parentId === coverId) {
+  if (isBookRootChild({ parentID: parentId }, coverId)) {
     return "topic-guide";
   }
   return "topic";
@@ -1716,6 +1736,11 @@ const toFinalBookEntry = (
       plain.overrideUriUiEnding.length > 0
         ? plain.overrideUriUiEnding
         : undefined,
+    // Independent of formattedPathOverride — carried forward the same way.
+    skipAutoNumber:
+      typeof plain.skipAutoNumber === "boolean"
+        ? plain.skipAutoNumber
+        : undefined,
     isDeleted: false,
     isImported: false,
     isRenamed: false,
@@ -1868,7 +1893,7 @@ const runRemixerJob = async ({
       visited.add(id);
       const node = byId.get(id);
       if (!node) continue;
-      const nodeMatter = inMatterBranch || isMatterNode(node);
+      const nodeMatter = inMatterBranch || isMatterNode(node, coverId);
       const nodeDeleted = inDeletedBranch || node.deletedItem === true;
       ordered.push({
         page: node,
@@ -1968,81 +1993,79 @@ const runRemixerJob = async ({
 
       try {
         if (status === "new") {
-          if (shouldSkip) {
-            return "success";
-          }
-          const parentId = page.parentID ?? "-1";
-          const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
-          if (parent) {
-            const occupant = findDeletedPathOccupant(page, pages);
-            const placeholder = occupant
-              ? `remixer-replace-tmp-${base62(8)}`
-              : undefined;
-            const createOptions: CreatePageOptions | undefined = placeholder
-              ? { titleOverride: placeholder, pathSegmentOverride: placeholder }
-              : undefined;
-            const oldPageId = page["@id"];
-            const { pageID, pageURI } = await withRetryOnTransient(
-              () =>
-                handleNewPage(
-                  page,
-                  parent,
-                  title,
-                  subdomain,
-                  coverId,
-                  createOptions,
-                ),
-              { onRetry: logRetry },
-            );
-            adoptCreatedPageId(oldPageId, page, pageID, pageURI);
-            if (placeholder && occupant) {
-              pendingFinalRenames.push({ page, intendedTitle: title });
-              message = `${title} - created at a temporary path because "${occupant.title || occupant["@title"]}" still occupies the target`;
-            }
+          if (!shouldSkip) {
+            const parentId = page.parentID ?? "-1";
+            const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
+            if (parent) {
+              const occupant = findDeletedPathOccupant(page, pages);
+              const placeholder = occupant
+                ? `remixer-replace-tmp-${base62(8)}`
+                : undefined;
+              const createOptions: CreatePageOptions | undefined = placeholder
+                ? { titleOverride: placeholder, pathSegmentOverride: placeholder }
+                : undefined;
+              const oldPageId = page["@id"];
+              const { pageID, pageURI } = await withRetryOnTransient(
+                () =>
+                  handleNewPage(
+                    page,
+                    parent,
+                    title,
+                    subdomain,
+                    coverId,
+                    createOptions,
+                  ),
+                { onRetry: logRetry },
+              );
+              adoptCreatedPageId(oldPageId, page, pageID, pageURI);
+              if (placeholder && occupant) {
+                pendingFinalRenames.push({ page, intendedTitle: title });
+                message = `${title} - created at a temporary path because "${occupant.title || occupant["@title"]}" still occupies the target`;
+              }
 
-            await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
+              await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
+            }
           }
         } else if (status === "imported") {
-          if (shouldSkip) {
-            return "success";
-          }
-          const parentId = page.parentID ?? "-1";
-          const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
-          if (parent) {
-            const occupant = findDeletedPathOccupant(page, pages);
-            const placeholder = occupant
-              ? `remixer-replace-tmp-${base62(8)}`
-              : undefined;
-            const createOptions: CreatePageOptions | undefined = placeholder
-              ? { titleOverride: placeholder, pathSegmentOverride: placeholder }
-              : undefined;
-            const oldPageId = page["@id"];
-            const { pageID, pageURI, warnings } = await withRetryOnTransient(
-              () =>
-                handleImportedPage(
-                  page,
-                  parent,
-                  title,
-                  subdomain,
-                  copyModeState,
-                  hasSubpages(page, pages),
-                  coverId,
-                  createOptions,
-                ),
-              { onRetry: logRetry },
-            );
-            adoptCreatedPageId(oldPageId, page, pageID, pageURI);
-            // The page itself imported fine; these are per-file degradations
-            // that would otherwise only exist in the server log.
-            for (const warning of warnings) {
-              job.messages.push(`${title} - ${warning}`);
-            }
-            if (placeholder && occupant) {
-              pendingFinalRenames.push({ page, intendedTitle: title });
-              message = `${title} - created at a temporary path because "${occupant.title || occupant["@title"]}" still occupies the target`;
-            }
+          if (!shouldSkip) {
+            const parentId = page.parentID ?? "-1";
+            const parent = parentId !== "-1" ? byId.get(parentId) : undefined;
+            if (parent) {
+              const occupant = findDeletedPathOccupant(page, pages);
+              const placeholder = occupant
+                ? `remixer-replace-tmp-${base62(8)}`
+                : undefined;
+              const createOptions: CreatePageOptions | undefined = placeholder
+                ? { titleOverride: placeholder, pathSegmentOverride: placeholder }
+                : undefined;
+              const oldPageId = page["@id"];
+              const { pageID, pageURI, warnings } = await withRetryOnTransient(
+                () =>
+                  handleImportedPage(
+                    page,
+                    parent,
+                    title,
+                    subdomain,
+                    copyModeState,
+                    hasSubpages(page, pages),
+                    coverId,
+                    createOptions,
+                  ),
+                { onRetry: logRetry },
+              );
+              adoptCreatedPageId(oldPageId, page, pageID, pageURI);
+              // The page itself imported fine; these are per-file degradations
+              // that would otherwise only exist in the server log.
+              for (const warning of warnings) {
+                job.messages.push(`${title} - ${warning}`);
+              }
+              if (placeholder && occupant) {
+                pendingFinalRenames.push({ page, intendedTitle: title });
+                message = `${title} - created at a temporary path because "${occupant.title || occupant["@title"]}" still occupies the target`;
+              }
 
-            await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
+              await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
+            }
           }
         } else if (status === "modified") {
           const parentId = page.parentID ?? "-1";
@@ -2405,7 +2428,7 @@ const runRemixerJob = async ({
     // Ensure Back Matter is the last chapter among its siblings.
     logger.info("[*] Ordering Back Matter as last chapter...");
     const orderedBackMatter = await withRetryOnTransient(() =>
-      orderBackMatterLast(finalBook, subdomain),
+      orderBackMatterLast(finalBook, subdomain, coverId),
     );
     if (orderedBackMatter) {
       job.messages.push("Back Matter ordered as last chapter.");
@@ -2597,6 +2620,12 @@ const pickSavedPageConfigs = (
         (configs as RemixerSubPagePlain)[key] = value;
       }
     }
+  }
+
+  // Independent of formattedPathOverride — a page can skip the autonumber
+  // sequence without also carrying custom prefix/index text.
+  if (saved.skipAutoNumber === true) {
+    configs.skipAutoNumber = true;
   }
 
   return configs;

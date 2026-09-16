@@ -132,6 +132,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
       formattedPath: overridden
         ? joinPrefixAndIndex(prefix ?? "", index ?? "").trim()
         : undefined,
+      skipAutoNumber: page.skipAutoNumber === true,
       // Checked → persist the override value; unchecked → clear it so the
       // page's URL is reconstructed to its auto-generated ending on publish.
       overrideUriUiEnding: enableOverrideUriUiEnding
@@ -200,6 +201,20 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
                       : undefined,
                   };
                 })
+              }
+            />
+          )}
+          {!isBookRoot && (
+            <Checkbox
+              name="skipAutoNumber"
+              label="Skip Auto Number"
+              className="flex-row-reverse font-bold!"
+              labelClassName="font-bold! text-md!"
+              checked={page?.skipAutoNumber ?? false}
+              onChange={(checked) =>
+                setPage((prev) =>
+                  prev ? { ...prev, skipAutoNumber: checked === true } : prev,
+                )
               }
             />
           )}

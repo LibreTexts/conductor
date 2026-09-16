@@ -1167,14 +1167,16 @@ export default class BookService {
     } catch {
       // rawContents is already HTML/text
     }
-
+    const currentShowOrg = hasShowOrg(content);
     let nextContent = content;
     if (active) {
-      // Strip any existing form(s), then append the canonical template at the end.
-      const stripped = stripShowOrg(content);
-      nextContent = `${stripped}\n<p>${SHOW_ORG_TOKEN}</p>`;
+      if (currentShowOrg) {
+        return true;
+      }
+      
+      nextContent = `${content}\n<p>${SHOW_ORG_TOKEN}</p>`;
     } else {
-      if (!hasShowOrg(content)) {
+      if (!currentShowOrg) {
         return true;
       }
       nextContent = stripShowOrg(content);
