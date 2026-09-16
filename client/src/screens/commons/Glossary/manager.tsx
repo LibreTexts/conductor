@@ -233,13 +233,22 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
       return;
     }
 
-    handleClearAll();
     addNotification({
-      message: "Glossary term created successfully",
+      message: editingTerm
+        ? "Glossary term updated successfully"
+        : "Glossary term created successfully",
       type: "success",
     });
     onTermCreated?.();
-    // onClose();
+
+    // Editing an existing term is a one-off action — close once it's saved.
+    // Adding a new term is usually done in a batch, so keep the form open
+    // (cleared, ready for the next term) instead of forcing a reopen each time.
+    if (editingTerm) {
+      handleClose(false);
+    } else {
+      handleClearAll();
+    }
   };
 
   const handleClearAll = () => {
