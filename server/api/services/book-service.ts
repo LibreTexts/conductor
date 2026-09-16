@@ -1173,8 +1173,7 @@ export default class BookService {
       if (currentShowOrg) {
         return true;
       }
-      // Strip any existing form(s), then append the canonical template at the end
-      // — normalizes placement/form even if a (non-canonical) form is already present.
+      
       nextContent = `${content}\n<p>${SHOW_ORG_TOKEN}</p>`;
     } else {
       if (!currentShowOrg) {
