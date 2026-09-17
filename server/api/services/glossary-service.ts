@@ -1140,6 +1140,13 @@ export default class GlossaryService {
         originalname: params.imageFile.originalname,
       };
     }
+    // A term-level display attribute, not page-specific, so it applies
+    // regardless of the pageID branch below — but only when the caller
+    // actually passed it, so import flows that attach a page and never
+    // mention `italic` can't accidentally clear a previously-set value.
+    if (params.italic !== undefined) {
+      existingGlossaryUsage.italic = params.italic;
+    }
     if (pageID) {
       const pageIndex = existingGlossaryUsage.pages.findIndex(
         (page) => page.pageID === pageID,
