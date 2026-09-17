@@ -159,7 +159,14 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
       return;
     }
 
-    const existingTerm = existingTerms?.find((t) => t.term === trimmed);
+    // Case-insensitive: the server resolves terms to the same global termID
+    // regardless of case (see _addGlossaryToDatabase's collation), so a case
+    // mismatch here would let this fall through to a "new term" submission
+    // that silently drops fields the server's merge-into-existing path
+    // doesn't apply (see _applyToExistingGlossaryUsage).
+    const existingTerm = existingTerms?.find(
+      (t) => t.term.toLowerCase() === trimmed.toLowerCase(),
+    );
     if (existingTerm) {
       applyEditingTerm(existingTerm);
     } else {
@@ -312,7 +319,8 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                     if (currentUsageID) {
                       const conflict = existingTerms?.find(
                         (t) =>
-                          t.term === trimmed && t.usageID !== currentUsageID,
+                          t.term.toLowerCase() === trimmed.toLowerCase() &&
+                          t.usageID !== currentUsageID,
                       );
                       if (conflict) {
                         return "Another glossary term already uses this name. Choose a different name or edit that term instead.";
