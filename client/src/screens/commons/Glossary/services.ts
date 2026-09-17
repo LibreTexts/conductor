@@ -139,6 +139,25 @@ export const downloadCsv = (filename: string, content: string): void => {
   window.URL.revokeObjectURL(url);
 };
 
+/**
+ * Sort key for a glossary term that ignores punctuation/symbols (quotes,
+ * commas, hyphens, etc.) and a leading English direct/indirect article
+ * ("the", "a", "an") — e.g. `"The Apple,"` sorts under "A", not `"` or "T".
+ * Mirrors `alphabetizationKey` in server/api/services/glossary-service.ts;
+ * used so the admin table's own column-header sort (react-table's default
+ * string compare on the raw term) agrees with the server's default order
+ * instead of putting a quoted/punctuated term first.
+ */
+export const alphabetizationKey = (term: string): string => {
+  const normalized = term
+    .trim()
+    .toLowerCase()
+    .replace(/[\p{P}\p{S}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized.replace(/^(the|an?)\s+/, "");
+};
+
 /** Filesystem-safe-ish filename slug from a book/page title. */
 export const slugifyForFilename = (title: string): string =>
   title

@@ -140,6 +140,8 @@ export interface AddGlossaryParams {
   imageAuthor?: string;
   imageLicense?: string;
   removeImage?: boolean;
+  /** Render the term itself in italics (e.g. species names, foreign words). */
+  italic?: boolean;
 }
 
 export interface GlossaryTableEntry {
@@ -165,6 +167,7 @@ export interface GlossaryPageResponse {
   imageLicense?: string;
   altText?: string;
   caption?: string;
+  italic?: boolean;
 }
 export interface GlossaryDetails {
   coverID: number;
@@ -212,6 +215,7 @@ export interface GetGlossaryResponse {
   imageLicense?: string;
   altText?: string;
   caption?: string;
+  italic?: boolean;
 }
 
 export interface DeleteGlossaryParams {
@@ -257,10 +261,16 @@ export default class GlossaryService {
   async getGlossary(params: GetGlossaryParams): Promise<GetGlossaryResponse[]> {
     try {
       const { coverID, library } = params;
-      const glossary = await GlossaryUsage.find({
+      const glossaryUnsorted = await GlossaryUsage.find({
         coverID: parseInt(coverID),
         library,
       });
+      // Mongo has no query-level sort here (see getGlossaryPage for why) —
+      // apply the same punctuation/article-aware ordering as the reader-facing
+      // list, so the management table isn't stuck in raw insertion order.
+      const glossary = [...glossaryUnsorted].sort((a, b) =>
+        alphabetizationKey(a.term).localeCompare(alphabetizationKey(b.term)),
+      );
       return glossary.map(
         (c): GetGlossaryResponse => ({
           usageID: c.usageID,
@@ -277,6 +287,7 @@ export default class GlossaryService {
           imageLicense: c.imageLicense,
           altText: c.altText,
           caption: c.caption,
+          italic: c.italic,
           imageUrl: c.imageFile
             ? `/api/v1/commons/glossary/usage/${c.usageID}/image`
             : undefined,
@@ -916,6 +927,7 @@ export default class GlossaryService {
             imageSource: c.imageSource,
             imageAuthor: c.imageAuthor,
             imageLicense: c.imageLicense,
+            italic: c.italic,
           }),
         );
         if (items.length === 0) {
@@ -1233,6 +1245,7 @@ export default class GlossaryService {
         imageLicense,
         aliases: aliases,
         author,
+        italic: params.italic,
       });
       return glossaryUsage.usageID;
     } catch (error) {

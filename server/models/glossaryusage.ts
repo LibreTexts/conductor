@@ -42,6 +42,8 @@ export interface GlossaryUsageInterface extends Document {
   imageSource?: string;
   imageAuthor?: string;
   imageLicense?: string;
+  /** Render the term itself in italics (e.g. species names, foreign words). */
+  italic?: boolean;
 }
 
 const GlossaryUsageSchema = new Schema<GlossaryUsageInterface>({
@@ -95,6 +97,7 @@ const GlossaryUsageSchema = new Schema<GlossaryUsageInterface>({
   imageSource: { type: String, required: false },
   imageAuthor: { type: String, required: false },
   imageLicense: { type: String, required: false },
+  italic: { type: Boolean, required: false, default: false },
   author: { type: String, required: false },
   aliases: {
     type: [

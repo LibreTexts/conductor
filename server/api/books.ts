@@ -3194,7 +3194,7 @@ async function addBookGlossary(
   res: Response,
 ) {
   try {
-    const { glossaryID, term, definition, pageId, bookId, altText, caption, link, source, imageSource, imageAuthor, imageLicense, aliases, author, usageID, removeImage } = req.body;
+    const { glossaryID, term, definition, pageId, bookId, altText, caption, link, source, imageSource, imageAuthor, imageLicense, aliases, author, usageID, removeImage, italic } = req.body;
     const { coverID, library } = req.params;
 
     const glossaryService = new GlossaryService();
@@ -3238,6 +3238,7 @@ async function addBookGlossary(
         imageSource: imageSource?.trim() || undefined,
         imageAuthor: imageAuthor?.trim() || undefined,
         imageLicense: imageLicense?.trim() || undefined,
+        italic,
       });
       return res.send({ err: false, pageId, termID: usageID });
     }
@@ -3261,6 +3262,7 @@ async function addBookGlossary(
       imageAuthor: imageAuthor?.trim() || undefined,
       imageLicense: imageLicense?.trim() || undefined,
       glossaryID: glossaryID?.toString().trim() === "" ? undefined : glossaryID?.toString().trim(),
+      italic,
     });
     return res.send({ err: false, pageId, termID });
   } catch (err) {
