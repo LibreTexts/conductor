@@ -2,6 +2,7 @@ import {
   Alert,
   Badge,
   Button,
+  Checkbox,
   Input,
   Modal,
   Select,
@@ -10,7 +11,7 @@ import {
 } from "@libretexts/davis-react";
 import { IconPhoto, IconX } from "@tabler/icons-react";
 import React, { useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import GlossaryTermAutocomplete from "./GlossaryTermAutocomplete";
 import { licenseOptions } from "../../../components/util/LicenseOptions";
 import api from "../../../api";
@@ -45,6 +46,7 @@ type GlossaryFormFields = {
   altText?: string;
   imageAuthor?: string;
   imageLicense?: string;
+  italic?: boolean;
 };
 
 const DEFAULT_VALUES: GlossaryFormFields = {
@@ -61,6 +63,7 @@ const DEFAULT_VALUES: GlossaryFormFields = {
   imageAuthor: "",
   imageLicense: "",
   usageID: undefined,
+  italic: false,
 };
 
 const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
@@ -124,6 +127,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     setValue("imageLicense", term.imageLicense ?? "");
     setValue("altText", term.altText ?? "");
     setValue("caption", term.caption ?? "");
+    setValue("italic", term.italic ?? false);
     setValue("usageID", term.usageID ?? undefined);
 
     setImageFile(null);
@@ -225,6 +229,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
         imageLicense: data.imageLicense?.trim() || undefined,
         aliases: data?.aliases ? data.aliases : [],
         imageSource: data.imageSource?.trim() || undefined,
+        italic: data.italic ?? false,
       }
     const res = await api.createGlossaryTerm(payload);
 
@@ -318,6 +323,20 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                 }}
                 onSelect={handleExistingTermMatch}
                 onBlur={handleExistingTermMatch}
+              />
+              <Controller
+                control={control}
+                name="italic"
+                render={({ field }) => (
+                  <Checkbox
+                    name={field.name}
+                    label="Italicize term"
+                    description="Renders the term itself in italics wherever it's displayed in the glossary (e.g. species names, foreign words)."
+                    className="mt-4"
+                    checked={field.value ?? false}
+                    onChange={field.onChange}
+                  />
+                )}
               />
               <div className="mt-4 flex items-end gap-2">
                 <div className="flex-1">

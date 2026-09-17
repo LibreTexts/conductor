@@ -294,6 +294,7 @@ export const addWithCoverIDParamSchema = z.object({
     imageLicense: z.string().refine(isValidLicense, {
       message: conductorErrors.err1,
     }).optional(),
+    italic: z.enum(["true", "false"]).transform((val) => val === "true").optional(),
   }),
 });
 

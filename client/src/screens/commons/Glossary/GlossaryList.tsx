@@ -17,6 +17,7 @@ import {
 import { useMemo, useRef, useState } from "react";
 import { TableOfContents } from "../../../types";
 import {
+  alphabetizationKey,
   downloadCsv,
   findTocNodeById,
   glossaryEntriesToCsv,
@@ -233,6 +234,14 @@ const GlossaryList = ({
       // enableSorting: true,
       // enableColumnFilter: true,
       size: 160,
+      // Default string sort would compare raw term text, so a leading quote
+      // or punctuation mark (which sorts before letters) or an untrimmed
+      // "The"/"A" would jump a term to the front — sort the same way the
+      // server's default order does instead.
+      sortingFn: (rowA, rowB) =>
+        alphabetizationKey(rowA.original.term).localeCompare(
+          alphabetizationKey(rowB.original.term),
+        ),
       cell: ({ getValue, row }) => {
         const orphaned = toc
           ? row.original.pages.filter((p) => !tocIdSet.has(p.pageID)).length
@@ -249,7 +258,14 @@ const GlossaryList = ({
             {orphaned > 0 && <IconAlertTriangle size={14} className="shrink-0" />}
             <GlossaryDefinitionPreview
               definition={String(getValue() ?? "")}
-              className={orphaned > 0 ? "text-amber-600" : undefined}
+              className={
+                [
+                  orphaned > 0 ? "text-amber-600" : "",
+                  row.original.italic ? "italic" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
             />
           </span>
         );

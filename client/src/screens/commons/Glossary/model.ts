@@ -20,6 +20,8 @@ export type GlossaryEntry = {
   imageLicense?: string;
   altText?: string;
   caption?: string;
+  /** Render the term itself in italics (e.g. species names, foreign words). */
+  italic?: boolean;
 };
 
 export type GlossaryConfigMode = "PAGE" | "CHAPTER" | "BACKMATTER";

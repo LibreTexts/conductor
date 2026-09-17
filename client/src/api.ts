@@ -2673,6 +2673,7 @@ class API {
     imageLicense?: string;
     aliases?: string[];
     imageSource?: string;
+    italic?: boolean;
   }) {
     const { coverID, library, imageFile, removeImage, aliases, ...rest } =
       props;
