@@ -7,7 +7,9 @@ import { randomUUID } from "crypto";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import Glossary from "../../models/glossary";
-import GlossaryUsage from "../../models/glossaryusage";
+import GlossaryUsage, {
+  GlossaryUsageInterface,
+} from "../../models/glossaryusage";
 import GlossaryConfig, {
   GlossaryConfigInterface,
   GlossaryConfigMode,
@@ -26,6 +28,29 @@ import { childLogger } from "../../logger.js";
 import { TableOfContents } from "../../types";
 
 const glossaryLog = childLogger("glossary");
+
+/**
+ * Sort key for a glossary term that ignores a leading English direct/indirect
+ * article ("the", "a", "an") — e.g. "The Apple" sorts under "A", not "T".
+ */
+function alphabetizationKey(term: string): string {
+  return term.trim().toLowerCase().replace(/^(the|an?)\s+/, "");
+}
+
+/**
+ * True for a MongoDB/Mongoose duplicate-key error (E11000) — the signal that
+ * a unique-index write lost a create-vs-create race, as opposed to any other
+ * failure. Used to recover from the term/usage races described on
+ * `_addGlossaryToDatabase` and `_addGlossaryUsageToDatabase`.
+ */
+function isDuplicateKeyError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === 11000
+  );
+}
 
 /**
  * Depth-first collection of a TOC node's id plus every descendant's id.
@@ -351,28 +376,28 @@ export default class GlossaryService {
         library,
       );
 
-      await Promise.all(
-        entries
-          .filter((e) => e.term && e.definition)
-          .map(async (entry) => {
-            const { termID } = await this._addGlossaryToDatabase(
-              entry.term,
-              entry.definition,
-            );
-            await this._addGlossaryUsageToDatabase({
-              termID,
-              term: entry.term,
-              definition: entry.definition,
-              coverID,
-              library,
-              addedBy,
-              glossaryID,
-              caption: entry.caption || undefined,
-              link: entry.link || undefined,
-              source: entry.source || undefined,
-            });
-          }),
-      );
+      // Sequential, not Promise.all: concurrent entries for the same term
+      // (a real possibility in an imported table) would race the
+      // check-then-create in _addGlossaryToDatabase/_addGlossaryUsageToDatabase.
+      for (const entry of entries) {
+        if (!entry.term || !entry.definition) continue;
+        const { termID } = await this._addGlossaryToDatabase(
+          entry.term,
+          entry.definition,
+        );
+        await this._addGlossaryUsageToDatabase({
+          termID,
+          term: entry.term,
+          definition: entry.definition,
+          coverID,
+          library,
+          addedBy,
+          glossaryID,
+          caption: entry.caption || undefined,
+          link: entry.link || undefined,
+          source: entry.source || undefined,
+        });
+      }
 
       return entries;
     } catch (error) {
@@ -393,39 +418,37 @@ export default class GlossaryService {
         parseInt(auxGlossaryID),
         library,
       );
-      await Promise.all(
-        entries
-          .filter((e) => e.term && e.definition)
-          .map(async (entry) => {
-            const { termID } = await this._addGlossaryToDatabase(
-              entry.term,
-              entry.definition,
-            );
-            const usageID = await this._addGlossaryUsageToDatabase({
-              termID,
-              term: entry.term,
-              definition: entry.definition,
-              coverID,
-              library,
-              addedBy,
-              glossaryID,
-              caption: entry.caption || undefined,
-              link: entry.link || undefined,
-              source: entry.source || undefined,
-            });
-            if (auxGlossaryID || auxGlossaryParentID) {
-              const pages = [];
-              if (auxGlossaryID) {
-                pages.push(parseInt(auxGlossaryID));
-              }
-              if (auxGlossaryParentID) {
-                pages.push(parseInt(auxGlossaryParentID));
-              }
-              // ADD PAGE TO USAGE
-              await this.addPageToGlossaryUsage(pages, [usageID], coverID, library);
-            }
-          }),
-      );
+      // Sequential, not Promise.all — see addExternalGlossaryToGlossaryUsage.
+      for (const entry of entries) {
+        if (!entry.term || !entry.definition) continue;
+        const { termID } = await this._addGlossaryToDatabase(
+          entry.term,
+          entry.definition,
+        );
+        const usageID = await this._addGlossaryUsageToDatabase({
+          termID,
+          term: entry.term,
+          definition: entry.definition,
+          coverID,
+          library,
+          addedBy,
+          glossaryID,
+          caption: entry.caption || undefined,
+          link: entry.link || undefined,
+          source: entry.source || undefined,
+        });
+        if (auxGlossaryID || auxGlossaryParentID) {
+          const pages = [];
+          if (auxGlossaryID) {
+            pages.push(parseInt(auxGlossaryID));
+          }
+          if (auxGlossaryParentID) {
+            pages.push(parseInt(auxGlossaryParentID));
+          }
+          // ADD PAGE TO USAGE
+          await this.addPageToGlossaryUsage(pages, [usageID], coverID, library);
+        }
+      }
       return entries;
     } catch (error) {
       throw error;
@@ -463,11 +486,13 @@ export default class GlossaryService {
    * Non-unique term+cover+library rows are upserted via
    * `_addGlossaryUsageToDatabase`.
    *
-   * Entries are processed in small concurrent batches rather than all at
-   * once — a few hundred entries fired through `Promise.all` in one shot can
-   * exhaust the DB connection pool and stall long enough to trip upstream
-   * timeouts. `onProgress` (if given) is called after each batch so a
-   * long-running import can report how far along it is.
+   * Entries within a batch are processed sequentially, not concurrently —
+   * two entries for the same term (a duplicate row, or the same term
+   * differing only by case) would otherwise race the check-then-create in
+   * `_addGlossaryToDatabase`/`_addGlossaryUsageToDatabase` and could produce
+   * two GlossaryUsage records for one term. `onProgress` (if given) is still
+   * called after each batch of `BATCH_SIZE` so a long-running import can
+   * report how far along it is.
    */
   async addGlossaryEntries(
     entries: {
@@ -492,28 +517,26 @@ export default class GlossaryService {
     const BATCH_SIZE = 20;
     for (let i = 0; i < valid.length; i += BATCH_SIZE) {
       const batch = valid.slice(i, i + BATCH_SIZE);
-      await Promise.all(
-        batch.map(async (entry) => {
-          const term = entry.term.trim();
-          const definition = entry.definition.trim();
-          const { termID } = await this._addGlossaryToDatabase(
-            term,
-            definition,
-          );
-          await this._addGlossaryUsageToDatabase({
-            termID,
-            term,
-            definition,
-            coverID,
-            library,
-            addedBy,
-            glossaryID,
-            author: entry.author,
-            source: entry.source,
-            link: entry.link,
-          });
-        }),
-      );
+      for (const entry of batch) {
+        const term = entry.term.trim();
+        const definition = entry.definition.trim();
+        const { termID } = await this._addGlossaryToDatabase(
+          term,
+          definition,
+        );
+        await this._addGlossaryUsageToDatabase({
+          termID,
+          term,
+          definition,
+          coverID,
+          library,
+          addedBy,
+          glossaryID,
+          author: entry.author,
+          source: entry.source,
+          link: entry.link,
+        });
+      }
       onProgress?.(Math.min(i + BATCH_SIZE, valid.length), valid.length);
     }
     return valid.length;
@@ -835,10 +858,15 @@ export default class GlossaryService {
       }
       const candidateCoverIDs = await this.getCandidateCoverIDs(pageID, library);
 
-      const [glossary, config] = await Promise.all([
-        GlossaryUsage.find({ coverID: { $in: candidateCoverIDs }, library }).sort({ term: "asc" }),
+      const [glossaryUnsorted, config] = await Promise.all([
+        GlossaryUsage.find({ coverID: { $in: candidateCoverIDs }, library }),
         this.getGlossaryConfig(String(coverID), glossaryLibrary),
       ]);
+      // Mongo can only sort on the raw `term` field, which would alphabetize
+      // "The Apple" under "T" — sort here instead, ignoring a leading article.
+      const glossary = [...glossaryUnsorted].sort((a, b) =>
+        alphabetizationKey(a.term).localeCompare(alphabetizationKey(b.term)),
+      );
       const response: GlossayResponse = {
         coverID,
         // `glossaryID` here is the book's back-matter Glossary page id.
@@ -1035,33 +1063,81 @@ export default class GlossaryService {
     term: string,
     definition: string,
   ): Promise<{ termID: string }> {
+    const cleanTerm = sanitizeLibraryText(term);
+    const cleanDefinition = sanitizeLibraryText(definition);
+    const termID = base62(10);
+    const slug = this._generateSlug(cleanTerm);
+    // Matches the unique index's collation (glossary.ts) so this query and
+    // that index treat casing the same way.
+    const collation = { locale: "en", strength: 2 } as const;
+
     try {
-      const cleanTerm = sanitizeLibraryText(term);
-      const cleanDefinition = sanitizeLibraryText(definition);
-      // if term already exists, return the termID
-      const existingGlossary = await Glossary.findOne({
-        term: {
-          $regex: `^${escapeRegEx(cleanTerm)}$`,
-          $options: "i",
+      // Atomic get-or-create: two concurrent calls for the same brand-new
+      // term both used to see "nothing yet" from a plain findOne and both
+      // create() a row — same term text, two different termIDs, and
+      // downstream two separate GlossaryUsage entries for one term. The
+      // unique index makes the loser's insert fail instead; recovered below.
+      const glossary = await Glossary.findOneAndUpdate(
+        { term: cleanTerm },
+        {
+          $setOnInsert: {
+            term: cleanTerm,
+            slug,
+            termID,
+            definition: cleanDefinition,
+          },
         },
-      });
-      if (existingGlossary) {
-        return { termID: existingGlossary.termID };
-      }
-      // generate a new termID
-      const termID = base62(10);
-      // generate a new slug
-      const slug = this._generateSlug(cleanTerm);
-      const glossary = await Glossary.create({
-        term: cleanTerm,
-        slug,
-        termID,
-        definition: cleanDefinition,
-      });
+        { upsert: true, new: true, collation },
+      );
       return { termID: glossary.termID };
     } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        const existing = await Glossary.findOne({ term: cleanTerm }).collation(
+          collation,
+        );
+        if (existing) return { termID: existing.termID };
+      }
       throw error;
     }
+  }
+
+  /**
+   * Applies an add/update onto an already-existing GlossaryUsage — shared by
+   * the normal "found by findOne" path and the duplicate-key recovery path in
+   * `_addGlossaryUsageToDatabase` below, so both apply the exact same update.
+   */
+  private async _applyToExistingGlossaryUsage(
+    existingGlossaryUsage: GlossaryUsageInterface,
+    params: AddGlossaryUsageParams,
+    definition: string,
+  ): Promise<string> {
+    const pageID = params.pageId?.toString();
+    if (params.imageFile) {
+      existingGlossaryUsage.imageFile = {
+        data: params.imageFile.buffer,
+        contentType: params.imageFile.mimetype,
+        originalname: params.imageFile.originalname,
+      };
+    }
+    if (pageID) {
+      const pageIndex = existingGlossaryUsage.pages.findIndex(
+        (page) => page.pageID === pageID,
+      );
+      if (pageIndex !== -1) {
+        existingGlossaryUsage.pages[pageIndex].addedBy = params.addedBy;
+      } else {
+        existingGlossaryUsage.pages.push({
+          pageID,
+          addedBy: params.addedBy,
+          createdAt: new Date(),
+        });
+      }
+    } else {
+      existingGlossaryUsage.definition = definition;
+    }
+    existingGlossaryUsage.updatedAt = new Date();
+    await existingGlossaryUsage.save();
+    return existingGlossaryUsage.usageID;
   }
 
   private async _addGlossaryUsageToDatabase(
@@ -1074,71 +1150,44 @@ export default class GlossaryService {
      * if not unique, not return usageID and add the pageID to the pages array create a new usage record
      * return the usageID
      */
+    const term = sanitizeLibraryText(params.term);
+    const definition = sanitizeLibraryText(params.definition);
+    const author = sanitizeOptionalLibraryText(params.author);
+    const link = sanitizeOptionalLibraryText(params.link);
+    const source = sanitizeOptionalLibraryText(params.source);
+    const imageSource = sanitizeOptionalLibraryText(params.imageSource);
+    const imageAuthor = sanitizeOptionalLibraryText(params.imageAuthor);
+    const imageLicense = sanitizeOptionalLibraryText(params.imageLicense);
+    const altText = sanitizeOptionalLibraryText(params.altText);
+    const caption = sanitizeOptionalLibraryText(params.caption);
+
+    const existingGlossaryUsage = await GlossaryUsage.findOne({
+      termID: params.termID,
+      coverID: parseInt(params.coverID),
+      library: params.library,
+    });
+    const aliases: { termID: string; term: string }[] = [];
+
+    if (params?.aliases && params.aliases.length > 0) {
+      // add aliases to glossary and make a list of [{termID, term}] using _addGlossaryToDatabase
+      for (const alias of params.aliases) {
+        const cleanAlias = sanitizeLibraryText(alias);
+        if (cleanAlias === "") {
+          continue;
+        }
+        const { termID } = await this._addGlossaryToDatabase(cleanAlias, "");
+        aliases.push({ termID, term: cleanAlias });
+      }
+    }
+    if (existingGlossaryUsage) {
+      return this._applyToExistingGlossaryUsage(
+        existingGlossaryUsage,
+        params,
+        definition,
+      );
+    }
+
     try {
-      const term = sanitizeLibraryText(params.term);
-      const definition = sanitizeLibraryText(params.definition);
-      const author = sanitizeOptionalLibraryText(params.author);
-      const link = sanitizeOptionalLibraryText(params.link);
-      const source = sanitizeOptionalLibraryText(params.source);
-      const imageSource = sanitizeOptionalLibraryText(params.imageSource);
-      const imageAuthor = sanitizeOptionalLibraryText(params.imageAuthor);
-      const imageLicense = sanitizeOptionalLibraryText(params.imageLicense);
-      const altText = sanitizeOptionalLibraryText(params.altText);
-      const caption = sanitizeOptionalLibraryText(params.caption);
-
-      const existingGlossaryUsage = await GlossaryUsage.findOne({
-        termID: params.termID,
-        coverID: parseInt(params.coverID),
-        library: params.library,
-      });
-      var aliases = [] as { termID: string; term: string }[];
-
-      if (params?.aliases && params.aliases.length > 0) {
-        // add aliases to glossary and make a list of [{termID, term}] using _addGlossaryToDatabase
-        for (const alias of params.aliases) {
-          const cleanAlias = sanitizeLibraryText(alias);
-          if (cleanAlias === "") {
-            continue;
-          }
-          const { termID } = await this._addGlossaryToDatabase(
-            cleanAlias,
-            "",
-          );
-          aliases.push({ termID, term: cleanAlias });
-        }
-      }
-      if (existingGlossaryUsage) {
-        const pageID = params.pageId?.toString();
-        if (params.imageFile) {
-          existingGlossaryUsage.imageFile = {
-            data: params.imageFile.buffer,
-            contentType: params.imageFile.mimetype,
-            originalname: params.imageFile.originalname,
-          };
-        }
-        if (pageID) {
-          const pageIndex = existingGlossaryUsage.pages.findIndex(
-            (page) => page.pageID === pageID,
-          );
-          if (pageIndex !== -1) {
-            existingGlossaryUsage.pages[pageIndex].addedBy = params.addedBy;
-          } else {
-            existingGlossaryUsage.pages.push({
-              pageID,
-              addedBy: params.addedBy,
-              createdAt: new Date(),
-            });
-          }
-          existingGlossaryUsage.updatedAt = new Date();
-          await existingGlossaryUsage.save();
-          return existingGlossaryUsage.usageID;
-        } else {
-          existingGlossaryUsage.definition = definition;
-          existingGlossaryUsage.updatedAt = new Date();
-          await existingGlossaryUsage.save();
-          return existingGlossaryUsage.usageID;
-        }
-      }
       const usageID = base62(10);
       const glossaryUsage = await GlossaryUsage.create({
         usageID,
@@ -1178,6 +1227,26 @@ export default class GlossaryService {
       });
       return glossaryUsage.usageID;
     } catch (error) {
+      // Two concurrent calls for the same new (termID, coverID, library) can
+      // both miss the findOne above before either create() commits. The
+      // unique index on GlossaryUsage turns the loser's insert into a
+      // duplicate-key error instead of a second usage row for the same term
+      // in the same book — recover by re-reading the winner's document and
+      // applying the same update it would have gotten as "existing".
+      if (isDuplicateKeyError(error)) {
+        const winner = await GlossaryUsage.findOne({
+          termID: params.termID,
+          coverID: parseInt(params.coverID),
+          library: params.library,
+        });
+        if (winner) {
+          return this._applyToExistingGlossaryUsage(
+            winner,
+            params,
+            definition,
+          );
+        }
+      }
       throw error;
     }
   }

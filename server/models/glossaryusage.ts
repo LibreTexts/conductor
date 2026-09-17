@@ -111,6 +111,16 @@ const GlossaryUsageSchema = new Schema<GlossaryUsageInterface>({
   },
 });
 
+// One usage record per term per book — prevents the same term ending up as
+// two separate GlossaryUsage documents in the same book (e.g. from a race
+// between two concurrent adds). See glossary-service.ts's
+// _addGlossaryUsageToDatabase, which recovers from the resulting duplicate-key
+// error instead of treating it as a failure.
+GlossaryUsageSchema.index(
+  { termID: 1, coverID: 1, library: 1 },
+  { unique: true },
+);
+
 const GlossaryUsage = model<GlossaryUsageInterface>(
   "GlossaryUsage",
   GlossaryUsageSchema,
