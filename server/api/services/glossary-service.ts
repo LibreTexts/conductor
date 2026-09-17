@@ -30,11 +30,20 @@ import { TableOfContents } from "../../types";
 const glossaryLog = childLogger("glossary");
 
 /**
- * Sort key for a glossary term that ignores a leading English direct/indirect
- * article ("the", "a", "an") — e.g. "The Apple" sorts under "A", not "T".
+ * Sort key for a glossary term that ignores punctuation/symbols (quotes,
+ * commas, hyphens, etc.) and a leading English direct/indirect article
+ * ("the", "a", "an") — e.g. `"The Apple,"` sorts under "A", not `"` or "T".
+ * Letters/marks outside a-z (accented characters, etc.) are left intact —
+ * only punctuation and symbol characters are stripped.
  */
 function alphabetizationKey(term: string): string {
-  return term.trim().toLowerCase().replace(/^(the|an?)\s+/, "");
+  const normalized = term
+    .trim()
+    .toLowerCase()
+    .replace(/[\p{P}\p{S}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized.replace(/^(the|an?)\s+/, "");
 }
 
 /**
