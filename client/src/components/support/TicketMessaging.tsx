@@ -150,9 +150,14 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
       }
 
       setValue("message", data.answer, { shouldDirty: true });
+      const relatedArticlesOnly = data.answer.includes(
+        "Related articles that may help:",
+      );
       addNotification({
-        type: "success",
-        message: `AI drafted an answer using ${data.sources.length} relevant source${data.sources.length === 1 ? "" : "s"}. Review it before sending.`,
+        type: relatedArticlesOnly ? "info" : "success",
+        message: relatedArticlesOnly
+          ? `AI could not draft a confident answer, but found ${data.sources.length} related article${data.sources.length === 1 ? "" : "s"} that may help.`
+          : `AI drafted an answer using ${data.sources.length} relevant source${data.sources.length === 1 ? "" : "s"}. Review it before sending.`,
       });
     },
     onError: (error: any) => {
