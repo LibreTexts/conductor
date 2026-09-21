@@ -25,8 +25,8 @@ export class SupportTicketAIService {
 
   private async buildTicketQuery(ticket: SupportTicketInterface) {
     const messages = await SupportTicketMessage.find({
-      ticket: ticket.uuid,
-      type: "general",
+      ticket: { $eq: ticket.uuid },
+      type: { $eq: "general" },
     })
       .sort({ timeSent: 1 })
       .select({ message: 1, senderIsStaff: 1, _id: 0 })
@@ -54,7 +54,7 @@ export class SupportTicketAIService {
   }
 
   async answerTicket(uuid: string): Promise<SupportAnswerResult> {
-    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+    const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
     if (ticket.status === "closed") {
       throw new Error("AI answers can only be generated for tickets that need a response.");
     }

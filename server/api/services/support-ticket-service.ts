@@ -664,13 +664,16 @@ export default class SupportTicketService {
     /** Keep the Qdrant collection aligned with ticket status without blocking ticket updates. */
     async syncClosedTicketVector(uuid: string): Promise<void> {
         try {
-            const ticket = await SupportTicket.findOne({ uuid }).lean();
+            const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).lean();
             if (!ticket || ticket.status !== "closed") {
                 await qdrantService.deleteClosedSupportTicket(uuid);
                 return;
             }
 
-            const messages = await SupportTicketMessage.find({ ticket: uuid, type: "general" })
+            const messages = await SupportTicketMessage.find({
+                ticket: { $eq: uuid },
+                type: { $eq: "general" },
+            })
                 .sort({ timeSent: 1 })
                 .select({ message: 1, senderIsStaff: 1, timeSent: 1, _id: 0 })
                 .lean();
@@ -698,14 +701,17 @@ export default class SupportTicketService {
     async syncAllClosedTicketVectors(): Promise<{ synced: number; failed: number }> {
         // Create the destination first so configuration/auth failures surface before a long DB backfill.
         await qdrantService.initializeClosedSupportTicketsCollection();
-        const uuids = await SupportTicket.find({ status: "closed" }).distinct("uuid");
+        const uuids = await SupportTicket.find({ status: { $eq: "closed" } }).distinct("uuid");
         let synced = 0;
         let failed = 0;
 
         for (const uuid of uuids) {
             try {
-                const ticket = await SupportTicket.findOne({ uuid }).lean().orFail();
-                const messages = await SupportTicketMessage.find({ ticket: uuid, type: "general" })
+                const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).lean().orFail();
+                const messages = await SupportTicketMessage.find({
+                    ticket: { $eq: uuid },
+                    type: { $eq: "general" },
+                })
                     .sort({ timeSent: 1 })
                     .select({ message: 1, senderIsStaff: 1, timeSent: 1, _id: 0 })
                     .lean();
