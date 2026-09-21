@@ -25,6 +25,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
   const user = useTypedSelector((state) => state.user);
   const containerRef =
     useRef<React.ElementRef<typeof TicketCommentsContainer>>(null);
+  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const { handleGlobalError } = useGlobalError();
   const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
@@ -34,6 +35,19 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
         message: "",
       },
     });
+  const messageValue = watch("message");
+  const { ref: messageRegisterRef, ...messageField } = register("message", {
+    required: "Message cannot be empty",
+  });
+
+  // Grow the composer with content (incl. AI drafts); scroll only past the max height.
+  const MESSAGE_TEXTAREA_MAX_HEIGHT_PX = 320;
+  useEffect(() => {
+    const el = messageTextareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, MESSAGE_TEXTAREA_MAX_HEIGHT_PX)}px`;
+  }, [messageValue]);
 
   const {
     data: messages,
@@ -181,6 +195,9 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
               label="Send Message"
               placeholder="Enter your message here..."
               maxLength={3000}
+              rows={4}
+              autoResize
+              textareaClassName="!max-h-80 !overflow-y-auto"
               onKeyDown={(e: any) => {
                 if (e.key === "Enter" && e.ctrlKey) {
                   if (!getValues("message")) return;
@@ -188,7 +205,11 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
                   sendMessageMutation.mutateAsync();
                 }
               }}
-              {...register("message", { required: "Message cannot be empty" })}
+              {...messageField}
+              ref={(el) => {
+                messageTextareaRef.current = el;
+                messageRegisterRef(el);
+              }}
             />
             <Stack direction="horizontal" className="w-full mt-2" justify="between">
               <Stack direction="vertical" gap="xs">
