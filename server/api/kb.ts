@@ -251,8 +251,9 @@ async function createKBPage(
       lastEditedByUUID: editor.uuid,
     });
 
-    // Never index internal-only pages into the vector store / public AI agent.
-    if (kbPage.status === "published" && kbPage.body && !kbPage.internalOnly) {
+    // Index all published pages for staff Answer-with-AI (including internal-only).
+    // Public Insight agent filters internalOnly=false at search time.
+    if (kbPage.status === "published" && kbPage.body) {
       try {
         await qdrantService.initializeCollection();
         await qdrantService.upsertKBPage(kbPage.toObject());
@@ -408,11 +409,11 @@ async function updateKBPage(
     try {
       await qdrantService.initializeCollection();
 
-      if (kbPage.status === "published" && kbPage.body && !kbPage.internalOnly) {
-        // Upsert replaces old embedding with new content
+      if (kbPage.status === "published" && kbPage.body) {
+        // Upsert replaces old embedding with new content (includes internal-only for staff AI)
         await qdrantService.upsertKBPage(kbPage.toObject());
       } else {
-        // Remove from vector DB if it's no longer published or is now internal-only
+        // Remove from vector DB if it's no longer published
         await qdrantService.deleteKBPage(kbPage.uuid);
       }
     } catch (err) {
@@ -819,7 +820,7 @@ async function migrateKBPagesToQdrant(req: Request, res: Response) {
     // Initialize Qdrant collection
     await qdrantService.initializeCollection();
 
-    // Get KB pages with skip and limit
+    // Get published KB pages with content (including internal-only for staff AI)
     const query = KBPage.find({
       status: 'published',
       body: { $exists: true, $ne: '' } // Only pages with content
