@@ -18,6 +18,7 @@ import { getPaginationOffset } from "../util/helpers.js";
 import {
   conductor400Err,
   conductor404Err,
+  conductor409Err,
   conductor500Err,
   conductorErr,
 } from "../util/errorutils.js";
@@ -34,6 +35,7 @@ import {
   CentralIdentitySortOrder,
   CentralIdentityUpdateVerificationRequestBody,
   CentralIdentityUserLicenseResult,
+  CentralIdentityUserLifecycleEventParsedPayload,
   CentralIdentityUserSort,
 } from "../types/CentralIdentity.js";
 import User from "../models/user.js";
@@ -47,7 +49,8 @@ import {
   GetVerificationRequestsSchema,
   CheckUsersApplicationAccessValidator,
   DeleteUserValidator,
-  ChangeUserPasswordValidator
+  ChangeUserPasswordValidator,
+  LifecycleEventWebhookValidator
 } from "./validators/central-identity.js";
 import Project, { ProjectInterface } from "../models/project.js";
 import { getSubdomainFromLibrary } from "../util/librariesclient.js";
@@ -58,11 +61,13 @@ import CentralIdentityService from "./services/central-identity-service.js";
 import { createStandardWorkBook, generateWorkSheetColumnDefinitions } from "../util/exports.js";
 import { GetUserNotesSchema } from "./validators/user.js";
 import { upsertUserToSearchIndex, removeUserFromSearchIndex } from "./services/user-search-service.js";
+import { isCentralIdentityUserLifecycleEvent } from "../util/typeHelpers.js";
 const centralIdentityLog = childLogger("central-identity");
 
 const centralIdentityService = new CentralIdentityService();
 
 const MAX_USERS_PAGE_SIZE = 100;
+const DEFAULT_AVATAR_URL = "https://cdn.libretexts.net/DefaultImages/avatar.png";
 
 async function getUsers(
   req: TypedReqQuery<{
@@ -1719,7 +1724,7 @@ async function processNewUserWebhookEvent(
       lastName: last_name,
       email: email,
       authType: "sso",
-      avatar: avatar || "https://cdn.libretexts.net/DefaultImages/avatar.png",
+      avatar: avatar || DEFAULT_AVATAR_URL,
       roles: [],
       // Don't set user verification for now, if they just registered they won't be verified
     });
@@ -1915,6 +1920,274 @@ async function deleteUser(
   } catch (err) {
     logger.error({ err }, "deleteUser failed");
     return conductor500Err(res);
+  }
+}
+
+type UserLifecycleEventHandlerResult = 'success' | 'conflict' | 'badreq' | 'notfound' | 'error';
+
+/**
+ * Case-insensitive collation used for all email lookups in the lifecycle handlers. It matches the
+ * collation on the `email_unique_ci` index (see models/user.ts), which is what actually enforces
+ * uniqueness — the lookups below are pre-flight checks that exist to turn a would-be duplicate
+ * into an explainable 409 rather than an opaque write error. A concurrent writer can still win the
+ * race; the index rejects it and _isDuplicateKeyError maps that to the same conflict result.
+ */
+const EMAIL_COLLATION = { locale: "en", strength: 2 } as const;
+
+/** Normalizes an email for comparison only. Storage keeps the casing LibreOne sent. */
+function _normalizeEmail(email?: string | null): string {
+  return (email || "").trim().toLowerCase();
+}
+
+function _emailsMatch(a?: string | null, b?: string | null): boolean {
+  const normalized = _normalizeEmail(a);
+  return normalized.length > 0 && normalized === _normalizeEmail(b);
+}
+
+/**
+ * MongoDB duplicate-key errors (code 11000) mean another request won a race against our
+ * pre-flight uniqueness check. Treat them as conflicts so the caller gets an actionable status.
+ */
+function _isDuplicateKeyError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 11000;
+}
+
+async function processUserLifecycleEventWebhook(
+  req: z.infer<typeof LifecycleEventWebhookValidator>,
+  res: Response
+) {
+  try {
+    // Implement the handling logic for user lifecycle events here.
+    const validEvent = isCentralIdentityUserLifecycleEvent(req.body.lifecycleWebhookPayload.event);
+    if (!validEvent) {
+      return conductor400Err(res);
+    }
+
+    // Handle the specific user lifecycle event
+    let result: UserLifecycleEventHandlerResult | undefined = undefined;
+    switch (req.body.lifecycleWebhookPayload.event) {
+      case "user:created":
+        // Handle user creation logic here
+        result = await _handleUserCreatedEvent(req.body.lifecycleWebhookPayload.payload as CentralIdentityUserLifecycleEventParsedPayload<"user:created">);
+        break;
+      case "user:updated":
+        // Handle user update logic here
+        result = await _handleUserUpdatedEvent(req.body.lifecycleWebhookPayload.payload as CentralIdentityUserLifecycleEventParsedPayload<"user:updated">);
+        break;
+      case "user:delete_requested":
+        // Handle user delete requested logic here
+        result = 'notfound' // return notfound for now, as deletion handling is not implemented yet
+        break;
+      case "user:delete_completed":
+        // Handle user delete completed logic here
+        result = 'notfound' // return notfound for now, as deletion handling is not implemented yet
+        break;
+      default:
+        return conductor400Err(res);
+    }
+
+    logger.info({ result, event: req.body.lifecycleWebhookPayload.event }, "User lifecycle event processed");
+
+    switch (result) {
+      case 'success':
+        return res.send({
+          err: false,
+          msg: "User lifecycle event processed successfully.",
+          meta: {},
+        });
+      case 'conflict':
+        return conductor409Err(res);
+      case 'badreq':
+        return conductor400Err(res);
+      case 'notfound':
+        return conductor404Err(res);
+      case 'error':
+        return conductor500Err(res);
+      case undefined:
+        return conductor500Err(res);
+    }
+  } catch (err) {
+    logger.error({ err }, "processUserLifecycleEventWebhook failed");
+    return conductor500Err(res);
+  }
+}
+
+async function _handleUserCreatedEvent(payload: CentralIdentityUserLifecycleEventParsedPayload<"user:created">): Promise<UserLifecycleEventHandlerResult> {
+  try {
+    if (!payload || !payload.uuid) {
+      logger.error({ payload }, "_handleUserCreatedEvent failed: missing payload data or UUID");
+      return 'badreq';
+    }
+
+    const { uuid: central_identity_id, first_name, last_name, avatar, user_type, verify_status } = payload;
+    const email = (payload.email || "").trim();
+
+    // A centralID and an email can each land on a *different* existing user, so collect every match.
+    const matches = await User.find({
+      $or: [{ email: { $eq: email } }, { centralID: { $eq: central_identity_id } }],
+    }).collation(EMAIL_COLLATION);
+
+    const byCentralID = matches.find((u) => u.centralID === central_identity_id);
+    const byEmail = matches.find((u) => _emailsMatch(u.email, email));
+
+    if (byEmail && byCentralID && byEmail.uuid !== byCentralID.uuid) {
+      logger.error(
+        {
+          central_identity_id,
+          emailOwnerUUID: byEmail.uuid,
+          centralIDOwnerUUID: byCentralID.uuid,
+        },
+        "_handleUserCreatedEvent conflict: email and centralID belong to different users"
+      );
+      return 'conflict';
+    }
+
+    if (byEmail && !byCentralID) {
+      logger.error(
+        { central_identity_id, emailOwnerUUID: byEmail.uuid, emailOwnerCentralID: byEmail.centralID },
+        "_handleUserCreatedEvent conflict: email already belongs to a user with a different centralID"
+      );
+      return 'conflict';
+    }
+
+    if (byCentralID) {
+      // The account already exists: either a duplicate/delayed delivery, or the login path
+      // provisioned it before this webhook arrived. In the latter case fields LibreOne owns
+      // (userType, verifiedInstructor, names, avatar) may never have been set, so backfill them.
+      //
+      // Only ever fill values that are currently absent. A create event can arrive *after* an
+      // update event for the same user, so overwriting a populated field risks replacing newer
+      // data with the user's initial state. Changes to populated fields belong to user:updated.
+      const backfilled: string[] = [];
+
+      if (!byCentralID.userType && user_type) {
+        byCentralID.userType = user_type;
+        backfilled.push("userType");
+      }
+      if (byCentralID.verifiedInstructor === undefined) {
+        byCentralID.verifiedInstructor = verify_status === 'verified';
+        backfilled.push("verifiedInstructor");
+      }
+      if (!byCentralID.firstName && first_name) {
+        byCentralID.firstName = first_name;
+        backfilled.push("firstName");
+      }
+      if (!byCentralID.lastName && last_name) {
+        byCentralID.lastName = last_name;
+        backfilled.push("lastName");
+      }
+      if (!byCentralID.avatar && !byCentralID.customAvatar) {
+        byCentralID.avatar = avatar || DEFAULT_AVATAR_URL;
+        backfilled.push("avatar");
+      }
+      if (!byCentralID.authType) {
+        byCentralID.authType = "sso";
+        backfilled.push("authType");
+      }
+
+      if (backfilled.length > 0) {
+        await byCentralID.save();
+        logger.info(
+          { central_identity_id, existingUserUUID: byCentralID.uuid, backfilled },
+          "_handleUserCreatedEvent: backfilled missing fields on a pre-existing account"
+        );
+        // Fire-and-forget: never block the webhook response.
+        void upsertUserToSearchIndex(byCentralID.uuid);
+      }
+
+      if (!_emailsMatch(byCentralID.email, email)) {
+        // Left alone deliberately: email changes are the business of user:updated, and this
+        // create event may predate the address currently on the account.
+        logger.warn(
+          { central_identity_id, existingUserUUID: byCentralID.uuid },
+          "_handleUserCreatedEvent: existing user for centralID has a different email; email left unchanged"
+        );
+      }
+
+      return 'success';
+    }
+
+    const newUser = new User({
+      centralID: central_identity_id,
+      uuid: uuidv4(),
+      firstName: first_name,
+      lastName: last_name,
+      email,
+      avatar: avatar || DEFAULT_AVATAR_URL,
+      userType: user_type,
+      verifiedInstructor: verify_status === 'verified' || false,
+      authType: "sso",
+      roles: [],
+    });
+    await newUser.save();
+    // Index the newly provisioned user. Fire-and-forget: never block the webhook response.
+    void upsertUserToSearchIndex(newUser.uuid);
+
+    return 'success';
+  } catch (err) {
+    if (_isDuplicateKeyError(err)) {
+      logger.error({ err, central_identity_id: payload?.uuid }, "_handleUserCreatedEvent failed: duplicate key (email already in use)");
+      return 'conflict';
+    }
+    logger.error({ err }, "_handleUserCreatedEvent failed");
+    return 'error';
+  }
+}
+
+async function _handleUserUpdatedEvent(payload: CentralIdentityUserLifecycleEventParsedPayload<"user:updated">): Promise<UserLifecycleEventHandlerResult> {
+  try {
+    if (!payload || !payload.uuid) {
+      logger.error({ payload }, "_handleUserUpdatedEvent failed: missing payload data or UUID");
+      return 'badreq';
+    }
+
+    const user = await User.findOne({ centralID: { $eq: payload.uuid } });
+    if (!user) {
+      logger.error({ payload }, "_handleUserUpdatedEvent failed: user not found");
+      return 'notfound';
+    }
+
+    const incomingEmail = (payload.email || "").trim();
+    if (incomingEmail && !_emailsMatch(incomingEmail, user.email)) {
+      // Detect the collision here so the failure is explainable, rather than surfacing only as a
+      // duplicate-key error from the `email_unique_ci` index.
+      const emailOwner = await User.findOne({
+        email: { $eq: incomingEmail },
+        uuid: { $ne: user.uuid },
+      }).collation(EMAIL_COLLATION);
+      if (emailOwner) {
+        logger.error(
+          {
+            central_identity_id: payload.uuid,
+            targetUserUUID: user.uuid,
+            emailOwnerUUID: emailOwner.uuid,
+            emailOwnerCentralID: emailOwner.centralID,
+          },
+          "_handleUserUpdatedEvent conflict: new email already belongs to another user"
+        );
+        return 'conflict';
+      }
+    }
+
+    user.firstName = payload.first_name || user.firstName;
+    user.lastName = payload.last_name || user.lastName;
+    user.email = incomingEmail || user.email;
+    user.userType = payload.user_type || user.userType;
+    user.verifiedInstructor = payload.verify_status === 'verified' || false;
+    user.avatar = payload.avatar || user.avatar;
+    await user.save();
+
+    // Index the updated user. Fire-and-forget: never block the webhook response.
+    void upsertUserToSearchIndex(user.uuid);
+
+    return 'success';
+  } catch (err) {
+    if (_isDuplicateKeyError(err)) {
+      logger.error({ err, central_identity_id: payload?.uuid }, "_handleUserUpdatedEvent failed: duplicate key (email already in use)");
+      return 'conflict';
+    }
+    logger.error({ err }, "_handleUserUpdatedEvent failed");
+    return 'error';
   }
 }
 
@@ -2148,5 +2421,6 @@ export default {
   deleteUserNote,
   disableUser,
   reEnableUser,
-  deleteUser
+  deleteUser,
+  processUserLifecycleEventWebhook,
 };

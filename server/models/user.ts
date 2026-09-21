@@ -41,6 +41,7 @@ export type UserInterface = Document & {
     authorizedAt: Date;
   }[];
   isSystem?: boolean;
+  userType?: "student" | "instructor";
   instructorProfile?: {
     institution?: string;
     facultyURL?: string;
@@ -126,7 +127,9 @@ const UserSchema = new Schema<UserInterface>(
     email: {
       type: String,
       required: true,
-      unique: true,
+      // Uniqueness is enforced by the case-insensitive `email_unique_ci` index declared below,
+      // NOT by a path-level `unique: true` (which builds a case-sensitive index and would let
+      // "A@x.edu" and "a@x.edu" coexist).
     },
     authType: String, // one of ['traditional', 'sso']
     password: String, // only used for fallback authentication
@@ -182,6 +185,14 @@ const UserSchema = new Schema<UserInterface>(
      */
     isSystem: Boolean,
     /**
+     * The type of user, either a student or an instructor.
+     */
+    userType: {
+      type: String,
+      enum: ["student", "instructor"],
+      required: false,
+    },
+    /**
      * Information about the user's status as an instructor an academic institution.
      */
     instructorProfile: {
@@ -230,6 +241,34 @@ UserSchema.index({
   firstName: "text",
   lastName: "text",
 });
+
+/**
+ * Case-insensitive unique index on email. This is the enforcement point for email uniqueness:
+ * application-level pre-flight checks (e.g. the LibreOne lifecycle webhook handlers) can always
+ * lose a race, and a case-sensitive index would not stop two concurrent writers inserting
+ * "A@x.edu" and "a@x.edu".
+ *
+ * Requires the AddCaseInsensitiveUserEmailIndex migration to have run first: the build fails if
+ * the collection still holds case-variant duplicates, and the legacy case-sensitive `email_1`
+ * index must be dropped by that migration.
+ */
+UserSchema.index(
+  { email: 1 },
+  {
+    unique: true,
+    name: "email_unique_ci",
+    collation: { locale: "en", strength: 2 },
+  }
+);
+
+/**
+ * Plain case-sensitive index on email, retained for query performance. `email_unique_ci` carries a
+ * non-simple collation, so it is NOT eligible for ordinary equality queries like
+ * `User.findOne({ email })` (see the login paths in api/auth.ts) — without this index those become
+ * collection scans. Declared explicitly so it is not an undeclared leftover of the old
+ * path-level `unique: true`; options match the index already in the collection.
+ */
+UserSchema.index({ email: 1 }, { unique: true, name: "email_1" });
 
 UserSchema.index({
   uuid: 1,

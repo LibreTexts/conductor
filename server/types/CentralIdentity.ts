@@ -192,3 +192,32 @@ export type CentralIdentityUserLicenseResult = CentralIdentityUserAppLicense & {
   granted_by: 'org';
   application_license: CentralIdentityAppLicense;
 }
+
+export const CENTRAL_IDENTITY_USER_LIFECYCLE_EVENTS = [
+  'user:created',
+  'user:updated',
+  'user:delete_requested',
+  'user:delete_completed',
+] as const;
+
+export type CentralIdentityUserLifecycleEvent = (typeof CENTRAL_IDENTITY_USER_LIFECYCLE_EVENTS)[number];
+
+/**
+ * The expected shape of the PARSED payload (raw is a JWT string) for different user lifecycle events.
+ */
+export type CentralIdentityUserLifecycleEventParsedPayload<T extends CentralIdentityUserLifecycleEvent> =
+  T extends 'user:created' ? CentralIdentityUser :
+  T extends 'user:updated' ? CentralIdentityUser :
+  T extends 'user:delete_requested' ? CentralIdentityUserLifecycleEventDeleteRequestedParsedPayload :
+  T extends 'user:delete_completed' ? CentralIdentityUserLifecycleEventDeleteCompletedParsedPayload :
+  never;
+
+
+export type CentralIdentityUserLifecycleEventDeleteRequestedParsedPayload = {
+  id: string;
+  requested_at: string;
+}
+
+export type CentralIdentityUserLifecycleEventDeleteCompletedParsedPayload = {
+  id: string;
+}

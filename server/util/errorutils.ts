@@ -43,6 +43,17 @@ export function conductor404Err(res: Response) {
 }
 
 /**
+ * Returns standard 409 (conflict) error
+ * @param {Response} res - Express Response object
+ */
+export function conductor409Err(res: Response) {
+  return res.status(409).send({
+    err: true,
+    errMsg: "A resource conflict occurred.",
+  });
+}
+
+/**
  * Returns standard 500 (internal server) erro
  * @param {Response} res - Express Response object
  */
