@@ -182,7 +182,12 @@ export class AgentService {
           const formattedResults = results
             .map((result, idx) => {
               const cleanText = result.cleanText || (result.body as string)?.replace(/<[^>]*>/g, ' ').substring(0, 500);
-              return `[${idx + 1}] ${result.title}\n${result.description || ''}\nContent: ${cleanText}...\nURL: /insight/${result.slug}\nRelevance Score: ${result.score?.toFixed(3)}`;
+              const url =
+                result.url ||
+                (result.slug
+                  ? qdrantService.getInsightPageUrl(String(result.slug))
+                  : undefined);
+              return `[${idx + 1}] ${result.title}\n${result.description || ''}\nContent: ${cleanText}...\nURL: ${url || `/insight/${result.slug}`}\nRelevance Score: ${result.score?.toFixed(3)}`;
             })
             .join('\n\n');
 

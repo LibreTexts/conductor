@@ -60,6 +60,39 @@ export class QdrantService {
   private closedSupportTicketsCollection = "closed_support_tickets";
   private vectorSize = 1536; // OpenAI text-embedding-3-small dimension
 
+  /** Full public Insight URL, e.g. https://commons.libretexts.org/insight/sd */
+  getInsightPageUrl(slug?: string | null): string | undefined {
+    if (!slug) return undefined;
+    const domain = (
+      process.env.CONDUCTOR_DOMAIN || "commons.libretexts.org"
+    )
+      .replace(/^https?:\/\//i, "")
+      .replace(/\/+$/, "");
+    return `https://${domain}/insight/${String(slug).replace(/^\/+/, "")}`;
+  }
+
+  private cleanHtml(text: string): string {
+    return text
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  /** One embedding input per page: title + description + body for better retrieval. */
+  private formatKBPageEmbeddingText(kbPage: {
+    title?: string;
+    description?: string;
+    body?: string;
+  }): string {
+    return [
+      kbPage.title ? `Title: ${kbPage.title}` : "",
+      kbPage.description ? `Description: ${kbPage.description}` : "",
+      kbPage.body ? this.cleanHtml(kbPage.body) : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
   private async ensureCollection(collectionName: string) {
     const collections = await qdrantClient.getCollections();
     const collectionExists = collections.collections.some(
@@ -93,11 +126,7 @@ export class QdrantService {
   // Generate embeddings from text
   async generateEmbeddings(text: string): Promise<number[]> {
     try {
-      // Clean HTML content to plain text
-      const cleanText = text
-        .replace(/<[^>]*>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
+      const cleanText = this.cleanHtml(text);
 
       const response = await openai.embeddings.create({
         model: "text-embedding-3-small",
@@ -111,10 +140,12 @@ export class QdrantService {
     }
   }
 
-  // Upsert a single KB page to Qdrant
+  // Upsert a single KB page to Qdrant (one vector point per page)
   async upsertKBPage(kbPage: any) {
     try {
-      const embeddings = await this.generateEmbeddings(kbPage.body);
+      const cleanText = this.formatKBPageEmbeddingText(kbPage);
+      const embeddings = await this.generateEmbeddings(cleanText);
+      const url = this.getInsightPageUrl(kbPage.slug);
 
       const point = {
         id: kbPage.uuid, // Use UUID as point ID
@@ -125,16 +156,14 @@ export class QdrantService {
           description: kbPage.description,
           body: kbPage.body,
           slug: kbPage.slug,
+          url,
           status: kbPage.status,
+          internalOnly: Boolean(kbPage.internalOnly),
           parent: kbPage.parent,
           lastEditedByUUID: kbPage.lastEditedByUUID,
           createdAt: kbPage.createdAt,
           updatedAt: kbPage.updatedAt,
-          // Store clean text for better search
-          cleanText: kbPage.body
-            .replace(/<[^>]*>/g, " ")
-            .replace(/\s+/g, " ")
-            .trim(),
+          cleanText,
         },
       };
 
@@ -143,12 +172,13 @@ export class QdrantService {
         points: [point],
       });
 
-      return { success: true, uuid: kbPage.uuid };
+      return { success: true, uuid: kbPage.uuid, title: kbPage.title, url };
     } catch (error) {
       logger.error({ err: error }, `Error upserting KB page ${kbPage.uuid}`);
       return {
         success: false,
         uuid: kbPage.uuid,
+        title: kbPage.title,
         error: (error as Error).message,
       };
     }
@@ -186,7 +216,7 @@ export class QdrantService {
     return results;
   }
 
-  // Search similar pages
+  // Search similar pages (public Insight agent: published + not internal-only)
   async searchSimilar(query: string, limit: number = 5, filter?: any) {
     try {
       const queryEmbedding = await this.generateEmbeddings(query);
@@ -197,10 +227,8 @@ export class QdrantService {
         with_payload: true,
         filter: filter || {
           must: [
-            {
-              key: "status",
-              match: { value: "published" },
-            },
+            { key: "status", match: { value: "published" } },
+            { key: "internalOnly", match: { value: false } },
           ],
         },
       });
@@ -211,6 +239,11 @@ export class QdrantService {
         description: point.payload?.description,
         body: point.payload?.body,
         slug: point.payload?.slug,
+        url:
+          (point.payload?.url as string | undefined) ||
+          this.getInsightPageUrl(
+            point.payload?.slug ? String(point.payload.slug) : undefined,
+          ),
         score: point.score,
         cleanText: point.payload?.cleanText,
       }));
@@ -288,6 +321,7 @@ export class QdrantService {
       this.initializeClosedSupportTicketsCollection(),
     ]);
 
+    // Staff Answer-with-AI: all published Insight pages (including internal-only).
     const [knowledgeBaseResults, closedTicketResults] = await Promise.all([
       qdrantClient.search(this.collectionName, {
         vector,
@@ -318,7 +352,11 @@ export class QdrantService {
       content: String(point.payload?.cleanText || point.payload?.body || ""),
       score: point.score,
       source: "knowledge_base",
-      url: point.payload?.slug ? `/insight/${String(point.payload.slug)}` : undefined,
+      url:
+        (point.payload?.url as string | undefined) ||
+        this.getInsightPageUrl(
+          point.payload?.slug ? String(point.payload.slug) : undefined,
+        ),
     }));
     const tickets: VectorSearchResult[] = closedTicketResults.map((point) => ({
       id: String(point.payload?.uuid || point.id),
