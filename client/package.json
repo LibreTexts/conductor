@@ -144,7 +144,7 @@
     "tailwindcss": "4.2.4",
     "vite": "6.4.2",
     "vite-tsconfig-paths": "4.3.2",
-    "vitest": "4.1.8"
+    "vitest": "4.1.11"
   },
   "overrides": {
     "vfile": "5.3.7",
