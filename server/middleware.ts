@@ -22,6 +22,7 @@ import {
 import SupportTicket from "./models/supporticket.js";
 import User from "./models/user.js";
 import { extractZodErrorMessages } from "./api/validators/misc.js";
+import { jwtVerify } from "jose";
 import CentralIdentityService from "./api/services/central-identity-service.js";
 
 /**
@@ -210,6 +211,49 @@ function authLibreOneRequest(req: Request, res: Response, next: NextFunction) {
   }
   next();
 }
+
+/**
+ * Middleware to authenticate incoming webhook payloads for LibreOne lifecycle events.
+ * This middleware verifies the bearer token in the Authorization header is a JWT signed
+ * with the lifecycle webhook signing key (process.env.LIBREONE_LIFECYCLE_WEBHOOK_SIGNING_KEY).
+ * If the verification fails, the middleware responds with a 401 Unauthorized status and does
+ * not call the next handler. On successful verification, the middleware adds the verified
+ * payload and protected header to the request body as `lifecycleWebhookPayload` and `lifecycleWebhookProtectedHeader`.
+ * @param req 
+ * @param res 
+ * @param next 
+ * @returns 
+ */
+async function authLibreOneLifecycleWebhook(req: Request, res: Response, next: NextFunction) {
+  const bearerToken = req.get("Authorization")?.replace("Bearer ", "");
+  if (!bearerToken) return res.status(401).send("Unauthorized");
+  
+  // Fail-closed if the signing key is not configured.
+  const signingKey = process.env.LIBREONE_LIFECYCLE_WEBHOOK_SIGNING_KEY;
+  if (!signingKey) return res.status(401).send("Unauthorized");
+
+  // The bearer token is the payload JWT signed with the lifecycle webhook signing key.
+  let payload, protectedHeader;
+  try {
+    const encodedSecret = new TextEncoder().encode(signingKey);
+    const verified = await jwtVerify(bearerToken, encodedSecret);
+    payload = verified.payload;
+    protectedHeader = verified.protectedHeader;
+  } catch (err) {
+    return res.status(401).send("Unauthorized");
+  }
+
+  // Attach the verified payload and protected header to the body for downstream handlers
+  req.body = {
+    ...req.body,
+    lifecycleWebhookPayload: payload,
+    lifecycleWebhookProtectedHeader: protectedHeader,
+  };
+
+  next();
+}
+
+
 /**
  * Checks if a request is authorized to access a support ticket. The user can be authorized and have sufficient roles (or be the 'owner' of the ticket), or
  * the request can be authorized with a valid guestAccessKey.
@@ -503,6 +547,7 @@ export default {
   middlewareFilter,
   checkCentralIdentityConfig,
   authLibreOneRequest,
+  authLibreOneLifecycleWebhook,
   canAccessSupportTicket,
   isSelfOrSupport,
   streamJsonBody,

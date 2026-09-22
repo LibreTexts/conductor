@@ -2767,6 +2767,15 @@ router
   );
 
 router
+  .route("/central-identity/webhooks/lifecycle/user")
+  .post(
+    express.raw({ type: "application/json" }),
+    middleware.authLibreOneLifecycleWebhook,
+    middleware.validateZod(centralIdentityValidators.LifecycleEventWebhookValidator),
+    centralIdentityAPI.processUserLifecycleEventWebhook
+  );
+
+router
   .route("/kb/search")
   .get(
     authAPI.optionalVerifyRequest,
