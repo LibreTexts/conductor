@@ -37,7 +37,7 @@
     "cookie-parser": "1.4.7",
     "cors": "2.8.6",
     "crypto-random-string": "5.0.0",
-    "csv-parse": "5.6.0",
+    "csv-parse": "7.0.2",
     "date-and-time": "2.4.3",
     "date-fns": "2.30.0",
     "date-fns-tz": "2.0.1",
