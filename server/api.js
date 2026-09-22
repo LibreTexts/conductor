@@ -3083,6 +3083,25 @@ router
   );
 
 router
+  .route("/support/ticket/:uuid/ai-answer")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
+    middleware.validateZod(supportValidators.TicketUUIDParams),
+    supportAPI.answerTicketWithAI
+  );
+
+router
+  .route("/support/vector/sync-closed")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", ["superadmin"]),
+    supportAPI.syncClosedTicketVectors
+  );
+
+router
   .route("/support/ticket/:uuid")
   .get(
     authAPI.optionalVerifyRequest,

@@ -15,6 +15,7 @@ import SupportQueueService from "./support-queue-service";
 import SupportTicketMessage, { SupportTicketMessageInterface } from "../../models/supporticketmessage";
 import SearchService from "./search-service";
 import SlackNotificationService from "./slack-notification-service";
+import { qdrantService } from "./qdrant";
 const supportTicketLog = childLogger("support-tickets");
 
 export default class SupportTicketService {
@@ -270,6 +271,7 @@ export default class SupportTicketService {
                 }
             ).orFail();
             await this.upsertToSearchIndex(uuid);
+            await this.syncClosedTicketVector(uuid);
         } catch (err) {
             throw err;
         }
@@ -608,6 +610,9 @@ export default class SupportTicketService {
         try {
             await SupportTicket.updateOne({ uuid }, update).orFail();
             await this.upsertToSearchIndex(uuid);
+            if (update.status !== undefined) {
+                await this.syncClosedTicketVector(uuid);
+            }
         } catch (err) {
             throw err;
         }
@@ -617,6 +622,9 @@ export default class SupportTicketService {
         try {
             await SupportTicket.deleteOne({ uuid });
             await this.removeFromSearchIndex(uuid);
+            await qdrantService.deleteClosedSupportTicket(uuid).catch((err) => {
+                supportTicketLog.error(`[SupportTicketService] Failed to remove closed-ticket vector ${uuid}: ${err}`);
+            });
         } catch (err) {
             throw err;
         }
@@ -653,6 +661,84 @@ export default class SupportTicketService {
         }
     }
 
+    /** Keep the Qdrant collection aligned with ticket status without blocking ticket updates. */
+    async syncClosedTicketVector(uuid: string): Promise<void> {
+        try {
+            const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).lean();
+            if (!ticket || ticket.status !== "closed") {
+                await qdrantService.deleteClosedSupportTicket(uuid);
+                return;
+            }
+
+            const messages = await SupportTicketMessage.find({
+                ticket: { $eq: uuid },
+                type: { $eq: "general" },
+            })
+                .sort({ timeSent: 1 })
+                .select({ message: 1, senderIsStaff: 1, timeSent: 1, _id: 0 })
+                .lean();
+
+            await qdrantService.upsertClosedSupportTicket({
+                uuid: ticket.uuid,
+                title: ticket.title,
+                description: ticket.description,
+                category: ticket.category,
+                queueId: ticket.queue_id,
+                timeOpened: ticket.timeOpened,
+                timeClosed: ticket.timeClosed,
+                messages: messages.map((message) => ({
+                    message: message.message,
+                    senderIsStaff: message.senderIsStaff,
+                    timeSent: message.timeSent,
+                })),
+            });
+        } catch (err) {
+            supportTicketLog.error(`[SupportTicketService] Failed to sync closed-ticket vector ${uuid}: ${err}`);
+        }
+    }
+
+    /** Backfills existing closed tickets. Intended for an explicit admin migration request. */
+    async syncAllClosedTicketVectors(): Promise<{ synced: number; failed: number }> {
+        // Create the destination first so configuration/auth failures surface before a long DB backfill.
+        await qdrantService.initializeClosedSupportTicketsCollection();
+        const uuids = await SupportTicket.find({ status: { $eq: "closed" } }).distinct("uuid");
+        let synced = 0;
+        let failed = 0;
+
+        for (const uuid of uuids) {
+            try {
+                const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).lean().orFail();
+                const messages = await SupportTicketMessage.find({
+                    ticket: { $eq: uuid },
+                    type: { $eq: "general" },
+                })
+                    .sort({ timeSent: 1 })
+                    .select({ message: 1, senderIsStaff: 1, timeSent: 1, _id: 0 })
+                    .lean();
+                await qdrantService.upsertClosedSupportTicket({
+                    uuid: ticket.uuid,
+                    title: ticket.title,
+                    description: ticket.description,
+                    category: ticket.category,
+                    queueId: ticket.queue_id,
+                    timeOpened: ticket.timeOpened,
+                    timeClosed: ticket.timeClosed,
+                    messages: messages.map((message) => ({
+                        message: message.message,
+                        senderIsStaff: message.senderIsStaff,
+                        timeSent: message.timeSent,
+                    })),
+                });
+                synced += 1;
+            } catch (err) {
+                failed += 1;
+                supportTicketLog.error(`[SupportTicketService] Failed to backfill closed-ticket vector ${uuid}: ${err}`);
+            }
+        }
+
+        return { synced, failed };
+    }
+
     async autoCloseTicket(ticket: SupportTicketInterface, feedEntry: SupportTicketFeedEntryInterface): Promise<void> {
         try {
             await SupportTicket.updateOne(
@@ -666,6 +752,7 @@ export default class SupportTicketService {
                 },
             );
             await this.upsertToSearchIndex(ticket.uuid);
+            await this.syncClosedTicketVector(ticket.uuid);
         } catch (err) {
             throw err;
         }

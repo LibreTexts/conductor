@@ -3,6 +3,32 @@ import logger from "../../logger.js";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import OpenAI from "openai";
 
+export type VectorSearchSource = "knowledge_base" | "closed_support_ticket";
+
+export interface VectorSearchResult {
+  id: string;
+  title: string;
+  content: string;
+  score: number;
+  source: VectorSearchSource;
+  url?: string;
+}
+
+export interface ClosedSupportTicketVector {
+  uuid: string;
+  title: string;
+  description?: string;
+  category?: string;
+  queueId: string;
+  timeOpened: string;
+  timeClosed?: string;
+  messages: Array<{
+    message: string;
+    senderIsStaff: boolean;
+    timeSent: string;
+  }>;
+}
+
 const qdrantUrl =
   process.env.QDRANT_URL || process.env.QDRANT_HOST || "http://localhost:6333";
 
@@ -31,39 +57,61 @@ async function testQdrantConnection() {
 
 export class QdrantService {
   private collectionName = "kb_pages";
+  private closedSupportTicketsCollection = "closed_support_tickets";
   private vectorSize = 1536; // OpenAI text-embedding-3-small dimension
+
+  /** Full public Insight URL, e.g. https://commons.libretexts.org/insight/sd */
+  getInsightPageUrl(slug?: string | null): string | undefined {
+    if (!slug) return undefined;
+    const domain = (
+      process.env.CONDUCTOR_DOMAIN || "commons.libretexts.org"
+    )
+      .replace(/^https?:\/\//i, "")
+      .replace(/\/+$/, "");
+    return `https://${domain}/insight/${String(slug).replace(/^\/+/, "")}`;
+  }
+
+  private cleanHtml(text: string): string {
+    return text
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  /** One embedding input per page: title + description + body for better retrieval. */
+  private formatKBPageEmbeddingText(kbPage: {
+    title?: string;
+    description?: string;
+    body?: string;
+  }): string {
+    return [
+      kbPage.title ? `Title: ${kbPage.title}` : "",
+      kbPage.description ? `Description: ${kbPage.description}` : "",
+      kbPage.body ? this.cleanHtml(kbPage.body) : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
+  private async ensureCollection(collectionName: string) {
+    const collections = await qdrantClient.getCollections();
+    const collectionExists = collections.collections.some(
+      (collection) => collection.name === collectionName,
+    );
+
+    if (!collectionExists) {
+      await qdrantClient.createCollection(collectionName, {
+        vectors: { size: this.vectorSize, distance: "Cosine" },
+        optimizers_config: { default_segment_number: 2 },
+        replication_factor: 1,
+      });
+    }
+  }
 
   // Initialize Qdrant collection
   async initializeCollection() {
     try {
-      // Check if collection exists
-      logger.info("Checking if collection exists ...");
-      const collections = await qdrantClient.getCollections();
-      logger.info({ detail: [collections] }, "collections");
-      const collectionExists = collections.collections.some(
-        (col) => col.name === this.collectionName,
-      );
-      logger.info({ detail: [collectionExists] }, "collectionExists");
-
-      if (!collectionExists) {
-        logger.info(`Creating Qdrant collection: ${this.collectionName}`);
-
-        await qdrantClient.createCollection(this.collectionName, {
-          vectors: {
-            size: this.vectorSize,
-            distance: "Cosine", // Use cosine similarity
-          },
-          optimizers_config: {
-            default_segment_number: 2,
-          },
-          replication_factor: 1,
-        });
-
-        logger.info("Collection created successfully");
-      } else {
-        logger.info("Collection already exists");
-      }
-
+      await this.ensureCollection(this.collectionName);
       return true;
     } catch (error) {
       logger.error({ err: error }, "Error initializing Qdrant collection");
@@ -71,14 +119,14 @@ export class QdrantService {
     }
   }
 
+  async initializeClosedSupportTicketsCollection() {
+    await this.ensureCollection(this.closedSupportTicketsCollection);
+  }
+
   // Generate embeddings from text
   async generateEmbeddings(text: string): Promise<number[]> {
     try {
-      // Clean HTML content to plain text
-      const cleanText = text
-        .replace(/<[^>]*>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
+      const cleanText = this.cleanHtml(text);
 
       const response = await openai.embeddings.create({
         model: "text-embedding-3-small",
@@ -92,10 +140,12 @@ export class QdrantService {
     }
   }
 
-  // Upsert a single KB page to Qdrant
+  // Upsert a single KB page to Qdrant (one vector point per page)
   async upsertKBPage(kbPage: any) {
     try {
-      const embeddings = await this.generateEmbeddings(kbPage.body);
+      const cleanText = this.formatKBPageEmbeddingText(kbPage);
+      const embeddings = await this.generateEmbeddings(cleanText);
+      const url = this.getInsightPageUrl(kbPage.slug);
 
       const point = {
         id: kbPage.uuid, // Use UUID as point ID
@@ -106,16 +156,14 @@ export class QdrantService {
           description: kbPage.description,
           body: kbPage.body,
           slug: kbPage.slug,
+          url,
           status: kbPage.status,
+          internalOnly: Boolean(kbPage.internalOnly),
           parent: kbPage.parent,
           lastEditedByUUID: kbPage.lastEditedByUUID,
           createdAt: kbPage.createdAt,
           updatedAt: kbPage.updatedAt,
-          // Store clean text for better search
-          cleanText: kbPage.body
-            .replace(/<[^>]*>/g, " ")
-            .replace(/\s+/g, " ")
-            .trim(),
+          cleanText,
         },
       };
 
@@ -124,12 +172,13 @@ export class QdrantService {
         points: [point],
       });
 
-      return { success: true, uuid: kbPage.uuid };
+      return { success: true, uuid: kbPage.uuid, title: kbPage.title, url };
     } catch (error) {
       logger.error({ err: error }, `Error upserting KB page ${kbPage.uuid}`);
       return {
         success: false,
         uuid: kbPage.uuid,
+        title: kbPage.title,
         error: (error as Error).message,
       };
     }
@@ -167,7 +216,7 @@ export class QdrantService {
     return results;
   }
 
-  // Search similar pages
+  // Search similar pages (public Insight agent: published + not internal-only)
   async searchSimilar(query: string, limit: number = 5, filter?: any) {
     try {
       const queryEmbedding = await this.generateEmbeddings(query);
@@ -178,10 +227,8 @@ export class QdrantService {
         with_payload: true,
         filter: filter || {
           must: [
-            {
-              key: "status",
-              match: { value: "published" },
-            },
+            { key: "status", match: { value: "published" } },
+            { key: "internalOnly", match: { value: false } },
           ],
         },
       });
@@ -192,6 +239,11 @@ export class QdrantService {
         description: point.payload?.description,
         body: point.payload?.body,
         slug: point.payload?.slug,
+        url:
+          (point.payload?.url as string | undefined) ||
+          this.getInsightPageUrl(
+            point.payload?.slug ? String(point.payload.slug) : undefined,
+          ),
         score: point.score,
         cleanText: point.payload?.cleanText,
       }));
@@ -199,6 +251,122 @@ export class QdrantService {
       logger.error({ err: error }, "Error searching Qdrant");
       throw error;
     }
+  }
+
+  private formatClosedTicketContent(ticket: ClosedSupportTicketVector) {
+    const conversation = ticket.messages
+      .map(
+        (message) =>
+          `${message.senderIsStaff ? "Support" : "Requester"}: ${message.message}`,
+      )
+      .join("\n");
+
+    const content = [
+      `Title: ${ticket.title}`,
+      ticket.category ? `Category: ${ticket.category}` : "",
+      `Request: ${ticket.description || "No description provided."}`,
+      conversation ? `Conversation:\n${conversation}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    // Preserve both the original request and the eventual resolution for long threads.
+    return content.length <= 24_000
+      ? content
+      : `${content.slice(0, 8_000)}\n\n[earlier conversation truncated]\n\n${content.slice(-16_000)}`;
+  }
+
+  async upsertClosedSupportTicket(ticket: ClosedSupportTicketVector) {
+    await this.initializeClosedSupportTicketsCollection();
+    const content = this.formatClosedTicketContent(ticket);
+    const vector = await this.generateEmbeddings(content);
+
+    await qdrantClient.upsert(this.closedSupportTicketsCollection, {
+      wait: true,
+      points: [
+        {
+          id: ticket.uuid,
+          vector,
+          payload: {
+            uuid: ticket.uuid,
+            title: ticket.title,
+            content,
+            category: ticket.category,
+            queueId: ticket.queueId,
+            status: "closed",
+            timeOpened: ticket.timeOpened,
+            timeClosed: ticket.timeClosed,
+          },
+        },
+      ],
+    });
+  }
+
+  async deleteClosedSupportTicket(uuid: string) {
+    await this.initializeClosedSupportTicketsCollection();
+    await qdrantClient.delete(this.closedSupportTicketsCollection, {
+      wait: true,
+      points: [uuid],
+    });
+  }
+
+  async searchSupportKnowledge(
+    query: string,
+    limitPerCollection: number = 3,
+    queueId?: string,
+  ): Promise<VectorSearchResult[]> {
+    const vector = await this.generateEmbeddings(query);
+    await Promise.all([
+      this.initializeCollection(),
+      this.initializeClosedSupportTicketsCollection(),
+    ]);
+
+    // Staff Answer-with-AI: all published Insight pages (including internal-only).
+    const [knowledgeBaseResults, closedTicketResults] = await Promise.all([
+      qdrantClient.search(this.collectionName, {
+        vector,
+        limit: limitPerCollection,
+        with_payload: true,
+        filter: {
+          must: [{ key: "status", match: { value: "published" } }],
+        },
+      }),
+      qdrantClient.search(this.closedSupportTicketsCollection, {
+        vector,
+        limit: limitPerCollection,
+        with_payload: true,
+        filter: {
+          must: [
+            { key: "status", match: { value: "closed" } },
+            ...(queueId
+              ? [{ key: "queueId", match: { value: queueId } }]
+              : []),
+          ],
+        },
+      }),
+    ]);
+
+    const kb: VectorSearchResult[] = knowledgeBaseResults.map((point) => ({
+      id: String(point.payload?.uuid || point.id),
+      title: String(point.payload?.title || "Knowledge base article"),
+      content: String(point.payload?.cleanText || point.payload?.body || ""),
+      score: point.score,
+      source: "knowledge_base",
+      url:
+        (point.payload?.url as string | undefined) ||
+        this.getInsightPageUrl(
+          point.payload?.slug ? String(point.payload.slug) : undefined,
+        ),
+    }));
+    const tickets: VectorSearchResult[] = closedTicketResults.map((point) => ({
+      id: String(point.payload?.uuid || point.id),
+      title: String(point.payload?.title || "Resolved support ticket"),
+      content: String(point.payload?.content || ""),
+      score: point.score,
+      source: "closed_support_ticket",
+    }));
+
+    return [...kb, ...tickets].sort((a, b) => b.score - a.score);
   }
 
   // Get collection info
