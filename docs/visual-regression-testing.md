@@ -1,10 +1,27 @@
 # Visual regression testing
 
-The initial proof of concept starts the Vite client, opens the login page in
-Playwright, and sends desktop and mobile snapshots to Percy. Percy compares a
-pull request's snapshots with the baseline for that pull request's target branch.
-In the normal release flow, feature pull requests compare against `staging`, and
-the later `staging` to `master` pull request compares against `master`.
+Playwright + Percy. Shared helpers live in `client/visual-tests/base.ts` and
+`client/visual-tests/utils/`. Reusable flows live in `client/visual-tests/flows/`.
+
+## What CI runs (default)
+
+`npm run test:visual` runs **one** journey (`--project=journey`):
+
+1. Login at `/fallback-auth` (screenshot)
+2. Go to Commons `/`, screenshot catalog, open first book, screenshot again
+
+That is a single browser / single test with multiple Percy snapshots in one build —
+not separate login/books tests.
+
+## Isolated specs (opt-in only)
+
+Login-only and books-only specs live under `visual-tests/isolated/` and run only when
+you ask for them:
+
+```sh
+npm run test:visual:isolated
+npm run test:visual:isolated:headed
+```
 
 ## One-time Percy setup
 
@@ -24,26 +41,25 @@ does not upload snapshots to Percy.
 
 ## Run locally
 
-Install Chromium once:
-
 ```sh
 cd client
 npx playwright install chromium
-```
 
-Run the browser scenario without uploading to Percy:
-
-```sh
+# Default journey (1 browser, full flow) — no Percy upload
 npm run test:visual:local
+npm run test:visual:headed
+
+# Optional isolated pieces only
+npm run test:visual:isolated:headed
+
+# Percy upload (same journey CI uses)
+PERCY_TOKEN=... npm run test:visual
 ```
 
-To create a Percy build, expose `PERCY_TOKEN` in your shell and run:
+Flows call one helper (`captureVisualSnapshot`): Percy on `npm run test:visual` /
+CI, local PNGs on `:local` / `:headed`. Never both.
 
-```sh
-npm run test:visual
-```
-
-The first scenario mocks the organization endpoint and blocks the external
-support widget. This makes the login snapshot stable and avoids requiring the
-server, database, or a test account. Add authenticated scenarios only after a
-repeatable test-data and authentication strategy is available.
+Local PNGs land in gitignored `client/test-results/visual/`.
+Credentials for login: `VISUAL_AUTH_EMAIL` / `VISUAL_AUTH_PASSWORD` in `client/.env`.
+`PERCY_TOKEN` is a GitHub Actions secret (or set in the shell for local Percy runs) —
+it is not stored in `client/.env`.
