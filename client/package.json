@@ -9,8 +9,11 @@
     "serve": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:visual": "percy exec -- playwright test",
-    "test:visual:local": "playwright test"
+    "test:visual": "SKIP_LOCAL_VISUAL_SCREENSHOTS=1 percy exec -- playwright test --project=journey",
+    "test:visual:local": "SKIP_PERCY_SNAPSHOTS=1 playwright test --project=journey",
+    "test:visual:headed": "SKIP_PERCY_SNAPSHOTS=1 playwright test --project=journey --headed",
+    "test:visual:isolated": "SKIP_PERCY_SNAPSHOTS=1 playwright test --project=isolated",
+    "test:visual:isolated:headed": "SKIP_PERCY_SNAPSHOTS=1 playwright test --project=isolated --headed"
   },
   "dependencies": {
     "@ckeditor/ckeditor5-react": "11.2.0",
