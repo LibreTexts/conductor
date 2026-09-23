@@ -402,8 +402,11 @@ export const  parseLicenseVersion =(version?: string): string | undefined=> {
   }
 /** URL substrings that identify structural pages which must always be Public Domain. */
 export const PUBLIC_DOMAIN_PAGE_SUFFIXES = [
-  "zz%3A_Back_Matter/10%3A_Index",
+  "00%3A_Front_Matter/02%3A_InfoPage",
   "00%3A_Front_Matter/03%3A_Table_of_Contents",
+  "00%3A_Front_Matter/04%3A_Licensing",
+  "zz%3A_Back_Matter/10%3A_Index",
+  "zz%3A_Back_Matter/30%3A_Detailed_Licensing",
 ];
 
 export function isStructuralPage(url?: string): boolean {

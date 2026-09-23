@@ -76,6 +76,18 @@ describe("getBulkLicenseSkip", () => {
     expect(getBulkLicenseSkip({ url }, "publicdomain")).toBeNull();
   });
 
+  it("treats the InfoPage and licensing pages as structural", () => {
+    for (const path of [
+      "00%3A_Front_Matter/02%3A_InfoPage",
+      "00%3A_Front_Matter/04%3A_Licensing",
+      "zz%3A_Back_Matter/30%3A_Detailed_Licensing",
+    ]) {
+      expect(getBulkLicenseSkip({ url: `https://x/${path}` }, "ccby", "40")?.reason).toBe(
+        "structural",
+      );
+    }
+  });
+
   it("skips pages that already have the license", () => {
     expect(
       getBulkLicenseSkip({ pageLicense: lic("ccby", "40") }, "ccby", "40")?.reason,
