@@ -137,14 +137,18 @@ const licenseVersions = [
 /**
  * Returns the UI-ready presentation of a license title.
  * @param {string} license - The license's raw identifier.
- * @param {string} [version] - The license version in format 'x.x'. 
+ * @param {string} [version] - The license version in format 'x.x'. Ignored for
+ *  licenses that have no versions (e.g. Public Domain), even if one was tagged.
  * @returns {string} The UI-ready license title presentation.
  */
 const getLicenseText = (license, version) => {
     if (license !== '') {
         let foundLicense = licenseOptions.find((item) => item.value === license);
         if (foundLicense !== undefined) {
-            if (typeof (version) === 'string') return `${foundLicense.text} ${version}`;
+            const hasVersions = getLicenseVersionOptions(license).length > 0;
+            if (hasVersions && typeof (version) === 'string' && version !== '') {
+                return `${foundLicense.text} ${version}`;
+            }
             return foundLicense.text;
         }
         return 'Unknown License';
