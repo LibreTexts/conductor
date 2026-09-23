@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { expandWithDescendants, getBulkLicenseSkip } from "./util";
+import {
+  expandWithDescendants,
+  getBulkLicenseSkip,
+  getLicenseCompliance,
+  isLicenseNonCompliant,
+} from "./util";
 
 const lic = (label: string, version?: string) => ({
   label,
@@ -75,5 +80,27 @@ describe("getBulkLicenseSkip", () => {
     expect(
       getBulkLicenseSkip({ pageLicense: lic("ccby", "40") }, "ccby", "40")?.reason,
     ).toBe("unchanged");
+  });
+});
+
+describe("missing license versions", () => {
+  it("flags a versioned license without a version", () => {
+    const result = getLicenseCompliance(
+      lic("ccby", "40"),
+      lic("ccby"),
+      { label: "", raw: "" },
+      [lic("ccbysa")],
+    );
+    expect(result.missingVersions.map((m) => m.role)).toEqual([
+      "page",
+      "content:0",
+    ]);
+    expect(result.compliant).toBe(false);
+  });
+
+  it("does not flag licenses that have no versions", () => {
+    expect(
+      isLicenseNonCompliant(lic("publicdomain"), lic("publicdomain")),
+    ).toBe(false);
   });
 });
