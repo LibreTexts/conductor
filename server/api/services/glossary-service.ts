@@ -285,7 +285,7 @@ export default class GlossaryService {
       const { coverID, library } = params;
       const glossaryUnsorted = await GlossaryUsage.find({
         coverID: parseInt(coverID),
-        library,
+        library: { $eq: library },
       });
       // Mongo has no query-level sort here (see getGlossaryPage for why) —
       // apply the same punctuation/article-aware ordering as the reader-facing
@@ -510,7 +510,7 @@ export default class GlossaryService {
     if (terms.length === 0) return [];
     const existing = await GlossaryUsage.find({
       coverID: parseInt(coverID),
-      library,
+      library: { $eq: library },
       term: {
         $in: terms.map((t) => new RegExp(`^${escapeRegEx(t)}$`, "i")),
       },
@@ -677,7 +677,11 @@ export default class GlossaryService {
       let result;
       try {
         result = await GlossaryUsage.updateOne(
-          { usageID: String(usageID), coverID: parseInt(coverID), library },
+          {
+            usageID: { $eq: String(usageID) },
+            coverID: parseInt(coverID),
+            library: { $eq: library },
+          },
           {
             $set: {
               ...rest,
@@ -722,7 +726,7 @@ export default class GlossaryService {
       const { coverID, library } = params;
       await GlossaryUsage.deleteOne({
         coverID: parseInt(coverID),
-        library,
+        library: { $eq: library },
       });
     } catch (error) {
       throw error;
@@ -733,7 +737,7 @@ export default class GlossaryService {
     try {
       if (pageID) {
         const glossaryusage = await GlossaryUsage.findOne({
-          usageID,
+          usageID: { $eq: usageID },
         });
         if (glossaryusage) {
           glossaryusage.pages = glossaryusage.pages.filter(
@@ -743,7 +747,7 @@ export default class GlossaryService {
         }
       } else {
         await GlossaryUsage.deleteOne({
-          usageID,
+          usageID: { $eq: usageID },
         });
       }
     } catch (error) {
@@ -760,7 +764,7 @@ export default class GlossaryService {
     const result = await GlossaryUsage.deleteMany({
       usageID: { $in: usageIDs },
       coverID: parseInt(coverID),
-      library,
+      library: { $eq: library },
     });
     return result.deletedCount ?? 0;
   }
@@ -792,7 +796,7 @@ export default class GlossaryService {
       {
         usageID: { $in: usageIDs },
         coverID: parseInt(coverID),
-        library,
+        library: { $eq: library },
       },
       { $set: { ...setFields, updatedAt: new Date() } },
     );
@@ -809,7 +813,7 @@ export default class GlossaryService {
       const glossaryUsage = await GlossaryUsage.find({
         usageID: { $in: usageIds },
         coverID: parseInt(coverID),
-        library,
+        library: { $eq: library },
       });
       if (!glossaryUsage.length) {
         throw new Error("Glossary usage not found");
@@ -862,8 +866,8 @@ export default class GlossaryService {
     } = params;
 
     const sourceUsages = await GlossaryUsage.find({
-      library: sourceLibrary,
-      "pages.pageID": sourcePageID,
+      library: { $eq: sourceLibrary },
+      "pages.pageID": { $eq: sourcePageID },
     });
     if (sourceUsages.length === 0) return 0;
 
@@ -921,7 +925,10 @@ export default class GlossaryService {
       const candidateCoverIDs = await this.getCandidateCoverIDs(pageID, library);
 
       const [glossaryUnsorted, config] = await Promise.all([
-        GlossaryUsage.find({ coverID: { $in: candidateCoverIDs }, library }),
+        GlossaryUsage.find({
+          coverID: { $in: candidateCoverIDs },
+          library: { $eq: library },
+        }),
         this.getGlossaryConfig(String(coverID), glossaryLibrary),
       ]);
       // Mongo can only sort on the raw `term` field, which would alphabetize
@@ -1028,7 +1035,7 @@ export default class GlossaryService {
     const pipeline = [
       {
         $match: {
-          library,
+          library: { $eq: library },
           $or: [
             { "pages.pageID": { $in: candidateStrs } },
             { glossaryID: { $in: candidateStrs } },
@@ -1079,7 +1086,7 @@ export default class GlossaryService {
 
     const glossary = await GlossaryUsage.findOne(
       {
-        library,
+        library: { $eq: library },
         $or: [
           { "pages.pageID": { $in: candidateStrs } },
           { glossaryID: { $in: candidateStrs } },
@@ -1102,7 +1109,7 @@ export default class GlossaryService {
     usageID: string,
   ): Promise<{ data: Buffer; contentType: string }> {
     try {
-      const glossaryUsage = await GlossaryUsage.findOne({ usageID });
+      const glossaryUsage = await GlossaryUsage.findOne({ usageID: { $eq: usageID } });
       if (!glossaryUsage?.imageFile) {
         throw new Error("No image found");
       }
@@ -1235,9 +1242,9 @@ export default class GlossaryService {
     const caption = sanitizeOptionalLibraryText(params.caption);
 
     const existingGlossaryUsage = await GlossaryUsage.findOne({
-      termID: params.termID,
+      termID: { $eq: params.termID },
       coverID: parseInt(params.coverID),
-      library: params.library,
+      library: { $eq: params.library },
     });
     const aliases: { termID: string; term: string }[] = [];
 
@@ -1309,9 +1316,9 @@ export default class GlossaryService {
       // applying the same update it would have gotten as "existing".
       if (isDuplicateKeyError(error)) {
         const winner = await GlossaryUsage.findOne({
-          termID: params.termID,
+          termID: { $eq: params.termID },
           coverID: parseInt(params.coverID),
-          library: params.library,
+          library: { $eq: params.library },
         });
         if (winner) {
           return this._applyToExistingGlossaryUsage(
