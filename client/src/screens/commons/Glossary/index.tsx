@@ -331,7 +331,7 @@ const GlossaryManager: React.FC = () => {
                 icon={<IconSettings size={16} />}
                 iconPosition="left"
               >
-                Configure Glossary
+                Glossary Scope
               </Button>
               {glossaryID && (
                 <Button
