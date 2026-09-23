@@ -46,6 +46,7 @@ import {
 } from "./util";
 import BulkLicenseModal from "./BulkLicenseModal";
 import SubpageLicenseModal from "./SubpageLicenseModal";
+import RefreshModeModal, { type RefreshMode } from "./RefreshModeModal";
 import ComplianceDetails from "./ComplianceDetails";
 import FixAllPreviewModal, { type FixAllEntry } from "./FixAllPreviewModal";
 import LicenseBadge from "./LicenseBadge";
@@ -553,7 +554,7 @@ const Restacker: React.FC = () => {
   });
 
   const { mutate: handleReload, isPending: reloadPending } = useMutation({
-    mutationFn: () => api.reloadRestacker(id!),
+    mutationFn: (mode: RefreshMode) => api.reloadRestacker(id!, mode),
     onSuccess: async () => {
       // The reload endpoint recreates an all-pending doc and starts the job itself, so we just
       // resume polling; status flips to "pending" and the table repopulates when it completes.
@@ -919,7 +920,17 @@ const Restacker: React.FC = () => {
             <Stack direction="vertical" gap="sm">
             <Button
               variant="primary"
-              onClick={() => handleReload()}
+              onClick={() =>
+                openModal(
+                  <RefreshModeModal
+                    onCancel={closeAllModals}
+                    onConfirm={(mode) => {
+                      closeAllModals();
+                      handleReload(mode);
+                    }}
+                  />,
+                )
+              }
               loading={reloadPending || isProcessing}
               disabled={!id}
               icon={<IconRefresh size={16} />}

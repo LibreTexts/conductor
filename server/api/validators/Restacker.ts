@@ -29,3 +29,14 @@ export const BulkUpdateRestackerLicenseSchema = z.object({
     version: z.string().optional(),
   }),
 });
+
+export const RestackerReloadSchema = z.object({
+  params: z.object({
+    projectID: z.string().length(10),
+  }),
+  body: z
+    .object({
+      mode: z.enum(["content", "page"]).optional(),
+    })
+    .optional(),
+});
