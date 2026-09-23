@@ -13,7 +13,10 @@ import { IconPhoto, IconX } from "@tabler/icons-react";
 import React, { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import GlossaryTermAutocomplete from "./GlossaryTermAutocomplete";
-import { licenseOptions } from "../../../components/util/LicenseOptions";
+import {
+  licenseOptions,
+  normalizeLicenseKey,
+} from "../../../components/util/LicenseOptions";
 import api from "../../../api";
 import { GlossaryEntry } from "./model";
 import type { Notification } from "../../../context/NotificationContext";
@@ -120,7 +123,8 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     setValue("definition", term.definition ?? "");
     setValue("aliases", term.aliases ?? []);
     setValue("link", term.link ?? "");
-    setValue("source", term.source ?? "");
+    // Map renamed license values (e.g. "multiple") so the select shows the saved choice.
+    setValue("source", normalizeLicenseKey(term.source ?? ""));
     setValue("author", term.author ?? "");
     setValue("imageSource", term.imageSource ?? "");
     setValue("imageAuthor", term.imageAuthor ?? "");

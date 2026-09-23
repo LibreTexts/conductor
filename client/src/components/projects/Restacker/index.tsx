@@ -600,8 +600,11 @@ const Restacker: React.FC = () => {
       );
       setEditingLicense(null);
     },
-    onError: (error) => {
-      addNotification({ type: "error", message: "Error updating license" });
+    onError: (err: unknown) => {
+      const message =
+        (err as { response?: { data?: { errMsg?: string } } })?.response?.data
+          ?.errMsg || "Error updating license";
+      addNotification({ type: "error", message });
       setEditingLicense(null);
     },
   });

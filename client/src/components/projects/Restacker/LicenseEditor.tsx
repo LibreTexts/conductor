@@ -4,6 +4,7 @@ import { IconCheck, IconX } from "@tabler/icons-react";
 import {
   getLicenseVersionOptions,
   licenseOptions,
+  normalizeLicenseKey,
 } from "../../util/LicenseOptions";
 import type { RestackerTocLicense } from "../../../types";
 import LicenseBadge from "./LicenseBadge";
@@ -34,7 +35,7 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
   onCancel,
   onSubmit,
 }) => {
-  const licenseKey = parseLicenseKey(license) ?? "";
+  const licenseKey = normalizeLicenseKey(parseLicenseKey(license) ?? "");
   const versionDigits = formatVersionDigits(
     parseLicenseVersion(license?.version) ?? license?.version,
   );
