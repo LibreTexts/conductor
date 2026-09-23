@@ -128,6 +128,18 @@ export class GlossaryConfigValidationError extends Error {
   }
 }
 
+/**
+ * Signals that a rename would give a term the same text as another term
+ * already in this book's glossary (one usage per term per book) — handlers
+ * map it to 409.
+ */
+export class GlossaryTermConflictError extends Error {
+  constructor(term: string) {
+    super(`"${term}" already exists in this glossary.`);
+    this.name = "GlossaryTermConflictError";
+  }
+}
+
 export interface AddGlossaryParams {
   glossaryID?: string;
   term: string;
@@ -652,30 +664,49 @@ export default class GlossaryService {
         toUnset.imageFile = "";
       }
 
-      const result = await GlossaryUsage.updateOne(
-        { usageID: String(usageID), coverID: parseInt(coverID), library },
-        {
-          $set: {
-            ...rest,
-            term: sanitizeLibraryText(term),
-            definition: sanitizeLibraryText(definition),
-            ...Object.fromEntries(
-              Object.entries(optionalFields).filter(([, v]) => v !== undefined),
-            ),
-            aliases: aliases,
-            updatedAt: new Date(),
-            ...(imageFile &&
-              !removeImage && {
-                imageFile: {
-                  data: imageFile.buffer,
-                  contentType: imageFile.mimetype,
-                  originalname: imageFile.originalname,
-                },
-              }),
-          },
-          ...(Object.keys(toUnset).length > 0 && { $unset: toUnset }),
-        },
+      // Re-resolve the term on every edit: a renamed usage must point at the
+      // Glossary entry for its new text (found case-insensitively, or created),
+      // otherwise the old termID keeps matching later adds of the old text.
+      const cleanTerm = sanitizeLibraryText(term);
+      const { termID } = await this._addGlossaryToDatabase(
+        cleanTerm,
+        definition,
       );
+
+      let result;
+      try {
+        result = await GlossaryUsage.updateOne(
+          { usageID: String(usageID), coverID: parseInt(coverID), library },
+          {
+            $set: {
+              ...rest,
+              termID,
+              term: cleanTerm,
+              definition: sanitizeLibraryText(definition),
+              ...Object.fromEntries(
+                Object.entries(optionalFields).filter(([, v]) => v !== undefined),
+              ),
+              aliases: aliases,
+              updatedAt: new Date(),
+              ...(imageFile &&
+                !removeImage && {
+                  imageFile: {
+                    data: imageFile.buffer,
+                    contentType: imageFile.mimetype,
+                    originalname: imageFile.originalname,
+                  },
+                }),
+            },
+            ...(Object.keys(toUnset).length > 0 && { $unset: toUnset }),
+          },
+        );
+      } catch (error) {
+        // Another usage in this book already has that term.
+        if (isDuplicateKeyError(error)) {
+          throw new GlossaryTermConflictError(cleanTerm);
+        }
+        throw error;
+      }
 
       if (result.matchedCount === 0) {
         throw new Error("Glossary usage not found for usageID: " + usageID);
