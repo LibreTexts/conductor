@@ -5,6 +5,7 @@ import { formatLicenseRole, getLicenseByRole } from "./util";
 import { RestackerTocLicense } from "../../../types/Book";
 import LicenseBadge from "./LicenseBadge";
 import { getLicenseText } from "../../util/LicenseOptions";
+import { getPageNotes } from "./pageNotes";
 
 const SUPPORT_CONTACT_URL = "/support/contact";
 
@@ -21,6 +22,7 @@ interface ComplianceDetailsProps {
   open: boolean;
   onClose: () => void;
   pageTitle?: string;
+  pageUrl?: string;
   compliance: LicenseComplianceResult | null;
   bookLicense?: RestackerTocLicense;
   pageLicense?: RestackerTocLicense;
@@ -32,6 +34,7 @@ const ComplianceDetails: React.FC<ComplianceDetailsProps> = ({
   open,
   onClose,
   pageTitle,
+  pageUrl,
   compliance,
   bookLicense,
   pageLicense,
@@ -40,6 +43,7 @@ const ComplianceDetails: React.FC<ComplianceDetailsProps> = ({
 }) => {
   const pairs = compliance?.pairs ?? [];
   const missingVersions = compliance?.missingVersions ?? [];
+  const pageNotes = getPageNotes({ url: pageUrl, sourceLicense });
   const editableMissing = missingVersions.filter((m) => isEditableRole(m.role));
   const externalMissing = missingVersions.filter((m) => !isEditableRole(m.role));
   const licenseContext = {
@@ -76,6 +80,16 @@ const ComplianceDetails: React.FC<ComplianceDetailsProps> = ({
             </Text>
           ))}
         </Stack>
+        {pageNotes.map((note) => (
+          <Alert
+            key={note.id}
+            variant="info"
+            title={note.title}
+            message={note.text}
+            showIcon
+            className="my-3"
+          />
+        ))}
         {editableMissing.length > 0 && (
           <Alert
             variant="error"

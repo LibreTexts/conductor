@@ -486,6 +486,7 @@ const Restacker: React.FC = () => {
           closeAllModals();
         }}
         pageTitle={row?.title}
+        pageUrl={row?.url}
         compliance={compliance}
         bookLicense={bookLicense}
         pageLicense={row?.pageLicense}
