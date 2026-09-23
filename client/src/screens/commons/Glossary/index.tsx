@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useParams, useRouteMatch } from "react-router-dom";
-import PageNotFound from "../../../components/util/PageNotFound";
+import { useParams } from "react-router-dom";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { TableOfContents } from "../../../types/Book";
@@ -50,41 +49,21 @@ const CSV_IMPORT_MODAL_ID = "glossary-csv-import-modal";
 const CONFIG_MODAL_ID = "glossary-config-modal";
 const ADD_PAGE_MODAL_ID = "glossary-add-page-modal";
 
-type GlossaryResourceType = "book" | "project";
-
 const GlossaryManager: React.FC = () => {
   const { addNotification } = useNotifications();
   const { openModal, closeModal } = useModals();
   const { id } = useParams<{ id: string }>();
-  const projectMatch = useRouteMatch({
-    path: "/glossary/project/:id",
-    exact: true,
-  });
-  const bookMatch = useRouteMatch({ path: "/glossary/book/:id", exact: true });
-
   const [selectedTerms, setSelectedTerms] = useState<GlossaryEntry[]>([]);
 
-  let resourceType: GlossaryResourceType | null = null;
-  if (projectMatch) {
-    resourceType = "project";
-  } else if (bookMatch) {
-    resourceType = "book";
-  }
-
-  const { project, isLoading: isLoadingProject } =
-    resourceType === "project"
-      ? useProject(id!)
-      : { project: undefined, isLoading: false };
+  const { project, isLoading: isLoadingProject } = useProject(id);
 
   const { data: bookTOC, isLoading: loadingTOC } = useQuery<TableOfContents>({
-    queryKey: ["book-toc", id, resourceType],
+    queryKey: ["book-toc", id, "project"],
     queryFn: async () => {
-      const res = await (resourceType === "book"
-        ? api.getBookTOC(id!)
-        : api.getProjectTOC(id!));
+      const res = await api.getProjectTOC(id);
       return res.data?.toc;
     },
-    enabled: !!id && !!resourceType,
+    enabled: !!id,
   });
 
   const library = useMemo(
@@ -125,10 +104,6 @@ const GlossaryManager: React.FC = () => {
     }
     return ids;
   }, [glossaryEntries]);
-
-  if (!resourceType) {
-    return <PageNotFound />;
-  }
 
   const handleAddTermsToPages = async (
     pageIds: string[],
@@ -217,7 +192,7 @@ const GlossaryManager: React.FC = () => {
         glossaryID={glossaryID}
         onClose={() => closeModal(ADD_TERM_MODAL_ID)}
         coverID={coverID}
-        bookID={!projectMatch ? (id ?? "") : ""}
+        bookID=""
         library={library}
         onTermCreated={() => {
           if (coverID && library) {
@@ -320,8 +295,7 @@ const GlossaryManager: React.FC = () => {
           <Stack direction="horizontal" align="center" justify="between">
             <Stack direction="vertical"  gap="sm">
               <h4 className="text-2xl font-semibold">Book Glossary</h4>
-              {resourceType === "project" &&
-                !isLoadingProject &&
+              {!isLoadingProject &&
                 project?.title && (
                   <Breadcrumb className="ml-1">
                     <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
@@ -442,7 +416,7 @@ const GlossaryManager: React.FC = () => {
             <TOCTreeView
               items={bookTOC.children}
               expandAll={tocExpandAll}
-              storageKey={id ? `glossary-toc-expanded:${resourceType}:${id}` : undefined}
+              storageKey={id ? `glossary-toc-expanded:project:${id}` : undefined}
               onNodeClick={(nodeId) => openAddPageModal([nodeId])}
               bookId={bookTOC?.id}
               onImportGlossary={(auxGlossaryID, auxGlossaryParentID) =>
