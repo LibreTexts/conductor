@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { TableOfContents } from "../../../types/Book";
 
 import api from "../../../api";
@@ -94,6 +94,14 @@ const GlossaryManager: React.FC = () => {
     enabled: !!library && !!coverID,
   });
 
+  const queryClient = useQueryClient();
+  // Adding terms can create the book's default glossary scope on the
+  // server, so the Glossary Scope screen must reload it along with the terms.
+  const refreshGlossary = () => {
+    refetchGlossary();
+    queryClient.invalidateQueries(["glossary-config", library, coverID]);
+  };
+
   /** Page ids with at least one glossary term — gates the TOC row export icon. */
   const pageIdsWithTerms = useMemo(() => {
     const ids = new Set<string>();
@@ -128,7 +136,7 @@ const GlossaryManager: React.FC = () => {
       type: "success",
     });
     closeModal(ADD_PAGE_MODAL_ID);
-    refetchGlossary();
+    refreshGlossary();
   };
 
   const glossaryID = useMemo(() => {
@@ -168,7 +176,7 @@ const GlossaryManager: React.FC = () => {
         message: "Glossary terms imported from existing glossary successfully",
         type: "success",
       });
-      refetchGlossary();
+      refreshGlossary();
     },
     onError: (error) => {
       addNotification({
@@ -196,7 +204,7 @@ const GlossaryManager: React.FC = () => {
         library={library}
         onTermCreated={() => {
           if (coverID && library) {
-            refetchGlossary();
+            refreshGlossary();
           }
         }}
         addNotification={addNotification}
@@ -237,7 +245,7 @@ const GlossaryManager: React.FC = () => {
         coverID={coverID}
         glossaryID={glossaryID}
         addNotification={addNotification}
-        onImported={() => refetchGlossary()}
+        onImported={refreshGlossary}
       />,
       CSV_IMPORT_MODAL_ID,
     );
@@ -365,7 +373,7 @@ const GlossaryManager: React.FC = () => {
             selectedTerms={selectedTerms}
             setSelectedTerms={setSelectedTerms}
             addNotification={addNotification}
-            refetchGlossary={refetchGlossary}
+            refetchGlossary={refreshGlossary}
             setEditingUsageID={openAddTermModal}
             bookTOC={bookTOC!}
           />

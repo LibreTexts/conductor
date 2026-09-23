@@ -2564,6 +2564,12 @@ const runRemixerJob = async ({
       pathLevelFormats: remixerState.pathLevelFormats,
     });
 
+    // Runs after every page exists so the default glossary scope covers the
+    // whole published book (no-op when the book already has one).
+    if (importGlossaryTerms && coverId) {
+      await glossaryService.ensureDefaultGlossaryConfig(coverId, subdomain);
+    }
+
     job.status = "success";
     job.messages.push("Remixer job completed successfully.");
     await job.save();
