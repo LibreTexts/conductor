@@ -3168,12 +3168,16 @@ class API {
     return res.data;
   }
 
-  async reloadRestacker(id: string) {
+  /**
+   * Re-runs the license scan. "content" rescans every page's HTML (slow);
+   * "page" only re-reads page and book license tags (fast).
+   */
+  async reloadRestacker(id: string, mode: "content" | "page" = "content") {
     const res = await axios.post<
       {
         toc: TableOfContents;
       } & ConductorBaseResponse & { status: "pending" | "completed" | "failed" }
-    >(`/projects/${id}/restacker/toc`);
+    >(`/projects/${id}/restacker/toc`, { mode });
     return res.data;
   }
 

@@ -8,6 +8,8 @@ import * as cheerio from "cheerio";
 import { containsReuseMarkup, detectTranscludeStub } from "./transclusion.js";
 const restackerLog = childLogger("restacker");
 
+export type RestackerRefreshMode = "content" | "page";
+
 class RestackerService {
   private pageTags: Map<string, PageTag[]>;
 
@@ -20,6 +22,9 @@ class RestackerService {
   // Persist progress every N pages so a pollable status endpoint reflects near-real-time
   // progress instead of a single all-or-nothing write at the end of the run.
   private static readonly PERSIST_BATCH_SIZE = 10;
+
+  // Page-level refreshes make one tag request per page, so a few can safely run at once.
+  private static readonly PAGE_LEVEL_CONCURRENCY = 5;
 
   /**
    * Retries on transient MindTouch/destination failures with incremental delay.
@@ -66,7 +71,20 @@ class RestackerService {
     throw lastError;
   }
 
-  async runRestacker(projectID: string, library: string, coverID: string) {
+  /**
+   * Refreshes license data for every pending page.
+   * - `content`: reads page license tags and scans each page's HTML for embedded
+   *   content licenses, source (transclusion) license, and quotation rate. Slow.
+   * - `page`: reads only page license tags and keeps the stored content data, so it
+   *   can run several pages in parallel. Pages never content-scanned (e.g. added
+   *   since the last refresh) still get the full scan.
+   */
+  async runRestacker(
+    projectID: string,
+    library: string,
+    coverID: string,
+    mode: RestackerRefreshMode = "content",
+  ) {
     const restacker = await Restacker.findOne({
       projectID: { $eq: projectID },
     });
@@ -89,30 +107,40 @@ class RestackerService {
         { $set: { restackerCurrentBook: pages } },
       );
 
+    const processPage = async (page: (typeof pages)[number]) => {
+      if (page.status !== "pending") return;
+      restackerLog.info(`[runRestacker][${projectID}] Processing page ${page.id} (${mode} level)`);
+      try {
+        page.license = await this.withRetryOnTransient(async () => await this.getPagelicense(page.id, library, coverID));
+        // Every completed content scan sets `quotation` (-1 when the page body is missing),
+        // so its absence means this page has never been scanned.
+        const hasContentData = page.quotation !== undefined;
+        if (mode === "content" || !hasContentData) {
+          const contentLicense = await this.withRetryOnTransient(async () => await this.getContentLicense(
+            page.id,
+            library,
+            coverID,
+          ));
+          page.contentLicense = contentLicense.contentLicenses;
+          page.quotation = contentLicense.quotationRate;
+          page.sourceLicense = contentLicense.sourceLicense;
+        }
+        page.status = "completed";
+      } catch (error) {
+        page.status = "failed";
+      }
+    };
+
+    const concurrency =
+      mode === "page" ? RestackerService.PAGE_LEVEL_CONCURRENCY : 1;
+
     try {
       let sincePersist = 0;
-      for (const page of pages) {
-        restackerLog.info(`[runRestacker][${projectID}] Processing page ${page.id}`);
+      for (let i = 0; i < pages.length; i += concurrency) {
+        const chunk = pages.slice(i, i + concurrency);
+        await Promise.all(chunk.map(processPage));
 
-        try {
-          if (page.status === "pending") {
-            const license = await this.withRetryOnTransient(async () => await this.getPagelicense(page.id, library, coverID));  
-            page.license =  license;
-            const contentLicense = await this.withRetryOnTransient(async () => await this.getContentLicense(
-              page.id,
-              library,
-              coverID,
-            ));  
-            page.contentLicense = contentLicense.contentLicenses;
-            page.quotation = contentLicense.quotationRate;
-            page.sourceLicense = contentLicense.sourceLicense;
-            page.status = "completed";
-          }
-        } catch (error) {
-          page.status = "failed";
-        }
-
-        sincePersist += 1;
+        sincePersist += chunk.length;
         if (sincePersist >= RestackerService.PERSIST_BATCH_SIZE) {
           await flush();
           sincePersist = 0;

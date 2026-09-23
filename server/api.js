@@ -3533,7 +3533,7 @@ router.route('/projects/:projectID/restacker/toc').get(
 .post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes ,
-  middleware.validateZod(RestackerValidators.GetRestackerPageSchema),
+  middleware.validateZod(RestackerValidators.RestackerReloadSchema),
   restackerAPI.restackerReload
 );
 

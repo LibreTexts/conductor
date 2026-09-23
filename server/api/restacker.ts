@@ -7,7 +7,7 @@ import projectsAPI from "./projects";
 import { Response } from "express";
 import BookService from "./services/book-service";
 import Restacker from "../models/restacker";
-import RestackerService from "../util/Restackerutil";
+import RestackerService, { type RestackerRefreshMode } from "../util/Restackerutil";
 const LICENSES_WITHOUT_VERSION = new Set(["publicdomain", "arr", "ck12"]);
 
 type RestackerLicenseLike = { label: string; raw: string; version?: string };
@@ -371,14 +371,36 @@ const getRestackerToc = async (
   });
 };
 
+type RestackerPageSeed = {
+  id: string;
+  title: string;
+  url: string;
+};
+
+/** Flattens the book TOC into restacker page entries, book cover first. */
+function flattenTocForRestacker(
+  toc: Awaited<ReturnType<BookService["getBookTOCNew"]>>,
+): RestackerPageSeed[] {
+  const flattenPages = (pages: typeof toc.children): RestackerPageSeed[] =>
+    pages?.flatMap((page) => [
+      { id: page.id, title: page.title, url: page.url },
+      ...flattenPages(page.children ?? []),
+    ]) ?? [];
+  return [
+    { id: toc?.id, title: toc?.title, url: toc?.url },
+    ...flattenPages(toc?.children ?? []),
+  ];
+}
+
 const restackerReload = async (
   req: ZodReqWithUser<
-    z.infer<typeof RestackerValidators.GetRestackerPageSchema>
+    z.infer<typeof RestackerValidators.RestackerReloadSchema>
   >,
   res: Response,
 ) => {
 
   const { projectID } = req.params;
+  const mode: RestackerRefreshMode = req.body?.mode ?? "content";
   const project = await Project.findOne({ projectID: { $eq: projectID } });
   if (!project) {
     return res.status(404).send({
@@ -386,7 +408,7 @@ const restackerReload = async (
       errMsg: "Project not found",
     });
   }
- 
+
 
   if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
     return res.status(403).send({
@@ -408,7 +430,7 @@ const restackerReload = async (
       err: true,
       errMsg: "Restacker not found",
     });
-  } 
+  }
 
   if (status.statusCode === "pending") {
     return res.status(400).send({
@@ -416,56 +438,57 @@ const restackerReload = async (
       errMsg: "Restacker is already processing",
     });
   }
-  // delete current restacker
-  await Restacker.deleteOne({ projectID: { $eq: projectID } });
-  // add new restacker same as getRestackerToc function
+
   const bookService = new BookService({
     bookID: `${project.libreLibrary}-${project.libreCoverID}`,
   });
   const toc = await bookService.getBookTOCNew();
-  var restacker = await Restacker.findOne({ projectID: { $eq: projectID } });
-  if (!restacker) {
-    type RestackerPage = {
-      id: string;
-      title: string;
-      url: string;
-      license: undefined;
-      contentLicense: undefined;
-      quotation: undefined;
-    };
-    const flattenPages = (pages: typeof toc.children): RestackerPage[] => {
-      return (
-        pages?.flatMap((page) => [
-          {
-            id: page.id,
-            title: page.title,
-            url: page.url,
-            license: undefined,
-            contentLicense: undefined,
-            quotation: undefined,
-          },
-          ...flattenPages(page.children ?? []),
-        ]) ?? []
-      );
-    };
-    const restackerCurrentBook = flattenPages(toc?.children ?? []);
-    const bookpage = {
-      id: toc?.id,
-      title: toc?.title,
-      url: toc?.url,
-      license: undefined,
-      contentLicense: undefined,
-      quotation: undefined,
-    };
-    restackerCurrentBook.unshift(bookpage);
-    restacker = await Restacker.create({
+  const tocPages = flattenTocForRestacker(toc);
+
+  if (mode === "page") {
+    // Keep each page's content-level data (source/content licenses, quotation) and
+    // only re-queue it for a license-tag read. Pages new to the TOC have no content
+    // data yet, so the job gives them a full content scan.
+    const existing = await Restacker.findOne({ projectID: { $eq: projectID } });
+    const existingById = new Map(
+      (existing?.toObject().restackerCurrentBook ?? []).map((entry) => [
+        entry.id,
+        entry,
+      ]),
+    );
+    const restackerCurrentBook = tocPages.map((page) => ({
+      ...existingById.get(page.id),
+      ...page,
+      status: "pending" as const,
+    }));
+    // Set `processing` in the same write so a concurrent /toc request can't see an
+    // all-pending doc and start a second, content-level run.
+    await Restacker.updateOne(
+      { projectID: { $eq: projectID } },
+      {
+        $set: {
+          restackerCurrentBook,
+          processing: true,
+          updatedBy: req.user.decoded.uuid,
+        },
+      },
+    );
+  } else {
+    // Content level: start from scratch so every page is re-scanned.
+    await Restacker.deleteOne({ projectID: { $eq: projectID } });
+    await Restacker.create({
       projectID: projectID,
       createdBy: req.user.decoded.uuid,
       updatedBy: req.user.decoded.uuid,
-      restackerCurrentBook: restackerCurrentBook,
+      restackerCurrentBook: tocPages.map((page) => ({
+        ...page,
+        license: undefined,
+        contentLicense: undefined,
+        quotation: undefined,
+      })),
     });
   }
-  
+
   const restackerStatus = await restackerService.getRestackerStatus(projectID);
 
   // Kick off the reload job here (fire-and-forget) so the client doesn't have to make a
@@ -474,8 +497,9 @@ const restackerReload = async (
     projectID,
     project.libreLibrary,
     project.libreCoverID,
+    mode,
   ).catch((err) => {
-    logger.info(`Error running restacker for project ${projectID}: ${err.message}`)
+    logger.error({ err, projectID, mode }, "Restacker reload failed");
   });
 
   // send response
