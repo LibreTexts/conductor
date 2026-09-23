@@ -3,6 +3,8 @@
 // LicenseOptions.js
 //
 
+import licenseVersionsData from "../../../../shared/license-versions.json";
+
 const licenses = [
     { key: 'arr',           text: 'All Rights Reserved',    value: 'arr'            },
     { key: 'ccby',          text: 'CC BY',                  value: 'ccby'           },
@@ -25,110 +27,9 @@ const licenseOptions = [
     ...licenses
 ];
 
-const licenseVersions = [
-    {
-      "license": "arr",
-      "versions": []
-    },
-    {
-      "license": "ccby",
-      "versions": [
-        { "key": "10", "label": "1.0" },
-        { "key": "20", "label": "2.0" },
-        { "key": "25", "label": "2.5" },
-        { "key": "30", "label": "3.0" },
-        { "key": "40", "label": "4.0" }
-      ]
-    },
-    {
-      "license": "ccbync",
-      "versions": [
-        { "key": "10", "label": "1.0" },
-        { "key": "20", "label": "2.0" },
-        { "key": "25", "label": "2.5" },
-        { "key": "30", "label": "3.0" },
-        { "key": "40", "label": "4.0" }
-      ]
-    },
-    {
-      "license": "ccbyncnd",
-      "versions": [
-        { "key": "10", "label": "1.0" },
-        { "key": "20", "label": "2.0" },
-        { "key": "25", "label": "2.5" },
-        { "key": "30", "label": "3.0" },
-        { "key": "40", "label": "4.0" }
-      ]
-    },
-    {
-      "license": "ccbyncsa",
-      "versions": [
-        { "key": "10", "label": "1.0" },
-        { "key": "20", "label": "2.0" },
-        { "key": "25", "label": "2.5" },
-        { "key": "30", "label": "3.0" },
-        { "key": "40", "label": "4.0" }
-      ]
-    },
-    {
-      "license": "ccbynd",
-      "versions": [
-        { "key": "10", "label": "1.0" },
-        { "key": "20", "label": "2.0" },
-        { "key": "25", "label": "2.5" },
-        { "key": "30", "label": "3.0" },
-        { "key": "40", "label": "4.0" }
-      ]
-    },
-    {
-      "license": "ccbysa",
-      "versions": [
-        { "key": "10", "label": "1.0" },
-        { "key": "20", "label": "2.0" },
-        { "key": "25", "label": "2.5" },
-        { "key": "30", "label": "3.0" },
-        { "key": "40", "label": "4.0" }
-      ]
-    },
-    {
-      "license": "gnu",
-      "versions": []
-    },
-    {
-      "license": "gnudsl",
-      "versions": [
-        { "key": "10", "label": "1.0" }
-      ]
-    },
-    {
-      "license": "gnufdl",
-      "versions": [
-        { "key": "11", "label": "1.1" },
-        { "key": "12", "label": "1.2" },
-        { "key": "13", "label": "1.3" }
-      ]
-    },
-    {
-      "license": "gnugpl",
-      "versions": [
-        { "key": "10", "label": "1.0" },
-        { "key": "20", "label": "2.0" },
-        { "key": "30", "label": "3.0" }
-      ]
-    },
-    {
-      "license": "publicdomain",
-      "versions": []
-    },
-    {
-      "license": "ck12",
-      "versions": []
-    },
-    {
-      "license": "mixed",
-      "versions": []
-    }
-  ]
+// Licenses and the versions each is issued in. Shared with the server's
+// license validation (server/api/validators/Restacker.ts) so they can't drift.
+const licenseVersions = licenseVersionsData;
 
 /**
  * Older identifiers that were renamed, mapped to their current value. Stored data

@@ -22,6 +22,7 @@ import { escapeRegEx } from "../../util/helpers";
 import {
   sanitizeLibraryText,
   sanitizeOptionalLibraryText,
+  sanitizeTextWithMath,
 } from "../../util/sanitize-text.js";
 import BookService from "./book-service";
 import { childLogger } from "../../logger.js";
@@ -627,7 +628,7 @@ export default class GlossaryService {
       if (aliasesArray && aliasesArray.length > 0) {
         // add aliases to glossary and make a list of [{termID, term}] using _addGlossaryToDatabase
         for (const alias of aliasesArray) {
-          const cleanAlias = sanitizeLibraryText(alias);
+          const cleanAlias = sanitizeTextWithMath(alias);
           if (cleanAlias === "") {
             continue;
           }
@@ -667,7 +668,7 @@ export default class GlossaryService {
       // Re-resolve the term on every edit: a renamed usage must point at the
       // Glossary entry for its new text (found case-insensitively, or created),
       // otherwise the old termID keeps matching later adds of the old text.
-      const cleanTerm = sanitizeLibraryText(term);
+      const cleanTerm = sanitizeTextWithMath(term);
       const { termID } = await this._addGlossaryToDatabase(
         cleanTerm,
         definition,
@@ -682,7 +683,7 @@ export default class GlossaryService {
               ...rest,
               termID,
               term: cleanTerm,
-              definition: sanitizeLibraryText(definition),
+              definition: sanitizeTextWithMath(definition),
               ...Object.fromEntries(
                 Object.entries(optionalFields).filter(([, v]) => v !== undefined),
               ),
@@ -1125,8 +1126,8 @@ export default class GlossaryService {
     term: string,
     definition: string,
   ): Promise<{ termID: string }> {
-    const cleanTerm = sanitizeLibraryText(term);
-    const cleanDefinition = sanitizeLibraryText(definition);
+    const cleanTerm = sanitizeTextWithMath(term);
+    const cleanDefinition = sanitizeTextWithMath(definition);
     const termID = base62(10);
     const slug = this._generateSlug(cleanTerm);
     // Matches the unique index's collation (glossary.ts) so this query and
@@ -1219,8 +1220,8 @@ export default class GlossaryService {
      * if not unique, not return usageID and add the pageID to the pages array create a new usage record
      * return the usageID
      */
-    const term = sanitizeLibraryText(params.term);
-    const definition = sanitizeLibraryText(params.definition);
+    const term = sanitizeTextWithMath(params.term);
+    const definition = sanitizeTextWithMath(params.definition);
     const author = sanitizeOptionalLibraryText(params.author);
     const link = sanitizeOptionalLibraryText(params.link);
     const source = sanitizeOptionalLibraryText(params.source);
@@ -1240,7 +1241,7 @@ export default class GlossaryService {
     if (params?.aliases && params.aliases.length > 0) {
       // add aliases to glossary and make a list of [{termID, term}] using _addGlossaryToDatabase
       for (const alias of params.aliases) {
-        const cleanAlias = sanitizeLibraryText(alias);
+        const cleanAlias = sanitizeTextWithMath(alias);
         if (cleanAlias === "") {
           continue;
         }
@@ -1356,12 +1357,30 @@ export default class GlossaryService {
         bookID: `${library}-${coverID}`,
       }).getBookTOCNew(false);
 
-      await this.saveGlossaryConfig(coverID, library, {
-        mode: "PAGE",
-        glossaryPageId: findBackmatterGlossaryPageId(toc),
-        groups: generatePageGroups(toc),
-      });
+      const project = await this.getProject({ coverID, library });
+      const now = new Date();
+      // Insert-only: the TOC fetch above takes seconds, and a scope the user
+      // saves in the meantime must win over this default, never be replaced.
+      await GlossaryConfig.updateOne(
+        { coverID: parseInt(coverID), library },
+        {
+          $setOnInsert: {
+            projectId: project?.projectID,
+            coverID: parseInt(coverID),
+            library,
+            glossaryPageId: findBackmatterGlossaryPageId(toc),
+            mode: "PAGE",
+            groups: generatePageGroups(toc),
+            createdAt: now,
+            updatedAt: now,
+          },
+        },
+        // No automatic timestamps: they'd $set updatedAt on an existing scope.
+        { upsert: true, timestamps: false },
+      );
     } catch (error) {
+      // A concurrent add inserted the default first — nothing to do.
+      if (isDuplicateKeyError(error)) return;
       glossaryLog.warn(
         { err: error, coverID, library },
         "Failed to create default glossary config",

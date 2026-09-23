@@ -24,7 +24,9 @@ import GlossaryUsage from "../models/glossaryusage.js";
  * repointed to the primary termID; if that collides with a GlossaryUsage
  * that already exists for (primary termID, coverID, library), the two are
  * merged (pages combined, the duplicate deleted) rather than left to violate
- * the new unique index. The non-primary Glossary rows are deleted last.
+ * the new unique index. Aliases pointing at a duplicate termID are repointed
+ * too, and the non-primary Glossary rows are deleted last. A second pass then
+ * merges usages that share one termID within the same book.
  *
  * Idempotent: a re-run finds no duplicate groups (or none left to merge) and
  * does nothing.
@@ -54,6 +56,7 @@ export async function runMigration() {
     let termsMerged = 0;
     let usagesRepointed = 0;
     let usagesCombined = 0;
+    let aliasesRepointed = 0;
 
     for (const group of groups.values()) {
       if (group.length < 2) continue;
@@ -103,12 +106,65 @@ export async function runMigration() {
         usagesCombined += 1;
       }
 
+      // Aliases reference Glossary rows by termID too; repoint any that
+      // pointed at a duplicate about to be deleted.
+      const aliasResult = await GlossaryUsage.updateMany(
+        { "aliases.termID": { $in: duplicateTermIDs } },
+        { $set: { "aliases.$[alias].termID": primary.termID } },
+        { arrayFilters: [{ "alias.termID": { $in: duplicateTermIDs } }] },
+      );
+      aliasesRepointed += aliasResult.modifiedCount;
+
       await Glossary.deleteMany({ termID: { $in: duplicateTermIDs } });
       termsMerged += duplicates.length;
     }
 
+    // Second pass: usages that already share one termID in the same book.
+    // The pass above only merges usages spread across *different* termIDs,
+    // but the same race could also create two usages for one termID — and
+    // those alone are enough to make the unique index build fail.
+    const sameTermGroups = await GlossaryUsage.aggregate<{
+      ids: mongoose.Types.ObjectId[];
+    }>([
+      {
+        $group: {
+          _id: { termID: "$termID", coverID: "$coverID", library: "$library" },
+          ids: { $push: "$_id" },
+          count: { $sum: 1 },
+        },
+      },
+      { $match: { count: { $gt: 1 } } },
+    ]).allowDiskUse(true);
+
+    for (const { ids } of sameTermGroups) {
+      // Oldest (lowest _id) survives, matching the term-level pass above.
+      const usages = await GlossaryUsage.find({ _id: { $in: ids } }).sort({
+        _id: 1,
+      });
+      const [primaryUsage, ...dupUsages] = usages;
+      if (!primaryUsage || dupUsages.length === 0) continue;
+
+      const existingPageIds = new Set(primaryUsage.pages.map((p) => p.pageID));
+      const newPages = dupUsages
+        .flatMap((u) => u.pages)
+        .filter((p) => {
+          if (existingPageIds.has(p.pageID)) return false;
+          existingPageIds.add(p.pageID);
+          return true;
+        });
+      if (newPages.length > 0) {
+        primaryUsage.pages = primaryUsage.pages.concat(newPages);
+        primaryUsage.updatedAt = new Date();
+        await primaryUsage.save();
+      }
+      await GlossaryUsage.deleteMany({
+        _id: { $in: dupUsages.map((u) => u._id) },
+      });
+      usagesCombined += dupUsages.length;
+    }
+
     logger.info(
-      `Glossary duplicate merge complete. Terms merged: ${termsMerged}, usages repointed: ${usagesRepointed}, usages combined/deleted: ${usagesCombined}.`,
+      `Glossary duplicate merge complete. Terms merged: ${termsMerged}, usages repointed: ${usagesRepointed}, usages combined/deleted: ${usagesCombined}, aliases repointed: ${aliasesRepointed}.`,
     );
     logger.info(
       "Next step: the unique indexes on Glossary.term and GlossaryUsage(termID, coverID, library) can now be created safely.",

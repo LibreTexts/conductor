@@ -1,20 +1,16 @@
 import { z } from "zod";
+import licenseVersions from "../../../shared/license-versions.json";
 
 /**
- * Licenses that must carry a version, with the versions each allows.
- * Mirrors `licenseVersions` in client/src/components/util/LicenseOptions.js.
+ * Licenses that must carry a version, with the versions each allows. Read
+ * from the table the client's LicenseOptions.js also uses, so both sides
+ * enforce the same versions.
  */
-const LICENSE_VERSIONS: Record<string, string[]> = {
-  ccby: ["10", "20", "25", "30", "40"],
-  ccbync: ["10", "20", "25", "30", "40"],
-  ccbyncnd: ["10", "20", "25", "30", "40"],
-  ccbyncsa: ["10", "20", "25", "30", "40"],
-  ccbynd: ["10", "20", "25", "30", "40"],
-  ccbysa: ["10", "20", "25", "30", "40"],
-  gnudsl: ["10"],
-  gnufdl: ["11", "12", "13"],
-  gnugpl: ["10", "20", "30"],
-};
+const LICENSE_VERSIONS: Record<string, string[]> = Object.fromEntries(
+  licenseVersions
+    .filter((entry) => entry.versions.length > 0)
+    .map((entry) => [entry.license, entry.versions.map((v) => v.key)]),
+);
 
 /** A versioned license without a valid version is flagged non-compliant, so reject it up front. */
 const hasRequiredLicenseVersion = (body: { license: string; version?: string }) => {
