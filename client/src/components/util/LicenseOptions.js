@@ -151,6 +151,20 @@ const normalizeLicenseKey = (license) => LEGACY_LICENSE_ALIASES[license] ?? lice
   }
 
 /**
+ * Returns `version` only when it is one of the license's versions (e.g. GNU DSL
+ * has no 4.0); otherwise an empty string, so a stale version never carries over.
+ * @param {string} license - The license's raw identifier.
+ * @param {string} [version] - The version key, e.g. '40'.
+ * @returns {string} The version key, or '' when it doesn't belong to the license.
+ */
+const getValidLicenseVersion = (license, version) => {
+    if (!version) return '';
+    return getLicenseVersionOptions(license).some((item) => item.key === version)
+        ? version
+        : '';
+};
+
+/**
  * Returns the UI-ready presentation of a license title.
  * @param {string} license - The license's raw identifier.
  * @param {string} [version] - The license version in format 'x.x'. Ignored for
@@ -178,5 +192,6 @@ export {
     licenseOptions,
     getLicenseText,
     getLicenseVersionOptions,
+    getValidLicenseVersion,
     normalizeLicenseKey
 };

@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   getLicenseText,
   getLicenseVersionOptions,
+  getValidLicenseVersion,
   licenseOptions,
 } from "../../util/LicenseOptions";
 import LicenseBadge from "./LicenseBadge";
@@ -146,7 +147,11 @@ const BulkLicenseModal: React.FC<BulkLicenseModalProps> = ({
   const versionOptions: { key: string; label: string }[] =
     getLicenseVersionOptions(license);
   const needsVersion = versionOptions.length > 0;
-  const effectiveVersion = needsVersion ? version || undefined : undefined;
+  const validVersion = getValidLicenseVersion(license, version);
+  const effectiveVersion = needsVersion ? validVersion || undefined : undefined;
+  // Versioned licenses (e.g. CC BY) must carry a version, otherwise every
+  // updated page is flagged non-compliant for a missing version.
+  const licenseReady = !!license && (!needsVersion || !!validVersion);
 
   const plan = useMemo<BulkLicensePlanItem[]>(() => {
     const targetIds = recursive
@@ -155,13 +160,15 @@ const BulkLicenseModal: React.FC<BulkLicenseModalProps> = ({
     const targets = rows.filter((row) => targetIds.has(row.id));
     return targets.map((row) => ({
       row,
-      skip: license ? getBulkLicenseSkip(row, license, effectiveVersion) : null,
+      skip: licenseReady
+        ? getBulkLicenseSkip(row, license, effectiveVersion)
+        : null,
     }));
-  }, [rows, selectedIds, recursive, license, effectiveVersion]);
+  }, [rows, selectedIds, recursive, license, effectiveVersion, licenseReady]);
 
   const toApply = plan.filter((p) => !p.skip);
   const skippedCount = plan.length - toApply.length;
-  const canConfirm = !!license && toApply.length > 0;
+  const canConfirm = licenseReady && toApply.length > 0;
 
   return (
     <Modal open={open} onClose={onCancel} size="lg">
@@ -187,10 +194,7 @@ const BulkLicenseModal: React.FC<BulkLicenseModalProps> = ({
               onChange={(e) => {
                 const next = e.target.value;
                 setLicense(next);
-                const allowed = getLicenseVersionOptions(next).map(
-                  (o: { key: string }) => o.key,
-                );
-                if (!allowed.includes(version)) setVersion("");
+                setVersion(getValidLicenseVersion(next, version));
               }}
             />
             {needsVersion && (
@@ -198,6 +202,7 @@ const BulkLicenseModal: React.FC<BulkLicenseModalProps> = ({
                 name="bulk-license-version"
                 label="Version"
                 placeholder="Version..."
+                required
                 options={versionOptions.map((o) => ({
                   value: o.key,
                   label: o.label,
@@ -217,11 +222,11 @@ const BulkLicenseModal: React.FC<BulkLicenseModalProps> = ({
             onChange={setRecursive}
           />
           <Text size="sm" weight="semibold" role="status" aria-live="polite">
-            {license
+            {licenseReady
               ? `${toApply.length} page${toApply.length !== 1 ? "s" : ""} will be updated, ${skippedCount} skipped.`
-              : `${plan.length} page${plan.length !== 1 ? "s" : ""} selected. Choose a license to preview the changes.`}
+              : `${plan.length} page${plan.length !== 1 ? "s" : ""} selected. ${license ? "Choose a version" : "Choose a license"} to preview the changes.`}
           </Text>
-          <BulkLicensePreviewTable plan={plan} showResult={!!license} />
+          <BulkLicensePreviewTable plan={plan} showResult={licenseReady} />
         </Stack>
       </Modal.Body>
       <Modal.Footer>
