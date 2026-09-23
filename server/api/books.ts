@@ -137,6 +137,7 @@ import Glossary from "../models/glossary.js";
 import GlossaryService, {
   GlossaryNotFoundError,
   GlossaryConfigValidationError,
+  GlossaryTermConflictError,
 } from "./services/glossary-service.js";
 import GlossaryUsage from "../models/glossaryusage.js";
 import { ProjectContext, ProjectError, returnProjectError } from "./services/project-context.js";
@@ -3247,6 +3248,9 @@ async function addBookGlossary(
     });
     return res.send({ err: false, pageId, termID });
   } catch (err) {
+    if (err instanceof GlossaryTermConflictError) {
+      return res.status(409).send({ err: true, errMsg: err.message });
+    }
     logger.error({ err }, "addBookGlossary failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }

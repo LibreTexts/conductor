@@ -19,6 +19,7 @@ import {
 } from "../../../components/util/LicenseOptions";
 import api from "../../../api";
 import { GlossaryEntry } from "./model";
+import { getErrorMessage } from "./services";
 import type { Notification } from "../../../context/NotificationContext";
 
 interface GlossaryFormProps {
@@ -242,7 +243,14 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
         imageSource: data.imageSource?.trim() || undefined,
         italic: data.italic ?? false,
       }
-    const res = await api.createGlossaryTerm(payload);
+    let res;
+    try {
+      res = await api.createGlossaryTerm(payload);
+    } catch (err) {
+      // e.g. 409 when a rename collides with another term in this glossary.
+      setContextError(getErrorMessage(err, "Failed to save glossary term."));
+      return;
+    }
 
     if (res.err) {
       setContextError(res.errMsg ?? "Failed to save glossary term.");
