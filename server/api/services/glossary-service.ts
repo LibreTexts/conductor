@@ -254,8 +254,8 @@ export default class GlossaryService {
     try {
       const { coverID, library } = params;
       const project = await Project.findOne({
-        libreCoverID: coverID,
-        libreLibrary: library,
+        libreCoverID: { $eq: coverID },
+        libreLibrary: { $eq: library },
       });
       return project;
     } catch (error) {
@@ -1049,7 +1049,10 @@ export default class GlossaryService {
         _id: number;
         latestUpdatedAt: Date;
       }>(pipeline).exec(),
-      GlossaryConfig.findOne({ coverID: { $in: candidateIds }, library }),
+      GlossaryConfig.findOne({
+        coverID: { $in: candidateIds },
+        library: { $eq: library },
+      }),
     ]);
     if (!result) {
       throw new GlossaryNotFoundError();
@@ -1328,7 +1331,7 @@ export default class GlossaryService {
   ): Promise<GlossaryConfigInterface | null> {
     return GlossaryConfig.findOne({
       coverID: parseInt(coverID),
-      library,
+      library: { $eq: library },
     });
   }
 
@@ -1349,7 +1352,7 @@ export default class GlossaryService {
     try {
       const existing = await GlossaryConfig.findOne({
         coverID: parseInt(coverID),
-        library,
+        library: { $eq: library },
       });
       if (existing) return;
 
@@ -1362,7 +1365,7 @@ export default class GlossaryService {
       // Insert-only: the TOC fetch above takes seconds, and a scope the user
       // saves in the meantime must win over this default, never be replaced.
       await GlossaryConfig.updateOne(
-        { coverID: parseInt(coverID), library },
+        { coverID: parseInt(coverID), library: { $eq: library } },
         {
           $setOnInsert: {
             projectId: project?.projectID,
@@ -1428,7 +1431,7 @@ export default class GlossaryService {
     const project = await this.getProject({ coverID, library });
 
     const config = await GlossaryConfig.findOneAndUpdate(
-      { coverID: parseInt(coverID), library },
+      { coverID: parseInt(coverID), library: { $eq: library } },
       {
         $set: {
           projectId: project?.projectID,
@@ -1447,7 +1450,7 @@ export default class GlossaryService {
   async deleteGlossaryConfig(coverID: string, library: string): Promise<void> {
     await GlossaryConfig.deleteOne({
       coverID: parseInt(coverID),
-      library,
+      library: { $eq: library },
     });
   }
 }
