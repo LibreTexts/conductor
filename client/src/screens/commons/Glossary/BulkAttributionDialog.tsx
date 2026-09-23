@@ -2,11 +2,11 @@ import { Alert, Button, Input, Modal, Select } from "@libretexts/davis-react";
 import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";
-import axios from "axios";
 import api from "../../../api";
 import { licenseOptions } from "../../../components/util/LicenseOptions";
 import type { Notification } from "../../../context/NotificationContext";
 import { GlossaryEntry } from "./model";
+import { getErrorMessage } from "./services";
 
 interface BulkAttributionDialogProps {
   open: boolean;
@@ -25,15 +25,6 @@ type FormFields = {
 };
 
 const DEFAULT_VALUES: FormFields = { author: "", link: "", source: "" };
-
-function getErrorMessage(err: unknown, fallback: string): string {
-  if (axios.isAxiosError(err)) {
-    const data = err.response?.data as { errMsg?: string } | undefined;
-    if (data?.errMsg) return data.errMsg;
-  }
-  if (err instanceof Error && err.message) return err.message;
-  return fallback;
-}
 
 const BulkAttributionDialog: React.FC<BulkAttributionDialogProps> = ({
   open,

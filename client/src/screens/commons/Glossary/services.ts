@@ -1,5 +1,19 @@
+import axios from "axios";
 import { TableOfContents } from "../../../types/Book";
 import { GlossaryEntry } from "./model";
+
+/** Most terms one bulk delete may remove; the server enforces the same limit. */
+export const MAX_BULK_DELETE_TERMS = 200;
+
+/** Prefers the server's `errMsg` from an axios error, then the error's own message. */
+export const getErrorMessage = (err: unknown, fallback: string): string => {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as { errMsg?: string } | undefined;
+    if (data?.errMsg) return data.errMsg;
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+};
 
 /**
  * Finds a TOC node by id, searching the root and all nested children.

@@ -332,7 +332,9 @@ export const bulkDeleteGlossaryUsageSchema = z.object({
     library: z.string().min(2).max(12),
   }),
   body: z.object({
-    usageIds: z.array(z.string().min(10).max(10)).min(1).max(500),
+    usageIds: z.array(z.string().min(10).max(10)).min(1)
+      // Keep in sync with MAX_BULK_DELETE_TERMS in client Glossary/services.ts.
+      .max(200, { message: "You can delete up to 200 terms at once." }),
   }),
 });
 

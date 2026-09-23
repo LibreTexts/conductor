@@ -20,13 +20,19 @@ import {
   alphabetizationKey,
   downloadCsv,
   findTocNodeById,
+  getErrorMessage,
   glossaryEntriesToCsv,
+  MAX_BULK_DELETE_TERMS,
   slugifyForFilename,
 } from "./services";
 import type { Notification } from "../../../context/NotificationContext";
 import api from "../../../api";
+import { useModals } from "../../../context/ModalContext";
 import GlossaryDefinitionPreview from "./GlossaryDefinitionPreview";
 import BulkAttributionDialog from "./BulkAttributionDialog";
+
+const BULK_DELETE_MODAL_ID = "glossary-bulk-delete-modal";
+const BULK_ATTRIBUTION_MODAL_ID = "glossary-bulk-attribution-modal";
 
 type GlossaryListProps = {
   entries: GlossaryEntry[];
@@ -72,9 +78,7 @@ const GlossaryList = ({
   const tableRef = useRef<Table<GlossaryEntry> | null>(null);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [searchValue, setSearchValue] = useState("");
-  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
-  const [showBulkAttributionModal, setShowBulkAttributionModal] =
-    useState(false);
+  const { openModal, closeModal } = useModals();
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const clearSelection = () => {
@@ -90,13 +94,16 @@ const GlossaryList = ({
     );
   };
 
-  const handleBulkDelete = async () => {
+  const overDeleteLimit = selectedTerms.length > MAX_BULK_DELETE_TERMS;
+
+  const handleBulkDelete = async (usageIds: string[]) => {
+    closeModal(BULK_DELETE_MODAL_ID);
     setBulkDeleting(true);
     try {
       const res = await api.bulkDeleteGlossaryTerms({
         library,
         coverID,
-        usageIds: selectedTerms.map((t) => t.usageID),
+        usageIds,
       });
       if (res.err) {
         addNotification({
@@ -113,10 +120,52 @@ const GlossaryList = ({
       });
       clearSelection();
       refetchGlossary();
+    } catch (err) {
+      // Selection is kept so the user can retry.
+      addNotification({
+        message: getErrorMessage(err, "Failed to delete glossary terms."),
+        type: "error",
+      });
     } finally {
       setBulkDeleting(false);
-      setShowBulkDeleteConfirm(false);
     }
+  };
+
+  // Modal content is captured when opened, so pass the selection in rather
+  // than reading it when the user confirms.
+  const openBulkDeleteConfirm = () => {
+    if (overDeleteLimit) return;
+    const usageIds = selectedTerms.map((t) => t.usageID);
+    openModal(
+      <ConfirmModal
+        text={`Delete ${usageIds.length} selected glossary term${
+          usageIds.length === 1 ? "" : "s"
+        }? This cannot be undone.`}
+        confirmText="Delete"
+        confirmColor="red"
+        onConfirm={() => handleBulkDelete(usageIds)}
+        onCancel={() => closeModal(BULK_DELETE_MODAL_ID)}
+      />,
+      BULK_DELETE_MODAL_ID,
+    );
+  };
+
+  const openBulkAttributionModal = () => {
+    openModal(
+      <BulkAttributionDialog
+        open={true}
+        onClose={() => closeModal(BULK_ATTRIBUTION_MODAL_ID)}
+        library={library}
+        coverID={coverID}
+        terms={selectedTerms}
+        addNotification={addNotification}
+        onUpdated={() => {
+          clearSelection();
+          refetchGlossary();
+        }}
+      />,
+      BULK_ATTRIBUTION_MODAL_ID,
+    );
   };
 
   /** Flat set of every page ID present in the book TOC — O(1) membership test. */
@@ -396,10 +445,22 @@ const GlossaryList = ({
                 justify="between"
                 className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2"
               >
-                <span className="text-sm font-medium text-blue-800">
-                  {selectedTerms.length} term
-                  {selectedTerms.length === 1 ? "" : "s"} selected
-                </span>
+                <Stack direction="vertical" gap="xs">
+                  <span className="text-sm font-medium text-blue-800">
+                    {selectedTerms.length} term
+                    {selectedTerms.length === 1 ? "" : "s"} selected
+                  </span>
+                  <span
+                    id="glossary-bulk-delete-limit"
+                    role="status"
+                    className="text-sm text-red-800"
+                  >
+                    {overDeleteLimit &&
+                      `You can delete up to ${MAX_BULK_DELETE_TERMS} terms at once. Deselect ${
+                        selectedTerms.length - MAX_BULK_DELETE_TERMS
+                      } to delete.`}
+                  </span>
+                </Stack>
                 <Stack direction="horizontal" gap="xs">
                   <Button
                     size="sm"
@@ -415,7 +476,7 @@ const GlossaryList = ({
                     variant="secondary"
                     icon={<IconTag size={14} />}
                     iconPosition="left"
-                    onClick={() => setShowBulkAttributionModal(true)}
+                    onClick={openBulkAttributionModal}
                   >
                     Update Attribution
                   </Button>
@@ -424,7 +485,12 @@ const GlossaryList = ({
                     variant="destructive"
                     icon={<IconTrash size={14} />}
                     iconPosition="left"
-                    onClick={() => setShowBulkDeleteConfirm(true)}
+                    onClick={openBulkDeleteConfirm}
+                    loading={bulkDeleting}
+                    disabled={overDeleteLimit || bulkDeleting}
+                    aria-describedby={
+                      overDeleteLimit ? "glossary-bulk-delete-limit" : undefined
+                    }
                   >
                     Delete Selected
                   </Button>
@@ -496,28 +562,6 @@ const GlossaryList = ({
           />
         </>
       )}
-      <ConfirmModal
-        open={showBulkDeleteConfirm}
-        text={`Delete ${selectedTerms.length} selected glossary term${
-          selectedTerms.length === 1 ? "" : "s"
-        }? This cannot be undone.`}
-        confirmText={bulkDeleting ? "Deleting..." : "Delete"}
-        confirmColor="red"
-        onConfirm={handleBulkDelete}
-        onCancel={() => setShowBulkDeleteConfirm(false)}
-      />
-      <BulkAttributionDialog
-        open={showBulkAttributionModal}
-        onClose={() => setShowBulkAttributionModal(false)}
-        library={library}
-        coverID={coverID}
-        terms={selectedTerms}
-        addNotification={addNotification}
-        onUpdated={() => {
-          clearSelection();
-          refetchGlossary();
-        }}
-      />
     </div>
   );
 };
