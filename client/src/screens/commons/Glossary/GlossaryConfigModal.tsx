@@ -330,7 +330,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
     queryFn: async () => {
       const res = await api.getGlossaryConfig(library, coverID);
       if (res.err) {
-        throw new Error(res.errMsg ?? "Failed to load glossary configuration.");
+        throw new Error(res.errMsg ?? "Failed to load glossary scope.");
       }
       return res;
     },
@@ -350,7 +350,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
     },
     onError: (err) => {
       addNotification({
-        message: getErrorMessage(err, "Failed to load glossary configuration."),
+        message: getErrorMessage(err, "Failed to load glossary scope."),
         type: "error",
       });
     },
@@ -367,13 +367,13 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
         groups: values.groups,
       });
       if (res.err) {
-        throw new Error(res.errMsg ?? "Failed to save glossary configuration.");
+        throw new Error(res.errMsg ?? "Failed to save glossary scope.");
       }
       return res;
     },
     onSuccess: () => {
       addNotification({
-        message: "Glossary configuration saved successfully",
+        message: "Glossary scope saved successfully",
         type: "success",
       });
       queryClient.invalidateQueries(["glossary-config", library, coverID]);
@@ -381,7 +381,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
     },
     onError: (err) => {
       addNotification({
-        message: getErrorMessage(err, "Failed to save glossary configuration."),
+        message: getErrorMessage(err, "Failed to save glossary scope."),
         type: "error",
       });
     },
@@ -391,12 +391,12 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
     mutationFn: async () => {
       const res = await api.deleteGlossaryConfig(library, coverID);
       if (res.err) {
-        throw new Error(res.errMsg ?? "Failed to reset glossary configuration.");
+        throw new Error(res.errMsg ?? "Failed to reset glossary scope.");
       }
     },
     onSuccess: () => {
       addNotification({
-        message: "Saved glossary configuration reset",
+        message: "Saved glossary scope reset",
         type: "success",
       });
       queryClient.invalidateQueries(["glossary-config", library, coverID]);
@@ -407,7 +407,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
     },
     onError: (err) => {
       addNotification({
-        message: getErrorMessage(err, "Failed to reset glossary configuration."),
+        message: getErrorMessage(err, "Failed to reset glossary scope."),
         type: "error",
       });
     },
@@ -520,7 +520,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
   return (
     <Modal open={open} onClose={(v) => !v && !busy && handleClose()} size="xl">
       <Modal.Header>
-        <Modal.Title>Configure Glossary</Modal.Title>
+        <Modal.Title>Glossary Scope</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {isLoading ? (
@@ -620,7 +620,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
                     </p>
                     <p className="mt-1 text-xs text-red-700">
                       These pages were removed or moved since this
-                      configuration was saved. Remove them, or leave them —
+                      scope was saved. Remove them, or leave them —
                       they won't affect anything until then.
                     </p>
                     <ul className="mt-2 space-y-1">
@@ -686,7 +686,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
           loading={resetSavedMutation.isLoading}
           disabled={isLoading || busy}
         >
-          Reset Saved Configuration
+          Reset Saved Scope
         </Button>
         <Button variant="ghost" onClick={handleClose} disabled={busy}>
           Cancel
