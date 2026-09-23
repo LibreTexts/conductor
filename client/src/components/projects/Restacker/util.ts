@@ -1,4 +1,5 @@
 import type { RestackerTocLicense } from "../../../types/Book";
+import { getLicenseVersionOptions } from "../../util/LicenseOptions";
 
 /** CC license keys supported by the compatibility chart (row/column order). */
 const CC_LICENSE_KEYS = [
@@ -102,17 +103,42 @@ export type LicensePairCompliance = {
   compatible: boolean | null;
 };
 
+/** A license that is issued in versions (e.g. CC BY) but has no version tagged. */
+export type MissingLicenseVersion = { role: LicenseRole; key: string };
+
 export type LicenseComplianceResult = {
   compliant: boolean;
   pairs: LicensePairCompliance[];
   incompatiblePairs: LicensePairCompliance[];
   unknownPairs: LicensePairCompliance[];
+  missingVersions: MissingLicenseVersion[];
 };
 
 /** Strips the "license:" prefix the API adds → "license:ccby" → "ccby" */
 export function parseLicenseKey(license?: RestackerTocLicense): string | undefined {
   if (!license?.label) return undefined;
   return license.label.replace(/^license:/, "");
+}
+
+/**
+ * True when the license is one that is issued in versions but none is tagged.
+ * Licenses without versions (Public Domain, All Rights Reserved, ...) never are.
+ */
+export function isLicenseVersionMissing(license?: RestackerTocLicense): boolean {
+  const key = parseLicenseKey(license);
+  if (!key) return false;
+  return (
+    getLicenseVersionOptions(key).length > 0 &&
+    !parseLicenseVersion(license?.version)
+  );
+}
+
+function findMissingVersions(
+  licenses: [LicenseRole, RestackerTocLicense | undefined][],
+): MissingLicenseVersion[] {
+  return licenses
+    .filter(([, license]) => isLicenseVersionMissing(license))
+    .map(([role, license]) => ({ role, key: parseLicenseKey(license) ?? "" }));
 }
 
 function toCcLicenseKey(key: string): CcLicenseKey | undefined {
@@ -215,12 +241,24 @@ export const getLicenseCompliance = (
 
   const incompatiblePairs = pairs.filter((pair) => pair.compatible === false);
   const unknownPairs = pairs.filter((pair) => pair.compatible === null);
+  const missingVersions = findMissingVersions([
+    ["book", bookLicense],
+    ["page", pageLicense],
+    ["source", sourceLicense],
+    ...contentLicenses.map(
+      (license, index): [LicenseRole, RestackerTocLicense] => [
+        `content:${index}`,
+        license,
+      ],
+    ),
+  ]);
 
   return {
-    compliant: incompatiblePairs.length === 0,
+    compliant: incompatiblePairs.length === 0 && missingVersions.length === 0,
     pairs,
     incompatiblePairs,
     unknownPairs,
+    missingVersions,
   };
 };
 
@@ -238,7 +276,9 @@ export function isLicenseNonCompliant(
     sourceLicense ?? EMPTY_LICENSE,
     contentLicenses ?? [],
   );
-  return result.incompatiblePairs.length > 0;
+  return (
+    result.incompatiblePairs.length > 0 || result.missingVersions.length > 0
+  );
 }
 
 export function formatLicenseRole(role: LicenseRole): string {
@@ -332,6 +372,7 @@ export function getProposedLicenseCompliance(
       pairs,
       incompatiblePairs,
       unknownPairs,
+      missingVersions: [],
     };
   }
 

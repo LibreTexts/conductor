@@ -1,9 +1,21 @@
-import { Button, Modal, Stack, Text } from "@libretexts/davis-react";
+import { Alert, Button, Modal, Stack, Text } from "@libretexts/davis-react";
 import React from "react";
-import type { LicenseComplianceResult } from "./util";
+import type { LicenseComplianceResult, MissingLicenseVersion } from "./util";
 import { formatLicenseRole, getLicenseByRole } from "./util";
 import { RestackerTocLicense } from "../../../types/Book";
 import LicenseBadge from "./LicenseBadge";
+import { getLicenseText } from "../../util/LicenseOptions";
+
+const SUPPORT_CONTACT_URL = "/support/contact";
+
+/** Book and page licenses can be fixed from the Restacker table; others live on other pages. */
+const isEditableRole = (role: string) => role === "book" || role === "page";
+
+function describeMissing(missing: MissingLicenseVersion[]): string {
+  return missing
+    .map((m) => `${formatLicenseRole(m.role)} (${getLicenseText(m.key)})`)
+    .join(", ");
+}
 
 interface ComplianceDetailsProps {
   open: boolean;
@@ -27,6 +39,9 @@ const ComplianceDetails: React.FC<ComplianceDetailsProps> = ({
   contentLicenses,
 }) => {
   const pairs = compliance?.pairs ?? [];
+  const missingVersions = compliance?.missingVersions ?? [];
+  const editableMissing = missingVersions.filter((m) => isEditableRole(m.role));
+  const externalMissing = missingVersions.filter((m) => !isEditableRole(m.role));
   const licenseContext = {
     bookLicense,
     pageLicense,
@@ -61,6 +76,29 @@ const ComplianceDetails: React.FC<ComplianceDetailsProps> = ({
             </Text>
           ))}
         </Stack>
+        {editableMissing.length > 0 && (
+          <Alert
+            variant="error"
+            title="Missing license version"
+            message={`${describeMissing(editableMissing)}: no version is set. Edit the license in the table and choose a version.`}
+            showIcon
+            className="my-3"
+          />
+        )}
+        {externalMissing.length > 0 && (
+          <Alert
+            variant="warning"
+            title="Missing license version in reused content"
+            message={`${describeMissing(externalMissing)}: no version is set on the page this content comes from, so it can't be fixed here. Please consult LibreTexts Support to address it.`}
+            showIcon
+            className="my-3"
+            action={{
+              label: "Contact LibreTexts Support",
+              onClick: () =>
+                window.open(SUPPORT_CONTACT_URL, "_blank", "noopener,noreferrer"),
+            }}
+          />
+        )}
         {pairs.length === 0 ? (
           <p className="text-sm text-neutral-600">
             No license pairs to compare for this page.
