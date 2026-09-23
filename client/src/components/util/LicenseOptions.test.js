@@ -15,3 +15,10 @@ describe("getLicenseText", () => {
     expect(getLicenseText("ccby", "")).toBe("CC BY");
   });
 });
+
+describe("legacy license identifiers", () => {
+  it("still displays the renamed 'multiple' value", () => {
+    expect(getLicenseText("multiple")).toBe("Multiple Licenses");
+    expect(getLicenseText("mixed")).toBe("Multiple Licenses");
+  });
+});

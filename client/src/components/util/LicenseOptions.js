@@ -125,13 +125,29 @@ const licenseVersions = [
       "versions": []
     },
     {
-      "license": "multiple",
+      "license": "mixed",
       "versions": []
     }
   ]
 
+/**
+ * Older identifiers that were renamed, mapped to their current value. Stored data
+ * (synced books, glossary entries, library page tags) can still use the old names.
+ */
+const LEGACY_LICENSE_ALIASES = {
+    multiple: 'mixed',
+};
+
+/**
+ * Maps a legacy license identifier to its current value; other values pass through.
+ * @param {string} license - The license's raw identifier.
+ * @returns {string} The current identifier.
+ */
+const normalizeLicenseKey = (license) => LEGACY_LICENSE_ALIASES[license] ?? license;
+
   const getLicenseVersionOptions = (license) => {
-    return licenseVersions.find((item) => item.license === license)?.versions || [];
+    const key = normalizeLicenseKey(license);
+    return licenseVersions.find((item) => item.license === key)?.versions || [];
   }
 
 /**
@@ -143,7 +159,8 @@ const licenseVersions = [
  */
 const getLicenseText = (license, version) => {
     if (license !== '') {
-        let foundLicense = licenseOptions.find((item) => item.value === license);
+        const key = normalizeLicenseKey(license);
+        let foundLicense = licenseOptions.find((item) => item.value === key);
         if (foundLicense !== undefined) {
             const hasVersions = getLicenseVersionOptions(license).length > 0;
             if (hasVersions && typeof (version) === 'string' && version !== '') {
@@ -160,5 +177,6 @@ export {
     licenses,
     licenseOptions,
     getLicenseText,
-    getLicenseVersionOptions
+    getLicenseVersionOptions,
+    normalizeLicenseKey
 };

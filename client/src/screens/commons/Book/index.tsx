@@ -296,7 +296,7 @@ const CommonsBook = () => {
         if (nonUnclassedLics.length > 1) {
           setBook((b) => ({
             ...b,
-            license: "multiple",
+            license: "mixed",
             licenseVersion: null,
           }));
         } else if (nonUnclassedLics.length === 1) {
