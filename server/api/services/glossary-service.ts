@@ -62,15 +62,23 @@ function isDuplicateKeyError(error: unknown): boolean {
 }
 
 /**
- * Depth-first collection of a TOC node's id plus every descendant's id.
- * Mirrors the client's identically-named helper in glossaryConfigDefaults.ts.
+ * One group per TOC page (excluding the book root), each displaying on that
+ * same page. Mirrors the client's `generatePageGroups` in
+ * glossaryConfigDefaults.ts, so a saved default matches what the Glossary
+ * Scope screen shows for a book with no saved scope.
  */
-function collectSubtreeIds(node: TableOfContents): string[] {
-  const ids: string[] = [node.id];
-  for (const child of node.children) {
-    ids.push(...collectSubtreeIds(child));
-  }
-  return ids;
+function generatePageGroups(toc: TableOfContents): GlossaryConfigGroup[] {
+  const groups: GlossaryConfigGroup[] = [];
+  const visit = (node: TableOfContents) => {
+    groups.push({
+      groupID: randomUUID(),
+      pageIds: [node.id],
+      targetPageId: node.id,
+    });
+    node.children.forEach(visit);
+  };
+  toc.children.forEach(visit);
+  return groups;
 }
 
 /**
@@ -859,7 +867,8 @@ export default class GlossaryService {
       });
     }
 
-    await this.ensureDefaultGlossaryConfig(targetCoverID, targetLibrary);
+    // The Remixer calls ensureDefaultGlossaryConfig once after the whole
+    // publish, when every new page exists — not here, per page.
     return sourceUsages.length;
   }
 
@@ -1293,14 +1302,15 @@ export default class GlossaryService {
 
   /**
    * Backfills a default GlossaryConfig for books that don't have one yet —
-   * called when a term is added, so the book's very first term creates one
-   * instead of leaving it unset until someone visits the config screen.
-   * Defaults to BACKMATTER mode (a single group spanning the whole book)
-   * targeting the book's back-matter "Glossary" page, mirroring the
-   * client's own BACKMATTER default (glossaryConfigDefaults.ts). Best-effort:
-   * a failure here must not block the term add that triggered it.
+   * called when terms are added, so the book's first term creates one
+   * instead of leaving it unset until someone visits the Glossary Scope
+   * screen. Defaults to PAGE mode (each page shows its own terms), the same
+   * default the Glossary Scope screen and the reader assume when no config
+   * exists. Reads a fresh (uncached) TOC so pages created moments ago, e.g.
+   * by a Remixer publish, are included. Best-effort: a failure here must
+   * not block the term add that triggered it.
    */
-  private async ensureDefaultGlossaryConfig(
+  async ensureDefaultGlossaryConfig(
     coverID: string,
     library: string,
   ): Promise<void> {
@@ -1313,19 +1323,12 @@ export default class GlossaryService {
 
       const toc = await new BookService({
         bookID: `${library}-${coverID}`,
-      }).getBookTOCNew();
-      const glossaryPageId = findBackmatterGlossaryPageId(toc);
+      }).getBookTOCNew(false);
 
       await this.saveGlossaryConfig(coverID, library, {
-        mode: "BACKMATTER",
-        glossaryPageId,
-        groups: [
-          {
-            groupID: randomUUID(),
-            pageIds: toc.children.flatMap(collectSubtreeIds),
-            targetPageId: glossaryPageId ?? toc.children[0]?.id ?? toc.id,
-          },
-        ],
+        mode: "PAGE",
+        glossaryPageId: findBackmatterGlossaryPageId(toc),
+        groups: generatePageGroups(toc),
       });
     } catch (error) {
       glossaryLog.warn(
