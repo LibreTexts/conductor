@@ -3667,9 +3667,18 @@ function parseGlossaryCsvEntries(
   return dataRows
     .filter((row) => row.length >= 2 && row[0]?.trim() && row[1]?.trim())
     .map((row) => ({
-      term: row[0].trim().slice(0, 50),
-      definition: row[1].trim().slice(0, 1000),
+      term: unneutralizeCsvFormula(row[0].trim()).slice(0, 50),
+      definition: unneutralizeCsvFormula(row[1].trim()).slice(0, 1000),
     }));
+}
+
+/**
+ * Undoes the glossary CSV export's formula-injection guard, which prefixes
+ * `'` to cells starting with `= + - @` (see `neutralizeCsvFormula` in the
+ * client's Glossary/services.ts), so an export re-imports unchanged.
+ */
+function unneutralizeCsvFormula(value: string): string {
+  return /^'[=+\-@]/.test(value) ? value.slice(1) : value;
 }
 
 /**

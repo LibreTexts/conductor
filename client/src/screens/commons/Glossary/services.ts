@@ -97,21 +97,56 @@ export const filterGlossaryEntriesForPage = (
 ): GlossaryEntry[] =>
   entries.filter((entry) => entry.pages.some((page) => page.pageID === pageId));
 
-/** Definitions are stored/rendered as HTML; a CSV cell wants plain text. */
-const stripHtml = (value: string): string =>
+/**
+ * LaTeX segments MathJax renders (see utils/mathjax.ts): `\( \)`, `\[ \]`,
+ * `$$ $$`, and `\begin{…} … \end{…}` environments. Captured so they can be
+ * exported verbatim.
+ */
+const MATH_SEGMENT =
+  /(\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]|\$\$[\s\S]*?\$\$|\\begin\{([^}]+)\}[\s\S]*?\\end\{\2\})/g;
+
+const decodeEntities = (value: string): string =>
   value
-    .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/&amp;/gi, "&");
+
+/**
+ * Definitions can carry HTML; a CSV cell wants plain text. Tags are stripped
+ * only outside math, so LaTeX such as `\(a<b\)` is exported as written
+ * rather than having `<b … >` mistaken for a tag.
+ */
+export const stripHtml = (value: string): string => {
+  const parts = value.split(MATH_SEGMENT);
+  let out = "";
+  // split() with capture groups yields [text, math, envName, text, …].
+  for (let i = 0; i < parts.length; i += 3) {
+    out += decodeEntities((parts[i] ?? "").replace(/<[^>]*>/g, " "));
+    if (parts[i + 1] !== undefined) out += decodeEntities(parts[i + 1]);
+  }
+  return out.replace(/\s+/g, " ").trim();
+};
+
+/**
+ * Spreadsheet apps run a cell starting with one of these as a formula
+ * (CSV/formula injection). LaTeX (`\(`, `\[`, `$$`) never starts with them.
+ */
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+
+/**
+ * Prefixes a leading `'` on cells a spreadsheet would treat as a formula, so
+ * they open as text. The CSV import strips that prefix again on round-trip.
+ */
+export const neutralizeCsvFormula = (value: string): string =>
+  FORMULA_TRIGGER.test(value) ? `'${value}` : value;
 
 /** Quotes a CSV field only when it contains characters that require it. */
-const escapeCsvField = (value: string): string =>
-  /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+const escapeCsvField = (value: string): string => {
+  const safe = neutralizeCsvFormula(value);
+  return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+};
 
 const GLOSSARY_CSV_HEADER = [
   "Term",

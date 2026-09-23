@@ -31,7 +31,6 @@ import {
   extractLibraryFromURL,
   filterGlossaryEntriesForPage,
   findTocNode,
-  getPageAncestors,
   glossaryEntriesToCsv,
   slugifyForFilename,
 } from "./services";
