@@ -244,10 +244,11 @@ export default class GlossaryService {
   async getProjectByUsageID(usageID: string): Promise<any> {
     try {
       const glossary = await GlossaryUsage.findOne({
-        usageID,
+        usageID: { $eq: usageID },
       });
+      // Unknown usage → no project, which the handler reports as a 404.
       if (!glossary) {
-        throw new Error("Glossary not found");
+        return null;
       }
       const project = await Project.findOne({
         libreCoverID: glossary.coverID.toString(),

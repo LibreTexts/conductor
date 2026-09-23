@@ -62,7 +62,11 @@ import {
   conductor500Err,
   serializeError,
 } from "../util/errorutils.js";
-import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
+import {
+  TypedReqUser,
+  ZodReqWithOptionalUser,
+  ZodReqWithUser,
+} from "../types/Express.js";
 import User from "../models/user.js";
 import centralIdentity from "./central-identity.js";
 import { PipelineStage, Types } from "mongoose";
@@ -3160,21 +3164,9 @@ async function getBookGlossary(
       coverID: coverID.toString(),
       library,
     });
-    const { uuid: userID } = req.user.decoded;
-
-    const user = await User.findOne({ uuid: userID }).orFail();
-    const isSuperAdmin = authAPI.checkHasRole(
-      req.user,
-      "libretexts",
-      "superadmin",
-      true,
-    );
-    if (!project && !isSuperAdmin) {
-      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canAccess && !isSuperAdmin) {
-      throw new Error(conductorErrors.err8);
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
     }
 
     const glossary = await glossaryService.getGlossary({
@@ -3202,20 +3194,9 @@ async function addBookGlossary(
       coverID: coverID.toString(),
       library,
     });
-    const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: userID }).orFail();
-    const isSuperAdmin = authAPI.checkHasRole(
-      req.user,
-      "libretexts",
-      "superadmin",
-      true,
-    );
-    if (!project && !isSuperAdmin) {
-      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canAccess && !isSuperAdmin) {
-      throw new Error(conductorErrors.err8);
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
     }
     if (usageID) {
       await glossaryService.updateGlossaryUsage(usageID, {
@@ -3283,20 +3264,9 @@ async function addPageToGlossaryUsage(
       coverID: coverID.toString(),
       library,
     });
-    const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
-    const isSuperAdmin = authAPI.checkHasRole(
-      req.user,
-      "libretexts",
-      "superadmin",
-      true,
-    );
-    if (!project && !isSuperAdmin) {
-      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canAccess && !isSuperAdmin) {
-      throw new Error(conductorErrors.err8);
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
     }
     await glossaryService.addPageToGlossaryUsage(pageIds, usageIds, coverID.toString(), library);
     return res.send({ err: false, msg: "Page added to glossary usage successfully." });
@@ -3318,20 +3288,9 @@ async function bulkDeleteGlossaryUsage(
       coverID: coverID.toString(),
       library,
     });
-    const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
-    const isSuperAdmin = authAPI.checkHasRole(
-      req.user,
-      "libretexts",
-      "superadmin",
-      true,
-    );
-    if (!project && !isSuperAdmin) {
-      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canAccess && !isSuperAdmin) {
-      throw new Error(conductorErrors.err8);
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
     }
     const deletedCount = await glossaryService.bulkDeleteGlossaryUsage(
       usageIds,
@@ -3357,20 +3316,9 @@ async function bulkUpdateGlossaryAttribution(
       coverID: coverID.toString(),
       library,
     });
-    const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
-    const isSuperAdmin = authAPI.checkHasRole(
-      req.user,
-      "libretexts",
-      "superadmin",
-      true,
-    );
-    if (!project && !isSuperAdmin) {
-      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canAccess && !isSuperAdmin) {
-      throw new Error(conductorErrors.err8);
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
     }
     const modifiedCount = await glossaryService.bulkUpdateAttribution(
       usageIds,
@@ -3389,6 +3337,24 @@ async function bulkUpdateGlossaryAttribution(
   }
 }
 
+/**
+ * Glossary edits require the book's linked project. A book with no project is
+ * a 404 for everyone (including superadmins); privileged LibreTexts roles are
+ * already let through by checkProjectMemberPermission when given the request user.
+ */
+function checkGlossaryProjectAccess(
+  project: unknown,
+  user: TypedReqUser,
+): { err: true; status: number; errMsg: string } | { err: false } {
+  if (!project) {
+    return { err: true, status: 404, errMsg: "Project not found for this book." };
+  }
+  if (!projectsAPI.checkProjectMemberPermission(project, user)) {
+    return { err: true, status: 403, errMsg: conductorErrors.err8 };
+  }
+  return { err: false };
+}
+
 async function checkGlossaryConfigAccess(
   req: ZodReqWithUser<{ params: { coverID: number; library: string } }>,
   glossaryService: GlossaryService,
@@ -3398,26 +3364,7 @@ async function checkGlossaryConfigAccess(
     coverID: coverID.toString(),
     library,
   });
-  const { uuid: userID } = req.user.decoded;
-  const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
-  const isSuperAdmin = authAPI.checkHasRole(
-    req.user,
-    "libretexts",
-    "superadmin",
-    true,
-  );
-  if (!project && !isSuperAdmin) {
-    return {
-      err: true,
-      status: 404,
-      errMsg: "Project not found for this book.",
-    };
-  }
-  const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-  if (!canAccess && !isSuperAdmin) {
-    return { err: true, status: 403, errMsg: conductorErrors.err8 };
-  }
-  return { err: false };
+  return checkGlossaryProjectAccess(project, req.user);
 }
 
 async function getGlossaryConfig(
@@ -3499,20 +3446,9 @@ async function deleteBookGlossary(
       coverID: coverID.toString(),
       library,
     });
-    const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
-    const isSuperAdmin = authAPI.checkHasRole(
-      req.user,
-      "libretexts",
-      "superadmin",
-      true,
-    );
-    if (!project && !isSuperAdmin) {
-      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canAccess && !isSuperAdmin) {
-      throw new Error(conductorErrors.err8);
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
     }
 
     await glossaryService.deleteBookGlossary({
@@ -3535,26 +3471,15 @@ async function deleteBookGlossaryUsage(
   try {
     const glossaryService = new GlossaryService();
     const project = await glossaryService.getProjectByUsageID(usageID.toString());
-    const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
-    const isSuperAdmin = authAPI.checkHasRole(
-      req.user,
-      "libretexts",
-      "superadmin",
-      true,
-    );
-    if (!project && !isSuperAdmin) {
-      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canAccess && !isSuperAdmin) {
-      throw new Error(conductorErrors.err8);
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
     }
     await glossaryService.deleteGlossaryUsage(usageID, pageID?.toString() || undefined);
     return res.send({ err: false, msg: "Glossary usage deleted successfully." });
   }
   catch (err) {
-
+    logger.error({ err }, "deleteBookGlossaryUsage failed");
     return res.status(500).send({ err: true, errMsg: "Failed to delete glossary usage." });
   }
 }
@@ -3608,6 +3533,14 @@ async function addExternalGlossaryToGlossaryUsage(
     const { library, coverID } = req.params;
     const { auxGlossaryID, auxGlossaryParentID } = req.body;
     const glossaryService = new GlossaryService();
+    const project = await glossaryService.getProject({
+      coverID: coverID.toString(),
+      library,
+    });
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
+    }
     if (!auxGlossaryID && !auxGlossaryParentID) {
       const result = await glossaryService.addExternalGlossaryToGlossaryUsage(glossaryID.toString(), coverID.toString(), library, req.user.decoded.uuid);
       return res.send({ err: false, msg: "External glossary added to glossary usage successfully.", data: result });
@@ -3760,23 +3693,12 @@ async function startGlossaryCsvImportJob(
       coverID: coverID.toString(),
       library,
     });
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
+    }
+
     const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: userID }).orFail();
-    const isSuperAdmin = authAPI.checkHasRole(
-      req.user,
-      "libretexts",
-      "superadmin",
-      true,
-    );
-    if (!project && !isSuperAdmin) {
-      return res
-        .status(404)
-        .send({ err: true, errMsg: "Project not found for this book." });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canAccess && !isSuperAdmin) {
-      throw new Error(conductorErrors.err8);
-    }
 
     let entries: { term: string; definition: string }[];
     try {
