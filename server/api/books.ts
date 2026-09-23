@@ -3643,6 +3643,9 @@ function parseGlossaryCsvEntries(
   buffer: Buffer,
 ): { term: string; definition: string }[] {
   const rows: string[][] = parseCsv(buffer, {
+    // Strip a UTF-8 byte-order mark (added by Excel and by our own CSV
+    // export) so the header row is still recognized as "Term,Definition".
+    bom: true,
     skip_empty_lines: true,
     trim: true,
     relax_column_count: true,
