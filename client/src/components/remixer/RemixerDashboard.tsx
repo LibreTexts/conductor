@@ -2113,6 +2113,8 @@ const RemixerDashboard: React.FC = () => {
           text="This remix includes pages imported from other books. Would you like to import the glossary terms used on those pages into this book's glossary as well?"
           confirmText="Import Glossary Terms"
           cancelText="Skip"
+          // "Skip" still publishes, so Esc/outside click must not trigger it.
+          dismissible={false}
           onCancel={() => {
             closeAllModals();
             startPublish(false);
