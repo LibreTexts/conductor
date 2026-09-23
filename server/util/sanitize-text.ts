@@ -109,6 +109,52 @@ export function sanitizeLibraryText(value: string | null | undefined): string {
 }
 
 /**
+ * LaTeX segments MathJax renders: `\( \)`, `\[ \]`, `$$ $$`, and
+ * `\begin{…} … \end{…}` environments. Mirrors MATH_SEGMENT in the client's
+ * Glossary/services.ts (CSV export).
+ */
+const MATH_SEGMENT =
+  /(\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]|\$\$[\s\S]*?\$\$|\\begin\{([^}]+)\}[\s\S]*?\\end\{\2\})/g;
+
+/** Decodes entities until stable, so `&amp;lt;` can't survive as a hidden `<`. */
+function decodeFully(value: string): string {
+  let text = value;
+  for (let round = 0; round < MAX_ROUNDS; round += 1) {
+    const next = decodeHTML(text);
+    if (next === text) break;
+    text = next;
+  }
+  return text;
+}
+
+/**
+ * {@link sanitizeLibraryText} for text that may contain LaTeX (glossary terms
+ * and definitions). Outside math it is identical. Inside math, `<` and `>`
+ * are rewritten to MathJax's `\lt` / `\gt` instead of being parsed as markup
+ * — `\(a<b\)` would otherwise lose everything up to the next `>`. The output
+ * therefore still never contains a `<` or `>` inside math, so the "no markup
+ * in stored text" guarantee holds for every renderer, not just MathJax.
+ */
+export function sanitizeTextWithMath(value: string | null | undefined): string {
+  if (typeof value !== "string" || value.length === 0) return "";
+
+  const parts = value.split(MATH_SEGMENT);
+  let out = "";
+  // split() with capture groups yields [text, math, envName, text, …].
+  for (let i = 0; i < parts.length; i += 3) {
+    out += ` ${sanitizeLibraryText(parts[i] ?? "")} `;
+    const math = parts[i + 1];
+    if (math !== undefined) {
+      const safeMath = decodeFully(math)
+        .replace(/</g, "\\lt ")
+        .replace(/>/g, "\\gt ");
+      out += ` ${sanitizeLibraryText(safeMath)} `;
+    }
+  }
+  return out.replace(/\s+/g, " ").trim();
+}
+
+/**
  * {@link sanitizeLibraryText} for optional fields: a value that is absent, or
  * that sanitizes down to nothing, yields `undefined` rather than an empty
  * string, so the field is left off the record instead of stored blank.
