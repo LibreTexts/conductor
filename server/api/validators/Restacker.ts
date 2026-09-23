@@ -18,3 +18,14 @@ export const UpdateRestackerLicenseSchema = z.object({
     force: z.boolean().optional(),
   }),
 });
+
+export const BulkUpdateRestackerLicenseSchema = z.object({
+  params: z.object({
+    projectID: z.string().length(10),
+  }),
+  body: z.object({
+    pageIDs: z.array(z.string().min(1)).min(1).max(5000),
+    license: z.string(),
+    version: z.string().optional(),
+  }),
+});

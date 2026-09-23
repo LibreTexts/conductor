@@ -3558,6 +3558,13 @@ router.route('/projects/:projectID/restacker/license').patch(
   restackerAPI.updateRestackerLicense
 );
 
+router.route('/projects/:projectID/restacker/license/bulk').patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes ,
+  middleware.validateZod(RestackerValidators.BulkUpdateRestackerLicenseSchema),
+  restackerAPI.bulkUpdateRestackerLicense
+);
+
 
 
 export default router;

@@ -359,3 +359,77 @@ export const  parseLicenseVersion =(version?: string): string | undefined=> {
     const v = version.replace(/^licenseversion:/, "");
     return v.replace(/^(\d)(\d)$/, "$1.$2");
   }
+/** URL substrings that identify structural pages which must always be Public Domain. */
+export const PUBLIC_DOMAIN_PAGE_SUFFIXES = [
+  "zz%3A_Back_Matter/10%3A_Index",
+  "00%3A_Front_Matter/03%3A_Table_of_Contents",
+];
+
+export function isStructuralPage(url?: string): boolean {
+  return PUBLIC_DOMAIN_PAGE_SUFFIXES.some((s) => url?.includes(s));
+}
+
+export type BulkLicenseSkipReason = "structural" | "unchanged" | "conflict";
+
+/**
+ * Decides whether a bulk license change should skip a page. Only Source and
+ * Content conflicts block the change (the book license is reviewed separately).
+ * Mirrors bulkUpdateRestackerLicense in server/api/restacker.ts.
+ */
+export function getBulkLicenseSkip(
+  row: {
+    url?: string;
+    pageLicense?: RestackerTocLicense;
+    sourceLicense?: RestackerTocLicense;
+    contentLicenses?: RestackerTocLicense[];
+  },
+  proposedLicense: string,
+  proposedVersion?: string,
+): { reason: BulkLicenseSkipReason; conflicts: LicensePairCompliance[] } | null {
+  if (isStructuralPage(row.url) && proposedLicense !== "publicdomain") {
+    return { reason: "structural", conflicts: [] };
+  }
+  const proposed = buildLicenseFromDraft(proposedLicense, proposedVersion);
+  if (
+    (parseLicenseKey(row.pageLicense) ?? "") === proposedLicense &&
+    (parseLicenseVersion(row.pageLicense?.version) ?? "") ===
+      (parseLicenseVersion(proposed.version) ?? "")
+  ) {
+    return { reason: "unchanged", conflicts: [] };
+  }
+  if (!proposedLicense) return null;
+  const conflicts = getLicenseCompliance(
+    EMPTY_LICENSE,
+    proposed,
+    row.sourceLicense ?? EMPTY_LICENSE,
+    row.contentLicenses ?? [],
+  ).incompatiblePairs.filter(
+    (pair) =>
+      pair.licenseAdption.role !== "book" && pair.licenseOrigin.role !== "book",
+  );
+  return conflicts.length > 0 ? { reason: "conflict", conflicts } : null;
+}
+
+/**
+ * Expands a selection of page IDs to include every descendant page.
+ * `rows` must be a depth-first flattening of the TOC (as produced by flattenToc).
+ */
+export function expandWithDescendants<T extends { id: string; depth: number }>(
+  rows: T[],
+  selectedIds: Set<string>,
+): Set<string> {
+  const result = new Set<string>();
+  let ancestorDepth: number | null = null;
+  for (const row of rows) {
+    if (ancestorDepth !== null && row.depth <= ancestorDepth) {
+      ancestorDepth = null;
+    }
+    if (selectedIds.has(row.id)) {
+      result.add(row.id);
+      if (ancestorDepth === null) ancestorDepth = row.depth;
+    } else if (ancestorDepth !== null) {
+      result.add(row.id);
+    }
+  }
+  return result;
+}

@@ -3195,6 +3195,25 @@ class API {
     >(`/projects/${projectID}/restacker/license`, data);
     return res.data;
   }
+
+  async bulkUpdateRestackerLicense(
+    projectID: string,
+    data: {
+      pageIDs: string[];
+      license: string;
+      version?: string;
+    },
+  ) {
+    const res = await axios.patch<
+      {
+        license?: RestackerTocLicense;
+        updated: string[];
+        skipped: { pageID: string; reason: string }[];
+        failed: string[];
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/restacker/license/bulk`, data);
+    return res.data;
+  }
 }
 
 export default new API();

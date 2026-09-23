@@ -5,6 +5,7 @@ import api from "../../../api";
 import {
   Button,
   Card,
+  Checkbox,
   Link,
   Spinner,
   Stack,
@@ -20,6 +21,7 @@ import {
   IconBolt,
   IconExternalLink,
   IconInfoCircle,
+  IconLicense,
   IconRefresh,
   IconTools,
 } from "@tabler/icons-react";
@@ -37,8 +39,13 @@ import {
   parseLicenseKey,
   parseLicenseVersion,
   formatVersionDigits,
+  PUBLIC_DOMAIN_PAGE_SUFFIXES,
+  expandWithDescendants,
+  getBulkLicenseSkip,
   type LicenseComplianceResult,
 } from "./util";
+import BulkLicenseModal from "./BulkLicenseModal";
+import SubpageLicenseModal from "./SubpageLicenseModal";
 import ComplianceDetails from "./ComplianceDetails";
 import FixAllPreviewModal, { type FixAllEntry } from "./FixAllPreviewModal";
 import LicenseBadge from "./LicenseBadge";
@@ -51,12 +58,6 @@ import {
   truncateString,
 } from "../../util/HelperFunctions";
 import { useModals } from "../../../context/ModalContext";
-
-/** URL substrings that identify structural pages which must always be Public Domain. */
-const PUBLIC_DOMAIN_PAGE_SUFFIXES = [
-  "zz%3A_Back_Matter/10%3A_Index",
-  "00%3A_Front_Matter/03%3A_Table_of_Contents",
-];
 
 function getAutoFix(
   row: RestackerTocEntry,
@@ -141,6 +142,14 @@ function ComplianceRowCell({
 
 type EditingLicenseCell = { rowId: string; field: "book" | "page" } | null;
 
+type RowSelectionProps = {
+  selectedIds: Set<string>;
+  allSelected: boolean;
+  someSelected: boolean;
+  onToggle: (rowId: string, checked: boolean) => void;
+  onToggleAll: (checked: boolean) => void;
+};
+
 type PendingLicenseChange = {
   pageID: string;
   license: string;
@@ -166,6 +175,7 @@ function createColumns(
   onStartLicenseEdit?: (rowId: string, field: "book" | "page") => void,
   onCancelLicenseEdit?: () => void,
   updatingPageId?: string,
+  selection?: RowSelectionProps,
 ) {
   const wrap = (row: FlatRestackerRow, children: React.ReactNode) => (
     <ComplianceRowCell row={row} bookLicense={bookLicense}>
@@ -173,7 +183,45 @@ function createColumns(
     </ComplianceRowCell>
   );
 
+  const selectColumn = selection
+    ? [
+        columnHelper.display({
+          id: "select",
+          enableSorting: false,
+          size: 40,
+          header: () => (
+            <div className="flex items-center justify-center">
+              <Checkbox
+                name="restacker-select-all"
+                label="Select all pages"
+                labelClassName="sr-only"
+                checked={selection.allSelected}
+                indeterminate={selection.someSelected}
+                onChange={selection.onToggleAll}
+              />
+            </div>
+          ),
+          cell: ({ row }) =>
+            wrap(
+              row.original,
+              <div className="flex items-center justify-center">
+                <Checkbox
+                  name={`restacker-select-${row.original.id}`}
+                  label={`Select ${row.original.title}`}
+                  labelClassName="sr-only"
+                  checked={selection.selectedIds.has(row.original.id)}
+                  onChange={(checked) =>
+                    selection.onToggle(row.original.id, checked)
+                  }
+                />
+              </div>,
+            ),
+        }),
+      ]
+    : [];
+
   return [
+    ...selectColumn,
     columnHelper.accessor("title", {
       header: "Page Title",
       size: 280,
@@ -413,6 +461,8 @@ const Restacker: React.FC = () => {
   const [editingLicense, setEditingLicense] =
     useState<EditingLicenseCell>(null);
   const [fixAllPreview, setFixAllPreview] = useState<FixAllEntry[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const handleShowDetails = (row: FlatRestackerRow) => {
     savedScrollY.current = window.scrollY;
@@ -571,6 +621,30 @@ const Restacker: React.FC = () => {
     },
   });
 
+  const { mutate: bulkUpdateLicense, isPending: bulkUpdatePending } =
+    useMutation({
+      mutationFn: (data: { pageIDs: string[]; license: string; version?: string }) =>
+        api.bulkUpdateRestackerLicense(id!, data),
+      onSuccess: async (data) => {
+        await queryClient.invalidateQueries({ queryKey: ["restacker", id] });
+        const skipped = data.skipped.length;
+        const failed = data.failed.length;
+        addNotification({
+          type: failed > 0 ? "error" : "success",
+          message: `Updated ${data.updated.length} page license(s)${
+            skipped > 0 ? `, skipped ${skipped} incompatible or unchanged page(s)` : ""
+          }${failed > 0 ? `, ${failed} failed` : ""}.`,
+        });
+      },
+      onError: (err: unknown) => {
+        queryClient.invalidateQueries({ queryKey: ["restacker", id] });
+        const message =
+          (err as { response?: { data?: { errMsg?: string } } })?.response?.data
+            ?.errMsg || "Failed to update page licenses.";
+        addNotification({ type: "error", message });
+      },
+    });
+
   const bookPageId = tocData?.toc?.id;
   const bookLicense = restackerData?.restacker?.find(
     (r) => r.id === bookPageId,
@@ -585,6 +659,55 @@ const Restacker: React.FC = () => {
         )
       : tocChildren,
   );
+
+  /**
+   * Applies a license to one page. When an editable page has subpages, first offers
+   * to cascade the license down, skipping subpages with Source/Content conflicts.
+   */
+  const applyLicenseChange = (
+    field: "book" | "page",
+    row: FlatRestackerRow,
+    pageID: string,
+    license: string,
+    version?: string,
+    force?: boolean,
+  ) => {
+    const applyToPage = () =>
+      handleLicenseChange({ pageID, license, version, force });
+
+    const subpageIds =
+      field === "page" && license && !parseLicenseKey(row.sourceLicense)
+        ? expandWithDescendants(rows, new Set([row.id]))
+        : new Set<string>();
+    subpageIds.delete(row.id);
+    if (subpageIds.size === 0) {
+      applyToPage();
+      return;
+    }
+
+    const plan = rows
+      .filter((r) => subpageIds.has(r.id))
+      .map((r) => ({ row: r, skip: getBulkLicenseSkip(r, license, version) }));
+
+    openModal(
+      <SubpageLicenseModal
+        pageTitle={row.title}
+        license={license}
+        version={version}
+        plan={plan}
+        onCancel={closeAllModals}
+        onThisPageOnly={() => {
+          closeAllModals();
+          applyToPage();
+        }}
+        onIncludeSubpages={(subpageIDs) => {
+          closeAllModals();
+          applyToPage();
+          bulkUpdateLicense({ pageIDs: subpageIDs, license, version });
+        }}
+      />,
+    );
+  };
 
   const handleLicenseSubmit = (
     pageID: string,
@@ -626,21 +749,19 @@ const Restacker: React.FC = () => {
           }}
           onConfirm={() => {
             if (!pendingChange) return;
-            handleLicenseChange({
-              pageID: pendingChange.pageID,
-              license: pendingChange.license,
-              version: pendingChange.version,
-              force: true,
-            });
             closeAllModals();
+            applyLicenseChange(field, row, pageID, license, version, true);
           }}
         />,
       );
       return;
     }
 
-    handleLicenseChange({ pageID, license, version });
+    applyLicenseChange(field, row, pageID, license, version);
   };
+
+  const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id));
+  const someSelected = selectedIds.size > 0 && !allSelected;
 
   const columns = useMemo(
     () =>
@@ -654,8 +775,29 @@ const Restacker: React.FC = () => {
         (rowId, field) => setEditingLicense({ rowId, field }),
         () => setEditingLicense(null),
         licenseUpdatePending ? licenseUpdateVariables?.pageID : undefined,
+        isCompleted
+          ? {
+              selectedIds,
+              allSelected,
+              someSelected,
+              onToggle: (rowId, checked) =>
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (checked) next.add(rowId);
+                  else next.delete(rowId);
+                  return next;
+                }),
+              onToggleAll: (checked) =>
+                setSelectedIds(
+                  checked ? new Set(rows.map((r) => r.id)) : new Set(),
+                ),
+            }
+          : undefined,
       ),
     [
+      selectedIds,
+      allSelected,
+      someSelected,
       bookLicense,
       bookPageId,
       isCompleted,
@@ -823,6 +965,24 @@ const Restacker: React.FC = () => {
               >
                 {`Fix All (${fixableRows.length})`}
               </Button>
+            )}
+            {isCompleted && (
+              <Button
+                variant="secondary"
+                disabled={selectedIds.size === 0 || bulkUpdatePending}
+                loading={bulkUpdatePending}
+                icon={<IconLicense size={16} />}
+                onClick={() => setBulkOpen(true)}
+              >
+                {selectedIds.size > 0
+                  ? `Change License (${selectedIds.size} selected)`
+                  : "Change License (select pages)"}
+              </Button>
+            )}
+            {selectedIds.size > 0 && (
+              <Button variant="outline" onClick={() => setSelectedIds(new Set())}>
+                Clear Selection
+              </Button>
             )}</Stack>
           </Stack>
         </Card.Body>
@@ -844,6 +1004,25 @@ const Restacker: React.FC = () => {
           );
           setFixAllPreview(null);
         }}
+      />
+
+      <BulkLicenseModal
+        open={bulkOpen}
+        rows={rows}
+        selectedIds={selectedIds}
+        loading={bulkUpdatePending}
+        onCancel={() => setBulkOpen(false)}
+        onConfirm={(pageIDs, license, version) =>
+          bulkUpdateLicense(
+            { pageIDs, license, version },
+            {
+              onSuccess: () => {
+                setBulkOpen(false);
+                setSelectedIds(new Set());
+              },
+            },
+          )
+        }
       />
 
       <div ref={tableContainerRef} className="[&_tbody_tr:has([data-non-compliant=true])]:!bg-[#fee2e2] [&_tbody_tr:has([data-non-compliant=true])_td]:!bg-[#fee2e2] [&_tbody_tr:has([data-non-compliant=true])_td]:!text-[#991b1b]">
