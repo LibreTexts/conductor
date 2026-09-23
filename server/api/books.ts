@@ -3810,7 +3810,7 @@ async function runGlossaryCsvImportJob(params: GlossaryCsvImportJobParams) {
   const { jobID, entries, coverID, library, userID, glossaryID } = params;
   try {
     await GlossaryCsvImportJob.updateOne(
-      { jobID },
+      { jobID: { $eq: jobID } },
       { $set: { status: "running" } },
     );
 
@@ -3823,7 +3823,7 @@ async function runGlossaryCsvImportJob(params: GlossaryCsvImportJobParams) {
       glossaryID,
       (processed) => {
         GlossaryCsvImportJob.updateOne(
-          { jobID },
+          { jobID: { $eq: jobID } },
           { $set: { processedRows: processed, imported: processed } },
         ).catch((err) => {
           logger.error({ err }, "Failed to update glossary CSV import job progress");
@@ -3832,7 +3832,7 @@ async function runGlossaryCsvImportJob(params: GlossaryCsvImportJobParams) {
     );
 
     await GlossaryCsvImportJob.updateOne(
-      { jobID },
+      { jobID: { $eq: jobID } },
       {
         $set: {
           status: "success",
@@ -3844,7 +3844,7 @@ async function runGlossaryCsvImportJob(params: GlossaryCsvImportJobParams) {
   } catch (err: any) {
     logger.error({ err }, "runGlossaryCsvImportJob failed");
     await GlossaryCsvImportJob.updateOne(
-      { jobID },
+      { jobID: { $eq: jobID } },
       {
         $set: {
           status: "error",
@@ -3863,7 +3863,7 @@ async function getGlossaryCsvImportJobStatus(
     const { jobID } = req.params;
     const requesterID = req.user.decoded.uuid;
 
-    const job = await GlossaryCsvImportJob.findOne({ jobID }).lean();
+    const job = await GlossaryCsvImportJob.findOne({ jobID: { $eq: jobID } }).lean();
     if (!job) {
       return res.status(404).send({ err: true, errMsg: "Import job not found." });
     }
