@@ -711,8 +711,11 @@ const updateRestackerLicense = async (
  * Mirrors PUBLIC_DOMAIN_PAGE_SUFFIXES in client/src/components/projects/Restacker/index.tsx
  */
 const PUBLIC_DOMAIN_PAGE_SUFFIXES = [
-  "zz%3A_Back_Matter/10%3A_Index",
+  "00%3A_Front_Matter/02%3A_InfoPage",
   "00%3A_Front_Matter/03%3A_Table_of_Contents",
+  "00%3A_Front_Matter/04%3A_Licensing",
+  "zz%3A_Back_Matter/10%3A_Index",
+  "zz%3A_Back_Matter/30%3A_Detailed_Licensing",
 ];
 
 /** Max number of concurrent page-tag updates sent to the library during a bulk change. */
