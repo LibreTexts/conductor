@@ -988,186 +988,181 @@ const bulkUpdateRestackerLicense = async (
   >,
   res: Response,
 ) => {
-  const { projectID } = req.params;
-  const { pageIDs, license, version } = req.body;
+  try {
+    const { projectID } = req.params;
+    const { pageIDs, license, version } = req.body;
 
-  const project = await Project.findOne({ projectID: { $eq: projectID } });
-  if (!project) {
-    return res.status(404).send({
-      err: true,
-      errMsg: "Project not found",
+    const project = await Project.findOne({ projectID: { $eq: projectID } });
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: "Project not found",
+      });
+    }
+    if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: "You do not have permission to access this project",
+      });
+    }
+    if (!project.libreLibrary || !project.libreCoverID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "Project does not have access to a LibreTexts book",
+      });
+    }
+
+    const restacker = await Restacker.findOne({ projectID: { $eq: projectID } });
+    if (!restacker) {
+      return res.status(404).send({
+        err: true,
+        errMsg: "Restacker not found",
+      });
+    }
+    if (restacker.processing) {
+      return res.status(409).send({
+        err: true,
+        errMsg: "License data is still loading. Try again once it has finished.",
+      });
+    }
+
+    const bookService = new BookService({
+      bookID: `${project.libreLibrary}-${project.libreCoverID}`,
     });
-  }
-  if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
-    return res.status(403).send({
-      err: true,
-      errMsg: "You do not have permission to access this project",
-    });
-  }
-  if (!project.libreLibrary || !project.libreCoverID) {
-    return res.status(400).send({
-      err: true,
-      errMsg: "Project does not have access to a LibreTexts book",
-    });
-  }
+    const bookPageIDs = new Set(await bookService.getBookPageIDs(false));
+    const bookCoverId = project.libreCoverID;
+    const pagesById = new Map(
+      restacker.restackerCurrentBook.map((entry) => [entry.id, entry]),
+    );
+    const proposedLicense = buildLicenseFromDraft(license, version);
+    const proposedKey = parseLicenseKey(proposedLicense);
+    const proposedVersion = parseLicenseVersion(proposedLicense.version);
 
-  const restacker = await Restacker.findOne({ projectID: { $eq: projectID } });
-  if (!restacker) {
-    return res.status(404).send({
-      err: true,
-      errMsg: "Restacker not found",
-    });
-  }
-  if (restacker.processing) {
-    return res.status(409).send({
-      err: true,
-      errMsg: "License data is still loading. Try again once it has finished.",
-    });
-  }
+    const skipped: {
+      pageID: string;
+      reason: BulkLicenseSkipReason;
+      conflicts?: LicenseConflict[];
+    }[] = [];
+    const toUpdate: string[] = [];
 
-  const bookService = new BookService({
-    bookID: `${project.libreLibrary}-${project.libreCoverID}`,
-  });
-  const bookPageIDs = new Set(await bookService.getBookPageIDs(false));
-  const bookCoverId = project.libreCoverID;
-  const pagesById = new Map(
-    restacker.restackerCurrentBook.map((entry) => [entry.id, entry]),
-  );
-  const proposedLicense = buildLicenseFromDraft(license, version);
-  const proposedKey = parseLicenseKey(proposedLicense);
-  const proposedVersion = parseLicenseVersion(proposedLicense.version);
-
-  const skipped: {
-    pageID: string;
-    reason: BulkLicenseSkipReason;
-    conflicts?: LicenseConflict[];
-  }[] = [];
-  const toUpdate: string[] = [];
-
-  for (const pageID of new Set(pageIDs)) {
-    const page = pagesById.get(pageID);
-    if (!page) {
-      skipped.push({ pageID, reason: "not-found" });
-      continue;
-    }
-    if (pageID === bookCoverId) {
-      skipped.push({ pageID, reason: "book" });
-      continue;
-    }
-    if (
-      PUBLIC_DOMAIN_PAGE_SUFFIXES.some((s) => page.url?.includes(s)) &&
-      proposedKey !== "publicdomain"
-    ) {
-      skipped.push({ pageID, reason: "structural" });
-      continue;
-    }
-    if (
-      (parseLicenseKey(page.license) ?? "") === (proposedKey ?? "") &&
-      (parseLicenseVersion(page.license?.version) ?? "") ===
-        (proposedVersion ?? "")
-    ) {
-      skipped.push({ pageID, reason: "unchanged" });
-      continue;
-    }
-    if (!bookPageIDs.has(pageID)) {
-      skipped.push({ pageID, reason: "no-access" });
-      continue;
-    }
-    // Only Source/Content conflicts block a bulk change; the book license is
-    // the adapting license and is reviewed separately.
-    const conflicts = proposedKey
-      ? findLicenseConflicts({
-          field: "page",
-          proposedLicense,
-          sourceLicense: page.sourceLicense,
-          contentLicenses: page.contentLicense,
-        }).filter((c) => c.role !== "book")
-      : [];
-    if (conflicts.length > 0) {
-      skipped.push({ pageID, reason: "conflict", conflicts });
-      continue;
-    }
-    toUpdate.push(pageID);
-  }
-
-  const licenseTags = buildLicenseTags(license, version);
-  const updated: string[] = [];
-  const failed: string[] = [];
-
-  const updatePage = async (pageID: string) => {
-    try {
-      const currentTags = await bookService.getPageTags(pageID);
-      const preservedTags = currentTags
-        .map((tag) => tag["@value"])
-        .filter(
-          (tag) =>
-            !tag.startsWith("license:") && !tag.startsWith("licenseversion:"),
-        );
-      const [error, success] = await bookService.updatePageDetails(
-        pageID,
-        undefined,
-        [...preservedTags, ...licenseTags],
-      );
-      if (error || !success) throw new Error(error ?? "unknown");
-      updated.push(pageID);
-    } catch (err) {
-      logger.warn({ err, projectID, pageID }, "Bulk license update failed for page");
-      failed.push(pageID);
-    }
-  };
-
-  const queue = [...toUpdate];
-  await Promise.all(
-    Array.from(
-      { length: Math.min(BULK_LICENSE_CONCURRENCY, queue.length) },
-      async () => {
-        for (let next = queue.shift(); next; next = queue.shift()) {
-          await updatePage(next);
-        }
-      },
-    ),
-  );
-
-  if (updated.length > 0) {
-    const newLicense = toRestackerLicense(license, version);
-    const updatedSet = new Set(updated);
-    // Re-read so concurrent single-page edits made while we were writing tags aren't clobbered.
-    const latest = await Restacker.findOne({ projectID: { $eq: projectID } });
-    if (latest) {
-      for (const entry of latest.restackerCurrentBook) {
-        if (updatedSet.has(entry.id)) entry.license = newLicense;
+    for (const pageID of new Set(pageIDs)) {
+      const page = pagesById.get(pageID);
+      if (!page) {
+        skipped.push({ pageID, reason: "not-found" });
+        continue;
       }
-      await Restacker.updateOne(
-        { projectID: { $eq: projectID } },
-        { $set: { restackerCurrentBook: latest.restackerCurrentBook } },
-      );
+      if (pageID === bookCoverId) {
+        skipped.push({ pageID, reason: "book" });
+        continue;
+      }
+      if (
+        PUBLIC_DOMAIN_PAGE_SUFFIXES.some((s) => page.url?.includes(s)) &&
+        proposedKey !== "publicdomain"
+      ) {
+        skipped.push({ pageID, reason: "structural" });
+        continue;
+      }
+      if (
+        (parseLicenseKey(page.license) ?? "") === (proposedKey ?? "") &&
+        (parseLicenseVersion(page.license?.version) ?? "") ===
+          (proposedVersion ?? "")
+      ) {
+        skipped.push({ pageID, reason: "unchanged" });
+        continue;
+      }
+      if (!bookPageIDs.has(pageID)) {
+        skipped.push({ pageID, reason: "no-access" });
+        continue;
+      }
+      // Only Source/Content conflicts block a bulk change; the book license is
+      // the adapting license and is reviewed separately.
+      const conflicts = proposedKey
+        ? findLicenseConflicts({
+            field: "page",
+            proposedLicense,
+            sourceLicense: page.sourceLicense,
+            contentLicenses: page.contentLicense,
+          }).filter((c) => c.role !== "book")
+        : [];
+      if (conflicts.length > 0) {
+        skipped.push({ pageID, reason: "conflict", conflicts });
+        continue;
+      }
+      toUpdate.push(pageID);
     }
-  }
 
-  logger.info(
-    {
+    const licenseTags = buildLicenseTags(license, version);
+    const updated: string[] = [];
+    const failed: string[] = [];
+
+    const updatePage = async (pageID: string) => {
+      try {
+        const currentTags = await bookService.getPageTags(pageID);
+        const preservedTags = currentTags
+          .map((tag) => tag["@value"])
+          .filter(
+            (tag) =>
+              !tag.startsWith("license:") && !tag.startsWith("licenseversion:"),
+          );
+        const [error, success] = await bookService.updatePageDetails(
+          pageID,
+          undefined,
+          [...preservedTags, ...licenseTags],
+        );
+        if (error || !success) throw new Error(error ?? "unknown");
+        updated.push(pageID);
+      } catch (err) {
+        logger.warn({ err, projectID, pageID }, "Bulk license update failed for page");
+        failed.push(pageID);
+      }
+    };
+
+    const queue = [...toUpdate];
+    await Promise.all(
+      Array.from(
+        { length: Math.min(BULK_LICENSE_CONCURRENCY, queue.length) },
+        async () => {
+          for (let next = queue.shift(); next; next = queue.shift()) {
+            await updatePage(next);
+          }
+        },
+      ),
+    );
+
+    await setStoredPageLicenses(
       projectID,
-      requested: pageIDs.length,
-      updated: updated.length,
-      skipped: skipped.length,
-      failed: failed.length,
-    },
-    "Bulk license update finished",
-  );
+      updated,
+      toRestackerLicense(license, version),
+    );
 
-  return res.send({
-    err: false,
-    license: proposedKey
-      ? {
-          label: license,
-          raw: formatVersionDigits(version) ?? "",
-          version: formatVersionDigits(version),
-        }
-      : undefined,
-    updated,
-    skipped,
-    failed,
-  });
+    logger.info(
+      {
+        projectID,
+        requested: pageIDs.length,
+        updated: updated.length,
+        skipped: skipped.length,
+        failed: failed.length,
+      },
+      "Bulk license update finished",
+    );
+
+    return res.send({
+      err: false,
+      license: proposedKey
+        ? {
+            label: license,
+            raw: formatVersionDigits(version) ?? "",
+            version: formatVersionDigits(version),
+          }
+        : undefined,
+      updated,
+      skipped,
+      failed,
+    });
+  } catch (err) {
+    logger.error({ err, projectID: req.params.projectID }, "bulkUpdateRestackerLicense failed");
+    return conductor500Err(res);
+  }
 };
 
 /**
