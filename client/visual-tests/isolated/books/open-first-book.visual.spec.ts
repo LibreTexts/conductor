@@ -3,16 +3,16 @@ import { stabilizeAppShell } from '../../base';
 import { books } from '../../flows/commons/books/base';
 
 /**
- * Independent books scenario: navigates directly to `/` and opens the first book.
+ * Independent books scenario: opens the 1st, 3rd, and 5th catalog books.
  * Run with: npm run test:visual:isolated:headed
  */
-test('open first commons book from catalog', async ({ page }) => {
+test('open commons books from catalog', async ({ page }) => {
   await stabilizeAppShell(page);
 
   try {
     await books(page);
   } catch (error) {
-    console.error('open first commons book visual test failed:', error);
+    console.error('open commons books visual test failed:', error);
     throw error;
   }
 });
