@@ -12,6 +12,7 @@ import assetTagFrameworkAPI from "./api/assettagframeworks.js";
 import authorsAPI from "./api/authors.js";
 import authAPI from "./api/auth.js";
 import coAuthorAPI from "./api/co-author.js";
+import reingestAPI from "./api/reingest.js";
 import storeAPI from "./api/store.js";
 import centralIdentityAPI from "./api/central-identity.js";
 import clientConfigAPI from "./api/client-config.js";
@@ -54,6 +55,7 @@ import * as LibraryValidators from "./api/validators/libraries.js";
 import * as supportValidators from "./api/validators/support.js";
 import * as supportQueueValidators from "./api/validators/supportqueues.js";
 import * as ProjectValidators from "./api/validators/projects.js";
+import * as reingestValidators from "./api/validators/reingest.js";
 import * as ProjectFileValidators from "./api/validators/projectfiles.js";
 import * as SearchValidators from "./api/validators/search.js";
 import * as AssetTagFrameworkValidators from "./api/validators/assettagframeworks.js";
@@ -1416,6 +1418,16 @@ router
 router
   .route("/commons/homework/sync/automated")
   .put(middleware.checkLibreAPIKey, homeworkAPI.runAutomatedHomeworkSync);
+
+/* Benny re-ingest (LibreTexts chatbot) */
+router
+  .route("/reingest/books/:bookID/pages/:pageID")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(reingestValidators.reingestPageSchema),
+    reingestAPI.reingestPage
+  );
 
 /* Coauthor */
 router

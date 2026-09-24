@@ -627,6 +627,24 @@ class API {
   }
 
   /**
+   * Ask the LibreTexts chatbot (Benny) to re-ingest a single page now, rather
+   * than waiting for its periodic sweep. Use after an author edits the page in
+   * the library. Streams pipeline progress (SSE): fetched -> chunked ->
+   * embedded -> indexed -> done | error.
+   * @param {string} bookID - `${library}-${coverPageID}` of the book
+   * @param {string} pageID - the CXOne page id being refreshed
+   */
+  reingestPage(bookID: string, pageID: string) {
+    return new EventSource(
+      `${this.BASE_URL}/reingest/books/${bookID}/pages/${pageID}`,
+      {
+        withCredentials: true,
+        method: "POST",
+      },
+    );
+  }
+
+  /**
    * Applies user-supplied summaries and tags to the respective pages in a book
    * @param {string} bookID - the cover page of the book to apply the metadata to
    * @param {Array<{ id: string; summary: string; tags: string[] }>} pages - the pages & data to update
