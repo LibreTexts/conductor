@@ -3639,6 +3639,14 @@ async function glossaryCsvUploadHandler(
  * whose two cells read "term"/"definition" (case-insensitive) is treated as
  * a header and skipped; otherwise every row is treated as data.
  */
+/**
+ * Most data rows one CSV import accepts. Each row costs several sequential DB
+ * writes, and 5 MB of short rows would otherwise be hundreds of thousands.
+ */
+const GLOSSARY_CSV_MAX_ROWS = 2000;
+
+class GlossaryCsvTooManyRowsError extends Error {}
+
 function parseGlossaryCsvEntries(
   buffer: Buffer,
 ): { term: string; definition: string }[] {
@@ -3649,6 +3657,9 @@ function parseGlossaryCsvEntries(
     skip_empty_lines: true,
     trim: true,
     relax_column_count: true,
+    // Header + the cap + one more, enough to detect an oversized file
+    // without parsing all of it.
+    to: GLOSSARY_CSV_MAX_ROWS + 2,
   });
 
   const looksLikeHeader =
@@ -3657,6 +3668,9 @@ function parseGlossaryCsvEntries(
     /^term$/i.test(rows[0][0] ?? "") &&
     /^definition$/i.test(rows[0][1] ?? "");
   const dataRows = looksLikeHeader ? rows.slice(1) : rows;
+  if (dataRows.length > GLOSSARY_CSV_MAX_ROWS) {
+    throw new GlossaryCsvTooManyRowsError();
+  }
 
   // Match the length limits `addWithCoverIDParamSchema` enforces on the
   // manual add form, so a CSV row can't slip in a term/definition the
@@ -3719,10 +3733,14 @@ async function startGlossaryCsvImportJob(
     let entries: { term: string; definition: string }[];
     try {
       entries = parseGlossaryCsvEntries(req.file.buffer);
-    } catch {
-      return res
-        .status(400)
-        .send({ err: true, errMsg: "Failed to parse CSV file." });
+    } catch (err) {
+      return res.status(400).send({
+        err: true,
+        errMsg:
+          err instanceof GlossaryCsvTooManyRowsError
+            ? `CSV files can have at most ${GLOSSARY_CSV_MAX_ROWS} rows. Split the file and import each part.`
+            : "Failed to parse CSV file.",
+      });
     }
 
     if (entries.length === 0) {
@@ -3797,6 +3815,9 @@ async function startGlossaryCsvImportJob(
   }
 }
 
+/** How long a pending/running CSV import job may go without a progress write. */
+const GLOSSARY_CSV_JOB_STALE_MS = 5 * 60_000;
+
 type GlossaryCsvImportJobParams = {
   jobID: string;
   entries: { term: string; definition: string }[];
@@ -3815,18 +3836,31 @@ async function runGlossaryCsvImportJob(params: GlossaryCsvImportJobParams) {
     );
 
     const glossaryService = new GlossaryService();
-    const imported = await glossaryService.addGlossaryEntries(
+    const { imported, updated } = await glossaryService.addGlossaryEntries(
       entries,
       coverID,
       library,
       userID,
       glossaryID,
-      (processed) => {
-        GlossaryCsvImportJob.updateOne(
-          { jobID: { $eq: jobID } },
-          { $set: { processedRows: processed, imported: processed } },
+      async (processed, _total, counts) => {
+        // Awaited, and guarded on `processedRows` so a slow write can never
+        // move progress backwards. Each write also refreshes `updatedAt`,
+        // the heartbeat the status endpoint uses to detect a dead job.
+        await GlossaryCsvImportJob.updateOne(
+          {
+            jobID: { $eq: jobID },
+            status: "running",
+            processedRows: { $lt: processed },
+          },
+          {
+            $set: {
+              processedRows: processed,
+              imported: counts.imported,
+              updated: counts.updated,
+            },
+          },
         ).catch((err) => {
-          logger.error({ err }, "Failed to update glossary CSV import job progress");
+          logger.warn({ err, jobID }, "Failed to update glossary CSV import job progress");
         });
       },
     );
@@ -3838,6 +3872,7 @@ async function runGlossaryCsvImportJob(params: GlossaryCsvImportJobParams) {
           status: "success",
           processedRows: entries.length,
           imported,
+          updated,
         },
       },
     );
@@ -3871,6 +3906,22 @@ async function getGlossaryCsvImportJobStatus(
       return res.status(403).send({ err: true, errMsg: conductorErrors.err8 });
     }
 
+    // A live job writes progress every batch of rows; one silent this long
+    // died with its server (restart/deploy), so stop the client waiting on it.
+    if (
+      (job.status === "pending" || job.status === "running") &&
+      Date.now() - new Date(job.updatedAt).getTime() > GLOSSARY_CSV_JOB_STALE_MS
+    ) {
+      const errorMessage =
+        "The import was interrupted. Some rows may have been imported; re-upload the file to finish.";
+      await GlossaryCsvImportJob.updateOne(
+        { jobID: { $eq: jobID }, status: { $in: ["pending", "running"] } },
+        { $set: { status: "error", errorMessage } },
+      );
+      job.status = "error";
+      job.errorMessage = errorMessage;
+    }
+
     return res.send({
       err: false,
       job: {
@@ -3879,6 +3930,7 @@ async function getGlossaryCsvImportJobStatus(
         totalRows: job.totalRows,
         processedRows: job.processedRows,
         imported: job.imported,
+        updated: job.updated ?? 0,
         errorMessage: job.errorMessage,
       },
     });

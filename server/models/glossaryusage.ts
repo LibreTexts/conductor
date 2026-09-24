@@ -124,6 +124,9 @@ GlossaryUsageSchema.index(
   { unique: true },
 );
 
+// Per-book lookups (glossary listing, CSV duplicate checks).
+GlossaryUsageSchema.index({ coverID: 1, library: 1 });
+
 const GlossaryUsage = model<GlossaryUsageInterface>(
   "GlossaryUsage",
   GlossaryUsageSchema,

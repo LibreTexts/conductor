@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../../../api";
 import {
@@ -463,6 +463,8 @@ const Restacker: React.FC = () => {
     useState<EditingLicenseCell>(null);
   const [fixAllPreview, setFixAllPreview] = useState<FixAllEntry[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  // Background bulk license job the client is waiting on (see bulkUpdateLicense).
+  const [bulkJobID, setBulkJobID] = useState<string | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
 
   const handleShowDetails = (row: FlatRestackerRow) => {
@@ -539,9 +541,41 @@ const Restacker: React.FC = () => {
     queryKey: ["restacker-status", id],
     queryFn: () => api.getRestackerStatus(id),
     enabled: !!id && !!tocData?.toc,
-    refetchInterval: (data) => (data?.status === "pending" ? 2000 : false),
+    refetchInterval: (data) =>
+      data?.status === "pending" ||
+      (bulkJobID !== null &&
+        (data?.bulkJob?.jobID !== bulkJobID || data.bulkJob.status === "running"))
+        ? 2000
+        : false,
     refetchOnWindowFocus: false,
   });
+
+  const finishedBulkJob =
+    bulkJobID !== null &&
+    progressData?.bulkJob?.jobID === bulkJobID &&
+    progressData.bulkJob.status !== "running"
+      ? progressData.bulkJob
+      : null;
+  useEffect(() => {
+    if (!finishedBulkJob) return;
+    setBulkJobID(null);
+    queryClient.invalidateQueries({ queryKey: ["restacker", id] });
+    if (finishedBulkJob.status === "failed") {
+      addNotification({
+        type: "error",
+        message: `License update stopped after ${finishedBulkJob.processed} of ${finishedBulkJob.total} page(s). Reload the license data to see which pages changed.`,
+      });
+      return;
+    }
+    const { updated, skipped, failed } = finishedBulkJob;
+    addNotification({
+      type: failed > 0 ? "error" : "success",
+      message: `Updated ${updated} page license(s)${
+        skipped > 0 ? `, skipped ${skipped} incompatible or unchanged page(s)` : ""
+      }${failed > 0 ? `, ${failed} failed` : ""}.`,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finishedBulkJob?.jobID]);
 
   const isProcessing = (progressData?.status ?? tocData?.status) === "pending";
   const isCompleted = progressData
@@ -631,14 +665,17 @@ const Restacker: React.FC = () => {
       mutationFn: (data: { pageIDs: string[]; license: string; version?: string }) =>
         api.bulkUpdateRestackerLicense(id!, data),
       onSuccess: async (data) => {
-        await queryClient.invalidateQueries({ queryKey: ["restacker", id] });
-        const skipped = data.skipped.length;
-        const failed = data.failed.length;
+        if (data.jobID) {
+          // Pages update in the background; the status poll reports the result.
+          setBulkJobID(data.jobID);
+          await queryClient.invalidateQueries({
+            queryKey: ["restacker-status", id],
+          });
+          return;
+        }
         addNotification({
-          type: failed > 0 ? "error" : "success",
-          message: `Updated ${data.updated.length} page license(s)${
-            skipped > 0 ? `, skipped ${skipped} incompatible or unchanged page(s)` : ""
-          }${failed > 0 ? `, ${failed} failed` : ""}.`,
+          type: "success",
+          message: `No page licenses changed; skipped ${data.skipped.length} incompatible or unchanged page(s).`,
         });
       },
       onError: (err: unknown) => {
@@ -649,6 +686,8 @@ const Restacker: React.FC = () => {
         addNotification({ type: "error", message });
       },
     });
+
+  const bulkRunning = bulkUpdatePending || bulkJobID !== null;
 
   const bookPageId = tocData?.toc?.id;
   const bookLicense = restackerData?.restacker?.find(
@@ -984,8 +1023,8 @@ const Restacker: React.FC = () => {
             {isCompleted && (
               <Button
                 variant="secondary"
-                disabled={selectedIds.size === 0 || bulkUpdatePending}
-                loading={bulkUpdatePending}
+                disabled={selectedIds.size === 0 || bulkRunning}
+                loading={bulkRunning}
                 icon={<IconLicense size={16} />}
                 onClick={() => setBulkOpen(true)}
               >

@@ -15,8 +15,13 @@ export interface GlossaryCsvImportJobInterface extends Document {
   status: GlossaryCsvImportJobStatus;
   totalRows: number;
   processedRows: number;
+  /** Rows that created a new term in the book. */
   imported: number;
+  /** Rows that overwrote an existing term's definition. */
+  updated: number;
   errorMessage?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const GlossaryCsvImportJobSchema = new Schema<GlossaryCsvImportJobInterface>(
@@ -58,6 +63,10 @@ const GlossaryCsvImportJobSchema = new Schema<GlossaryCsvImportJobInterface>(
       default: 0,
     },
     imported: {
+      type: Number,
+      default: 0,
+    },
+    updated: {
       type: Number,
       default: 0,
     },

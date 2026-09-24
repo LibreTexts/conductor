@@ -2,6 +2,7 @@ import logger, { childLogger } from "../logger.js";
 import BookService from "../api/services/book-service";
 import Restacker, { RestackerInterface, RestackerStatus } from "../models/restacker";
 import { PageTag } from "../types/Book";
+import { randomUUID } from "node:crypto";
 import { sleep } from "./helpers";
 import { libraryKeys } from "./libraries";
 import * as cheerio from "cheerio";
@@ -25,6 +26,81 @@ class RestackerService {
 
   // Page-level refreshes make one tag request per page, so a few can safely run at once.
   private static readonly PAGE_LEVEL_CONCURRENCY = 5;
+
+  /**
+   * A `processing` lock whose heartbeat is older than this is treated as abandoned
+   * (the holder crashed or was redeployed mid-run). The heartbeat runs on a timer,
+   * not per page, so a page stuck in `withRetryOnTransient` backoff can't age it out.
+   */
+  static readonly LOCK_STALE_MS = 10 * 60_000;
+  private static readonly LOCK_HEARTBEAT_MS = 60_000;
+
+  /** True while a live run holds the project's `processing` lock. */
+  static isLockActive(
+    restacker: Pick<RestackerInterface, "processing" | "processingHeartbeatAt"> | null | undefined,
+  ): boolean {
+    if (!restacker?.processing || !restacker.processingHeartbeatAt) return false;
+    const heartbeatAt = new Date(restacker.processingHeartbeatAt).getTime();
+    return Date.now() - heartbeatAt < RestackerService.LOCK_STALE_MS;
+  }
+
+  /**
+   * Atomically takes the project's `processing` lock if it is free or stale.
+   * Returns the lock ID to pass to `withLock`/`releaseLock`, or null if a live run holds it.
+   */
+  static async acquireLock(projectID: string): Promise<string | null> {
+    const now = new Date();
+    const lockID = randomUUID();
+    const result = await Restacker.updateOne(
+      {
+        projectID: { $eq: projectID },
+        $or: [
+          { processing: { $ne: true } },
+          { processingHeartbeatAt: { $exists: false } },
+          {
+            processingHeartbeatAt: {
+              $lt: new Date(now.getTime() - RestackerService.LOCK_STALE_MS),
+            },
+          },
+        ],
+      },
+      { $set: { processing: true, processingLockID: lockID, processingHeartbeatAt: now } },
+    );
+    return result.modifiedCount === 1 ? lockID : null;
+  }
+
+  /** Releases the lock, but only if `lockID` still owns it. */
+  static async releaseLock(projectID: string, lockID: string) {
+    await Restacker.updateOne(
+      { projectID: { $eq: projectID }, processingLockID: { $eq: lockID } },
+      {
+        $set: { processing: false },
+        $unset: { processingLockID: "", processingHeartbeatAt: "" },
+      },
+    );
+  }
+
+  /** Runs `fn` while keeping the lock's heartbeat fresh, then releases the lock. */
+  static async withLock<T>(
+    projectID: string,
+    lockID: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const heartbeat = setInterval(() => {
+      Restacker.updateOne(
+        { projectID: { $eq: projectID }, processingLockID: { $eq: lockID } },
+        { $set: { processingHeartbeatAt: new Date() } },
+      ).catch((err) => {
+        restackerLog.warn({ err, projectID }, "Failed to refresh restacker lock heartbeat");
+      });
+    }, RestackerService.LOCK_HEARTBEAT_MS);
+    try {
+      return await fn();
+    } finally {
+      clearInterval(heartbeat);
+      await RestackerService.releaseLock(projectID, lockID);
+    }
+  }
 
   /**
    * Retries on transient MindTouch/destination failures with incremental delay.
@@ -84,6 +160,26 @@ class RestackerService {
     library: string,
     coverID: string,
     mode: RestackerRefreshMode = "content",
+    heldLockID?: string,
+  ) {
+    // Callers that must reset the page list under the lock (reload) take it first and
+    // hand it over; otherwise take it here. Either way, it is released in `withLock`.
+    const lockID = heldLockID ?? (await RestackerService.acquireLock(projectID));
+    if (!lockID) {
+      restackerLog.info({ projectID }, "Restacker run skipped; another run holds the lock");
+      return;
+    }
+    await RestackerService.withLock(projectID, lockID, () =>
+      this.processPendingPages(projectID, library, coverID, mode, lockID),
+    );
+  }
+
+  private async processPendingPages(
+    projectID: string,
+    library: string,
+    coverID: string,
+    mode: RestackerRefreshMode,
+    lockID: string,
   ) {
     const restacker = await Restacker.findOne({
       projectID: { $eq: projectID },
@@ -94,16 +190,11 @@ class RestackerService {
 
     const pages = restacker.restackerCurrentBook;
 
-    // Mark the doc as processing so getRestackerToc/restackerReload won't spawn a duplicate
-    // concurrent run while the first batch is still all-pending.
-    await Restacker.updateOne(
-      { projectID: { $eq: projectID } },
-      { $set: { processing: true } },
-    );
-
+    // Filtered on the lock ID so a run whose lock went stale and was taken over
+    // can't overwrite the newer run's progress.
     const flush = () =>
       Restacker.updateOne(
-        { projectID: { $eq: projectID } },
+        { projectID: { $eq: projectID }, processingLockID: { $eq: lockID } },
         { $set: { restackerCurrentBook: pages } },
       );
 
@@ -134,26 +225,19 @@ class RestackerService {
     const concurrency =
       mode === "page" ? RestackerService.PAGE_LEVEL_CONCURRENCY : 1;
 
-    try {
-      let sincePersist = 0;
-      for (let i = 0; i < pages.length; i += concurrency) {
-        const chunk = pages.slice(i, i + concurrency);
-        await Promise.all(chunk.map(processPage));
+    let sincePersist = 0;
+    for (let i = 0; i < pages.length; i += concurrency) {
+      const chunk = pages.slice(i, i + concurrency);
+      await Promise.all(chunk.map(processPage));
 
-        sincePersist += chunk.length;
-        if (sincePersist >= RestackerService.PERSIST_BATCH_SIZE) {
-          await flush();
-          sincePersist = 0;
-        }
+      sincePersist += chunk.length;
+      if (sincePersist >= RestackerService.PERSIST_BATCH_SIZE) {
+        await flush();
+        sincePersist = 0;
       }
-      // Final flush for the remaining pages in the last (partial) batch.
-      await flush();
-    } finally {
-      await Restacker.updateOne(
-        { projectID: { $eq: projectID } },
-        { $set: { processing: false } },
-      );
     }
+    // Final flush for the remaining pages in the last (partial) batch.
+    await flush();
   }
 
   async getRestackerStatus(projectIDOrRestackerObj: string | RestackerInterface): Promise<{
@@ -182,7 +266,9 @@ class RestackerService {
     const pending = pages.filter((page) => page.status === "pending").length;
     const failed = pages.filter((page) => page.status === "failed").length;
     const completed = total - pending - failed;
-    const counts = { processing: restacker.processing, total, completed, failed, pending };
+    // A stale lock reads as not processing, so callers can resume or restart the run.
+    const processing = RestackerService.isLockActive(restacker);
+    const counts = { processing, total, completed, failed, pending };
 
     if (pending > 0) {
       return { statusCode: "pending", allPending: pending === total, ...counts };
