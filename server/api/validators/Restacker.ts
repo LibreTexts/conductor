@@ -18,6 +18,27 @@ const hasRequiredLicenseVersion = (body: { license: string; version?: string }) 
   return !allowed || (!!body.version && allowed.includes(body.version));
 };
 
+/**
+ * Every license the picker offers, plus "" (the "Clear..." option, which
+ * removes the page's license). The value becomes a `license:<key>` tag on a
+ * live library page, so nothing outside this list is accepted.
+ */
+const LICENSE_KEYS = licenseVersions.map((entry) => entry.license);
+const licenseSchema = z
+  .string()
+  .refine((value) => value === "" || LICENSE_KEYS.includes(value), {
+    message: "Unknown license.",
+  });
+
+/**
+ * Drops a version sent with a license that isn't issued in versions (e.g. one
+ * left over from an earlier selection), so it can't become a stray
+ * `licenseversion:` tag.
+ */
+const dropUnusedVersion = <T extends { license: string; version?: string }>(
+  body: T,
+): T => (LICENSE_VERSIONS[body.license] ? body : { ...body, version: undefined });
+
 const licenseVersionError = {
   message: "This license requires a valid version.",
   path: ["version"],
@@ -36,10 +57,12 @@ export const UpdateRestackerLicenseSchema = z.object({
   }),
   body: z.object({
     pageID: z.string().min(1),
-    license: z.string(),
+    license: licenseSchema,
     version: z.string().optional(),
     force: z.boolean().optional(),
-  }).refine(hasRequiredLicenseVersion, licenseVersionError),
+  })
+    .refine(hasRequiredLicenseVersion, licenseVersionError)
+    .transform(dropUnusedVersion),
 });
 
 export const BulkUpdateRestackerLicenseSchema = z.object({
@@ -48,9 +71,11 @@ export const BulkUpdateRestackerLicenseSchema = z.object({
   }),
   body: z.object({
     pageIDs: z.array(z.string().min(1)).min(1).max(5000),
-    license: z.string(),
+    license: licenseSchema,
     version: z.string().optional(),
-  }).refine(hasRequiredLicenseVersion, licenseVersionError),
+  })
+    .refine(hasRequiredLicenseVersion, licenseVersionError)
+    .transform(dropUnusedVersion),
 });
 
 export const RestackerReloadSchema = z.object({

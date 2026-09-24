@@ -6,7 +6,7 @@ import api from "../../../api";
 import { licenseOptions } from "../../../components/util/LicenseOptions";
 import type { Notification } from "../../../context/NotificationContext";
 import { GlossaryEntry } from "./model";
-import { getErrorMessage } from "./services";
+import { getErrorMessage, validateOptionalHttpUrl } from "./services";
 
 interface BulkAttributionDialogProps {
   open: boolean;
@@ -124,15 +124,7 @@ const BulkAttributionDialog: React.FC<BulkAttributionDialogProps> = ({
             error={!!errors.link}
             errorMessage={errors.link?.message}
             {...register("link", {
-              validate: (value) => {
-                if (!value?.trim()) return true;
-                try {
-                  new URL(value.trim());
-                  return true;
-                } catch {
-                  return "Please enter a valid URL";
-                }
-              },
+              validate: validateOptionalHttpUrl,
             })}
           />
           <Select

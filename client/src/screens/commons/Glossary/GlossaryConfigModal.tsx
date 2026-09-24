@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
@@ -325,6 +325,11 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
     useSensor(KeyboardSensor),
   );
 
+  // Seed the form from the server once per open. A later refetch (window
+  // focus, reconnect, an invalidation elsewhere) must never overwrite the
+  // user's unsaved edits.
+  const formSeededRef = useRef(false);
+
   const { isLoading } = useQuery({
     queryKey: ["glossary-config", library, coverID],
     queryFn: async () => {
@@ -335,7 +340,11 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
       return res;
     },
     enabled: open,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     onSuccess: (res) => {
+      if (formSeededRef.current) return;
+      formSeededRef.current = true;
       if (res.exists && res.config) {
         reset({
           mode: res.config.mode,
@@ -377,6 +386,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
         type: "success",
       });
       queryClient.invalidateQueries(["glossary-config", library, coverID]);
+      formSeededRef.current = false;
       onClose();
     },
     onError: (err) => {
@@ -511,6 +521,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
 
   const handleClose = () => {
     reset(DEFAULT_VALUES);
+    formSeededRef.current = false;
     setArmedGroupIndex(null);
     onClose();
   };

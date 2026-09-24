@@ -128,14 +128,6 @@ function decodeFully(value: string): string {
 }
 
 /**
- * {@link sanitizeLibraryText} for text that may contain LaTeX (glossary terms
- * and definitions). Outside math it is identical. Inside math, `<` and `>`
- * are rewritten to MathJax's `\lt` / `\gt` instead of being parsed as markup
- * — `\(a<b\)` would otherwise lose everything up to the next `>`. The output
- * therefore still never contains a `<` or `>` inside math, so the "no markup
- * in stored text" guarantee holds for every renderer, not just MathJax.
- */
-/**
  * Sanitizes a text segment that sits next to math, restoring the leading and
  * trailing whitespace `sanitizeLibraryText` trims — so `of \(x\).` keeps its
  * space before the math and gains none before the period.
@@ -148,6 +140,14 @@ function keepEdgeWhitespace(raw: string): string {
   return `${lead}${clean}${trail}`;
 }
 
+/**
+ * {@link sanitizeLibraryText} for text that may contain LaTeX (glossary terms
+ * and definitions). Outside math it is identical. Inside math, `<` and `>`
+ * are rewritten to MathJax's `\lt` / `\gt` instead of being parsed as markup
+ * — `\(a<b\)` would otherwise lose everything up to the next `>`. The output
+ * therefore still never contains a `<` or `>` inside math, so the "no markup
+ * in stored text" guarantee holds for every renderer, not just MathJax.
+ */
 export function sanitizeTextWithMath(value: string | null | undefined): string {
   if (typeof value !== "string" || value.length === 0) return "";
 
@@ -176,4 +176,26 @@ export function sanitizeOptionalLibraryText(
   value: string | null | undefined
 ): string | undefined {
   return sanitizeLibraryText(value) || undefined;
+}
+
+/** True for an absolute `http:` or `https:` URL. */
+export function isHttpUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * {@link sanitizeOptionalLibraryText} for a link that ends up in an `href`.
+ * Anything but an absolute http(s) URL — `javascript:`, `data:`, relative
+ * paths, junk — yields `undefined`, so it is never stored.
+ */
+export function sanitizeOptionalHttpUrl(
+  value: string | null | undefined
+): string | undefined {
+  const text = sanitizeOptionalLibraryText(value);
+  return text && isHttpUrl(text) ? text : undefined;
 }
