@@ -20,6 +20,7 @@ import CXOnePageAPIEndpoints from "../../util/CXOne/CXOnePageAPIEndpoints";
 import Project from "../../models/project";
 import {
   sanitizeLibraryText,
+  sanitizeOptionalHttpUrl,
   sanitizeOptionalLibraryText,
   sanitizeTextWithMath,
 } from "../../util/sanitize-text.js";
@@ -672,7 +673,7 @@ export default class GlossaryService {
       const optionalFields: Record<string, string | undefined> = {
         altText: sanitizeOptionalLibraryText(altText),
         caption: sanitizeOptionalLibraryText(caption),
-        link: sanitizeOptionalLibraryText(link),
+        link: sanitizeOptionalHttpUrl(link),
         source: sanitizeOptionalLibraryText(source),
         imageSource: sanitizeOptionalLibraryText(imageSource),
         imageAuthor: sanitizeOptionalLibraryText(imageAuthor),
@@ -809,8 +810,9 @@ export default class GlossaryService {
     if (attribution.author !== undefined) {
       setFields.author = sanitizeLibraryText(attribution.author);
     }
-    if (attribution.link !== undefined) {
-      setFields.link = sanitizeLibraryText(attribution.link);
+    const link = sanitizeOptionalHttpUrl(attribution.link);
+    if (link !== undefined) {
+      setFields.link = link;
     }
     if (attribution.source !== undefined) {
       setFields.source = sanitizeLibraryText(attribution.source);
@@ -1258,7 +1260,7 @@ export default class GlossaryService {
     const term = sanitizeTextWithMath(params.term);
     const definition = sanitizeTextWithMath(params.definition);
     const author = sanitizeOptionalLibraryText(params.author);
-    const link = sanitizeOptionalLibraryText(params.link);
+    const link = sanitizeOptionalHttpUrl(params.link);
     const source = sanitizeOptionalLibraryText(params.source);
     const imageSource = sanitizeOptionalLibraryText(params.imageSource);
     const imageAuthor = sanitizeOptionalLibraryText(params.imageAuthor);

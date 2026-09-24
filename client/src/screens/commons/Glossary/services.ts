@@ -214,3 +214,20 @@ export const slugifyForFilename = (title: string): string =>
     .replace(/[^a-z0-9]+/gi, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase() || "glossary";
+
+/**
+ * react-hook-form validator for an optional glossary link. The link ends up
+ * in an `href`, so only absolute http(s) URLs pass — `new URL()` alone would
+ * accept `javascript:` URLs. Mirrors glossaryLinkSchema on the server.
+ */
+export function validateOptionalHttpUrl(value?: string): true | string {
+  const trimmed = value?.trim();
+  if (!trimmed) return true;
+  try {
+    const { protocol } = new URL(trimmed);
+    if (protocol === "http:" || protocol === "https:") return true;
+  } catch {
+    // fall through
+  }
+  return "Please enter a valid http:// or https:// URL";
+}

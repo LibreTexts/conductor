@@ -19,7 +19,7 @@ import {
 } from "../../../components/util/LicenseOptions";
 import api from "../../../api";
 import { GlossaryEntry } from "./model";
-import { getErrorMessage } from "./services";
+import { getErrorMessage, validateOptionalHttpUrl } from "./services";
 import type { Notification } from "../../../context/NotificationContext";
 
 interface GlossaryFormProps {
@@ -425,15 +425,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                 errorMessage={errors.link?.message}
                 className="mt-4"
                 {...register("link", {
-                  validate: (value) => {
-                    if (!value?.trim()) return true;
-                    try {
-                      new URL(value.trim());
-                      return true;
-                    } catch {
-                      return "Please enter a valid URL";
-                    }
-                  },
+                  validate: validateOptionalHttpUrl,
                 })}
               />
               <Select
