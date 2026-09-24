@@ -16,7 +16,7 @@ import { commons } from './flows/commons/base';
  */
 test.describe.configure({ mode: 'serial' });
 
-test('conductor visual journey: login then open first commons book', async ({
+test('conductor visual journey: login then open commons books', async ({
   page,
 }) => {
   await stabilizeAppShell(page);

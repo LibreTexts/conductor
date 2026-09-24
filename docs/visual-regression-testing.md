@@ -8,7 +8,8 @@ Playwright + Percy. Shared helpers live in `client/visual-tests/base.ts` and
 `npm run test:visual` runs **one** journey (`--project=journey`):
 
 1. Login at `/fallback-auth` (screenshot)
-2. Go to Commons `/`, screenshot catalog, open first book, screenshot again
+2. Go to Commons `/`, then for the 1st, 3rd, and 5th books: screenshot catalog,
+   open the book, screenshot again
 
 That is a single browser / single test with multiple Percy snapshots in one build —
 not separate login/books tests.
@@ -41,25 +42,33 @@ does not upload snapshots to Percy.
 
 ## Run locally
 
+Best way to preview what the journey captures (visible browser):
+
 ```sh
 cd client
 npx playwright install chromium
-
-# Default journey (1 browser, full flow) — no Percy upload
-npm run test:visual:local
 npm run test:visual:headed
+```
+
+Screenshots are written to **`client/test-results/visual/`** (gitignored). Open that
+folder after the run to review PNGs at 375 and 1280 widths. No Percy upload.
+
+Other local commands:
+
+```sh
+# Same journey, headless (still writes local PNGs)
+npm run test:visual:local
 
 # Optional isolated pieces only
 npm run test:visual:isolated:headed
 
-# Percy upload (same journey CI uses)
+# Percy upload (same journey CI uses; no local PNGs)
 PERCY_TOKEN=... npm run test:visual
 ```
 
 Flows call one helper (`captureVisualSnapshot`): Percy on `npm run test:visual` /
 CI, local PNGs on `:local` / `:headed`. Never both.
 
-Local PNGs land in gitignored `client/test-results/visual/`.
 Credentials for login: `VISUAL_AUTH_EMAIL` / `VISUAL_AUTH_PASSWORD` in `client/.env`.
 `PERCY_TOKEN` is a GitHub Actions secret (or set in the shell for local Percy runs) —
 it is not stored in `client/.env`.

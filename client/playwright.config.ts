@@ -35,6 +35,8 @@ export default defineConfig({
   testDir: './visual-tests',
   fullyParallel: false,
   workers: 1,
+  // Login + 1st/3rd/5th books with waits + dual-width shots needs more than default 30s.
+  timeout: 180_000,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'github' : 'list',

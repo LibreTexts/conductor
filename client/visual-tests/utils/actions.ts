@@ -2,21 +2,23 @@ import type { Page } from '@playwright/test';
 import { wait0s, type WaitFn } from './waits';
 
 /**
- * Optional wait before click, click the first match, then optional wait after.
- * Uses `.first()` so multi-match selectors (e.g. catalog cards) do not fail strict mode.
+ * Optional wait before click, click a match by 0-based index (default first),
+ * then optional wait after. Avoids strict-mode failures on multi-match selectors.
  *
  * @example
  *   await clickOn(page, 'button:has-text("Login")');
  *   await clickOn(page, 'a[href^="/book/"]', wait0s, wait5s);
+ *   await clickOn(page, 'a[href^="/book/"]', wait0s, wait5s, 2); // 3rd book
  */
 export async function clickOn(
   page: Page,
   selector: string,
   beforeActionWait: WaitFn = wait0s,
   afterActionWait: WaitFn = wait0s,
+  index = 0,
 ): Promise<void> {
   await beforeActionWait(page);
-  await page.locator(selector).first().click();
+  await page.locator(selector).nth(index).click();
   await afterActionWait(page);
 }
 
