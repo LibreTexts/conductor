@@ -135,6 +135,19 @@ function decodeFully(value: string): string {
  * therefore still never contains a `<` or `>` inside math, so the "no markup
  * in stored text" guarantee holds for every renderer, not just MathJax.
  */
+/**
+ * Sanitizes a text segment that sits next to math, restoring the leading and
+ * trailing whitespace `sanitizeLibraryText` trims — so `of \(x\).` keeps its
+ * space before the math and gains none before the period.
+ */
+function keepEdgeWhitespace(raw: string): string {
+  const clean = sanitizeLibraryText(raw);
+  if (!clean) return /\s/.test(raw) ? " " : "";
+  const lead = /^\s/.test(raw) ? " " : "";
+  const trail = /\s$/.test(raw) ? " " : "";
+  return `${lead}${clean}${trail}`;
+}
+
 export function sanitizeTextWithMath(value: string | null | undefined): string {
   if (typeof value !== "string" || value.length === 0) return "";
 
@@ -142,13 +155,13 @@ export function sanitizeTextWithMath(value: string | null | undefined): string {
   let out = "";
   // split() with capture groups yields [text, math, envName, text, …].
   for (let i = 0; i < parts.length; i += 3) {
-    out += ` ${sanitizeLibraryText(parts[i] ?? "")} `;
+    out += keepEdgeWhitespace(parts[i] ?? "");
     const math = parts[i + 1];
     if (math !== undefined) {
       const safeMath = decodeFully(math)
         .replace(/</g, "\\lt ")
         .replace(/>/g, "\\gt ");
-      out += ` ${sanitizeLibraryText(safeMath)} `;
+      out += sanitizeLibraryText(safeMath);
     }
   }
   return out.replace(/\s+/g, " ").trim();

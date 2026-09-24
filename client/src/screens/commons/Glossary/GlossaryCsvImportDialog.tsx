@@ -30,6 +30,7 @@ interface QueuedFile {
   totalRows: number;
   processedRows: number;
   imported: number;
+  updated: number;
   duplicateTerms?: string[];
   errorMessage?: string;
   jobID?: string;
@@ -42,6 +43,12 @@ interface RejectedFile {
 }
 
 const POLL_INTERVAL_MS = 2000;
+/**
+ * Consecutive failed status checks tolerated before giving up on a job. A
+ * single blip must not mark a still-running import failed — the user would
+ * re-upload and overwrite the definitions it is writing.
+ */
+const MAX_CONSECUTIVE_POLL_FAILURES = 5;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const uniqueId = () =>
@@ -106,6 +113,18 @@ async function validateCsvFile(
   }
 
   return { ok: true };
+}
+
+/** "imported 3 new terms and updated 2 existing terms" */
+function describeImportCounts(imported: number, updated: number): string {
+  const terms = (n: number) => `${n} ${n === 1 ? "term" : "terms"}`;
+  const parts = [`imported ${terms(imported)}`];
+  if (updated > 0) parts.push(`updated ${terms(updated)} that already existed`);
+  return parts.join(" and ");
+}
+
+function capitalizeFirst(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -198,6 +217,7 @@ const GlossaryCsvImportDialog: React.FC<GlossaryCsvImportDialogProps> = ({
   });
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollFailuresRef = useRef(0);
   const stopPolling = () => {
     if (pollIntervalRef.current !== null) {
       clearInterval(pollIntervalRef.current);
@@ -214,17 +234,20 @@ const GlossaryCsvImportDialog: React.FC<GlossaryCsvImportDialogProps> = ({
       return { job: res.job, index: vars.index };
     },
     onSuccess: ({ job, index }) => {
+      pollFailuresRef.current = 0;
       updateQueueItem(index, {
         totalRows: job.totalRows,
         processedRows: job.processedRows,
       });
       if (job.status === "success") {
         stopPolling();
-        updateQueueItem(index, { status: "success", imported: job.imported });
+        updateQueueItem(index, {
+          status: "success",
+          imported: job.imported,
+          updated: job.updated,
+        });
         addNotification({
-          message: `${queue[index]?.file.name}: imported ${job.imported} glossary term${
-            job.imported === 1 ? "" : "s"
-          }.`,
+          message: `${queue[index]?.file.name}: ${describeImportCounts(job.imported, job.updated)}.`,
           type: "success",
         });
         onImported();
@@ -239,10 +262,20 @@ const GlossaryCsvImportDialog: React.FC<GlossaryCsvImportDialogProps> = ({
       }
     },
     onError: (err, vars) => {
+      // 4xx (job gone, no access) won't fix itself; anything else is retried
+      // on the next tick until it has failed too many times in a row.
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+      const permanent = status !== undefined && status >= 400 && status < 500;
+      pollFailuresRef.current += 1;
+      if (!permanent && pollFailuresRef.current < MAX_CONSECUTIVE_POLL_FAILURES) {
+        return;
+      }
       stopPolling();
       updateQueueItem(vars.index, {
         status: "error",
-        errorMessage: getErrorMessage(err, "Failed to check import progress."),
+        errorMessage: permanent
+          ? getErrorMessage(err, "Failed to check import progress.")
+          : "Lost contact with the server. The import may still be running — check the glossary before uploading this file again.",
       });
       setActiveIndex(vars.index + 1);
     },
@@ -260,6 +293,7 @@ const GlossaryCsvImportDialog: React.FC<GlossaryCsvImportDialogProps> = ({
     if (!activeFile?.jobID || activeFile.status !== "importing") return;
     const index = activeIndex;
     const jobID = activeFile.jobID;
+    pollFailuresRef.current = 0;
     pollIntervalRef.current = setInterval(
       () => pollJob({ jobID, index }),
       POLL_INTERVAL_MS,
@@ -283,6 +317,7 @@ const GlossaryCsvImportDialog: React.FC<GlossaryCsvImportDialogProps> = ({
           totalRows: 0,
           processedRows: 0,
           imported: 0,
+          updated: 0,
         });
       } else {
         rejected.push({ id: uniqueId(), name: file.name, reason: result.reason });
@@ -540,8 +575,7 @@ const GlossaryCsvImportDialog: React.FC<GlossaryCsvImportDialogProps> = ({
                   )}
                   {item.status === "success" && (
                     <p className="mt-1 text-xs text-green-700">
-                      Imported {item.imported} term
-                      {item.imported === 1 ? "" : "s"}.
+                      {capitalizeFirst(describeImportCounts(item.imported, item.updated))}.
                     </p>
                   )}
                 </li>

@@ -2782,7 +2782,10 @@ class API {
           status: "pending" | "running" | "success" | "error";
           totalRows: number;
           processedRows: number;
+          /** Rows that added a new term. */
           imported: number;
+          /** Rows that overwrote an existing term. */
+          updated: number;
           errorMessage?: string;
         };
       } & ConductorBaseResponse
@@ -3159,6 +3162,15 @@ class API {
       {
         status: "pending" | "completed" | "failed" | "notfound";
         processing: boolean;
+        bulkJob?: {
+          jobID: string;
+          status: "running" | "completed" | "failed";
+          total: number;
+          processed: number;
+          updated: number;
+          failed: number;
+          skipped: number;
+        };
         total: number;
         completed: number;
         failed: number;
@@ -3211,9 +3223,10 @@ class API {
     const res = await axios.patch<
       {
         license?: RestackerTocLicense;
-        updated: string[];
+        /** Set when pages were queued; poll getRestackerStatus for `bulkJob`. */
+        jobID?: string;
+        queued: number;
         skipped: { pageID: string; reason: string }[];
-        failed: string[];
       } & ConductorBaseResponse
     >(`/projects/${projectID}/restacker/license/bulk`, data);
     return res.data;

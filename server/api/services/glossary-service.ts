@@ -18,7 +18,6 @@ import GlossaryConfig, {
 import { CXOneFetch } from "../../util/librariesclient";
 import CXOnePageAPIEndpoints from "../../util/CXOne/CXOnePageAPIEndpoints";
 import Project from "../../models/project";
-import { escapeRegEx } from "../../util/helpers";
 import {
   sanitizeLibraryText,
   sanitizeOptionalLibraryText,
@@ -508,12 +507,11 @@ export default class GlossaryService {
     library: string,
   ): Promise<string[]> {
     if (terms.length === 0) return [];
+    // Compare in memory against the book's terms: a `$in` of case-insensitive
+    // regexes (one per CSV row) can't use an index and scales with the upload.
     const existing = await GlossaryUsage.find({
       coverID: parseInt(coverID),
       library: { $eq: library },
-      term: {
-        $in: terms.map((t) => new RegExp(`^${escapeRegEx(t)}$`, "i")),
-      },
     })
       .select("term")
       .lean();
@@ -535,6 +533,9 @@ export default class GlossaryService {
    * two GlossaryUsage records for one term. `onProgress` (if given) is still
    * called after each batch of `BATCH_SIZE` so a long-running import can
    * report how far along it is.
+   *
+   * Returns how many entries created a new term in this book (`imported`)
+   * versus overwrote an existing one (`updated`).
    */
   async addGlossaryEntries(
     entries: {
@@ -548,14 +549,30 @@ export default class GlossaryService {
     library: string,
     addedBy: string,
     glossaryID?: string,
-    onProgress?: (processed: number, total: number) => void,
-  ): Promise<number> {
+    onProgress?: (
+      processed: number,
+      total: number,
+      counts: { imported: number; updated: number },
+    ) => void | Promise<void>,
+  ): Promise<{ imported: number; updated: number }> {
     const valid = entries.filter(
       (e) => e.term?.trim() && e.definition?.trim(),
     );
-    if (valid.length > 0) {
-      await this.ensureDefaultGlossaryConfig(coverID, library);
-    }
+    if (valid.length === 0) return { imported: 0, updated: 0 };
+    await this.ensureDefaultGlossaryConfig(coverID, library);
+    // Usage records are unique per termID+book, so a termID already in this
+    // set means the entry updates an existing term instead of adding one.
+    const existingTermIDs = new Set(
+      (
+        await GlossaryUsage.find({
+          coverID: parseInt(coverID),
+          library: { $eq: library },
+        })
+          .select("termID")
+          .lean()
+      ).map((u) => u.termID),
+    );
+    const counts = { imported: 0, updated: 0 };
     const BATCH_SIZE = 20;
     for (let i = 0; i < valid.length; i += BATCH_SIZE) {
       const batch = valid.slice(i, i + BATCH_SIZE);
@@ -578,10 +595,18 @@ export default class GlossaryService {
           source: entry.source,
           link: entry.link,
         });
+        if (existingTermIDs.has(termID)) {
+          counts.updated += 1;
+        } else {
+          counts.imported += 1;
+          existingTermIDs.add(termID);
+        }
       }
-      onProgress?.(Math.min(i + BATCH_SIZE, valid.length), valid.length);
+      await onProgress?.(Math.min(i + BATCH_SIZE, valid.length), valid.length, {
+        ...counts,
+      });
     }
-    return valid.length;
+    return counts;
   }
 
   async addGlossary(params: AddGlossaryParams): Promise<string> {
