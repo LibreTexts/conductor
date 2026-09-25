@@ -28,17 +28,20 @@ npm run test:visual:isolated:headed
 
 1. Open the existing Percy Web project (or create one).
 2. Copy its write-only project token from the Percy project settings.
-3. In GitHub, open **Settings > Secrets and variables > Actions** and create a
-   repository secret named `PERCY_TOKEN`.
+3. In GitHub, open **Settings → Secrets and variables → Actions** and create
+   repository secrets:
+   - `PERCY_TOKEN` — Percy write token
+   - `VISUAL_AUTH_EMAIL` — fallback-auth email used by the journey
+   - `VISUAL_AUTH_PASSWORD` — fallback-auth password
 4. Install the Percy GitHub app for this repository and link it to the Percy
    project.
 5. Run the Visual Regression workflow on `staging` once to establish its baseline.
    Pushes to both `staging` and `master` refresh their respective baselines after
    a pull request has been reviewed and merged.
 
-The token must never be committed. Pull requests from forks do not receive the
-secret; their workflow still verifies that the browser scenario loads, but it
-does not upload snapshots to Percy.
+The tokens/passwords must never be committed. Pull requests from forks do not
+receive secrets; their workflow still verifies that the browser scenario loads,
+but it does not upload snapshots to Percy.
 
 ## Run locally
 
@@ -69,6 +72,7 @@ PERCY_TOKEN=... npm run test:visual
 Flows call one helper (`captureVisualSnapshot`): Percy on `npm run test:visual` /
 CI, local PNGs on `:local` / `:headed`. Never both.
 
-Credentials for login: `VISUAL_AUTH_EMAIL` / `VISUAL_AUTH_PASSWORD` in `client/.env`.
+Credentials for login: `VISUAL_AUTH_EMAIL` / `VISUAL_AUTH_PASSWORD` in
+`client/.env` locally, or the same-named GitHub Actions secrets in CI.
 `PERCY_TOKEN` is a GitHub Actions secret (or set in the shell for local Percy runs) —
 it is not stored in `client/.env`.
