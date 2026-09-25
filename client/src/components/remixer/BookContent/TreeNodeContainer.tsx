@@ -222,7 +222,7 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
           );
         })()}
         {isDeleted &&
-          (onRestore && !isInteractionLocked ? (
+          (onRestore ? (
             <button
               type="button"
               title="Restore"

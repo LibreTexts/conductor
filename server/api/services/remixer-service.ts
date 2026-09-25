@@ -410,6 +410,41 @@ const isMatterNode = (
   return uri.includes("front_matter") || uri.includes("back_matter");
 };
 
+/**
+ * Titles of the LibreTexts-generated pages under Front/Back Matter. Mirrors
+ * `matterNodeValidTitles` in the client's remixer model (minus the containers).
+ */
+const CORE_MATTER_PAGE_TITLES = new Set(
+  [
+    "TitlePage",
+    "InfoPage",
+    "Table of Contents",
+    "Licensing",
+    "Index",
+    "Glossary",
+    "Detailed Licensing",
+  ].map((t) => t.toLowerCase()),
+);
+
+/**
+ * True for a Front/Back Matter container or a default page (TitlePage,
+ * Index, …) directly under one. The remixer UI only deletes these after an
+ * explicit confirmation, so the publish log calls them out when removed.
+ */
+const isCoreMatterPage = (
+  page: RemixerSubPageState,
+  parent: RemixerSubPageState | undefined,
+  coverId?: string,
+): boolean => {
+  if (page.addedItem) return false;
+  if (isMatterNode(page, coverId)) return true;
+  if (!parent || !isMatterNode(parent, coverId)) return false;
+  const title = stripLeadingNumbering(
+    page["@title"] || page.title || "",
+  ).toLowerCase();
+  return CORE_MATTER_PAGE_TITLES.has(title);
+};
+
 const isBackMatterNode = (
   page: {
     "@title": string;
@@ -2140,6 +2175,18 @@ const runRemixerJob = async ({
               () => handleDeletedPage(page, subdomain),
               { onRetry: logRetry },
             );
+            // Core matter pages are only deletable after an explicit
+            // confirmation in the UI; leave an audit trail when one goes.
+            const parent = byId.get(page.parentID ?? "");
+            if (isCoreMatterPage(page, parent, coverId)) {
+              // Keep the "processed, status:" prefix — PublishPanel's progress
+              // bar counts lines by it.
+              message = `${title} - processed, status: deleted (core front/back matter page)`;
+              remixerLog.warn(
+                { pageId: page["@id"], title, subdomain, coverId },
+                "Core front/back matter page deleted by remixer publish",
+              );
+            }
           } catch (error) {
             // Non-fatal so one undeletable page can't sink the whole publish,
             // but the page is still live upstream while the snapshot below
