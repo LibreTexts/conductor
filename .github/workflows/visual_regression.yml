@@ -16,6 +16,8 @@ jobs:
         working-directory: ./client
     env:
       PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
+      VISUAL_AUTH_EMAIL: ${{ secrets.VISUAL_AUTH_EMAIL }}
+      VISUAL_AUTH_PASSWORD: ${{ secrets.VISUAL_AUTH_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
