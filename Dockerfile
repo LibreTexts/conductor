@@ -12,7 +12,10 @@ RUN apk add --no-cache git
 COPY client/package.json client/package-lock.json ./
 RUN npm ci --no-audit
 
-# Copy source and build
+# Copy source and build. `shared/` holds cross-package JSON (e.g. license-versions)
+# imported by both client and server, so it must land at /usr/src/conductor/shared
+# to match the relative import paths used in source.
+COPY shared/ /usr/src/conductor/shared/
 COPY client/ ./
 RUN npm run build
 
@@ -24,7 +27,8 @@ WORKDIR /usr/src/conductor/server
 COPY server/package.json server/package-lock.json ./
 RUN npm ci --no-audit
 
-# Copy source and build
+# Copy source and build (see client stage note on `shared/`)
+COPY shared/ /usr/src/conductor/shared/
 COPY server/ ./
 # Ensure public directory exists (even if not in source)
 RUN mkdir -p ./public
