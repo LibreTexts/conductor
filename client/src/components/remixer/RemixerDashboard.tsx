@@ -2498,23 +2498,37 @@ const RemixerDashboard: React.FC = () => {
       }));
     };
     const loadCatalogBook = async () => {
-      const [res, masterCatRes] = await Promise.all([
-        api.getCommonsCatalog({ limit: 10000 }),
-        api.getMasterCatalogV2(),
-      ]);
+      try {
+        const [res, masterCatRes] = await Promise.all([
+          api.getCommonsCatalog({ limit: 10000 }),
+          api.getMasterCatalogV2(),
+        ]);
 
-      const masterBooks = flattenCatalogResponse(masterCatRes.data);
-      const commonsBooks = res.data.books ?? [];
-      const seen = new Set(commonsBooks.map((b) => b.bookID));
-      const merged = [
-        ...commonsBooks,
-        ...masterBooks.filter((b) => !seen.has(b.bookID)),
-      ];
+        const masterBooks = flattenCatalogResponse(masterCatRes.data);
+        const commonsBooks = res.data.books ?? [];
+        const seen = new Set(commonsBooks.map((b) => b.bookID));
+        const merged = [
+          ...commonsBooks,
+          ...masterBooks.filter((b) => !seen.has(b.bookID)),
+        ];
 
-      setRemixerData((prev) => ({
-        ...prev,
-        catalogBook: merged,
-      }));
+        setRemixerData((prev) => ({
+          ...prev,
+          catalogBook: merged,
+        }));
+      } catch (error) {
+        // `catalogBook` staying undefined keeps the catalog button disabled
+        // forever; settle on an empty list so the UI isn't stuck loading.
+        setRemixerData((prev) => ({ ...prev, catalogBook: [] }));
+        addNotification({
+          message:
+            error instanceof Error
+              ? `Failed to load the book catalog: ${error.message}`
+              : "Failed to load the book catalog.",
+          type: "error",
+          duration: 5000,
+        });
+      }
     };
 
     getRemixerProject();
@@ -2783,6 +2797,7 @@ const RemixerDashboard: React.FC = () => {
                   remixerData={remixerData}
                   setRemixerData={setRemixerData}
                   onOpenCatalogModal={() => handleOpenCatalogModal()}
+                  catalogLoading={remixerData.catalogBook === undefined}
                 />
               </Stack>
 
