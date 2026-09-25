@@ -178,7 +178,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
           {!isBookRoot && (
             <Checkbox
               name="formattedPathOverride"
-              label="Override Autonumbers"
+              label="Override Autonumberer"
               className="flex-row-reverse font-bold!"
               labelClassName="font-bold! text-md!"
               checked={page?.formattedPathOverride ?? false}
@@ -290,7 +290,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
             <>
               <Checkbox
                 name="overrideUriUiEndingEnabled"
-                label="Override URL Ending"
+                label="Override URL"
                 className="flex-row-reverse font-bold!"
                 labelClassName="font-bold! text-md!"
                 checked={enableOverrideUriUiEnding}
@@ -315,12 +315,7 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
                 align="center"
                 className="w-full"
               >
-                <Text className="text-sm text-gray-500 shrink-0">
-                  <span title={currentPageParentPath}>
-                    {truncateMiddle(currentPageParentPath, 25)}
-                  </span>{" "}
-                  /
-                </Text>
+           
                 <Input
                   name="overrideUriUiEnding"
                   label=""

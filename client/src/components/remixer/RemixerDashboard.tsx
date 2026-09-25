@@ -23,6 +23,7 @@ import EditPanel from "./EditPanel";
 import PathNameFormat from "./PathNameFormat";
 import PublishPanel from "./PublishPanel";
 import RecoveryModal from "./RecoveryModal";
+import PublishSuccessDialog from "./PublishSuccessDialog";
 import {
   Library,
   PathLevelFormat,
@@ -167,6 +168,7 @@ const RemixerDashboard: React.FC = () => {
   const [publishMessages, setPublishMessages] = useState<string[]>([]);
   const [publishPolling, setPublishPolling] = useState<boolean>(false);
   const [publishPanelOpen, setPublishPanelOpen] = useState<boolean>(false);
+  const [publishSuccessOpen, setPublishSuccessOpen] = useState<boolean>(false);
 
   const [loadingRecovery, setLoadingRecovery] = useState(false);
 
@@ -930,14 +932,10 @@ const RemixerDashboard: React.FC = () => {
     setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
   };
 
-  /** Restore the currently selected book node and its descendants (mirrors handleDeleteSelectedBookNode). */
-  const handleRestoreSelectedBookNode = () => {
-    const selectedNodeId = uiState.selectedBookNodeId;
-    if (!selectedNodeId) return;
-    if (isDefaultMatterItem(selectedNodeId)) return;
-    if (
-      isNodeUnderDeletedAncestor(remixerData.currentBook ?? [], selectedNodeId)
-    ) {
+  /** Restore a book node and its descendants; shared by the toolbar, context menu, and row trash icon. */
+  const restoreBookNode = (nodeId: string) => {
+    if (isDefaultMatterItem(nodeId)) return;
+    if (isNodeUnderDeletedAncestor(remixerData.currentBook ?? [], nodeId)) {
       addNotification({
         message:
           "Restore the deleted parent chapter first — a page under a deleted ancestor would be deleted again on publish.",
@@ -947,11 +945,17 @@ const RemixerDashboard: React.FC = () => {
       return;
     }
     updateCurrentBook(
-      (existingBookNodes) =>
-        applyBookNodeRestore(existingBookNodes, selectedNodeId),
+      (existingBookNodes) => applyBookNodeRestore(existingBookNodes, nodeId),
       { trackHistory: true },
     );
     setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
+  };
+
+  /** Restore the currently selected book node and its descendants (mirrors handleDeleteSelectedBookNode). */
+  const handleRestoreSelectedBookNode = () => {
+    const selectedNodeId = uiState.selectedBookNodeId;
+    if (!selectedNodeId) return;
+    restoreBookNode(selectedNodeId);
   };
 
   /** Flag the given nodes as moved (used after a drag-and-drop reorder completes). */
@@ -1339,21 +1343,7 @@ const RemixerDashboard: React.FC = () => {
       );
       setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
     } else if (action === "restore") {
-      if (isDefaultMatterItem(nodeId)) return;
-      if (isNodeUnderDeletedAncestor(remixerData.currentBook ?? [], nodeId)) {
-        addNotification({
-          message:
-            "Restore the deleted parent chapter first — a page under a deleted ancestor would be deleted again on publish.",
-          type: "error",
-          duration: 4000,
-        });
-        return;
-      }
-      updateCurrentBook(
-        (existingBookNodes) => applyBookNodeRestore(existingBookNodes, nodeId),
-        { trackHistory: true },
-      );
-      setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
+      restoreBookNode(nodeId);
     } else if (action === "add-above") {
       addNodeRelative(nodeId, "above");
     } else if (action === "add-below") {
@@ -2164,6 +2154,8 @@ const RemixerDashboard: React.FC = () => {
   handleReorderBookNodeRef.current = handleReorderBookNode;
   const handleMarkMovedNodesRef = useRef(handleMarkMovedNodes);
   handleMarkMovedNodesRef.current = handleMarkMovedNodes;
+  const restoreBookNodeRef = useRef(restoreBookNode);
+  restoreBookNodeRef.current = restoreBookNode;
 
   const handleBookExpand = useCallback(
     (nodeId: string) => expandBookTreeRef.current(nodeId),
@@ -2206,6 +2198,10 @@ const RemixerDashboard: React.FC = () => {
       setUiState((prev) => ({ ...prev, selectedBookNodeId: nodeId }));
       setContextMenu({ nodeId, x: event.clientX, y: event.clientY });
     },
+    [],
+  );
+  const handleRestoreNode = useCallback(
+    (nodeId: string) => restoreBookNodeRef.current(nodeId),
     [],
   );
 
@@ -2588,11 +2584,7 @@ const RemixerDashboard: React.FC = () => {
       setPublishMessages(job.messages ?? []);
       if (job.status === "success") {
         setPublishPolling(false);
-        addNotification({
-          message: "Publish completed successfully.",
-          type: "success",
-          duration: 4000,
-        });
+        setPublishSuccessOpen(true);
         // A stale pre-publish local draft must not survive a successful
         // publish — otherwise the recovery modal on a later visit could
         // offer it as a real option and silently revert the just-published
@@ -2830,6 +2822,7 @@ const RemixerDashboard: React.FC = () => {
                   onSelectNode={handleSelectBookNode}
                   onNodeDoubleClick={handleNodeDoubleClick}
                   onNodeContextMenu={handleNodeContextMenu}
+                  onRestoreNode={handleRestoreNode}
                 />
               ) : (
                 <TreeSkeleton />
@@ -2847,6 +2840,11 @@ const RemixerDashboard: React.FC = () => {
         publishInProgress={publishPolling}
         publishStatus={publishStatus}
         publishMessages={publishMessages}
+      />
+      {/* Rendered after PublishPanel and opened later, so it stacks on top. */}
+      <PublishSuccessDialog
+        open={publishSuccessOpen}
+        onClose={() => setPublishSuccessOpen(false)}
       />
       <BookImportModal
         open={pendingBookImport !== null}
