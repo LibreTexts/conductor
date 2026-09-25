@@ -17,6 +17,7 @@ import {
   UpdateAuthorValidator,
   UploadAuthorPictureValidator,
   GetAuthorByNameKeyValidator,
+  NAME_KEY_LOOKUP_REGEX,
 } from "./validators/authors.js";
 import conductorErrors from "../conductor-errors.js";
 import { conductor404Err, conductor500Err } from "../util/errorutils.js";
@@ -381,7 +382,7 @@ async function uploadAuthorPicture(
     }
 
     const safeNameKey = String(author.nameKey ?? "").trim();
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(safeNameKey)) {
+    if (!NAME_KEY_LOOKUP_REGEX.test(safeNameKey)) {
       return res.status(400).send({
         err: true,
         errMsg: "Author nameKey is invalid for picture upload.",

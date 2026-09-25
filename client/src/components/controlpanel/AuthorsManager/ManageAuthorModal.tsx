@@ -191,10 +191,17 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
                 placeholder="e.g. johndoe"
                 required
                 className="sm:col-span-2"
-                helperText="Unique identifier for this author. All lowercase letters and numbers only, hyphenated. This key must be added to the 'authorname' classification on the appropriate libraries for the author to be associated with pages."
+                helperText="Unique identifier for this author. Lowercase letters and numbers, separated by hyphens or underscores. This key must be added to the 'authorname' classification on the appropriate libraries for the author to be associated with pages."
                 error={!!errors.nameKey}
                 errorMessage={errors.nameKey?.message}
-                {...register("nameKey", { required: "Name Key is required." })}
+                {...register("nameKey", {
+                  required: "Name Key is required.",
+                  pattern: {
+                    value: /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/,
+                    message:
+                      "Name Key must be lowercase letters, numbers, hyphens, and underscores only.",
+                  },
+                })}
               />
               <Input
                 label="Name"

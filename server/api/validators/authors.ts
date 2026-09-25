@@ -1,8 +1,20 @@
 import { z } from "zod";
 import { PaginationSchema, isMongoIDValidator } from "./misc.js";
 
-const nameKeySchema = z.string().trim().min(1).max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
-  message: "Name Key must be all lowercase letters, numbers, and hyphens only.",
+// Writes take the strict pattern; the lookup route takes the permissive one so keys
+// inserted directly by a migration (which bypasses this schema) stay retrievable.
+export const NAME_KEY_REGEX = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/;
+export const NAME_KEY_LOOKUP_REGEX = /^[a-z0-9_-]{1,100}$/;
+
+const NAME_KEY_MESSAGE =
+  "Name Key must be lowercase letters, numbers, hyphens, and underscores only.";
+
+const nameKeySchema = z.string().trim().min(1).max(100).regex(NAME_KEY_REGEX, {
+  message: NAME_KEY_MESSAGE,
+});
+
+const nameKeyLookupSchema = z.string().trim().min(1).max(100).regex(NAME_KEY_LOOKUP_REGEX, {
+  message: NAME_KEY_MESSAGE,
 });
 
 const _AuthorValidator = z.object({
@@ -41,7 +53,7 @@ export const GetAuthorValidator = AuthorIDParams;
 
 export const GetAuthorByNameKeyValidator = z.object({
   params: z.object({
-    key: nameKeySchema,
+    key: nameKeyLookupSchema,
   }),
   query: z.object({
     includeProjects: z.coerce.boolean().optional().default(false),
